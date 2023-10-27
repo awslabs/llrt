@@ -22,7 +22,6 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: lts
           cache: yarn
       - name: Install linux dependencies
         if: contains(matrix.platform, 'linux')
