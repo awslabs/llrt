@@ -1,0 +1,43 @@
+.todo-list {
+  margin-top: 2rem;
+}
+
+.todo-list.loading {
+  touch-action: none;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.todo-list ul {
+  list-style: none;
+}
+
+.todo-list ul li {
+  margin-bottom: 1rem;
+}
+
+.todo-item {
+  cursor: pointer;
+  display: flex;
+}
+
+.todo-text.completed {
+  text-decoration: line-through;
+}
+
+.todo-item span {
+  padding: 0.5rem;
+}
+
+.todo-text {
+  flex-grow: 1;
+}
+
+.todo-item span:last-child {
+  padding: 0.5rem;
+}
+
+.create-todo {
+  width: 100%;
+  padding: 0.5rem;
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@example/functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.437.0",
+    "@aws-sdk/client-s3": "3.437.0",
+    "esbuild-css-modules-plugin": "3.0.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.2.33",
+    "@types/react-dom": "18.2.14",
+    "aws-sdk": "2.1482.0",
+    "esbuild": "0.19.5"
+  }
+}

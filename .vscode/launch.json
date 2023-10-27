@@ -1,0 +1,62 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'llrt'",
+      "cargo": {
+        "args": ["build"],
+        "filter": {
+          "name": "llrt",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "AWS_LAMBDA_FUNCTION_NAME": "n/a",
+        "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "1",
+        "AWS_LAMBDA_FUNCTION_VERSION": "1",
+        "_AWS_LAMBDA_RUNTIME_API": "http://localhost:3000",
+        "_EXIT_LOOP": "1",
+        "RUST_LOG": "llrt=trace,hyper::http=trace",
+        //"_HANDLER": "index.handler",
+        "ISENGARD_PRODUCTION_ACCOUNT": "false",
+        "AWS_ACCESS_KEY_ID": "",
+        "AWS_SECRET_ACCESS_KEY": "",
+        "AWS_SESSION_TOKEN": ""
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug tests 'llrt'",
+      "cargo": {
+        "args": ["build"],
+        "filter": {
+          "name": "llrt",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "AWS_LAMBDA_FUNCTION_NAME": "n/a",
+        "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "1",
+        "AWS_LAMBDA_FUNCTION_VERSION": "1",
+        "_AWS_LAMBDA_RUNTIME_API": "http://localhost:3000",
+        "_EXIT_LOOP": "1",
+        "RUST_LOG": "llrt=trace,hyper::http=trace",
+        //"_HANDLER": "index.handler",
+        "ISENGARD_PRODUCTION_ACCOUNT": "false",
+        "AWS_ACCESS_KEY_ID": "",
+        "AWS_SECRET_ACCESS_KEY": "",
+        "AWS_SESSION_TOKEN": ""
+      },
+      "args": ["test","-d","bundle"],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

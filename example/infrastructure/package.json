@@ -1,0 +1,21 @@
+{
+  "name": "@example/infra",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "hotswap": "cdk deploy --hotswap"
+  },
+  "devDependencies": {
+    "@aws-cdk/aws-apigatewayv2-alpha": "2.103.1-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.103.1-alpha.0",
+    "@types/node": "20.8.9",
+    "aws-cdk": "2.103.1",
+    "aws-cdk-lib": "2.103.1",
+    "constructs": "10.3.0",
+    "esbuild": "0.19.5",
+    "ts-node": "10.9.1",
+    "typescript": "5.2.2"
+  }
+}

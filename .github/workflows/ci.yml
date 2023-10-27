@@ -1,0 +1,109 @@
+name: LLRT CI
+on:
+  push:
+    tags:
+      - "release/*"
+    branches:
+      - "*"
+  pull_request:
+
+# Only run on the latest ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - name: Cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Format
+        run: cargo fmt --all -- --check
+  build:
+    needs:
+      - check
+    strategy:
+      fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: darwin
+          # - os: windows-latest
+          #   platform: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: lts
+          cache: yarn
+      - name: Install linux dependencies
+        if: contains(matrix.platform, 'linux')
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install make nodejs
+          sudo snap install zig --classic --beta
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+      - name: Install MacOS dependencies
+        if: contains(matrix.platform, 'darwin')
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew install zig
+          brew install make
+      - name: Install Windows dependencies
+        if: contains(matrix.platform, 'windows')
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop install make
+          scoop install zig
+        shell: pwsh
+      - name: Install JavaScript deps
+        run: |
+          corepack enable
+          yarn
+      - name: Run Darwin tests
+        if: contains(matrix.platform, 'darwin')
+        run: |
+          make test-ci
+      - name: Run Linux X86 tests
+        if: contains(matrix.platform, 'linux')
+        run: |
+          make CURRENT_TARGET=x86_64-unknown-linux-musl test-ci
+      - name: Run Linux ARM tests
+        if: contains(matrix.platform, 'linux')
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+        run: |
+          sudo apt-get install -y \
+            qemu-system-arm \
+            qemu-efi-aarch64 \
+            qemu-utils \
+            qemu-user
+
+          make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci

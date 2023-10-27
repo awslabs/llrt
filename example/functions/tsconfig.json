@@ -1,0 +1,12 @@
+{
+  "include": ["src"],
+  "exclude": ["lib", "node_modules"],
+  "compilerOptions": {
+    "downlevelIteration": true,
+    "outDir": "lib",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "jsx": "react-jsx"
+  }
+}

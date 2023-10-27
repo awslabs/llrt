@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+new_array=()
+for value in "$@"
+do
+    [[ $value != *self-contained/*crt* ]] && new_array+=($value)
+done
+
+zig cc "${new_array[@]}"

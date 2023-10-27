@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -e
+
+if [ "$#" -ne 2 ]; then
+  echo "Error: Two file arguments are required."
+  echo "Usage: $0 input_file output_file"
+  exit 1
+fi
+
+
+# Set the number of parts to split the file into
+num_parts=2
+data_size=$(wc -c < "$1")
+
+srcfile="$1"
+dstfile="$2"
+
+# Check if the bytes start with \x7fELF
+if [[ $(hexdump -n 4 -e '4/1 "%02x"' $srcfile) != "7f454c46" ]]; then
+    echo "The binary is not an ELF executable"
+    exit 1
+fi
+
+arch_hex=$(hexdump -s 18 -n 1 -e '"%02x"' $srcfile)
+
+if [[ "$arch_hex" == "3e" ]]; then
+    target="x86_64-linux-musl"
+    arch="x86"
+elif [[ "$arch_hex" == "b7" ]]; then
+    target="aarch64-linux-musl"
+    arch="arm64"
+else
+    echo "The binary is not an ARM64 or X86_64 ELF executable"
+    exit 1
+fi
+
+
+# Create a temporary directory to store the parts
+temp_folder=$(mktemp -d)
+
+# Split the file into parts and compress each part using lz4
+split -n ${num_parts} $srcfile ${temp_folder}/part_
+
+compressed_data=""
+
+input_sizes=()
+output_sizes=()
+total_input_size=0
+total_output_size=0
+working_dir=$(pwd)
+
+for file in ${temp_folder}/*; do
+    filename=$(basename $file)
+    echo "Compressing $filename..."
+    (cd $(dirname $file) && zstd --ultra -22 --no-check -f "$filename" -o "${filename}.zst")
+    output_size=$(wc -c < "${file}")
+    input_size=$(wc -c < "${file}.zst")
+    input_sizes+=($input_size)
+    output_sizes+=($output_size)
+    total_input_size=$((total_input_size + input_size))
+    total_output_size=$((total_output_size + output_size))
+
+    hex_data=$(hexdump -v -e '/1 " %02x"' "${file}.zst" | sed 's/ /\\\\x/g')
+
+    compressed_data="${compressed_data}${hex_data}"
+
+    rm "${file}"
+done
+
+function little_endian_hex()
+{
+    local hex_code=""
+    local number
+
+    for number in "$@"; do
+        byte=$(printf "%08x" $number | sed -r 's/(..)(..)(..)(..)/\4\3\2\1/')
+        hex_code="${hex_code}${byte}"
+    done
+
+    # Insert \x separators between bytes
+    hex_code=$(echo "$hex_code" | sed 's/../\\x&/g')
+
+    echo "$hex_code"
+}
+
+INPUT_SIZES_STR=$(little_endian_hex ${input_sizes[@]})
+OUTPUT_SIZES_STR=$(little_endian_hex ${output_sizes[@]})
+
+cat <<EOF > ${temp_folder}/data.c
+const char *data = "$(printf "\\\x%02x" $num_parts)${INPUT_SIZES_STR}${OUTPUT_SIZES_STR}$(printf "$compressed_data")";
+EOF
+
+cp "$1" "${1}.bak"
+cp src/main.c $temp_folder/
+
+echo "Compiling..."
+
+original_size=$(du -h $srcfile | cut -f1)
+
+zig cc -target $target -Wno-null-character -std=c99 -Wall -O3 -flto -s ${temp_folder}/main.c -o $dstfile -Ilib -Llib/${arch} -static -lzstd
+
+new_size=$(du -h $dstfile | cut -f1)
+
+echo "Done. Compressed $original_size => $new_size"
+
+rm -rf $temp_folder
