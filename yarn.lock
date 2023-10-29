@@ -282,6 +282,53 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aws-sdk/client-eventbridge@npm:3.437.0":
+  version: 3.437.0
+  resolution: "@aws-sdk/client-eventbridge@npm:3.437.0"
+  dependencies:
+    "@aws-crypto/sha256-browser": "npm:3.0.0"
+    "@aws-crypto/sha256-js": "npm:3.0.0"
+    "@aws-sdk/client-sts": "npm:3.437.0"
+    "@aws-sdk/core": "npm:3.436.0"
+    "@aws-sdk/credential-provider-node": "npm:3.437.0"
+    "@aws-sdk/middleware-host-header": "npm:3.433.0"
+    "@aws-sdk/middleware-logger": "npm:3.433.0"
+    "@aws-sdk/middleware-recursion-detection": "npm:3.433.0"
+    "@aws-sdk/middleware-signing": "npm:3.433.0"
+    "@aws-sdk/middleware-user-agent": "npm:3.433.0"
+    "@aws-sdk/region-config-resolver": "npm:3.433.0"
+    "@aws-sdk/signature-v4-multi-region": "npm:3.437.0"
+    "@aws-sdk/types": "npm:3.433.0"
+    "@aws-sdk/util-endpoints": "npm:3.433.0"
+    "@aws-sdk/util-user-agent-browser": "npm:3.433.0"
+    "@aws-sdk/util-user-agent-node": "npm:3.437.0"
+    "@smithy/config-resolver": "npm:^2.0.16"
+    "@smithy/fetch-http-handler": "npm:^2.2.4"
+    "@smithy/hash-node": "npm:^2.0.12"
+    "@smithy/invalid-dependency": "npm:^2.0.12"
+    "@smithy/middleware-content-length": "npm:^2.0.14"
+    "@smithy/middleware-endpoint": "npm:^2.1.3"
+    "@smithy/middleware-retry": "npm:^2.0.18"
+    "@smithy/middleware-serde": "npm:^2.0.12"
+    "@smithy/middleware-stack": "npm:^2.0.6"
+    "@smithy/node-config-provider": "npm:^2.1.3"
+    "@smithy/node-http-handler": "npm:^2.1.8"
+    "@smithy/protocol-http": "npm:^3.0.8"
+    "@smithy/smithy-client": "npm:^2.1.12"
+    "@smithy/types": "npm:^2.4.0"
+    "@smithy/url-parser": "npm:^2.0.12"
+    "@smithy/util-base64": "npm:^2.0.0"
+    "@smithy/util-body-length-browser": "npm:^2.0.0"
+    "@smithy/util-body-length-node": "npm:^2.1.0"
+    "@smithy/util-defaults-mode-browser": "npm:^2.0.16"
+    "@smithy/util-defaults-mode-node": "npm:^2.0.21"
+    "@smithy/util-retry": "npm:^2.0.5"
+    "@smithy/util-utf8": "npm:^2.0.0"
+    tslib: "npm:^2.5.0"
+  checksum: 8d60583a4bcc678436afed4688151c8887ef7c96c5df9037d6480dc0d0c654f971718a37f7f8fe33567a0d270f6d3290b9019351ddc4595f84416b3d3efccae0
+  languageName: node
+  linkType: hard
+
 "@aws-sdk/client-kms@npm:3.437.0":
   version: 3.437.0
   resolution: "@aws-sdk/client-kms@npm:3.437.0"
@@ -4358,6 +4405,7 @@ __metadata:
     "@aws-sdk/client-cloudwatch-events": "npm:3.437.0"
     "@aws-sdk/client-cloudwatch-logs": "npm:3.437.0"
     "@aws-sdk/client-dynamodb": "npm:3.437.0"
+    "@aws-sdk/client-eventbridge": "npm:3.437.0"
     "@aws-sdk/client-kms": "npm:3.437.0"
     "@aws-sdk/client-lambda": "npm:3.437.0"
     "@aws-sdk/client-s3": "npm:3.437.0"

@@ -101,12 +101,6 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
             let source = fs::read_to_string(dir_ent.path())
                 .unwrap_or_else(|_| panic!("Unable to load: {}", dir_ent.path().to_string_lossy()));
 
-            info!(
-                "Starts with: {} for {:?}",
-                path.starts_with("llrt-chunk-"),
-                path
-            );
-
             let module_name = if !path_str.starts_with("llrt-chunk-") {
                 path.with_extension("").to_string_lossy().to_string()
             } else {

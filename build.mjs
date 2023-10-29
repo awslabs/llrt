@@ -39,7 +39,7 @@ const SPREAD_MODEL_REGEX = /\(\w*\)\s*=>\s*\({\s*\.\.\.\w*,?\s*}\)/g;
 const PROPERTY_NOOP_ARROW_FUNCTION_REGEX = /(\w+:)\s*\(_\)\s*=>\s*_/;
 const NOOP_ARROW_FUNCTION_REGEX = /\(_\)\s*=>\s*_/;
 const SHARED_COMMAND_REGEX =
-  /this\.middlewareStack\.use\(\s*getSerdePlugin\(configuration,\s*this\.serialize,\s*this\.deserialize\)\s*\);\s*this\.middlewareStack\.use\(\s*getEndpointPlugin\(\s*configuration,\s*\w+\.getEndpointParameterInstructions\(\)\s*\)\s*\);\s*const\s*stack\s*=\s*clientStack\.concat\(this\.middlewareStack\);\s*const\s*{\s*logger\s*}\s*=\s*configuration;\s*const\s*clientName\s*=\s*("\w+");\s*const\s*commandName\s*=\s*("\w+");\s*const\s*handlerExecutionContext\s*=\s*{\s*logger,\s*clientName,\s*commandName,\s*inputFilterSensitiveLog:\s*(\w+|\(_\) => _),\s*outputFilterSensitiveLog:\s*(\w+|\(_\) => _),?\s*};\s*const\s*{\s*requestHandler\s*}\s*=\s*configuration;\s*return\s*stack\.resolve\(\s*\(request\)\s*=>\s*requestHandler\.handle\(request\.request,\s*options\s*\|\|\s*{}\),\s*handlerExecutionContext\s*\);/;
+  /this\.middlewareStack\.use\(\s*getSerdePlugin\(configuration,\s*this\.serialize,\s*this\.deserialize\)\s*\);\s*this\.middlewareStack\.use\(\s*getEndpointPlugin\(\s*configuration,\s*\w+\.getEndpointParameterInstructions\(\)\s*\)\s*\);\s*const\s*stack\s*=\s*clientStack\.concat\(this\.middlewareStack\);\s*const\s*{\s*logger\s*}\s*=\s*configuration;\s*const\s*clientName\s*=\s*("\w+");\s*const\s*commandName\s*=\s*("\w+");\s*const\s*handlerExecutionContext\s*=\s*{\s*logger,\s*clientName,\s*commandName,\s*inputFilterSensitiveLog:\s*(\w+|\(_\) => _),\s*outputFilterSensitiveLog:\s*(\w+|\(_\) => _),?\s*,\s*\[SMITHY_CONTEXT_KEY]:\s*{\s*service:\s*("\w+"),\s*operation:\s*("\w+"),\s*},\s*};\s*const\s*{\s*requestHandler\s*}\s*=\s*configuration;\s*return\s*stack\.resolve\(\s*\(request\)\s*=>\s*requestHandler\.handle\(request\.request,\s*options\s*\|\|\s*{}\),\s*handlerExecutionContext\s*\);/gm;
 const SHARED_COMMAND_MARSHALL_REGEX = /return (\w+)\(/;
 const MINIFY_JS = process.env.JS_MINIFY !== "0";
 const SDK_UTILS_PACKAGE = "sdk-utils";
@@ -87,7 +87,10 @@ const SDK_DATA = {
   "client-ssm": ["SSM", "ssm"],
   "client-cloudwatch-logs": ["CloudWatchLogs", "logs"],
   "client-cloudwatch-events": ["CloudWatchEvents", "events"],
+  "client-eventbridge": ["EventBridgeClient", "events"],
 };
+
+const ADDITIONAL_PACKAGES = ["util-dynamodb"];
 
 const SDKS = [];
 const SERVICE_ENDPOINT_BY_PACKAGE = {};
@@ -95,14 +98,14 @@ const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
 const SDK_PACKAGES = [];
 
-Object.keys(SDK_DATA).forEach((sdk) => {
-  const [clientName, serviceEndpoint] = SDK_DATA[sdk];
+[...Object.keys(SDK_DATA), ...ADDITIONAL_PACKAGES].forEach((sdk) => {
+  const [clientName, serviceEndpoint] = SDK_DATA[sdk] || [];
   const sdkPackage = `@aws-sdk/${sdk}`;
   SDKS.push(sdk);
   SDK_PACKAGES.push(sdkPackage);
+  SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
   SERVICE_ENDPOINT_BY_PACKAGE[sdk] = serviceEndpoint;
   CLIENTS_BY_SDK[sdk] = clientName;
-  SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
 });
 
 const camelToSnakeCase = (str) =>
@@ -118,6 +121,8 @@ class BaseCommand extends $Command {
     outputFilterSensitiveLogFn,
     serializeFn,
     deserializeFn,
+    service,
+    operation,
     paramInstructions
   ) {
     super();
@@ -129,6 +134,8 @@ class BaseCommand extends $Command {
     this.inputFilterSensitiveLogFn = inputFilterSensitiveLogFn;
     this.outputFilterSensitiveLogFn = outputFilterSensitiveLogFn;
     this.paramInstructions = paramInstructions;
+    this.service = service;
+    this.operation = operation;
   }
 
   static getEndpointParameterInstructions() {
@@ -150,6 +157,10 @@ class BaseCommand extends $Command {
       commandName: this.commandName,
       inputFilterSensitiveLog: this.inputFilterSensitiveLogFn,
       outputFilterSensitiveLog: this.outputFilterSensitiveLogFn,
+      [SMITHY_CONTEXT_KEY]: {
+        service: this.service,
+        operation: this.operation,
+      },
     };
     const { requestHandler } = configuration;
     return stack.resolve(
@@ -177,7 +188,7 @@ class S3Command extends BaseCommand {
 
 class DefaultCommand extends BaseCommand {
   constructor(...args) {
-    super(...args, S3Command.getEndpointParameterInstructions());
+    super(...args, DefaultCommand.getEndpointParameterInstructions());
   }
   static getEndpointParameterInstructions() {
     return defaultEndpointParameterInstructions();
@@ -429,6 +440,7 @@ const awsSdkPlugin = {
       contents += `import { Command as $Command } from "@smithy/smithy-client";\n`;
       contents += `import { getEndpointPlugin } from "@smithy/middleware-endpoint";\n`;
       contents += `import { getSerdePlugin } from "@smithy/middleware-serde";\n`;
+      contents += `import { SMITHY_CONTEXT_KEY } from "@smithy/types";\n`;
       contents += `${paramInstructions[0]}\n`;
       contents += `${s3paramInstructions[0]}\n`;
       contents += `export ${paramInstructions[1]}\n`;
@@ -512,6 +524,10 @@ const awsSdkPlugin = {
         if (!regexResult) {
           console.log(`Can't optimize: ${commandName}`);
 
+          // let unoptimizedCommand = `unoptimized/${commandName}.js`;
+          // await fs.mkdir(path.dirname(unoptimizedCommand), { recursive: true });
+          // await fs.writeFile(unoptimizedCommand, resolveCode);
+
           let addNoopFilter = false;
           contents = contents.replace(
             PROPERTY_NOOP_ARROW_FUNCTION_REGEX,
@@ -537,6 +553,8 @@ const awsSdkPlugin = {
           paramCmdName,
           paramInputFilter,
           paramOutputFilter,
+          service,
+          operation,
         ] = commandParameterData;
 
         const serializeCode = commandPrototype.serialize.toString();
@@ -581,6 +599,8 @@ const awsSdkPlugin = {
       ${paramOutputFilter},
       ${serializeFunction},
       ${deserializeFunction},
+      ${service},
+      ${operation}
     );
   }
 }
@@ -754,17 +774,15 @@ async function buildSdks() {
       let sdkContents = `export * from "${pkg}";`;
       if (serviceName) {
         sdkContents += `\nif(__bootstrap.addAwsSdkInitTask){\n   __bootstrap.addAwsSdkInitTask("${serviceName}");\n}`;
+
+        const commands = await import(`${pkg}/dist-es/commands/index.js`);
+        COMMANDS_BY_SDK[pkg] = commands;
       }
       await fs.writeFile(sdkIndexFile, sdkContents);
 
       return [pkg, sdkIndexFile];
     })
   );
-
-  for (const pkg of SDK_PACKAGES) {
-    const commands = await import(`${pkg}/dist-es/commands/index.js`);
-    COMMANDS_BY_SDK[pkg] = commands;
-  }
 
   const sdkEntryPoints = Object.fromEntries(sdkEntryList);
 
