@@ -92,15 +92,15 @@ const SDK_DATA = {
   "client-xray": ["XRay", "xray"],
 };
 
-const ADDITIONAL_PACKAGES = ["util-dynamodb"];
+const ADDITIONAL_PACKAGES = ["@aws-sdk/util-dynamodb", "@smithy/signature-v4"];
 
 const SDKS = [];
 const SERVICE_ENDPOINT_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
-const SDK_PACKAGES = [];
+const SDK_PACKAGES = [...ADDITIONAL_PACKAGES];
 
-[...Object.keys(SDK_DATA), ...ADDITIONAL_PACKAGES].forEach((sdk) => {
+Object.keys(SDK_DATA).forEach((sdk) => {
   const [clientName, serviceEndpoint] = SDK_DATA[sdk] || [];
   const sdkPackage = `@aws-sdk/${sdk}`;
   SDKS.push(sdk);
