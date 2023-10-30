@@ -87,7 +87,9 @@ const SDK_DATA = {
   "client-ssm": ["SSM", "ssm"],
   "client-cloudwatch-logs": ["CloudWatchLogs", "logs"],
   "client-cloudwatch-events": ["CloudWatchEvents", "events"],
-  "client-eventbridge": ["EventBridgeClient", "events"],
+  "client-eventbridge": ["EventBridge", "events"],
+  "client-sfn": ["SFN", "sfn"],
+  "client-xray": ["XRay", "xray"],
 };
 
 const ADDITIONAL_PACKAGES = ["util-dynamodb"];

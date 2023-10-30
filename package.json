@@ -17,10 +17,12 @@
     "@aws-sdk/client-s3": "3.438.0",
     "@aws-sdk/client-secrets-manager": "3.438.0",
     "@aws-sdk/client-ses": "3.438.0",
+    "@aws-sdk/client-sfn": "3.438.0",
     "@aws-sdk/client-sns": "3.438.0",
     "@aws-sdk/client-sqs": "3.438.0",
     "@aws-sdk/client-ssm": "3.438.0",
     "@aws-sdk/client-sts": "3.438.0",
+    "@aws-sdk/client-xray": "3.438.0",
     "@aws-sdk/lib-dynamodb": "3.438.0",
     "@types/jest": "29.5.6",
     "@types/readable-stream": "4.0.4",
@@ -35,5 +37,8 @@
     "typescript": "5.2.2"
   },
   "packageManager": "yarn@4.0.0",
-  "nodeLinker": "pnpm"
+  "nodeLinker": "pnpm",
+  "dependencies": {
+    "@aws-sdk/client-eventbridge": "^3.438.0"
+  }
 }

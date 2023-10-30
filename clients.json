@@ -1,0 +1,3489 @@
+[
+  {
+    "client": "client-accessanalyzer",
+    "service": {
+      "sdkId": "AccessAnalyzer",
+      "arnNamespace": "access-analyzer",
+      "cloudTrailEventSource": "access-analyzer.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-account",
+    "service": {
+      "sdkId": "Account",
+      "arnNamespace": "account",
+      "cloudTrailEventSource": "CLOUDTRAIL_EVENT_SOURCE"
+    }
+  },
+  {
+    "client": "client-acm-pca",
+    "service": {
+      "sdkId": "ACM PCA",
+      "arnNamespace": "acm-pca",
+      "cloudFormationName": "ACMPCA",
+      "cloudTrailEventSource": "acmpca.amazonaws.com",
+      "endpointPrefix": "acm-pca"
+    }
+  },
+  {
+    "client": "client-acm",
+    "service": {
+      "sdkId": "ACM",
+      "arnNamespace": "acm",
+      "cloudFormationName": "CertificateManager",
+      "cloudTrailEventSource": "acm.amazonaws.com",
+      "endpointPrefix": "acm"
+    }
+  },
+  {
+    "client": "client-alexa-for-business",
+    "service": {
+      "sdkId": "Alexa For Business",
+      "arnNamespace": "a4b",
+      "cloudFormationName": "AlexaForBusiness",
+      "cloudTrailEventSource": "alexaforbusiness.amazonaws.com",
+      "docId": "alexaforbusiness-2017-11-09",
+      "endpointPrefix": "a4b"
+    }
+  },
+  {
+    "client": "client-amp",
+    "service": {
+      "sdkId": "amp",
+      "arnNamespace": "aps",
+      "cloudTrailEventSource": "CLOUDTRAIL_PLACEHOLDER_REPLACED_BY_CDK"
+    }
+  },
+  {
+    "client": "client-amplify",
+    "service": {
+      "sdkId": "Amplify",
+      "arnNamespace": "amplify",
+      "cloudFormationName": "Amplify",
+      "cloudTrailEventSource": "amplify.amazonaws.com",
+      "endpointPrefix": "amplify"
+    }
+  },
+  {
+    "client": "client-amplifybackend",
+    "service": {
+      "sdkId": "AmplifyBackend",
+      "arnNamespace": "amplifybackend",
+      "cloudFormationName": "AmplifyBackend",
+      "cloudTrailEventSource": "amplifybackend.amazonaws.com",
+      "endpointPrefix": "amplifybackend"
+    }
+  },
+  {
+    "client": "client-amplifyuibuilder",
+    "service": {
+      "sdkId": "AmplifyUIBuilder",
+      "arnNamespace": "amplifyuibuilder",
+      "cloudFormationName": "AmplifyUIBuilder",
+      "cloudTrailEventSource": "amplifyuibuilder.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-api-gateway",
+    "service": {
+      "sdkId": "API Gateway",
+      "arnNamespace": "apigateway",
+      "cloudFormationName": "ApiGateway",
+      "cloudTrailEventSource": "apigateway.amazonaws.com",
+      "docId": "apigateway-2015-07-09",
+      "endpointPrefix": "apigateway"
+    }
+  },
+  {
+    "client": "client-apigatewaymanagementapi",
+    "service": {
+      "sdkId": "ApiGatewayManagementApi",
+      "arnNamespace": "apigateway",
+      "cloudFormationName": "ApiGatewayManagementApi",
+      "cloudTrailEventSource": "apigatewaymanagementapi.amazonaws.com",
+      "endpointPrefix": "execute-api"
+    }
+  },
+  {
+    "client": "client-apigatewayv2",
+    "service": {
+      "sdkId": "ApiGatewayV2",
+      "arnNamespace": "apigateway",
+      "cloudFormationName": "ApiGatewayV2",
+      "cloudTrailEventSource": "apigatewayv2.amazonaws.com",
+      "endpointPrefix": "apigateway"
+    }
+  },
+  {
+    "client": "client-app-mesh",
+    "service": {
+      "sdkId": "App Mesh",
+      "arnNamespace": "appmesh",
+      "cloudFormationName": "AppMesh",
+      "cloudTrailEventSource": "appmesh.amazonaws.com",
+      "endpointPrefix": "appmesh"
+    }
+  },
+  {
+    "client": "client-appconfig",
+    "service": {
+      "sdkId": "AppConfig",
+      "arnNamespace": "appconfig",
+      "cloudFormationName": "AppConfig",
+      "cloudTrailEventSource": "appconfig.amazonaws.com",
+      "endpointPrefix": "appconfig"
+    }
+  },
+  {
+    "client": "client-appconfigdata",
+    "service": {
+      "sdkId": "AppConfigData",
+      "arnNamespace": "appconfigdata",
+      "cloudFormationName": "AppConfigData",
+      "cloudTrailEventSource": "appconfigdata.amazonaws.com",
+      "endpointPrefix": "appconfigdata"
+    }
+  },
+  {
+    "client": "client-appfabric",
+    "service": {
+      "sdkId": "AppFabric",
+      "arnNamespace": "appfabric"
+    }
+  },
+  {
+    "client": "client-appflow",
+    "service": {
+      "sdkId": "Appflow",
+      "arnNamespace": "appflow",
+      "cloudFormationName": "Appflow",
+      "cloudTrailEventSource": "appflow.amazonaws.com",
+      "endpointPrefix": "appflow"
+    }
+  },
+  {
+    "client": "client-appintegrations",
+    "service": {
+      "sdkId": "AppIntegrations",
+      "arnNamespace": "app-integrations",
+      "cloudFormationName": "AppIntegrations",
+      "cloudTrailEventSource": "appintegrations.amazonaws.com",
+      "endpointPrefix": "app-integrations"
+    }
+  },
+  {
+    "client": "client-application-auto-scaling",
+    "service": {
+      "sdkId": "Application Auto Scaling",
+      "arnNamespace": "application-autoscaling",
+      "cloudFormationName": "ApplicationAutoScaling",
+      "cloudTrailEventSource": "applicationautoscaling.amazonaws.com",
+      "docId": "application-autoscaling-2016-02-06",
+      "endpointPrefix": "application-autoscaling"
+    }
+  },
+  {
+    "client": "client-application-discovery-service",
+    "service": {
+      "sdkId": "Application Discovery Service",
+      "arnNamespace": "discovery",
+      "cloudFormationName": "ApplicationDiscoveryService",
+      "cloudTrailEventSource": "applicationdiscoveryservice.amazonaws.com",
+      "docId": "discovery-2015-11-01",
+      "endpointPrefix": "discovery"
+    }
+  },
+  {
+    "client": "client-application-insights",
+    "service": {
+      "sdkId": "Application Insights",
+      "arnNamespace": "applicationinsights",
+      "cloudFormationName": "ApplicationInsights",
+      "cloudTrailEventSource": "applicationinsights.amazonaws.com",
+      "endpointPrefix": "applicationinsights"
+    }
+  },
+  {
+    "client": "client-applicationcostprofiler",
+    "service": {
+      "sdkId": "ApplicationCostProfiler",
+      "arnNamespace": "application-cost-profiler",
+      "cloudFormationName": "ApplicationCostProfiler",
+      "cloudTrailEventSource": "applicationcostprofiler.amazonaws.com",
+      "docId": "AWSApplicationCostProfiler-2020-09-10",
+      "endpointPrefix": "application-cost-profiler"
+    }
+  },
+  {
+    "client": "client-apprunner",
+    "service": {
+      "sdkId": "AppRunner",
+      "arnNamespace": "apprunner",
+      "cloudFormationName": "AppRunner",
+      "cloudTrailEventSource": "apprunner.amazonaws.com",
+      "endpointPrefix": "apprunner"
+    }
+  },
+  {
+    "client": "client-appstream",
+    "service": {
+      "sdkId": "AppStream",
+      "arnNamespace": "appstream",
+      "cloudFormationName": "AppStream",
+      "cloudTrailEventSource": "appstream.amazonaws.com",
+      "endpointPrefix": "appstream2"
+    }
+  },
+  {
+    "client": "client-appsync",
+    "service": {
+      "sdkId": "AppSync",
+      "arnNamespace": "appsync",
+      "cloudFormationName": "AppSync",
+      "cloudTrailEventSource": "appsync.amazonaws.com",
+      "endpointPrefix": "appsync"
+    }
+  },
+  {
+    "client": "client-arc-zonal-shift",
+    "service": {
+      "sdkId": "ARC Zonal Shift",
+      "endpointPrefix": "arc-zonal-shift"
+    }
+  },
+  {
+    "client": "client-athena",
+    "service": {
+      "sdkId": "Athena",
+      "arnNamespace": "athena",
+      "cloudFormationName": "Athena",
+      "cloudTrailEventSource": "athena.amazonaws.com",
+      "endpointPrefix": "athena"
+    }
+  },
+  {
+    "client": "client-auditmanager",
+    "service": {
+      "sdkId": "AuditManager",
+      "arnNamespace": "auditmanager",
+      "cloudFormationName": "AuditManager",
+      "cloudTrailEventSource": "auditmanager.amazonaws.com",
+      "endpointPrefix": "auditmanager"
+    }
+  },
+  {
+    "client": "client-auto-scaling-plans",
+    "service": {
+      "sdkId": "Auto Scaling Plans",
+      "arnNamespace": "autoscaling-plans",
+      "cloudFormationName": "AutoScalingPlans",
+      "cloudTrailEventSource": "autoscalingplans.amazonaws.com",
+      "docId": "autoscaling-plans-2018-01-06",
+      "endpointPrefix": "autoscaling-plans"
+    }
+  },
+  {
+    "client": "client-auto-scaling",
+    "service": {
+      "sdkId": "Auto Scaling",
+      "arnNamespace": "autoscaling",
+      "cloudFormationName": "AutoScaling",
+      "cloudTrailEventSource": "autoscaling.amazonaws.com",
+      "docId": "autoscaling-2011-01-01",
+      "endpointPrefix": "autoscaling"
+    }
+  },
+  {
+    "client": "client-backup-gateway",
+    "service": {
+      "sdkId": "Backup Gateway",
+      "arnNamespace": "backup-gateway",
+      "cloudFormationName": "BackupGateway",
+      "cloudTrailEventSource": "backup-gateway.amazonaws.com",
+      "endpointPrefix": "backup-gateway"
+    }
+  },
+  {
+    "client": "client-backup",
+    "service": {
+      "sdkId": "Backup",
+      "arnNamespace": "backup",
+      "cloudFormationName": "Backup",
+      "cloudTrailEventSource": "backup.amazonaws.com",
+      "endpointPrefix": "backup"
+    }
+  },
+  {
+    "client": "client-backupstorage",
+    "service": {
+      "sdkId": "BackupStorage",
+      "arnNamespace": "backup-storage",
+      "cloudFormationName": "BackupStorage",
+      "cloudTrailEventSource": "backupstorage.amazonaws.com",
+      "endpointPrefix": "backupstorage"
+    }
+  },
+  {
+    "client": "client-batch",
+    "service": {
+      "sdkId": "Batch",
+      "arnNamespace": "batch",
+      "cloudFormationName": "Batch",
+      "cloudTrailEventSource": "batch.amazonaws.com",
+      "endpointPrefix": "batch"
+    }
+  },
+  {
+    "client": "client-bedrock-runtime",
+    "service": {
+      "sdkId": "Bedrock Runtime",
+      "endpointPrefix": "bedrock-runtime",
+      "cloudTrailEventSource": "bedrock.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-bedrock",
+    "service": {
+      "sdkId": "Bedrock",
+      "endpointPrefix": "bedrock"
+    }
+  },
+  {
+    "client": "client-billingconductor",
+    "service": {
+      "sdkId": "billingconductor",
+      "arnNamespace": "billingconductor"
+    }
+  },
+  {
+    "client": "client-braket",
+    "service": {
+      "sdkId": "Braket",
+      "cloudTrailEventSource": "braket.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-budgets",
+    "service": {
+      "sdkId": "Budgets",
+      "arnNamespace": "budgets",
+      "cloudFormationName": "Budgets",
+      "cloudTrailEventSource": "budgets.amazonaws.com",
+      "endpointPrefix": "budgets"
+    }
+  },
+  {
+    "client": "client-chime-sdk-identity",
+    "service": {
+      "sdkId": "Chime SDK Identity",
+      "arnNamespace": "chime",
+      "cloudFormationName": "ChimeSDKIdentity",
+      "cloudTrailEventSource": "chimesdkidentity.amazonaws.com",
+      "endpointPrefix": "identity-chime"
+    }
+  },
+  {
+    "client": "client-chime-sdk-media-pipelines",
+    "service": {
+      "sdkId": "Chime SDK Media Pipelines",
+      "arnNamespace": "chime",
+      "cloudFormationName": "ChimeSDKMediaPipelines",
+      "cloudTrailEventSource": "chimesdkmediapipelines.amazonaws.com",
+      "endpointPrefix": "media-pipelines-chime"
+    }
+  },
+  {
+    "client": "client-chime-sdk-meetings",
+    "service": {
+      "sdkId": "Chime SDK Meetings",
+      "arnNamespace": "chime",
+      "cloudFormationName": "ChimeSDKMeetings",
+      "cloudTrailEventSource": "chimesdkmeetings.amazonaws.com",
+      "endpointPrefix": "meetings-chime"
+    }
+  },
+  {
+    "client": "client-chime-sdk-messaging",
+    "service": {
+      "sdkId": "Chime SDK Messaging",
+      "arnNamespace": "chime",
+      "cloudFormationName": "ChimeSDKMessaging",
+      "cloudTrailEventSource": "chimesdkmessaging.amazonaws.com",
+      "endpointPrefix": "messaging-chime"
+    }
+  },
+  {
+    "client": "client-chime-sdk-voice",
+    "service": {
+      "sdkId": "Chime SDK Voice",
+      "arnNamespace": "chime",
+      "cloudFormationName": "ChimeSDKVoice",
+      "cloudTrailEventSource": "chimesdkvoice.amazonaws.com",
+      "endpointPrefix": "voice-chime"
+    }
+  },
+  {
+    "client": "client-chime",
+    "service": {
+      "sdkId": "Chime",
+      "arnNamespace": "chime",
+      "cloudFormationName": "Chime",
+      "cloudTrailEventSource": "chime.amazonaws.com",
+      "endpointPrefix": "chime"
+    }
+  },
+  {
+    "client": "client-cleanrooms",
+    "service": {
+      "sdkId": "CleanRooms",
+      "arnNamespace": "cleanrooms",
+      "cloudTrailEventSource": "cleanrooms.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-cloud9",
+    "service": {
+      "sdkId": "Cloud9",
+      "arnNamespace": "cloud9",
+      "cloudFormationName": "Cloud9",
+      "cloudTrailEventSource": "cloud9.amazonaws.com",
+      "endpointPrefix": "cloud9"
+    }
+  },
+  {
+    "client": "client-cloudcontrol",
+    "service": {
+      "sdkId": "CloudControl",
+      "cloudTrailEventSource": "cloudcontrolapi.amazonaws.com",
+      "endpointPrefix": "cloudcontrolapi"
+    }
+  },
+  {
+    "client": "client-clouddirectory",
+    "service": {
+      "sdkId": "CloudDirectory",
+      "arnNamespace": "clouddirectory",
+      "cloudFormationName": "CloudDirectory",
+      "cloudTrailEventSource": "clouddirectory.amazonaws.com",
+      "endpointPrefix": "clouddirectory"
+    }
+  },
+  {
+    "client": "client-cloudformation",
+    "service": {
+      "sdkId": "CloudFormation",
+      "arnNamespace": "cloudformation",
+      "cloudFormationName": "CloudFormation",
+      "cloudTrailEventSource": "cloudformation.amazonaws.com",
+      "endpointPrefix": "cloudformation"
+    }
+  },
+  {
+    "client": "client-cloudfront",
+    "service": {
+      "sdkId": "CloudFront",
+      "arnNamespace": "cloudfront",
+      "cloudFormationName": "CloudFront",
+      "cloudTrailEventSource": "cloudfront.amazonaws.com",
+      "endpointPrefix": "cloudfront"
+    }
+  },
+  {
+    "client": "client-cloudhsm-v2",
+    "service": {
+      "sdkId": "CloudHSM V2",
+      "arnNamespace": "cloudhsm",
+      "cloudFormationName": "CloudHSMV2",
+      "cloudTrailEventSource": "cloudhsmv2.amazonaws.com",
+      "docId": "cloudhsmv2-2017-04-28",
+      "endpointPrefix": "cloudhsmv2"
+    }
+  },
+  {
+    "client": "client-cloudhsm",
+    "service": {
+      "sdkId": "CloudHSM",
+      "arnNamespace": "cloudhsm",
+      "cloudFormationName": "CloudHSM",
+      "cloudTrailEventSource": "cloudhsm.amazonaws.com",
+      "endpointPrefix": "cloudhsm"
+    }
+  },
+  {
+    "client": "client-cloudsearch-domain",
+    "service": {
+      "sdkId": "CloudSearch Domain",
+      "arnNamespace": "cloudsearch",
+      "cloudFormationName": "CloudSearchDomain",
+      "cloudTrailEventSource": "cloudsearchdomain.amazonaws.com",
+      "docId": "cloudsearchdomain-2013-01-01",
+      "endpointPrefix": "cloudsearchdomain"
+    }
+  },
+  {
+    "client": "client-cloudsearch",
+    "service": {
+      "sdkId": "CloudSearch",
+      "arnNamespace": "cloudsearch",
+      "cloudFormationName": "CloudSearch",
+      "cloudTrailEventSource": "cloudsearch.amazonaws.com",
+      "endpointPrefix": "cloudsearch"
+    }
+  },
+  {
+    "client": "client-cloudtrail-data",
+    "service": {
+      "sdkId": "CloudTrail Data",
+      "endpointPrefix": "cloudtrail-data"
+    }
+  },
+  {
+    "client": "client-cloudtrail",
+    "service": {
+      "sdkId": "CloudTrail",
+      "arnNamespace": "cloudtrail",
+      "cloudFormationName": "CloudTrail",
+      "cloudTrailEventSource": "cloudtrail.amazonaws.com",
+      "endpointPrefix": "cloudtrail"
+    }
+  },
+  {
+    "client": "client-cloudwatch-events",
+    "service": {
+      "sdkId": "CloudWatch Events",
+      "arnNamespace": "events",
+      "cloudFormationName": "Events",
+      "cloudTrailEventSource": "cloudwatchevents.amazonaws.com",
+      "docId": "events-2015-10-07",
+      "endpointPrefix": "events"
+    }
+  },
+  {
+    "client": "client-cloudwatch-logs",
+    "service": {
+      "sdkId": "CloudWatch Logs",
+      "arnNamespace": "logs",
+      "cloudFormationName": "Logs",
+      "cloudTrailEventSource": "cloudwatchlogs.amazonaws.com",
+      "docId": "logs-2014-03-28",
+      "endpointPrefix": "logs"
+    }
+  },
+  {
+    "client": "client-cloudwatch",
+    "service": {
+      "sdkId": "CloudWatch",
+      "arnNamespace": "monitoring",
+      "cloudFormationName": "CloudWatch",
+      "cloudTrailEventSource": "cloudwatch.amazonaws.com",
+      "docId": "monitoring-2010-08-01",
+      "endpointPrefix": "monitoring"
+    }
+  },
+  {
+    "client": "client-codeartifact",
+    "service": {
+      "sdkId": "codeartifact",
+      "arnNamespace": "codeartifact",
+      "cloudFormationName": "Codeartifact",
+      "cloudTrailEventSource": "codeartifact.amazonaws.com",
+      "endpointPrefix": "codeartifact"
+    }
+  },
+  {
+    "client": "client-codebuild",
+    "service": {
+      "sdkId": "CodeBuild",
+      "arnNamespace": "codebuild",
+      "cloudFormationName": "CodeBuild",
+      "cloudTrailEventSource": "codebuild.amazonaws.com",
+      "endpointPrefix": "codebuild"
+    }
+  },
+  {
+    "client": "client-codecatalyst",
+    "service": {
+      "sdkId": "CodeCatalyst",
+      "endpointPrefix": "codecatalyst"
+    }
+  },
+  {
+    "client": "client-codecommit",
+    "service": {
+      "sdkId": "CodeCommit",
+      "arnNamespace": "codecommit",
+      "cloudFormationName": "CodeCommit",
+      "cloudTrailEventSource": "codecommit.amazonaws.com",
+      "endpointPrefix": "codecommit"
+    }
+  },
+  {
+    "client": "client-codedeploy",
+    "service": {
+      "sdkId": "CodeDeploy",
+      "arnNamespace": "codedeploy",
+      "cloudFormationName": "CodeDeploy",
+      "cloudTrailEventSource": "codedeploy.amazonaws.com",
+      "endpointPrefix": "codedeploy"
+    }
+  },
+  {
+    "client": "client-codeguru-reviewer",
+    "service": {
+      "sdkId": "CodeGuru Reviewer",
+      "arnNamespace": "codeguru-reviewer",
+      "cloudFormationName": "CodeGuruReviewer",
+      "cloudTrailEventSource": "codegurureviewer.amazonaws.com",
+      "endpointPrefix": "codeguru-reviewer"
+    }
+  },
+  {
+    "client": "client-codeguru-security",
+    "service": {
+      "sdkId": "CodeGuru Security",
+      "arnNamespace": "codeguru-security",
+      "cloudTrailEventSource": "codeguru-security.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-codeguruprofiler",
+    "service": {
+      "sdkId": "CodeGuruProfiler",
+      "arnNamespace": "codeguru-profiler",
+      "cloudFormationName": "CodeGuruProfiler",
+      "cloudTrailEventSource": "codeguru-profiler.amazonaws.com",
+      "endpointPrefix": "codeguru-profiler"
+    }
+  },
+  {
+    "client": "client-codepipeline",
+    "service": {
+      "sdkId": "CodePipeline",
+      "arnNamespace": "codepipeline",
+      "cloudFormationName": "CodePipeline",
+      "cloudTrailEventSource": "codepipeline.amazonaws.com",
+      "endpointPrefix": "codepipeline"
+    }
+  },
+  {
+    "client": "client-codestar-connections",
+    "service": {
+      "sdkId": "CodeStar connections",
+      "arnNamespace": "codestar-connections",
+      "cloudFormationName": "CodeStarconnections",
+      "cloudTrailEventSource": "codestarconnections.amazonaws.com",
+      "endpointPrefix": "codestar-connections"
+    }
+  },
+  {
+    "client": "client-codestar-notifications",
+    "service": {
+      "sdkId": "codestar notifications",
+      "arnNamespace": "codestar-notifications",
+      "cloudFormationName": "CodeStarNotifications",
+      "cloudTrailEventSource": "codestarnotifications.amazonaws.com",
+      "endpointPrefix": "codestar-notifications"
+    }
+  },
+  {
+    "client": "client-codestar",
+    "service": {
+      "sdkId": "CodeStar",
+      "arnNamespace": "codestar",
+      "cloudFormationName": "CodeStar",
+      "cloudTrailEventSource": "codestar.amazonaws.com",
+      "endpointPrefix": "codestar"
+    }
+  },
+  {
+    "client": "client-cognito-identity-provider",
+    "service": {
+      "sdkId": "Cognito Identity Provider",
+      "arnNamespace": "cognito-idp",
+      "cloudFormationName": "Cognito",
+      "cloudTrailEventSource": "cognitoidentityprovider.amazonaws.com",
+      "docId": "cognito-idp-2016-04-18",
+      "endpointPrefix": "cognito-idp"
+    }
+  },
+  {
+    "client": "client-cognito-identity",
+    "service": {
+      "sdkId": "Cognito Identity",
+      "arnNamespace": "cognito-identity",
+      "cloudFormationName": "Cognito",
+      "cloudTrailEventSource": "cognitoidentity.amazonaws.com",
+      "endpointPrefix": "cognito-identity"
+    }
+  },
+  {
+    "client": "client-cognito-sync",
+    "service": {
+      "sdkId": "Cognito Sync",
+      "arnNamespace": "cognito-sync",
+      "cloudFormationName": "CognitoSync",
+      "cloudTrailEventSource": "cognitosync.amazonaws.com",
+      "endpointPrefix": "cognito-sync"
+    }
+  },
+  {
+    "client": "client-comprehend",
+    "service": {
+      "sdkId": "Comprehend",
+      "arnNamespace": "comprehend",
+      "cloudFormationName": "Comprehend",
+      "cloudTrailEventSource": "comprehend.amazonaws.com",
+      "endpointPrefix": "comprehend"
+    }
+  },
+  {
+    "client": "client-comprehendmedical",
+    "service": {
+      "sdkId": "ComprehendMedical",
+      "arnNamespace": "comprehendmedical",
+      "cloudFormationName": "ComprehendMedical",
+      "cloudTrailEventSource": "comprehendmedical.amazonaws.com",
+      "endpointPrefix": "comprehendmedical"
+    }
+  },
+  {
+    "client": "client-compute-optimizer",
+    "service": {
+      "sdkId": "Compute Optimizer",
+      "arnNamespace": "compute-optimizer",
+      "cloudFormationName": "ComputeOptimizer",
+      "cloudTrailEventSource": "computeoptimizer.amazonaws.com",
+      "endpointPrefix": "compute-optimizer"
+    }
+  },
+  {
+    "client": "client-config-service",
+    "service": {
+      "sdkId": "Config Service",
+      "arnNamespace": "config",
+      "cloudFormationName": "Config",
+      "cloudTrailEventSource": "configservice.amazonaws.com",
+      "docId": "config-2014-11-12",
+      "endpointPrefix": "config"
+    }
+  },
+  {
+    "client": "client-connect-contact-lens",
+    "service": {
+      "sdkId": "Connect Contact Lens",
+      "arnNamespace": "connect",
+      "cloudFormationName": "ConnectContactLens",
+      "cloudTrailEventSource": "connectcontactlens.amazonaws.com",
+      "endpointPrefix": "contact-lens"
+    }
+  },
+  {
+    "client": "client-connect",
+    "service": {
+      "sdkId": "Connect",
+      "arnNamespace": "connect",
+      "cloudFormationName": "Connect",
+      "cloudTrailEventSource": "connect.amazonaws.com",
+      "endpointPrefix": "connect"
+    }
+  },
+  {
+    "client": "client-connectcampaigns",
+    "service": {
+      "sdkId": "ConnectCampaigns",
+      "arnNamespace": "connect-campaigns",
+      "cloudTrailEventSource": "connect-campaigns.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-connectcases",
+    "service": {
+      "sdkId": "ConnectCases",
+      "arnNamespace": "cases",
+      "cloudTrailEventSource": "event-source-placeholder",
+      "endpointPrefix": "cases"
+    }
+  },
+  {
+    "client": "client-connectparticipant",
+    "service": {
+      "sdkId": "ConnectParticipant",
+      "arnNamespace": "connect",
+      "cloudFormationName": "ConnectParticipant",
+      "cloudTrailEventSource": "connectparticipant.amazonaws.com",
+      "endpointPrefix": "participant.connect"
+    }
+  },
+  {
+    "client": "client-controltower",
+    "service": {
+      "sdkId": "ControlTower",
+      "arnNamespace": "controltower",
+      "endpointPrefix": "controltower",
+      "cloudTrailEventSource": "controltower.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-cost-and-usage-report-service",
+    "service": {
+      "sdkId": "Cost and Usage Report Service",
+      "arnNamespace": "cur",
+      "cloudFormationName": "CostandUsageReportService",
+      "cloudTrailEventSource": "costandusagereportservice.amazonaws.com",
+      "docId": "cur-2017-01-06",
+      "endpointPrefix": "cur"
+    }
+  },
+  {
+    "client": "client-cost-explorer",
+    "service": {
+      "sdkId": "Cost Explorer",
+      "arnNamespace": "ce",
+      "cloudFormationName": "CostExplorer",
+      "cloudTrailEventSource": "costexplorer.amazonaws.com",
+      "docId": "ce-2017-10-25",
+      "endpointPrefix": "ce"
+    }
+  },
+  {
+    "client": "client-customer-profiles",
+    "service": {
+      "sdkId": "Customer Profiles",
+      "arnNamespace": "profile",
+      "cloudFormationName": "CustomerProfiles",
+      "cloudTrailEventSource": "customerprofiles.amazonaws.com",
+      "endpointPrefix": "profile"
+    }
+  },
+  {
+    "client": "client-data-pipeline",
+    "service": {
+      "sdkId": "Data Pipeline",
+      "arnNamespace": "datapipeline",
+      "cloudFormationName": "DataPipeline",
+      "cloudTrailEventSource": "datapipeline.amazonaws.com",
+      "docId": "datapipeline-2012-10-29",
+      "endpointPrefix": "datapipeline"
+    }
+  },
+  {
+    "client": "client-database-migration-service",
+    "service": {
+      "sdkId": "Database Migration Service",
+      "arnNamespace": "dms",
+      "cloudFormationName": "DMS",
+      "cloudTrailEventSource": "databasemigrationservice.amazonaws.com",
+      "docId": "dms-2016-01-01",
+      "endpointPrefix": "dms"
+    }
+  },
+  {
+    "client": "client-databrew",
+    "service": {
+      "sdkId": "DataBrew",
+      "arnNamespace": "databrew",
+      "cloudFormationName": "DataBrew",
+      "cloudTrailEventSource": "databrew.amazonaws.com",
+      "endpointPrefix": "databrew"
+    }
+  },
+  {
+    "client": "client-dataexchange",
+    "service": {
+      "sdkId": "DataExchange",
+      "arnNamespace": "dataexchange",
+      "cloudTrailEventSource": "dataexchange.amazonaws.com",
+      "endpointPrefix": "dataexchange"
+    }
+  },
+  {
+    "client": "client-datasync",
+    "service": {
+      "sdkId": "DataSync",
+      "arnNamespace": "datasync",
+      "cloudFormationName": "DataSync",
+      "cloudTrailEventSource": "datasync.amazonaws.com",
+      "endpointPrefix": "datasync"
+    }
+  },
+  {
+    "client": "client-datazone",
+    "service": {
+      "sdkId": "DataZone",
+      "arnNamespace": "datazone",
+      "serviceName": "datazone",
+      "cloudTrailEventSource": "datazone.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-dax",
+    "service": {
+      "sdkId": "DAX",
+      "arnNamespace": "dax",
+      "cloudFormationName": "DAX",
+      "cloudTrailEventSource": "dax.amazonaws.com",
+      "endpointPrefix": "dax"
+    }
+  },
+  {
+    "client": "client-detective",
+    "service": {
+      "sdkId": "Detective",
+      "arnNamespace": "detective",
+      "cloudFormationName": "Detective",
+      "cloudTrailEventSource": "detective.amazonaws.com",
+      "endpointPrefix": "api.detective"
+    }
+  },
+  {
+    "client": "client-device-farm",
+    "service": {
+      "sdkId": "Device Farm",
+      "arnNamespace": "devicefarm",
+      "cloudFormationName": "DeviceFarm",
+      "cloudTrailEventSource": "devicefarm.amazonaws.com",
+      "docId": "devicefarm-2015-06-23",
+      "endpointPrefix": "devicefarm"
+    }
+  },
+  {
+    "client": "client-devops-guru",
+    "service": {
+      "sdkId": "DevOps Guru",
+      "arnNamespace": "devops-guru",
+      "cloudFormationName": "DevOpsGuru",
+      "cloudTrailEventSource": "devopsguru.amazonaws.com",
+      "endpointPrefix": "devops-guru"
+    }
+  },
+  {
+    "client": "client-direct-connect",
+    "service": {
+      "sdkId": "Direct Connect",
+      "arnNamespace": "directconnect",
+      "cloudFormationName": "DirectConnect",
+      "cloudTrailEventSource": "directconnect.amazonaws.com",
+      "docId": "directconnect-2012-10-25",
+      "endpointPrefix": "directconnect"
+    }
+  },
+  {
+    "client": "client-directory-service",
+    "service": {
+      "sdkId": "Directory Service",
+      "arnNamespace": "ds",
+      "cloudFormationName": "DirectoryService",
+      "cloudTrailEventSource": "directoryservice.amazonaws.com",
+      "docId": "ds-2015-04-16",
+      "endpointPrefix": "ds"
+    }
+  },
+  {
+    "client": "client-dlm",
+    "service": {
+      "sdkId": "DLM",
+      "arnNamespace": "dlm",
+      "cloudFormationName": "DLM",
+      "cloudTrailEventSource": "dlm.amazonaws.com",
+      "endpointPrefix": "dlm"
+    }
+  },
+  {
+    "client": "client-docdb-elastic",
+    "service": {
+      "sdkId": "DocDB Elastic",
+      "arnNamespace": "docdb-elastic",
+      "cloudTrailEventSource": "CASCADES_EVENT_SOURCE"
+    }
+  },
+  {
+    "client": "client-docdb",
+    "service": {
+      "sdkId": "DocDB",
+      "arnNamespace": "rds",
+      "cloudFormationName": "DocDB",
+      "cloudTrailEventSource": "docdb.amazonaws.com",
+      "endpointPrefix": "rds"
+    }
+  },
+  {
+    "client": "client-drs",
+    "service": {
+      "sdkId": "drs",
+      "arnNamespace": "drs",
+      "awsProductName": "drs",
+      "cloudTrailEventSource": "drs.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-dynamodb-streams",
+    "service": {
+      "sdkId": "DynamoDB Streams",
+      "arnNamespace": "dynamodb",
+      "cloudFormationName": "DynamoDBStreams",
+      "cloudTrailEventSource": "dynamodbstreams.amazonaws.com",
+      "docId": "streams-dynamodb-2012-08-10",
+      "endpointPrefix": "streams.dynamodb"
+    }
+  },
+  {
+    "client": "client-dynamodb",
+    "service": {
+      "sdkId": "DynamoDB",
+      "arnNamespace": "dynamodb",
+      "cloudFormationName": "DynamoDB",
+      "cloudTrailEventSource": "dynamodb.amazonaws.com",
+      "endpointPrefix": "dynamodb"
+    }
+  },
+  {
+    "client": "client-ebs",
+    "service": {
+      "sdkId": "EBS",
+      "arnNamespace": "ebs",
+      "cloudFormationName": "EBS",
+      "cloudTrailEventSource": "ebs.amazonaws.com",
+      "endpointPrefix": "ebs"
+    }
+  },
+  {
+    "client": "client-ec2-instance-connect",
+    "service": {
+      "sdkId": "EC2 Instance Connect",
+      "arnNamespace": "ec2-instance-connect",
+      "cloudFormationName": "EC2InstanceConnect",
+      "cloudTrailEventSource": "ec2instanceconnect.amazonaws.com",
+      "endpointPrefix": "ec2-instance-connect"
+    }
+  },
+  {
+    "client": "client-ec2",
+    "service": {
+      "sdkId": "EC2",
+      "arnNamespace": "ec2",
+      "cloudFormationName": "EC2",
+      "cloudTrailEventSource": "ec2.amazonaws.com",
+      "endpointPrefix": "ec2"
+    }
+  },
+  {
+    "client": "client-ecr-public",
+    "service": {
+      "sdkId": "ECR PUBLIC",
+      "arnNamespace": "ecr-public",
+      "cloudFormationName": "ECRPUBLIC",
+      "cloudTrailEventSource": "ecrpublic.amazonaws.com",
+      "endpointPrefix": "api.ecr-public"
+    }
+  },
+  {
+    "client": "client-ecr",
+    "service": {
+      "sdkId": "ECR",
+      "arnNamespace": "ecr",
+      "cloudFormationName": "ECR",
+      "cloudTrailEventSource": "ecr.amazonaws.com",
+      "endpointPrefix": "api.ecr"
+    }
+  },
+  {
+    "client": "client-ecs",
+    "service": {
+      "sdkId": "ECS",
+      "arnNamespace": "ecs",
+      "cloudFormationName": "ECS",
+      "cloudTrailEventSource": "ecs.amazonaws.com",
+      "endpointPrefix": "ecs"
+    }
+  },
+  {
+    "client": "client-efs",
+    "service": {
+      "sdkId": "EFS",
+      "arnNamespace": "elasticfilesystem",
+      "cloudFormationName": "EFS",
+      "cloudTrailEventSource": "efs.amazonaws.com",
+      "docId": "elasticfilesystem-2015-02-01",
+      "endpointPrefix": "elasticfilesystem"
+    }
+  },
+  {
+    "client": "client-eks",
+    "service": {
+      "sdkId": "EKS",
+      "arnNamespace": "eks",
+      "cloudFormationName": "EKS",
+      "cloudTrailEventSource": "eks.amazonaws.com",
+      "endpointPrefix": "eks"
+    }
+  },
+  {
+    "client": "client-elastic-beanstalk",
+    "service": {
+      "sdkId": "Elastic Beanstalk",
+      "arnNamespace": "elasticbeanstalk",
+      "cloudFormationName": "ElasticBeanstalk",
+      "cloudTrailEventSource": "elasticbeanstalk.amazonaws.com",
+      "docId": "elasticbeanstalk-2010-12-01",
+      "endpointPrefix": "elasticbeanstalk"
+    }
+  },
+  {
+    "client": "client-elastic-inference",
+    "service": {
+      "sdkId": "Elastic Inference",
+      "arnNamespace": "elastic-inference",
+      "cloudFormationName": "ElasticInference",
+      "cloudTrailEventSource": "elasticinference.amazonaws.com",
+      "endpointPrefix": "api.elastic-inference"
+    }
+  },
+  {
+    "client": "client-elastic-load-balancing-v2",
+    "service": {
+      "sdkId": "Elastic Load Balancing v2",
+      "arnNamespace": "elasticloadbalancing",
+      "cloudFormationName": "ElasticLoadBalancingV2",
+      "cloudTrailEventSource": "elasticloadbalancingv2.amazonaws.com",
+      "docId": "elasticloadbalancingv2-2015-12-01",
+      "endpointPrefix": "elasticloadbalancing"
+    }
+  },
+  {
+    "client": "client-elastic-load-balancing",
+    "service": {
+      "sdkId": "Elastic Load Balancing",
+      "arnNamespace": "elasticloadbalancing",
+      "cloudFormationName": "ElasticLoadBalancing",
+      "cloudTrailEventSource": "elasticloadbalancing.amazonaws.com",
+      "docId": "elasticloadbalancing-2012-06-01",
+      "endpointPrefix": "elasticloadbalancing"
+    }
+  },
+  {
+    "client": "client-elastic-transcoder",
+    "service": {
+      "sdkId": "Elastic Transcoder",
+      "arnNamespace": "elastictranscoder",
+      "cloudFormationName": "ElasticTranscoder",
+      "cloudTrailEventSource": "elastictranscoder.amazonaws.com",
+      "docId": "elastictranscoder-2012-09-25",
+      "endpointPrefix": "elastictranscoder"
+    }
+  },
+  {
+    "client": "client-elasticache",
+    "service": {
+      "sdkId": "ElastiCache",
+      "arnNamespace": "elasticache",
+      "cloudFormationName": "ElastiCache",
+      "cloudTrailEventSource": "elasticache.amazonaws.com",
+      "endpointPrefix": "elasticache"
+    }
+  },
+  {
+    "client": "client-elasticsearch-service",
+    "service": {
+      "sdkId": "Elasticsearch Service",
+      "arnNamespace": "es",
+      "cloudFormationName": "Elasticsearch",
+      "cloudTrailEventSource": "elasticsearchservice.amazonaws.com",
+      "docId": "es-2015-01-01",
+      "endpointPrefix": "es"
+    }
+  },
+  {
+    "client": "client-emr-containers",
+    "service": {
+      "sdkId": "EMR containers",
+      "arnNamespace": "emr-containers",
+      "cloudFormationName": "EMRcontainers",
+      "cloudTrailEventSource": "emrcontainers.amazonaws.com",
+      "endpointPrefix": "emr-containers"
+    }
+  },
+  {
+    "client": "client-emr-serverless",
+    "service": {
+      "sdkId": "EMR Serverless",
+      "arnNamespace": "emr-serverless",
+      "cloudFormationName": "EMRServerless"
+    }
+  },
+  {
+    "client": "client-emr",
+    "service": {
+      "sdkId": "EMR",
+      "arnNamespace": "elasticmapreduce",
+      "cloudFormationName": "EMR",
+      "cloudTrailEventSource": "emr.amazonaws.com",
+      "docId": "elasticmapreduce-2009-03-31",
+      "endpointPrefix": "elasticmapreduce"
+    }
+  },
+  {
+    "client": "client-entityresolution",
+    "service": {
+      "sdkId": "EntityResolution",
+      "arnNamespace": "entityresolution",
+      "cloudTrailEventSource": "entityresolution.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-eventbridge",
+    "service": {
+      "sdkId": "EventBridge",
+      "arnNamespace": "events",
+      "cloudFormationName": "Events",
+      "cloudTrailEventSource": "eventbridge.amazonaws.com",
+      "endpointPrefix": "events"
+    }
+  },
+  {
+    "client": "client-evidently",
+    "service": {
+      "sdkId": "Evidently",
+      "arnNamespace": "evidently"
+    }
+  },
+  {
+    "client": "client-finspace-data",
+    "service": {
+      "sdkId": "finspace data",
+      "arnNamespace": "finspace-api",
+      "cloudFormationName": "Finspacedata",
+      "cloudTrailEventSource": "finspacedata.amazonaws.com",
+      "docId": "finspace-2020-07-13",
+      "endpointPrefix": "finspace-api"
+    }
+  },
+  {
+    "client": "client-finspace",
+    "service": {
+      "sdkId": "finspace",
+      "arnNamespace": "finspace",
+      "cloudFormationName": "Finspace",
+      "cloudTrailEventSource": "finspace.amazonaws.com",
+      "endpointPrefix": "finspace"
+    }
+  },
+  {
+    "client": "client-firehose",
+    "service": {
+      "sdkId": "Firehose",
+      "arnNamespace": "firehose",
+      "cloudFormationName": "KinesisFirehose",
+      "cloudTrailEventSource": "firehose.amazonaws.com",
+      "endpointPrefix": "firehose"
+    }
+  },
+  {
+    "client": "client-fis",
+    "service": {
+      "sdkId": "fis",
+      "arnNamespace": "fis",
+      "cloudFormationName": "Fis",
+      "cloudTrailEventSource": "fis.amazonaws.com",
+      "endpointPrefix": "fis"
+    }
+  },
+  {
+    "client": "client-fms",
+    "service": {
+      "sdkId": "FMS",
+      "arnNamespace": "fms",
+      "cloudFormationName": "FMS",
+      "cloudTrailEventSource": "fms.amazonaws.com",
+      "endpointPrefix": "fms"
+    }
+  },
+  {
+    "client": "client-forecast",
+    "service": {
+      "sdkId": "forecast",
+      "arnNamespace": "forecast",
+      "cloudFormationName": "Forecast",
+      "cloudTrailEventSource": "forecast.amazonaws.com",
+      "endpointPrefix": "forecast"
+    }
+  },
+  {
+    "client": "client-forecastquery",
+    "service": {
+      "sdkId": "forecastquery",
+      "arnNamespace": "forecast",
+      "cloudFormationName": "Forecastquery",
+      "cloudTrailEventSource": "forecastquery.amazonaws.com",
+      "endpointPrefix": "forecastquery"
+    }
+  },
+  {
+    "client": "client-frauddetector",
+    "service": {
+      "sdkId": "FraudDetector",
+      "arnNamespace": "frauddetector",
+      "cloudFormationName": "FraudDetector",
+      "cloudTrailEventSource": "frauddetector.amazonaws.com",
+      "endpointPrefix": "frauddetector"
+    }
+  },
+  {
+    "client": "client-fsx",
+    "service": {
+      "sdkId": "FSx",
+      "arnNamespace": "fsx",
+      "cloudFormationName": "FSx",
+      "cloudTrailEventSource": "fsx.amazonaws.com",
+      "endpointPrefix": "fsx"
+    }
+  },
+  {
+    "client": "client-gamelift",
+    "service": {
+      "sdkId": "GameLift",
+      "arnNamespace": "gamelift",
+      "cloudFormationName": "GameLift",
+      "cloudTrailEventSource": "gamelift.amazonaws.com",
+      "endpointPrefix": "gamelift"
+    }
+  },
+  {
+    "client": "client-glacier",
+    "service": {
+      "sdkId": "Glacier",
+      "arnNamespace": "glacier",
+      "cloudFormationName": "Glacier",
+      "cloudTrailEventSource": "glacier.amazonaws.com",
+      "endpointPrefix": "glacier"
+    }
+  },
+  {
+    "client": "client-global-accelerator",
+    "service": {
+      "sdkId": "Global Accelerator",
+      "arnNamespace": "globalaccelerator",
+      "cloudFormationName": "GlobalAccelerator",
+      "cloudTrailEventSource": "globalaccelerator.amazonaws.com",
+      "docId": "globalaccelerator-2018-08-08",
+      "endpointPrefix": "globalaccelerator"
+    }
+  },
+  {
+    "client": "client-glue",
+    "service": {
+      "sdkId": "Glue",
+      "arnNamespace": "glue",
+      "cloudFormationName": "Glue",
+      "cloudTrailEventSource": "glue.amazonaws.com",
+      "endpointPrefix": "glue"
+    }
+  },
+  {
+    "client": "client-grafana",
+    "service": {
+      "sdkId": "grafana",
+      "arnNamespace": "grafana",
+      "cloudFormationName": "Grafana",
+      "cloudTrailEventSource": "EVENT_SOURCE_VALUE"
+    }
+  },
+  {
+    "client": "client-greengrass",
+    "service": {
+      "sdkId": "Greengrass",
+      "arnNamespace": "greengrass",
+      "cloudFormationName": "Greengrass",
+      "cloudTrailEventSource": "greengrass.amazonaws.com",
+      "endpointPrefix": "greengrass"
+    }
+  },
+  {
+    "client": "client-greengrassv2",
+    "service": {
+      "sdkId": "GreengrassV2",
+      "arnNamespace": "greengrass",
+      "cloudFormationName": "GreengrassV2",
+      "cloudTrailEventSource": "greengrassv2.amazonaws.com",
+      "endpointPrefix": "greengrass"
+    }
+  },
+  {
+    "client": "client-groundstation",
+    "service": {
+      "sdkId": "GroundStation",
+      "cloudFormationName": "AWSGroundStation",
+      "arnNamespace": "groundstation",
+      "cloudTrailEventSource": "groundstation.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-guardduty",
+    "service": {
+      "sdkId": "GuardDuty",
+      "arnNamespace": "guardduty",
+      "cloudFormationName": "GuardDuty",
+      "cloudTrailEventSource": "guardduty.amazonaws.com",
+      "endpointPrefix": "guardduty"
+    }
+  },
+  {
+    "client": "client-health",
+    "service": {
+      "sdkId": "Health",
+      "arnNamespace": "health",
+      "cloudFormationName": "Health",
+      "cloudTrailEventSource": "health.amazonaws.com",
+      "endpointPrefix": "health"
+    }
+  },
+  {
+    "client": "client-healthlake",
+    "service": {
+      "sdkId": "HealthLake",
+      "arnNamespace": "healthlake",
+      "cloudFormationName": "HealthLake",
+      "cloudTrailEventSource": "healthlake.amazonaws.com",
+      "endpointPrefix": "healthlake"
+    }
+  },
+  {
+    "client": "client-honeycode",
+    "service": {
+      "sdkId": "Honeycode",
+      "arnNamespace": "honeycode",
+      "cloudFormationName": "Honeycode",
+      "cloudTrailEventSource": "honeycode.amazonaws.com",
+      "endpointPrefix": "honeycode"
+    }
+  },
+  {
+    "client": "client-iam",
+    "service": {
+      "sdkId": "IAM",
+      "arnNamespace": "iam",
+      "cloudFormationName": "IAM",
+      "cloudTrailEventSource": "iam.amazonaws.com",
+      "endpointPrefix": "iam"
+    }
+  },
+  {
+    "client": "client-identitystore",
+    "service": {
+      "sdkId": "identitystore",
+      "arnNamespace": "identitystore",
+      "cloudFormationName": "IdentityStore",
+      "cloudTrailEventSource": "identitystore.amazonaws.com",
+      "endpointPrefix": "identitystore"
+    }
+  },
+  {
+    "client": "client-imagebuilder",
+    "service": {
+      "sdkId": "imagebuilder",
+      "arnNamespace": "imagebuilder",
+      "cloudFormationName": "Imagebuilder",
+      "cloudTrailEventSource": "imagebuilder.amazonaws.com",
+      "endpointPrefix": "imagebuilder"
+    }
+  },
+  {
+    "client": "client-inspector",
+    "service": {
+      "sdkId": "Inspector",
+      "arnNamespace": "inspector",
+      "cloudFormationName": "Inspector",
+      "cloudTrailEventSource": "inspector.amazonaws.com",
+      "endpointPrefix": "inspector"
+    }
+  },
+  {
+    "client": "client-inspector2",
+    "service": {
+      "sdkId": "Inspector2",
+      "arnNamespace": "inspector2",
+      "cloudTrailEventSource": "inspector2.amazon.aws",
+      "cloudFormationName": "Inspector2"
+    }
+  },
+  {
+    "client": "client-internetmonitor",
+    "service": {
+      "sdkId": "InternetMonitor",
+      "arnNamespace": "internetmonitor",
+      "cloudFormationName": "InternetMonitor",
+      "cloudTrailEventSource": "internetmonitor.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-iot-1click-devices-service",
+    "service": {
+      "sdkId": "IoT 1Click Devices Service",
+      "arnNamespace": "iot1click",
+      "cloudFormationName": "IoT1ClickDevicesService",
+      "cloudTrailEventSource": "iot1clickdevicesservice.amazonaws.com",
+      "docId": "devices-2018-05-14",
+      "endpointPrefix": "devices.iot1click"
+    }
+  },
+  {
+    "client": "client-iot-1click-projects",
+    "service": {
+      "sdkId": "IoT 1Click Projects",
+      "arnNamespace": "iot1click",
+      "cloudFormationName": "IoT1Click",
+      "cloudTrailEventSource": "iot1clickprojects.amazonaws.com",
+      "docId": "iot1click-projects-2018-05-14",
+      "endpointPrefix": "projects.iot1click"
+    }
+  },
+  {
+    "client": "client-iot-data-plane",
+    "service": {
+      "sdkId": "IoT Data Plane",
+      "arnNamespace": "iotdata",
+      "cloudFormationName": "IoTDataPlane",
+      "cloudTrailEventSource": "iotdataplane.amazonaws.com",
+      "docId": "iot-data-2015-05-28",
+      "endpointPrefix": "data-ats.iot"
+    }
+  },
+  {
+    "client": "client-iot-events-data",
+    "service": {
+      "sdkId": "IoT Events Data",
+      "arnNamespace": "ioteventsdata",
+      "cloudFormationName": "IoTEventsData",
+      "cloudTrailEventSource": "ioteventsdata.amazonaws.com",
+      "docId": "iotevents-data-2018-10-23",
+      "endpointPrefix": "data.iotevents"
+    }
+  },
+  {
+    "client": "client-iot-events",
+    "service": {
+      "sdkId": "IoT Events",
+      "arnNamespace": "iotevents",
+      "cloudFormationName": "IoTEvents",
+      "cloudTrailEventSource": "iotevents.amazonaws.com",
+      "docId": "iotevents-2018-07-27",
+      "endpointPrefix": "iotevents"
+    }
+  },
+  {
+    "client": "client-iot-jobs-data-plane",
+    "service": {
+      "sdkId": "IoT Jobs Data Plane",
+      "arnNamespace": "iot-jobs-data",
+      "cloudFormationName": "IoTJobsDataPlane",
+      "cloudTrailEventSource": "iotjobsdataplane.amazonaws.com",
+      "docId": "iot-jobs-data-2017-09-29",
+      "endpointPrefix": "data.jobs.iot"
+    }
+  },
+  {
+    "client": "client-iot-roborunner",
+    "service": {
+      "sdkId": "IoT RoboRunner",
+      "arnNamespace": "iotroborunner",
+      "endpointPrefix": "iotroborunner",
+      "cloudTrailEventSource": "iotroborunner.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-iot-wireless",
+    "service": {
+      "sdkId": "IoT Wireless",
+      "arnNamespace": "iotwireless",
+      "cloudFormationName": "IoTWireless",
+      "cloudTrailEventSource": "iotwireless.amazonaws.com",
+      "docId": "iotwireless-2020-11-22",
+      "endpointPrefix": "api.iotwireless"
+    }
+  },
+  {
+    "client": "client-iot",
+    "service": {
+      "sdkId": "IoT",
+      "arnNamespace": "iot",
+      "cloudFormationName": "IoT",
+      "cloudTrailEventSource": "iot.amazonaws.com",
+      "endpointPrefix": "iot"
+    }
+  },
+  {
+    "client": "client-iotanalytics",
+    "service": {
+      "sdkId": "IoTAnalytics",
+      "arnNamespace": "iotanalytics",
+      "cloudFormationName": "IoTAnalytics",
+      "cloudTrailEventSource": "iotanalytics.amazonaws.com",
+      "endpointPrefix": "iotanalytics"
+    }
+  },
+  {
+    "client": "client-iotdeviceadvisor",
+    "service": {
+      "sdkId": "IotDeviceAdvisor",
+      "arnNamespace": "iotdeviceadvisor",
+      "cloudFormationName": "IotDeviceAdvisor",
+      "cloudTrailEventSource": "iotdeviceadvisor.amazonaws.com",
+      "endpointPrefix": "api.iotdeviceadvisor"
+    }
+  },
+  {
+    "client": "client-iotfleethub",
+    "service": {
+      "sdkId": "IoTFleetHub",
+      "arnNamespace": "iotfleethub",
+      "cloudFormationName": "IoTFleetHub",
+      "cloudTrailEventSource": "iotfleethub.amazonaws.com",
+      "endpointPrefix": "api.fleethub.iot"
+    }
+  },
+  {
+    "client": "client-iotfleetwise",
+    "service": {
+      "sdkId": "IoTFleetWise",
+      "arnNamespace": "iotfleetwise"
+    }
+  },
+  {
+    "client": "client-iotsecuretunneling",
+    "service": {
+      "sdkId": "IoTSecureTunneling",
+      "arnNamespace": "iotsecuredtunneling",
+      "cloudFormationName": "IoTSecureTunneling",
+      "cloudTrailEventSource": "iotsecuretunneling.amazonaws.com",
+      "endpointPrefix": "api.tunneling.iot"
+    }
+  },
+  {
+    "client": "client-iotsitewise",
+    "service": {
+      "sdkId": "IoTSiteWise",
+      "arnNamespace": "iotsitewise",
+      "cloudFormationName": "IoTSiteWise",
+      "cloudTrailEventSource": "iotsitewise.amazonaws.com",
+      "endpointPrefix": "iotsitewise"
+    }
+  },
+  {
+    "client": "client-iotthingsgraph",
+    "service": {
+      "sdkId": "IoTThingsGraph",
+      "arnNamespace": "iotthingsgraph",
+      "cloudFormationName": "IoTThingsGraph",
+      "cloudTrailEventSource": "iotthingsgraph.amazonaws.com",
+      "endpointPrefix": "iotthingsgraph"
+    }
+  },
+  {
+    "client": "client-iottwinmaker",
+    "service": {
+      "sdkId": "IoTTwinMaker",
+      "endpointPrefix": "iottwinmaker"
+    }
+  },
+  {
+    "client": "client-ivs-realtime",
+    "service": {
+      "sdkId": "IVS RealTime",
+      "arnNamespace": "ivs",
+      "cloudFormationName": "IVS",
+      "cloudTrailEventSource": "REPLACE_WITH_EVENT_SOURCE",
+      "endpointPrefix": "ivsrealtime"
+    }
+  },
+  {
+    "client": "client-ivs",
+    "service": {
+      "sdkId": "ivs",
+      "arnNamespace": "ivs",
+      "cloudFormationName": "IVS",
+      "cloudTrailEventSource": "REPLACE_WITH_EVENT_SOURCE"
+    }
+  },
+  {
+    "client": "client-ivschat",
+    "service": {
+      "sdkId": "ivschat",
+      "arnNamespace": "ivschat",
+      "cloudFormationName": "IVSChat",
+      "cloudTrailEventSource": "REPLACE_WITH_EVENT_SOURCE"
+    }
+  },
+  {
+    "client": "client-kafka",
+    "service": {
+      "sdkId": "Kafka",
+      "arnNamespace": "kafka",
+      "cloudFormationName": "MSK",
+      "cloudTrailEventSource": "kafka.amazonaws.com",
+      "endpointPrefix": "kafka"
+    }
+  },
+  {
+    "client": "client-kafkaconnect",
+    "service": {
+      "sdkId": "KafkaConnect",
+      "name": "kafkaconnect",
+      "arnNamespace": "kafkaconnect",
+      "cloudFormationName": "KafkaConnect",
+      "cloudTrailEventSource": "kafkaconnect.amazonaws.com",
+      "endpointPrefix": "kafkaconnect"
+    }
+  },
+  {
+    "client": "client-kendra-ranking",
+    "service": {
+      "sdkId": "Kendra Ranking",
+      "arnNamespace": "kendra-ranking",
+      "cloudFormationName": "KendraRanking",
+      "cloudTrailEventSource": "kendraranking.amazonaws.com",
+      "endpointPrefix": "kendra-ranking"
+    }
+  },
+  {
+    "client": "client-kendra",
+    "service": {
+      "sdkId": "kendra",
+      "arnNamespace": "kendra",
+      "cloudFormationName": "Kendra",
+      "cloudTrailEventSource": "kendra.amazonaws.com",
+      "endpointPrefix": "kendra"
+    }
+  },
+  {
+    "client": "client-keyspaces",
+    "service": {
+      "sdkId": "Keyspaces",
+      "cloudFormationName": "Cassandra",
+      "arnNamespace": "cassandra",
+      "cloudTrailEventSource": "cassandra.amazonaws.com",
+      "endpointPrefix": "cassandra"
+    }
+  },
+  {
+    "client": "client-kinesis-analytics-v2",
+    "service": {
+      "sdkId": "Kinesis Analytics V2",
+      "arnNamespace": "kinesisanalytics",
+      "cloudFormationName": "KinesisAnalyticsV2",
+      "cloudTrailEventSource": "kinesisanalyticsv2.amazonaws.com",
+      "docId": "kinesisanalyticsv2-2018-05-23",
+      "endpointPrefix": "kinesisanalytics"
+    }
+  },
+  {
+    "client": "client-kinesis-analytics",
+    "service": {
+      "sdkId": "Kinesis Analytics",
+      "arnNamespace": "kinesisanalytics",
+      "cloudFormationName": "KinesisAnalytics",
+      "cloudTrailEventSource": "kinesisanalytics.amazonaws.com",
+      "docId": "kinesisanalytics-2015-08-14",
+      "endpointPrefix": "kinesisanalytics"
+    }
+  },
+  {
+    "client": "client-kinesis-video-archived-media",
+    "service": {
+      "sdkId": "Kinesis Video Archived Media",
+      "arnNamespace": "kinesisvideo",
+      "cloudFormationName": "KinesisVideoArchivedMedia",
+      "cloudTrailEventSource": "kinesisvideoarchivedmedia.amazonaws.com",
+      "endpointPrefix": "kinesisvideo"
+    }
+  },
+  {
+    "client": "client-kinesis-video-media",
+    "service": {
+      "sdkId": "Kinesis Video Media",
+      "arnNamespace": "kinesisvideo",
+      "cloudFormationName": "KinesisVideoMedia",
+      "cloudTrailEventSource": "kinesisvideomedia.amazonaws.com",
+      "endpointPrefix": "kinesisvideo"
+    }
+  },
+  {
+    "client": "client-kinesis-video-signaling",
+    "service": {
+      "sdkId": "Kinesis Video Signaling",
+      "arnNamespace": "kinesisvideo",
+      "cloudFormationName": "KinesisVideoSignaling",
+      "cloudTrailEventSource": "kinesisvideosignaling.amazonaws.com",
+      "endpointPrefix": "kinesisvideo"
+    }
+  },
+  {
+    "client": "client-kinesis-video-webrtc-storage",
+    "service": {
+      "sdkId": "Kinesis Video WebRTC Storage",
+      "arnNamespace": "kinesisvideo",
+      "endpointPrefix": "kinesisvideo"
+    }
+  },
+  {
+    "client": "client-kinesis-video",
+    "service": {
+      "sdkId": "Kinesis Video",
+      "arnNamespace": "kinesisvideo",
+      "cloudFormationName": "KinesisVideo",
+      "cloudTrailEventSource": "kinesisvideo.amazonaws.com",
+      "docId": "kinesisvideo-2017-09-30",
+      "endpointPrefix": "kinesisvideo"
+    }
+  },
+  {
+    "client": "client-kinesis",
+    "service": {
+      "sdkId": "Kinesis",
+      "arnNamespace": "kinesis",
+      "cloudFormationName": "Kinesis",
+      "cloudTrailEventSource": "kinesis.amazonaws.com",
+      "endpointPrefix": "kinesis"
+    }
+  },
+  {
+    "client": "client-kms",
+    "service": {
+      "sdkId": "KMS",
+      "arnNamespace": "kms",
+      "cloudFormationName": "KMS",
+      "cloudTrailEventSource": "kms.amazonaws.com",
+      "endpointPrefix": "kms"
+    }
+  },
+  {
+    "client": "client-lakeformation",
+    "service": {
+      "sdkId": "LakeFormation",
+      "arnNamespace": "lakeformation",
+      "cloudFormationName": "LakeFormation",
+      "cloudTrailEventSource": "lakeformation.amazonaws.com",
+      "endpointPrefix": "lakeformation"
+    }
+  },
+  {
+    "client": "client-lambda",
+    "service": {
+      "sdkId": "Lambda",
+      "arnNamespace": "lambda",
+      "cloudFormationName": "Lambda",
+      "cloudTrailEventSource": "lambda.amazonaws.com",
+      "endpointPrefix": "lambda"
+    }
+  },
+  {
+    "client": "client-lex-model-building-service",
+    "service": {
+      "sdkId": "Lex Model Building Service",
+      "arnNamespace": "lex",
+      "cloudFormationName": "LexModelBuildingService",
+      "cloudTrailEventSource": "lexmodelbuildingservice.amazonaws.com",
+      "docId": "lex-models-2017-04-19",
+      "endpointPrefix": "models.lex"
+    }
+  },
+  {
+    "client": "client-lex-models-v2",
+    "service": {
+      "sdkId": "Lex Models V2",
+      "arnNamespace": "lex",
+      "cloudFormationName": "LexModelsV2",
+      "cloudTrailEventSource": "lexmodelsv2.amazonaws.com",
+      "docId": "models.lex.v2-2020-08-07",
+      "endpointPrefix": "models-v2-lex"
+    }
+  },
+  {
+    "client": "client-lex-runtime-service",
+    "service": {
+      "sdkId": "Lex Runtime Service",
+      "arnNamespace": "lex",
+      "cloudFormationName": "LexRuntimeService",
+      "cloudTrailEventSource": "lexruntimeservice.amazonaws.com",
+      "docId": "runtime.lex-2016-11-28",
+      "endpointPrefix": "runtime.lex"
+    }
+  },
+  {
+    "client": "client-lex-runtime-v2",
+    "service": {
+      "sdkId": "Lex Runtime V2",
+      "arnNamespace": "lex",
+      "cloudFormationName": "LexRuntimeV2",
+      "cloudTrailEventSource": "lexruntimev2.amazonaws.com",
+      "docId": "runtime.lex.v2-2020-08-07",
+      "endpointPrefix": "runtime-v2-lex"
+    }
+  },
+  {
+    "client": "client-license-manager-linux-subscriptions",
+    "service": {
+      "sdkId": "License Manager Linux Subscriptions",
+      "arnNamespace": "license-manager-linux-subscriptions",
+      "cloudTrailEventSource": "license-manager-linux-subscriptions.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-license-manager-user-subscriptions",
+    "service": {
+      "sdkId": "License Manager User Subscriptions",
+      "arnNamespace": "license-manager-user-subscriptions",
+      "cloudTrailEventSource": "license-manager-user-subscriptions.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-license-manager",
+    "service": {
+      "sdkId": "License Manager",
+      "arnNamespace": "license-manager",
+      "cloudFormationName": "LicenseManager",
+      "cloudTrailEventSource": "licensemanager.amazonaws.com",
+      "endpointPrefix": "license-manager"
+    }
+  },
+  {
+    "client": "client-lightsail",
+    "service": {
+      "sdkId": "Lightsail",
+      "arnNamespace": "lightsail",
+      "cloudFormationName": "Lightsail",
+      "cloudTrailEventSource": "lightsail.amazonaws.com",
+      "endpointPrefix": "lightsail"
+    }
+  },
+  {
+    "client": "client-location",
+    "service": {
+      "sdkId": "Location",
+      "arnNamespace": "geo"
+    }
+  },
+  {
+    "client": "client-lookoutequipment",
+    "service": {
+      "sdkId": "LookoutEquipment",
+      "arnNamespace": "lookoutequipment",
+      "cloudFormationName": "LookoutEquipment",
+      "cloudTrailEventSource": "lookoutequipment.amazonaws.com",
+      "endpointPrefix": "lookoutequipment"
+    }
+  },
+  {
+    "client": "client-lookoutmetrics",
+    "service": {
+      "sdkId": "LookoutMetrics",
+      "arnNamespace": "lookoutmetrics",
+      "cloudFormationName": "LookoutMetrics",
+      "cloudTrailEventSource": "lookoutmetrics.amazonaws.com",
+      "endpointPrefix": "lookoutmetrics"
+    }
+  },
+  {
+    "client": "client-lookoutvision",
+    "service": {
+      "sdkId": "LookoutVision",
+      "arnNamespace": "lookoutvision",
+      "cloudFormationName": "LookoutVision",
+      "cloudTrailEventSource": "lookoutvision.amazonaws.com",
+      "endpointPrefix": "lookoutvision"
+    }
+  },
+  {
+    "client": "client-m2",
+    "service": {
+      "sdkId": "m2",
+      "sdkServiceId": "M2",
+      "serviceName": "m2",
+      "arnNamespace": "m2",
+      "cloudFormationName": "M2",
+      "cloudTrailEventSource": "m2.amazonaws.com",
+      "endpointPrefix": "m2"
+    }
+  },
+  {
+    "client": "client-machine-learning",
+    "service": {
+      "sdkId": "Machine Learning",
+      "arnNamespace": "machinelearning",
+      "cloudFormationName": "MachineLearning",
+      "cloudTrailEventSource": "machinelearning.amazonaws.com",
+      "docId": "machinelearning-2014-12-12",
+      "endpointPrefix": "machinelearning"
+    }
+  },
+  {
+    "client": "client-macie",
+    "service": {
+      "sdkId": "Macie",
+      "arnNamespace": "macie",
+      "cloudFormationName": "Macie",
+      "cloudTrailEventSource": "macie.amazonaws.com",
+      "endpointPrefix": "macie"
+    }
+  },
+  {
+    "client": "client-macie2",
+    "service": {
+      "sdkId": "Macie2",
+      "arnNamespace": "macie2",
+      "cloudFormationName": "Macie2",
+      "cloudTrailEventSource": "macie2.amazonaws.com",
+      "endpointPrefix": "macie2"
+    }
+  },
+  {
+    "client": "client-managedblockchain-query",
+    "service": {
+      "sdkId": "ManagedBlockchain Query",
+      "arnNamespace": "managedblockchain-query"
+    }
+  },
+  {
+    "client": "client-managedblockchain",
+    "service": {
+      "sdkId": "ManagedBlockchain",
+      "arnNamespace": "managedblockchain",
+      "cloudFormationName": "ManagedBlockchain",
+      "cloudTrailEventSource": "managedblockchain.amazonaws.com",
+      "endpointPrefix": "managedblockchain"
+    }
+  },
+  {
+    "client": "client-marketplace-catalog",
+    "service": {
+      "sdkId": "Marketplace Catalog",
+      "arnNamespace": "aws-marketplace",
+      "cloudFormationName": "MarketplaceCatalog",
+      "cloudTrailEventSource": "marketplacecatalog.amazonaws.com",
+      "endpointPrefix": "catalog.marketplace"
+    }
+  },
+  {
+    "client": "client-marketplace-commerce-analytics",
+    "service": {
+      "sdkId": "Marketplace Commerce Analytics",
+      "arnNamespace": "marketplacecommerceanalytics",
+      "cloudFormationName": "MarketplaceCommerceAnalytics",
+      "cloudTrailEventSource": "marketplacecommerceanalytics.amazonaws.com",
+      "docId": "marketplacecommerceanalytics-2015-07-01",
+      "endpointPrefix": "marketplacecommerceanalytics"
+    }
+  },
+  {
+    "client": "client-marketplace-entitlement-service",
+    "service": {
+      "sdkId": "Marketplace Entitlement Service",
+      "arnNamespace": "aws-marketplace",
+      "cloudFormationName": "MarketplaceEntitlementService",
+      "cloudTrailEventSource": "marketplaceentitlementservice.amazonaws.com",
+      "docId": "entitlement.marketplace-2017-01-11",
+      "endpointPrefix": "entitlement.marketplace"
+    }
+  },
+  {
+    "client": "client-marketplace-metering",
+    "service": {
+      "sdkId": "Marketplace Metering",
+      "arnNamespace": "aws-marketplace",
+      "cloudFormationName": "MarketplaceMetering",
+      "cloudTrailEventSource": "marketplacemetering.amazonaws.com",
+      "docId": "meteringmarketplace-2016-01-14",
+      "endpointPrefix": "metering.marketplace"
+    }
+  },
+  {
+    "client": "client-mediaconnect",
+    "service": {
+      "sdkId": "MediaConnect",
+      "arnNamespace": "mediaconnect",
+      "cloudFormationName": "MediaConnect",
+      "cloudTrailEventSource": "mediaconnect.amazonaws.com",
+      "endpointPrefix": "mediaconnect"
+    }
+  },
+  {
+    "client": "client-mediaconvert",
+    "service": {
+      "sdkId": "MediaConvert",
+      "arnNamespace": "mediaconvert",
+      "cloudFormationName": "MediaConvert",
+      "cloudTrailEventSource": "mediaconvert.amazonaws.com",
+      "endpointPrefix": "mediaconvert"
+    }
+  },
+  {
+    "client": "client-medialive",
+    "service": {
+      "sdkId": "MediaLive",
+      "arnNamespace": "medialive",
+      "cloudFormationName": "MediaLive",
+      "cloudTrailEventSource": "medialive.amazonaws.com",
+      "endpointPrefix": "medialive"
+    }
+  },
+  {
+    "client": "client-mediapackage-vod",
+    "service": {
+      "sdkId": "MediaPackage Vod",
+      "arnNamespace": "mediapackage-vod",
+      "cloudFormationName": "MediaPackageVod",
+      "cloudTrailEventSource": "mediapackagevod.amazonaws.com",
+      "endpointPrefix": "mediapackage-vod"
+    }
+  },
+  {
+    "client": "client-mediapackage",
+    "service": {
+      "sdkId": "MediaPackage",
+      "arnNamespace": "mediapackage",
+      "cloudFormationName": "MediaPackage",
+      "cloudTrailEventSource": "mediapackage.amazonaws.com",
+      "endpointPrefix": "mediapackage"
+    }
+  },
+  {
+    "client": "client-mediapackagev2",
+    "service": {
+      "sdkId": "MediaPackageV2",
+      "arnNamespace": "mediapackagev2",
+      "cloudFormationName": "MediaPackageV2",
+      "cloudTrailEventSource": "mediapackagev2.amazonaws.com",
+      "endpointPrefix": "mediapackagev2"
+    }
+  },
+  {
+    "client": "client-mediastore-data",
+    "service": {
+      "sdkId": "MediaStore Data",
+      "arnNamespace": "mediastore",
+      "cloudFormationName": "MediaStoreData",
+      "cloudTrailEventSource": "mediastoredata.amazonaws.com",
+      "endpointPrefix": "data.mediastore"
+    }
+  },
+  {
+    "client": "client-mediastore",
+    "service": {
+      "sdkId": "MediaStore",
+      "arnNamespace": "mediastore",
+      "cloudFormationName": "MediaStore",
+      "cloudTrailEventSource": "mediastore.amazonaws.com",
+      "endpointPrefix": "mediastore"
+    }
+  },
+  {
+    "client": "client-mediatailor",
+    "service": {
+      "sdkId": "MediaTailor",
+      "arnNamespace": "mediatailor",
+      "cloudFormationName": "MediaTailor",
+      "cloudTrailEventSource": "mediatailor.amazonaws.com",
+      "endpointPrefix": "api.mediatailor"
+    }
+  },
+  {
+    "client": "client-medical-imaging",
+    "service": {
+      "sdkId": "Medical Imaging",
+      "arnNamespace": "medical-imaging",
+      "endpointPrefix": "medical-imaging"
+    }
+  },
+  {
+    "client": "client-memorydb",
+    "service": {
+      "sdkId": "MemoryDB",
+      "arnNamespace": "memorydb",
+      "cloudFormationName": "MemoryDB",
+      "cloudTrailEventSource": "memorydb.amazonaws.com",
+      "endpointPrefix": "memory-db"
+    }
+  },
+  {
+    "client": "client-mgn",
+    "service": {
+      "sdkId": "mgn",
+      "arnNamespace": "mgn",
+      "awsProductName": "mgn",
+      "cloudTrailEventSource": "mgn.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-migration-hub-refactor-spaces",
+    "service": {
+      "sdkId": "Migration Hub Refactor Spaces",
+      "arnNamespace": "refactor-spaces",
+      "cloudFormationName": "RefactorSpaces",
+      "cloudTrailEventSource": "refactor-spaces.amazonaws.com",
+      "endpointPrefix": "refactor-spaces"
+    }
+  },
+  {
+    "client": "client-migration-hub",
+    "service": {
+      "sdkId": "Migration Hub",
+      "arnNamespace": "mgh",
+      "cloudFormationName": "MigrationHub",
+      "cloudTrailEventSource": "migrationhub.amazonaws.com",
+      "docId": "AWSMigrationHub-2017-05-31",
+      "endpointPrefix": "mgh"
+    }
+  },
+  {
+    "client": "client-migrationhub-config",
+    "service": {
+      "sdkId": "MigrationHub Config",
+      "arnNamespace": "mgh",
+      "cloudFormationName": "MigrationHubConfig",
+      "cloudTrailEventSource": "migrationhubconfig.amazonaws.com",
+      "endpointPrefix": "migrationhub-config"
+    }
+  },
+  {
+    "client": "client-migrationhuborchestrator",
+    "service": {
+      "sdkId": "MigrationHubOrchestrator",
+      "arnNamespace": "migrationhub-orchestrator",
+      "endpointPrefix": "migrationhub-orchestrator",
+      "cloudTrailEventSource": "migrationhub-orchestrator.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-migrationhubstrategy",
+    "service": {
+      "sdkId": "MigrationHubStrategy",
+      "endpointPrefix": "migrationhub-strategy",
+      "cloudTrailEventSource": "migrationhub-strategy.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-mobile",
+    "service": {
+      "sdkId": "Mobile",
+      "arnNamespace": "awsmobilehubservice",
+      "cloudFormationName": "Mobile",
+      "cloudTrailEventSource": "mobile.amazonaws.com",
+      "endpointPrefix": "mobile"
+    }
+  },
+  {
+    "client": "client-mq",
+    "service": {
+      "sdkId": "mq",
+      "arnNamespace": "mq",
+      "cloudFormationName": "AmazonMQ",
+      "cloudTrailEventSource": "mq.amazonaws.com",
+      "endpointPrefix": "mq"
+    }
+  },
+  {
+    "client": "client-mturk",
+    "service": {
+      "sdkId": "MTurk",
+      "arnNamespace": "mturk-requester",
+      "cloudFormationName": "MTurk",
+      "cloudTrailEventSource": "mturk.amazonaws.com",
+      "docId": "mturk-requester-2017-01-17",
+      "endpointPrefix": "mturk-requester"
+    }
+  },
+  {
+    "client": "client-mwaa",
+    "service": {
+      "sdkId": "MWAA",
+      "arnNamespace": "airflow"
+    }
+  },
+  {
+    "client": "client-neptune",
+    "service": {
+      "sdkId": "Neptune",
+      "arnNamespace": "rds",
+      "cloudFormationName": "Neptune",
+      "cloudTrailEventSource": "neptune.amazonaws.com",
+      "endpointPrefix": "rds"
+    }
+  },
+  {
+    "client": "client-neptunedata",
+    "service": {
+      "sdkId": "neptunedata",
+      "arnNamespace": "neptune-db"
+    }
+  },
+  {
+    "client": "client-network-firewall",
+    "service": {
+      "sdkId": "Network Firewall",
+      "arnNamespace": "network-firewall",
+      "cloudFormationName": "NetworkFirewall",
+      "cloudTrailEventSource": "networkfirewall.amazonaws.com",
+      "endpointPrefix": "network-firewall"
+    }
+  },
+  {
+    "client": "client-networkmanager",
+    "service": {
+      "sdkId": "NetworkManager",
+      "arnNamespace": "networkmanager",
+      "cloudFormationName": "NetworkManager",
+      "cloudTrailEventSource": "networkmanager.amazonaws.com",
+      "endpointPrefix": "networkmanager"
+    }
+  },
+  {
+    "client": "client-nimble",
+    "service": {
+      "sdkId": "nimble",
+      "cloudFormationName": "NimbleStudio",
+      "arnNamespace": "nimble",
+      "cloudTrailEventSource": "nimble.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-oam",
+    "service": {
+      "sdkId": "OAM",
+      "arnNamespace": "oam",
+      "cloudTrailEventSource": "{{CLOUD_TRAIL_EVENT_SOURCE}}"
+    }
+  },
+  {
+    "client": "client-omics",
+    "service": {
+      "sdkId": "Omics",
+      "arnNamespace": "omics",
+      "cloudTrailEventSource": "omics.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-opensearch",
+    "service": {
+      "sdkId": "OpenSearch",
+      "arnNamespace": "es",
+      "cloudFormationName": "OpenSearch",
+      "cloudTrailEventSource": "opensearch.amazonaws.com",
+      "endpointPrefix": "es"
+    }
+  },
+  {
+    "client": "client-opensearchserverless",
+    "service": {
+      "sdkId": "OpenSearchServerless",
+      "arnNamespace": "aoss"
+    }
+  },
+  {
+    "client": "client-opsworks",
+    "service": {
+      "sdkId": "OpsWorks",
+      "arnNamespace": "opsworks",
+      "cloudFormationName": "OpsWorks",
+      "cloudTrailEventSource": "opsworks.amazonaws.com",
+      "endpointPrefix": "opsworks"
+    }
+  },
+  {
+    "client": "client-opsworkscm",
+    "service": {
+      "sdkId": "OpsWorksCM",
+      "arnNamespace": "opsworks-cm",
+      "cloudFormationName": "OpsWorksCM",
+      "cloudTrailEventSource": "opsworkscm.amazonaws.com",
+      "endpointPrefix": "opsworks-cm"
+    }
+  },
+  {
+    "client": "client-organizations",
+    "service": {
+      "sdkId": "Organizations",
+      "arnNamespace": "organizations",
+      "cloudFormationName": "Organizations",
+      "cloudTrailEventSource": "organizations.amazonaws.com",
+      "endpointPrefix": "organizations"
+    }
+  },
+  {
+    "client": "client-osis",
+    "service": {
+      "sdkId": "OSIS",
+      "arnNamespace": "osis",
+      "cloudFormationName": "OSIS",
+      "cloudTrailEventSource": "osis.amazonaws.com",
+      "endpointPrefix": "osis"
+    }
+  },
+  {
+    "client": "client-outposts",
+    "service": {
+      "sdkId": "Outposts",
+      "arnNamespace": "outposts",
+      "cloudFormationName": "Outposts",
+      "cloudTrailEventSource": "outposts.amazonaws.com",
+      "endpointPrefix": "outposts"
+    }
+  },
+  {
+    "client": "client-panorama",
+    "service": {
+      "sdkId": "Panorama",
+      "arnNamespace": "panorama",
+      "awsProductName": "AWSPanorama"
+    }
+  },
+  {
+    "client": "client-payment-cryptography-data",
+    "service": {
+      "sdkId": "Payment Cryptography Data",
+      "endpointPrefix": "dataplane.payment-cryptography"
+    }
+  },
+  {
+    "client": "client-payment-cryptography",
+    "service": {
+      "sdkId": "Payment Cryptography",
+      "arnNamespace": "payment-cryptography",
+      "endpointPrefix": "controlplane.payment-cryptography"
+    }
+  },
+  {
+    "client": "client-pca-connector-ad",
+    "service": {
+      "arnNamespace": "pca-connector-ad",
+      "cloudFormationName": "PCAConnectorAD",
+      "sdkId": "Pca Connector Ad",
+      "serviceName": "pca-connector-ad",
+      "cloudTrailEventSource": "pca-connector-ad.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-personalize-events",
+    "service": {
+      "sdkId": "Personalize Events",
+      "arnNamespace": "personalize",
+      "cloudFormationName": "PersonalizeEvents",
+      "cloudTrailEventSource": "personalizeevents.amazonaws.com",
+      "endpointPrefix": "personalize-events"
+    }
+  },
+  {
+    "client": "client-personalize-runtime",
+    "service": {
+      "sdkId": "Personalize Runtime",
+      "arnNamespace": "personalize",
+      "cloudFormationName": "PersonalizeRuntime",
+      "cloudTrailEventSource": "personalizeruntime.amazonaws.com",
+      "endpointPrefix": "personalize-runtime"
+    }
+  },
+  {
+    "client": "client-personalize",
+    "service": {
+      "sdkId": "Personalize",
+      "arnNamespace": "personalize",
+      "cloudFormationName": "Personalize",
+      "cloudTrailEventSource": "personalize.amazonaws.com",
+      "endpointPrefix": "personalize"
+    }
+  },
+  {
+    "client": "client-pi",
+    "service": {
+      "sdkId": "PI",
+      "arnNamespace": "pi",
+      "cloudFormationName": "PI",
+      "cloudTrailEventSource": "pi.amazonaws.com",
+      "endpointPrefix": "pi"
+    }
+  },
+  {
+    "client": "client-pinpoint-email",
+    "service": {
+      "sdkId": "Pinpoint Email",
+      "arnNamespace": "ses",
+      "cloudFormationName": "PinpointEmail",
+      "cloudTrailEventSource": "pinpointemail.amazonaws.com",
+      "endpointPrefix": "email"
+    }
+  },
+  {
+    "client": "client-pinpoint-sms-voice-v2",
+    "service": {
+      "sdkId": "Pinpoint SMS Voice V2",
+      "endpointPrefix": "sms-voice",
+      "arnNamespace": "sms-voice"
+    }
+  },
+  {
+    "client": "client-pinpoint-sms-voice",
+    "service": {
+      "sdkId": "Pinpoint SMS Voice",
+      "arnNamespace": "sms-voice",
+      "cloudFormationName": "PinpointSMSVoice",
+      "cloudTrailEventSource": "pinpointsmsvoice.amazonaws.com",
+      "endpointPrefix": "sms-voice.pinpoint"
+    }
+  },
+  {
+    "client": "client-pinpoint",
+    "service": {
+      "sdkId": "Pinpoint",
+      "arnNamespace": "mobiletargeting",
+      "cloudFormationName": "Pinpoint",
+      "cloudTrailEventSource": "pinpoint.amazonaws.com",
+      "endpointPrefix": "pinpoint"
+    }
+  },
+  {
+    "client": "client-pipes",
+    "service": {
+      "sdkId": "Pipes",
+      "arnNamespace": "pipes",
+      "cloudFormationName": "Pipes",
+      "cloudTrailEventSource": "pipes.amazonaws.com",
+      "endpointPrefix": "pipes"
+    }
+  },
+  {
+    "client": "client-polly",
+    "service": {
+      "sdkId": "Polly",
+      "arnNamespace": "polly",
+      "cloudFormationName": "Polly",
+      "cloudTrailEventSource": "polly.amazonaws.com",
+      "endpointPrefix": "polly"
+    }
+  },
+  {
+    "client": "client-pricing",
+    "service": {
+      "sdkId": "Pricing",
+      "arnNamespace": "pricing",
+      "cloudFormationName": "Pricing",
+      "cloudTrailEventSource": "pricelist.amazonaws.com",
+      "endpointPrefix": "api.pricing"
+    }
+  },
+  {
+    "client": "client-privatenetworks",
+    "service": {
+      "sdkId": "PrivateNetworks",
+      "arnNamespace": "private-networks"
+    }
+  },
+  {
+    "client": "client-proton",
+    "service": {
+      "sdkId": "Proton",
+      "endpointPrefix": "proton"
+    }
+  },
+  {
+    "client": "client-qldb-session",
+    "service": {
+      "sdkId": "QLDB Session",
+      "arnNamespace": "qldb",
+      "cloudFormationName": "QLDBSession",
+      "cloudTrailEventSource": "qldbsession.amazonaws.com",
+      "endpointPrefix": "session.qldb"
+    }
+  },
+  {
+    "client": "client-qldb",
+    "service": {
+      "sdkId": "QLDB",
+      "arnNamespace": "qldb",
+      "cloudFormationName": "QLDB",
+      "cloudTrailEventSource": "qldb.amazonaws.com",
+      "endpointPrefix": "qldb"
+    }
+  },
+  {
+    "client": "client-quicksight",
+    "service": {
+      "sdkId": "QuickSight",
+      "arnNamespace": "quicksight",
+      "cloudFormationName": "QuickSight",
+      "cloudTrailEventSource": "quicksight.amazonaws.com",
+      "endpointPrefix": "quicksight"
+    }
+  },
+  {
+    "client": "client-ram",
+    "service": {
+      "sdkId": "RAM",
+      "arnNamespace": "ram",
+      "cloudFormationName": "RAM",
+      "cloudTrailEventSource": "ram.amazonaws.com",
+      "endpointPrefix": "ram"
+    }
+  },
+  {
+    "client": "client-rbin",
+    "service": {
+      "sdkId": "rbin",
+      "arnNamespace": "rbin",
+      "cloudFormationName": "Rbin",
+      "cloudTrailEventSource": "rbin.amazonaws.com",
+      "endpointPrefix": "rbin"
+    }
+  },
+  {
+    "client": "client-rds-data",
+    "service": {
+      "sdkId": "RDS Data",
+      "arnNamespace": "rds-data"
+    }
+  },
+  {
+    "client": "client-rds",
+    "service": {
+      "sdkId": "RDS",
+      "arnNamespace": "rds",
+      "cloudFormationName": "RDS",
+      "cloudTrailEventSource": "rds.amazonaws.com",
+      "endpointPrefix": "rds"
+    }
+  },
+  {
+    "client": "client-redshift-data",
+    "service": {
+      "sdkId": "Redshift Data",
+      "arnNamespace": "redshift-data"
+    }
+  },
+  {
+    "client": "client-redshift-serverless",
+    "service": {
+      "sdkId": "Redshift Serverless",
+      "arnNamespace": "redshift-serverless"
+    }
+  },
+  {
+    "client": "client-redshift",
+    "service": {
+      "sdkId": "Redshift",
+      "arnNamespace": "redshift",
+      "cloudFormationName": "Redshift",
+      "cloudTrailEventSource": "redshift.amazonaws.com",
+      "endpointPrefix": "redshift"
+    }
+  },
+  {
+    "client": "client-rekognition",
+    "service": {
+      "sdkId": "Rekognition",
+      "arnNamespace": "rekognition",
+      "cloudFormationName": "Rekognition",
+      "cloudTrailEventSource": "rekognition.amazonaws.com",
+      "endpointPrefix": "rekognition"
+    }
+  },
+  {
+    "client": "client-rekognitionstreaming",
+    "service": {
+      "sdkId": "RekognitionStreaming",
+      "arnNamespace": "rekognition",
+      "cloudFormationName": "RekognitionStreaming",
+      "cloudTrailEventSource": "rekognitionstreaming.amazonaws.com",
+      "endpointPrefix": "streaming-rekognition"
+    }
+  },
+  {
+    "client": "client-resiliencehub",
+    "service": {
+      "sdkId": "resiliencehub",
+      "arnNamespace": "resiliencehub",
+      "cloudFormationName": "Resiliencehub",
+      "endpointPrefix": "resiliencehub"
+    }
+  },
+  {
+    "client": "client-resource-explorer-2",
+    "service": {
+      "sdkId": "Resource Explorer 2",
+      "endpointPrefix": "resource-explorer-2",
+      "arnNamespace": "resource-explorer-2"
+    }
+  },
+  {
+    "client": "client-resource-groups-tagging-api",
+    "service": {
+      "sdkId": "Resource Groups Tagging API",
+      "arnNamespace": "tagging",
+      "cloudFormationName": "ResourceGroupsTaggingAPI",
+      "cloudTrailEventSource": "resourcegroupstaggingapi.amazonaws.com",
+      "docId": "resourcegroupstaggingapi-2017-01-26",
+      "endpointPrefix": "tagging"
+    }
+  },
+  {
+    "client": "client-resource-groups",
+    "service": {
+      "sdkId": "Resource Groups",
+      "arnNamespace": "resource-groups",
+      "cloudFormationName": "ResourceGroups",
+      "cloudTrailEventSource": "resourcegroups.amazonaws.com",
+      "endpointPrefix": "resource-groups"
+    }
+  },
+  {
+    "client": "client-robomaker",
+    "service": {
+      "sdkId": "RoboMaker",
+      "arnNamespace": "robomaker",
+      "cloudFormationName": "RoboMaker",
+      "cloudTrailEventSource": "robomaker.amazonaws.com",
+      "endpointPrefix": "robomaker"
+    }
+  },
+  {
+    "client": "client-rolesanywhere",
+    "service": {
+      "sdkId": "RolesAnywhere",
+      "arnNamespace": "rolesanywhere",
+      "cloudFormationName": "RolesAnywhere"
+    }
+  },
+  {
+    "client": "client-route-53-domains",
+    "service": {
+      "sdkId": "Route 53 Domains",
+      "arnNamespace": "route53domains",
+      "cloudFormationName": "Route53Domains",
+      "cloudTrailEventSource": "route53domains.amazonaws.com",
+      "docId": "route53domains-2014-05-15",
+      "endpointPrefix": "route53domains"
+    }
+  },
+  {
+    "client": "client-route-53",
+    "service": {
+      "sdkId": "Route 53",
+      "arnNamespace": "route53",
+      "cloudFormationName": "Route53",
+      "cloudTrailEventSource": "route53.amazonaws.com",
+      "docId": "route53-2013-04-01",
+      "endpointPrefix": "route53"
+    }
+  },
+  {
+    "client": "client-route53-recovery-cluster",
+    "service": {
+      "sdkId": "Route53 Recovery Cluster",
+      "arnNamespace": "route53-recovery-cluster",
+      "cloudFormationName": "Route53RecoveryCluster",
+      "cloudTrailEventSource": "route53recoverycluster.amazonaws.com",
+      "endpointPrefix": "route53-recovery-cluster"
+    }
+  },
+  {
+    "client": "client-route53-recovery-control-config",
+    "service": {
+      "sdkId": "Route53 Recovery Control Config",
+      "arnNamespace": "route53-recovery-control-config",
+      "cloudFormationName": "Route53RecoveryControlConfig",
+      "cloudTrailEventSource": "route53recoverycontrolconfig.amazonaws.com",
+      "endpointPrefix": "route53-recovery-control-config"
+    }
+  },
+  {
+    "client": "client-route53-recovery-readiness",
+    "service": {
+      "sdkId": "Route53 Recovery Readiness",
+      "arnNamespace": "route53-recovery-readiness",
+      "cloudFormationName": "Route53RecoveryReadiness",
+      "cloudTrailEventSource": "route53recoveryreadiness.amazonaws.com",
+      "endpointPrefix": "route53-recovery-readiness"
+    }
+  },
+  {
+    "client": "client-route53resolver",
+    "service": {
+      "sdkId": "Route53Resolver",
+      "arnNamespace": "route53resolver",
+      "cloudFormationName": "Route53Resolver",
+      "cloudTrailEventSource": "route53resolver.amazonaws.com",
+      "endpointPrefix": "route53resolver"
+    }
+  },
+  {
+    "client": "client-rum",
+    "service": {
+      "sdkId": "RUM",
+      "arnNamespace": "rum",
+      "serviceName": "rum"
+    }
+  },
+  {
+    "client": "client-s3-control",
+    "service": {
+      "sdkId": "S3 Control",
+      "arnNamespace": "s3",
+      "cloudFormationName": "S3Control",
+      "cloudTrailEventSource": "s3control.amazonaws.com",
+      "docId": "s3control-2018-08-20",
+      "endpointPrefix": "s3-control"
+    }
+  },
+  {
+    "client": "client-s3",
+    "service": {
+      "sdkId": "S3",
+      "arnNamespace": "s3",
+      "cloudFormationName": "S3",
+      "cloudTrailEventSource": "s3.amazonaws.com",
+      "endpointPrefix": "s3"
+    }
+  },
+  {
+    "client": "client-s3outposts",
+    "service": {
+      "sdkId": "S3Outposts",
+      "arnNamespace": "s3-outposts",
+      "cloudFormationName": "S3Outposts",
+      "cloudTrailEventSource": "s3outposts.amazonaws.com",
+      "endpointPrefix": "s3-outposts"
+    }
+  },
+  {
+    "client": "client-sagemaker-a2i-runtime",
+    "service": {
+      "sdkId": "SageMaker A2I Runtime",
+      "arnNamespace": "sagemaker",
+      "cloudFormationName": "SageMakerA2IRuntime",
+      "cloudTrailEventSource": "sagemakera2iruntime.amazonaws.com",
+      "endpointPrefix": "a2i-runtime.sagemaker"
+    }
+  },
+  {
+    "client": "client-sagemaker-edge",
+    "service": {
+      "sdkId": "Sagemaker Edge",
+      "arnNamespace": "sagemaker",
+      "cloudFormationName": "SagemakerEdge",
+      "cloudTrailEventSource": "sagemakeredge.amazonaws.com",
+      "endpointPrefix": "edge.sagemaker"
+    }
+  },
+  {
+    "client": "client-sagemaker-featurestore-runtime",
+    "service": {
+      "sdkId": "SageMaker FeatureStore Runtime",
+      "arnNamespace": "sagemaker",
+      "cloudFormationName": "SageMakerFeatureStoreRuntime",
+      "cloudTrailEventSource": "sagemakerfeaturestoreruntime.amazonaws.com",
+      "endpointPrefix": "featurestore-runtime.sagemaker"
+    }
+  },
+  {
+    "client": "client-sagemaker-geospatial",
+    "service": {
+      "sdkId": "SageMaker Geospatial",
+      "arnNamespace": "sagemaker-geospatial",
+      "cloudTrailEventSource": "sagemaker-geospatial.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-sagemaker-metrics",
+    "service": {
+      "sdkId": "SageMaker Metrics",
+      "arnNamespace": "sagemaker",
+      "cloudFormationName": "SageMakerMetrics",
+      "cloudTrailEventSource": "sagemakermetrics.amazonaws.com",
+      "endpointPrefix": "metrics.sagemaker"
+    }
+  },
+  {
+    "client": "client-sagemaker-runtime",
+    "service": {
+      "sdkId": "SageMaker Runtime",
+      "arnNamespace": "sagemaker",
+      "cloudFormationName": "SageMakerRuntime",
+      "cloudTrailEventSource": "sagemakerruntime.amazonaws.com",
+      "docId": "runtime.sagemaker-2017-05-13",
+      "endpointPrefix": "runtime.sagemaker"
+    }
+  },
+  {
+    "client": "client-sagemaker",
+    "service": {
+      "sdkId": "SageMaker",
+      "arnNamespace": "sagemaker",
+      "cloudFormationName": "SageMaker",
+      "cloudTrailEventSource": "sagemaker.amazonaws.com",
+      "endpointPrefix": "api.sagemaker"
+    }
+  },
+  {
+    "client": "client-savingsplans",
+    "service": {
+      "sdkId": "savingsplans",
+      "arnNamespace": "savingsplans",
+      "cloudFormationName": "Savingsplans",
+      "cloudTrailEventSource": "savingsplans.amazonaws.com",
+      "endpointPrefix": "savingsplans"
+    }
+  },
+  {
+    "client": "client-scheduler",
+    "service": {
+      "sdkId": "Scheduler",
+      "arnNamespace": "scheduler",
+      "cloudFormationName": "Scheduler"
+    }
+  },
+  {
+    "client": "client-schemas",
+    "service": {
+      "sdkId": "schemas",
+      "arnNamespace": "schemas",
+      "cloudFormationName": "EventSchemas",
+      "cloudTrailEventSource": "schemas.amazonaws.com",
+      "endpointPrefix": "schemas"
+    }
+  },
+  {
+    "client": "client-secrets-manager",
+    "service": {
+      "sdkId": "Secrets Manager",
+      "arnNamespace": "secretsmanager",
+      "cloudFormationName": "SecretsManager",
+      "cloudTrailEventSource": "secretsmanager.amazonaws.com",
+      "docId": "secretsmanager-2017-10-17",
+      "endpointPrefix": "secretsmanager"
+    }
+  },
+  {
+    "client": "client-securityhub",
+    "service": {
+      "sdkId": "SecurityHub",
+      "arnNamespace": "securityhub",
+      "cloudFormationName": "SecurityHub",
+      "cloudTrailEventSource": "securityhub.amazonaws.com",
+      "endpointPrefix": "securityhub"
+    }
+  },
+  {
+    "client": "client-securitylake",
+    "service": {
+      "sdkId": "SecurityLake",
+      "arnNamespace": "securitylake",
+      "cloudTrailEventSource": "securitylake.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-serverlessapplicationrepository",
+    "service": {
+      "sdkId": "ServerlessApplicationRepository",
+      "arnNamespace": "serverlessrepo",
+      "cloudFormationName": "ServerlessApplicationRepository",
+      "cloudTrailEventSource": "serverlessapplicationrepository.amazonaws.com",
+      "docId": "serverlessrepo-2017-09-08",
+      "endpointPrefix": "serverlessrepo"
+    }
+  },
+  {
+    "client": "client-service-catalog-appregistry",
+    "service": {
+      "sdkId": "Service Catalog AppRegistry",
+      "arnNamespace": "servicecatalog",
+      "cloudFormationName": "ServiceCatalogAppRegistry",
+      "cloudTrailEventSource": "servicecatalogappregistry.amazonaws.com",
+      "docId": "AWS242AppRegistry-2020-06-24",
+      "endpointPrefix": "servicecatalog-appregistry"
+    }
+  },
+  {
+    "client": "client-service-catalog",
+    "service": {
+      "sdkId": "Service Catalog",
+      "arnNamespace": "servicecatalog",
+      "cloudFormationName": "ServiceCatalog",
+      "cloudTrailEventSource": "servicecatalog.amazonaws.com",
+      "docId": "servicecatalog-2015-12-10",
+      "endpointPrefix": "servicecatalog"
+    }
+  },
+  {
+    "client": "client-service-quotas",
+    "service": {
+      "sdkId": "Service Quotas",
+      "arnNamespace": "servicequotas",
+      "cloudFormationName": "ServiceQuotas",
+      "cloudTrailEventSource": "servicequotas.amazonaws.com",
+      "endpointPrefix": "servicequotas"
+    }
+  },
+  {
+    "client": "client-servicediscovery",
+    "service": {
+      "sdkId": "ServiceDiscovery",
+      "arnNamespace": "servicediscovery",
+      "cloudFormationName": "ServiceDiscovery",
+      "cloudTrailEventSource": "servicediscovery.amazonaws.com",
+      "endpointPrefix": "servicediscovery"
+    }
+  },
+  {
+    "client": "client-ses",
+    "service": {
+      "sdkId": "SES",
+      "arnNamespace": "ses",
+      "cloudFormationName": "SES",
+      "cloudTrailEventSource": "ses.amazonaws.com",
+      "docId": "email-2010-12-01",
+      "endpointPrefix": "email"
+    }
+  },
+  {
+    "client": "client-sesv2",
+    "service": {
+      "sdkId": "SESv2",
+      "arnNamespace": "ses",
+      "cloudFormationName": "SESv2",
+      "cloudTrailEventSource": "sesv2.amazonaws.com",
+      "endpointPrefix": "email"
+    }
+  },
+  {
+    "client": "client-sfn",
+    "service": {
+      "sdkId": "SFN",
+      "arnNamespace": "states",
+      "cloudFormationName": "StepFunctions",
+      "cloudTrailEventSource": "sfn.amazonaws.com",
+      "docId": "states-2016-11-23",
+      "endpointPrefix": "states"
+    }
+  },
+  {
+    "client": "client-shield",
+    "service": {
+      "sdkId": "Shield",
+      "arnNamespace": "shield",
+      "cloudFormationName": "Shield",
+      "cloudTrailEventSource": "shield.amazonaws.com",
+      "endpointPrefix": "shield"
+    }
+  },
+  {
+    "client": "client-signer",
+    "service": {
+      "sdkId": "signer",
+      "arnNamespace": "signer",
+      "cloudFormationName": "Signer",
+      "cloudTrailEventSource": "signer.amazonaws.com",
+      "endpointPrefix": "signer"
+    }
+  },
+  {
+    "client": "client-simspaceweaver",
+    "service": {
+      "sdkId": "SimSpaceWeaver",
+      "arnNamespace": "simspaceweaver",
+      "cloudFormationName": "SimSpaceWeaver",
+      "endpointPrefix": "simspaceweaver",
+      "cloudTrailEventSource": "simspaceweaver.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-sms",
+    "service": {
+      "sdkId": "SMS",
+      "arnNamespace": "sms",
+      "cloudFormationName": "SMS",
+      "cloudTrailEventSource": "sms.amazonaws.com",
+      "endpointPrefix": "sms"
+    }
+  },
+  {
+    "client": "client-snow-device-management",
+    "service": {
+      "arnNamespace": "snow-device-management",
+      "sdkId": "Snow Device Management"
+    }
+  },
+  {
+    "client": "client-snowball",
+    "service": {
+      "sdkId": "Snowball",
+      "arnNamespace": "snowball",
+      "cloudFormationName": "Snowball",
+      "cloudTrailEventSource": "snowball.amazonaws.com",
+      "endpointPrefix": "snowball"
+    }
+  },
+  {
+    "client": "client-sns",
+    "service": {
+      "sdkId": "SNS",
+      "arnNamespace": "sns",
+      "cloudFormationName": "SNS",
+      "cloudTrailEventSource": "sns.amazonaws.com",
+      "endpointPrefix": "sns"
+    }
+  },
+  {
+    "client": "client-sqs",
+    "service": {
+      "sdkId": "SQS",
+      "arnNamespace": "sqs",
+      "cloudFormationName": "SQS",
+      "cloudTrailEventSource": "sqs.amazonaws.com",
+      "endpointPrefix": "sqs"
+    }
+  },
+  {
+    "client": "client-ssm-contacts",
+    "service": {
+      "sdkId": "SSM Contacts",
+      "arnNamespace": "ssm-contacts",
+      "cloudFormationName": "SSMContacts",
+      "cloudTrailEventSource": "ssmcontacts.amazonaws.com",
+      "endpointPrefix": "ssm-contacts"
+    }
+  },
+  {
+    "client": "client-ssm-incidents",
+    "service": {
+      "sdkId": "SSM Incidents",
+      "arnNamespace": "ssm-incidents",
+      "awsProductName": "AWSSystemsManager",
+      "cloudFormationName": "SSMIncidents"
+    }
+  },
+  {
+    "client": "client-ssm-sap",
+    "service": {
+      "sdkId": "Ssm Sap",
+      "arnNamespace": "ssm-sap",
+      "cloudTrailEventSource": "ssm-sap.amazonaws.com",
+      "endpointPrefix": "ssm-sap"
+    }
+  },
+  {
+    "client": "client-ssm",
+    "service": {
+      "sdkId": "SSM",
+      "arnNamespace": "ssm",
+      "cloudFormationName": "SSM",
+      "cloudTrailEventSource": "ssm.amazonaws.com",
+      "endpointPrefix": "ssm"
+    }
+  },
+  {
+    "client": "client-sso-admin",
+    "service": {
+      "sdkId": "SSO Admin",
+      "arnNamespace": "sso",
+      "cloudFormationName": "SSO",
+      "cloudTrailEventSource": "sso.amazonaws.com",
+      "endpointPrefix": "sso"
+    }
+  },
+  {
+    "client": "client-sso-oidc",
+    "service": {
+      "sdkId": "SSO OIDC",
+      "arnNamespace": "awsssooidc",
+      "cloudFormationName": "SSOOIDC",
+      "cloudTrailEventSource": "ssooidc.amazonaws.com",
+      "endpointPrefix": "oidc"
+    }
+  },
+  {
+    "client": "client-sso",
+    "service": {
+      "sdkId": "SSO",
+      "arnNamespace": "awsssoportal",
+      "cloudFormationName": "SSO",
+      "cloudTrailEventSource": "sso.amazonaws.com",
+      "endpointPrefix": "portal.sso"
+    }
+  },
+  {
+    "client": "client-storage-gateway",
+    "service": {
+      "sdkId": "Storage Gateway",
+      "arnNamespace": "storagegateway",
+      "cloudFormationName": "StorageGateway",
+      "cloudTrailEventSource": "storagegateway.amazonaws.com",
+      "docId": "storagegateway-2013-06-30",
+      "endpointPrefix": "storagegateway"
+    }
+  },
+  {
+    "client": "client-sts",
+    "service": {
+      "sdkId": "STS",
+      "arnNamespace": "sts",
+      "cloudFormationName": "STS",
+      "cloudTrailEventSource": "sts.amazonaws.com",
+      "endpointPrefix": "sts"
+    }
+  },
+  {
+    "client": "client-support-app",
+    "service": {
+      "sdkId": "Support App",
+      "arnNamespace": "supportapp"
+    }
+  },
+  {
+    "client": "client-support",
+    "service": {
+      "sdkId": "Support",
+      "arnNamespace": "support",
+      "cloudFormationName": "Support",
+      "cloudTrailEventSource": "support.amazonaws.com",
+      "endpointPrefix": "support"
+    }
+  },
+  {
+    "client": "client-swf",
+    "service": {
+      "sdkId": "SWF",
+      "arnNamespace": "swf",
+      "cloudFormationName": "SWF",
+      "cloudTrailEventSource": "swf.amazonaws.com",
+      "endpointPrefix": "swf"
+    }
+  },
+  {
+    "client": "client-synthetics",
+    "service": {
+      "sdkId": "synthetics",
+      "arnNamespace": "synthetics",
+      "cloudFormationName": "Synthetics",
+      "cloudTrailEventSource": "synthetics.amazonaws.com",
+      "endpointPrefix": "synthetics"
+    }
+  },
+  {
+    "client": "client-textract",
+    "service": {
+      "sdkId": "Textract",
+      "arnNamespace": "textract",
+      "cloudFormationName": "Textract",
+      "cloudTrailEventSource": "textract.amazonaws.com",
+      "endpointPrefix": "textract"
+    }
+  },
+  {
+    "client": "client-timestream-query",
+    "service": {
+      "sdkId": "Timestream Query",
+      "arnNamespace": "timestream",
+      "cloudFormationName": "TimestreamQuery",
+      "cloudTrailEventSource": "timestreamquery.amazonaws.com",
+      "endpointPrefix": "query.timestream"
+    }
+  },
+  {
+    "client": "client-timestream-write",
+    "service": {
+      "sdkId": "Timestream Write",
+      "arnNamespace": "timestream",
+      "cloudFormationName": "TimestreamWrite",
+      "cloudTrailEventSource": "timestreamwrite.amazonaws.com",
+      "endpointPrefix": "ingest.timestream"
+    }
+  },
+  {
+    "client": "client-tnb",
+    "service": {
+      "sdkId": "tnb",
+      "apiVersion": "v1",
+      "arnNamespace": "tnb"
+    }
+  },
+  {
+    "client": "client-transcribe-streaming",
+    "service": {
+      "sdkId": "Transcribe Streaming",
+      "arnNamespace": "transcribe",
+      "cloudFormationName": "TranscribeStreaming",
+      "cloudTrailEventSource": "transcribestreaming.amazonaws.com",
+      "endpointPrefix": "transcribestreaming"
+    }
+  },
+  {
+    "client": "client-transcribe",
+    "service": {
+      "sdkId": "Transcribe",
+      "arnNamespace": "transcribe",
+      "cloudFormationName": "Transcribe",
+      "cloudTrailEventSource": "transcribe.amazonaws.com",
+      "endpointPrefix": "transcribe"
+    }
+  },
+  {
+    "client": "client-transfer",
+    "service": {
+      "sdkId": "Transfer",
+      "arnNamespace": "transfer",
+      "cloudFormationName": "Transfer",
+      "cloudTrailEventSource": "transfer.amazonaws.com",
+      "endpointPrefix": "transfer"
+    }
+  },
+  {
+    "client": "client-translate",
+    "service": {
+      "sdkId": "Translate",
+      "arnNamespace": "translate",
+      "cloudFormationName": "Translate",
+      "cloudTrailEventSource": "translate.amazonaws.com",
+      "endpointPrefix": "translate"
+    }
+  },
+  {
+    "client": "client-verifiedpermissions",
+    "service": {
+      "sdkId": "VerifiedPermissions",
+      "arnNamespace": "verifiedpermissions",
+      "endpointPrefix": "verifiedpermissions"
+    }
+  },
+  {
+    "client": "client-voice-id",
+    "service": {
+      "sdkId": "Voice ID",
+      "arnNamespace": "voiceid",
+      "cloudFormationName": "VoiceID",
+      "cloudTrailEventSource": "voiceid.amazonaws.com",
+      "endpointPrefix": "voiceid"
+    }
+  },
+  {
+    "client": "client-vpc-lattice",
+    "service": {
+      "sdkId": "VPC Lattice",
+      "arnNamespace": "vpc-lattice",
+      "cloudFormationName": "VpcLattice",
+      "cloudTrailEventSource": "vpc-lattice.amazonaws.com"
+    }
+  },
+  {
+    "client": "client-waf-regional",
+    "service": {
+      "sdkId": "WAF Regional",
+      "arnNamespace": "waf-regional",
+      "cloudFormationName": "WAFRegional",
+      "cloudTrailEventSource": "wafregional.amazonaws.com",
+      "endpointPrefix": "waf-regional"
+    }
+  },
+  {
+    "client": "client-waf",
+    "service": {
+      "sdkId": "WAF",
+      "arnNamespace": "waf",
+      "cloudFormationName": "WAF",
+      "cloudTrailEventSource": "waf.amazonaws.com",
+      "endpointPrefix": "waf"
+    }
+  },
+  {
+    "client": "client-wafv2",
+    "service": {
+      "sdkId": "WAFV2",
+      "arnNamespace": "wafv2",
+      "cloudFormationName": "WAFv2",
+      "cloudTrailEventSource": "wafv2.amazonaws.com",
+      "endpointPrefix": "wafv2"
+    }
+  },
+  {
+    "client": "client-wellarchitected",
+    "service": {
+      "sdkId": "WellArchitected",
+      "arnNamespace": "wellarchitected",
+      "cloudFormationName": "WellArchitected",
+      "cloudTrailEventSource": "wellarchitected.amazonaws.com",
+      "endpointPrefix": "wellarchitected"
+    }
+  },
+  {
+    "client": "client-wisdom",
+    "service": {
+      "sdkId": "Wisdom",
+      "arnNamespace": "wisdom",
+      "cloudFormationName": "Wisdom"
+    }
+  },
+  {
+    "client": "client-workdocs",
+    "service": {
+      "sdkId": "WorkDocs",
+      "arnNamespace": "workdocs",
+      "cloudFormationName": "WorkDocs",
+      "cloudTrailEventSource": "workdocs.amazonaws.com",
+      "endpointPrefix": "workdocs"
+    }
+  },
+  {
+    "client": "client-worklink",
+    "service": {
+      "sdkId": "WorkLink",
+      "arnNamespace": "worklink",
+      "cloudFormationName": "WorkLink",
+      "cloudTrailEventSource": "worklink.amazonaws.com",
+      "endpointPrefix": "worklink"
+    }
+  },
+  {
+    "client": "client-workmail",
+    "service": {
+      "sdkId": "WorkMail",
+      "arnNamespace": "workmail",
+      "cloudFormationName": "WorkMail",
+      "cloudTrailEventSource": "workmail.amazonaws.com",
+      "endpointPrefix": "workmail"
+    }
+  },
+  {
+    "client": "client-workmailmessageflow",
+    "service": {
+      "sdkId": "WorkMailMessageFlow",
+      "arnNamespace": "workmailmessageflow",
+      "cloudFormationName": "WorkMailMessageFlow",
+      "cloudTrailEventSource": "workmailmessageflow.amazonaws.com",
+      "endpointPrefix": "workmailmessageflow"
+    }
+  },
+  {
+    "client": "client-workspaces-web",
+    "service": {
+      "sdkId": "WorkSpaces Web",
+      "arnNamespace": "workspaces-web",
+      "cloudFormationName": "WorkSpacesWeb",
+      "cloudTrailEventSource": "workspaces-web.amazonaws.com",
+      "endpointPrefix": "workspaces-web"
+    }
+  },
+  {
+    "client": "client-workspaces",
+    "service": {
+      "sdkId": "WorkSpaces",
+      "arnNamespace": "workspaces",
+      "cloudFormationName": "WorkSpaces",
+      "cloudTrailEventSource": "workspaces.amazonaws.com",
+      "endpointPrefix": "workspaces"
+    }
+  },
+  {
+    "client": "client-xray",
+    "service": {
+      "sdkId": "XRay",
+      "arnNamespace": "xray",
+      "cloudFormationName": "XRay",
+      "cloudTrailEventSource": "xray.amazonaws.com",
+      "endpointPrefix": "xray"
+    }
+  }
+]
