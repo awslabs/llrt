@@ -90,9 +90,14 @@ const SDK_DATA = {
   "client-eventbridge": ["EventBridge", "events"],
   "client-sfn": ["SFN", "sfn"],
   "client-xray": ["XRay", "xray"],
+  "client-cognito-identity": ["CognitoIdentity", "cognito-idp"],
 };
 
-const ADDITIONAL_PACKAGES = ["@aws-sdk/util-dynamodb", "@smithy/signature-v4"];
+const ADDITIONAL_PACKAGES = [
+  "@aws-sdk/util-dynamodb",
+  "@smithy/signature-v4",
+  "@aws-sdk/credential-providers",
+];
 
 const SDKS = [];
 const SERVICE_ENDPOINT_BY_PACKAGE = {};
@@ -492,106 +497,110 @@ const awsSdkPlugin = {
     build.onLoad(
       { filter: /commands\/\w+Command\.js$/ },
       async ({ path: filePath }) => {
-        const source = (await fs.readFile(filePath)).toString();
-        const commandName = path.parse(filePath).name;
-        const pkg = await findPackageName(filePath);
+        try {
+          const source = (await fs.readFile(filePath)).toString();
 
-        let contents;
+          const commandName = path.parse(filePath).name;
+          const pkg = await findPackageName(filePath);
 
-        const addNoOpFilterImport = (contents) =>
-          `import { ${noopFilterSensitiveLog.name} } from "${SDK_UTILS_PACKAGE}"\n${contents}`;
+          let contents;
 
-        let isS3 = pkg == "@aws-sdk/client-s3";
-        if (isS3) {
-          contents = `import { ${s3DefaultEndpointParameterInstructions.name} } from "${SDK_UTILS_PACKAGE}"\n`;
-          contents += source.replace(
-            s3DefaultEndpointInstructionsRegex,
-            `return ${s3DefaultEndpointParameterInstructions.name}();`
-          );
-        } else {
-          contents = `import { ${defaultEndpointParameterInstructions.name} } from "${SDK_UTILS_PACKAGE}"\n`;
-          contents += source.replace(
-            defaultEndpointInstructionsRegex,
-            `return ${defaultEndpointParameterInstructions.name}();`
-          );
-        }
+          const addNoOpFilterImport = (contents) =>
+            `import { ${noopFilterSensitiveLog.name} } from "${SDK_UTILS_PACKAGE}"\n${contents}`;
 
-        const commandClass = COMMANDS_BY_SDK[pkg][commandName];
-        const commandPrototype = commandClass.prototype;
-
-        const resolveCode = commandPrototype.resolveMiddleware.toString();
-
-        SHARED_COMMAND_REGEX.lastIndex = -1;
-        const regexResult = SHARED_COMMAND_REGEX.exec(resolveCode);
-        if (!regexResult) {
-          console.log(`Can't optimize: ${commandName}`);
-
-          // let unoptimizedCommand = `unoptimized/${commandName}.js`;
-          // await fs.mkdir(path.dirname(unoptimizedCommand), { recursive: true });
-          // await fs.writeFile(unoptimizedCommand, resolveCode);
-
-          let addNoopFilter = false;
-          contents = contents.replace(
-            PROPERTY_NOOP_ARROW_FUNCTION_REGEX,
-            (_, match) => {
-              addNoopFilter = true;
-              return `${match} ${noopFilterSensitiveLog.name}`;
-            }
-          );
-
-          if (addNoopFilter) {
-            contents = addNoOpFilterImport(contents);
+          let isS3 = pkg == "@aws-sdk/client-s3";
+          if (isS3) {
+            contents = `import { ${s3DefaultEndpointParameterInstructions.name} } from "${SDK_UTILS_PACKAGE}"\n`;
+            contents += source.replace(
+              s3DefaultEndpointInstructionsRegex,
+              `return ${s3DefaultEndpointParameterInstructions.name}();`
+            );
+          } else {
+            contents = `import { ${defaultEndpointParameterInstructions.name} } from "${SDK_UTILS_PACKAGE}"\n`;
+            contents += source.replace(
+              defaultEndpointInstructionsRegex,
+              `return ${defaultEndpointParameterInstructions.name}();`
+            );
           }
 
-          return {
-            contents,
-          };
-        }
+          const commandClass = COMMANDS_BY_SDK[pkg][commandName];
+          const commandPrototype = commandClass.prototype;
 
-        const commandParameterData = Array.from(regexResult);
-        commandParameterData.shift();
-        let [
-          paramClientName,
-          paramCmdName,
-          paramInputFilter,
-          paramOutputFilter,
-          service,
-          operation,
-        ] = commandParameterData;
+          const resolveCode = commandPrototype.resolveMiddleware.toString();
 
-        const serializeCode = commandPrototype.serialize.toString();
-        const deserializeCode = commandPrototype.deserialize.toString();
+          SHARED_COMMAND_REGEX.lastIndex = -1;
+          const regexResult = SHARED_COMMAND_REGEX.exec(resolveCode);
+          if (!regexResult) {
+            console.log(`Can't optimize: ${commandName}`);
 
-        SHARED_COMMAND_MARSHALL_REGEX.lastIndex = -1;
-        const serializeFunction =
-          SHARED_COMMAND_MARSHALL_REGEX.exec(serializeCode)[1];
+            // let unoptimizedCommand = `unoptimized/${commandName}.js`;
+            // await fs.mkdir(path.dirname(unoptimizedCommand), { recursive: true });
+            // await fs.writeFile(unoptimizedCommand, resolveCode);
 
-        SHARED_COMMAND_MARSHALL_REGEX.lastIndex = -1;
-        const deserializeFunction =
-          SHARED_COMMAND_MARSHALL_REGEX.exec(deserializeCode)[1];
+            let addNoopFilter = false;
+            contents = contents.replace(
+              PROPERTY_NOOP_ARROW_FUNCTION_REGEX,
+              (_, match) => {
+                addNoopFilter = true;
+                return `${match} ${noopFilterSensitiveLog.name}`;
+              }
+            );
 
-        const defaultCommandName = isS3 ? S3Command.name : DefaultCommand.name;
+            if (addNoopFilter) {
+              contents = addNoOpFilterImport(contents);
+            }
 
-        const classDefIndex = contents.indexOf("export class ");
-        let defaultClassContents = contents.substring(0, classDefIndex);
-        let addNoopFilter = false;
+            return {
+              contents,
+            };
+          }
 
-        if (NOOP_ARROW_FUNCTION_REGEX.test(paramInputFilter)) {
-          paramInputFilter = noopFilterSensitiveLog.name;
-          addNoopFilter = true;
-        }
+          const commandParameterData = Array.from(regexResult);
+          commandParameterData.shift();
+          let [
+            paramClientName,
+            paramCmdName,
+            paramInputFilter,
+            paramOutputFilter,
+            service,
+            operation,
+          ] = commandParameterData;
 
-        if (NOOP_ARROW_FUNCTION_REGEX.test(paramOutputFilter)) {
-          paramOutputFilter = noopFilterSensitiveLog.name;
-          addNoopFilter = true;
-        }
+          const serializeCode = commandPrototype.serialize.toString();
+          const deserializeCode = commandPrototype.deserialize.toString();
 
-        if (addNoopFilter) {
-          defaultClassContents = addNoOpFilterImport(defaultClassContents);
-        }
+          SHARED_COMMAND_MARSHALL_REGEX.lastIndex = -1;
+          const serializeFunction =
+            SHARED_COMMAND_MARSHALL_REGEX.exec(serializeCode)[1];
 
-        defaultClassContents += `import { ${defaultCommandName} } from "${SDK_UTILS_PACKAGE}"\n`;
-        defaultClassContents += `export class ${commandPrototype.constructor.name} extends ${defaultCommandName} {
+          SHARED_COMMAND_MARSHALL_REGEX.lastIndex = -1;
+          const deserializeFunction =
+            SHARED_COMMAND_MARSHALL_REGEX.exec(deserializeCode)[1];
+
+          const defaultCommandName = isS3
+            ? S3Command.name
+            : DefaultCommand.name;
+
+          const classDefIndex = contents.indexOf("export class ");
+          let defaultClassContents = contents.substring(0, classDefIndex);
+          let addNoopFilter = false;
+
+          if (NOOP_ARROW_FUNCTION_REGEX.test(paramInputFilter)) {
+            paramInputFilter = noopFilterSensitiveLog.name;
+            addNoopFilter = true;
+          }
+
+          if (NOOP_ARROW_FUNCTION_REGEX.test(paramOutputFilter)) {
+            paramOutputFilter = noopFilterSensitiveLog.name;
+            addNoopFilter = true;
+          }
+
+          if (addNoopFilter) {
+            defaultClassContents = addNoOpFilterImport(defaultClassContents);
+          }
+
+          defaultClassContents += `import { ${defaultCommandName} } from "${SDK_UTILS_PACKAGE}"\n`;
+          defaultClassContents += `export class ${commandPrototype.constructor.name} extends ${defaultCommandName} {
   constructor(input) {
     super(
       input,
@@ -606,13 +615,18 @@ const awsSdkPlugin = {
     );
   }
 }
-            `;
+`;
 
-        console.log(`Optimized: ${commandName}`);
+          console.log(`Optimized: ${commandName}`);
 
-        return {
-          contents: defaultClassContents,
-        };
+          return {
+            contents: defaultClassContents,
+          };
+        } catch (error) {
+          console.error(error);
+          await rmTmpDir();
+          process.exit(1);
+        }
       }
     );
 
@@ -682,10 +696,17 @@ function esbuildShimPlugin(shims) {
   };
 }
 
+async function rmTmpDir() {
+  await fs.rm(TMP_DIR, {
+    recursive: true,
+    force: true,
+  });
+}
+
 async function createOutputDirectories() {
   await fs.rm(OUT_DIR, { recursive: true, force: true });
   await fs.mkdir(OUT_DIR, { recursive: true });
-  await fs.rm(TMP_DIR, { recursive: true, force: true });
+  await rmTmpDir();
   await fs.mkdir(TMP_DIR, { recursive: true });
 }
 
@@ -812,10 +833,7 @@ try {
   error = e;
 }
 
-await fs.rm(TMP_DIR, {
-  recursive: true,
-  force: true,
-});
+await rmTmpDir();
 
 if (error) {
   throw error;

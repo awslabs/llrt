@@ -2,6 +2,7 @@
 .idea
 .yarn
 .pnp*
+.tmp-llrt-aws-sdk
 
 /lib
 /target

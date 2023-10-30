@@ -11,6 +11,7 @@
   "devDependencies": {
     "@aws-sdk/client-cloudwatch-events": "3.438.0",
     "@aws-sdk/client-cloudwatch-logs": "3.438.0",
+    "@aws-sdk/client-cognito-identity": "3.438.0",
     "@aws-sdk/client-dynamodb": "3.438.0",
     "@aws-sdk/client-eventbridge": "3.438.0",
     "@aws-sdk/client-kms": "3.438.0",
@@ -24,6 +25,7 @@
     "@aws-sdk/client-ssm": "3.438.0",
     "@aws-sdk/client-sts": "3.438.0",
     "@aws-sdk/client-xray": "3.438.0",
+    "@aws-sdk/credential-providers": "3.438.0",
     "@aws-sdk/lib-dynamodb": "3.438.0",
     "@types/jest": "29.5.6",
     "@types/readable-stream": "4.0.4",
