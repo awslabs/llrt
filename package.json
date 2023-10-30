@@ -12,6 +12,7 @@
     "@aws-sdk/client-cloudwatch-events": "3.438.0",
     "@aws-sdk/client-cloudwatch-logs": "3.438.0",
     "@aws-sdk/client-dynamodb": "3.438.0",
+    "@aws-sdk/client-eventbridge": "3.438.0",
     "@aws-sdk/client-kms": "3.438.0",
     "@aws-sdk/client-lambda": "3.438.0",
     "@aws-sdk/client-s3": "3.438.0",
@@ -37,8 +38,5 @@
     "typescript": "5.2.2"
   },
   "packageManager": "yarn@4.0.0",
-  "nodeLinker": "pnpm",
-  "dependencies": {
-    "@aws-sdk/client-eventbridge": "^3.438.0"
-  }
+  "nodeLinker": "pnpm"
 }

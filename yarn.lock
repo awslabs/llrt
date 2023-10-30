@@ -285,7 +285,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aws-sdk/client-eventbridge@npm:^3.438.0":
+"@aws-sdk/client-eventbridge@npm:3.438.0":
   version: 3.438.0
   resolution: "@aws-sdk/client-eventbridge@npm:3.438.0"
   dependencies:
@@ -4526,7 +4526,7 @@ __metadata:
     "@aws-sdk/client-cloudwatch-events": "npm:3.438.0"
     "@aws-sdk/client-cloudwatch-logs": "npm:3.438.0"
     "@aws-sdk/client-dynamodb": "npm:3.438.0"
-    "@aws-sdk/client-eventbridge": "npm:^3.438.0"
+    "@aws-sdk/client-eventbridge": "npm:3.438.0"
     "@aws-sdk/client-kms": "npm:3.438.0"
     "@aws-sdk/client-lambda": "npm:3.438.0"
     "@aws-sdk/client-s3": "npm:3.438.0"
