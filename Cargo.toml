@@ -40,6 +40,7 @@ base64-simd = "0.8.0"
 hex-simd = "0.8.0"
 socket2 = "0.5.5"
 bytes = "1.5.0"
+tokio-rustls = "0.24.1"
 
 [build-dependencies]
 relative-path = "1.9.0"
