@@ -7,20 +7,18 @@ use rquickjs::{
     Ctx, Result,
 };
 use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
-use webpki::TrustAnchor;
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
     let mut root_certificates = RootCertStore::empty();
-    let create_owned_trust_anchor = |ta: &TrustAnchor| {
+
+    root_certificates.add_trust_anchors(TLS_SERVER_ROOTS.iter().map(|ta| {
         OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
             ta.name_constraints,
         )
-    };
-    root_certificates
-        .add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(create_owned_trust_anchor));
+    }));
 
     let tls: ClientConfig = ClientConfig::builder()
         .with_safe_defaults()
