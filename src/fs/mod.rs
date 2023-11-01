@@ -27,26 +27,11 @@ pub const CONSTANT_R_OK: u32 = 4;
 pub const CONSTANT_W_OK: u32 = 2;
 pub const CONSTANT_X_OK: u32 = 1;
 
-pub struct FsModule;
+pub struct FsPromisesModule;
 
-impl ModuleDef for FsModule {
+impl ModuleDef for FsPromisesModule {
     fn declare(declare: &mut Declarations) -> Result<()> {
-        declare.declare("access")?;
-        declare.declare("open")?;
-        declare.declare("readFile")?;
-        declare.declare("writeFile")?;
-        declare.declare("appendFile")?;
-        declare.declare("copyFile")?;
-        declare.declare("rename")?;
-        declare.declare("readdir")?;
-        declare.declare("mkdir")?;
-        declare.declare("mkdtemp")?;
-        declare.declare("rm")?;
-        declare.declare("rmdir")?;
-        declare.declare("stat")?;
-        declare.declare("constants")?;
-
-        declare.declare("default")?;
+        delarations(declare)?;
 
         Ok(())
     }
@@ -77,4 +62,24 @@ impl ModuleDef for FsModule {
             Ok(())
         })
     }
+}
+
+fn delarations(declare: &mut Declarations) -> Result<()> {
+    declare.declare("access")?;
+    declare.declare("open")?;
+    declare.declare("readFile")?;
+    declare.declare("writeFile")?;
+    declare.declare("appendFile")?;
+    declare.declare("copyFile")?;
+    declare.declare("rename")?;
+    declare.declare("readdir")?;
+    declare.declare("mkdir")?;
+    declare.declare("mkdtemp")?;
+    declare.declare("rm")?;
+    declare.declare("rmdir")?;
+    declare.declare("stat")?;
+    declare.declare("constants")?;
+
+    declare.declare("default")?;
+    Ok(())
 }

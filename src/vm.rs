@@ -41,7 +41,7 @@ use crate::{
     crypto::CryptoModule,
     encoding::HexModule,
     events::EventsModule,
-    fs::FsModule,
+    fs::FsPromisesModule,
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
@@ -80,7 +80,7 @@ create_modules!(
     "crypto" => CryptoModule,
     "uuid" => UuidModule,
     "hex" => HexModule,
-    "fs/promises" => FsModule,
+    "fs/promises" => FsPromisesModule,
     "os" => OsModule,
     "timers" => TimersModule,
     "events" => EventsModule,
@@ -588,11 +588,17 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     Ok(())
 }
 
-pub trait CaughtErrorExtensions<'js> {
+pub trait ErrorExtensions<'js> {
     fn into_value(self, ctx: &Ctx<'js>) -> Result<Value<'js>>;
 }
 
-impl<'js> CaughtErrorExtensions<'js> for CaughtError<'js> {
+impl<'js> ErrorExtensions<'js> for Error {
+    fn into_value(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        Err::<(), _>(self).catch(ctx).unwrap_err().into_value(ctx)
+    }
+}
+
+impl<'js> ErrorExtensions<'js> for CaughtError<'js> {
     fn into_value(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         Ok(match self {
             CaughtError::Error(err) => {

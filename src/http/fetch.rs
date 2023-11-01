@@ -4,14 +4,12 @@ use rquickjs::{
     prelude::{Async, Func},
     Ctx, Error, Exception, Object, Result, Value,
 };
-use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
-use std::time::Instant;
 
-use webpki::TrustAnchor;
-use webpki_roots::TLS_SERVER_ROOTS;
+use std::time::Instant;
 
 use crate::{
     http::headers::Headers,
+    net::TLS_CONFIG,
     security::{ensure_url_access, HTTP_DENY_LIST},
     util::{get_bytes, ObjectExt, ResultExt},
 };
@@ -42,25 +40,8 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         ));
     }
 
-    let mut root_certificates = RootCertStore::empty();
-    let create_owned_trust_anchor = |ta: &TrustAnchor| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    };
-    root_certificates
-        .add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(create_owned_trust_anchor));
-
-    let tls = ClientConfig::builder()
-        .with_safe_defaults()
-        //.with_native_roots()
-        .with_root_certificates(root_certificates)
-        .with_no_client_auth();
-
     let https = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(tls)
+        .with_tls_config(TLS_CONFIG.clone())
         .https_or_http()
         .enable_http1()
         .build();

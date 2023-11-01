@@ -90,7 +90,7 @@ pub fn ensure_url_access(ctx: &Ctx<'_>, uri: &Uri) -> Result<()> {
     Ok(())
 }
 
-fn url_restricted_error<'js>(ctx: &Ctx<'js>, message: &str, uri: &Uri) -> Error {
+fn url_restricted_error(ctx: &Ctx<'_>, message: &str, uri: &Uri) -> Error {
     let uri_host = uri.host().unwrap_or_default();
     let uri_port = uri
         .port_u16()

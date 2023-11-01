@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
-    CatchResultExt, Class, Ctx, Error, Exception, Function, Result, Value,
+    Class, Ctx, Error, Exception, Function, Result, Value,
 };
 
 use tokio::{
@@ -19,7 +19,7 @@ use crate::{
     events::{EmitError, Emitter, EventEmitter, EventList},
     stream::set_destroyed_and_error,
     util::{get_bytes, ResultExt},
-    vm::{CaughtErrorExtensions, CtxExtension},
+    vm::{CtxExtension, ErrorExtensions},
 };
 
 use super::SteamEvents;
@@ -201,13 +201,9 @@ where
             .is_err()
         {
             if let Some(cb) = callback {
-                let err = Err::<(), _>(Exception::throw_message(
-                    &ctx,
-                    "This socket has been ended by the other party",
-                ))
-                .catch(&ctx)
-                .unwrap_err()
-                .into_value(&ctx)?;
+                let err =
+                    Exception::throw_message(&ctx, "This socket has been ended by the other party")
+                        .into_value(&ctx)?;
 
                 cb.call((err,))?;
             }

@@ -335,7 +335,7 @@ impl<'js> Socket<'js> {
         if let Some(path) = path.clone() {
             ensure_net_access(&ctx, &path)?;
         }
-        if let Some(port) = port.clone() {
+        if let Some(port) = port {
             let hostname = format!("{}:{}", host, port);
             ensure_net_access(&ctx, &hostname)?;
             addr = Some(hostname);

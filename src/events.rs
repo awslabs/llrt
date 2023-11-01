@@ -13,7 +13,7 @@ use tracing::trace;
 
 use crate::{
     util::{export_default, ResultExt},
-    vm::CaughtErrorExtensions,
+    vm::ErrorExtensions,
 };
 
 #[derive(Clone, Debug)]
