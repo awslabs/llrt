@@ -1,7 +1,8 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env::{self},
     ffi::CStr,
+    future::Future,
     io::{self},
     path::{Component, Path, PathBuf},
     process::exit,
@@ -9,10 +10,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use std::collections::HashSet;
-use std::future::Future;
-
 use once_cell::sync::Lazy;
+use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
@@ -26,7 +25,6 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Module, Object,
     Result, String as JsString, Value,
 };
-
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
@@ -38,7 +36,7 @@ use crate::{
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console,
-    crypto::CryptoModule,
+    crypto::{CryptoModule, SYSTEM_RANDOM},
     encoding::HexModule,
     events::EventsModule,
     fs::FsPromisesModule,
@@ -90,7 +88,8 @@ create_modules!(
     "xml" => XmlModule,
     "buffer" => BufferModule,
     "child_process" => ChildProcessModule,
-    "util" => UtilModule
+    "util" => UtilModule,
+    "uuid" => UuidModule
 );
 
 struct ModuleInfo<T: ModuleDef> {
@@ -331,6 +330,10 @@ impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
+        SYSTEM_RANDOM
+            .fill(&mut [0; 8])
+            .expect("Failed to initialize SystemRandom");
+
         let mut file_resolver = FileResolver::default();
         let mut binary_resolver = BinaryResolver::default();
         let mut paths: Vec<&str> = Vec::with_capacity(10);

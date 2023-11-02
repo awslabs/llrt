@@ -29,6 +29,7 @@
     "@aws-sdk/lib-dynamodb": "3.438.0",
     "@types/jest": "29.5.6",
     "@types/readable-stream": "4.0.4",
+    "@types/uuid": "9.0.6",
     "assert": "2.1.0",
     "esbuild": "0.19.5",
     "esbuild-plugins-node-modules-polyfill": "1.6.1",
@@ -39,6 +40,6 @@
     "stream-browserify": "3.0.0",
     "typescript": "5.2.2"
   },
-  "packageManager": "yarn@4.0.0",
+  "packageManager": "yarn@4.0.1",
   "nodeLinker": "pnpm"
 }

@@ -1,4 +1,4 @@
-import * as hex from "hex";
+import hex from "hex";
 
 it("should encode/decode text", () => {
   let hello = "hello";

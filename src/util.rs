@@ -74,9 +74,9 @@ use rquickjs::{
 
 pub fn get_class_name(value: &Value) -> Result<Option<String>> {
     value
-        .get_optional::<&str, Object>("constructor")?
+        .get_optional::<_, Object>(PredefinedAtom::Constructor)?
         .and_then_ok(|ctor| {
-            ctor.get_optional::<&str, JsString>("name")
+            ctor.get_optional::<_, JsString>(PredefinedAtom::Name)
                 .map(|name| name.map(|name| name.to_owned().to_string().unwrap()))
         })
 }
@@ -136,6 +136,18 @@ where
     Ok(array)
 }
 
+pub fn get_checked_len(source_len: usize, target_len: Option<usize>, offset: usize) -> usize {
+    let target_len = target_len.unwrap_or(source_len);
+
+    if offset >= target_len {
+        return 0;
+    }
+    if (offset + target_len) > source_len {
+        return source_len;
+    }
+    target_len
+}
+
 pub fn get_bytes_offset_length<'js>(
     ctx: &Ctx<'js>,
     value: Value<'js>,
@@ -146,47 +158,96 @@ pub fn get_bytes_offset_length<'js>(
 
     if let Some(val) = value.as_string() {
         let string = val.to_string()?;
-
-        let length = length.unwrap_or(string.len() - offset);
-
-        return Ok(string.as_bytes()[offset..length].to_vec());
+        let checked_length = get_checked_len(string.len(), length, offset);
+        return Ok(string.as_bytes()[offset..offset + checked_length].to_vec());
     }
     if value.is_array() {
         let array = value.as_array().unwrap();
-        let length = length.unwrap_or(array.len() - offset);
-        let mut bytes: Vec<u8> = Vec::with_capacity(length);
+        let checked_length = get_checked_len(array.len(), length, offset);
+        let mut bytes: Vec<u8> = Vec::with_capacity(checked_length);
 
-        for val in array.iter::<u8>().skip(offset).take(length) {
+        for val in array.iter::<u8>().skip(offset).take(checked_length) {
             let val: u8 = val.or_throw_msg(ctx, "array value is not u8")?;
             bytes.push(val);
         }
-        // TypedArray<u8>::
-        // let ctor: Function = ctx.globals().get("Uint8Array")?;
-        // let typed_array: TypedArray<u8> = ctor.construct((&value,))?;
-        // let bytes: &[u8] = typed_array.as_ref();
-        // let bytes = bytes.to_vec()
+
         return Ok(bytes);
     }
 
-    if let Some(object) = value.into_object() {
-        if let Some(array_buffer) = ArrayBuffer::from_object(object.clone()) {
-            let bytes: &[u8] = array_buffer.as_ref();
-            let length = length.unwrap_or(bytes.len() - offset);
-            return Ok(bytes[offset..length].to_vec());
-        }
-
-        if let Ok(typed_array) = TypedArray::<u8>::from_object(object) {
-            let bytes: &[u8] = typed_array.as_ref();
-            let length = length.unwrap_or(bytes.len() - offset);
-
-            return Ok(bytes[offset..length].to_vec());
+    if let Some(obj) = value.into_object() {
+        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
+            return get_array_buffer_bytes(array_buffer, offset, length);
         }
     }
 
     Err(Exception::throw_message(
         ctx,
-        "value must be typed Buffer, ArrayBuffer, Uint8Array or string",
+        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or string",
     ))
+}
+
+pub fn obj_to_array_buffer(obj: Object<'_>) -> Result<Option<ArrayBuffer<'_>>> {
+    if let Some(array_buffer) = ArrayBuffer::from_object(obj.clone()) {
+        return Ok(Some(array_buffer));
+    }
+
+    if let Ok(typed_array) = TypedArray::<u8>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<i8>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<u16>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<i16>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<u32>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<i32>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<u64>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<i64>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<f32>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<f64>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Some(class_name) = get_class_name(obj.as_value())? {
+        if class_name == "DataView" {
+            let array_buffer: ArrayBuffer = obj.get("buffer")?;
+            return Ok(Some(array_buffer));
+        }
+    }
+    Ok(None)
+}
+
+fn get_array_buffer_bytes(
+    array_buffer: ArrayBuffer<'_>,
+    offset: usize,
+    length: Option<usize>,
+) -> Result<Vec<u8>> {
+    let bytes: &[u8] = array_buffer.as_ref();
+    let checked_length = get_checked_len(bytes.len(), length, offset);
+    Ok(bytes[offset..offset + checked_length].to_vec())
 }
 
 pub fn get_bytes<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Vec<u8>> {

@@ -1,19 +1,29 @@
+use std::slice;
+
+use once_cell::sync::Lazy;
 use ring::{
     digest::{self, Context as DigestContext},
     hmac::{self, Context as HmacContext},
-    rand::{self, SecureRandom},
+    rand::{SecureRandom, SystemRandom},
 };
 use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, This},
-    Class, Ctx, Exception, IntoJs, Result, TypedArray, Value,
+    prelude::{Func, Rest, This},
+    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, TypedArray, Value,
 };
 
 use crate::{
     encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
-    util::{bytes_to_typed_array, export_default, get_bytes},
+    util::{
+        bytes_to_typed_array, export_default, get_bytes, get_checked_len, obj_to_array_buffer,
+        ResultExt,
+    },
+    uuid::uuidv4,
+    vm::{CtxExtension, ErrorExtensions},
 };
+
+pub static SYSTEM_RANDOM: Lazy<SystemRandom> = Lazy::new(SystemRandom::new);
 
 fn encoded_bytes<'js>(ctx: Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Value<'js>> {
     match encoding {
@@ -231,14 +241,73 @@ impl ShaHash {
     }
 }
 
-fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
+#[inline]
+pub fn random_byte_array(length: usize) -> Vec<u8> {
     let mut vec = vec![0; length];
+    SYSTEM_RANDOM.fill(&mut vec).unwrap();
+    vec
+}
 
-    let rng = rand::SystemRandom::new();
-    rng.fill(&mut vec).unwrap();
+fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
+    let random_bytes = random_byte_array(length);
 
-    let array_buffer = TypedArray::new(ctx.clone(), vec)?;
+    let array_buffer = TypedArray::new(ctx.clone(), random_bytes)?;
     array_buffer.into_js(&ctx)
+}
+
+fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    let args_iter = args.0.into_iter();
+    let mut args_iter = args_iter.rev();
+
+    let callback: Function = args_iter
+        .next()
+        .and_then(|v| v.into_function())
+        .or_throw_msg(&ctx, "Callback required")?;
+    let size = args_iter
+        .next()
+        .and_then(|arg| arg.as_int())
+        .map(|i| i as usize);
+    let offset = args_iter
+        .next()
+        .and_then(|arg| arg.as_int())
+        .map(|i| i as usize);
+
+    ctx.clone().spawn_exit(async move {
+        if let Err(err) = random_fill_sync(ctx.clone(), obj.clone(), Opt(offset), Opt(size)) {
+            let err = err.into_value(&ctx)?;
+            callback.call((err,))?;
+
+            return Ok(());
+        }
+        callback.call((Null.into_js(&ctx), obj))?;
+        Ok::<_, Error>(())
+    })?;
+    Ok(())
+}
+
+fn random_fill_sync<'js>(
+    ctx: Ctx<'js>,
+    obj: Object<'js>,
+    offset: Opt<usize>,
+    size: Opt<usize>,
+) -> Result<Object<'js>> {
+    let offset = offset.unwrap_or(0);
+
+    if let Some(array_buffer) = obj_to_array_buffer(obj.clone())? {
+        let checked_len = get_checked_len(array_buffer.len(), size.0, offset);
+
+        let raw = array_buffer
+            .as_raw()
+            .ok_or("ArrayBuffer is detached")
+            .or_throw(&ctx)?;
+        let bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+        SYSTEM_RANDOM
+            .fill(&mut bytes[offset..offset + checked_len])
+            .unwrap();
+    }
+
+    Ok(obj)
 }
 
 pub struct CryptoModule;
@@ -250,6 +319,9 @@ impl ModuleDef for CryptoModule {
         declare.declare("Crc32")?;
         declare.declare("Crc32c")?;
         declare.declare("randomBytes")?;
+        declare.declare("randomUUID")?;
+        declare.declare("randomFillSync")?;
+        declare.declare("randomFill")?;
 
         for sha_algorithm in ShaAlgorithm::iterate() {
             let class_name = sha_algorithm.class_name();
@@ -282,6 +354,9 @@ impl ModuleDef for CryptoModule {
             default.set("createHash", Func::from(Hash::new))?;
             default.set("createHmac", Func::from(Hmac::new))?;
             default.set("randomBytes", Func::from(get_random_bytes))?;
+            default.set("randomUUID", Func::from(uuidv4))?;
+            default.set("randomFillSync", Func::from(random_fill_sync))?;
+            default.set("randomFill", Func::from(random_fill))?;
             Ok(())
         })?;
 
