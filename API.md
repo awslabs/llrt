@@ -4,7 +4,7 @@ The long term goal for LLRT is to become 100% [Winter CG compliant](https://gith
 
 ## buffer
 
-[alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding) - Only accepts number
+[alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding) _Only accepts number_
 
 [from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
 
@@ -36,9 +36,7 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 Available globally
 
-[fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch)
-
-_There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:_
+[fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) _There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:_
 * `keepalive` is always true
 * `body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
 * `mode`, `credentials`,  `referrerPolicy`, `priority`, `cache` is not available/applicable
@@ -74,8 +72,7 @@ export function decode(value:string):Uint8Array
 
 ## module
 
-[createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename)
-_Require is available from esm modules natively. This function is just for compatibility_
+[createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename) _Require is available from esm modules natively. This function is just for compatibility_
 
 ## os
 
@@ -131,7 +128,7 @@ _Supported encodings:  hex, base64, utf8, iso88591_
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
-_supports only `decode`_
+_Supports only `decode`_
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
@@ -184,6 +181,5 @@ _These APIs uses native streams that is not 100% compatible with the Node.js Str
 
 [connect](https://nodejs.org/api/net.html#netconnect)
 
-[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
-_This module provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:_
+[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener) _This module provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:_
 `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`

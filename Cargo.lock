@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "llrt"
-version = "0.1.1-beta"
+version = "0.1.2-beta"
 dependencies = [
  "async-trait",
  "base64-simd",
