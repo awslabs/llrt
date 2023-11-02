@@ -2509,6 +2509,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/uuid@npm:9.0.6":
+  version: 9.0.6
+  resolution: "@types/uuid@npm:9.0.6"
+  checksum: 8fb6b3a583a035b8e917192eeadaadadfbfd29315094aafd3478e11f11a986cb118ee0f388b15035fda063d9f1a32fa62e7a791215b762fe1e2c177929ca7146
+  languageName: node
+  linkType: hard
+
 "@types/yargs-parser@npm:*":
   version: 21.0.2
   resolution: "@types/yargs-parser@npm:21.0.2"
@@ -4644,6 +4651,7 @@ __metadata:
     "@aws-sdk/lib-dynamodb": "npm:3.438.0"
     "@types/jest": "npm:29.5.6"
     "@types/readable-stream": "npm:4.0.4"
+    "@types/uuid": "npm:9.0.6"
     assert: "npm:2.1.0"
     esbuild: "npm:0.19.5"
     esbuild-plugins-node-modules-polyfill: "npm:1.6.1"

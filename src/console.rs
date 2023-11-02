@@ -286,13 +286,21 @@ fn stringify_value<'js>(
                                 if let Some(class_name) = class_name {
                                     result.push_str(&class_name);
                                     result.push(' ');
-                                    is_typed_array = match class_name.as_str() {
-                                        "Int8Array" | "Uint8Array" | "Uint8ClampedArray"
-                                        | "Int16Array" | "Uint16Array" | "Int32Array"
-                                        | "Uint32Array" | "Float32Array" | "Float64Array"
-                                        | "Buffer" => true,
-                                        _ => false,
-                                    }
+                                    is_typed_array = matches!(
+                                        class_name.as_str(),
+                                        "Int8Array"
+                                            | "Uint8Array"
+                                            | "Uint8ClampedArray"
+                                            | "Int16Array"
+                                            | "Uint16Array"
+                                            | "Int32Array"
+                                            | "Uint32Array"
+                                            | "Int64Array"
+                                            | "Uint64Array"
+                                            | "Float32Array"
+                                            | "Float64Array"
+                                            | "Buffer"
+                                    )
                                 }
 
                                 let obj = value.as_object().unwrap();

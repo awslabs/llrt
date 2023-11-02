@@ -22,6 +22,12 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomBytes](https://nodejs.org/api/crypto.html#cryptorandombytessize-callback)
 
+[randomFill](https://nodejs.org/api/crypto.html#cryptorandomfillbuffer-offset-size-callback)
+
+[randomFillSync](https://nodejs.org/api/crypto.html#cryptorandomfillsyncbuffer-offset-size)
+
+[randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
+
 ## events
 
 [EventEmitter](https://nodejs.org/api/events.html#class-eventemitter)
@@ -132,7 +138,24 @@ _supports only `decode`_
 ## uuid
 
 ```typescript
+
+export const NIL:string
+
+export function v1():string
+
+export function v3(name:string, namespace:Array|Uint8Array|String):string
+
 export function v4():string
+
+export function v5(name:string, namespace:Array|Uint8Array|String):string
+
+export function parse(value:string):Uint8Array
+
+export function stringify(arr:Array|Uint8Array):string
+
+export function validate(arr:string):boolean
+
+export function version(arr:Array|Uint8Array):number
 ```
 
 ## xml

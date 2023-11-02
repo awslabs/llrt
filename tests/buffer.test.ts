@@ -60,6 +60,26 @@ describe("Buffer.from", () => {
       assert.strictEqual(buffer[i], byteArray[offset + i]);
     }
   });
+
+  it("should handle offset and length overflows", () => {
+    const byteArray = [65, 66, 67, 68, 69]; // ASCII values of A, B, C, D, E
+    let length = 99;
+    let offset = 0;
+    // @ts-ignore
+    let buffer = Buffer.from(byteArray, offset, length);
+    assert.strictEqual(buffer.length, byteArray.length);
+    for (let i = 0; i < length; i++) {
+      assert.strictEqual(buffer[i], byteArray[offset + i]);
+    }
+
+    // @ts-ignore
+    buffer = Buffer.from(byteArray, 99, 2);
+    assert.strictEqual(buffer.length, 0);
+
+    // @ts-ignore
+    buffer = Buffer.from(byteArray, 99, 999);
+    assert.strictEqual(buffer.length, 0);
+  });
 });
 
 describe("toString", () => {

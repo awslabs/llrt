@@ -109,9 +109,12 @@ where
         let proto = Class::<Self>::prototype(ctx.clone())
             .or_throw_msg(ctx, "Prototype for EventEmitter not found")?;
 
+        let on = Function::new(ctx.clone(), Self::on)?;
+        let off = Function::new(ctx.clone(), Self::remove_event_listener)?;
+
         proto.set("once", Func::from(Self::once))?;
 
-        proto.set("on", Func::from(Self::on))?;
+        proto.set("on", on.clone())?;
 
         proto.set("emit", Func::from(Self::emit))?;
 
@@ -122,14 +125,12 @@ where
             Func::from(Self::prepend_once_listener),
         )?;
 
-        proto.set("off", Func::from(Self::remove_event_listener))?;
+        proto.set("off", off.clone())?;
 
         proto.set("eventNames", Func::from(Self::event_names))?;
 
-        let on: Function = proto.get("on")?;
         proto.set("addListener", on)?;
 
-        let off: Function = proto.get("off")?;
         proto.set("removeListener", off)?;
 
         Ok(())

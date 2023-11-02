@@ -494,12 +494,12 @@ impl<'js> Socket<'js> {
 impl<'js> Server<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<Class<'js, Self>> {
-        let mut iter = args.0.into_iter();
+        let mut args_iter = args.0.into_iter();
 
         let mut connection_listener = None;
         let mut allow_half_open = false;
 
-        if let Some(first) = iter.next() {
+        if let Some(first) = args_iter.next() {
             if let Some(connection_listener_arg) = first.as_function() {
                 connection_listener = Some(connection_listener_arg.clone());
             }
@@ -507,7 +507,7 @@ impl<'js> Server<'js> {
                 allow_half_open = opts_arg.get_optional("allowHalfOpen")?.unwrap_or_default();
             }
         }
-        if let Some(next) = iter.next() {
+        if let Some(next) = args_iter.next() {
             connection_listener = next.into_function();
         }
 
@@ -547,7 +547,7 @@ impl<'js> Server<'js> {
         ctx: Ctx<'js>,
         args: Rest<Value<'js>>,
     ) -> Result<()> {
-        let mut iter = args.0.into_iter();
+        let mut args_iter = args.0.into_iter();
         let mut port = None;
         let mut path = None;
         let mut host = None;
@@ -559,7 +559,7 @@ impl<'js> Server<'js> {
         let allow_half_open = borrow.allow_half_open;
         drop(borrow);
 
-        if let Some(first) = iter.next() {
+        if let Some(first) = args_iter.next() {
             if let Some(callback_arg) = first.as_function() {
                 callback = Some(callback_arg.clone());
             } else {
@@ -578,7 +578,7 @@ impl<'js> Server<'js> {
 
                 let path = first.into_string();
 
-                if let Some(second) = iter.next() {
+                if let Some(second) = args_iter.next() {
                     if let Some(callback_arg) = second.as_function() {
                         callback = Some(callback_arg.clone());
                     }
@@ -590,7 +590,7 @@ impl<'js> Server<'js> {
                             backlog = Some(backlog_arg);
                         }
                     }
-                    if let Some(third) = iter.next() {
+                    if let Some(third) = args_iter.next() {
                         if let Some(callback_arg) = third.as_function() {
                             callback = Some(callback_arg.clone());
                         }
@@ -598,7 +598,7 @@ impl<'js> Server<'js> {
                             if let Some(backlog_arg) = third.as_int() {
                                 backlog = Some(backlog_arg);
 
-                                callback = iter.next().and_then(|v| v.into_function());
+                                callback = args_iter.next().and_then(|v| v.into_function());
                             }
                         }
                     }

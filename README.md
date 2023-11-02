@@ -31,7 +31,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 
 ## Compatibility matrix
 
-_LLRT does not support all Node.js APIs. It is not a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of supported APIs and modules. For more details consult the [API](API) documentation_
+_LLRT does not support all Node.js APIs. It is not a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of supported APIs and modules. For more details consult the [API](API.md) documentation_
 
 |               | Node.js                                  | LLRT  |
 | ------------- | ---------------------------------------- | ----- |
@@ -72,7 +72,7 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 
 ### ESBuild
 
-    esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk
+    esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:uuid
 
 ### Rollup
 
@@ -94,7 +94,7 @@ export default {
     commonjs(),
     terser(), 
   ],
-  external: ["@aws-sdk"],
+  external: ["@aws-sdk","uuid"],
 };
 ```
 
@@ -116,7 +116,7 @@ export default {
   resolve: {
     extensions: ['.js'],
   },
-  externals: [nodeExternals(),"@aws-sdk"],
+  externals: [nodeExternals(),"@aws-sdk","uuid"],
   optimization: {
     minimize: true,
     minimizer: [
