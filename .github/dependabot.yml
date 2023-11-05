@@ -15,7 +15,7 @@ updates:
   - package-ecosystem: "npm"
     directory: "/" # Location of package manifests
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     groups:
       awssdk:
         patterns:
