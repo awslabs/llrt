@@ -1719,7 +1719,7 @@ __metadata:
     "@aws-cdk/aws-apigatewayv2-integrations-alpha": "npm:2.103.1-alpha.0"
     "@types/node": "npm:20.8.9"
     aws-cdk: "npm:2.103.1"
-    aws-cdk-lib: "npm:2.103.1"
+    aws-cdk-lib: "npm:2.104.0"
     constructs: "npm:10.3.0"
     esbuild: "npm:0.19.5"
     ts-node: "npm:10.9.1"
@@ -2722,9 +2722,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aws-cdk-lib@npm:2.103.1":
-  version: 2.103.1
-  resolution: "aws-cdk-lib@npm:2.103.1"
+"aws-cdk-lib@npm:2.104.0":
+  version: 2.104.0
+  resolution: "aws-cdk-lib@npm:2.104.0"
   dependencies:
     "@aws-cdk/asset-awscli-v1": "npm:^2.2.200"
     "@aws-cdk/asset-kubectl-v20": "npm:^2.1.2"
@@ -2741,7 +2741,7 @@ __metadata:
     yaml: "npm:1.10.2"
   peerDependencies:
     constructs: ^10.0.0
-  checksum: 9ce78cc4f58022d8333830a74084f7860e5d3f6a0758351b72ed9c3ff99cbc20c16536de284446ea987d3d8d19cc092c1282e21a1a83ec29f51a541238564748
+  checksum: 6b5dc0d5e74d338a8ec04dece8236c4e842370b126f8fd2306d0015c373bb03849b73a535e2518dfe791d99dfa4fcadc818b74bd10b6ee7c924373274cff7c3e
   languageName: node
   linkType: hard
 
