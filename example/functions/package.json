@@ -16,7 +16,7 @@
   "devDependencies": {
     "@types/react": "18.2.33",
     "@types/react-dom": "18.2.14",
-    "aws-sdk": "2.1483.0",
+    "aws-sdk": "2.1488.0",
     "esbuild": "0.19.5"
   }
 }
