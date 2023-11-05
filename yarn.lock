@@ -1718,7 +1718,7 @@ __metadata:
     "@aws-cdk/aws-apigatewayv2-alpha": "npm:2.103.1-alpha.0"
     "@aws-cdk/aws-apigatewayv2-integrations-alpha": "npm:2.103.1-alpha.0"
     "@types/node": "npm:20.8.9"
-    aws-cdk: "npm:2.103.1"
+    aws-cdk: "npm:2.104.0"
     aws-cdk-lib: "npm:2.104.0"
     constructs: "npm:10.3.0"
     esbuild: "npm:0.19.5"
@@ -2745,9 +2745,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aws-cdk@npm:2.103.1":
-  version: 2.103.1
-  resolution: "aws-cdk@npm:2.103.1"
+"aws-cdk@npm:2.104.0":
+  version: 2.104.0
+  resolution: "aws-cdk@npm:2.104.0"
   dependencies:
     fsevents: "npm:2.3.2"
   dependenciesMeta:
@@ -2755,7 +2755,7 @@ __metadata:
       optional: true
   bin:
     cdk: bin/cdk
-  checksum: f36642229fa85916d36f606d68d30f6aa1ccba2016e3cdcdbe96e9fb3762f833e05609035a1f8799e1561254671e0f71d0c3a7d8822a3acbd877cb005b667e18
+  checksum: 38b9ff5cc12d996f7701a472405187f2d73a8696c91ba2d9e50cf125ec9c6655f1dd9b652b82dda2f925e04bdd6958bce328f2528a68d3bcf7831a6fd132dcf1
   languageName: node
   linkType: hard
 
