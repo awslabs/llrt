@@ -19,7 +19,7 @@
     "@aws-sdk/client-s3": "3.438.0",
     "@aws-sdk/client-secrets-manager": "3.438.0",
     "@aws-sdk/client-ses": "3.438.0",
-    "@aws-sdk/client-sfn": "3.438.0",
+    "@aws-sdk/client-sfn": "3.441.0",
     "@aws-sdk/client-sns": "3.438.0",
     "@aws-sdk/client-sqs": "3.438.0",
     "@aws-sdk/client-ssm": "3.438.0",
