@@ -1701,7 +1701,7 @@ __metadata:
   dependencies:
     "@aws-sdk/client-dynamodb": "npm:3.438.0"
     "@aws-sdk/client-s3": "npm:3.438.0"
-    "@types/react": "npm:18.2.33"
+    "@types/react": "npm:18.2.34"
     "@types/react-dom": "npm:18.2.14"
     aws-sdk: "npm:2.1483.0"
     esbuild: "npm:0.19.5"
@@ -2474,7 +2474,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:*, @types/react@npm:18.2.33":
+"@types/react@npm:*":
   version: 18.2.33
   resolution: "@types/react@npm:18.2.33"
   dependencies:
@@ -2482,6 +2482,17 @@ __metadata:
     "@types/scheduler": "npm:*"
     csstype: "npm:^3.0.2"
   checksum: d3392785660d78121541403a5d1da57dc79e8ce402769251a626aa06a6886a6aaead868a01ee473661380ddd4ac79743de78853d69f652544da191d435f78afb
+  languageName: node
+  linkType: hard
+
+"@types/react@npm:18.2.34":
+  version: 18.2.34
+  resolution: "@types/react@npm:18.2.34"
+  dependencies:
+    "@types/prop-types": "npm:*"
+    "@types/scheduler": "npm:*"
+    csstype: "npm:^3.0.2"
+  checksum: 42a357e3ec8943fe433f647e60e1506ec7657e12a72847ca801f97a128778dff6011e57ae2eb53f6363cf4515cab60f6a47eca2f916bab27a85bd88c94ab72d3
   languageName: node
   linkType: hard
 
