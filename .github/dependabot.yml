@@ -16,6 +16,14 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    groups:
+      awssdk:
+        patterns:
+        - "@aws-sdk*"
+        update-types:
+        - "minor"
+        - "patch"
+
 
     # Maintain dependencies for rust
   - package-ecosystem: "cargo"
