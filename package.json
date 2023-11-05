@@ -24,7 +24,7 @@
     "@aws-sdk/client-sqs": "3.438.0",
     "@aws-sdk/client-ssm": "3.438.0",
     "@aws-sdk/client-sts": "3.438.0",
-    "@aws-sdk/client-xray": "3.438.0",
+    "@aws-sdk/client-xray": "3.441.0",
     "@aws-sdk/credential-providers": "3.438.0",
     "@aws-sdk/lib-dynamodb": "3.438.0",
     "@types/jest": "29.5.6",
