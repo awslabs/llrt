@@ -1703,7 +1703,7 @@ __metadata:
     "@aws-sdk/client-s3": "npm:3.441.0"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.14"
-    aws-sdk: "npm:2.1483.0"
+    aws-sdk: "npm:2.1488.0"
     esbuild: "npm:0.19.5"
     esbuild-css-modules-plugin: "npm:3.0.3"
     react: "npm:18.2.0"
@@ -2759,9 +2759,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aws-sdk@npm:2.1483.0":
-  version: 2.1483.0
-  resolution: "aws-sdk@npm:2.1483.0"
+"aws-sdk@npm:2.1488.0":
+  version: 2.1488.0
+  resolution: "aws-sdk@npm:2.1488.0"
   dependencies:
     buffer: "npm:4.9.2"
     events: "npm:1.1.1"
@@ -2773,7 +2773,7 @@ __metadata:
     util: "npm:^0.12.4"
     uuid: "npm:8.0.0"
     xml2js: "npm:0.5.0"
-  checksum: 4fc123328acd70320156388a517ce6a8b8a0fe7c2da595b59a15b4b1ea57d9025da2fbc02b26673798c3ea36bd516713c2539e94303e957fb7ba549816318123
+  checksum: 14d02caf9c1cc1437af8ed972638e737ee4d55fdedf0f74e20f0b8b92da088e21a5f336af8abe5bec43e2c19ff5062fd2a92d14ec95ab2588095abec5950d409
   languageName: node
   linkType: hard
 
