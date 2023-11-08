@@ -405,7 +405,7 @@ impl Vm {
 
     pub async fn run_and_handle_exceptions<'js, F>(ctx: &AsyncContext, f: F)
     where
-        F: FnOnce(Ctx) -> rquickjs::Result<()>,
+        F: FnOnce(Ctx) -> rquickjs::Result<()> + Send,
     {
         ctx.with(|ctx| {
             f(ctx.clone())
@@ -452,7 +452,7 @@ impl Vm {
     }
 }
 
-fn init(ctx: &Ctx, module_names: HashSet<&'static str>) -> Result<()> {
+fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
 
     globals.set("global", ctx.globals())?;

@@ -10,6 +10,12 @@ describe("timers", () => {
     assert.ok(end - start >= 10);
   });
 
+  it("should set nested timeout", (done) => {
+    setTimeout(() => {
+      setTimeout(done, 10);
+    }, 10);
+  });
+
   it("should clear timeout", async () => {
     const start = Date.now();
     let status = "";
