@@ -38,7 +38,7 @@ describe("timers", () => {
     assert.equal(status, "cleared");
   });
 
-  it.skip("should set interval", async () => {
+  it("should set interval", async () => {
     const start = Date.now();
     let count = 1;
     await new Promise<void>((resolve) => {
@@ -55,7 +55,7 @@ describe("timers", () => {
     assert.equal(count, 5);
   });
 
-  it.skip("should clear interval", async () => {
+  it("should clear interval", async () => {
     const start = Date.now();
     let count = 1;
     await new Promise<void>((resolve) => {
