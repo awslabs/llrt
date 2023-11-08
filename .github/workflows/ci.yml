@@ -1,10 +1,8 @@
 name: LLRT CI
 on:
   push:
-    tags:
-      - "release/*"
     branches:
-      - "*"
+      - "main"
   pull_request:
 
 # Only run on the latest ref
