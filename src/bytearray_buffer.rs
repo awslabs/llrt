@@ -37,6 +37,7 @@ impl BytearrayBuffer {
         self.len.load(Ordering::Relaxed)
     }
 
+    #[allow(dead_code)]
     pub fn write_forced(&self, item: &[u8]) {
         let mut inner = self.inner.lock().unwrap();
         inner.extend(item);
@@ -75,6 +76,7 @@ impl BytearrayBuffer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Relaxed)
     }

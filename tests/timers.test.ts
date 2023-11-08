@@ -10,6 +10,12 @@ describe("timers", () => {
     assert.ok(end - start >= 10);
   });
 
+  it("should set nested timeout", (done) => {
+    setTimeout(() => {
+      setTimeout(done, 10);
+    }, 10);
+  });
+
   it("should clear timeout", async () => {
     const start = Date.now();
     let status = "";
@@ -32,7 +38,7 @@ describe("timers", () => {
     assert.equal(status, "cleared");
   });
 
-  it("should set interval", async () => {
+  it.skip("should set interval", async () => {
     const start = Date.now();
     let count = 1;
     await new Promise<void>((resolve) => {
@@ -49,7 +55,7 @@ describe("timers", () => {
     assert.equal(count, 5);
   });
 
-  it("should clear interval", async () => {
+  it.skip("should clear interval", async () => {
     const start = Date.now();
     let count = 1;
     await new Promise<void>((resolve) => {

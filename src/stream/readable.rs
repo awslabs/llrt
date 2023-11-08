@@ -32,6 +32,7 @@ pub enum ReadableState {
     Paused,
 }
 
+#[allow(dead_code)]
 pub struct ReadableStreamInner<'js> {
     emitter: EventEmitter<'js>,
     destroy_tx: Sender<Option<Value<'js>>>,

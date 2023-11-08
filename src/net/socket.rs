@@ -126,6 +126,7 @@ pub struct Server<'js> {
 }
 
 #[rquickjs::class]
+#[allow(dead_code)]
 pub struct Socket<'js> {
     emitter: EventEmitter<'js>,
     readable_stream_inner: ReadableStreamInner<'js>,
@@ -542,6 +543,8 @@ impl<'js> Server<'js> {
         self.address.clone()
     }
 
+    #[allow(unused_assignments)]
+    ///TODO add backlog support
     pub fn listen(
         this: This<Class<'js, Self>>,
         ctx: Ctx<'js>,
@@ -551,6 +554,7 @@ impl<'js> Server<'js> {
         let mut port = None;
         let mut path = None;
         let mut host = None;
+        #[allow(unused_variables)] //TODO add backlog support
         let mut backlog = None;
         let mut callback = None;
 

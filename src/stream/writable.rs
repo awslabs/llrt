@@ -29,6 +29,7 @@ pub struct WritableStreamInner<'js> {
     command_tx: UnboundedSender<WriteCommand<'js>>,
     command_rx: Option<UnboundedReceiver<WriteCommand<'js>>>,
     is_finished: bool,
+    #[allow(dead_code)]
     errored: bool,
     emit_close: bool,
     is_destroyed: bool,
@@ -55,6 +56,7 @@ impl<'js> WritableStreamInner<'js> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum WriteCommand<'js> {
     End,
     Write(Vec<u8>, Option<Function<'js>>, bool),
