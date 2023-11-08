@@ -1,2 +1,1 @@
-* Added UUID module
-* Implemented `randomUUID`, `randomFill` and `randomFillSync` APIs in `crypto` module
+* Much faster timers. Timers are also now more consistent with Node.js event loop behavior.
