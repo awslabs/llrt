@@ -170,8 +170,8 @@ fn compress_bytecode(bundles_dir: &str, source_files: Vec<String>) -> io::Result
     let mut cmd = Command::new("zstd");
     cmd.args([
         "--train",
-        "--train-fastcover=steps=20",
-        "--maxdict=10K",
+        "--train-fastcover=steps=40",
+        "--maxdict=20K",
         "-o",
         &dictionary_path,
     ]);
