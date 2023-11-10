@@ -14,13 +14,81 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <zstd.h>
-// #include <sys/syscall.h>
+#include <stdarg.h>
 
-// #ifdef __x86_64__
-// #define MEMFD_CREATE_SYSCALL_ID 319
-// #else
-// #define MEMFD_CREATE_SYSCALL_ID 279
-// #endif
+#define TIMESTAMP_BUFFER_SIZE 50
+
+// Global flag to cache whether logging is enabled
+static bool logEnabled = false;
+
+// Function to initialize the logging flag
+void initLoggingFlag()
+{
+  char *envValue = getenv("LLRT_LOG");
+  logEnabled = (envValue != NULL);
+}
+
+// Function to get a human-readable timestamp
+void getTimestamp(char *timestampBuffer)
+{
+  struct timeval tv;
+  struct tm timeinfo;
+
+  gettimeofday(&tv, NULL);
+  localtime_r(&tv.tv_sec, &timeinfo);
+
+  strftime(timestampBuffer, 26, "[%Y-%m-%dT%T", &timeinfo);
+  snprintf(timestampBuffer + 20, 6, ".%03ld]", tv.tv_usec / 1000);
+}
+
+// Function to print a log message
+void printLog(const char *level, const char *format, va_list args)
+{
+
+  char timestampBuffer[TIMESTAMP_BUFFER_SIZE];
+  getTimestamp(timestampBuffer);
+  printf("[%s]%s", level, timestampBuffer);
+  vprintf(format, args);
+}
+
+// Log Info
+void logInfo(const char *format, ...)
+{
+  if (logEnabled)
+  {
+    va_list args;
+    va_start(args, format);
+    printLog("INFO", format, args);
+    va_end(args);
+    fflush(stdout);
+  }
+}
+
+// Log Warning
+void logWarn(const char *format, ...)
+{
+  if (logEnabled)
+  {
+    va_list args;
+    va_start(args, format);
+    printLog("WARN", format, args);
+    va_end(args);
+    fflush(stdout);
+  }
+}
+
+// Log Error
+void logError(const char *format, ...)
+{
+  if (logEnabled)
+  {
+    va_list args;
+    va_start(args, format);
+    printLog("ERROR", format, args);
+    va_end(args);
+    fflush(stdout);
+  }
+}
 
 static uint32_t calculateSum(uint32_t *array, uint8_t size)
 {
@@ -159,18 +227,11 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize)
   *uncompressedData = uncompressed;
 }
 
-// int memfd_create_syscall(const char *name, unsigned flags)
-// {
-
-//   return syscall(MEMFD_CREATE_SYSCALL_ID, name, flags);
-
-//   // aarch64 279
-//   // x86_64 319
-// }
-
 int main(int argc, char *argv[])
 {
-  printf("Binary launched\n");
+  initLoggingFlag();
+
+  logInfo("Runtime starting\n");
 
   char *tmpAppname = strrchr(argv[0], '/');
   char *appname = tmpAppname ? ++tmpAppname : argv[0];
@@ -189,6 +250,7 @@ int main(int argc, char *argv[])
   decompress(&uncompressedData, &uncompressedSize);
 
   double t1 = micro_seconds();
+  logInfo("Runtime starting\n");
   printf("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
   fflush(stdout);
 
@@ -196,7 +258,7 @@ int main(int argc, char *argv[])
   free(uncompressedData);
 
   double t2 = micro_seconds();
-  printf("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
+  logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
   fflush(stdout);
 
   char **new_argv = malloc((size_t)(argc + 1) * sizeof *new_argv);
@@ -226,10 +288,11 @@ int main(int argc, char *argv[])
 
   setenv("_START_TIME", startTimeStr, false);
 
-  printf("Starting app\n");
-  fflush(stdout);
+  logInfo("Starting app\n");
 
   fexecve(outputFd, new_argv, environ);
+
+  logError("Failed to start executable");
 
   err(1, "%s failed", "fexecve");
 
