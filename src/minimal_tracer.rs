@@ -1,11 +1,12 @@
-use std::env;
+use std::{
+    env,
+    fmt::{self, Write},
+    sync::atomic::{AtomicUsize, Ordering},
+    write,
+};
 
-use std::{fmt, sync::atomic::AtomicUsize, write};
-
-use std::fmt::Write;
-use tracing::Level;
-use tracing::{field::Visit, Id, Subscriber};
-use tracing_core::Field;
+use tracing::{field::Visit, Id, Level, Subscriber};
+use tracing_core::{span, Field};
 
 pub struct StringVisitor<'a> {
     string: &'a mut String,
@@ -49,9 +50,10 @@ fn string_to_level(string: &str) -> Option<Level> {
 
 impl MinimalTracer {
     pub fn register() -> Result<(), tracing::subscriber::SetGlobalDefaultError> {
-        let mut enabled = true;
+        let mut enabled = false;
         let mut filters: Vec<LogFilter> = Vec::with_capacity(10);
-        if let Ok(env_value) = env::var("RUST_LOG") {
+        if let Ok(env_value) = env::var("LLRT_LOG") {
+            enabled = true;
             for filter in env_value.split(',') {
                 let mut target = Some(filter);
                 let mut level = None;
@@ -72,8 +74,6 @@ impl MinimalTracer {
                     level,
                 });
             }
-        } else {
-            enabled = false;
         }
 
         tracing::subscriber::set_global_default(MinimalTracer { enabled, filters })
@@ -111,18 +111,13 @@ impl Subscriber for MinimalTracer {
         false
     }
 
-    fn new_span(&self, _span: &tracing_core::span::Attributes<'_>) -> tracing_core::span::Id {
-        Id::from_u64(AUTO_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as u64)
+    fn new_span(&self, _span: &span::Attributes<'_>) -> span::Id {
+        Id::from_u64(AUTO_ID.fetch_add(1, Ordering::Relaxed) as u64)
     }
 
-    fn record(&self, _span: &tracing_core::span::Id, _values: &tracing_core::span::Record<'_>) {}
+    fn record(&self, _span: &span::Id, _values: &span::Record<'_>) {}
 
-    fn record_follows_from(
-        &self,
-        _span: &tracing_core::span::Id,
-        _follows: &tracing_core::span::Id,
-    ) {
-    }
+    fn record_follows_from(&self, _span: &span::Id, _follows: &span::Id) {}
 
     fn event(&self, event: &tracing::Event<'_>) {
         let metadata = event.metadata();
@@ -138,7 +133,7 @@ impl Subscriber for MinimalTracer {
         println!("{level} {target}: {text}");
     }
 
-    fn enter(&self, _span: &tracing_core::span::Id) {}
+    fn enter(&self, _span: &span::Id) {}
 
-    fn exit(&self, _span: &tracing_core::span::Id) {}
+    fn exit(&self, _span: &span::Id) {}
 }
