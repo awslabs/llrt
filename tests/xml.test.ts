@@ -1,4 +1,4 @@
-import { XMLParser } from "xml";
+import { XMLParser, XmlText, XmlNode } from "xml";
 
 describe("XMLParser options and handling", () => {
   it("should parse xml", () => {
@@ -145,5 +145,64 @@ describe("XMLParser options and handling", () => {
     });
     const result = parser.parse(xmlString);
     assert.deepStrictEqual(result, expectedResult);
+  });
+});
+
+describe("XML Builder", () => {
+  it("Can create XmlText with escaped values", () => {
+    let xml = new XmlText("<john>doe</john>").toString();
+
+    assert.equal(xml, "&lt;john&gt;doe&lt;/john&gt;");
+  });
+
+  it("Can build XML with empty tag", () => {
+    let xml = new XmlNode("data").toString();
+
+    assert.equal(xml, "<data/>");
+  });
+
+  it("Can build XML with child", () => {
+    let xml = new XmlNode("data", ["example"]).toString();
+
+    assert.equal(xml, "<data>example</data>");
+  });
+
+  it("Can build XML with nested child", () => {
+    let xml = new XmlNode("root", ["example"]);
+
+    const node = XmlNode.of("expression", "foo").withName("expression");
+    const node2 = XmlNode.of("expression2", "bar").withName("expression");
+    xml.addChildNode(node);
+    node.addChildNode(node2);
+
+    assert.equal(
+      xml.toString(),
+      "<root>example<expression>foo<expression>bar</expression></expression></root>"
+    );
+  });
+
+  it("Can build XML with deeply nested child", () => {
+    let xml = new XmlNode("root");
+    const node = XmlNode.of("level1");
+    const node2 = XmlNode.of("level2");
+    const node3 = XmlNode.of("level3", "foobar");
+    xml.addChildNode(node);
+    node.addChildNode(node2);
+    node2.addChildNode(node3);
+
+    assert.equal(
+      xml.toString(),
+      "<root><level1><level2><level3>foobar</level3></level2></level1></root>"
+    );
+  });
+
+  it("Can build XML with attributes", () => {
+    let xml = XmlNode.of("root")
+      .addAttribute("example", "data")
+      .addAttribute("example2", "data2")
+      .addAttribute("example3", "data3")
+      .removeAttribute("example3");
+
+    assert.equal(xml.toString(), '<root example="data" example2="data2"/>');
   });
 });

@@ -10,8 +10,19 @@ use rquickjs::{
     function::Opt,
     module::{Declarations, Exports, ModuleDef},
     object::Property,
+    prelude::This,
     Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
+
+const AMP: &[u8] = b"&amp;";
+const LT: &[u8] = b"&lt;";
+const GT: &[u8] = b"&gt;";
+const QUOT: &[u8] = b"&quot;";
+const APOS: &[u8] = b"&apos;";
+const CR: &[u8] = b"&#x0D;";
+const LF: &[u8] = b"&#x0A;";
+const NEL: &[u8] = b"&#x85;";
+const LS: &[u8] = b"&#x2028;";
 
 use crate::util::{export_default, get_bytes, JoinToString, ObjectExt, ResultExt};
 
@@ -278,11 +289,226 @@ impl<'js> XMLParser<'js> {
     }
 }
 
+#[derive(Debug, Clone)]
+#[rquickjs::class]
+struct XmlText {
+    value: String,
+}
+
+impl<'js> Trace<'js> for XmlText {
+    fn trace<'a>(&self, _tracer: Tracer<'a, 'js>) {}
+}
+
+#[rquickjs::methods(rename_all = "camelCase")]
+impl XmlText {
+    #[qjs(constructor)]
+    fn new(value: String) -> Self {
+        XmlText {
+            value: escape_element(&value),
+        }
+    }
+
+    fn to_string(&self) -> String {
+        self.value.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+#[rquickjs::class]
+#[derive(rquickjs::class::Trace)]
+struct XmlNode<'js> {
+    #[qjs(skip_trace)]
+    name: String,
+    //child and attributes are always set to avoid branch checks when adding/removing values
+    children: Vec<Value<'js>>,
+    #[qjs(skip_trace)]
+    //vec iteration is faster since we rarely have more than 10 attrs and we want to retain insertion order
+    attributes: Vec<(String, String)>,
+}
+
+enum NodeStackEntry<'js> {
+    Node(Class<'js, XmlNode<'js>>),
+    End(String),
+}
+
+#[rquickjs::methods(rename_all = "camelCase")]
+impl<'js> XmlNode<'js> {
+    #[qjs(constructor)]
+    fn new(name: String, children: Opt<Vec<Value<'js>>>) -> Result<Self> {
+        let node = XmlNode {
+            name,
+            attributes: Vec::new(),
+            children: children.0.unwrap_or_default(),
+        };
+
+        Ok(node)
+    }
+
+    #[qjs(static)]
+    fn of(
+        ctx: Ctx<'js>,
+        name: String,
+        child_text: Opt<String>,
+        with_name: Opt<String>,
+    ) -> Result<Value<'js>> {
+        let mut node = XmlNode {
+            name,
+            children: Vec::new(),
+            attributes: Vec::new(),
+        };
+
+        if let Some(text) = child_text.0 {
+            let xml_text = Class::instance(ctx.clone(), XmlText::new(text))?;
+            node.children.push(xml_text.into_value());
+        }
+
+        if let Some(new_name) = with_name.0 {
+            node.name = new_name;
+        }
+
+        node.into_js(&ctx)
+    }
+
+    fn with_name(this: This<Class<'js, Self>>, name: String) -> Class<'js, Self> {
+        this.borrow_mut().name = name;
+        this.0
+    }
+
+    fn add_attribute(
+        this: This<Class<'js, Self>>,
+        name: String,
+        value: String,
+    ) -> Class<'js, Self> {
+        let this2 = this.clone();
+        let mut borrow = this2.borrow_mut();
+        if let Some(pos) = borrow.attributes.iter().position(|(a, _)| a == &name) {
+            borrow.attributes[pos] = (name, value);
+        } else {
+            borrow.attributes.push((name, value));
+        }
+        this.0
+    }
+
+    fn add_child_node(this: This<Class<'js, Self>>, value: Value<'js>) -> Result<Class<'js, Self>> {
+        let this2 = this.clone();
+        this2.borrow_mut().children.push(value);
+        Ok(this.0)
+    }
+
+    fn remove_attribute(this: This<Class<'js, Self>>, name: String) -> Class<'js, Self> {
+        let this2 = this.clone();
+        let mut borrow = this2.borrow_mut();
+        if let Some(pos) = borrow.attributes.iter().position(|(a, _)| a == &name) {
+            borrow.attributes.remove(pos);
+        }
+        this.0
+    }
+
+    fn to_string(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<String> {
+        let class = this.0;
+        let mut xml_text = String::new();
+
+        let mut stack = vec![NodeStackEntry::Node(class)];
+
+        while let Some(node) = stack.pop() {
+            match node {
+                NodeStackEntry::Node(node) => {
+                    let borrow = node.borrow();
+                    xml_text += &format!("<{}", borrow.name);
+
+                    for (attribute_name, attribute) in &borrow.attributes {
+                        xml_text +=
+                            &format!(r#" {}="{}""#, attribute_name, escape_attribute(attribute));
+                    }
+
+                    let has_children = !borrow.children.is_empty();
+                    if has_children {
+                        stack.push(NodeStackEntry::End(borrow.name.clone()));
+                        xml_text += ">";
+
+                        // Add children to the stack in reverse order (to maintain original order)
+                        for child in borrow.children.iter().rev() {
+                            if let Some(obj) = child.as_object() {
+                                if let Some(node) = Class::<Self>::from_object(obj.clone()) {
+                                    stack.push(NodeStackEntry::Node(node))
+                                } else if let Some(text) =
+                                    Class::<XmlText>::from_object(obj.clone())
+                                {
+                                    xml_text += &text.borrow().value;
+                                } else {
+                                    let to_string_fn = obj.get::<_, Function>("toString")?;
+                                    let string_value: String = to_string_fn.call(())?;
+                                    xml_text += &string_value;
+                                }
+                            } else {
+                                let string_value: String = child
+                                    .clone()
+                                    .try_into_string()
+                                    .map_err(|err| format!("Unable to convert {:?} to string", err))
+                                    .or_throw(&ctx)?
+                                    .to_string()?;
+                                xml_text += &string_value;
+                            }
+                        }
+                    } else {
+                        xml_text += "/>";
+                    }
+                    drop(borrow);
+                }
+                NodeStackEntry::End(name) => {
+                    xml_text += &format!("</{}>", name);
+                }
+            }
+        }
+
+        Ok(xml_text)
+    }
+}
+
+fn escape_attribute(value: &str) -> String {
+    let mut result = Vec::with_capacity(value.len());
+
+    for c in value.chars() {
+        match c {
+            '&' => result.extend_from_slice(AMP),
+            '<' => result.extend_from_slice(LT),
+            '>' => result.extend_from_slice(GT),
+            '"' => result.extend_from_slice(QUOT),
+            _ => result.push(c as u8),
+        }
+    }
+
+    String::from_utf8(result).unwrap()
+}
+
+fn escape_element(value: &str) -> String {
+    let mut result = Vec::with_capacity(value.len());
+
+    for c in value.chars() {
+        match c {
+            '&' => result.extend_from_slice(AMP),
+            '<' => result.extend_from_slice(LT),
+            '>' => result.extend_from_slice(GT),
+            '\'' => result.extend_from_slice(APOS),
+            '"' => result.extend_from_slice(QUOT),
+            '\r' => result.extend_from_slice(CR),
+            '\n' => result.extend_from_slice(LF),
+            '\u{0085}' => result.extend_from_slice(NEL),
+            '\u{2028}' => result.extend_from_slice(LS),
+            _ => result.push(c as u8),
+        }
+    }
+
+    String::from_utf8(result).unwrap()
+}
+
 pub struct XmlModule;
 
 impl ModuleDef for XmlModule {
     fn declare(declare: &mut Declarations) -> Result<()> {
         declare.declare(stringify!(XMLParser))?;
+        declare.declare(stringify!(XmlText))?;
+        declare.declare(stringify!(XmlNode))?;
 
         declare.declare("default")?;
 
@@ -292,6 +518,8 @@ impl ModuleDef for XmlModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             Class::<XMLParser>::define(default)?;
+            Class::<XmlText>::define(default)?;
+            Class::<XmlNode>::define(default)?;
             Ok(())
         })?;
 
