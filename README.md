@@ -131,6 +131,33 @@ export default {
 
 ```
 
+## Using AWS SDK (v3) with LLRT
+
+LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
+
+**Bundled AWS SDK packages:**
+
+* @aws-sdk/client-dynamodb
+* @aws-sdk/lib-dynamodb
+* @aws-sdk/client-kms
+* @aws-sdk/client-lambda
+* @aws-sdk/client-s3
+* @aws-sdk/client-secrets-manager
+* @aws-sdk/client-ses
+* @aws-sdk/client-sns
+* @aws-sdk/client-sqs
+* @aws-sdk/client-sts
+* @aws-sdk/client-ssm
+* @aws-sdk/client-cloudwatch-logs
+* @aws-sdk/client-cloudwatch-events
+* @aws-sdk/client-eventbridge
+* @aws-sdk/client-sfn
+* @aws-sdk/client-xray
+* @aws-sdk/client-cognito-identity
+* @aws-sdk/util-dynamodb
+* @aws-sdk/credential-providers
+* @smithy/signature-v4
+
 ## Running TypeScript with LLRT
 
 Same principle as dependencies applies when using TypeScript. TypeScript must be bundled and transpiled into ES2020 JavaScript.
