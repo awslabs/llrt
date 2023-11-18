@@ -98,6 +98,16 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
                 }
             }
 
+            #[cfg(feature = "no-sdk")]
+            {
+                if path_str.starts_with("@aws-sdk")
+                    || path_str.starts_with("@smithy")
+                    || path_str.starts_with("llrt-chunk-sdk")
+                {
+                    continue;
+                }
+            }
+
             let source = fs::read_to_string(dir_ent.path())
                 .unwrap_or_else(|_| panic!("Unable to load: {}", dir_ent.path().to_string_lossy()));
 

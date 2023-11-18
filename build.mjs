@@ -41,6 +41,8 @@ const NOOP_ARROW_FUNCTION_REGEX = /\(_\)\s*=>\s*_/;
 const SHARED_COMMAND_REGEX =
   /this\.middlewareStack\.use\(\s*getSerdePlugin\(configuration,\s*this\.serialize,\s*this\.deserialize\)\s*\);\s*this\.middlewareStack\.use\(\s*getEndpointPlugin\(\s*configuration,\s*\w+\.getEndpointParameterInstructions\(\)\s*\)\s*\);\s*const\s*stack\s*=\s*clientStack\.concat\(this\.middlewareStack\);\s*const\s*{\s*logger\s*}\s*=\s*configuration;\s*const\s*clientName\s*=\s*("\w+");\s*const\s*commandName\s*=\s*("\w+");\s*const\s*handlerExecutionContext\s*=\s*{\s*logger,\s*clientName,\s*commandName,\s*inputFilterSensitiveLog:\s*(\w+|\(_\) => _),\s*outputFilterSensitiveLog:\s*(\w+|\(_\) => _),?\s*,\s*\[SMITHY_CONTEXT_KEY]:\s*{\s*service:\s*("\w+"),\s*operation:\s*("\w+"),\s*},\s*};\s*const\s*{\s*requestHandler\s*}\s*=\s*configuration;\s*return\s*stack\.resolve\(\s*\(request\)\s*=>\s*requestHandler\.handle\(request\.request,\s*options\s*\|\|\s*{}\),\s*handlerExecutionContext\s*\);/gm;
 const SHARED_COMMAND_MARSHALL_REGEX = /return (\w+)\(/;
+const AWS_JSON_SHARED_COMMAND_REGEX =
+  /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/g;
 const MINIFY_JS = process.env.JS_MINIFY !== "0";
 const SDK_UTILS_PACKAGE = "sdk-utils";
 const ENTRYPOINTS = ["@llrt/std", "stream", "@llrt/runtime", "@llrt/test"];
@@ -216,6 +218,26 @@ function runtimeConfigWrapper(config) {
   return getRuntimeConfig(config);
 }
 
+const awsJsonSharedCommand = (name, input, context) => {
+  const headers = sharedHeaders(name);
+  const body = JSON.stringify(_json(input));
+  return buildHttpRpcRequest(context, headers, "/", undefined, body);
+};
+
+const awsRestXmlSharedCommandError = async (output, context) => {
+  const parsedOutput = {
+    ...output,
+    body: await parseErrorBody(output.body, context),
+  };
+  const errorCode = loadRestXmlErrorCode(output, parsedOutput.body);
+  const parsedBody = parsedOutput.body;
+  return throwDefaultError({
+    output,
+    parsedBody,
+    errorCode,
+  });
+};
+
 function defaultEndpointResolver(endpointParams, context = {}) {
   const paramsKey = calculateEndpointCacheKey(endpointParams);
   let endpoint = ENDPOINT_CACHE[paramsKey];
@@ -346,13 +368,13 @@ function extractStaticJsObject(fn) {
   ];
 }
 
-const codeToRegex = (fn) =>
-  new RegExp(
+function codeToRegex(fn, includeSignature = false) {
+  return new RegExp(
     fn
       .toString()
       .split("\n")
       .reduce((acc, line, index, array) => {
-        if (index > 0 && index < array.length - 1) {
+        if (includeSignature || (index > 0 && index < array.length - 1)) {
           acc.push(line.trim());
         }
         return acc;
@@ -370,6 +392,7 @@ const codeToRegex = (fn) =>
       .replace(/\|/g, "\\|"),
     "g"
   );
+}
 
 const awsSdkPlugin = {
   name: "aws-sdk-plugin",
@@ -427,6 +450,69 @@ const awsSdkPlugin = {
         contents,
       };
     });
+
+    build.onLoad(
+      { filter: /protocols\/Aws_restXml\.js$/ },
+      async ({ path: filePath }) => {
+        const name = path.parse(filePath).name;
+        let source = (await fs.readFile(filePath)).toString();
+
+        const sharedCommandErrorRegex = codeToRegex(
+          awsRestXmlSharedCommandError,
+          true
+        );
+
+        const sourceLength = source.length;
+
+        source = source.replace(
+          sharedCommandErrorRegex,
+          awsRestXmlSharedCommandError.name
+        );
+
+        if (sourceLength == source.length) {
+          throw new Error(`Failed to optimize: ${name}`);
+        }
+
+        console.log("Optimized:", name);
+
+        source = `const ${
+          awsRestXmlSharedCommandError.name
+        } = ${awsRestXmlSharedCommandError.toString()}\n\n${source}`;
+
+        return {
+          contents: source,
+        };
+      }
+    );
+
+    build.onLoad(
+      { filter: /protocols\/Aws_json1_1\.js$/ },
+      async ({ path: filePath }) => {
+        const name = path.parse(filePath).name;
+
+        let source = (await fs.readFile(filePath)).toString();
+
+        const sourceLength = source.length;
+
+        source = source.replace(AWS_JSON_SHARED_COMMAND_REGEX, (_, name) => {
+          return `${awsJsonSharedCommand.name}(${name}, input, context)`;
+        });
+
+        if (sourceLength == source.length) {
+          throw new Error(`Failed to optimize: ${name}`);
+        }
+
+        console.log("Optimized:", name);
+
+        source = `const ${
+          awsJsonSharedCommand.name
+        } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
+
+        return {
+          contents: source,
+        };
+      }
+    );
 
     build.onResolve({ filter: /^sdk-utils$/ }, (args) => ({
       path: args.path,
@@ -814,6 +900,7 @@ async function buildSdks() {
     plugins: [awsSdkPlugin, esbuildShimPlugin([[/^bowser$/]])],
     alias: {
       "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
+      "@aws-sdk/xml-builder": "xml",
       "fast-xml-parser": "xml",
     },
     chunkNames: "llrt-[name]-sdk-[hash]",

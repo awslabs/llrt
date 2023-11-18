@@ -82,11 +82,6 @@ pub fn get_class_name(value: &Value) -> Result<Option<String>> {
 }
 
 #[allow(dead_code)]
-pub fn instance_of(value: &Value, class_name: &str) -> Result<bool> {
-    get_class_name(value).map(|name| name == Some(class_name.to_string()))
-}
-
-#[allow(dead_code)]
 pub fn array_to_hash_map<'js>(
     ctx: &Ctx<'js>,
     array: Array<'js>,
