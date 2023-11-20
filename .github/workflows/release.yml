@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          cache: yarn
+          cache: npm
       - name: Install linux dependencies
         if: contains(matrix.platform, 'linux')
         run: |
@@ -42,8 +42,7 @@ jobs:
           brew install zig make
       - name: Install JavaScript deps
         run: |
-          corepack enable
-          yarn
+          npm i
       - name: Run tests
         run: |
           make test-ci

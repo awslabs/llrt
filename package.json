@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "esbuild": "esbuild",
-    "reinstall": "rm -rf node_modules && yarn"
+    "reinstall": "rm -rf node_modules && npm i"
   },
   "side-effects": false,
   "devDependencies": {
@@ -39,6 +39,5 @@
     "readable-stream": "4.4.2",
     "stream-browserify": "3.0.0",
     "typescript": "5.2.2"
-  },
-  "packageManager": "yarn@4.0.1"
+  }
 }

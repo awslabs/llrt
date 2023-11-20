@@ -199,8 +199,7 @@ Clone code and cd to directory
 
 Install Node.js packages
 
-    corepack enable
-    yarn
+    npm i
 
 Install generate libs and setup rust targets & toolchains
 

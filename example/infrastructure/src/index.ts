@@ -19,7 +19,7 @@ import path from "path";
 import { execSync } from "child_process";
 
 const main = async () => {
-  execSync("yarn build", {
+  execSync("node build.mjs", {
     cwd: "../functions",
     stdio: "inherit",
   });
