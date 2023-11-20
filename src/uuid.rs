@@ -25,8 +25,12 @@ static NODE_ID: Lazy<[u8; 6]> = Lazy::new(|| {
 });
 
 fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Uuid> {
-    let bytes = get_bytes(ctx, value)?;
-    Uuid::parse(bytes).or_throw_msg(ctx, ERROR_MESSAGE)
+    if value.is_string() {
+        Uuid::try_parse(&value.as_string().unwrap().to_string()?)
+    } else {
+        Uuid::from_slice(&get_bytes(ctx, value)?)
+    }
+    .or_throw_msg(ctx, ERROR_MESSAGE)
 }
 
 fn uuidv1() -> String {
@@ -52,7 +56,7 @@ pub fn uuidv4() -> String {
 }
 
 fn parse(ctx: Ctx<'_>, value: String) -> Result<TypedArray<u8>> {
-    let uuid = Uuid::parse_str(&value).or_throw_msg(&ctx, ERROR_MESSAGE)?;
+    let uuid = Uuid::try_parse(&value).or_throw_msg(&ctx, ERROR_MESSAGE)?;
     let bytes = uuid.as_bytes();
     TypedArray::<u8>::new(ctx, *bytes)
 }
