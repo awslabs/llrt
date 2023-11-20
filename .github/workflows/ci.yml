@@ -54,6 +54,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           cache: npm
+          node-version: lts/*
       - name: Install linux dependencies
         if: contains(matrix.platform, 'linux')
         run: |
@@ -70,15 +71,13 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install zig
-          brew install make
+          brew install zig make
       - name: Install Windows dependencies
         if: contains(matrix.platform, 'windows')
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
           iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
-          scoop install make
-          scoop install zig
+          scoop install make zig
         shell: pwsh
       - name: Install JavaScript deps
         run: |
