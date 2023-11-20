@@ -25,8 +25,14 @@ static NODE_ID: Lazy<[u8; 6]> = Lazy::new(|| {
 });
 
 fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Uuid> {
+    let is_string = value.is_string();
     let bytes = get_bytes(ctx, value)?;
-    Uuid::parse(bytes).or_throw_msg(ctx, ERROR_MESSAGE)
+
+    if is_string {
+        return Uuid::parse_hyphenated(bytes).or_throw_msg(ctx, ERROR_MESSAGE);
+    }
+
+    Uuid::parse_simple(bytes).or_throw_msg(ctx, ERROR_MESSAGE)
 }
 
 fn uuidv1() -> String {
