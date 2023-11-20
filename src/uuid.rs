@@ -34,16 +34,31 @@ fn uuidv1() -> String {
 }
 
 fn uuidv3<'js>(ctx: Ctx<'js>, name: String, namespace: Value<'js>) -> Result<String> {
-    let uuid = Uuid::new_v3(&from_value(&ctx, namespace)?, name.as_bytes())
-        .format_hyphenated()
-        .to_string();
+    let uuid = Uuid::new_v3(
+        &from_value(&ctx, namespace.clone())
+            .map_err(|_| {
+                format!(
+                    "Namespace \"{:?}\" is not a valid UUID",
+                    namespace.try_into_string()
+                )
+            })
+            .or_throw(&ctx)?,
+        name.as_bytes(),
+    )
+    .format_hyphenated()
+    .to_string();
     Ok(uuid)
 }
 
 fn uuidv5<'js>(ctx: Ctx<'js>, name: String, namespace: Value<'js>) -> Result<String> {
-    let uuid = Uuid::new_v5(&from_value(&ctx, namespace)?, name.as_bytes())
-        .format_hyphenated()
-        .to_string();
+    let uuid = Uuid::new_v5(
+        &from_value(&ctx, namespace.clone())
+            .map_err(|_| format!("Namespace \"{:?}\" is not a valid UUID", namespace))
+            .or_throw(&ctx)?,
+        name.as_bytes(),
+    )
+    .format_hyphenated()
+    .to_string();
     Ok(uuid)
 }
 
