@@ -57,6 +57,11 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     process.set("env", env_map)?;
     process.set("cwd", Func::from(cwd))?;
+    process.set(
+        "argv0",
+        args.clone().first().map(|s| s.clone()).unwrap_or_default(),
+    )?;
+    process.set("id", std::process::id())?;
     process.set("argv", args)?;
     process.set("platform", get_platform())?;
     process.set("arch", get_arch())?;
