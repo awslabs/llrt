@@ -145,15 +145,26 @@ async fn start_cli(context: &AsyncContext) {
 
                 let (_, ext) = get_basename_ext_name(arg);
 
+                let filename = Path::new(arg);
+                let file_exists = filename.exists();
                 if let ".js" | ".mjs" | ".cjs" = ext.as_str() {
-                    let filename = Path::new(arg);
-                    if filename.exists() {
+                    if file_exists {
                         Vm::run_module(context, filename).await;
                         return;
                     } else {
                         eprintln!("No such file: {}", arg);
                         exit(1);
                     }
+                }
+                if file_exists {
+                    Vm::run_module(
+                        context,
+                        Path::new(&path::resolve_path(
+                            [filename.to_string_lossy().to_string()].iter(),
+                        )),
+                    )
+                    .await;
+                    return;
                 }
                 eprintln!("Unknown command: {}", arg);
                 usage();

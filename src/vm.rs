@@ -212,6 +212,10 @@ impl Resolver for BinaryResolver {
             }
         }
 
+        if Path::new(normalized_path).exists() {
+            return Ok(normalized_path.to_string());
+        }
+
         let path = self
             .paths
             .iter()
@@ -286,27 +290,29 @@ where
 
 impl Loader for BinaryLoader {
     fn load(&mut self, _ctx: &Ctx<'_>, name: &str) -> Result<ModuleData> {
+        trace!("Loading module: {}", name);
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
             trace!("Loading embedded module: {}", name);
 
             return load_compressed_module(name, bytes);
         }
+        let path = PathBuf::from(name);
+        let mut bytes: &[u8] = &std::fs::read(&path)?;
 
         if name.ends_with(".lrt") {
-            let path = PathBuf::from(name);
-            if path.exists() {
-                trace!("Loading binary module: {}", name);
-                let bytes: &[u8] = &std::fs::read(&path)?;
-                return load_compressed_module(name, bytes);
-            }
+            trace!("Loading binary module: {}", name);
+            return load_compressed_module(name, bytes);
         }
-        Err(Error::new_loading(name))
+        if bytes.starts_with(b"#!") {
+            bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
+        }
+        return Ok(ModuleData::source(name, bytes));
     }
 }
 
 pub fn load_compressed_module(name: &str, buf: &[u8]) -> Result<ModuleData> {
     let bytes = decompress_module(buf)?;
-    unsafe { Ok(ModuleData::bytecode(name, bytes)) }
+    Ok(unsafe { ModuleData::bytecode(name, bytes) })
 }
 
 fn decompress_module(input: &[u8]) -> Result<Vec<u8>> {
