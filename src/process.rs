@@ -53,7 +53,14 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     hr_time.set("bigint", Func::from(current_time_micros))?;
 
     let env_map: HashMap<String, String> = env::vars().collect();
-    let args: Vec<String> = env::args().collect();
+    let mut args: Vec<String> = env::args().collect();
+
+    if let Some(arg) = args.get(1) {
+        if arg == "-e" || arg == "--eval" {
+            args.remove(1);
+            args.remove(1);
+        }
+    }
 
     process.set("env", env_map)?;
     process.set("cwd", Func::from(cwd))?;
