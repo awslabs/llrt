@@ -153,9 +153,9 @@ const main = async () => {
   const llrtLayer = new aws_lambda.LayerVersion(stack, "LlrtArmLayer", {
     code: aws_lambda.Code.fromAsset("../../llrt-lambda-arm64.zip"),
     compatibleRuntimes: [
-      aws_lambda.Runtime.NODEJS_14_X,
       aws_lambda.Runtime.NODEJS_16_X,
       aws_lambda.Runtime.NODEJS_18_X,
+      aws_lambda.Runtime.NODEJS_LATEST,
       aws_lambda.Runtime.PROVIDED_AL2,
     ],
     compatibleArchitectures: [aws_lambda.Architecture.ARM_64],

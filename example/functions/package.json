@@ -7,16 +7,16 @@
     "build": "node build.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "3.441.0",
-    "@aws-sdk/client-s3": "3.441.0",
+    "@aws-sdk/client-dynamodb": "3.458.0",
+    "@aws-sdk/client-s3": "3.458.0",
+    "aws-sdk": "2.1503.0",
     "esbuild-css-modules-plugin": "3.0.3",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "aws-sdk": "2.1488.0"
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "@types/react": "18.2.35",
-    "@types/react-dom": "18.2.14",
-    "esbuild": "0.19.5"
+    "@types/react": "18.2.38",
+    "@types/react-dom": "18.2.17",
+    "esbuild": "0.19.8"
   }
 }
