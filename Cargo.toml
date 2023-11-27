@@ -39,7 +39,7 @@ tracing-core = "0.1.32"
 webpki = "0.22.4"
 webpki-roots = "0.25.2"
 async-trait = "0.1.74"
-url = "2.4.1"
+url = "2.5.0"
 zstd = { version = "0.13.0", default-features = false, features = [] }
 uname-rs = "0.1.1"
 libc = "0.2.150"
