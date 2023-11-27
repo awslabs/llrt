@@ -21,6 +21,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let console = Object::new(ctx.clone())?;
 
     console.set("log", Func::from(log))?;
+    console.set("debug", Func::from(log))?;
     console.set("info", Func::from(log))?;
     console.set("info", Func::from(log))?;
     console.set("error", Func::from(log_error))?;
