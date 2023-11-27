@@ -297,7 +297,7 @@ impl Loader for BinaryLoader {
             return load_compressed_module(name, bytes);
         }
         let path = PathBuf::from(name);
-        let mut bytes: &[u8] = &std::fs::read(&path)?;
+        let mut bytes: &[u8] = &std::fs::read(path)?;
 
         if name.ends_with(".lrt") {
             trace!("Loading binary module: {}", name);
@@ -306,7 +306,7 @@ impl Loader for BinaryLoader {
         if bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
-        return Ok(ModuleData::source(name, bytes));
+        Ok(ModuleData::source(name, bytes))
     }
 }
 
