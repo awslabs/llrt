@@ -75,12 +75,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-fn version() {
+fn print_version() {
     println!("LLRT ({} {}) {}", get_platform(), get_arch(), VERSION);
 }
 
 fn usage() {
-    version();
+    print_version();
     println!(
         r#"
 
@@ -117,7 +117,7 @@ async fn start_cli(context: &AsyncContext) {
             if i == 1 {
                 match arg {
                     "-v" | "--version" => {
-                        version();
+                        print_version();
                         return;
                     }
                     "-h" | "--help" => {

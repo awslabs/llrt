@@ -5,9 +5,11 @@ use std::{
 };
 
 use rquickjs::{
-    atom::PredefinedAtom, convert::Coerced, function::Constructor, prelude::Func, Ctx, IntoJs,
-    Object, Result, Value,
+    atom::PredefinedAtom, convert::Coerced, function::Constructor, object::Property, prelude::Func,
+    Ctx, IntoJs, Object, Result, Value,
 };
+
+use crate::VERSION;
 
 fn cwd() -> String {
     env::current_dir().unwrap().to_string_lossy().to_string()
@@ -59,7 +61,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let process = Object::new(ctx.clone())?;
 
     let release = Object::new(ctx.clone())?;
-    release.prop("name", "llrt")?;
+    release.prop("name", Property::from("llrt").enumerable())?;
 
     let hr_time = Object::new(ctx.clone())?;
     hr_time.set("bigint", Func::from(current_time_micros))?;
@@ -90,6 +92,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("arch", get_arch())?;
     process.set("hrtime", hr_time)?;
     process.set("release", release)?;
+    process.set("version", VERSION)?;
     process.set("exit", Func::from(exit))?;
 
     globals.set("process", process)?;
