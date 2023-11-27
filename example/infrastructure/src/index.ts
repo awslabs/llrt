@@ -27,7 +27,7 @@ const main = async () => {
   const app = new App();
   const stack = new Stack(app, "llrt-example", {
     env: {
-      region: "eu-north-1",
+      region: process.env.CDK_DEFAULT_REGION,
     },
   });
 
