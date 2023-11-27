@@ -13,6 +13,7 @@ use std::os::unix::process::ExitStatusExt;
 
 use rquickjs::{
     class::{Trace, Tracer},
+    convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
     Class, Ctx, Error, Exception, IntoJs, Result, Undefined, Value,
@@ -406,7 +407,11 @@ fn spawn<'js>(
             command.gid(uid);
         }
 
-        if let Some(env) = opts.get_optional::<&str, HashMap<String, String>>("env")? {
+        if let Some(env) = opts.get_optional::<&str, HashMap<String, Coerced<String>>>("env")? {
+            let env: HashMap<String, String> = env
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
             command.envs(env);
         }
 
