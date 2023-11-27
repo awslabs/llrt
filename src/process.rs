@@ -4,7 +4,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rquickjs::{prelude::Func, Ctx, Object, Result};
+use rquickjs::{
+    atom::PredefinedAtom, convert::Coerced, function::Constructor, prelude::Func, Ctx, IntoJs,
+    Object, Result, Value,
+};
 
 fn cwd() -> String {
     env::current_dir().unwrap().to_string_lossy().to_string()
@@ -41,6 +44,15 @@ fn exit(code: i32) {
     std::process::exit(code)
 }
 
+fn env_proxy_setter<'js>(
+    target: Object<'js>,
+    prop: Value<'js>,
+    value: Coerced<String>,
+) -> Result<bool> {
+    target.set(prop, value.to_string())?;
+    Ok(true)
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
@@ -62,12 +74,16 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         }
     }
 
-    process.set("env", env_map)?;
+    let proxy_ctor = globals.get::<_, Constructor>(PredefinedAtom::Proxy)?;
+
+    let env_obj = env_map.into_js(ctx)?;
+    let env_proxy_cfg = Object::new(ctx.clone())?;
+    env_proxy_cfg.set(PredefinedAtom::Setter, Func::from(env_proxy_setter))?;
+    let env_proxy = proxy_ctor.construct::<_, Value>((env_obj, env_proxy_cfg))?;
+
+    process.set("env", env_proxy)?;
     process.set("cwd", Func::from(cwd))?;
-    process.set(
-        "argv0",
-        args.clone().first().map(|s| s.clone()).unwrap_or_default(),
-    )?;
+    process.set("argv0", args.clone().first().cloned().unwrap_or_default())?;
     process.set("id", std::process::id())?;
     process.set("argv", args)?;
     process.set("platform", get_platform())?;
