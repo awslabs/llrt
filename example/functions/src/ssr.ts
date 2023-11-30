@@ -104,9 +104,10 @@ const appResponse = async () => {
   const html = htmlContent
     .replace(
       '<script id="init" type="text/javascript"></script>',
-      `<script id="init" type="text/javascript">window.todoItems = ${JSON.stringify(
-        todoItems
-      )}</script>`
+      `<script id="init" type="text/javascript">
+window.todoItems = ${JSON.stringify(todoItems)};
+window.releaseName = ${JSON.stringify(process.release.name)}
+</script>`
     )
     .replace('<div id="root"></div>', `<div id="root">${app}</div>`);
 
