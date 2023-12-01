@@ -220,9 +220,9 @@ Please note that in order to run the example you will need:
 ```bash
 export AWS_ACCESS_KEY_ID=XXX
 export AWS_SECRET_ACCESS_KEY=YYY
-export AWS_REGION=eu-north-1
+export AWS_REGION=us-east-1
 ```
-- A DynamoDB table (with `id` as the primary key) on `eu-north-1`
+- A DynamoDB table (with `id` as the primary key) on `us-east-1`
 - The `dynamodb:PutItem` IAM permission on this table. You can use this policy (don't forget to modify <YOUR_ACCOUNT_ID>):
 ```json
 {
@@ -232,7 +232,7 @@ export AWS_REGION=eu-north-1
 			"Sid": "putItem",
 			"Effect": "Allow",
 			"Action": "dynamodb:PutItem",
-			"Resource": "arn:aws:dynamodb:eu-north-1:<YOUR_ACCOUNT_ID>:table/quickjs-table"
+			"Resource": "arn:aws:dynamodb:us-east-1:<YOUR_ACCOUNT_ID>:table/quickjs-table"
 		}
 	]
 }
