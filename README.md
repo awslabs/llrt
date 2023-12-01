@@ -222,7 +222,7 @@ export AWS_ACCESS_KEY_ID=XXX
 export AWS_SECRET_ACCESS_KEY=YYY
 export AWS_REGION=us-east-1
 ```
-- A DynamoDB table (with `id` as the primary key) on `us-east-1`
+- A DynamoDB table (with `id` as the partition key) on `us-east-1`
 - The `dynamodb:PutItem` IAM permission on this table. You can use this policy (don't forget to modify <YOUR_ACCOUNT_ID>):
 ```json
 {
