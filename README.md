@@ -207,7 +207,7 @@ Install generate libs and setup rust targets & toolchains
 
 Build release
 
-    make release-arm
+    make release-arm64
     # or for x86, use
     make release-x86
 
