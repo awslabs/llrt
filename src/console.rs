@@ -25,6 +25,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("info", Func::from(log))?;
     console.set("info", Func::from(log))?;
     console.set("error", Func::from(log_error))?;
+    console.set("warn", Func::from(log_error))?;
     console.set("assert", Func::from(log_assert))?;
     console.set("__format", Func::from(js_format))?;
     console.set("__formatPlain", Func::from(format_plain))?;
