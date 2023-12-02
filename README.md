@@ -215,6 +215,29 @@ You should now have a `llrt-arm.zip` or `llrt-x86.zip`. You can manually upload 
 
 ## Running Lambda emulator
 
+Please note that in order to run the example you will need:
+- Valid AWS credentials via a `~/.aws/credentials` or via environment variables.
+```bash
+export AWS_ACCESS_KEY_ID=XXX
+export AWS_SECRET_ACCESS_KEY=YYY
+export AWS_REGION=us-east-1
+```
+- A DynamoDB table (with `id` as the partition key) on `us-east-1`
+- The `dynamodb:PutItem` IAM permission on this table. You can use this policy (don't forget to modify <YOUR_ACCOUNT_ID>):
+```json
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "putItem",
+			"Effect": "Allow",
+			"Action": "dynamodb:PutItem",
+			"Resource": "arn:aws:dynamodb:us-east-1:<YOUR_ACCOUNT_ID>:table/quickjs-table"
+		}
+	]
+}
+```
+
 Start the `lambda-server.js` in a separate terminal
 
     node lambda-server.js
