@@ -177,11 +177,11 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize)
 
   if (parts > 1)
   {
-    printf("Decompressing using %d threads\n", parts);
+    logInfo("Decompressing using %d threads\n", parts);
   }
   else
   {
-    printf("Decompressing\n");
+    logInfo("Decompressing\n");
   }
 
   readData(data, parts, &inputSizes, &outputSizes, &compressedData, uncompressedSize);
@@ -251,15 +251,13 @@ int main(int argc, char *argv[])
 
   double t1 = micro_seconds();
   logInfo("Runtime starting\n");
-  printf("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
-  fflush(stdout);
+  logInfo("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
 
   write(outputFd, uncompressedData, uncompressedSize);
   free(uncompressedData);
 
   double t2 = micro_seconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
-  fflush(stdout);
 
   char **new_argv = malloc((size_t)(argc + 1) * sizeof *new_argv);
   for (uint8_t i = 0; i < argc; ++i)
