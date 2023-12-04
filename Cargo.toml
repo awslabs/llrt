@@ -37,7 +37,7 @@ once_cell = "1.18.0"
 tokio-context = "0.1.3"
 tracing-core = "0.1.32"
 webpki = "0.22.4"
-webpki-roots = "0.25.3"
+webpki-roots = "0.26.0"
 async-trait = "0.1.74"
 url = "2.5.0"
 zstd = { version = "0.13.0", default-features = false, features = [] }
