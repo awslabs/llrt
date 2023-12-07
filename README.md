@@ -186,7 +186,7 @@ Install rust
 Install dependencies
 
     # MacOS
-    brew install zig make zstd node
+    brew install zig make zstd node corepack
 
     # Ubuntu
     sudo snap install zig --classic --beta node
@@ -199,7 +199,8 @@ Clone code and cd to directory
 
 Install Node.js packages
 
-    npm i
+    corepack enable
+    yarn
 
 Install generate libs and setup rust targets & toolchains
 
@@ -211,7 +212,7 @@ Build release
     # or for x86, use
     make release-x86
 
-You should now have a `llrt-arm.zip` or `llrt-x86.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure as code pipeline
+You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
 ## Running Lambda emulator
 

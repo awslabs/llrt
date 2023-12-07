@@ -4,10 +4,11 @@
   ],
   "version": "1.0.0",
   "type": "module",
+  "private": true,
   "scripts": {
     "esbuild": "esbuild",
-    "update": "npx npm-check-updates -u",
-    "reinstall": "rm -rf node_modules && npm i"
+    "update": "yarn upgrade-interactive --latest",
+    "reinstall": "rm -rf node_modules && yarn"
   },
   "side-effects": false,
   "devDependencies": {
@@ -40,6 +41,7 @@
     "pure-http": "3.3.4",
     "readable-stream": "4.4.2",
     "stream-browserify": "3.0.0",
-    "typescript": "5.3.3"
+    "typescript": "5.3.3",
+    "yarn": "^1.22.21"
   }
 }

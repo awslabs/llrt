@@ -140,7 +140,7 @@ run-ssr: export AWS_REGION = us-east-1
 run-ssr: export _HANDLER = index.handler
 run-ssr: js
 	cargo build
-	cd example/functions && npm run build && cd build && ../../../target/debug/llrt
+	cd example/functions && yarn build && cd build && ../../../target/debug/llrt
 
 flame:
 #cargo build --profile=flame
@@ -184,6 +184,6 @@ bench:
 	hyperfine -N --warm64up=100 "node fixtures/hello.js" "deno run fixtures/hello.js" "bun fixtures/hello.js" "$(BUILD_DIR)/llrt fixtures/hello.js" "qjs fixtures/hello.js"
 
 deploy:
-	cd example/infrastructure && npm run deploy -- --require-approval never
+	cd example/infrastructure && yarn deploy --require-approval never
 
 .PHONY: toolchain clean-js release-linux release-osx lambda stdlib test test-ci run js run-release build release clean flame deploy
