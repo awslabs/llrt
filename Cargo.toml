@@ -17,7 +17,7 @@ hyper = "0.14.27"
 hyper-rustls = "0.24.2"
 phf = "0.11.2"
 md-5 = { version = "0.10.6", features = ["asm"] }
-ring = "0.17.5"
+ring = "0.17.6"
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "e168c0a4a242f55723558268fd0269351c5293ae", features = [
     "full-async",
     "parallel",
