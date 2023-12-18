@@ -70,6 +70,11 @@ impl<'js> Request<'js> {
     fn body(&self) -> Option<Value<'js>> {
         self.body.clone()
     }
+
+    #[qjs(get)]
+    fn keepalive(&self) -> bool {
+        true
+    }
 }
 
 fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'js>) -> Result<()> {
