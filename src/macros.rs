@@ -3,7 +3,7 @@ macro_rules! iterable_enum {
         #[derive(Copy, Clone)]
         $visibility enum $name {$($member),*}
         impl $name {
-            fn iterate() -> Vec<$name> {
+            pub fn iterate() -> Vec<$name> {
                 vec![$($name::$member,)*]
             }
         }

@@ -803,8 +803,10 @@ async function loadShims() {
   };
 
   await Promise.all([
-    loadShim(/@aws-sdk\/util-hex-encoding/, "util-hex-encoding.js"),
+    loadShim(/@smithy\/util-hex-encoding/, "util-hex-encoding.js"),
     loadShim(/@aws-sdk\/util-utf8-browser/, "util-utf8.js"),
+    loadShim(/@smithy\/util-base64/, "util-base64.js"),
+    //    loadShim(/@smithy\/md5-js/, "md5.js"),
     loadShim(/@aws-crypto/, "aws-crypto.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "lru-cache.js"),
   ]);
@@ -902,6 +904,7 @@ async function buildSdks() {
       "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
       "@aws-sdk/xml-builder": "xml",
       "fast-xml-parser": "xml",
+      "@smithy/md5-js": "crypto",
     },
     chunkNames: "llrt-[name]-sdk-[hash]",
     ...ES_BUILD_OPTIONS,

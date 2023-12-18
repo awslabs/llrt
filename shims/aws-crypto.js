@@ -1,8 +1,8 @@
 import {
-    Sha256,
-    Sha1 as CrySha1,
-    Crc32 as CryCrc32,
-    Crc32c as CryCrc32c,
+  Sha256,
+  Sha1 as CrySha1,
+  Crc32 as CryCrc32,
+  Crc32c as CryCrc32c,
 } from "crypto";
 const AwsCrc32 = Crc32;
 const AwsCrc32c = Crc32c;
