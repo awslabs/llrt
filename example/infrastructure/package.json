@@ -9,8 +9,6 @@
     "hotswap": "cdk deploy --hotswap"
   },
   "devDependencies": {
-    "@aws-cdk/aws-apigatewayv2-alpha": "2.114.1-alpha.0",
-    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.114.1-alpha.0",
     "@types/node": "20.10.4",
     "aws-cdk": "2.114.1",
     "aws-cdk-lib": "2.114.1",

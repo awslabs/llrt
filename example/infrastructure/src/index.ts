@@ -7,12 +7,13 @@ import {
   aws_logs,
   aws_cloudfront,
   aws_cloudfront_origins,
+  aws_apigatewayv2,
+  aws_apigatewayv2_integrations,
   CfnOutput,
   Stack,
   Fn,
+  Duration,
 } from "aws-cdk-lib";
-import * as aws_apigatewayv2 from "@aws-cdk/aws-apigatewayv2-alpha";
-import * as aws_apigatewayv2_integrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import * as fs from "fs/promises";
 import os from "os";
 import path from "path";
@@ -138,6 +139,7 @@ const main = async () => {
     },
     runtime: aws_lambda.Runtime.NODEJS_18_X,
     memorySize: 128,
+    timeout: Duration.seconds(60),
     handler: "index.handler",
     bundling: {
       format: aws_lambda_nodejs.OutputFormat.ESM,
