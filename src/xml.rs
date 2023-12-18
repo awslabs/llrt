@@ -406,7 +406,7 @@ impl<'js> XmlNode<'js> {
 
     fn to_string(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<String> {
         let class = this.0;
-        let mut xml_text = String::new();
+        let mut xml_text = String::with_capacity(8);
 
         let mut stack = vec![NodeStackEntry::Node(class)];
 
@@ -414,17 +414,21 @@ impl<'js> XmlNode<'js> {
             match node {
                 NodeStackEntry::Node(node) => {
                     let borrow = node.borrow();
-                    xml_text += &format!("<{}", borrow.name);
+                    xml_text.push('<');
+                    xml_text.push_str(&borrow.name);
 
                     for (attribute_name, attribute) in &borrow.attributes {
-                        xml_text +=
-                            &format!(r#" {}="{}""#, attribute_name, escape_attribute(attribute));
+                        xml_text.push(' ');
+                        xml_text.push_str(attribute_name);
+                        xml_text.push_str("=\"");
+                        xml_text.push_str(&escape_attribute(attribute));
+                        xml_text.push('"');
                     }
 
                     let has_children = !borrow.children.is_empty();
                     if has_children {
                         stack.push(NodeStackEntry::End(borrow.name.clone()));
-                        xml_text += ">";
+                        xml_text.push('>');
 
                         // Add children to the stack in reverse order (to maintain original order)
                         for child in borrow.children.iter().rev() {
@@ -434,11 +438,11 @@ impl<'js> XmlNode<'js> {
                                 } else if let Some(text) =
                                     Class::<XmlText>::from_object(obj.clone())
                                 {
-                                    xml_text += &text.borrow().value;
+                                    xml_text.push_str(&text.borrow().value);
                                 } else {
                                     let to_string_fn = obj.get::<_, Function>("toString")?;
                                     let string_value: String = to_string_fn.call(())?;
-                                    xml_text += &string_value;
+                                    xml_text.push_str(&string_value);
                                 }
                             } else {
                                 let string_value: String = child
@@ -447,16 +451,18 @@ impl<'js> XmlNode<'js> {
                                     .map_err(|err| format!("Unable to convert {:?} to string", err))
                                     .or_throw(&ctx)?
                                     .to_string()?;
-                                xml_text += &string_value;
+                                xml_text.push_str(&string_value);
                             }
                         }
                     } else {
-                        xml_text += "/>";
+                        xml_text.push_str("/>");
                     }
                     drop(borrow);
                 }
                 NodeStackEntry::End(name) => {
-                    xml_text += &format!("</{}>", name);
+                    xml_text.push_str("</");
+                    xml_text.push_str(&name);
+                    xml_text.push('>');
                 }
             }
         }
