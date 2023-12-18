@@ -1,6 +1,6 @@
 use md5::{Digest as Md5Digest, Md5 as MdHasher};
 
-use rquickjs::{function::Opt, prelude::This, Class, Ctx, IntoJs, Result, Value};
+use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
 use crate::util::{bytes_to_typed_array, get_bytes};
 

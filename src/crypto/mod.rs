@@ -3,7 +3,6 @@ mod md5_hash;
 mod sha_hash;
 use std::slice;
 
-use md5::Digest as Md5Digest;
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{

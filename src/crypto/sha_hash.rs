@@ -1,10 +1,8 @@
-use md5::Digest as Md5Digest;
-
 use ring::{
     digest::{self, Context as DigestContext},
     hmac::{self, Context as HmacContext},
 };
-use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, IntoJs, Result, Value};
+use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Value};
 
 use crate::util::{bytes_to_typed_array, get_bytes};
 

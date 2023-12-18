@@ -1,7 +1,7 @@
 use std::hash::Hasher;
 
 use crc32c::Crc32cHasher;
-use rquickjs::{prelude::This, Class, Ctx, IntoJs, Result, Value};
+use rquickjs::{prelude::This, Class, Ctx, Result, Value};
 
 use crate::util::get_bytes;
 
