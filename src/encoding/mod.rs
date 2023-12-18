@@ -57,7 +57,7 @@ impl TextEncoder {
         Self {}
     }
     pub fn encode<'js>(&self, ctx: Ctx<'js>, string: String) -> Result<Value<'js>> {
-        TypedArray::new_copy(ctx, string.as_bytes()).map(|m| m.into_value())
+        TypedArray::new(ctx, string.as_bytes()).map(|m| m.into_value())
     }
 }
 
