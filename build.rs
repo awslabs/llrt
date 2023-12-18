@@ -174,8 +174,7 @@ fn compress_bytecode(bundles_dir: &str, source_files: Vec<String>) -> io::Result
 
     let file_count = source_files.len();
     let mut dictionary_filenames = source_files.clone();
-    let mut dictionary_file_set: HashSet<String> =
-        HashSet::from_iter(dictionary_filenames.clone().into_iter());
+    let mut dictionary_file_set: HashSet<String> = HashSet::from_iter(dictionary_filenames.clone());
 
     let mut cmd = Command::new("zstd");
     cmd.args([
