@@ -13,5 +13,9 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
     file.write_all(&bytes)
         .await
         .or_throw_msg(&ctx, &format!("Can't write \"{}\"", &path))?;
+    file.flush()
+        .await
+        .or_throw_msg(&ctx, &format!("Can't write \"{}\"", &path))?;
+
     Ok(())
 }
