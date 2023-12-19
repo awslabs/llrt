@@ -62,12 +62,12 @@ jobs:
           make release-linux
       - name: Upload changelog
         if: contains(matrix.platform, 'linux')
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: changelog
           path: CHANGELOG.md
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.platform }}
           path: |
