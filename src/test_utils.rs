@@ -8,9 +8,7 @@ pub mod utils {
     {
         use rquickjs::{AsyncContext, AsyncRuntime};
 
-        use crate::allocator::MimallocAllocator;
-
-        let runtime = AsyncRuntime::new_with_alloc(MimallocAllocator).unwrap();
+        let runtime = AsyncRuntime::new().unwrap();
         runtime.set_max_stack_size(512 * 1024).await;
         let ctx = AsyncContext::full(&runtime).await.unwrap();
 

@@ -55,6 +55,7 @@ simd-json = { version = "0.13.4", default-features = false, features = [
 ] }
 v_jsonescape = "0.7.8"
 rayon = "1.8.0"
+snmalloc-rs = "0.3.4"
 
 [build-dependencies]
 relative-path = "1.9.0"

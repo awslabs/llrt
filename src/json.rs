@@ -1,15 +1,15 @@
-use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
+use std::collections::{hash_map::DefaultHasher, HashSet};
 use std::hash::Hasher;
 use std::ops::BitXor;
 use std::thread;
 use std::time::Instant;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use rquickjs::atom::PredefinedAtom;
-use rquickjs::function::This;
-use rquickjs::{Array, Ctx, Function, IntoJs, Null, Object};
-use rquickjs::{Result, Value};
+use rquickjs::Undefined;
+use rquickjs::{
+    atom::PredefinedAtom, function::This, Array, Ctx, Function, IntoJs, Null, Object, Result,
+    Type::Uninitialized, Value,
+};
 use simd_json::borrowed::Value as JsonValue;
 
 use tracing::trace;
@@ -143,7 +143,7 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
 pub fn json_parse<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>> {
     let now = Instant::now();
     let root = simd_json::to_borrowed_value(&mut bytes).or_throw(ctx)?;
-    trace!("simd_json parse took: {:?}", now.elapsed());
+    println!("simd_json parse took: {:?}", now.elapsed());
     if let Some(value) = get_primitive(ctx, &root)? {
         return Ok(value);
     }
@@ -164,6 +164,9 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>>
             }
             JsonValue::Object(json_object) => {
                 let js_object = Object::new(ctx.clone())?;
+                for (key, val) in json_object.iter() {
+                    js_object.set(key.to_string(), Undefined)?;
+                }
                 for (key, val) in json_object.iter() {
                     if let Some(primitive) = get_primitive(ctx, val)? {
                         js_object.set(key.to_string(), primitive)?;
@@ -290,8 +293,9 @@ mod tests {
         with_runtime(|ctx| {
             for data in data {
                 let size = data.len();
+                let data2 = data.clone().into_bytes();
                 let now = Instant::now();
-                let value = json_parse(&ctx, data.clone().into_bytes()).unwrap();
+                let value = json_parse(&ctx, data2).unwrap();
 
                 let t1 = now.elapsed();
 
@@ -299,11 +303,10 @@ mod tests {
                 let value2 = ctx.json_parse(data).unwrap();
                 let t2 = now.elapsed();
 
+                let value3 = value.clone();
+
                 let now = Instant::now();
-                let json_string1 = json_stringify(&ctx, value.clone())
-                    .unwrap()
-                    .unwrap()
-                    .to_string();
+                let json_string1 = json_stringify(&ctx, value3).unwrap().unwrap().to_string();
 
                 let t3 = now.elapsed();
 
