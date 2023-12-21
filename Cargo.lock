@@ -730,6 +730,7 @@ dependencies = [
  "rustls",
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
  "simd-json",
  "socket2",
 =======
@@ -738,6 +739,10 @@ dependencies = [
 >>>>>>> 51e3c55 (Use default allocator)
  "socket2 0.5.5",
 >>>>>>> a965172 (Change allocator)
+=======
+ "simd-json",
+ "socket2",
+>>>>>>> 8fcb2c7 (JSON optimization-wip)
  "tokio",
  "tokio-context",
  "tokio-rustls",
@@ -1374,6 +1379,7 @@ name = "smallvec"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 <<<<<<< HEAD
+<<<<<<< HEAD
 checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
 =======
 checksum = "942b4a808e05215192e39f4ab80813e599068285906cc91aa64f923db842bd5a"
@@ -1388,6 +1394,9 @@ dependencies = [
  "winapi",
 ]
 >>>>>>> a965172 (Change allocator)
+=======
+checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
+>>>>>>> 8fcb2c7 (JSON optimization-wip)
 
 [[package]]
 name = "socket2"
