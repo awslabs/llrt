@@ -22,8 +22,8 @@ use rquickjs::{
     },
     module::{ModuleData, ModuleDef},
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Module, Object,
-    Result, String as JsString, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, IntoJs, Module,
+    Object, Result, String as JsString, Value,
 };
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
@@ -32,7 +32,6 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 include!("./bytecode_cache.rs");
 
 use crate::{
-    allocator::MimallocAllocator,
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console,
@@ -40,12 +39,13 @@ use crate::{
     encoding::HexModule,
     events::EventsModule,
     fs::FsPromisesModule,
+    json::{json_parse, json_stringify},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
     timers::TimersModule,
-    util::{get_class_name, get_js_path, ObjectExt, UtilModule},
+    util::{get_bytes, get_class_name, get_js_path, ObjectExt, UtilModule},
     uuid::UuidModule,
     xml::XmlModule,
 };
@@ -376,7 +376,7 @@ impl Vm {
                 .with_extension("cjs"),
         ));
 
-        let runtime = AsyncRuntime::new_with_alloc(MimallocAllocator)?;
+        let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(512 * 1024).await;
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
@@ -458,6 +458,11 @@ impl Vm {
     }
 }
 
+fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
+    let bytes = get_bytes(&ctx, value)?;
+    json_parse(&ctx, bytes)
+}
+
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
 
@@ -465,6 +470,27 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     globals.set("self", ctx.globals())?;
     globals.set("load", Func::from(load))?;
     globals.set("print", Func::from(print))?;
+
+    let json_module: Object = globals.get(PredefinedAtom::JSON)?;
+    json_module.set("parse", Func::from(json_parse_string))?;
+    json_module.set(
+        "stringify",
+        Func::from(|ctx, value, replacer, space| {
+            struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
+            let StringifyArgs(ctx, value, replacer, space) =
+                StringifyArgs(ctx, value, replacer, space);
+            if replacer.is_none() {
+                json_stringify(&ctx, value).map(|v| v.into_js(&ctx))
+            } else {
+                ctx.json_stringify_replacer_space(
+                    value,
+                    replacer.0.into_js(&ctx),
+                    space.0.into_js(&ctx),
+                )
+                .map(|v| v.into_js(&ctx))
+            }
+        }),
+    )?;
 
     let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
         Arc::new(Mutex::new(HashMap::new()));

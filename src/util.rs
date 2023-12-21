@@ -1,5 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    hash::Hasher,
+    ops::BitXor,
     path::{Path, PathBuf},
     result::Result as StdResult,
 };
@@ -265,7 +267,6 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
     let (mut basename, ext) = get_basename_ext_name(path);
 
     let filepath = Path::new(path);
-    let ext = ext;
 
     let exists = filepath.exists();
 
@@ -445,5 +446,34 @@ where
         }
 
         result
+    }
+}
+
+pub struct SimpleHasher(u64);
+
+impl SimpleHasher {
+    const K: u64 = 0x517cc1b727220a95;
+    pub fn new() -> SimpleHasher {
+        SimpleHasher(0)
+    }
+
+    pub fn reset(&mut self) {
+        self.0 = 0;
+    }
+}
+
+impl Hasher for SimpleHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.0 = self
+                .0
+                .rotate_left(5)
+                .bitxor(u64::from(byte))
+                .wrapping_mul(Self::K);
+        }
+    }
+
+    fn finish(&self) -> u64 {
+        self.0
     }
 }

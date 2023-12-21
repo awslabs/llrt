@@ -3,7 +3,6 @@
 
 #[macro_use]
 mod macros;
-mod allocator;
 mod buffer;
 mod bytearray_buffer;
 mod child_process;
@@ -13,6 +12,7 @@ mod encoding;
 mod events;
 mod fs;
 mod http;
+mod json;
 mod minimal_tracer;
 mod module;
 mod net;
@@ -21,6 +21,7 @@ mod path;
 mod process;
 mod security;
 mod stream;
+mod test_utils;
 mod timers;
 mod util;
 mod uuid;
@@ -51,8 +52,8 @@ use crate::{
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+// #[global_allocator]
+// static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

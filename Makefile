@@ -112,7 +112,7 @@ run: export AWS_LAMBDA_FUNCTION_NAME = n/a
 run: export AWS_LAMBDA_FUNCTION_MEMORY_SIZE = 1
 run: export AWS_LAMBDA_FUNCTION_VERSION = 1
 run: export AWS_LAMBDA_RUNTIME_API = localhost:3000
-run: export _EXIT_ITERATIONS = 1
+run: export _EXIT_ITERATIONS = 10000000
 run: export AWS_REGION=eu-north-1
 run: export TABLE_NAME=quickjs-table
 run: export BUCKET_NAME=llrt-demo-bucket2
@@ -120,7 +120,7 @@ run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
 run: js
-	cargo run -vv
+	cargo run -r -vv
 
 run-js: export _HANDLER = index.handler
 run-js:
