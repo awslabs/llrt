@@ -3,7 +3,6 @@
 
 #[macro_use]
 mod macros;
-mod allocator;
 mod buffer;
 mod bytearray_buffer;
 mod child_process;
@@ -27,7 +26,6 @@ mod uuid;
 mod vm;
 mod xml;
 
-use mimalloc::MiMalloc;
 use minimal_tracer::MinimalTracer;
 use rquickjs::{AsyncContext, Module};
 use std::{
@@ -50,9 +48,6 @@ use crate::{
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

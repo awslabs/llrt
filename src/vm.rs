@@ -32,7 +32,6 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 include!("./bytecode_cache.rs");
 
 use crate::{
-    allocator::MimallocAllocator,
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console,
@@ -376,7 +375,7 @@ impl Vm {
                 .with_extension("cjs"),
         ));
 
-        let runtime = AsyncRuntime::new_with_alloc(MimallocAllocator)?;
+        let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(512 * 1024).await;
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
