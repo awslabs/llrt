@@ -51,12 +51,6 @@ use crate::{
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-<<<<<<< HEAD
-// #[global_allocator]
-// static GLOBAL: MiMalloc = MiMalloc;
-
-=======
->>>>>>> a965172 (Change allocator)
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     MinimalTracer::register()?;
