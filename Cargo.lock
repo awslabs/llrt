@@ -165,15 +165,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cmake"
-version = "0.1.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -741,7 +732,6 @@ dependencies = [
 <<<<<<< HEAD
 <<<<<<< HEAD
  "simd-json",
- "snmalloc-rs",
  "socket2",
 =======
  "snmalloc-rs",
@@ -1407,24 +1397,6 @@ dependencies = [
 =======
 checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
 >>>>>>> 8fcb2c7 (JSON optimization-wip)
-
-[[package]]
-name = "snmalloc-rs"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "038507ad9c0ff0d6901e057494abcdba49a1a44fe3236f281730a9278166710d"
-dependencies = [
- "snmalloc-sys",
-]
-
-[[package]]
-name = "snmalloc-sys"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cae3f7f662ebf11afe4d6534e63fa5846ec0143892c78ddb1040cc01249f143"
-dependencies = [
- "cmake",
-]
 
 [[package]]
 name = "socket2"

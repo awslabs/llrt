@@ -11,11 +11,81 @@ use rquickjs::{
     Type::Uninitialized, Value,
 };
 use simd_json::borrowed::Value as JsonValue;
+use simd_json::{Node, StaticNode};
 
 use tracing::trace;
 use v_jsonescape::escape;
 
+static JSON_ESCAPE_CHARS: [u8; 256] = [
+    0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8, 15u8, 16u8,
+    17u8, 18u8, 19u8, 20u8, 21u8, 22u8, 23u8, 24u8, 25u8, 26u8, 27u8, 28u8, 29u8, 30u8, 31u8, 34u8,
+    34u8, 32u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 33u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+    34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8, 34u8,
+];
+static JSON_ESCAPE_QUOTES: [&str; 34usize] = [
+    "\\u0000", "\\u0001", "\\u0002", "\\u0003", "\\u0004", "\\u0005", "\\u0006", "\\u0007", "\\b",
+    "\\t", "\\n", "\\u000b", "\\f", "\\r", "\\u000e", "\\u000f", "\\u0010", "\\u0011", "\\u0012",
+    "\\u0013", "\\u0014", "\\u0015", "\\u0016", "\\u0017", "\\u0018", "\\u0019", "\\u001a",
+    "\\u001b", "\\u001c", "\\u001d", "\\u001e", "\\u001f", "\\\"", "\\\\",
+];
+
 use crate::util::ResultExt;
+
+enum ValueItem<'js> {
+    Object(Object<'js>),
+    Array(Array<'js>),
+}
+
+struct PathItem<'js> {
+    value: ValueItem<'js>,
+    index: usize,
+    len: usize,
+    parent_index: usize,
+    parent_key: Option<String>,
+}
+impl<'js> PathItem<'js> {
+    fn array(
+        array: Array<'js>,
+        len: usize,
+        parent_index: usize,
+        parent_key: Option<String>,
+    ) -> Self {
+        Self {
+            value: ValueItem::Array(array),
+            index: 0,
+            len,
+            parent_index,
+            parent_key,
+        }
+    }
+
+    fn object(
+        object: Object<'js>,
+        len: usize,
+        parent_index: usize,
+        parent_key: Option<String>,
+    ) -> Self {
+        Self {
+            value: ValueItem::Object(object),
+            index: 0,
+            len,
+            parent_index,
+            parent_key,
+        }
+    }
+}
 
 enum JsonString {
     Value(String),
@@ -140,7 +210,7 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
 }
 
 /// Parse json into a JavaScript value.
-pub fn json_parse<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>> {
+pub fn json_parse2<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>> {
     let now = Instant::now();
     let root = simd_json::to_borrowed_value(&mut bytes).or_throw(ctx)?;
     println!("simd_json parse took: {:?}", now.elapsed());
@@ -165,9 +235,6 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>>
             JsonValue::Object(json_object) => {
                 let js_object = Object::new(ctx.clone())?;
                 for (key, val) in json_object.iter() {
-                    js_object.set(key.to_string(), Undefined)?;
-                }
-                for (key, val) in json_object.iter() {
                     if let Some(primitive) = get_primitive(ctx, val)? {
                         js_object.set(key.to_string(), primitive)?;
                     } else {
@@ -181,6 +248,146 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>>
     }
 
     iterate(&root, ctx)
+}
+
+/// Parse json into a JavaScript value.
+pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> {
+    let now = Instant::now();
+
+    let tape = simd_json::to_tape(&mut json).unwrap();
+
+    let mut str_key = "";
+    let mut last_is_string = false;
+
+    let tape = tape.0;
+    let first = tape.first();
+
+    if let None = first {
+        return Undefined.into_js(ctx);
+    }
+    let first = first.unwrap();
+
+    match first {
+        Node::String(value) => {
+            return value.into_js(ctx);
+        }
+        Node::Static(node) => return static_node_to_value(ctx, *node),
+        _ => {}
+    };
+
+    let mut path_data = Vec::<PathItem>::with_capacity(10);
+
+    #[inline(always)]
+    fn static_node_to_value<'js>(ctx: &Ctx<'js>, node: StaticNode) -> Result<Value<'js>> {
+        Ok(match node {
+            StaticNode::I64(value) => value.into_js(&ctx)?,
+            StaticNode::U64(value) => value.into_js(&ctx)?,
+            StaticNode::F64(value) => value.into_js(&ctx)?,
+            StaticNode::Bool(value) => value.into_js(&ctx)?,
+            StaticNode::Null => Null.into_js(&ctx)?,
+        })
+    }
+
+    let mut current_obj;
+
+    for val in tape {
+        match val {
+            Node::String(value) => {
+                current_obj = path_data.last_mut().unwrap();
+
+                match &current_obj.value {
+                    ValueItem::Object(obj) => {
+                        if !last_is_string {
+                            str_key = value;
+                            last_is_string = true;
+                            continue;
+                        } else {
+                            obj.set(str_key, value)?;
+                            current_obj.index += 1;
+                            last_is_string = false
+                        }
+                    }
+                    ValueItem::Array(array) => {
+                        array.set(current_obj.index, value)?;
+                        current_obj.index += 1;
+                    }
+                }
+            }
+            Node::Object { len, count } => {
+                let js_object = Object::new(ctx.clone())?;
+                let item = if let Some(current_obj) = path_data.last_mut() {
+                    current_obj.index += 1;
+                    PathItem::object(
+                        js_object,
+                        len,
+                        current_obj.index - 1,
+                        match current_obj.value {
+                            ValueItem::Object(_) => Some(str_key.to_string()),
+                            ValueItem::Array(_) => None,
+                        },
+                    )
+                } else {
+                    PathItem::object(js_object, len, 0, None)
+                };
+
+                path_data.push(item);
+                last_is_string = false;
+            }
+            Node::Array { len, count } => {
+                let js_array = Array::new(ctx.clone())?;
+                let item = if let Some(current_obj) = path_data.last_mut() {
+                    current_obj.index += 1;
+                    PathItem::array(
+                        js_array,
+                        len,
+                        current_obj.index - 1,
+                        match current_obj.value {
+                            ValueItem::Object(_) => Some(str_key.to_string()),
+                            ValueItem::Array(_) => None,
+                        },
+                    )
+                } else {
+                    PathItem::array(js_array, len, 0, None)
+                };
+                path_data.push(item);
+                last_is_string = false;
+            }
+            Node::Static(node) => {
+                last_is_string = false;
+                current_obj = path_data.last_mut().unwrap();
+                let value = static_node_to_value(ctx, node);
+                match &current_obj.value {
+                    ValueItem::Object(obj) => obj.set(str_key, value)?,
+                    ValueItem::Array(arr) => arr.set(current_obj.index, value)?,
+                }
+                current_obj.index += 1;
+            }
+        }
+
+        current_obj = path_data.last_mut().unwrap();
+        while current_obj.index == current_obj.len {
+            let data = path_data.pop().unwrap();
+            if let Some(last_obj) = path_data.last_mut() {
+                let value = match data.value {
+                    ValueItem::Object(obj) => obj,
+                    ValueItem::Array(arr) => arr.into_object(),
+                };
+                match &last_obj.value {
+                    ValueItem::Object(obj) => obj.set(data.parent_key.unwrap(), value)?,
+                    ValueItem::Array(arr) => arr.set(data.parent_index, value)?,
+                }
+                current_obj = last_obj
+            } else {
+                let res = match &data.value {
+                    ValueItem::Object(obj) => obj.clone().into_value(),
+                    ValueItem::Array(arr) => arr.clone().into_value(),
+                };
+                return Ok(res);
+            }
+        }
+    }
+
+    Undefined.into_js(ctx)
 }
 
 #[inline(always)]
@@ -291,7 +498,7 @@ mod tests {
         ];
 
         with_runtime(|ctx| {
-            for data in data {
+            for (i, data) in data.into_iter().enumerate() {
                 let size = data.len();
                 let data2 = data.clone().into_bytes();
                 let now = Instant::now();
