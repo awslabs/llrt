@@ -1,5 +1,6 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::inherent_to_string)]
+#![cfg_attr(feature = "nightly", feature(portable_simd))]
 
 #[macro_use]
 mod macros;

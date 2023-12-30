@@ -82,17 +82,13 @@ impl<'js> Response<'js> {
     async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         let bytes = self.take_bytes(&ctx).await?;
         let text = String::from_utf8_lossy(&bytes).to_string();
-
         Ok(text)
     }
 
     async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         let bytes = self.take_bytes(&ctx).await?.to_vec();
-        let now = Instant::now();
-        let json2 = json_parse(&ctx, bytes)?;
-        println!("IT TOOK IMPROVED: {}ms", now.elapsed().as_millis());
-
-        Ok(json2)
+        let json = json_parse(&ctx, bytes)?;
+        Ok(json)
     }
 
     async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<Vec<u8>> {

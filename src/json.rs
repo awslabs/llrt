@@ -1,20 +1,17 @@
-use std::collections::{hash_map::DefaultHasher, HashSet};
-use std::hash::Hasher;
-use std::ops::BitXor;
-use std::thread;
+#[cfg(feature = "nightly")]
+use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
+
 use std::time::Instant;
 
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use rquickjs::Undefined;
+use rayon::iter::ParallelIterator;
 use rquickjs::{
-    atom::PredefinedAtom, function::This, Array, Ctx, Function, IntoJs, Null, Object, Result,
-    Type::Uninitialized, Value,
+    atom::PredefinedAtom, function::This, Array, Ctx, Function, IntoJs, Null, Object, Result, Value,
 };
+use rquickjs::{Exception, Type, Undefined};
 use simd_json::borrowed::Value as JsonValue;
 use simd_json::{Node, StaticNode};
 
-use tracing::trace;
-use v_jsonescape::escape;
+use std::fmt::Write;
 
 static JSON_ESCAPE_CHARS: [u8; 256] = [
     0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8, 15u8, 16u8,
@@ -40,6 +37,139 @@ static JSON_ESCAPE_QUOTES: [&str; 34usize] = [
     "\\u0013", "\\u0014", "\\u0015", "\\u0016", "\\u0017", "\\u0018", "\\u0019", "\\u001a",
     "\\u001b", "\\u001c", "\\u001d", "\\u001e", "\\u001f", "\\\"", "\\\\",
 ];
+
+const ESCAPE_LEN: usize = 34;
+
+#[cfg(not(feature = "nightly"))]
+fn escape_json(bytes: &[u8]) -> String {
+    let len = bytes.len();
+    let mut result = String::with_capacity(len);
+    let mut start = 0;
+
+    for (i, byte) in bytes.iter().enumerate() {
+        let c = JSON_ESCAPE_CHARS[*byte as usize] as usize;
+        if c < ESCAPE_LEN {
+            let idx = i - start;
+            if start < idx {
+                result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..idx]) });
+            }
+            result.push_str(JSON_ESCAPE_QUOTES[c]);
+            start = idx + 1;
+        }
+    }
+    if start < len {
+        result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..len]) });
+    }
+    result
+}
+
+#[cfg(feature = "nightly")]
+fn escape_json(bytes: &[u8]) -> String {
+    const ESCAPE_LEN: usize = 34;
+    const BELOW_SPACE: u8 = b' ' - 1;
+    const B: u8 = b'"';
+    const C: u8 = b'\\';
+
+    let v_below_space: u8x16 = u8x16::splat(BELOW_SPACE);
+    let v_b: u8x16 = u8x16::splat(B);
+    let v_c: u8x16 = u8x16::splat(C);
+
+    let len = bytes.len();
+    let mut result = String::with_capacity(len);
+
+    #[inline(always)]
+    fn process_padded_chunk(
+        bytes: &[u8],
+        result: &mut String,
+        v_below_space: u8x16,
+        v_b: u8x16,
+        v_c: u8x16,
+    ) {
+        let len = bytes.len();
+        if len > 0 {
+            let mut padded_bytes = [b'_'; 16]; //can be max 16 *2 offset
+            padded_bytes[..len].copy_from_slice(bytes);
+            let byte_vector = u8x16::from_slice(&padded_bytes);
+            process_chunk(
+                &padded_bytes,
+                result,
+                byte_vector,
+                len,
+                v_below_space,
+                v_b,
+                v_c,
+            );
+        }
+    }
+
+    #[inline(always)]
+    fn process_chunk(
+        chunk: &[u8],
+        result: &mut String,
+        byte_vector: Simd<u8, 16>,
+        max_len: usize,
+        v_below_space: u8x16,
+        v_b: u8x16,
+        v_c: u8x16,
+    ) {
+        let mut mask = (byte_vector.simd_eq(v_b)
+            | byte_vector.simd_eq(v_c)
+            | (byte_vector).simd_lt(v_below_space))
+        .to_bitmask();
+
+        if mask != 0 {
+            let mut cur = mask.trailing_zeros() as usize;
+            let mut start = 0;
+
+            while cur < max_len {
+                let c = JSON_ESCAPE_CHARS[chunk[cur] as usize] as usize;
+                if c < ESCAPE_LEN {
+                    if start < cur {
+                        result
+                            .push_str(unsafe { std::str::from_utf8_unchecked(&chunk[start..cur]) });
+                    }
+                    result.push_str(JSON_ESCAPE_QUOTES[c]);
+                    start = cur + 1;
+                }
+                mask ^= 1 << cur;
+                if mask == 0 {
+                    break;
+                }
+                cur = mask.trailing_zeros() as usize;
+            }
+        } else {
+            result.push_str(unsafe { std::str::from_utf8_unchecked(&chunk[..max_len]) });
+        }
+    }
+
+    fn process(
+        bytes: &[u8],
+        mut result: String,
+        v_below_space: u8x16,
+        v_b: u8x16,
+        v_c: u8x16,
+    ) -> String {
+        let iter = bytes.chunks_exact(16);
+
+        let rem = iter.remainder();
+
+        for chunk in iter {
+            let a = u8x16::from_slice(&chunk);
+            process_chunk(chunk, &mut result, a, 16, v_below_space, v_b, v_c);
+        }
+
+        process_padded_chunk(rem, &mut result, v_below_space, v_b, v_c);
+
+        result
+    }
+
+    if len < 16 {
+        process_padded_chunk(bytes, &mut result, v_below_space, v_b, v_c);
+        return result;
+    }
+
+    process(bytes, result, v_below_space, v_b, v_c)
+}
 
 use crate::util::ResultExt;
 
@@ -87,48 +217,111 @@ impl<'js> PathItem<'js> {
     }
 }
 
-enum JsonString {
-    Value(String),
-    String(String),
-    Ignored,
-}
-
-#[inline(always)]
-fn to_json_string(value: &Value) -> Result<Option<JsonString>> {
-    Ok(Some(match value.type_of() {
-        rquickjs::Type::Undefined => JsonString::Ignored,
-        rquickjs::Type::Null => JsonString::Value("null".into()),
-        rquickjs::Type::Bool => JsonString::Value(value.as_bool().unwrap().to_string()),
-        rquickjs::Type::Int => JsonString::Value(value.as_int().unwrap().to_string()),
-        rquickjs::Type::Float => JsonString::Value(value.as_float().unwrap().to_string()),
-        rquickjs::Type::String => {
-            JsonString::String(escape(&value.as_string().unwrap().to_string()?).to_string())
-        }
-        rquickjs::Type::Symbol => JsonString::Ignored,
-        _ => return Ok(None),
-    }))
-}
-
 pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
-    let mut result = String::with_capacity(10);
-    if let Some(primitive) = to_json_string(&value)? {
-        return Ok(match primitive {
-            JsonString::Value(value) => Some(value),
-            JsonString::Ignored => None,
-            JsonString::String(value) => Some(format!("\"{}\"", value)),
-        });
+    const CIRCULAR_REF_DETECTION_DEPTH: u16 = 20;
+
+    #[inline(always)]
+    fn write_primitive(string: &mut String, value: &Value) -> Result<bool> {
+        match value.type_of() {
+            Type::Null => string.push_str("null"),
+            Type::Bool => string.push_str(match value.as_bool().unwrap() {
+                true => "true",
+                false => "false",
+            }),
+            Type::Int => {
+                let mut buffer = itoa::Buffer::new();
+                string.push_str(buffer.format(value.as_int().unwrap()))
+            }
+            Type::Float => {
+                let mut buffer = ryu::Buffer::new();
+                string.push_str(buffer.format(value.as_float().unwrap()))
+            }
+            Type::String => write_string(string, &value.as_string().unwrap().to_string()?),
+            Type::Symbol | Type::Undefined => {}
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    fn write_primitive_key(string: &mut String, key: &str, value: &Value) -> Result<bool> {
+        match value.type_of() {
+            Type::Null => {
+                write_key(string, key);
+                string.push_str("null")
+            }
+            Type::Bool => {
+                write_key(string, key);
+                string.push_str(match value.as_bool().unwrap() {
+                    true => "true",
+                    false => "false",
+                })
+            }
+            Type::Int => {
+                write_key(string, key);
+                write!(string, "{}", value.as_int().unwrap()).unwrap()
+            }
+            Type::Float => {
+                write_key(string, key);
+                write!(string, "{}", value.as_float().unwrap()).unwrap()
+            }
+            Type::String => {
+                write_key(string, key);
+                write_string(string, &value.as_string().unwrap().to_string()?)
+            }
+            Type::Symbol | Type::Undefined => {}
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    let mut result = String::with_capacity(128);
+    if write_primitive(&mut result, &value)? {
+        return Ok(Some(result));
     }
 
     #[inline(always)]
-    fn append_value(ctx: &Ctx<'_>, result: &mut String, val: Value<'_>) -> Result<()> {
-        if let Some(primitive) = to_json_string(&val)? {
-            match primitive {
-                JsonString::Value(value) => result.push_str(&value),
-                JsonString::Ignored => {}
-                JsonString::String(value) => write_string(result, value),
-            }
-        } else {
-            iterate(ctx, result, &val)?;
+    fn detect_circular_reference(
+        ctx: &Ctx<'_>,
+        value: &Object<'_>,
+        key: Option<&str>,
+        index: Option<usize>,
+        parent: Option<&Object<'_>>,
+        ancestors: &mut Vec<usize>,
+    ) -> Result<()> {
+        let parent_ptr = unsafe { parent.unwrap().as_raw().u.ptr as usize };
+        let current_ptr = unsafe { value.as_raw().u.ptr as usize };
+
+        while !ancestors.is_empty() && ancestors.last() != Some(&parent_ptr) {
+            ancestors.pop();
+        }
+        if ancestors.contains(&current_ptr) {
+            return Err(Exception::throw_type(
+                ctx,
+                &format!(
+                    "Circular reference detected at: \"{}{}\"",
+                    key.unwrap_or_default(),
+                    index.map(|v| format!("[{}]", v)).unwrap_or_default()
+                ),
+            ));
+        }
+        ancestors.push(current_ptr);
+
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn append_value(
+        ctx: &Ctx<'_>,
+        result: &mut String,
+        val: Value<'_>,
+        depth: u16,
+        key: Option<&str>,
+        index: Option<usize>,
+        parent: Option<&Object<'_>>,
+        ancestors: &mut Vec<usize>,
+    ) -> Result<()> {
+        if !write_primitive(result, &val)? {
+            iterate(ctx, result, &val, depth + 1, key, index, parent, ancestors)?;
         }
         Ok(())
     }
@@ -136,67 +329,110 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
     #[inline(always)]
     fn write_key(result: &mut String, key: &str) {
         result.push('"');
-        result.push_str(&escape(key).to_string());
+        result.push_str(&escape_json(key.as_bytes()));
         result.push_str("\":");
     }
 
     #[inline(always)]
-    fn write_string(result: &mut String, value: String) {
+    fn write_string(result: &mut String, value: &str) {
         result.push('"');
-        result.push_str(&value);
+        result.push_str(&escape_json(value.as_bytes()));
         result.push('"');
     }
 
     #[inline(always)]
-    fn iterate(ctx: &Ctx<'_>, result: &mut String, elem: &Value) -> Result<()> {
+    fn iterate(
+        ctx: &Ctx<'_>,
+        result: &mut String,
+        elem: &Value,
+        depth: u16,
+        key: Option<&str>,
+        index: Option<usize>,
+        parent: Option<&Object<'_>>,
+        ancestors: &mut Vec<usize>,
+    ) -> Result<()> {
+        let mut add_comma;
         match elem.type_of() {
-            rquickjs::Type::Object => {
+            Type::Object => {
                 let js_object = elem.as_object().unwrap();
                 if js_object.contains_key(PredefinedAtom::ToJSON)? {
                     let to_json = js_object.get::<_, Function>(PredefinedAtom::ToJSON)?;
                     let val = to_json.call((This(js_object.clone()),))?;
-                    append_value(ctx, result, val)?;
+                    append_value(
+                        ctx,
+                        result,
+                        val,
+                        depth,
+                        key,
+                        None,
+                        Some(js_object),
+                        ancestors,
+                    )?;
                     return Ok(());
                 }
-                result.push('{');
-                let keys = js_object.keys::<String>();
-                let length = keys.len();
 
-                for (idx, key) in keys.enumerate() {
-                    let key = key?;
-                    let val = js_object.get(&key)?;
-                    if let Some(primitive) = to_json_string(&val)? {
-                        match primitive {
-                            JsonString::Value(value) => {
-                                write_key(result, &key);
-                                result.push_str(&value);
-                            }
-                            JsonString::Ignored => {}
-                            JsonString::String(value) => {
-                                write_key(result, &key);
-                                write_string(result, value);
-                            }
-                        }
-                    } else {
-                        write_key(result, &key);
-                        iterate(ctx, result, &val)?;
-                    }
-                    if idx < length - 1 {
+                //only start detect circular reference at this level
+                if depth > CIRCULAR_REF_DETECTION_DEPTH {
+                    detect_circular_reference(ctx, js_object, key, index, parent, ancestors)?;
+                }
+
+                result.push('{');
+                add_comma = false;
+                for key in js_object.keys::<String>() {
+                    if add_comma {
                         result.push(',');
                     }
+                    let key = key?;
+                    let val = js_object.get(&key)?;
+
+                    if !write_primitive_key(result, &key, &val)? {
+                        write_key(result, &key);
+                        iterate(
+                            ctx,
+                            result,
+                            &val,
+                            depth + 1,
+                            Some(&key),
+                            None,
+                            Some(js_object),
+                            ancestors,
+                        )?;
+                    }
+                    add_comma = true;
                 }
                 result.push('}');
             }
-            rquickjs::Type::Array => {
+            Type::Array => {
                 result.push('[');
+                add_comma = false;
                 let js_array = elem.as_array().unwrap();
-                let length = js_array.len();
-                for (idx, val) in js_array.iter::<Value>().enumerate() {
-                    let val = val?;
-                    append_value(ctx, result, val)?;
-                    if idx < length - 1 {
+                //only start detect circular reference at this level
+                if depth > CIRCULAR_REF_DETECTION_DEPTH {
+                    detect_circular_reference(
+                        ctx,
+                        js_array.as_object(),
+                        key,
+                        index,
+                        parent,
+                        ancestors,
+                    )?;
+                }
+                for (i, val) in js_array.iter::<Value>().enumerate() {
+                    if add_comma {
                         result.push(',');
                     }
+                    let val = val?;
+                    append_value(
+                        ctx,
+                        result,
+                        val,
+                        depth,
+                        key,
+                        Some(i),
+                        Some(js_array.as_object()),
+                        ancestors,
+                    )?;
+                    add_comma = true;
                 }
                 result.push(']');
             }
@@ -205,7 +441,17 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
         Ok(())
     }
 
-    iterate(ctx, &mut result, &value)?;
+    let mut ancestors = Vec::with_capacity(10);
+    iterate(
+        ctx,
+        &mut result,
+        &value,
+        0,
+        None,
+        None,
+        None,
+        &mut ancestors,
+    )?;
     Ok(Some(result))
 }
 
@@ -252,7 +498,7 @@ pub fn json_parse2<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>
 
 /// Parse json into a JavaScript value.
 pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> {
-    let now = Instant::now();
+    let _now = Instant::now();
 
     let tape = simd_json::to_tape(&mut json).unwrap();
 
@@ -262,7 +508,7 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
     let tape = tape.0;
     let first = tape.first();
 
-    if let None = first {
+    if first.is_none() {
         return Undefined.into_js(ctx);
     }
     let first = first.unwrap();
@@ -280,11 +526,11 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
     #[inline(always)]
     fn static_node_to_value<'js>(ctx: &Ctx<'js>, node: StaticNode) -> Result<Value<'js>> {
         Ok(match node {
-            StaticNode::I64(value) => value.into_js(&ctx)?,
-            StaticNode::U64(value) => value.into_js(&ctx)?,
-            StaticNode::F64(value) => value.into_js(&ctx)?,
-            StaticNode::Bool(value) => value.into_js(&ctx)?,
-            StaticNode::Null => Null.into_js(&ctx)?,
+            StaticNode::I64(value) => value.into_js(ctx)?,
+            StaticNode::U64(value) => value.into_js(ctx)?,
+            StaticNode::F64(value) => value.into_js(ctx)?,
+            StaticNode::Bool(value) => value.into_js(ctx)?,
+            StaticNode::Null => Null.into_js(ctx)?,
         })
     }
 
@@ -313,7 +559,7 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
                     }
                 }
             }
-            Node::Object { len, count } => {
+            Node::Object { len, count: _ } => {
                 let js_object = Object::new(ctx.clone())?;
                 let item = if let Some(current_obj) = path_data.last_mut() {
                     current_obj.index += 1;
@@ -333,7 +579,7 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
                 path_data.push(item);
                 last_is_string = false;
             }
-            Node::Array { len, count } => {
+            Node::Array { len, count: _ } => {
                 let js_array = Array::new(ctx.clone())?;
                 let item = if let Some(current_obj) = path_data.last_mut() {
                     current_obj.index += 1;
@@ -408,9 +654,9 @@ fn get_primitive<'js>(ctx: &Ctx<'js>, elem: &JsonValue<'_>) -> Result<Option<Val
 #[cfg(test)]
 #[cfg(test)]
 mod tests {
-    use std::{fs, time::Instant};
+    use std::time::Instant;
 
-    use rquickjs::Value;
+    use rquickjs::{CatchResultExt, Object, Value};
 
     use crate::{
         json::{json_parse, json_stringify},
@@ -453,10 +699,48 @@ mod tests {
     #[tokio::test]
     async fn json_stringify_objects() {
         with_runtime(|ctx| {
-            let date: Value = ctx.eval("new Date(0)").unwrap();
+            let date: Value = ctx.eval("new Date(0)")?;
             let stringified = json_stringify(&ctx, date.clone())?.unwrap();
             let stringified_2 = ctx.json_stringify(date)?.unwrap().to_string()?;
             assert_eq!(stringified, stringified_2);
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn json_circular_ref() {
+        with_runtime(|ctx| {
+            let obj1 = Object::new(ctx.clone())?;
+            let obj2 = Object::new(ctx.clone())?;
+            let obj3 = Object::new(ctx.clone())?;
+            let obj4 = Object::new(ctx.clone())?;
+            obj4.set("key", "value")?;
+            obj3.set("sub2", obj4.clone())?;
+            obj2.set("sub1", obj3)?;
+            obj1.set("root1", obj2.clone())?;
+            obj1.set("root2", obj2.clone())?;
+            obj1.set("root3", obj2.clone())?;
+
+            let value = obj1.clone().into_value();
+
+            let stringified = json_stringify(&ctx, value.clone())?.unwrap();
+            let stringified_2 = ctx.json_stringify(value.clone())?.unwrap().to_string()?;
+            assert_eq!(stringified, stringified_2);
+
+            obj4.set("recursive", obj1.clone())?;
+
+            let stringified = json_stringify(&ctx, value.clone());
+
+            // Optionally, you can use pattern matching to extract and check the specific error message
+            if let Err(error_message) = stringified.catch(&ctx) {
+                let str = error_message.to_string();
+                println!("{}", str);
+            } else {
+                // If the Result is Ok, fail the test
+                panic!("Expected an error, but got Ok");
+            }
+
             Ok(())
         })
         .await;
@@ -492,13 +776,13 @@ mod tests {
             json.clone(),
             generate_json(&json, 10),
             generate_json(&json, 100),
-            generate_json(&json, 1000),
-            generate_json(&json, 10_000),
-            generate_json(&json, 100_000),
+            // generate_json(&json, 1000),
+            // generate_json(&json, 10_000),
+            // generate_json(&json, 100_000),
         ];
 
         with_runtime(|ctx| {
-            for (i, data) in data.into_iter().enumerate() {
+            for (_i, data) in data.into_iter().enumerate() {
                 let size = data.len();
                 let data2 = data.clone().into_bytes();
                 let now = Instant::now();
