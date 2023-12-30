@@ -243,6 +243,7 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
         Ok(true)
     }
 
+    #[inline(always)]
     fn write_primitive_key(string: &mut String, key: &str, value: &Value) -> Result<bool> {
         match value.type_of() {
             Type::Null => {
