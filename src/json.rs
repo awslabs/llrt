@@ -1,9 +1,12 @@
+use core::num;
+use std::collections::HashSet;
 #[cfg(feature = "nightly")]
 use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
 
 use std::time::Instant;
 
 use rayon::iter::ParallelIterator;
+use rquickjs::convert::Coerced;
 use rquickjs::{
     atom::PredefinedAtom, function::This, Array, Ctx, Function, IntoJs, Null, Object, Result, Value,
 };
@@ -40,31 +43,35 @@ static JSON_ESCAPE_QUOTES: [&str; 34usize] = [
 
 const ESCAPE_LEN: usize = 34;
 
+pub fn escape_json(bytes: &[u8]) -> String {
+    let mut output = String::new();
+    escape_json_string(&mut output, bytes);
+    output
+}
+
 #[cfg(not(feature = "nightly"))]
-fn escape_json(bytes: &[u8]) -> String {
+pub fn escape_json_string(output: &mut String, bytes: &[u8]) {
     let len = bytes.len();
-    let mut result = String::with_capacity(len);
     let mut start = 0;
+    output.reserve(len);
 
     for (i, byte) in bytes.iter().enumerate() {
         let c = JSON_ESCAPE_CHARS[*byte as usize] as usize;
         if c < ESCAPE_LEN {
-            let idx = i - start;
-            if start < idx {
-                result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..idx]) });
+            if start < i {
+                output.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..i]) });
             }
-            result.push_str(JSON_ESCAPE_QUOTES[c]);
-            start = idx + 1;
+            output.push_str(JSON_ESCAPE_QUOTES[c]);
+            start = i + 1;
         }
     }
     if start < len {
-        result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..len]) });
+        output.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..len]) });
     }
-    result
 }
 
 #[cfg(feature = "nightly")]
-fn escape_json(bytes: &[u8]) -> String {
+pub fn escape_json_string(output: &mut String, bytes: &[u8]) {
     const ESCAPE_LEN: usize = 34;
     const BELOW_SPACE: u8 = b' ' - 1;
     const B: u8 = b'"';
@@ -75,7 +82,7 @@ fn escape_json(bytes: &[u8]) -> String {
     let v_c: u8x16 = u8x16::splat(C);
 
     let len = bytes.len();
-    let mut result = String::with_capacity(len);
+    output.reserve(len);
 
     #[inline(always)]
     fn process_padded_chunk(
@@ -105,7 +112,7 @@ fn escape_json(bytes: &[u8]) -> String {
     #[inline(always)]
     fn process_chunk(
         chunk: &[u8],
-        result: &mut String,
+        output: &mut String,
         byte_vector: Simd<u8, 16>,
         max_len: usize,
         v_below_space: u8x16,
@@ -125,10 +132,10 @@ fn escape_json(bytes: &[u8]) -> String {
                 let c = JSON_ESCAPE_CHARS[chunk[cur] as usize] as usize;
                 if c < ESCAPE_LEN {
                     if start < cur {
-                        result
+                        output
                             .push_str(unsafe { std::str::from_utf8_unchecked(&chunk[start..cur]) });
                     }
-                    result.push_str(JSON_ESCAPE_QUOTES[c]);
+                    output.push_str(JSON_ESCAPE_QUOTES[c]);
                     start = cur + 1;
                 }
                 mask ^= 1 << cur;
@@ -138,40 +145,30 @@ fn escape_json(bytes: &[u8]) -> String {
                 cur = mask.trailing_zeros() as usize;
             }
         } else {
-            result.push_str(unsafe { std::str::from_utf8_unchecked(&chunk[..max_len]) });
+            output.push_str(unsafe { std::str::from_utf8_unchecked(&chunk[..max_len]) });
         }
     }
 
-    fn process(
-        bytes: &[u8],
-        mut result: String,
-        v_below_space: u8x16,
-        v_b: u8x16,
-        v_c: u8x16,
-    ) -> String {
+    fn process(bytes: &[u8], output: &mut String, v_below_space: u8x16, v_b: u8x16, v_c: u8x16) {
         let iter = bytes.chunks_exact(16);
 
         let rem = iter.remainder();
 
         for chunk in iter {
             let a = u8x16::from_slice(&chunk);
-            process_chunk(chunk, &mut result, a, 16, v_below_space, v_b, v_c);
+            process_chunk(chunk, output, a, 16, v_below_space, v_b, v_c);
         }
 
-        process_padded_chunk(rem, &mut result, v_below_space, v_b, v_c);
-
-        result
+        process_padded_chunk(rem, output, v_below_space, v_b, v_c);
     }
 
     if len < 16 {
-        process_padded_chunk(bytes, &mut result, v_below_space, v_b, v_c);
-        return result;
+        process_padded_chunk(bytes, output, v_below_space, v_b, v_c);
+        return;
     }
 
-    process(bytes, result, v_below_space, v_b, v_c)
+    process(bytes, output, v_below_space, v_b, v_c);
 }
-
-use crate::util::ResultExt;
 
 enum ValueItem<'js> {
     Object(Object<'js>),
@@ -218,11 +215,49 @@ impl<'js> PathItem<'js> {
 }
 
 pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
-    const CIRCULAR_REF_DETECTION_DEPTH: u16 = 20;
+    json_stringify_replacer_space(ctx, value, None, None)
+}
+
+pub fn json_stringify_replacer(
+    ctx: &Ctx<'_>,
+    value: Value,
+    replacer: Option<Value>,
+) -> Result<Option<String>> {
+    json_stringify_replacer_space(ctx, value, replacer, None)
+}
+
+pub fn json_stringify_replacer_space(
+    ctx: &Ctx<'_>,
+    value: Value,
+    replacer: Option<Value>,
+    indentation: Option<String>,
+) -> Result<Option<String>> {
+    const CIRCULAR_REF_DETECTION_DEPTH: usize = 20;
 
     #[inline(always)]
-    fn write_primitive(string: &mut String, value: &Value) -> Result<bool> {
-        match value.type_of() {
+    fn write_primitive(
+        string: &mut String,
+        value: &Value,
+        key: Option<&str>,
+        indentation: Option<&str>,
+        depth: usize,
+    ) -> Result<bool> {
+        let type_of = value.type_of();
+
+        if matches!(type_of, Type::Symbol | Type::Undefined) {
+            return Ok(true);
+        }
+        let mut has_indent = false;
+        if let Some(indentation) = indentation {
+            string.push_str(&indentation.repeat(depth));
+            has_indent = true;
+        }
+
+        if let Some(key) = key {
+            write_key(string, key, has_indent);
+        }
+
+        match type_of {
             Type::Null => string.push_str("null"),
             Type::Bool => string.push_str(match value.as_bool().unwrap() {
                 true => "true",
@@ -237,46 +272,13 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
                 string.push_str(buffer.format(value.as_float().unwrap()))
             }
             Type::String => write_string(string, &value.as_string().unwrap().to_string()?),
-            Type::Symbol | Type::Undefined => {}
-            _ => return Ok(false),
-        }
-        Ok(true)
-    }
-
-    #[inline(always)]
-    fn write_primitive_key(string: &mut String, key: &str, value: &Value) -> Result<bool> {
-        match value.type_of() {
-            Type::Null => {
-                write_key(string, key);
-                string.push_str("null")
-            }
-            Type::Bool => {
-                write_key(string, key);
-                string.push_str(match value.as_bool().unwrap() {
-                    true => "true",
-                    false => "false",
-                })
-            }
-            Type::Int => {
-                write_key(string, key);
-                write!(string, "{}", value.as_int().unwrap()).unwrap()
-            }
-            Type::Float => {
-                write_key(string, key);
-                write!(string, "{}", value.as_float().unwrap()).unwrap()
-            }
-            Type::String => {
-                write_key(string, key);
-                write_string(string, &value.as_string().unwrap().to_string()?)
-            }
-            Type::Symbol | Type::Undefined => {}
             _ => return Ok(false),
         }
         Ok(true)
     }
 
     let mut result = String::with_capacity(128);
-    if write_primitive(&mut result, &value)? {
+    if write_primitive(&mut result, &value, None, None, 0)? {
         return Ok(Some(result));
     }
 
@@ -287,25 +289,53 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
         key: Option<&str>,
         index: Option<usize>,
         parent: Option<&Object<'_>>,
-        ancestors: &mut Vec<usize>,
+        ancestors: &mut Vec<(usize, String)>,
     ) -> Result<()> {
         let parent_ptr = unsafe { parent.unwrap().as_raw().u.ptr as usize };
         let current_ptr = unsafe { value.as_raw().u.ptr as usize };
 
-        while !ancestors.is_empty() && ancestors.last() != Some(&parent_ptr) {
+        while !ancestors.is_empty()
+            && match ancestors.last() {
+                Some((ptr, _)) => ptr != &parent_ptr,
+                _ => false,
+            }
+        {
             ancestors.pop();
         }
-        if ancestors.contains(&current_ptr) {
+
+        if ancestors.iter().any(|(ptr, _)| ptr == &current_ptr) {
+            let mut iter = ancestors.into_iter();
+
+            let first = &iter.next().unwrap().1;
+
+            let mut path = iter
+                .rev()
+                .take(4)
+                .rev()
+                .fold(String::new(), |mut acc, (_, key)| {
+                    if !key.starts_with("[") {
+                        acc.push('.');
+                    }
+                    acc.push_str(key);
+                    acc
+                });
+
+            if !first.starts_with("[") {
+                path.push('.');
+            }
+
+            path.push_str(first);
+
             return Err(Exception::throw_type(
                 ctx,
-                &format!(
-                    "Circular reference detected at: \"{}{}\"",
-                    key.unwrap_or_default(),
-                    index.map(|v| format!("[{}]", v)).unwrap_or_default()
-                ),
+                &format!("Circular reference detected at: \"..{}\"", path),
             ));
         }
-        ancestors.push(current_ptr);
+        ancestors.push((
+            current_ptr,
+            key.map(|k| k.to_string())
+                .unwrap_or_else(|| format!("[{}]", index.unwrap_or_default())),
+        ));
 
         Ok(())
     }
@@ -315,30 +345,50 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
         ctx: &Ctx<'_>,
         result: &mut String,
         val: Value<'_>,
-        depth: u16,
+        depth: usize,
+        indentation: Option<&str>,
         key: Option<&str>,
         index: Option<usize>,
         parent: Option<&Object<'_>>,
-        ancestors: &mut Vec<usize>,
+        ancestors: &mut Vec<(usize, String)>,
+        replacer_fn: Option<&Function>,
+        replacer_filter: Option<&HashSet<String>>,
     ) -> Result<()> {
-        if !write_primitive(result, &val)? {
-            iterate(ctx, result, &val, depth + 1, key, index, parent, ancestors)?;
+        if !write_primitive(result, &val, None, indentation, depth)? {
+            iterate(
+                ctx,
+                result,
+                &val,
+                depth + 1,
+                indentation,
+                key,
+                index,
+                parent,
+                ancestors,
+                replacer_fn,
+                replacer_filter,
+            )?;
         }
+
         Ok(())
     }
 
     #[inline(always)]
-    fn write_key(result: &mut String, key: &str) {
-        result.push('"');
-        result.push_str(&escape_json(key.as_bytes()));
-        result.push_str("\":");
+    fn write_key(string: &mut String, key: &str, indent: bool) {
+        string.push('"');
+        escape_json_string(string, key.as_bytes());
+        if indent {
+            string.push_str("\": ");
+        } else {
+            string.push_str("\":");
+        }
     }
 
     #[inline(always)]
-    fn write_string(result: &mut String, value: &str) {
-        result.push('"');
-        result.push_str(&escape_json(value.as_bytes()));
-        result.push('"');
+    fn write_string(string: &mut String, value: &str) {
+        string.push('"');
+        escape_json_string(string, value.as_bytes());
+        string.push('"');
     }
 
     #[inline(always)]
@@ -346,11 +396,14 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
         ctx: &Ctx<'_>,
         result: &mut String,
         elem: &Value,
-        depth: u16,
+        depth: usize,
+        indentation: Option<&str>,
         key: Option<&str>,
         index: Option<usize>,
         parent: Option<&Object<'_>>,
-        ancestors: &mut Vec<usize>,
+        ancestors: &mut Vec<(usize, String)>,
+        replacer_fn: Option<&Function>,
+        replacer_filter: Option<&HashSet<String>>,
     ) -> Result<()> {
         let mut add_comma;
         match elem.type_of() {
@@ -364,10 +417,13 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
                         result,
                         val,
                         depth,
+                        indentation,
                         key,
                         None,
                         Some(js_object),
                         ancestors,
+                        replacer_fn,
+                        replacer_filter,
                     )?;
                     return Ok(());
                 }
@@ -378,28 +434,43 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
                 }
 
                 result.push('{');
+
                 add_comma = false;
                 for key in js_object.keys::<String>() {
                     if add_comma {
-                        result.push(',');
+                        if indentation.is_some() {
+                            result.push_str(",\n");
+                        } else {
+                            result.push(',');
+                        }
+                    } else if indentation.is_some() {
+                        result.push('\n');
                     }
                     let key = key?;
                     let val = js_object.get(&key)?;
 
-                    if !write_primitive_key(result, &key, &val)? {
-                        write_key(result, &key);
+                    if !write_primitive(result, &val, Some(&key), indentation, depth)? {
                         iterate(
                             ctx,
                             result,
                             &val,
                             depth + 1,
+                            indentation,
                             Some(&key),
                             None,
                             Some(js_object),
                             ancestors,
+                            replacer_fn,
+                            replacer_filter,
                         )?;
                     }
                     add_comma = true;
+                }
+                if add_comma {
+                    if let Some(indentation) = indentation {
+                        result.push('\n');
+                        result.push_str(&indentation.repeat(depth - 1));
+                    }
                 }
                 result.push('}');
             }
@@ -420,7 +491,13 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
                 }
                 for (i, val) in js_array.iter::<Value>().enumerate() {
                     if add_comma {
-                        result.push(',');
+                        if indentation.is_some() {
+                            result.push_str(",\n");
+                        } else {
+                            result.push(',');
+                        }
+                    } else if indentation.is_some() {
+                        result.push('\n');
                     }
                     let val = val?;
                     append_value(
@@ -428,12 +505,21 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
                         result,
                         val,
                         depth,
-                        key,
+                        indentation,
+                        None,
                         Some(i),
                         Some(js_array.as_object()),
                         ancestors,
+                        replacer_fn,
+                        replacer_filter,
                     )?;
                     add_comma = true;
+                }
+                if add_comma {
+                    if let Some(indentation) = indentation {
+                        result.push('\n');
+                        result.push_str(&indentation.repeat(depth - 1));
+                    }
                 }
                 result.push(']');
             }
@@ -442,59 +528,53 @@ pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
         Ok(())
     }
 
+    let mut replacer_fn = None;
+    let mut replacer_filter = None;
+
+    let tmp_function;
+
+    if let Some(replacer) = replacer {
+        if let Some(function) = replacer.as_function() {
+            tmp_function = function.clone();
+            replacer_fn = Some(&tmp_function);
+        } else if let Some(array) = replacer.as_array() {
+            let mut filter = HashSet::with_capacity(array.len());
+            for value in array.clone().into_iter() {
+                let value = value?;
+                if let Some(string) = value.as_string() {
+                    filter.insert(string.to_string()?);
+                } else if let Some(number) = value.as_int() {
+                    let mut buffer = itoa::Buffer::new();
+                    filter.insert(buffer.format(number).to_string());
+                } else if let Some(number) = value.as_float() {
+                    let mut buffer = ryu::Buffer::new();
+                    filter.insert(buffer.format(number).to_string());
+                }
+            }
+            replacer_filter = Some(filter);
+        } else {
+            return Err(Exception::throw_type(
+                ctx,
+                "\"replacer\" argument must be a Function or Array",
+            ));
+        }
+    }
+
     let mut ancestors = Vec::with_capacity(10);
     iterate(
         ctx,
         &mut result,
         &value,
-        0,
+        1,
+        indentation.as_deref(),
         None,
         None,
         None,
         &mut ancestors,
+        replacer_fn,
+        replacer_filter.as_ref(),
     )?;
     Ok(Some(result))
-}
-
-/// Parse json into a JavaScript value.
-pub fn json_parse2<'js>(ctx: &Ctx<'js>, mut bytes: Vec<u8>) -> Result<Value<'js>> {
-    let now = Instant::now();
-    let root = simd_json::to_borrowed_value(&mut bytes).or_throw(ctx)?;
-    println!("simd_json parse took: {:?}", now.elapsed());
-    if let Some(value) = get_primitive(ctx, &root)? {
-        return Ok(value);
-    }
-
-    fn iterate<'js>(elem: &JsonValue, ctx: &Ctx<'js>) -> Result<Value<'js>> {
-        match elem {
-            JsonValue::Array(json_array) => {
-                let js_array = Array::new(ctx.clone())?;
-
-                for (idx, val) in json_array.iter().enumerate() {
-                    if let Some(primitive) = get_primitive(ctx, val)? {
-                        js_array.set(idx, primitive)?;
-                    } else {
-                        js_array.set(idx, iterate(val, ctx)?)?;
-                    }
-                }
-                return Ok(js_array.into_value());
-            }
-            JsonValue::Object(json_object) => {
-                let js_object = Object::new(ctx.clone())?;
-                for (key, val) in json_object.iter() {
-                    if let Some(primitive) = get_primitive(ctx, val)? {
-                        js_object.set(key.to_string(), primitive)?;
-                    } else {
-                        js_object.set(key.to_string(), iterate(val, ctx)?)?;
-                    }
-                }
-                return Ok(js_object.into_value());
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    iterate(&root, ctx)
 }
 
 /// Parse json into a JavaScript value.
@@ -637,34 +717,67 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
     Undefined.into_js(ctx)
 }
 
-#[inline(always)]
-fn get_primitive<'js>(ctx: &Ctx<'js>, elem: &JsonValue<'_>) -> Result<Option<Value<'js>>> {
-    Ok(match elem {
-        JsonValue::Static(static_node) => Some(match static_node {
-            simd_json::StaticNode::I64(val) => val.into_js(ctx)?,
-            simd_json::StaticNode::U64(val) => val.into_js(ctx)?,
-            simd_json::StaticNode::F64(val) => val.into_js(ctx)?,
-            simd_json::StaticNode::Bool(val) => val.into_js(ctx)?,
-            simd_json::StaticNode::Null => Null.into_js(ctx)?,
-        }),
-        JsonValue::String(string) => Some(string.into_js(ctx)?),
-        _ => None,
-    })
-}
-
-#[cfg(test)]
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
 
-    use rquickjs::{CatchResultExt, Object, Value};
+    use rquickjs::{Array, CatchResultExt, Null, Object, Undefined, Value};
 
     use crate::{
-        json::{json_parse, json_stringify},
+        json::{escape_json, json_parse, json_stringify, json_stringify_replacer_space},
         test_utils::utils::with_runtime,
     };
 
     static JSON: &str = r#"{"organization":{"name":"TechCorp","founding_year":2000,"departments":[{"name":"Engineering","head":{"name":"Alice Smith","title":"VP of Engineering","contact":{"email":"alice.smith@techcorp.com","phone":"+1 (555) 123-4567"}},"employees":[{"id":101,"name":"Bob Johnson","position":"Software Engineer","contact":{"email":"bob.johnson@techcorp.com","phone":"+1 (555) 234-5678"},"projects":[{"project_id":"P001","name":"Project A","status":"In Progress","description":"Developing a revolutionary software solution for clients.","start_date":"2023-01-15","end_date":null,"team":[{"id":201,"name":"Sara Davis","role":"UI/UX Designer"},{"id":202,"name":"Charlie Brown","role":"Quality Assurance Engineer"}]},{"project_id":"P002","name":"Project B","status":"Completed","description":"Upgrading existing systems to enhance performance.","start_date":"2022-05-01","end_date":"2022-11-30","team":[{"id":203,"name":"Emily White","role":"Systems Architect"},{"id":204,"name":"James Green","role":"Database Administrator"}]}]},{"id":102,"name":"Carol Williams","position":"Senior Software Engineer","contact":{"email":"carol.williams@techcorp.com","phone":"+1 (555) 345-6789"},"projects":[{"project_id":"P001","name":"Project A","status":"In Progress","description":"Working on the backend development of Project A.","start_date":"2023-01-15","end_date":null,"team":[{"id":205,"name":"Alex Turner","role":"DevOps Engineer"},{"id":206,"name":"Mia Garcia","role":"Software Developer"}]},{"project_id":"P003","name":"Project C","status":"Planning","description":"Researching and planning for a future project.","start_date":null,"end_date":null,"team":[]}]}]},{"name":"Marketing","head":{"name":"David Brown","title":"VP of Marketing","contact":{"email":"david.brown@techcorp.com","phone":"+1 (555) 456-7890"}},"employees":[{"id":201,"name":"Eva Miller","position":"Marketing Specialist","contact":{"email":"eva.miller@techcorp.com","phone":"+1 (555) 567-8901"},"campaigns":[{"campaign_id":"C001","name":"Product Launch","status":"Upcoming","description":"Planning for the launch of a new product line.","start_date":"2023-03-01","end_date":null,"team":[{"id":301,"name":"Oliver Martinez","role":"Graphic Designer"},{"id":302,"name":"Sophie Johnson","role":"Content Writer"}]},{"campaign_id":"C002","name":"Brand Awareness","status":"Ongoing","description":"Executing strategies to increase brand visibility.","start_date":"2022-11-15","end_date":"2023-01-31","team":[{"id":303,"name":"Liam Taylor","role":"Social Media Manager"},{"id":304,"name":"Ava Clark","role":"Marketing Analyst"}]}]}]}]}}"#;
+
+    #[test]
+    fn escape_json_simple() {
+        assert_eq!(escape_json(b"Hello, World!"), "Hello, World!");
+    }
+
+    #[test]
+    fn escape_json_quotes() {
+        assert_eq!(escape_json(b"\"quoted\""), "\\\"quoted\\\"");
+    }
+
+    #[test]
+    fn escape_json_backslash() {
+        assert_eq!(escape_json(b"back\\slash"), "back\\\\slash");
+    }
+
+    #[test]
+    fn escape_json_newline() {
+        assert_eq!(escape_json(b"line\nbreak"), "line\\nbreak");
+    }
+
+    #[test]
+    fn escape_json_tab() {
+        assert_eq!(escape_json(b"tab\tcharacter"), "tab\\tcharacter");
+    }
+
+    #[test]
+    fn escape_json_unicode() {
+        assert_eq!(
+            escape_json("unicode: \u{1F609}".as_bytes()),
+            "unicode: \u{1F609}"
+        );
+    }
+
+    #[test]
+    fn escape_json_special_characters() {
+        assert_eq!(
+            escape_json(b"!@#$%^&*()_+-=[]{}|;':,.<>?/"),
+            "!@#$%^&*()_+-=[]{}|;':,.<>?/"
+        );
+    }
+
+    #[test]
+    fn escape_json_mixed_characters() {
+        assert_eq!(
+            escape_json(b"123\"\"45678901\"234567"),
+            "123\\\"\\\"45678901\\\"234567"
+        );
+    }
 
     #[tokio::test]
     async fn json_parser() {
@@ -686,9 +799,10 @@ mod tests {
                 let json2 = json.clone();
 
                 let value = json_parse(&ctx, json2.into_bytes())?;
-                let new_json = json_stringify(&ctx, value.clone())?.unwrap();
-                let builtin_json = ctx.json_stringify(value)?.unwrap().to_string()?;
+                let new_json = json_stringify_replacer_space(&ctx, value.clone(),None,Some("  ".into()))?.unwrap();
+                let builtin_json = ctx.json_stringify_replacer_space(value,Null,"  ".to_string())?.unwrap().to_string()?;
                 println!("==========");
+                println!("{}", new_json);
                 assert_eq!(new_json, builtin_json);
             }
 
@@ -733,12 +847,38 @@ mod tests {
 
             let stringified = json_stringify(&ctx, value.clone());
 
-            // Optionally, you can use pattern matching to extract and check the specific error message
             if let Err(error_message) = stringified.catch(&ctx) {
-                let str = error_message.to_string();
-                println!("{}", str);
+                let error_str = error_message.to_string();
+                assert_eq!(
+                    "Error: Circular reference detected at: \"...root1.sub1.sub2.recursive\"\n",
+                    error_str
+                )
             } else {
-                // If the Result is Ok, fail the test
+                panic!("Expected an error, but got Ok");
+            }
+
+            let array1 = Array::new(ctx.clone())?;
+            let array2 = Array::new(ctx.clone())?;
+            let array3 = Array::new(ctx.clone())?;
+
+            let obj5 = Object::new(ctx.clone())?;
+            obj5.set("key", obj1.clone())?;
+            array3.set(2, obj5)?;
+            array2.set(1, array3)?;
+            array1.set(0, array2)?;
+
+            obj4.remove("recursive")?;
+            obj1.set("recursiveArray", array1)?;
+
+            let stringified = json_stringify(&ctx, value.clone());
+
+            if let Err(error_message) = stringified.catch(&ctx) {
+                let error_str = error_message.to_string();
+                assert_eq!(
+                    "Error: Circular reference detected at: \"...recursiveArray[0][1][2].key\"\n",
+                    error_str
+                )
+            } else {
                 panic!("Expected an error, but got Ok");
             }
 
@@ -777,9 +917,7 @@ mod tests {
             json.clone(),
             generate_json(&json, 10),
             generate_json(&json, 100),
-            // generate_json(&json, 1000),
-            // generate_json(&json, 10_000),
-            // generate_json(&json, 100_000),
+            generate_json(&json, 1000),
         ];
 
         with_runtime(|ctx| {
