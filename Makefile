@@ -160,6 +160,7 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: toolchain js
+	cargo test --target $(CURRENT_TARGET)
 	cargo run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
