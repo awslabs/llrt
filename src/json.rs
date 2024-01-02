@@ -240,8 +240,16 @@ pub fn json_stringify_replacer_space(
         value: &Value,
         key: Option<&str>,
         indentation: Option<&str>,
+        replacer_fn: Option<&Function<'_>>,
+        replacer_filter: Option<&HashSet<String>>,
         depth: usize,
     ) -> Result<bool> {
+        let value = if let Some(replacer_fn) = replacer_fn {
+            value
+        } else {
+            value
+        };
+
         let type_of = value.type_of();
 
         if matches!(type_of, Type::Symbol | Type::Undefined) {
@@ -278,9 +286,6 @@ pub fn json_stringify_replacer_space(
     }
 
     let mut result = String::with_capacity(128);
-    if write_primitive(&mut result, &value, None, None, 0)? {
-        return Ok(Some(result));
-    }
 
     #[inline(always)]
     fn detect_circular_reference(
@@ -354,7 +359,15 @@ pub fn json_stringify_replacer_space(
         replacer_fn: Option<&Function>,
         replacer_filter: Option<&HashSet<String>>,
     ) -> Result<()> {
-        if !write_primitive(result, &val, None, indentation, depth)? {
+        if !write_primitive(
+            result,
+            &val,
+            None,
+            indentation,
+            replacer_fn,
+            replacer_filter,
+            depth,
+        )? {
             iterate(
                 ctx,
                 result,
@@ -449,7 +462,15 @@ pub fn json_stringify_replacer_space(
                     let key = key?;
                     let val = js_object.get(&key)?;
 
-                    if !write_primitive(result, &val, Some(&key), indentation, depth)? {
+                    if !write_primitive(
+                        result,
+                        &val,
+                        Some(&key),
+                        indentation,
+                        replacer_fn,
+                        replacer_filter,
+                        depth,
+                    )? {
                         iterate(
                             ctx,
                             result,
@@ -558,6 +579,18 @@ pub fn json_stringify_replacer_space(
                 "\"replacer\" argument must be a Function or Array",
             ));
         }
+    }
+
+    if write_primitive(
+        &mut result,
+        &value,
+        None,
+        None,
+        replacer_fn,
+        replacer_filter.as_ref(),
+        0,
+    )? {
+        return Ok(Some(result));
     }
 
     let mut ancestors = Vec::with_capacity(10);
