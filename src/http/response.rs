@@ -7,7 +7,7 @@ use rquickjs::{
 };
 use tracing::trace;
 
-use crate::{json::json_parse, util::ResultExt};
+use crate::{json::parse::json_parse, util::ResultExt};
 
 use super::headers::Headers;
 

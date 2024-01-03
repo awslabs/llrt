@@ -40,7 +40,7 @@ use crate::{
     encoding::HexModule,
     events::EventsModule,
     fs::FsPromisesModule,
-    json::{json_parse, json_stringify, json_stringify_replacer, json_stringify_replacer_space},
+    json::{parse::json_parse, stringify::json_stringify_replacer_space},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
