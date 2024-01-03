@@ -1,4 +1,5 @@
 use std::{
+    cmp::min,
     collections::{HashMap, HashSet},
     env::{self},
     ffi::CStr,
@@ -39,7 +40,7 @@ use crate::{
     encoding::HexModule,
     events::EventsModule,
     fs::FsPromisesModule,
-    json::{json_parse, json_stringify},
+    json::{json_parse, json_stringify, json_stringify_replacer, json_stringify_replacer_space},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
@@ -479,16 +480,26 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
             let StringifyArgs(ctx, value, replacer, space) =
                 StringifyArgs(ctx, value, replacer, space);
-            if replacer.is_none() {
-                json_stringify(&ctx, value).map(|v| v.into_js(&ctx))
-            } else {
-                ctx.json_stringify_replacer_space(
-                    value,
-                    replacer.0.into_js(&ctx),
-                    space.0.into_js(&ctx),
-                )
-                .map(|v| v.into_js(&ctx))
+
+            let mut space_value = None;
+            let mut replacer_value = None;
+
+            if let Some(replacer) = replacer.0 {
+                if let Some(space) = space.0 {
+                    if let Some(space) = space.as_string() {
+                        space_value = Some(space.clone().to_string()?);
+                    }
+                    if let Some(number) = space.as_int() {
+                        if number > 0 {
+                            space_value = Some(" ".repeat(min(10, number as usize)));
+                        }
+                    }
+                }
+                replacer_value = Some(replacer);
             }
+
+            json_stringify_replacer_space(&ctx, value, replacer_value, space_value)
+                .map(|v| v.into_js(&ctx))?
         }),
     )?;
 

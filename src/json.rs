@@ -16,6 +16,8 @@ use simd_json::{Node, StaticNode};
 
 use std::fmt::Write;
 
+use crate::util::ResultExt;
+
 static JSON_ESCAPE_CHARS: [u8; 256] = [
     0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8, 15u8, 16u8,
     17u8, 18u8, 19u8, 20u8, 21u8, 22u8, 23u8, 24u8, 25u8, 26u8, 27u8, 28u8, 29u8, 30u8, 31u8, 34u8,
@@ -214,55 +216,92 @@ impl<'js> PathItem<'js> {
     }
 }
 
-pub fn json_stringify(ctx: &Ctx<'_>, value: Value) -> Result<Option<String>> {
+pub fn json_stringify<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Option<String>> {
     json_stringify_replacer_space(ctx, value, None, None)
 }
 
-pub fn json_stringify_replacer(
-    ctx: &Ctx<'_>,
-    value: Value,
-    replacer: Option<Value>,
+pub fn json_stringify_replacer<'js>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+    replacer: Option<Value<'js>>,
 ) -> Result<Option<String>> {
     json_stringify_replacer_space(ctx, value, replacer, None)
 }
 
-pub fn json_stringify_replacer_space(
-    ctx: &Ctx<'_>,
-    value: Value,
-    replacer: Option<Value>,
+pub fn json_stringify_replacer_space<'js>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+    replacer: Option<Value<'js>>,
     indentation: Option<String>,
 ) -> Result<Option<String>> {
     const CIRCULAR_REF_DETECTION_DEPTH: usize = 20;
 
+    let mut result = String::with_capacity(128);
+
     #[inline(always)]
-    fn write_primitive(
+    fn write_primitive<'js>(
+        ctx: &Ctx<'js>,
         string: &mut String,
-        value: &Value,
+        value: &Value<'js>,
+        parent: Option<&Object<'js>>,
         key: Option<&str>,
+        index: Option<usize>,
         indentation: Option<&str>,
-        replacer_fn: Option<&Function<'_>>,
-        replacer_filter: Option<&HashSet<String>>,
+        replacer_fn: Option<&Function<'js>>,
+        include_keys_replacer: Option<&HashSet<String>>,
         depth: usize,
+        add_comma: bool,
     ) -> Result<bool> {
-        let value = if let Some(replacer_fn) = replacer_fn {
-            value
-        } else {
-            value
-        };
+        if let Some(replacer_fn) = replacer_fn {
+            let parent = if let Some(parent) = parent {
+                parent.clone()
+            } else {
+                let parent = Object::new(ctx.clone())?;
+                parent.set("", value.clone())?;
+                parent
+            };
+
+            let new_value =
+                replacer_fn.call((This(parent), get_key_or_index(key, index), value))?;
+            return write_primitive(
+                ctx,
+                string,
+                &new_value,
+                None,
+                key,
+                None,
+                indentation,
+                None,
+                None,
+                depth,
+                add_comma,
+            );
+        }
 
         let type_of = value.type_of();
 
         if matches!(type_of, Type::Symbol | Type::Undefined) {
             return Ok(true);
         }
-        let mut has_indent = false;
-        if let Some(indentation) = indentation {
-            string.push_str(&indentation.repeat(depth));
-            has_indent = true;
-        }
 
-        if let Some(key) = key {
-            write_key(string, key, has_indent);
+        if let Some(include_keys_replacer) = include_keys_replacer {
+            let key = get_key_or_index(key, index);
+            if !include_keys_replacer.contains(&key) {
+                return Ok(true);
+            }
+        };
+
+        if let Some(indentation) = indentation {
+            write_sep(string, add_comma, true);
+            string.push_str(&indentation.repeat(depth));
+            if let Some(key) = key {
+                write_key(string, key, true);
+            }
+        } else {
+            write_sep(string, add_comma, false);
+            if let Some(key) = key {
+                write_key(string, key, false);
+            }
         }
 
         match type_of {
@@ -284,8 +323,6 @@ pub fn json_stringify_replacer_space(
         }
         Ok(true)
     }
-
-    let mut result = String::with_capacity(128);
 
     #[inline(always)]
     fn detect_circular_reference(
@@ -346,27 +383,32 @@ pub fn json_stringify_replacer_space(
     }
 
     #[inline(always)]
-    fn append_value(
-        ctx: &Ctx<'_>,
+    fn append_value<'js>(
+        ctx: &Ctx<'js>,
         result: &mut String,
-        val: Value<'_>,
+        val: Value<'js>,
         depth: usize,
         indentation: Option<&str>,
         key: Option<&str>,
         index: Option<usize>,
-        parent: Option<&Object<'_>>,
+        parent: Option<&Object<'js>>,
         ancestors: &mut Vec<(usize, String)>,
-        replacer_fn: Option<&Function>,
-        replacer_filter: Option<&HashSet<String>>,
+        replacer_fn: Option<&Function<'js>>,
+        include_keys_replacer: Option<&HashSet<String>>,
+        add_comma: bool,
     ) -> Result<()> {
         if !write_primitive(
+            ctx,
             result,
             &val,
-            None,
+            parent,
+            key,
+            index,
             indentation,
             replacer_fn,
-            replacer_filter,
+            include_keys_replacer,
             depth,
+            add_comma,
         )? {
             iterate(
                 ctx,
@@ -379,7 +421,7 @@ pub fn json_stringify_replacer_space(
                 parent,
                 ancestors,
                 replacer_fn,
-                replacer_filter,
+                include_keys_replacer,
             )?;
         }
 
@@ -398,6 +440,23 @@ pub fn json_stringify_replacer_space(
     }
 
     #[inline(always)]
+    fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool) {
+        if !add_comma && !has_indentation {
+            return;
+        }
+
+        const SEPARATOR_TABLE: [&str; 4] = [
+            "",    // add_comma = false, has_indentation = false
+            ",",   // add_comma = false, has_indentation = true
+            "\n",  // add_comma = true, has_indentation = false
+            ",\n", // add_comma = true, has_indentation = true
+        ];
+
+        let separator = SEPARATOR_TABLE[(add_comma as usize) | ((has_indentation as usize) << 1)];
+        result.push_str(separator);
+    }
+
+    #[inline(always)]
     fn write_string(string: &mut String, value: &str) {
         string.push('"');
         escape_json_string(string, value.as_bytes());
@@ -405,18 +464,26 @@ pub fn json_stringify_replacer_space(
     }
 
     #[inline(always)]
-    fn iterate(
-        ctx: &Ctx<'_>,
+    fn get_key_or_index(key: Option<&str>, index: Option<usize>) -> String {
+        key.map(|k| k.to_string()).unwrap_or_else(|| {
+            let mut buffer = itoa::Buffer::new();
+            buffer.format(index.unwrap_or_default()).to_string()
+        })
+    }
+
+    #[inline(always)]
+    fn iterate<'js>(
+        ctx: &Ctx<'js>,
         result: &mut String,
-        elem: &Value,
+        elem: &Value<'js>,
         depth: usize,
         indentation: Option<&str>,
         key: Option<&str>,
         index: Option<usize>,
-        parent: Option<&Object<'_>>,
+        parent: Option<&Object<'js>>,
         ancestors: &mut Vec<(usize, String)>,
-        replacer_fn: Option<&Function>,
-        replacer_filter: Option<&HashSet<String>>,
+        replacer_fn: Option<&Function<'js>>,
+        include_keys_replacer: Option<&HashSet<String>>,
     ) -> Result<()> {
         let mut add_comma;
         match elem.type_of() {
@@ -436,7 +503,8 @@ pub fn json_stringify_replacer_space(
                         Some(js_object),
                         ancestors,
                         replacer_fn,
-                        replacer_filter,
+                        include_keys_replacer,
+                        false,
                     )?;
                     return Ok(());
                 }
@@ -450,26 +518,23 @@ pub fn json_stringify_replacer_space(
 
                 add_comma = false;
                 for key in js_object.keys::<String>() {
-                    if add_comma {
-                        if indentation.is_some() {
-                            result.push_str(",\n");
-                        } else {
-                            result.push(',');
-                        }
-                    } else if indentation.is_some() {
-                        result.push('\n');
-                    }
                     let key = key?;
                     let val = js_object.get(&key)?;
 
+                    let parent = Some(js_object);
+
                     if !write_primitive(
+                        ctx,
                         result,
                         &val,
+                        parent,
                         Some(&key),
+                        None,
                         indentation,
                         replacer_fn,
-                        replacer_filter,
+                        include_keys_replacer,
                         depth,
+                        add_comma,
                     )? {
                         iterate(
                             ctx,
@@ -479,10 +544,10 @@ pub fn json_stringify_replacer_space(
                             indentation,
                             Some(&key),
                             None,
-                            Some(js_object),
+                            parent,
                             ancestors,
                             replacer_fn,
-                            replacer_filter,
+                            include_keys_replacer,
                         )?;
                     }
                     add_comma = true;
@@ -511,15 +576,6 @@ pub fn json_stringify_replacer_space(
                     )?;
                 }
                 for (i, val) in js_array.iter::<Value>().enumerate() {
-                    if add_comma {
-                        if indentation.is_some() {
-                            result.push_str(",\n");
-                        } else {
-                            result.push(',');
-                        }
-                    } else if indentation.is_some() {
-                        result.push('\n');
-                    }
                     let val = val?;
                     append_value(
                         ctx,
@@ -532,7 +588,8 @@ pub fn json_stringify_replacer_space(
                         Some(js_array.as_object()),
                         ancestors,
                         replacer_fn,
-                        replacer_filter,
+                        include_keys_replacer,
+                        add_comma,
                     )?;
                     add_comma = true;
                 }
@@ -550,7 +607,7 @@ pub fn json_stringify_replacer_space(
     }
 
     let mut replacer_fn = None;
-    let mut replacer_filter = None;
+    let mut include_keys_replacer = None;
 
     let tmp_function;
 
@@ -572,23 +629,25 @@ pub fn json_stringify_replacer_space(
                     filter.insert(buffer.format(number).to_string());
                 }
             }
-            replacer_filter = Some(filter);
-        } else {
-            return Err(Exception::throw_type(
-                ctx,
-                "\"replacer\" argument must be a Function or Array",
-            ));
+            include_keys_replacer = Some(filter);
         }
     }
 
+    let indentation = indentation.as_deref();
+    let include_keys_replacer = include_keys_replacer.as_ref();
+
     if write_primitive(
+        ctx,
         &mut result,
         &value,
         None,
         None,
+        None,
+        None,
         replacer_fn,
-        replacer_filter.as_ref(),
+        include_keys_replacer,
         0,
+        false,
     )? {
         return Ok(Some(result));
     }
@@ -605,7 +664,7 @@ pub fn json_stringify_replacer_space(
         None,
         &mut ancestors,
         replacer_fn,
-        replacer_filter.as_ref(),
+        include_keys_replacer,
     )?;
     Ok(Some(result))
 }
@@ -614,7 +673,7 @@ pub fn json_stringify_replacer_space(
 pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> {
     let _now = Instant::now();
 
-    let tape = simd_json::to_tape(&mut json).unwrap();
+    let tape = simd_json::to_tape(&mut json).or_throw_msg(ctx, "Invalid json")?;
 
     let mut str_key = "";
     let mut last_is_string = false;
@@ -951,6 +1010,8 @@ mod tests {
             generate_json(&json, 10),
             generate_json(&json, 100),
             generate_json(&json, 1000),
+            generate_json(&json, 10_000),
+            generate_json(&json, 100_000),
         ];
 
         with_runtime(|ctx| {
