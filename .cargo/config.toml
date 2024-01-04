@@ -3,6 +3,7 @@ rustflags = [
   "-Zpre-link-args=-target aarch64-linux-musl",
   "-Ctarget-feature=+lse,+crt-static",
   "-Ctarget-cpu=neoverse-n1",
+  "-Cpanic=abort",
 ]
 linker = "./zigcc"
 ar = "zig ar"
@@ -12,6 +13,7 @@ ar = "zig ar"
 rustflags = [
   "-Zpre-link-args=-target x86_64-linux-musl",
   "-Ctarget-feature=+crt-static",
+  "-Cpanic=abort",
 ]
 linker = "./zigcc"
 ar = "zig ar"
