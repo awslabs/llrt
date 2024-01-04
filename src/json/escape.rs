@@ -130,6 +130,9 @@ pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
                 }
                 cur = mask.trailing_zeros() as usize;
             }
+            if start < max_len {
+                result.push_str(unsafe { std::str::from_utf8_unchecked(&chunk[start..max_len]) });
+            }
         } else {
             result.push_str(unsafe { std::str::from_utf8_unchecked(&chunk[..max_len]) });
         }
