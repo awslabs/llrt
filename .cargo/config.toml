@@ -4,6 +4,7 @@ rustflags = [
   "-Ctarget-feature=+lse,+crt-static",
   "-Ctarget-cpu=neoverse-n1",
   "-Cpanic=abort",
+  "-Zpanic_abort_tests",
 ]
 linker = "./zigcc"
 ar = "zig ar"
@@ -14,17 +15,26 @@ rustflags = [
   "-Zpre-link-args=-target x86_64-linux-musl",
   "-Ctarget-feature=+crt-static",
   "-Cpanic=abort",
+  "-Zpanic_abort_tests",
 ]
 linker = "./zigcc"
 ar = "zig ar"
 
-# [target.x86_64-apple-darwin]
-# rustflags = ["-Zpre-link-args=-target x86_64-macos"]
+[target.x86_64-apple-darwin]
+rustflags = [
+  #"-Zpre-link-args=-target x86_64-macos",
+  "-Cpanic=abort",
+  "-Zpanic_abort_tests",
+]
 # linker = "./zigcc"
 # ar = "zig ar"
 
-# [target.aarch64-apple-darwin]
-# rustflags = ["-Zpre-link-args=-target aarch64-macos"]
+[target.aarch64-apple-darwin]
+rustflags = [
+  #"-Zpre-link-args=-target aarch64-macos",
+  "-Cpanic=abort",
+  "-Zpanic_abort_tests",
+]
 # linker = "./zigcc"
 # ar = "zig ar"
 
