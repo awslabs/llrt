@@ -156,9 +156,7 @@ mod tests {
             json.clone(),
             generate_json(&json, 10),
             generate_json(&json, 100),
-            // generate_json(&json, 1000),
-            // generate_json(&json, 10_000),
-            // generate_json(&json, 100_000),
+            generate_json(&json, 1000),
         ];
 
         with_runtime(|ctx| {
@@ -197,14 +195,8 @@ mod tests {
                     .to_string()
                     .unwrap();
 
-                let json_1_len = json_string1.len();
-                let json_2_len = json_string2.len();
-                let json_3_len = json_string3.len();
-
-                //we can't check for full equality since simd-json uses HashMap that randomizes key order when parsing. See https://github.com/simd-lite/simd-json/issues/270
-                assert_eq!(json_1_len, json_2_len);
-                assert_eq!(json_2_len, json_3_len);
-                assert_eq!(json_1_len, json_3_len);
+                assert_eq!(json_string1, json_string2);
+                assert_eq!(json_string2, json_string3);
 
                 println!(
                     "Size {}:\n\tparse: {:?} vs. {:?}\n\tstringify: {:?} vs. {:?}",
