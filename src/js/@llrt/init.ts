@@ -1,3 +1,11 @@
+global.ReadableStream = class ReadableStream {
+  constructor() {
+    throw new Error(
+      `ReadableStream is not supported via global scope. Enable this by adding this to your code:\n\timport { ReadableStream } from "stream";\n\tglobalThis.ReadableStream = ReadableStream;`
+    );
+  }
+};
+
 __bootstrap.initTasks = [];
 const initTasks = __bootstrap.initTasks;
 __bootstrap.addInitTask = (task: Promise<any>) => {
