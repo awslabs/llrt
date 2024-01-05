@@ -48,7 +48,7 @@ socket2 = "0.5.5"
 bytes = "1.5.0"
 tokio-rustls = "0.24.1"
 uuid-simd = "0.8.0"
-simd-json = { version = "0.13.4", default-features = false, features = [] }
+simd-json = { version = "0.13.6", default-features = false, features = [] }
 itoa = "1.0.10"
 ryu = "1.0.16"
 
