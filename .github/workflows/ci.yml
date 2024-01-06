@@ -64,7 +64,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: nightly-2023-12-30
+          toolchain: nightly
       - name: Install MacOS dependencies
         if: contains(matrix.platform, 'darwin')
         env:
