@@ -2,7 +2,8 @@ TARGET_linux_x86_64 = x86_64-unknown-linux-musl
 TARGET_linux_arm64 = aarch64-unknown-linux-musl
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
-TOOLCHAIN = +nightly
+RUST_VERSION = nightly-2023-12-30
+TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
@@ -71,15 +72,15 @@ build: js
 stdlib:
 	rustup target add $(TARGET_linux_x86_64)
 	rustup target add $(TARGET_linux_arm64)
-	rustup toolchain install nightly --target $(TARGET_linux_x86_64)
-	rustup toolchain install nightly --target $(TARGET_linux_arm64)
-	rustup component add rust-src --toolchain nightly --target $(TARGET_linux_arm64)
-	rustup component add rust-src --toolchain nightly --target $(TARGET_linux_x86_64)
+	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_arm64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_arm64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 toolchain:
 	rustup target add $(CURRENT_TARGET)
-	rustup toolchain install nightly --target $(CURRENT_TARGET)
-	rustup component add rust-src --toolchain nightly --target $(CURRENT_TARGET)
+	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
 
 clean-js:
 	rm -rf ./bundle
@@ -161,8 +162,8 @@ test: js
 test-ci: export RUSTFLAGS = -Cpanic=abort -Zpanic_abort_tests
 test-ci: export JS_MINIFY = 0
 test-ci: toolchain js
-	cargo ${TOOLCHAIN} test --target $(CURRENT_TARGET)
-	cargo ${TOOLCHAIN} run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
 
