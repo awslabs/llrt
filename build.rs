@@ -14,9 +14,19 @@ use std::{
 use std::io::Write;
 
 use jwalk::WalkDir;
-use rquickjs::{Context, Module, Runtime};
+use rquickjs::{
+    loader::{Loader, Resolver},
+    module::ModuleData,
+    CatchResultExt, Context, Ctx, Module, Runtime,
+};
 
 const BUNDLE_DIR: &str = "bundle";
+#[cfg(feature = "uncompressed")]
+const BYTECODE_EXT: &str = "lrtu";
+#[cfg(not(feature = "uncompressed"))]
+const BYTECODE_EXT: &str = "lrt";
+
+include!("src/bytecode_meta.rs");
 
 macro_rules! info {
     ($($tokens: tt)*) => {
@@ -54,96 +64,127 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     fs::write("VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
 
     ctx.with(|ctx| {
-        for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {
-            let path = dir_ent.path();
+        let mut compile = |ctx: Ctx<'_>| {
+            for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {
+                let path = dir_ent.path();
 
-            let path = path.strip_prefix(BUNDLE_DIR).unwrap().to_owned();
-            let path_str = path.to_string_lossy().to_string();
+                let path = path.strip_prefix(BUNDLE_DIR).unwrap().to_owned();
+                let path_str = path.to_string_lossy().to_string();
 
-            if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js" {
-                continue;
-            }
-
-            #[cfg(feature = "lambda")]
-            {
-                if path == PathBuf::new().join("@llrt").join("test.js") {
-                    continue;
-                }
-            }
-
-            #[cfg(feature = "no-sdk")]
-            {
-                if path_str.starts_with("@aws-sdk")
-                    || path_str.starts_with("@smithy")
-                    || path_str.starts_with("llrt-chunk-sdk")
+                if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js"
                 {
                     continue;
                 }
+
+                #[cfg(feature = "lambda")]
+                {
+                    if path == PathBuf::new().join("@llrt").join("test.js") {
+                        continue;
+                    }
+                }
+
+                #[cfg(feature = "no-sdk")]
+                {
+                    if path_str.starts_with("@aws-sdk")
+                        || path_str.starts_with("@smithy")
+                        || path_str.starts_with("llrt-chunk-sdk")
+                    {
+                        continue;
+                    }
+                }
+
+                let source = fs::read_to_string(dir_ent.path()).unwrap_or_else(|_| {
+                    panic!("Unable to load: {}", dir_ent.path().to_string_lossy())
+                });
+
+                let module_name = if !path_str.starts_with("llrt-chunk-") {
+                    path.with_extension("").to_string_lossy().to_string()
+                } else {
+                    path.to_string_lossy().to_string()
+                };
+
+                info!("Compiling module: {}", module_name);
+
+                let filename = dir_ent
+                    .path()
+                    .with_extension(BYTECODE_EXT)
+                    .to_string_lossy()
+                    .to_string();
+                filenames.push(filename.clone());
+                let ctx2 = ctx.clone();
+                let bytes = move || {
+                    {
+                        let module = unsafe {
+                            Module::unsafe_declare(ctx2.clone(), module_name.clone(), source)
+                        }?;
+                        module.write_object(false)
+                    }
+                    ().catch(&ctx)?;
+
+                    total_bytes += bytes.len();
+
+                    if cfg!(feature = "uncompressed") {
+                        let mut uncompressed = Vec::with_capacity(4 + 6 + bytes.len());
+                        uncompressed.extend_from_slice(BYTECODE_VERSION.as_bytes());
+                        uncompressed.extend_from_slice(&[BYTECODE_UNCOMPRESSED]); //uncompressed
+                        uncompressed.extend_from_slice(&bytes);
+                        fs::write(&filename, uncompressed).unwrap();
+                    } else {
+                        fs::write(&filename, bytes).unwrap();
+                    }
+
+                    info!("Done!");
+
+                    ph_map.entry(
+                        module_name,
+                        &format!("include_bytes!(\"..{}{}\")", MAIN_SEPARATOR_STR, &filename),
+                    );
+                };
+                Ok::<_, Box<dyn Error>>(())
             }
-
-            let source = fs::read_to_string(dir_ent.path())
-                .unwrap_or_else(|_| panic!("Unable to load: {}", dir_ent.path().to_string_lossy()));
-
-            let module_name = if !path_str.starts_with("llrt-chunk-") {
-                path.with_extension("").to_string_lossy().to_string()
-            } else {
-                path.to_string_lossy().to_string()
-            };
-
-            info!("Compiling module: {}", module_name);
-
-            let filename = dir_ent
-                .path()
-                .with_extension("lrt")
-                .to_string_lossy()
-                .to_string();
-            filenames.push(filename.clone());
-
-            let module = unsafe {
-                Module::unsafe_declare(ctx.clone(), module_name.clone(), source).unwrap()
-            };
-            let bytes = module.write_object(false).unwrap();
-            total_bytes += bytes.len();
-            fs::write(&filename, bytes).unwrap();
-            info!("Done!");
-
-            ph_map.entry(
-                module_name,
-                &format!("include_bytes!(\"..{}{}\")", MAIN_SEPARATOR_STR, &filename),
-            );
-        }
-    });
+        };
+        compile(ctx)?
+    })?;
 
     write!(
         &mut sdk_bytecode_file,
         "// @generated by build.rs\n\npub static BYTECODE_CACHE: phf::Map<&'static str, &[u8]> = {}",
         ph_map.build()
-    )
-    .unwrap();
-    writeln!(&mut sdk_bytecode_file, ";").unwrap();
+    )?;
+    writeln!(&mut sdk_bytecode_file, ";")?;
 
     info!(
         "\n===============================\nUncompressed bytecode size: {}\n===============================",
         human_file_size(total_bytes)
     );
 
-    total_bytes = compress_bytecode(BUNDLE_DIR, filenames).unwrap();
+    let bundle_path = Path::new(BUNDLE_DIR);
+    let compression_dictionary_path = bundle_path
+        .join("compression.dict")
+        .to_string_lossy()
+        .to_string();
 
-    info!(
-        "\n===============================\nCompressed bytecode size: {}\n===============================",
-        human_file_size(total_bytes)
-    );
+    if cfg!(feature = "uncompressed") {
+        fs::write(compression_dictionary_path, "")?;
+    } else {
+        total_bytes =
+            compress_bytecode(bundle_path, compression_dictionary_path, filenames).unwrap();
+
+        info!(
+            "\n===============================\nCompressed bytecode size: {}\n===============================",
+            human_file_size(total_bytes)
+        );
+    }
 
     Ok(())
 }
 
-fn compress_bytecode(bundles_dir: &str, source_files: Vec<String>) -> io::Result<usize> {
-    let bundle_path = Path::new(bundles_dir);
+fn compress_bytecode(
+    bundles_path: &Path,
+    dictionary_path: String,
+    source_files: Vec<String>,
+) -> io::Result<usize> {
     info!("Generating compression dictionary...");
-    let dictionary_path = bundle_path
-        .join("compression.dict")
-        .to_string_lossy()
-        .to_string();
 
     let file_count = source_files.len();
     let mut dictionary_filenames = source_files.clone();
@@ -215,7 +256,9 @@ fn compress_bytecode(bundles_dir: &str, source_files: Vec<String>) -> io::Result
         }
 
         let bytes = fs::read(&filename)?;
-        let mut compressed = Vec::with_capacity(4);
+        let mut compressed = Vec::with_capacity(4 + 6 + bytes.len());
+        compressed.extend_from_slice(BYTECODE_VERSION.as_bytes());
+        compressed.extend_from_slice(&[BYTECODE_COMPRESSED]); //compressed
         compressed.extend_from_slice(&uncompressed_file_size.to_le_bytes());
         compressed.extend_from_slice(&bytes);
         fs::write(&filename, compressed)?;

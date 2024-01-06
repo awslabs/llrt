@@ -114,7 +114,7 @@ struct ModuleInfo<T: ModuleDef> {
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
-    let size: &[u8; 4] = size.try_into().unwrap();
+    let size: &[u8; 4] = size.try_into().map_err(|_| io::ErrorKind::InvalidInput)?;
     let uncompressed_size = u32::from_le_bytes(*size) as usize;
     let rest = &input[4..];
     Ok((uncompressed_size, rest))
