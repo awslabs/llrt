@@ -49,20 +49,20 @@ encoder_enum! {
 }
 
 impl Encoder {
-    pub fn encode_to_string(&self, bytes: Vec<u8>) -> Result<String, String> {
+    pub fn encode_to_string(&self, bytes: &[u8]) -> Result<String, String> {
         match self {
-            Self::Hex => Ok(bytes_to_hex_string(&bytes)),
-            Self::Base64 => Ok(bytes_to_b64_string(&bytes)),
-            Self::Utf8 | Self::Iso88591 => Ok(bytes_to_string(&bytes)),
+            Self::Hex => Ok(bytes_to_hex_string(bytes)),
+            Self::Base64 => Ok(bytes_to_b64_string(bytes)),
+            Self::Utf8 | Self::Iso88591 => Ok(bytes_to_string(bytes)),
         }
     }
 
     #[allow(dead_code)]
-    pub fn encode(&self, bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    pub fn encode(&self, bytes: &[u8]) -> Result<Vec<u8>, String> {
         match self {
-            Self::Hex => Ok(bytes_to_hex(&bytes)),
-            Self::Base64 => Ok(bytes_to_b64(&bytes)),
-            Self::Utf8 | Self::Iso88591 => Ok(bytes),
+            Self::Hex => Ok(bytes_to_hex(bytes)),
+            Self::Base64 => Ok(bytes_to_b64(bytes)),
+            Self::Utf8 | Self::Iso88591 => Ok(bytes.to_vec()),
         }
     }
 

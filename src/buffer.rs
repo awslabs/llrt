@@ -4,7 +4,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
-    ArrayBuffer, Ctx, IntoJs, Object, Result, TypedArray, Value,
+    Array, ArrayBuffer, Ctx, IntoJs, Object, Result, TypedArray, Value,
 };
 
 use crate::{
@@ -26,7 +26,6 @@ impl<'js> IntoJs<'js> for Buffer {
 fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
     let typed_array = TypedArray::<u8>::from_object(this.0)?;
     let bytes: &[u8] = typed_array.as_ref();
-    let bytes = bytes.to_vec();
     let encoding = encoding.0.unwrap_or_else(|| String::from("utf-8"));
     let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
     encoder.encode_to_string(bytes).or_throw(&ctx)
@@ -36,6 +35,19 @@ fn alloc(ctx: Ctx<'_>, length: usize) -> Result<Value<'_>> {
     let zero_vec = vec![0; length];
 
     Buffer(zero_vec).into_js(&ctx)
+}
+
+fn concat<'js>(ctx: Ctx<'js>, list: Array<'js>, total_length: Opt<usize>) -> Result<Value<'js>> {
+    let mut bytes = Vec::new();
+    let mut current_length = 0;
+    for value in list.iter::<Object>() {
+        let typed_array = TypedArray::<u8>::from_object(value?)?;
+        let bytes_ref: &[u8] = typed_array.as_ref();
+        bytes.extend_from_slice(bytes_ref);
+    }
+
+    Buffer(bytes).into_js(&ctx)
+    //TypedArray::<u8>::from_object(this.0)?;
 }
 
 fn from<'js>(
