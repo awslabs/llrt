@@ -78,7 +78,7 @@ stdlib:
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 toolchain:
-	rustup target add $(CURRENT_TARGET)
+	rustup target add --toolchain $(RUST_VERSION) $(CURRENT_TARGET)
 	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
 
