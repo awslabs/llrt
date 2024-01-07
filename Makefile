@@ -161,7 +161,7 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -C panic=abort -Z panic-abort-tests test -vv --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) -Z unstable-options -C panic=abort -Z panic-abort-tests test -vv --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
