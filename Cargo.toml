@@ -46,7 +46,7 @@ base64-simd = "0.8.0"
 hex-simd = "0.8.0"
 socket2 = "0.5.5"
 bytes = "1.5.0"
-tokio-rustls = "0.24.1"
+tokio-rustls = "0.25.0"
 uuid-simd = "0.8.0"
 simd-json = { version = "0.13.6", default-features = false, features = [] }
 itoa = "1.0.10"
