@@ -1,9 +1,24 @@
 import pureHttp from "pure-http";
+import fs from "fs";
 
 const PORT = 3000;
 const BASE_PATH = "/2018-06-01/runtime";
+const ARGS = process.argv.slice(2);
 
-const httpMode = process.argv.slice(2)[0] === "-h";
+let httpMode = false;
+let eventJson = null;
+
+let argIndex = 0;
+for (let arg of ARGS) {
+  if (arg == "-h" || arg == "--http") {
+    httpMode = true;
+  }
+
+  if (arg == "-e" || arg == "--event") {
+    eventJson = JSON.parse(fs.readFileSync(ARGS[argIndex + 1]).toString());
+  }
+  argIndex++;
+}
 
 const app = pureHttp();
 
@@ -70,11 +85,13 @@ app.get(`${BASE_PATH}/invocation/next`, async (req, res) => {
   } else {
     res.header("lambda-runtime-aws-request-id", "1234");
 
-    res.json({
-      key1: "value1",
-      key2: "value2",
-      key3: "value3",
-    });
+    res.json(
+      eventJson || {
+        key1: "value1",
+        key2: "value2",
+        key3: "value3",
+      }
+    );
   }
 });
 
@@ -225,8 +242,9 @@ app.all("*", async (req, res) => {
   res.send(result);
 });
 
-console.log(`Server started on port ${PORT}`);
-if (httpMode) {
-  console.log(`- HTTP: http://localhost:${PORT}`);
-}
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+  if (httpMode) {
+    console.log(`- HTTP: http://localhost:${PORT}`);
+  }
+});

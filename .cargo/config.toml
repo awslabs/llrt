@@ -7,7 +7,6 @@ rustflags = [
 linker = "./zigcc"
 ar = "zig ar"
 
-
 [target.x86_64-unknown-linux-musl]
 rustflags = [
   "-Zpre-link-args=-target x86_64-linux-musl",
@@ -16,13 +15,22 @@ rustflags = [
 linker = "./zigcc"
 ar = "zig ar"
 
+
 # [target.x86_64-apple-darwin]
-# rustflags = ["-Zpre-link-args=-target x86_64-macos"]
+# rustflags = [
+#   "-Zpre-link-args=-target x86_64-macos",
+#   "-Cpanic=abort",
+#   "-Zpanic_abort_tests",
+# ]
 # linker = "./zigcc"
 # ar = "zig ar"
 
 # [target.aarch64-apple-darwin]
-# rustflags = ["-Zpre-link-args=-target aarch64-macos"]
+# rustflags = [
+#   "-Zpre-link-args=-target aarch64-macos",
+#   "-Cpanic=abort",
+#   "-Zpanic_abort_tests",
+# ]
 # linker = "./zigcc"
 # ar = "zig ar"
 
@@ -43,9 +51,3 @@ CC_aarch64_unknown_linux_musl = "zig cc -target aarch64-linux-musl"
 CXX_aarch64_unknown_linux_musl = "zig cc -target aarch64-linux-musl"
 CC_x86_64_unknown_linux_musl = "zig cc -target x86_64-linux-musl"
 CXX_x86_64_unknown_linux_musl = "zig cc -target x86_64-linux-musl"
-# CC_x86_64-apple-darwin = "zig cc -target x86_64-macos -I/Users/ridaviso/Downloads/CommonCrypto-master/include"
-# CCX_x86_64-apple-darwin = "zig cc -target x86_64-macos"
-# CC_aarch64-apple-darwin = "zig cc -target aarch64-macos"
-# CCX_aarch64-apple-darwin = "zig cc -target aarch64-macos"
-# CC_x86_64-pc-windows-gnu = "zig cc -target x86_64-windows-gnu"
-# CXX_x86_64-pc-windows-gnu = "zig cc -target x86_64-windows-gnu"

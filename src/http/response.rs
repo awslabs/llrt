@@ -7,18 +7,17 @@ use rquickjs::{
 };
 use tracing::trace;
 
-use crate::util::ResultExt;
+use crate::{json::parse::json_parse, util::ResultExt};
 
 use super::headers::Headers;
 
 pub struct ResponseData<'js> {
-    response: hyper::Response<Body>,
+    response: Option<hyper::Response<Body>>,
     method: String,
     url: String,
     start: Instant,
     status: hyper::StatusCode,
     headers: Class<'js, Headers>,
-    available: bool,
 }
 
 impl<'js> ResponseData<'js> {
@@ -35,13 +34,12 @@ impl<'js> ResponseData<'js> {
         let status = response.status();
 
         Ok(Self {
-            response,
+            response: Some(response),
             method,
             url,
             start,
             status,
             headers,
-            available: true,
         })
     }
 }
@@ -84,16 +82,12 @@ impl<'js> Response<'js> {
     async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         let bytes = self.take_bytes(&ctx).await?;
         let text = String::from_utf8_lossy(&bytes).to_string();
-
         Ok(text)
     }
 
     async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let bytes = self.take_bytes(&ctx).await?;
-        let text = String::from_utf8_lossy(&bytes).to_string();
-
-        let json = ctx.json_parse(text)?;
-
+        let bytes = self.take_bytes(&ctx).await?.to_vec();
+        let json = json_parse(&ctx, bytes)?;
         Ok(json)
     }
 
@@ -119,19 +113,18 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        !self.data.available
+        self.data.response.is_none()
     }
 
     #[qjs(skip)]
     async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Bytes> {
-        if !self.data.available {
-            return Err(Exception::throw_type(ctx, "Already read"));
-        }
-        self.data.available = false;
+        let mut body = self
+            .data
+            .response
+            .take()
+            .ok_or(Exception::throw_type(ctx, "Already read"))?;
 
-        let bytes = hyper::body::to_bytes(self.data.response.body_mut())
-            .await
-            .or_throw(ctx)?;
+        let bytes = hyper::body::to_bytes(body.body_mut()).await.or_throw(ctx)?;
         trace!(
             "{} {}: {}ms",
             self.data.method,

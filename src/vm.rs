@@ -1,4 +1,5 @@
 use std::{
+    cmp::min,
     collections::{HashMap, HashSet},
     env::{self},
     ffi::CStr,
@@ -22,8 +23,8 @@ use rquickjs::{
     },
     module::{ModuleData, ModuleDef},
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Module, Object,
-    Result, String as JsString, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, IntoJs, Module,
+    Object, Result, String as JsString, Value,
 };
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
@@ -39,12 +40,13 @@ use crate::{
     encoding::HexModule,
     events::EventsModule,
     fs::FsPromisesModule,
+    json::{parse::json_parse, stringify::json_stringify_replacer_space},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
     timers::TimersModule,
-    util::{get_class_name, get_js_path, ObjectExt, UtilModule},
+    util::{get_bytes, get_class_name, get_js_path, ObjectExt, UtilModule},
     uuid::UuidModule,
     xml::XmlModule,
 };
@@ -329,6 +331,8 @@ pub struct Vm {
 }
 
 struct LifetimeArgs<'js>(Ctx<'js>);
+
+#[warn(dead_code)]
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
 impl Vm {
@@ -457,6 +461,11 @@ impl Vm {
     }
 }
 
+fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
+    let bytes = get_bytes(&ctx, value)?;
+    json_parse(&ctx, bytes)
+}
+
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
 
@@ -464,6 +473,37 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     globals.set("self", ctx.globals())?;
     globals.set("load", Func::from(load))?;
     globals.set("print", Func::from(print))?;
+
+    let json_module: Object = globals.get(PredefinedAtom::JSON)?;
+    json_module.set("parse", Func::from(json_parse_string))?;
+    json_module.set(
+        "stringify",
+        Func::from(|ctx, value, replacer, space| {
+            struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
+            let StringifyArgs(ctx, value, replacer, space) =
+                StringifyArgs(ctx, value, replacer, space);
+
+            let mut space_value = None;
+            let mut replacer_value = None;
+
+            if let Some(replacer) = replacer.0 {
+                if let Some(space) = space.0 {
+                    if let Some(space) = space.as_string() {
+                        space_value = Some(space.clone().to_string()?);
+                    }
+                    if let Some(number) = space.as_int() {
+                        if number > 0 {
+                            space_value = Some(" ".repeat(min(10, number as usize)));
+                        }
+                    }
+                }
+                replacer_value = Some(replacer);
+            }
+
+            json_stringify_replacer_space(&ctx, value, replacer_value, space_value)
+                .map(|v| v.into_js(&ctx))?
+        }),
+    )?;
 
     let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
         Arc::new(Mutex::new(HashMap::new()));

@@ -2,7 +2,8 @@ TARGET_linux_x86_64 = x86_64-unknown-linux-musl
 TARGET_linux_arm64 = aarch64-unknown-linux-musl
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
-TOOLCHAIN = +nightly
+RUST_VERSION = nightly
+TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
@@ -71,15 +72,15 @@ build: js
 stdlib:
 	rustup target add $(TARGET_linux_x86_64)
 	rustup target add $(TARGET_linux_arm64)
-	rustup toolchain install nightly --target $(TARGET_linux_x86_64)
-	rustup toolchain install nightly --target $(TARGET_linux_arm64)
-	rustup component add rust-src --toolchain nightly --target $(TARGET_linux_arm64)
-	rustup component add rust-src --toolchain nightly --target $(TARGET_linux_x86_64)
+	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_arm64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_arm64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 toolchain:
 	rustup target add $(CURRENT_TARGET)
-	rustup toolchain install nightly --target $(CURRENT_TARGET)
-	rustup component add rust-src --toolchain nightly --target $(CURRENT_TARGET)
+	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
 
 clean-js:
 	rm -rf ./bundle
@@ -120,7 +121,7 @@ run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
 run: js
-	cargo run -vv
+	cargo run -r -vv
 
 run-js: export _HANDLER = index.handler
 run-js:
@@ -159,8 +160,9 @@ test: js
 	cargo run -- test -d bundle
 
 test-ci: export JS_MINIFY = 0
-test-ci: toolchain js
-	cargo run -r --target $(CURRENT_TARGET) -- test -d bundle
+test-ci: clean-js | toolchain js
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
 

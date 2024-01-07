@@ -1,5 +1,6 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::inherent_to_string)]
+#![cfg_attr(feature = "nightly", feature(portable_simd))]
 
 #[macro_use]
 mod macros;
@@ -12,6 +13,7 @@ mod encoding;
 mod events;
 mod fs;
 mod http;
+mod json;
 mod minimal_tracer;
 mod module;
 mod net;
@@ -20,6 +22,7 @@ mod path;
 mod process;
 mod security;
 mod stream;
+mod test_utils;
 mod timers;
 mod util;
 mod uuid;

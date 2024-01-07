@@ -265,7 +265,6 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
     let (mut basename, ext) = get_basename_ext_name(path);
 
     let filepath = Path::new(path);
-    let ext = ext;
 
     let exists = filepath.exists();
 
