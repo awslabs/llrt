@@ -78,7 +78,7 @@ stdlib:
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 toolchain:
-	rustup target add --toolchain $(RUST_VERSION) $(CURRENT_TARGET)
+	rustup target add $(CURRENT_TARGET)
 	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
 
@@ -161,8 +161,7 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	cargo clean
-	RUSTFLAGS="-Cpanic=abort -Zpanic_abort_tests" cargo $(TOOLCHAIN) test -vv --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) --config='build.rustflags = ["-Cpanic=abort -Zpanic_abort_tests"]' test -vv --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
