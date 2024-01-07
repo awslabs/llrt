@@ -162,7 +162,7 @@ test: js
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
 	cargo clean
-	RUSTFLAGS="-Cpanic=abort -Zpanic_abort_tests" cargo $(TOOLCHAIN) test --target $(CURRENT_TARGET)
+	RUSTFLAGS="-Cpanic=abort -Zpanic_abort_tests" cargo $(TOOLCHAIN) test -vv --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
