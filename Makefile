@@ -2,7 +2,7 @@ TARGET_linux_x86_64 = x86_64-unknown-linux-musl
 TARGET_linux_arm64 = aarch64-unknown-linux-musl
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
-RUST_VERSION = nightly-2023-12-30
+RUST_VERSION = nightly
 TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
@@ -163,6 +163,7 @@ test-ci: export RUSTFLAGS = -Cpanic=abort -Zpanic_abort_tests
 test-ci: export JS_MINIFY = 0
 test-ci: toolchain js
 	cargo $(TOOLCHAIN) test --target $(CURRENT_TARGET)
+	cargo clean
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
