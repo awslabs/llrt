@@ -86,6 +86,9 @@ codegen-units = 1
 opt-level = 3
 panic = "abort"
 
+[profile.test]
+panic = "abort"
+
 [[bin]]
 name = "llrt"
 path = "src/main.rs"
