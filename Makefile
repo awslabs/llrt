@@ -160,10 +160,10 @@ test: js
 	cargo run -- test -d bundle
 
 test-ci: export RUSTFLAGS = -Cpanic=abort -Zpanic_abort_tests
-#test-ci: export JS_MINIFY = 0
-test-ci: toolchain js
+test-ci: export JS_MINIFY = 0
+test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) run -vv -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs: lib/zstd.h
 
