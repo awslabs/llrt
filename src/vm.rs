@@ -331,6 +331,8 @@ pub struct Vm {
 }
 
 struct LifetimeArgs<'js>(Ctx<'js>);
+
+#[warn(dead_code)]
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
 impl Vm {
