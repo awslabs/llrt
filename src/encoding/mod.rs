@@ -86,7 +86,7 @@ impl TextDecoder {
     pub fn decode<'js>(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
         let bytes = get_bytes(&ctx, buffer)?;
 
-        self.encoder.encode_to_string(bytes).or_throw(&ctx)
+        self.encoder.encode_to_string(&bytes).or_throw(&ctx)
     }
 }
 
