@@ -2,7 +2,7 @@ use std::{
     mem,
     ptr::NonNull,
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -17,6 +17,8 @@ use rquickjs::{
 use crate::{util::export_default, vm::CtxExtension};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
+
+static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]
 struct Timeout<'js> {
@@ -40,21 +42,26 @@ fn get_current_time_millis() -> usize {
 }
 
 fn set_timeout_interval<'js>(
+    ctx: &Ctx<'js>,
     timeouts: &Arc<Mutex<Vec<Timeout<'js>>>>,
     cb: Function<'js>,
     delay: usize,
     repeating: bool,
-) -> usize {
+) -> Result<usize> {
     let timeout = get_current_time_millis() + delay;
-    let id = TIMER_ID.fetch_add(1, Ordering::SeqCst);
+    let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
     timeouts.lock().unwrap().push(Timeout {
-        cb: Some(cb),
+        cb: Some(cb.clone()),
         timeout,
         id,
         repeating,
         delay,
     });
-    id
+    if !TIME_POLL_ACTIVE.load(Ordering::Relaxed) {
+        poll_timers(ctx, timeouts.clone())?
+    }
+
+    Ok(id)
 }
 
 fn clear_timeout_interval(timeouts: &Arc<Mutex<Vec<Timeout>>>, id: usize) {
@@ -103,12 +110,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     globals.set(
         "setTimeout",
-        Func::from(move |cb, delay| set_timeout_interval(&timeouts, cb, delay, false)),
+        Func::from(move |ctx, cb, delay| set_timeout_interval(&ctx, &timeouts, cb, delay, false)),
     )?;
 
     globals.set(
         "setInterval",
-        Func::from(move |cb, delay| set_timeout_interval(&timeouts2, cb, delay, true)),
+        Func::from(move |ctx, cb, delay| set_timeout_interval(&ctx, &timeouts2, cb, delay, true)),
     )?;
 
     globals.set(
@@ -121,10 +128,19 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(move |id: usize| clear_timeout_interval(&timeouts4, id)),
     )?;
 
-    let ctx2 = ctx.clone();
+    //poll_timers(ctx, timeouts5)?;
 
+    globals.set("setImmediate", Func::from(set_immediate))?;
+
+    Ok(())
+}
+
+fn poll_timers<'js>(ctx: &Ctx<'js>, timeouts: Arc<Mutex<Vec<Timeout<'js>>>>) -> Result<()> {
+    TIME_POLL_ACTIVE.store(true, Ordering::Relaxed);
+    let ctx2 = ctx.clone();
     ctx.spawn_exit(async move {
         let raw_ctx = ctx2.as_raw();
+
         let rt: *mut qjs::JSRuntime = unsafe { qjs::JS_GetRuntime(raw_ctx.as_ptr()) };
         let mut ctx_ptr = mem::MaybeUninit::<*mut qjs::JSContext>::uninit();
 
@@ -136,7 +152,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
             let current_time = get_current_time_millis();
             let mut had_items = false;
 
-            timeouts5.lock().unwrap().retain_mut(|timeout| {
+            timeouts.lock().unwrap().retain_mut(|timeout| {
                 had_items = true;
                 if current_time > timeout.timeout {
                     if !timeout.repeating {
@@ -181,12 +197,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
                 break;
             }
         }
-        timeouts5.lock().unwrap().clear();
+        timeouts.lock().unwrap().clear();
+        TIME_POLL_ACTIVE.store(false, Ordering::Relaxed);
 
         Ok(())
     })?;
-
-    globals.set("setImmediate", Func::from(set_immediate))?;
-
     Ok(())
 }
