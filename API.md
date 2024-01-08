@@ -4,7 +4,7 @@ The long term goal for LLRT is to become 100% [Winter CG compliant](https://gith
 
 ## buffer
 
-[alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding) _Encoding is ignored_
+[alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding)
 
 [from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
 
