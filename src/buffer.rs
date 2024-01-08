@@ -4,12 +4,12 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
-    Array, ArrayBuffer, Ctx, IntoJs, Object, Result, TypedArray, Value,
+    Array, ArrayBuffer, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
 };
 
 use crate::{
     encoding::encoder::Encoder,
-    util::{export_default, get_bytes_offset_length, obj_to_array_buffer, ResultExt},
+    util::{export_default, get_bytes, get_bytes_offset_length, obj_to_array_buffer, ResultExt},
 };
 
 pub struct Buffer(pub Vec<u8>);
@@ -23,6 +23,40 @@ impl<'js> IntoJs<'js> for Buffer {
     }
 }
 
+fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> Result<usize> {
+    //slow path
+    if let Some(encoding) = encoding.0 {
+        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+        let bytes = get_bytes(&ctx, value)?;
+        return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
+    }
+    //fast path
+    if let Some(val) = value.as_string() {
+        return Ok(val.to_string()?.len());
+    }
+
+    if value.is_array() {
+        let array = value.as_array().unwrap();
+
+        for val in array.iter::<u8>() {
+            val.or_throw_msg(&ctx, "array value is not u8")?;
+        }
+
+        return Ok(array.len());
+    }
+
+    if let Some(obj) = value.into_object() {
+        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
+            return Ok(array_buffer.len());
+        }
+    }
+
+    Err(Exception::throw_message(
+        &ctx,
+        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or string",
+    ))
+}
+
 fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
     let typed_array = TypedArray::<u8>::from_object(this.0)?;
     let bytes: &[u8] = typed_array.as_ref();
@@ -31,11 +65,24 @@ fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<
     encoder.encode_to_string(bytes).or_throw(&ctx)
 }
 
-fn alloc<'js>(ctx: Ctx<'js>, length: usize, fill: Opt<Value<'js>>) -> Result<Value<'js>> {
+fn alloc<'js>(
+    ctx: Ctx<'js>,
+    length: usize,
+    fill: Opt<Value<'js>>,
+    encoding: Opt<String>,
+) -> Result<Value<'js>> {
     if let Some(value) = fill.0 {
         if let Some(value) = value.as_string() {
             let string = value.to_string()?;
+
+            if let Some(encoding) = encoding.0 {
+                let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+                let bytes = encoder.decode_from_string(string).or_throw(&ctx)?;
+                return alloc_byte_ref(&ctx, &bytes, length);
+            }
+
             let byte_ref = string.as_bytes();
+
             return alloc_byte_ref(&ctx, byte_ref, length);
         }
         if let Some(value) = value.as_int() {
@@ -120,6 +167,7 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     let _ = &constructor.set(PredefinedAtom::From, Func::from(from))?;
     let _ = &constructor.set(stringify!(alloc), Func::from(alloc))?;
     let _ = &constructor.set(stringify!(concat), Func::from(concat))?;
+    let _ = &constructor.set("byteLength", Func::from(byte_length))?;
 
     let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;

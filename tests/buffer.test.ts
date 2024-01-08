@@ -18,6 +18,14 @@ describe("Buffer.alloc", () => {
     assert.strictEqual(buffer.toString(), "abcabcab");
   });
 
+  it("should create a buffer with specified size and fill with an encoded string value", () => {
+    const size = 8;
+    const fillString = "616263";
+    const buffer = Buffer.alloc(size, fillString, "hex");
+
+    assert.strictEqual(buffer.toString(), "abcabcab");
+  });
+
   it("should create a buffer with specified size and fill with a Buffer value", () => {
     const size = 6;
     const fillBuffer = Buffer.from([1, 2, 3]);
@@ -210,5 +218,44 @@ describe("Buffer.concat", () => {
 
     assert.strictEqual(resultBuffer.toString(), "HelloWorld");
     assert.strictEqual(resultBuffer.length, buffer1.length + buffer2.length);
+  });
+});
+
+describe("Buffer.byteLength", () => {
+  it("should return the correct byte length for ASCII string", () => {
+    const length = Buffer.byteLength("Hello");
+
+    assert.strictEqual(length, 5);
+  });
+
+  it("should return the correct byte length for UTF-8 string", () => {
+    const length = Buffer.byteLength("👋");
+
+    assert.strictEqual(length, 4);
+  });
+
+  it("should return the correct byte length for UTF-8 string", () => {
+    const length = Buffer.byteLength("你好");
+
+    assert.strictEqual(length, 6);
+  });
+
+  it("should return the correct byte length for a buffer", () => {
+    const buffer = Buffer.from([1, 2, 3, 4, 5]);
+    const length = Buffer.byteLength(buffer);
+
+    assert.strictEqual(length, 5);
+  });
+
+  it("should return the correct byte length for a hex-encoded string", () => {
+    const length = Buffer.byteLength("deadbeef", "hex");
+
+    assert.strictEqual(length, 4);
+  });
+
+  it("should return the correct byte length for a base64-encoded string", () => {
+    const length = Buffer.byteLength("SGVsbG8gV29ybGQ=", "base64");
+
+    assert.strictEqual(length, 11);
   });
 });

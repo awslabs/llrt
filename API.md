@@ -10,6 +10,8 @@ The long term goal for LLRT is to become 100% [Winter CG compliant](https://gith
 
 [concat](https://nodejs.org/api/buffer.html#static-method-bufferconcatlist-totallength)
 
+[byteLength](https://nodejs.org/api/buffer.html#static-method-bufferbytelengthstring-encoding)
+
 Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
 
 ## child_process
