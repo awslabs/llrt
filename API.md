@@ -4,9 +4,11 @@ The long term goal for LLRT is to become 100% [Winter CG compliant](https://gith
 
 ## buffer
 
-[alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding) _Only accepts number_
+[alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding) _Encoding is ignored_
 
 [from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
+
+[concat](https://nodejs.org/api/buffer.html#static-method-bufferconcatlist-totallength)
 
 Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
 
