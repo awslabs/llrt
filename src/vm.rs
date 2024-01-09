@@ -37,6 +37,9 @@ include!("./bytecode_cache.rs");
 
 use crate::{
     buffer::BufferModule,
+    bytecode_meta::{
+        BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH,
+    },
     child_process::ChildProcessModule,
     console,
     crypto::{CryptoModule, SYSTEM_RANDOM},
@@ -308,14 +311,14 @@ impl Loader for BinaryLoader {
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
             trace!("Loading embedded module: {}", name);
 
-            return load_compressed_module(name, bytes);
+            return load_bytecode_module(name, bytes);
         }
         let path = PathBuf::from(name);
         let mut bytes: &[u8] = &std::fs::read(path)?;
 
         if name.ends_with(".lrt") {
             trace!("Loading binary module: {}", name);
-            return load_compressed_module(name, bytes);
+            return load_bytecode_module(name, bytes);
         }
         if bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
@@ -324,18 +327,58 @@ impl Loader for BinaryLoader {
     }
 }
 
-pub fn load_compressed_module(name: &str, buf: &[u8]) -> Result<ModuleData> {
-    let bytes = decompress_module(buf)?;
+pub fn load_bytecode_module(name: &str, buf: &[u8]) -> Result<ModuleData> {
+    let bytes = load_module(buf)?;
     Ok(unsafe { ModuleData::bytecode(name, bytes) })
 }
 
-fn decompress_module(input: &[u8]) -> Result<Vec<u8>> {
-    let (size, input) = uncompressed_size(input)?;
-    let mut buf = Vec::with_capacity(size);
-    let mut decompressor = Decompressor::with_prepared_dictionary(&DECOMPRESSOR_DICT)?;
-    decompressor.decompress_to_buffer(input, &mut buf)?;
+fn load_module(input: &[u8]) -> Result<Vec<u8>> {
+    let (_, compressed, input) = get_bytecode_signature(input)?;
 
-    Ok(buf)
+    if compressed {
+        let (size, input) = uncompressed_size(input)?;
+        let mut buf = Vec::with_capacity(size);
+        let mut decompressor = Decompressor::with_prepared_dictionary(&DECOMPRESSOR_DICT)?;
+        decompressor.decompress_to_buffer(input, &mut buf)?;
+        return Ok(buf);
+    }
+
+    Ok(input.to_vec())
+}
+
+fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::Error> {
+    let raw_signature = input
+        .get(..SIGNATURE_LENGTH)
+        .ok_or(io::Error::new::<String>(
+            io::ErrorKind::InvalidInput,
+            "Invalid bytecode signature length".into(),
+        ))?;
+
+    let (last, signature) = raw_signature.split_last().unwrap();
+
+    if signature != BYTECODE_VERSION.as_bytes() {
+        return Err(io::Error::new::<String>(
+            io::ErrorKind::InvalidInput,
+            "Invalid bytecode version".into(),
+        ));
+    }
+
+    let mut compressed = None;
+    if *last == BYTECODE_COMPRESSED {
+        compressed = Some(true)
+    } else if *last == BYTECODE_UNCOMPRESSED {
+        compressed = Some(false)
+    }
+
+    let rest = &input[SIGNATURE_LENGTH..];
+    Ok((
+        signature,
+        compressed.ok_or(io::Error::new::<String>(
+            io::ErrorKind::InvalidInput,
+            "Invalid bytecode signature".into(),
+        ))?,
+        rest,
+    ))
 }
 
 pub struct Vm {

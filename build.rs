@@ -17,14 +17,10 @@ use jwalk::WalkDir;
 use rquickjs::{
     loader::{Loader, Resolver},
     module::ModuleData,
-    CatchResultExt, Context, Ctx, Module, Runtime,
+    CatchResultExt, CaughtError, Context, Ctx, Module, Runtime,
 };
 
 const BUNDLE_DIR: &str = "bundle";
-#[cfg(feature = "uncompressed")]
-const BYTECODE_EXT: &str = "lrtu";
-#[cfg(not(feature = "uncompressed"))]
-const BYTECODE_EXT: &str = "lrt";
 
 include!("src/bytecode_meta.rs");
 
@@ -49,13 +45,12 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     let resolver = (DummyResolver,);
     let loader = (DummyLoader,);
 
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new()?;
     rt.set_loader(resolver, loader);
-    rt.set_max_stack_size(512 * 1024);
-    let ctx = Context::full(&rt).unwrap();
+    let ctx = Context::full(&rt)?;
 
     let sdk_bytecode_path = Path::new("src").join("bytecode_cache.rs");
-    let mut sdk_bytecode_file = BufWriter::new(File::create(sdk_bytecode_path).unwrap());
+    let mut sdk_bytecode_file = BufWriter::new(File::create(sdk_bytecode_path)?);
 
     let mut ph_map = phf_codegen::Map::<String>::new();
     let mut filenames = vec![];
@@ -64,86 +59,86 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     fs::write("VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
 
     ctx.with(|ctx| {
-        let mut compile = |ctx: Ctx<'_>| {
-            for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {
-                let path = dir_ent.path();
+        for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {
+            let path = dir_ent.path();
 
-                let path = path.strip_prefix(BUNDLE_DIR).unwrap().to_owned();
-                let path_str = path.to_string_lossy().to_string();
+            let path = path.strip_prefix(BUNDLE_DIR)?.to_owned();
+            let path_str = path.to_string_lossy().to_string();
 
-                if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js"
+            if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js" {
+                continue;
+            }
+
+            #[cfg(feature = "lambda")]
+            {
+                if path == PathBuf::new().join("@llrt").join("test.js") {
+                    continue;
+                }
+            }
+
+            #[cfg(feature = "no-sdk")]
+            {
+                if path_str.starts_with("@aws-sdk")
+                    || path_str.starts_with("@smithy")
+                    || path_str.starts_with("llrt-chunk-sdk")
                 {
                     continue;
                 }
-
-                #[cfg(feature = "lambda")]
-                {
-                    if path == PathBuf::new().join("@llrt").join("test.js") {
-                        continue;
-                    }
-                }
-
-                #[cfg(feature = "no-sdk")]
-                {
-                    if path_str.starts_with("@aws-sdk")
-                        || path_str.starts_with("@smithy")
-                        || path_str.starts_with("llrt-chunk-sdk")
-                    {
-                        continue;
-                    }
-                }
-
-                let source = fs::read_to_string(dir_ent.path()).unwrap_or_else(|_| {
-                    panic!("Unable to load: {}", dir_ent.path().to_string_lossy())
-                });
-
-                let module_name = if !path_str.starts_with("llrt-chunk-") {
-                    path.with_extension("").to_string_lossy().to_string()
-                } else {
-                    path.to_string_lossy().to_string()
-                };
-
-                info!("Compiling module: {}", module_name);
-
-                let filename = dir_ent
-                    .path()
-                    .with_extension(BYTECODE_EXT)
-                    .to_string_lossy()
-                    .to_string();
-                filenames.push(filename.clone());
-                let ctx2 = ctx.clone();
-                let bytes = move || {
-                    {
-                        let module = unsafe {
-                            Module::unsafe_declare(ctx2.clone(), module_name.clone(), source)
-                        }?;
-                        module.write_object(false)
-                    }
-                    ().catch(&ctx)?;
-
-                    total_bytes += bytes.len();
-
-                    if cfg!(feature = "uncompressed") {
-                        let mut uncompressed = Vec::with_capacity(4 + 6 + bytes.len());
-                        uncompressed.extend_from_slice(BYTECODE_VERSION.as_bytes());
-                        uncompressed.extend_from_slice(&[BYTECODE_UNCOMPRESSED]); //uncompressed
-                        uncompressed.extend_from_slice(&bytes);
-                        fs::write(&filename, uncompressed).unwrap();
-                    } else {
-                        fs::write(&filename, bytes).unwrap();
-                    }
-
-                    info!("Done!");
-
-                    ph_map.entry(
-                        module_name,
-                        &format!("include_bytes!(\"..{}{}\")", MAIN_SEPARATOR_STR, &filename),
-                    );
-                };
-                Ok::<_, Box<dyn Error>>(())
             }
-        };
-        compile(ctx)?
+
+            let source = fs::read_to_string(dir_ent.path())
+                .unwrap_or_else(|_| panic!("Unable to load: {}", dir_ent.path().to_string_lossy()));
+
+            let module_name = if !path_str.starts_with("llrt-chunk-") {
+                path.with_extension("").to_string_lossy().to_string()
+            } else {
+                path.to_string_lossy().to_string()
+            };
+
+            info!("Compiling module: {}", module_name);
+
+            let filename = dir_ent
+                .path()
+                .with_extension(BYTECODE_EXT)
+                .to_string_lossy()
+                .to_string();
+            filenames.push(filename.clone());
+            let bytes = {
+                {
+                    let module = unsafe {
+                        Module::unsafe_declare(ctx.clone(), module_name.clone(), source)
+                    }?;
+                    module.write_object(false)
+                }
+            }
+            .catch(&ctx)
+            .map_err(|err| match err {
+                CaughtError::Error(error) => error.to_string(),
+                CaughtError::Exception(ex) => ex.to_string(),
+                CaughtError::Value(value) => format!("{:?}", value),
+            })?;
+
+            total_bytes += bytes.len();
+
+            if cfg!(feature = "uncompressed") {
+                let mut uncompressed = Vec::with_capacity(4 + 6 + bytes.len());
+                uncompressed.extend_from_slice(BYTECODE_VERSION.as_bytes());
+                uncompressed.extend_from_slice(&[BYTECODE_UNCOMPRESSED]); //uncompressed
+                uncompressed.extend_from_slice(&bytes);
+                fs::write(&filename, uncompressed).unwrap();
+            } else {
+                fs::write(&filename, bytes).unwrap();
+            }
+
+            info!("Done!");
+
+            ph_map.entry(
+                module_name,
+                &format!("include_bytes!(\"..{}{}\")", MAIN_SEPARATOR_STR, &filename),
+            );
+        }
+
+        StdResult::<_, Box<dyn Error>>::Ok(())
     })?;
 
     write!(
@@ -158,17 +153,15 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
         human_file_size(total_bytes)
     );
 
-    let bundle_path = Path::new(BUNDLE_DIR);
-    let compression_dictionary_path = bundle_path
+    let compression_dictionary_path = Path::new(BUNDLE_DIR)
         .join("compression.dict")
         .to_string_lossy()
         .to_string();
 
     if cfg!(feature = "uncompressed") {
-        fs::write(compression_dictionary_path, "")?;
+        generate_compression_dictionary(&compression_dictionary_path, &filenames)?;
     } else {
-        total_bytes =
-            compress_bytecode(bundle_path, compression_dictionary_path, filenames).unwrap();
+        total_bytes = compress_bytecode(compression_dictionary_path, filenames)?;
 
         info!(
             "\n===============================\nCompressed bytecode size: {}\n===============================",
@@ -179,46 +172,8 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn compress_bytecode(
-    bundles_path: &Path,
-    dictionary_path: String,
-    source_files: Vec<String>,
-) -> io::Result<usize> {
-    info!("Generating compression dictionary...");
-
-    let file_count = source_files.len();
-    let mut dictionary_filenames = source_files.clone();
-    let mut dictionary_file_set: HashSet<String> = HashSet::from_iter(dictionary_filenames.clone());
-
-    let mut cmd = Command::new("zstd");
-    cmd.args([
-        "--train",
-        "--train-fastcover=steps=40",
-        "--maxdict=20K",
-        "-o",
-        &dictionary_path,
-    ]);
-    if file_count < 5 {
-        dictionary_file_set.retain(|file_path| {
-            let metadata = fs::metadata(file_path).unwrap();
-            let file_size = metadata.len();
-            file_size >= 1024 // 1 kilobyte = 1024 bytes
-        });
-        cmd.arg("-B1K");
-        dictionary_filenames = dictionary_file_set.into_iter().collect();
-    }
-    cmd.args(&dictionary_filenames);
-
-    let mut cmd = cmd.args(&source_files).spawn()?;
-
-    let exit_status = cmd.wait()?;
-
-    if !exit_status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Failed to generate compression dictionary",
-        ));
-    }
+fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::Result<usize> {
+    generate_compression_dictionary(&dictionary_path, &source_files)?;
 
     let mut total_size = 0;
     let tmp_dir = env::temp_dir();
@@ -269,4 +224,40 @@ fn compress_bytecode(
     }
 
     Ok(total_size)
+}
+
+fn generate_compression_dictionary(
+    dictionary_path: &str,
+    source_files: &Vec<String>,
+) -> Result<(), io::Error> {
+    info!("Generating compression dictionary...");
+    let file_count = source_files.len();
+    let mut dictionary_filenames = source_files.clone();
+    let mut dictionary_file_set: HashSet<String> = HashSet::from_iter(dictionary_filenames.clone());
+    let mut cmd = Command::new("zstd");
+    cmd.args([
+        "--train",
+        "--train-fastcover=steps=40",
+        "--maxdict=20K",
+        "-o",
+        dictionary_path,
+    ]);
+    if file_count < 5 {
+        dictionary_file_set.retain(|file_path| {
+            let metadata = fs::metadata(file_path).unwrap();
+            let file_size = metadata.len();
+            file_size >= 1024 // 1 kilobyte = 1024 bytes
+        });
+        cmd.arg("-B1K");
+        dictionary_filenames = dictionary_file_set.into_iter().collect();
+    }
+    cmd.args(&dictionary_filenames);
+    let mut cmd = cmd.args(source_files).spawn()?;
+    let exit_status = cmd.wait()?;
+    Ok(if !exit_status.success() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Failed to generate compression dictionary",
+        ));
+    })
 }

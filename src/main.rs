@@ -8,6 +8,7 @@
 mod macros;
 mod buffer;
 mod bytearray_buffer;
+mod bytecode_meta;
 mod child_process;
 mod compiler;
 mod compiler_common;
