@@ -106,7 +106,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let timeouts2 = timeouts.clone();
     let timeouts3 = timeouts.clone();
     let timeouts4 = timeouts.clone();
-    let timeouts5 = timeouts.clone();
 
     globals.set(
         "setTimeout",
@@ -128,8 +127,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(move |id: usize| clear_timeout_interval(&timeouts4, id)),
     )?;
 
-    //poll_timers(ctx, timeouts5)?;
-
     globals.set("setImmediate", Func::from(set_immediate))?;
 
     Ok(())
@@ -146,6 +143,7 @@ fn poll_timers<'js>(ctx: &Ctx<'js>, timeouts: Arc<Mutex<Vec<Timeout<'js>>>>) -> 
 
         let mut interval = tokio::time::interval(Duration::from_millis(1));
         let mut to_call = Some(Vec::new());
+        let mut exit_after_next_tick = false;
         loop {
             interval.tick().await;
             let mut call_vec = to_call.take().unwrap(); //avoid creating a new vec
@@ -154,6 +152,7 @@ fn poll_timers<'js>(ctx: &Ctx<'js>, timeouts: Arc<Mutex<Vec<Timeout<'js>>>>) -> 
 
             timeouts.lock().unwrap().retain_mut(|timeout| {
                 had_items = true;
+                exit_after_next_tick = false;
                 if current_time > timeout.timeout {
                     if !timeout.repeating {
                         //do not clone if not not repeating
@@ -194,10 +193,12 @@ fn poll_timers<'js>(ctx: &Ctx<'js>, timeouts: Arc<Mutex<Vec<Timeout<'js>>>>) -> 
             }
 
             if !had_items && result == 0 {
-                break;
+                if exit_after_next_tick {
+                    break;
+                }
+                exit_after_next_tick = true;
             }
         }
-        timeouts.lock().unwrap().clear();
         TIME_POLL_ACTIVE.store(false, Ordering::Relaxed);
 
         Ok(())
