@@ -63,6 +63,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn huge_numbers() {
+        with_runtime(|ctx| {
+
+            let big_int_value = json_parse(&ctx, b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999".to_vec())?;
+    
+            let stringified = json_stringify(&ctx, big_int_value.clone())?.unwrap();
+            let stringified_2 = ctx.json_stringify(big_int_value)?.unwrap().to_string()?.replace("e+", "e");
+            assert_eq!(stringified, stringified_2);
+
+            let big_int_value: Value = ctx.eval("999999999999")?;
+            let stringified = json_stringify(&ctx, big_int_value.clone())?.unwrap();
+            let stringified_2 = ctx.json_stringify(big_int_value)?.unwrap().to_string()?;
+            assert_eq!(stringified, stringified_2);
+
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
     async fn json_circular_ref() {
         with_runtime(|ctx| {
             let obj1 = Object::new(ctx.clone())?;

@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use rquickjs::{Array, Ctx, IntoJs, Null, Object, Result, Undefined, Value};
 
 use simd_json::{Node, StaticNode};
@@ -51,9 +49,16 @@ impl<'js> PathItem<'js> {
 }
 
 pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> {
-    let _now = Instant::now();
-
-    let tape = simd_json::to_tape(&mut json).or_throw_msg(ctx, "Invalid json")?;
+    let tape = match simd_json::to_tape(&mut json) {
+        Ok(tape) => Ok(tape),
+        Err(err) => {
+            //fallback to builtin parsing on big ints until https://github.com/simd-lite/simd-json/pull/363 is merged
+            if err.to_string().starts_with("InvalidNumber") {
+                return ctx.json_parse(json);
+            }
+            Err(err).or_throw(ctx)
+        }
+    }?;
 
     let mut str_key = "";
     let mut last_is_string = false;
@@ -79,10 +84,22 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
     #[inline(always)]
     fn static_node_to_value<'js>(ctx: &Ctx<'js>, node: StaticNode) -> Result<Value<'js>> {
         Ok(match node {
-            StaticNode::I64(value) => value.into_js(ctx)?,
-            StaticNode::U64(value) => value.into_js(ctx)?,
-            StaticNode::F64(value) => value.into_js(ctx)?,
-            StaticNode::Bool(value) => value.into_js(ctx)?,
+            StaticNode::I64(value) => {
+                //pr
+                value.into_js(ctx)?
+            }
+            StaticNode::U64(value) => {
+                //pr
+                value.into_js(ctx)?
+            }
+            StaticNode::F64(value) => {
+                //pr
+                value.into_js(ctx)?
+            }
+            StaticNode::Bool(value) => {
+                //pr
+                value.into_js(ctx)?
+            }
             StaticNode::Null => Null.into_js(ctx)?,
         })
     }
