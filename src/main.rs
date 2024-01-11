@@ -17,6 +17,7 @@ mod json;
 mod minimal_tracer;
 mod module;
 mod net;
+mod number;
 mod os;
 mod path;
 mod process;

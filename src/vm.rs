@@ -23,8 +23,8 @@ use rquickjs::{
     },
     module::{ModuleData, ModuleDef},
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, IntoJs, Module,
-    Object, Result, String as JsString, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
+    Module, Object, Result, String as JsString, Value,
 };
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
@@ -43,6 +43,7 @@ use crate::{
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     module::ModuleModule,
     net::NetModule,
+    number::number_to_string,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
     timers::TimersModule,
@@ -468,6 +469,10 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
 
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
+
+    let number: Function = globals.get(PredefinedAtom::Number)?;
+    let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
+    number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
 
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;

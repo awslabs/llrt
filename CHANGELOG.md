@@ -18,3 +18,16 @@
         Size 517288901:
                 parse: 6.886183416s vs. 14.985707583s
                 stringify: 3.957781167s vs. 10.885577917s
+
+* 7x faster integer and float toString():
+        Benchmark 1: target/release/llrt
+        Time (mean ± σ):      1.568 s ±  0.016 s    [User: 1.555 s, System: 0.007 s]
+        Range (min … max):    1.558 s …  1.610 s    10 runs
+        
+        Benchmark 2: target/release/llrt-next
+        Time (mean ± σ):     205.1 ms ±   3.1 ms    [User: 196.9 ms, System: 2.2 ms]
+        Range (min … max):   200.0 ms … 213.1 ms    14 runs
+        
+        Summary
+        target/release/llrt-next ran
+        7.65 ± 0.14 times faster than target/release/llrt
