@@ -1121,8 +1121,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs"
-version = "0.4.0-beta.4"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=e168c0a4a242f55723558268fd0269351c5293ae#e168c0a4a242f55723558268fd0269351c5293ae"
+version = "0.4.0"
+source = "git+https://github.com/DelSkayn/rquickjs?rev=35b32d8fba34483b336d75b43e145d1ac75893db#35b32d8fba34483b336d75b43e145d1ac75893db"
 dependencies = [
  "either",
  "indexmap",
@@ -1132,8 +1132,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-core"
-version = "0.4.0-beta.4"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=e168c0a4a242f55723558268fd0269351c5293ae#e168c0a4a242f55723558268fd0269351c5293ae"
+version = "0.4.0"
+source = "git+https://github.com/DelSkayn/rquickjs?rev=35b32d8fba34483b336d75b43e145d1ac75893db#35b32d8fba34483b336d75b43e145d1ac75893db"
 dependencies = [
  "async-lock",
  "chrono",
@@ -1147,8 +1147,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-macro"
-version = "0.4.0-beta.4"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=e168c0a4a242f55723558268fd0269351c5293ae#e168c0a4a242f55723558268fd0269351c5293ae"
+version = "0.4.0"
+source = "git+https://github.com/DelSkayn/rquickjs?rev=35b32d8fba34483b336d75b43e145d1ac75893db#35b32d8fba34483b336d75b43e145d1ac75893db"
 dependencies = [
  "convert_case",
  "fnv",
@@ -1166,8 +1166,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-sys"
-version = "0.4.0-beta.4"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=e168c0a4a242f55723558268fd0269351c5293ae#e168c0a4a242f55723558268fd0269351c5293ae"
+version = "0.4.0"
+source = "git+https://github.com/DelSkayn/rquickjs?rev=35b32d8fba34483b336d75b43e145d1ac75893db#35b32d8fba34483b336d75b43e145d1ac75893db"
 dependencies = [
  "cc",
 ]
@@ -1307,9 +1307,9 @@ dependencies = [
 
 [[package]]
 name = "simd-json"
-version = "0.13.6"
+version = "0.13.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c58001aca67fc467da571f35e7e1dc9c094e91b099cc54bd3cead2962db2432"
+checksum = "0a9511d2aa0b26dce65ea3860321cd680a8daeb6808b04f1e94429e0389ad952"
 dependencies = [
  "getrandom",
  "halfbrown",

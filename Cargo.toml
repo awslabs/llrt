@@ -18,7 +18,7 @@ hyper-rustls = "0.24.2"
 phf = "0.11.2"
 md-5 = { version = "0.10.6", features = ["asm"] }
 ring = "0.17.6"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "e168c0a4a242f55723558268fd0269351c5293ae", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "35b32d8fba34483b336d75b43e145d1ac75893db", features = [
     "full-async",
     "parallel",
 ], default-features = false }
@@ -48,13 +48,15 @@ socket2 = "0.5.5"
 bytes = "1.5.0"
 tokio-rustls = "0.24.1"
 uuid-simd = "0.8.0"
-simd-json = { version = "0.13.6", default-features = false, features = [] }
+simd-json = { version = "0.13.7", default-features = false, features = [
+    "big-int-as-float",
+] }
 itoa = "1.0.10"
 ryu = "1.0.16"
 
 [build-dependencies]
 relative-path = "1.9.0"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "e168c0a4a242f55723558268fd0269351c5293ae", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "35b32d8fba34483b336d75b43e145d1ac75893db", features = [
     "full-async",
 ], default-features = false }
 tokio = { version = "1", features = ["full"] }

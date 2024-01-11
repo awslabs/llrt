@@ -42,6 +42,13 @@ describe("JSON Parsing", () => {
     assert.deepStrictEqual(parsedData, { nullableValue: null });
   });
 
+  it("should parse JSON with large int value", () => {
+    const parsedData = JSON.parse('{"bigInt": 888888888888888888}');
+    assert.deepStrictEqual(parsedData, {
+      bigInt: 888888888888888888,
+    });
+  });
+
   it("should parse JSON with special characters", () => {
     const specialChars = "!@#$%^&*()_+-={}[]|;:,.<>?/";
     const parsedData = JSON.parse(`{"specialChars": "${specialChars}"}`);
@@ -70,6 +77,18 @@ describe("JSON Stringified", () => {
 
     const parsedData = JSON.parse(JSON.stringify(objWithToJSON));
     assert.deepStrictEqual(parsedData, { customKey: "VALUE", customAge: 50 });
+  });
+
+  it("should print floats without fractions as integers", () => {
+    const jsonString = JSON.stringify({ value: 1.0 });
+    assert.equal(jsonString, '{"value":1}');
+  });
+
+  it("should print very large numbers as floats with scientific notation", () => {
+    const jsonString = JSON.stringify({
+      value: 999999999999999999999999999999,
+    });
+    assert.equal(jsonString, '{"value":1e30}');
   });
 
   it("should stringify and parse recursive JSON with self-referencing structures", () => {
