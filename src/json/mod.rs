@@ -67,7 +67,7 @@ mod tests {
         with_runtime(|ctx| {
 
             let big_int_value = json_parse(&ctx, b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999".to_vec())?;
-    
+
             let stringified = json_stringify(&ctx, big_int_value.clone())?.unwrap();
             let stringified_2 = ctx.json_stringify(big_int_value)?.unwrap().to_string()?.replace("e+", "e");
             assert_eq!(stringified, stringified_2);
