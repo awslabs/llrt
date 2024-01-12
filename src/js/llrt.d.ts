@@ -13,6 +13,7 @@ interface Headers {
 
 declare var assert: NodeJS.Global["assert"];
 declare var _require: NodeJS.Global["require"];
+declare var __lambdaSetRequestId: (id?: string) => void;
 
 declare var __handler: (data: any) => Promise<any>;
 

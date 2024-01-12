@@ -36,7 +36,7 @@ if (!AWS_LAMBDA_RUNTIME_API) {
 }
 
 const HANDLER_ENV = _HANDLER || LAMBDA_HANDLER;
-let requestId;
+let requestId: string | undefined;
 
 let exitIterations = (_EXIT_ITERATIONS && parseInt(_EXIT_ITERATIONS)) || -1;
 if (isNaN(exitIterations)) {
@@ -172,6 +172,7 @@ const startProcessEvents = async (
     const start = new Date().getTime();
     try {
       const next = await nextInvocation();
+      __bootstrap.setRequestId(requestId);
       context = next.context;
       event = next.event;
       const result = await handler(event, context);

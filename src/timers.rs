@@ -17,7 +17,6 @@ use rquickjs::{
 use crate::{util::export_default, vm::CtxExtension};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
-
 static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]

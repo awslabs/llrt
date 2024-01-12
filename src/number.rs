@@ -2,7 +2,7 @@ use rquickjs::{
     function::{Opt, This},
     Ctx, Exception, Result, Value,
 };
-use std::fmt::Write;
+use std::{fmt::Write, result::Result as StdResult};
 
 const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
 const BUF_SIZE: usize = 81;
@@ -184,14 +184,11 @@ pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<S
             return Ok(f64_to_base_n(float, radix));
         }
 
-        const EXP_MASK: u64 = 0x7ff0000000000000;
-        let bits = float.to_bits();
-        if bits & EXP_MASK == EXP_MASK {
-            return Ok(write_nonfinite(bits));
-        }
-
-        let mut ryu = ryu::Buffer::new();
-        let str = ryu.format_finite(float);
+        let mut buffer = ryu::Buffer::new();
+        let str = match float_to_string(&mut buffer, float) {
+            Ok(value) => value,
+            Err(value) => return Ok(value.into()),
+        };
         let len = str.len();
         if unsafe { str.get_unchecked(str.len() - 2..) } == ".0" {
             let mut string = str.to_string();
@@ -203,18 +200,33 @@ pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<S
     Ok("".into())
 }
 
+/// Returns a string representation of the float value.
+///
+/// Returns error with a `str` if value is non-finite
+#[inline(always)]
+pub fn float_to_string(buf: &mut ryu::Buffer, float: f64) -> StdResult<&str, &str> {
+    const EXP_MASK: u64 = 0x7ff0000000000000;
+    let bits = float.to_bits();
+    if bits & EXP_MASK == EXP_MASK {
+        return Err(write_nonfinite(bits));
+    }
+
+    let str = buf.format_finite(float);
+    Ok(str)
+}
+
 #[inline(always)]
 #[cold]
-fn write_nonfinite(bits: u64) -> String {
+fn write_nonfinite<'a>(bits: u64) -> &'a str {
     const MANTISSA_MASK: u64 = 0x000fffffffffffff;
     const SIGN_MASK: u64 = 0x8000000000000000;
-    String::from(if bits & MANTISSA_MASK != 0 {
+    if bits & MANTISSA_MASK != 0 {
         "NaN"
     } else if bits & SIGN_MASK != 0 {
         "-Infinity"
     } else {
         "Infinity"
-    })
+    }
 }
 
 #[inline(always)]
