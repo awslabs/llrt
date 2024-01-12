@@ -333,7 +333,7 @@ pub struct Vm {
 
 struct LifetimeArgs<'js>(Ctx<'js>);
 
-#[warn(dead_code)]
+#[allow(dead_code)]
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
 impl Vm {
@@ -494,7 +494,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             if let Some(replacer) = replacer.0 {
                 if let Some(space) = space.0 {
                     if let Some(space) = space.as_string() {
-                        space_value = Some(space.clone().to_string()?);
+                        let mut space = space.clone().to_string()?;
+                        space.truncate(20);
+                        space_value = Some(space);
                     }
                     if let Some(number) = space.as_int() {
                         if number > 0 {
@@ -518,6 +520,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_exports_ref_2 = require_exports.clone();
 
     let js_bootstrap = Object::new(ctx.clone())?;
+    js_bootstrap.set(
+        "setRequestId",
+        Func::from(|id| {
+            console::LAMBDA_REQUEST_ID.lock().unwrap().replace(id);
+        }),
+    )?;
     js_bootstrap.set(
         "moduleExport",
         Func::from(move |ctx, obj, prop, value| {

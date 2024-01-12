@@ -31,3 +31,8 @@
         Summary
         target/release/llrt-next ran
         7.65 ± 0.14 times faster than target/release/llrt
+
+* Improved logging:
+  * LLRT now supports [advanced logging controls](https://aws.amazon.com/blogs/compute/introducing-advanced-logging-controls-for-aws-lambda-functions/) for AWS Lambda
+  * `requestId` is now captured and outputted with logging
+  * Console has some performance improvements by reusing String and avoiding allocations

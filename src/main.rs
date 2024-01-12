@@ -37,6 +37,7 @@ use std::{
     error::Error,
     path::Path,
     process::exit,
+    sync::atomic::Ordering,
     time::Instant,
 };
 
@@ -46,7 +47,7 @@ use util::{get_basename_ext_name, get_js_path, JS_EXTENSIONS};
 use vm::Vm;
 
 use crate::{
-    console::ENV_LLRT_CONSOLE_NEWLINE_RETURN,
+    console::LogLevel,
     process::{get_arch, get_platform},
     util::walk_directory,
 };
@@ -64,7 +65,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
 
     if env::var("_HANDLER").is_ok() {
-        env::set_var(ENV_LLRT_CONSOLE_NEWLINE_RETURN, "1");
+        let aws_lambda_json_log_format =
+            env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("json".to_string());
+        let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();
+        let log_level = LogLevel::from_str(&aws_lambda_log_level);
+
+        console::AWS_LAMBDA_JSON_LOG_LEVEL.store(log_level as usize, Ordering::Relaxed);
+        console::AWS_LAMBDA_MODE.store(true, Ordering::Relaxed);
+        console::AWS_LAMBDA_JSON_LOG_FORMAT.store(aws_lambda_json_log_format, Ordering::Relaxed);
+
         start_runtime(&vm.ctx).await
     } else {
         start_cli(&vm.ctx).await;

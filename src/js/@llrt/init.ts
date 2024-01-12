@@ -29,7 +29,9 @@ __bootstrap.addAwsSdkInitTask = (service: string) => {
   const connectTask = fetch(`https://${prefix}.amazonaws.com`, {
     method: "GET",
   }).then(() => {
-    console.log("INIT_CONNECTION", service, `${Date.now() - start}ms`);
+    if (process.env.LLRT_LOG) {
+      console.log("INIT_CONNECTION", service, `${Date.now() - start}ms`);
+    }
   });
   initTasks.push(connectTask);
 };
