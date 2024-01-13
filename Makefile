@@ -143,13 +143,9 @@ run-ssr: js
 	cargo build
 	cd example/functions && yarn build && cd build && ../../../target/debug/llrt
 
+flame: export CARGO_PROFILE_RELEASE_DEBUG = true
 flame:
-#cargo build --profile=flame
-	time target/flame/llrt
-	rm -rf flamegraph.svg out.stacks
-	sudo dtrace -c 'target/flame/llrt' -o out.stacks -n 'profile-997 /execname == "llrt"/ { @[ustack(1000)] = count(); }'
-	cat out.stacks | inferno-collapse-dtrace | inferno-flamegraph > flamegraph.svg
-#cargo flamegraph
+	cargo flamegraph
 
 run-cli: export RUST_LOG = llrt=trace
 run-cli: js
