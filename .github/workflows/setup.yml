@@ -42,11 +42,11 @@ runs:
         corepack enable
         yarn
     - name: Run tests
-        if: "!(matrix.arch == 'aarch64' && matrix.platform == 'linux')"
+        if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
         run: |
           make test-ci
     - name: Run tests
-      if: "matrix.arch == 'aarch64' && matrix.platform == 'linux'"
+      if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
       env:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         CURRENT_TARGET: aarch64-unknown-linux-musl
