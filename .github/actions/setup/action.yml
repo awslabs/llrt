@@ -32,6 +32,7 @@ runs:
       run: |
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         brew install zig make
+        echo "/usr/local/opt/make/libexec/gnubin:$PATH" > $GITHUB_PATH
     - name: Install Windows dependencies
       if: inputs.platform == 'windows'
       shell: pwsh
@@ -54,7 +55,6 @@ runs:
       shell: bash
       env:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
-        CURRENT_TARGET: aarch64-unknown-linux-musl
       run: |
         sudo apt-get install -y \
           qemu-system-arm \
@@ -62,4 +62,4 @@ runs:
           qemu-utils \
           qemu-user
 
-        make test-ci
+        make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
