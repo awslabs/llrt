@@ -58,7 +58,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: ./.github/actions/setup
+      - name: Setup & test
+        uses: ./.github/actions/setup
         with:
           platform: ${{ matrix.platform }}
           arch: ${{ matrix.arch }}

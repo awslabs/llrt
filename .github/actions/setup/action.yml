@@ -14,7 +14,7 @@ runs:
         cache: yarn
         node-version: lts/*
     - name: Install linux dependencies
-      if: ${{ inputs.platform }} == 'linux'
+      if: inputs.platform == 'linux'
       shell: bash
       run: |
         sudo apt-get -y update
@@ -25,7 +25,7 @@ runs:
       with:
         toolchain: nightly
     - name: Install MacOS dependencies
-      if: ${{ inputs.platform }} == 'darwin'
+      if: inputs.platform == 'darwin'
       shell: bash
       env:
         HOMEBREW_NO_AUTO_UPDATE: 1
@@ -33,7 +33,7 @@ runs:
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         brew install zig make
     - name: Install Windows dependencies
-      if: ${{ inputs.platform }} == 'windows'
+      if: inputs.platform == 'windows'
       shell: pwsh
       run: |
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -45,12 +45,12 @@ runs:
         corepack enable
         yarn
     - name: Run tests
-      if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
+      if: inputs.arch != 'aarch64' || inputs.platform != 'linux'
       shell: bash
       run: |
         make test-ci
     - name: Run tests
-      if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
+      if: inputs.arch == 'aarch64' && inputs.platform == 'linux'
       shell: bash
       env:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
