@@ -34,12 +34,11 @@ runs:
         brew install zig make
     - name: Install Windows dependencies
       if: ${{ inputs.platform }} == 'windows'
-      shell: bash
+      shell: pwsh
       run: |
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
         iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
         scoop install make zig
-      shell: pwsh
     - name: Install JavaScript deps
       shell: bash
       run: |
