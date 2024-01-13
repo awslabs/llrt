@@ -18,8 +18,9 @@ STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
 RELEASE_ARCH_NAME_x86 = x86_64
 RELEASE_ARCH_NAME_arm64 = arm64
 
+LAMBDA_PREFIX = llrt-lambda
 RELEASE_TARGETS = arm64 x86
-RELEASE_ZIPS = $(addprefix llrt-lambda-,$(RELEASE_TARGETS))
+RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
 
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
@@ -29,13 +30,20 @@ else
 	ARCH := $(shell uname -m)
 endif
 
+ifeq ($(DETECTED_OS),darwin)
+	DETECTED_OS := macos
+endif
+
+
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
-lambda: | libs $(RELEASE_ZIPS)
+lambda-all: clean-js | libs $(RELEASE_ZIPS)
+release-all: clean-js | lambda-all llrt-linux-x86.zip llrt-linux-arm64.zip llrt-macos-x86.zip llrt-macos-arm64.zip
 
-release: clean-js | lambda llrt-linux-x86.zip llrt-linux-arm64.zip llrt-macos-x86.zip llrt-macos-arm64.zip
+release-lambda: clean-js |  libs-$(ARCH) $(LAMBDA_PREFIX)-$(DETECTED_OS)-$(ARCH).zip
+release: clean-js | llrt-$(DETECTED_OS)-$(ARCH).zip
 
-release-linux: clean-js | lambda llrt-linux-x86.zip llrt-linux-arm64.zip
+release-linux: clean-js | lambda-all llrt-linux-x86.zip llrt-linux-arm64.zip
 release-osx: clean-js | llrt-macos-x86.zip llrt-macos-arm64.zip
 
 llrt-macos-x86.zip: js
@@ -160,9 +168,12 @@ test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
-libs: lib/zstd.h
+libs-arm64: lib/x86/libzstd.a lib/zstd.h
+libs-x86: lib/x86/libzstd.a lib/zstd.h
 
-lib/zstd.h: | lib/arm64/libzstd.a lib/x86/libzstd.a
+libs: | libs-arm64 libs-x86
+
+lib/zstd.h:
 	cp zstd/lib/zstd.h $@
 
 lib/arm64/libzstd.a: 
@@ -184,4 +195,4 @@ bench:
 deploy:
 	cd example/infrastructure && yarn deploy --require-approval never
 
-.PHONY: toolchain clean-js release-linux release-osx lambda stdlib test test-ci run js run-release build release clean flame deploy
+.PHONY: libs libs-arm64 libs-x86 toolchain clean-js release-linux release-osx lambda stdlib test test-ci run js run-release build release clean flame deploy
