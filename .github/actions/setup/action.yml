@@ -15,6 +15,7 @@ runs:
         node-version: lts/*
     - name: Install linux dependencies
       if: ${{ inputs.platform }} == 'linux'
+      shell: bash
       run: |
         sudo apt-get -y update
         sudo apt-get -y install make nodejs
@@ -25,6 +26,7 @@ runs:
         toolchain: nightly
     - name: Install MacOS dependencies
       if: ${{ inputs.platform }} == 'darwin'
+      shell: bash
       env:
         HOMEBREW_NO_AUTO_UPDATE: 1
       run: |
@@ -32,21 +34,25 @@ runs:
         brew install zig make
     - name: Install Windows dependencies
       if: ${{ inputs.platform }} == 'windows'
+      shell: bash
       run: |
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
         iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
         scoop install make zig
       shell: pwsh
     - name: Install JavaScript deps
+      shell: bash
       run: |
         corepack enable
         yarn
     - name: Run tests
-        if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
-        run: |
-          make test-ci
+      if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
+      shell: bash
+      run: |
+        make test-ci
     - name: Run tests
       if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
+      shell: bash
       env:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         CURRENT_TARGET: aarch64-unknown-linux-musl

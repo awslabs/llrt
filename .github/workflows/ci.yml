@@ -47,6 +47,10 @@ jobs:
             arch: aarch64
           - os: macos-latest
             platform: darwin
+            arch: x86_64
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
           # - os: windows-latest
           #   platform: windows
     runs-on: ${{ matrix.os }}
