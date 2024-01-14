@@ -32,8 +32,7 @@ runs:
       run: |
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         brew install zig make
-        rm -rf /usr/bin/make
-        ln -s /usr/local/opt/make/libexec/gnubin/make /usr/bin/make
+        ln -s /usr/local/opt/make/libexec/gnubin/make /usr/local/sbin/make
     - name: Install Windows dependencies
       if: inputs.platform == 'windows'
       shell: pwsh
