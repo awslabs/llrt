@@ -22,17 +22,60 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: aarch64
-
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - name: Setup & test
-        uses: ./.github/actions/setup
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          platform: ${{ matrix.platform }}
-          arch: ${{ matrix.arch }}
+          cache: yarn
+          node-version: lts/*
+      - name: Install linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install make nodejs
+          sudo snap install zig --classic --beta
+      - name: Install MacOS dependencies
+        if: matrix.platform == 'darwin'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew install zig make
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop install make zig
+      - name: Install JavaScript deps
+        run: |
+          corepack enable
+          yarn
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+      - name: Run tests
+        if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
+        run: |
+          make test-ci
+      - name: Run tests
+        if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+        run: |
+          sudo apt-get install -y \
+            qemu-system-arm \
+            qemu-efi-aarch64 \
+            qemu-utils \
+            qemu-user
+
+          make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
       - name: Build binaries
         run: |
           make release
