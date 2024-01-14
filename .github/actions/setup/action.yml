@@ -49,6 +49,7 @@ runs:
       if: inputs.arch != 'aarch64' || inputs.platform != 'linux'
       shell: bash
       run: |
+        make -v
         make test-ci
     - name: Run tests
       if: inputs.arch == 'aarch64' && inputs.platform == 'linux'
