@@ -41,8 +41,16 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
+            arch: x86_64
+          - os: ubuntu-latest
+            platform: linux
+            arch: aarch64
           - os: macos-latest
             platform: darwin
+            arch: x86_64
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
           # - os: windows-latest
           #   platform: windows
     runs-on: ${{ matrix.os }}
@@ -55,44 +63,40 @@ jobs:
         with:
           cache: yarn
           node-version: lts/*
-      - name: Install linux dependencies
-        if: contains(matrix.platform, 'linux')
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get -y update
           sudo apt-get -y install make nodejs
           sudo snap install zig --classic --beta
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: nightly
       - name: Install MacOS dependencies
-        if: contains(matrix.platform, 'darwin')
+        if: matrix.platform == 'darwin'
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install zig make
       - name: Install Windows dependencies
-        if: contains(matrix.platform, 'windows')
+        if: matrix.platform == 'windows'
+        shell: pwsh
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
           iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
           scoop install make zig
-        shell: pwsh
-      - name: Install JavaScript deps
+      - name: Install JavaScript dependencies
         run: |
           corepack enable
           yarn
-      - name: Run Darwin tests
-        if: contains(matrix.platform, 'darwin')
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+      - name: Run tests
+        if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
         run: |
           make test-ci
-      - name: Run Linux X86 tests
-        if: contains(matrix.platform, 'linux')
-        run: |
-          make CURRENT_TARGET=x86_64-unknown-linux-musl test-ci
-      - name: Run Linux ARM tests
-        if: contains(matrix.platform, 'linux')
+      - name: Run tests
+        if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         run: |

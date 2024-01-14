@@ -12,8 +12,16 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
+            arch: x86_64
+          - os: ubuntu-latest
+            platform: linux
+            arch: aarch64
           - os: macos-latest
             platform: darwin
+            arch: x86_64
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -24,54 +32,69 @@ jobs:
         with:
           cache: yarn
           node-version: lts/*
-      - name: Install linux dependencies
-        if: contains(matrix.platform, 'linux')
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install make
+          sudo apt-get -y install make nodejs
           sudo snap install zig --classic --beta
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: nightly
       - name: Install MacOS dependencies
-        if: contains(matrix.platform, 'darwin')
+        if: matrix.platform == 'darwin'
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install zig make
-      - name: Install JavaScript deps
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop install make zig
+      - name: Install JavaScript dependencies
         run: |
           corepack enable
           yarn
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
       - name: Run tests
+        if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
         run: |
           make test-ci
-      - name: Make stdlib & libs
-        if: contains(matrix.platform, 'linux')
+      - name: Run tests
+        if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         run: |
-          make stdlib && make libs
-      - name: Build OSX binaries
-        if: contains(matrix.platform, 'darwin')
+          sudo apt-get install -y \
+            qemu-system-arm \
+            qemu-efi-aarch64 \
+            qemu-utils \
+            qemu-user
+
+          make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
+      - name: Build binaries
         run: |
-          make release-osx
-      - name: Build Linux binaries
-        if: contains(matrix.platform, 'linux')
+          make release
+      - name: Build Lambda binaries
+        if: matrix.platform == 'linux'
         run: |
-          make release-linux
-      - name: Upload changelog
-        if: contains(matrix.platform, 'linux')
-        uses: actions/upload-artifact@v4
-        with:
-          name: changelog
-          path: CHANGELOG.md
+          make release-lambda
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.platform }}
           path: |
             *.zip
+      - name: Upload changelog
+        if: matrix.platform == 'linux' && matrix.arch == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
   release:
     permissions:
       contents: write
