@@ -63,7 +63,7 @@ jobs:
         with:
           cache: yarn
           node-version: lts/*
-      - name: Install linux dependencies
+      - name: Install Linux dependencies
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get -y update
@@ -83,7 +83,7 @@ jobs:
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
           iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
           scoop install make zig
-      - name: Install JavaScript deps
+      - name: Install JavaScript dependencies
         run: |
           corepack enable
           yarn

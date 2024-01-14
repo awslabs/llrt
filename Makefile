@@ -9,52 +9,47 @@ BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
 ZSTD_LIB_ARGS = UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
 CC_ARM = zig cc -target aarch64-linux-musl -flto
-CC_X86 = zig cc -target x86_64-linux-musl -flto
+CC_X64 = zig cc -target x86_64-linux-musl -flto
 AR = zig ar
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
 
-RELEASE_ARCH_NAME_x86 = x86_64
+RELEASE_ARCH_NAME_x64 = x86_64
 RELEASE_ARCH_NAME_arm64 = arm64
 
 LAMBDA_PREFIX = llrt-lambda
-RELEASE_TARGETS = arm64 x86
+RELEASE_TARGETS = arm64 x64
 RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
 
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
-	ARCH := x86
+	ARCH := x64
 else
     DETECTED_OS := $(shell uname | tr A-Z a-z)
 	ARCH := $(shell uname -m)
 endif
 
-ifeq ($(DETECTED_OS),darwin)
-	DETECTED_OS := macos
-endif
-
-
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
 lambda-all: clean-js | libs $(RELEASE_ZIPS)
-release-all: clean-js | lambda-all llrt-linux-x86.zip llrt-linux-arm64.zip llrt-macos-x86.zip llrt-macos-arm64.zip
+release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
 
 release-lambda: clean-js |  libs-$(ARCH) $(LAMBDA_PREFIX)-$(DETECTED_OS)-$(ARCH).zip
 release: clean-js | llrt-$(DETECTED_OS)-$(ARCH).zip
 
-release-linux: clean-js | lambda-all llrt-linux-x86.zip llrt-linux-arm64.zip
-release-osx: clean-js | llrt-macos-x86.zip llrt-macos-arm64.zip
+release-linux: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
+release-darwin: clean-js | llrt-darwin-x64.zip llrt-darwin-arm64.zip
 
-llrt-macos-x86.zip: js
+llrt-darwin-x64.zip: js
 	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64)
 	zip -j $@ target/$(TARGET_darwin_x86_64)/release/llrt
 
-llrt-macos-arm64.zip: js
+llrt-darwin-arm64.zip: js
 	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64)
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
-llrt-linux-x86.zip: js
+llrt-linux-x64.zip: js
 	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
@@ -168,10 +163,10 @@ test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
-libs-arm64: lib/x86/libzstd.a lib/zstd.h
-libs-x86: lib/x86/libzstd.a lib/zstd.h
+libs-arm64: lib/arm64/libzstd.a lib/zstd.h
+libs-x64: lib/x64/libzstd.a lib/zstd.h
 
-libs: | libs-arm64 libs-x86
+libs: | libs-arm64 libs-x64
 
 lib/zstd.h:
 	cp zstd/lib/zstd.h $@
@@ -182,10 +177,10 @@ lib/arm64/libzstd.a:
 	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_ARM)" AR="$(AR)" $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@
 
-lib/x86/libzstd.a:
+lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_X86)" AR="$(AR)" $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_X64)" AR="$(AR)" $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:
@@ -195,4 +190,4 @@ bench:
 deploy:
 	cd example/infrastructure && yarn deploy --require-approval never
 
-.PHONY: libs libs-arm64 libs-x86 toolchain clean-js release-linux release-osx lambda stdlib test test-ci run js run-release build release clean flame deploy
+.PHONY: libs libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin lambda stdlib test test-ci run js run-release build release clean flame deploy
