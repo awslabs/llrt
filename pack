@@ -25,7 +25,7 @@ arch_hex=$(hexdump -s 18 -n 1 -e '"%02x"' $srcfile)
 
 if [[ "$arch_hex" == "3e" ]]; then
     target="x86_64-linux-musl"
-    arch="x86"
+    arch="x64"
 elif [[ "$arch_hex" == "b7" ]]; then
     target="aarch64-linux-musl"
     arch="arm64"
