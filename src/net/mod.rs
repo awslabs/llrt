@@ -6,27 +6,21 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     Ctx, Result,
 };
-use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
+use rustls::{ClientConfig, RootCertStore};
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
     let mut root_certificates = RootCertStore::empty();
 
-    root_certificates.add_trust_anchors(TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    for cert in TLS_SERVER_ROOTS.iter().cloned() {
+        root_certificates.roots.push(cert)
+    }
 
-    let tls: ClientConfig = ClientConfig::builder()
-        .with_safe_defaults()
-        //.with_native_roots()
+    ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("Failed to configure TLS")
         .with_root_certificates(root_certificates)
-        .with_no_client_auth();
-
-    tls
+        .with_no_client_auth()
 });
 
 pub struct NetModule;

@@ -1,5 +1,5 @@
+use aws_lc_rs::rand::SecureRandom;
 use once_cell::sync::Lazy;
-use ring::rand::SecureRandom;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},

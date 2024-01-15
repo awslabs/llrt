@@ -4,7 +4,8 @@ set -e
 new_array=()
 for value in "$@"
 do
-    [[ $value != *self-contained/*crt* ]] && new_array+=($value)
+    #echo C=$value
+    [[ $value != *self-contained/*crt* ]] && [[  $value != -mmacosx-version-min* ]] && new_array+=($value)
 done
 
 zig cc "${new_array[@]}"

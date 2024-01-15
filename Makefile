@@ -90,6 +90,7 @@ clean-js:
 
 clean: clean-js
 	rm -rf ./target
+	rm -rf ./lib/*
 
 js: $(STD_JS_FILE)
 

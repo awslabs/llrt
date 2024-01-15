@@ -1,6 +1,7 @@
 use std::time::Instant;
 
-use hyper::{body::Bytes, Body};
+use http_body_util::BodyExt;
+use hyper::body::{Bytes, Incoming};
 use rquickjs::{
     class::{Trace, Tracer},
     Class, Ctx, Exception, IntoJs, Result, TypedArray, Value,
@@ -12,7 +13,7 @@ use crate::{json::parse::json_parse, util::ResultExt};
 use super::headers::Headers;
 
 pub struct ResponseData<'js> {
-    response: Option<hyper::Response<Body>>,
+    response: Option<hyper::Response<Incoming>>,
     method: String,
     url: String,
     start: Instant,
@@ -23,7 +24,7 @@ pub struct ResponseData<'js> {
 impl<'js> ResponseData<'js> {
     pub fn new(
         ctx: Ctx<'js>,
-        response: hyper::Response<Body>,
+        response: hyper::Response<Incoming>,
         method: String,
         url: String,
         start: Instant,
@@ -124,7 +125,7 @@ impl<'js> Response<'js> {
             .take()
             .ok_or(Exception::throw_type(ctx, "Already read"))?;
 
-        let bytes = hyper::body::to_bytes(body.body_mut()).await.or_throw(ctx)?;
+        let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
         trace!(
             "{} {}: {}ms",
             self.data.method,
