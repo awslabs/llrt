@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     if env::var("_HANDLER").is_ok() {
         let aws_lambda_json_log_format =
-            env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("json".to_string());
+            env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("JSON".to_string());
         let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();
         let log_level = LogLevel::from_str(&aws_lambda_log_level);
 
