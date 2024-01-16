@@ -14,7 +14,9 @@ const OUT_DIR = "bundle";
 const SHIMS = new Map();
 const TEST_FILES = await fs.readdir(TESTS_DIR);
 const AWS_JSON_SHARED_COMMAND_REGEX =
-  /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/g;
+  /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
+const AWS_JSON_SHARED_COMMAND_REGEX2 =
+  /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\((\w+)\(input,\s*context\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const MINIFY_JS = process.env.JS_MINIFY !== "0";
 const SDK_UTILS_PACKAGE = "sdk-utils";
 const ENTRYPOINTS = ["@llrt/std", "stream", "@llrt/runtime", "@llrt/test"];
@@ -105,9 +107,9 @@ function runtimeConfigWrapper(config) {
   return getRuntimeConfig(config);
 }
 
-const awsJsonSharedCommand = (name, input, context) => {
+const awsJsonSharedCommand = (name, input, context, request) => {
   const headers = sharedHeaders(name);
-  const body = JSON.stringify(_json(input));
+  const body = JSON.stringify(request ? request(input, context) : _json(input));
   return buildHttpRpcRequest(context, headers, "/", undefined, body);
 };
 
@@ -310,9 +312,16 @@ const awsSdkPlugin = {
 
         const sourceLength = source.length;
 
-        source = source.replace(AWS_JSON_SHARED_COMMAND_REGEX, (_, name) => {
-          return `${awsJsonSharedCommand.name}(${name}, input, context)`;
-        });
+        source = source.replace(
+          AWS_JSON_SHARED_COMMAND_REGEX,
+          (_, name) => `${awsJsonSharedCommand.name}(${name}, input, context)`
+        );
+
+        source = source.replace(
+          AWS_JSON_SHARED_COMMAND_REGEX2,
+          (_, name, request) =>
+            `${awsJsonSharedCommand.name}(${name}, input, context, ${request})`
+        );
 
         if (sourceLength == source.length) {
           throw new Error(`Failed to optimize: ${name}`);
