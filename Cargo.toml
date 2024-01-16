@@ -53,18 +53,18 @@ hyper = { version = "1.1.0", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.26.0", default-features = false, features = [
     "http2",
     "http1",
-    "native-tokio",
     "webpki-roots",
     "webpki-tokio",
 ] }
 hyper-util = "0.1.2"
 http-body-util = "0.1.0"
-rustls = { version = "0.22.2", features = ["tls12", "aws_lc_rs"] }
-aws-lc-rs = { version = "1.5.2", features = ["non-fips"] }
+rustls = { version = "0.22.2", features = ["tls12", "ring"] }
 webpki-roots = "0.26.0"
 tokio-rustls = { version = "0.25.0", features = [
     "tls12",
+    "ring",
 ], default-features = false }
+ring = "0.17.7"
 
 [build-dependencies]
 relative-path = "1.9.0"
@@ -91,8 +91,8 @@ strip = false
 debug = true
 
 [profile.release]
-strip = false
-lto = false
+strip = true
+lto = true
 codegen-units = 1
 opt-level = 3
 panic = "abort"

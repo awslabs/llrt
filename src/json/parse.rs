@@ -75,22 +75,10 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
     #[inline(always)]
     fn static_node_to_value<'js>(ctx: &Ctx<'js>, node: StaticNode) -> Result<Value<'js>> {
         Ok(match node {
-            StaticNode::I64(value) => {
-                //pr
-                value.into_js(ctx)?
-            }
-            StaticNode::U64(value) => {
-                //pr
-                value.into_js(ctx)?
-            }
-            StaticNode::F64(value) => {
-                //pr
-                value.into_js(ctx)?
-            }
-            StaticNode::Bool(value) => {
-                //pr
-                value.into_js(ctx)?
-            }
+            StaticNode::I64(value) => value.into_js(ctx)?,
+            StaticNode::U64(value) => value.into_js(ctx)?,
+            StaticNode::F64(value) => value.into_js(ctx)?,
+            StaticNode::Bool(value) => value.into_js(ctx)?,
             StaticNode::Null => Null.into_js(ctx)?,
         })
     }

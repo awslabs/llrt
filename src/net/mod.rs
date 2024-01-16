@@ -16,9 +16,7 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
         root_certificates.roots.push(cert)
     }
 
-    ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into())
-        .with_safe_default_protocol_versions()
-        .expect("Failed to configure TLS")
+    ClientConfig::builder()
         .with_root_certificates(root_certificates)
         .with_no_client_auth()
 });
