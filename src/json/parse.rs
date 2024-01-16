@@ -49,16 +49,7 @@ impl<'js> PathItem<'js> {
 }
 
 pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> {
-    let tape = match simd_json::to_tape(&mut json) {
-        Ok(tape) => Ok(tape),
-        Err(err) => {
-            //fallback to builtin parsing on big ints until https://github.com/simd-lite/simd-json/pull/363 is merged
-            if err.to_string().starts_with("InvalidNumber") {
-                return ctx.json_parse(json);
-            }
-            Err(err).or_throw(ctx)
-        }
-    }?;
+    let tape = simd_json::to_tape(&mut json).or_throw(ctx)?;
 
     let mut str_key = "";
     let mut last_is_string = false;
