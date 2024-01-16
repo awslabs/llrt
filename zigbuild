@@ -1,10 +1,12 @@
 #!/bin/bash
 set -e
 
+printenv
+
 new_array=()
 for value in "$@"
 do
     [[ $value != *self-contained/*crt* ]] && new_array+=($value)
 done
 
-zig cc "${new_array[@]}"
+zig cc -target $ZIG_TARGET "${new_array[@]}" -O3 -flto

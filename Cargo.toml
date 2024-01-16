@@ -77,12 +77,10 @@ jwalk = "0.8.1"
 nanoid = "0.4.0"
 
 # [patch.crates-io]
-# rquickjs = { path = "./target/patch/rquickjs" }
+# rquickjs-sys = { path = "./target/patch/rquickjs-sys-0.4.0" }
 
 # [package.metadata.patch.rquickjs-sys]
-# patches = [
-#     "patches/print_invocation_time.patch"
-# ]
+# patches = ["patches/print_invocation_time.patch"]
 
 
 [profile.flame]
