@@ -62,31 +62,6 @@ fn human_file_size(size: usize) -> String {
 
 #[tokio::main]
 async fn main() -> StdResult<(), Box<dyn Error>> {
-    let mut zig_target_by_rust_target = HashMap::<&str, &str>::new();
-
-    zig_target_by_rust_target.insert("aarch64-unknown-linux-musl", "aarch64-linux-musl");
-    zig_target_by_rust_target.insert("x86_64-unknown-linux-musl", "x86_64-linux-musl");
-
-    let target_env = std::env::var("TARGET").unwrap();
-    let current_dir = env::current_dir().unwrap().to_string_lossy().to_string();
-
-    println!(
-        "cargo:rustc-env=ZIG_TARGET={}",
-        zig_target_by_rust_target
-            .get(target_env.as_str())
-            .expect("n/a")
-    );
-
-    println!("cargo:rustc-env=CC_{}={}/zigbuild", target_env, current_dir);
-    println!(
-        "cargo:rustc-env=CXX_{}={}/zigbuild",
-        target_env, current_dir
-    );
-    println!(
-        "cargo:rustc-env=ASM_{}={}/zigbuild",
-        target_env, current_dir
-    );
-
     rerun_if_changed!(BUNDLE_DIR);
 
     let resolver = (DummyResolver,);
