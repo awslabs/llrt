@@ -63,7 +63,7 @@ const postError = async (path: string, error: any, requestId?: string) => {
   const lambdaError: any = {
     errorType: errorName || typeof error,
     errorMessage: message || "" + error,
-    stackTrace: (stack || "").split("\n").slice(0, 10),
+    stackTrace: (stack || "").split("\n").slice(0, 20),
   };
   if (requestId) {
     lambdaError.requestId = requestId;
@@ -73,7 +73,7 @@ const postError = async (path: string, error: any, requestId?: string) => {
   }
 
   const errorBody = JSON.stringify(lambdaError);
-  console.error(errorBody);
+  console.error(lambdaError);
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: {
