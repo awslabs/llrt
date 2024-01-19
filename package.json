@@ -8,7 +8,7 @@
   "scripts": {
     "esbuild": "esbuild",
     "update": "yarn upgrade-interactive --latest",
-    "reinstall": "rm -rf node_modules && yarn"
+    "reinstall": "rm yarn.lock && rm -rf node_modules && yarn"
   },
   "side-effects": false,
   "devDependencies": {
@@ -46,5 +46,6 @@
   },
   "dependencies": {
     "acorn": "^8.11.3"
-  }
+  },
+  "packageManager": "yarn@4.0.1"
 }
