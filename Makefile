@@ -1,5 +1,5 @@
-TARGET_linux_x86_64 = x86_64-unknown-linux-musl
-TARGET_linux_arm64 = aarch64-unknown-linux-musl
+TARGET_linux_x86_64 = x86_64-unknown-linux-gnu
+TARGET_linux_arm64 = aarch64-unknown-linux-gnu
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 RUST_VERSION = nightly
@@ -7,10 +7,23 @@ TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
-ZSTD_LIB_ARGS = UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
-CC_ARM = zig cc -target aarch64-linux-musl -flto
-CC_X64 = zig cc -target x86_64-linux-musl -flto
-AR = zig ar
+ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/cc" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
+
+#export AR = $(CURDIR)/ar
+
+
+export CC_aarch64_unknown_linux_gnu = $(CURDIR)/cc
+export CXX_aarch64_unknown_linux_gnu = $(CURDIR)/cc
+export AR_aarch64_unknown_linux_gnu = $(CURDIR)/ar
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/cc
+export CARGO_TARGET_aarch64_unknown_linux_gnu_RUSTFLAGS = -Ctarget-feature=+lse,-crt-static -Ctarget-cpu=neoverse-n1
+
+export CC_x86_64_unknown_linux_gnu = $(CURDIR)/cc
+export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/cc
+export AR_x86_64_unknown_linux_gnu = $(CURDIR)/ar
+export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/cc
+export CARGO_TARGET_x86_64_unknown_linux_gnu_RUSTFLAGS = -Ctarget-feature=-crt-static
+
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -30,7 +43,7 @@ else
 	ARCH := $(shell uname -m)
 endif
 
-CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
+TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
 lambda-all: clean-js | libs $(RELEASE_ZIPS)
 release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
@@ -70,7 +83,7 @@ endef
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target))))
 
 build: js
-	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
+	cargo $(BUILD_ARG) --target $(TARGET)
 
 stdlib:
 	rustup target add $(TARGET_linux_x86_64)
@@ -81,15 +94,16 @@ stdlib:
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 toolchain:
-	rustup target add $(CURRENT_TARGET)
-	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
-	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
+	rustup target add $(TARGET)
+	rustup toolchain install $(RUST_VERSION) --target $(TARGET)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET)
 
 clean-js:
 	rm -rf ./bundle
 
 clean: clean-js
 	rm -rf ./target
+	rm -rf ./lib
 
 js: $(STD_JS_FILE)
 
@@ -160,8 +174,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
@@ -174,13 +188,13 @@ lib/zstd.h:
 lib/arm64/libzstd.a: 
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_ARM)" AR="$(AR)" $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && TARGET=$(TARGET_linux_arm64) make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@
 
 lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_X64)" AR="$(AR)" $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && TARGET=$(TARGET_linux_x86_64) make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:
