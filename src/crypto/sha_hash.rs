@@ -1,4 +1,4 @@
-use ring::{
+use aws_lc_rs::{
     digest::{self, Context as DigestContext},
     hmac::{self, Context as HmacContext},
 };

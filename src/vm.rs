@@ -11,8 +11,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use aws_lc_rs::rand::SecureRandom;
 use once_cell::sync::Lazy;
-use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
