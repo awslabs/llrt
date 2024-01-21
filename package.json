@@ -41,11 +41,6 @@
     "pure-http": "3.3.4",
     "readable-stream": "4.5.2",
     "stream-browserify": "3.0.0",
-    "typescript": "5.3.3",
-    "yarn": "^1.22.21"
-  },
-  "dependencies": {
-    "acorn": "^8.11.3"
-  },
-  "packageManager": "yarn@4.0.1"
+    "typescript": "5.3.3"
+  }
 }
