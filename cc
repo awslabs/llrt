@@ -23,4 +23,6 @@ do
     [[ $value != *self-contained/*crt* ]] && new_array+=($value)
 done
 
+printenv
+
 zig cc -target $CC_TARGET "${new_array[@]}" -O3 -flto -s
