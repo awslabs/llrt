@@ -39,7 +39,9 @@ else
 	ARCH := $(shell uname -m)
 endif
 
-export TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
+CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
+
+export COMPILE_TARGET = $(CURRENT_TARGET)
 
 lambda-all: clean-js | libs $(RELEASE_ZIPS)
 release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
@@ -68,7 +70,7 @@ llrt-linux-arm64.zip: js
 
 define release_template
 release-${1}: js
-	TARGET=$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+	COMPILE_TARGET=$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
 	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
@@ -79,7 +81,7 @@ endef
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target))))
 
 build: js
-	cargo $(BUILD_ARG) --target $(TARGET)
+	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
 
 stdlib:
 	rustup target add $(TARGET_linux_x86_64)
@@ -90,9 +92,9 @@ stdlib:
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 toolchain:
-	rustup target add $(TARGET)
-	rustup toolchain install $(RUST_VERSION) --target $(TARGET)
-	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET)
+	rustup target add $(CURRENT_TARGET)
+	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
 
 clean-js:
 	rm -rf ./bundle
@@ -170,8 +172,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h

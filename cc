@@ -1,19 +1,19 @@
 #!/bin/bash
 set -e
 
-if [ -z ${TARGET+x} ]; then
-    TARGET="${CARGO_CFG_TARGET_ARCH}-${CARGO_CFG_TARGET_VENDOR}-${CARGO_CFG_TARGET_OS}-${CARGO_CFG_TARGET_ENV}"
+if [ -z ${COMPILE_TARGET+x} ]; then
+    COMPILE_TARGET="${CARGO_CFG_TARGET_ARCH}-${CARGO_CFG_TARGET_VENDOR}-${CARGO_CFG_TARGET_OS}-${CARGO_CFG_TARGET_ENV}"
 fi
 
 CC_TARGET=""
 
-if [[ $TARGET == "x86_64-unknown-linux-gnu" ]]; then
+if [[ $COMPILE_TARGET == "x86_64-unknown-linux-gnu" ]]; then
     CC_TARGET="x86_64-linux-gnu"
-elif [[ $TARGET == "aarch64-unknown-linux-gnu" ]]; then
+elif [[ $COMPILE_TARGET == "aarch64-unknown-linux-gnu" ]]; then
     CC_TARGET="aarch64-linux-gnu"
-elif [[ $TARGET == "x86_64-unknown-linux-musl" ]]; then
+elif [[ $COMPILE_TARGET == "x86_64-unknown-linux-musl" ]]; then
     CC_TARGET="x86_64-linux-musl"
-elif [[ $TARGET == "aarch64-unknown-linux-musl" ]]; then
+elif [[ $COMPILE_TARGET == "aarch64-unknown-linux-musl" ]]; then
     CC_TARGET="aarch64-linux-musl"
 fi
 
@@ -23,10 +23,10 @@ do
     [[ $value != *self-contained/*crt* ]] && new_array+=($value)
 done
 
-echo "Build with target \"$CC_TARGET\""
+# echo "Build with target \"$CC_TARGET\""
 
-echo "====="
-echo zig cc -target $CC_TARGET "${new_array[@]}"
-echo "====="
+# echo "====="
+# echo zig cc -target $CC_TARGET "${new_array[@]}"
+# echo "====="
 
 zig cc -target $CC_TARGET "${new_array[@]}"
