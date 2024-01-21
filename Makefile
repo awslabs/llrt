@@ -9,20 +9,17 @@ BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
 ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/cc" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
 
-#export AR = $(CURDIR)/ar
-
-
-export CC_aarch64_unknown_linux_gnu = $(CURDIR)/cc
-export CXX_aarch64_unknown_linux_gnu = $(CURDIR)/cc
-export AR_aarch64_unknown_linux_gnu = $(CURDIR)/ar
+export CC_AARCH64_UNKNOWN_LINUX_GNU = $(CURDIR)/cc
+export CXX_AARCH64_UNKNOWN_LINUX_GNU = $(CURDIR)/cc
+export AR_AARCH64_UNKNOWN_LINUX_GNU = $(CURDIR)/ar
 export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/cc
-export CARGO_TARGET_aarch64_unknown_linux_gnu_RUSTFLAGS = -Ctarget-feature=+lse,-crt-static -Ctarget-cpu=neoverse-n1
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse,-crt-static -Ctarget-cpu=neoverse-n1
 
-export CC_x86_64_unknown_linux_gnu = $(CURDIR)/cc
-export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/cc
-export AR_x86_64_unknown_linux_gnu = $(CURDIR)/ar
+export CC_X86_64_UNKNOWN_LINUX_GNU = $(CURDIR)/cc
+export CXX_X86_64_UNKNOWN_LINUX_GNU = $(CURDIR)/cc
+export AR_X86_64_UNKNOWN_LINUX_GNU = $(CURDIR)/ar
 export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/cc
-export CARGO_TARGET_x86_64_unknown_linux_gnu_RUSTFLAGS = -Ctarget-feature=-crt-static
+export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=-crt-static
 
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
