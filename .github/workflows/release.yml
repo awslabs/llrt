@@ -75,7 +75,7 @@ jobs:
             qemu-utils \
             qemu-user
 
-          make TARGET=aarch64-unknown-linux-musl test-ci
+          make TARGET=aarch64-unknown-linux-gnu test-ci
       - name: Build binaries
         run: |
           make release

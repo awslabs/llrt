@@ -64,18 +64,6 @@ fn human_file_size(size: usize) -> String {
 async fn main() -> StdResult<(), Box<dyn Error>> {
     rerun_if_changed!(BUNDLE_DIR);
 
-    println!(
-        "cargo:rustc-env=TARGET={}",
-        std::env::var("TARGET").expect("missing TARGET environment variable")
-    );
-    println!(
-        "cargo:rustc-env=AR={}/ar",
-        std::env::current_dir()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-    );
-
     let resolver = (DummyResolver,);
     let loader = (DummyLoader,);
 

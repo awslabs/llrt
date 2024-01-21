@@ -23,12 +23,4 @@ do
     [[ $value != *self-contained/*crt* ]] && new_array+=($value)
 done
 
-printenv
-
-echo "Build with target \"$CC_TARGET\""
-
-echo "====="
-echo zig cc -target $CC_TARGET "${new_array[@]}"
-echo "====="
-
 zig cc -target $CC_TARGET "${new_array[@]}"
