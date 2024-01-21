@@ -27,4 +27,8 @@ printenv
 
 echo "Build with target \"$CC_TARGET\""
 
-zig cc -target $CC_TARGET "${new_array[@]}" -O3 -flto -s
+echo "====="
+echo zig cc -target $CC_TARGET "${new_array[@]}"
+echo "====="
+
+zig cc -target $CC_TARGET "${new_array[@]}"
