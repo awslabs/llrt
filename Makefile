@@ -39,7 +39,7 @@ else
 	ARCH := $(shell uname -m)
 endif
 
-TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
+export TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
 lambda-all: clean-js | libs $(RELEASE_ZIPS)
 release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
