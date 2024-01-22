@@ -75,7 +75,7 @@ jobs:
         run: |
           mkdir -p ~/.zig
           curl -L  https://ziglang.org/builds/zig-linux-${{matrix.arch}}-${ZIG_VERSION}.tar.xz | tar -xJf - -C ~/.zig --strip-components=1
-          echo "~/.zig/bin" >> $GITHUB_PATH
+          echo "~/.zig" >> $GITHUB_PATH
       - name: Install MacOS dependencies
         if: matrix.platform == 'darwin'
         env:
