@@ -93,19 +93,19 @@ jobs:
           toolchain: nightly
       - name: Cargo cache
         uses: actions/cache@v3
+        continue-on-error: false
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-      - name: Build cache
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/            
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - name: Apply patches
         run: |
-          cargo install cargo-patch
+          cargo install cargo-patch || true
           cargo patch
       - name: Run tests
         if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
