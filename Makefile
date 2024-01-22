@@ -38,10 +38,10 @@ ifeq ($(DETECTED_OS),darwin)
 	export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
 	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
 else ifeq ($(DETECTED_OS),linux)
-	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="x86_64-linux-gnu-gcc"
+	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = x86_64-linux-gnu-gcc
 
 	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="aarch64-linux-gnu-gcc"
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = aarch64-linux-gnu-gcc
 
 	RUNFLAGS = RUSTFLAGS="-Ctarget-feature=+crt-static"
 endif
