@@ -74,7 +74,7 @@ jobs:
           ZIG_VERSION: 0.12.0-dev.2313+bf7ebfa67
         run: |
           mkdir -p ~/.zig
-          curl -L  https://ziglang.org/builds/zig-linux-${{matrix.arch}}-${ZIG_VERSION}.tar.xz | tar -xf - -C ~/.zig --strip-components=1
+          curl -L  https://ziglang.org/builds/zig-linux-${{matrix.arch}}-${ZIG_VERSION}.tar.xz | tar -xJf - -C ~/.zig --strip-components=1
           echo "~/.zig/bin" >> $GITHUB_PATH
       - name: Install MacOS dependencies
         if: matrix.platform == 'darwin'
