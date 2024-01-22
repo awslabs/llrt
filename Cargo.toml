@@ -75,10 +75,13 @@ phf_codegen = "0.11.2"
 jwalk = "0.8.1"
 nanoid = "0.4.0"
 
-# [patch.crates-io]
-# rquickjs-sys = { path = "./target/patch/rquickjs-sys-0.4.0" }
+[patch.crates-io]
+rquickjs-sys = { path = "./target/patch/rquickjs-sys-0.4.2" }
 
-# [package.metadata.patch.rquickjs-sys]
+[package.metadata.patch.rquickjs-sys]
+patches = [
+    "patches/aarch64_linux_gnu_binding.patch",
+] #bindgen does not work when cross compiling
 # patches = ["patches/print_invocation_time.patch"]
 
 

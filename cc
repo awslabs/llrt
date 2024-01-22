@@ -20,7 +20,7 @@ fi
 new_array=()
 for value in "$@"
 do
-    [[ $value != *self-contained/*crt* ]] && [[ $value != *--no-undefined-version ]] && new_array+=($value)
+    [[ $value != *self-contained/*crt* ]] && new_array+=($value)
 done
 
 # echo "Build with target \"$CC_TARGET\""

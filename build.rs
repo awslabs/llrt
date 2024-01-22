@@ -69,6 +69,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
     let rt = Runtime::new().unwrap();
     rt.set_loader(resolver, loader);
+    rt.set_max_stack_size(512 * 1024);
     let ctx = Context::full(&rt).unwrap();
 
     let sdk_bytecode_path = Path::new("src").join("bytecode_cache.rs");

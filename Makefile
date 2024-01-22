@@ -186,13 +186,13 @@ lib/zstd.h:
 lib/arm64/libzstd.a: 
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && TARGET=$(TARGET_linux_arm64) make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_arm64) make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@
 
 lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && TARGET=$(TARGET_linux_x86_64) make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_x86_64) make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:

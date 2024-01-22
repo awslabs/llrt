@@ -1461,8 +1461,6 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b6865056bc4154c49bc8b2babd9232a8ba55dee4860fc74c789633aecad3ca"
 dependencies = [
  "cc",
 ]
