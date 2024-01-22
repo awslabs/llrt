@@ -9,18 +9,6 @@ BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
 ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/cc -s -O3 -flto" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
 
-export AR = $(CURDIR)/ar
-export CC_aarch64_unknown_linux_gnu = $(CURDIR)/cc
-export CCX_aarch64_unknown_linux_gnu = $(CURDIR)/cc
-export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/cc
-export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse,-crt-static -Ctarget-cpu=neoverse-n1
-
-export CC_x86_64_unknown_linux_gnu = $(CURDIR)/cc
-export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/cc
-export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/cc
-export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=-crt-static
-
-
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
 
@@ -37,6 +25,25 @@ ifeq ($(OS),Windows_NT)
 else
     DETECTED_OS := $(shell uname | tr A-Z a-z)
 	ARCH := $(shell uname -m)
+endif
+
+ifeq (DETECTED_OS,darwin)
+	export AR = $(CURDIR)/zigar
+	export CC_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CCX_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+
+	export CC_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
+else ifeq (DETECTED_OS, linux)
+	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="x86_64-linux-gnu-gcc"
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="aarch64-linux-gnu-gcc"
+
+	RUNFLAGS = RUSTFLAGS=-Ctarget-feature=+crt-static
 endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
@@ -172,8 +179,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	$(RUNFLAGS) cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	$(RUNFLAGS) cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
