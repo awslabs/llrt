@@ -40,10 +40,10 @@ ifeq ($(DETECTED_OS),darwin)
 else ifeq ($(DETECTED_OS),linux)
 	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = x86_64-linux-gnu-gcc
 
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=--allow-multiple-definition -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
 	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = aarch64-linux-gnu-gcc
 
-	RUNFLAGS = RUSTFLAGS="-Clink-arg=--allow-multiple-definition -Ctarget-feature=+crt-static"
+	RUNFLAGS = RUSTFLAGS="-Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+crt-static"
 endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
