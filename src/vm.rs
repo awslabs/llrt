@@ -46,7 +46,7 @@ use crate::{
     number::number_to_string,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
-    timers::{TimersModule},
+    timers::TimersModule,
     util::{get_bytes, get_class_name, get_js_path, ObjectExt, UtilModule},
     uuid::UuidModule,
     xml::XmlModule,
