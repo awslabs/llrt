@@ -252,11 +252,12 @@ impl<'js> ChildProcess<'js> {
             Err(err) => {
                 let ctx3 = ctx.clone();
 
+                println!("child processes failed::: {}", command.clone());
+
                 let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
 
                 //allow listeners to attach
                 ctx.spawn_exit(async move {
-                    tokio::time::sleep(Duration::from_millis(1)).await;
                     if !instance3.borrow().emitter.has_listener_str("error") {
                         return Err(Exception::throw_message(&ctx3, &err_message));
                     }
