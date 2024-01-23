@@ -4,6 +4,7 @@ use std::{
     os::fd::FromRawFd,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
+    time::Duration,
 };
 
 #[cfg(unix)]
@@ -253,22 +254,9 @@ impl<'js> ChildProcess<'js> {
 
                 let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
 
-                // let func = Func::from(OnceFn::from(move |ctx| {
-                //     if !instance3.borrow().emitter.has_listener_str("error") {
-                //         return Err(Exception::throw_message(&ctx, &err_message));
-                //     }
-
-                //     let ex = Exception::from_message(ctx.clone(), &err_message)?;
-                //     ChildProcess::emit_str(This(instance3), &ctx, "error", vec![ex.into()], false)?;
-                //     Ok(())
-                // }))
-                // .into_js(&ctx)?;
-
-                // func.as_function().unwrap().defer(())?;
-
                 //allow listeners to attach
                 ctx.spawn_exit(async move {
-                    tokio::task::yield_now().await;
+                    tokio::time::sleep(Duration::from_millis(1)).await;
                     if !instance3.borrow().emitter.has_listener_str("error") {
                         return Err(Exception::throw_message(&ctx3, &err_message));
                     }
