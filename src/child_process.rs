@@ -167,6 +167,8 @@ impl<'js> ChildProcess<'js> {
 
         match child {
             Ok(mut child) => {
+                println!("=============\nCHILD OK {}\n============", command.clone());
+
                 instance2.borrow_mut().pid = child.id();
 
                 if let Some(child_stdin) = child.stdin.take() {
@@ -252,7 +254,10 @@ impl<'js> ChildProcess<'js> {
             Err(err) => {
                 let ctx3 = ctx.clone();
 
-                println!("child processes failed::: {}", command.clone());
+                println!(
+                    "=============\nCHILD FAILED {}\n============",
+                    command.clone()
+                );
 
                 let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
 
