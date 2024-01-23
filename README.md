@@ -188,13 +188,16 @@ Install dependencies
     # MacOS
     brew install zig make zstd node corepack
 
-    # Ubuntu
-    sudo snap install zig --classic --beta node
-    sudo apt -y install make zstd
+    # Ubuntu x
+    sudo apt -y install make zstd gcc \
+      libc6-arm64-cross \
+      libc6-dev-arm64-cross \
+      crossbuild-essential-arm64
+    sudo snap install zig --classic --beta
 
 Clone code and cd to directory
 
-    git clone <repo-url> --recursive
+    git clone git@github.com:awslabs/llrt.git --recursive
     cd llrt
 
 Install Node.js packages
@@ -205,6 +208,10 @@ Install Node.js packages
 Install generate libs and setup rust targets & toolchains
 
     make stdlib && make libs
+
+Apply patches
+    cargo install cargo-patch
+    cargo patch
 
 Build release
 

@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     env,
     error::Error,
     fs::{self, File},
     io::{self, BufWriter},
     path::{Path, PathBuf, MAIN_SEPARATOR_STR},
-    process::{self, Command},
+    process::{Command},
     result::Result as StdResult,
 };
 
