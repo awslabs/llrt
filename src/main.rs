@@ -7,6 +7,7 @@ mod macros;
 mod buffer;
 mod bytearray_buffer;
 mod child_process;
+mod compiler;
 mod console;
 mod crypto;
 mod encoding;
@@ -35,7 +36,7 @@ use rquickjs::{AsyncContext, Module};
 use std::{
     env::{self},
     error::Error,
-    path::Path,
+    path::{Path, PathBuf},
     process::exit,
     sync::atomic::Ordering,
     time::Instant,
@@ -47,6 +48,7 @@ use util::{get_basename_ext_name, get_js_path, JS_EXTENSIONS};
 use vm::Vm;
 
 use crate::{
+    compiler::compile_file,
     console::LogLevel,
     process::{get_arch, get_platform},
     util::walk_directory,
@@ -98,14 +100,20 @@ Usage:
   llrt -v | --version
   llrt -h | --help
   llrt -e | --eval <source>
+  llrt compile input.js [output.lrt]
   llrt test <test_args>
-    
+
 Options:
   -v, --version     Print version information
   -h, --help        Print this help message
   -e, --eval        Evaluate the provided source code
+  compile           Compile JS to bytecode and compress it with zstd:
+                      if [output.lrt] is omitted, <input>.lrt is used.
+                      lrt file is expected to be executed by the llrt version 
+                      that created it
   test              Run tests with provided arguments:
-                        <test_args> -d <directory> <test-filter>"#
+                      <test_args> -d <directory> <test-filter>
+"#
     );
 }
 
@@ -148,6 +156,28 @@ async fn start_cli(context: &AsyncContext) {
                             exit(1);
                         }
                         return;
+                    }
+                    "compile" => {
+                        if let Some(filename) = args.get(i + 1) {
+                            let output_filename = if let Some(arg) = args.get(i + 2) {
+                                arg.to_string()
+                            } else {
+                                let mut buf = PathBuf::from(filename);
+                                buf.set_extension("lrt");
+                                buf.to_string_lossy().to_string()
+                            };
+
+                            let filename = Path::new(filename);
+                            let output_filename = Path::new(&output_filename);
+                            if let Err(error) = compile_file(filename, output_filename).await {
+                                eprintln!("{error}");
+                                exit(1);
+                            }
+                            return;
+                        } else {
+                            eprintln!("compile: input filename is required.");
+                            exit(1);
+                        }
                     }
                     _ => {}
                 }
