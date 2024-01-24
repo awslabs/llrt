@@ -4,7 +4,6 @@ use std::{
     os::fd::FromRawFd,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 #[cfg(unix)]
@@ -170,6 +169,8 @@ impl<'js> ChildProcess<'js> {
                 println!("=============\nCHILD OK {}\n============", command.clone());
 
                 instance2.borrow_mut().pid = child.id();
+
+                println!("CHILD ID: {:?}", child.id());
 
                 if let Some(child_stdin) = child.stdin.take() {
                     DefaultWritableStream::process(stdin_instance.clone(), &ctx, child_stdin)?;
