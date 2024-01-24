@@ -113,8 +113,8 @@ jobs:
           make test-ci
       - name: Run tests
         if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+        # env:
+        #   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         run: |
           sudo apt-get install -y \
             libc6-arm64-cross \
