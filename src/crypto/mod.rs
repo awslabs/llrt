@@ -3,8 +3,8 @@ mod md5_hash;
 mod sha_hash;
 use std::slice;
 
-use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use once_cell::sync::Lazy;
+use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},

@@ -1,6 +1,6 @@
 use std::os::unix::prelude::PermissionsExt;
 
-use aws_lc_rs::rand::{SecureRandom, SystemRandom};
+use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 

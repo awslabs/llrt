@@ -55,15 +55,17 @@ hyper-rustls = { version = "0.26.0", default-features = false, features = [
     "http1",
     "webpki-roots",
     "webpki-tokio",
+    "ring",
 ] }
 hyper-util = "0.1.2"
 http-body-util = "0.1.0"
-rustls = { version = "0.22.2", features = ["tls12", "aws_lc_rs"] }
+rustls = { version = "0.22.2", features = ["tls12", "ring"] }
 webpki-roots = "0.26.0"
 tokio-rustls = { version = "0.25.0", features = [
     "tls12",
+    "ring",
 ], default-features = false }
-aws-lc-rs = "1.5.2"
+ring = "0.17.7"
 
 [build-dependencies]
 relative-path = "1.9.0"

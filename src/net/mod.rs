@@ -6,7 +6,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     Ctx, Result,
 };
-use rustls::{crypto::aws_lc_rs, ClientConfig, RootCertStore};
+use rustls::{crypto::ring, ClientConfig, RootCertStore};
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
@@ -16,7 +16,7 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
         root_certificates.roots.push(cert)
     }
 
-    ClientConfig::builder_with_provider(aws_lc_rs::default_provider().into())
+    ClientConfig::builder_with_provider(ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_certificates)
