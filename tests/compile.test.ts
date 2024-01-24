@@ -1,107 +1,87 @@
-import fs from 'fs/promises';
-import { spawn } from 'child_process';
-import { tmpdir } from 'os';
+import fs from "fs/promises";
+import { spawn } from "child_process";
+import { tmpdir } from "os";
 
 const spawnCapture = async (cmd: string, args: string[]) => {
-    const child = spawn(cmd, args);
+  const child = spawn(cmd, args);
 
-    let error;
-    child.on('error', (err) => { error = err });
+  let stdout = "";
+  let stderr = "";
 
-    let status = -1;
-    let signal = undefined;
-    child.on('exit', (code, sig) => {
-        status = code ?? -1;
-        signal = sig; // 'SIGILL' when there is a panic.
+  child.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+
+  child.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+
+  const [status, signal] = await new Promise<
+    [number | null, NodeJS.Signals | null]
+  >((resolve) => {
+    child.on("close", (code, sig) => {
+      resolve([code ?? -1, sig]);
     });
+  });
 
-    let stdout = '';
-    child.stdout.on('data', (data) => {
-        stdout += data.toString();
-    });
+  return { stdout, stderr, status, signal };
+};
 
-    let stderr = '';
-    child.stderr.on('data', (data) => {
-        stderr += data.toString();
-    });
+const compile = async (filename: string, outputFilename: string) =>
+  await spawnCapture(process.argv0, ["compile", filename, outputFilename]);
 
-    await new Promise((resolve) => child.on('exit', resolve));
+const run = async (filename: string) =>
+  await spawnCapture(process.argv0, [filename]);
 
-    return {
-        stdout: stdout ?? '',
-        stderr: stderr ?? '',
-        status,
-        signal,
-        error
-    }
-}
+describe("llrt compile", async () => {
+  const tmpDir = await fs.mkdtemp(`${tmpdir()}/llrt-test-compile`);
 
-const compile = async (filename: string, outputFilename: string) => {
-    return await spawnCapture(
-        process.argv0,
-        ['compile', filename, outputFilename]);
-}
+  it("can compile and run empty", async () => {
+    const tmpOutput = `${tmpDir}/empty.lrt`;
 
-const run = async (filename: string) => {
-    return await spawnCapture(
-        process.argv0,
-        [filename]);
-}
+    const compileResult = await compile("fixtures/empty.js", tmpOutput);
 
-describe('llrt compile', async () => {
-    const tmpDir = await fs.mkdtemp(`${tmpdir}/llrt-test-compile`);
-    const cases = [{
-        name: 'empty', filename: 'fixtures/empty.js', expected: { stdout: '', stderr: '', status: 0 },
-    }, {
-        name: 'console.log', filename: 'fixtures/hello.js', expected: { stdout: 'hello world!\n', status: 0 },
-    }, {
-        name: 'throws', filename: 'fixtures/throw.js', expected: { stdout: '', stderr: 'Error: 42\n', status: 1 },
-    }];
+    assert.strictEqual(compileResult.stderr, "");
+    assert.strictEqual(compileResult.signal, undefined);
 
-    cases.forEach(async c => {
-        it(`can compile and run ${c.name}`, async () => {
-            const tmpOutput = `${tmpDir}/${c.name}.lrt`;
-            // compile.
-            {
-                const child = await compile(c.filename, tmpOutput);
-                if (c.expected.compileError && typeof c.expected.stderr !== 'undefined') {
-                    if (c.expected.stderr instanceof RegExp) {
-                        assert.match(child.stderr, c.expected.stderr)
-                    } else {
-                        assert.strictEqual(child.stderr, c.expected.stderr)
-                    };
-                }
-                if (c.expected.signal) {
-                    assert.strictEqual(child.signal, c.expected.signal);
-                }
-                if (c.expected.compileError) {
-                    return;
-                }
-            }
+    const runResult = await run(tmpOutput);
 
-            // run.
-            {
-                const child = await run(tmpOutput);
-                if (typeof c.expected.stdout !== 'undefined') {
-                    assert.strictEqual(child.stdout, c.expected.stdout);
-                }
+    assert.strictEqual(runResult.stdout, "");
+    assert.strictEqual(runResult.stderr, "");
+    assert.strictEqual(runResult.status, 0);
+  });
 
-                if (typeof c.expected.stderr !== 'undefined') {
-                    if (c.expected.stderr instanceof RegExp) {
-                        assert.match(child.stderr, c.expected.stderr)
-                    } else {
-                        assert.strictEqual(child.stderr, c.expected.stderr)
-                    };
-                }
+  it("can compile and run console.log", async () => {
+    const tmpOutput = `${tmpDir}/console.log.lrt`;
 
-                if (typeof c.expected.status !== 'undefined') {
-                    assert.strictEqual(child.status, c.expected.status);
-                }
-            }
-        })
-    });
+    const compileResult = await compile("fixtures/hello.js", tmpOutput);
 
-    afterAll(async () => {
-        await fs.rmdir(tmpDir, { recursive: true });
-    })
+    assert.strictEqual(compileResult.stderr, "");
+    assert.strictEqual(compileResult.signal, undefined);
+
+    const runResult = await run(tmpOutput);
+
+    assert.strictEqual(runResult.stdout, "hello world!\n");
+    assert.strictEqual(runResult.stderr, "");
+    assert.strictEqual(runResult.status, 0);
+  });
+
+  it.only("can compile and run throws", async () => {
+    const tmpOutput = `${tmpDir}/throws.lrt`;
+
+    const compileResult = await compile("fixtures/throw.js", tmpOutput);
+
+    assert.strictEqual(compileResult.stderr, "");
+    assert.strictEqual(compileResult.signal, undefined);
+
+    const runResult = await run(tmpOutput);
+
+    assert.strictEqual(runResult.stdout, "");
+    assert.strictEqual(runResult.stderr, "Error: 42\n");
+    assert.strictEqual(runResult.status, 1);
+  });
+
+  afterAll(async () => {
+    await fs.rmdir(tmpDir, { recursive: true });
+  });
 });
