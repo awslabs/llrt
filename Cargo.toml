@@ -14,12 +14,9 @@ chrono = { version = "0.4.31", default-features = false, features = ["std"] }
 quick-xml = "0.31.0"
 crc32c = "0.6.4"
 crc32fast = "1.3.2"
-hyper = "0.14.27"
-hyper-rustls = "0.24.2"
 phf = "0.11.2"
 md-5 = { version = "0.10.6", features = ["asm"] }
-ring = "0.17.6"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "35b32d8fba34483b336d75b43e145d1ac75893db", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "60696e88dfb903d8f5cd81b2667fb3f64f9e9f67", features = [
     "full-async",
     "parallel",
 ], default-features = false }
@@ -32,12 +29,10 @@ uuid = { version = "1.6.1", default-features = false, features = [
     "v5",
     "fast-rng",
 ] }
-rustls = "0.21.9"
 once_cell = "1.18.0"
 tokio-context = "0.1.3"
 tracing-core = "0.1.32"
 webpki = "0.22.4"
-webpki-roots = "0.25.3"
 async-trait = "0.1.74"
 url = "2.5.0"
 zstd = { version = "0.13.0", default-features = false, features = [] }
@@ -47,7 +42,6 @@ base64-simd = "0.8.0"
 hex-simd = "0.8.0"
 socket2 = "0.5.5"
 bytes = "1.5.0"
-tokio-rustls = "0.24.1"
 uuid-simd = "0.8.0"
 simd-json = { version = "0.13.7", default-features = false, features = [
     "big-int-as-float",
@@ -55,28 +49,39 @@ simd-json = { version = "0.13.7", default-features = false, features = [
 itoa = "1.0.10"
 ryu = "1.0.16"
 fxhash = "0.2.1"
+hyper = { version = "1.1.0", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.26.0", default-features = false, features = [
+    "http2",
+    "http1",
+    "webpki-roots",
+    "webpki-tokio",
+    "ring",
+] }
+hyper-util = "0.1.2"
+http-body-util = "0.1.0"
+rustls = { version = "0.22.2", features = ["tls12", "ring"] }
+webpki-roots = "0.26.0"
+tokio-rustls = { version = "0.25.0", features = [
+    "tls12",
+    "ring",
+], default-features = false }
+ring = "0.17.7"
 
 [build-dependencies]
-relative-path = "1.9.0"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "35b32d8fba34483b336d75b43e145d1ac75893db", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "60696e88dfb903d8f5cd81b2667fb3f64f9e9f67", features = [
     "full-async",
 ], default-features = false }
+relative-path = "1.9.0"
 tokio = { version = "1", features = ["full"] }
 phf_codegen = "0.11.2"
 jwalk = "0.8.1"
 nanoid = "0.4.0"
 
 # [patch.crates-io]
-# rquickjs = { path = "./target/patch/rquickjs" }
-
-# [package.metadata.patch.rquickjs-core]
-# patches = ["patches/spawn_order.patch"]
+# rquickjs-sys = { path = "./target/patch/rquickjs-sys-0.4.2" }
 
 # [package.metadata.patch.rquickjs-sys]
-# patches = [
-#     "patches/print_invocation_time.patch"
-# ]
-
+# patches = ["patches/print_invocation_time.patch"]
 
 [profile.flame]
 inherits = "release"
@@ -92,7 +97,7 @@ panic = "abort"
 
 [profile.test]
 panic = "abort"
-opt-level = 3 #required for large number parsing
+opt-level = 3   #required for large number parsing
 
 [[bin]]
 name = "llrt"

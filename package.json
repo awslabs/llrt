@@ -8,7 +8,7 @@
   "scripts": {
     "esbuild": "esbuild",
     "update": "yarn upgrade-interactive --latest",
-    "reinstall": "rm -rf node_modules && yarn"
+    "reinstall": "rm yarn.lock && rm -rf node_modules && yarn"
   },
   "side-effects": false,
   "devDependencies": {
@@ -41,10 +41,6 @@
     "pure-http": "3.3.4",
     "readable-stream": "4.5.2",
     "stream-browserify": "3.0.0",
-    "typescript": "5.3.3",
-    "yarn": "^1.22.21"
-  },
-  "dependencies": {
-    "acorn": "^8.11.3"
+    "typescript": "5.3.3"
   }
 }

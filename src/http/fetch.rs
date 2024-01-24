@@ -1,11 +1,14 @@
-use hyper::{Body, Client as HttpClient, Request, Uri};
+use bytes::Bytes;
+use http_body_util::Full;
+use hyper::{Request, Uri};
+use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use rquickjs::{
     function::Opt,
     prelude::{Async, Func},
     Ctx, Error, Exception, Object, Result, Value,
 };
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::{
     http::headers::Headers,
@@ -46,9 +49,13 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         .enable_http1()
         .build();
 
-    let client = HttpClient::builder()
-        .pool_idle_timeout(None)
-        .build::<_, hyper::Body>(https);
+    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
+        .pool_idle_timeout(Duration::from_secs(5 * 30)) //5 minutes
+        .build(https);
+
+    // let client = Client::builder()
+    //     .pool_idle_timeout(None)
+    //     .build::<_, hyper::Body>(https);
 
     globals.set(
         "fetch",
@@ -58,7 +65,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
             let client = client.clone();
 
             let mut method = Ok(hyper::Method::GET);
-            let mut body: Result<Body> = Ok(Body::empty());
+            let mut body = Ok(Full::<Bytes>::default());
             let mut headers: Option<Result<Headers>> = None;
 
             let (url, resource_options) = get_url_options(resource);
@@ -90,7 +97,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 
                 if let Some(body_value) = body_opt {
                     let bytes = get_bytes(&ctx, body_value);
-                    body = bytes.map(Body::from);
+                    body = bytes.map(Full::from);
                 }
 
                 method = method_opts.and_then(|m| {

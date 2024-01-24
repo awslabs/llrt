@@ -16,6 +16,20 @@
 #include <zstd.h>
 #include <stdarg.h>
 
+#include <sys/syscall.h>
+
+#ifdef __x86_64__
+#define MEMFD_CREATE_SYSCALL_ID 319
+#else
+#define MEMFD_CREATE_SYSCALL_ID 279
+#endif
+
+int memfd_create_syscall(const char *name, unsigned flags)
+{
+
+  return syscall(MEMFD_CREATE_SYSCALL_ID, name, flags);
+}
+
 #define TIMESTAMP_BUFFER_SIZE 50
 
 // Global flag to cache whether logging is enabled
@@ -238,7 +252,7 @@ int main(int argc, char *argv[])
 
   double t0 = micro_seconds();
 
-  int outputFd = memfd_create(appname, 0);
+  int outputFd = memfd_create_syscall(appname, 0);
   if (outputFd == -1)
   {
     err(1, "Could not create memfd");
@@ -285,6 +299,8 @@ int main(int argc, char *argv[])
   sprintf(startTimeStr, "%lu", startTime);
 
   setenv("_START_TIME", startTimeStr, false);
+  setenv("MIMALLOC_RESERVE_OS_MEMORY", "120m", false);
+  setenv("MIMALLOC_LIMIT_OS_ALLOC", "1", false);
 
   logInfo("Starting app\n");
 

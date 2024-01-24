@@ -59,6 +59,10 @@ describe("child_process.spawn", () => {
   });
 
   it("should handle errors from the child process", (done) => {
+    if (process.env._VIRTUAL_ENV) {
+      //QEMU spawns nonexistent-command successfully
+      return done();
+    }
     const command = "nonexistent-command";
     const child = spawn(command);
     child.on("error", (err) => {

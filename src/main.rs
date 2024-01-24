@@ -80,6 +80,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     vm.idle().await?;
+
     Ok(())
 }
 

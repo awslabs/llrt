@@ -5,7 +5,31 @@ on:
       - "v*.*.*"
 
 jobs:
+  prebuild:
+    strategy:
+      fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+          - os: ubuntu-latest
+            platform: linux
+            arch: aarch64
+          - os: macos-latest
+            platform: darwin
+            arch: x86_64
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+    uses: ./.github/workflows/build.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}
+      arch: ${{ matrix.arch }}
   build:
+    needs:
+      - prebuild
     strategy:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
@@ -24,58 +48,6 @@ jobs:
             arch: aarch64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          cache: yarn
-          node-version: lts/*
-      - name: Install Linux dependencies
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install make nodejs
-          sudo snap install zig --classic --beta
-      - name: Install MacOS dependencies
-        if: matrix.platform == 'darwin'
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-        run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install zig make
-      - name: Install Windows dependencies
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: |
-          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
-          scoop install make zig
-      - name: Install JavaScript dependencies
-        run: |
-          corepack enable
-          yarn
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: nightly
-      - name: Run tests
-        if: matrix.arch != 'aarch64' || matrix.platform != 'linux'
-        run: |
-          make test-ci
-      - name: Run tests
-        if: matrix.arch == 'aarch64' && matrix.platform == 'linux'
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
-        run: |
-          sudo apt-get install -y \
-            qemu-system-arm \
-            qemu-efi-aarch64 \
-            qemu-utils \
-            qemu-user
-
-          make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
       - name: Build binaries
         run: |
           make release
@@ -111,9 +83,9 @@ jobs:
           body_path: ./changelog/CHANGELOG.md
           prerelease: contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc')
           files: |
-            ./artifacts-linux/llrt-lambda-x86.zip
+            ./artifacts-linux/llrt-lambda-x64.zip
             ./artifacts-linux/llrt-lambda-arm64.zip
-            ./artifacts-linux/llrt-linux-x86.zip
+            ./artifacts-linux/llrt-linux-x64.zip
             ./artifacts-linux/llrt-linux-arm64.zip
-            ./artifacts-darwin/llrt-macos-x86.zip
+            ./artifacts-darwin/llrt-macos-x64.zip
             ./artifacts-darwin/llrt-macos-arm64.zip

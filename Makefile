@@ -1,5 +1,5 @@
-TARGET_linux_x86_64 = x86_64-unknown-linux-musl
-TARGET_linux_arm64 = aarch64-unknown-linux-musl
+TARGET_linux_x86_64 = x86_64-unknown-linux-gnu
+TARGET_linux_arm64 = aarch64-unknown-linux-gnu
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 RUST_VERSION = nightly
@@ -7,10 +7,7 @@ TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
-ZSTD_LIB_ARGS = UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
-CC_ARM = zig cc -target aarch64-linux-musl -flto
-CC_X64 = zig cc -target x86_64-linux-musl -flto
-AR = zig ar
+ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/zigcc -s -O3 -flto" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -30,7 +27,28 @@ else
 	ARCH := $(shell uname -m)
 endif
 
+ifeq ($(DETECTED_OS),darwin)
+	export AR = $(CURDIR)/zigar
+	export CC_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CCX_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+
+	export CC_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
+	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
+else ifeq ($(DETECTED_OS),linux)
+	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = x86_64-linux-gnu-gcc
+
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = aarch64-linux-gnu-gcc
+
+	RUNFLAGS = RUSTFLAGS="-Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+crt-static"
+endif
+
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
+
+export COMPILE_TARGET = $(CURRENT_TARGET)
 
 lambda-all: clean-js | libs $(RELEASE_ZIPS)
 release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
@@ -59,10 +77,10 @@ llrt-linux-arm64.zip: js
 
 define release_template
 release-${1}: js
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+	COMPILE_TARGET=$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
-	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap index.mjs
 
 llrt-lambda-${1}: release-${1}
 endef
@@ -90,6 +108,7 @@ clean-js:
 
 clean: clean-js
 	rm -rf ./target
+	rm -rf ./lib
 
 js: $(STD_JS_FILE)
 
@@ -160,8 +179,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	$(RUNFLAGS) cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	$(RUNFLAGS) cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
@@ -174,13 +193,13 @@ lib/zstd.h:
 lib/arm64/libzstd.a: 
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_ARM)" AR="$(AR)" $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_arm64) make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@
 
 lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && make -j lib-nomt CC="$(CC_X64)" AR="$(AR)" $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_x86_64) make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:

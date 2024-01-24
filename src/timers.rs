@@ -1,6 +1,4 @@
 use std::{
-    mem,
-    ptr::NonNull,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
@@ -11,7 +9,7 @@ use std::{
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    qjs, Ctx, Exception, Function, Result,
+    Ctx, Function, Result,
 };
 
 use crate::{util::export_default, vm::CtxExtension};
@@ -131,20 +129,17 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Ok(())
 }
 
+#[inline(always)]
 fn poll_timers<'js>(ctx: &Ctx<'js>, timeouts: Arc<Mutex<Vec<Timeout<'js>>>>) -> Result<()> {
     TIME_POLL_ACTIVE.store(true, Ordering::Relaxed);
-    let ctx2 = ctx.clone();
+
     ctx.spawn_exit(async move {
-        let raw_ctx = ctx2.as_raw();
-
-        let rt: *mut qjs::JSRuntime = unsafe { qjs::JS_GetRuntime(raw_ctx.as_ptr()) };
-        let mut ctx_ptr = mem::MaybeUninit::<*mut qjs::JSContext>::uninit();
-
         let mut interval = tokio::time::interval(Duration::from_millis(1));
         let mut to_call = Some(Vec::new());
         let mut exit_after_next_tick = false;
         loop {
             interval.tick().await;
+
             let mut call_vec = to_call.take().unwrap(); //avoid creating a new vec
             let current_time = get_current_time_millis();
             let mut had_items = false;
@@ -173,25 +168,7 @@ fn poll_timers<'js>(ctx: &Ctx<'js>, timeouts: Arc<Mutex<Vec<Timeout<'js>>>>) -> 
             call_vec.clear();
             to_call.replace(call_vec);
 
-            let result = unsafe { qjs::JS_ExecutePendingJob(rt, ctx_ptr.as_mut_ptr()) };
-
-            if result < 0 {
-                let js_context = unsafe { ctx_ptr.assume_init() };
-                let ctx_ptr = NonNull::new(js_context)
-                    .expect("executing pending job returned a null context on error");
-
-                let ctx = unsafe { Ctx::from_raw(ctx_ptr) };
-
-                let err = ctx.catch();
-
-                if let Some(x) = err.clone().into_object().and_then(Exception::from_object) {
-                    Err(x.throw())?;
-                } else {
-                    Err(ctx.throw(err))?;
-                }
-            }
-
-            if !had_items && result == 0 {
+            if !had_items {
                 if exit_after_next_tick {
                     break;
                 }
