@@ -54,9 +54,6 @@ use crate::{
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[global_allocator]
-static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     MinimalTracer::register()?;
