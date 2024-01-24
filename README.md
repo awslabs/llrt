@@ -209,10 +209,6 @@ Install generate libs and setup rust targets & toolchains
 
     make stdlib && make libs
 
-Apply patches
-    cargo install cargo-patch
-    cargo patch
-
 Build release
 
     make release-arm64

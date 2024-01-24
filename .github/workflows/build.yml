@@ -1,0 +1,83 @@
+name: Setup, Build & Test
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      platform:
+        required: true
+        type: string
+      arch:
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: yarn
+          node-version: lts/*
+      - name: Install Linux dependencies
+        if: inputs.platform == 'linux'
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install make nodejs
+          sudo snap install zig --classic --beta
+      - name: Install MacOS dependencies
+        if: inputs.platform == 'darwin'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew install zig make
+      - name: Install Windows dependencies
+        if: inputs.platform == 'windows'
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop install make zig
+      - name: Install JavaScript dependencies
+        run: |
+          corepack enable
+          yarn
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+      - name: Cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Run tests
+        if: inputs.arch != 'aarch64' || inputs.platform != 'linux'
+        run: |
+          make test-ci
+      - name: Run tests
+        if: inputs.arch == 'aarch64' && inputs.platform == 'linux'
+        env:
+          _VIRTUAL_ENV: qemu-aarch64
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+        run: |
+          sudo apt-get install -y \
+            libc6-arm64-cross \
+            libc6-dev-arm64-cross \
+            crossbuild-essential-arm64 \
+            qemu-system-arm \
+            qemu-efi-aarch64 \
+            qemu-utils \
+            qemu-user
+
+          make CURRENT_TARGET=aarch64-unknown-linux-gnu test-ci
