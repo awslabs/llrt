@@ -16,6 +16,10 @@ jobs:
   build:
     runs-on: ${{ inputs.os }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
