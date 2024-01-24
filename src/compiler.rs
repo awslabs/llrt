@@ -4,9 +4,10 @@ use rquickjs::{Context, Module, Runtime};
 use tracing::trace;
 use zstd::bulk::Compressor;
 
-use crate::vm::COMPRESSION_DICT;
-
-include!("compiler-common.rs");
+use crate::{
+    compiler_common::{human_file_size, DummyLoader, DummyResolver},
+    vm::COMPRESSION_DICT,
+};
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut compressor = Compressor::with_dictionary(22, COMPRESSION_DICT)?;
@@ -21,7 +22,7 @@ fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
 }
 
 pub async fn compile_file(input_filename: &Path, output_filename: &Path) -> Result<(), String> {
-    let resolver: (DummyResolver,) = (DummyResolver,);
+    let resolver = (DummyResolver,);
     let loader = (DummyLoader,);
 
     let rt = Runtime::new().unwrap();
