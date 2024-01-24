@@ -166,11 +166,7 @@ impl<'js> ChildProcess<'js> {
 
         match child {
             Ok(mut child) => {
-                println!("=============\nCHILD OK {}\n============", command.clone());
-
                 instance2.borrow_mut().pid = child.id();
-
-                println!("CHILD ID: {:?}", child.id());
 
                 if let Some(child_stdin) = child.stdin.take() {
                     DefaultWritableStream::process(stdin_instance.clone(), &ctx, child_stdin)?;
@@ -255,14 +251,8 @@ impl<'js> ChildProcess<'js> {
             Err(err) => {
                 let ctx3 = ctx.clone();
 
-                println!(
-                    "=============\nCHILD FAILED {}\n============",
-                    command.clone()
-                );
-
                 let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
 
-                //allow listeners to attach
                 ctx.spawn_exit(async move {
                     if !instance3.borrow().emitter.has_listener_str("error") {
                         return Err(Exception::throw_message(&ctx3, &err_message));

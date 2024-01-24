@@ -58,15 +58,13 @@ describe("child_process.spawn", () => {
     });
   });
 
-  it.only("should handle errors from the child process", (done) => {
+  it("should handle errors from the child process", (done) => {
+    if (process.env._VIRTUAL_ENV) {
+      //QEMU spawns nonexistent-command successfully
+      return done();
+    }
     const command = "nonexistent-command";
     const child = spawn(command);
-    child.stderr.on("data", (data) => {
-      console.log("STDERR DATA:", data.toString());
-    });
-    child.stdout.on("data", (data) => {
-      console.log("STDOUT DATA:", data.toString());
-    });
     child.on("error", (err) => {
       try {
         assert.ok(err);
