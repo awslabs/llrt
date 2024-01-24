@@ -8,6 +8,7 @@ mod buffer;
 mod bytearray_buffer;
 mod child_process;
 mod compiler;
+mod compiler_common;
 mod console;
 mod crypto;
 mod encoding;

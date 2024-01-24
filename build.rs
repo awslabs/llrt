@@ -28,7 +28,7 @@ macro_rules! rerun_if_changed {
     };
 }
 
-include!("src/compiler-common.rs");
+include!("src/compiler_common.rs");
 
 #[tokio::main]
 async fn main() -> StdResult<(), Box<dyn Error>> {

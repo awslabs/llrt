@@ -6,7 +6,7 @@ use rquickjs::{
     Ctx,
 };
 
-struct DummyLoader;
+pub struct DummyLoader;
 
 impl Loader for DummyLoader {
     fn load(&mut self, _ctx: &Ctx<'_>, name: &str) -> rquickjs::Result<ModuleData> {
@@ -14,7 +14,7 @@ impl Loader for DummyLoader {
     }
 }
 
-struct DummyResolver;
+pub struct DummyResolver;
 
 impl Resolver for DummyResolver {
     fn resolve(&mut self, _ctx: &Ctx<'_>, _base: &str, name: &str) -> rquickjs::Result<String> {
@@ -22,7 +22,7 @@ impl Resolver for DummyResolver {
     }
 }
 
-fn human_file_size(size: usize) -> String {
+pub fn human_file_size(size: usize) -> String {
     let fsize = size as f64;
     let i = if size == 0 {
         0
