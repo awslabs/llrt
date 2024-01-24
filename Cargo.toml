@@ -64,7 +64,6 @@ tokio-rustls = { version = "0.25.0", features = [
     "tls12",
 ], default-features = false }
 aws-lc-rs = "1.5.2"
-mimalloc = "0.1.39"
 
 [build-dependencies]
 relative-path = "1.9.0"

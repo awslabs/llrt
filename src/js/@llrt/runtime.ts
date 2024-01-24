@@ -180,7 +180,7 @@ const startProcessEvents = async (
     } catch (e: any) {
       console.error(e["stack"]);
       if (!context) {
-        console.error("error: failed to get next reponse", e);
+        console.error("error: failed to get next response", e);
         process.exit(1);
       }
       try {
