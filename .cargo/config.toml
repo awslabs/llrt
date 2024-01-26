@@ -1,3 +1,7 @@
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]
 build-std-features = ["panic_immediate_abort"]
+
+[env]
+CC_aarch64_unknown_linux_gnu = "zig cc -target aarch64-linux-gnu"
+CC_x86_64_unknown_linux_gnu = "zig cc -target x86_64-linux-gnu"
