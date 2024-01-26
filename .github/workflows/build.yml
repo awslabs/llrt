@@ -13,7 +13,11 @@ on:
         type: string
       release:
         required: false
+<<<<<<< HEAD
         type: string
+=======
+        type: boolean
+>>>>>>> 05ddd44 (Migrate to cargo zigbuild)
 
 jobs:
   build:
@@ -56,6 +60,9 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
+      - name: Install cargo-zigbuild
+        run: |
+          cargo install cargo-zigbuild || true
       - name: Cargo cache
         uses: actions/cache@v4
         continue-on-error: false
@@ -79,9 +86,6 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         run: |
           sudo apt-get install -y \
-            libc6-arm64-cross \
-            libc6-dev-arm64-cross \
-            crossbuild-essential-arm64 \
             qemu-system-arm \
             qemu-efi-aarch64 \
             qemu-utils \

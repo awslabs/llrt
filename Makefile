@@ -1,13 +1,18 @@
-TARGET_linux_x86_64 = x86_64-unknown-linux-gnu
-TARGET_linux_arm64 = aarch64-unknown-linux-gnu
+TARGET_clib = gnu
+TARGET_linux_x86_64 = x86_64-unknown-linux-$(TARGET_clib)
+TARGET_linux_arm64 = aarch64-unknown-linux-$(TARGET_clib)
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 RUST_VERSION = nightly
 TOOLCHAIN = +$(RUST_VERSION)
+ZIGBUILD_ARG = $(TOOLCHAIN) zigbuild -r
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
-ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/zigcc -s -O3 -flto" AR="zig ar" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
+ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0 AR="zig ar"
+ZSTD_LIB_CC_ARGS = -s -O3 -flto
+ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
+ZSTD_LIB_CC_x64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -27,28 +32,8 @@ else
 	ARCH := $(shell uname -m)
 endif
 
-ifeq ($(DETECTED_OS),darwin)
-	export AR = $(CURDIR)/zigar
-	export CC_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CCX_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
-
-	export CC_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
-else ifeq ($(DETECTED_OS),linux)
-	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = x86_64-linux-gnu-gcc
-
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = aarch64-linux-gnu-gcc
-
-	RUNFLAGS = RUSTFLAGS="-Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+crt-static"
-endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
-
-export COMPILE_TARGET = $(CURRENT_TARGET)
 
 lambda-all: libs $(RELEASE_ZIPS)
 release-all: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
@@ -65,16 +50,16 @@ llrt-darwin-arm64.zip: | clean-js js
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
 llrt-linux-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
+	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_x86_64)
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
 llrt-linux-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
+	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
 define release_template
-release-${1}: js
-	COMPILE_TARGET=$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+release-${1}: | clean-js js
+	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
 	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
@@ -132,13 +117,6 @@ run: export _HANDLER = index.handler
 run: | clean-js js
 	cargo run -r -vv
 
-run-release: export _HANDLER = fixtures/local.handler
-run-release: js
-	cargo build
-	time target/release/llrt
-	time target/release/llrt
-	time target/release/llrt
-
 run-ssr: export AWS_LAMBDA_RUNTIME_API = localhost:3000
 run-ssr: export TABLE_NAME=quickjs-table
 run-ssr: export AWS_REGION = us-east-1
@@ -161,8 +139,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	$(RUNFLAGS) cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	$(RUNFLAGS) cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
@@ -175,13 +153,13 @@ lib/zstd.h:
 lib/arm64/libzstd.a: 
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && COMPILE_TARGET="aarch64-unknown-linux-musl" make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && make $(ZSTD_LIB_ARGS) $(ZSTD_LIB_CC_arm64)
 	cp zstd/lib/libzstd.a $@
 
 lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && COMPILE_TARGET="x86_64-unknown-linux-musl" make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && make $(ZSTD_LIB_ARGS) $(ZSTD_LIB_CC_x64)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:
