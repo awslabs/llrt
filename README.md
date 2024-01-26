@@ -188,12 +188,13 @@ Install dependencies
     # MacOS
     brew install zig make zstd node corepack
 
-    # Ubuntu x
-    sudo apt -y install make zstd gcc \
-      libc6-arm64-cross \
-      libc6-dev-arm64-cross \
-      crossbuild-essential-arm64
+    # Ubuntu
+    sudo apt -y install make zstd
     sudo snap install zig --classic --beta
+  
+Install cargo zigbuild
+
+    cargo install cargo-zigbuild
 
 Clone code and cd to directory
 

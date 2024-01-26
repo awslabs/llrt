@@ -5,7 +5,7 @@ on:
       - "v*.*.*"
 
 jobs:
-  prebuild:
+  build:
     strategy:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
@@ -27,46 +27,7 @@ jobs:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
-  build:
-    needs:
-      - prebuild
-    strategy:
-      fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-            arch: x86_64
-          - os: ubuntu-latest
-            platform: linux
-            arch: aarch64
-          - os: macos-latest
-            platform: darwin
-            arch: x86_64
-          - os: macos-latest
-            platform: darwin
-            arch: aarch64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Build binaries
-        run: |
-          make release
-      - name: Build Lambda binaries
-        if: matrix.platform == 'linux'
-        run: |
-          make release-lambda
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-${{ matrix.platform }}
-          path: |
-            *.zip
-      - name: Upload changelog
-        if: matrix.platform == 'linux' && matrix.arch == 'x86_64'
-        uses: actions/upload-artifact@v4
-        with:
-          name: changelog
-          path: CHANGELOG.md
+      release: true
   release:
     permissions:
       contents: write

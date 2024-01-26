@@ -11,6 +11,9 @@ on:
       arch:
         required: true
         type: string
+      release:
+        required: false
+        type: boolean
 
 jobs:
   build:
@@ -53,6 +56,9 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
+      - name: Install cargo-zigbuild
+        run: |
+          cargo install cargo-zigbuild || true
       - name: Cargo cache
         uses: actions/cache@v4
         continue-on-error: false
@@ -76,12 +82,30 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
         run: |
           sudo apt-get install -y \
-            libc6-arm64-cross \
-            libc6-dev-arm64-cross \
-            crossbuild-essential-arm64 \
             qemu-system-arm \
             qemu-efi-aarch64 \
             qemu-utils \
             qemu-user
 
           make CURRENT_TARGET=aarch64-unknown-linux-gnu test-ci
+      - name: Build binaries
+        if: inputs.release
+        run: |
+          make release
+      - name: Build Lambda binaries
+        if: inputs.release && inputs.platform == 'linux'
+        run: |
+          make release-lambda
+      - name: Upload artifacts
+        if: inputs.release
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.platform }}
+          path: |
+            *.zip
+      - name: Upload changelog
+        if: inputs.release && matrix.platform == 'linux' && matrix.arch == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md

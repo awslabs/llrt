@@ -1,13 +1,18 @@
-TARGET_linux_x86_64 = x86_64-unknown-linux-gnu
-TARGET_linux_arm64 = aarch64-unknown-linux-gnu
+TARGET_clib = gnu
+TARGET_linux_x86_64 = x86_64-unknown-linux-$(TARGET_clib)
+TARGET_linux_arm64 = aarch64-unknown-linux-$(TARGET_clib)
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 RUST_VERSION = nightly
 TOOLCHAIN = +$(RUST_VERSION)
+ZIGBUILD_ARG = $(TOOLCHAIN) zigbuild -r
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
-ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/zigcc -s -O3 -flto" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
+ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0 AR="zig ar"
+ZSTD_LIB_CC_ARGS = -s -O3 -flto
+ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
+ZSTD_LIB_CC_x64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -27,28 +32,8 @@ else
 	ARCH := $(shell uname -m)
 endif
 
-ifeq ($(DETECTED_OS),darwin)
-	export AR = $(CURDIR)/zigar
-	export CC_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CCX_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
-
-	export CC_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
-	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
-else ifeq ($(DETECTED_OS),linux)
-	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = x86_64-linux-gnu-gcc
-
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = aarch64-linux-gnu-gcc
-
-	RUNFLAGS = RUSTFLAGS="-Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+crt-static"
-endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
-
-export COMPILE_TARGET = $(CURRENT_TARGET)
 
 lambda-all: clean-js | libs $(RELEASE_ZIPS)
 release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
@@ -68,16 +53,16 @@ llrt-darwin-arm64.zip: js
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
 llrt-linux-x64.zip: js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
+	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_x86_64)
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
 llrt-linux-arm64.zip: js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
+	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
 define release_template
-release-${1}: js
-	COMPILE_TARGET=$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+release-${1}: | clean-js js
+	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
 	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap index.mjs
@@ -115,17 +100,10 @@ js: $(STD_JS_FILE)
 bundle/%.js: $(TS_SOURCES)
 	node build.mjs
 
-patch:
-	cargo clean -p rquickjs-sys
-	cargo patch
-
 fix:
 	cargo fix --allow-dirty
 	cargo clippy --fix --allow-dirty
 	cargo fmt
-
-linux-flame: js
-	cargo build --profile=flame --target $(TARGET_linux_x86_64)
 
 bloat: js
 	cargo build --profile=flame --target $(TARGET_linux_x86_64)
@@ -136,26 +114,11 @@ run: export AWS_LAMBDA_FUNCTION_MEMORY_SIZE = 1
 run: export AWS_LAMBDA_FUNCTION_VERSION = 1
 run: export AWS_LAMBDA_RUNTIME_API = localhost:3000
 run: export _EXIT_ITERATIONS = 1
-run: export AWS_REGION=eu-north-1
-run: export TABLE_NAME=quickjs-table
-run: export BUCKET_NAME=llrt-demo-bucket2
 run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
 run: js
 	cargo run -r -vv
-
-run-js: export _HANDLER = index.handler
-run-js:
-	touch build.rs
-	cargo run
-
-run-release: export _HANDLER = fixtures/local.handler
-run-release: js
-	cargo build
-	time target/release/llrt
-	time target/release/llrt
-	time target/release/llrt
 
 run-ssr: export AWS_LAMBDA_RUNTIME_API = localhost:3000
 run-ssr: export TABLE_NAME=quickjs-table
@@ -193,13 +156,13 @@ lib/zstd.h:
 lib/arm64/libzstd.a: 
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_arm64) make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && make $(ZSTD_LIB_ARGS) $(ZSTD_LIB_CC_arm64)
 	cp zstd/lib/libzstd.a $@
 
 lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_x86_64) make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && make $(ZSTD_LIB_ARGS) $(ZSTD_LIB_CC_x64)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:
