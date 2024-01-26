@@ -13,6 +13,7 @@ ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUIL
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
 ZSTD_LIB_CC_x64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
+CARGO_CMD = cargo
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -30,6 +31,10 @@ ifeq ($(OS),Windows_NT)
 else
     DETECTED_OS := $(shell uname | tr A-Z a-z)
 	ARCH := $(shell uname -m)
+endif
+
+ifeq ($(DETECTED_OS),darwin)
+	CARGO_CMD = cargo-zigbuild
 endif
 
 
@@ -139,8 +144,13 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
+<<<<<<< HEAD
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+=======
+	$(CARGO_CMD) $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	$(CARGO_CMD) $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+>>>>>>> 58ce148 (Update makefile)
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
