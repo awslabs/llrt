@@ -7,7 +7,7 @@ TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
-ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/zigcc -s -O3 -flto" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
+ZSTD_LIB_ARGS = -j lib-nomt CC="$(CURDIR)/zigcc -s -O3 -flto" AR="zig ar" UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -50,28 +50,25 @@ CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
 export COMPILE_TARGET = $(CURRENT_TARGET)
 
-lambda-all: clean-js | libs $(RELEASE_ZIPS)
-release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
+lambda-all: libs $(RELEASE_ZIPS)
+release-all: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
+release: llrt-$(DETECTED_OS)-$(ARCH).zip
+release-linux: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
+release-darwin: | llrt-darwin-x64.zip llrt-darwin-arm64.zip
 
-release-lambda: clean-js |  libs-$(ARCH) $(LAMBDA_PREFIX)-$(DETECTED_OS)-$(ARCH).zip
-release: clean-js | llrt-$(DETECTED_OS)-$(ARCH).zip
-
-release-linux: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
-release-darwin: clean-js | llrt-darwin-x64.zip llrt-darwin-arm64.zip
-
-llrt-darwin-x64.zip: js
+llrt-darwin-x64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64)
 	zip -j $@ target/$(TARGET_darwin_x86_64)/release/llrt
 
-llrt-darwin-arm64.zip: js
+llrt-darwin-arm64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64)
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
-llrt-linux-x64.zip: js
+llrt-linux-x64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
-llrt-linux-arm64.zip: js
+llrt-linux-arm64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
@@ -80,7 +77,7 @@ release-${1}: js
 	COMPILE_TARGET=$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
-	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap index.mjs
+	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-lambda-${1}: release-${1}
 endef
@@ -115,17 +112,10 @@ js: $(STD_JS_FILE)
 bundle/%.js: $(TS_SOURCES)
 	node build.mjs
 
-patch:
-	cargo clean -p rquickjs-sys
-	cargo patch
-
 fix:
 	cargo fix --allow-dirty
 	cargo clippy --fix --allow-dirty
 	cargo fmt
-
-linux-flame: js
-	cargo build --profile=flame --target $(TARGET_linux_x86_64)
 
 bloat: js
 	cargo build --profile=flame --target $(TARGET_linux_x86_64)
@@ -136,19 +126,11 @@ run: export AWS_LAMBDA_FUNCTION_MEMORY_SIZE = 1
 run: export AWS_LAMBDA_FUNCTION_VERSION = 1
 run: export AWS_LAMBDA_RUNTIME_API = localhost:3000
 run: export _EXIT_ITERATIONS = 1
-run: export AWS_REGION=eu-north-1
-run: export TABLE_NAME=quickjs-table
-run: export BUCKET_NAME=llrt-demo-bucket2
 run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
-run: js
+run: | clean-js js
 	cargo run -r -vv
-
-run-js: export _HANDLER = index.handler
-run-js:
-	touch build.rs
-	cargo run
 
 run-release: export _HANDLER = fixtures/local.handler
 run-release: js
@@ -193,13 +175,13 @@ lib/zstd.h:
 lib/arm64/libzstd.a: 
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_arm64) make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && COMPILE_TARGET="aarch64-unknown-linux-musl" make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@
 
 lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
-	cd zstd/lib && make clean && COMPILE_TARGET=$(TARGET_linux_x86_64) make $(ZSTD_LIB_ARGS)
+	cd zstd/lib && make clean && COMPILE_TARGET="x86_64-unknown-linux-musl" make $(ZSTD_LIB_ARGS)
 	cp zstd/lib/libzstd.a $@ 
 
 bench:

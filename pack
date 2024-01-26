@@ -24,10 +24,10 @@ fi
 arch_hex=$(hexdump -s 18 -n 1 -e '"%02x"' $srcfile)
 
 if [[ "$arch_hex" == "3e" ]]; then
-    target="x86_64-linux-gnu"
+    target="x86_64-linux-musl"
     arch="x64"
 elif [[ "$arch_hex" == "b7" ]]; then
-    target="aarch64-linux-gnu"
+    target="aarch64-linux-musl"
     arch="arm64"
 else
     echo "The binary is not an ARM64 or X86_64 ELF executable"
@@ -97,7 +97,7 @@ echo "Compiling..."
 
 original_size=$(du -h $srcfile | cut -f1)
 
-zig cc -target $target -Wno-null-character -std=c99 -Wall -O3 -flto -s ${temp_folder}/main.c -o $dstfile -Ilib -Llib/${arch} -Wl,-Bstatic -lzstd -Wl,-Bdynamic -lpthread -lrt -lc
+zig cc -target $target -Wno-null-character -std=c99 -Wall -O3 -flto -s ${temp_folder}/main.c -o $dstfile -Ilib -Llib/${arch} -static -lzstd
 
 new_size=$(du -h $dstfile | cut -f1)
 

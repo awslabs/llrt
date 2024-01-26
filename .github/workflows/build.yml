@@ -11,6 +11,9 @@ on:
       arch:
         required: true
         type: string
+      release:
+        required: false
+        type: string
 
 jobs:
   build:
@@ -85,3 +88,25 @@ jobs:
             qemu-user
 
           make CURRENT_TARGET=aarch64-unknown-linux-gnu test-ci
+      - name: Build Linux binaries
+        if: inputs.release && inputs.platform == 'linux'
+        run: |
+          make llrt-lambda-${{ inputs.release }}.zip
+          make release-${{ inputs.release }}
+      - name: Build Darwin binaries
+        if: inputs.release && inputs.platform == 'darwin'
+        run: |
+          make llrt-darwin-${{ inputs.release }}.zip
+      - name: Upload artifacts
+        if: inputs.release
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ inputs.platform }}
+          path: |
+            *.zip
+      - name: Upload changelog
+        if: inputs.release && inputs.platform == 'linux' && inputs.arch == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md

@@ -188,7 +188,7 @@ Install dependencies
     # MacOS
     brew install zig make zstd node corepack
 
-    # Ubuntu x
+    # Ubuntu
     sudo apt -y install make zstd gcc \
       libc6-arm64-cross \
       libc6-dev-arm64-cross \
