@@ -91,7 +91,7 @@ jobs:
       - name: Build Linux binaries
         if: inputs.release && inputs.platform == 'linux'
         run: |
-          make llrt-lambda-${{ inputs.release }}.zip
+          make llrt-linux-${{ inputs.release }}.zip
           make release-${{ inputs.release }}
       - name: Build Darwin binaries
         if: inputs.release && inputs.platform == 'darwin'
