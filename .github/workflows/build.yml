@@ -102,7 +102,7 @@ jobs:
         if: inputs.release
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ inputs.platform }}
+          name: artifacts-${{ inputs.platform }}-${{ inputs.arch }}
           path: |
             *.zip
       - name: Upload changelog
