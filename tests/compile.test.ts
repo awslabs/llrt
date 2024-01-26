@@ -66,7 +66,7 @@ describe("llrt compile", async () => {
     assert.strictEqual(runResult.status, 0);
   });
 
-  it.only("can compile and run throws", async () => {
+  it("can compile and run throws", async () => {
     const tmpOutput = `${tmpDir}/throws.lrt`;
 
     const compileResult = await compile("fixtures/throw.js", tmpOutput);
