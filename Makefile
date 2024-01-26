@@ -13,6 +13,7 @@ ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUIL
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
 ZSTD_LIB_CC_x64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
+CARGO_CMD = cargo
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -32,31 +33,32 @@ else
 	ARCH := $(shell uname -m)
 endif
 
+ifeq ($(DETECTED_OS),darwin)
+	CARGO_CMD = cargo-zigbuild
+endif
+
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
-lambda-all: clean-js | libs $(RELEASE_ZIPS)
-release-all: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
+lambda-all: libs $(RELEASE_ZIPS)
+release-all: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
+release: llrt-$(DETECTED_OS)-$(ARCH).zip
+release-linux: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
+release-darwin: | llrt-darwin-x64.zip llrt-darwin-arm64.zip
 
-release-lambda: clean-js |  libs-$(ARCH) $(LAMBDA_PREFIX)-$(DETECTED_OS)-$(ARCH).zip
-release: clean-js | llrt-$(DETECTED_OS)-$(ARCH).zip
-
-release-linux: clean-js | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
-release-darwin: clean-js | llrt-darwin-x64.zip llrt-darwin-arm64.zip
-
-llrt-darwin-x64.zip: js
+llrt-darwin-x64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64)
 	zip -j $@ target/$(TARGET_darwin_x86_64)/release/llrt
 
-llrt-darwin-arm64.zip: js
+llrt-darwin-arm64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64)
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
-llrt-linux-x64.zip: js
+llrt-linux-x64.zip: | clean-js js
 	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_x86_64)
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
-llrt-linux-arm64.zip: js
+llrt-linux-arm64.zip: | clean-js js
 	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
@@ -65,7 +67,7 @@ release-${1}: | clean-js js
 	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
-	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap index.mjs
+	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-lambda-${1}: release-${1}
 endef
@@ -142,8 +144,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	$(RUNFLAGS) cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	$(RUNFLAGS) cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	$(CARGO_CMD) $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	$(CARGO_CMD) $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h

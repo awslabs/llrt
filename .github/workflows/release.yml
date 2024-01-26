@@ -13,21 +13,25 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
+            release: x64
           - os: ubuntu-latest
             platform: linux
             arch: aarch64
+            release: arm64
           - os: macos-latest
             platform: darwin
             arch: x86_64
+            release: x64
           - os: macos-latest
             platform: darwin
             arch: aarch64
+            release: arm64
     uses: ./.github/workflows/build.yml
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
-      release: true
+      release: ${{ matrix.release }}
   release:
     permissions:
       contents: write
@@ -48,5 +52,5 @@ jobs:
             ./artifacts-linux/llrt-lambda-arm64.zip
             ./artifacts-linux/llrt-linux-x64.zip
             ./artifacts-linux/llrt-linux-arm64.zip
-            ./artifacts-darwin/llrt-macos-x64.zip
-            ./artifacts-darwin/llrt-macos-arm64.zip
+            ./artifacts-darwin/llrt-darwin-x64.zip
+            ./artifacts-darwin/llrt-darwin-arm64.zip
