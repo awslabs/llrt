@@ -63,7 +63,7 @@ llrt-linux-arm64.zip: | clean-js js
 
 define release_template
 release-${1}: | clean-js js
-	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})).2.26 --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
 	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
