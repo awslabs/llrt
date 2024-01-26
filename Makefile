@@ -32,18 +32,18 @@ ifeq ($(DETECTED_OS),darwin)
 	export CC_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
 	export CCX_aarch64_unknown_linux_gnu = $(CURDIR)/zigcc
 	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+crt-static,+lse -Ctarget-cpu=neoverse-n1
 
 	export CC_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
 	export CXX_x86_64_unknown_linux_gnu = $(CURDIR)/zigcc
 	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = $(CURDIR)/zigcc
 else ifeq ($(DETECTED_OS),linux)
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Ctarget-feature=+crt-static
 	export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = x86_64-linux-gnu-gcc
 
-	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+lse -Ctarget-cpu=neoverse-n1
+	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = -Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+crt-static,+lse -Ctarget-cpu=neoverse-n1
 	export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = aarch64-linux-gnu-gcc
 
-	RUNFLAGS = RUSTFLAGS="-Clink-arg=-Wl,--allow-multiple-definition -Ctarget-feature=+crt-static"
 endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
@@ -161,8 +161,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	$(RUNFLAGS) cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	$(RUNFLAGS) cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
