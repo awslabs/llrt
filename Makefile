@@ -13,7 +13,7 @@ ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUIL
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
 ZSTD_LIB_CC_x64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
-CARGO_CMD = cargo
+CARGO_TEST_CMD = cargo-zigbuild
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -34,7 +34,7 @@ else
 endif
 
 ifeq ($(DETECTED_OS),darwin)
-	CARGO_CMD = cargo-zigbuild
+	CARGO_TEST_CMD = cargo
 endif
 
 
@@ -144,8 +144,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	$(CARGO_CMD) $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	$(CARGO_CMD) $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	$(CARGO_TEST_CMD) $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	$(CARGO_TEST_CMD) $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
