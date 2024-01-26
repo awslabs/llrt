@@ -20,6 +20,7 @@
                 stringify: 3.957781167s vs. 10.885577917s
 
 * 7x faster integer and float toString():
+        
         Benchmark 1: target/release/llrt
         Time (mean ± σ):      1.568 s ±  0.016 s    [User: 1.555 s, System: 0.007 s]
         Range (min … max):    1.558 s …  1.610 s    10 runs

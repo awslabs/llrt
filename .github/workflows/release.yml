@@ -42,15 +42,17 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          body_path: ./changelog/CHANGELOG.md
+          body_path: ./CHANGELOG.md
           prerelease: contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc')
           files: |
-            ./artifacts-linux/llrt-lambda-x64.zip
-            ./artifacts-linux/llrt-lambda-arm64.zip
-            ./artifacts-linux/llrt-linux-x64.zip
-            ./artifacts-linux/llrt-linux-arm64.zip
-            ./artifacts-darwin/llrt-darwin-x64.zip
-            ./artifacts-darwin/llrt-darwin-arm64.zip
+            ./llrt-lambda-x64.zip
+            ./llrt-lambda-arm64.zip
+            ./llrt-linux-x64.zip
+            ./llrt-linux-arm64.zip
+            ./lrt-darwin-x64.zip
+            ./llrt-darwin-arm64.zip
