@@ -545,8 +545,13 @@ fn format_values_internal<'js>(
     tty: bool,
     newline_char: char,
 ) -> Result<()> {
+    let mut write_space = false;
     for arg in args.0.into_iter() {
+        if write_space {
+            result.push(' ');
+        }
         stringify_value(result, ctx, arg, tty, newline_char)?;
+        write_space = true
     }
     Ok(())
 }
