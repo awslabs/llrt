@@ -1,5 +1,5 @@
-TARGET_linux_x86_64 = x86_64-unknown-linux-gnu
-TARGET_linux_arm64 = aarch64-unknown-linux-gnu
+TARGET_linux_x86_64 = x86_64-unknown-linux-musl
+TARGET_linux_arm64 = aarch64-unknown-linux-musl
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 RUST_VERSION = nightly
@@ -63,10 +63,10 @@ llrt-linux-arm64.zip: | clean-js js
 
 define release_template
 release-${1}: | clean-js js
-	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})).2.26 --features lambda -vv
+	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
-	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap index.mjs
 
 llrt-lambda-${1}: release-${1}
 endef

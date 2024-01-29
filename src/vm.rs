@@ -8,7 +8,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
-    sync::{Arc, Mutex},
+    sync::{atomic::Ordering, Arc, Mutex},
 };
 
 use once_cell::sync::Lazy;
@@ -33,6 +33,7 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 include!("./bytecode_cache.rs");
 
 use crate::{
+    allocator::USED_MEM,
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console,
@@ -93,6 +94,14 @@ create_modules!(
     "util" => UtilModule,
     "uuid" => UuidModule
 );
+
+static GC_THRESHOLD: Lazy<usize> = Lazy::new(|| {
+    let gc_threshold_mb: usize = env::var("LLRT_GC_THRESHOLD_MB")
+        .unwrap_or("20".into())
+        .parse()
+        .unwrap_or(20);
+    gc_threshold_mb * 1024 * 1024
+});
 
 struct ModuleInfo<T: ModuleDef> {
     name: &'static str,
@@ -344,6 +353,9 @@ impl Vm {
             .fill(&mut [0; 8])
             .expect("Failed to initialize SystemRandom");
 
+        //inited lazy
+        *GC_THRESHOLD > 0;
+
         let mut file_resolver = FileResolver::default();
         let mut binary_resolver = BinaryResolver::default();
         let mut paths: Vec<&str> = Vec::with_capacity(10);
@@ -386,6 +398,8 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
 
         ctx.with(|ctx| {
+            ctx.globals().set("__gc", Func::from(run_gc))?;
+
             crate::console::init(&ctx)?;
             crate::encoding::init(&ctx)?;
             crate::http::init(&ctx)?;
@@ -465,6 +479,21 @@ impl Vm {
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
     let bytes = get_bytes(&ctx, value)?;
     json_parse(&ctx, bytes)
+}
+
+fn run_gc(ctx: Ctx<'_>) {
+    println!("ALLOCATED: {:?}", USED_MEM.load(Ordering::Relaxed));
+
+    if USED_MEM.load(Ordering::Relaxed) < *GC_THRESHOLD {
+        return;
+    }
+
+    trace!("Running GC");
+
+    unsafe {
+        let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
+        qjs::JS_RunGC(rt);
+    };
 }
 
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
