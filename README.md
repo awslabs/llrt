@@ -189,14 +189,7 @@ Install dependencies
     brew install zig make zstd node corepack
 
     # Ubuntu
-<<<<<<< HEAD
-    sudo apt -y install make zstd gcc \
-      libc6-arm64-cross \
-      libc6-dev-arm64-cross \
-      crossbuild-essential-arm64
-=======
     sudo apt -y install make zstd
->>>>>>> 05ddd44 (Migrate to cargo zigbuild)
     sudo snap install zig --classic --beta
   
 Install cargo zigbuild

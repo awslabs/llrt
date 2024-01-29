@@ -398,8 +398,6 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
 
         ctx.with(|ctx| {
-            ctx.globals().set("__gc", Func::from(run_gc))?;
-
             crate::console::init(&ctx)?;
             crate::encoding::init(&ctx)?;
             crate::http::init(&ctx)?;
@@ -496,6 +494,8 @@ fn run_gc(ctx: Ctx<'_>) {
 
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
+
+    globals.set("__gc", Func::from(run_gc))?;
 
     let number: Function = globals.get(PredefinedAtom::Number)?;
     let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
