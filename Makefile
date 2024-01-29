@@ -30,11 +30,6 @@ else
 	ARCH := $(shell uname -m)
 endif
 
-ifeq ($(DETECTED_OS),darwin)
-	CARGO_TEST_CMD = cargo
-endif
-
-
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
 lambda-all: libs $(RELEASE_ZIPS)
@@ -141,8 +136,8 @@ test: js
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
-	$(CARGO_TEST_CMD) $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	$(CARGO_TEST_CMD) $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
