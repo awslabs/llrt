@@ -7,8 +7,8 @@
     "build": "node build.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "3.490.0",
-    "@aws-sdk/client-s3": "3.490.0",
+    "@aws-sdk/client-dynamodb": "3.501.0",
+    "@aws-sdk/client-s3": "3.501.0",
     "aws-sdk": "2.1534.0",
     "esbuild-css-modules-plugin": "3.1.0",
     "react": "18.2.0",
