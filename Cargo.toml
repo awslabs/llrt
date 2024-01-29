@@ -44,7 +44,7 @@ hex-simd = "0.8.0"
 socket2 = "0.5.5"
 bytes = "1.5.0"
 uuid-simd = "0.8.0"
-simd-json = { version = "0.13.7", default-features = false, features = [
+simd-json = { version = "0.13.8", default-features = false, features = [
     "big-int-as-float",
 ] }
 itoa = "1.0.10"
