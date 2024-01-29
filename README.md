@@ -178,6 +178,11 @@ B) Without the JIT overhead, LLRT conserves both CPU and memory resources that c
 
 ## Building from source
 
+Clone code and cd to directory
+
+    git clone git@github.com:awslabs/llrt.git --recursive
+    cd llrt
+
 Install rust
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
@@ -191,15 +196,6 @@ Install dependencies
     # Ubuntu
     sudo apt -y install make zstd
     sudo snap install zig --classic --beta
-  
-Install cargo zigbuild
-
-    cargo install cargo-zigbuild
-
-Clone code and cd to directory
-
-    git clone git@github.com:awslabs/llrt.git --recursive
-    cd llrt
 
 Install Node.js packages
 
@@ -210,11 +206,15 @@ Install generate libs and setup rust targets & toolchains
 
     make stdlib && make libs
 
-Build release
+Build release for Lambda
 
     make release-arm64
     # or for x86, use
     make release-x86
+
+Optionally build for your local machine (Mac or Linux)
+
+    make release
 
 You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
