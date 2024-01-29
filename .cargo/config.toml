@@ -1,6 +1,26 @@
+[target.aarch64-unknown-linux-musl]
+rustflags = [
+    "-Zpre-link-args=-target aarch64-linux-musl",
+    "-Ctarget-feature=+lse,+crt-static",
+    "-Ctarget-cpu=neoverse-n1",
+]
+linker = "./zigcc"
+ar = "zig ar"
+
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-Zpre-link-args=-target x86_64-linux-musl",
+    "-Ctarget-feature=+crt-static",
+]
+linker = "./zigcc"
+ar = "zig ar"
+
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]
 build-std-features = ["panic_immediate_abort"]
 
-# [target.aarch64-unknown-linux-musl]
-# rustflags = ["-Ctarget-feature=+lse,+crt-static", "-Ctarget-cpu=neoverse-n1"]
+[env]
+CC_aarch64_unknown_linux_musl = "zig cc -target aarch64-linux-musl"
+CXX_aarch64_unknown_linux_musl = "zig cc -target aarch64-linux-musl"
+CC_x86_64_unknown_linux_musl = "zig cc -target x86_64-linux-musl"
+CXX_x86_64_unknown_linux_musl = "zig cc -target x86_64-linux-musl"

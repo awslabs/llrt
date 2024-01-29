@@ -4,7 +4,6 @@ TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 RUST_VERSION = nightly
 TOOLCHAIN = +$(RUST_VERSION)
-ZIGBUILD_ARG = $(TOOLCHAIN) zigbuild -r
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
@@ -12,7 +11,6 @@ ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUIL
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
 ZSTD_LIB_CC_x64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
-CARGO_TEST_CMD = cargo-zigbuild
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
@@ -54,16 +52,16 @@ llrt-darwin-arm64.zip: | clean-js js
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
 llrt-linux-x64.zip: | clean-js js
-	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_x86_64)
+	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
 llrt-linux-arm64.zip: | clean-js js
-	cargo $(ZIGBUILD_ARG) --target $(TARGET_linux_arm64)
+	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
 define release_template
 release-${1}: | clean-js js
-	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
 	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap index.mjs

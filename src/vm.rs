@@ -482,8 +482,6 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
 }
 
 fn run_gc(ctx: Ctx<'_>) {
-    println!("ALLOCATED: {:?}", USED_MEM.load(Ordering::Relaxed));
-
     if USED_MEM.load(Ordering::Relaxed) < *GC_THRESHOLD {
         return;
     }
