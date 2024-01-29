@@ -354,7 +354,7 @@ impl Vm {
             .expect("Failed to initialize SystemRandom");
 
         //inited lazy
-        *GC_THRESHOLD > 0;
+        let _ = *GC_THRESHOLD > 0;
 
         let mut file_resolver = FileResolver::default();
         let mut binary_resolver = BinaryResolver::default();
