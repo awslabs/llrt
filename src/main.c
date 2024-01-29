@@ -298,8 +298,27 @@ int main(int argc, char *argv[])
   char startTimeStr[16];
   sprintf(startTimeStr, "%lu", startTime);
 
+  char *memorySizeStr = getenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE");
+  int memorySize = memorySizeStr ? atoi(memorySizeStr) : 128;
+  double memoryFactor = 0.8;
+  if (memorySize > 512)
+  {
+    memoryFactor = 0.9;
+  }
+  if (memorySize > 1024)
+  {
+    memoryFactor = 0.92;
+  }
+  if (memorySize > 2048)
+  {
+    memoryFactor = 0.95;
+  }
+
+  char mimallocReserveMemoryMb[16];
+  sprintf(mimallocReserveMemoryMb, "%iMiB", (int)(memorySize * memoryFactor));
+
   setenv("_START_TIME", startTimeStr, false);
-  setenv("MIMALLOC_RESERVE_OS_MEMORY", "120m", false);
+  setenv("MIMALLOC_RESERVE_OS_MEMORY", mimallocReserveMemoryMb, false);
   setenv("MIMALLOC_LIMIT_OS_ALLOC", "1", false);
 
   logInfo("Starting app\n");

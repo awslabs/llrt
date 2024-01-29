@@ -147,7 +147,8 @@ const assetResponse = async (path: string) => {
 };
 
 export const handler = async (event: any) => {
-  const { method, path: eventPath } = event?.requestContext?.http || {};
+  const { method = "GET", path: eventPath = "/" } =
+    event?.requestContext?.http || {};
 
   try {
     const reqSegments: string[] = (eventPath as string)

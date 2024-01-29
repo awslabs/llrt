@@ -1,6 +1,6 @@
 [package]
 name = "llrt"
-version = "0.1.4-beta"
+version = "0.1.5-beta"
 edition = "2021"
 
 [features]
@@ -19,6 +19,7 @@ md-5 = { version = "0.10.6", features = ["asm"] }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "60696e88dfb903d8f5cd81b2667fb3f64f9e9f67", features = [
     "full-async",
     "parallel",
+    "rust-alloc",
 ], default-features = false }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.40", features = ["log"] }
@@ -66,10 +67,12 @@ tokio-rustls = { version = "0.25.0", features = [
     "ring",
 ], default-features = false }
 ring = "0.17.7"
+libmimalloc-sys = "0.1.35"
 
 [build-dependencies]
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "60696e88dfb903d8f5cd81b2667fb3f64f9e9f67", features = [
     "full-async",
+    "rust-alloc",
 ], default-features = false }
 relative-path = "1.9.0"
 tokio = { version = "1", features = ["full"] }
