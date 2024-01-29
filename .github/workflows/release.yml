@@ -54,5 +54,5 @@ jobs:
             ./llrt-lambda-arm64.zip
             ./llrt-linux-x64.zip
             ./llrt-linux-arm64.zip
-            ./lrt-darwin-x64.zip
+            ./llrt-darwin-x64.zip
             ./llrt-darwin-arm64.zip

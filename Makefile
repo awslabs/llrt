@@ -146,7 +146,6 @@ test-ci: clean-js | toolchain js
 	$(CARGO_TEST_CMD) $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
 	$(CARGO_TEST_CMD) $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
 
-
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
 
