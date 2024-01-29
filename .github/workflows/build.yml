@@ -87,7 +87,7 @@ jobs:
             qemu-utils \
             qemu-user
 
-          make CURRENT_TARGET=aarch64-unknown-linux-gnu test-ci
+          make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
       - name: Build Linux binaries
         if: inputs.release && inputs.platform == 'linux'
         run: |
