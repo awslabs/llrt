@@ -36,7 +36,7 @@ CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 export CC_aarch64_unknown_linux_musl = $(CURDIR)/linker/cc-aarch64-linux-musl
 export CXX_aarch64_unknown_linux_musl = $(CURDIR)/linker/cxx-aarch64-linux-musl
 export CC_x86_64_unknown_linux_musl = $(CURDIR)/linker/cc-x86_64-linux-musl
-export CXX_x86_64_unknown_linux_musl = $(CURDIR)/linker/ccx-x86_64-linux-musl
+export CXX_x86_64_unknown_linux_musl = $(CURDIR)/linker/cxx-x86_64-linux-musl
 
 lambda-all: libs $(RELEASE_ZIPS)
 release-all: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
