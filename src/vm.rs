@@ -8,7 +8,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 use once_cell::sync::Lazy;
@@ -33,7 +33,6 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 include!("./bytecode_cache.rs");
 
 use crate::{
-    allocator::USED_MEM,
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console,
@@ -394,6 +393,7 @@ impl Vm {
 
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(512 * 1024).await;
+        runtime.set_gc_threshold(20 * 1024 * 1024).await; //20mb
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
 
@@ -480,10 +480,6 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
 }
 
 fn run_gc(ctx: Ctx<'_>) {
-    if USED_MEM.load(Ordering::Relaxed) < *GC_THRESHOLD {
-        return;
-    }
-
     trace!("Running GC");
 
     unsafe {
