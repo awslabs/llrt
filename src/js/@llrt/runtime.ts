@@ -198,7 +198,6 @@ const startProcessEvents = async (
       }
       iterations++;
     }
-    global.__gc();
   }
 };
 

@@ -4,7 +4,6 @@
 
 #[macro_use]
 mod macros;
-mod allocator;
 mod buffer;
 mod bytearray_buffer;
 mod child_process;
@@ -33,7 +32,6 @@ mod uuid;
 mod vm;
 mod xml;
 
-use allocator::TrackingMiMalloc;
 use minimal_tracer::MinimalTracer;
 use rquickjs::{AsyncContext, Module};
 use std::{
@@ -59,8 +57,11 @@ use crate::{
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+// #[global_allocator]
+// pub static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[global_allocator]
-pub static ALLOCATOR: TrackingMiMalloc = TrackingMiMalloc;
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

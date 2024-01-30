@@ -165,6 +165,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -768,8 +777,8 @@ dependencies = [
  "itoa",
  "jwalk",
  "libc",
- "libmimalloc-sys",
  "md-5",
+ "mimalloc",
  "nanoid",
  "once_cell",
  "phf",
@@ -781,6 +790,7 @@ dependencies = [
  "rustls",
  "ryu",
  "simd-json",
+ "snmalloc-rs",
  "socket2",
  "tokio",
  "tokio-context",
@@ -837,6 +847,15 @@ name = "memchr"
 version = "2.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
+
+[[package]]
+name = "mimalloc"
+version = "0.1.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa01922b5ea280a911e323e4d2fd24b7fe5cc4042e0d2cda3c40775cdc4bdc9c"
+dependencies = [
+ "libmimalloc-sys",
+]
 
 [[package]]
 name = "miniz_oxide"
@@ -1198,8 +1217,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs"
-version = "0.4.2"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=60696e88dfb903d8f5cd81b2667fb3f64f9e9f67#60696e88dfb903d8f5cd81b2667fb3f64f9e9f67"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "511ee02660e19cf451ebcbda6151a4023044293066e9ccd2b0498047203f6ab1"
 dependencies = [
  "either",
  "indexmap",
@@ -1209,8 +1229,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-core"
-version = "0.4.2"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=60696e88dfb903d8f5cd81b2667fb3f64f9e9f67#60696e88dfb903d8f5cd81b2667fb3f64f9e9f67"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c10ce0bc11e249e738aadb8119e9a7619125cb866208236d88d2ee3dcdb7a67d"
 dependencies = [
  "async-lock",
  "chrono",
@@ -1224,8 +1245,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-macro"
-version = "0.4.2"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=60696e88dfb903d8f5cd81b2667fb3f64f9e9f67#60696e88dfb903d8f5cd81b2667fb3f64f9e9f67"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8a2a2ec2c5e739f05187a4c02d0f3e12cb604ec9974cc78e97147106beb247b"
 dependencies = [
  "convert_case",
  "fnv",
@@ -1243,8 +1265,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-sys"
-version = "0.4.2"
-source = "git+https://github.com/DelSkayn/rquickjs?rev=60696e88dfb903d8f5cd81b2667fb3f64f9e9f67#60696e88dfb903d8f5cd81b2667fb3f64f9e9f67"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86030d52fc20e68115f93738c2cb960d6f900f64d99e1013ea0e170381eb0a72"
 dependencies = [
  "cc",
 ]
@@ -1368,6 +1391,24 @@ name = "smallvec"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
+
+[[package]]
+name = "snmalloc-rs"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "038507ad9c0ff0d6901e057494abcdba49a1a44fe3236f281730a9278166710d"
+dependencies = [
+ "snmalloc-sys",
+]
+
+[[package]]
+name = "snmalloc-sys"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cae3f7f662ebf11afe4d6534e63fa5846ec0143892c78ddb1040cc01249f143"
+dependencies = [
+ "cmake",
+]
 
 [[package]]
 name = "socket2"
