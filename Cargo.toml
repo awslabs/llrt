@@ -23,7 +23,7 @@ rquickjs = { version = "0.4.3", features = [
 ], default-features = false }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.40", features = ["log"] }
-uuid = { version = "1.6.1", default-features = false, features = [
+uuid = { version = "1.7.0", default-features = false, features = [
     "v1",
     "v3",
     "v4",
