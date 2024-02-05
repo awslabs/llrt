@@ -38,7 +38,7 @@ async-trait = "0.1.77"
 url = "2.5.0"
 zstd = { version = "0.13.0", default-features = false, features = [] }
 uname-rs = "0.1.1"
-libc = "0.2.152"
+libc = "0.2.153"
 base64-simd = "0.8.0"
 hex-simd = "0.8.0"
 socket2 = "0.5.5"
