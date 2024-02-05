@@ -101,7 +101,7 @@ panic = "abort"
 
 [profile.test]
 panic = "abort"
-#opt-level = 3   #required for large number parsing
+opt-level = 3   #required for large number parsing
 
 [[bin]]
 name = "llrt"
