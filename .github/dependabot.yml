@@ -5,7 +5,7 @@
 
 version: 2
 updates:
-    # Maintain dependencies for GitHub Actions
+  # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -19,11 +19,17 @@ updates:
     groups:
       awssdk:
         patterns:
-        - "@aws-sdk*"
+          - "@aws-sdk*"
         update-types:
-        - "minor"
-        - "patch"
-
+          - "minor"
+          - "patch"
+      awscdk:
+        patterns:
+          - "aws-cdk"
+          - "aws-cdk-lib"
+        update-types:
+          - "minor"
+          - "patch"
 
     # Maintain dependencies for rust
   - package-ecosystem: "cargo"
