@@ -80,7 +80,7 @@ pub fn structured_clone<'js>(
             StackItem::Value(parent, value, mut object_key, array_index) => {
                 if let Some(set) = &transfer_set {
                     if let Some(value) = set.get(&value) {
-                        append_transfer_value(value, &mut tape, parent, object_key, array_index)?;
+                        append_transfer_value(&mut tape, value, parent, object_key, array_index)?;
                         index += 1;
                         continue;
                     }
@@ -88,9 +88,9 @@ pub fn structured_clone<'js>(
                 match value.type_of() {
                     Type::Object => {
                         if check_circular(
-                            &value,
-                            &mut visited,
                             &mut tape,
+                            &mut visited,
+                            &value,
                             parent,
                             &mut object_key,
                             array_index,
@@ -104,9 +104,9 @@ pub fn structured_clone<'js>(
 
                         if object.is_instance_of(&date_ctor) {
                             append_ctor_value(
-                                &date_ctor,
-                                object,
                                 &mut tape,
+                                object,
+                                &date_ctor,
                                 parent,
                                 object_key,
                                 array_index,
@@ -117,9 +117,9 @@ pub fn structured_clone<'js>(
 
                         if object.is_instance_of(&reg_exp_ctor) {
                             append_ctor_value(
-                                &reg_exp_ctor,
-                                object,
                                 &mut tape,
+                                object,
+                                &reg_exp_ctor,
                                 parent,
                                 object_key,
                                 array_index,
@@ -138,9 +138,9 @@ pub fn structured_clone<'js>(
 
                         if let Some(collection_type) = is_collection {
                             append_collection(
+                                &mut tape,
                                 &array_from,
                                 object,
-                                &mut tape,
                                 parent,
                                 object_key,
                                 array_index,
@@ -154,7 +154,7 @@ pub fn structured_clone<'js>(
                         }
 
                         if is_view_fn.call::<_, bool>((value.clone(),))? {
-                            append_buffer(object, &mut tape, parent, object_key, array_index)?;
+                            append_buffer(&mut tape, object, parent, object_key, array_index)?;
                             index += 1;
                             continue;
                         }
@@ -181,9 +181,9 @@ pub fn structured_clone<'js>(
                     }
                     Type::Array => {
                         if check_circular(
-                            &value,
-                            &mut visited,
                             &mut tape,
+                            &mut visited,
+                            &value,
                             parent,
                             &mut object_key,
                             array_index,
@@ -270,8 +270,8 @@ pub fn structured_clone<'js>(
 #[inline(always)]
 #[cold]
 fn append_buffer<'js>(
-    object: &Object<'js>,
     tape: &mut Vec<TapeItem<'js>>,
+    object: &Object<'js>,
     parent: usize,
     object_key: Option<String>,
     array_index: Option<usize>,
@@ -293,9 +293,9 @@ fn append_buffer<'js>(
 #[cold]
 #[allow(clippy::too_many_arguments)]
 fn append_collection<'js>(
+    tape: &mut Vec<TapeItem<'js>>,
     array_from: &Function<'js>,
     object: &Object<'js>,
-    tape: &mut Vec<TapeItem<'js>>,
     parent: usize,
     object_key: Option<String>,
     array_index: Option<usize>,
@@ -317,9 +317,9 @@ fn append_collection<'js>(
 
 #[inline(always)]
 fn check_circular(
-    value: &Value<'_>,
-    visited: &mut Vec<(usize, usize)>,
     tape: &mut Vec<TapeItem>,
+    visited: &mut Vec<(usize, usize)>,
+    value: &Value<'_>,
     parent: usize,
     object_key: &mut Option<String>,
     array_index: Option<usize>,
@@ -337,8 +337,8 @@ fn check_circular(
 #[inline(always)]
 #[cold]
 fn append_transfer_value<'js>(
-    value: &Value<'js>,
     tape: &mut Vec<TapeItem<'js>>,
+    value: &Value<'js>,
     parent: usize,
     object_key: Option<String>,
     array_index: Option<usize>,
@@ -381,9 +381,9 @@ fn append_circular(
 #[inline(always)]
 #[cold]
 fn append_ctor_value<'js>(
-    ctor: &Constructor<'js>,
-    object: &Object<'js>,
     tape: &mut Vec<TapeItem<'js>>,
+    object: &Object<'js>,
+    ctor: &Constructor<'js>,
     parent: usize,
     object_key: Option<String>,
     array_index: Option<usize>,
