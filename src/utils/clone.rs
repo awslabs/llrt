@@ -258,7 +258,6 @@ pub fn structured_clone<'js>(
                     ObjectType::Map => {
                         collection_value.replace(map_ctor.construct((value,))?);
                     }
-                    _ => {}
                 };
             }
             _ => {}
