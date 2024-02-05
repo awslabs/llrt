@@ -17,6 +17,12 @@ updates:
     schedule:
       interval: "monthly"
     groups:
+      types:
+        patterns:
+          - "@types*"
+        update-types:
+          - "minor"
+          - "patch"
       awssdk:
         patterns:
           - "@aws-sdk*"
