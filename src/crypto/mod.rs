@@ -14,7 +14,11 @@ use rquickjs::{
 
 use crate::{
     encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
-    util::{bytes_to_typed_array, export_default, get_checked_len, obj_to_array_buffer, ResultExt},
+    module::export_default,
+    utils::{
+        object::{bytes_to_typed_array, get_checked_len, obj_to_array_buffer},
+        result::ResultExt,
+    },
     uuid::uuidv4,
     vm::{CtxExtension, ErrorExtensions},
 };
@@ -95,7 +99,7 @@ fn random_fill_sync<'js>(
 ) -> Result<Object<'js>> {
     let offset = offset.unwrap_or(0);
 
-    if let Some(array_buffer) = obj_to_array_buffer(obj.clone())? {
+    if let Some(array_buffer) = obj_to_array_buffer(&ctx, &obj)? {
         let checked_len = get_checked_len(array_buffer.len(), size.0, offset);
 
         let raw = array_buffer

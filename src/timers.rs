@@ -12,7 +12,7 @@ use rquickjs::{
     Ctx, Function, Result,
 };
 
-use crate::{util::export_default, vm::CtxExtension};
+use crate::{module::export_default, vm::CtxExtension};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
 static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -99,6 +99,7 @@ impl ModuleDef for TimersModule {
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
+    #[allow(clippy::arc_with_non_send_sync)]
     let timeouts = Arc::new(Mutex::new(Vec::<Timeout>::new()));
     let timeouts2 = timeouts.clone();
     let timeouts3 = timeouts.clone();

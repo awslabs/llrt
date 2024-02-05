@@ -12,7 +12,7 @@ use rquickjs::{
 };
 use rquickjs::{Class, Ctx, Object, Result};
 
-use crate::util::export_default;
+use crate::module::export_default;
 
 use self::access::access;
 use self::read_dir::{read_dir, Dirent};

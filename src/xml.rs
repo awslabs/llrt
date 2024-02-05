@@ -4,7 +4,7 @@ use quick_xml::{
     events::{BytesStart, Event},
     Reader,
 };
-//TODO implement XML parsing and marshaling
+
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
@@ -24,7 +24,14 @@ const LF: &[u8] = b"&#x0A;";
 const NEL: &[u8] = b"&#x85;";
 const LS: &[u8] = b"&#x2028;";
 
-use crate::util::{export_default, get_bytes, JoinToString, ObjectExt, ResultExt};
+use crate::{
+    module::export_default,
+    utils::{
+        object::{get_bytes, ObjectExt},
+        result::ResultExt,
+        string::JoinToString,
+    },
+};
 
 #[rquickjs::class]
 struct XMLParser<'js> {

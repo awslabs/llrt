@@ -187,3 +187,7 @@ _These APIs uses native streams that is not 100% compatible with the Node.js Str
 
 [createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener) _This module provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:_
 `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
+
+## Misc Global objects
+
+[structuredClone](https://nodejs.org/api/globals.html#structuredclonevalue-options)

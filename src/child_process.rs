@@ -29,11 +29,12 @@ use tokio::{
 
 use crate::{
     events::{EmitError, Emitter, EventEmitter, EventList},
+    module::export_default,
     stream::{
         readable::{DefaultReadableStream, ReadableStream},
         writable::{DefaultWritableStream, WritableStream},
     },
-    util::{export_default, ObjectExt, ResultExt},
+    utils::{object::ObjectExt, result::ResultExt},
     vm::CtxExtension,
 };
 

@@ -14,7 +14,10 @@ use crate::{
     http::headers::Headers,
     net::TLS_CONFIG,
     security::{ensure_url_access, HTTP_DENY_LIST},
-    util::{get_bytes, ObjectExt, ResultExt},
+    utils::{
+        object::{get_bytes, ObjectExt},
+        result::ResultExt,
+    },
 };
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 

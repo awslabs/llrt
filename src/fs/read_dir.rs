@@ -5,7 +5,7 @@ use rquickjs::{
 };
 use tokio::fs;
 
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]

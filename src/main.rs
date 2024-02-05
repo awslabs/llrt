@@ -27,7 +27,7 @@ mod security;
 mod stream;
 mod test_utils;
 mod timers;
-mod util;
+mod utils;
 mod uuid;
 mod vm;
 mod xml;
@@ -42,17 +42,14 @@ use std::{
     sync::atomic::Ordering,
     time::Instant,
 };
-
 use tracing::trace;
-
-use util::{get_basename_ext_name, get_js_path, JS_EXTENSIONS};
-use vm::Vm;
 
 use crate::{
     compiler::compile_file,
     console::LogLevel,
     process::{get_arch, get_platform},
-    util::walk_directory,
+    utils::io::{get_basename_ext_name, get_js_path, walk_directory, JS_EXTENSIONS},
+    vm::Vm,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

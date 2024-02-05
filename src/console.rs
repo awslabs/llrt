@@ -20,7 +20,7 @@ use rquickjs::{
 use crate::{
     json::escape::escape_json,
     number::float_to_string,
-    util::{get_class_name, ResultExt},
+    utils::{class::get_class_name, result::ResultExt},
 };
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
@@ -307,8 +307,8 @@ fn stringify_value<'js>(
                     || typeof_value == Type::Object
                     || typeof_value == Type::Exception
                 {
-                    //let ptr = unsafe { value.as_raw().u.ptr } as usize;
-                    if visited.contains(&fxhash::hash(&value)) {
+                    let hash = fxhash::hash(&value);
+                    if visited.contains(&hash) {
                         if tty {
                             result.push_str(COLOR_CYAN);
                         }
@@ -317,7 +317,7 @@ fn stringify_value<'js>(
                             result.push_str(COLOR_RESET);
                         }
                     } else {
-                        visited.insert(fxhash::hash(&value));
+                        visited.insert(hash);
                         let mut class_name = None;
                         let mut is_object_like = false;
                         if value.is_error() {
@@ -428,27 +428,25 @@ fn stringify_value<'js>(
                                 let stack_len = stack.len();
                                 let mut expand_stack = false;
                                 let mut has_value = false;
-                                keys.for_each(|key: Result<String>| {
-                                    if let Ok(key) = key {
-                                        let value: Value = obj.get(&key).unwrap();
-                                        if !(value.is_function() && filter_functions) {
-                                            has_value = true;
-                                            let is_error = value.is_error();
-                                            let is_obj = value.is_object() && depth < 2;
-                                            if !expand_stack && (is_error || is_obj) {
-                                                expand_stack = true;
-                                            }
-                                            stack.push(StringifyItem {
-                                                value: Some(value),
-                                                depth: depth + 1,
-                                                expand: false,
-                                                key: if is_array { None } else { Some(key) },
-                                                end: None,
-                                            });
-                                            i += 1;
+                                for key in keys.flatten() {
+                                    let value: Value = obj.get(&key).unwrap();
+                                    if !(value.is_function() && filter_functions) {
+                                        has_value = true;
+                                        let is_error = value.is_error();
+                                        let is_obj = value.is_object() && depth < 2;
+                                        if !expand_stack && (is_error || is_obj) {
+                                            expand_stack = true;
                                         }
+                                        stack.push(StringifyItem {
+                                            value: Some(value),
+                                            depth: depth + 1,
+                                            expand: false,
+                                            key: if is_array { None } else { Some(key) },
+                                            end: None,
+                                        });
+                                        i += 1;
                                     }
-                                });
+                                }
 
                                 if expand_stack {
                                     for item in
