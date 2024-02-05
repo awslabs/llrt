@@ -18,6 +18,6 @@
     "typescript": "5.3.3"
   },
   "dependencies": {
-    "aws-sdk": "2.1546.0"
+    "aws-sdk": "2.1548.0"
   }
 }
