@@ -5,14 +5,13 @@ use std::{
     ffi::CStr,
     future::Future,
     io::{self},
-    mem,
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
     sync::{Arc, Mutex},
 };
 
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 
 use ring::rand::SecureRandom;
 use rquickjs::{

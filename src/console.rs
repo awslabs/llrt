@@ -428,25 +428,23 @@ fn stringify_value<'js>(
                                 let stack_len = stack.len();
                                 let mut expand_stack = false;
                                 let mut has_value = false;
-                                for key in keys {
-                                    if let Ok(key) = key {
-                                        let value: Value = obj.get(&key).unwrap();
-                                        if !(value.is_function() && filter_functions) {
-                                            has_value = true;
-                                            let is_error = value.is_error();
-                                            let is_obj = value.is_object() && depth < 2;
-                                            if !expand_stack && (is_error || is_obj) {
-                                                expand_stack = true;
-                                            }
-                                            stack.push(StringifyItem {
-                                                value: Some(value),
-                                                depth: depth + 1,
-                                                expand: false,
-                                                key: if is_array { None } else { Some(key) },
-                                                end: None,
-                                            });
-                                            i += 1;
+                                for key in keys.flatten() {
+                                    let value: Value = obj.get(&key).unwrap();
+                                    if !(value.is_function() && filter_functions) {
+                                        has_value = true;
+                                        let is_error = value.is_error();
+                                        let is_obj = value.is_object() && depth < 2;
+                                        if !expand_stack && (is_error || is_obj) {
+                                            expand_stack = true;
                                         }
+                                        stack.push(StringifyItem {
+                                            value: Some(value),
+                                            depth: depth + 1,
+                                            expand: false,
+                                            key: if is_array { None } else { Some(key) },
+                                            end: None,
+                                        });
+                                        i += 1;
                                     }
                                 }
 

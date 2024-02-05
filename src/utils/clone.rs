@@ -1,11 +1,10 @@
-use fxhash::{FxBuildHasher, FxHashMap, FxHashSet};
+use fxhash::{FxBuildHasher, FxHashSet};
 
 use rquickjs::function::This;
-use rquickjs::qjs::JSValue;
+
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
-    qjs::{self, JSValueConst},
     Array, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
 };
 
@@ -21,9 +20,6 @@ enum StackItem<'js> {
 enum ObjectType {
     Set,
     Map,
-    Date,
-    Error,
-    RegExp,
 }
 
 #[derive(Debug)]
@@ -82,6 +78,13 @@ pub fn structured_clone<'js>(
     while let Some(item) = stack.pop() {
         match item {
             StackItem::Value(parent, value, mut object_key, array_index) => {
+                if let Some(set) = &transfer_set {
+                    if let Some(value) = set.get(&value) {
+                        append_transfer_value(value, &mut tape, parent, object_key, array_index)?;
+                        index += 1;
+                        continue;
+                    }
+                }
                 match value.type_of() {
                     Type::Object => {
                         if check_circular(
@@ -100,7 +103,7 @@ pub fn structured_clone<'js>(
                         let object = value.as_object().unwrap();
 
                         if object.is_instance_of(&date_ctor) {
-                            append_value(
+                            append_ctor_value(
                                 &date_ctor,
                                 object,
                                 &mut tape,
@@ -113,7 +116,7 @@ pub fn structured_clone<'js>(
                         }
 
                         if object.is_instance_of(&reg_exp_ctor) {
-                            append_value(
+                            append_ctor_value(
                                 &reg_exp_ctor,
                                 object,
                                 &mut tape,
@@ -267,27 +270,6 @@ pub fn structured_clone<'js>(
 
 #[inline(always)]
 #[cold]
-fn special_case<'js>(
-    ctx: &Ctx<'js>,
-    tape: &mut Vec<TapeItem<'js>>,
-    parent: usize,
-    object_key: Option<String>,
-    array_index: Option<usize>,
-    stack: &mut Vec<StackItem<'js>>,
-) -> Result<()> {
-    let new = Object::new(ctx.clone())?;
-    tape.push(TapeItem {
-        parent,
-        object_key,
-        array_index,
-        value: TapeValue::Object(new),
-    });
-    stack.push(StackItem::ObjectEnd);
-    Ok(())
-}
-
-#[inline(always)]
-#[cold]
 fn append_buffer<'js>(
     object: &Object<'js>,
     tape: &mut Vec<TapeItem<'js>>,
@@ -355,6 +337,24 @@ fn check_circular(
 
 #[inline(always)]
 #[cold]
+fn append_transfer_value<'js>(
+    value: &Value<'js>,
+    tape: &mut Vec<TapeItem<'js>>,
+    parent: usize,
+    object_key: Option<String>,
+    array_index: Option<usize>,
+) -> Result<()> {
+    tape.push(TapeItem {
+        parent,
+        object_key,
+        array_index,
+        value: TapeValue::Value(value.clone()),
+    });
+    Ok(())
+}
+
+#[inline(always)]
+#[cold]
 fn append_circular(
     tape: &mut Vec<TapeItem<'_>>,
     visited: &(usize, usize),
@@ -381,7 +381,7 @@ fn append_circular(
 
 #[inline(always)]
 #[cold]
-fn append_value<'js>(
+fn append_ctor_value<'js>(
     ctor: &Constructor<'js>,
     object: &Object<'js>,
     tape: &mut Vec<TapeItem<'js>>,
@@ -402,17 +402,9 @@ fn append_value<'js>(
 #[cfg(test)]
 mod tests {
 
-    use rquickjs::{
-        function::{Opt, Rest},
-        Object, Value,
-    };
+    use rquickjs::{function::Opt, Object, Value};
 
-    use crate::{
-        console,
-        json::{parse::json_parse, stringify::json_stringify},
-        test_utils::utils::with_runtime,
-        utils::clone::structured_clone,
-    };
+    use crate::{test_utils::utils::with_runtime, utils::clone::structured_clone};
 
     #[tokio::test]
     async fn clone() {
@@ -465,7 +457,7 @@ a
     #[tokio::test]
     async fn clone_circular() {
         with_runtime(|ctx| {
-            let value: Object = ctx.eval(
+            let _value: Object = ctx.eval(
                 r#"
 const originalObject = { foo: { bar: "baz",arr: [1,2,3] }  };
 originalObject.foo.circularRef = originalObject;

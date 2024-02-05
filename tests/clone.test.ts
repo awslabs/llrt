@@ -2,7 +2,10 @@ describe("structuredClone", () => {
   it("Clones a simple object", () => {
     const originalObject = { foo: "bar", num: 42 };
     const clonedObject = structuredClone(originalObject);
+
     assert.deepStrictEqual(clonedObject, originalObject);
+    originalObject.foo += "extra";
+    assert.notDeepStrictEqual(clonedObject, originalObject);
   });
 
   it("Clones an array", () => {
@@ -62,5 +65,17 @@ describe("structuredClone", () => {
     assert.deepEqual(clonedBuffer.buffer, buffer.buffer);
     buffer.set([1, 2, 3, 4, 5, 6, 7, 8]);
     assert.notDeepStrictEqual(clonedBuffer, buffer);
+  });
+
+  it("Handles transfer list", () => {
+    const originalObject: any = { foo: { bar: "baz", arr: [1, 2, 3] } };
+    const clonedObject1 = structuredClone(originalObject);
+
+    assert.notStrictEqual(clonedObject1.foo.arr, originalObject.foo.arr);
+
+    const clonedObject2 = structuredClone(originalObject, {
+      transfer: [originalObject.foo.arr],
+    });
+    assert.strictEqual(clonedObject2.foo.arr, originalObject.foo.arr);
   });
 });
