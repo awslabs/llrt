@@ -9,7 +9,11 @@ use rquickjs::{
 
 use crate::{
     encoding::encoder::Encoder,
-    util::{export_default, get_bytes, get_bytes_offset_length, obj_to_array_buffer, ResultExt},
+    module::export_default,
+    utils::{
+        object::{get_bytes, get_bytes_offset_length, obj_to_array_buffer},
+        result::ResultExt,
+    },
 };
 
 pub struct Buffer(pub Vec<u8>);
@@ -45,8 +49,8 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
         return Ok(array.len());
     }
 
-    if let Some(obj) = value.into_object() {
-        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
+    if let Some(obj) = value.as_object() {
+        if let Some(array_buffer) = obj_to_array_buffer(&ctx, obj)? {
             return Ok(array_buffer.len());
         }
     }
@@ -89,8 +93,8 @@ fn alloc<'js>(
             let bytes = vec![value as u8; length];
             return Buffer(bytes).into_js(&ctx);
         }
-        if let Some(obj) = value.into_object() {
-            if let Some(array_buffer) = obj_to_array_buffer(obj)? {
+        if let Some(obj) = value.as_object() {
+            if let Some(array_buffer) = obj_to_array_buffer(&ctx, obj)? {
                 return alloc_byte_ref(&ctx, array_buffer.as_ref(), length);
             }
         }

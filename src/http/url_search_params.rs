@@ -4,7 +4,7 @@ use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Ctx, FromJs, Function, Object, Result, Symbol, Value,
 };
 
-use crate::util::{array_to_btree_map, IteratorDef};
+use crate::utils::{class::IteratorDef, object::array_to_btree_map};
 
 #[derive(Clone, Default)]
 #[rquickjs::class]

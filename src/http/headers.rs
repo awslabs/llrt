@@ -3,7 +3,11 @@ use std::collections::BTreeMap;
 use hyper::HeaderMap;
 use rquickjs::{atom::PredefinedAtom, methods, prelude::Opt, Array, Ctx, FromJs, Result, Value};
 
-use crate::util::{array_to_btree_map, map_to_entries, IteratorDef, ResultExt};
+use crate::utils::{
+    class::IteratorDef,
+    object::{array_to_btree_map, map_to_entries},
+    result::ResultExt,
+};
 
 #[derive(Clone, Default)]
 #[rquickjs::class]

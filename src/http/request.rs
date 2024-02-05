@@ -1,6 +1,6 @@
 use rquickjs::{class::Trace, function::Opt, methods, Class, Ctx, Object, Result, Value};
 
-use crate::util::ObjectExt;
+use crate::utils::object::ObjectExt;
 
 use super::headers::Headers;
 

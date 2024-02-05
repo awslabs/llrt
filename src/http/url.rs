@@ -7,7 +7,7 @@ use rquickjs::{
 };
 use url::Url;
 
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 use super::url_search_params::URLSearchParams;
 

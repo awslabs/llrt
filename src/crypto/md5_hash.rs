@@ -2,7 +2,7 @@ use md5::{Digest as Md5Digest, Md5 as MdHasher};
 
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
-use crate::util::{bytes_to_typed_array, get_bytes};
+use crate::utils::object::{bytes_to_typed_array, get_bytes};
 
 use super::encoded_bytes;
 

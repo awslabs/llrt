@@ -4,7 +4,7 @@ use ring::{
 };
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Value};
 
-use crate::util::{bytes_to_typed_array, get_bytes};
+use crate::utils::object::{bytes_to_typed_array, get_bytes};
 
 use super::encoded_bytes;
 

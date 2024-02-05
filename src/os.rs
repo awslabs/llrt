@@ -8,7 +8,7 @@ use rquickjs::{
 };
 use uname_rs::Uname;
 
-use crate::{process::get_platform, util::export_default};
+use crate::{module::export_default, process::get_platform};
 
 static OS_INFO: Lazy<(String, String)> = Lazy::new(|| {
     if let Ok(uts) = Uname::new() {

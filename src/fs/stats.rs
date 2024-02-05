@@ -1,4 +1,4 @@
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 use rquickjs::{Ctx, Result};
 use tokio::fs;

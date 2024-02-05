@@ -1,7 +1,7 @@
 use rquickjs::{prelude::Opt, Ctx, Exception, Result};
 use tokio::fs;
 
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 #[allow(dead_code, unused_imports)]
 use super::{CONSTANT_F_OK, CONSTANT_R_OK, CONSTANT_W_OK, CONSTANT_X_OK};

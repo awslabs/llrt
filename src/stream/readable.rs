@@ -19,7 +19,7 @@ use crate::{
     bytearray_buffer::BytearrayBuffer,
     events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
     stream::set_destroyed_and_error,
-    util::ResultExt,
+    utils::result::ResultExt,
     vm::CtxExtension,
 };
 

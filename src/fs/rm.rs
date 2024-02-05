@@ -1,7 +1,7 @@
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 #[allow(clippy::manual_async_fn)]
 pub async fn rmdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {

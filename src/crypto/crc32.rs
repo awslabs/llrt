@@ -3,7 +3,7 @@ use std::hash::Hasher;
 use crc32c::Crc32cHasher;
 use rquickjs::{prelude::This, Class, Ctx, Result, Value};
 
-use crate::util::get_bytes;
+use crate::utils::object::get_bytes;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]

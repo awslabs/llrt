@@ -11,10 +11,7 @@ use rquickjs::{
 
 use tracing::trace;
 
-use crate::{
-    util::{export_default, ResultExt},
-    vm::ErrorExtensions,
-};
+use crate::{module::export_default, utils::result::ResultExt, vm::ErrorExtensions};
 
 #[derive(Clone, Debug)]
 pub enum EventKey<'js> {
@@ -367,6 +364,7 @@ impl<'js> EventEmitter<'js> {
     #[qjs(constructor)]
     pub fn new() -> Self {
         Self {
+            #[allow(clippy::arc_with_non_send_sync)]
             events: Arc::new(RwLock::new(Vec::new())),
         }
     }

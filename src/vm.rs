@@ -5,13 +5,15 @@ use std::{
     ffi::CStr,
     future::Future,
     io::{self},
+    mem,
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
     sync::{Arc, Mutex},
 };
 
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
+
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -47,7 +49,13 @@ use crate::{
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
     timers::TimersModule,
-    util::{get_bytes, get_class_name, get_js_path, ObjectExt, UtilModule},
+    utils::{
+        class::get_class_name,
+        clone::structured_clone,
+        io::get_js_path,
+        object::{get_bytes, ObjectExt},
+        UtilModule,
+    },
     uuid::UuidModule,
     xml::XmlModule,
 };
@@ -93,14 +101,6 @@ create_modules!(
     "util" => UtilModule,
     "uuid" => UuidModule
 );
-
-static GC_THRESHOLD: Lazy<usize> = Lazy::new(|| {
-    let gc_threshold_mb: usize = env::var("LLRT_GC_THRESHOLD_MB")
-        .unwrap_or("20".into())
-        .parse()
-        .unwrap_or(20);
-    gc_threshold_mb * 1024 * 1024
-});
 
 struct ModuleInfo<T: ModuleDef> {
     name: &'static str,
@@ -352,9 +352,6 @@ impl Vm {
             .fill(&mut [0; 8])
             .expect("Failed to initialize SystemRandom");
 
-        //inited lazy
-        let _ = *GC_THRESHOLD > 0;
-
         let mut file_resolver = FileResolver::default();
         let mut binary_resolver = BinaryResolver::default();
         let mut paths: Vec<&str> = Vec::with_capacity(10);
@@ -391,12 +388,18 @@ impl Vm {
                 .with_extension("cjs"),
         ));
 
+        let gc_threshold_mb: usize = env::var("LLRT_GC_THRESHOLD_MB")
+            .unwrap_or("20".into())
+            .parse()
+            .unwrap_or(20);
+
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(512 * 1024).await;
-        runtime.set_gc_threshold(20 * 1024 * 1024).await; //20mb
+        runtime
+            .set_gc_threshold(gc_threshold_mb * 1024 * 1024)
+            .await; //20mb
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
-
         ctx.with(|ctx| {
             crate::console::init(&ctx)?;
             crate::encoding::init(&ctx)?;
@@ -501,6 +504,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     globals.set("self", ctx.globals())?;
     globals.set("load", Func::from(load))?;
     globals.set("print", Func::from(print))?;
+    globals.set(
+        "structuredClone",
+        Func::from(|ctx, value, options| structured_clone(&ctx, value, options)),
+    )?;
 
     let json_module: Object = globals.get(PredefinedAtom::JSON)?;
     json_module.set("parse", Func::from(json_parse_string))?;
@@ -535,9 +542,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         }),
     )?;
 
+    #[allow(clippy::arc_with_non_send_sync)]
     let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
+    #[allow(clippy::arc_with_non_send_sync)]
     let require_exports: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
     let require_exports_ref = require_exports.clone();
     let require_exports_ref_2 = require_exports.clone();

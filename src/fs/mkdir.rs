@@ -4,7 +4,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
     let mut recursive = false;

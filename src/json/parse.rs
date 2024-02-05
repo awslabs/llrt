@@ -2,7 +2,7 @@ use rquickjs::{Array, Ctx, IntoJs, Null, Object, Result, Undefined, Value};
 
 use simd_json::{Node, StaticNode};
 
-use crate::util::ResultExt;
+use crate::utils::result::ResultExt;
 
 enum ValueItem<'js> {
     Object(Object<'js>),

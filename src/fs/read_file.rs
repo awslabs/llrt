@@ -1,7 +1,7 @@
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 
-use crate::{buffer::Buffer, util::ResultExt};
+use crate::{buffer::Buffer, utils::result::ResultExt};
 
 //TODO implement options
 pub async fn read_file<'js>(
