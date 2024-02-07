@@ -24,6 +24,9 @@ Choose `Custom Runtime on Amazon Linux 2`, upload `llrt-lambda-arm64.zip` or `ll
 
 Thats it 🎉
 
+**Please note: Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's is NOT a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
+All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.**
+
 ## Testing & ensuring compatibility
 
 The best way to ensure that your code is compatible with LLRT is to write tests and executing them via the built in test runner
