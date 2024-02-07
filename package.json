@@ -30,7 +30,7 @@
     "@aws-sdk/client-xray": "3.507.0",
     "@aws-sdk/credential-providers": "3.507.0",
     "@aws-sdk/lib-dynamodb": "3.507.0",
-    "@types/jest": "29.5.11",
+    "@types/jest": "29.5.12",
     "@types/readable-stream": "4.0.10",
     "@types/uuid": "9.0.8",
     "assert": "2.1.0",
