@@ -54,9 +54,6 @@ use crate::{
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// #[global_allocator]
-// pub static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 

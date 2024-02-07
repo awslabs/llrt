@@ -1,13 +1,14 @@
 ![LLRT logo](./llrt-logo.svg "LLRT logo")
 
 
-LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications. LLRT offers more than **10x** faster startup and up to **2x** overall lower cost compared to other JavaScript runtimes running on **AWS Lambda**
+LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications. LLRT offers up to over **10x** faster startup and up to **2x** overall lower cost compared to other JavaScript runtimes running on **AWS Lambda**
 
-<sub>LLRT - DynamoDB Put, ARM, 128MB:<sub>
+<sub>LLRT - [DynamoDB Put, ARM, 128MB](example/functions/src/v3-lib.mjs):<sub>
 ![DynamoDB Put LLRT](./benchmarks/llrt-ddb-put.png "LLRT DynamoDB Put")
 
-<sub>Node.js 20 - DynamoDB Put, ARM, 128MB:<sub>
+<sub>Node.js 20 - [DynamoDB Put, ARM, 128MB](example/functions/src/v3-lib.mjs):<sub>
 ![DynamoDB Put Node20](./benchmarks/node20-ddb-put.png "Node20 DynamoDB Put")
+
 
 ## Configure Lambda functions to use LLRT
 

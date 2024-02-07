@@ -5,6 +5,7 @@ use std::{
     write,
 };
 
+use chrono::{DateTime, Utc};
 use tracing::{field::Visit, Id, Level, Subscriber};
 use tracing_core::{span, Field};
 
@@ -93,7 +94,7 @@ impl Subscriber for MinimalTracer {
             for filter in &self.filters {
                 matches = true;
                 if let Some(level) = filter.level {
-                    if metadata.level() != &level {
+                    if metadata.level() > &level {
                         matches = false;
                     }
                 }
@@ -130,7 +131,10 @@ impl Subscriber for MinimalTracer {
         let mut visitor = StringVisitor::new(&mut text);
         event.record(&mut visitor);
 
-        println!("{level} {target}: {text}");
+        let current_time: DateTime<Utc> = Utc::now();
+        let timestamp = current_time.format("%Y-%m-%dT%H:%M:%S%.3fZ");
+
+        println!("{timestamp} {level} {target}: {text}");
     }
 
     fn enter(&self, _span: &span::Id) {}

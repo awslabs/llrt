@@ -113,20 +113,6 @@ const awsJsonSharedCommand = (name, input, context, request) => {
   return buildHttpRpcRequest(context, headers, "/", undefined, body);
 };
 
-const awsRestXmlSharedCommandError = async (output, context) => {
-  const parsedOutput = {
-    ...output,
-    body: await parseErrorBody(output.body, context),
-  };
-  const errorCode = loadRestXmlErrorCode(output, parsedOutput.body);
-  const parsedBody = parsedOutput.body;
-  return throwDefaultError({
-    output,
-    parsedBody,
-    errorCode,
-  });
-};
-
 function defaultEndpointResolver(endpointParams, context = {}) {
   const paramsKey = calculateEndpointCacheKey(endpointParams);
   let endpoint = ENDPOINT_CACHE[paramsKey];
@@ -268,40 +254,6 @@ const awsSdkPlugin = {
         }
       );
     }
-
-    build.onLoad(
-      { filter: /protocols\/Aws_restXml\.js$/ },
-      async ({ path: filePath }) => {
-        const name = path.parse(filePath).name;
-        let source = (await fs.readFile(filePath)).toString();
-
-        const sharedCommandErrorRegex = codeToRegex(
-          awsRestXmlSharedCommandError,
-          true
-        );
-
-        const sourceLength = source.length;
-
-        source = source.replace(
-          sharedCommandErrorRegex,
-          awsRestXmlSharedCommandError.name
-        );
-
-        if (sourceLength == source.length) {
-          throw new Error(`Failed to optimize: ${name}`);
-        }
-
-        console.log("Optimized:", name);
-
-        source = `const ${
-          awsRestXmlSharedCommandError.name
-        } = ${awsRestXmlSharedCommandError.toString()}\n\n${source}`;
-
-        return {
-          contents: source,
-        };
-      }
-    );
 
     build.onLoad(
       { filter: /protocols\/Aws_json1_1\.js$/ },
