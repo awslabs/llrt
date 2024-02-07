@@ -137,7 +137,7 @@ const main = async () => {
       TABLE_NAME: table.tableName,
       BUCKET_NAME: bucket.bucketName,
     },
-    runtime: aws_lambda.Runtime.NODEJS_18_X,
+    runtime: aws_lambda.Runtime.NODEJS_20_X,
     memorySize: 128,
     timeout: Duration.seconds(60),
     handler: "index.handler",
@@ -156,7 +156,8 @@ const main = async () => {
     code: aws_lambda.Code.fromAsset("../../llrt-lambda-arm64.zip"),
     compatibleRuntimes: [
       aws_lambda.Runtime.NODEJS_16_X,
-      aws_lambda.Runtime.NODEJS_18_X,
+      aws_lambda.Runtime.NODEJS_20_X,
+      aws_lambda.Runtime.NODEJS_20_X,
       aws_lambda.Runtime.NODEJS_LATEST,
       aws_lambda.Runtime.PROVIDED_AL2,
     ],

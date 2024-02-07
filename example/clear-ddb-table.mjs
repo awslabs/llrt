@@ -33,14 +33,12 @@ function extractRegionAndTableName(arn) {
     parts[5].startsWith("table/")
   ) {
     const region = parts[3];
-    const tableName = parts[5].substring(6); // Remove "table/" prefix
+    const tableName = parts[5].substring(6);
     return { region, tableName };
   } else {
-    return null; // Return null if ARN format is not recognized
+    return null;
   }
 }
-
-//import { setTimeout } from "os";
 
 const sleep = (time) => new Promise((resolve) => setTimeout(resolve, time));
 
