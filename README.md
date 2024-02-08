@@ -18,11 +18,11 @@ Download the last LLRT release from <https://github.com/awslabs/llrt/releases>
 
 ### Option 1: Custom runtime (recommended)
 
-Choose `Custom Runtime on Amazon Linux 2` and package the LLRT `bootstrap` binary together with your JS code.
+Choose `Custom Runtime on Amazon Linux 2023` and package the LLRT `bootstrap` binary together with your JS code.
 
 ### Option 2: Use a layer
 
-Choose `Custom Runtime on Amazon Linux 2`, upload `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip` as a layer and add to your function
+Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip` as a layer and add to your function
 
 Thats it 🎉
 
