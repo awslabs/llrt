@@ -1,3 +1,5 @@
+[![LLRT Release](https://github.com/awslabs/llrt/actions/workflows/release.yml/badge.svg)](https://github.com/awslabs/llrt/actions/workflows/release.yml)
+
 ![LLRT logo](./llrt-logo.svg "LLRT logo")
 
 
