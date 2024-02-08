@@ -76,7 +76,7 @@ _LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in repla
 | async/await   | ✔︎                                       | ✔︎    |
 
 _⚠️ = partially supported in LLRT_
-_⏱ = planned patial support_
+_⏱ = planned partial support_
 _\* = Not native_
 _\*\* = Use fetch instead_
 
