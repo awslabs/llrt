@@ -45,17 +45,17 @@ The test runner also has support for filters. Using filters is as simple as addi
 
 ## Compatibility matrix
 
-_LLRT does not support all Node.js APIs. It is not a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of supported APIs and modules. For more details consult the [API](API.md) documentation_
+_LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation_
 
-|               | Node.js                                  | LLRT  |
+|               | Node.js                                  | LLRT ⚠️  |
 | ------------- | ---------------------------------------- | ----- |
-| buffer        | ✔︎                                       | ✔︎⚠️⏱ |
+| buffer        | ✔︎                                       | ✔︎️ |
 | streams       | ✔︎                                       | ✔︎\*  |
-| child_process | ✔︎                                       | ✔︎⚠️⏱ |
-| net:sockets   | ✔︎                                       | ✔︎⚠️⏱ |
-| net:server    | ✔︎                                       | ✔︎⚠️    |
+| child_process | ✔︎                                       | ✔︎⏱ |
+| net:sockets   | ✔︎                                       | ✔︎⏱ |
+| net:server    | ✔︎                                       | ✔︎    |
 | tls           | ✔︎                                       | ✘⏱    |
-| fetch         | ✔︎                                        | ✔︎    |
+| fetch         | ✔︎                                        | ✔︎   |
 | http         | ✔︎                                        | ✘⏱\*\*    |
 | https         | ✔︎                                        | ✘⏱\*\*    |
 | fs/promises   | ✔︎                                       | ✔︎    |
@@ -64,8 +64,8 @@ _LLRT does not support all Node.js APIs. It is not a drop in replacement for Nod
 | timers        | ✔︎                                       | ✔︎    |
 | uuid          | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
 | hex           | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
-| crypto        | ✔︎                                       | ✔︎⚠️  |
-| process       | ✔︎                                       | ✔︎⚠️  |
+| crypto        | ✔︎                                       | ✔︎  |
+| process       | ✔︎                                       | ✔︎  |
 | encoding      | ✔︎                                       | ✔︎    |
 | console       | ✔︎                                       | ✔︎    |
 | events        | ✔︎                                       | ✔︎    |
@@ -73,8 +73,8 @@ _LLRT does not support all Node.js APIs. It is not a drop in replacement for Nod
 | CJS           | ✔︎                                       | ✔︎    |
 | async/await   | ✔︎                                       | ✔︎    |
 
-_⚠️ = partial support_
-_⏱ = planned_
+_⚠️ = partially supported in LLRT_
+_⏱ = planned patial support_
 _\* = Not native_
 _\*\* = Use fetch instead_
 
@@ -148,6 +148,7 @@ export default {
 ## Using AWS SDK (v3) with LLRT
 
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
+V3 SDK packages not included in the list bellow have to be bundled with your source code while marking the following packages as external.
 
 **Bundled AWS SDK packages:**
 
