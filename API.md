@@ -1,6 +1,6 @@
 # API documentation
 
-The long term goal for LLRT is to become 100% [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md) and have a frictionless migration path from Node.js. Not every API from node will be supported.
+The long term goal for LLRT is to become [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md). Not every API from node will be supported.
 
 ## buffer
 
