@@ -1,13 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="323" height="150" version="1.2">
+<svg xmlns="http://www.w3.org/2000/svg" height="80px" version="1.2" viewBox="0 0 323 150">
   <defs>
-    <linearGradient id="a" gradientUnits="userSpaceOnUse"/>
+    <linearGradient id="a" gradientUnits="userSpaceOnUse" />
     <linearGradient id="b" x2="1" gradientTransform="matrix(22891.69 0 0 17399.5 11 18)" href="#a">
-      <stop stop-color="#ec7211"/>
-      <stop offset="1" stop-color="#f90"/>
+      <stop stop-color="#ec7211" />
+      <stop offset="1" stop-color="#f90" />
     </linearGradient>
   </defs>
-  <path d="M162 18h151v115H162z" style="fill:#fff"/>
-  <path fill-rule="evenodd" d="M187.5 115h-13.8V34.6h30q11.8 0 18.9 6.5 7.2 6.4 7.2 17.3 0 7.9-4 13.6-4 5.6-11.6 8.7l20.7 34.3h-14.8l-18.8-31.9h-13.8zm0-69.5v26.7H202q13.9 0 13.9-13.3 0-13.4-13.6-13.4zm89.8 69.5h-14.1V46.2H238V34.6h64.5v11.6h-25.2z"/>
-  <path fill-rule="evenodd" d="M187.5 115h-13.8V34.6h30q11.8 0 18.9 6.5 7.2 6.4 7.2 17.3 0 7.9-4 13.6-4 5.6-11.6 8.7l20.7 34.3h-14.8l-18.8-31.9h-13.8zm0-69.5v26.7H202q13.9 0 13.9-13.3 0-13.4-13.6-13.4zm89.8 69.5h-14.1V46.2H238V34.6h64.5v11.6h-25.2z"/>
-  <path fill-rule="evenodd" d="M11 18h151.3v115H11zm72 78.5H52.2L64.4 34H42.7L27 114.3h52.5zm63.4-.3h-30.9l12.2-62.6H106L90.3 114h52.6z" style="fill:url(#b)"/>
+  <path d="M162 18h151v115H162z" style="fill:#fff" />
+  <path fill-rule="evenodd"
+    d="M187.5 115h-13.8V34.6h30q11.8 0 18.9 6.5 7.2 6.4 7.2 17.3 0 7.9-4 13.6-4 5.6-11.6 8.7l20.7 34.3h-14.8l-18.8-31.9h-13.8zm0-69.5v26.7H202q13.9 0 13.9-13.3 0-13.4-13.6-13.4zm89.8 69.5h-14.1V46.2H238V34.6h64.5v11.6h-25.2z" />
+  <path fill-rule="evenodd"
+    d="M187.5 115h-13.8V34.6h30q11.8 0 18.9 6.5 7.2 6.4 7.2 17.3 0 7.9-4 13.6-4 5.6-11.6 8.7l20.7 34.3h-14.8l-18.8-31.9h-13.8zm0-69.5v26.7H202q13.9 0 13.9-13.3 0-13.4-13.6-13.4zm89.8 69.5h-14.1V46.2H238V34.6h64.5v11.6h-25.2z" />
+  <path fill-rule="evenodd"
+    d="M11 18h151.3v115H11zm72 78.5H52.2L64.4 34H42.7L27 114.3h52.5zm63.4-.3h-30.9l12.2-62.6H106L90.3 114h52.6z"
+    style="fill:url(#b)" />
 </svg>

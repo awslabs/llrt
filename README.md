@@ -2,10 +2,9 @@
 
 ![LLRT logo](./logo.svg "LLRT logo")
 
-
 LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications. LLRT offers up to over **10x** faster startup and up to **2x** overall lower cost compared to other JavaScript runtimes running on **AWS Lambda**
 
-LLRT is built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient memory usage and swift startup.
+It's is built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient memory usage and swift startup.
 
 LLRT is an experimental package. It is subject to change and intended only for evaluation purposes.
 
@@ -14,7 +13,6 @@ LLRT is an experimental package. It is subject to change and intended only for e
 
 <sub>Node.js 20 - [DynamoDB Put, ARM, 128MB](example/functions/src/v3-lib.mjs):<sub>
 ![DynamoDB Put Node20](./benchmarks/node20-ddb-put.png "Node20 DynamoDB Put")
-
 
 ## Configure Lambda functions to use LLRT
 
@@ -192,6 +190,10 @@ In contrast, LLRT distinguishes itself by not incorporating a JIT compiler, a st
 A) JIT compilation is a notably sophisticated technological component, introducing increased system complexity and contributing substantially to the runtime's overall size.
 
 B) Without the JIT overhead, LLRT conserves both CPU and memory resources that can be more efficiently allocated to code execution tasks, thereby reducing application startup times.
+
+## Limitations
+
+There are many cases where LLRT shows notable performance drawbacks compared with JIT-powered runtimes, such as large data processing, Monte Carlo simulations or performing tasks with hundreds of thousands or millions of iterations. LLRT is most effective when applied to smaller Serverless functions dedicated to tasks such as data transformation, real time processing, AWS service integrations, authorization, validation etc. It is designed to complement existing components rather than serve as a comprehensive replacement for everything. Notably, given its supported APIs are based on Node.js specification, transitioning back to alternative solutions requires minimal code adjustments.
 
 ## Building from source
 
