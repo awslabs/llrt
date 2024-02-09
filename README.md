@@ -4,7 +4,7 @@
 
 LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications. LLRT offers up to over **10x** faster startup and up to **2x** overall lower cost compared to other JavaScript runtimes running on **AWS Lambda**
 
-It's is built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient memory usage and swift startup.
+It's built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient memory usage and swift startup.
 
 > [!WARNING]
 > LLRT is an **experimental** package. It is subject to change and intended only for evaluation purposes.
@@ -30,7 +30,7 @@ Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or 
 Thats it 🎉
 
 > [!IMPORTANT]
-> Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's is **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
+> Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
 > All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
 
 ## Testing & ensuring compatibility
