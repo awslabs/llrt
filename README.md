@@ -226,8 +226,8 @@ Install generate libs and setup rust targets & toolchains
 Build release for Lambda
 
     make release-arm64
-    # or for x86, use
-    make release-x86
+    # or for x86-64, use
+    make release-x64
 
 Optionally build for your local machine (Mac or Linux)
 
