@@ -6,7 +6,8 @@ LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime d
 
 It's is built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient memory usage and swift startup.
 
-LLRT is an experimental package. It is subject to change and intended only for evaluation purposes.
+> [!WARNING]
+> LLRT is an **experimental** package. It is subject to change and intended only for evaluation purposes.
 
 <sub>LLRT - [DynamoDB Put, ARM, 128MB](example/functions/src/v3-lib.mjs):<sub>
 ![DynamoDB Put LLRT](./benchmarks/llrt-ddb-put.png "LLRT DynamoDB Put")
@@ -28,8 +29,9 @@ Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or 
 
 Thats it 🎉
 
-**Please note: Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's is NOT a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
-All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.**
+> [!IMPORTANT]
+> Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's is **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
+> All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
 
 ## Testing & ensuring compatibility
 
@@ -45,7 +47,8 @@ The test runner also has support for filters. Using filters is as simple as addi
 
 ## Compatibility matrix
 
-_LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation_
+> [!NOTE] 
+> LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation
 
 |               | Node.js                                  | LLRT ⚠️  |
 | ------------- | ---------------------------------------- | ----- |
@@ -177,7 +180,8 @@ V3 SDK packages not included in the list bellow have to be bundled with your sou
 
 Same principle as dependencies applies when using TypeScript. TypeScript must be bundled and transpiled into ES2020 JavaScript.
 
-_Note that LLRT will not support running TypeScript without transpilation. This is by design for performance reasons. Transpiling requires CPU and memory that adds latency and cost during execution. This can be avoided if done ahead of time during deployment._
+> [!NOTE] 
+> LLRT will not support running TypeScript without transpilation. This is by design for performance reasons. Transpiling requires CPU and memory that adds latency and cost during execution. This can be avoided if done ahead of time during deployment.
 
 ## Rationale
 

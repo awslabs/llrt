@@ -1,6 +1,7 @@
 # API documentation
 
-The long term goal for LLRT is to become [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md). Not every API from node will be supported.
+> [!NOTE] 
+> The long term goal for LLRT is to become [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md). Not every API from Node.js will be supported.
 
 ## buffer
 
@@ -15,6 +16,9 @@ The long term goal for LLRT is to become [Winter CG compliant](https://github.co
 Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
 
 ## child_process
+
+> [!WARNING] 
+> `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
@@ -40,10 +44,13 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 Available globally
 
-[fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) _There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:_
-* `keepalive` is always true
-* `body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
-* `mode`, `credentials`,  `referrerPolicy`, `priority`, `cache` is not available/applicable
+[fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch)
+
+> [!IMPORTANT]  
+> There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
+> * `keepalive` is always true
+> * `body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
+> * `mode`, `credentials`,  `referrerPolicy`, `priority`, `cache` is not available/applicable
 
 ## fs/promises
 
@@ -76,7 +83,10 @@ export function decode(value:string):Uint8Array
 
 ## module
 
-[createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename) _Require is available from esm modules natively. This function is just for compatibility_
+[createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename) 
+
+> [!NOTE] 
+> `require` is available from esm modules natively. This function is just for compatibility
 
 ## os
 
@@ -112,7 +122,7 @@ export function decode(value:string):Uint8Array
 
 ## timers
 
-Also available globally
+_Also available globally_
 
 [setImmediate](https://nodejs.org/api/timers.html#setimmediatecallback-args)
 
@@ -128,11 +138,11 @@ Also available globally
 
 ## util
 
-_Supported encodings:  hex, base64, utf8, iso88591_
+> [!IMPORTANT] 
+> Supported encodings:  hex, base64, utf8, iso88591.
+> Supported methods: `encode` & `decode`
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
-
-_Supports only `decode`_
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
@@ -179,14 +189,15 @@ export class XMLParser(options?: XmlParserOptions){
 
 ## net
 
-_These APIs uses native streams that is not 100% compatible with the Node.js Streams API._
+> [!WARNING] 
+> These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
+`highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
 
 [createConnection](https://nodejs.org/api/net.html#netcreateconnection)
 
 [connect](https://nodejs.org/api/net.html#netconnect)
 
-[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener) _This module provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:_
-`highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
+[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
 
 ## Misc Global objects
 
