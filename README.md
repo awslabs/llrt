@@ -65,7 +65,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | fs            | ✔︎                                       | ✘⏱     |
 | path          | ✔︎                                       | ✔︎    |
 | timers        | ✔︎                                       | ✔︎    |
-| uuid          | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
+| uuid          | ✔︎                                       | ✔︎    |
 | hex           | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
 | crypto        | ✔︎                                       | ✔︎  |
 | process       | ✔︎                                       | ✔︎  |
