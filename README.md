@@ -62,7 +62,7 @@ _LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in repla
 | fs            | ✔︎                                       | ✘⏱     |
 | path          | ✔︎                                       | ✔︎    |
 | timers        | ✔︎                                       | ✔︎    |
-| uuid          | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
+| uuid          | ✔︎                                       | ✔︎    |
 | hex           | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
 | crypto        | ✔︎                                       | ✔︎  |
 | process       | ✔︎                                       | ✔︎  |
