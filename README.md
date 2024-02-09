@@ -66,7 +66,6 @@ The test runner also has support for filters. Using filters is as simple as addi
 | path          | ✔︎                                       | ✔︎    |
 | timers        | ✔︎                                       | ✔︎    |
 | uuid          | ✔︎                                       | ✔︎    |
-| hex           | ✘ <sub><sup>(via dependency)</sup></sub> | ✔︎    |
 | crypto        | ✔︎                                       | ✔︎  |
 | process       | ✔︎                                       | ✔︎  |
 | encoding      | ✔︎                                       | ✔︎    |
@@ -75,6 +74,8 @@ The test runner also has support for filters. Using filters is as simple as addi
 | ESM           | ✔︎                                       | ✔︎    |
 | CJS           | ✔︎                                       | ✔︎    |
 | async/await   | ✔︎                                       | ✔︎    |
+| Other modules | ✔︎                                       | ✘    |
+
 
 _⚠️ = partially supported in LLRT_
 _⏱ = planned partial support_
