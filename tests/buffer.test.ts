@@ -83,6 +83,10 @@ describe("Buffer.from", () => {
     const buffer = Buffer.from(input, "base64");
 
     assert.strictEqual(buffer.toString(), "Hello, world!");
+
+    const input2 = "SGVsbG8sIHdvcmxkIQ";
+    const buffer2 = Buffer.from(input2, "base64");
+    assert.strictEqual(buffer2.toString(), "Hello, world!");
   });
 
   it("should create a buffer from a string with hex encoding", () => {
