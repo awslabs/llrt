@@ -202,3 +202,7 @@ export class XMLParser(options?: XmlParserOptions){
 ## Misc Global objects
 
 [structuredClone](https://nodejs.org/api/globals.html#structuredclonevalue-options)
+
+[atoa](https://developer.mozilla.org/en-US/docs/Web/API/btoa)
+
+[atob](https://developer.mozilla.org/en-US/docs/Web/API/atob)
