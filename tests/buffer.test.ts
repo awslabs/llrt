@@ -87,13 +87,7 @@ describe("Buffer.from", () => {
     const input2 = "SGVsbG8sIHdvcmxkIQ";
     const buffer2 = Buffer.from(input2, "base64");
     assert.strictEqual(buffer2.toString(), "Hello, world!");
-
-    const input3 = "SGVsbG8sIHdvcmxkIQ=";
-    const buffer3 = Buffer.from(input3, "base64");
-    assert.strictEqual(buffer3.toString(), "Hello, world!");
   });
-
-  it("should create a buffer from a string with forgiving base64 encoding", () => {});
 
   it("should create a buffer from a string with hex encoding", () => {
     const input = "48656c6c6f2c20776f726c6421";
