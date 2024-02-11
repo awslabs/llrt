@@ -15,7 +15,9 @@ use crate::{
     },
 };
 
-use self::encoder::{bytes_from_hex, bytes_to_hex_string, Encoder};
+use self::encoder::{
+    bytes_from_b64, bytes_from_hex, bytes_to_b64_string, bytes_to_hex_string, Encoder,
+};
 
 pub struct HexModule;
 
@@ -139,8 +141,20 @@ impl StringBuilder {
     }
 }
 
+pub fn atob<'js>(ctx: Ctx<'js>, encoded_value: String) -> Result<String> {
+    let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
+    Ok(unsafe { String::from_utf8_unchecked(vec) })
+}
+
+pub fn btoa(value: String) -> String {
+    bytes_to_b64_string(value.as_bytes())
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
+
+    globals.set("atob", Func::from(atob))?;
+    globals.set("btoa", Func::from(btoa))?;
 
     Class::<TextEncoder>::define(&globals)?;
     Class::<TextDecoder>::define(&globals)?;
