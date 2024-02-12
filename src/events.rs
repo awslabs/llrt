@@ -8,12 +8,12 @@ use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest, This},
-    CatchResultExt, Class, Ctx, Function, Result, String as JsString, Symbol, Value,
+    CatchResultExt, Class, Ctx, Function, Object, Result, String as JsString, Symbol, Value,
 };
 
 use tracing::trace;
 
-use crate::{module::export_default, utils::result::ResultExt, vm::ErrorExtensions};
+use crate::{utils::result::ResultExt, vm::ErrorExtensions};
 
 #[derive(Clone, Debug)]
 pub enum EventKey<'js> {
@@ -104,7 +104,7 @@ where
         Ok(())
     }
 
-    fn add_event_emitter_prototype(ctx: &Ctx<'js>) -> Result<()> {
+    fn add_event_emitter_prototype(ctx: &Ctx<'js>) -> Result<Object<'js>> {
         let proto = Class::<Self>::prototype(ctx.clone())
             .or_throw_msg(ctx, "Prototype for EventEmitter not found")?;
 
@@ -132,7 +132,7 @@ where
 
         proto.set("removeListener", off)?;
 
-        Ok(())
+        Ok(proto)
     }
 
     fn trace_event_emitter<'a>(&self, tracer: Tracer<'a, 'js>) {
@@ -409,10 +409,11 @@ impl ModuleDef for EventsModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
-        export_default(ctx, exports, |default| {
-            Class::<EventEmitter>::define(default)?;
-            Ok(())
-        })?;
+        let ctor = Class::<EventEmitter>::create_constructor(ctx)?
+            .expect("Can't create EventEmitter constructor");
+        ctor.set(stringify!(EventEmitter), ctor.clone())?;
+        exports.export(stringify!(EventEmitter), ctor.clone())?;
+        exports.export("default", ctor)?;
 
         EventEmitter::add_event_emitter_prototype(ctx)?;
 
