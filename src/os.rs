@@ -6,12 +6,11 @@ use rquickjs::{
     prelude::Func,
     Ctx, Result,
 };
-use uname_rs::Uname;
 
 use crate::{module::export_default, process::get_platform};
 
 static OS_INFO: Lazy<(String, String)> = Lazy::new(|| {
-    if let Ok(uts) = Uname::new() {
+    if let Ok(uts) = uname::uname() {
         return (uts.sysname, uts.release);
     }
     (String::from("n/a"), String::from("n/a"))
