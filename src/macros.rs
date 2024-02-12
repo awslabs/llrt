@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 macro_rules! iterable_enum {
     ($visibility:vis, $name:ident, $($member:tt),*) => {
         #[derive(Copy, Clone)]

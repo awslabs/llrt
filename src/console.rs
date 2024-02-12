@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::fmt::Write as FormatWrite;
 use std::{
     io::{stderr, stdout, IsTerminal, Write},

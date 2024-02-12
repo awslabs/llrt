@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use rquickjs::{Array, Ctx, IntoJs, Null, Object, Result, Undefined, Value};
 
 use simd_json::{Node, StaticNode};

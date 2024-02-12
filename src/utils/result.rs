@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::result::Result as StdResult;
 
 use rquickjs::{Ctx, Exception, Result};

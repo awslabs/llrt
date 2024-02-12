@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{Request, Uri};

@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use rquickjs::{class::Trace, function::Opt, methods, Class, Ctx, Object, Result, Value};
 
 use crate::utils::object::ObjectExt;

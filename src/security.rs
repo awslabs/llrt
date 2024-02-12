@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use hyper::{http::uri::InvalidUri, Uri};
 use once_cell::sync::Lazy;
 use rquickjs::{Ctx, Error, Exception, Result};
