@@ -12,6 +12,7 @@ It's built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient m
 
 <sub>Node.js 20 - [DynamoDB Put, ARM, 128MB](example/functions/src/v3-lib.mjs):<sub>
 ![DynamoDB Put Node20](./benchmarks/node20-ddb-put.png "Node20 DynamoDB Put")
+
 Benchmarks measured in **round trip time** for a cold start ([why?](#benchmark-methodology))
 
 ## Configure Lambda functions to use LLRT
