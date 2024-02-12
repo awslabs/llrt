@@ -37,7 +37,6 @@ webpki = "0.22.4"
 async-trait = "0.1.77"
 url = "2.5.0"
 zstd = { version = "0.13.0", default-features = false, features = [] }
-uname-rs = "0.1.1"
 libc = "0.2.153"
 base64-simd = "0.8.0"
 hex-simd = "0.8.0"
@@ -68,6 +67,7 @@ tokio-rustls = { version = "0.25.0", features = [
 ], default-features = false }
 ring = "0.17.7"
 snmalloc-rs = "0.3.4"
+uname = "0.1.1"
 
 [build-dependencies]
 rquickjs = { version = "0.4.3", features = [
