@@ -22,7 +22,7 @@ const API = {
       method: "DELETE",
     });
     if (!response.ok) {
-      throw new Error("Could not create todo");
+      throw new Error("Could not delete todo");
     }
     await response.text();
   },
