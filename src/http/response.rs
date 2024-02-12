@@ -6,25 +6,101 @@ use http_body_util::BodyExt;
 use hyper::body::{Bytes, Incoming};
 use rquickjs::{
     class::{Trace, Tracer},
-    Class, Ctx, Exception, IntoJs, Result, TypedArray, Value,
+    function::Opt,
+    Class, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
 };
 use tracing::trace;
 
-use crate::{json::parse::json_parse, utils::result::ResultExt};
+use crate::{
+    json::parse::json_parse,
+    utils::{object::get_bytes, result::ResultExt},
+};
 
-use super::headers::Headers;
+use super::{body::Body, headers::Headers};
+
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
+
+static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    map.insert(100, "Continue");
+    map.insert(101, "Switching Protocols");
+    map.insert(102, "Processing");
+    map.insert(103, "Early Hints");
+    map.insert(200, "OK");
+    map.insert(201, "Created");
+    map.insert(202, "Accepted");
+    map.insert(203, "Non-Authoritative Information");
+    map.insert(204, "No Content");
+    map.insert(205, "Reset Content");
+    map.insert(206, "Partial Content");
+    map.insert(207, "Multi-Status");
+    map.insert(208, "Already Reported");
+    map.insert(226, "IM Used");
+    map.insert(300, "Multiple Choices");
+    map.insert(301, "Moved Permanently");
+    map.insert(302, "Found");
+    map.insert(303, "See Other");
+    map.insert(304, "Not Modified");
+    map.insert(305, "Use Proxy");
+    map.insert(307, "Temporary Redirect");
+    map.insert(308, "Permanent Redirect");
+    map.insert(400, "Bad Request");
+    map.insert(401, "Unauthorized");
+    map.insert(402, "Payment Required");
+    map.insert(403, "Forbidden");
+    map.insert(404, "Not Found");
+    map.insert(405, "Method Not Allowed");
+    map.insert(406, "Not Acceptable");
+    map.insert(407, "Proxy Authentication Required");
+    map.insert(408, "Request Timeout");
+    map.insert(409, "Conflict");
+    map.insert(410, "Gone");
+    map.insert(411, "Length Required");
+    map.insert(412, "Precondition Failed");
+    map.insert(413, "Payload Too Large");
+    map.insert(414, "URI Too Long");
+    map.insert(415, "Unsupported Media Type");
+    map.insert(416, "Range Not Satisfiable");
+    map.insert(417, "Expectation Failed");
+    map.insert(418, "I'm a teapot");
+    map.insert(421, "Misdirected Request");
+    map.insert(422, "Unprocessable Content");
+    map.insert(423, "Locked");
+    map.insert(424, "Failed Dependency");
+    map.insert(425, "Too Early");
+    map.insert(426, "Upgrade Required");
+    map.insert(428, "Precondition Required");
+    map.insert(429, "Too Many Requests");
+    map.insert(431, "Request Header Fields Too Large");
+    map.insert(451, "Unavailable For Legal Reasons");
+    map.insert(500, "Internal Server Error");
+    map.insert(501, "Not Implemented");
+    map.insert(502, "Bad Gateway");
+    map.insert(503, "Service Unavailable");
+    map.insert(504, "Gateway Timeout");
+    map.insert(505, "HTTP Version Not Supported");
+    map.insert(506, "Variant Also Negotiates");
+    map.insert(507, "Insufficient Storage");
+    map.insert(508, "Loop Detected");
+    map.insert(510, "Not Extended");
+    map.insert(511, "Network Authentication Required");
+
+    map
+});
 
 pub struct ResponseData<'js> {
-    response: Option<hyper::Response<Incoming>>,
+    body: Body<'js>,
     method: String,
     url: String,
     start: Instant,
-    status: hyper::StatusCode,
+    status: u16,
+    status_text: Option<String>,
     headers: Class<'js, Headers>,
 }
 
 impl<'js> ResponseData<'js> {
-    pub fn new(
+    pub fn from_incoming(
         ctx: Ctx<'js>,
         response: hyper::Response<Incoming>,
         method: String,
@@ -37,11 +113,12 @@ impl<'js> ResponseData<'js> {
         let status = response.status();
 
         Ok(Self {
-            response: Some(response),
+            body: Body::from_incoming(response),
             method,
             url,
+            status_text: None,
             start,
-            status,
+            status: status.as_u16(),
             headers,
         })
     }
@@ -72,9 +149,46 @@ pub struct Response<'js> {
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Response<'js> {
+    #[qjs(constructor)]
+    pub fn new(ctx: Ctx<'js>, body: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+        let mut status = 200;
+        let mut headers = None;
+        let mut status_text = None;
+
+        if let Some(opt) = options.0 {
+            if let Some(status_opt) = opt.get("status")? {
+                status = status_opt;
+            }
+            if let Some(headers_opt) = opt.get("headers")? {
+                headers = Some(Headers::from_value(&ctx, headers_opt)?);
+            }
+            if let Some(status_text_opt) = opt.get("statusText")? {
+                status_text = Some(status_text_opt);
+            }
+        }
+
+        let headers = if let Some(headers) = headers {
+            Class::instance(ctx, headers)
+        } else {
+            Class::instance(ctx, Headers::default())
+        }?;
+
+        Ok(Self {
+            data: ResponseData {
+                body: Body::from_value(body),
+                method: "GET".into(),
+                url: "".into(),
+                start: Instant::now(),
+                status,
+                headers,
+                status_text,
+            },
+        })
+    }
+
     #[qjs(get)]
     pub fn status(&self) -> u64 {
-        self.data.status.as_u16().into()
+        self.data.status.into()
     }
 
     #[qjs(get)]
@@ -83,25 +197,19 @@ impl<'js> Response<'js> {
     }
 
     async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
-        let bytes = self.take_bytes(&ctx).await?;
-        let text = String::from_utf8_lossy(&bytes).to_string();
-        Ok(text)
+        self.data.body.text(ctx).await
     }
 
     async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let bytes = self.take_bytes(&ctx).await?.to_vec();
-        let json = json_parse(&ctx, bytes)?;
-        Ok(json)
+        self.data.body.json(ctx).await
     }
 
     async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<Vec<u8>> {
-        let bytes = self.take_bytes(&ctx).await?;
-        Ok(bytes.to_vec())
+        self.data.body.array_buffer(ctx).await
     }
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<TypedArray<'js, u8>> {
-        let bytes = self.take_bytes(&ctx).await?;
-        TypedArray::new(ctx, bytes.to_vec())
+        self.data.body.blob(ctx).await
     }
 
     #[qjs(get, rename = "type")]
@@ -110,36 +218,25 @@ impl<'js> Response<'js> {
     }
 
     #[qjs(get)]
-    fn status_text(&self) -> &'js str {
-        ""
+    fn status_text(&self) -> String {
+        if let Some(text) = &self.data.status_text {
+            return text.to_string();
+        }
+        STATUS_TEXTS
+            .get(&self.data.status)
+            .unwrap_or(&"")
+            .to_string()
     }
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        self.data.response.is_none()
-    }
-
-    #[qjs(skip)]
-    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Bytes> {
-        let mut body = self
-            .data
-            .response
-            .take()
-            .ok_or(Exception::throw_type(ctx, "Already read"))?;
-
-        let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
-        trace!(
-            "{} {}: {}ms",
-            self.data.method,
-            self.data.url,
-            self.data.start.elapsed().as_millis()
-        );
-        Ok(bytes)
+        self.data.body.is_used()
     }
 }
 
 impl<'js> Trace<'js> for Response<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.data.headers.trace(tracer);
+        self.data.body.trace(tracer);
     }
 }

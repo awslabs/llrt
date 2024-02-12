@@ -96,6 +96,80 @@ describe("Request", () => {
   });
 });
 
+describe("Response class", () => {
+  it("should construct a new Response object with default values", () => {
+    const response = new Response();
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(response.statusText, "OK");
+    assert.ok(response.headers instanceof Headers);
+    assert.strictEqual(response.body, null);
+  });
+
+  it("should set the status and statusText to the provided values", () => {
+    const response = new Response(null, {
+      status: 404,
+      statusText: "Not Found",
+    });
+    assert.strictEqual(response.status, 404);
+    assert.strictEqual(response.statusText, "Not Found");
+  });
+
+  it("should set the headers to the provided value", () => {
+    const headers = new Headers({ "Content-Type": "application/json" });
+    const response = new Response(null, { headers });
+    assert.deepStrictEqual(
+      response.headers.get("Content-Type"),
+      "application/json"
+    );
+  });
+
+  it("should set the body to the provided value", () => {
+    const body = "Hello, world!";
+    const response = new Response(body);
+    assert.deepStrictEqual(response.body, body);
+  });
+
+  it("should set the body to null if null is provided", () => {
+    const response = new Response(null);
+    assert.strictEqual(response.body, null);
+  });
+
+  it("should set the body to a Blob if a Blob is provided", () => {
+    const blob = new Blob(["Hello, world!"], { type: "text/plain" });
+    const response = new Response(blob);
+    return response.text().then((text) => {
+      assert.strictEqual(text, "Hello, world!");
+    });
+  });
+
+  it("should set the body to a JSON object if a JSON object is provided", () => {
+    const jsonBody = { key: "value" };
+    const response = new Response(JSON.stringify(jsonBody), {
+      headers: { "Content-Type": "application/json" },
+    });
+    return response.json().then((parsedJson) => {
+      assert.deepStrictEqual(parsedJson, jsonBody);
+    });
+  });
+
+  it("should clone the response with the clone() method", () => {
+    const response = new Response("Original response");
+    const clonedResponse = response.clone();
+    assert.strictEqual(response.body, clonedResponse.body);
+    assert.notStrictEqual(response, clonedResponse);
+  });
+
+  it("should create a Response object with an ok status for status codes in the range 200-299", () => {
+    const response = new Response("Success", { status: 204 });
+    assert.ok(response.ok);
+  });
+
+  it("should create a Response object with not-ok status for status codes outside the range 200-299", () => {
+    const response = new Response("Error", { status: 404 });
+    assert.ok(!response.ok);
+  });
+});
+
 describe("URL class", () => {
   it("should parse a valid URL", () => {
     const url = new URL("https://www.example.com");
@@ -104,7 +178,7 @@ describe("URL class", () => {
   });
 
   it("should create a copy of a valid URL", () => {
-    const url = new URL("https://www.example.com");
+    const url: any = new URL("https://www.example.com");
     const url2 = new URL(url);
     assert.notEqual(url, url2);
   });

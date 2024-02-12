@@ -1,17 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{class::Trace, function::Opt, methods, Class, Ctx, Object, Result, Value};
+use rquickjs::{
+    class::Trace, function::Opt, methods, Class, Ctx, Exception, Object, Result, Value,
+};
 
 use crate::utils::object::ObjectExt;
 
-use super::headers::Headers;
+use super::{body::Body, headers::Headers};
 
 #[rquickjs::class]
 pub struct Request<'js> {
     url: String,
     method: String,
     headers: Option<Class<'js, Headers>>,
-    body: Option<Value<'js>>,
+    body: Body<'js>,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -19,10 +21,7 @@ impl<'js> Trace<'js> for Request<'js> {
         if let Some(headers) = &self.headers {
             headers.trace(tracer);
         }
-
-        if let Some(body) = &self.body {
-            body.trace(tracer);
-        }
+        self.body.trace(tracer);
     }
 }
 
@@ -30,11 +29,11 @@ impl<'js> Trace<'js> for Request<'js> {
 impl<'js> Request<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, input: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
-        let mut request = Request {
+        let mut request = Self {
             url: String::from(""),
             method: "GET".to_string(),
             headers: None,
-            body: None,
+            body: Body::default(),
         };
 
         if input.is_string() {
@@ -68,9 +67,10 @@ impl<'js> Request<'js> {
         self.headers.clone()
     }
 
+    //TODO should implement readable stream
     #[qjs(get)]
     fn body(&self) -> Option<Value<'js>> {
-        self.body.clone()
+        self.body.as_value()
     }
 
     #[qjs(get)]
@@ -87,15 +87,22 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         request.method = method;
     }
 
+    if obj.contains_key("body").unwrap_or_default() {
+        if let "GET" | "HEAD" = request.method.as_str() {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
+            ));
+        }
+        let body: Value = obj.get("body").unwrap();
+        request.body = Body::from_value(body)
+    }
+
     if obj.contains_key("headers").unwrap() {
         let headers: Value = obj.get("headers")?;
-        let headers = Headers::from_value(ctx.clone(), headers)?;
+        let headers = Headers::from_value(&ctx, headers)?;
         let headers = Class::instance(ctx, headers)?;
         request.headers = Some(headers);
-    }
-    if obj.contains_key("body").unwrap_or_default() {
-        let body: Value = obj.get("body").unwrap();
-        request.body = Some(body)
     }
 
     Ok(())

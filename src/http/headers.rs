@@ -107,11 +107,11 @@ impl Headers {
         Ok(Self { headers })
     }
 
-    pub fn from_value<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         if value.is_object() {
             let headers_obj = value.as_object().unwrap();
             return if headers_obj.instance_of::<Headers>() {
-                Headers::from_js(&ctx, value)
+                Headers::from_js(ctx, value)
             } else {
                 let map: BTreeMap<String, String> = value.get().unwrap_or_default();
                 Ok(Headers::from_map(map))

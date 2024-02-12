@@ -89,9 +89,10 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
             if let Some(opts) = options {
                 let method_opts = opts.get_optional::<&str, String>("method");
 
-                headers = opts.get_optional("headers").transpose().map(|v| {
-                    v.and_then(|headers_val| Headers::from_value(ctx.clone(), headers_val))
-                });
+                headers = opts
+                    .get_optional("headers")
+                    .transpose()
+                    .map(|v| v.and_then(|headers_val| Headers::from_value(&ctx, headers_val)));
 
                 let body_opt: Option<Value> = opts.get("body").unwrap_or_default();
                 let url_opt: Option<String> = opts.get("url").unwrap_or_default();
@@ -153,7 +154,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                 let res = client.request(req).await.or_throw(&ctx)?; //TODO return ErrorObject
 
                 Ok::<Response, Error>(Response {
-                    data: ResponseData::new(ctx, res, method_string, url, start)?,
+                    data: ResponseData::from_incoming(ctx, res, method_string, url, start)?,
                 })
             }
         })),
