@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 import { EventEmitter as EE } from "events";
 // @ts-ignore
 import { Readable } from "readable-stream/lib/_stream_readable.js";

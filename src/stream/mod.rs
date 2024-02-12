@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use rquickjs::{prelude::This, Class, Ctx, IntoJs, Result, Value};
 use std::result::Result as StdResult;
 use tokio::sync::broadcast::error::RecvError;

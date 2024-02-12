@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 

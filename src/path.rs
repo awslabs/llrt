@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::{
     path::{Component, Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
     slice::Iter,

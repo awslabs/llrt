@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 #[cfg(feature = "nightly")] //FIXME remove when std::simd is stable
 use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
 

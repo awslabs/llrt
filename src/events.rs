@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
 use std::sync::{Arc, RwLock};
