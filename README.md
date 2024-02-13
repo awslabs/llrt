@@ -283,6 +283,8 @@ The technical definition of Init Duration ([source](https://docs.aws.amazon.com/
 
 Measuring round-trip request duration provides a more complete picture of user facing cold-start latency.
 
+Lambda invocation results (λ-labeled row) report the sum total of Init Duration + Function Duration.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
