@@ -13,6 +13,8 @@ It's built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient m
 <sub>Node.js 20 - [DynamoDB Put, ARM, 128MB](example/functions/src/v3-lib.mjs):<sub>
 ![DynamoDB Put Node20](./benchmarks/node20-ddb-put.png "Node20 DynamoDB Put")
 
+HTTP benchmarks measured in **round trip time** for a cold start ([why?](#benchmark-methodology))
+
 ## Configure Lambda functions to use LLRT
 
 Download the last LLRT release from <https://github.com/awslabs/llrt/releases>
@@ -280,6 +282,16 @@ Start the `lambda-server.js` in a separate terminal
 Then run llrt:
 
     make run
+
+## Benchmark Methodology
+Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox. 
+
+The technical definition of Init Duration ([source](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-logging.html#node-logging-output)):
+> For the first request served, the amount of time it took the runtime to load the function and run code outside of the handler method.
+
+Measuring round-trip request duration provides a more complete picture of user facing cold-start latency.
+
+Lambda invocation results (λ-labeled row) report the sum total of Init Duration + Function Duration.
 
 ## Security
 
