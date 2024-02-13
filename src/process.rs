@@ -61,6 +61,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
     let process = Object::new(ctx.clone())?;
+    let process_versions = Object::new(ctx.clone())?;
+    process_versions.set("llrt", VERSION)?;
 
     let release = Object::new(ctx.clone())?;
     release.prop("name", Property::from("llrt").enumerable())?;
@@ -95,6 +97,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("hrtime", hr_time)?;
     process.set("release", release)?;
     process.set("version", VERSION)?;
+    process.set("versions", process_versions)?;
     process.set("exit", Func::from(exit))?;
 
     globals.set("process", process)?;
