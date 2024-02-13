@@ -88,7 +88,7 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 
 ### ESBuild
 
-    esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:uuid
+    esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy --external:uuid
 
 ### Rollup
 
@@ -110,7 +110,7 @@ export default {
     commonjs(),
     terser(), 
   ],
-  external: ["@aws-sdk","uuid"],
+  external: ["@aws-sdk","@smithy","uuid"],
 };
 ```
 
@@ -132,7 +132,7 @@ export default {
   resolve: {
     extensions: ['.js'],
   },
-  externals: [nodeExternals(),"@aws-sdk","uuid"],
+  externals: [nodeExternals(),"@aws-sdk","@smithy","uuid"],
   optimization: {
     minimize: true,
     minimizer: [
@@ -150,30 +150,38 @@ export default {
 ## Using AWS SDK (v3) with LLRT
 
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
-V3 SDK packages not included in the list below have to be bundled with your source code while marking the following packages as external.
+V3 SDK packages not included in the list below have to be bundled with your source code while marking the following packages as external:
 
-**Bundled AWS SDK packages:**
+| Bundled AWS SDK packages             |
+| ------------------------------------- |
+| @aws-sdk/client-dynamodb              |
+| @aws-sdk/lib-dynamodb                 |
+| @aws-sdk/client-kms                   |
+| @aws-sdk/client-lambda                |
+| @aws-sdk/client-s3                    |
+| @aws-sdk/client-secrets-manager       |
+| @aws-sdk/client-ses                   |
+| @aws-sdk/client-sns                   |
+| @aws-sdk/client-sqs                   |
+| @aws-sdk/client-sts                   |
+| @aws-sdk/client-ssm                   |
+| @aws-sdk/client-cloudwatch-logs       |
+| @aws-sdk/client-cloudwatch-events     |
+| @aws-sdk/client-eventbridge           |
+| @aws-sdk/client-sfn                   |
+| @aws-sdk/client-xray                  |
+| @aws-sdk/client-cognito-identity      |
+| @aws-sdk/util-dynamodb                |
+| @aws-sdk/credential-providers         |
+| @smithy                               |
 
-* @aws-sdk/client-dynamodb
-* @aws-sdk/lib-dynamodb
-* @aws-sdk/client-kms
-* @aws-sdk/client-lambda
-* @aws-sdk/client-s3
-* @aws-sdk/client-secrets-manager
-* @aws-sdk/client-ses
-* @aws-sdk/client-sns
-* @aws-sdk/client-sqs
-* @aws-sdk/client-sts
-* @aws-sdk/client-ssm
-* @aws-sdk/client-cloudwatch-logs
-* @aws-sdk/client-cloudwatch-events
-* @aws-sdk/client-eventbridge
-* @aws-sdk/client-sfn
-* @aws-sdk/client-xray
-* @aws-sdk/client-cognito-identity
-* @aws-sdk/util-dynamodb
-* @aws-sdk/credential-providers
-* @smithy/signature-v4
+> [!IMPORTANT] 
+> LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
+> ```javascript
+>const response = await client.send(command);
+>// or 'transformToByteArray()'
+>const str = await response.Body.transformToString();
+>```
 
 ## Running TypeScript with LLRT
 

@@ -90,9 +90,6 @@ Object.keys(SDK_DATA).forEach((sdk) => {
   CLIENTS_BY_SDK[sdk] = clientName;
 });
 
-const camelToSnakeCase = (str) =>
-  str.replace(/[A-Z]/g, (letter) => `_${letter}`).toUpperCase();
-
 function runtimeConfigWrapper(config) {
   if (!config.credentials) {
     config.credentials = {
@@ -433,6 +430,7 @@ async function loadShims() {
     loadShim(/@smithy\/util-base64/, "util-base64.js"),
     loadShim(/@aws-crypto/, "aws-crypto.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "lru-cache.js"),
+    loadShim(/sdk-stream-mixin.browser.js/, "sdk-stream-mixin.js"),
   ]);
 }
 
