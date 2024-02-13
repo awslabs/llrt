@@ -1,6 +1,8 @@
 import pureHttp from "pure-http";
 import fs from "fs";
 
+const http = require('http');
+const https = require('https');
 const PORT = 3000;
 const BASE_PATH = "/2018-06-01/runtime";
 const ARGS = process.argv.slice(2);

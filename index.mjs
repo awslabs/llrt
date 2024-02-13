@@ -1,6 +1,8 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 
+const http = require('http');
+const https = require('https');
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 

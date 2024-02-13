@@ -3,6 +3,8 @@ import fs from "fs/promises";
 import { createRequire } from "module";
 import path from "path";
 
+const http = require('http');
+const https = require('https');
 const require = createRequire(import.meta.url);
 
 process.env.NODE_PATH = ".";
