@@ -33,6 +33,11 @@ That's it 🎉
 > Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
 > All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
 
+### Option 3: AWS SAM
+
+The following [example project](example/llrt-sam/README.md) sets up a lambda
+instrumented with a layer containing the llrt runtime.
+
 ## Testing & ensuring compatibility
 
 The best way to ensure that your code is compatible with LLRT is to write tests and executing them via the built in test runner
@@ -47,7 +52,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 
 ## Compatibility matrix
 
-> [!NOTE] 
+> [!NOTE]
 > LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation
 
 |               | Node.js                                  | LLRT ⚠️  |
@@ -108,9 +113,9 @@ export default {
     target: 'es2020',
   },
   plugins: [
-    resolve(), 
+    resolve(),
     commonjs(),
-    terser(), 
+    terser(),
   ],
   external: ["@aws-sdk","@smithy","uuid"],
 };
@@ -123,13 +128,13 @@ import TerserPlugin from 'terser-webpack-plugin';
 import nodeExternals from 'webpack-node-externals';
 
 export default {
-  entry: './index.js', 
+  entry: './index.js',
   output: {
     path: "dist",
     filename: 'bundle.js',
-    libraryTarget: 'module', 
+    libraryTarget: 'module',
   },
-  target: 'web', 
+  target: 'web',
   mode: 'production',
   resolve: {
     extensions: ['.js'],
@@ -140,7 +145,7 @@ export default {
     minimizer: [
       new TerserPlugin({
         terserOptions: {
-          ecma: 2020, 
+          ecma: 2020,
         },
       }),
     ],
@@ -177,7 +182,7 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | @aws-sdk/credential-providers         |
 | @smithy                               |
 
-> [!IMPORTANT] 
+> [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
 > ```javascript
 >const response = await client.send(command);
@@ -189,7 +194,7 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 
 Same principle as dependencies applies when using TypeScript. TypeScript must be bundled and transpiled into ES2020 JavaScript.
 
-> [!NOTE] 
+> [!NOTE]
 > LLRT will not support running TypeScript without transpilation. This is by design for performance reasons. Transpiling requires CPU and memory that adds latency and cost during execution. This can be avoided if done ahead of time during deployment.
 
 ## Rationale
@@ -284,7 +289,7 @@ Then run llrt:
     make run
 
 ## Benchmark Methodology
-Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox. 
+Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox.
 
 The technical definition of Init Duration ([source](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-logging.html#node-logging-output)):
 > For the first request served, the amount of time it took the runtime to load the function and run code outside of the handler method.
