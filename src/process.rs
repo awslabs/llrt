@@ -37,11 +37,11 @@ pub fn get_platform() -> &'static str {
     platform
 }
 
-fn current_time_micros() -> u64 {
+fn current_time_nanos() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_micros() as u64
+        .as_nanos() as u64
 }
 
 fn exit(code: i32) {
@@ -68,7 +68,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     release.prop("name", Property::from("llrt").enumerable())?;
 
     let hr_time = Object::new(ctx.clone())?;
-    hr_time.set("bigint", Func::from(current_time_micros))?;
+    hr_time.set("bigint", Func::from(current_time_nanos))?;
 
     let env_map: HashMap<String, String> = env::vars().collect();
     let mut args: Vec<String> = env::args().collect();
