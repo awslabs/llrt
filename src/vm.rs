@@ -87,7 +87,6 @@ macro_rules! create_modules {
 
 create_modules!(
     "crypto" => CryptoModule,
-    "uuid" => UuidModule,
     "hex" => HexModule,
     "fs/promises" => FsPromisesModule,
     "os" => OsModule,
