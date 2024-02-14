@@ -35,7 +35,7 @@ That's it 🎉
 
 ### Option 3: AWS SAM
 
-The following [example project](example/llrt-sam/README.md) sets up a lambda
+The following [example project](example/llrt-sam/) sets up a lambda
 instrumented with a layer containing the llrt runtime.
 
 ## Testing & ensuring compatibility
