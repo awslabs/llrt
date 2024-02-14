@@ -1,17 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    collections::HashMap,
-    env,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{collections::HashMap, env};
 
 use rquickjs::{
     atom::PredefinedAtom, convert::Coerced, function::Constructor, object::Property, prelude::Func,
-    Ctx, IntoJs, Object, Result, Value,
+    Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
 };
 
-use crate::VERSION;
+use crate::{STARTED, VERSION};
 
 fn cwd() -> String {
     env::current_dir().unwrap().to_string_lossy().to_string()
@@ -37,11 +33,26 @@ pub fn get_platform() -> &'static str {
     platform
 }
 
-fn current_time_micros() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_micros() as u64
+fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {
+    let started = unsafe { STARTED.assume_init() };
+    let elapsed = started.elapsed().as_nanos() as u64;
+
+    BigInt::from_u64(ctx, elapsed)
+}
+
+fn hr_time(ctx: Ctx<'_>) -> Result<Array<'_>> {
+    let started = unsafe { STARTED.assume_init() };
+    let elapsed = started.elapsed().as_nanos() as u64;
+
+    let seconds = elapsed / 1_000_000_000;
+    let remaining_nanos = elapsed % 1_000_000_000;
+
+    let array = Array::new(ctx)?;
+
+    array.set(0, seconds)?;
+    array.set(1, remaining_nanos)?;
+
+    Ok(array)
 }
 
 fn exit(code: i32) {
@@ -64,11 +75,11 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let process_versions = Object::new(ctx.clone())?;
     process_versions.set("llrt", VERSION)?;
 
+    let hr_time = Function::new(ctx.clone(), hr_time)?;
+    hr_time.set("bigint", Func::from(hr_time_big_int))?;
+
     let release = Object::new(ctx.clone())?;
     release.prop("name", Property::from("llrt").enumerable())?;
-
-    let hr_time = Object::new(ctx.clone())?;
-    hr_time.set("bigint", Func::from(current_time_micros))?;
 
     let env_map: HashMap<String, String> = env::vars().collect();
     let mut args: Vec<String> = env::args().collect();

@@ -143,7 +143,7 @@ impl StringBuilder {
     }
 }
 
-pub fn atob<'js>(ctx: Ctx<'js>, encoded_value: String) -> Result<String> {
+pub fn atob(ctx: Ctx<'_>, encoded_value: String) -> Result<String> {
     let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
     Ok(unsafe { String::from_utf8_unchecked(vec) })
 }

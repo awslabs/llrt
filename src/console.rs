@@ -132,6 +132,7 @@ fn stringify_primitive<'js>(
             Type::Undefined => result.push_str(COLOR_BLACK),
             Type::Int | Type::Float | Type::Bool => result.push_str(COLOR_YELLOW),
             Type::Symbol => result.push_str(COLOR_GREEN),
+            Type::BigInt => result.push_str(COLOR_YELLOW),
             _ => has_color = false,
         }
     }
@@ -144,6 +145,12 @@ fn stringify_primitive<'js>(
         } else {
             "false"
         }),
+        Type::BigInt => {
+            let mut buffer = itoa::Buffer::new();
+            let big_int = value.as_big_int().unwrap();
+            result.push_str(buffer.format(big_int.clone().to_i64()?));
+            result.push('n');
+        }
         Type::Int => {
             let mut buffer = itoa::Buffer::new();
             result.push_str(buffer.format(value.as_int().unwrap()))
@@ -194,6 +201,7 @@ fn is_primitive_like_or_void(typeof_value: Type) -> bool {
             | Type::Int
             | Type::Float
             | Type::String
+            | Type::BigInt
             | Type::Symbol
             | Type::Unknown
     )
