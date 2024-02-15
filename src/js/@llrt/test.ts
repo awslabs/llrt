@@ -147,7 +147,7 @@ const createDescribe =
   ({ only = false, skip = false }: TestSettings = {}) =>
   (desc: string, fn: () => Promise<void>) => {
     SUITE_LOAD_PROMISES.push(async () => {
-      let parent: TestSuite = currentSuites.shift() || rootSuite;
+      let parent: TestSuite = currentSuites.shift() ?? rootSuite;
       currentSuite = {
         tests: [],
         suites: [],
@@ -182,9 +182,25 @@ const describe: any = createDescribe();
 describe.only = createDescribe({ only: true });
 describe.skip = createDescribe({ skip: true });
 
+function createExpect() {
+  return ((value: any, message?: string): {
+      toEqual: <E>(expected: E) => void
+    } => {
+      return {
+        toEqual<E>(expected: E): void {
+          assert(expected === value, message ?? `AssertionError: expected ${expected} to deeply equal ${value}\nExpected :${expected}\nActual   :${value}`)
+        }
+      }
+    })
+}
+
+const expect: any = createExpect();
+
+
 GLOBAL.it = testFunction;
 GLOBAL.test = testFunction;
 GLOBAL.describe = describe;
+GLOBAL.expect = expect;
 
 GLOBAL.beforeEach = (cb: MaybeAsyncFunction) => {
   currentSuite.beforeEach = cb;
@@ -217,7 +233,7 @@ const executeAsyncOrCallbackFn = async (fn: Function) => {
         TIMEOUT_MS
       );
       const resolveWrapper = (error: any) => {
-        clearTimeout(timeout!);
+        clearTimeout(timeout);
         if (error) {
           return reject(error);
         }
@@ -286,7 +302,7 @@ const runAllTests = async () => {
         await runTests(testSuite, output, testSuite.tests);
         const stack = [...testSuite.suites];
         const depthList: number[] = [];
-        if (testSuite.tests?.length ?? 0 > 0) {
+        if ((testSuite.tests?.length ?? 0) > 0) {
           output.setDepth(1);
         }
         while (stack.length > 0) {
@@ -298,7 +314,7 @@ const runAllTests = async () => {
           ) {
             continue;
           }
-          const depth = depthList.shift() || 1;
+          const depth = depthList.shift() ?? 1;
           output.setDepth(depth);
           output.appendLine(suite.desc);
           if (suite.beforeAll) {
