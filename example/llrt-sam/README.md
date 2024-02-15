@@ -3,7 +3,6 @@
 This is a sample SAM project with LLRT instrumentation on a lambda via a lambda layer
 
 - hello-world - Code for the application's Lambda function written in TypeScript.
-- hello-world/tests - Unit tests for the application code.
 - template.yaml - A template that defines the application's AWS resources.
 
 The application uses several AWS resources, including Lambda functions and an AWS Lambda Layer. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.
@@ -65,9 +64,8 @@ Test a single function by invoking it directly with a test event. An event is a 
 Run functions locally and invoke them with the `sam local invoke` command.
 
 ```bash
-llrt-sam$ sam local invoke HelloWorldFunction --event events/event.json
+llrt-sam$ sam local invoke HelloWorldFunction
 ```
-
 
 ## Add a resource to your application
 The application template uses AWS Serverless Application Model (AWS SAM) to define application resources. AWS SAM is an extension of AWS CloudFormation with a simpler syntax for configuring common serverless application resources such as functions, triggers, and APIs. For resources not included in [the SAM specification](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md), you can use standard [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html) resource types.
@@ -83,16 +81,6 @@ llrt-sam$ sam logs -n HelloWorldFunction --stack-name llrt-sam --tail
 ```
 
 You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).
-
-## Unit tests
-
-Tests are defined in the `hello-world/tests` folder in this project. Use NPM to install the [Jest test framework](https://jestjs.io/) and run unit tests.
-
-```bash
-llrt-sam$ cd hello-world
-hello-world$ npm install
-hello-world$ npm run test
-```
 
 ## Cleanup
 
