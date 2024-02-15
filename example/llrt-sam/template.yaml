@@ -15,9 +15,11 @@ Resources:
   LlrtLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      ContentUri: ../../llrt-lambda-x64.zip
+      ContentUri: ../../llrt-lambda-arm64.zip
       CompatibleRuntimes:
         - provided.al2023
+      CompatibleArchitectures:
+        - arm64
   HelloWorldFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -25,7 +27,7 @@ Resources:
       Handler: app.lambdaHandler
       Runtime: provided.al2023
       Architectures:
-        - x86_64
+        - arm64
       Layers:
         - !Ref LlrtLayer
     Metadata: # Manage esbuild properties
