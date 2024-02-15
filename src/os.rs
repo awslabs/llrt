@@ -11,11 +11,15 @@ use rquickjs::{
 
 use crate::{module::export_default, process::get_platform};
 
-static OS_INFO: Lazy<(String, String)> = Lazy::new(|| {
+static OS_INFO: Lazy<(String, String, String)> = Lazy::new(|| {
     if let Ok(uts) = uname::uname() {
-        return (uts.sysname, uts.release);
+        return (uts.sysname, uts.release, uts.version);
     }
-    (String::from("n/a"), String::from("n/a"))
+    (
+        String::from("n/a"),
+        String::from("n/a"),
+        String::from("n/a"),
+    )
 });
 
 fn get_type() -> &'static str {
@@ -24,6 +28,10 @@ fn get_type() -> &'static str {
 
 fn get_release() -> &'static str {
     &OS_INFO.1
+}
+
+fn get_version() -> &'static str {
+    &OS_INFO.2
 }
 
 fn get_tmp_dir() -> String {
@@ -38,6 +46,7 @@ impl ModuleDef for OsModule {
         declare.declare("release")?;
         declare.declare("tmpdir")?;
         declare.declare("platform")?;
+        declare.declare("version")?;
 
         declare.declare("default")?;
 
@@ -50,6 +59,7 @@ impl ModuleDef for OsModule {
             default.set("release", Func::from(get_release))?;
             default.set("tmpdir", Func::from(get_tmp_dir))?;
             default.set("platform", Func::from(get_platform))?;
+            default.set("version", Func::from(get_version))?;
 
             Ok(())
         })
