@@ -1,2 +1,1 @@
-* Bugfixes
-* Dependency updates
+* XML bugfixes
