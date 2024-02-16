@@ -2,7 +2,7 @@ import _process from "process";
 
 describe("process", () => {
   it("should have a process env", () => {
-    assert.equal(_process.env.PWD, process.env.PWD);
+    assert.equal(_process.env, process.env);
   });
 
   it("should have a process cwd", () => {
