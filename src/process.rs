@@ -3,9 +3,16 @@
 use std::{collections::HashMap, env};
 
 use rquickjs::{
-    atom::PredefinedAtom, convert::Coerced, function::Constructor, object::Property, prelude::Func,
+    atom::PredefinedAtom,
+    convert::Coerced,
+    function::Constructor,
+    module::{Declarations, Exports, ModuleDef},
+    object::Property,
+    prelude::Func,
     Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
 };
+
+use crate::module::export_default;
 
 use crate::{STARTED, VERSION};
 
@@ -114,4 +121,50 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     globals.set("process", process)?;
 
     Ok(())
+}
+
+pub struct ProcessModule;
+
+impl ModuleDef for ProcessModule {
+    fn declare(declare: &mut Declarations) -> Result<()> {
+        declare.declare("env")?;
+        declare.declare("cwd")?;
+        declare.declare("argv0")?;
+        declare.declare("id")?;
+        declare.declare("argv")?;
+        declare.declare("platform")?;
+        declare.declare("arch")?;
+        declare.declare("hrtime")?;
+        declare.declare("release")?;
+        declare.declare("version")?;
+        declare.declare("versions")?;
+        declare.declare("exit")?;
+
+        declare.declare("default")?;
+        Ok(())
+    }
+
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+        let globals = ctx.globals();
+        let process: Object = globals.get("process")?;
+
+        export_default(ctx, exports, |default| {
+            default.set("env", process.get::<&str, Value>("env"))?;
+            default.set("cwd", process.get::<&str, Function>("cwd"))?;
+            default.set("argv0", process.get::<&str, String>("argv0"))?;
+            default.set("id", process.get::<&str, u32>("id"))?;
+            default.set("argv", process.get::<&str, Vec<String>>("argv"))?;
+            default.set("platform", process.get::<&str, String>("platform"))?;
+            default.set("arch", process.get::<&str, String>("arch"))?;
+            default.set("hrtime", process.get::<&str, Function>("hrtime"))?;
+            default.set("release", process.get::<&str, Object>("release"))?;
+            default.set("version", process.get::<&str, String>("version"))?;
+            default.set("versions", process.get::<&str, Object>("versions"))?;
+            default.set("exit", process.get::<&str, Function>("exit"))?;
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
 }

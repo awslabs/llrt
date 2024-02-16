@@ -49,6 +49,7 @@ use crate::{
     number::number_to_string,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
+    process::ProcessModule,
     timers::TimersModule,
     utils::{
         class::get_class_name,
@@ -99,7 +100,8 @@ create_modules!(
     "buffer" => BufferModule,
     "child_process" => ChildProcessModule,
     "util" => UtilModule,
-    "uuid" => UuidModule
+    "uuid" => UuidModule,
+    "process" => ProcessModule
 );
 
 struct ModuleInfo<T: ModuleDef> {
