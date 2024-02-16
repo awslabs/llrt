@@ -56,6 +56,26 @@ impl<'js> Trace<'js> for XMLParser<'js> {
     }
 }
 
+struct StackObject<'js> {
+    obj: Object<'js>,
+    has_value: bool,
+}
+impl<'js> StackObject<'js> {
+    fn new(ctx: Ctx<'js>) -> Result<Self> {
+        Ok(Self {
+            obj: Object::new(ctx)?,
+            has_value: false,
+        })
+    }
+
+    fn into_value(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        if self.has_value {
+            return Ok(self.obj.into_value());
+        }
+        "".into_js(ctx)
+    }
+}
+
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> XMLParser<'js> {
     #[qjs(constructor)]
@@ -99,11 +119,12 @@ impl<'js> XMLParser<'js> {
         let mut reader = Reader::from_reader(bytes.as_ref());
         reader.trim_text(true);
 
-        let mut current_obj = Object::new(ctx.clone())?;
+        let mut current_obj = StackObject::new(ctx.clone())?;
+        current_obj.has_value = true;
         let mut buf = Vec::new();
         let mut current_key = String::new();
         let mut current_value: Option<String> = None;
-        let mut path: Vec<(String, Object<'js>)> = vec![];
+        let mut path: Vec<(String, StackObject<'js>)> = vec![];
         let mut has_attributes = false;
 
         loop {
@@ -113,16 +134,18 @@ impl<'js> XMLParser<'js> {
                 Ok(Event::Empty(ref tag)) => {
                     current_key = Self::get_tag_name(&ctx, &reader, tag)?;
 
-                    let obj = Object::new(ctx.clone())?;
-                    self.process_attributes(&ctx, &reader, &path, tag, &obj, &mut false)?;
+                    let mut obj = StackObject::new(ctx.clone())?;
+                    self.process_attributes(&ctx, &reader, &path, tag, &mut obj, &mut false)?;
+                    current_obj.has_value = true;
 
-                    Self::process_end(&ctx, &current_obj, obj.into_value(), &current_key)?;
+                    Self::process_end(&ctx, &current_obj, obj.into_value(&ctx)?, &current_key)?;
                 }
                 Ok(Event::Start(ref tag)) => {
+                    has_attributes = false;
                     current_key = Self::get_tag_name(&ctx, &reader, tag)?;
                     path.push((current_key.clone(), current_obj));
 
-                    let obj = Object::new(ctx.clone())?;
+                    let obj = StackObject::new(ctx.clone())?;
                     current_obj = obj;
 
                     self.process_attributes(
@@ -130,23 +153,22 @@ impl<'js> XMLParser<'js> {
                         &reader,
                         &path,
                         tag,
-                        &current_obj,
+                        &mut current_obj,
                         &mut has_attributes,
                     )?;
                 }
                 Ok(Event::End(_)) => {
-                    let (parent_tag, parent_obj) = path.pop().unwrap();
+                    let (parent_tag, mut parent_obj) = path.pop().unwrap();
+                    parent_obj.has_value = true;
                     let value = if let Some(value) = current_value.take() {
                         value.into_js(&ctx)?
                     } else {
-                        current_obj.into_value()
+                        current_obj.into_value(&ctx)?
                     };
 
                     current_obj = parent_obj;
 
                     Self::process_end(&ctx, &current_obj, value, &parent_tag)?;
-
-                    has_attributes = false;
                 }
                 Ok(Event::CData(text)) => {
                     let text = text.escape().or_throw(&ctx)?;
@@ -154,7 +176,8 @@ impl<'js> XMLParser<'js> {
                     let tag_value =
                         self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
                     if has_attributes {
-                        current_obj.set(&self.text_node_name, tag_value)?;
+                        current_obj.has_value = true;
+                        current_obj.obj.set(&self.text_node_name, tag_value)?;
                     } else {
                         current_value = Some(tag_value)
                     }
@@ -168,7 +191,8 @@ impl<'js> XMLParser<'js> {
                         self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
 
                     if has_attributes {
-                        current_obj.set(&self.text_node_name, tag_value)?;
+                        current_obj.has_value = true;
+                        current_obj.obj.set(&self.text_node_name, tag_value)?;
                     } else {
                         current_value = Some(tag_value)
                     }
@@ -178,7 +202,7 @@ impl<'js> XMLParser<'js> {
                 _ => {}
             }
         }
-        Ok(current_obj)
+        Ok(current_obj.obj)
     }
 }
 
@@ -196,24 +220,24 @@ impl<'js> XMLParser<'js> {
 
     fn process_end(
         ctx: &Ctx<'js>,
-        current_obj: &Object<'js>,
+        current_obj: &StackObject<'js>,
         value: Value<'js>,
         tag: &str,
     ) -> Result<()> {
-        if current_obj.contains_key(tag)? {
-            let parent_value: Value = current_obj.get(tag)?;
+        if current_obj.obj.contains_key(tag)? {
+            let parent_value: Value = current_obj.obj.get(tag)?;
             if !parent_value.is_array() {
                 let array = Array::new(ctx.clone())?;
                 array.set(0, parent_value)?;
                 array.set(1, value)?;
-                current_obj.set(tag, array.as_value())?;
+                current_obj.obj.set(tag, array.as_value())?;
             } else {
                 let array = parent_value.as_array().or_throw(ctx)?;
                 array.set(array.len(), value)?;
-                current_obj.set(tag, array.as_value())?;
+                current_obj.obj.set(tag, array.as_value())?;
             }
         } else {
-            current_obj.prop(
+            current_obj.obj.prop(
                 tag,
                 Property::from(value).configurable().enumerable().writable(),
             )?;
@@ -225,13 +249,14 @@ impl<'js> XMLParser<'js> {
         &self,
         ctx: &Ctx<'js>,
         reader: &Reader<&[u8]>,
-        path: &[(String, Object<'js>)],
+        path: &[(String, StackObject<'js>)],
         tag: &BytesStart<'_>,
-        current_obj: &Object<'js>,
+        stack_object: &mut StackObject<'js>,
         has_attributes: &mut bool,
     ) -> Result<()> {
         if !self.ignore_attributes {
             for attribute in tag.attributes() {
+                stack_object.has_value = true;
                 *has_attributes = true;
                 let attr = attribute.or_throw(ctx)?;
 
@@ -269,7 +294,7 @@ impl<'js> XMLParser<'js> {
                         value = new_value
                     }
                 }
-                current_obj.set(key, value)?;
+                stack_object.obj.set(key, value)?;
             }
         }
         Ok(())
@@ -277,7 +302,7 @@ impl<'js> XMLParser<'js> {
 
     fn process_tag_value(
         &self,
-        path: &[(String, Object<'js>)],
+        path: &[(String, StackObject<'js>)],
         key: &String,
         value: String,
         has_attributes: bool,

@@ -88,6 +88,20 @@ describe("XMLParser options and handling", () => {
     assert.deepStrictEqual(result, expectedResult);
   });
 
+  it("should handle empty tag attributes", () => {
+    const xmlString = '<root><person name="John"/></root>';
+    const expectedResult = {
+      root: {
+        person: {
+          "@_name": "John",
+        },
+      },
+    };
+    const parser = new XMLParser({ ignoreAttributes: false });
+    const result = parser.parse(xmlString);
+    assert.deepStrictEqual(result, expectedResult);
+  });
+
   it("should handle attributes and text content for sibling arrays", () => {
     const xmlString =
       '<root><person name="John">Developer</person><person name="Alice">Designer</person></root>';
@@ -111,6 +125,18 @@ describe("XMLParser options and handling", () => {
       '<root><person name="John"/><person name="Alice"/></root>';
     const expectedResult = {
       root: { person: [{ "@_name": "John" }, { "@_name": "Alice" }] },
+    };
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+    });
+    const result = parser.parse(xmlString);
+    assert.deepStrictEqual(result, expectedResult);
+  });
+
+  it.skip("should handle empty child tags", () => {
+    const xmlString = "<data><prefix></prefix><name></name><empty/></data>";
+    const expectedResult = {
+      data: { prefix: "", name: "" },
     };
     const parser = new XMLParser({
       ignoreAttributes: false,
