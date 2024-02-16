@@ -182,7 +182,7 @@ mod tests {
         ];
 
         with_runtime(|ctx| {
-            for (_i, data) in data.into_iter().enumerate() {
+            for data in data.into_iter() {
                 let size = data.len();
                 let data2 = data.clone().into_bytes();
                 let now = Instant::now();
