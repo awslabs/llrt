@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  llrm-build:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: llrm-image:latest
+    container_name: llrm-build-container
+    volumes:
+      - /home/tomita/.aws:/root/.aws
