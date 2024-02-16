@@ -521,7 +521,6 @@ async function buildSdks() {
     plugins: [awsSdkPlugin, esbuildShimPlugin([[/^bowser$/]])],
     alias: {
       "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
-      "@aws-sdk/xml-builder": "xml",
       "fast-xml-parser": "xml",
       "@smithy/md5-js": "crypto",
     },
