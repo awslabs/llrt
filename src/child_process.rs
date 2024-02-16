@@ -340,7 +340,7 @@ fn spawn<'js>(
     cmd: String,
     args_and_opts: Rest<Value<'js>>,
 ) -> Result<Class<'js, ChildProcess<'js>>> {
-    let args_0 = args_and_opts.get(0);
+    let args_0 = args_and_opts.first();
     let args_1 = args_and_opts.get(1);
 
     let mut opts = args_0.and_then(|o| o.as_object()).map(|o| o.to_owned());
