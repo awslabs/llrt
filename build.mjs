@@ -1,6 +1,6 @@
 import * as esbuild from "esbuild";
 import fs from "fs/promises";
-import { createRequire } from "module";
+import {createRequire} from "module";
 import path from "path";
 
 const require = createRequire(import.meta.url);
@@ -12,7 +12,21 @@ const SRC_DIR = path.join("src", "js");
 const TESTS_DIR = "tests";
 const OUT_DIR = "bundle";
 const SHIMS = new Map();
-const TEST_FILES = await fs.readdir(TESTS_DIR);
+const TEST_FILES = [];
+async function readAllTestFilesRecursively(directory) {
+  for (const file of (await fs.readdir(directory))) {
+    const absolute = path.join(directory, file);
+    if ((await fs.stat(absolute)).isDirectory()) {
+      await readAllTestFilesRecursively(absolute);
+    }
+    else {
+      if (absolute.endsWith(".test.ts") || absolute.endsWith(".spec.ts")) {
+        TEST_FILES.push(absolute);
+      }
+    }
+  }
+}
+await readAllTestFilesRecursively(TESTS_DIR)
 const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const AWS_JSON_SHARED_COMMAND_REGEX2 =
@@ -492,10 +506,7 @@ async function buildLibrary() {
   // Build tests
   const testEntryPoints = {};
   TEST_FILES.forEach((entry) => {
-    testEntryPoints[path.join("__tests__", `${entry.slice(0, -3)}`)] = path.join(
-        TESTS_DIR,
-        entry
-    );
+    testEntryPoints[path.join("__tests__", `${entry.slice(0, -3)}`)] = entry;
   });
   await esbuild.build({
     ...defaultLibEsBuildOption,
