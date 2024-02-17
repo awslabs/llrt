@@ -7,6 +7,8 @@ use hyper::body::{Bytes, Incoming};
 use rquickjs::{
     class::{Trace, Tracer},
     Class, Ctx, Exception, IntoJs, Result, TypedArray, Value,
+    Object,
+    function::Opt
 };
 use tracing::trace;
 
@@ -72,6 +74,23 @@ pub struct Response<'js> {
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Response<'js> {
+    #[qjs(constructor)]
+    pub fn new(ctx: Ctx<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+        let response: Response<'js> = Response {
+            data: ResponseData {
+                method: "GET".to_string(),
+                url: "".to_string(),
+                start: Instant::now(),
+                status: hyper::StatusCode::OK,
+                response: None,
+                headers: Class::instance(ctx, Headers::default())?,
+            }
+        };
+
+
+        Ok(response)
+    }
+
     #[qjs(get)]
     pub fn status(&self) -> u64 {
         self.data.status.as_u16().into()
