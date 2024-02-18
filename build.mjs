@@ -63,7 +63,7 @@ const SDK_DATA = {
   "client-cloudwatch-logs": ["CloudWatchLogs", "logs"],
   "client-cloudwatch-events": ["CloudWatchEvents", "events"],
   "client-eventbridge": ["EventBridge", "events"],
-  "client-sfn": ["SFN", "sfn"],
+  "client-sfn": ["SFN", "states"],
   "client-xray": ["XRay", "xray"],
   "client-cognito-identity": ["CognitoIdentity", "cognito-idp"],
 };
