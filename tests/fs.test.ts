@@ -1,4 +1,6 @@
-import { promises as fs } from "fs";
+import fs from "fs/promises";
+import defaultFsImport from "fs";
+import * as namedFsImport from "fs";
 import path from "path";
 import os from "os";
 
@@ -12,6 +14,16 @@ describe("readdir", () => {
     const dir = await fs.readdir(".cargo", { withFileTypes: true });
     assert.deepEqual(dir, [{ name: "config.toml" }]);
     assert.equal(dir[0].isFile(), true);
+  });
+
+  it("should read a directory using default import", async () => {
+    const dir = await defaultFsImport.promises.readdir(".cargo");
+    assert.deepEqual(dir, ["config.toml"]);
+  });
+
+  it("should read a directory using named import", async () => {
+    const dir = await namedFsImport.promises.readdir(".cargo");
+    assert.deepEqual(dir, ["config.toml"]);
   });
 });
 
@@ -102,5 +114,15 @@ describe("access", () => {
   it("should throw if not exists", async () => {
     const filePath = "fixtures/nothing";
     assert.rejects(fs.access(filePath));
+  });
+
+  it("should access a file using default import", async () => {
+    const filePath = "fixtures/hello.txt";
+    await defaultFsImport.promises.access(filePath);
+  });
+
+  it("should access a file using named import", async () => {
+    const filePath = "fixtures/hello.txt";
+    await namedFsImport.promises.access(filePath);
   });
 });
