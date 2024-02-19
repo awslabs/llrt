@@ -66,7 +66,7 @@ tokio-rustls = { version = "0.25.0", features = [
     "tls12",
     "ring",
 ], default-features = false }
-ring = "0.17.7"
+ring = "0.17.8"
 snmalloc-rs = "0.3.4"
 uname = "0.1.1"
 
