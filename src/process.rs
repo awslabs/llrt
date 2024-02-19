@@ -12,6 +12,8 @@ use rquickjs::{
     Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
 };
 
+use crate::module::export_default;
+
 use crate::{STARTED, VERSION};
 
 fn cwd() -> String {
@@ -146,7 +148,22 @@ impl ModuleDef for ProcessModule {
         let globals = ctx.globals();
         let process: Object = globals.get("process")?;
 
-        exports.export("default", process)?;
+        export_default(ctx, exports, |default| {
+            default.set("env", process.get::<&str, Value>("env"))?;
+            default.set("cwd", process.get::<&str, Function>("cwd"))?;
+            default.set("argv0", process.get::<&str, String>("argv0"))?;
+            default.set("id", process.get::<&str, u32>("id"))?;
+            default.set("argv", process.get::<&str, Vec<String>>("argv"))?;
+            default.set("platform", process.get::<&str, String>("platform"))?;
+            default.set("arch", process.get::<&str, String>("arch"))?;
+            default.set("hrtime", process.get::<&str, Function>("hrtime"))?;
+            default.set("release", process.get::<&str, Object>("release"))?;
+            default.set("version", process.get::<&str, String>("version"))?;
+            default.set("versions", process.get::<&str, Object>("versions"))?;
+            default.set("exit", process.get::<&str, Function>("exit"))?;
+
+            Ok(())
+        })?;
 
         Ok(())
     }
