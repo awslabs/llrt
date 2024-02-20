@@ -55,7 +55,7 @@ mod tests {
     #[tokio::test]
     async fn json_stringify_objects() {
         with_runtime(|ctx| {
-            let date: Value = ctx.eval("new Date(0)")?;
+            let date: Value = ctx.eval("let obj = { date: new Date(0) };obj;")?;
             let stringified = json_stringify(&ctx, date.clone())?.unwrap();
             let stringified_2 = ctx.json_stringify(date)?.unwrap().to_string()?;
             assert_eq!(stringified, stringified_2);
