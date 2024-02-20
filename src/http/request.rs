@@ -69,13 +69,33 @@ impl<'js> Request<'js> {
 
     //TODO should implement readable stream
     #[qjs(get)]
-    fn body(&self) -> Option<Value<'js>> {
-        self.body.as_value()
+    fn body(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        self.body.as_value(&ctx, false)
     }
 
     #[qjs(get)]
     fn keepalive(&self) -> bool {
         true
+    }
+
+    fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
+        let headers = if let Some(headers) = &self.headers {
+            Some(Class::<Headers>::instance(
+                ctx.clone(),
+                headers.borrow().clone(),
+            )?)
+        } else {
+            None
+        };
+
+        let body = self.body.as_value(&ctx, true)?;
+
+        Ok(Self {
+            url: self.url.clone(),
+            method: self.url.clone(),
+            headers,
+            body: Body::from_value(Some(body)),
+        })
     }
 }
 
@@ -88,14 +108,16 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
 
     if obj.contains_key("body").unwrap_or_default() {
-        if let "GET" | "HEAD" = request.method.as_str() {
-            return Err(Exception::throw_type(
-                &ctx,
-                "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
-            ));
-        }
         let body: Value = obj.get("body").unwrap();
-        request.body = Body::from_value(body)
+        if !body.is_undefined() && !body.is_null() {
+            if let "GET" | "HEAD" = request.method.as_str() {
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
+                ));
+            }
+            request.body = Body::from_value(Some(body))
+        }
     }
 
     if obj.contains_key("headers").unwrap() {

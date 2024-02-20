@@ -2,21 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::time::Instant;
 
-use http_body_util::BodyExt;
-use hyper::body::{Bytes, Incoming};
+use hyper::{
+    body::{Bytes, Incoming},
+    header::HeaderName,
+};
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
-    Class, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
-};
-use tracing::trace;
-
-use crate::{
-    json::parse::json_parse,
-    utils::{object::get_bytes, result::ResultExt},
+    ArrayBuffer, Class, Ctx, IntoJs, Object, Result, TypedArray, Value,
 };
 
-use super::{body::Body, headers::Headers};
+use super::{blob::Blob, body::Body, headers::Headers};
 
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -107,13 +103,23 @@ impl<'js> ResponseData<'js> {
         url: String,
         start: Instant,
     ) -> Result<Self> {
+        let response_headers = response.headers();
+        let mut content_type = None;
+        if let Some(content_type_header) =
+            response_headers.get(HeaderName::from_static("content-type"))
+        {
+            if let Ok(content_type_header) = content_type_header.to_str() {
+                content_type = Some(content_type_header.to_owned())
+            }
+        }
+
         let headers = Headers::from_http_headers(&ctx, response.headers())?;
         let headers = Class::instance(ctx, headers)?;
 
         let status = response.status();
 
         Ok(Self {
-            body: Body::from_incoming(response),
+            body: Body::from_incoming(response, content_type),
             method,
             url,
             status_text: None,
@@ -150,7 +156,7 @@ pub struct Response<'js> {
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Response<'js> {
     #[qjs(constructor)]
-    pub fn new(ctx: Ctx<'js>, body: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+    pub fn new(ctx: Ctx<'js>, body: Opt<Value<'js>>, options: Opt<Object<'js>>) -> Result<Self> {
         let mut status = 200;
         let mut headers = None;
         let mut status_text = None;
@@ -175,7 +181,7 @@ impl<'js> Response<'js> {
 
         Ok(Self {
             data: ResponseData {
-                body: Body::from_value(body),
+                body: Body::from_value(body.0),
                 method: "GET".into(),
                 url: "".into(),
                 start: Instant::now(),
@@ -192,6 +198,22 @@ impl<'js> Response<'js> {
     }
 
     #[qjs(get)]
+    pub fn url(&self) -> String {
+        self.data.url.clone()
+    }
+
+    //TODO implement readable stream
+    #[qjs(get)]
+    pub fn body(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        self.data.body.as_value(&ctx, false)
+    }
+
+    #[qjs(get)]
+    pub fn ok(&mut self) -> bool {
+        self.data.status > 199 && self.data.status < 300
+    }
+
+    #[qjs(get)]
     fn headers(&self) -> Class<'js, Headers> {
         self.data.headers.clone()
     }
@@ -204,12 +226,27 @@ impl<'js> Response<'js> {
         self.data.body.json(ctx).await
     }
 
-    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<Vec<u8>> {
+    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
         self.data.body.array_buffer(ctx).await
     }
 
-    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<TypedArray<'js, u8>> {
+    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         self.data.body.blob(ctx).await
+    }
+
+    fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
+        let body = self.data.body.as_value(&ctx, true)?;
+        Ok(Self {
+            data: ResponseData {
+                body: Body::from_value(Some(body)),
+                method: self.data.method.clone(),
+                url: self.data.url.clone(),
+                start: self.data.start,
+                status: self.data.status,
+                status_text: self.data.status_text.clone(),
+                headers: Class::<Headers>::instance(ctx, self.data.headers.borrow().clone())?,
+            },
+        })
     }
 
     #[qjs(get, rename = "type")]

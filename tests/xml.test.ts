@@ -133,10 +133,10 @@ describe("XMLParser options and handling", () => {
     assert.deepStrictEqual(result, expectedResult);
   });
 
-  it.skip("should handle empty child tags", () => {
+  it("should handle empty child tags", () => {
     const xmlString = "<data><prefix></prefix><name></name><empty/></data>";
     const expectedResult = {
-      data: { prefix: "", name: "" },
+      data: { prefix: "", name: "", empty: "" },
     };
     const parser = new XMLParser({
       ignoreAttributes: false,

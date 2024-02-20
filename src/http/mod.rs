@@ -13,7 +13,9 @@ use rquickjs::{Class, Ctx, Result};
 
 use crate::http::headers::Headers;
 
-use self::{request::Request, response::Response, url::URL, url_search_params::URLSearchParams};
+use self::{
+    blob::Blob, request::Request, response::Response, url::URL, url_search_params::URLSearchParams,
+};
 
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = ctx.globals();
@@ -21,6 +23,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     fetch::init(ctx, &globals)?;
 
     Class::<Request>::define(&globals)?;
+    Class::<Blob>::define(&globals)?;
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define(&globals)?;
     Class::<URLSearchParams>::define(&globals)?;
