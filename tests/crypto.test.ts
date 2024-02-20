@@ -77,4 +77,10 @@ describe("random", () => {
       /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
     assert.match(uuid, uuidRegex);
   });
+
+  it("should generate a random bytes buffer using randomBytes", () => {
+    const buffer = crypto.randomBytes(16);
+    assert(buffer instanceof Buffer);
+    assert.strictEqual(buffer.length, 16);
+  });
 });
