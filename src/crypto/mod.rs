@@ -15,6 +15,7 @@ use rquickjs::{
 };
 
 use crate::{
+    buffer::Buffer,
     encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
     module::export_default,
     utils::{
@@ -58,9 +59,7 @@ pub fn random_byte_array(length: usize) -> Vec<u8> {
 
 fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
     let random_bytes = random_byte_array(length);
-
-    let array_buffer = TypedArray::new(ctx.clone(), random_bytes)?;
-    array_buffer.into_js(&ctx)
+    Buffer(random_bytes).into_js(&ctx)
 }
 
 fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
