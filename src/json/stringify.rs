@@ -125,7 +125,7 @@ fn run_to_json<'js>(
             value: &val,
             depth: context.depth,
             indentation: context.indentation,
-            key: context.key,
+            key: None,
             index: None,
             parent: Some(js_object),
             ancestors: context.ancestors,
