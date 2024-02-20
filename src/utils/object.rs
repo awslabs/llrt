@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, Array, ArrayBuffer, Ctx, Exception, FromJs,
-    Function, IntoAtom, IntoJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, function::Constructor, Array, ArrayBuffer, Coerced, Ctx, Exception,
+    FromJs, Function, IntoAtom, IntoJs, Object, Result, TypedArray, Value,
 };
 
 use super::{class::get_class_name, result::ResultExt};
@@ -22,7 +22,7 @@ pub fn array_to_hash_map<'js>(
 pub fn array_to_btree_map<'js>(
     ctx: &Ctx<'js>,
     array: Array<'js>,
-) -> Result<BTreeMap<String, String>> {
+) -> Result<BTreeMap<String, Coerced<String>>> {
     let value = object_from_entries(ctx, array)?;
     let value = value.into_value();
     BTreeMap::from_js(ctx, value)
@@ -81,8 +81,7 @@ pub fn get_bytes_offset_length<'js>(
 
     if let Some(val) = value.as_string() {
         let string = val.to_string()?;
-        let checked_length = get_checked_len(string.len(), length, offset);
-        return Ok(string.as_bytes()[offset..offset + checked_length].to_vec());
+        return Ok(bytes_from_js_string(string, offset, length));
     }
     if value.is_array() {
         let array = value.as_array().unwrap();
@@ -103,10 +102,20 @@ pub fn get_bytes_offset_length<'js>(
         }
     }
 
+    if let Ok(val) = value.get::<Coerced<String>>() {
+        let string = val.to_string();
+        return Ok(bytes_from_js_string(string, offset, length));
+    };
+
     Err(Exception::throw_message(
         ctx,
-        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or string",
+        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or interpretable as string",
     ))
+}
+
+fn bytes_from_js_string(string: String, offset: usize, length: Option<usize>) -> Vec<u8> {
+    let checked_length = get_checked_len(string.len(), length, offset);
+    string.as_bytes()[offset..offset + checked_length].to_vec()
 }
 
 pub fn obj_to_array_buffer<'js>(

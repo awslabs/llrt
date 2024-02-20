@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 
 use rquickjs::{
-    atom::PredefinedAtom, prelude::Opt, Array, Ctx, FromJs, Function, Object, Result, Symbol, Value,
+    atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Object, Result,
+    Symbol, Value,
 };
 
 use crate::utils::{class::IteratorDef, object::array_to_btree_map};
@@ -134,12 +135,10 @@ impl URLSearchParams {
     }
 }
 
-fn to_params(map: BTreeMap<String, String>) -> BTreeMap<String, Vec<String>> {
-    let mut params = BTreeMap::new();
-    for (key, value) in map {
-        params.insert(key, vec![value]);
-    }
-    params
+fn to_params(map: BTreeMap<String, Coerced<String>>) -> BTreeMap<String, Vec<String>> {
+    map.into_iter()
+        .map(|(k, v)| (k, vec![v.to_string()]))
+        .collect()
 }
 
 fn parse_query_string(query_string: &str) -> BTreeMap<String, Vec<String>> {

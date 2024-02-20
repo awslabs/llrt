@@ -34,10 +34,11 @@ pub fn get_arch() -> &'static str {
 
 pub fn get_platform() -> &'static str {
     let platform = env::consts::OS;
-    if platform == "macos" {
-        return "darwin";
+    match platform {
+        "macos" => "darwin",
+        "windows" => "win32",
+        _ => platform,
     }
-    platform
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {

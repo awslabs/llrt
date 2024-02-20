@@ -3,7 +3,9 @@
 use std::collections::BTreeMap;
 
 use hyper::HeaderMap;
-use rquickjs::{atom::PredefinedAtom, methods, prelude::Opt, Array, Ctx, FromJs, Result, Value};
+use rquickjs::{
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Result, Value,
+};
 
 use crate::utils::{
     class::IteratorDef,
@@ -27,21 +29,9 @@ impl Headers {
             if init.is_array() {
                 let array = init.into_array().unwrap();
                 let headers = array_to_btree_map(&ctx, array)?;
-                return Ok(Self { headers });
+                return Ok(Self::from_map(headers));
             } else if init.is_object() {
-                let obj = init.as_object().unwrap();
-
-                if obj.instance_of::<Self>() {
-                    let headers = Self::from_js(&ctx, init)?;
-
-                    return Ok(Self {
-                        headers: headers.headers.clone(),
-                    });
-                } else {
-                    let map = BTreeMap::from_js(&ctx, init.to_owned())?;
-
-                    return Ok(Self { headers: map });
-                }
+                return Self::from_value(&ctx, init);
             }
         }
 
@@ -107,24 +97,24 @@ impl Headers {
         Ok(Self { headers })
     }
 
-    pub fn from_value<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         if value.is_object() {
             let headers_obj = value.as_object().unwrap();
             return if headers_obj.instance_of::<Headers>() {
-                Headers::from_js(&ctx, value)
+                Headers::from_js(ctx, value)
             } else {
-                let map: BTreeMap<String, String> = value.get().unwrap_or_default();
-                Ok(Headers::from_map(map))
+                let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
+                return Ok(Self::from_map(map));
             };
         }
         Ok(Headers::default())
     }
 
-    pub fn from_map(map: BTreeMap<String, String>) -> Self {
-        let mut headers = BTreeMap::new();
-        for (key, value) in map {
-            headers.insert(key.to_lowercase(), value);
-        }
+    pub fn from_map(map: BTreeMap<String, Coerced<String>>) -> Self {
+        let headers: BTreeMap<String, String> = map
+            .into_iter()
+            .map(|(key, value)| (key.to_lowercase(), value.to_string()))
+            .collect();
         Self { headers }
     }
 }
