@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import assert from "assert";
+import * as chai from 'chai'
+import {JestChaiExpect} from "./expect/jest-expect";
 
 const GLOBAL = globalThis as any;
 GLOBAL.assert = assert;
@@ -182,20 +184,18 @@ const describe: any = createDescribe();
 describe.only = createDescribe({ only: true });
 describe.skip = createDescribe({ skip: true });
 
-function createExpect() {
-  return ((value: any, message?: string): {
-      toEqual: <E>(expected: E) => void
-    } => {
-      return {
-        toEqual<E>(expected: E): void {
-          assert(expected === value, message ?? `AssertionError: expected ${expected} to deeply equal ${value}\nExpected :${expected}\nActual   :${value}`)
-        }
-      }
+chai.use(JestChaiExpect)
+export function createExpect() {
+    const expect = ((value: any, message?: string): any => {
+        return chai.expect(value, message) as unknown as any
     })
+
+    Object.assign(expect, chai.expect)
+
+    return expect
 }
 
 const expect: any = createExpect();
-
 
 GLOBAL.it = testFunction;
 GLOBAL.test = testFunction;
