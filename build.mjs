@@ -36,7 +36,7 @@ const ES_BUILD_OPTIONS = {
     "uuid",
     "hex",
     "os",
-    "fs/promises",
+    "fs",
     "child_process",
     "process",
     "timers",

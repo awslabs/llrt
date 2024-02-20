@@ -43,23 +43,33 @@ impl ModuleDef for FsPromisesModule {
         Class::<Stat>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
-            let constants = Object::new(ctx.clone())?;
-            constants.set("F_OK", CONSTANT_F_OK)?;
-            constants.set("R_OK", CONSTANT_R_OK)?;
-            constants.set("W_OK", CONSTANT_W_OK)?;
-            constants.set("X_OK", CONSTANT_X_OK)?;
+            export_promises(ctx, default)?;
 
-            default.set("readdir", Func::from(Async(read_dir)))?;
-            default.set("readFile", Func::from(Async(read_file)))?;
-            default.set("writeFile", Func::from(Async(write_file)))?;
-            default.set("mkdir", Func::from(Async(mkdir)))?;
-            default.set("mkdtemp", Func::from(Async(mkdtemp)))?;
-            default.set("rmdir", Func::from(Async(rmdir)))?;
-            default.set("rm", Func::from(Async(rmfile)))?;
-            default.set("stat", Func::from(Async(stat_fn)))?;
-            default.set("access", Func::from(Async(access)))?;
+            Ok(())
+        })
+    }
+}
 
-            default.set("constants", constants)?;
+pub struct FsModule;
+
+impl ModuleDef for FsModule {
+    fn declare(declare: &mut Declarations) -> Result<()> {
+        declare.declare("promises")?;
+        declare.declare("default")?;
+
+        Ok(())
+    }
+
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+        Class::<Dirent>::register(ctx)?;
+        Class::<Stat>::register(ctx)?;
+
+        export_default(ctx, exports, |default| {
+            let promises = Object::new(ctx.clone())?;
+
+            export_promises(ctx, &promises)?;
+
+            default.set("promises", promises)?;
 
             Ok(())
         })
@@ -83,5 +93,27 @@ fn delarations(declare: &mut Declarations) -> Result<()> {
     declare.declare("constants")?;
 
     declare.declare("default")?;
+    Ok(())
+}
+
+fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
+    let constants = Object::new(ctx.clone())?;
+    constants.set("F_OK", CONSTANT_F_OK)?;
+    constants.set("R_OK", CONSTANT_R_OK)?;
+    constants.set("W_OK", CONSTANT_W_OK)?;
+    constants.set("X_OK", CONSTANT_X_OK)?;
+
+    exports.set("readdir", Func::from(Async(read_dir)))?;
+    exports.set("readFile", Func::from(Async(read_file)))?;
+    exports.set("writeFile", Func::from(Async(write_file)))?;
+    exports.set("mkdir", Func::from(Async(mkdir)))?;
+    exports.set("mkdtemp", Func::from(Async(mkdtemp)))?;
+    exports.set("rmdir", Func::from(Async(rmdir)))?;
+    exports.set("rm", Func::from(Async(rmfile)))?;
+    exports.set("stat", Func::from(Async(stat_fn)))?;
+    exports.set("access", Func::from(Async(access)))?;
+
+    exports.set("constants", constants)?;
+
     Ok(())
 }
