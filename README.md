@@ -100,9 +100,9 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 ### Rollup
 
 ```javascript
-import resolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
-import { terser } from 'rollup-plugin-terser';
+import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
+import terser from '@rollup/plugin-terser';
 
 export default {
   input: 'index.js',
