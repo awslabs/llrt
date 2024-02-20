@@ -38,6 +38,7 @@ const ES_BUILD_OPTIONS = {
     "os",
     "fs/promises",
     "child_process",
+    "process",
     "timers",
     "stream",
     "path",
