@@ -14,11 +14,7 @@ use std::{
 use std::io::Write;
 
 use jwalk::WalkDir;
-use rquickjs::{
-    loader::{Loader, Resolver},
-    module::ModuleData,
-    CatchResultExt, CaughtError, Context, Ctx, Module, Runtime,
-};
+use rquickjs::{module::ModuleData, CatchResultExt, CaughtError, Context, Ctx, Module, Runtime};
 
 const BUNDLE_DIR: &str = "bundle";
 
