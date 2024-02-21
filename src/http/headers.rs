@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use hyper::HeaderMap;
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Class, Coerced, Ctx, FromJs, Function,
-    Result, Value,
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Result,
+    Value,
 };
 
 use crate::utils::{
