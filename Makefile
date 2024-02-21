@@ -24,11 +24,15 @@ RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
 
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
-	ARCH := x64
+	ARCH = x64
 else
     DETECTED_OS := $(shell uname | tr A-Z a-z)
-	ARCH := $(shell uname -m)
+	ARCH = $(shell uname -m)
 endif
+
+ifeq ($(ARCH),aarch64)
+	ARCH = arm64
+endif	
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
