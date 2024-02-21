@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 
 use hyper::HeaderMap;
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Result, Value,
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Class, Coerced, Ctx, FromJs, Function,
+    Result, Value,
 };
 
 use crate::utils::{
@@ -21,7 +22,7 @@ pub struct Headers {
     headers: BTreeMap<String, String>,
 }
 
-#[methods]
+#[methods(rename_all = "camelCase")]
 impl Headers {
     #[qjs(constructor)]
     pub fn new<'js>(ctx: Ctx<'js>, init: Opt<Value<'js>>) -> Result<Self> {
@@ -65,6 +66,10 @@ impl Headers {
         self.headers.remove(&key.to_lowercase());
     }
 
+    pub fn keys(&mut self) -> Vec<String> {
+        self.headers.keys().cloned().collect::<Vec<String>>()
+    }
+
     pub fn values(&mut self) -> Vec<String> {
         self.headers.values().cloned().collect::<Vec<String>>()
     }
@@ -76,6 +81,13 @@ impl Headers {
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
     pub fn iterator<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         self.js_iterator(ctx)
+    }
+
+    pub fn for_each<'js>(&self, callback: Function<'js>) -> Result<()> {
+        for header in self.headers.iter() {
+            callback.call((header.1, header.0))?
+        }
+        Ok(())
     }
 }
 
