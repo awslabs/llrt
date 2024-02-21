@@ -83,13 +83,9 @@ impl Headers {
         self.js_iterator(ctx)
     }
 
-    pub fn for_each<'js>(&self, ctx: Ctx<'js>, callback: Function<'js>) -> Result<()> {
+    pub fn for_each<'js>(&self, callback: Function<'js>) -> Result<()> {
         for header in self.headers.iter() {
-            callback.call((
-                header.1,
-                header.0,
-                Class::<Headers>::instance(ctx.clone(), self.clone()),
-            ))?
+            callback.call((header.1, header.0))?
         }
         Ok(())
     }
