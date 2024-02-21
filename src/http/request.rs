@@ -1,19 +1,20 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    class::Trace, function::Opt, methods, Class, Ctx, Exception, Object, Result, Value,
+    class::Trace, function::Opt, methods, Class, Ctx, Exception, IntoJs, Null, Object, Result,
+    TypedArray, Value,
 };
 
-use crate::utils::object::ObjectExt;
+use crate::utils::{class::get_class, object::ObjectExt};
 
-use super::{body::Body, headers::Headers};
+use super::{blob::Blob, headers::Headers};
 
 #[rquickjs::class]
 pub struct Request<'js> {
     url: String,
     method: String,
     headers: Option<Class<'js, Headers>>,
-    body: Body<'js>,
+    body: Option<Value<'js>>,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -21,7 +22,9 @@ impl<'js> Trace<'js> for Request<'js> {
         if let Some(headers) = &self.headers {
             headers.trace(tracer);
         }
-        self.body.trace(tracer);
+        if let Some(body) = &self.body {
+            body.trace(tracer);
+        }
     }
 }
 
@@ -33,7 +36,7 @@ impl<'js> Request<'js> {
             url: String::from(""),
             method: "GET".to_string(),
             headers: None,
-            body: Body::default(),
+            body: None,
         };
 
         if input.is_string() {
@@ -69,8 +72,11 @@ impl<'js> Request<'js> {
 
     //TODO should implement readable stream
     #[qjs(get)]
-    fn body(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.body.as_value(&ctx, false)
+    fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(body) = &self.body {
+            return Ok(body.clone());
+        }
+        Null.into_js(&ctx)
     }
 
     #[qjs(get)]
@@ -88,13 +94,11 @@ impl<'js> Request<'js> {
             None
         };
 
-        let body = self.body.as_value(&ctx, true)?;
-
         Ok(Self {
             url: self.url.clone(),
             method: self.url.clone(),
             headers,
-            body: Body::from_value(Some(body)),
+            body: self.body.clone(),
         })
     }
 }
@@ -116,7 +120,13 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                     "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
                 ));
             }
-            request.body = Body::from_value(Some(body))
+
+            request.body = if let Some(blob) = get_class::<Blob>(&body)? {
+                let blob = blob.borrow();
+                Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value())
+            } else {
+                Some(body)
+            }
         }
     }
 

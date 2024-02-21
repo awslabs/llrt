@@ -11,7 +11,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
-    Class, Ctx, Error, Function, IntoJs, Null, Object, Result, TypedArray, Value,
+    Class, Ctx, Error, Function, IntoJs, Null, Object, Result, Value,
 };
 
 use crate::{

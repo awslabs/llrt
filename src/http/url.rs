@@ -223,7 +223,7 @@ fn get_string(ctx: &Ctx, input: Value) -> Result<String> {
 }
 
 fn search_params_to_string(search_params: &Class<'_, URLSearchParams>) -> String {
-    let search_params = search_params.borrow_mut().to_string();
+    let search_params = search_params.borrow().to_string();
 
     if !search_params.is_empty() {
         format!("?{}", &search_params)

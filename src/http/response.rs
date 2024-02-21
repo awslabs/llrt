@@ -86,7 +86,7 @@ static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
 });
 
 pub struct ResponseData<'js> {
-    body: Body<'js>,
+    body: Option<Class<'js, Body<'js>>>,
     method: String,
     url: String,
     start: Instant,
@@ -114,12 +114,12 @@ impl<'js> ResponseData<'js> {
         }
 
         let headers = Headers::from_http_headers(&ctx, response.headers())?;
-        let headers = Class::instance(ctx, headers)?;
+        let headers = Class::instance(ctx.clone(), headers)?;
 
         let status = response.status();
 
         Ok(Self {
-            body: Body::from_incoming(response, content_type),
+            body: Some(Body::from_incoming(ctx, response, content_type)?),
             method,
             url,
             status_text: None,
@@ -174,14 +174,14 @@ impl<'js> Response<'js> {
         }
 
         let headers = if let Some(headers) = headers {
-            Class::instance(ctx, headers)
+            Class::instance(ctx.clone(), headers)
         } else {
-            Class::instance(ctx, Headers::default())
+            Class::instance(ctx.clone(), Headers::default())
         }?;
 
         Ok(Self {
             data: ResponseData {
-                body: Body::from_value(body.0),
+                body: Body::from_value(&ctx, body.0)?,
                 method: "GET".into(),
                 url: "".into(),
                 start: Instant::now(),
@@ -202,14 +202,13 @@ impl<'js> Response<'js> {
         self.data.url.clone()
     }
 
-    //TODO implement readable stream
     #[qjs(get)]
-    pub fn body(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.data.body.as_value(&ctx, false)
+    pub fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        Body::get_body(ctx, &self.data.body)
     }
 
     #[qjs(get)]
-    pub fn ok(&mut self) -> bool {
+    pub fn ok(&self) -> bool {
         self.data.status > 199 && self.data.status < 300
     }
 
@@ -218,27 +217,26 @@ impl<'js> Response<'js> {
         self.data.headers.clone()
     }
 
-    async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
-        self.data.body.text(ctx).await
+    async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
+        Body::get_text(ctx, &self.data.body).await
     }
 
-    async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.data.body.json(ctx).await
+    async fn json(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        Body::get_json(ctx, &self.data.body).await
     }
 
-    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        self.data.body.array_buffer(ctx).await
+    async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+        Body::get_array_buffer(ctx, &self.data.body).await
     }
 
-    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
-        self.data.body.blob(ctx).await
+    async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
+        Body::get_blob(ctx, &self.data.body).await
     }
 
-    fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
-        let body = self.data.body.as_value(&ctx, true)?;
+    fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
         Ok(Self {
             data: ResponseData {
-                body: Body::from_value(Some(body)),
+                body: self.data.body.clone(),
                 method: self.data.method.clone(),
                 url: self.data.url.clone(),
                 start: self.data.start,
@@ -250,7 +248,7 @@ impl<'js> Response<'js> {
     }
 
     #[qjs(get, rename = "type")]
-    fn reponse_type(&self) -> &'js str {
+    fn response_type(&self) -> &'js str {
         "basic"
     }
 
@@ -267,13 +265,18 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        self.data.body.is_used()
+        if let Some(body) = &self.data.body {
+            return body.borrow().is_used();
+        }
+        false
     }
 }
 
 impl<'js> Trace<'js> for Response<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.data.headers.trace(tracer);
-        self.data.body.trace(tracer);
+        if let Some(body) = &self.data.body {
+            body.trace(tracer);
+        }
     }
 }

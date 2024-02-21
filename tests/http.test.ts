@@ -85,7 +85,7 @@ describe("Request", () => {
       body,
       method: "POST",
     });
-    assert.deepStrictEqual(request.body, ENCODER.encode(body));
+    assert.deepStrictEqual(request.body, body);
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {
@@ -141,10 +141,13 @@ describe("Response class", () => {
     );
   });
 
-  it("should set the body to the provided value", () => {
+  it("should set the body to the provided value", async () => {
     const body = "Hello, world!";
     const response = new Response(body);
-    assert.deepStrictEqual(response.body, ENCODER.encode(body));
+    assert.deepStrictEqual(
+      await (response.body as any).typedArray(),
+      ENCODER.encode(body)
+    );
   });
 
   it("should set the body to null if null is provided", () => {
