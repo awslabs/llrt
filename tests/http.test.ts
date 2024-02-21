@@ -41,6 +41,17 @@ describe("Headers", () => {
     next = iterator.next();
     assert.deepStrictEqual(next.value, undefined);
   });
+
+  it("should iterate over the headers with forEach", () => {
+    const headers = {
+      "content-type": "application/json",
+    };
+    const h = new Headers(headers);
+    h.forEach((value, key) => {
+      assert.deepStrictEqual(key, "content-type");
+      assert.deepStrictEqual(value, "application/json");
+    });
+  });
 });
 
 describe("Request", () => {
