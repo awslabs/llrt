@@ -9,7 +9,7 @@ BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
 ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0 AR="zig ar"
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
-ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)" 
+ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 ZSTD_LIB_CC_x64 = CC="zig cc -target x86_64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 
 TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/*.ts)
@@ -143,13 +143,13 @@ run-cli: js
 	cargo run
 
 test: export JS_MINIFY = 0
-test: js 
-	cargo run -- test -d bundle
+test: js
+	cargo run -- test -d bundle/__tests__/tests/unit
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/__tests__/tests/e2e
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
@@ -159,7 +159,7 @@ libs: | libs-arm64 libs-x64
 lib/zstd.h:
 	cp zstd/lib/zstd.h $@
 
-lib/arm64/libzstd.a: 
+lib/arm64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
 	cd zstd/lib && make clean && make $(ZSTD_LIB_ARGS) $(ZSTD_LIB_CC_arm64)
@@ -169,7 +169,7 @@ lib/x64/libzstd.a:
 	mkdir -p $(dir $@)
 	rm -f zstd/lib/-.o
 	cd zstd/lib && make clean && make $(ZSTD_LIB_ARGS) $(ZSTD_LIB_CC_x64)
-	cp zstd/lib/libzstd.a $@ 
+	cp zstd/lib/libzstd.a $@
 
 bench:
 	cargo build -r
