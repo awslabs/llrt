@@ -431,7 +431,8 @@ async function loadShims() {
     loadShim(/@smithy\/util-base64/, "util-base64.js"),
     loadShim(/@aws-crypto/, "aws-crypto.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "lru-cache.js"),
-    loadShim(/sdk-stream-mixin.browser.js/, "sdk-stream-mixin.js"),
+    loadShim(/sdk-stream-mixin.browser\.js/, "sdk-stream-mixin.js"),
+    loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
   ]);
 }
 
