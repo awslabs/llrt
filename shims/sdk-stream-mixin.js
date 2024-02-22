@@ -20,10 +20,9 @@ async function transformToString(encoding) {
   return toUtf8(typedArray);
 }
 
-export const sdkStreamMixin = (stream) => {
-  return Object.assign(stream, {
+export const sdkStreamMixin = (stream) =>
+  Object.assign(stream, {
     transformToByteArray,
     transformToString,
     transformToWebStream,
   });
-};
