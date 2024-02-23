@@ -38,6 +38,20 @@ That's it 🎉
 The following [example project](example/llrt-sam/) sets up a lambda
 instrumented with a layer containing the llrt runtime.
 
+### Option 4: AWS CDK
+
+You can use [`cdk-lambda-llrt` construct library](https://github.com/tmokmss/cdk-lambda-llrt) to deploy LLRT Lambda functions with AWS CDK.
+
+```ts
+import { LlrtFunction } from 'cdk-lambda-llrt';
+
+const handler = new LlrtFunction(this, 'Handler', {
+    entry: 'lambda/index.ts',
+});
+```
+
+See [Construct Hub](https://constructs.dev/packages/cdk-lambda-llrt/) and [its examples](https://github.com/tmokmss/cdk-lambda-llrt/tree/main/example) for more details.
+
 ## Testing & ensuring compatibility
 
 The best way to ensure that your code is compatible with LLRT is to write tests and executing them via the built in test runner
