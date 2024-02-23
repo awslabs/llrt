@@ -242,7 +242,7 @@ Install rust
 Install dependencies
 
     # MacOS
-    brew install zig make zstd node corepack
+    brew install zig make cmake zstd node corepack
 
     # Ubuntu
     sudo apt -y install make zstd
