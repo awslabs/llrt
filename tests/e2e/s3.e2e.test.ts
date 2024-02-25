@@ -1,9 +1,8 @@
 // From https://github.com/aws/aws-sdk-js-v3/blob/89f97b5cea8052510471cdad69acced9f5be60d1/clients/client-s3/test/e2e/S3.e2e.spec.ts#L15
 
 import {S3, SelectObjectContentEventStream} from "@aws-sdk/client-s3";
-
-const Bucket = process.env.AWS_SMOKE_TEST_BUCKET;
-// const mrapArn = (globalThis as any)?.window?.__env__?.AWS_SMOKE_TEST_MRAP_ARN || process?.env?.AWS_SMOKE_TEST_MRAP_ARN;
+const Bucket = process?.env?.AWS_SMOKE_TEST_BUCKET;
+const mrapArn = process?.env?.AWS_SMOKE_TEST_MRAP_ARN;
 
 let Key = `${Date.now()}`;
 
@@ -247,22 +246,22 @@ esfuture,29`;
         });
     });
 
-    // describe("Multi-region access point", () => { // TODO FB
-    //     beforeAll(async () => {
-    //         Key = `${Date.now()}`;
-    //         await client.putObject({ Bucket: mrapArn, Key, Body: "foo" });
-    //     });
-    //     afterAll(async () => {
-    //         await client.deleteObject({ Bucket: mrapArn, Key });
-    //     });
-    //     it("should succeed with valid MRAP ARN", async () => {
-    //         const result = await client.listObjects({
-    //             Bucket: mrapArn,
-    //         });
-    //         expect(result.$metadata.httpStatusCode).toEqual(200);
-    //         expect(result.Contents instanceof Array).toEqual(true);
-    //     });
-    // });
+    describe.skip("Multi-region access point", () => { // TODO FB
+        beforeAll(async () => {
+            Key = `${Date.now()}`;
+            await client.putObject({ Bucket: mrapArn, Key, Body: "foo" });
+        });
+        afterAll(async () => {
+            await client.deleteObject({ Bucket: mrapArn, Key });
+        });
+        it("should succeed with valid MRAP ARN", async () => {
+            const result = await client.listObjects({
+                Bucket: mrapArn,
+            });
+            expect(result.$metadata.httpStatusCode).toEqual(200);
+            expect(result.Contents instanceof Array).toEqual(true);
+        });
+    });
 });
 
 export const createBuffer = (size: string) => {

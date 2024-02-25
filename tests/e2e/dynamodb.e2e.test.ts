@@ -135,6 +135,7 @@ describe(DynamoDBDocument.name, () => {
           return NumberValue.from(input.toString()) as T;
         }
         return Object.entries(input).reduce((acc, [k, v]) => {
+          // @ts-ignore
           acc[updateTransform(k)] = updateTransform(v);
           return acc;
         }, {}) as T;
@@ -148,7 +149,7 @@ describe(DynamoDBDocument.name, () => {
     return input;
   };
 
-  const passError = (e) => e;
+  const passError = (e: any) => e;
 
   beforeAll(async () => {
     log.describe = await dynamodb
@@ -535,6 +536,7 @@ describe(DynamoDBDocument.name, () => {
     const results = log.batchRead?.Responses?.[TableName] ?? [];
 
     for (const result of results) {
+      // @ts-ignore
       expect(result.data).toEqual(data[result.id.replace("-batch", "")]);
     }
   });
@@ -548,6 +550,7 @@ describe(DynamoDBDocument.name, () => {
     const results = log.transactRead?.Responses ?? [];
 
     for (const result of results) {
+      // @ts-ignore
       expect(result.Item?.data).toEqual(data[result.Item?.id.replace("-transact", "")]);
     }
   });
@@ -562,6 +565,7 @@ describe(DynamoDBDocument.name, () => {
     expect(log.batchExecuteStatementReadBack?.Responses).toBeInstanceOf(Array);
     expect(log.batchExecuteStatementReadBack?.Responses?.length).toBeGreaterThan(0);
     for (const response of log.batchExecuteStatementReadBack?.Responses ?? []) {
+      // @ts-ignore
       expect(response.Item?.data).toEqual(data[response.Item?.id?.replace("-batch-statement", "")]);
     }
   });
