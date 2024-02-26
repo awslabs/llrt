@@ -14,6 +14,23 @@ describe("child_process.spawn", () => {
       }
     });
   });
+  it("should spawn in a diffrent directory", (done) => {
+    const child = spawn("pwd", { cwd: "./tests" });
+    let output = "";
+    child.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    child.on("close", (code) => {
+      try {
+        assert.strictEqual(output.trim(), `${process.cwd()}/tests`);
+        assert.strictEqual(code, 0);
+        done();
+      } catch (error) {
+        done(error);
+      }
+    });
+  });
   it("should capture output from the child process", (done) => {
     const command = "echo";
     const args = ["Hello, World!"];
