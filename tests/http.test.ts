@@ -249,6 +249,18 @@ describe("URL class", () => {
       url.toString(),
       "https://www.example.com/?baz=qux&foo=new-value"
     );
+
+  });
+  it("should parse username and password", ()=>{
+    const url = new URL("https://anonymous:flabada@developer.mozilla.org/en-US/docs/Web/API/URL/username",)
+    assert.strictEqual(url.username, "anonymous")
+    assert.strictEqual(url.password, "flabada")
+  });
+  it("should provide can_parse util", ()=>{
+    const valid_url = "https://www.example.com/";
+    const invalid_url = "not_a_valid_url";
+    assert.strictEqual(URL.canParse(valid_url), true);
+    assert.strictEqual(URL.canParse(invalid_url), false);
   });
 });
 
