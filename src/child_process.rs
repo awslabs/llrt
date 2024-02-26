@@ -410,7 +410,11 @@ fn spawn<'js>(
             command.gid(uid);
         }
 
-        if let Some(env) = opts.get_optional::<&str, HashMap<String, Coerced<String>>>("env")? {
+        if let Some(cwd) = opts.get_optional::<_, String>("cwd")? {
+            command.current_dir(&cwd);
+        }
+
+        if let Some(env) = opts.get_optional::<_, HashMap<String, Coerced<String>>>("env")? {
             let env: HashMap<String, String> = env
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -418,7 +422,7 @@ fn spawn<'js>(
             command.envs(env);
         }
 
-        if let Some(stdio) = opts.get_optional::<&str, Value<'js>>("stdio")? {
+        if let Some(stdio) = opts.get_optional::<_, Value<'js>>("stdio")? {
             if let Some(stdio_str) = stdio.as_string() {
                 let stdio = str_to_stdio(&ctx, &stdio_str.to_string()?)?;
                 stdin = stdio.clone();
