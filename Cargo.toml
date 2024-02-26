@@ -48,7 +48,7 @@ simd-json = { version = "0.13.8", default-features = false, features = [
     "big-int-as-float",
 ] }
 itoa = "1.0.10"
-ryu = "1.0.16"
+ryu = "1.0.17"
 fxhash = "0.2.1"
 hyper = { version = "1.2.0", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.26.0", default-features = false, features = [
