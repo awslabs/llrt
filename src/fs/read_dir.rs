@@ -21,7 +21,7 @@ impl Dirent {
     pub fn is_file(&self) -> bool {
         self.metadata.is_file()
     }
-    pub fn is_dir(&self) -> bool {
+    pub fn is_directory(&self) -> bool {
         self.metadata.is_dir()
     }
 
