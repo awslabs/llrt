@@ -93,7 +93,7 @@ strip = false
 debug = true
 
 [profile.release]
-strip = true
+strip = "none"
 lto = true
 codegen-units = 1
 opt-level = 3
