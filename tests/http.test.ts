@@ -249,7 +249,13 @@ describe("URL class", () => {
       url.toString(),
       "https://www.example.com/?baz=qux&foo=new-value"
     );
+
   });
+  it("should parse username", ()=>{
+    const url = new URL("https://anonymous:flabada@developer.mozilla.org/en-US/docs/Web/API/URL/username",)
+    assert.strictEqual(url.username, "anonymous")
+    assert.strictEqual(url.password, "flabada")
+  })
 });
 
 describe("URLSearchParams class", () => {
