@@ -4,7 +4,6 @@ use std::{
     collections::HashMap,
     io::Result as IoResult,
     os::fd::FromRawFd,
-    path::Path,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
 };
