@@ -80,15 +80,15 @@ Resources:
         - Bucket:
             Ref: IntegTestBucketA93771AE
 Outputs:
-  IntegTestBucket:
+  AwsSmokeTestBucket:
     Value: !Ref IntegTestBucketA93771AE
     Export:
-      Name: "IntegTestBucketName"
-  MultiRegionAccessPoint:
+      Name: "AwsSmokeTestBucket"
+  AwsSmokeTestMrapArn:
     Value: !Sub "arn:aws:s3::${AWS::AccountId}:accesspoint/${MultiRegionAccessPoint.Alias}"
     Export:
-      Name: "MultiregionAccessPoint"
-  IntegTestIdentityPool:
+      Name: "AwsSmokeTestMrapArn"
+  AwsSmokeTestIdentityPoolId:
     Value: !Ref IntegTestIdentityPool
     Export:
-      Name: "IntegTestIdentityPool"
+      Name: "AwsSmokeTestIdentityPoolId"

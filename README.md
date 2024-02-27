@@ -54,11 +54,22 @@ See [Construct Hub](https://constructs.dev/packages/cdk-lambda-llrt/) and [its e
 
 ## Testing & ensuring compatibility
 
-The best way to ensure that your code is compatible with LLRT is to write tests and executing them via the built in test runner
+The best way to ensure your code is compatible with LLRT is to write tests and execute them using the built-in test runner. The test runner currently supports Jest/Chai assertions, with the exception of Jest asymmetric matchers. There are two main types of tests you can create:
+
+Unit Tests
+- Useful for validating specific modules and functions in isolation
+- Allow focused testing of individual components
+
+End-to-End (E2E) Tests
+- Validate overall compatibility with AWS SDK and WinterCG compliance
+- Test the integration between all components
+- Confirm expected behavior from end-user perspective
+
+For more information about the E2E Tests and how to run them, see [here](tests/e2e/README.md).
 
 ### Test runner
 
-Test runner uses a lightweight Jest-like API and uses the [assert module](https://nodejs.org/api/assert.html) from Node.js for test assertions. For examples how to implement tests for LLRT see the `/tests` folder of this repository.
+Test runner uses a lightweight Jest-like API and supports Jest/Chai assertions (with the exception of Jest asymmetric matchers) and the [assert module](https://nodejs.org/api/assert.html) from Node.js for test assertions. For examples on how to implement tests for LLRT see the `/tests` folder of this repository.
 
 To run tests, execute the `llrt test` command. LLRT scans the current directory and sub-directories for files that ends with `*.test.js` or `*.test.mjs`. You can also provide a specific test directory to scan by using the `llrt test -d <directory>` option.
 
