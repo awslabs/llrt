@@ -11,6 +11,8 @@ use rquickjs::{
 use rustls::{crypto::ring, ClientConfig, RootCertStore};
 use webpki_roots::TLS_SERVER_ROOTS;
 
+pub const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS: u64 = 15;
+
 pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
     let mut root_certificates = RootCertStore::empty();
 

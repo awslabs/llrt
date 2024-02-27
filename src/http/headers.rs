@@ -83,7 +83,7 @@ impl Headers {
         self.js_iterator(ctx)
     }
 
-    pub fn for_each<'js>(&self, callback: Function<'js>) -> Result<()> {
+    pub fn for_each(&self, callback: Function<'_>) -> Result<()> {
         for header in self.headers.iter() {
             callback.call((header.1, header.0))?
         }
