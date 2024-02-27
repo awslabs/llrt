@@ -1,6 +1,6 @@
 [package]
 name = "llrt"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 edition = "2021"
 license-file = "LICENSE"
 
