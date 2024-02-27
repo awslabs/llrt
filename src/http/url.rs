@@ -23,6 +23,8 @@ pub struct URL<'js> {
     pathname: String,
     hash: String,
     search_params: Class<'js, URLSearchParams>,
+    username: String,
+    password: String
 }
 
 impl<'js> Trace<'js> for URL<'js> {
@@ -39,7 +41,6 @@ impl<'js> URL<'js> {
             let base_string = get_string(&ctx, base)?;
             let path_string = get_string(&ctx, input)?;
             let base: Url = base_string.parse().or_throw_msg(&ctx, "Invalid URL")?;
-
             let url = base
                 .join(path_string.as_str())
                 .or_throw_msg(&ctx, "Invalid URL")?;
@@ -56,6 +57,18 @@ impl<'js> URL<'js> {
         }
     }
 
+    #[qjs(static)]
+    pub fn can_parse(input: Value<'js>) -> bool {
+        if input.is_string() {
+            match input.get::<String>() {
+                Ok(string_val) => Url::parse(&string_val).is_ok(),
+                Err(_) => false
+            }
+        } else {
+            false
+        }
+    }
+
     pub fn to_string(&self) -> String {
         let search = search_params_to_string(&self.search_params);
         let hash = &self.hash;
@@ -64,10 +77,19 @@ impl<'js> URL<'js> {
         } else {
             String::from("")
         };
+        let mut user_info = String::new();
+        if !self.username.is_empty() {
+            user_info.push_str(&self.username);
+            if !self.password.is_empty() {
+                user_info.push(':');
+                user_info.push_str(&self.password)
+            }
+            user_info.push('@')
+        }
 
         format!(
-            "{}://{}{}{}{}",
-            &self.protocol, &self.host, &self.pathname, &search, &hash
+            "{}://{}{}{}{}{}",
+            &self.protocol, user_info, &self.host, &self.pathname, &search, &hash
         )
     }
 
@@ -92,6 +114,8 @@ impl<'js> URL<'js> {
         self.pathname = new.pathname;
         self.hash = new.hash;
         self.search_params = new.search_params;
+        self.username = new.username;
+        self.password = new.password;
         Ok(href)
     }
 
@@ -176,6 +200,27 @@ impl<'js> URL<'js> {
         self.hash = hash;
         pound_hash
     }
+    #[qjs(get)]
+    fn username(&self) -> String {
+        self.username.clone()
+    }
+
+    #[qjs(set, rename = "username")]
+    fn set_username(&mut self, username: String) -> String {
+        self.username = username.clone();
+        username
+    }
+
+    #[qjs(get)]
+    fn password(&self) -> String {
+        self.password.clone()
+    }
+
+    #[qjs(set, rename = "password")]
+    fn set_password(&mut self, password: String) -> String {
+        self.password = password.clone();
+        password
+    }
 }
 
 impl<'js> URL<'js> {
@@ -191,6 +236,9 @@ impl<'js> URL<'js> {
             &port.clone().map(|p| format!(":{}", &p)).unwrap_or_default()
         );
 
+        let username = url.username().to_string();
+        let password = url.password().unwrap_or_default().to_string();
+
         let search_params = Class::instance(ctx, search_params)?;
 
         Ok(Self {
@@ -201,6 +249,8 @@ impl<'js> URL<'js> {
             pathname: url.path().to_string(),
             hash: url.fragment().map(|f| f.to_string()).unwrap_or_default(),
             search_params,
+            username,
+            password
         })
     }
 
