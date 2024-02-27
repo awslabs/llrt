@@ -57,6 +57,18 @@ impl<'js> URL<'js> {
         }
     }
 
+    #[qjs(static)]
+    pub fn can_parse(input: Value<'js>) -> bool {
+        if input.is_string() {
+            match input.get::<String>() {
+                Ok(string_val) => Url::parse(&string_val).is_ok(),
+                Err(_) => false
+            }
+        } else {
+            false
+        }
+    }
+
     pub fn to_string(&self) -> String {
         let search = search_params_to_string(&self.search_params);
         let hash = &self.hash;
