@@ -14,6 +14,7 @@ mod compiler_common;
 mod console;
 mod crypto;
 mod encoding;
+mod environment;
 mod events;
 mod fs;
 mod http;

@@ -41,6 +41,7 @@ use crate::{
     console,
     crypto::{CryptoModule, SYSTEM_RANDOM},
     encoding::HexModule,
+    environment,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
@@ -391,16 +392,17 @@ impl Vm {
                 .with_extension("cjs"),
         ));
 
-        let gc_threshold_mb: usize = env::var("LLRT_GC_THRESHOLD_MB")
-            .unwrap_or("20".into())
-            .parse()
-            .unwrap_or(20);
+        const DEFAULT_GC_THRESHOLD_MB: usize = 20;
+
+        let gc_threshold_mb: usize = env::var(environment::ENV_LLRT_GC_THRESHOLD_MB)
+            .map(|threshold| threshold.parse().unwrap_or(DEFAULT_GC_THRESHOLD_MB))
+            .unwrap_or(DEFAULT_GC_THRESHOLD_MB);
 
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(512 * 1024).await;
         runtime
             .set_gc_threshold(gc_threshold_mb * 1024 * 1024)
-            .await; //20mb
+            .await;
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
