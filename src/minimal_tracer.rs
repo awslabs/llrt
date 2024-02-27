@@ -11,6 +11,8 @@ use chrono::{DateTime, Utc};
 use tracing::{field::Visit, Id, Level, Subscriber};
 use tracing_core::{span, Field};
 
+use crate::environment;
+
 pub struct StringVisitor<'a> {
     string: &'a mut String,
 }
@@ -55,7 +57,7 @@ impl MinimalTracer {
     pub fn register() -> Result<(), tracing::subscriber::SetGlobalDefaultError> {
         let mut enabled = false;
         let mut filters: Vec<LogFilter> = Vec::with_capacity(10);
-        if let Ok(env_value) = env::var("LLRT_LOG") {
+        if let Ok(env_value) = env::var(environment::ENV_LLRT_LOG) {
             enabled = true;
             for filter in env_value.split(',') {
                 let mut target = Some(filter);

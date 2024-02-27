@@ -8,8 +8,7 @@ use std::{
     result::Result as StdResult,
 };
 
-const ENV_LLRT_NET_ALLOW: &str = "LLRT_NET_ALLOW";
-const ENV_LLRT_NET_DENY: &str = "LLRT_NET_DENY";
+use crate::environment::{ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY};
 
 pub static NET_ALLOW_LIST: Lazy<Option<Vec<String>>> =
     Lazy::new(|| build_access_list(env::var(ENV_LLRT_NET_ALLOW)));

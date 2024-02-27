@@ -3,18 +3,26 @@
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{Request, Uri};
-use hyper_util::{client::legacy::Client, rt::TokioExecutor};
+use hyper_util::{
+    client::legacy::Client,
+    rt::{TokioExecutor, TokioTimer},
+};
 use rquickjs::{
     function::Opt,
     prelude::{Async, Func},
     Ctx, Error, Exception, Object, Result, Value,
 };
+use tracing::warn;
 
-use std::time::{Duration, Instant};
+use std::{
+    env,
+    time::{Duration, Instant},
+};
 
 use crate::{
+    environment,
     http::headers::Headers,
-    net::TLS_CONFIG,
+    net::{DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS, TLS_CONFIG},
     security::{ensure_url_access, HTTP_DENY_LIST},
     utils::{
         object::{get_bytes, ObjectExt},
@@ -32,7 +40,8 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         return Err(Exception::throw_reference(
             ctx,
             &format!(
-                "\"LLRT_NET_ALLOW\" env contains an invalid URI: {}",
+                r#""{}" env contains an invalid URI: {}"#,
+                environment::ENV_LLRT_NET_ALLOW,
                 &err.to_string()
             ),
         ));
@@ -42,10 +51,25 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         return Err(Exception::throw_reference(
             ctx,
             &format!(
-                "\"LLRT_NET_DENY\" env contains an invalid URI: {}",
+                r#""{}" env contains an invalid URI: {}"#,
+                environment::ENV_LLRT_NET_ALLOW,
                 &err.to_string()
             ),
         ));
+    }
+
+    let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
+        .map(|timeout| {
+            timeout
+                .parse()
+                .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS)
+        })
+        .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS);
+    if pool_idle_timeout > 300 {
+        warn!(
+            r#""{}" is exceeds 300s (5min), risking errors due to possible server connection closures."#,
+            environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT
+        )
     }
 
     let https = hyper_rustls::HttpsConnectorBuilder::new()
@@ -55,12 +79,9 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         .build();
 
     let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
-        .pool_idle_timeout(Duration::from_secs(5 * 30)) //5 minutes
+        .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))
+        .pool_timer(TokioTimer::new())
         .build(https);
-
-    // let client = Client::builder()
-    //     .pool_idle_timeout(None)
-    //     .build::<_, hyper::Body>(https);
 
     globals.set(
         "fetch",
