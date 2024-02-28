@@ -3,6 +3,7 @@
 import assert from "assert";
 import * as chai from 'chai'
 import {JestChaiExpect} from "./expect/jest-expect";
+import {JestAsymmetricMatchers} from "./expect/jest-asymmetric-matchers";
 
 const GLOBAL = globalThis as any;
 GLOBAL.assert = assert;
@@ -185,6 +186,7 @@ describe.only = createDescribe({ only: true });
 describe.skip = createDescribe({ skip: true });
 
 chai.use(JestChaiExpect)
+chai.use(JestAsymmetricMatchers)
 export function createExpect() {
     const expect = ((value: any, message?: string): any => {
         return chai.expect(value, message) as unknown as any

@@ -105,6 +105,79 @@ describe('jest-expect', () => {
     expect(0.2 + 0.1).not.toBeCloseTo(0.3, 100) // expect.closeTo will fail in chai
   })
 
+  it('asymmetric matchers (jest style)', () => {
+    expect({ foo: 'bar' }).toEqual({ foo: expect.stringContaining('ba') })
+    expect('bar').toEqual(expect.stringContaining('ba'))
+    expect(['bar']).toEqual([expect.stringContaining('ba')])
+    expect(new Set(['bar'])).toEqual(new Set([expect.stringContaining('ba')]))
+    expect(new Set(['bar'])).not.toEqual(new Set([expect.stringContaining('zoo')]))
+
+    expect({ foo: 'bar' }).not.toEqual({ foo: expect.stringContaining('zoo') })
+    expect('bar').not.toEqual(expect.stringContaining('zoo'))
+    expect(['bar']).not.toEqual([expect.stringContaining('zoo')])
+
+    expect({ foo: 'bar', bar: 'foo', hi: 'hello' }).toEqual({
+      foo: expect.stringContaining('ba'),
+      bar: expect.stringContaining('fo'),
+      hi: 'hello',
+    })
+    expect(0).toEqual(expect.anything())
+    expect({}).toEqual(expect.anything())
+    expect('string').toEqual(expect.anything())
+    expect(null).not.toEqual(expect.anything())
+    expect(undefined).not.toEqual(expect.anything())
+    expect({ a: 0, b: 0 }).toEqual(expect.objectContaining({ a: 0 }))
+    expect({ a: 0, b: 0 }).not.toEqual(expect.objectContaining({ z: 0 }))
+    expect(0).toEqual(expect.any(Number))
+    expect('string').toEqual(expect.any(String))
+    expect('string').not.toEqual(expect.any(Number))
+
+    expect(['Bob', 'Eve']).toEqual(expect.arrayContaining(['Bob']))
+    expect(['Bob', 'Eve']).not.toEqual(expect.arrayContaining(['Mohammad']))
+
+    expect([
+      { name: 'Bob' },
+      { name: 'Eve' },
+    ]).toEqual(expect.arrayContaining<{ name: string }>([
+      { name: 'Bob' },
+    ]))
+    expect([
+      { name: 'Bob' },
+      { name: 'Eve' },
+    ]).not.toEqual(expect.arrayContaining<{ name: string }>([
+      { name: 'Mohammad' },
+    ]))
+
+    expect('Mohammad').toEqual(expect.stringMatching(/Moh/))
+    expect('Mohammad').not.toEqual(expect.stringMatching(/jack/))
+    expect({
+      sum: 0.1 + 0.2,
+    }).toEqual({
+      sum: expect.closeTo(0.3, 5),
+    })
+
+    expect({
+      sum: 0.1 + 0.2,
+    }).not.toEqual({
+      sum: expect.closeTo(0.4, 5),
+    })
+
+    expect({
+      sum: 0.1 + 0.2,
+    }).toEqual({
+      // @ts-ignore
+      sum: expect.not.closeTo(0.4, 5),
+    })
+
+  })
+
+  it('asymmetric matchers negate', () => {
+    expect('bar').toEqual(expect.not.stringContaining('zoo'))
+    expect('bar').toEqual(expect.not.stringMatching(/zoo/))
+    expect({ bar: 'zoo' }).toEqual(expect.not.objectContaining({ zoo: 'bar' }))
+    expect(['Bob', 'Eve']).toEqual(expect.not.arrayContaining(['Steve']))
+  })
+
   it('object', () => {
     expect({}).toEqual({})
     expect({ apples: 13 }).toEqual({ apples: 13 })
@@ -132,7 +205,7 @@ describe('jest-expect', () => {
     expect([complex]).toMatchObject([{ foo: 1 }])
     expect(complex).not.toMatchObject({ foo: 2 })
     expect(complex).toMatchObject({ bar: { bar: 100 } })
-    // expect(complex).toMatchObject({ foo: expect.any(Number) })
+    expect(complex).toMatchObject({ foo: expect.any(Number) })
 
     expect(complex).toHaveProperty('a-b')
     expect(complex).toHaveProperty('a-b-1.0.0')
@@ -156,10 +229,10 @@ describe('jest-expect', () => {
     expect(complex).toHaveProperty(['bar', 'arr', '1', 'zoo'], 'monkey')
     expect(complex).toHaveProperty(['foo.bar[0]'], 'baz')
 
-    // expect(complex).toHaveProperty('foo', expect.any(Number))
-    // expect(complex).toHaveProperty('bar', expect.any(Object))
-    // expect(complex).toHaveProperty('bar.arr', expect.any(Array))
-    // expect(complex).toHaveProperty('bar.arr.0', expect.anything())
+    expect(complex).toHaveProperty('foo', expect.any(Number))
+    expect(complex).toHaveProperty('bar', expect.any(Object))
+    expect(complex).toHaveProperty('bar.arr', expect.any(Array))
+    expect(complex).toHaveProperty('bar.arr.0', expect.anything())
 
     expect(() => {
       expect(complex).toHaveProperty('some-unknown-property')
@@ -176,6 +249,7 @@ describe('jest-expect', () => {
       expect(x).toEqual(y)
     }).toThrowError()
   })
+
 
   // https://jestjs.io/docs/expect#tostrictequalvalue
 
@@ -348,32 +422,35 @@ describe('.toStrictEqual()', () => {
   })
 })
 
-// describe('toBeTypeOf()', () => {
-//   it.each([
-//     [1n, 'bigint'],
-//     [true, 'boolean'],
-//     [false, 'boolean'],
-//     [(() => {}) as () => void, 'function'],
-//     [function () {} as () => void, 'function'],
-//     [1, 'number'],
-//     [Number.POSITIVE_INFINITY, 'number'],
-//     [Number.NaN, 'number'],
-//     [0, 'number'],
-//     [{}, 'object'],
-//     [[], 'object'],
-//     [null, 'object'],
-//     ['', 'string'],
-//     ['test', 'string'],
-//     [Symbol('test'), 'symbol'],
-//     [undefined, 'undefined'],
-//   ] as const)('pass with typeof %s === %s', (actual, expected) => {
-//     expect(actual).toBeTypeOf(expected)
-//   })
-//
-//   it('pass with negotiation', () => {
-//     expect('test').not.toBeTypeOf('number')
-//   })
-// })
+describe('toBeTypeOf()', () => {
+  it('pass with typeof', () => {
+    [
+      [1n, 'bigint'],
+      [true, 'boolean'],
+      [false, 'boolean'],
+      [(() => {}) as () => void, 'function'],
+      [function () {} as () => void, 'function'],
+      [1, 'number'],
+      [Number.POSITIVE_INFINITY, 'number'],
+      [Number.NaN, 'number'],
+      [0, 'number'],
+      [{}, 'object'],
+      [[], 'object'],
+      [null, 'object'],
+      ['', 'string'],
+      ['test', 'string'],
+      [Symbol('test'), 'symbol'],
+      [undefined, 'undefined'],
+    ].forEach(value => {
+      // @ts-ignore
+      expect(value[0]).toBeTypeOf(value[1]);
+    })
+  })
+  it('pass with negotiation', () => {
+    // @ts-ignore
+    expect('test').not.toBeTypeOf('number')
+  })
+})
 
 describe('toSatisfy()', () => {
   const isOdd = (value: number) => value % 2 !== 0
