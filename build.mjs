@@ -12,21 +12,22 @@ const SRC_DIR = path.join("src", "js");
 const TESTS_DIR = "tests";
 const OUT_DIR = "bundle";
 const SHIMS = new Map();
-const TEST_FILES = [];
-async function readAllTestFilesRecursively(directory) {
-  for (const file of (await fs.readdir(directory))) {
-    const absolute = path.join(directory, file);
-    if ((await fs.stat(absolute)).isDirectory()) {
-      await readAllTestFilesRecursively(absolute);
+
+async function readFilesRecursive(dir, filePredicate) {
+  const dirents = await fs.readdir(dir, { withFileTypes: true });
+  const files = await Promise.all(dirents.map((dirent) => {
+    const filePath = path.join(dir, dirent.name);
+
+    if (dirent.isDirectory()) {
+      return readFilesRecursive(filePath, filePredicate);
+    } else {
+      return filePredicate(filePath) ? filePath : [];
     }
-    else {
-      if (absolute.endsWith(".test.ts") || absolute.endsWith(".spec.ts")) {
-        TEST_FILES.push(absolute);
-      }
-    }
-  }
+  }));
+  return Array.prototype.concat(...files);
 }
-await readAllTestFilesRecursively(TESTS_DIR)
+
+const TEST_FILES = await readFilesRecursive(TESTS_DIR, (filePath)=> filePath.endsWith(".test.ts") || filePath.endsWith(".spec.ts"));
 const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const AWS_JSON_SHARED_COMMAND_REGEX2 =
