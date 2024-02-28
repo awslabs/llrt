@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let vm = Vm::new().await?;
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
 
-    if env::var("_HANDLER").is_ok() {
+    if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
         let aws_lambda_json_log_format =
             env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("JSON".to_string());
         let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();

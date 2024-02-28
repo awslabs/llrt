@@ -242,6 +242,14 @@ describe("URL class", () => {
     assert.strictEqual(url.searchParams.get("baz"), "qux");
   });
 
+  it("should be able to set and get port", () => {
+    const url: any = new URL("https://www.example.com");
+    url.port = "1234";
+    assert.strictEqual(url.toString(), "https://www.example.com:1234/");
+    url.port = 5678;
+    assert.strictEqual(url.toString(), "https://www.example.com:5678/");
+  });
+
   it("should modify query parameters", () => {
     const url = new URL("https://www.example.com/?foo=bar&baz=qux");
     url.searchParams.set("foo", "new-value");
@@ -249,14 +257,15 @@ describe("URL class", () => {
       url.toString(),
       "https://www.example.com/?baz=qux&foo=new-value"
     );
-
   });
-  it("should parse username and password", ()=>{
-    const url = new URL("https://anonymous:flabada@developer.mozilla.org/en-US/docs/Web/API/URL/username",)
-    assert.strictEqual(url.username, "anonymous")
-    assert.strictEqual(url.password, "flabada")
+  it("should parse username and password", () => {
+    const url = new URL(
+      "https://anonymous:flabada@developer.mozilla.org/en-US/docs/Web/API/URL/username"
+    );
+    assert.strictEqual(url.username, "anonymous");
+    assert.strictEqual(url.password, "flabada");
   });
-  it("should provide can_parse util", ()=>{
+  it("should provide can_parse util", () => {
     const valid_url = "https://www.example.com/";
     const invalid_url = "not_a_valid_url";
     assert.strictEqual(URL.canParse(valid_url), true);

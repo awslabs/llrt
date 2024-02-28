@@ -14,27 +14,27 @@ __bootstrap.addInitTask = (task: Promise<any>) => {
   initTasks.push(task);
 };
 
-__bootstrap.invokeHandler = async (event: any) =>
-  global.__handler(event).then(JSON.stringify);
-
 const REGION = process.env.AWS_REGION || "us-east-1";
-
+const IS_LAMBDA =
+  !!process.env.AWS_LAMBDA_RUNTIME_API && !!process.env._HANDLER;
 const INITED = new Set<string>();
 
 __bootstrap.addAwsSdkInitTask = (service: string) => {
-  const prefix = `${service}.${REGION}`;
-  if (INITED.has(prefix)) {
-    return;
-  }
-  INITED.add(prefix);
-  const start = Date.now();
-  const connectTask = fetch(`https://${prefix}.amazonaws.com`, {
-    method: "GET",
-  }).then((res) => {
-    const _ = res.arrayBuffer(); //take the response
-    if (process.env.LLRT_LOG) {
-      console.log("INIT_CONNECTION", service, `${Date.now() - start}ms`);
+  if (IS_LAMBDA) {
+    const prefix = `${service}.${REGION}`;
+    if (INITED.has(prefix)) {
+      return;
     }
-  });
-  initTasks.push(connectTask);
+    INITED.add(prefix);
+    const start = Date.now();
+    const connectTask = fetch(`https://${prefix}.amazonaws.com`, {
+      method: "GET",
+    }).then((res) => {
+      const _ = res.arrayBuffer(); //take the response
+      if (process.env.LLRT_LOG) {
+        console.log("INIT_CONNECTION", service, `${Date.now() - start}ms`);
+      }
+    });
+    initTasks.push(connectTask);
+  }
 };
