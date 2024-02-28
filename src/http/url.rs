@@ -5,7 +5,7 @@ use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
     prelude::This,
-    Class, Ctx, Exception, FromJs, Function, Result, Value,
+    Class, Coerced, Ctx, Exception, FromJs, Function, Result, Value,
 };
 use url::Url;
 
@@ -87,9 +87,15 @@ impl<'js> URL<'js> {
             user_info.push('@')
         }
 
+        let port = if !self.port.is_empty() {
+            format!(":{}", &self.port)
+        } else {
+            String::from("")
+        };
+
         format!(
-            "{}://{}{}{}{}{}",
-            &self.protocol, user_info, &self.host, &self.pathname, &search, &hash
+            "{}://{}{}{}{}{}{}",
+            &self.protocol, user_info, &self.host, port, &self.pathname, &search, &hash
         )
     }
 
@@ -130,9 +136,25 @@ impl<'js> URL<'js> {
     }
 
     #[qjs(set, rename = "protocol")]
-    fn set_protocol(&mut self, protocol: String) -> String {
+    fn set_protocol(&mut self, mut protocol: String) -> String {
+        if protocol.ends_with(':') {
+            protocol.pop();
+        }
         self.protocol = protocol.clone();
+
         protocol
+    }
+
+    #[qjs(get)]
+    fn port(&self) -> String {
+        self.port.clone()
+    }
+
+    #[qjs(set, rename = "port")]
+    fn set_port(&mut self, port: Coerced<String>) -> String {
+        let port_string = port.to_string();
+        self.port = port_string.clone();
+        port_string
     }
 
     #[qjs(get)]
