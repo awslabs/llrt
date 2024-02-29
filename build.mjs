@@ -1,6 +1,6 @@
 import * as esbuild from "esbuild";
 import fs from "fs/promises";
-import { createRequire } from "module";
+import {createRequire} from "module";
 import path from "path";
 
 const require = createRequire(import.meta.url);
@@ -12,7 +12,22 @@ const SRC_DIR = path.join("src", "js");
 const TESTS_DIR = "tests";
 const OUT_DIR = "bundle";
 const SHIMS = new Map();
-const TEST_FILES = await fs.readdir(TESTS_DIR);
+
+async function readFilesRecursive(dir, filePredicate) {
+  const dirents = await fs.readdir(dir, { withFileTypes: true });
+  const files = await Promise.all(dirents.map((dirent) => {
+    const filePath = path.join(dir, dirent.name);
+
+    if (dirent.isDirectory()) {
+      return readFilesRecursive(filePath, filePredicate);
+    } else {
+      return filePredicate(filePath) ? filePath : [];
+    }
+  }));
+  return Array.prototype.concat(...files);
+}
+
+const TEST_FILES = await readFilesRecursive(TESTS_DIR, (filePath)=> filePath.endsWith(".test.ts") || filePath.endsWith(".spec.ts"));
 const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const AWS_JSON_SHARED_COMMAND_REGEX2 =
@@ -75,7 +90,6 @@ const ADDITIONAL_PACKAGES = [
   "@aws-sdk/credential-providers",
 ];
 
-const SDKS = [];
 const SERVICE_ENDPOINT_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
@@ -84,7 +98,6 @@ const SDK_PACKAGES = [...ADDITIONAL_PACKAGES];
 Object.keys(SDK_DATA).forEach((sdk) => {
   const [clientName, serviceEndpoint] = SDK_DATA[sdk] || [];
   const sdkPackage = `@aws-sdk/${sdk}`;
-  SDKS.push(sdk);
   SDK_PACKAGES.push(sdkPackage);
   SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
   SERVICE_ENDPOINT_BY_PACKAGE[sdk] = serviceEndpoint;
@@ -123,7 +136,7 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     ENDPOINT_CACHE[paramsKey] = endpoint;
   }
 
-  if (serviceName == "s3") {
+  if (serviceName === "s3") {
     const { hostname, protocol, pathname, search } = endpoint.url;
     const [bucket, host] = hostname.split(".s3.");
     if (host) {
@@ -273,7 +286,7 @@ const awsSdkPlugin = {
             `${awsJsonSharedCommand.name}(${name}, input, context, ${request})`
         );
 
-        if (sourceLength == source.length) {
+        if (sourceLength === source.length) {
           throw new Error(`Failed to optimize: ${name}`);
         }
 
@@ -473,26 +486,36 @@ async function findPackageName(filePath) {
 }
 
 async function buildLibrary() {
-  const entryPoints = {};
-
-  TEST_FILES.forEach((entry) => {
-    entryPoints[path.join("__tests__", `${entry.slice(0, -3)}`)] = path.join(
-      TESTS_DIR,
-      entry
-    );
-  });
-
-  ENTRYPOINTS.forEach((entry) => {
-    entryPoints[entry] = path.join(SRC_DIR, entry);
-  });
-
-  await esbuild.build({
-    entryPoints,
+  const defaultLibEsBuildOption = {
     chunkNames: "llrt-[name]-runtime-[hash]",
     ...ES_BUILD_OPTIONS,
     splitting: false,
     keepNames: true,
     nodePaths: ["."],
+  };
+
+  // Build lib
+  const entryPoints = {};
+  ENTRYPOINTS.forEach((entry) => {
+    entryPoints[entry] = path.join(SRC_DIR, entry);
+  });
+  await esbuild.build({
+    ...defaultLibEsBuildOption,
+    entryPoints
+  });
+
+  // Build tests
+  const testEntryPoints = {};
+  TEST_FILES.forEach((entry) => {
+    testEntryPoints[path.join("__tests__", `${entry.slice(0, -3)}`)] = entry;
+  });
+  await esbuild.build({
+    ...defaultLibEsBuildOption,
+    entryPoints: testEntryPoints,
+    external: [
+      ...ES_BUILD_OPTIONS.external,
+      "@aws-sdk", "@smithy", "uuid"
+    ],
   });
 }
 
@@ -518,7 +541,7 @@ async function buildSdks() {
 
   const sdkEntryPoints = Object.fromEntries(sdkEntryList);
 
-  const result = await esbuild.build({
+  await esbuild.build({
     entryPoints: sdkEntryPoints,
     plugins: [awsSdkPlugin, esbuildShimPlugin([[/^bowser$/]])],
     alias: {

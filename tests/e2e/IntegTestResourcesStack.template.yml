@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Resources needed for SDK integration test
+Resources:
+  IntegTestIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      AllowUnauthenticatedIdentities: true
+      CognitoIdentityProviders: []
+      IdentityPoolName: IntegTestIdentityPool
+    Metadata:
+      aws:cdk:path: IntegTestResourcesStack/IntegTestIdentityPool
+  IntegTestIdentityPoolUnauthRole85D387D0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRoleWithWebIdentity
+            Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud:
+                  Ref: IntegTestIdentityPool
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: unauthenticated
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonCognitoReadOnly
+    Metadata:
+      aws:cdk:path: IntegTestResourcesStack/IntegTestIdentityPoolUnauthRole/Resource
+  AttachUnauthRoleToIdentityPool:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId:
+        Ref: IntegTestIdentityPool
+      Roles:
+        unauthenticated:
+          Fn::GetAtt:
+            - IntegTestIdentityPoolUnauthRole85D387D0
+            - Arn
+    Metadata:
+      aws:cdk:path: IntegTestResourcesStack/AttachUnauthRoleToIdentityPool
+  IntegTestBucketA93771AE:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            ExposedHeaders:
+              - ETag
+              - Date
+              - x-amz-request-id
+              - x-amz-id-2
+            MaxAge: 3000
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: IntegTestResourcesStack/IntegTestBucket/Resource
+  MultiRegionAccessPoint:
+    Type: AWS::S3::MultiRegionAccessPoint
+    Properties:
+      Name: v3-sdk-integration-test-001
+      Regions:
+        - Bucket:
+            Ref: IntegTestBucketA93771AE
+Outputs:
+  AwsSmokeTestBucket:
+    Value: !Ref IntegTestBucketA93771AE
+    Export:
+      Name: "AwsSmokeTestBucket"
+  AwsSmokeTestMrapArn:
+    Value: !Sub "arn:aws:s3::${AWS::AccountId}:accesspoint/${MultiRegionAccessPoint.Alias}"
+    Export:
+      Name: "AwsSmokeTestMrapArn"
+  AwsSmokeTestIdentityPoolId:
+    Value: !Ref IntegTestIdentityPool
+    Export:
+      Name: "AwsSmokeTestIdentityPoolId"

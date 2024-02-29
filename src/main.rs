@@ -118,7 +118,7 @@ Options:
   -e, --eval        Evaluate the provided source code
   compile           Compile JS to bytecode and compress it with zstd:
                       if [output.lrt] is omitted, <input>.lrt is used.
-                      lrt file is expected to be executed by the llrt version 
+                      lrt file is expected to be executed by the llrt version
                       that created it
   test              Run tests with provided arguments:
                       <test_args> -d <directory> <test-filter>
@@ -251,7 +251,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
 
     let now = Instant::now();
 
-    let mut entires: Vec<String> = Vec::with_capacity(100);
+    let mut entries: Vec<String> = Vec::with_capacity(100);
     let has_filters = !filters.is_empty();
 
     if has_filters {
@@ -271,7 +271,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
             if name.ends_with(ext_name)
                 && (!has_filters || filters.iter().any(|&f| name.contains(f)))
             {
-                entires.push(entry.path().to_string_lossy().to_string());
+                entries.push(entry.path().to_string_lossy().to_string());
             }
         }
         true
@@ -282,7 +282,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
     trace!("Found tests in {}ms", now.elapsed().as_millis());
 
     Vm::run_and_handle_exceptions(ctx, |ctx| {
-        ctx.globals().set("__testEntries", entires)?;
+        ctx.globals().set("__testEntries", entries)?;
         Module::import(&ctx, "@llrt/test")?;
 
         Ok(())
