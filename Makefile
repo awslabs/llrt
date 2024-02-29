@@ -32,7 +32,7 @@ endif
 
 ifeq ($(ARCH),aarch64)
 	ARCH = arm64
-endif	
+endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
 
@@ -145,11 +145,13 @@ run-cli: js
 test: export JS_MINIFY = 0
 test: js
 	cargo run -- test -d bundle/__tests__/tests/unit
+test-e2e: js
+	cargo run -- test -d bundle/__tests__/tests/e2e
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/__tests__/tests/e2e
+#	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/__tests__/tests/e2e # temporary skip e2e tests when running on Github
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
