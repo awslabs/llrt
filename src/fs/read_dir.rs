@@ -3,6 +3,7 @@
 use std::{
     collections::VecDeque,
     fs::Metadata,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -13,7 +14,7 @@ use tokio::fs;
 
 use crate::{
     path::{self, is_absolute, CURRENT_DIR_STR},
-    utils::result::ResultExt,
+    utils::{io::DirectoryWalker, result::ResultExt},
 };
 
 #[rquickjs::class]
@@ -65,19 +66,23 @@ pub async fn read_dir<'js>(
     options: Opt<Object<'js>>,
 ) -> Result<ReadDir> {
     let mut path = path;
-    let with_file_types = options
-        .0
-        .as_ref()
-        .and_then(|opts| opts.get("withFileTypes").ok())
-        .and_then(|file_types: Value| file_types.as_bool())
-        .unwrap_or_default();
 
-    let with_recursive = options
-        .0
-        .as_ref()
-        .and_then(|opts| opts.get("recursive").ok())
-        .and_then(|recursive: Value| recursive.as_bool())
-        .unwrap_or_default();
+    let mut with_file_types = false;
+    let mut with_recursive = false;
+
+    if let Some(options) = options.0 {
+        with_file_types = options
+            .get("withFileTypes")
+            .ok()
+            .and_then(|file_types: Value| file_types.as_bool())
+            .unwrap_or_default();
+
+        with_recursive = options
+            .get("recursive")
+            .ok()
+            .and_then(|recursive: Value| recursive.as_bool())
+            .unwrap_or_default();
+    };
 
     let skip_root_pos = {
         match path.as_str() {
@@ -95,28 +100,34 @@ pub async fn read_dir<'js>(
         }
     };
     let mut items = Vec::with_capacity(64);
-    let mut dirs = VecDeque::from_iter([PathBuf::from(path)]);
 
-    while let Some(mut dir_buf) = dirs.pop_back() {
-        let mut dir = fs::read_dir(dir_buf).await.or_throw(&ctx)?;
-        while let Some(child) = dir.next_entry().await? {
-            if let Some(name) = child.path().file_name() {
-                let metadata = if with_file_types || with_recursive {
-                    Some(child.metadata().await?)
-                } else {
-                    None
-                };
+    let mut directory_walker = DirectoryWalker::new(PathBuf::from(path));
 
-                if with_recursive && metadata.as_ref().is_some_and(|metadata| metadata.is_dir()) {
-                    dirs.push_back(child.path());
-                }
-
-                items.push((
-                    child.path().into_os_string().to_string_lossy()[skip_root_pos..].to_string(),
-                    if with_file_types { metadata } else { None },
-                ))
-            }
+    async fn walk(
+        walker: &mut DirectoryWalker,
+        with_recursive: bool,
+    ) -> io::Result<Option<PathBuf>> {
+        if with_recursive {
+            walker.walk_recursive().await
+        } else {
+            walker.walk().await
         }
+    }
+
+    // eat root
+    walk(&mut directory_walker, with_recursive).await?;
+
+    while let Some(child) = walk(&mut directory_walker, with_recursive).await? {
+        let metadata = if with_file_types {
+            Some(fs::metadata(&child).await?)
+        } else {
+            None
+        };
+
+        items.push((
+            child.into_os_string().to_string_lossy()[skip_root_pos..].to_string(),
+            metadata,
+        ))
     }
 
     items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());

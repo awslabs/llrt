@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    io,
     path::{Path, PathBuf},
     result::Result as StdResult,
 };
@@ -42,20 +43,56 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
     None
 }
 
-pub async fn walk_directory<F>(path: PathBuf, mut f: F) -> StdResult<(), std::io::Error>
-where
-    F: FnMut(&DirEntry) -> bool,
-{
-    let mut stack = vec![path];
-    while let Some(dir) = stack.pop() {
-        let mut stream = fs::read_dir(dir).await?;
-        while let Some(entry) = stream.next_entry().await? {
-            let entry_path = entry.path();
+pub struct DirectoryWalker {
+    stack: Vec<(PathBuf, bool)>,
+    filters: Vec<Box<dyn Fn(&DirEntry) -> bool>>,
+}
 
-            if f(&entry) && entry_path.is_dir() {
-                stack.push(entry_path);
-            }
+impl DirectoryWalker {
+    pub fn new(path: PathBuf) -> Self {
+        Self {
+            stack: vec![(path, true)],
+            filters: vec![],
         }
     }
-    Ok(())
+
+    pub fn with_filter(&mut self, handler: impl Fn(&DirEntry) -> bool + 'static) {
+        self.filters.push(Box::new(handler));
+    }
+
+    async fn with_walk(
+        &mut self,
+        mut handler: impl FnMut(&mut Self, PathBuf, bool),
+    ) -> io::Result<Option<PathBuf>> {
+        let is_filter = self.filters.is_empty();
+
+        if let Some((dir, is_recursive)) = self.stack.pop() {
+            if is_recursive {
+                let mut stream = fs::read_dir(dir.clone()).await?;
+
+                while let Some(entry) = stream.next_entry().await? {
+                    let entry_path = entry.path();
+
+                    if is_filter || (self.filters.iter().all(|filter| filter(&entry))) {
+                        let is_dir = entry_path.is_dir();
+                        handler(self, entry_path, is_dir);
+                    }
+                }
+            }
+
+            Ok(Some(dir))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn walk_recursive(&mut self) -> io::Result<Option<PathBuf>> {
+        self.with_walk(|this, pathbuf, is_recursive| this.stack.push((pathbuf, is_recursive)))
+            .await
+    }
+
+    pub async fn walk(&mut self) -> io::Result<Option<PathBuf>> {
+        self.with_walk(|this, pathbuf, _| this.stack.push((pathbuf, false)))
+            .await
+    }
 }
