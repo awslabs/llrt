@@ -37,7 +37,7 @@
     "@types/uuid": "9.0.8",
     "assert": "2.1.0",
     "esbuild": "0.20.0",
-    "esbuild-plugins-node-modules-polyfill": "1.6.2",
+    "esbuild-plugins-node-modules-polyfill": "1.6.3",
     "prettier": "3.2.5",
     "pretty-quick": "4.0.0",
     "pure-http": "3.3.4",
