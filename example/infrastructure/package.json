@@ -10,8 +10,8 @@
   },
   "devDependencies": {
     "@types/node": "20.11.24",
-    "aws-cdk": "2.127.0",
-    "aws-cdk-lib": "2.127.0",
+    "aws-cdk": "2.130.0",
+    "aws-cdk-lib": "2.130.0",
     "constructs": "10.3.0",
     "esbuild": "0.20.0",
     "ts-node": "10.9.2",
