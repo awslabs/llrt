@@ -216,7 +216,7 @@ fn normalize(path: String) -> String {
     join_path(parts)
 }
 
-fn is_absolute(path: String) -> bool {
+pub fn is_absolute(path: String) -> bool {
     PathBuf::from(path).is_absolute()
 }
 
