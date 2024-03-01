@@ -1,13 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::fs::Metadata;
+use std::{
+    collections::VecDeque,
+    fs::Metadata,
+    io,
+    path::{Path, PathBuf},
+};
 
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
 };
 use tokio::fs;
 
-use crate::utils::result::ResultExt;
+use crate::{
+    path::{self, is_absolute, CURRENT_DIR_STR},
+    utils::{io::DirectoryWalker, result::ResultExt},
+};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
@@ -57,27 +65,69 @@ pub async fn read_dir<'js>(
     path: String,
     options: Opt<Object<'js>>,
 ) -> Result<ReadDir> {
-    let with_file_types = options
-        .0
-        .and_then(|opts| opts.get("withFileTypes").ok())
-        .and_then(|file_types: Value| file_types.as_bool())
-        .unwrap_or_default();
+    let mut path = path;
 
-    let mut dir = fs::read_dir(path).await.or_throw(&ctx)?;
+    let mut with_file_types = false;
+    let mut with_recursive = false;
 
-    let mut items = Vec::with_capacity(64);
+    if let Some(options) = options.0 {
+        with_file_types = options
+            .get("withFileTypes")
+            .ok()
+            .and_then(|file_types: Value| file_types.as_bool())
+            .unwrap_or_default();
 
-    while let Some(child) = dir.next_entry().await? {
-        if let Some(name) = child.path().file_name() {
-            let name = name.to_string_lossy().to_string();
+        with_recursive = options
+            .get("recursive")
+            .ok()
+            .and_then(|recursive: Value| recursive.as_bool())
+            .unwrap_or_default();
+    };
 
-            if with_file_types {
-                let metadata = child.metadata().await?;
-                items.push((name, Some(metadata)))
-            } else {
-                items.push((name, None))
+    let skip_root_pos = {
+        match path.as_str() {
+            // . | ./
+            "." | CURRENT_DIR_STR => CURRENT_DIR_STR.len(),
+            // ./path
+            _ if path.starts_with(CURRENT_DIR_STR) => path.len() + 1,
+            // path
+            _ => {
+                if !is_absolute(path.clone()) {
+                    path = [CURRENT_DIR_STR.to_string(), path].concat();
+                }
+                path.len() + 1
             }
         }
+    };
+    let mut items = Vec::with_capacity(64);
+
+    let mut directory_walker = DirectoryWalker::new(PathBuf::from(path));
+
+    async fn walk(
+        walker: &mut DirectoryWalker,
+        with_recursive: bool,
+    ) -> io::Result<Option<PathBuf>> {
+        if with_recursive {
+            walker.walk_recursive().await
+        } else {
+            walker.walk().await
+        }
+    }
+
+    // eat root
+    walk(&mut directory_walker, with_recursive).await?;
+
+    while let Some(child) = walk(&mut directory_walker, with_recursive).await? {
+        let metadata = if with_file_types {
+            Some(fs::metadata(&child).await?)
+        } else {
+            None
+        };
+
+        items.push((
+            child.into_os_string().to_string_lossy()[skip_root_pos..].to_string(),
+            metadata,
+        ))
     }
 
     items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());

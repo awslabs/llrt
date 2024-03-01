@@ -40,6 +40,7 @@ use rquickjs::{AsyncContext, Module};
 use std::{
     env,
     error::Error,
+    io,
     mem::MaybeUninit,
     path::{Path, PathBuf},
     process::exit,
@@ -52,7 +53,7 @@ use crate::{
     compiler::compile_file,
     console::LogLevel,
     process::{get_arch, get_platform},
-    utils::io::{get_basename_ext_name, get_js_path, walk_directory, JS_EXTENSIONS},
+    utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
     vm::Vm,
 };
 
@@ -260,24 +261,37 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
 
     trace!("Scanning directory \"{}\"", root);
 
-    walk_directory(Path::new(root).to_path_buf(), |entry| {
+    let mut directory_walker = DirectoryWalker::new(PathBuf::from(root));
+
+    directory_walker.with_filter(|entry| {
         let name = entry.file_name().to_string_lossy().to_string();
-        if name == "node_modules" || name.starts_with('.') {
-            return false;
-        }
-        for ext in JS_EXTENSIONS {
-            let ext_name = format!(".test{}", ext);
-            let ext_name = ext_name.as_str();
-            if name.ends_with(ext_name)
-                && (!has_filters || filters.iter().any(|&f| name.contains(f)))
-            {
-                entries.push(entry.path().to_string_lossy().to_string());
+        name != "node_modules" || !name.starts_with('.')
+    });
+
+    async fn walk(walker: &mut DirectoryWalker) -> Result<Option<PathBuf>, String> {
+        walker.walk().await.map_err(|e| e.to_string())
+    }
+
+    // eat root
+    walk(&mut directory_walker).await?;
+
+    while let Some(entry) = walk(&mut directory_walker).await? {
+        if let Some(name) = entry
+            .clone()
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+        {
+            for ext in JS_EXTENSIONS {
+                let ext_name = format!(".test{}", ext);
+                let ext_name = ext_name.as_str();
+                if name.ends_with(ext_name)
+                    && (!has_filters || filters.iter().any(|&f| name.contains(f)))
+                {
+                    entries.push(entry.to_string_lossy().to_string());
+                }
             }
-        }
-        true
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+        };
+    }
 
     trace!("Found tests in {}ms", now.elapsed().as_millis());
 
