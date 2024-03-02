@@ -33,6 +33,7 @@ import {
 } from "./jest-utils";
 import ChaiPlugin = Chai.ChaiPlugin;
 import Assertion = Chai.Assertion;
+import {AsymmetricMatcher} from "./jest-asymmetric-matchers";
 
 // Jest Expect Compact
 export const JestChaiExpect: ChaiPlugin = (chai, utils) => {
@@ -441,11 +442,107 @@ export const JestChaiExpect: ChaiPlugin = (chai, utils) => {
             )
         }
 
+        if (typeof expected === 'object' && 'asymmetricMatch' in expected && typeof (expected as any).asymmetricMatch === 'function') {
+            const matcher = expected as any as AsymmetricMatcher<any>
+            return this.assert(
+                thrown && matcher.asymmetricMatch(thrown),
+                'expected error to match asymmetric matcher',
+                'expected error not to match asymmetric matcher',
+                matcher,
+                thrown,
+            )
+        }
+
         throw new Error(`"toThrow" expects string, RegExp, function, Error instance or asymmetric matcher, got "${typeof expected}"`)
     })
 
     def('toSatisfy', function (matcher: Function, message?: string) {
         return this.be.satisfy(matcher, message)
+    })
+
+    utils.addProperty(chai.Assertion.prototype, 'resolves', function __VITEST_RESOLVES__(this: any) {
+        const error = new Error('resolves')
+        utils.flag(this, 'promise', 'resolves')
+        utils.flag(this, 'error', error)
+        const test: any = utils.flag(this, 'vitest-test')
+        const obj = utils.flag(this, 'object')
+
+        if (typeof obj?.then !== 'function')
+            throw new TypeError(`You must provide a Promise to expect() when using .resolves, not '${typeof obj}'.`)
+
+        const proxy: any = new Proxy(this, {
+            get: (target, key, receiver) => {
+                const result = Reflect.get(target, key, receiver)
+
+                if (typeof result !== 'function')
+                    return result instanceof chai.Assertion ? proxy : result
+
+                return async (...args: any[]) => {
+                    const promise = obj.then(
+                        (value: any) => {
+                            utils.flag(this, 'object', value)
+                            return result.call(this, ...args)
+                        },
+                        (err: any) => {
+                            const _error = new AssertionError(
+                                `promise rejected "${utils.inspect(err)}" instead of resolving`,
+                                {showDiff: false},
+                            ) as Error
+                            // @ts-ignore
+                            _error.cause = err
+                            _error.stack = (error.stack as string).replace(error.message, _error.message)
+                            throw _error
+                        },
+                    )
+
+                    return recordAsyncExpect(test, promise)
+                }
+            },
+        })
+
+        return proxy
+    })
+
+    utils.addProperty(chai.Assertion.prototype, 'rejects', function __VITEST_REJECTS__(this: any) {
+        const error = new Error('rejects')
+        utils.flag(this, 'promise', 'rejects')
+        utils.flag(this, 'error', error)
+        const test: any = utils.flag(this, 'vitest-test')
+        const obj = utils.flag(this, 'object')
+        const wrapper = typeof obj === 'function' ? obj() : obj // for jest compat
+
+        if (typeof wrapper?.then !== 'function')
+            throw new TypeError(`You must provide a Promise to expect() when using .rejects, not '${typeof wrapper}'.`)
+
+        const proxy: any = new Proxy(this, {
+            get: (target, key, receiver) => {
+                const result = Reflect.get(target, key, receiver)
+
+                if (typeof result !== 'function')
+                    return result instanceof chai.Assertion ? proxy : result
+
+                return async (...args: any[]) => {
+                    const promise = wrapper.then(
+                        (value: any) => {
+                            const _error = new AssertionError(
+                                `promise resolved "${utils.inspect(value)}" instead of rejecting`,
+                                {showDiff: true, expected: new Error('rejected promise'), actual: value},
+                            ) as any
+                            _error.stack = (error.stack as string).replace(error.message, _error.message)
+                            throw _error
+                        },
+                        (err: any) => {
+                            utils.flag(this, 'object', err)
+                            return result.call(this, ...args)
+                        },
+                    )
+
+                    return recordAsyncExpect(test, promise)
+                }
+            },
+        })
+
+        return proxy
     })
 }
 
@@ -455,4 +552,24 @@ export function assertTypes(value: unknown, name: string, types: string[]): void
     const pass = types.includes(receivedType)
     if (!pass)
         throw new TypeError(`${name} value must be ${types.join(' or ')}, received "${receivedType}"`)
+}
+
+
+export function recordAsyncExpect(test: any, promise: Promise<any> | PromiseLike<any>) {
+    // record promise for test, that resolves before test ends
+    if (test && promise instanceof Promise) {
+        // if promise is explicitly awaited, remove it from the list
+        promise = promise.finally(() => {
+            const index = test.promises.indexOf(promise)
+            if (index !== -1)
+                test.promises.splice(index, 1)
+        })
+
+        // record promise
+        if (!test.promises)
+            test.promises = []
+        test.promises.push(promise)
+    }
+
+    return promise
 }

@@ -23,6 +23,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
 
+// Extracted and modified from Vitest:  https://github.com/vitest-dev/vitest/blob/7a31a1ae4223aed3adf260e63ac3b3f7fab3c9d7/test/core/test/jest-expect.test.ts
+
 class TestError extends Error {}
 
 describe('jest-expect', () => {
@@ -95,7 +97,9 @@ describe('jest-expect', () => {
     }).toThrow(err)
     expect(() => {
       throw new Error('message')
-    }).toThrowError()
+    }).toThrow(expect.objectContaining({
+      message: expect.stringContaining('mes'),
+    }))
     expect([1, 2, 3]).toHaveLength(3)
     expect('abc').toHaveLength(3)
     expect('').not.toHaveLength(5)
