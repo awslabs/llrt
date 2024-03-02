@@ -22,7 +22,7 @@ use self::read_file::read_file;
 use self::rm::{rmdir, rmfile};
 use self::stats::{stat_fn, Stat};
 use self::write_file::write_file;
-use crate::fs::mkdir::{mkdir, mkdtemp};
+use crate::fs::mkdir::{mkdir, mkdirsync, mkdtemp};
 
 pub const CONSTANT_F_OK: u32 = 0;
 pub const CONSTANT_R_OK: u32 = 4;
@@ -33,7 +33,22 @@ pub struct FsPromisesModule;
 
 impl ModuleDef for FsPromisesModule {
     fn declare(declare: &mut Declarations) -> Result<()> {
-        delarations(declare)?;
+        declare.declare("access")?;
+        declare.declare("open")?;
+        declare.declare("readFile")?;
+        declare.declare("writeFile")?;
+        declare.declare("appendFile")?;
+        declare.declare("copyFile")?;
+        declare.declare("rename")?;
+        declare.declare("readdir")?;
+        declare.declare("mkdir")?;
+        declare.declare("mkdtemp")?;
+        declare.declare("rm")?;
+        declare.declare("rmdir")?;
+        declare.declare("stat")?;
+        declare.declare("constants")?;
+
+        declare.declare("default")?;
 
         Ok(())
     }
@@ -55,6 +70,8 @@ pub struct FsModule;
 impl ModuleDef for FsModule {
     fn declare(declare: &mut Declarations) -> Result<()> {
         declare.declare("promises")?;
+        declare.declare("mkdirSync")?;
+
         declare.declare("default")?;
 
         Ok(())
@@ -66,34 +83,14 @@ impl ModuleDef for FsModule {
 
         export_default(ctx, exports, |default| {
             let promises = Object::new(ctx.clone())?;
-
             export_promises(ctx, &promises)?;
 
             default.set("promises", promises)?;
+            default.set("mkdirSync", Func::from(mkdirsync))?;
 
             Ok(())
         })
     }
-}
-
-fn delarations(declare: &mut Declarations) -> Result<()> {
-    declare.declare("access")?;
-    declare.declare("open")?;
-    declare.declare("readFile")?;
-    declare.declare("writeFile")?;
-    declare.declare("appendFile")?;
-    declare.declare("copyFile")?;
-    declare.declare("rename")?;
-    declare.declare("readdir")?;
-    declare.declare("mkdir")?;
-    declare.declare("mkdtemp")?;
-    declare.declare("rm")?;
-    declare.declare("rmdir")?;
-    declare.declare("stat")?;
-    declare.declare("constants")?;
-
-    declare.declare("default")?;
-    Ok(())
 }
 
 fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
