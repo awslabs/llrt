@@ -33,7 +33,10 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: | #create mock js files
+          for i in {1..5}; do
+            echo "console.log(123);" > "bundle/test$i.js"
+          cargo clippy --all-targets --all-features -- -D warnings
   build:
     needs:
       - check
