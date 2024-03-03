@@ -10,7 +10,7 @@
 
 - [ ] Created unit tests in `tests/unit` and/or in Rust for my feature if needed
 - [ ] Ran `make fix` to format and apply Clippy auto fixes
-- [ ] Made sure my code didn't add any additional warnings
+- [ ] Made sure my code didn't add any additional warnings: `cargo clippy --all-targets --all-features -- -D warnings`
 - [ ] Updated documentation if needed ([API.md](API.md)/[README.md](README.md)/Other)
 
 *By submitting this pull request, I confirm that you can use, modify, copy, and redistribute this contribution, under the terms of your choice.*
