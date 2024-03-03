@@ -75,7 +75,28 @@ describe("mkdir", () => {
     const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), "test/test-"));
 
     //non recursive should reject
-    assert.rejects(fs.mkdir(dirPath));
+    expect(fs.mkdir(dirPath)).rejects.toThrow("EEXIST: file already exists, mkdir");
+
+    await fs.mkdir(dirPath, { recursive: true });
+
+    // Check that the directory exists
+    const dirExists = await fs
+      .stat(dirPath)
+      .then(() => true)
+      .catch(() => false);
+    assert.ok(dirExists);
+
+    // Clean up the directory
+    await fs.rmdir(dirPath, { recursive: true });
+  });
+});
+
+describe("mkdirSync", () => {
+  it("should create a directory with the given path synchronously", async () => {
+    const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), "test/test-"));
+
+    //non recursive should reject
+    expect(()=>defaultFsImport.mkdirSync(dirPath)).toThrow(/[fF]ile.*exists/);
 
     await fs.mkdir(dirPath, { recursive: true });
 
