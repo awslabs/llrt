@@ -34,6 +34,7 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: | #create mock js files
+          mkdir -p bundle
           for i in {1..5}; do
             echo "console.log(123);" > "bundle/test$i.js"
           done
