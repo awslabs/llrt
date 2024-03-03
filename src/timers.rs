@@ -65,8 +65,10 @@ fn set_timeout_interval<'js>(
 
 fn clear_timeout_interval(timeouts: &Arc<Mutex<Vec<Timeout>>>, id: usize) {
     let mut timeouts = timeouts.lock().unwrap();
-    if let Some(index) = timeouts.iter().position(|t| t.id == id) {
-        timeouts.remove(index);
+    if let Some(timeout) = timeouts.iter_mut().find(|t| t.id == id) {
+        timeout.cb.take();
+        timeout.timeout = 0;
+        timeout.repeating = false;
     }
 }
 
