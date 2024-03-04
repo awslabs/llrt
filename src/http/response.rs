@@ -2,17 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::time::Instant;
 
-use hyper::{
-    body::{Bytes, Incoming},
-    header::HeaderName,
-};
+use http_body_util::BodyExt;
+use hyper::{body::Incoming, header::HeaderName};
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Ctx, IntoJs, Object, Result, TypedArray, Value,
+    ArrayBuffer, Class, Ctx, Exception, Null, Object, Result, Value,
+};
+use tokio::runtime::Handle;
+
+use crate::{
+    json::parse::json_parse,
+    utils::{class::get_class, object::get_bytes, result::ResultExt},
 };
 
-use super::{blob::Blob, body::Body, headers::Headers};
+use super::{blob::Blob, headers::Headers};
 
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -85,17 +89,12 @@ static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     map
 });
 
-pub struct ResponseData<'js> {
-    body: Option<Class<'js, Body<'js>>>,
-    method: String,
-    url: String,
-    start: Instant,
-    status: u16,
-    status_text: Option<String>,
-    headers: Class<'js, Headers>,
+enum BodyVariant<'js> {
+    Incoming(Option<hyper::Response<Incoming>>),
+    Provided(Value<'js>),
 }
 
-impl<'js> ResponseData<'js> {
+impl<'js> Response<'js> {
     pub fn from_incoming(
         ctx: Ctx<'js>,
         response: hyper::Response<Incoming>,
@@ -119,38 +118,52 @@ impl<'js> ResponseData<'js> {
         let status = response.status();
 
         Ok(Self {
-            body: Some(Body::from_incoming(ctx, response, content_type)?),
+            body: Some(BodyVariant::Incoming(Some(response))),
             method,
             url,
             status_text: None,
+            content_type,
             start,
             status: status.as_u16(),
             headers,
         })
     }
-}
 
-struct Uint8ArrayJsValue(Bytes);
+    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
+        let bytes = match &mut self.body {
+            Some(BodyVariant::Incoming(incoming)) => {
+                let mut body = incoming
+                    .take()
+                    .ok_or(Exception::throw_type(ctx, "Already read"))?;
+                let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
 
-impl Uint8ArrayJsValue {
-    fn into_js_obj<'js>(self, ctx: &Ctx<'js>) -> Result<Value<'js>>
-    where
-        Self: Sized,
-    {
-        let array_buffer = TypedArray::new(ctx.clone(), self.0.to_vec())?;
-        array_buffer.into_js(ctx)
-    }
-}
+                bytes.to_vec()
+            }
+            Some(BodyVariant::Provided(provided)) => {
+                if let Some(blob) = get_class::<Blob>(provided)? {
+                    let blob = blob.borrow();
+                    blob.get_bytes()
+                } else {
+                    get_bytes(ctx, provided.clone())?
+                }
+            }
+            None => return Ok(None),
+        };
 
-impl<'js> IntoJs<'js> for Uint8ArrayJsValue {
-    fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
-        self.into_js_obj(ctx)
+        Ok(Some(bytes))
     }
 }
 
 #[rquickjs::class]
 pub struct Response<'js> {
-    pub data: ResponseData<'js>,
+    body: Option<BodyVariant<'js>>,
+    method: String,
+    url: String,
+    start: Instant,
+    status: u16,
+    status_text: Option<String>,
+    headers: Class<'js, Headers>,
+    content_type: Option<String>,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
@@ -179,71 +192,102 @@ impl<'js> Response<'js> {
             Class::instance(ctx.clone(), Headers::default())
         }?;
 
+        let body = body.0.and_then(|body| {
+            if body.is_null() || body.is_undefined() {
+                None
+            } else {
+                Some(BodyVariant::Provided(body))
+            }
+        });
+
+        let content_type = headers.get("content-type")?;
+
         Ok(Self {
-            data: ResponseData {
-                body: Body::from_value(&ctx, body.0)?,
-                method: "GET".into(),
-                url: "".into(),
-                start: Instant::now(),
-                status,
-                headers,
-                status_text,
-            },
+            body,
+            method: "GET".into(),
+            url: "".into(),
+            start: Instant::now(),
+            content_type,
+            status,
+            headers,
+            status_text,
         })
     }
 
     #[qjs(get)]
     pub fn status(&self) -> u64 {
-        self.data.status.into()
+        self.status.into()
     }
 
     #[qjs(get)]
     pub fn url(&self) -> String {
-        self.data.url.clone()
-    }
-
-    #[qjs(get)]
-    pub fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        Body::get_body(ctx, &self.data.body)
+        self.url.clone()
     }
 
     #[qjs(get)]
     pub fn ok(&self) -> bool {
-        self.data.status > 199 && self.data.status < 300
+        self.status > 199 && self.status < 300
+    }
+
+    //FIXME return readable stream when implemented
+    #[qjs(get)]
+    pub fn body(&self) -> Null {
+        Null
     }
 
     #[qjs(get)]
     fn headers(&self) -> Class<'js, Headers> {
-        self.data.headers.clone()
+        self.headers.clone()
     }
 
-    async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
-        Body::get_text(ctx, &self.data.body).await
+    async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return Ok(String::from_utf8_lossy(&bytes).to_string());
+        }
+        Ok("".into())
     }
 
-    async fn json(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        Body::get_json(ctx, &self.data.body).await
+    async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return json_parse(&ctx, bytes);
+        }
+        Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
 
-    async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        Body::get_array_buffer(ctx, &self.data.body).await
+    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return ArrayBuffer::new(ctx, bytes);
+        }
+        ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
-    async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
-        Body::get_blob(ctx, &self.data.body).await
+    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return Ok(Blob::from_bytes(bytes, self.content_type.clone()));
+        }
+        Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
 
-    fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
+    fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
+        let body = if self.body.is_some() {
+            let array_buffer_future = self.array_buffer(ctx.clone());
+            let array_buffer = tokio::task::block_in_place(move || {
+                Handle::current().block_on(array_buffer_future)
+            })?;
+            Some(BodyVariant::Provided(array_buffer.into_value()))
+        } else {
+            None
+        };
+
         Ok(Self {
-            data: ResponseData {
-                body: self.data.body.clone(),
-                method: self.data.method.clone(),
-                url: self.data.url.clone(),
-                start: self.data.start,
-                status: self.data.status,
-                status_text: self.data.status_text.clone(),
-                headers: Class::<Headers>::instance(ctx, self.data.headers.borrow().clone())?,
-            },
+            body,
+            content_type: self.content_type.clone(),
+            method: self.method.clone(),
+            url: self.url.clone(),
+            start: self.start,
+            status: self.status,
+            status_text: self.status_text.clone(),
+            headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
         })
     }
 
@@ -254,19 +298,16 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     fn status_text(&self) -> String {
-        if let Some(text) = &self.data.status_text {
+        if let Some(text) = &self.status_text {
             return text.to_string();
         }
-        STATUS_TEXTS
-            .get(&self.data.status)
-            .unwrap_or(&"")
-            .to_string()
+        STATUS_TEXTS.get(&self.status).unwrap_or(&"").to_string()
     }
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        if let Some(body) = &self.data.body {
-            return body.borrow().is_used();
+        if let Some(BodyVariant::Incoming(body)) = &self.body {
+            return body.is_none();
         }
         false
     }
@@ -274,8 +315,8 @@ impl<'js> Response<'js> {
 
 impl<'js> Trace<'js> for Response<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        self.data.headers.trace(tracer);
-        if let Some(body) = &self.data.body {
+        self.headers.trace(tracer);
+        if let Some(BodyVariant::Provided(body)) = &self.body {
             body.trace(tracer);
         }
     }

@@ -1,6 +1,6 @@
 import * as esbuild from "esbuild";
 import fs from "fs/promises";
-import {createRequire} from "module";
+import { createRequire } from "module";
 import path from "path";
 
 const require = createRequire(import.meta.url);
@@ -15,19 +15,24 @@ const SHIMS = new Map();
 
 async function readFilesRecursive(dir, filePredicate) {
   const dirents = await fs.readdir(dir, { withFileTypes: true });
-  const files = await Promise.all(dirents.map((dirent) => {
-    const filePath = path.join(dir, dirent.name);
+  const files = await Promise.all(
+    dirents.map((dirent) => {
+      const filePath = path.join(dir, dirent.name);
 
-    if (dirent.isDirectory()) {
-      return readFilesRecursive(filePath, filePredicate);
-    } else {
-      return filePredicate(filePath) ? filePath : [];
-    }
-  }));
+      if (dirent.isDirectory()) {
+        return readFilesRecursive(filePath, filePredicate);
+      } else {
+        return filePredicate(filePath) ? filePath : [];
+      }
+    })
+  );
   return Array.prototype.concat(...files);
 }
 
-const TEST_FILES = await readFilesRecursive(TESTS_DIR, (filePath)=> filePath.endsWith(".test.ts") || filePath.endsWith(".spec.ts"));
+const TEST_FILES = await readFilesRecursive(
+  TESTS_DIR,
+  (filePath) => filePath.endsWith(".test.ts") || filePath.endsWith(".spec.ts")
+);
 const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const AWS_JSON_SHARED_COMMAND_REGEX2 =
@@ -446,6 +451,7 @@ async function loadShims() {
     loadShim(/mnemonist\/lru-cache\.js/, "lru-cache.js"),
     loadShim(/sdk-stream-mixin.browser\.js/, "sdk-stream-mixin.js"),
     loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
+    loadShim(/stream-collector\.js/, "stream-collector.js"),
   ]);
 }
 
@@ -501,7 +507,7 @@ async function buildLibrary() {
   });
   await esbuild.build({
     ...defaultLibEsBuildOption,
-    entryPoints
+    entryPoints,
   });
 
   // Build tests
@@ -512,10 +518,7 @@ async function buildLibrary() {
   await esbuild.build({
     ...defaultLibEsBuildOption,
     entryPoints: testEntryPoints,
-    external: [
-      ...ES_BUILD_OPTIONS.external,
-      "@aws-sdk", "@smithy", "uuid"
-    ],
+    external: [...ES_BUILD_OPTIONS.external, "@aws-sdk", "@smithy", "uuid"],
   });
 }
 

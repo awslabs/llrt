@@ -10,7 +10,7 @@ use hyper_util::{
 use rquickjs::{
     function::Opt,
     prelude::{Async, Func},
-    Ctx, Error, Exception, Object, Result, Value,
+    Ctx, Exception, Object, Result, Value,
 };
 use tracing::warn;
 
@@ -31,7 +31,7 @@ use crate::{
 };
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
-use super::response::{Response, ResponseData};
+use super::response::Response;
 
 struct FetchArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>);
 
@@ -174,9 +174,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                 let req = req.body(body).or_throw(&ctx)?;
                 let res = client.request(req).await.or_throw(&ctx)?; //TODO return ErrorObject
 
-                Ok::<Response, Error>(Response {
-                    data: ResponseData::from_incoming(ctx, res, method_string, url, start)?,
-                })
+                Response::from_incoming(ctx, res, method_string, url, start)
             }
         })),
     )?;

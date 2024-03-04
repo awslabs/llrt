@@ -11,7 +11,7 @@ async function transformToByteArray() {
 }
 
 async function transformToString(encoding) {
-  const typedArray = await this.typedArray();
+  const typedArray = await this.arrayBuffer();
   if (encoding === "base64") {
     return toBase64(typedArray);
   } else if (encoding === "hex") {

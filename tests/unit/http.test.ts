@@ -1,5 +1,3 @@
-const ENCODER = new TextEncoder();
-
 describe("Headers", () => {
   it("should construct a new Headers object with the provided headers", () => {
     const headers = { "content-type": "application/json" };
@@ -155,15 +153,7 @@ describe("Response class", () => {
   it("should set the body to the provided value", async () => {
     const body = "Hello, world!";
     const response = new Response(body);
-    assert.deepStrictEqual(
-      await (response.body as any).typedArray(),
-      ENCODER.encode(body)
-    );
-  });
-
-  it("should set the body to null if null is provided", () => {
-    const response = new Response(null);
-    assert.strictEqual(response.body, null);
+    assert.deepStrictEqual(await response.text(), body);
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {

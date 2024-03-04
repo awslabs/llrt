@@ -49,7 +49,8 @@ Available globally
 > [!IMPORTANT]  
 > There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
 > * `keepalive` is always true
-> * `body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
+> * `request.body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
+> * `response.body` returns `null`. Use `response.text()`, `response.json()` etc
 > * `mode`, `credentials`,  `referrerPolicy`, `priority`, `cache` is not available/applicable
 
 ## fs/promises
