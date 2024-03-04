@@ -54,6 +54,7 @@ use crate::{
     path::{dirname, join_path, resolve_path, PathModule},
     process::ProcessModule,
     timers::TimersModule,
+    url::UrlModule,
     utils::{
         class::get_class_name,
         clone::structured_clone,
@@ -128,7 +129,8 @@ create_modules!(
     "child_process" => ChildProcessModule,
     "util" => UtilModule,
     "uuid" => UuidModule,
-    "process" => ProcessModule
+    "process" => ProcessModule,
+    "url" => UrlModule
 );
 
 struct ModuleInfo<T: ModuleDef> {
