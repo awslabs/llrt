@@ -40,13 +40,13 @@ use rquickjs::{AsyncContext, Module};
 use std::{
     env,
     error::Error,
-    io,
     mem::MaybeUninit,
     path::{Path, PathBuf},
     process::exit,
     sync::atomic::Ordering,
     time::Instant,
 };
+
 use tracing::trace;
 
 use crate::{
@@ -261,23 +261,13 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
 
     trace!("Scanning directory \"{}\"", root);
 
-    let mut directory_walker = DirectoryWalker::new(PathBuf::from(root));
-
-    directory_walker.with_filter(|entry| {
+    let mut directory_walker = DirectoryWalker::new(PathBuf::from(root), |entry| {
         let name = entry.file_name().to_string_lossy().to_string();
         name != "node_modules" || !name.starts_with('.')
     });
 
-    async fn walk(walker: &mut DirectoryWalker) -> Result<Option<PathBuf>, String> {
-        walker.walk().await.map_err(|e| e.to_string())
-    }
-
-    // eat root
-    walk(&mut directory_walker).await?;
-
-    while let Some(entry) = walk(&mut directory_walker).await? {
+    while let Some((entry, _)) = directory_walker.walk().await.map_err(|e| e.to_string())? {
         if let Some(name) = entry
-            .clone()
             .file_name()
             .map(|name| name.to_string_lossy().to_string())
         {

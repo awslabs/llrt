@@ -32,6 +32,13 @@ jobs:
           key: ${{ runner.os }}-cargo-rust_stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Format
         run: cargo fmt --all -- --check
+      - name: Clippy
+        run: | #create mock js files
+          mkdir -p bundle
+          for i in {1..5}; do
+            echo "console.log(123);" > "bundle/test$i.js"
+          done
+          cargo clippy --all-targets --all-features -- -D warnings
   build:
     needs:
       - check

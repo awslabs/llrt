@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    fs::Metadata,
     io,
     path::{Path, PathBuf},
-    result::Result as StdResult,
 };
 
 use tokio::fs::{self, DirEntry};
@@ -43,56 +43,63 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
     None
 }
 
-pub struct DirectoryWalker {
-    stack: Vec<(PathBuf, bool)>,
-    filters: Vec<Box<dyn Fn(&DirEntry) -> bool>>,
+pub struct DirectoryWalker<T>
+where
+    T: Fn(&DirEntry) -> bool,
+{
+    stack: Vec<(PathBuf, Option<Metadata>)>,
+    filter: T,
+    recursive: bool,
+    eat_root: bool,
 }
 
-impl DirectoryWalker {
-    pub fn new(path: PathBuf) -> Self {
+impl<T> DirectoryWalker<T>
+where
+    T: Fn(&DirEntry) -> bool,
+{
+    pub fn new(root: PathBuf, filter: T) -> Self {
         Self {
-            stack: vec![(path, true)],
-            filters: vec![],
+            stack: vec![(root, None)],
+            filter,
+            recursive: false,
+            eat_root: true,
         }
     }
 
-    pub fn with_filter(&mut self, handler: impl Fn(&DirEntry) -> bool + 'static) {
-        self.filters.push(Box::new(handler));
+    pub fn set_recursive(&mut self, recursive: bool) {
+        self.recursive = recursive;
     }
 
-    async fn with_walk(
-        &mut self,
-        mut handler: impl FnMut(&mut Self, PathBuf, bool),
-    ) -> io::Result<Option<PathBuf>> {
-        let is_filter = self.filters.is_empty();
-
-        if let Some((dir, is_recursive)) = self.stack.pop() {
-            if is_recursive {
-                let mut stream = fs::read_dir(dir.clone()).await?;
-
-                while let Some(entry) = stream.next_entry().await? {
-                    let entry_path = entry.path();
-
-                    if is_filter || (self.filters.iter().all(|filter| filter(&entry))) {
-                        let is_dir = entry_path.is_dir();
-                        handler(self, entry_path, is_dir);
-                    }
-                }
+    pub async fn walk(&mut self) -> io::Result<Option<(PathBuf, Metadata)>> {
+        if self.eat_root {
+            self.eat_root = false;
+            let (dir, _) = self.stack.pop().unwrap();
+            self.append_stack(&dir).await?;
+        }
+        if let Some((dir, metadata)) = self.stack.pop() {
+            let metadata = metadata.unwrap();
+            if self.recursive && metadata.is_dir() {
+                self.append_stack(&dir).await?;
             }
 
-            Ok(Some(dir))
+            Ok(Some((dir, metadata)))
         } else {
             Ok(None)
         }
     }
 
-    pub async fn walk_recursive(&mut self) -> io::Result<Option<PathBuf>> {
-        self.with_walk(|this, pathbuf, is_recursive| this.stack.push((pathbuf, is_recursive)))
-            .await
-    }
+    async fn append_stack(&mut self, dir: &PathBuf) -> io::Result<()> {
+        let mut stream = fs::read_dir(dir).await?;
+        while let Some(entry) = stream.next_entry().await? {
+            let entry_path = entry.path();
 
-    pub async fn walk(&mut self) -> io::Result<Option<PathBuf>> {
-        self.with_walk(|this, pathbuf, _| this.stack.push((pathbuf, false)))
-            .await
+            if !(self.filter)(&entry) {
+                continue;
+            }
+
+            let metadata = fs::metadata(&entry_path).await?;
+            self.stack.push((entry_path, Some(metadata)));
+        }
+        Ok(())
     }
 }

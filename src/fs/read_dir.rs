@@ -1,20 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    collections::VecDeque,
-    fs::Metadata,
-    io,
-    path::{Path, PathBuf},
-};
+use std::{fs::Metadata, path::PathBuf};
 
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
 };
-use tokio::fs;
 
 use crate::{
-    path::{self, is_absolute, CURRENT_DIR_STR},
-    utils::{io::DirectoryWalker, result::ResultExt},
+    path::{is_absolute, CURRENT_DIR_STR},
+    utils::io::DirectoryWalker,
 };
 
 #[rquickjs::class]
@@ -61,14 +55,14 @@ impl<'js> IntoJs<'js> for ReadDir {
 }
 
 pub async fn read_dir<'js>(
-    ctx: Ctx<'js>,
+    _ctx: Ctx<'js>,
     path: String,
     options: Opt<Object<'js>>,
 ) -> Result<ReadDir> {
     let mut path = path;
 
     let mut with_file_types = false;
-    let mut with_recursive = false;
+    let mut is_recursive = false;
 
     if let Some(options) = options.0 {
         with_file_types = options
@@ -77,7 +71,7 @@ pub async fn read_dir<'js>(
             .and_then(|file_types: Value| file_types.as_bool())
             .unwrap_or_default();
 
-        with_recursive = options
+        is_recursive = options
             .get("recursive")
             .ok()
             .and_then(|recursive: Value| recursive.as_bool())
@@ -101,25 +95,15 @@ pub async fn read_dir<'js>(
     };
     let mut items = Vec::with_capacity(64);
 
-    let mut directory_walker = DirectoryWalker::new(PathBuf::from(path));
+    let mut directory_walker = DirectoryWalker::new(PathBuf::from(path), |_| true);
 
-    async fn walk(
-        walker: &mut DirectoryWalker,
-        with_recursive: bool,
-    ) -> io::Result<Option<PathBuf>> {
-        if with_recursive {
-            walker.walk_recursive().await
-        } else {
-            walker.walk().await
-        }
+    if is_recursive {
+        directory_walker.set_recursive(true);
     }
 
-    // eat root
-    walk(&mut directory_walker, with_recursive).await?;
-
-    while let Some(child) = walk(&mut directory_walker, with_recursive).await? {
+    while let Some((child, metadata)) = directory_walker.walk().await? {
         let metadata = if with_file_types {
-            Some(fs::metadata(&child).await?)
+            Some(metadata)
         } else {
             None
         };
