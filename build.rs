@@ -14,11 +14,11 @@ use std::{
 use std::io::Write;
 
 use jwalk::WalkDir;
-use rquickjs::{module::ModuleData, CatchResultExt, CaughtError, Context, Ctx, Module, Runtime};
+use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};
 
 const BUNDLE_DIR: &str = "bundle";
 
-include!("src/bytecode_meta.rs");
+include!("src/bytecode.rs");
 
 macro_rules! info {
     ($($tokens: tt)*) => {
@@ -117,13 +117,10 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
             total_bytes += bytes.len();
 
             if cfg!(feature = "uncompressed") {
-                let mut uncompressed = Vec::with_capacity(4 + 6 + bytes.len());
-                uncompressed.extend_from_slice(BYTECODE_VERSION.as_bytes());
-                uncompressed.extend_from_slice(&[BYTECODE_UNCOMPRESSED]); //uncompressed
-                uncompressed.extend_from_slice(&bytes);
-                fs::write(&filename, uncompressed).unwrap();
+                let uncompressed = add_bytecode_header(bytes, None);
+                fs::write(&filename, uncompressed)?;
             } else {
-                fs::write(&filename, bytes).unwrap();
+                fs::write(&filename, bytes)?;
             }
 
             info!("Done!");
@@ -184,7 +181,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
 
         fs::copy(&filename, &tmp_filename)?;
 
-        let uncompressed_file_size = PathBuf::from(&filename).metadata().unwrap().len() as u32;
+        let uncompressed_file_size = PathBuf::from(&filename).metadata()?.len() as u32;
 
         let output = Command::new("zstd")
             .args([
@@ -207,11 +204,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
         }
 
         let bytes = fs::read(&filename)?;
-        let mut compressed = Vec::with_capacity(4 + 6 + bytes.len());
-        compressed.extend_from_slice(BYTECODE_VERSION.as_bytes());
-        compressed.extend_from_slice(&[BYTECODE_COMPRESSED]); //compressed
-        compressed.extend_from_slice(&uncompressed_file_size.to_le_bytes());
-        compressed.extend_from_slice(&bytes);
+        let compressed = add_bytecode_header(bytes, Some(uncompressed_file_size));
         fs::write(&filename, compressed)?;
 
         let compressed_file_size = PathBuf::from(&filename).metadata().unwrap().len() as usize;
@@ -250,10 +243,11 @@ fn generate_compression_dictionary(
     cmd.args(&dictionary_filenames);
     let mut cmd = cmd.args(source_files).spawn()?;
     let exit_status = cmd.wait()?;
-    Ok(if !exit_status.success() {
+    if !exit_status.success() {
         return Err(io::Error::new(
             io::ErrorKind::Other,
             "Failed to generate compression dictionary",
         ));
-    })
+    };
+    Ok(())
 }

@@ -37,9 +37,7 @@ include!("./bytecode_cache.rs");
 
 use crate::{
     buffer::BufferModule,
-    bytecode_meta::{
-        BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH,
-    },
+    bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
     child_process::ChildProcessModule,
     console,
     crypto::{CryptoModule, SYSTEM_RANDOM},
