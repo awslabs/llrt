@@ -8,8 +8,11 @@
 mod macros;
 mod buffer;
 mod bytearray_buffer;
+mod bytecode;
 mod child_process;
+#[cfg(not(feature = "lambda"))]
 mod compiler;
+#[cfg(not(feature = "lambda"))]
 mod compiler_common;
 mod console;
 mod crypto;
@@ -49,8 +52,10 @@ use std::{
 
 use tracing::trace;
 
+#[cfg(not(feature = "lambda"))]
+use crate::compiler::compile_file;
+
 use crate::{
-    compiler::compile_file,
     console::LogLevel,
     process::{get_arch, get_platform},
     utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
@@ -168,24 +173,32 @@ async fn start_cli(context: &AsyncContext) {
                         return;
                     }
                     "compile" => {
-                        if let Some(filename) = args.get(i + 1) {
-                            let output_filename = if let Some(arg) = args.get(i + 2) {
-                                arg.to_string()
-                            } else {
-                                let mut buf = PathBuf::from(filename);
-                                buf.set_extension("lrt");
-                                buf.to_string_lossy().to_string()
-                            };
+                        #[cfg(not(feature = "lambda"))]
+                        {
+                            if let Some(filename) = args.get(i + 1) {
+                                let output_filename = if let Some(arg) = args.get(i + 2) {
+                                    arg.to_string()
+                                } else {
+                                    let mut buf = PathBuf::from(filename);
+                                    buf.set_extension("lrt");
+                                    buf.to_string_lossy().to_string()
+                                };
 
-                            let filename = Path::new(filename);
-                            let output_filename = Path::new(&output_filename);
-                            if let Err(error) = compile_file(filename, output_filename).await {
-                                eprintln!("{error}");
+                                let filename = Path::new(filename);
+                                let output_filename = Path::new(&output_filename);
+                                if let Err(error) = compile_file(filename, output_filename).await {
+                                    eprintln!("{error}");
+                                    exit(1);
+                                }
+                                return;
+                            } else {
+                                eprintln!("compile: input filename is required.");
                                 exit(1);
                             }
-                            return;
-                        } else {
-                            eprintln!("compile: input filename is required.");
+                        }
+                        #[cfg(feature = "lambda")]
+                        {
+                            eprintln!("Not supported in \"lambda\" version.");
                             exit(1);
                         }
                     }

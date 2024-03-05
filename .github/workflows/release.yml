@@ -52,6 +52,8 @@ jobs:
           files: |
             ./llrt-lambda-x64.zip
             ./llrt-lambda-arm64.zip
+            ./llrt-oci-x64
+            ./llrt-oci-arm64
             ./llrt-linux-x64.zip
             ./llrt-linux-arm64.zip
             ./llrt-darwin-x64.zip

@@ -7,19 +7,17 @@ use tracing::trace;
 use zstd::bulk::Compressor;
 
 use crate::{
+    bytecode::add_bytecode_header,
     compiler_common::{human_file_size, DummyLoader, DummyResolver},
     vm::COMPRESSION_DICT,
 };
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut compressor = Compressor::with_dictionary(22, COMPRESSION_DICT)?;
-    let raw: Vec<u8> = compressor.compress(bytes)?;
+    let compressed_bytes = compressor.compress(bytes)?;
     let uncompressed_len = bytes.len() as u32;
 
-    let mut compressed = Vec::with_capacity(4);
-    compressed.extend_from_slice(&uncompressed_len.to_le_bytes());
-    compressed.extend_from_slice(&raw);
-
+    let compressed = add_bytecode_header(compressed_bytes, Some(uncompressed_len));
     Ok(compressed)
 }
 

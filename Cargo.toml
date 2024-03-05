@@ -8,6 +8,7 @@ license-file = "LICENSE"
 default = ["macro"]
 lambda = []
 no-sdk = []
+uncompressed = []
 macro = ["rquickjs/macro"]
 
 [dependencies]

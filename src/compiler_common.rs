@@ -2,24 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Shared with build.rs and compiler.rs
 
-use rquickjs::{
-    loader::{Loader, Resolver},
-    module::ModuleData,
-    Ctx,
-};
-
 pub struct DummyLoader;
 
-impl Loader for DummyLoader {
-    fn load(&mut self, _ctx: &Ctx<'_>, name: &str) -> rquickjs::Result<ModuleData> {
-        Ok(ModuleData::source(name, ""))
+impl rquickjs::loader::Loader for DummyLoader {
+    fn load(
+        &mut self,
+        _ctx: &rquickjs::Ctx<'_>,
+        name: &str,
+    ) -> rquickjs::Result<rquickjs::module::ModuleData> {
+        Ok(rquickjs::module::ModuleData::source(name, ""))
     }
 }
 
 pub struct DummyResolver;
 
-impl Resolver for DummyResolver {
-    fn resolve(&mut self, _ctx: &Ctx<'_>, _base: &str, name: &str) -> rquickjs::Result<String> {
+impl rquickjs::loader::Resolver for DummyResolver {
+    fn resolve(
+        &mut self,
+        _ctx: &rquickjs::Ctx<'_>,
+        _base: &str,
+        name: &str,
+    ) -> rquickjs::Result<String> {
         Ok(name.into())
     }
 }
