@@ -11,8 +11,8 @@ use crate::{
     utils::io::DirectoryWalker,
 };
 
-#[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
+#[rquickjs::class]
 pub struct Dirent {
     #[qjs(skip_trace)]
     metadata: Metadata,
@@ -59,6 +59,56 @@ pub async fn read_dir<'js>(
     path: String,
     options: Opt<Object<'js>>,
 ) -> Result<ReadDir> {
+    let (with_file_types, skip_root_pos, mut directory_walker) =
+        process_options_and_create_directory_walker(path, options);
+
+    let mut items = Vec::with_capacity(64);
+
+    while let Some((child, metadata)) = directory_walker.walk().await? {
+        append_directory_and_metadata_to_vec(
+            with_file_types,
+            skip_root_pos,
+            &mut items,
+            child,
+            metadata,
+        );
+    }
+
+    items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+
+    Ok(ReadDir { items })
+}
+
+pub fn read_dir_sync<'js>(
+    _ctx: Ctx<'js>,
+    path: String,
+    options: Opt<Object<'js>>,
+) -> Result<ReadDir> {
+    let (with_file_types, skip_root_pos, mut directory_walker) =
+        process_options_and_create_directory_walker(path, options);
+
+    let mut items = Vec::with_capacity(64);
+    while let Some((child, metadata)) = directory_walker.walk_sync()? {
+        append_directory_and_metadata_to_vec(
+            with_file_types,
+            skip_root_pos,
+            &mut items,
+            child,
+            metadata,
+        );
+    }
+
+    items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+
+    Ok(ReadDir { items })
+}
+
+type OptionsAndDirectoryWalker = (bool, usize, DirectoryWalker<fn(&str) -> bool>);
+
+fn process_options_and_create_directory_walker(
+    path: String,
+    options: Opt<Object>,
+) -> OptionsAndDirectoryWalker {
     let mut path = path;
 
     let mut with_file_types = false;
@@ -93,28 +143,31 @@ pub async fn read_dir<'js>(
             }
         }
     };
-    let mut items = Vec::with_capacity(64);
 
-    let mut directory_walker = DirectoryWalker::new(PathBuf::from(path), |_| true);
+    let mut directory_walker: DirectoryWalker<fn(&str) -> bool> =
+        DirectoryWalker::new(PathBuf::from(path), |_| true);
 
     if is_recursive {
         directory_walker.set_recursive(true);
     }
+    (with_file_types, skip_root_pos, directory_walker)
+}
 
-    while let Some((child, metadata)) = directory_walker.walk().await? {
-        let metadata = if with_file_types {
-            Some(metadata)
-        } else {
-            None
-        };
+fn append_directory_and_metadata_to_vec(
+    with_file_types: bool,
+    skip_root_pos: usize,
+    items: &mut Vec<(String, Option<Metadata>)>,
+    child: PathBuf,
+    metadata: Metadata,
+) {
+    let metadata = if with_file_types {
+        Some(metadata)
+    } else {
+        None
+    };
 
-        items.push((
-            child.into_os_string().to_string_lossy()[skip_root_pos..].to_string(),
-            metadata,
-        ))
-    }
-
-    items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
-
-    Ok(ReadDir { items })
+    items.push((
+        child.into_os_string().to_string_lossy()[skip_root_pos..].to_string(),
+        metadata,
+    ))
 }

@@ -53,6 +53,10 @@ Available globally
 > * `response.body` returns `null`. Use `response.text()`, `response.json()` etc
 > * `mode`, `credentials`,  `referrerPolicy`, `priority`, `cache` is not available/applicable
 
+## fs
+[mkdirsync](https://nodejs.org/api/fs.html#fsmkdirsyncpath-options)
+[readdirSync](https://nodejs.org/api/fs.html#fsreaddirsyncpath-options)
+
 ## fs/promises
 
 [readdir](https://nodejs.org/api/fs.html#fspromisesreaddirpath-options)
