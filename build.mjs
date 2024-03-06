@@ -229,7 +229,7 @@ function codeToRegex(fn, includeSignature = false) {
   );
 }
 
-const awsSdkPlugin = {
+const AWS_SDK_PLUGIN = {
   name: "aws-sdk-plugin",
   setup(build) {
     const tslib = require.resolve("tslib/tslib.es6.js");
@@ -423,6 +423,15 @@ function esbuildShimPlugin(shims) {
   };
 }
 
+const requireProcessPlugin = {
+  name: "require-process",
+  setup(build) {
+    build.onResolve({ filter: /^process\/$/ }, () => {
+      return { path: "process", external: true };
+    });
+  },
+};
+
 async function rmTmpDir() {
   await fs.rm(TMP_DIR, {
     recursive: true,
@@ -508,6 +517,7 @@ async function buildLibrary() {
   await esbuild.build({
     ...defaultLibEsBuildOption,
     entryPoints,
+    plugins: [requireProcessPlugin],
   });
 
   // Build tests
@@ -546,7 +556,7 @@ async function buildSdks() {
 
   await esbuild.build({
     entryPoints: sdkEntryPoints,
-    plugins: [awsSdkPlugin, esbuildShimPlugin([[/^bowser$/]])],
+    plugins: [AWS_SDK_PLUGIN, esbuildShimPlugin([[/^bowser$/]])],
     alias: {
       "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
       "fast-xml-parser": "xml",
