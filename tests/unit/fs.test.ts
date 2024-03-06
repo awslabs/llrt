@@ -33,6 +33,35 @@ describe("readdir", () => {
   });
 });
 
+describe("readdirSync", () => {
+  it("should read a directory synchronously", () => {
+    const dir = defaultFsImport.readdirSync(".cargo");
+    assert.deepEqual(dir, ["config.toml"]);
+  });
+
+  it("should read a directory with types synchronously", () => {
+    const dir = defaultFsImport.readdirSync(".cargo", {withFileTypes: true});
+    assert.deepEqual(dir, [{name: "config.toml"}]);
+    assert.equal(dir[0].isFile(), true);
+  });
+
+  it("should read a directory using default import synchronously", () => {
+    const dir = defaultFsImport.readdirSync(".cargo");
+    assert.deepEqual(dir, ["config.toml"]);
+  });
+
+  it("should read a directory using named import synchronously", () => {
+    const dir = namedFsImport.readdirSync(".cargo");
+    assert.deepEqual(dir, ["config.toml"]);
+  });
+
+  it('should read a directory with recursive synchronously', () => {
+    const dir = defaultFsImport.readdirSync('fixtures/fs/readdir', {recursive: true});
+    const compare = (a: string | Buffer, b: string | Buffer): number => a >= b ? 1 : -1;
+    assert.deepEqual(dir.sort(compare), ['recursive/readdir.js', 'recursive', 'readdir.js'].sort(compare));
+  });
+});
+
 describe("readfile", () => {
   it("should read a file", async () => {
     const buf = await fs.readFile("fixtures/hello.txt");
@@ -98,7 +127,7 @@ describe("mkdirSync", () => {
     //non recursive should reject
     expect(()=>defaultFsImport.mkdirSync(dirPath)).toThrow(/[fF]ile.*exists/);
 
-    await fs.mkdir(dirPath, { recursive: true });
+    defaultFsImport.mkdirSync(dirPath, { recursive: true });
 
     // Check that the directory exists
     const dirExists = await fs

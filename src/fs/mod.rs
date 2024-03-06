@@ -17,12 +17,12 @@ use rquickjs::{Class, Ctx, Object, Result};
 use crate::module::export_default;
 
 use self::access::access;
-use self::read_dir::{read_dir, Dirent};
+use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::read_file;
 use self::rm::{rmdir, rmfile};
 use self::stats::{stat_fn, Stat};
 use self::write_file::write_file;
-use crate::fs::mkdir::{mkdir, mkdirsync, mkdtemp};
+use crate::fs::mkdir::{mkdir, mkdir_sync, mkdtemp};
 
 pub const CONSTANT_F_OK: u32 = 0;
 pub const CONSTANT_R_OK: u32 = 4;
@@ -71,6 +71,7 @@ impl ModuleDef for FsModule {
     fn declare(declare: &mut Declarations) -> Result<()> {
         declare.declare("promises")?;
         declare.declare("mkdirSync")?;
+        declare.declare("readdirSync")?;
 
         declare.declare("default")?;
 
@@ -86,7 +87,8 @@ impl ModuleDef for FsModule {
             export_promises(ctx, &promises)?;
 
             default.set("promises", promises)?;
-            default.set("mkdirSync", Func::from(mkdirsync))?;
+            default.set("mkdirSync", Func::from(mkdir_sync))?;
+            default.set("readdirSync", Func::from(read_dir_sync))?;
 
             Ok(())
         })

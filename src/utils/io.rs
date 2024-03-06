@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use tokio::fs::{self, DirEntry};
+use tokio::fs::{self};
 
 pub fn get_basename_ext_name(path: &str) -> (String, String) {
     let path = path.strip_prefix("./").unwrap_or(path);
@@ -45,7 +45,7 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
 
 pub struct DirectoryWalker<T>
 where
-    T: Fn(&DirEntry) -> bool,
+    T: Fn(&str) -> bool,
 {
     stack: Vec<(PathBuf, Option<Metadata>)>,
     filter: T,
@@ -55,7 +55,7 @@ where
 
 impl<T> DirectoryWalker<T>
 where
-    T: Fn(&DirEntry) -> bool,
+    T: Fn(&str) -> bool,
 {
     pub fn new(root: PathBuf, filter: T) -> Self {
         Self {
@@ -88,18 +88,53 @@ where
         }
     }
 
+    pub fn walk_sync(&mut self) -> io::Result<Option<(PathBuf, Metadata)>> {
+        if self.eat_root {
+            self.eat_root = false;
+            let (dir, _) = self.stack.pop().unwrap();
+            self.append_stack_sync(&dir)?;
+        }
+        if let Some((dir, metadata)) = self.stack.pop() {
+            let metadata = metadata.unwrap();
+            if self.recursive && metadata.is_dir() {
+                self.append_stack_sync(&dir)?;
+            }
+
+            Ok(Some((dir, metadata)))
+        } else {
+            Ok(None)
+        }
+    }
+
     async fn append_stack(&mut self, dir: &PathBuf) -> io::Result<()> {
         let mut stream = fs::read_dir(dir).await?;
         while let Some(entry) = stream.next_entry().await? {
             let entry_path = entry.path();
 
-            if !(self.filter)(&entry) {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !(self.filter)(&name) {
                 continue;
             }
 
             let metadata = fs::metadata(&entry_path).await?;
             self.stack.push((entry_path, Some(metadata)));
         }
+        Ok(())
+    }
+
+    fn append_stack_sync(&mut self, dir: &PathBuf) -> io::Result<()> {
+        let dir = std::fs::read_dir(dir)?;
+
+        for entry in dir.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !(self.filter)(&name) {
+                continue;
+            }
+            let entry_path = entry.path();
+            let metadata = entry.metadata()?;
+            self.stack.push((entry_path, Some(metadata)))
+        }
+
         Ok(())
     }
 }

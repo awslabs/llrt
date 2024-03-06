@@ -274,8 +274,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
 
     trace!("Scanning directory \"{}\"", root);
 
-    let mut directory_walker = DirectoryWalker::new(PathBuf::from(root), |entry| {
-        let name = entry.file_name().to_string_lossy().to_string();
+    let mut directory_walker = DirectoryWalker::new(PathBuf::from(root), |name| {
         name != "node_modules" || !name.starts_with('.')
     });
 

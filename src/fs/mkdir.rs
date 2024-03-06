@@ -25,7 +25,7 @@ pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
     Ok(path)
 }
 
-pub fn mkdirsync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
+pub fn mkdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
     let (recursive, mode) = get_mkdir_params(options);
 
     if recursive {
