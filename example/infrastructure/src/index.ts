@@ -238,8 +238,6 @@ const main = async () => {
     runtime: aws_lambda.Runtime.NODEJS_16_X,
     bundling: {
       ...props.bundling,
-      format: aws_lambda_nodejs.OutputFormat.CJS,
-      banner: "",
       externalModules: ["aws-sdk"],
     },
   });
