@@ -208,7 +208,6 @@ const main = async () => {
     const [moduleName, handlerName] = HANDLER_ENV!.split(".") || [null, null];
 
     if (moduleName == null || handlerName == null) {
-      console.log(process.env);
       throw new Error(
         `Invalid handler name or LAMBDA_HANDLER env value: "${HANDLER_ENV}": Should be in format {filename}.{method_name}`
       );
