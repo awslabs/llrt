@@ -230,13 +230,16 @@ const main = async () => {
     }
   );
 
-  // Node 20, provided "aws-sdk"
+  // Node 16, provided "aws-sdk"
   const v2Function = new aws_lambda_nodejs.NodejsFunction(stack, "V2", {
     functionName: "example-v2",
-    entry: "../functions/src/v2.mjs",
+    entry: "../functions/src/v2.js",
     ...props,
+    runtime: aws_lambda.Runtime.NODEJS_16_X,
     bundling: {
       ...props.bundling,
+      format: aws_lambda_nodejs.OutputFormat.CJS,
+      banner: "",
       externalModules: ["aws-sdk"],
     },
   });
