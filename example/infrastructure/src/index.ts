@@ -154,13 +154,7 @@ const main = async () => {
 
   const llrtLayer = new aws_lambda.LayerVersion(stack, "LlrtArmLayer", {
     code: aws_lambda.Code.fromAsset("../../llrt-lambda-arm64.zip"),
-    compatibleRuntimes: [
-      aws_lambda.Runtime.NODEJS_16_X,
-      aws_lambda.Runtime.NODEJS_20_X,
-      aws_lambda.Runtime.NODEJS_20_X,
-      aws_lambda.Runtime.NODEJS_LATEST,
-      aws_lambda.Runtime.PROVIDED_AL2,
-    ],
+    compatibleRuntimes: [aws_lambda.Runtime.PROVIDED_AL2023],
     compatibleArchitectures: [aws_lambda.Architecture.ARM_64],
   });
 
@@ -173,12 +167,23 @@ const main = async () => {
       code: aws_lambda.Code.fromAsset(sourceDirs["hello.mjs"]),
       ...props,
       environment: {},
-      runtime: aws_lambda.Runtime.PROVIDED_AL2,
+      runtime: aws_lambda.Runtime.PROVIDED_AL2023,
       layers: [llrtLayer],
     }
   );
 
-  // Node 18 hello
+  // Node hello
+  const helloNode20Function = new aws_lambda.Function(
+    stack,
+    "HelloNode20Function",
+    {
+      functionName: "example-hello-node20",
+      code: aws_lambda.Code.fromAsset(sourceDirs["hello.mjs"]),
+      ...props,
+      environment: {},
+    }
+  );
+
   const helloNode18Function = new aws_lambda.Function(
     stack,
     "HelloNode18Function",
@@ -186,6 +191,7 @@ const main = async () => {
       functionName: "example-hello-node18",
       code: aws_lambda.Code.fromAsset(sourceDirs["hello.mjs"]),
       ...props,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       environment: {},
     }
   );
@@ -202,18 +208,19 @@ const main = async () => {
     }
   );
 
-  // Node 18, provided "aws-sdk"
+  // Node 16, provided "aws-sdk"
   const v2Function = new aws_lambda_nodejs.NodejsFunction(stack, "V2", {
     functionName: "example-v2",
-    entry: "../functions/src/v2.mjs",
+    entry: "../functions/src/v2.js",
     ...props,
+    runtime: aws_lambda.Runtime.NODEJS_16_X,
     bundling: {
       ...props.bundling,
       externalModules: ["aws-sdk"],
     },
   });
 
-  // Node 18, aws-sdk-v3, DynamoDBClient.send API, bundled in
+  // Node 20, aws-sdk-v3, DynamoDBClient.send API, bundled in
   const v3BundledFunction = new aws_lambda_nodejs.NodejsFunction(
     stack,
     "V3Bundled",
@@ -228,14 +235,14 @@ const main = async () => {
     }
   );
 
-  // Node 18, aws-sdk-v3, DynamoDBClient.send API, tree-shaken out (using one provided by us)
+  // Node 20, aws-sdk-v3, DynamoDBClient.send API, tree-shaken out (using one provided by us)
   const v3providedFunction = new aws_lambda.Function(stack, "V3Provided", {
     functionName: "example-v3-provided",
     code: aws_lambda.Code.fromAsset(sourceDirs["v3.mjs"]),
     ...props,
   });
 
-  // Node 18, aws-sdk-v3, DynamoDB.putItem (mono API), tree-shaken
+  // Node 20, aws-sdk-v3, DynamoDB.putItem (mono API), tree-shaken
   const v3providedMonoFunction = new aws_lambda_nodejs.NodejsFunction(
     stack,
     "V3providedMono",
@@ -250,7 +257,7 @@ const main = async () => {
     }
   );
 
-  // Node 18, aws-sdk-v3, DynamoDB.putItem (mono API), bundled
+  // Node 20, aws-sdk-v3, DynamoDB.putItem (mono API), bundled
   const v3BundledMonoFunction = new aws_lambda_nodejs.NodejsFunction(
     stack,
     "V3BundledMono",
@@ -271,7 +278,7 @@ const main = async () => {
     code: aws_lambda.Code.fromAsset(sourceDirs["v3-lib.mjs"]),
     handler: "index.handler",
     ...props,
-    runtime: aws_lambda.Runtime.PROVIDED_AL2,
+    runtime: aws_lambda.Runtime.PROVIDED_AL2023,
     layers: [llrtLayer],
   });
 
@@ -281,7 +288,7 @@ const main = async () => {
     code: aws_lambda.Code.fromAsset(sourceDirs["v3-s3.mjs"]),
     handler: "index.handler",
     ...props,
-    runtime: aws_lambda.Runtime.PROVIDED_AL2,
+    runtime: aws_lambda.Runtime.PROVIDED_AL2023,
     environment: {
       ...props.environment,
     },
@@ -320,7 +327,7 @@ const main = async () => {
       code: aws_lambda.Code.fromAsset("../functions/build"),
       handler: "index.handler",
       ...props,
-      runtime: aws_lambda.Runtime.PROVIDED_AL2,
+      runtime: aws_lambda.Runtime.PROVIDED_AL2023,
       environment: {
         ...props.environment,
         TABLE_NAME: todoTable.tableName,
@@ -343,8 +350,9 @@ const main = async () => {
   bucket.grantReadWrite(llrtS3Function);
   bucket.grantReadWrite(s3Function);
 
-  addRoute(helloNode16Function, "/hello-16");
+  addRoute(helloNode20Function, "/hello-20");
   addRoute(helloNode18Function, "/hello-18");
+  addRoute(helloNode16Function, "/hello-16");
   addRoute(helloLlrtFunction, "/hello-llrt");
   addRoute(v2Function, "/v2");
   addRoute(v3BundledFunction, "/v3-bundled");
