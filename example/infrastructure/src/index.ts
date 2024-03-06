@@ -154,42 +154,20 @@ const main = async () => {
 
   const llrtLayer = new aws_lambda.LayerVersion(stack, "LlrtArmLayer", {
     code: aws_lambda.Code.fromAsset("../../llrt-lambda-arm64.zip"),
-    compatibleRuntimes: [
-      aws_lambda.Runtime.NODEJS_16_X,
-      aws_lambda.Runtime.NODEJS_18_X,
-      aws_lambda.Runtime.NODEJS_20_X,
-      aws_lambda.Runtime.NODEJS_LATEST,
-      aws_lambda.Runtime.PROVIDED_AL2023,
-    ],
+    compatibleRuntimes: [aws_lambda.Runtime.PROVIDED_AL2023],
     compatibleArchitectures: [aws_lambda.Architecture.ARM_64],
   });
 
-  // Amazon Linux runtime LLRT hello
-  const helloLlrtAlRuntimeFunction = new aws_lambda.Function(
+  // LLRT hello
+  const helloLlrtFunction = new aws_lambda.Function(
     stack,
-    "HelloLlrtAlRuntimeFunction",
+    "HelloLlrtFunction",
     {
-      functionName: "example-hello-llrt-al-runtime",
+      functionName: "example-hello-llrt",
       code: aws_lambda.Code.fromAsset(sourceDirs["hello.mjs"]),
       ...props,
       environment: {},
       runtime: aws_lambda.Runtime.PROVIDED_AL2023,
-      layers: [llrtLayer],
-    }
-  );
-
-  // Node runtime LLRT hello
-  const helloLlrtNodeRuntimeFunction = new aws_lambda.Function(
-    stack,
-    "HelloLlrtNodeRuntimeFunction",
-    {
-      functionName: "example-hello-llrt-node-runtime",
-      code: aws_lambda.Code.fromAsset(sourceDirs["hello.mjs"]),
-      ...props,
-      environment: {
-        AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap'
-      },
-      runtime: aws_lambda.Runtime.NODEJS_20_X,
       layers: [llrtLayer],
     }
   );
@@ -375,8 +353,7 @@ const main = async () => {
   addRoute(helloNode20Function, "/hello-20");
   addRoute(helloNode18Function, "/hello-18");
   addRoute(helloNode16Function, "/hello-16");
-  addRoute(helloLlrtAlRuntimeFunction, "/hello-al-llrt");
-  addRoute(helloLlrtNodeRuntimeFunction, "/hello-node-llrt");
+  addRoute(helloLlrtFunction, "/hello-llrt");
   addRoute(v2Function, "/v2");
   addRoute(v3BundledFunction, "/v3-bundled");
   addRoute(v3providedFunction, "/v3-provided");
