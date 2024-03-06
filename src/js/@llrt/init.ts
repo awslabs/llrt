@@ -27,14 +27,16 @@ __bootstrap.addAwsSdkInitTask = (service: string) => {
     }
     INITED.add(prefix);
     const start = Date.now();
-    const connectTask = fetch(`https://${prefix}.amazonaws.com`, {
-      method: "GET",
-    }).then((res) => {
-      const _ = res.arrayBuffer(); //take the response
-      if (process.env.LLRT_LOG) {
-        console.log("INIT_CONNECTION", service, `${Date.now() - start}ms`);
-      }
-    });
+    const connectTask = fetch(`https://${prefix}.amazonaws.com/sping`)
+      .then(
+        (res) => res.arrayBuffer(),
+        () => {} //ignore error
+      )
+      .then(() => {
+        if (process.env.LLRT_LOG) {
+          console.log("INIT_CONNECTION", service, `${Date.now() - start}ms`);
+        }
+      });
     initTasks.push(connectTask);
   }
 };
