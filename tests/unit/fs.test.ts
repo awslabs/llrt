@@ -182,3 +182,20 @@ describe("access", () => {
     await namedFsImport.promises.access(filePath);
   });
 });
+
+describe("accessSync", () => {
+  it("should access a file synchronously", () => {
+    const filePath = "fixtures/hello.txt";
+    defaultFsImport.accessSync(filePath);
+  });
+
+  it("should throw if not proper permissions synchronously", () => {
+    const filePath = "fixtures/hello.txt";
+    expect(()=>defaultFsImport.accessSync(filePath, fs.constants.X_OK)).toThrow(/[pP]ermission denied/);
+  });
+
+  it("should throw if not exists synchronously", () => {
+    const filePath = "fixtures/nothing";
+    expect(()=>defaultFsImport.accessSync(filePath)).toThrow(/[Nn]o such file or directory/);
+  });
+});
