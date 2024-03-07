@@ -92,6 +92,7 @@ const SDK_DATA = {
 const ADDITIONAL_PACKAGES = [
   "@aws-sdk/util-dynamodb",
   "@aws-sdk/credential-providers",
+  "@aws-sdk/s3-request-presigner",
   "@smithy/config-resolver",
   "@smithy/core",
   "@smithy/eventstream-codec",
