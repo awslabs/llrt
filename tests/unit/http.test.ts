@@ -745,3 +745,72 @@ describe("URL Utility Functions", () => {
     ).toBe("https://測試/?abc");
   });
 });
+
+describe("File class", () => {
+  it("should construct a new File", () => {
+    const file = new File(["Hello, world!"], "hello.txt", {
+      type: "text/plain",
+    });
+
+    assert.strictEqual(file.size, 13);
+    assert.strictEqual(file.type, "text/plain");
+    assert.strictEqual(file.name, "hello.txt");
+  });
+
+  it("should return the correct latestModified date", () => {
+      const fileWithDate = new File([], "file.bin", {
+          lastModified: new Date(2017, 1, 1).getTime(),
+        });
+      assert.strictEqual(fileWithDate.lastModified, 1485936000000);
+  });
+
+  it('has a name', () => {
+    const file = new File(['file content'], 'example.txt');
+    assert.strictEqual(file.name, 'example.txt');
+  });
+
+  it('has content', () => {
+    const file = new File(['file content'], 'example.txt');
+    assert.strictEqual(file.size > 0, true);
+  });
+
+  it('has a size', () => {
+    const file = new File(['file content'], 'example.txt');
+    assert.strictEqual(file.size > 0, true);
+  });
+
+  it('has a type', () => {
+    const file = new File(['file content'], 'example.txt', { type: 'text/plain' });
+    assert.strictEqual(file.type, 'text/plain');
+  });
+
+  it('has last modified date', () => {
+    const file = new File(['file content'], 'example.txt');
+    const now = new Date();
+    assert.ok(file.lastModified <= now.getTime());
+  });
+
+  it('can slice file', () => {
+    const file = new File(['file content'], 'example.txt');
+    const slice = file.slice(0, 5);
+    assert.strictEqual(slice instanceof Blob, true);
+    assert.strictEqual(slice.size, 5);
+  });
+
+  it('can read file as text', async () => {
+    const file = new File(['file content'], 'example.txt');
+    const text = await file.text();
+    assert.strictEqual(text, 'file content');
+  });
+
+  it('can read file as arrayBuffer', async () => {
+    const file = new File([1, 2, 3, 4], 'example.txt');
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    assert.strictEqual(uint8Array.length, 4);
+    assert.strictEqual(uint8Array[0], 49);
+    assert.strictEqual(uint8Array[1], 50);
+    assert.strictEqual(uint8Array[2], 51);
+    assert.strictEqual(uint8Array[3], 52);
+  });
+});
