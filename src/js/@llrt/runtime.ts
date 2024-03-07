@@ -37,7 +37,7 @@ if (!AWS_LAMBDA_RUNTIME_API) {
   );
 }
 
-const HANDLER_ENV = _HANDLER || LAMBDA_HANDLER;
+const HANDLER_ENV = LAMBDA_HANDLER || _HANDLER;
 let requestId: string | undefined;
 
 let exitIterations = (_EXIT_ITERATIONS && parseInt(_EXIT_ITERATIONS)) || -1;
@@ -209,7 +209,7 @@ const main = async () => {
 
     if (moduleName == null || handlerName == null) {
       throw new Error(
-        "Invalid handler name or LAMBDA_HANDLER env: Should be in format {filename}.{method_name}"
+        `Invalid handler name or LAMBDA_HANDLER env value: "${HANDLER_ENV}": Should be in format {filename}.{method_name}`
       );
     }
 

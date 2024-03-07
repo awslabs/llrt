@@ -41,9 +41,7 @@ const API = {
         TableName: process.env.TABLE_NAME,
       })
     );
-    console.log(response);
-    const items = response.Items.map(mapTodo);
-    return items;
+    return response.Items.map(mapTodo);
   },
   create: async (text: string) => {
     const newItem = {

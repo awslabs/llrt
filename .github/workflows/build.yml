@@ -102,8 +102,8 @@ jobs:
           name: artifacts-${{ inputs.platform }}-${{ inputs.arch }}
           path: |
             *.zip
-            llrt-oci-arm64
-            llrt-oci-x64
+            llrt-container-arm64
+            llrt-container-x64
       - name: Upload changelog
         if: inputs.release && inputs.platform == 'linux' && inputs.arch == 'x86_64'
         uses: actions/upload-artifact@v4

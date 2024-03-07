@@ -18,4 +18,4 @@ flamegraph.svg
 node_modules
 out.stacks
 yarn-error.log
-llrt-oci-*
+llrt-container-*
