@@ -8,6 +8,7 @@ mod rm;
 mod stats;
 mod write_file;
 
+use crate::fs::access::access_sync;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Async, Func},
@@ -70,6 +71,7 @@ pub struct FsModule;
 impl ModuleDef for FsModule {
     fn declare(declare: &mut Declarations) -> Result<()> {
         declare.declare("promises")?;
+        declare.declare("accessSync")?;
         declare.declare("mkdirSync")?;
         declare.declare("readdirSync")?;
 
@@ -87,6 +89,7 @@ impl ModuleDef for FsModule {
             export_promises(ctx, &promises)?;
 
             default.set("promises", promises)?;
+            default.set("accessSync", Func::from(access_sync))?;
             default.set("mkdirSync", Func::from(mkdir_sync))?;
             default.set("readdirSync", Func::from(read_dir_sync))?;
 

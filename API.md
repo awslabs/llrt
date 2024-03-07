@@ -54,7 +54,8 @@ Available globally
 > * `mode`, `credentials`,  `referrerPolicy`, `priority`, `cache` is not available/applicable
 
 ## fs
-[mkdirsync](https://nodejs.org/api/fs.html#fsmkdirsyncpath-options)
+[accessSync](https://nodejs.org/api/fs.html#fsaccesssyncpath-mode)
+[mkdirSync](https://nodejs.org/api/fs.html#fsmkdirsyncpath-options)
 [readdirSync](https://nodejs.org/api/fs.html#fsreaddirsyncpath-options)
 
 ## fs/promises
