@@ -272,7 +272,7 @@ Install generate libs and setup rust targets & toolchains
 
     make stdlib && make libs
 
-> [!WARNING]
+> [!NOTE]
 > If these commands exit with an error that says `can't cd to zstd/lib`,
 > you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
 
