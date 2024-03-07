@@ -226,8 +226,8 @@ fn generate_compression_dictionary(
     let mut cmd = Command::new("zstd");
     cmd.args([
         "--train",
-        "--train-fastcover=steps=40",
-        "--maxdict=20K",
+        "--train-fastcover=steps=60",
+        "--maxdict=40K",
         "-o",
         dictionary_path,
     ]);

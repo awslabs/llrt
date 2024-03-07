@@ -31,6 +31,7 @@
     "@aws-sdk/client-xray": "3.525.0",
     "@aws-sdk/credential-providers": "3.525.0",
     "@aws-sdk/lib-dynamodb": "3.525.0",
+    "@aws-sdk/s3-request-presigner": "3.525.0",
     "@types/chai": "4.3.12",
     "@types/jest": "29.5.12",
     "@types/readable-stream": "4.0.10",
