@@ -742,7 +742,7 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "llrt"
-version = "0.1.10-beta"
+version = "0.1.11-beta"
 dependencies = [
  "async-trait",
  "base64-simd",

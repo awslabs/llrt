@@ -1,2 +1,5 @@
-* Change connection pool idle timeout to 15 sec
-* Minor bugfixes
+* Optimized LLRT for containers. Use `llrt-container-arm` or `llrt-container-x64`
+* Added a few FS sync APIs
+* Embedded more `@smithy` packages
+* Minor optimization tweaks
+* Bugfixes & dependecy upgrades
