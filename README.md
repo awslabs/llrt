@@ -245,6 +245,10 @@ Clone code and cd to directory
     git clone git@github.com:awslabs/llrt.git --recursive
     cd llrt
 
+Install git submodules if you've not cloned the repository with `--recursive`
+
+    git submodule update --init
+
 Install rust
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
@@ -267,6 +271,10 @@ Install Node.js packages
 Install generate libs and setup rust targets & toolchains
 
     make stdlib && make libs
+
+> [!WARNING]
+> If these commands exit with an error that says `can't cd to zstd/lib`,
+> you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
 
 Build release for Lambda
 
