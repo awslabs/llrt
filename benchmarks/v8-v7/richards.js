@@ -25,7 +25,6 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
 // This is a JavaScript implementation of the Richards
 // benchmark from:
 //
@@ -34,11 +33,9 @@
 // The benchmark was originally implemented in BCPL by
 // Martin Richards.
 
-
-var Richards = new BenchmarkSuite('Richards', 35302, [
-  new Benchmark("Richards", runRichards)
+var Richards = new BenchmarkSuite("Richards", 35302, [
+  new Benchmark("Richards", runRichards),
 ]);
-
 
 /**
  * The Richards benchmark simulates the task dispatcher of an
@@ -49,17 +46,17 @@ function runRichards() {
   scheduler.addIdleTask(ID_IDLE, 0, null, COUNT);
 
   var queue = new Packet(null, ID_WORKER, KIND_WORK);
-  queue = new Packet(queue,  ID_WORKER, KIND_WORK);
+  queue = new Packet(queue, ID_WORKER, KIND_WORK);
   scheduler.addWorkerTask(ID_WORKER, 1000, queue);
 
   queue = new Packet(null, ID_DEVICE_A, KIND_DEVICE);
-  queue = new Packet(queue,  ID_DEVICE_A, KIND_DEVICE);
-  queue = new Packet(queue,  ID_DEVICE_A, KIND_DEVICE);
+  queue = new Packet(queue, ID_DEVICE_A, KIND_DEVICE);
+  queue = new Packet(queue, ID_DEVICE_A, KIND_DEVICE);
   scheduler.addHandlerTask(ID_HANDLER_A, 2000, queue);
 
   queue = new Packet(null, ID_DEVICE_B, KIND_DEVICE);
-  queue = new Packet(queue,  ID_DEVICE_B, KIND_DEVICE);
-  queue = new Packet(queue,  ID_DEVICE_B, KIND_DEVICE);
+  queue = new Packet(queue, ID_DEVICE_B, KIND_DEVICE);
+  queue = new Packet(queue, ID_DEVICE_B, KIND_DEVICE);
   scheduler.addHandlerTask(ID_HANDLER_B, 3000, queue);
 
   scheduler.addDeviceTask(ID_DEVICE_A, 4000, null);
@@ -68,11 +65,16 @@ function runRichards() {
 
   scheduler.schedule();
 
-  if (scheduler.queueCount != EXPECTED_QUEUE_COUNT ||
-      scheduler.holdCount != EXPECTED_HOLD_COUNT) {
+  if (
+    scheduler.queueCount != EXPECTED_QUEUE_COUNT ||
+    scheduler.holdCount != EXPECTED_HOLD_COUNT
+  ) {
     var msg =
-        "Error during execution: queueCount = " + scheduler.queueCount +
-        ", holdCount = " + scheduler.holdCount + ".";
+      "Error during execution: queueCount = " +
+      scheduler.queueCount +
+      ", holdCount = " +
+      scheduler.holdCount +
+      ".";
     throw new Error(msg);
   }
 }
@@ -89,7 +91,6 @@ var COUNT = 1000;
 var EXPECTED_QUEUE_COUNT = 2322;
 var EXPECTED_HOLD_COUNT = 928;
 
-
 /**
  * A scheduler can be used to schedule a set of tasks based on their relative
  * priorities.  Scheduling is done by maintaining a list of task control blocks
@@ -105,16 +106,16 @@ function Scheduler() {
   this.currentId = null;
 }
 
-var ID_IDLE       = 0;
-var ID_WORKER     = 1;
-var ID_HANDLER_A  = 2;
-var ID_HANDLER_B  = 3;
-var ID_DEVICE_A   = 4;
-var ID_DEVICE_B   = 5;
+var ID_IDLE = 0;
+var ID_WORKER = 1;
+var ID_HANDLER_A = 2;
+var ID_HANDLER_B = 3;
+var ID_DEVICE_A = 4;
+var ID_DEVICE_B = 5;
 var NUMBER_OF_IDS = 6;
 
-var KIND_DEVICE   = 0;
-var KIND_WORK     = 1;
+var KIND_DEVICE = 0;
+var KIND_WORK = 1;
 
 /**
  * Add an idle task to this scheduler.
@@ -154,7 +155,7 @@ Scheduler.prototype.addHandlerTask = function (id, priority, queue) {
  * @param {Packet} queue the queue of work to be processed by the task
  */
 Scheduler.prototype.addDeviceTask = function (id, priority, queue) {
-  this.addTask(id, priority, queue, new DeviceTask(this))
+  this.addTask(id, priority, queue, new DeviceTask(this));
 };
 
 /**
@@ -282,7 +283,7 @@ var STATE_RUNNABLE = 1;
 
 /**
  * The task is not currently running.  The task is not blocked as such and may
-* be started by the scheduler.
+ * be started by the scheduler.
  */
 var STATE_SUSPENDED = 2;
 
@@ -307,7 +308,7 @@ TaskControlBlock.prototype.markAsHeld = function () {
 };
 
 TaskControlBlock.prototype.isHeldOrSuspended = function () {
-  return (this.state & STATE_HELD) != 0 || (this.state == STATE_SUSPENDED);
+  return (this.state & STATE_HELD) != 0 || this.state == STATE_SUSPENDED;
 };
 
 TaskControlBlock.prototype.markAsSuspended = function () {
@@ -378,13 +379,13 @@ IdleTask.prototype.run = function (packet) {
     this.v1 = this.v1 >> 1;
     return this.scheduler.release(ID_DEVICE_A);
   } else {
-    this.v1 = (this.v1 >> 1) ^ 0xD008;
+    this.v1 = (this.v1 >> 1) ^ 0xd008;
     return this.scheduler.release(ID_DEVICE_B);
   }
 };
 
 IdleTask.prototype.toString = function () {
-  return "IdleTask"
+  return "IdleTask";
 };
 
 /**
@@ -527,9 +528,9 @@ function Packet(link, id, kind) {
 Packet.prototype.addTo = function (queue) {
   this.link = null;
   if (queue == null) return this;
-  var peek, next = queue;
-  while ((peek = next.link) != null)
-    next = peek;
+  var peek,
+    next = queue;
+  while ((peek = next.link) != null) next = peek;
   next.link = this;
   return queue;
 };

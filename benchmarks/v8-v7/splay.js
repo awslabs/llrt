@@ -33,10 +33,9 @@
 // also has to deal with a lot of changes to the large tree object
 // graph.
 
-var Splay = new BenchmarkSuite('Splay', 81491, [
-  new Benchmark("Splay", SplayRun, SplaySetup, SplayTearDown)
+var Splay = new BenchmarkSuite("Splay", 81491, [
+  new Benchmark("Splay", SplayRun, SplaySetup, SplayTearDown),
 ]);
-
 
 // Configuration.
 var kSplayTreeSize = 8000;
@@ -45,28 +44,25 @@ var kSplayTreePayloadDepth = 5;
 
 var splayTree = null;
 
-
 function GeneratePayloadTree(depth, tag) {
   if (depth == 0) {
     return {
-      array  : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ],
-      string : 'String for key ' + tag + ' in leaf node'
+      array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      string: "String for key " + tag + " in leaf node",
     };
   } else {
     return {
-      left:  GeneratePayloadTree(depth - 1, tag),
-      right: GeneratePayloadTree(depth - 1, tag)
+      left: GeneratePayloadTree(depth - 1, tag),
+      right: GeneratePayloadTree(depth - 1, tag),
     };
   }
 }
-
 
 function GenerateKey() {
   // The benchmark framework guarantees that Math.random is
   // deterministic; see base.js.
   return Math.random();
 }
-
 
 function InsertNewNode() {
   // Insert new node with a unique key.
@@ -79,13 +75,10 @@ function InsertNewNode() {
   return key;
 }
 
-
-
 function SplaySetup() {
   splayTree = new SplayTree();
   for (var i = 0; i < kSplayTreeSize; i++) InsertNewNode();
 }
-
 
 function SplayTearDown() {
   // Allow the garbage collector to reclaim the memory
@@ -108,7 +101,6 @@ function SplayTearDown() {
   }
 }
 
-
 function SplayRun() {
   // Replace a few nodes in the splay tree.
   for (var i = 0; i < kSplayTreeModifications; i++) {
@@ -119,7 +111,6 @@ function SplayRun() {
   }
 }
 
-
 /**
  * Constructs a Splay tree.  A splay tree is a self-balancing binary
  * search tree with the additional property that recently accessed
@@ -128,9 +119,7 @@ function SplayRun() {
  *
  * @constructor
  */
-function SplayTree() {
-};
-
+function SplayTree() {}
 
 /**
  * Pointer to the root node of the tree.
@@ -140,14 +129,12 @@ function SplayTree() {
  */
 SplayTree.prototype.root_ = null;
 
-
 /**
  * @return {boolean} Whether the tree is empty.
  */
-SplayTree.prototype.isEmpty = function() {
+SplayTree.prototype.isEmpty = function () {
   return !this.root_;
 };
-
 
 /**
  * Inserts a node into the tree with the specified key and value if
@@ -157,7 +144,7 @@ SplayTree.prototype.isEmpty = function() {
  * @param {number} key Key to insert into the tree.
  * @param {*} value Value to insert into the tree.
  */
-SplayTree.prototype.insert = function(key, value) {
+SplayTree.prototype.insert = function (key, value) {
   if (this.isEmpty()) {
     this.root_ = new SplayTree.Node(key, value);
     return;
@@ -181,7 +168,6 @@ SplayTree.prototype.insert = function(key, value) {
   this.root_ = node;
 };
 
-
 /**
  * Removes a node with the specified key from the tree if the tree
  * contains a node with this key. The removed node is returned. If the
@@ -190,13 +176,13 @@ SplayTree.prototype.insert = function(key, value) {
  * @param {number} key Key to find and remove from the tree.
  * @return {SplayTree.Node} The removed node.
  */
-SplayTree.prototype.remove = function(key) {
+SplayTree.prototype.remove = function (key) {
   if (this.isEmpty()) {
-    throw Error('Key not found: ' + key);
+    throw Error("Key not found: " + key);
   }
   this.splay_(key);
   if (this.root_.key != key) {
-    throw Error('Key not found: ' + key);
+    throw Error("Key not found: " + key);
   }
   var removed = this.root_;
   if (!this.root_.left) {
@@ -213,7 +199,6 @@ SplayTree.prototype.remove = function(key) {
   return removed;
 };
 
-
 /**
  * Returns the node having the specified key or null if the tree doesn't contain
  * a node with the specified key.
@@ -221,7 +206,7 @@ SplayTree.prototype.remove = function(key) {
  * @param {number} key Key to find in the tree.
  * @return {SplayTree.Node} Node having the specified key.
  */
-SplayTree.prototype.find = function(key) {
+SplayTree.prototype.find = function (key) {
   if (this.isEmpty()) {
     return null;
   }
@@ -229,11 +214,10 @@ SplayTree.prototype.find = function(key) {
   return this.root_.key == key ? this.root_ : null;
 };
 
-
 /**
  * @return {SplayTree.Node} Node having the maximum key value.
  */
-SplayTree.prototype.findMax = function(opt_startNode) {
+SplayTree.prototype.findMax = function (opt_startNode) {
   if (this.isEmpty()) {
     return null;
   }
@@ -244,12 +228,11 @@ SplayTree.prototype.findMax = function(opt_startNode) {
   return current;
 };
 
-
 /**
  * @return {SplayTree.Node} Node having the maximum key value that
  *     is less than the specified key value.
  */
-SplayTree.prototype.findGreatestLessThan = function(key) {
+SplayTree.prototype.findGreatestLessThan = function (key) {
   if (this.isEmpty()) {
     return null;
   }
@@ -267,18 +250,18 @@ SplayTree.prototype.findGreatestLessThan = function(key) {
   }
 };
 
-
 /**
  * @return {Array<*>} An array containing all the keys of tree's nodes.
  */
-SplayTree.prototype.exportKeys = function() {
+SplayTree.prototype.exportKeys = function () {
   var result = [];
   if (!this.isEmpty()) {
-    this.root_.traverse_(function(node) { result.push(node.key); });
+    this.root_.traverse_(function (node) {
+      result.push(node.key);
+    });
   }
   return result;
 };
-
 
 /**
  * Perform the splay operation for the given key. Moves the node with
@@ -290,7 +273,7 @@ SplayTree.prototype.exportKeys = function() {
  * @param {number} key Key to splay the tree on.
  * @private
  */
-SplayTree.prototype.splay_ = function(key) {
+SplayTree.prototype.splay_ = function (key) {
   if (this.isEmpty()) {
     return;
   }
@@ -351,30 +334,26 @@ SplayTree.prototype.splay_ = function(key) {
   this.root_ = current;
 };
 
-
 /**
  * Constructs a Splay tree node.
  *
  * @param {number} key Key.
  * @param {*} value Value.
  */
-SplayTree.Node = function(key, value) {
+SplayTree.Node = function (key, value) {
   this.key = key;
   this.value = value;
 };
-
 
 /**
  * @type {SplayTree.Node}
  */
 SplayTree.Node.prototype.left = null;
 
-
 /**
  * @type {SplayTree.Node}
  */
 SplayTree.Node.prototype.right = null;
-
 
 /**
  * Performs an ordered traversal of the subtree starting at
@@ -383,7 +362,7 @@ SplayTree.Node.prototype.right = null;
  * @param {function(SplayTree.Node)} f Visitor function.
  * @private
  */
-SplayTree.Node.prototype.traverse_ = function(f) {
+SplayTree.Node.prototype.traverse_ = function (f) {
   var current = this;
   while (current) {
     var left = current.left;

@@ -29,7 +29,8 @@ Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or 
 
 ### Option 3: Package LLRT in a container image
 
-See our [AWS SAM example](./example/llrt-sam-container-image) or: 
+See our [AWS SAM example](./example/llrt-sam-container-image) or:
+
 ```dockerfile
 FROM --platform=arm64 busybox
 WORKDIR /var/task/
@@ -58,10 +59,10 @@ instrumented with a layer containing the llrt runtime.
 You can use [`cdk-lambda-llrt` construct library](https://github.com/tmokmss/cdk-lambda-llrt) to deploy LLRT Lambda functions with AWS CDK.
 
 ```ts
-import { LlrtFunction } from 'cdk-lambda-llrt';
+import { LlrtFunction } from "cdk-lambda-llrt";
 
-const handler = new LlrtFunction(this, 'Handler', {
-    entry: 'lambda/index.ts',
+const handler = new LlrtFunction(this, "Handler", {
+  entry: "lambda/index.ts",
 });
 ```
 
@@ -72,10 +73,12 @@ See [Construct Hub](https://constructs.dev/packages/cdk-lambda-llrt/) and [its e
 The best way to ensure your code is compatible with LLRT is to write tests and execute them using the built-in test runner. The test runner currently supports Jest/Chai assertions. There are two main types of tests you can create:
 
 Unit Tests
+
 - Useful for validating specific modules and functions in isolation
 - Allow focused testing of individual components
 
 End-to-End (E2E) Tests
+
 - Validate overall compatibility with AWS SDK and WinterCG compliance
 - Test the integration between all components
 - Confirm expected behavior from end-user perspective
@@ -95,32 +98,31 @@ The test runner also has support for filters. Using filters is as simple as addi
 > [!NOTE]
 > LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation
 
-|               | Node.js                                  | LLRT ⚠️  |
-| ------------- | ---------------------------------------- | ----- |
-| buffer        | ✔︎                                       | ✔︎️ |
-| streams       | ✔︎                                       | ✔︎\*  |
-| child_process | ✔︎                                       | ✔︎⏱ |
-| net:sockets   | ✔︎                                       | ✔︎⏱ |
-| net:server    | ✔︎                                       | ✔︎    |
-| tls           | ✔︎                                       | ✘⏱    |
-| fetch         | ✔︎                                        | ✔︎   |
-| http         | ✔︎                                        | ✘⏱\*\*    |
-| https         | ✔︎                                        | ✘⏱\*\*    |
-| fs/promises   | ✔︎                                       | ✔︎    |
-| fs            | ✔︎                                       | ✘⏱     |
-| path          | ✔︎                                       | ✔︎    |
-| timers        | ✔︎                                       | ✔︎    |
-| uuid          | ✔︎                                       | ✔︎    |
-| crypto        | ✔︎                                       | ✔︎  |
-| process       | ✔︎                                       | ✔︎  |
-| encoding      | ✔︎                                       | ✔︎    |
-| console       | ✔︎                                       | ✔︎    |
-| events        | ✔︎                                       | ✔︎    |
-| ESM           | ✔︎                                       | ✔︎    |
-| CJS           | ✔︎                                       | ✔︎    |
-| async/await   | ✔︎                                       | ✔︎    |
-| Other modules | ✔︎                                       | ✘    |
-
+|               | Node.js | LLRT ⚠️ |
+| ------------- | ------- | ------- |
+| buffer        | ✔︎     | ✔︎️    |
+| streams       | ✔︎     | ✔︎\*   |
+| child_process | ✔︎     | ✔︎⏱   |
+| net:sockets   | ✔︎     | ✔︎⏱   |
+| net:server    | ✔︎     | ✔︎     |
+| tls           | ✔︎     | ✘⏱     |
+| fetch         | ✔︎     | ✔︎     |
+| http          | ✔︎     | ✘⏱\*\* |
+| https         | ✔︎     | ✘⏱\*\* |
+| fs/promises   | ✔︎     | ✔︎     |
+| fs            | ✔︎     | ✘⏱     |
+| path          | ✔︎     | ✔︎     |
+| timers        | ✔︎     | ✔︎     |
+| uuid          | ✔︎     | ✔︎     |
+| crypto        | ✔︎     | ✔︎     |
+| process       | ✔︎     | ✔︎     |
+| encoding      | ✔︎     | ✔︎     |
+| console       | ✔︎     | ✔︎     |
+| events        | ✔︎     | ✔︎     |
+| ESM           | ✔︎     | ✔︎     |
+| CJS           | ✔︎     | ✔︎     |
+| async/await   | ✔︎     | ✔︎     |
+| Other modules | ✔︎     | ✘       |
 
 _⚠️ = partially supported in LLRT_
 _⏱ = planned partial support_
@@ -140,46 +142,42 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 ### Rollup
 
 ```javascript
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import terser from '@rollup/plugin-terser';
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+import terser from "@rollup/plugin-terser";
 
 export default {
-  input: 'index.js',
+  input: "index.js",
   output: {
-    file: 'dist/bundle.js',
-    format: 'esm',
+    file: "dist/bundle.js",
+    format: "esm",
     sourcemap: true,
-    target: 'es2020',
+    target: "es2020",
   },
-  plugins: [
-    resolve(),
-    commonjs(),
-    terser(),
-  ],
-  external: ["@aws-sdk","@smithy","uuid"],
+  plugins: [resolve(), commonjs(), terser()],
+  external: ["@aws-sdk", "@smithy", "uuid"],
 };
 ```
 
 ### Webpack
 
 ```javascript
-import TerserPlugin from 'terser-webpack-plugin';
-import nodeExternals from 'webpack-node-externals';
+import TerserPlugin from "terser-webpack-plugin";
+import nodeExternals from "webpack-node-externals";
 
 export default {
-  entry: './index.js',
+  entry: "./index.js",
   output: {
     path: "dist",
-    filename: 'bundle.js',
-    libraryTarget: 'module',
+    filename: "bundle.js",
+    libraryTarget: "module",
   },
-  target: 'web',
-  mode: 'production',
+  target: "web",
+  mode: "production",
   resolve: {
-    extensions: ['.js'],
+    extensions: [".js"],
   },
-  externals: [nodeExternals(),"@aws-sdk","@smithy","uuid"],
+  externals: [nodeExternals(), "@aws-sdk", "@smithy", "uuid"],
   optimization: {
     minimize: true,
     minimizer: [
@@ -191,7 +189,6 @@ export default {
     ],
   },
 };
-
 ```
 
 ## Using AWS SDK (v3) with LLRT
@@ -199,36 +196,37 @@ export default {
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
 V3 SDK packages not included in the list below have to be bundled with your source code while marking the following packages as external:
 
-| Bundled AWS SDK packages             |
-| ------------------------------------- |
-| @aws-sdk/client-dynamodb              |
-| @aws-sdk/lib-dynamodb                 |
-| @aws-sdk/client-kms                   |
-| @aws-sdk/client-lambda                |
-| @aws-sdk/client-s3                    |
-| @aws-sdk/client-secrets-manager       |
-| @aws-sdk/client-ses                   |
-| @aws-sdk/client-sns                   |
-| @aws-sdk/client-sqs                   |
-| @aws-sdk/client-sts                   |
-| @aws-sdk/client-ssm                   |
-| @aws-sdk/client-cloudwatch-logs       |
-| @aws-sdk/client-cloudwatch-events     |
-| @aws-sdk/client-eventbridge           |
-| @aws-sdk/client-sfn                   |
-| @aws-sdk/client-xray                  |
-| @aws-sdk/client-cognito-identity      |
-| @aws-sdk/util-dynamodb                |
-| @aws-sdk/credential-providers         |
-| @smithy                               |
+| Bundled AWS SDK packages          |
+| --------------------------------- |
+| @aws-sdk/client-dynamodb          |
+| @aws-sdk/lib-dynamodb             |
+| @aws-sdk/client-kms               |
+| @aws-sdk/client-lambda            |
+| @aws-sdk/client-s3                |
+| @aws-sdk/client-secrets-manager   |
+| @aws-sdk/client-ses               |
+| @aws-sdk/client-sns               |
+| @aws-sdk/client-sqs               |
+| @aws-sdk/client-sts               |
+| @aws-sdk/client-ssm               |
+| @aws-sdk/client-cloudwatch-logs   |
+| @aws-sdk/client-cloudwatch-events |
+| @aws-sdk/client-eventbridge       |
+| @aws-sdk/client-sfn               |
+| @aws-sdk/client-xray              |
+| @aws-sdk/client-cognito-identity  |
+| @aws-sdk/util-dynamodb            |
+| @aws-sdk/credential-providers     |
+| @smithy                           |
 
 > [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
+>
 > ```javascript
->const response = await client.send(command);
->// or 'transformToByteArray()'
->const str = await response.Body.transformToString();
->```
+> const response = await client.send(command);
+> // or 'transformToByteArray()'
+> const str = await response.Body.transformToString();
+> ```
 
 ## Running TypeScript with LLRT
 
@@ -306,25 +304,29 @@ You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip`. You can 
 ## Running Lambda emulator
 
 Please note that in order to run the example you will need:
+
 - Valid AWS credentials via a `~/.aws/credentials` or via environment variables.
+
 ```bash
 export AWS_ACCESS_KEY_ID=XXX
 export AWS_SECRET_ACCESS_KEY=YYY
 export AWS_REGION=us-east-1
 ```
+
 - A DynamoDB table (with `id` as the partition key) on `us-east-1`
 - The `dynamodb:PutItem` IAM permission on this table. You can use this policy (don't forget to modify <YOUR_ACCOUNT_ID>):
+
 ```json
 {
-	"Version": "2012-10-17",
-	"Statement": [
-		{
-			"Sid": "putItem",
-			"Effect": "Allow",
-			"Action": "dynamodb:PutItem",
-			"Resource": "arn:aws:dynamodb:us-east-1:<YOUR_ACCOUNT_ID>:table/quickjs-table"
-		}
-	]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "putItem",
+      "Effect": "Allow",
+      "Action": "dynamodb:PutItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:<YOUR_ACCOUNT_ID>:table/quickjs-table"
+    }
+  ]
 }
 ```
 
@@ -337,9 +339,11 @@ Then run llrt:
     make run
 
 ## Benchmark Methodology
+
 Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox.
 
 The technical definition of Init Duration ([source](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-logging.html#node-logging-output)):
+
 > For the first request served, the amount of time it took the runtime to load the function and run code outside of the handler method.
 
 Measuring round-trip request duration provides a more complete picture of user facing cold-start latency.

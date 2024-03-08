@@ -71,7 +71,8 @@ describe(DynamoDBDocument.name, () => {
     executeStatement: {} as Record<string, ExecuteStatementCommandOutput>,
     executeStatementReadBack: {} as Record<string, GetItemCommandOutput>,
     batchExecuteStatement: null as null | BatchExecuteStatementCommandOutput,
-    batchExecuteStatementReadBack: null as null | BatchExecuteStatementCommandOutput,
+    batchExecuteStatementReadBack:
+      null as null | BatchExecuteStatementCommandOutput,
     query: null as null | QueryCommandOutput,
     scan: null as null | ScanCommandOutput,
     update: {} as Record<string, UpdateCommandOutput>,
@@ -426,7 +427,13 @@ describe(DynamoDBDocument.name, () => {
         .catch(passError);
 
       log.delete[id] = await (async () => {
-        for (const suffix of ["-batch", "-transact", "-exec-transact", "-statement", "-batch-statement"]) {
+        for (const suffix of [
+          "-batch",
+          "-transact",
+          "-exec-transact",
+          "-statement",
+          "-batch-statement",
+        ]) {
           doc
             .delete({
               TableName,
@@ -442,13 +449,13 @@ describe(DynamoDBDocument.name, () => {
         });
       })().catch(passError);
     }
-  },60000);
+  }, 60000);
 
   afterAll(async () => {
     await dynamodb.deleteTable({
       TableName,
     });
-  },30000);
+  }, 30000);
 
   describe("updateTransformFunction", () => {
     it("modifies all fields of an object", () => {
@@ -551,7 +558,9 @@ describe(DynamoDBDocument.name, () => {
 
     for (const result of results) {
       // @ts-ignore
-      expect(result.Item?.data).toEqual(data[result.Item?.id.replace("-transact", "")]);
+      expect(result.Item?.data).toEqual(
+        data[result.Item?.id.replace("-transact", "")]
+      );
     }
   });
 
@@ -563,10 +572,14 @@ describe(DynamoDBDocument.name, () => {
     throwIfError(log.batchExecuteStatement);
 
     expect(log.batchExecuteStatementReadBack?.Responses).toBeInstanceOf(Array);
-    expect(log.batchExecuteStatementReadBack?.Responses?.length).toBeGreaterThan(0);
+    expect(
+      log.batchExecuteStatementReadBack?.Responses?.length
+    ).toBeGreaterThan(0);
     for (const response of log.batchExecuteStatementReadBack?.Responses ?? []) {
       // @ts-ignore
-      expect(response.Item?.data).toEqual(data[response.Item?.id?.replace("-batch-statement", "")]);
+      expect(response.Item?.data).toEqual(
+        data[response.Item?.id?.replace("-batch-statement", "")]
+      );
     }
   });
 

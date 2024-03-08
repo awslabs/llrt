@@ -556,10 +556,13 @@ async function buildLibrary() {
   });
 
   // Build tests
-  const testEntryPoints = {};
-  TEST_FILES.forEach((entry) => {
-    testEntryPoints[path.join("__tests__", `${entry.slice(0, -3)}`)] = entry;
-  });
+  const testEntryPoints = TEST_FILES.reduce((acc, entry) => {
+    const { name, dir } = path.parse(entry);
+    const parentDir = path.basename(dir);
+    acc[path.join("__tests__", parentDir, name)] = entry;
+    return acc;
+  }, {});
+
   await esbuild.build({
     ...defaultLibEsBuildOption,
     entryPoints: testEntryPoints,

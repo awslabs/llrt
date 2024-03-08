@@ -6,6 +6,10 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
+  "prettier": {
+    "trailingComma": "es5",
+    "singleQuote": false
+  },
   "scripts": {
     "esbuild": "esbuild",
     "update": "yarn upgrade-interactive --latest",
