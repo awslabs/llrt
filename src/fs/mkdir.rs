@@ -75,3 +75,10 @@ pub async fn mkdtemp(ctx: Ctx<'_>, prefix: String) -> Result<String> {
         .or_throw_msg(&ctx, &format!("Can't create dir \"{}\"", &path))?;
     Ok(path)
 }
+
+pub fn mkdtemp_sync(ctx: Ctx<'_>, prefix: String) -> Result<String> {
+    let path = format!("{},{}", &prefix, &random_chars(6));
+    std::fs::create_dir_all(&path)
+        .or_throw_msg(&ctx, &format!("Can't create dir \"{}\"", &path))?;
+    Ok(path)
+}
