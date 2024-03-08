@@ -148,6 +148,7 @@ run-cli: js
 test: export JS_MINIFY = 0
 test: js
 	cargo run -- test -d bundle/__tests__/unit
+test-e2e: export JS_MINIFY = 0
 test-e2e: js
 	cargo run -- test -d bundle/__tests__/e2e
 
