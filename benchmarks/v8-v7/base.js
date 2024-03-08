@@ -25,10 +25,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
 // Simple framework for running the benchmark suites and
 // computing a score based on the timing measurements.
-
 
 // A benchmark has a name (string) and a function that will be run to
 // do the performance measurement. The optional setup and tearDown
@@ -38,10 +36,9 @@
 function Benchmark(name, run, setup, tearDown) {
   this.name = name;
   this.run = run;
-  this.Setup = setup ? setup : function() { };
-  this.TearDown = tearDown ? tearDown : function() { };
+  this.Setup = setup ? setup : function () {};
+  this.TearDown = tearDown ? tearDown : function () {};
 }
-
 
 // Benchmark results hold the benchmark and the measured time used to
 // run the benchmark. The benchmark score is computed later once a
@@ -51,13 +48,11 @@ function BenchmarkResult(benchmark, time) {
   this.time = time;
 }
 
-
 // Automatically convert results to numbers. Used by the geometric
 // mean computation.
-BenchmarkResult.prototype.valueOf = function() {
+BenchmarkResult.prototype.valueOf = function () {
   return this.time;
-}
-
+};
 
 // Suites of benchmarks consist of a name and the set of benchmarks in
 // addition to the reference timing that the final score will be based
@@ -70,39 +65,35 @@ function BenchmarkSuite(name, reference, benchmarks) {
   BenchmarkSuite.suites.push(this);
 }
 
-
 // Keep track of all declared benchmark suites.
 BenchmarkSuite.suites = [];
-
 
 // Scores are not comparable across versions. Bump the version if
 // you're making changes that will affect that scores, e.g. if you add
 // a new benchmark or change an existing one.
-BenchmarkSuite.version = '7';
-
+BenchmarkSuite.version = "7";
 
 // To make the benchmark results predictable, we replace Math.random
 // with a 100% deterministic alternative.
-Math.random = (function() {
+Math.random = (function () {
   var seed = 49734321;
-  return function() {
+  return function () {
     // Robert Jenkins' 32 bit integer hash function.
-    seed = ((seed + 0x7ed55d16) + (seed << 12))  & 0xffffffff;
-    seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
-    seed = ((seed + 0x165667b1) + (seed << 5))   & 0xffffffff;
-    seed = ((seed + 0xd3a2646c) ^ (seed << 9))   & 0xffffffff;
-    seed = ((seed + 0xfd7046c5) + (seed << 3))   & 0xffffffff;
-    seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
+    seed = (seed + 0x7ed55d16 + (seed << 12)) & 0xffffffff;
+    seed = (seed ^ 0xc761c23c ^ (seed >>> 19)) & 0xffffffff;
+    seed = (seed + 0x165667b1 + (seed << 5)) & 0xffffffff;
+    seed = ((seed + 0xd3a2646c) ^ (seed << 9)) & 0xffffffff;
+    seed = (seed + 0xfd7046c5 + (seed << 3)) & 0xffffffff;
+    seed = (seed ^ 0xb55a4f09 ^ (seed >>> 16)) & 0xffffffff;
     return (seed & 0xfffffff) / 0x10000000;
   };
 })();
-
 
 // Runs all registered benchmark suites and optionally yields between
 // each individual benchmark to avoid running for too long in the
 // context of browsers. Once done, the final score is reported to the
 // runner.
-BenchmarkSuite.RunSuites = function(runner) {
+BenchmarkSuite.RunSuites = function (runner) {
   var continuation = null;
   var suites = BenchmarkSuite.suites;
   var length = suites.length;
@@ -117,7 +108,7 @@ BenchmarkSuite.RunSuites = function(runner) {
         if (runner.NotifyStart) runner.NotifyStart(suite.name);
         continuation = suite.RunStep(runner);
       }
-      if (continuation && typeof window != 'undefined' && window.setTimeout) {
+      if (continuation && typeof window != "undefined" && window.setTimeout) {
         window.setTimeout(RunStep, 25);
         return;
       }
@@ -129,52 +120,48 @@ BenchmarkSuite.RunSuites = function(runner) {
     }
   }
   RunStep();
-}
-
+};
 
 // Counts the total number of registered benchmarks. Useful for
 // showing progress as a percentage.
-BenchmarkSuite.CountBenchmarks = function() {
+BenchmarkSuite.CountBenchmarks = function () {
   var result = 0;
   var suites = BenchmarkSuite.suites;
   for (var i = 0; i < suites.length; i++) {
     result += suites[i].benchmarks.length;
   }
   return result;
-}
-
+};
 
 // Computes the geometric mean of a set of numbers.
-BenchmarkSuite.GeometricMean = function(numbers) {
+BenchmarkSuite.GeometricMean = function (numbers) {
   var log = 0;
   for (var i = 0; i < numbers.length; i++) {
     log += Math.log(numbers[i]);
   }
   return Math.pow(Math.E, log / numbers.length);
-}
-
+};
 
 // Converts a score value to a string with at least three significant
 // digits.
-BenchmarkSuite.FormatScore = function(value) {
+BenchmarkSuite.FormatScore = function (value) {
   if (value > 100) {
     return value.toFixed(0);
   } else {
     return value.toPrecision(3);
   }
-}
+};
 
 // Notifies the runner that we're done running a single benchmark in
 // the benchmark suite. This can be useful to report progress.
-BenchmarkSuite.prototype.NotifyStep = function(result) {
+BenchmarkSuite.prototype.NotifyStep = function (result) {
   this.results.push(result);
   if (this.runner.NotifyStep) this.runner.NotifyStep(result.benchmark.name);
-}
-
+};
 
 // Notifies the runner that we're done with running a suite and that
 // we have a result which can be reported to the user if needed.
-BenchmarkSuite.prototype.NotifyResult = function() {
+BenchmarkSuite.prototype.NotifyResult = function () {
   var mean = BenchmarkSuite.GeometricMean(this.results);
   var score = this.reference / mean;
   BenchmarkSuite.scores.push(score);
@@ -182,23 +169,21 @@ BenchmarkSuite.prototype.NotifyResult = function() {
     var formatted = BenchmarkSuite.FormatScore(100 * score);
     this.runner.NotifyResult(this.name, formatted);
   }
-}
-
+};
 
 // Notifies the runner that running a benchmark resulted in an error.
-BenchmarkSuite.prototype.NotifyError = function(error) {
+BenchmarkSuite.prototype.NotifyError = function (error) {
   if (this.runner.NotifyError) {
     this.runner.NotifyError(this.name, error);
   }
   if (this.runner.NotifyStep) {
     this.runner.NotifyStep(this.name);
   }
-}
-
+};
 
 // Runs a single benchmark for at least a second and computes the
 // average time it takes to run a single iteration.
-BenchmarkSuite.prototype.RunSingleBenchmark = function(benchmark, data) {
+BenchmarkSuite.prototype.RunSingleBenchmark = function (benchmark, data) {
   function Measure(data) {
     var elapsed = 0;
     var start = new Date();
@@ -225,14 +210,13 @@ BenchmarkSuite.prototype.RunSingleBenchmark = function(benchmark, data) {
     this.NotifyStep(new BenchmarkResult(benchmark, usec));
     return null;
   }
-}
-
+};
 
 // This function starts running a suite, but stops between each
 // individual benchmark in the suite and returns a continuation
 // function which can be invoked to run the next benchmark. Once the
 // last benchmark has been executed, null is returned.
-BenchmarkSuite.prototype.RunStep = function(runner) {
+BenchmarkSuite.prototype.RunStep = function (runner) {
   this.results = [];
   this.runner = runner;
   var length = this.benchmarks.length;
@@ -266,7 +250,7 @@ BenchmarkSuite.prototype.RunStep = function(runner) {
       return null;
     }
     // If data is null, we're done with this benchmark.
-    return (data == null) ? RunNextTearDown : RunNextBenchmark();
+    return data == null ? RunNextTearDown : RunNextBenchmark();
   }
 
   function RunNextTearDown() {
@@ -281,4 +265,4 @@ BenchmarkSuite.prototype.RunStep = function(runner) {
 
   // Start out running the setup.
   return RunNextSetup();
-}
+};

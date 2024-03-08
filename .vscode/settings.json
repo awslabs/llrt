@@ -1,5 +1,5 @@
 {
-  "cSpell.words": ["Abortable", "rquickjs","LLRT","llrt"],
+  "cSpell.words": ["Abortable", "rquickjs", "LLRT", "llrt"],
   "cmake.configureOnOpen": false,
   "rust-analyzer.showUnlinkedFileNotification": false
 }

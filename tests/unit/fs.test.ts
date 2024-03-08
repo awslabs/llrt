@@ -26,10 +26,13 @@ describe("readdir", () => {
     assert.deepEqual(dir, ["config.toml"]);
   });
 
-  it('should read a directory with recursive', async () => {
-    const dir = await fs.readdir('fixtures/fs/readdir', { recursive: true });
-    const compare = (a: string, b: string) => a >= b ? 1 : -1;
-    assert.deepEqual(dir.sort(compare), ['recursive/readdir.js', 'recursive', 'readdir.js'].sort(compare));
+  it("should read a directory with recursive", async () => {
+    const dir = await fs.readdir("fixtures/fs/readdir", { recursive: true });
+    const compare = (a: string, b: string) => (a >= b ? 1 : -1);
+    assert.deepEqual(
+      dir.sort(compare),
+      ["recursive/readdir.js", "recursive", "readdir.js"].sort(compare)
+    );
   });
 });
 
@@ -40,8 +43,8 @@ describe("readdirSync", () => {
   });
 
   it("should read a directory with types synchronously", () => {
-    const dir = defaultFsImport.readdirSync(".cargo", {withFileTypes: true});
-    assert.deepEqual(dir, [{name: "config.toml"}]);
+    const dir = defaultFsImport.readdirSync(".cargo", { withFileTypes: true });
+    assert.deepEqual(dir, [{ name: "config.toml" }]);
     assert.equal(dir[0].isFile(), true);
   });
 
@@ -55,10 +58,16 @@ describe("readdirSync", () => {
     assert.deepEqual(dir, ["config.toml"]);
   });
 
-  it('should read a directory with recursive synchronously', () => {
-    const dir = defaultFsImport.readdirSync('fixtures/fs/readdir', {recursive: true});
-    const compare = (a: string | Buffer, b: string | Buffer): number => a >= b ? 1 : -1;
-    assert.deepEqual(dir.sort(compare), ['recursive/readdir.js', 'recursive', 'readdir.js'].sort(compare));
+  it("should read a directory with recursive synchronously", () => {
+    const dir = defaultFsImport.readdirSync("fixtures/fs/readdir", {
+      recursive: true,
+    });
+    const compare = (a: string | Buffer, b: string | Buffer): number =>
+      a >= b ? 1 : -1;
+    assert.deepEqual(
+      dir.sort(compare),
+      ["recursive/readdir.js", "recursive", "readdir.js"].sort(compare)
+    );
   });
 });
 
@@ -104,7 +113,9 @@ describe("mkdir", () => {
     const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), "test/test-"));
 
     //non recursive should reject
-    expect(fs.mkdir(dirPath)).rejects.toThrow("EEXIST: file already exists, mkdir");
+    expect(fs.mkdir(dirPath)).rejects.toThrow(
+      "EEXIST: file already exists, mkdir"
+    );
 
     await fs.mkdir(dirPath, { recursive: true });
 
@@ -125,7 +136,7 @@ describe("mkdirSync", () => {
     const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), "test/test-"));
 
     //non recursive should reject
-    expect(()=>defaultFsImport.mkdirSync(dirPath)).toThrow(/[fF]ile.*exists/);
+    expect(() => defaultFsImport.mkdirSync(dirPath)).toThrow(/[fF]ile.*exists/);
 
     defaultFsImport.mkdirSync(dirPath, { recursive: true });
 
@@ -191,11 +202,15 @@ describe("accessSync", () => {
 
   it("should throw if not proper permissions synchronously", () => {
     const filePath = "fixtures/hello.txt";
-    expect(()=>defaultFsImport.accessSync(filePath, fs.constants.X_OK)).toThrow(/[pP]ermission denied/);
+    expect(() =>
+      defaultFsImport.accessSync(filePath, fs.constants.X_OK)
+    ).toThrow(/[pP]ermission denied/);
   });
 
   it("should throw if not exists synchronously", () => {
     const filePath = "fixtures/nothing";
-    expect(()=>defaultFsImport.accessSync(filePath)).toThrow(/[Nn]o such file or directory/);
+    expect(() => defaultFsImport.accessSync(filePath)).toThrow(
+      /[Nn]o such file or directory/
+    );
   });
 });

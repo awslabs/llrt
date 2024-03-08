@@ -1,3 +1,3 @@
-import fs from 'fs/promises';
+import fs from "fs/promises";
 
-fs.readdir('./', { recursive: true }).then(res => {});
+fs.readdir("./", { recursive: true }).then((res) => {});

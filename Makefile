@@ -109,6 +109,7 @@ bundle/%.js: $(TS_SOURCES)
 	node build.mjs
 
 fix:
+	npx pretty-quick
 	cargo fix --allow-dirty
 	cargo clippy --fix --allow-dirty
 	cargo fmt

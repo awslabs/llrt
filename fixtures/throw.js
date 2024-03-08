@@ -1,1 +1,1 @@
-throw 42
+throw 42;

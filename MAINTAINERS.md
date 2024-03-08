@@ -1,14 +1,15 @@
 <!--  markdownlint-disable MD043 -->
+
 ## Table of contents <!-- omit in toc -->
 
 - [Overview](#overview)
 - [Current Maintainers](#current-maintainers)
 - [Labels](#labels)
 - [Maintainer Responsibilities](#maintainer-responsibilities)
-    - [Uphold Code of Conduct](#uphold-code-of-conduct)
-    - [Prioritize Security](#prioritize-security)
-    - [Review Pull Requests](#review-pull-requests)
-    - [Triage New Issues](#triage-new-issues)
+  - [Uphold Code of Conduct](#uphold-code-of-conduct)
+  - [Prioritize Security](#prioritize-security)
+  - [Review Pull Requests](#review-pull-requests)
+  - [Triage New Issues](#triage-new-issues)
 
 ## Overview
 
@@ -18,10 +19,10 @@ This is document explains who the maintainers are (see below), what they do in t
 
 ## Current Maintainers
 
-| Maintainer        | GitHub ID                                               | Affiliation |
-| ----------------- | ------------------------------------------------------- | ----------- |
-| Richard Davison   | [richarddavison](https://github.com/richarddavison)     | Amazon      |
-| Nik Pinski        | [nikp](https://github.com/nikp)                         | Amazon      |
+| Maintainer      | GitHub ID                                           | Affiliation |
+| --------------- | --------------------------------------------------- | ----------- |
+| Richard Davison | [richarddavison](https://github.com/richarddavison) | Amazon      |
+| Nik Pinski      | [nikp](https://github.com/nikp)                     | Amazon      |
 
 ## Labels
 
@@ -59,7 +60,7 @@ See [Common scenarios](#common-scenarios) section for additional guidance.
 
 Manage [labels](#labels), review issues regularly, and create new labels as needed by the project. Remove `triage` label when you're able to confirm the validity of a request, a bug can be reproduced, etc. Give priority to the original author for implementation, unless it is a sensitive task that is best handled by maintainers.
 
-Make sure issues are assigned to our [board of activities](https://github.com/orgs/awslabs/projects/145/) 
+Make sure issues are assigned to our [board of activities](https://github.com/orgs/awslabs/projects/145/)
 
 Use our [labels](#labels) to signal good first issues to new community members, and to set expectation that this might need additional feedback from the author, other customers, experienced community members and/or maintainers.
 

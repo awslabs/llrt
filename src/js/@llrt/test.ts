@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import assert from "assert";
-import * as chai from 'chai'
-import {JestChaiExpect} from "./expect/jest-expect";
-import {JestAsymmetricMatchers} from "./expect/jest-asymmetric-matchers";
+import * as chai from "chai";
+import { JestChaiExpect } from "./expect/jest-expect";
+import { JestAsymmetricMatchers } from "./expect/jest-asymmetric-matchers";
 
 const GLOBAL = globalThis as any;
 GLOBAL.assert = assert;
@@ -185,16 +185,16 @@ const describe: any = createDescribe();
 describe.only = createDescribe({ only: true });
 describe.skip = createDescribe({ skip: true });
 
-chai.use(JestChaiExpect)
-chai.use(JestAsymmetricMatchers)
+chai.use(JestChaiExpect);
+chai.use(JestAsymmetricMatchers);
 export function createExpect() {
-    const expect = ((value: any, message?: string): any => {
-        return chai.expect(value, message) as unknown as any
-    })
+  const expect = (value: any, message?: string): any => {
+    return chai.expect(value, message) as unknown as any;
+  };
 
-    Object.assign(expect, chai.expect)
+  Object.assign(expect, chai.expect);
 
-    return expect
+  return expect;
 }
 
 const expect: any = createExpect();

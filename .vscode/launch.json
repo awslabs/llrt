@@ -55,7 +55,7 @@
         "AWS_SECRET_ACCESS_KEY": "",
         "AWS_SESSION_TOKEN": ""
       },
-      "args": ["test","-d","bundle"],
+      "args": ["test", "-d", "bundle"],
       "cwd": "${workspaceFolder}"
     }
   ]
