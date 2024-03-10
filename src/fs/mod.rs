@@ -23,7 +23,7 @@ use self::read_file::read_file;
 use self::rm::{rmdir, rmfile};
 use self::stats::{stat_fn, Stat};
 use self::write_file::write_file;
-use crate::fs::mkdir::{mkdir, mkdir_sync, mkdtemp};
+use crate::fs::mkdir::{mkdir, mkdir_sync, mkdtemp, mkdtemp_sync};
 
 pub const CONSTANT_F_OK: u32 = 0;
 pub const CONSTANT_R_OK: u32 = 4;
@@ -73,6 +73,7 @@ impl ModuleDef for FsModule {
         declare.declare("promises")?;
         declare.declare("accessSync")?;
         declare.declare("mkdirSync")?;
+        declare.declare("mkdtempSync")?;
         declare.declare("readdirSync")?;
 
         declare.declare("default")?;
@@ -91,6 +92,7 @@ impl ModuleDef for FsModule {
             default.set("promises", promises)?;
             default.set("accessSync", Func::from(access_sync))?;
             default.set("mkdirSync", Func::from(mkdir_sync))?;
+            default.set("mkdtempSync", Func::from(mkdtemp_sync))?;
             default.set("readdirSync", Func::from(read_dir_sync))?;
 
             Ok(())

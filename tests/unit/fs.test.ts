@@ -13,7 +13,7 @@ describe("readdir", () => {
   it("should read a directory with types", async () => {
     const dir = await fs.readdir(".cargo", { withFileTypes: true });
     assert.deepEqual(dir, [{ name: "config.toml" }]);
-    assert.equal(dir[0].isFile(), true);
+    expect(dir[0].isFile()).toBeTruthy();
   });
 
   it("should read a directory using default import", async () => {
@@ -45,7 +45,7 @@ describe("readdirSync", () => {
   it("should read a directory with types synchronously", () => {
     const dir = defaultFsImport.readdirSync(".cargo", { withFileTypes: true });
     assert.deepEqual(dir, [{ name: "config.toml" }]);
-    assert.equal(dir[0].isFile(), true);
+    expect(dir[0].isFile()).toBeTruthy();
   });
 
   it("should read a directory using default import synchronously", () => {
@@ -78,11 +78,11 @@ describe("readfile", () => {
     const base64Text = buf.toString("base64");
     const hexText = buf.toString("hex");
 
-    assert.ok(buf instanceof Buffer);
-    assert.ok(buf instanceof Uint8Array);
-    assert.equal(text, "hello world!");
-    assert.equal(base64Text, "aGVsbG8gd29ybGQh");
-    assert.equal(hexText, "68656c6c6f20776f726c6421");
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf).toBeInstanceOf(Uint8Array);
+    expect(text).toEqual("hello world!");
+    expect(base64Text).toEqual("aGVsbG8gd29ybGQh");
+    expect(hexText).toEqual("68656c6c6f20776f726c6421");
   });
 });
 
@@ -97,14 +97,36 @@ describe("mkdtemp", () => {
       .stat(dirPath)
       .then(() => true)
       .catch(() => false);
-    assert.ok(dirExists);
+    expect(dirExists).toBeTruthy();
 
     // Check that the directory has the correct prefix
     const dirPrefix = path.basename(dirPath).slice(0, prefix.length);
-    assert.strictEqual(dirPrefix, prefix);
+    expect(dirPrefix).toStrictEqual(prefix);
 
     // Clean up the temporary directory
-    //await fs.rmdir(dirPath);
+    await fs.rmdir(dirPath);
+  });
+})
+
+describe("mkdtempSync", () => {
+  it("should create a temporary directory with a given prefix synchronously", async () => {
+    // Create a temporary directory with the given prefix
+    const prefix = "test-";
+    const dirPath = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), prefix));
+
+    // Check that the directory exists
+    const dirExists = await fs
+      .stat(dirPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(dirExists).toBeTruthy()
+
+    // Check that the directory has the correct prefix
+    const dirPrefix = path.basename(dirPath).slice(0, prefix.length);
+    expect(dirPrefix).toStrictEqual(prefix)
+
+    // Clean up the temporary directory
+    await fs.rmdir(dirPath);
   });
 });
 
@@ -124,7 +146,7 @@ describe("mkdir", () => {
       .stat(dirPath)
       .then(() => true)
       .catch(() => false);
-    assert.ok(dirExists);
+    expect(dirExists).toBeTruthy();
 
     // Clean up the directory
     await fs.rmdir(dirPath, { recursive: true });
@@ -133,7 +155,7 @@ describe("mkdir", () => {
 
 describe("mkdirSync", () => {
   it("should create a directory with the given path synchronously", async () => {
-    const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), "test/test-"));
+    const dirPath = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), "test/test-"));
 
     //non recursive should reject
     expect(() => defaultFsImport.mkdirSync(dirPath)).toThrow(/[fF]ile.*exists/);
@@ -145,7 +167,7 @@ describe("mkdirSync", () => {
       .stat(dirPath)
       .then(() => true)
       .catch(() => false);
-    assert.ok(dirExists);
+    expect(dirExists).toBeTruthy();
 
     // Clean up the directory
     await fs.rmdir(dirPath, { recursive: true });
@@ -161,7 +183,7 @@ describe("writeFile", () => {
 
     const contents = (await fs.readFile(filePath)).toString();
 
-    assert.equal(fileContents, contents);
+    expect(fileContents).toEqual(contents);
 
     await fs.rmdir(tmpDir, { recursive: true });
   });
