@@ -44,6 +44,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+      - name: Fix permissions
+        run: |
+          chmod 755 ./llrt-container-x64
+          chmod 755 ./llrt-container-arm64
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
