@@ -12,6 +12,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
 use once_cell::sync::Lazy;
+use rquickjs::Array;
 use rquickjs::{
     atom::PredefinedAtom,
     object::Filter,
@@ -19,6 +20,7 @@ use rquickjs::{
     Ctx, Function, Object, Result, Type, Value,
 };
 
+use crate::json::stringify::json_stringify;
 use crate::{
     json::escape::escape_json,
     number::float_to_string,
@@ -117,6 +119,7 @@ const SINGLE_QUOTE: char = '\'';
 const SEPARATOR: char = ',';
 const CIRCULAR: &str = "[Circular]";
 const OBJECT: &str = "[Object]";
+const TIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
 
 fn stringify_primitive<'js>(
     result: &mut String,
@@ -207,6 +210,7 @@ fn is_primitive_like_or_void(typeof_value: Type) -> bool {
     )
 }
 
+#[inline(always)]
 fn stringify_value<'js>(
     result: &mut String,
     ctx: &Ctx<'js>,
@@ -576,7 +580,6 @@ fn log_std_out<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> R
     write_log(stdout(), ctx, args, level)
 }
 
-#[inline(always)]
 #[allow(clippy::unused_io_amount)]
 fn write_log<'js, T>(
     mut output: T,
@@ -587,77 +590,27 @@ fn write_log<'js, T>(
 where
     T: Write + IsTerminal,
 {
-    let mut is_tty = output.is_terminal();
-    let mut result;
-    let is_json_log_format;
-    let mut newline_char = NEWLINE;
-    if AWS_LAMBDA_MODE.load(Ordering::Relaxed) {
-        is_json_log_format = AWS_LAMBDA_JSON_LOG_FORMAT.load(Ordering::Relaxed);
+    let is_tty = output.is_terminal();
+    let mut result = String::new();
+    let is_lambda_mode = AWS_LAMBDA_MODE.load(Ordering::Relaxed);
 
-        if is_json_log_format
-            && AWS_LAMBDA_JSON_LOG_LEVEL.load(Ordering::Relaxed) < level.clone() as usize
-        {
-            //do not log if we don't meet the log level
+    if is_lambda_mode {
+        let is_json_log_format = AWS_LAMBDA_JSON_LOG_FORMAT.load(Ordering::Relaxed);
+        let max_log_level = AWS_LAMBDA_JSON_LOG_LEVEL.load(Ordering::Relaxed);
+        if !write_lambda_log(
+            &ctx,
+            &mut result,
+            args,
+            level,
+            is_tty,
+            is_json_log_format,
+            max_log_level,
+            TIME_FORMAT,
+        )? {
             return Ok(());
         }
-        if !is_tty {
-            newline_char = CARRIAGE_RETURN;
-        }
-
-        result = String::with_capacity(64);
-
-        let current_time: DateTime<Utc> = Utc::now();
-        let formatted_time = current_time.format("%Y-%m-%dT%H:%M:%S%.3fZ");
-        let request_id = LAMBDA_REQUEST_ID.lock().unwrap().clone();
-
-        if is_json_log_format {
-            is_tty = false;
-            result.push('{');
-            result.push(newline_char);
-            result.push_str("  \"time\": \"");
-            write!(&mut result, "{}", formatted_time).unwrap();
-            result.push_str("\",");
-            result.push(newline_char);
-
-            if let Some(id) = request_id {
-                result.push_str("  \"requestId\": \"");
-                result.push_str(&id);
-                result.push_str("\",");
-                result.push(newline_char);
-            }
-
-            result.push_str("  \"level\": \"");
-            result.push_str(&level.to_string());
-            result.push_str("\",");
-            result.push(newline_char);
-            result.push_str("  \"message\": \"");
-        } else {
-            write!(&mut result, "{}", formatted_time).unwrap();
-            result.push('\t');
-
-            match request_id {
-                Some(id) => result.push_str(&id),
-                None => result.push_str("n/a"),
-            }
-
-            result.push('\t');
-            result.push_str(&level.to_string());
-            result.push('\t');
-        }
     } else {
-        result = String::with_capacity(64);
-        is_json_log_format = false;
-    }
-
-    if is_json_log_format {
-        let mut values_string = String::with_capacity(64);
-        format_values_internal(&mut values_string, &ctx, args, is_tty, newline_char)?;
-        result.push_str(&escape_json(values_string.as_bytes()));
-        result.push('\"');
-        result.push(newline_char);
-        result.push('}');
-    } else {
-        format_values_internal(&mut result, &ctx, args, is_tty, newline_char)?;
+        format_values_internal(&mut result, &ctx, args, is_tty, NEWLINE)?;
     }
 
     result.push(NEWLINE);
@@ -668,6 +621,357 @@ where
     Ok(())
 }
 
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn write_lambda_log<'js>(
+    ctx: &Ctx<'js>,
+    result: &mut String,
+    args: Rest<Value<'js>>,
+    level: LogLevel,
+    is_tty: bool,
+    is_json_log_format: bool,
+    max_log_level: usize,
+    time_format: &str,
+) -> Result<bool> {
+    let mut newline_char = NEWLINE;
+
+    if is_json_log_format && max_log_level < level.clone() as usize {
+        //do not log if we don't meet the log level
+        return Ok(false);
+    }
+    result.reserve(64);
+    if !is_tty {
+        newline_char = CARRIAGE_RETURN;
+    }
+
+    let current_time: DateTime<Utc> = Utc::now();
+    let formatted_time = current_time.format(time_format);
+    let request_id = LAMBDA_REQUEST_ID.lock().unwrap().clone();
+
+    if is_json_log_format {
+        result.push('{');
+        //time
+        result.push_str("\"time\":\"");
+        write!(result, "{}", formatted_time).unwrap();
+        result.push_str("\",");
+
+        //request id
+        if let Some(id) = request_id {
+            result.push_str("\"requestId\":\"");
+            result.push_str(&id);
+            result.push_str("\",");
+        }
+
+        //level
+        result.push_str("\"level\":\"");
+        result.push_str(&level.to_string());
+        result.push('\"');
+    } else {
+        write!(result, "{}", formatted_time).unwrap();
+        result.push('\t');
+
+        match request_id {
+            Some(id) => result.push_str(&id),
+            None => result.push_str("n/a"),
+        }
+
+        result.push('\t');
+        result.push_str(&level.to_string());
+        result.push('\t');
+    }
+
+    if is_json_log_format {
+        let mut values_string = String::with_capacity(64);
+
+        if args.0.len() == 1 {
+            let mut first_arg = args.0.first().unwrap().clone();
+
+            if first_arg.is_error() || first_arg.is_exception() {
+                if let Some(exception) = first_arg.as_exception() {
+                    let obj = Object::new(ctx.clone())?;
+                    obj.set("errorType", get_class_name(exception.as_value()))?;
+                    if let Some(message) = exception.message() {
+                        obj.set("errorMessage", message)?;
+                    }
+                    if let Some(stack) = exception.stack() {
+                        let stack_object = Array::new(ctx.clone())?;
+
+                        for (i, trace) in stack.split('\n').enumerate() {
+                            stack_object.set(i, String::from(trace))?;
+                        }
+                        obj.set("stackTrace", stack_object)?;
+                    }
+                    first_arg = obj.into_value();
+                }
+            }
+            if let Some(json_string) = json_stringify(ctx, first_arg)? {
+                //message
+                result.push(',');
+                result.push_str("\"message\":");
+                result.push_str(&json_string);
+            }
+        } else {
+            //message
+            result.push(',');
+            result.push_str("\"message\":\"");
+
+            let mut exception = None;
+
+            let mut write_space = false;
+            for arg in args.0.into_iter() {
+                if write_space {
+                    values_string.push(' ');
+                }
+                if arg.is_error() && exception.is_none() {
+                    let exception_value = arg.clone();
+                    exception = Some(exception_value.into_exception().unwrap());
+                }
+                stringify_value(&mut values_string, ctx, arg, is_tty, NEWLINE)?;
+                write_space = true
+            }
+
+            result.push_str(&escape_json(values_string.as_bytes()));
+            result.push('\"');
+            if let Some(exception) = exception {
+                //error type
+                result.push_str(",\"errorType\":\"");
+                result
+                    .push_str(&get_class_name(exception.as_value())?.unwrap_or("Exception".into()));
+                result.push_str("\",");
+
+                //error message
+                if let Some(message) = exception.message() {
+                    result.push_str("\"errorMessage\":\"");
+                    result.push_str(&message);
+                    result.push_str("\",");
+                }
+
+                //stack trace
+                result.push_str("\"stackTrace\":[");
+                let mut write_comma = false;
+                if let Some(stack) = exception.stack() {
+                    if !stack.is_empty() {
+                        for trace in stack.split('\n') {
+                            if write_comma {
+                                result.push(',');
+                            }
+                            result.push('\"');
+                            result.push_str(trace);
+                            result.push('\"');
+                            write_comma = true;
+                        }
+                    }
+                }
+
+                result.push(']');
+            }
+        }
+
+        result.push('}');
+    } else {
+        format_values_internal(
+            result,
+            ctx,
+            args,
+            is_tty && !is_json_log_format,
+            newline_char,
+        )?;
+
+        let str_bytes = unsafe { result.as_bytes_mut() }; //OK since we just modify newlines
+
+        let mut pos = 0;
+        while let Some(index) = str_bytes[pos..].iter().position(|b| *b == b'\n') {
+            str_bytes[pos + index] = b'\r';
+            pos += index + 1; // Move the position after the found '\n'
+        }
+    }
+
+    Ok(true)
+}
+
 fn log_std_err<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
     write_log(stderr(), ctx, args, level)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
+
+    use crate::{
+        console::{write_lambda_log, LogLevel},
+        json::stringify::json_stringify_replacer_space,
+        test_utils::utils::with_runtime,
+    };
+
+    #[tokio::test]
+    async fn json_log_format() {
+        with_runtime(|ctx| {
+            let write_log = |args| {
+                let mut result = String::new();
+
+                write_lambda_log(
+                    &ctx,
+                    &mut result,
+                    Rest(args),
+                    LogLevel::Info,
+                    false,
+                    true,
+                    LogLevel::Info as usize,
+                    "",
+                )?;
+
+
+                //validate json
+                ctx.json_parse(result.clone())?;
+
+                Ok::<_, Error>(result)
+            };
+
+            assert_eq!(
+                write_log(["Hello".into_js(&ctx)?].into())?,
+                r#"{"time":"","level":"INFO","message":"Hello"}"#
+            );
+
+            assert_eq!(
+                write_log([1.into_js(&ctx)?].into())?,
+                r#"{"time":"","level":"INFO","message":1}"#
+            );
+
+            assert_eq!(
+                write_log([true.into_js(&ctx)?].into())?,
+                r#"{"time":"","level":"INFO","message":true}"#
+            );
+
+            assert_eq!(
+                write_log([Undefined.into_js(&ctx)?].into())?,
+                r#"{"time":"","level":"INFO"}"#
+            );
+
+            assert_eq!(
+                write_log([Null.into_js(&ctx)?].into())?,
+                r#"{"time":"","level":"INFO","message":null}"#
+            );
+
+            let obj = Object::new(ctx.clone())?;
+            obj.set("a", 1)?;
+            obj.set("b", "Hello")?;
+
+            assert_eq!(
+                write_log([obj.clone().into_value()].into())?,
+                r#"{"time":"","level":"INFO","message":{"a":1,"b":"Hello"}}"#
+            );
+
+            //validate second argument passed
+            assert_eq!(
+                write_log([obj.into_value(), true.into_js(&ctx)?].into())?,
+                r#"{"time":"","level":"INFO","message":"{ a: 1, b: 'Hello' } true"}"#
+            );
+
+            //single error
+            let e1:Value = ctx.eval(r#"new ReferenceError("some reference error")"#)?;
+            assert_eq!(
+                write_log([e1.clone()].into())?,
+                r#"{"time":"","level":"INFO","message":{"errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:1)",""]}}"#
+            );
+
+             //validate many args with additional errors
+            let e2:Value = ctx.eval(r#"new SyntaxError("some syntax error")"#)?;
+            assert_eq!(
+                write_log(["errors logged".into_js(&ctx)?, e1, e2].into())?,
+                r#"{"time":"","level":"INFO","message":"errors logged ReferenceError: some reference error\n  at <eval> (eval_script:1:1) SyntaxError: some syntax error\n  at <eval> (eval_script:1:1)","errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:1)",""]}"#
+            );
+
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn standard_log_format() {
+        with_runtime(|ctx| {
+            let write_log = |args| {
+                let mut result = String::new();
+
+                write_lambda_log(
+                    &ctx,
+                    &mut result,
+                    Rest(args),
+                    LogLevel::Info,
+                    false,
+                    false,
+                    LogLevel::Info as usize,
+                    "",
+                )?;
+
+                Ok::<_, Error>(result)
+            };
+
+            assert_eq!(
+                write_log(["Hello".into_js(&ctx)?].into())?,
+               "\tn/a\tINFO\tHello"
+            );
+
+            assert_eq!(
+                write_log([1.into_js(&ctx)?].into())?,
+                "\tn/a\tINFO\t1"
+            );
+
+            assert_eq!(
+                write_log([true.into_js(&ctx)?].into())?,
+                "\tn/a\tINFO\ttrue"
+            );
+
+            assert_eq!(
+                write_log([Undefined.into_js(&ctx)?].into())?,
+                "\tn/a\tINFO\tundefined"
+            );
+
+            assert_eq!(
+                write_log([Null.into_js(&ctx)?].into())?,
+                "\tn/a\tINFO\tnull"
+            );
+
+            let obj = Object::new(ctx.clone())?;
+            obj.set("a", 1)?;
+            obj.set("b", "Hello")?;
+
+            assert_eq!(
+                write_log([obj.clone().into_value()].into())?,
+                 "\tn/a\tINFO\t{ a: 1, b: 'Hello' }"
+            );
+
+            //validate second argument passed
+            assert_eq!(
+                write_log([obj.clone().into_value(), true.into_js(&ctx)?].into())?,
+                "\tn/a\tINFO\t{ a: 1, b: 'Hello' } true"
+            );
+
+            //single error
+            let e1:Value = ctx.eval(r#"new ReferenceError("some reference error")"#)?;
+            assert_eq!(
+                write_log([e1.clone()].into())?,
+                "\tn/a\tINFO\tReferenceError: some reference error\r  at <eval> (eval_script:1:1)"
+            );
+
+             //validate many args with additional errors
+            let e2:Value = ctx.eval(r#"new SyntaxError("some syntax error")"#)?;
+            assert_eq!(
+                write_log(["errors logged".into_js(&ctx)?, e1, e2].into())?,
+                "\tn/a\tINFO\terrors logged ReferenceError: some reference error\r  at <eval> (eval_script:1:1) SyntaxError: some syntax error\r  at <eval> (eval_script:1:1)"
+            );
+
+            //newline replacement
+            assert_eq!(
+                write_log([
+                    "event:".into_js(&ctx)?,
+                    json_stringify_replacer_space(&ctx, obj.into_value(), None, Some("  ".into()))?.into_js(&ctx)?
+                ].into())?,
+               "\tn/a\tINFO\tevent: {\r  \"a\": 1,\r  \"b\": \"Hello\"\r}"
+            );
+
+            Ok(())
+        })
+        .await;
+    }
 }
