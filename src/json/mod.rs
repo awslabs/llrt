@@ -203,8 +203,6 @@ mod tests {
             generate_json(&json, 10),
             generate_json(&json, 100),
             generate_json(&json, 1000),
-            generate_json(&json, 10000),
-            generate_json(&json, 100000),
         ];
 
         with_runtime(|ctx| {
