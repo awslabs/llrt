@@ -91,8 +91,14 @@ pub fn json_stringify_replacer_space<'js>(
         include_keys_replacer,
     };
 
-    if write_primitive(&mut context, false)? {
-        return Ok(Some(result));
+    match write_primitive(&mut context, false)? {
+        PrimitiveStatus::Written => {
+            return Ok(Some(result));
+        }
+        PrimitiveStatus::Ignored => {
+            return Ok(None);
+        }
+        _ => {}
     }
 
     context.depth += 1;
@@ -137,13 +143,20 @@ fn run_to_json<'js>(
     Ok(())
 }
 
+#[derive(PartialEq)]
+enum PrimitiveStatus {
+    Written,
+    Ignored,
+    Iterate,
+}
+
 #[inline(always)]
 #[cold]
 fn run_replacer<'js>(
     context: &mut IterationContext<'_, 'js>,
     replacer_fn: &Function<'js>,
     add_comma: bool,
-) -> Result<bool> {
+) -> Result<PrimitiveStatus> {
     let parent = context.parent;
     let ctx = context.ctx;
     let value = context.value;
@@ -176,7 +189,7 @@ fn run_replacer<'js>(
 }
 
 #[inline(always)]
-fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<bool> {
+fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<PrimitiveStatus> {
     if let Some(replacer_fn) = context.replacer_fn {
         return run_replacer(context, replacer_fn, add_comma);
     }
@@ -190,14 +203,14 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<bo
 
     let type_of = value.type_of();
 
-    if matches!(type_of, Type::Symbol | Type::Undefined) {
-        return Ok(true);
+    if matches!(type_of, Type::Symbol | Type::Undefined) && context.index.is_none() {
+        return Ok(PrimitiveStatus::Ignored);
     }
 
     if let Some(include_keys_replacer) = include_keys_replacer {
         let key = get_key_or_index(key, index);
         if !include_keys_replacer.contains(&key) {
-            return Ok(true);
+            return Ok(PrimitiveStatus::Ignored);
         }
     };
 
@@ -211,7 +224,7 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<bo
     }
 
     match type_of {
-        Type::Null => context.result.push_str("null"),
+        Type::Null | Type::Undefined => context.result.push_str("null"),
         Type::Bool => context.result.push_str(match value.as_bool().unwrap() {
             true => "true",
             false => "false",
@@ -244,9 +257,9 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<bo
             }
         }
         Type::String => write_string(context.result, &value.as_string().unwrap().to_string()?),
-        _ => return Ok(false),
+        _ => return Ok(PrimitiveStatus::Iterate),
     }
-    Ok(true)
+    Ok(PrimitiveStatus::Written)
 }
 
 #[inline(always)]
@@ -325,13 +338,16 @@ fn detect_circular_reference(
 }
 
 #[inline(always)]
-fn append_value(context: &mut IterationContext<'_, '_>, add_comma: bool) -> Result<()> {
-    if !write_primitive(context, add_comma)? {
-        context.depth += 1;
-        iterate(context)?;
+fn append_value(context: &mut IterationContext<'_, '_>, add_comma: bool) -> Result<bool> {
+    match write_primitive(context, add_comma)? {
+        PrimitiveStatus::Written => Ok(true),
+        PrimitiveStatus::Ignored => Ok(false),
+        PrimitiveStatus::Iterate => {
+            context.depth += 1;
+            iterate(context)?;
+            Ok(true)
+        }
     }
-
-    Ok(())
 }
 
 #[inline(always)]
@@ -410,7 +426,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                 let key = key?;
                 let val = js_object.get(&key)?;
 
-                append_value(
+                add_comma = append_value(
                     &mut IterationContext {
                         ctx,
                         result: context.result,
@@ -426,7 +442,6 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                     },
                     add_comma,
                 )?;
-                add_comma = true;
             }
             if add_comma {
                 write_indentation(context.result, indentation, depth);
@@ -450,7 +465,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
             }
             for (i, val) in js_array.iter::<Value>().enumerate() {
                 let val = val?;
-                append_value(
+                add_comma = append_value(
                     &mut IterationContext {
                         ctx,
                         result: context.result,
@@ -466,7 +481,6 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                     },
                     add_comma,
                 )?;
-                add_comma = true;
             }
             if add_comma {
                 write_indentation(context.result, indentation, depth);
