@@ -37,8 +37,8 @@ pub fn escape_json(bytes: &[u8]) -> String {
     result
 }
 
-#[cfg(not(feature = "nightly"))]
-pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
+#[inline(always)]
+pub fn escape_json_string_simple(result: &mut String, bytes: &[u8]) {
     let len = bytes.len();
     let mut start = 0;
     result.reserve(len);
@@ -58,8 +58,20 @@ pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
     }
 }
 
+#[cfg(not(feature = "nightly"))]
+pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
+    escape_json_string_simple(result, bytes);
+}
+
 #[cfg(feature = "nightly")]
 pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
+    const USIZE_BYTES: usize = mem::size_of::<usize>();
+
+    let len = bytes.len();
+    if len < USIZE_BYTES * 2 {
+        return escape_json_string_simple(result, bytes);
+    }
+
     const ESCAPE_LEN: usize = 34;
     const BELOW_SPACE: u8 = b' ' - 1;
     const B: u8 = b'"';
@@ -69,7 +81,6 @@ pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
     let v_b: u8x16 = u8x16::splat(B);
     let v_c: u8x16 = u8x16::splat(C);
 
-    let len = bytes.len();
     result.reserve(len);
 
     #[inline(always)]

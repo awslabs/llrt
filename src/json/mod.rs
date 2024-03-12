@@ -8,7 +8,7 @@ pub mod stringify;
 mod tests {
     use std::time::Instant;
 
-    use rquickjs::{Array, CatchResultExt, Null, Object, Value};
+    use rquickjs::{Array, CatchResultExt, IntoJs, Null, Object, Undefined, Value};
 
     use crate::{
         json::{
@@ -46,6 +46,30 @@ mod tests {
                 println!("{}", new_json);
                 assert_eq!(new_json, builtin_json);
             }
+
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn json_stringify_undefined() {
+        with_runtime(|ctx| {
+            let stringified = json_stringify(&ctx, Undefined.into_js(&ctx)?)?;
+            let stringified_2 = ctx
+                .json_stringify(Undefined)?
+                .map(|v| v.to_string().unwrap());
+            assert_eq!(stringified, stringified_2);
+
+            let obj: Value = ctx.eval(
+                r#"let obj = { value: undefined, array: [undefined, null, 1, true, "hello", { [Symbol("sym")]: 1, [undefined]: 2}] };obj;"#,
+            )?;
+
+            let stringified = json_stringify(&ctx, obj.clone())?;
+            let stringified_2 = ctx
+                .json_stringify(obj)?
+                .map(|v| v.to_string().unwrap());
+            assert_eq!(stringified, stringified_2);
 
             Ok(())
         })
