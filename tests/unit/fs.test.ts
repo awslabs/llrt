@@ -84,6 +84,11 @@ describe("readfile", () => {
     expect(base64Text).toEqual("aGVsbG8gd29ybGQh");
     expect(hexText).toEqual("68656c6c6f20776f726c6421");
   });
+
+  it("should return a string when encoding is provided", async () => {
+    const text = await fs.readFile("fixtures/hello.txt", { encoding: "utf-8" });
+    expect(text).toEqual("hello world!");
+  });
 });
 
 describe("mkdtemp", () => {
