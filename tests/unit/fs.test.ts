@@ -85,8 +85,13 @@ describe("readfile", () => {
     expect(hexText).toEqual("68656c6c6f20776f726c6421");
   });
 
-  it("should return a string when encoding is provided", async () => {
+  it("should return a string when encoding is provided as option", async () => {
     const text = await fs.readFile("fixtures/hello.txt", { encoding: "utf-8" });
+    expect(text).toEqual("hello world!");
+  });
+
+  it("should return a string when encoding is provided as string", async () => {
+    const text = await fs.readFile("fixtures/hello.txt", "utf-8");
     expect(text).toEqual("hello world!");
   });
 });
