@@ -29,6 +29,14 @@ impl<'js> IntoJs<'js> for Buffer {
     }
 }
 
+impl<'js> Buffer {
+    pub fn to_string(&self, ctx: &Ctx<'js>, encoding: &str) -> Result<String> {
+        Encoder::from_str(encoding)
+            .and_then(|enc| enc.encode_to_string(&self.0))
+            .or_throw(ctx)
+    }
+}
+
 fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> Result<usize> {
     //slow path
     if let Some(encoding) = encoding.0 {
