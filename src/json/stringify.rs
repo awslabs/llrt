@@ -396,6 +396,7 @@ fn get_key_or_index(key: Option<&str>, index: Option<usize>) -> String {
 #[inline(always)]
 fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
     let mut add_comma;
+    let mut value_written;
     let elem = context.value;
     let depth = context.depth;
     let ctx = context.ctx;
@@ -422,6 +423,8 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
             context.result.push('{');
 
             add_comma = false;
+            value_written = false;
+
             for key in js_object.keys::<String>() {
                 let key = key?;
                 let val = js_object.get(&key)?;
@@ -442,8 +445,10 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                     },
                     add_comma,
                 )?;
+                value_written = value_written || !value_written && add_comma;
             }
-            if add_comma {
+
+            if value_written {
                 write_indentation(context.result, indentation, depth);
             }
             context.result.push('}');
@@ -451,6 +456,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
         Type::Array => {
             context.result.push('[');
             add_comma = false;
+            value_written = false;
             let js_array = elem.as_array().unwrap();
             //only start detect circular reference at this level
             if depth > CIRCULAR_REF_DETECTION_DEPTH {
@@ -481,8 +487,9 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                     },
                     add_comma,
                 )?;
+                value_written = value_written || !value_written && add_comma;
             }
-            if add_comma {
+            if value_written {
                 write_indentation(context.result, indentation, depth);
             }
             context.result.push(']');
