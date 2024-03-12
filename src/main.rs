@@ -277,6 +277,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
     let mut directory_walker = DirectoryWalker::new(PathBuf::from(root), |name| {
         name != "node_modules" || !name.starts_with('.')
     });
+    directory_walker.set_recursive(true);
 
     while let Some((entry, _)) = directory_walker.walk().await.map_err(|e| e.to_string())? {
         if let Some(name) = entry
