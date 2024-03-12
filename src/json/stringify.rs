@@ -445,7 +445,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                     },
                     add_comma,
                 )?;
-                value_written = value_written || !value_written && add_comma;
+                value_written = value_written || add_comma;
             }
 
             if value_written {
@@ -487,7 +487,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                     },
                     add_comma,
                 )?;
-                value_written = value_written || !value_written && add_comma;
+                value_written = value_written || add_comma;
             }
             if value_written {
                 write_indentation(context.result, indentation, depth);
