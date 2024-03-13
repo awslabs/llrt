@@ -19,7 +19,7 @@ use crate::module::export_default;
 
 use self::access::access;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
-use self::read_file::read_file;
+use self::read_file::{read_file, read_file_sync};
 use self::rm::{rmdir, rmfile};
 use self::stats::{stat_fn, Stat};
 use self::write_file::write_file;
@@ -75,6 +75,7 @@ impl ModuleDef for FsModule {
         declare.declare("mkdirSync")?;
         declare.declare("mkdtempSync")?;
         declare.declare("readdirSync")?;
+        declare.declare("readFileSync")?;
 
         declare.declare("default")?;
 
@@ -94,6 +95,7 @@ impl ModuleDef for FsModule {
             default.set("mkdirSync", Func::from(mkdir_sync))?;
             default.set("mkdtempSync", Func::from(mkdtemp_sync))?;
             default.set("readdirSync", Func::from(read_dir_sync))?;
+            default.set("readFileSync", Func::from(read_file_sync))?;
 
             Ok(())
         })
