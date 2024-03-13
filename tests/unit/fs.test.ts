@@ -87,11 +87,54 @@ describe("readfile", () => {
 
   it("should return a string when encoding is provided as option", async () => {
     const text = await fs.readFile("fixtures/hello.txt", { encoding: "utf-8" });
+    expect(typeof text).toEqual("string");
     expect(text).toEqual("hello world!");
   });
 
   it("should return a string when encoding is provided as string", async () => {
     const text = await fs.readFile("fixtures/hello.txt", "utf-8");
+    expect(typeof text).toEqual("string");
+    expect(text).toEqual("hello world!");
+  });
+
+  it("should return a string when encoding is provided as string with different cases", async () => {
+    // @ts-ignore
+    const text = await fs.readFile("fixtures/hello.txt", "Utf-8");
+    expect(typeof text).toEqual("string");
+    expect(text).toEqual("hello world!");
+  });
+})
+
+describe("readfileSync", () => {
+  it("should read a file synchronously", () => {
+    const buf = defaultFsImport.readFileSync("fixtures/hello.txt");
+    const text = buf.toString();
+    const base64Text = buf.toString("base64");
+    const hexText = buf.toString("hex");
+
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf).toBeInstanceOf(Uint8Array);
+    expect(text).toEqual("hello world!");
+    expect(base64Text).toEqual("aGVsbG8gd29ybGQh");
+    expect(hexText).toEqual("68656c6c6f20776f726c6421");
+  });
+
+  it("should return a string when encoding is provided as option synchronously", () => {
+    const text = defaultFsImport.readFileSync("fixtures/hello.txt", { encoding: "utf-8" });
+    expect(typeof text).toEqual("string");
+    expect(text).toEqual("hello world!");
+  });
+
+  it("should return a string when encoding is provided as string synchronously", () => {
+    const text = defaultFsImport.readFileSync("fixtures/hello.txt", "utf-8");
+    expect(typeof text).toEqual("string");
+    expect(text).toEqual("hello world!");
+  });
+
+  it("should return a string when encoding is provided as string with different cases synchronously", async () => {
+    // @ts-ignore
+    const text = defaultFsImport.readFileSync("fixtures/hello.txt", "Utf-8");
+    expect(typeof text).toEqual("string");
     expect(text).toEqual("hello world!");
   });
 });
