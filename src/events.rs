@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
-use std::{mem, sync::{Arc, RwLock}};
+use std::{
+    mem,
+    sync::{Arc, RwLock},
+};
 
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, Rest, This, Opt},
+    prelude::{Func, Opt, Rest, This},
     CatchResultExt, Class, Ctx, Function, Object, Result, String as JsString, Symbol, Value,
 };
 
@@ -375,7 +378,7 @@ impl<'js> EventEmitter<'js> {
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
 pub struct AbortController<'js> {
-    signal: Class<'js, AbortSignal<'js>>
+    signal: Class<'js, AbortSignal<'js>>,
 }
 
 #[rquickjs::methods]
@@ -383,10 +386,13 @@ impl<'js> AbortController<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>) -> Result<Self> {
         let abort_controller = Self {
-            signal: Class::instance(ctx, AbortSignal {
-                aborted: false,
-                reason: None
-            })?
+            signal: Class::instance(
+                ctx,
+                AbortSignal {
+                    aborted: false,
+                    reason: None,
+                },
+            )?,
         };
         Ok(abort_controller)
     }
@@ -396,14 +402,17 @@ impl<'js> AbortController<'js> {
         self.signal.clone()
     }
 
-    pub fn abort(this: This<Class<'js, Self>>, reason: Opt<Value<'js>>) -> Result<Class<'js, Self>> {
+    pub fn abort(
+        this: This<Class<'js, Self>>,
+        reason: Opt<Value<'js>>,
+    ) -> Result<Class<'js, Self>> {
         if reason.0.is_some() {
             this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
         } else {
             // TODO store DOMException as reason
             this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
         }
-   
+
         Ok(this.0)
     }
 }
@@ -412,13 +421,13 @@ impl<'js> AbortController<'js> {
 #[rquickjs::class]
 pub struct AbortSignal<'js> {
     aborted: bool,
-    reason: Option<Value<'js>>
+    reason: Option<Value<'js>>,
 }
 
 impl<'js> Trace<'js> for AbortSignal<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         if let Some(reason) = &self.reason {
-            tracer.mark(&reason);
+            tracer.mark(reason);
         }
     }
 }
@@ -429,7 +438,7 @@ impl<'js> AbortSignal<'js> {
     pub fn new() -> Self {
         Self {
             aborted: false,
-            reason: None
+            reason: None,
         }
     }
 
@@ -447,7 +456,7 @@ impl<'js> AbortSignal<'js> {
     pub fn abort(reason: Opt<Value<'js>>) -> AbortSignal {
         AbortSignal {
             aborted: true,
-            reason: reason.0
+            reason: reason.0,
         }
     }
 
