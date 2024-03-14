@@ -277,6 +277,14 @@ Install dependencies
     sudo apt -y install make zstd
     sudo snap install zig --classic --beta
 
+    # Windows WSL2
+    sudo apt -y install cmake g++ gcc make zip zstd
+    sudo snap install zig --classic --beta
+
+    # Windows WSL2 (If Node.js is not yet installed)
+    sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+    nvm install --lts
+
 Install Node.js packages
 
     corepack enable
