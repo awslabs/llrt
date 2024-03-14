@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
-use std::sync::{Arc, RwLock};
+use std::{mem, sync::{Arc, RwLock}};
 
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, Rest, This},
+    prelude::{Func, Rest, This, Opt},
     CatchResultExt, Class, Ctx, Function, Object, Result, String as JsString, Symbol, Value,
 };
 
@@ -372,29 +372,89 @@ impl<'js> EventEmitter<'js> {
     }
 }
 
-//TODO implement, abort(reason)
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
-struct AbortController {}
+pub struct AbortController<'js> {
+    signal: Class<'js, AbortSignal<'js>>
+}
 
 #[rquickjs::methods]
-impl AbortController {
+impl<'js> AbortController<'js> {
     #[qjs(constructor)]
-    fn new() -> Self {
-        Self {}
+    pub fn new(ctx: Ctx<'js>) -> Result<Self> {
+        let abort_controller = Self {
+            signal: Class::instance(ctx, AbortSignal {
+                aborted: false,
+                reason: None
+            })?
+        };
+        Ok(abort_controller)
+    }
+
+    #[qjs(get)]
+    pub fn signal(&self) -> Class<'js, AbortSignal<'js>> {
+        self.signal.clone()
+    }
+
+    pub fn abort(this: This<Class<'js, Self>>, reason: Opt<Value<'js>>) -> Result<Class<'js, Self>> {
+        if reason.0.is_some() {
+            this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
+        } else {
+            // TODO store DOMException as reason
+            this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
+        }
+   
+        Ok(this.0)
     }
 }
 
 //TODO implement static methods abort() and timeout(miliseconds)
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
-struct AbortSignal {}
+pub struct AbortSignal<'js> {
+    aborted: bool,
+    reason: Option<Value<'js>>
+}
+
+impl<'js> Trace<'js> for AbortSignal<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        if let Some(reason) = &self.reason {
+            tracer.mark(&reason);
+        }
+    }
+}
 
 #[rquickjs::methods]
-impl AbortSignal {
+impl<'js> AbortSignal<'js> {
     #[qjs(constructor)]
-    fn new() -> Self {
-        Self {}
+    pub fn new() -> Self {
+        Self {
+            aborted: false,
+            reason: None
+        }
+    }
+
+    #[qjs(get)]
+    pub fn aborted(&self) -> bool {
+        self.aborted
+    }
+
+    pub fn set_reason(&mut self, reason: Opt<Value<'js>>) -> Result<Option<Value<'js>>> {
+        let new_reason = mem::replace(&mut self.reason, reason.0);
+        Ok(new_reason)
+    }
+
+    #[qjs(static)]
+    pub fn abort(reason: Opt<Value<'js>>) -> AbortSignal {
+        AbortSignal {
+            aborted: true,
+            reason: reason.0
+        }
+    }
+
+    // TODO: Returns an AbortSignal that will automatically abort after a specified time.
+    #[qjs(static)]
+    pub fn timeout() -> AbortSignal<'js> {
+        todo!()
     }
 }
 

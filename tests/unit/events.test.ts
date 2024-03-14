@@ -99,3 +99,12 @@ it("should handle events emitted recursively", (done) => {
 
   ee.emit("test");
 });
+
+it("should set abort reason on AbortSignal", () => {
+  const abortController = new AbortController();
+  const signal = abortController.signal;
+
+  abortController.abort("cancelled");
+
+  assert.equal(signal.reason, "cancelled");  
+});
