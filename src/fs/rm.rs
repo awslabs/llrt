@@ -7,16 +7,26 @@ use crate::utils::result::ResultExt;
 
 #[allow(clippy::manual_async_fn)]
 pub async fn rmdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {
-    let mut recursive = false;
-
-    if let Some(options) = options.0 {
-        recursive = options.get("recursive").unwrap_or_default();
-    }
+    let recursive = get_params(options);
 
     if recursive {
         fs::remove_dir_all(&path).await
     } else {
         fs::remove_dir(&path).await
+    }
+    .or_throw_msg(&ctx, &format!("Can't remove dir \"{}\"", &path))?;
+
+    Ok(())
+}
+
+#[allow(clippy::manual_async_fn)]
+pub fn rmdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {
+    let recursive = get_params(options);
+
+    if recursive {
+        std::fs::remove_dir_all(&path)
+    } else {
+        std::fs::remove_dir(&path)
     }
     .or_throw_msg(&ctx, &format!("Can't remove dir \"{}\"", &path))?;
 
@@ -56,4 +66,13 @@ pub async fn rmfile<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>)
     }
 
     Ok(())
+}
+
+fn get_params(options: Opt<Object>) -> bool {
+    let mut recursive = false;
+
+    if let Some(options) = options.0 {
+        recursive = options.get("recursive").unwrap_or_default();
+    }
+    recursive
 }

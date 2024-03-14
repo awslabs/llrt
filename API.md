@@ -60,6 +60,7 @@ Available globally
 [mkdtempSync](https://nodejs.org/api/fs.html#fsmkdtempsyncprefix-options)
 [readdirSync](https://nodejs.org/api/fs.html#fsreaddirsyncpath-options)
 [readFileSync](https://nodejs.org/api/fs.html#fsreadfilesyncpath-options)
+[rmdirSync](https://nodejs.org/api/fs.html#fsrmdirsyncpath-options)
 
 ## fs/promises
 
