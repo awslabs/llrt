@@ -24,6 +24,7 @@ use self::rm::{rmdir, rmfile};
 use self::stats::{stat_fn, Stat};
 use self::write_file::write_file;
 use crate::fs::mkdir::{mkdir, mkdir_sync, mkdtemp, mkdtemp_sync};
+use crate::fs::rm::rmdir_sync;
 
 pub const CONSTANT_F_OK: u32 = 0;
 pub const CONSTANT_R_OK: u32 = 4;
@@ -76,6 +77,7 @@ impl ModuleDef for FsModule {
         declare.declare("mkdtempSync")?;
         declare.declare("readdirSync")?;
         declare.declare("readFileSync")?;
+        declare.declare("rmdirSync")?;
 
         declare.declare("default")?;
 
@@ -96,6 +98,7 @@ impl ModuleDef for FsModule {
             default.set("mkdtempSync", Func::from(mkdtemp_sync))?;
             default.set("readdirSync", Func::from(read_dir_sync))?;
             default.set("readFileSync", Func::from(read_file_sync))?;
+            default.set("rmdirSync", Func::from(rmdir_sync))?;
 
             Ok(())
         })

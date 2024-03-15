@@ -179,7 +179,7 @@ describe("mkdtempSync", () => {
     expect(dirPrefix).toStrictEqual(prefix)
 
     // Clean up the temporary directory
-    await fs.rmdir(dirPath);
+    await defaultFsImport.rmdirSync(dirPath);
   });
 });
 
@@ -223,7 +223,7 @@ describe("mkdirSync", () => {
     expect(dirExists).toBeTruthy();
 
     // Clean up the directory
-    await fs.rmdir(dirPath, { recursive: true });
+    defaultFsImport.rmdirSync(dirPath, { recursive: true });
   });
 });
 

@@ -9,7 +9,7 @@ use tokio::fs;
 use crate::utils::result::ResultExt;
 
 pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
-    let (recursive, mode) = get_mkdir_params(options);
+    let (recursive, mode) = get_params(options);
 
     if recursive {
         fs::create_dir_all(&path).await
@@ -26,7 +26,7 @@ pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
 }
 
 pub fn mkdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
-    let (recursive, mode) = get_mkdir_params(options);
+    let (recursive, mode) = get_params(options);
 
     if recursive {
         std::fs::create_dir_all(&path)
@@ -41,7 +41,7 @@ pub fn mkdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -
     Ok(path)
 }
 
-fn get_mkdir_params(options: Opt<Object>) -> (bool, u32) {
+fn get_params(options: Opt<Object>) -> (bool, u32) {
     let mut recursive = false;
     let mut mode = 0o777;
 
