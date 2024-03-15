@@ -49,12 +49,12 @@ That's it 🎉
 > Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
 > All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
 
-### Option 3: AWS SAM
+### Option 4: AWS SAM
 
 The following [example project](example/llrt-sam/) sets up a lambda
 instrumented with a layer containing the llrt runtime.
 
-### Option 4: AWS CDK
+### Option 5: AWS CDK
 
 You can use [`cdk-lambda-llrt` construct library](https://github.com/tmokmss/cdk-lambda-llrt) to deploy LLRT Lambda functions with AWS CDK.
 
@@ -276,6 +276,14 @@ Install dependencies
     # Ubuntu
     sudo apt -y install make zstd
     sudo snap install zig --classic --beta
+
+    # Windows WSL2
+    sudo apt -y install cmake g++ gcc make zip zstd
+    sudo snap install zig --classic --beta
+
+    # Windows WSL2 (If Node.js is not yet installed)
+    sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+    nvm install --lts
 
 Install Node.js packages
 
