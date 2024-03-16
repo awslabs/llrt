@@ -61,6 +61,7 @@ Available globally
 [readdirSync](https://nodejs.org/api/fs.html#fsreaddirsyncpath-options)
 [readFileSync](https://nodejs.org/api/fs.html#fsreadfilesyncpath-options)
 [rmdirSync](https://nodejs.org/api/fs.html#fsrmdirsyncpath-options)
+[rmSync](https://nodejs.org/api/fs.html#fsrmsyncpath-options)
 
 ## fs/promises
 
