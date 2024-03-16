@@ -32,8 +32,6 @@ endif
 
 ifeq ($(ARCH),aarch64)
 	ARCH = arm64
-else ifeq ($(ARCH),x86_64)
-	ARCH = x64
 endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
@@ -67,6 +65,8 @@ llrt-linux-x64.zip: | clean-js js
 llrt-linux-arm64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
+
+llrt-linux-x86_64.zip: llrt-linux-x64.zip
 
 define release_template
 release-${1}: | clean-js js
