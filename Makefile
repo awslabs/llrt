@@ -32,6 +32,8 @@ endif
 
 ifeq ($(ARCH),aarch64)
 	ARCH = arm64
+else ifeq ($(ARCH),x86_64)
+	ARCH = x64
 endif
 
 CURRENT_TARGET ?= $(TARGET_$(DETECTED_OS)_$(ARCH))
