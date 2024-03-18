@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
-use std::{
-    mem,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
@@ -406,6 +403,7 @@ impl<'js> AbortController<'js> {
         this: This<Class<'js, Self>>,
         reason: Opt<Value<'js>>,
     ) -> Result<Class<'js, Self>> {
+        this.0.borrow_mut().signal.borrow_mut().set_aborted(true);
         if reason.0.is_some() {
             this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
         } else {
@@ -449,8 +447,17 @@ impl<'js> AbortSignal<'js> {
 
     #[qjs(skip)]
     pub fn set_reason(&mut self, reason: Opt<Value<'js>>) -> Result<Option<Value<'js>>> {
-        let new_reason = mem::replace(&mut self.reason, reason.0);
-        Ok(new_reason)
+        if let Some(new_reason) = reason.0 {
+            Ok(self.reason.replace(new_reason))
+        } else {
+            let old_reason = self.reason.take();
+            Ok(old_reason)
+        }
+    }
+
+    #[qjs(skip)]
+    pub fn set_aborted(&mut self, is_aborted: bool) {
+        self.aborted = is_aborted;
     }
 
     #[qjs(static)]
