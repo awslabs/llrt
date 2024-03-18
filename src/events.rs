@@ -447,6 +447,7 @@ impl<'js> AbortSignal<'js> {
         self.aborted
     }
 
+    #[qjs(skip)]
     pub fn set_reason(&mut self, reason: Opt<Value<'js>>) -> Result<Option<Value<'js>>> {
         let new_reason = mem::replace(&mut self.reason, reason.0);
         Ok(new_reason)
