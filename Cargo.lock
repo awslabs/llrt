@@ -553,7 +553,7 @@ dependencies = [
  "http",
  "hyper",
  "hyper-util",
- "rustls",
+ "rustls 0.22.2",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
@@ -768,7 +768,7 @@ dependencies = [
  "relative-path",
  "ring",
  "rquickjs",
- "rustls",
+ "rustls 0.23.2",
  "ryu",
  "simd-json",
  "snmalloc-rs",
@@ -1274,6 +1274,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5dfbdb5ddfafe3040e01fe9dced711e27b5336ac97d4a9b2089f0066a04b5846"
+dependencies = [
+ "once_cell",
+ "ring",
+ "rustls-pki-types",
+ "rustls-webpki",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
 name = "rustls-pki-types"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1502,7 +1516,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
 dependencies = [
- "rustls",
+ "rustls 0.22.2",
  "rustls-pki-types",
  "tokio",
 ]
