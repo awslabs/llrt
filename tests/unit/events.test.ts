@@ -106,5 +106,6 @@ it("should set abort reason on AbortSignal", () => {
 
   abortController.abort("cancelled");
 
+  assert.equal(signal.aborted, true);
   assert.equal(signal.reason, "cancelled");  
 });
