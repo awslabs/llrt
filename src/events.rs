@@ -445,6 +445,12 @@ impl<'js> AbortSignal<'js> {
         self.aborted
     }
 
+    #[qjs(get)]
+    pub fn reason(&self) -> Option<Value<'js>> {
+        self.reason.clone()
+    }
+
+
     #[qjs(skip)]
     pub fn set_reason(&mut self, reason: Opt<Value<'js>>) -> Result<Option<Value<'js>>> {
         if let Some(new_reason) = reason.0 {
