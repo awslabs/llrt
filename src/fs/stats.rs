@@ -165,3 +165,12 @@ pub async fn stat_fn(ctx: Ctx<'_>, path: String) -> Result<Stat> {
 
     Ok(stats)
 }
+
+pub fn stat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stat> {
+    let metadata =
+        std::fs::metadata(&path).or_throw_msg(&ctx, &format!("Can't stat \"{}\"", &path))?;
+
+    let stats = Stat::new(metadata);
+
+    Ok(stats)
+}
