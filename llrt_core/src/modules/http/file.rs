@@ -1,7 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use chrono::Utc;
 use rquickjs::{class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result, Value};
 
