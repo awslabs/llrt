@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::time::UNIX_EPOCH;
 
-use rquickjs::{
-    class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object,
-    Result, Value,
-};
+use rquickjs::{class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result, Value};
 
 use super::blob::Blob;
 
@@ -21,7 +18,12 @@ pub struct File {
 #[rquickjs::methods]
 impl File {
     #[qjs(constructor)]
-    fn new<'js>(ctx: Ctx<'js>, filebits: Value<'js>, filename: String, options: Opt<Object<'js>>) -> Result<Self> {
+    fn new<'js>(
+        ctx: Ctx<'js>,
+        filebits: Value<'js>,
+        filename: String,
+        options: Opt<Object<'js>>,
+    ) -> Result<Self> {
         let mut last_modified = UNIX_EPOCH.elapsed().unwrap().as_millis() as i64;
 
         if let Some(ref opts) = options.0 {
@@ -33,7 +35,11 @@ impl File {
 
         let blob = Blob::new(ctx, Opt::from(Some(filebits)), options)?;
 
-        Ok(Self { blob, filename, last_modified})
+        Ok(Self {
+            blob,
+            filename,
+            last_modified,
+        })
     }
 
     #[qjs(get)]
@@ -51,7 +57,7 @@ impl File {
         self.blob.mime_type()
     }
 
-    #[qjs(get, rename =  "lastModified")]
+    #[qjs(get, rename = "lastModified")]
     pub fn last_modified(&self) -> i64 {
         self.last_modified
     }
