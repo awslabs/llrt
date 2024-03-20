@@ -21,6 +21,9 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
+## console
+[Console](https://nodejs.org/api/console.html#class-console)
+
 ## crypto
 
 [createHash](https://nodejs.org/api/crypto.html#cryptocreatehashalgorithm-options)

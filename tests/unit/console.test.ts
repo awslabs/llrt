@@ -1,4 +1,6 @@
 import * as timers from "timers";
+import { Console as NodeConsole } from "node:console";
+import { Console } from "console";
 
 function log(...args: any[]) {
   return (console as any).__formatPlain(...args);
@@ -24,6 +26,41 @@ it("should log module", () => {
 }
 `.trim()
   );
+});
+it("should log using console object", () => {
+  const consoleObj = new Console({
+    stdout: process.stdout,
+    stderr: process.stderr,
+  });
+
+  // we check if the log does not throw an exception when called
+  consoleObj.log("log");
+  consoleObj.debug("debug");
+  consoleObj.info("info");
+  consoleObj.assert(false, "text for assertion should display");
+  consoleObj.assert(true, "This text should not be seen");
+
+  consoleObj.warn("warn");
+  consoleObj.error("error");
+  consoleObj.trace("trace");
+});
+
+it("should log using node:console object", () => {
+  const consoleObj = new NodeConsole({
+    stdout: process.stdout,
+    stderr: process.stderr,
+  });
+
+  // we check if the log does not throw an exception when called
+  consoleObj.log("log");
+  consoleObj.debug("debug");
+  consoleObj.info("info");
+  consoleObj.assert(false, "text for assertion should display");
+  consoleObj.assert(true, "This text should not be seen");
+
+  consoleObj.warn("warn");
+  consoleObj.error("error");
+  consoleObj.trace("trace");
 });
 
 it("should log complex object", () => {

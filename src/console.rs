@@ -12,15 +12,17 @@ use std::{
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
 use once_cell::sync::Lazy;
-use rquickjs::Array;
+use rquickjs::module::{Declarations, Exports, ModuleDef};
 use rquickjs::{
     atom::PredefinedAtom,
     object::Filter,
     prelude::{Func, Rest, This},
     Ctx, Function, Object, Result, Type, Value,
 };
+use rquickjs::{Array, Class};
 
 use crate::json::stringify::json_stringify;
+use crate::module::export_default;
 use crate::{
     json::escape::escape_json,
     number::float_to_string,
@@ -83,6 +85,27 @@ impl LogLevel {
 }
 
 pub static LAMBDA_REQUEST_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+
+pub struct ConsoleModule;
+
+impl ModuleDef for ConsoleModule {
+    fn declare(declare: &mut Declarations) -> Result<()> {
+        declare.declare(stringify!(Console))?;
+        declare.declare("default")?;
+
+        Ok(())
+    }
+
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+        Class::<Console>::register(ctx)?;
+
+        export_default(ctx, exports, |default| {
+            Class::<Console>::define(default)?;
+
+            Ok(())
+        })
+    }
+}
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
@@ -791,6 +814,47 @@ fn write_lambda_log<'js>(
 
 fn log_std_err<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
     write_log(stderr(), ctx, args, level)
+}
+
+#[derive(rquickjs::class::Trace)]
+#[rquickjs::class]
+pub struct Console {}
+
+#[rquickjs::methods(rename_all = "camelCase")]
+impl Console {
+    #[qjs(constructor)]
+    pub fn new() -> Self {
+        // We ignore the parameters for now since we don't support stream
+        Self {}
+    }
+
+    pub fn log<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+        log(ctx, args)
+    }
+
+    pub fn debug<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+        log_debug(ctx, args)
+    }
+    pub fn info<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+        log(ctx, args)
+    }
+    pub fn trace<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+        log_trace(ctx, args)
+    }
+    pub fn error<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+        log_error(ctx, args)
+    }
+    pub fn warn<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+        log_warn(ctx, args)
+    }
+    pub fn assert<'js>(
+        &self,
+        ctx: Ctx<'js>,
+        expression: bool,
+        args: Rest<Value<'js>>,
+    ) -> Result<()> {
+        log_assert(ctx, expression, args)
+    }
 }
 
 #[cfg(test)]
