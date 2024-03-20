@@ -58,19 +58,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         ));
     }
 
-    let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
-        .map(|timeout| {
-            timeout
-                .parse()
-                .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS)
-        })
-        .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS);
-    if pool_idle_timeout > 300 {
-        warn!(
-            r#""{}" is exceeds 300s (5min), risking errors due to possible server connection closures."#,
-            environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT
-        )
-    }
+    let pool_idle_timeout: u64 = get_pool_idle_timeout();
 
     let https = hyper_rustls::HttpsConnectorBuilder::new()
         .with_tls_config(TLS_CONFIG.clone())
@@ -190,4 +178,21 @@ fn get_url_options(resource: Value) -> (Option<Result<String>>, Option<Object>) 
         return (None, Some(resource_obj));
     }
     (None, None)
+}
+
+pub fn get_pool_idle_timeout() -> u64 {
+    let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
+        .map(|timeout| {
+            timeout
+                .parse()
+                .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS)
+        })
+        .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS);
+    if pool_idle_timeout > 300 {
+        warn!(
+            r#""{}" is exceeds 300s (5min), risking errors due to possible server connection closures."#,
+            environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT
+        )
+    }
+    pool_idle_timeout
 }
