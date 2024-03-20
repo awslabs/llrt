@@ -1,7 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use chrono::Utc;
 use rquickjs::{class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result, Value};
 
 use super::blob::Blob;
@@ -24,7 +25,7 @@ impl File {
         filename: String,
         options: Opt<Object<'js>>,
     ) -> Result<Self> {
-        let mut last_modified = UNIX_EPOCH.elapsed().unwrap().as_millis() as i64;
+        let mut last_modified = Utc::now().timestamp_millis();
 
         if let Some(ref opts) = options.0 {
             if let Some(x) = opts.get::<_, Option<Coerced<i64>>>("lastModified")? {

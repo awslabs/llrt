@@ -759,9 +759,9 @@ describe("File class", () => {
 
   it("should return the correct latestModified date", () => {
       const fileWithDate = new File([], "file.bin", {
-          lastModified: new Date(2017, 1, 1).getTime(),
+          lastModified: new Date(Date.UTC(2017, 1, 1, 0, 0, 0, 0)).getTime(),
         });
-      assert.strictEqual(fileWithDate.lastModified, 1485936000000);
+      assert.strictEqual(fileWithDate.lastModified, 1485907200000);
   });
 
   it('has a name', () => {
