@@ -52,6 +52,8 @@ const ES_BUILD_OPTIONS = {
   platform: "browser",
   format: "esm",
   external: [
+    "node:console",
+    "console",
     "crypto",
     "uuid",
     "hex",
