@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 mod blob;
 mod body;
-pub(crate) mod fetch;
-mod headers;
+mod fetch;
 mod file;
+mod headers;
 mod request;
 mod response;
 pub mod url;
@@ -15,7 +15,8 @@ use rquickjs::{Class, Ctx, Result};
 use crate::modules::http::headers::Headers;
 
 use self::{
-    blob::Blob, request::Request, response::Response, url::URL, url_search_params::URLSearchParams, file::File,
+    blob::Blob, file::File, request::Request, response::Response, url::URL,
+    url_search_params::URLSearchParams,
 };
 
 pub fn init(ctx: &Ctx) -> Result<()> {

@@ -41,7 +41,11 @@ fn normalize_type(mut mime_type: String) -> String {
 #[rquickjs::methods]
 impl Blob {
     #[qjs(constructor)]
-    pub fn new<'js>(ctx: Ctx<'js>, parts: Opt<Value<'js>>, options: Opt<Object<'js>>) -> Result<Self> {
+    pub fn new<'js>(
+        ctx: Ctx<'js>,
+        parts: Opt<Value<'js>>,
+        options: Opt<Object<'js>>,
+    ) -> Result<Self> {
         let mut endings = EndingType::Transparent;
         let mut mime_type = String::new();
 
