@@ -7,9 +7,7 @@ function log(...args: any[]) {
 it("should log module", () => {
   let module = log(timers);
 
-  assert.equal(
-    module,
-    `
+  expect(module).toEqual(    `
 {
   clearInterval: [function: (anonymous)],
   clearTimeout: [function: (anonymous)],
@@ -23,7 +21,7 @@ it("should log module", () => {
   setTimeout: [function: (anonymous)]
 }
 `.trim()
-  );
+  )
 });
 
 it("should log complex object", () => {
@@ -75,9 +73,7 @@ it("should log complex object", () => {
 
   const stringObj = log(obj);
 
-  assert.equal(
-    stringObj,
-    `
+  expect(stringObj).toEqual(    `
 {
   1: Symbol(foo),
   2: Promise {},
@@ -105,5 +101,6 @@ it("should log complex object", () => {
   abc: 123
 }
 `.trim()
-  );
+  )
+
 });
