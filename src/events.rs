@@ -2,18 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
-use std::sync::{Arc, RwLock};
+use std::{
+    borrow::BorrowMut,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    CatchResultExt, Class, Ctx, Function, Object, Result, String as JsString, Symbol, Value,
+    CatchResultExt, Class, Ctx, Function, IntoJs, Object, Result, String as JsString, Symbol,
+    Value,
 };
 
 use tracing::trace;
 
-use crate::{utils::result::ResultExt, vm::ErrorExtensions};
+use crate::{
+    utils::result::ResultExt,
+    vm::{CtxExtension, ErrorExtensions},
+};
 
 #[derive(Clone, Debug)]
 pub enum EventKey<'js> {
@@ -450,7 +458,6 @@ impl<'js> AbortSignal<'js> {
         self.reason.clone()
     }
 
-
     #[qjs(skip)]
     pub fn set_reason(&mut self, reason: Opt<Value<'js>>) -> Result<Option<Value<'js>>> {
         if let Some(new_reason) = reason.0 {
@@ -474,10 +481,25 @@ impl<'js> AbortSignal<'js> {
         }
     }
 
-    // TODO: Returns an AbortSignal that will automatically abort after a specified time.
     #[qjs(static)]
-    pub fn timeout() -> AbortSignal<'js> {
-        todo!()
+    pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
+        let signal = AbortSignal {
+            aborted: false,
+            reason: None,
+        };
+
+        let signal_instance = Class::instance(ctx.clone(), signal)?;
+        let signal_instance2 = signal_instance.clone();
+
+        ctx.spawn_exit(async move {
+            tokio::time::sleep(Duration::from_millis(milliseconds)).await;
+            let borrow = signal_instance.borrow_mut();
+            borrow.set_aborted(true);
+            borrow.set_reason(Opt(None)); // TODO: TimeoutError DOMException
+            Ok(())
+        })?;
+
+        Ok(signal_instance2)
     }
 }
 
