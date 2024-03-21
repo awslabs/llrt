@@ -36,7 +36,7 @@ once_cell = "1.19.0"
 tokio-context = "0.1.3"
 tracing-core = "0.1.32"
 webpki = "0.22.4"
-async-trait = "0.1.77"
+async-trait = "0.1.78"
 url = "2.5.0"
 zstd = { version = "0.13.0", default-features = false, features = [] }
 libc = "0.2.153"
@@ -60,7 +60,7 @@ hyper-rustls = { version = "0.26.0", default-features = false, features = [
     "ring",
 ] }
 hyper-util = "0.1.3"
-http-body-util = "0.1.0"
+http-body-util = "0.1.1"
 rustls = { version = "0.22.2", default-features = false, features = [
     "tls12",
     "ring",

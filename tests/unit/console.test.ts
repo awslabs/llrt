@@ -1,4 +1,6 @@
 import * as timers from "timers";
+import { Console as NodeConsole } from "node:console";
+import { Console } from "console";
 
 function log(...args: any[]) {
   return (console as any).__formatPlain(...args);
@@ -7,9 +9,7 @@ function log(...args: any[]) {
 it("should log module", () => {
   let module = log(timers);
 
-  assert.equal(
-    module,
-    `
+  expect(module).toEqual(    `
 {
   clearInterval: [function: (anonymous)],
   clearTimeout: [function: (anonymous)],
@@ -23,7 +23,42 @@ it("should log module", () => {
   setTimeout: [function: (anonymous)]
 }
 `.trim()
-  );
+  )
+});
+it("should log using console object", () => {
+  const consoleObj = new Console({
+    stdout: process.stdout,
+    stderr: process.stderr,
+  });
+
+  // we check if the log does not throw an exception when called
+  consoleObj.log("log");
+  consoleObj.debug("debug");
+  consoleObj.info("info");
+  consoleObj.assert(false, "text for assertion should display");
+  consoleObj.assert(true, "This text should not be seen");
+
+  consoleObj.warn("warn");
+  consoleObj.error("error");
+  consoleObj.trace("trace");
+});
+
+it("should log using node:console object", () => {
+  const consoleObj = new NodeConsole({
+    stdout: process.stdout,
+    stderr: process.stderr,
+  });
+
+  // we check if the log does not throw an exception when called
+  consoleObj.log("log");
+  consoleObj.debug("debug");
+  consoleObj.info("info");
+  consoleObj.assert(false, "text for assertion should display");
+  consoleObj.assert(true, "This text should not be seen");
+
+  consoleObj.warn("warn");
+  consoleObj.error("error");
+  consoleObj.trace("trace");
 });
 
 it("should log complex object", () => {
@@ -75,9 +110,7 @@ it("should log complex object", () => {
 
   const stringObj = log(obj);
 
-  assert.equal(
-    stringObj,
-    `
+  expect(stringObj).toEqual(    `
 {
   1: Symbol(foo),
   2: Promise {},
@@ -105,5 +138,6 @@ it("should log complex object", () => {
   abc: 123
 }
 `.trim()
-  );
+  )
+
 });

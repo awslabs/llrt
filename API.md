@@ -21,6 +21,9 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
+## console
+[Console](https://nodejs.org/api/console.html#class-console)
+
 ## crypto
 
 [createHash](https://nodejs.org/api/crypto.html#cryptocreatehashalgorithm-options)
@@ -60,6 +63,10 @@ Available globally
 [mkdtempSync](https://nodejs.org/api/fs.html#fsmkdtempsyncprefix-options)
 [readdirSync](https://nodejs.org/api/fs.html#fsreaddirsyncpath-options)
 [readFileSync](https://nodejs.org/api/fs.html#fsreadfilesyncpath-options)
+[rmdirSync](https://nodejs.org/api/fs.html#fsrmdirsyncpath-options)
+[rmSync](https://nodejs.org/api/fs.html#fsrmsyncpath-options)
+[statSync](https://nodejs.org/api/fs.html#fsstatsyncpath-options)
+[writeFileSync](https://nodejs.org/api/fs.html#fswritefilesyncfile-data-options)
 
 ## fs/promises
 

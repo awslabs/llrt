@@ -3,57 +3,57 @@ import * as namedImport from "process";
 
 describe("process", () => {
   it("should have a process env", () => {
-    assert.equal(defaultImport.env, process.env);
-    assert.equal(namedImport.env, process.env);
+    expect(defaultImport.env).toEqual(process.env)
+    expect(namedImport.env).toEqual(process.env)
   });
 
   it("should have a process cwd", () => {
-    assert.equal(defaultImport.cwd(), process.cwd());
-    assert.equal(namedImport.cwd(), process.cwd());
+    expect(defaultImport.cwd()).toEqual(process.cwd())
+    expect(namedImport.cwd()).toEqual(process.cwd())
   });
 
   it("should have a process argv0", () => {
-    assert.equal(defaultImport.argv0, process.argv0);
-    assert.equal(namedImport.argv0, process.argv0);
+    expect(defaultImport.argv0).toEqual(process.argv0)
+    expect(namedImport.argv0).toEqual(process.argv0)
   });
 
   it("should have a process argv", () => {
-    assert.deepEqual(defaultImport.argv, process.argv);
-    assert.deepEqual(namedImport.argv, process.argv);
+    expect(defaultImport.argv).toEqual(process.argv)
+    expect(namedImport.argv).toEqual(process.argv)
   });
 
   it("should have a process platform", () => {
-    assert.equal(defaultImport.platform, process.platform);
-    assert.equal(namedImport.platform, process.platform);
+    expect(defaultImport.platform).toEqual(process.platform)
+    expect(namedImport.platform).toEqual(process.platform)
   });
 
   it("should have a process arch", () => {
-    assert.equal(defaultImport.arch, process.arch);
-    assert.equal(namedImport.arch, process.arch);
+    expect(defaultImport.arch).toEqual(process.arch)
+    expect(namedImport.arch).toEqual(process.arch)
   });
 
   it("should have a process hrtime", () => {
-    assert.ok(defaultImport.hrtime.bigint() > 0);
-    assert.ok(namedImport.hrtime.bigint() > 0);
+    expect(defaultImport.hrtime.bigint() > 0).toBeTruthy();
+    expect(namedImport.hrtime.bigint() > 0).toBeTruthy();
   });
 
   it("should have a process release", () => {
-    assert.equal(defaultImport.release, process.release);
-    assert.equal(namedImport.release, process.release);
+    expect(defaultImport.release).toEqual(process.release)
+    expect(namedImport.release).toEqual(process.release)
   });
 
   it("should have a process version", () => {
-    assert.equal(defaultImport.version, process.version);
-    assert.equal(namedImport.version, process.version);
+    expect(defaultImport.version).toEqual(process.version)
+    expect(namedImport.version).toEqual(process.version)
   });
 
   it("should have a process versions", () => {
-    assert.equal(defaultImport.versions, process.versions);
-    assert.equal(namedImport.versions, process.versions);
+    expect(defaultImport.versions).toEqual(process.versions)
+    expect(namedImport.versions).toEqual(process.versions)
   });
 
   it("should have a process exit", () => {
-    assert.equal(defaultImport.exit, process.exit);
-    assert.equal(namedImport.exit, process.exit);
+    expect(defaultImport.exit).toEqual(process.exit)
+    expect(namedImport.exit).toEqual(process.exit)
   });
 });

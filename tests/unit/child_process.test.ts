@@ -7,7 +7,7 @@ describe("child_process.spawn", () => {
     const child = spawn(command, args);
     child.on("exit", (code) => {
       try {
-        assert.strictEqual(code, 0);
+        expect(code).toEqual(0)
         done();
       } catch (error) {
         done(error);
@@ -23,8 +23,8 @@ describe("child_process.spawn", () => {
 
     child.on("close", (code) => {
       try {
-        assert.strictEqual(output.trim(), `${process.cwd()}/tests`);
-        assert.strictEqual(code, 0);
+        expect(output.trim()).toEqual(`${process.cwd()}/tests`)
+        expect(code).toEqual(0)
         done();
       } catch (error) {
         done(error);
@@ -42,8 +42,8 @@ describe("child_process.spawn", () => {
 
     child.on("close", (code) => {
       try {
-        assert.strictEqual(output.trim(), args[0]);
-        assert.strictEqual(code, 0);
+        expect(output.trim()).toEqual(args[0])
+        expect(code).toEqual(0)
         done();
       } catch (error) {
         done(error);
@@ -66,8 +66,8 @@ describe("child_process.spawn", () => {
 
     child.on("close", (code) => {
       try {
-        assert.strictEqual(code, 0);
-        assert.strictEqual(output.trim(), input);
+        expect(code).toEqual(0)
+        expect(output.trim()).toEqual(input)
         done();
       } catch (error) {
         done(error);
@@ -84,7 +84,7 @@ describe("child_process.spawn", () => {
     const child = spawn(command);
     child.on("error", (err) => {
       try {
-        assert.ok(err);
+        expect(err).toBeTruthy()
         done();
       } catch (error) {
         done(error);
@@ -98,8 +98,8 @@ describe("child_process.spawn", () => {
 
     child.on("exit", (code, signal) => {
       try {
-        assert.strictEqual(code, 0);
-        assert.strictEqual(signal, "SIGINT");
+        expect(code).toEqual(0)
+        expect(signal).toEqual("SIGINT")
         done();
       } catch (error) {
         done(error);
@@ -115,7 +115,7 @@ describe("child_process.spawn", () => {
     const child = spawn("echo", ["123"], { stdio: "inherit" });
     child.on("exit", (code) => {
       try {
-        assert.strictEqual(code, 0);
+        expect(code).toEqual(0)
         done();
       } catch (error) {
         done(error);
@@ -126,7 +126,7 @@ describe("child_process.spawn", () => {
     const child = spawn("echo", ["123"], { stdio: "ignore" });
     child.on("exit", (code) => {
       try {
-        assert.strictEqual(code, 0);
+        expect(code).toEqual(0)
         done();
       } catch (error) {
         done(error);

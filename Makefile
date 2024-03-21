@@ -66,6 +66,8 @@ llrt-linux-arm64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
+llrt-linux-x86_64.zip: llrt-linux-x64.zip
+
 define release_template
 release-${1}: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv

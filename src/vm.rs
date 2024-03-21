@@ -40,6 +40,7 @@ use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
     child_process::ChildProcessModule,
     console,
+    console::ConsoleModule,
     crypto::{CryptoModule, SYSTEM_RANDOM},
     encoding::HexModule,
     environment,
@@ -67,8 +68,8 @@ use crate::{
 macro_rules! create_modules {
     ($($name:expr => $module:expr),*) => {
 
-        pub fn create_module_instances() -> (BuiltinResolver, ModuleLoader, HashSet<&'static str>) {
-            let mut builtin_resolver = BuiltinResolver::default();
+        pub fn create_module_instances() -> (ModuleResolver, ModuleLoader, HashSet<&'static str>) {
+            let mut builtin_resolver = ModuleResolver::default();
             let mut module_loader = ModuleLoader::default();
             let mut module_names = HashSet::new();
 
@@ -88,6 +89,28 @@ macro_rules! create_modules {
     };
 }
 
+#[derive(Debug, Default)]
+pub struct ModuleResolver {
+    builtin_resolver: BuiltinResolver,
+}
+
+impl ModuleResolver {
+    #[must_use]
+    pub fn with_module<P: Into<String>>(mut self, path: P) -> Self {
+        self.builtin_resolver.add_module(path.into());
+        self
+    }
+}
+
+impl Resolver for ModuleResolver {
+    fn resolve(&mut self, ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
+        // Strip node prefix so that we support both with and without
+        let name = name.strip_prefix("node:").unwrap_or(name);
+
+        self.builtin_resolver.resolve(ctx, base, name)
+    }
+}
+
 create_modules!(
     "crypto" => CryptoModule,
     "hex" => HexModule,
@@ -98,6 +121,7 @@ create_modules!(
     "events" => EventsModule,
     "module" => ModuleModule,
     "net" => NetModule,
+    "console" => ConsoleModule,
     "path" => PathModule,
     "xml" => XmlModule,
     "buffer" => BufferModule,

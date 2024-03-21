@@ -22,3 +22,11 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
 
     Ok(())
 }
+
+pub fn write_file_sync<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> Result<()> {
+    let bytes = get_bytes(&ctx, data)?;
+
+    std::fs::write(&path, bytes).or_throw_msg(&ctx, &format!("Can't write \"{}\"", &path))?;
+
+    Ok(())
+}

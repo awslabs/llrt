@@ -52,6 +52,8 @@ const ES_BUILD_OPTIONS = {
   platform: "browser",
   format: "esm",
   external: [
+    "node:console",
+    "console",
     "crypto",
     "uuid",
     "hex",
@@ -396,6 +398,7 @@ const AWS_SDK_PLUGIN = {
       build.onLoad({ filter }, async ({ path }) => {
         let source = (await fs.readFile(path)).toString();
         let replaced = false;
+        let contents = "";
         source = source.replace(
           RegExp(`export\\s*(const\\s*${name})`),
           (_, replacement) => {
@@ -404,12 +407,13 @@ const AWS_SDK_PLUGIN = {
           }
         );
         if (!replaced) {
-          throw new Error(`No replacement found for "${name}" in ${filter}`);
+          contents += source;
+        } else {
+          const wrapperName = `${name}Wrapper`;
+          contents += `${source}\n`;
+          contents += `const ${wrapperName} = ${wrapper.toString()}\n`;
+          contents += `export {${wrapperName} as ${name}}`;
         }
-        const wrapperName = `${name}Wrapper`;
-        let contents = `${source}\n`;
-        contents += `const ${wrapperName} = ${wrapper.toString()}\n`;
-        contents += `export {${wrapperName} as ${name}}`;
 
         return {
           contents,
