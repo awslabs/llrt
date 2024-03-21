@@ -7,7 +7,7 @@ describe("timers", () => {
       setTimeout(resolve, 10);
     });
     const end = Date.now();
-    assert.ok(end - start >= 10);
+    expect(end - start >= 10).toBeTruthy();
   });
 
   it("should set nested timeout", (done) => {
@@ -34,8 +34,8 @@ describe("timers", () => {
     });
     const end = Date.now();
 
-    assert.ok(end - start >= 10);
-    assert.equal(status, "cleared");
+    expect(end - start >= 10).toBeTruthy();
+    expect(status).toEqual("cleared")
   });
 
   it("should set interval", async () => {
@@ -51,8 +51,8 @@ describe("timers", () => {
       }, 5);
     });
     const end = Date.now();
-    assert.ok(end - start >= 10);
-    assert.equal(count, 5);
+    expect(end - start >= 10).toBeTruthy();
+    expect(count).toEqual(5)
   });
 
   it("should clear interval", async () => {
@@ -69,11 +69,11 @@ describe("timers", () => {
       setTimeout(resolve, 20);
     });
     const end = Date.now();
-    assert.ok(end - start > 10);
-    assert.equal(count, 2);
+    expect(end - start > 10).toBeTruthy();
+    expect(count).toEqual(2)
   });
 
   it("should import timers", () => {
-    assert.equal(timers.setTimeout, setTimeout);
+    expect(timers.setTimeout).toEqual(setTimeout)
   });
 });

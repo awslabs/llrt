@@ -29,8 +29,8 @@ describe("fetch", () => {
   it("should fetch a website", async () => {
     const res = await fetch(url);
 
-    assert.equal(res.status, 200);
-    assert.ok(res.headers.get("content-type")?.startsWith("text/html"));
+    expect(res.status).toEqual(200)
+    expect(res.headers.get("content-type")?.startsWith("text/html")).toBeTruthy();
   });
 
   it("should fetch a website in parallel", async () => {
@@ -61,8 +61,8 @@ describe("fetch", () => {
       stdout += data.toString();
     });
     proc.on("close", () => {
-      assert.equal(stderr.trim(), `Error: URL denied: ${deniedUrl.hostname}`);
-      assert.equal(stdout.trim(), "OK");
+      expect(stderr.trim()).toEqual(`Error: URL denied: ${deniedUrl.hostname}`)
+      expect(stdout.trim()).toEqual("OK")
       done();
     });
     proc.on("error", done);
@@ -92,11 +92,8 @@ describe("fetch", () => {
       stdout += data.toString();
     });
     proc.on("close", () => {
-      assert.equal(
-        stderr.trim(),
-        `Error: URL not allowed: ${deniedUrl.hostname}`
-      );
-      assert.equal(stdout.trim(), "OK");
+      expect(stderr.trim()).toEqual(`Error: URL not allowed: ${deniedUrl.hostname}`)
+      expect(stdout.trim()).toEqual("OK")
       done();
     });
     proc.on("error", done);

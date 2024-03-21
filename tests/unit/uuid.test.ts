@@ -17,58 +17,58 @@ const UUID_PATTERN =
 describe("UUID Generation", () => {
   it("should generate a valid v1 UUID", () => {
     const uuid = uuidv1();
-    assert.strictEqual(typeof uuid, "string");
-    assert.strictEqual(uuid.length, 36);
-    assert(uuid.match(UUID_PATTERN));
-    assert.strictEqual(version(uuid), 1);
+    expect(typeof uuid).toEqual("string");
+    expect(uuid.length).toEqual(36);
+    expect(uuid).toMatch(UUID_PATTERN);
+    expect(version(uuid)).toEqual(1);
   });
 
   it("should generate a valid v3 UUID", () => {
     const uuid = uuidv3("hello", uuidv3.URL);
-    assert.strictEqual(typeof uuid, "string");
-    assert.strictEqual(uuid.length, 36);
-    assert(uuid.match(UUID_PATTERN));
-    assert.strictEqual(version(uuid), 3);
+    expect(typeof uuid).toEqual("string");
+    expect(uuid.length).toEqual(36);
+    expect(uuid).toMatch(UUID_PATTERN);
+    expect(version(uuid)).toEqual(3);
   });
 
   it("should generate a valid v4 UUID", () => {
     const uuid = uuidv4();
-    assert.strictEqual(typeof uuid, "string");
-    assert.strictEqual(uuid.length, 36);
-    assert(uuid.match(UUID_PATTERN));
-    assert.strictEqual(version(uuid), 4);
+    expect(typeof uuid).toEqual("string");
+    expect(uuid.length).toEqual(36);
+    expect(uuid).toMatch(UUID_PATTERN);
+    expect(version(uuid)).toEqual(4);
   });
 
   it("should generate a valid v5 UUID", () => {
     const uuid = uuidv5("hello", uuidv5.DNS);
-    assert.strictEqual(typeof uuid, "string");
-    assert.strictEqual(uuid.length, 36);
-    assert(uuid.match(UUID_PATTERN));
-    assert.strictEqual(version(uuid), 5);
+    expect(typeof uuid).toEqual("string");
+    expect(uuid.length).toEqual(36);
+    expect(uuid).toMatch(UUID_PATTERN);
+    expect(version(uuid)).toEqual(5);
   });
 
   it("should parse and stringify a UUID", () => {
     const uuid = uuidv1();
     const parsedUuid = parse(uuid);
     const stringifiedUuid = stringify(parsedUuid);
-    assert.strictEqual(typeof parsedUuid, "object");
-    assert.strictEqual(typeof stringifiedUuid, "string");
-    assert.strictEqual(stringifiedUuid, uuid);
+    expect(typeof parsedUuid).toEqual("object");
+    expect(typeof stringifiedUuid).toEqual("string");
+    expect(stringifiedUuid).toEqual(uuid);
   });
 
   it("should validate a valid UUID", () => {
     const uuid = uuidv1();
-    assert.strictEqual(validate(uuid), true);
+    expect(validate(uuid)).toEqual(true);
   });
 
   it("should validate an invalid UUID", () => {
-    assert.strictEqual(validate("invalid-uuid"), false);
+    expect(validate("invalid-uuid")).toEqual(false);
   });
 
   it("should generate a NIL UUID", () => {
     const nilUuid = NIL;
-    assert.strictEqual(nilUuid, "00000000-0000-0000-0000-000000000000");
-    assert.strictEqual(version(nilUuid), 0);
+    expect(nilUuid).toEqual("00000000-0000-0000-0000-000000000000");
+    expect(version(nilUuid)).toEqual(0);
   });
 
   it("should return correct versions", () => {
@@ -76,10 +76,10 @@ describe("UUID Generation", () => {
     const v3 = uuidv3("hello", uuidv3.URL);
     const v4 = uuidv4();
     const v5 = uuidv5("hello", uuidv3.URL);
-    assert.strictEqual(version(v1), 1);
-    assert.strictEqual(version(v3), 3);
-    assert.strictEqual(version(v4), 4);
-    assert.strictEqual(version(v5), 5);
-    assert.strictEqual(version(NIL), 0);
+    expect(version(v1)).toEqual(1);
+    expect(version(v3)).toEqual(3);
+    expect(version(v4)).toEqual(4);
+    expect(version(v5)).toEqual(5);
+    expect(version(NIL)).toEqual(0);
   });
 });

@@ -2,47 +2,47 @@ import path from "path";
 
 describe("path.basename", () => {
   it("should return the last portion of a path", () => {
-    assert.strictEqual(path.basename("/foo/bar/baz.txt"), "baz.txt");
-    assert.strictEqual(path.basename("/foo/bar/baz.txt", ".txt"), "baz");
-    assert.strictEqual(path.basename("/foo/bar/baz/"), "baz");
-    assert.strictEqual(path.basename("/foo/bar/baz"), "baz");
-    assert.strictEqual(path.basename("baz.txt"), "baz.txt");
-    assert.strictEqual(path.basename("/foo/bar/"), "bar");
-    assert.strictEqual(path.basename("/foo/bar"), "bar");
-    assert.strictEqual(path.basename("/foo/"), "foo");
-    assert.strictEqual(path.basename("/foo"), "foo");
-    assert.strictEqual(path.basename("/"), "/");
-    assert.strictEqual(path.basename(""), ".");
+    expect(path.basename("/foo/bar/baz.txt")).toEqual("baz.txt")
+    expect(path.basename("/foo/bar/baz.txt", ".txt")).toEqual("baz")
+    expect(path.basename("/foo/bar/baz/")).toEqual("baz")
+    expect(path.basename("/foo/bar/baz")).toEqual("baz")
+    expect(path.basename("baz.txt")).toEqual("baz.txt")
+    expect(path.basename("/foo/bar/")).toEqual("bar")
+    expect(path.basename("/foo/bar")).toEqual("bar")
+    expect(path.basename("/foo/")).toEqual("foo")
+    expect(path.basename("/foo")).toEqual("foo")
+    expect(path.basename("/")).toEqual("/")
+    expect(path.basename("")).toEqual(".")
   });
 });
 
 describe("path.dirname", () => {
   it("should return the directory path of a given path", () => {
-    assert.strictEqual(path.dirname("/foo/bar/baz.txt"), "/foo/bar");
-    assert.strictEqual(path.dirname("/foo/bar/baz/"), "/foo/bar");
-    assert.strictEqual(path.dirname("/foo/bar/baz"), "/foo/bar");
-    assert.strictEqual(path.dirname("/foo/bar/"), "/foo");
-    assert.strictEqual(path.dirname("/foo/bar"), "/foo");
-    assert.strictEqual(path.dirname("/foo/"), "/", "3");
-    assert.strictEqual(path.dirname("/foo"), "/", "4");
-    assert.strictEqual(path.dirname("/"), "/", "5");
-    assert.strictEqual(path.dirname("baz.txt"), ".", "6");
-    assert.strictEqual(path.dirname(""), ".", "7");
+    expect(path.dirname("/foo/bar/baz.txt")).toEqual("/foo/bar")
+    expect(path.dirname("/foo/bar/baz/")).toEqual("/foo/bar")
+    expect(path.dirname("/foo/bar/baz")).toEqual("/foo/bar")
+    expect(path.dirname("/foo/bar/")).toEqual("/foo")
+    expect(path.dirname("/foo/bar")).toEqual("/foo")
+    expect(path.dirname("/foo/")).toEqual("/")
+    expect(path.dirname("/foo")).toEqual("/")
+    expect(path.dirname("/")).toEqual("/")
+    expect(path.dirname("baz.txt")).toEqual(".")
+    expect(path.dirname("")).toEqual(".")
   });
 });
 
 describe("path.extname", () => {
   it("should return the extension of a given path", () => {
-    assert.strictEqual(path.extname("/foo/bar/baz.txt"), ".txt");
-    assert.strictEqual(path.extname("/foo/bar/baz.tar.gz"), ".gz");
-    assert.strictEqual(path.extname("/foo/bar/baz."), ".");
-    assert.strictEqual(path.extname("/foo/bar/baz"), "");
-    assert.strictEqual(path.extname("baz.txt"), ".txt");
-    assert.strictEqual(path.extname("baz.tar.gz"), ".gz");
-    assert.strictEqual(path.extname("baz."), ".");
-    assert.strictEqual(path.extname("baz"), "");
-    assert.strictEqual(path.extname(".baz"), "");
-    assert.strictEqual(path.extname(""), "");
+    expect(path.extname("/foo/bar/baz.txt")).toEqual(".txt")
+    expect(path.extname("/foo/bar/baz.tar.gz")).toEqual(".gz")
+    expect(path.extname("/foo/bar/baz.")).toEqual(".")
+    expect(path.extname("/foo/bar/baz")).toEqual("")
+    expect(path.extname("baz.txt")).toEqual(".txt")
+    expect(path.extname("baz.tar.gz")).toEqual(".gz")
+    expect(path.extname("baz.")).toEqual(".")
+    expect(path.extname("baz")).toEqual("")
+    expect(path.extname(".baz")).toEqual("")
+    expect(path.extname("")).toEqual("")
   });
 });
 
@@ -66,10 +66,10 @@ describe("path.format", () => {
     const pathObj4 = {
       name: "baz",
     };
-    assert.strictEqual(path.format(pathObj1), "/foo/bar/baz.txt");
-    assert.strictEqual(path.format(pathObj2), "/foo/bar/baz.txt");
-    assert.strictEqual(path.format(pathObj3), "/baz.txt");
-    assert.strictEqual(path.format(pathObj4), "baz");
+    expect(path.format(pathObj1)).toEqual("/foo/bar/baz.txt")
+    expect(path.format(pathObj2)).toEqual("/foo/bar/baz.txt")
+    expect(path.format(pathObj3)).toEqual("/baz.txt")
+    expect(path.format(pathObj4)).toEqual("baz")
   });
 });
 
@@ -108,61 +108,44 @@ describe("path.parse", () => {
       ext: ".gz",
       name: "baz.tar",
     };
-    assert.deepStrictEqual(path.parse(pathStr1), pathObj1);
-    assert.deepStrictEqual(path.parse(pathStr2), pathObj2);
-    assert.deepStrictEqual(path.parse(pathStr3), pathObj3);
-    assert.deepStrictEqual(path.parse(pathStr4), pathObj4);
+    expect(path.parse(pathStr1)).toStrictEqual(pathObj1)
+    expect(path.parse(pathStr2)).toStrictEqual(pathObj2)
+    expect(path.parse(pathStr3)).toStrictEqual(pathObj3)
+    expect(path.parse(pathStr4)).toStrictEqual(pathObj4)
   });
 });
 
 describe("path.join", () => {
   it("should concatenate path segments and normalize the resulting path", () => {
-    assert.strictEqual(
-      path.join("/foo", "bar", "baz/asdf", "quux", ".."),
-      "/foo/bar/baz/asdf"
-    );
-    assert.strictEqual(
-      path.join("/foo", "bar", "baz", "/asdf", "quux"),
-      "/foo/bar/baz/asdf/quux"
-    );
-    assert.strictEqual(
-      path.join("/", "foo", "bar", "baz", "../asdf", "quux"),
-      "/foo/bar/asdf/quux"
-    );
+    expect(path.join("/foo", "bar", "baz/asdf", "quux", "..")).toEqual("/foo/bar/baz/asdf")
+    expect(path.join("/foo", "bar", "baz", "/asdf", "quux")).toEqual("/foo/bar/baz/asdf/quux")
+    expect(path.join("/", "foo", "bar", "baz", "../asdf", "quux")).toEqual("/foo/bar/asdf/quux")
   });
 });
 
 describe("path.resolve", () => {
   it("should resolve a sequence of paths and return an absolute path", () => {
-    assert.strictEqual(path.resolve("/foo/bar", "./baz"), "/foo/bar/baz");
-    assert.strictEqual(path.resolve("/foo/bar", "/tmp/file/"), "/tmp/file");
-    assert.strictEqual(
-      path.resolve("wwwroot", "static_files/png/", "../gif/image.gif"),
-      path.join(process.cwd(), "wwwroot", "static_files", "gif", "image.gif")
-    );
+    expect(path.resolve("/foo/bar", "./baz")).toEqual("/foo/bar/baz")
+    expect(path.resolve("/foo/bar", "/tmp/file/")).toEqual("/tmp/file")
+    
+    expect(path.resolve("wwwroot", "static_files/png/", "../gif/image.gif")).toEqual(path.join(process.cwd(), "wwwroot", "static_files", "gif", "image.gif"))
   });
 });
 
 describe("path.normalize", () => {
   it("should normalize a path string", () => {
-    assert.strictEqual(
-      path.normalize("/foo/bar//baz/asdf/quux/.."),
-      "/foo/bar/baz/asdf"
-    );
-    assert.strictEqual(
-      path.normalize("foo/bar//baz/asdf/quux/.."),
-      "foo/bar/baz/asdf"
-    );
-    assert.strictEqual(path.normalize("foo/bar/../baz/asdf"), "foo/baz/asdf");
+    expect(path.normalize("/foo/bar//baz/asdf/quux/..")).toEqual("/foo/bar/baz/asdf")
+    expect(path.normalize("foo/bar//baz/asdf/quux/..")).toEqual("foo/bar/baz/asdf")
+    expect(path.normalize("foo/bar/../baz/asdf")).toEqual("foo/baz/asdf")
   });
 });
 
 describe("path.isAbsolute", () => {
   it("should determine if a path is absolute", () => {
-    assert.strictEqual(path.isAbsolute("/foo/bar/baz"), true);
-    assert.strictEqual(path.isAbsolute("////foo/bar/baz"), true);
-    assert.strictEqual(path.isAbsolute("foo/bar/baz"), false);
-    assert.strictEqual(path.isAbsolute("/"), true);
-    assert.strictEqual(path.isAbsolute("."), false);
+    expect(path.isAbsolute("/foo/bar/baz")).toEqual(true)
+    expect(path.isAbsolute("////foo/bar/baz")).toEqual(true)
+    expect(path.isAbsolute("foo/bar/baz")).toEqual(false)
+    expect(path.isAbsolute("/")).toEqual(true)
+    expect(path.isAbsolute(".")).toEqual(false)
   });
 });
