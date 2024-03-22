@@ -25,7 +25,7 @@ Choose `Custom Runtime on Amazon Linux 2023` and package the LLRT `bootstrap` bi
 
 ### Option 2: Use a layer
 
-Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip` as a layer and add to your function
+Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or `llrt-lambda-x64.zip` as a layer and add to your function
 
 ### Option 3: Package LLRT in a container image
 
@@ -308,7 +308,7 @@ Optionally build for your local machine (Mac or Linux)
 
     make release
 
-You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
+You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x64.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
 ## Running Lambda emulator
 
