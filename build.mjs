@@ -68,6 +68,7 @@ const ES_BUILD_OPTIONS = {
     "buffer",
     "xml",
     "net",
+    "navigator",
   ],
 };
 
