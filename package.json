@@ -40,7 +40,6 @@
     "@types/jest": "29.5.12",
     "@types/readable-stream": "4.0.10",
     "@types/uuid": "9.0.8",
-    "assert": "2.1.0",
     "esbuild": "0.20.1",
     "esbuild-plugins-node-modules-polyfill": "1.6.3",
     "prettier": "3.2.5",
