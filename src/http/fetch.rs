@@ -160,7 +160,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                 let mut req = Request::builder()
                     .method(method)
                     .uri(uri)
-                    .header("user-agent", format!("llrt {}", VERSION))
+                    .header("user-agent", format!("llrt/{}", VERSION))
                     .header("accept", "*/*");
 
                 if let Some(headers) = headers {
