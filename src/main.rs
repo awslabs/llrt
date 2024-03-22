@@ -24,6 +24,7 @@ mod http;
 mod json;
 mod minimal_tracer;
 mod module;
+mod navigator;
 mod net;
 mod number;
 mod os;
