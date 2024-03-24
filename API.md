@@ -36,6 +36,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomFillSync](https://nodejs.org/api/crypto.html#cryptorandomfillsyncbuffer-offset-size)
 
+[randomInt](https://nodejs.org/api/crypto.html#cryptorandomintmin-max-callback)
+
 [randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 
 ## events

@@ -765,6 +765,7 @@ dependencies = [
  "phf",
  "phf_codegen",
  "quick-xml",
+ "rand",
  "relative-path",
  "ring",
  "rquickjs",
