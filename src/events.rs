@@ -487,7 +487,7 @@ impl<'js> AbortSignal<'js> {
 
     #[qjs(static)]
     pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
-        let timeout_exception = Exception::from_value("TimeoutError".into_js(&ctx.clone())?)?; // TODO: Timeout DOMException
+        let timeout_exception = Exception::from_value("TimeoutError".into_js(&ctx)?)?; // TODO: Timeout DOMException
         let signal = AbortSignal {
             aborted: false,
             reason: None,
