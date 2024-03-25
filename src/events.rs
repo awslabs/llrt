@@ -3,7 +3,6 @@
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
 use std::{
-    borrow::BorrowMut,
     sync::{Arc, RwLock},
     time::Duration,
 };
@@ -12,8 +11,8 @@ use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    CatchResultExt, Class, Ctx, Function, IntoJs, Object, Result, String as JsString, Symbol,
-    Value,
+    CatchResultExt, Class, Ctx, Exception, Function, IntoJs, Object, Result, String as JsString,
+    Symbol, Value,
 };
 
 use tracing::trace;
@@ -408,6 +407,7 @@ impl<'js> AbortController<'js> {
     }
 
     pub fn abort(
+        ctx: Ctx<'js>,
         this: This<Class<'js, Self>>,
         reason: Opt<Value<'js>>,
     ) -> Result<Class<'js, Self>> {
@@ -415,8 +415,12 @@ impl<'js> AbortController<'js> {
         if reason.0.is_some() {
             this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
         } else {
-            // TODO store DOMException as reason
-            this.0.borrow_mut().signal.borrow_mut().set_reason(reason)?;
+            let abort_exception = Exception::from_value("AbortError".into_js(&ctx)?)?; // TODO: AbortError DOMException
+            this.0
+                .borrow_mut()
+                .signal
+                .borrow_mut()
+                .set_reason(Opt(Some(abort_exception.into_value())))?;
         }
 
         Ok(this.0)
@@ -483,6 +487,7 @@ impl<'js> AbortSignal<'js> {
 
     #[qjs(static)]
     pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
+        let timeout_exception = Exception::from_value("TimeoutError".into_js(&ctx.clone())?)?; // TODO: Timeout DOMException
         let signal = AbortSignal {
             aborted: false,
             reason: None,
@@ -493,9 +498,9 @@ impl<'js> AbortSignal<'js> {
 
         ctx.spawn_exit(async move {
             tokio::time::sleep(Duration::from_millis(milliseconds)).await;
-            let borrow = signal_instance.borrow_mut();
+            let mut borrow = signal_instance.borrow_mut();
             borrow.set_aborted(true);
-            borrow.set_reason(Opt(None)); // TODO: TimeoutError DOMException
+            borrow.set_reason(Opt(Some(timeout_exception.into_value())))?;
             Ok(())
         })?;
 
