@@ -23,6 +23,9 @@ This is document explains who the maintainers are (see below), what they do in t
 | --------------- | --------------------------------------------------- | ----------- |
 | Richard Davison | [richarddavison](https://github.com/richarddavison) | Amazon      |
 | Nik Pinski      | [nikp](https://github.com/nikp)                     | Amazon      |
+| David Calavera  | [calavera](https://github.com/calavera)             | Amazon      |
+| Harold Sun      | [bnusunny](https://github.com/bnusunny)             | Amazon      |
+| Iain Maitland   | [imaitland](https://github.com/imaitland)           | Amazon      |
 
 ## Labels
 

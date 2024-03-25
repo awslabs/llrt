@@ -25,7 +25,7 @@ Choose `Custom Runtime on Amazon Linux 2023` and package the LLRT `bootstrap` bi
 
 ### Option 2: Use a layer
 
-Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip` as a layer and add to your function
+Choose `Custom Runtime on Amazon Linux 2023`, upload `llrt-lambda-arm64.zip` or `llrt-lambda-x64.zip` as a layer and add to your function
 
 ### Option 3: Package LLRT in a container image
 
@@ -87,7 +87,7 @@ For more information about the E2E Tests and how to run them, see [here](tests/e
 
 ### Test runner
 
-Test runner uses a lightweight Jest-like API and supports Jest/Chai assertions and the [assert module](https://nodejs.org/api/assert.html) from Node.js for test assertions. For examples on how to implement tests for LLRT see the `/tests` folder of this repository.
+Test runner uses a lightweight Jest-like API and supports Jest/Chai assertions. For examples on how to implement tests for LLRT see the `/tests` folder of this repository.
 
 To run tests, execute the `llrt test` command. LLRT scans the current directory and sub-directories for files that ends with `*.test.js` or `*.test.mjs`. You can also provide a specific test directory to scan by using the `llrt test -d <directory>` option.
 
@@ -308,7 +308,7 @@ Optionally build for your local machine (Mac or Linux)
 
     make release
 
-You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x86.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
+You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x64.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
 ## Running Lambda emulator
 

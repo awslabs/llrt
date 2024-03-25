@@ -1,12 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import assert from "assert";
 import * as chai from "chai";
 import { JestChaiExpect } from "./expect/jest-expect";
 import { JestAsymmetricMatchers } from "./expect/jest-asymmetric-matchers";
 
 const GLOBAL = globalThis as any;
-GLOBAL.assert = assert;
 const START = Date.now();
 const SUITE_LOAD_PROMISES: (() => Promise<void>)[] = [];
 const DEFAULT_TIMEOUT_MS = 5000;
