@@ -14,8 +14,8 @@ it("should use custom EventEmitter", () => {
   const myEmitter2 = new MyEmitter();
 
   myEmitter.once("event", function (a, b) {
-    expect(a).toEqual("a")
-    expect(b).toEqual("b")
+    expect(a).toEqual("a");
+    expect(b).toEqual("b");
     // @ts-ignore
     expect(this instanceof MyEmitter).toBeTruthy();
     // @ts-ignore
@@ -34,8 +34,8 @@ it("should use custom EventEmitter", () => {
   myEmitter.emit(symbolB);
   myEmitter.emit(symbolC);
 
-  expect(called).toEqual(4)
-  expect(myEmitter.eventNames()).toEqual([symbolA, symbolB, symbolC])
+  expect(called).toEqual(4);
+  expect(myEmitter.eventNames()).toEqual([symbolA, symbolB, symbolC]);
 
   myEmitter.off(symbolB, callback);
 
@@ -44,8 +44,8 @@ it("should use custom EventEmitter", () => {
   myEmitter.emit(symbolB);
   myEmitter.emit(symbolC);
 
-  expect(called).toEqual(6)
-  expect(myEmitter.eventNames()).toEqual([symbolA, symbolC])
+  expect(called).toEqual(6);
+  expect(myEmitter.eventNames()).toEqual([symbolA, symbolC]);
 });
 
 it("should prepend event listeners", async () => {
@@ -106,6 +106,6 @@ it("should set abort reason on AbortSignal", () => {
 
   abortController.abort("cancelled");
 
-  assert.equal(signal.aborted, true);
-  assert.equal(signal.reason, "cancelled");  
+  expect(signal.aborted).toEqual(true);
+  expect(signal.reason).toEqual("cancelled");
 });
