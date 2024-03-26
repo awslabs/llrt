@@ -6,8 +6,8 @@ mod fetch;
 mod headers;
 mod request;
 mod response;
-mod url;
-mod url_search_params;
+pub mod url;
+pub mod url_search_params;
 
 use rquickjs::{Class, Ctx, Result};
 
