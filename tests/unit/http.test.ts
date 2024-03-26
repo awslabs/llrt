@@ -1,28 +1,80 @@
+import * as url from "url";
+
+describe("url module import syntax works", () => {
+  it("global URL and imported URL are equal", () => {
+    const testUrl = "https://www.example.com";
+    const moduleUrl = new url.URL(testUrl);
+    const globalUrl = new URL(testUrl);
+    expect(moduleUrl).toEqual(globalUrl);
+  });
+  it("global URLSearchParams and imported URLSearchParams are equal", () => {
+    const paramsString = "topic=api&a=1&a=2&a=3";
+    const moduleSearchParams = new url.URLSearchParams(paramsString);
+    const globalSearchParams = new URLSearchParams(paramsString);
+    expect(moduleSearchParams).toEqual(globalSearchParams);
+  });
+  describe("import { URL } from 'url';", () => {
+    it("should parse a url hostname", () => {
+      const testUrl = new url.URL("https://www.example.com");
+      expect(testUrl.protocol).toEqual("https:");
+      expect(testUrl.host).toEqual("www.example.com");
+      expect(testUrl.hostname).toEqual("www.example.com");
+    });
+    it("toString method works", () => {
+      const testUrl = new url.URL("/base", "https://www.example.com");
+      expect(testUrl.toString()).toEqual("https://www.example.com/base");
+    });
+    it("canParse method works", () => {
+      const validCanParse = url.URL.canParse("https://www.example.com");
+      const invalidCanParse = url.URL.canParse("not_valid");
+      expect(validCanParse).toEqual(true);
+      expect(invalidCanParse).toEqual(false);
+      expect(url.URL.canParse("/foo", "https://example.org/")).toEqual(true);
+    });
+  });
+
+  describe("import { URLSearchParams } from 'url';", () => {
+    it("supports URLSearchParams basic API", () => {
+      const paramsString = "topic=api&a=1&a=2&a=3";
+      const searchParams = new url.URLSearchParams(paramsString);
+      searchParams.append("foo", "bar");
+      expect(searchParams.has("topic")).toBeTruthy();
+      expect(searchParams.has("foo")).toBeTruthy();
+      searchParams.delete("foo");
+      expect(searchParams.has("foo")).toBeFalsy();
+      expect(searchParams.get("topic")).toEqual("api");
+      expect(searchParams.getAll("a")).toEqual(["1", "2", "3"]);
+      searchParams.set("topic", "node");
+      expect(searchParams.get("topic")).toEqual("node");
+    });
+  });
+});
+
 describe("Headers", () => {
   it("should construct a new Headers object with the provided headers", () => {
     const headers = { "content-type": "application/json" };
     const h = new Headers(headers);
-    expect(h.get("Content-Type")).toEqual(headers["content-type"])
+    expect(h.get("Content-Type")).toEqual(headers["content-type"]);
   });
 
   it("should add headers to the Headers object", () => {
     const h = new Headers();
     h.set("Content-Type", "application/json");
-    expect(h.get("Content-Type")).toEqual("application/json")
+    expect(h.get("Content-Type")).toEqual("application/json");
   });
 
   it("should overwrite headers in the Headers object", () => {
     const headers = { "Content-Type": "application/json" };
     const h = new Headers(headers);
     h.set("Content-Type", "text/plain");
-    expect(h.get("Content-Type")).toEqual("text/plain")
+    expect(h.get("Content-Type")).toEqual("text/plain");
   });
 
   it("should delete headers from the Headers object", () => {
     const headers = { "Content-Type": "application/json" };
     const h = new Headers(headers);
     h.delete("Content-Type");
-    expect(h.get("Content-Type")).toEqual(undefined)
+    expect(h.get("Content-Type")).toEqual(undefined);
   });
 
   it("should return an iterator over the headers", () => {
@@ -33,11 +85,11 @@ describe("Headers", () => {
     const h = new Headers(headers);
     const iterator = h.entries();
     let next = iterator.next();
-    expect(next.value).toStrictEqual(["authorization", "Bearer 1234"])
+    expect(next.value).toStrictEqual(["authorization", "Bearer 1234"]);
     next = iterator.next();
-    expect(next.value).toStrictEqual(["content-type", "application/json"])
+    expect(next.value).toStrictEqual(["content-type", "application/json"]);
     next = iterator.next();
-    expect(next.value).toStrictEqual(undefined)
+    expect(next.value).toStrictEqual(undefined);
   });
 
   it("should iterate over the headers with forEach", () => {
@@ -46,8 +98,8 @@ describe("Headers", () => {
     };
     const h = new Headers(headers);
     h.forEach((value, key) => {
-      expect(key).toStrictEqual("content-type")
-      expect(value).toStrictEqual("application/json")
+      expect(key).toStrictEqual("content-type");
+      expect(value).toStrictEqual("application/json");
     });
   });
 });
@@ -56,36 +108,36 @@ describe("Request", () => {
   it("should construct a new Request object with the provided URL", () => {
     const url = "https://example.com";
     const request = new Request(url);
-    expect(request.url).toEqual(url)
+    expect(request.url).toEqual(url);
   });
 
   it("should set the method to GET by default", () => {
     const request = new Request("https://example.com");
-    expect(request.method).toEqual("GET")
+    expect(request.method).toEqual("GET");
   });
 
   it("should set the method to the provided value", () => {
     const method = "POST";
     const request = new Request("https://example.com", { method });
-    expect(request.method).toEqual(method)
+    expect(request.method).toEqual(method);
   });
 
   it("should set the headers to an empty object by default", () => {
     const request = new Request("https://example.com");
     const headers = new Headers();
-    expect(request.headers.entries()).toEqual(headers.entries())
+    expect(request.headers.entries()).toEqual(headers.entries());
   });
 
   it("should set the headers to the provided value", () => {
     const headers = { "Content-Type": "application/json" };
     const headerValue = new Headers(headers);
     const request = new Request("https://example.com", { headers });
-    expect(request.headers).toStrictEqual(headerValue)
+    expect(request.headers).toStrictEqual(headerValue);
   });
 
   it("should set the body to null by default", () => {
     const request = new Request("https://example.com");
-    expect(request.body).toEqual(null)
+    expect(request.body).toEqual(null);
   });
 
   it("should set the body to the provided value", () => {
@@ -94,7 +146,7 @@ describe("Request", () => {
       body,
       method: "POST",
     });
-    expect(request.body).toStrictEqual(body)
+    expect(request.body).toStrictEqual(body);
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {
@@ -103,29 +155,31 @@ describe("Request", () => {
       body: blob,
       method: "POST",
     });
-    expect(request.body).toStrictEqual(new Uint8Array(await blob.arrayBuffer()))
+    expect(request.body).toStrictEqual(
+      new Uint8Array(await blob.arrayBuffer())
+    );
   });
 
   it("should accept another request object as argument", () => {
     const oldRequest = new Request("https://example.com", {
       headers: { From: "webmaster@example.org" },
     });
-    expect(oldRequest.headers.get("From")).toEqual("webmaster@example.org")
+    expect(oldRequest.headers.get("From")).toEqual("webmaster@example.org");
     const newRequest = new Request(oldRequest, {
       headers: { From: "developer@example.org" },
     });
-    expect(newRequest.url).toEqual("https://example.com")
-    expect(newRequest.headers.get("From")).toEqual("developer@example.org")
+    expect(newRequest.url).toEqual("https://example.com");
+    expect(newRequest.headers.get("From")).toEqual("developer@example.org");
   });
 });
 
 describe("Response class", () => {
   it("should construct a new Response object with default values", () => {
     const response = new Response();
-    expect(response.status).toEqual(200)
-    expect(response.statusText).toEqual("OK")
+    expect(response.status).toEqual(200);
+    expect(response.statusText).toEqual("OK");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(null)
+    expect(response.body).toEqual(null);
   });
 
   it("should set the status and statusText to the provided values", () => {
@@ -133,28 +187,30 @@ describe("Response class", () => {
       status: 404,
       statusText: "Not Found",
     });
-    expect(response.status).toEqual(404)
-    expect(response.statusText).toEqual("Not Found")
+    expect(response.status).toEqual(404);
+    expect(response.statusText).toEqual("Not Found");
   });
 
   it("should set the headers to the provided value", () => {
     const headers = new Headers({ "Content-Type": "application/json" });
     const response = new Response(null, { headers });
 
-    expect(response.headers.get("Content-Type")).toStrictEqual("application/json")
+    expect(response.headers.get("Content-Type")).toStrictEqual(
+      "application/json"
+    );
   });
 
   it("should set the body to the provided value", async () => {
     const body = "Hello, world!";
     const response = new Response(body);
-    expect(await response.text()).toStrictEqual(body)
+    expect(await response.text()).toStrictEqual(body);
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {
     const blob = new Blob(["Hello, world!"], { type: "text/plain" });
     const response = new Response(blob);
 
-    expect(await response.text()).toEqual("Hello, world!")
+    expect(await response.text()).toEqual("Hello, world!");
   });
 
   it("should set the body to a JSON object if a JSON object is provided", () => {
@@ -163,21 +219,21 @@ describe("Response class", () => {
       headers: { "Content-Type": "application/json" },
     });
     return response.json().then((parsedJson) => {
-      expect(parsedJson).toStrictEqual(jsonBody)
+      expect(parsedJson).toStrictEqual(jsonBody);
     });
   });
 
   it("should clone the response with the clone() method", () => {
     const response = new Response("Original response");
     const clonedResponse = response.clone();
-    expect(response.body).toEqual(clonedResponse.body)
-    expect(response.url).toEqual(clonedResponse.url)
-    expect(response.status).toEqual(clonedResponse.status)
-    expect(response.statusText).toEqual(clonedResponse.statusText)
-    expect(response.headers).toEqual(clonedResponse.headers)
-    expect(response.type).toEqual(clonedResponse.type)
-    expect(response.ok).toEqual(clonedResponse.ok)
-    expect(response.bodyUsed).toEqual(clonedResponse.bodyUsed)
+    expect(response.body).toEqual(clonedResponse.body);
+    expect(response.url).toEqual(clonedResponse.url);
+    expect(response.status).toEqual(clonedResponse.status);
+    expect(response.statusText).toEqual(clonedResponse.statusText);
+    expect(response.headers).toEqual(clonedResponse.headers);
+    expect(response.type).toEqual(clonedResponse.type);
+    expect(response.ok).toEqual(clonedResponse.ok);
+    expect(response.bodyUsed).toEqual(clonedResponse.bodyUsed);
   });
 
   it("should create a Response object with an ok status for status codes in the range 200-299", () => {
@@ -194,20 +250,20 @@ describe("Response class", () => {
 describe("URL class", () => {
   it("should parse a valid URL", () => {
     const url = new URL("https://www.example.com");
-    expect(url.protocol).toEqual("https:")
-    expect(url.hostname).toEqual("www.example.com")
+    expect(url.protocol).toEqual("https:");
+    expect(url.hostname).toEqual("www.example.com");
   });
 
   it("should create a copy of a valid URL", () => {
     const url: any = new URL("https://www.example.com");
     const url2 = new URL(url);
-    expect(url).toEqual(url2)
-    expect(url).not.toBe(url2)
+    expect(url).toEqual(url2);
+    expect(url).not.toBe(url2);
   });
 
   it("should to append base to a url", () => {
     const url = new URL("/base", "https://www.example.com");
-    expect(url.toString()).toEqual("https://www.example.com/base")
+    expect(url.toString()).toEqual("https://www.example.com/base");
   });
 
   it("should throw an error for an invalid URL", () => {
@@ -218,40 +274,45 @@ describe("URL class", () => {
 
   it("should return the URL as a string", () => {
     const url = new URL("https://www.example.com");
-    expect(url.toString()).toEqual("https://www.example.com/")
+    expect(url.toString()).toEqual("https://www.example.com/");
   });
 
   it("should parse query parameters", () => {
     const url = new URL("https://www.example.com/?foo=bar&baz=qux");
-    expect(url.searchParams.get("foo")).toEqual("bar")
-    expect(url.searchParams.get("baz")).toEqual("qux")
+    expect(url.searchParams.get("foo")).toEqual("bar");
+    expect(url.searchParams.get("baz")).toEqual("qux");
   });
 
   it("should be able to set and get port", () => {
     const url: any = new URL("https://www.example.com");
     url.port = "1234";
-    expect(url.toString()).toEqual("https://www.example.com:1234/")
+    expect(url.toString()).toEqual("https://www.example.com:1234/");
     url.port = 5678;
-    expect(url.toString()).toEqual("https://www.example.com:5678/")
+    expect(url.toString()).toEqual("https://www.example.com:5678/");
   });
 
   it("should modify query parameters", () => {
     const url = new URL("https://www.example.com/?foo=bar&baz=qux");
     url.searchParams.set("foo", "new-value");
-    expect(url.toString()).toEqual("https://www.example.com/?baz=qux&foo=new-value")
+    expect(url.toString()).toEqual(
+      "https://www.example.com/?baz=qux&foo=new-value"
+    );
   });
   it("should parse username and password", () => {
     const url = new URL(
       "https://anonymous:flabada@developer.mozilla.org/en-US/docs/Web/API/URL/username"
     );
-    expect(url.username).toEqual("anonymous")
-    expect(url.password).toEqual("flabada")
+    expect(url.username).toEqual("anonymous");
+    expect(url.password).toEqual("flabada");
   });
-  it("should provide can_parse util", () => {
-    const valid_url = "https://www.example.com/";
-    const invalid_url = "not_a_valid_url";
-    expect(URL.canParse(valid_url)).toEqual(true)
-    expect(URL.canParse(invalid_url)).toEqual(false)
+  it("should provide canParse util", () => {
+    const validUrl = "https://www.example.com/";
+    const invalidUrl = "not_a_valid_url";
+    expect(URL.canParse(validUrl)).toEqual(true);
+    expect(URL.canParse(invalidUrl)).toEqual(false);
+  });
+  it("canParse works for relative urls", () => {
+    expect(URL.canParse("/foo", "https://example.org/")).toEqual(true);
   });
 });
 
@@ -279,40 +340,42 @@ describe("URLSearchParams class", () => {
     const searchParams = new URLSearchParams(paramsString);
     // TODO FB There is a bug here, searchParams.get("foo") returns undefined, it should return null
     // expect(searchParams.get("foo")).toBeNull()
-    expect(searchParams.get("foo")).toBeFalsy()
+    expect(searchParams.get("foo")).toBeFalsy();
   });
 
   it("should return an array of all values of the parameter if it exists", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
-    expect(searchParams.getAll("a")).toEqual(["1", "2", "3"])
+    expect(searchParams.getAll("a")).toEqual(["1", "2", "3"]);
   });
 
   it("should return an empty array if the parameter doesn't exist", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
-    expect(searchParams.getAll("foo")).toEqual([])
+    expect(searchParams.getAll("foo")).toEqual([]);
   });
 
   it("should add the parameter to the end of the query string", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
     searchParams.append("topic", "webdev");
-    expect(searchParams.toString()).toEqual("a=1&a=2&a=3&topic=api&topic=webdev")
+    expect(searchParams.toString()).toEqual(
+      "a=1&a=2&a=3&topic=api&topic=webdev"
+    );
   });
 
   it("should replace all values of the parameter with the given value", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
     searchParams.set("topic", "More webdev");
-    expect(searchParams.toString()).toEqual("a=1&a=2&a=3&topic=More+webdev")
+    expect(searchParams.toString()).toEqual("a=1&a=2&a=3&topic=More+webdev");
   });
 
   it("should remove the parameter from the query string", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
     searchParams.delete("topic");
-    expect(searchParams.toString()).toEqual("a=1&a=2&a=3")
+    expect(searchParams.toString()).toEqual("a=1&a=2&a=3");
   });
 
   it("should iterate over all parameters in the query string", () => {
@@ -337,24 +400,24 @@ describe("Blob class", () => {
     const blobOptions = { type: "text/plain" };
     const blob = new Blob(blobData, blobOptions);
 
-    expect(blob.size).toEqual(blobData[0].length)
-    expect(blob.type).toEqual(blobOptions.type)
+    expect(blob.size).toEqual(blobData[0].length);
+    expect(blob.type).toEqual(blobOptions.type);
   });
 
   it("should create a Blob with default type if options.type is not provided", () => {
     const blobData = ["Hello, world!"];
     const blob = new Blob(blobData);
 
-    expect(blob.size).toEqual(blobData[0].length)
-    expect(blob.type).toEqual("")
+    expect(blob.size).toEqual(blobData[0].length);
+    expect(blob.type).toEqual("");
   });
 
   it("should create a Blob with an empty array if no data is provided", () => {
     // @ts-ignore
     const blob = new Blob();
 
-    expect(blob.size).toEqual(0)
-    expect(blob.type).toEqual("")
+    expect(blob.size).toEqual(0);
+    expect(blob.type).toEqual("");
   });
 
   it("should handle line endings properly", async () => {
@@ -366,10 +429,10 @@ describe("Blob class", () => {
       endings: "native",
     });
 
-    expect(blob.type).toEqual("")
+    expect(blob.type).toEqual("");
     if (process.platform != "win32") {
       expect(blob.size < text.length).toBeTruthy();
-      expect(await blob.text()).toEqual(text.replace(/\r\n/g, "\n"))
+      expect(await blob.text()).toEqual(text.replace(/\r\n/g, "\n"));
     }
   });
 
@@ -378,7 +441,7 @@ describe("Blob class", () => {
     const blob = new Blob(blobData, { type: "text/plain" });
 
     const arrayBuffer = await blob.arrayBuffer();
-    
+
     expect(arrayBuffer).toBeInstanceOf(ArrayBuffer);
   });
 
@@ -389,7 +452,7 @@ describe("Blob class", () => {
     const slicedBlob = blob.slice(0, 5, "text/plain");
 
     expect(slicedBlob instanceof Blob).toBeTruthy();
-    expect(slicedBlob.size).toEqual(5)
-    expect(slicedBlob.type).toEqual("text/plain")
+    expect(slicedBlob.size).toEqual(5);
+    expect(slicedBlob.type).toEqual("text/plain");
   });
 });
