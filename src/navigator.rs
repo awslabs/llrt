@@ -10,7 +10,7 @@ use crate::module::export_default;
 use crate::VERSION;
 
 fn get_user_agent() -> String {
-    format!("llrt/{}", VERSION)
+    format!("llrt {}", VERSION)
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
