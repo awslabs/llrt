@@ -663,12 +663,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
     let js_bootstrap = Object::new(ctx.clone())?;
     js_bootstrap.set(
-        "setRequestId",
-        Func::from(|id| {
-            console::LAMBDA_REQUEST_ID.lock().unwrap().replace(id);
-        }),
-    )?;
-    js_bootstrap.set(
         "moduleExport",
         Func::from(move |ctx, obj, prop, value| {
             let ExportArgs(_ctx, _, _, value) = ExportArgs(ctx, obj, prop, value);

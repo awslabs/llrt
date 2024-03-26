@@ -17,10 +17,12 @@ use hyper_util::{
     client::legacy::Client,
     rt::{TokioExecutor, TokioTimer},
 };
+use once_cell::sync::Lazy;
 use rquickjs::atom::PredefinedAtom;
 use rquickjs::promise::Promise;
 use rquickjs::{prelude::Func, Array, CatchResultExt, Ctx, Function, Module, Object, Value};
 use rquickjs::{CaughtError, IntoJs, ThrowResultExt};
+use std::sync::Mutex;
 use zstd::zstd_safe::WriteBuf;
 
 use std::env;
@@ -47,6 +49,7 @@ static INVOKED_FUNCTION_ARN: HeaderName =
     HeaderName::from_static("lambda-runtime-invoked-function-arn");
 static CLIENT_CONTEXT: HeaderName = HeaderName::from_static("lambda-runtime-client-context");
 static COGNITO_IDENTITY: HeaderName = HeaderName::from_static("lambda-runtime-cognito-identity");
+pub static LAMBDA_REQUEST_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
 type HyperClient<T> =
     Client<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>, T>;
@@ -247,10 +250,7 @@ async fn start_process_events<'js>(
     base_url: &str,
     ctx: &Ctx<'js>,
 ) -> rquickjs::Result<()> {
-    let exit_iterations = match get_env(_EXIT_ITERATIONS) {
-        Ok(iterations) => iterations.parse::<i64>().unwrap_or(-1),
-        Err(_) => -1,
-    };
+    let exit_iterations: Option<i64> = get_env(_EXIT_ITERATIONS).ok().and_then(|i| i.parse().ok());
     let mut iterations = 0;
 
     let client_empty_body = get_hyper_client::<Empty<Bytes>>();
@@ -294,7 +294,7 @@ async fn start_process_events<'js>(
                 }
             }
         }
-        if exit_iterations > -1 {
+        if let Some(exit_iterations) = exit_iterations {
             if iterations >= exit_iterations - 1 {
                 println!("Done in {} ms", now.elapsed().as_millis());
                 break Ok(());
@@ -321,14 +321,13 @@ async fn process_event<'js>(
     let NextInvocationResponse { event, context } =
         next_invocation(client_empty_body, next_invocation_uri.as_str(), ctx).await?;
     if request_id.is_none() {
-        *request_id = Some(context.aws_request_id.clone())
+        *request_id = Some(context.aws_request_id.clone());
+        LAMBDA_REQUEST_ID
+            .lock()
+            .unwrap()
+            .replace(context.aws_request_id.clone());
     };
     let js_context = convert_into_js_value(ctx.clone(), context.clone())?;
-
-    let js_bootstrap = ctx.globals().get::<_, Object>("__bootstrap")?;
-    let js_set_request_id = js_bootstrap.get::<_, Function>("setRequestId")?;
-    let _ = js_set_request_id.call::<_, ()>(());
-
     let promise =
         handler.call::<_, Promise<Value>>((event.clone(), js_context.as_value().clone()))?;
     let result: Value = promise.await.catch(ctx).throw(ctx)?;
