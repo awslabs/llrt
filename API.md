@@ -37,6 +37,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomFillSync](https://nodejs.org/api/crypto.html#cryptorandomfillsyncbuffer-offset-size)
 
+[randomInt](https://nodejs.org/api/crypto.html#cryptorandomintmin-max-callback)
+
 [randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 
 ## events
@@ -153,6 +155,78 @@ _Also available globally_
 [clearInterval](https://nodejs.org/api/timers.html#clearintervaltimeout)
 
 [clearTimeout](https://nodejs.org/api/timers.html#cleartimeouttimeout)
+
+## url
+```typescript
+export class URL {
+  constructor(input: string, base?: string | URL);
+
+  hash: string;
+  host: string;
+  hostname: string;
+  href: string;
+  origin: string;
+  password: string;
+  pathname: string;
+  port: string;
+  protocol: string;
+  search: string;
+  searchParams: URLSearchParams;
+  username: string;
+
+  canParse(input: string, base?: string): boolean; 
+  toString(): string;
+}
+```
+
+### TODO, URL see tracking [ticket](https://github.com/awslabs/llrt/issues/303):
+
+```typescript
+// Additional utilities in the URL module
+export function domainToASCII(domain: string): string;
+
+export function domainToUnicode(domain: string): string;
+
+export function fileURLToPath(url: string | URL): string;
+
+export function pathToFileURL(path: string): URL;
+
+export function urlToHttpOptions(url: URL): {
+  protocol?: string;
+  hostname?: string;
+  port?: string;
+  path?: string;
+};
+```
+
+## URLSearchParams
+```typescript
+export class URLSearchParams {
+  constructor(init?: string | string[][] | Record<string, string> | URLSearchParams);
+
+  // Methods
+  append(name: string, value: string): void;
+  delete(name: string): void;
+  get(name: string): string | null;
+  getAll(name: string): string[];
+  has(name: string): boolean;
+  set(name: string, value: string): void;
+  sort(): void;
+
+  [Symbol.iterator](): IterableIterator<[string, string]>;
+  entries(): IterableIterator<[string, string]>;
+  values(): IterableIterator<string>;
+
+  toString(): string;
+}
+```
+
+
+### TODO, URLSearchParams see tracking [ticket](https://github.com/awslabs/llrt/issues/307):
+
+```typescript
+URLSearchParams.sort(): void;
+```
 
 ## util
 

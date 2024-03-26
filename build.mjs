@@ -52,8 +52,8 @@ const ES_BUILD_OPTIONS = {
   platform: "browser",
   format: "esm",
   external: [
-    "node:console",
     "console",
+    "node:console",
     "crypto",
     "uuid",
     "hex",
@@ -69,6 +69,7 @@ const ES_BUILD_OPTIONS = {
     "xml",
     "net",
     "navigator",
+    "url",
   ],
 };
 
@@ -571,7 +572,7 @@ async function buildLibrary() {
   await esbuild.build({
     ...defaultLibEsBuildOption,
     entryPoints: testEntryPoints,
-    external: [...ES_BUILD_OPTIONS.external, "@aws-sdk", "@smithy", "uuid"],
+    external: [...ES_BUILD_OPTIONS.external, "@aws-sdk", "@smithy"],
   });
 }
 

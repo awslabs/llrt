@@ -34,6 +34,7 @@ mod security;
 mod stream;
 mod test_utils;
 mod timers;
+mod url;
 mod utils;
 mod uuid;
 mod vm;

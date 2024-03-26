@@ -87,7 +87,7 @@ For more information about the E2E Tests and how to run them, see [here](tests/e
 
 ### Test runner
 
-Test runner uses a lightweight Jest-like API and supports Jest/Chai assertions and the [assert module](https://nodejs.org/api/assert.html) from Node.js for test assertions. For examples on how to implement tests for LLRT see the `/tests` folder of this repository.
+Test runner uses a lightweight Jest-like API and supports Jest/Chai assertions. For examples on how to implement tests for LLRT see the `/tests` folder of this repository.
 
 To run tests, execute the `llrt test` command. LLRT scans the current directory and sub-directories for files that ends with `*.test.js` or `*.test.mjs`. You can also provide a specific test directory to scan by using the `llrt test -d <directory>` option.
 

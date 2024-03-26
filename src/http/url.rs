@@ -58,14 +58,31 @@ impl<'js> URL<'js> {
     }
 
     #[qjs(static)]
-    pub fn can_parse(input: Value<'js>) -> bool {
-        if input.is_string() {
-            match input.get::<String>() {
-                Ok(string_val) => Url::parse(&string_val).is_ok(),
-                Err(_) => false,
+    pub fn can_parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> bool {
+        if let Some(base) = base.0 {
+            let base_string = match get_string(&ctx, base) {
+                Ok(s) => s,
+                Err(_) => return false,
+            };
+            let path_string = match get_string(&ctx, input) {
+                Ok(s) => s,
+                Err(_) => return false,
+            };
+
+            match base_string.parse::<Url>() {
+                Ok(base_url) => base_url.join(&path_string).is_ok(),
+                Err(_) => false, // Base URL parsing failed
             }
         } else {
-            false
+            // Handle the case where base is not provided
+            if input.is_string() {
+                match input.get::<String>() {
+                    Ok(string_val) => Url::parse(&string_val).is_ok(),
+                    Err(_) => false,
+                }
+            } else {
+                false
+            }
         }
     }
 
