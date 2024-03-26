@@ -6,6 +6,8 @@ mod sha_hash;
 use std::slice;
 
 use once_cell::sync::Lazy;
+use rand::prelude::ThreadRng;
+use rand::Rng;
 use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{
     function::{Constructor, Opt},
@@ -60,6 +62,16 @@ pub fn random_byte_array(length: usize) -> Vec<u8> {
 fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
     let random_bytes = random_byte_array(length);
     Buffer(random_bytes).into_js(&ctx)
+}
+
+fn get_random_int(_ctx: Ctx, first: i64, second: Opt<i64>) -> Result<i64> {
+    let mut rng = ThreadRng::default();
+    let random_number = match second.0 {
+        Some(max) => rng.gen_range(first..max),
+        None => rng.gen_range(0..first),
+    };
+
+    Ok(random_number)
 }
 
 fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
@@ -128,6 +140,7 @@ impl ModuleDef for CryptoModule {
         declare.declare("Md5")?;
         declare.declare("randomBytes")?;
         declare.declare("randomUUID")?;
+        declare.declare("randomInt")?;
         declare.declare("randomFillSync")?;
         declare.declare("randomFill")?;
 
@@ -166,6 +179,7 @@ impl ModuleDef for CryptoModule {
             default.set("createHash", Func::from(Hash::new))?;
             default.set("createHmac", Func::from(Hmac::new))?;
             default.set("randomBytes", Func::from(get_random_bytes))?;
+            default.set("randomInt", Func::from(get_random_int))?;
             default.set("randomUUID", Func::from(uuidv4))?;
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;

@@ -51,7 +51,7 @@ describe("random", () => {
     crypto.randomFillSync(uint8Array);
     expect(uint8Array.length).toEqual(16);
     for (const byte of uint8Array) {
-      expect(byte >= 0 && byte <= 255).toBeTruthy()
+      expect(byte >= 0 && byte <= 255).toBeTruthy();
     }
   });
 
@@ -62,7 +62,9 @@ describe("random", () => {
       expect(buffer.buffer).toEqual(dataView.buffer);
       expect(dataView.byteLength).toEqual(32);
       for (let i = 0; i < 32; i++) {
-        expect(dataView.getUint8(i) >= 0 && dataView.getUint8(i) <= 255).toBeTruthy()
+        expect(
+          dataView.getUint8(i) >= 0 && dataView.getUint8(i) <= 255
+        ).toBeTruthy();
       }
       done();
     });
@@ -80,5 +82,25 @@ describe("random", () => {
     const buffer = crypto.randomBytes(16);
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toEqual(16);
+  });
+
+  it("should generate a random int using randomInt", () => {
+    // Do it 10 times, to make sure we respect min and max
+    for (const number of [...Array(10).keys()]) {
+      const randomInt = crypto.randomInt(
+        Number.MAX_SAFE_INTEGER - 1,
+        Number.MAX_SAFE_INTEGER
+      );
+      expect(typeof randomInt).toEqual("number");
+      expect(Number.MAX_SAFE_INTEGER - 1).toEqual(randomInt);
+      expect(typeof randomInt).toEqual("number");
+    }
+
+    // Do it 20 times to make sure we never get values outside the range
+    for (const number of [...Array(20).keys()]) {
+      const randomInt = crypto.randomInt(0, 5);
+      expect(randomInt).toBeLessThan(5);
+      expect(randomInt).toBeGreaterThanOrEqual(0);
+    }
   });
 });
