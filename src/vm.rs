@@ -48,6 +48,7 @@ use crate::{
     fs::{FsModule, FsPromisesModule},
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     module::ModuleModule,
+    navigator::NavigatorModule,
     net::NetModule,
     number::number_to_string,
     os::OsModule,
@@ -130,6 +131,7 @@ create_modules!(
     "util" => UtilModule,
     "uuid" => UuidModule,
     "process" => ProcessModule,
+    "navigator" => NavigatorModule,
     "url" => UrlModule
 );
 
@@ -480,6 +482,7 @@ impl Vm {
             crate::process::init(&ctx)?;
             crate::events::init(&ctx)?;
             crate::buffer::init(&ctx)?;
+            crate::navigator::init(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
