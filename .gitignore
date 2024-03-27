@@ -19,3 +19,5 @@ node_modules
 out.stacks
 yarn-error.log
 llrt-container-*
+llrt
+bootstrap
