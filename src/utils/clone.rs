@@ -405,11 +405,11 @@ mod tests {
 
     use rquickjs::{function::Opt, Object, Value};
 
-    use crate::{test_utils::utils::with_runtime, utils::clone::structured_clone};
+    use crate::{test_utils::utils::with_js_runtime, utils::clone::structured_clone};
 
     #[tokio::test]
     async fn clone() {
-        with_runtime(|ctx| {
+        with_js_runtime(|ctx| {
             crate::buffer::init(&ctx)?;
 
             let value: Object = ctx.eval(
@@ -457,7 +457,7 @@ a
 
     #[tokio::test]
     async fn clone_circular() {
-        with_runtime(|ctx| {
+        with_js_runtime(|ctx| {
             let _value: Object = ctx.eval(
                 r#"
 const originalObject = { foo: { bar: "baz",arr: [1,2,3] }  };
