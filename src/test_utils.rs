@@ -10,7 +10,6 @@ pub mod utils {
     };
 
     pub async fn new_js_runtime() -> (AsyncRuntime, AsyncContext) {
-
         let runtime = AsyncRuntime::new().unwrap();
         runtime.set_max_stack_size(512 * 1024).await;
         runtime
