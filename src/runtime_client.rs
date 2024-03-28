@@ -4,6 +4,7 @@
 use crate::console;
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
+use crate::net::HTTP_CLIENT;
 use crate::utils::result::ResultExt;
 use crate::vm::{ErrorDetails, Vm};
 use bytes::Bytes;
@@ -14,10 +15,8 @@ use hyper::{
     http::header::HeaderName,
     Request, StatusCode,
 };
-use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client},
-    rt::{TokioExecutor, TokioTimer},
-};
+use hyper_rustls::HttpsConnector;
+use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use once_cell::sync::Lazy;
 use rquickjs::function::Rest;
 use rquickjs::Exception;
@@ -29,12 +28,7 @@ use rquickjs::{
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use std::{
-    env,
-    result::Result as StdResult,
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use std::{env, result::Result as StdResult, sync::Mutex, time::Instant};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
@@ -62,7 +56,7 @@ static HEADER_COGNITO_IDENTITY: HeaderName =
 
 pub static LAMBDA_REQUEST_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
-type HyperClient = Client<HttpConnector, Full<Bytes>>;
+type HyperClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
 
 #[derive(Clone)]
 struct LambdaContext<'js, 'a> {
@@ -212,7 +206,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         ));
     }
 
-    let client = get_hyper_client();
+    let client = (*HTTP_CLIENT).clone();
 
     let base_url = format!("http://{}/{}", config.runtime_api, ENV_RUNTIME_PATH);
     let handler = handler.as_function().unwrap();
@@ -462,13 +456,6 @@ fn get_task_root() -> String {
             .into_string()
             .unwrap()
     })
-}
-
-fn get_hyper_client() -> HyperClient {
-    Client::builder(TokioExecutor::new())
-        .pool_idle_timeout(Duration::from_secs(60 * 15))
-        .pool_timer(TokioTimer::new())
-        .build_http()
 }
 
 fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<String, String> {

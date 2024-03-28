@@ -3,26 +3,19 @@
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{Request, Uri};
-use hyper_util::{
-    client::legacy::Client,
-    rt::{TokioExecutor, TokioTimer},
-};
+
 use rquickjs::{
     function::Opt,
     prelude::{Async, Func},
     Ctx, Exception, Object, Result, Value,
 };
-use tracing::warn;
 
-use std::{
-    env,
-    time::{Duration, Instant},
-};
+use std::time::Instant;
 
 use crate::{
     environment,
     http::headers::Headers,
-    net::{DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS, TLS_CONFIG},
+    net::HTTP_CLIENT,
     security::{ensure_url_access, HTTP_DENY_LIST},
     utils::{
         object::{get_bytes, ObjectExt},
@@ -58,25 +51,15 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         ));
     }
 
-    let pool_idle_timeout: u64 = get_pool_idle_timeout();
-
-    let https = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(TLS_CONFIG.clone())
-        .https_or_http()
-        .enable_http1()
-        .build();
-
-    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
-        .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))
-        .pool_timer(TokioTimer::new())
-        .build(https);
+    //init eagerly
+    let client = &*HTTP_CLIENT;
 
     globals.set(
         "fetch",
         Func::from(Async(move |ctx, resource, args| {
             let start = Instant::now();
             let FetchArgs(ctx, resource, args) = FetchArgs(ctx, resource, args);
-            let client = client.clone();
+            //let client = client.clone();
 
             let mut method = Ok(hyper::Method::GET);
             let mut body = Ok(Full::<Bytes>::default());
@@ -178,21 +161,4 @@ fn get_url_options(resource: Value) -> (Option<Result<String>>, Option<Object>) 
         return (None, Some(resource_obj));
     }
     (None, None)
-}
-
-pub fn get_pool_idle_timeout() -> u64 {
-    let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
-        .map(|timeout| {
-            timeout
-                .parse()
-                .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS)
-        })
-        .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS);
-    if pool_idle_timeout > 300 {
-        warn!(
-            r#""{}" is exceeds 300s (5min), risking errors due to possible server connection closures."#,
-            environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT
-        )
-    }
-    pool_idle_timeout
 }
