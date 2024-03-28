@@ -111,3 +111,6 @@ opt-level = 3   #required for large number parsing
 [[bin]]
 name = "llrt"
 path = "src/main.rs"
+
+[dev-dependencies]
+wiremock = "0.6.0"
