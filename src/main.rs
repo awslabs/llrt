@@ -31,7 +31,7 @@ mod os;
 mod path;
 mod performance;
 mod process;
-mod runtime;
+mod runtime_client;
 mod security;
 mod stream;
 mod test_utils;
@@ -133,7 +133,7 @@ Options:
 
 async fn start_runtime(context: &AsyncContext) {
     async_with!(context => |ctx|{
-        if let Err(err) = runtime::start(&ctx).await.catch(&ctx) {
+        if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
             Vm::print_error_and_exit(&ctx, err)
         }
     })
