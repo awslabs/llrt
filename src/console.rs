@@ -22,7 +22,7 @@ use crate::module::export_default;
 use crate::{
     json::escape::escape_json,
     number::float_to_string,
-    runtime,
+    runtime_client,
     utils::{class::get_class_name, result::ResultExt},
 };
 
@@ -668,7 +668,7 @@ fn write_lambda_log<'js>(
 
     let current_time: DateTime<Utc> = Utc::now();
     let formatted_time = current_time.format(time_format);
-    let request_id = runtime::LAMBDA_REQUEST_ID.lock().unwrap().clone();
+    let request_id = runtime_client::LAMBDA_REQUEST_ID.lock().unwrap().clone();
 
     if is_json_log_format {
         result.push('{');

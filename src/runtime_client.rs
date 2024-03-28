@@ -487,7 +487,7 @@ mod tests {
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::{
-        runtime::{
+        runtime_client::{
             self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
         },
         uuid::uuidv4,
@@ -530,7 +530,7 @@ mod tests {
         let vm = Vm::new().await.unwrap();
 
         async_with!(vm.ctx => |ctx|{
-            runtime::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
+            runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
         })
         .await;
 

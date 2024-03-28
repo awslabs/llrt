@@ -1,7 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use hex_simd::AsciiCase;
-use std::result::Result;
 
 macro_rules! encoder_enum {
     (
