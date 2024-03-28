@@ -529,19 +529,19 @@ fn stringify_value<'js>(
 }
 
 fn log_error<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_err(ctx, args, LogLevel::Error)
+    log_std_err(&ctx, args, LogLevel::Error)
 }
 
 fn log_warn<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_err(ctx, args, LogLevel::Warn)
+    log_std_err(&ctx, args, LogLevel::Warn)
 }
 
 fn log_debug<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(ctx, args, LogLevel::Debug)
+    log_std_out(&ctx, args, LogLevel::Debug)
 }
 
 fn log_trace<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(ctx, args, LogLevel::Trace)
+    log_std_out(&ctx, args, LogLevel::Trace)
 }
 
 fn log_assert<'js>(ctx: Ctx<'js>, expression: bool, args: Rest<Value<'js>>) -> Result<()> {
@@ -553,7 +553,7 @@ fn log_assert<'js>(ctx: Ctx<'js>, expression: bool, args: Rest<Value<'js>>) -> R
 }
 
 fn log<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(ctx, args, LogLevel::Info)
+    log_std_out(&ctx, args, LogLevel::Info)
 }
 
 fn js_format<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
@@ -594,14 +594,18 @@ fn format_values<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, tty: bool) -> Resu
     Ok(result)
 }
 
-fn log_std_out<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
+pub fn log_std_out<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
     write_log(stdout(), ctx, args, level)
+}
+
+pub fn log_std_err<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
+    write_log(stderr(), ctx, args, level)
 }
 
 #[allow(clippy::unused_io_amount)]
 fn write_log<'js, T>(
     mut output: T,
-    ctx: Ctx<'js>,
+    ctx: &Ctx<'js>,
     args: Rest<Value<'js>>,
     level: LogLevel,
 ) -> Result<()>
@@ -616,7 +620,7 @@ where
         let is_json_log_format = AWS_LAMBDA_JSON_LOG_FORMAT.load(Ordering::Relaxed);
         let max_log_level = AWS_LAMBDA_JSON_LOG_LEVEL.load(Ordering::Relaxed);
         if !write_lambda_log(
-            &ctx,
+            ctx,
             &mut result,
             args,
             level,
@@ -628,7 +632,7 @@ where
             return Ok(());
         }
     } else {
-        format_values_internal(&mut result, &ctx, args, is_tty, NEWLINE)?;
+        format_values_internal(&mut result, ctx, args, is_tty, NEWLINE)?;
     }
 
     result.push(NEWLINE);
@@ -807,10 +811,6 @@ fn write_lambda_log<'js>(
     Ok(true)
 }
 
-fn log_std_err<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
-    write_log(stderr(), ctx, args, level)
-}
-
 #[derive(rquickjs::class::Trace)]
 #[rquickjs::class]
 pub struct Console {}
@@ -860,12 +860,12 @@ mod tests {
     use crate::{
         console::{write_lambda_log, LogLevel},
         json::stringify::json_stringify_replacer_space,
-        test_utils::utils::with_runtime,
+        test_utils::utils::with_js_runtime,
     };
 
     #[tokio::test]
     async fn json_log_format() {
-        with_runtime(|ctx| {
+        with_js_runtime(|ctx| {
             let write_log = |args| {
                 let mut result = String::new();
 
@@ -948,7 +948,7 @@ mod tests {
 
     #[tokio::test]
     async fn standard_log_format() {
-        with_runtime(|ctx| {
+        with_js_runtime(|ctx| {
             let write_log = |args| {
                 let mut result = String::new();
 

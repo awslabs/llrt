@@ -132,13 +132,11 @@ Options:
 }
 
 async fn start_runtime(context: &AsyncContext) {
-    async_with! ( context => |ctx|{
-            crate::runtime::runtime(&ctx)
-                .await
-                .catch(&ctx)
-                .unwrap_or_else(|err| Vm::print_error_and_exit(&ctx, err));
+    async_with!(context => |ctx|{
+        if let Err(err) = runtime::start(&ctx).await.catch(&ctx) {
+            Vm::print_error_and_exit(&ctx, err)
         }
-    )
+    })
     .await;
 }
 

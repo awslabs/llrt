@@ -1,84 +1,179 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::http::fetch::get_pool_idle_timeout;
+
+use crate::console;
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
-use crate::net::TLS_CONFIG;
 use crate::utils::result::ResultExt;
 use crate::vm::{ErrorDetails, Vm};
 use bytes::Bytes;
 use chrono::Utc;
-use http_body_util::{BodyExt, Empty, Full};
-use hyper::body::Body;
-use hyper::header::{HeaderMap, CONTENT_TYPE};
-use hyper::http::header::HeaderName;
-use hyper::{Request, StatusCode};
+use http_body_util::{BodyExt, Full};
+use hyper::{
+    header::{HeaderMap, CONTENT_TYPE},
+    http::header::HeaderName,
+    Request, StatusCode,
+};
 use hyper_util::{
-    client::legacy::Client,
+    client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
 use once_cell::sync::Lazy;
-use rquickjs::atom::PredefinedAtom;
-use rquickjs::promise::Promise;
-use rquickjs::{prelude::Func, Array, CatchResultExt, Ctx, Function, Module, Object, Value};
-use rquickjs::{CaughtError, IntoJs, ThrowResultExt};
-use std::sync::Mutex;
+use rquickjs::function::Rest;
+use rquickjs::Exception;
+use rquickjs::{
+    atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CatchResultExt, CaughtError, Ctx,
+    Function, IntoJs, Module, Object, Result, ThrowResultExt, Value,
+};
+
+use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use std::env;
-use std::time::{Duration, Instant};
+use std::{
+    env,
+    result::Result as StdResult,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
-const AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
-const AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
-const AWS_LAMBDA_FUNCTION_MEMORY_SIZE: &str = "AWS_LAMBDA_FUNCTION_MEMORY_SIZE";
-const AWS_LAMBDA_LOG_GROUP_NAME: &str = "AWS_LAMBDA_LOG_GROUP_NAME";
-const AWS_LAMBDA_LOG_STREAM_NAME: &str = "AWS_LAMBDA_LOG_STREAM_NAME";
-const LAMBDA_TASK_ROOT: &str = "LAMBDA_TASK_ROOT";
-const _HANDLER: &str = "_HANDLER";
-const LAMBDA_HANDLER: &str = "LAMBDA_HANDLER";
+const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
+const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
+const ENV_AWS_LAMBDA_FUNCTION_MEMORY_SIZE: &str = "AWS_LAMBDA_FUNCTION_MEMORY_SIZE";
+const ENV_AWS_LAMBDA_LOG_GROUP_NAME: &str = "AWS_LAMBDA_LOG_GROUP_NAME";
+const ENV_AWS_LAMBDA_LOG_STREAM_NAME: &str = "AWS_LAMBDA_LOG_STREAM_NAME";
+const ENV_LAMBDA_TASK_ROOT: &str = "LAMBDA_TASK_ROOT";
+const ENV_UNDERSCORE_HANDLER: &str = "_HANDLER";
+const ENV_LAMBDA_HANDLER: &str = "LAMBDA_HANDLER";
 const AWS_LAMBDA_RUNTIME_API: &str = "AWS_LAMBDA_RUNTIME_API";
-const _EXIT_ITERATIONS: &str = "_EXIT_ITERATIONS";
-const _AWS_REGION: &str = "AWS_REGION";
-const RUNTIME_PATH: &str = "2018-06-01/runtime";
-const _X_AMZN_TRACE_ID: &str = "_X_AMZN_TRACE_ID";
+const ENV_UNDERSCORE_EXIT_ITERATIONS: &str = "_EXIT_ITERATIONS";
+const ENV_RUNTIME_PATH: &str = "2018-06-01/runtime";
+const ENV_X_AMZN_TRACE_ID: &str = "_X_AMZN_TRACE_ID";
 
-static TRACE_ID: HeaderName = HeaderName::from_static("lambda-runtime-trace-id");
-static DEADLINE_MS: HeaderName = HeaderName::from_static("lambda-runtime-deadline-ms");
-static REQUEST_ID: HeaderName = HeaderName::from_static("lambda-runtime-aws-request-id");
-static INVOKED_FUNCTION_ARN: HeaderName =
+static HEADER_TRACE_ID: HeaderName = HeaderName::from_static("lambda-runtime-trace-id");
+static HEADER_DEADLINE_MS: HeaderName = HeaderName::from_static("lambda-runtime-deadline-ms");
+static HEADER_REQUEST_ID: HeaderName = HeaderName::from_static("lambda-runtime-aws-request-id");
+static HEADER_ERROR_TYPE: HeaderName =
+    HeaderName::from_static("lambda-runtime-function-error-type");
+static HEADER_INVOKED_FUNCTION_ARN: HeaderName =
     HeaderName::from_static("lambda-runtime-invoked-function-arn");
-static CLIENT_CONTEXT: HeaderName = HeaderName::from_static("lambda-runtime-client-context");
-static COGNITO_IDENTITY: HeaderName = HeaderName::from_static("lambda-runtime-cognito-identity");
+static HEADER_CLIENT_CONTEXT: HeaderName = HeaderName::from_static("lambda-runtime-client-context");
+static HEADER_COGNITO_IDENTITY: HeaderName =
+    HeaderName::from_static("lambda-runtime-cognito-identity");
+
 pub static LAMBDA_REQUEST_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
-type HyperClient<T> =
-    Client<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>, T>;
+type HyperClient = Client<HttpConnector, Full<Bytes>>;
 
 #[derive(Clone)]
-struct LambdaContext<'js> {
-    pub aws_request_id: String,
+struct LambdaContext<'js, 'a> {
     pub invoked_function_arn: String,
+    pub aws_request_id: String,
+    pub callback_waits_for_empty_event_loop: bool,
+    pub get_remaining_time_in_millis: Function<'js>,
+    pub client_context: Value<'js>,
+    pub cognito_identity_json: Value<'js>,
+    pub lambda_environment: &'a LambdaEnvironment,
+}
+
+impl<'js, 'a> IntoJs<'js> for LambdaContext<'js, 'a> {
+    fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        obj.set("awsRequestId", self.aws_request_id)?;
+        obj.set("invokedFunctionArn", self.invoked_function_arn)?;
+        obj.set("logGroupName", &self.lambda_environment.log_group_name)?;
+        obj.set("logStreamName", &self.lambda_environment.log_stream_name)?;
+        obj.set("functionName", &self.lambda_environment.function_name)?;
+        obj.set("functionVersion", &self.lambda_environment.function_version)?;
+        obj.set(
+            "memoryLimitInMB",
+            self.lambda_environment.memory_limit_in_mb,
+        )?;
+        obj.set(
+            "callbackWaitsForEmptyEventLoop",
+            self.callback_waits_for_empty_event_loop,
+        )?;
+        obj.set(
+            "getRemainingTimeInMillis",
+            self.get_remaining_time_in_millis,
+        )?;
+        obj.set("clientContext", self.client_context)?;
+        obj.set("cognitoIdentityJson", self.cognito_identity_json)?;
+        Ok(obj.into_value())
+    }
+}
+
+#[derive(Clone)]
+struct LambdaEnvironment {
     pub log_group_name: String,
     pub log_stream_name: String,
     pub function_name: String,
     pub function_version: String,
-    pub callback_waits_for_empty_event_loop: bool,
     pub memory_limit_in_mb: usize,
-    pub get_remaining_time_in_millis: Function<'js>,
-    pub client_context: Value<'js>,
-    pub cognito_identity_json: Value<'js>,
 }
 
-struct NextInvocationResponse<'js> {
+impl LambdaEnvironment {
+    fn new() -> Self {
+        Self {
+            log_group_name: env::var(ENV_AWS_LAMBDA_LOG_GROUP_NAME).unwrap_or_default(),
+            log_stream_name: env::var(ENV_AWS_LAMBDA_LOG_STREAM_NAME).unwrap_or_default(),
+            function_name: env::var(ENV_AWS_LAMBDA_FUNCTION_NAME).unwrap_or_default(),
+            function_version: env::var(ENV_AWS_LAMBDA_FUNCTION_VERSION).unwrap_or_default(),
+            memory_limit_in_mb: env::var(ENV_AWS_LAMBDA_FUNCTION_MEMORY_SIZE)
+                .unwrap_or("128".into())
+                .parse()
+                .unwrap_or_default(),
+        }
+    }
+}
+
+struct NextInvocationResponse<'js, 'a> {
     event: Value<'js>,
-    context: LambdaContext<'js>,
+    context: LambdaContext<'js, 'a>,
 }
 
-pub async fn runtime(ctx: &Ctx<'_>) -> Result<(), rquickjs::Error> {
-    let aws_lambda_runtime_api = get_env(AWS_LAMBDA_RUNTIME_API).or_throw(ctx)?;
+struct RuntimeConfig {
+    runtime_api: String,
+    handler: String,
+    iterations: usize,
+}
 
-    let (module_name, handler_name): (String, String) =
-        get_module_and_handler_name().or_throw(ctx)?;
+impl RuntimeConfig {
+    fn default(ctx: &Ctx) -> Result<Self> {
+        Ok(Self {
+            runtime_api: env::var(AWS_LAMBDA_RUNTIME_API).map_err(|_| {
+                Exception::throw_message(
+                    ctx,
+                    &format!(
+                        "Environment variable {} is not defined.",
+                        AWS_LAMBDA_RUNTIME_API
+                    ),
+                )
+            })?,
+            handler: env::var(ENV_LAMBDA_HANDLER)
+                .or_else(|_| env::var(ENV_UNDERSCORE_HANDLER))
+                .map_err(|_| {
+                    Exception::throw_message(
+                        ctx,
+                        &format!(
+                            "Environment {} or {} is not defined.",
+                            ENV_UNDERSCORE_HANDLER, ENV_LAMBDA_HANDLER
+                        ),
+                    )
+                })?,
+            iterations: env::var(ENV_UNDERSCORE_EXIT_ITERATIONS)
+                .ok()
+                .and_then(|i| i.parse().ok())
+                .unwrap_or_default(),
+        })
+    }
+}
+
+pub async fn start(ctx: &Ctx<'_>) -> Result<()> {
+    start_with_cfg(ctx, RuntimeConfig::default(ctx)?).await
+}
+
+async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
+    let (module_name, handler_name) = get_module_and_handler_name(ctx, &config.handler)?;
     let task_root = get_task_root();
 
     let js_handler_module: Object = Module::import(ctx, format!("{}/{}", task_root, module_name))?;
@@ -92,12 +187,12 @@ pub async fn runtime(ctx: &Ctx<'_>) -> Result<(), rquickjs::Error> {
         js_init_tasks.set(idx, js_call)?;
     }
 
-    let init_tasks_sze = js_init_tasks.len();
+    let init_tasks_size = js_init_tasks.len();
     #[allow(clippy::comparison_chain)]
-    if init_tasks_sze == 1 {
+    if init_tasks_size == 1 {
         let init_promise = js_init_tasks.get::<Promise<()>>(0)?;
         init_promise.await.catch(ctx).throw(ctx)?;
-    } else if init_tasks_sze > 1 {
+    } else if init_tasks_size > 1 {
         let promise_actor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
         let init_promise: Promise<()> = promise_actor
             .get::<_, Function>("all")?
@@ -108,37 +203,40 @@ pub async fn runtime(ctx: &Ctx<'_>) -> Result<(), rquickjs::Error> {
     let handler: Value = js_handler_module.get(handler_name.as_str())?;
 
     if !handler.is_function() {
-        let msg = format!(
-            "\"{}\" is not a function in \"{}\"",
-            handler_name, module_name
-        );
-        return Err(msg).or_throw(ctx)?;
+        return Err(Exception::throw_message(
+            ctx,
+            &format!(
+                "\"{}\" is not a function in \"{}\"",
+                handler_name, module_name
+            ),
+        ));
     }
 
-    let base_url = format!("http://{}/{}", aws_lambda_runtime_api, RUNTIME_PATH);
+    let client = get_hyper_client();
+
+    let base_url = format!("http://{}/{}", config.runtime_api, ENV_RUNTIME_PATH);
     let handler = handler.as_function().unwrap();
-    if let Err(err) = start_process_events(handler, base_url.as_str(), ctx)
+    if let Err(err) = start_process_events(ctx, &client, handler, base_url.as_str(), &config)
         .await
         .map_err(|e| CaughtError::from_error(ctx, e))
     {
-        let client_full_body = get_hyper_client::<Full<Bytes>>();
-        let err_uri = format!("{}/init/error", base_url,);
-        post_error(&err_uri, &err, None, ctx, &client_full_body).await?;
+        post_error(ctx, &client, &base_url, "/init/error", &err, None).await?;
         Vm::print_error_and_exit(ctx, err);
     }
     Ok(())
 }
 
-async fn next_invocation<'js>(
-    client: &HyperClient<Empty<Bytes>>,
-    uri: &str,
+async fn next_invocation<'js, 'a>(
     ctx: &Ctx<'js>,
-) -> rquickjs::Result<NextInvocationResponse<'js>> {
+    client: &HyperClient,
+    uri: &str,
+    lambda_environment: &'a LambdaEnvironment,
+) -> Result<NextInvocationResponse<'js, 'a>> {
     let req = Request::builder()
         .method("GET")
         .uri(uri)
         .header(CONTENT_TYPE, "application/json")
-        .body(Empty::new())
+        .body(Full::default())
         .or_throw(ctx)?;
 
     let res = client.request(req).await.or_throw(ctx)?;
@@ -147,20 +245,17 @@ async fn next_invocation<'js>(
         todo!()
     }
 
-    match res.headers().get(&TRACE_ID) {
-        Some(trace_id_value) => {
-            let trace_id_value = String::from_utf8_lossy(trace_id_value.as_bytes());
-            env::set_var(_X_AMZN_TRACE_ID, trace_id_value.as_ref());
-        }
-        None => {
-            env::remove_var(_X_AMZN_TRACE_ID);
-        }
+    if let Some(trace_id_value) = res.headers().get(&HEADER_TRACE_ID) {
+        let trace_id_value = String::from_utf8_lossy(trace_id_value.as_bytes());
+        env::set_var(ENV_X_AMZN_TRACE_ID, trace_id_value.as_ref());
+    } else {
+        env::remove_var(ENV_X_AMZN_TRACE_ID);
     };
 
     let headers = res.headers();
 
-    let deadline_ms = get_header_value(headers, &DEADLINE_MS)
-        .or_throw(ctx)?
+    let deadline_ms = get_header_value(headers, &HEADER_DEADLINE_MS)
+        .unwrap_or("0".into())
         .parse::<i64>()
         .or_throw(ctx)?;
 
@@ -173,29 +268,25 @@ async fn next_invocation<'js>(
         .into_function()
         .unwrap();
 
-    let client_context = match headers.get(&CLIENT_CONTEXT) {
-        Some(json) => json_parse(ctx, json.as_bytes().into()),
-        None => rquickjs::Undefined.into_js(ctx),
+    let client_context = if let Some(json) = headers.get(&HEADER_CLIENT_CONTEXT) {
+        json_parse(ctx, json.as_bytes().into())
+    } else {
+        rquickjs::Undefined.into_js(ctx)
     }?;
-    let cognito_identity_json = match headers.get(&COGNITO_IDENTITY) {
-        Some(json) => json_parse(ctx, json.as_bytes().into()),
-        None => rquickjs::Undefined.into_js(ctx),
+    let cognito_identity_json = if let Some(json) = headers.get(&HEADER_COGNITO_IDENTITY) {
+        json_parse(ctx, json.as_bytes().into())
+    } else {
+        rquickjs::Undefined.into_js(ctx)
     }?;
     let context = LambdaContext {
-        aws_request_id: get_header_value(headers, &REQUEST_ID).or_throw(ctx)?,
-        invoked_function_arn: get_header_value(headers, &INVOKED_FUNCTION_ARN).or_throw(ctx)?,
-        log_group_name: get_env(AWS_LAMBDA_LOG_GROUP_NAME).or_throw(ctx)?,
-        log_stream_name: get_env(AWS_LAMBDA_LOG_STREAM_NAME).or_throw(ctx)?,
-        function_name: get_env(AWS_LAMBDA_FUNCTION_NAME).or_throw(ctx)?,
-        function_version: get_env(AWS_LAMBDA_FUNCTION_VERSION).or_throw(ctx)?,
-        memory_limit_in_mb: get_env(AWS_LAMBDA_FUNCTION_MEMORY_SIZE)
-            .unwrap_or_else(|_| String::from("128"))
-            .parse::<usize>()
+        aws_request_id: get_header_value(headers, &HEADER_REQUEST_ID).or_throw(ctx)?,
+        invoked_function_arn: get_header_value(headers, &HEADER_INVOKED_FUNCTION_ARN)
             .or_throw(ctx)?,
         callback_waits_for_empty_event_loop: true,
         get_remaining_time_in_millis,
         client_context,
         cognito_identity_json,
+        lambda_environment,
     };
     let bytes = res.collect().await.or_throw(ctx)?.to_bytes();
     let event: Value<'js> = json_parse(ctx, bytes.into())?;
@@ -204,29 +295,20 @@ async fn next_invocation<'js>(
 }
 
 async fn invoke_response<'js>(
-    base_url: &str,
     ctx: &Ctx<'js>,
+    client: &HyperClient,
+    base_url: &str,
+    request_id: &str,
     result: Value<'js>,
-    lambda_context: &LambdaContext<'js>,
-    client: &HyperClient<Full<Bytes>>,
-) -> Result<(), rquickjs::Error> {
-    let result_string = stringify::json_stringify(
-        ctx,
-        if result.is_undefined() {
-            Value::new_null(ctx.clone())
-        } else {
-            result
-        },
-    )?
-    .unwrap_or(String::from(""));
+) -> Result<()> {
+    let result_json = stringify::json_stringify(ctx, result)?;
     let req = Request::builder()
         .method("POST")
-        .uri(format!(
-            "{}/invocation/{}/response",
-            base_url, lambda_context.aws_request_id
-        ))
+        .uri(format!("{}/invocation/{}/response", base_url, request_id))
         .header(CONTENT_TYPE, "application/json")
-        .body(Full::from(bytes::Bytes::from(result_string)))
+        .body(Full::from(bytes::Bytes::from(
+            result_json.unwrap_or_default(),
+        )))
         .or_throw(ctx)?;
 
     let res = client.request(req).await.or_throw(ctx)?;
@@ -235,249 +317,223 @@ async fn invoke_response<'js>(
         _ => {
             let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
             let res_str = String::from_utf8_lossy(res_bytes.as_slice());
-            Err(format!(
-                "Unexpected /invocation/response response: {}",
-                res_str
+            Err(Exception::throw_message(
+                ctx,
+                &format!("Unexpected /invocation/response response: {}", res_str),
             ))
-            .or_throw(ctx)?
         }
     }
 }
 
 // handler: (event: any, context: Context) => Promise<any>
 async fn start_process_events<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
     handler: &Function<'js>,
     base_url: &str,
-    ctx: &Ctx<'js>,
+    config: &RuntimeConfig,
 ) -> rquickjs::Result<()> {
-    let exit_iterations: Option<i64> = get_env(_EXIT_ITERATIONS).ok().and_then(|i| i.parse().ok());
     let mut iterations = 0;
+    let next_invocation_url = format!("{base_url}/invocation/next");
 
-    let client_empty_body = get_hyper_client::<Empty<Bytes>>();
-    let client_full_body = get_hyper_client::<Full<Bytes>>();
+    let mut request_id = String::with_capacity(36); //length of uuid
 
-    let mut request_id: Option<String> = None;
-    let mut context: Option<LambdaContext> = None;
-    let mut event: Option<Value> = None;
+    let lambda_environment = LambdaEnvironment::new();
+
     loop {
         let now = Instant::now();
 
         if let Err(err) = process_event(
             ctx,
-            base_url,
+            client,
             handler,
-            &mut context,
-            &mut event,
-            &client_empty_body,
-            &client_full_body,
+            base_url,
+            &next_invocation_url,
             &mut request_id,
+            &lambda_environment,
         )
         .await
         .map_err(|e| CaughtError::from_error(ctx, e))
         {
-            match context {
-                None => Vm::print_error_and_exit(ctx, err),
-                Some(ref context) => {
-                    let error_uri =
-                        format!("{}/invocation/{}/error", base_url, context.aws_request_id);
-                    if let Err(err) = post_error(
-                        &error_uri,
-                        &err,
-                        request_id.as_ref(),
-                        ctx,
-                        &client_full_body,
-                    )
-                    .await
-                    {
-                        Vm::print_error_and_exit(ctx, CaughtError::from_error(ctx, err))
-                    }
-                }
+            if request_id.is_empty() {
+                Vm::print_error_and_exit(ctx, err);
             }
+
+            let error_path = format!("/invocation/{}/error", request_id);
+            post_error(ctx, client, base_url, &error_path, &err, Some(&request_id)).await?;
         }
-        if let Some(exit_iterations) = exit_iterations {
-            if iterations >= exit_iterations - 1 {
-                println!("Done in {} ms", now.elapsed().as_millis());
-                break Ok(());
+        if config.iterations > 0 {
+            if iterations >= config.iterations - 1 {
+                info!("Done in {:?}", now.elapsed().as_millis());
+                break;
             }
             iterations += 1;
         }
-        context = None;
-        event = None;
+        request_id.clear();
     }
+    Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn process_event<'js>(
     ctx: &Ctx<'js>,
-    base_url: &str,
+    client: &HyperClient,
     handler: &Function<'js>,
-    context_lambda: &mut Option<LambdaContext<'js>>,
-    event_: &mut Option<Value<'js>>,
-    client_empty_body: &HyperClient<Empty<Bytes>>,
-    client_full_body: &HyperClient<Full<Bytes>>,
-    request_id: &mut Option<String>,
-) -> rquickjs::Result<()> {
-    let next_invocation_uri = format!("{base_url}/invocation/next");
+    base_url: &str,
+    next_invocation_url: &str,
+    request_id: &mut String,
+    lambda_environment: &LambdaEnvironment,
+) -> Result<()> {
     let NextInvocationResponse { event, context } =
-        next_invocation(client_empty_body, next_invocation_uri.as_str(), ctx).await?;
-    if request_id.is_none() {
-        *request_id = Some(context.aws_request_id.clone());
-        LAMBDA_REQUEST_ID
-            .lock()
-            .unwrap()
-            .replace(context.aws_request_id.clone());
-    };
-    let js_context = convert_into_js_value(ctx.clone(), context.clone())?;
+        next_invocation(ctx, client, next_invocation_url, lambda_environment).await?;
+    *request_id = context.aws_request_id.clone();
+    LAMBDA_REQUEST_ID
+        .lock()
+        .unwrap()
+        .replace(context.aws_request_id.clone());
+
+    let js_context = context.into_js(ctx)?;
     let promise =
         handler.call::<_, Promise<Value>>((event.clone(), js_context.as_value().clone()))?;
-    let result: Value = promise.await.catch(ctx).throw(ctx)?;
-    invoke_response(base_url, ctx, result, &context, client_full_body).await?;
-    *context_lambda = Some(context);
-    *event_ = Some(event);
+    let result: Value = promise.await?;
+    invoke_response(ctx, client, base_url, request_id, result).await?;
     Ok(())
 }
 
 async fn post_error<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    base_url: &str,
     path: &str,
     error: &CaughtError<'js>,
     request_id: Option<&String>,
-    ctx: &Ctx<'js>,
-    client: &HyperClient<Full<Bytes>>,
-) -> Result<(), rquickjs::Error> {
+) -> Result<()> {
     let ErrorDetails { msg, r#type, stack } = Vm::error_details(ctx, error);
 
-    let obj = Object::new(ctx.clone())?;
-    obj.prop("errorType", r#type.clone())?;
-    obj.prop("errorMessage", msg)?;
-    obj.prop("stackTrace", stack)?;
-    obj.prop("requestId", request_id.cloned().unwrap_or_default())?;
-    obj.prop("cause", String::default())?;
-    let error_body = json_stringify(ctx, obj.as_value().clone())?.unwrap_or_default();
+    let error_object = Object::new(ctx.clone())?;
+    error_object.set("errorType", r#type.clone())?;
+    error_object.set("errorMessage", msg)?;
+    error_object.set("stackTrace", stack)?;
+    error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
+    let error_object = error_object.into_value();
+
+    console::log_std_err(
+        ctx,
+        Rest(vec![error_object.clone()]),
+        console::LogLevel::Error,
+    )?;
+
+    let error_body = json_stringify(ctx, error_object)?.unwrap_or_default();
+
+    let url = format!("{base_url}{path}");
 
     let req = Request::builder()
         .method("POST")
-        .uri(path)
+        .uri(url)
         .header(CONTENT_TYPE, "application/json")
-        .header("Lambda-Runtime-Function-Error-Type", r#type)
+        .header(&HEADER_ERROR_TYPE, r#type)
         .body(Full::from(bytes::Bytes::from(error_body)))
         .or_throw(ctx)?;
     let res = client.request(req).await.or_throw(ctx)?;
-    match res.status() {
-        StatusCode::ACCEPTED => Ok(()),
-        _ => {
-            let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
-            let res_str = String::from_utf8_lossy(res_bytes.as_slice());
-            Err(format!("Unexpected /{} response: {}", path, res_str)).or_throw(ctx)?
-        }
+    if res.status() != StatusCode::ACCEPTED {
+        let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
+        let res_str = String::from_utf8_lossy(res_bytes.as_slice());
+        return Err(Exception::throw_message(
+            ctx,
+            &format!("Unexpected {} response: {}", path, res_str),
+        ));
     }
+    Ok(())
 }
 
-fn get_env(env: &str) -> Result<String, String> {
-    match env::var(env).ok() {
-        Some(env) => Ok(env),
-        None => Err(format!("Environment variable {} is not defined.", env)),
-    }
-}
+fn get_module_and_handler_name(ctx: &Ctx, handler: &str) -> Result<(String, String)> {
+    let parts: Vec<_> = handler.split('.').filter(|&s| !s.is_empty()).collect();
 
-fn get_handler_env() -> Result<String, String> {
-    match get_env(LAMBDA_HANDLER) {
-        Ok(lambda_handler) => Ok(lambda_handler),
-        Err(_) => match get_env(_HANDLER) {
-            Ok(handler) => Ok(handler),
-            Err(e) => Err(e),
-        },
-    }
-}
-
-fn convert_into_js_value<'js>(
-    ctx: Ctx<'js>,
-    lambda_context: LambdaContext<'js>,
-) -> rquickjs::Result<Object<'js>> {
-    let obj = Object::new(ctx)?;
-    obj.prop("awsRequestId", lambda_context.aws_request_id)?;
-    obj.prop("invokedFunctionArn", lambda_context.invoked_function_arn)?;
-    obj.prop("logGroupName", lambda_context.log_group_name)?;
-    obj.prop("logStreamName", lambda_context.log_stream_name)?;
-    obj.prop("functionName", lambda_context.function_name)?;
-    obj.prop("functionVersion", lambda_context.function_version)?;
-    obj.prop("memoryLimitInMB", lambda_context.memory_limit_in_mb)?;
-    obj.prop(
-        "callbackWaitsForEmptyEventLoop",
-        lambda_context.callback_waits_for_empty_event_loop,
-    )?;
-    obj.prop(
-        "getRemainingTimeInMillis",
-        lambda_context.get_remaining_time_in_millis,
-    )?;
-    obj.prop("clientContext", lambda_context.client_context)?;
-    obj.prop("cognitoIdentityJson", lambda_context.cognito_identity_json)?;
-    Ok(obj)
-}
-
-fn get_module_and_handler_name() -> Result<(String, String), String> {
-    match get_handler_env() {
-        Ok(handler) => {
-            let split: Vec<Option<String>> = handler
-                .split('.')
-                .map(|s| {
-                    if s.is_empty() {
-                        None
-                    } else {
-                        Some(String::from(s))
-                    }
-                })
-                .collect();
-            match split.len() {
-                2 => match (&split[0], &split[1]) {
-                    (Some(module_name), Some(handler_name)) => {
-                        Ok((module_name.into(), handler_name.into()))
-                    }
-                    _ => {
-                        Err(format!("Invalid handler name or LAMBDA_HANDLER env value: \"{}\": Should be in format {{filename}}.{{method_name}}", handler))
-                    }
-                },
-                _ => {
-                    Err(format!("Invalid handler name or LAMBDA_HANDLER env value: \"{}\": Should be in format {{filename}}.{{method_name}}", handler))
-                }
-            }
-        }
-        Err(e) => Err(e),
+    match parts.as_slice() {
+        [module_name, handler_name] => Ok((module_name.to_string(), handler_name.to_string())),
+        _ => Err(Exception::throw_message(ctx,  &format!("Invalid handler name or LAMBDA_HANDLER env value: \"{}\": Should be in format {{filename}}.{{method_name}}", handler)))
     }
 }
 
 fn get_task_root() -> String {
-    match get_env(LAMBDA_TASK_ROOT) {
-        Ok(lambda_task_root) => lambda_task_root,
-        Err(_) => env::current_dir()
-            .unwrap()
+    env::var(ENV_LAMBDA_TASK_ROOT).unwrap_or_else(|_| {
+        env::current_dir()
+            .unwrap_or("/".into())
             .into_os_string()
             .into_string()
-            .unwrap(),
-    }
+            .unwrap()
+    })
 }
 
-fn get_hyper_client<T>() -> HyperClient<T>
-where
-    T: Body + Send + 'static + Unpin,
-    T::Data: Send,
-    T::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
-{
-    let pool_idle_timeout = get_pool_idle_timeout();
-    let https = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(TLS_CONFIG.clone())
-        .https_or_http()
-        .enable_http1()
-        .build();
-
+fn get_hyper_client() -> HyperClient {
     Client::builder(TokioExecutor::new())
-        .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))
+        .pool_idle_timeout(Duration::from_secs(60 * 15))
         .pool_timer(TokioTimer::new())
-        .build(https)
+        .build_http()
 }
 
-fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> Result<String, String> {
-    match headers.get(header) {
-        Some(header) => Ok(header.to_str().map_err(|e| e.to_string())?.to_string()),
-        None => Err(format!("The header {} is not valid.", header)),
+fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<String, String> {
+    headers
+        .get(header)
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| format!("Missing header: {}", header))
+        .map(|h: &str| h.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use hyper::header::CONTENT_TYPE;
+    use rquickjs::{async_with, CatchResultExt};
+    use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
+
+    use crate::{
+        runtime::{
+            self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
+        },
+        uuid::uuidv4,
+        vm::Vm,
+    };
+
+    #[tokio::test]
+    async fn runtime() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(matchers::method("GET"))
+            .and(matchers::path(format!(
+                "{}/invocation/next",
+                ENV_RUNTIME_PATH
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header(&HEADER_REQUEST_ID, uuidv4())
+                    .insert_header(&HEADER_INVOKED_FUNCTION_ARN, "n/a")
+                    .set_body_string(r#"{"hello": "world"}"#),
+            )
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(matchers::method("POST"))
+            .and(matchers::path_regex(
+                r#"invocation/[A-z0-9-]{1,}/response$"#,
+            ))
+            .and(matchers::header(&CONTENT_TYPE, "application/json"))
+            .respond_with(ResponseTemplate::new(202))
+            .mount(&mock_server)
+            .await;
+
+        let mock_config = RuntimeConfig {
+            runtime_api: format!("localhost:{}", mock_server.address().port()),
+            handler: "fixtures/handler.handler".into(),
+            iterations: 10,
+        };
+
+        let vm = Vm::new().await.unwrap();
+
+        async_with!(vm.ctx => |ctx|{
+            runtime::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
+        })
+        .await;
+
+        vm.runtime.idle().await;
     }
 }
