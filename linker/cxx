@@ -10,4 +10,4 @@ do
     [[ $value != *self-contained/*crt* ]] && new_array+=($value)
 done
 
-zig c++ -target $target "${new_array[@]}"
+zig c++ "${new_array[@]}" -target $target

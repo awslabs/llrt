@@ -10,4 +10,4 @@ do
     [[ $value != *self-contained/*crt* ]] && [[ $value != *lc_nonshared* ]] && [[ $value != *latomic* ]] && new_array+=($value)
 done
 
-zig cc -target $target "${new_array[@]}"
+zig cc "${new_array[@]}" -target $target
