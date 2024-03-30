@@ -157,6 +157,7 @@ _Also available globally_
 [clearTimeout](https://nodejs.org/api/timers.html#cleartimeouttimeout)
 
 ## url
+
 ```typescript
 export class URL {
   constructor(input: string, base?: string | URL);
@@ -174,7 +175,7 @@ export class URL {
   searchParams: URLSearchParams;
   username: string;
 
-  canParse(input: string, base?: string): boolean; 
+  canParse(input: string, base?: string): boolean;
   toString(): string;
 }
 ```
@@ -200,9 +201,12 @@ export function urlToHttpOptions(url: URL): {
 ```
 
 ## URLSearchParams
+
 ```typescript
 export class URLSearchParams {
-  constructor(init?: string | string[][] | Record<string, string> | URLSearchParams);
+  constructor(
+    init?: string | string[][] | Record<string, string> | URLSearchParams
+  );
 
   // Methods
   append(name: string, value: string): void;
@@ -220,7 +224,6 @@ export class URLSearchParams {
   toString(): string;
 }
 ```
-
 
 ### TODO, URLSearchParams see tracking [ticket](https://github.com/awslabs/llrt/issues/307):
 
@@ -305,3 +308,7 @@ export class XMLParser(options?: XmlParserOptions){
 [atob](https://developer.mozilla.org/en-US/docs/Web/API/atob)
 
 [navigator.userAgent](https://nodejs.org/api/globals.html#navigatoruseragent)
+
+[performance.timeOrigin](https://nodejs.org/api/perf_hooks.html#performancetimeorigin)
+
+[performance.now](https://nodejs.org/api/perf_hooks.html#performancenow)
