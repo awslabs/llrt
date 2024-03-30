@@ -29,6 +29,7 @@ mod net;
 mod number;
 mod os;
 mod path;
+mod performance;
 mod process;
 mod security;
 mod stream;

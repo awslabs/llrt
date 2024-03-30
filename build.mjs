@@ -70,6 +70,7 @@ const ES_BUILD_OPTIONS = {
     "net",
     "navigator",
     "url",
+    "performance",
   ],
 };
 

@@ -53,6 +53,7 @@ use crate::{
     number::number_to_string,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
+    performance::PerformanceModule,
     process::ProcessModule,
     timers::TimersModule,
     url::UrlModule,
@@ -132,7 +133,8 @@ create_modules!(
     "uuid" => UuidModule,
     "process" => ProcessModule,
     "navigator" => NavigatorModule,
-    "url" => UrlModule
+    "url" => UrlModule,
+    "performance" => PerformanceModule
 );
 
 struct ModuleInfo<T: ModuleDef> {
@@ -483,6 +485,7 @@ impl Vm {
             crate::events::init(&ctx)?;
             crate::buffer::init(&ctx)?;
             crate::navigator::init(&ctx)?;
+            crate::performance::init(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
