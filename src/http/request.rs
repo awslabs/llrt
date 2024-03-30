@@ -1,11 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    class::Trace, function::Opt, methods, Class, Ctx, Exception, IntoJs, Null, Object, Result,
-    TypedArray, Value,
+    class::Trace, function::Opt, methods, Class, Ctx, Error, Exception, FromJs, IntoJs, Null,
+    Object, Result, TypedArray, Value,
 };
 
-use crate::utils::{class::get_class, object::ObjectExt};
+use crate::{
+    events::AbortSignal,
+    utils::{class::get_class, object::ObjectExt},
+};
 
 use super::{blob::Blob, headers::Headers};
 
@@ -15,6 +18,7 @@ pub struct Request<'js> {
     method: String,
     headers: Option<Class<'js, Headers>>,
     body: Option<Value<'js>>,
+    signal: Option<Class<'js, AbortSignal<'js>>>,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -37,6 +41,7 @@ impl<'js> Request<'js> {
             method: "GET".to_string(),
             headers: None,
             body: None,
+            signal: None,
         };
 
         if input.is_string() {
@@ -84,6 +89,11 @@ impl<'js> Request<'js> {
         true
     }
 
+    #[qjs(get)]
+    fn signal(&self) -> Option<Class<'js, AbortSignal<'js>>> {
+        self.signal.clone()
+    }
+
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
         let headers = if let Some(headers) = &self.headers {
             Some(Class::<Headers>::instance(
@@ -94,11 +104,21 @@ impl<'js> Request<'js> {
             None
         };
 
+        let signal = if let Some(signal) = &self.signal {
+            Some(Class::<AbortSignal>::instance(
+                ctx.clone(),
+                signal.borrow().clone(),
+            )?)
+        } else {
+            None
+        };
+
         Ok(Self {
             url: self.url.clone(),
             method: self.url.clone(),
             headers,
             body: self.body.clone(),
+            signal,
         })
     }
 }
@@ -111,13 +131,35 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         request.method = method;
     }
 
+    if obj.contains_key("signal").unwrap() {
+        let signal: Value = obj.get("signal")?;
+        if !signal.is_undefined() && !signal.is_null() {
+            if let Some(signal_obj) = signal.as_object() {
+                if signal_obj.instance_of::<AbortSignal>() {
+                    let signal = AbortSignal::from_js(&ctx, signal)?;
+                    request.signal = Some(Class::instance(ctx.clone(), signal)?);
+                } else {
+                    return Err(request_construct_type_error(
+                        &ctx,
+                        "member signal is not of type AbortSignal.",
+                    ));
+                }
+            } else {
+                return Err(request_construct_type_error(
+                    &ctx,
+                    "member signal is not of type AbortSignal.",
+                ));
+            }
+        }
+    }
+
     if obj.contains_key("body").unwrap_or_default() {
         let body: Value = obj.get("body").unwrap();
         if !body.is_undefined() && !body.is_null() {
             if let "GET" | "HEAD" = request.method.as_str() {
-                return Err(Exception::throw_type(
+                return Err(request_construct_type_error(
                     &ctx,
-                    "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
+                    "Request with GET/HEAD method cannot have body.",
                 ));
             }
 
@@ -138,4 +180,8 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
 
     Ok(())
+}
+
+fn request_construct_type_error(ctx: &Ctx, msg: &str) -> Error {
+    Exception::throw_type(ctx, &format!("Failed to construct 'Request': {msg}"))
 }

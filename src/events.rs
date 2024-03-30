@@ -428,6 +428,7 @@ impl<'js> AbortController<'js> {
 }
 
 //TODO implement static methods abort() and timeout(miliseconds)
+#[derive(Clone, Debug, Default)]
 #[rquickjs::class]
 pub struct AbortSignal<'js> {
     aborted: bool,
@@ -446,10 +447,7 @@ impl<'js> Trace<'js> for AbortSignal<'js> {
 impl<'js> AbortSignal<'js> {
     #[qjs(constructor)]
     pub fn new() -> Self {
-        Self {
-            aborted: false,
-            reason: None,
-        }
+        Self::default()
     }
 
     #[qjs(get)]

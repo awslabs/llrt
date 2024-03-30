@@ -171,6 +171,26 @@ describe("Request", () => {
     expect(newRequest.url).toEqual("https://example.com");
     expect(newRequest.headers.get("From")).toEqual("developer@example.org");
   });
+
+  it("should accept a signal as an option", () => {
+    const controller = new AbortController();
+    const request = new Request('http://localhost', { signal: controller.signal });
+    expect(request.signal).toEqual(controller.signal);
+  });
+
+  it("should fail if the signal option is not an object", () => {
+    expect(() => {
+      // @ts-ignore
+      new Request('http://localhost', { signal: 'type error' })
+    }).toThrow(/member signal is not of type AbortSignal/);
+  });
+
+  it("should fail if the signal option is not an valid object", () => {
+    expect(() => {
+      // @ts-ignore
+      new Request('http://localhost', { signal: new Request('http://localhost') })
+    }).toThrow(/member signal is not of type AbortSignal/);
+  });
 });
 
 describe("Response class", () => {
