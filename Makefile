@@ -112,8 +112,8 @@ bundle/%.js: $(TS_SOURCES)
 
 fix:
 	npx pretty-quick
-	cargo fix --allow-dirty
-	cargo clippy --fix --allow-dirty
+	cargo fix --allow-dirty --allow-staged
+	cargo clippy --fix --allow-dirty --allow-staged
 	cargo fmt
 
 bloat: js
