@@ -24,7 +24,7 @@ fn now() -> f64 {
     let started = unsafe { STARTED.assume_init() };
     let elapsed = started.elapsed();
 
-    elapsed.as_secs_f64() + (elapsed.as_micros() as f64) / 1e3
+    elapsed.as_micros() as f64 / 1e3
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
