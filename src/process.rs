@@ -14,7 +14,9 @@ use rquickjs::{
 
 use crate::module::export_default;
 
-use crate::{STARTED, VERSION};
+use crate::VERSION;
+
+use crate::vm::STARTED;
 
 fn cwd() -> String {
     env::current_dir().unwrap().to_string_lossy().to_string()

@@ -7,10 +7,12 @@ use std::{
     ffi::CStr,
     future::Future,
     io::{self},
+    mem::MaybeUninit,
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use once_cell::sync::Lazy;
@@ -69,7 +71,8 @@ use crate::{
     xml::XmlModule,
 };
 
-pub static TIME_ORIGIN: Lazy<f64> = Lazy::new(|| (Utc::now().timestamp_micros() as f64) / 1e3);
+pub static mut STARTED: MaybeUninit<Instant> = MaybeUninit::uninit();
+pub static mut TIME_ORIGIN: MaybeUninit<f64> = MaybeUninit::uninit();
 
 macro_rules! create_modules {
     ($($name:expr => $module:expr),*) => {
@@ -426,6 +429,9 @@ impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
+        unsafe { TIME_ORIGIN.write((Utc::now().timestamp_micros() as f64) / 1e3) };
+        unsafe { STARTED.write(Instant::now()) };
+
         SYSTEM_RANDOM
             .fill(&mut [0; 8])
             .expect("Failed to initialize SystemRandom");

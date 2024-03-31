@@ -8,12 +8,10 @@ use rquickjs::{
 
 use crate::module::export_default;
 
-use crate::STARTED;
-
-use crate::vm::TIME_ORIGIN;
+use crate::vm::{STARTED, TIME_ORIGIN};
 
 fn get_time_origin() -> f64 {
-    *TIME_ORIGIN
+    unsafe { TIME_ORIGIN.assume_init() }
 }
 
 fn now() -> f64 {
