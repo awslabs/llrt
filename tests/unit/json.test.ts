@@ -20,7 +20,7 @@ describe("JSON Parsing", () => {
     const parsedData = JSON.parse(
       '{"name": "John", "age": 25, "address": {"city": "New York", "zip": "10001"}}'
     );
-    expect(parsedData).toStrictEqual({name: "John", age: 25, address: { city: "New York", zip: "10001" },})
+    expect(parsedData).toStrictEqual({ name: "John", age: 25, address: { city: "New York", zip: "10001" }, })
   });
 
   it("should parse JSON with arrays", () => {
@@ -40,12 +40,14 @@ describe("JSON Parsing", () => {
 
   it("should parse JSON with large int value", () => {
     const parsedData = JSON.parse('{"bigInt": 888888888888888888}');
-    expect(parsedData).toStrictEqual({bigInt: 888888888888888888,})});
+    expect(parsedData).toStrictEqual({ bigInt: 888888888888888888, })
+  });
 
   it("should parse JSON with special characters", () => {
     const specialChars = "!@#$%^&*()_+-={}[]|;:,.<>?/";
     const parsedData = JSON.parse(`{"specialChars": "${specialChars}"}`);
-    expect(parsedData).toStrictEqual({specialChars,})});
+    expect(parsedData).toStrictEqual({ specialChars, })
+  });
 });
 
 describe("JSON Stringified", () => {
@@ -97,7 +99,7 @@ describe("JSON Stringified", () => {
     }).toThrow();
   });
 
-  it("Should stringify an object with default spacing", () => {
+  it("should stringify an object with default spacing", () => {
     const data = {
       key: "value",
       bool: true,
@@ -129,11 +131,11 @@ describe("JSON Stringified", () => {
         }
     }
 }`;
-    expect(jsonString).toEqual(expectedJsonString)
+    expect(jsonString).toEqual(expectedJsonString);
   });
 
   // Test JSON stringifying with custom spacing as a string
-  it("Should stringify an object with default custom spacing", () => {
+  it("should stringify an object with default custom spacing", () => {
     const data = {
       key: "value",
       bool: false,
@@ -165,11 +167,11 @@ describe("JSON Stringified", () => {
       }
    }
 }`;
-    expect(jsonString).toEqual(expectedJsonString)
+    expect(jsonString).toEqual(expectedJsonString);
   });
 
   // Test JSON stringifying with replacer as a function
-  it("Should stringify an object with a replacer function", () => {
+  it("should stringify an object with a replacer function", () => {
     const data = { key: "value", secret: "hidden" };
     const replacerFunction = (key: string, value: any) =>
       key === "secret" ? undefined : value;
@@ -178,7 +180,7 @@ describe("JSON Stringified", () => {
   });
 
   // Test more complex JSON structure
-  test("Should stringify a complex object with custom spacing and replacer", () => {
+  test("should stringify a complex object with custom spacing and replacer", () => {
     const complexData = {
       key: "value",
       nested: {
@@ -207,6 +209,57 @@ describe("JSON Stringified", () => {
     }
 }`;
 
-    expect(jsonString).toEqual(expectedJsonString)
+    expect(jsonString).toEqual(expectedJsonString);
   });
+
+  test("should stringify objects with undefined values", () => {
+    const valueStart = {
+      a: undefined,
+      b: '123',
+      c: '123'
+    };
+    expect(JSON.stringify(valueStart)).toEqual(`{"b":"123","c":"123"}`);
+    const jsonStartIndented = JSON.stringify(valueStart, null, "   ");
+    const expectedJsonStartString = `{
+   "b": "123",
+   "c": "123"
+}`;
+    expect(jsonStartIndented).toEqual(expectedJsonStartString);
+
+    const valueMiddle = {
+      a: '123',
+      b: undefined,
+      c: '123'
+    };
+    expect(JSON.stringify(valueMiddle)).toEqual(`{"a":"123","c":"123"}`);
+    const jsonMiddleIndented = JSON.stringify(valueMiddle, null, "   ");
+    const expectedJsonMiddleString = `{
+   "a": "123",
+   "c": "123"
+}`;
+    expect(jsonMiddleIndented).toEqual(expectedJsonMiddleString);
+
+    const valueEnd = {
+      a: '123',
+      b: '123',
+      c: undefined
+    };
+    expect(JSON.stringify(valueEnd)).toEqual(`{"a":"123","b":"123"}`);
+    const jsonEndIndented = JSON.stringify(valueEnd, null, "   ");
+    const expectedJsonEndString = `{
+   "a": "123",
+   "b": "123"
+}`;
+    expect(jsonEndIndented).toEqual(expectedJsonEndString);
+  });
+
+  test("should stringify arrays with undefined values", () => {
+    const valueStart = [undefined, '123', '123'];
+    expect(JSON.stringify(valueStart)).toEqual(`[null,"123","123"]`);
+    const valueMiddle = ['123', undefined, '123'];
+    expect(JSON.stringify(valueMiddle)).toEqual(`["123",null,"123"]`);
+    const valueEnd = ['123', '123', undefined];
+    expect(JSON.stringify(valueEnd)).toEqual(`["123","123",null]`);
+  });
+
 });

@@ -18,10 +18,22 @@ struct IterationContext<'a, 'js> {
     indentation: Option<&'a str>,
     key: Option<&'a str>,
     index: Option<usize>,
+    size: Option<usize>,
     parent: Option<&'a Object<'js>>,
     ancestors: &'a mut Vec<(usize, String)>,
     replacer_fn: Option<&'a Function<'js>>,
     include_keys_replacer: Option<&'a HashSet<String>>,
+    is_object: bool,
+}
+
+impl<'a, 'js> IterationContext<'a, 'js> {
+    fn middle_element(&self) -> bool {
+        if let (Some(index), Some(size)) = (self.index, self.size) {
+            index > 0 && index + 1 < size
+        } else {
+            false
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -85,10 +97,12 @@ pub fn json_stringify_replacer_space<'js>(
         indentation: None,
         key: None,
         index: None,
+        size: None,
         parent: None,
         ancestors: &mut ancestors,
         replacer_fn,
         include_keys_replacer,
+        is_object: false,
     };
 
     match write_primitive(&mut context, false)? {
@@ -133,10 +147,12 @@ fn run_to_json<'js>(
             indentation: context.indentation,
             key: None,
             index: None,
+            size: None,
             parent: Some(js_object),
             ancestors: context.ancestors,
             replacer_fn: context.replacer_fn,
             include_keys_replacer: context.include_keys_replacer,
+            is_object: false,
         },
         false,
     )?;
@@ -178,11 +194,13 @@ fn run_replacer<'js>(
             replacer_fn: None,
             key,
             index: None,
+            size: None,
             indentation: context.indentation,
             parent: None,
             include_keys_replacer: None,
             depth: context.depth,
             ancestors: context.ancestors,
+            is_object: context.is_object,
         },
         add_comma,
     )
@@ -203,13 +221,14 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<Pr
 
     let type_of = value.type_of();
 
-    if matches!(type_of, Type::Symbol | Type::Undefined) && context.index.is_none() {
+    if matches!(type_of, Type::Symbol | Type::Undefined) && context.is_object {
         return Ok(PrimitiveStatus::Ignored);
     }
 
     if let Some(include_keys_replacer) = include_keys_replacer {
-        let key = get_key_or_index(key, index);
-        if !include_keys_replacer.contains(&key) {
+        let index = if context.is_object { None } else { index };
+        let replacer_key = get_key_or_index(key, index);
+        if !include_keys_replacer.contains(&replacer_key) {
             return Ok(PrimitiveStatus::Ignored);
         }
     };
@@ -341,6 +360,7 @@ fn detect_circular_reference(
 fn append_value(context: &mut IterationContext<'_, '_>, add_comma: bool) -> Result<bool> {
     match write_primitive(context, add_comma)? {
         PrimitiveStatus::Written => Ok(true),
+        PrimitiveStatus::Ignored if context.middle_element() => Ok(true),
         PrimitiveStatus::Ignored => Ok(false),
         PrimitiveStatus::Iterate => {
             context.depth += 1;
@@ -387,7 +407,7 @@ fn write_string(string: &mut String, value: &str) {
 
 #[inline(always)]
 fn get_key_or_index(key: Option<&str>, index: Option<usize>) -> String {
-    key.map(|k| k.to_string()).unwrap_or_else(|| {
+    key.map(String::from).unwrap_or_else(|| {
         let mut buffer = itoa::Buffer::new();
         buffer.format(index.unwrap_or_default()).to_string()
     })
@@ -425,7 +445,9 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
             add_comma = false;
             value_written = false;
 
-            for key in js_object.keys::<String>() {
+            let keys = js_object.keys::<String>();
+            let size = keys.len();
+            for (index, key) in keys.enumerate() {
                 let key = key?;
                 let val = js_object.get(&key)?;
 
@@ -437,11 +459,13 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                         depth,
                         key: Some(&key),
                         indentation,
-                        index: None,
+                        index: Some(index),
+                        size: Some(size),
                         parent: Some(js_object),
                         ancestors: context.ancestors,
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
+                        is_object: true,
                     },
                     add_comma,
                 )?;
@@ -480,10 +504,12 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                         key: None,
                         indentation,
                         index: Some(i),
+                        size: Some(js_array.len()),
                         parent: Some(js_array),
                         ancestors: context.ancestors,
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
+                        is_object: false,
                     },
                     add_comma,
                 )?;
