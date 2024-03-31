@@ -15,6 +15,7 @@ use std::{
 
 use once_cell::sync::Lazy;
 
+use chrono::Utc;
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -67,6 +68,8 @@ use crate::{
     uuid::UuidModule,
     xml::XmlModule,
 };
+
+pub static TIME_ORIGIN: Lazy<f64> = Lazy::new(|| (Utc::now().timestamp_micros() as f64) / 1e3);
 
 macro_rules! create_modules {
     ($($name:expr => $module:expr),*) => {

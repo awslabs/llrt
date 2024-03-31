@@ -10,11 +10,7 @@ use crate::module::export_default;
 
 use crate::STARTED;
 
-use once_cell::sync::Lazy;
-
-use chrono::Utc;
-
-static TIME_ORIGIN: Lazy<f64> = Lazy::new(|| (Utc::now().timestamp_micros() as f64) / 1e3);
+use crate::vm::TIME_ORIGIN;
 
 fn get_time_origin() -> f64 {
     *TIME_ORIGIN
