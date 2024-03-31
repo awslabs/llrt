@@ -9,7 +9,6 @@ use rquickjs::{
 use crate::json::escape::escape_json_string;
 
 const CIRCULAR_REF_DETECTION_DEPTH: usize = 20;
-
 struct IterationContext<'a, 'js> {
     ctx: &'a Ctx<'js>,
     result: &'a mut String,
@@ -33,6 +32,10 @@ impl<'a, 'js> IterationContext<'a, 'js> {
         } else {
             false
         }
+    }
+
+    fn ignore_undefined(&self) -> bool {
+        self.is_object || self.parent.is_none()
     }
 }
 
@@ -221,7 +224,7 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<Pr
 
     let type_of = value.type_of();
 
-    if matches!(type_of, Type::Symbol | Type::Undefined) && context.is_object {
+    if matches!(type_of, Type::Symbol | Type::Undefined) && context.ignore_undefined() {
         return Ok(PrimitiveStatus::Ignored);
     }
 
