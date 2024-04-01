@@ -178,6 +178,15 @@ describe("Request", () => {
     expect(request.signal).toEqual(controller.signal);
   });
 
+  it("should accept null or undefined as signal options", () => {
+    // @ts-ignore
+    const reqNull = new Request('http://localhost', { signal: null });
+    expect(reqNull.signal).toBeUndefined();
+    // @ts-ignore
+    const reqUndef = new Request('http://localhost', { signal: undefined });
+    expect(reqUndef.signal).toBeUndefined();
+  });
+
   it("should fail if the signal option is not an object", () => {
     expect(() => {
       // @ts-ignore

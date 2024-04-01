@@ -104,21 +104,12 @@ impl<'js> Request<'js> {
             None
         };
 
-        let signal = if let Some(signal) = &self.signal {
-            Some(Class::<AbortSignal>::instance(
-                ctx.clone(),
-                signal.borrow().clone(),
-            )?)
-        } else {
-            None
-        };
-
         Ok(Self {
             url: self.url.clone(),
             method: self.url.clone(),
             headers,
             body: self.body.clone(),
-            signal,
+            signal: self.signal.clone(),
         })
     }
 }
@@ -134,21 +125,17 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     if obj.contains_key("signal").unwrap() {
         let signal: Value = obj.get("signal")?;
         if !signal.is_undefined() && !signal.is_null() {
-            if let Some(signal_obj) = signal.as_object() {
-                if signal_obj.instance_of::<AbortSignal>() {
+            match signal.as_object() {
+                Some(signal_obj) if signal_obj.instance_of::<AbortSignal>() => {
                     let signal = AbortSignal::from_js(&ctx, signal)?;
                     request.signal = Some(Class::instance(ctx.clone(), signal)?);
-                } else {
+                }
+                _ => {
                     return Err(request_construct_type_error(
                         &ctx,
                         "member signal is not of type AbortSignal.",
                     ));
                 }
-            } else {
-                return Err(request_construct_type_error(
-                    &ctx,
-                    "member signal is not of type AbortSignal.",
-                ));
             }
         }
     }
