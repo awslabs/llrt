@@ -422,7 +422,6 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
 
             context.result.push('{');
 
-            add_comma = false;
             value_written = false;
 
             for key in js_object.keys::<String>() {
@@ -443,7 +442,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
                     },
-                    add_comma,
+                    value_written,
                 )?;
                 value_written = value_written || add_comma;
             }
