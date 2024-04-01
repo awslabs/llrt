@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::sync::atomic::Ordering;
+
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
@@ -8,17 +10,21 @@ use rquickjs::{
 
 use crate::module::export_default;
 
-use crate::vm::{STARTED, TIME_ORIGIN};
+use chrono::Utc;
+
+use crate::vm::TIME_ORIGIN;
 
 fn get_time_origin() -> f64 {
-    unsafe { TIME_ORIGIN.assume_init() }
+    let time_origin = TIME_ORIGIN.load(Ordering::Relaxed) as f64;
+
+    time_origin / 1e6
 }
 
 fn now() -> f64 {
-    let started = unsafe { STARTED.assume_init() };
-    let elapsed = started.elapsed();
+    let now = Utc::now().timestamp_nanos_opt().unwrap_or_default() as f64;
+    let started = TIME_ORIGIN.load(Ordering::Relaxed) as f64;
 
-    elapsed.as_micros() as f64 / 1e3
+    (now - started) / 1e6
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {

@@ -7,12 +7,11 @@ use std::{
     ffi::CStr,
     future::Future,
     io::{self},
-    mem::MaybeUninit,
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
+    sync::atomic::{AtomicUsize, Ordering},
     sync::{Arc, Mutex},
-    time::Instant,
 };
 
 use once_cell::sync::Lazy;
@@ -71,8 +70,7 @@ use crate::{
     xml::XmlModule,
 };
 
-pub static mut STARTED: MaybeUninit<Instant> = MaybeUninit::uninit();
-pub static mut TIME_ORIGIN: MaybeUninit<f64> = MaybeUninit::uninit();
+pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
 
 macro_rules! create_modules {
     ($($name:expr => $module:expr),*) => {
@@ -429,8 +427,10 @@ impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
-        unsafe { TIME_ORIGIN.write((Utc::now().timestamp_micros() as f64) / 1e3) };
-        unsafe { STARTED.write(Instant::now()) };
+        if TIME_ORIGIN.load(Ordering::Relaxed) == 0 {
+            let time_origin = Utc::now().timestamp_nanos_opt().unwrap_or_default() as usize;
+            TIME_ORIGIN.store(time_origin, Ordering::Relaxed)
+        }
 
         SYSTEM_RANDOM
             .fill(&mut [0; 8])
