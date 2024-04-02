@@ -29,6 +29,7 @@ mod net;
 mod number;
 mod os;
 mod path;
+mod performance;
 mod process;
 mod security;
 mod stream;
@@ -45,7 +46,6 @@ use rquickjs::{AsyncContext, Module};
 use std::{
     env,
     error::Error,
-    mem::MaybeUninit,
     path::{Path, PathBuf},
     process::exit,
     sync::atomic::Ordering,
@@ -69,13 +69,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
-pub static mut STARTED: MaybeUninit<Instant> = MaybeUninit::uninit();
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let now = Instant::now();
-
-    unsafe { STARTED.write(Instant::now()) };
 
     MinimalTracer::register()?;
     trace!("Started runtime");

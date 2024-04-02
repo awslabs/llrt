@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, sync::atomic::Ordering};
 
 use rquickjs::{
     atom::PredefinedAtom,
@@ -12,9 +12,13 @@ use rquickjs::{
     Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
 };
 
+use chrono::Utc;
+
 use crate::module::export_default;
 
-use crate::{STARTED, VERSION};
+use crate::VERSION;
+
+use crate::vm::TIME_ORIGIN;
 
 fn cwd() -> String {
     env::current_dir().unwrap().to_string_lossy().to_string()
@@ -42,15 +46,18 @@ pub fn get_platform() -> &'static str {
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {
-    let started = unsafe { STARTED.assume_init() };
-    let elapsed = started.elapsed().as_nanos() as u64;
+    let now = Utc::now().timestamp_nanos_opt().unwrap_or_default() as u64;
+    let started = TIME_ORIGIN.load(Ordering::Relaxed) as u64;
+
+    let elapsed = now - started;
 
     BigInt::from_u64(ctx, elapsed)
 }
 
 fn hr_time(ctx: Ctx<'_>) -> Result<Array<'_>> {
-    let started = unsafe { STARTED.assume_init() };
-    let elapsed = started.elapsed().as_nanos() as u64;
+    let now = Utc::now().timestamp_nanos_opt().unwrap_or_default() as u64;
+    let started = TIME_ORIGIN.load(Ordering::Relaxed) as u64;
+    let elapsed = now - started;
 
     let seconds = elapsed / 1_000_000_000;
     let remaining_nanos = elapsed % 1_000_000_000;

@@ -10,11 +10,13 @@ use std::{
     path::{Component, Path, PathBuf},
     process::exit,
     result::Result as StdResult,
+    sync::atomic::{AtomicUsize, Ordering},
     sync::{Arc, Mutex},
 };
 
 use once_cell::sync::Lazy;
 
+use chrono::Utc;
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -53,6 +55,7 @@ use crate::{
     number::number_to_string,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
+    performance::PerformanceModule,
     process::ProcessModule,
     timers::TimersModule,
     url::UrlModule,
@@ -66,6 +69,8 @@ use crate::{
     uuid::UuidModule,
     xml::XmlModule,
 };
+
+pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
 
 macro_rules! create_modules {
     ($($name:expr => $module:expr),*) => {
@@ -132,7 +137,8 @@ create_modules!(
     "uuid" => UuidModule,
     "process" => ProcessModule,
     "navigator" => NavigatorModule,
-    "url" => UrlModule
+    "url" => UrlModule,
+    "performance" => PerformanceModule
 );
 
 struct ModuleInfo<T: ModuleDef> {
@@ -421,6 +427,11 @@ impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
+        if TIME_ORIGIN.load(Ordering::Relaxed) == 0 {
+            let time_origin = Utc::now().timestamp_nanos_opt().unwrap_or_default() as usize;
+            TIME_ORIGIN.store(time_origin, Ordering::Relaxed)
+        }
+
         SYSTEM_RANDOM
             .fill(&mut [0; 8])
             .expect("Failed to initialize SystemRandom");
@@ -483,6 +494,7 @@ impl Vm {
             crate::events::init(&ctx)?;
             crate::buffer::init(&ctx)?;
             crate::navigator::init(&ctx)?;
+            crate::performance::init(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
