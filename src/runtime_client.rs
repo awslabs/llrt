@@ -60,8 +60,8 @@ type HyperClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
 
 #[derive(Clone)]
 struct LambdaContext<'js, 'a> {
-    pub invoked_function_arn: String,
     pub aws_request_id: String,
+    pub invoked_function_arn: String,
     pub callback_waits_for_empty_event_loop: bool,
     pub get_remaining_time_in_millis: Function<'js>,
     pub client_context: Value<'js>,
@@ -236,7 +236,12 @@ async fn next_invocation<'js, 'a>(
     let res = client.request(req).await.or_throw(ctx)?;
 
     if res.status() != StatusCode::OK {
-        todo!()
+        let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
+        let res_str = String::from_utf8_lossy(res_bytes.as_slice());
+        return Err(Exception::throw_message(
+            ctx,
+            &format!("Unexpected /invocation/next response: {:?}", res_str),
+        ));
     }
 
     if let Some(trace_id_value) = res.headers().get(&HEADER_TRACE_ID) {
