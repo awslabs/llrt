@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use rquickjs::{
-    atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Object, Result,
-    Symbol, Value,
+    atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, IntoJs, Null,
+    Object, Result, Symbol, Value,
 };
 
 use crate::utils::{class::IteratorDef, object::array_to_btree_map};
@@ -63,8 +63,11 @@ impl URLSearchParams {
             .or_insert_with(|| vec![value.clone()]);
     }
 
-    pub fn get(&mut self, key: String) -> Option<String> {
-        self.params.get(&key).and_then(|v| v.first()).cloned()
+    pub fn get<'js>(&mut self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
+        match self.params.get(&key).and_then(|v| v.first()) {
+            Some(value) => value.clone().into_js(&ctx),
+            None => Null.into_js(&ctx),
+        }
     }
 
     pub fn get_all(&mut self, key: String) -> Vec<String> {

@@ -13,6 +13,9 @@ use crate::utils::result::ResultExt;
 
 use super::url_search_params::URLSearchParams;
 
+static DEFAULT_PORTS: &[&str] = &["21", "80", "443"];
+static DEFAULT_PROTOCOLS: &[&str] = &["ftp", "http", "https"];
+
 #[derive(Clone)]
 #[rquickjs::class]
 pub struct URL<'js> {
@@ -104,15 +107,9 @@ impl<'js> URL<'js> {
             user_info.push('@')
         }
 
-        let port = if !self.port.is_empty() {
-            format!(":{}", &self.port)
-        } else {
-            String::from("")
-        };
-
         format!(
-            "{}://{}{}{}{}{}{}",
-            &self.protocol, user_info, &self.host, port, &self.pathname, &search, &hash
+            "{}://{}{}{}{}{}",
+            &self.protocol, user_info, &self.host, &self.pathname, &search, &hash
         )
     }
 
@@ -158,6 +155,7 @@ impl<'js> URL<'js> {
             protocol.pop();
         }
         self.protocol = protocol.clone();
+        self.update_port_host();
 
         protocol
     }
@@ -171,6 +169,8 @@ impl<'js> URL<'js> {
     fn set_port(&mut self, port: Coerced<String>) -> String {
         let port_string = port.to_string();
         self.port = port_string.clone();
+        self.update_port_host();
+
         port_string
     }
 
@@ -195,11 +195,7 @@ impl<'js> URL<'js> {
         let (name, port) = split_colon(&ctx, &host)?;
         self.hostname = name.to_string();
         self.port = port.to_string();
-        if !port.is_empty() {
-            self.host = format!("{}:{}", name, port);
-        } else {
-            self.host = name.to_string();
-        }
+        self.update_port_host();
 
         Ok(self.host.clone())
     }
@@ -268,7 +264,13 @@ impl<'js> URL<'js> {
         let search_params = URLSearchParams::from_str(query);
 
         let hostname = url.host().map(|h| h.to_string()).unwrap_or_default();
-        let port = url.port().map(|p| p.to_string());
+        let protocol = url.scheme().to_string();
+
+        let port = filtered_port(
+            &protocol,
+            &url.port().map(|p| p.to_string()).unwrap_or_default(),
+        );
+
         let host = format!(
             "{}{}",
             &hostname,
@@ -281,7 +283,7 @@ impl<'js> URL<'js> {
         let search_params = Class::instance(ctx, search_params)?;
 
         Ok(Self {
-            protocol: url.scheme().to_string(),
+            protocol,
             host,
             hostname,
             port: port.unwrap_or_default(),
@@ -297,6 +299,28 @@ impl<'js> URL<'js> {
         let url: Url = input.parse().or_throw_msg(&ctx, "Invalid URL")?;
         Self::create(ctx, url)
     }
+
+    fn update_port_host(&mut self) {
+        if let Some(p) = filtered_port(&self.protocol, &self.port) {
+            self.host = format!("{}:{}", self.hostname, self.port);
+            self.port = p;
+        } else {
+            self.port.clear();
+            self.host = self.hostname.clone();
+        }
+    }
+}
+
+fn filtered_port(protocol: &str, port: &str) -> Option<String> {
+    if let Some(pos) = DEFAULT_PROTOCOLS.iter().position(|&p| p == protocol) {
+        if DEFAULT_PORTS[pos] == port {
+            return None;
+        }
+    }
+    if port.is_empty() {
+        return None;
+    }
+    Some(port.to_string())
 }
 
 fn get_string(ctx: &Ctx, input: Value) -> Result<String> {
