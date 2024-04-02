@@ -1,6 +1,6 @@
 import * as url from "url";
 
-describe("url module import syntax works", () => {
+describe("URL module import", () => {
   it("global URL and imported URL are equal", () => {
     const testUrl = "https://www.example.com";
     const moduleUrl = new url.URL(testUrl);
@@ -284,11 +284,24 @@ describe("URL class", () => {
   });
 
   it("should be able to set and get port", () => {
-    const url: any = new URL("https://www.example.com");
+    let url: any = new URL("https://www.example.com");
     url.port = "1234";
     expect(url.toString()).toEqual("https://www.example.com:1234/");
     url.port = 5678;
     expect(url.toString()).toEqual("https://www.example.com:5678/");
+
+    url = new URL("https://www.example.com:443/route/example");
+    expect(url.port).toEqual("");
+    expect(url.toString()).toEqual("https://www.example.com/route/example");
+
+    url.port = 21;
+    expect(url.toString()).toEqual("https://www.example.com:21/route/example");
+
+    url.protocol = "ftp";
+    expect(url.toString()).toEqual("ftp://www.example.com/route/example");
+
+    url.protocol = "http";
+    url.port = 80;
   });
 
   it("should modify query parameters", () => {
@@ -338,9 +351,7 @@ describe("URLSearchParams class", () => {
   it("should return null if the parameter doesn't exist", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
-    // TODO FB There is a bug here, searchParams.get("foo") returns undefined, it should return null
-    // expect(searchParams.get("foo")).toBeNull()
-    expect(searchParams.get("foo")).toBeFalsy();
+    expect(searchParams.get("foo")).toBeNull();
   });
 
   it("should return an array of all values of the parameter if it exists", () => {
