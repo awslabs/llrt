@@ -302,6 +302,7 @@ describe("URL class", () => {
 
     url.protocol = "http";
     url.port = 80;
+    expect(url.toString()).toEqual("http://www.example.com/route/example");
   });
 
   it("should modify query parameters", () => {
