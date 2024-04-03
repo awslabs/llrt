@@ -6,6 +6,9 @@ use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::FileTypeExt;
+
 use crate::{
     path::{is_absolute, CURRENT_DIR_STR},
     utils::io::DirectoryWalker,
@@ -27,27 +30,79 @@ impl Dirent {
         self.metadata.is_dir()
     }
 
-    pub fn is_symlink(&self) -> bool {
+    pub fn is_symbolic_link(&self) -> bool {
         self.metadata.is_symlink()
+    }
+
+    #[qjs(rename = "isFIFO")]
+    pub fn is_fifo(&self) -> bool {
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_fifo()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+
+    pub fn is_block_device(&self) -> bool {
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_block_device()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+
+    pub fn is_character_device(&self) -> bool {
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_char_device()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+
+    pub fn is_socket(&self) -> bool {
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_socket()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
     }
 }
 
+struct ReadDirItem {
+    name: String,
+    metadata: Option<Metadata>,
+}
+
 pub struct ReadDir {
-    items: Vec<(String, Option<Metadata>)>,
+    items: Vec<ReadDirItem>,
+    root: String,
 }
 
 impl<'js> IntoJs<'js> for ReadDir {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let arr = Array::new(ctx.clone())?;
-        for (index, (name, metadata)) in self.items.into_iter().enumerate() {
-            if let Some(metadata) = metadata {
+        for (index, item) in self.items.into_iter().enumerate() {
+            if let Some(metadata) = item.metadata {
                 let dirent = Dirent { metadata };
 
                 let dirent = Class::instance(ctx.clone(), dirent)?;
-                dirent.set(PredefinedAtom::Name, name)?;
+                dirent.set(PredefinedAtom::Name, item.name)?;
+                dirent.set("parentPath", &self.root)?;
                 arr.set(index, dirent)?;
             } else {
-                arr.set(index, name)?;
+                arr.set(index, item.name)?;
             }
         }
         arr.into_js(ctx)
@@ -56,11 +111,11 @@ impl<'js> IntoJs<'js> for ReadDir {
 
 pub async fn read_dir<'js>(
     _ctx: Ctx<'js>,
-    path: String,
+    mut path: String,
     options: Opt<Object<'js>>,
 ) -> Result<ReadDir> {
     let (with_file_types, skip_root_pos, mut directory_walker) =
-        process_options_and_create_directory_walker(path, options);
+        process_options_and_create_directory_walker(&mut path, options);
 
     let mut items = Vec::with_capacity(64);
 
@@ -74,18 +129,18 @@ pub async fn read_dir<'js>(
         );
     }
 
-    items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+    items.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
 
-    Ok(ReadDir { items })
+    Ok(ReadDir { items, root: path })
 }
 
 pub fn read_dir_sync<'js>(
     _ctx: Ctx<'js>,
-    path: String,
+    mut path: String,
     options: Opt<Object<'js>>,
 ) -> Result<ReadDir> {
     let (with_file_types, skip_root_pos, mut directory_walker) =
-        process_options_and_create_directory_walker(path, options);
+        process_options_and_create_directory_walker(&mut path, options);
 
     let mut items = Vec::with_capacity(64);
     while let Some((child, metadata)) = directory_walker.walk_sync()? {
@@ -98,19 +153,17 @@ pub fn read_dir_sync<'js>(
         );
     }
 
-    items.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+    items.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
 
-    Ok(ReadDir { items })
+    Ok(ReadDir { items, root: path })
 }
 
 type OptionsAndDirectoryWalker = (bool, usize, DirectoryWalker<fn(&str) -> bool>);
 
 fn process_options_and_create_directory_walker(
-    path: String,
+    path: &mut String,
     options: Opt<Object>,
 ) -> OptionsAndDirectoryWalker {
-    let mut path = path;
-
     let mut with_file_types = false;
     let mut is_recursive = false;
 
@@ -137,7 +190,7 @@ fn process_options_and_create_directory_walker(
             // path
             _ => {
                 if !is_absolute(path.clone()) {
-                    path = [CURRENT_DIR_STR.to_string(), path].concat();
+                    path.insert_str(0, CURRENT_DIR_STR);
                 }
                 path.len() + 1
             }
@@ -145,7 +198,7 @@ fn process_options_and_create_directory_walker(
     };
 
     let mut directory_walker: DirectoryWalker<fn(&str) -> bool> =
-        DirectoryWalker::new(PathBuf::from(path), |_| true);
+        DirectoryWalker::new(PathBuf::from(&path), |_| true);
 
     if is_recursive {
         directory_walker.set_recursive(true);
@@ -156,7 +209,7 @@ fn process_options_and_create_directory_walker(
 fn append_directory_and_metadata_to_vec(
     with_file_types: bool,
     skip_root_pos: usize,
-    items: &mut Vec<(String, Option<Metadata>)>,
+    items: &mut Vec<ReadDirItem>,
     child: PathBuf,
     metadata: Metadata,
 ) {
@@ -166,8 +219,7 @@ fn append_directory_and_metadata_to_vec(
         None
     };
 
-    items.push((
-        child.into_os_string().to_string_lossy()[skip_root_pos..].to_string(),
-        metadata,
-    ))
+    let name = child.into_os_string().to_string_lossy()[skip_root_pos..].to_string();
+
+    items.push(ReadDirItem { name, metadata })
 }
