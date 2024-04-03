@@ -4,7 +4,7 @@ use rquickjs::{prelude::This, Class, Ctx, IntoJs, Result, Value};
 use std::result::Result as StdResult;
 use tokio::sync::broadcast::error::RecvError;
 
-use crate::events::Emitter;
+use crate::modules::events::Emitter;
 
 use self::{readable::DefaultReadableStream, writable::DefaultWritableStream};
 

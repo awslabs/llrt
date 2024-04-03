@@ -10,8 +10,10 @@ use rquickjs::{
 };
 
 use crate::{
-    encoding::encoder::Encoder,
-    module::export_default,
+    modules::{
+        encoding::encoder::Encoder,
+        module::export_default,
+    },
     utils::{
         object::{get_bytes, get_bytes_offset_length, obj_to_array_buffer},
         result::ResultExt,

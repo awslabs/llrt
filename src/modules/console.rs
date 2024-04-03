@@ -22,7 +22,7 @@ use rquickjs::{
 use rquickjs::{Array, Class};
 
 use crate::json::stringify::json_stringify;
-use crate::module::export_default;
+use crate::modules::module::export_default;
 use crate::{
     json::escape::escape_json,
     number::float_to_string,
@@ -863,7 +863,7 @@ mod tests {
     use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
 
     use crate::{
-        console::{write_lambda_log, LogLevel},
+        modules::console::{write_lambda_log, LogLevel},
         json::stringify::json_stringify_replacer_space,
         test_utils::utils::with_runtime,
     };

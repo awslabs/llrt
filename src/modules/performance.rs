@@ -9,7 +9,7 @@ use rquickjs::{
     Ctx, Object, Result, Value,
 };
 
-use crate::module::export_default;
+use crate::modules::module::export_default;
 
 use chrono::Utc;
 

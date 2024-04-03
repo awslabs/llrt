@@ -9,7 +9,7 @@ use rquickjs::{
     Ctx, Result,
 };
 
-use crate::{module::export_default, process::get_platform};
+use crate::modules::{module::export_default, process::get_platform};
 
 static OS_INFO: Lazy<(String, String, String)> = Lazy::new(|| {
     if let Ok(uts) = uname::uname() {

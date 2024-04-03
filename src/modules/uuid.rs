@@ -11,9 +11,11 @@ use uuid::Uuid;
 use uuid_simd::UuidExt;
 
 use crate::{
-    crypto::SYSTEM_RANDOM,
-    encoding::encoder::bytes_to_hex,
-    module::export_default,
+    modules::{
+        crypto::SYSTEM_RANDOM,
+        encoding::encoder::bytes_to_hex,
+        module::export_default,
+    },
     utils::{
         object::{get_bytes, get_bytes_offset_length},
         result::ResultExt,

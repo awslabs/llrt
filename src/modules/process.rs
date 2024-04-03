@@ -14,7 +14,7 @@ use rquickjs::{
 
 use chrono::Utc;
 
-use crate::module::export_default;
+use crate::modules::module::export_default;
 
 use crate::VERSION;
 

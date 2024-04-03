@@ -11,7 +11,7 @@ pub mod url_search_params;
 
 use rquickjs::{Class, Ctx, Result};
 
-use crate::http::headers::Headers;
+use crate::modules::http::headers::Headers;
 
 use self::{
     blob::Blob, request::Request, response::Response, url::URL, url_search_params::URLSearchParams,

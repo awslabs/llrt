@@ -6,40 +6,22 @@
 
 #[macro_use]
 mod macros;
-mod buffer;
 mod bytearray_buffer;
 mod bytecode;
-mod child_process;
 #[cfg(not(feature = "lambda"))]
 mod compiler;
 #[cfg(not(feature = "lambda"))]
 mod compiler_common;
-mod console;
-mod crypto;
-mod encoding;
 mod environment;
-mod events;
-mod fs;
-mod http;
 mod json;
 mod minimal_tracer;
-mod module;
-mod navigator;
-mod net;
 mod number;
-mod os;
-mod path;
-mod performance;
-mod process;
 mod security;
 mod stream;
 mod test_utils;
-mod timers;
-mod url;
 mod utils;
-mod uuid;
+mod modules;
 mod vm;
-mod xml;
 
 use minimal_tracer::MinimalTracer;
 use rquickjs::{AsyncContext, Module};
@@ -58,9 +40,20 @@ use tracing::trace;
 use crate::compiler::compile_file;
 
 use crate::{
-    console::LogLevel,
-    process::{get_arch, get_platform},
-    utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
+    modules::{
+        console,
+        console::LogLevel, 
+        process::{
+            get_arch, 
+            get_platform
+        }
+    },
+    utils::io::{
+        get_basename_ext_name, 
+        get_js_path, 
+        DirectoryWalker, 
+        JS_EXTENSIONS
+    },
     vm::Vm,
 };
 
@@ -219,7 +212,7 @@ async fn start_cli(context: &AsyncContext) {
                 if file_exists {
                     Vm::run_module(
                         context,
-                        Path::new(&path::resolve_path(
+                        Path::new(&modules::path::resolve_path(
                             [filename.to_string_lossy().to_string()].iter(),
                         )),
                     )

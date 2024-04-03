@@ -30,8 +30,10 @@ use tokio::{
 };
 
 use crate::{
-    events::{EmitError, Emitter, EventEmitter, EventList},
-    module::export_default,
+    modules::{
+        events::{EmitError, Emitter, EventEmitter, EventList},
+        module::export_default,
+    },
     stream::{
         readable::{DefaultReadableStream, ReadableStream},
         writable::{DefaultWritableStream, WritableStream},

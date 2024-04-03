@@ -12,7 +12,7 @@ use rquickjs::{
     Ctx, Object, Result,
 };
 
-use crate::module::export_default;
+use crate::modules::module::export_default;
 
 pub struct PathModule;
 

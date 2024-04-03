@@ -10,7 +10,7 @@ use rquickjs::{
 use std::os::unix::fs::FileTypeExt;
 
 use crate::{
-    path::{is_absolute, CURRENT_DIR_STR},
+    modules::path::{is_absolute, CURRENT_DIR_STR},
     utils::io::DirectoryWalker,
 };
 

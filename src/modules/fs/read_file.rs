@@ -4,7 +4,7 @@ use rquickjs::{function::Opt, Ctx, IntoJs, Result, Value};
 use tokio::fs;
 
 use crate::{
-    buffer::Buffer,
+    modules::buffer::Buffer,
     utils::{object::ObjectExt, result::ResultExt},
 };
 

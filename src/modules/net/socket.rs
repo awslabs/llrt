@@ -27,8 +27,10 @@ use tokio::{
 use tracing::trace;
 
 use crate::{
-    events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
-    module::export_default,
+    modules::{
+        events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
+        module::export_default,
+    },
     security::ensure_net_access,
     stream::{
         readable::{ReadableStream, ReadableStreamInner},

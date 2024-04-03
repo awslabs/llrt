@@ -27,7 +27,7 @@ const NEL: &[u8] = b"&#x85;";
 const LS: &[u8] = b"&#x2028;";
 
 use crate::{
-    module::export_default,
+    modules::module::export_default,
     utils::{
         object::{get_bytes, ObjectExt},
         result::ResultExt,

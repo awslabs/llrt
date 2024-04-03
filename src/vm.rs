@@ -37,28 +37,33 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 include!("./bytecode_cache.rs");
 
-use crate::{
+use crate::modules::{
     buffer::BufferModule,
-    bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
     child_process::ChildProcessModule,
     console,
     console::ConsoleModule,
     crypto::{CryptoModule, SYSTEM_RANDOM},
     encoding::HexModule,
-    environment,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
-    json::{parse::json_parse, stringify::json_stringify_replacer_space},
     module::ModuleModule,
     navigator::NavigatorModule,
     net::NetModule,
-    number::number_to_string,
     os::OsModule,
     path::{dirname, join_path, resolve_path, PathModule},
     performance::PerformanceModule,
     process::ProcessModule,
     timers::TimersModule,
     url::UrlModule,
+    uuid::UuidModule,
+    xml::XmlModule,
+};
+
+use crate::{
+    bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
+    environment,
+    json::{parse::json_parse, stringify::json_stringify_replacer_space},
+    number::number_to_string,
     utils::{
         class::get_class_name,
         clone::structured_clone,
@@ -66,8 +71,6 @@ use crate::{
         object::{get_bytes, ObjectExt},
         UtilModule,
     },
-    uuid::UuidModule,
-    xml::XmlModule,
 };
 
 pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
@@ -486,15 +489,16 @@ impl Vm {
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
-            crate::console::init(&ctx)?;
-            crate::encoding::init(&ctx)?;
-            crate::http::init(&ctx)?;
-            crate::timers::init(&ctx)?;
-            crate::process::init(&ctx)?;
-            crate::events::init(&ctx)?;
-            crate::buffer::init(&ctx)?;
-            crate::navigator::init(&ctx)?;
-            crate::performance::init(&ctx)?;
+            // TODO: Look if there is a less repetitive way to do this
+            crate::modules::console::init(&ctx)?;
+            crate::modules::encoding::init(&ctx)?;
+            crate::modules::http::init(&ctx)?;
+            crate::modules::timers::init(&ctx)?;
+            crate::modules::process::init(&ctx)?;
+            crate::modules::events::init(&ctx)?;
+            crate::modules::buffer::init(&ctx)?;
+            crate::modules::navigator::init(&ctx)?;
+            crate::modules::performance::init(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })

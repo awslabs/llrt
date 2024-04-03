@@ -6,7 +6,7 @@ use rquickjs::{
     Ctx, Result,
 };
 
-use crate::module::export_default;
+use crate::modules::module::export_default;
 pub struct UrlModule;
 
 impl ModuleDef for UrlModule {

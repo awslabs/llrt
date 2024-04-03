@@ -14,7 +14,7 @@ use rquickjs::{
     Ctx, Function, Result,
 };
 
-use crate::{module::export_default, vm::CtxExtension};
+use crate::{modules::module::export_default, vm::CtxExtension};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
 static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);

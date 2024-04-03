@@ -17,14 +17,16 @@ use rquickjs::{
 };
 
 use crate::{
-    buffer::Buffer,
-    encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
-    module::export_default,
+    modules::{
+        buffer::Buffer,
+        encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
+        module::export_default,
+        uuid::uuidv4,
+    },
     utils::{
         object::{bytes_to_typed_array, get_checked_len, obj_to_array_buffer},
         result::ResultExt,
     },
-    uuid::uuidv4,
     vm::{CtxExtension, ErrorExtensions},
 };
 

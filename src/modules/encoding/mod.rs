@@ -10,7 +10,7 @@ use rquickjs::{
 };
 
 use crate::{
-    module::export_default,
+    modules::module::export_default,
     utils::{
         object::{bytes_to_typed_array, get_bytes},
         result::ResultExt,

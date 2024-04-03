@@ -8,14 +8,13 @@ mod rm;
 mod stats;
 mod write_file;
 
-use crate::fs::access::access_sync;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Async, Func},
 };
 use rquickjs::{Class, Ctx, Object, Result};
 
-use crate::module::export_default;
+use crate::modules::module::export_default;
 
 use self::access::access;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
@@ -23,10 +22,14 @@ use self::read_file::{read_file, read_file_sync};
 use self::rm::{rmdir, rmfile};
 use self::stats::{stat_fn, Stat};
 use self::write_file::write_file;
-use crate::fs::mkdir::{mkdir, mkdir_sync, mkdtemp, mkdtemp_sync};
-use crate::fs::rm::{rmdir_sync, rmfile_sync};
-use crate::fs::stats::stat_fn_sync;
-use crate::fs::write_file::write_file_sync;
+
+use crate::modules::fs::{
+    access::access_sync,
+    mkdir::{mkdir, mkdir_sync, mkdtemp, mkdtemp_sync},
+    rm::{rmdir_sync, rmfile_sync},
+    stats::stat_fn_sync,
+    write_file::write_file_sync,
+};
 
 pub const CONSTANT_F_OK: u32 = 0;
 pub const CONSTANT_R_OK: u32 = 4;

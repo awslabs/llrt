@@ -21,8 +21,8 @@ use std::{
 
 use crate::{
     environment,
-    http::headers::Headers,
-    net::{DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS, TLS_CONFIG},
+    modules::http::headers::Headers,
+    modules::net::{DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS, TLS_CONFIG},
     security::{ensure_url_access, HTTP_DENY_LIST},
     utils::{
         object::{get_bytes, ObjectExt},
