@@ -3,6 +3,7 @@
 use std::sync::atomic::Ordering;
 
 use rquickjs::{
+    atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
     Ctx, Object, Result, Value,
@@ -42,7 +43,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     performance.set("timeOrigin", get_time_origin())?;
     performance.set("now", Func::from(now))?;
-    performance.set("toJSON", Func::from(to_json))?;
+    performance.set(PredefinedAtom::ToJSON, Func::from(to_json))?;
 
     globals.set("performance", performance)?;
 
