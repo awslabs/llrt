@@ -69,6 +69,7 @@ const ES_BUILD_OPTIONS = {
     "xml",
     "net",
     "navigator",
+    "util",
     "url",
     "performance",
   ],
