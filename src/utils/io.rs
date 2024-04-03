@@ -108,6 +108,7 @@ where
 
     async fn append_stack(&mut self, dir: &PathBuf) -> io::Result<()> {
         let mut stream = fs::read_dir(dir).await?;
+
         while let Some(entry) = stream.next_entry().await? {
             let entry_path = entry.path();
 
@@ -116,7 +117,8 @@ where
                 continue;
             }
 
-            let metadata = fs::metadata(&entry_path).await?;
+            let metadata = fs::symlink_metadata(&entry_path).await?;
+
             self.stack.push((entry_path, Some(metadata)));
         }
         Ok(())
@@ -131,7 +133,7 @@ where
                 continue;
             }
             let entry_path = entry.path();
-            let metadata = entry.metadata()?;
+            let metadata = entry_path.symlink_metadata()?;
             self.stack.push((entry_path, Some(metadata)))
         }
 

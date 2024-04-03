@@ -138,21 +138,49 @@ impl Stat {
         self.metadata.is_symlink()
     }
 
+    #[qjs(rename = "isFIFO")]
     pub fn is_fifo(&self) -> bool {
-        self.metadata.file_type().is_fifo()
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_fifo()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
     }
 
     pub fn is_block_device(&self) -> bool {
-        self.metadata.file_type().is_block_device()
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_block_device()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
     }
 
     pub fn is_character_device(&self) -> bool {
-        self.metadata.file_type().is_char_device()
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_char_device()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
     }
 
-    #[cfg(unix)]
     pub fn is_socket(&self) -> bool {
-        self.metadata.file_type().is_socket()
+        #[cfg(unix)]
+        {
+            self.metadata.file_type().is_socket()
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
     }
 }
 
