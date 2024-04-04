@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 mod blob;
 mod body;
-mod fetch;
+pub(crate) mod fetch;
 mod headers;
 mod request;
 mod response;
