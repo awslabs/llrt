@@ -410,7 +410,7 @@ mod tests {
     #[tokio::test]
     async fn clone() {
         with_js_runtime(|ctx| {
-            crate::buffer::init(&ctx)?;
+            crate::modules::buffer::init(&ctx)?;
             let value: Object = ctx.eval(
                 r#"
 const a = {

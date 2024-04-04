@@ -3,7 +3,7 @@
 
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
-use crate::net::HTTP_CLIENT;
+use crate::modules::net::HTTP_CLIENT;
 use crate::utils::result::ResultExt;
 use crate::vm::{ErrorDetails, Vm};
 use bytes::Bytes;
