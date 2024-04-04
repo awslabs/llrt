@@ -9,7 +9,7 @@ use hyper_util::{
 };
 use rquickjs::{
     atom::PredefinedAtom,
-    function::Opt,
+    function::{Opt, This},
     prelude::{Async, Func},
     Coerced, Ctx, Exception, FromJs, Function, Object, Result, Value,
 };
@@ -141,7 +141,7 @@ fn get_fetch_options<'js>(
         if obj.instance_of::<crate::http::Request>() {
             resource_opts = Some(obj);
         } else if let Some(to_string) = obj.get::<_, Option<Function>>(PredefinedAtom::ToString)? {
-            url = Some(to_string.call::<_, String>((obj,))?);
+            url = Some(to_string.call::<_, String>((This(obj),))?);
         } else {
             resource_opts = Some(obj);
         }

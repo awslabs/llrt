@@ -15,7 +15,7 @@ beforeAll((done) => {
   });
 
   server.listen(() => {
-    let addressInfo = server.address()! as any as net.AddressInfo;
+    const addressInfo = server.address()! as any as net.AddressInfo;
     url = `http://${addressInfo.address}:${addressInfo.port}`;
     done();
   });
@@ -36,14 +36,34 @@ describe("fetch", () => {
   });
 
   it("should fetch a website with url and options", async () => {
-    const myOptions = {
+    const options = {
       method: "GET",
       url,
     };
 
-    const myRequest = new Request(url);
+    const request = new Request(url);
 
-    let res = await fetch(myRequest, myOptions);
+    const res = await fetch(request, options);
+    expect(res.status).toEqual(200);
+    expect(
+      res.headers.get("content-type")?.startsWith("text/html")
+    ).toBeTruthy();
+  });
+
+  it("should fetch a website with different resource options", async () => {
+    let res = await fetch(new Request(url));
+    expect(res.status).toEqual(200);
+    expect(
+      res.headers.get("content-type")?.startsWith("text/html")
+    ).toBeTruthy();
+
+    res = await fetch(new URL(url));
+    expect(res.status).toEqual(200);
+    expect(
+      res.headers.get("content-type")?.startsWith("text/html")
+    ).toBeTruthy();
+
+    res = await fetch("", { url } as any);
     expect(res.status).toEqual(200);
     expect(
       res.headers.get("content-type")?.startsWith("text/html")
