@@ -29,7 +29,7 @@ use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
 use std::sync::RwLock;
-use std::{env, result::Result as StdResult, sync::Mutex, time::Instant};
+use std::{env, result::Result as StdResult, time::Instant};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";

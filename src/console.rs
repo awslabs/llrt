@@ -684,7 +684,7 @@ fn write_lambda_log<'js>(
         //request id
         if let Some(id) = request_id.as_ref() {
             result.push_str("\"requestId\":\"");
-            result.push_str(&id);
+            result.push_str(id);
             result.push_str("\",");
         }
 
