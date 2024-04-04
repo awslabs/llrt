@@ -171,11 +171,11 @@ fn stringify_primitive<'js>(
             let big_int = value.as_big_int().unwrap();
             result.push_str(buffer.format(big_int.clone().to_i64()?));
             result.push('n');
-        }
+        },
         Type::Int => {
             let mut buffer = itoa::Buffer::new();
             result.push_str(buffer.format(value.as_int().unwrap()))
-        }
+        },
         Type::Float => {
             let mut buffer = ryu::Buffer::new();
             result.push_str(
@@ -184,7 +184,7 @@ fn stringify_primitive<'js>(
                     Err(v) => v,
                 },
             )
-        }
+        },
         Type::String => result.push_str(&value.as_string().unwrap().to_string()?),
         Type::Symbol => {
             let description = value.as_symbol().unwrap().description()?;
@@ -194,8 +194,8 @@ fn stringify_primitive<'js>(
                 result.push_str(&description);
             }
             result.push(')');
-        }
-        _ => {}
+        },
+        _ => {},
     }
     if has_color {
         result.push_str(COLOR_RESET);
@@ -389,17 +389,17 @@ fn stringify_value<'js>(
                                     if tty {
                                         result.push_str(COLOR_RESET);
                                     }
-                                }
+                                },
                                 Some("Promise") => {
                                     result.push_str("Promise {}");
-                                }
+                                },
                                 None | Some("") | Some("Object") => {
                                     is_object_like = true;
-                                }
+                                },
                                 _ => {
                                     class_name = cl;
                                     is_object_like = true;
-                                }
+                                },
                             }
                         } else {
                             is_object_like = true;

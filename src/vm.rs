@@ -198,10 +198,10 @@ impl BinaryResolver {
                     if !normalized.pop() {
                         normalized.push(component);
                     }
-                }
+                },
                 _ => {
                     normalized.push(component);
-                }
+                },
             }
         }
         if ends_with_slash {
@@ -564,12 +564,12 @@ impl Vm {
                     err_stack = stack;
                 }
                 str
-            }
+            },
             CaughtError::Value(value) => {
                 let log_msg = console::format(ctx, Rest(vec![value.clone()]))
                     .unwrap_or(String::from("{unknown value}"));
                 format!("Error: {}", &log_msg)
-            }
+            },
         };
         ErrorDetails {
             msg: error_msg,
@@ -804,7 +804,7 @@ impl<'js> ErrorExtensions<'js> for CaughtError<'js> {
         Ok(match self {
             CaughtError::Error(err) => {
                 JsString::from_str(ctx.clone(), &err.to_string())?.into_value()
-            }
+            },
             CaughtError::Exception(ex) => ex.into_value(),
             CaughtError::Value(val) => val,
         })
@@ -837,7 +837,7 @@ impl<'js> CtxExtension<'js> for Ctx<'js> {
                 Ok(res) => {
                     //result here dosn't matter if receiver has dropped
                     let _ = join_channel_tx.send(res);
-                }
+                },
                 Err(err) => {
                     if let CaughtError::Exception(err) = err {
                         if err.stack().is_none() {
@@ -849,7 +849,7 @@ impl<'js> CtxExtension<'js> for Ctx<'js> {
                     } else {
                         Vm::print_error_and_exit(&ctx, err);
                     }
-                }
+                },
             }
         });
         Ok(join_channel_rx)

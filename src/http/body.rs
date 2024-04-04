@@ -150,7 +150,7 @@ impl<'js> Body<'js> {
                     .ok_or(Exception::throw_type(ctx, "Already read"))?;
                 let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
                 bytes.to_vec()
-            }
+            },
             BodyVariant::Provided(provided) => {
                 if let Some(blob) = get_class::<Blob>(provided)? {
                     let blob = blob.borrow();
@@ -158,7 +158,7 @@ impl<'js> Body<'js> {
                 } else {
                     get_bytes(ctx, provided.clone())?
                 }
-            }
+            },
         };
         Ok(bytes)
     }

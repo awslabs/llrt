@@ -24,7 +24,7 @@ fn i64_to_base_n(number: i64, radix: u8) -> String {
         8 => return write_formatted!("{:o}", number),
         10 => return write_formatted!("{}", number),
         16 => return write_formatted!("{:x}", number),
-        _ => {}
+        _ => {},
     }
 
     let mut positive_number = number;

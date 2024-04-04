@@ -39,7 +39,7 @@ pub fn dirname(path: String) -> String {
             } else {
                 parent
             }
-        }
+        },
         None => ".",
     }
     .to_string()

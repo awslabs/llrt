@@ -33,7 +33,7 @@ impl Hmac {
                     &ctx,
                     &format!("Algorithm \"{}\" not supported", &algorithm),
                 ))
-            }
+            },
         };
 
         Ok(Self {
@@ -91,7 +91,7 @@ impl Hash {
                     &ctx,
                     &format!("Algorithm \"{}\" not supported", &algorithm),
                 ))
-            }
+            },
         };
 
         Ok(Self {
@@ -176,7 +176,7 @@ impl ShaHash {
             Some(secret) => {
                 let bytes = get_bytes(&ctx, secret)?;
                 Some(bytes)
-            }
+            },
             None => None,
         };
 

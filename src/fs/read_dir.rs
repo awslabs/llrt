@@ -193,7 +193,7 @@ fn process_options_and_create_directory_walker(
                     path.insert_str(0, CURRENT_DIR_STR);
                 }
                 path.len() + 1
-            }
+            },
         }
     };
 

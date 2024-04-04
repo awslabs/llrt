@@ -67,9 +67,9 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
     match first {
         Node::String(value) => {
             return value.into_js(ctx);
-        }
+        },
         Node::Static(node) => return static_node_to_value(ctx, *node),
-        _ => {}
+        _ => {},
     };
 
     let mut path_data = Vec::<PathItem>::with_capacity(10);
@@ -103,13 +103,13 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
                             current_obj.index += 1;
                             last_is_string = false
                         }
-                    }
+                    },
                     ValueItem::Array(array) => {
                         array.set(current_obj.index, value)?;
                         current_obj.index += 1;
-                    }
+                    },
                 }
-            }
+            },
             Node::Object { len, count: _ } => {
                 let js_object = Object::new(ctx.clone())?;
                 let item = if let Some(current_obj) = path_data.last_mut() {
@@ -129,7 +129,7 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
 
                 path_data.push(item);
                 last_is_string = false;
-            }
+            },
             Node::Array { len, count: _ } => {
                 let js_array = Array::new(ctx.clone())?;
                 let item = if let Some(current_obj) = path_data.last_mut() {
@@ -148,7 +148,7 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
                 };
                 path_data.push(item);
                 last_is_string = false;
-            }
+            },
             Node::Static(node) => {
                 last_is_string = false;
                 current_obj = path_data.last_mut().unwrap();
@@ -158,7 +158,7 @@ pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> 
                     ValueItem::Array(arr) => arr.set(current_obj.index, value)?,
                 }
                 current_obj.index += 1;
-            }
+            },
         }
 
         current_obj = path_data.last_mut().unwrap();

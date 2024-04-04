@@ -70,11 +70,11 @@ impl NetStream {
         let (readable_done, writable_done) = match self {
             NetStream::Tcp((stream, _)) => {
                 Socket::process_tcp_stream(socket, ctx, stream, allow_half_open)
-            }
+            },
             #[cfg(unix)]
             NetStream::Unix((stream, _)) => {
                 Socket::process_unix_stream(socket, ctx, stream, allow_half_open)
-            }
+            },
         }?;
         let had_error = rw_join(ctx, readable_done, writable_done).await?;
         Ok(had_error)

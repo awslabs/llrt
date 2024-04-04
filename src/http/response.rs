@@ -138,7 +138,7 @@ impl<'js> Response<'js> {
                 let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
 
                 bytes.to_vec()
-            }
+            },
             Some(BodyVariant::Provided(provided)) => {
                 if let Some(blob) = get_class::<Blob>(provided)? {
                     let blob = blob.borrow();
@@ -146,7 +146,7 @@ impl<'js> Response<'js> {
                 } else {
                     get_bytes(ctx, provided.clone())?
                 }
-            }
+            },
             None => return Ok(None),
         };
 

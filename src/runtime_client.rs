@@ -320,7 +320,7 @@ async fn invoke_response<'js>(
                 ctx,
                 &format!("Unexpected /invocation/response response: {}", res_str),
             ))
-        }
+        },
     }
 }
 

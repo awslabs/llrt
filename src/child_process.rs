@@ -250,7 +250,7 @@ impl<'js> ChildProcess<'js> {
 
                     Ok(())
                 })?;
-            }
+            },
             Err(err) => {
                 let ctx3 = ctx.clone();
 
@@ -271,7 +271,7 @@ impl<'js> ChildProcess<'js> {
                     )?;
                     Ok(())
                 })?;
-            }
+            },
         }
         Ok(instance)
     }
@@ -446,7 +446,7 @@ fn spawn<'js>(
                         2 => stderr = stdio,
                         _ => {
                             break;
-                        }
+                        },
                     }
                 }
             }
