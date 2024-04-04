@@ -360,7 +360,13 @@ async fn start_process_events<'js>(
             }
 
             let error_path = format!("/invocation/{}/error", request_id);
-            post_error(ctx, client, base_url, &error_path, &err, Some(&request_id)).await?;
+            if let Err(err) =
+                post_error(ctx, client, base_url, &error_path, &err, Some(&request_id))
+                    .await
+                    .map_err(|e| CaughtError::from_error(ctx, e))
+            {
+                Vm::print_error_and_exit(ctx, err);
+            }
         }
         if config.iterations > 0 {
             if iterations >= config.iterations - 1 {
@@ -416,11 +422,14 @@ async fn post_error<'js>(
     error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
     let error_object = error_object.into_value();
 
-    console::log_std_err(
-        ctx,
-        Rest(vec![error_object.clone()]),
-        console::LogLevel::Error,
-    )?;
+    #[cfg(not(test))]
+    {
+        console::log_std_err(
+            ctx,
+            Rest(vec![error_object.clone()]),
+            console::LogLevel::Error,
+        )?;
+    }
 
     let error_body = json_stringify(ctx, error_object)?.unwrap_or_default();
 
@@ -513,6 +522,13 @@ mod tests {
             .mount(&mock_server)
             .await;
 
+        Mock::given(matchers::method("POST"))
+            .and(matchers::path_regex(r#"invocation/[A-z0-9-]{1,}/error$"#))
+            .and(matchers::header(&CONTENT_TYPE, "application/json"))
+            .respond_with(ResponseTemplate::new(202))
+            .mount(&mock_server)
+            .await;
+
         let mock_config = RuntimeConfig {
             runtime_api: format!("localhost:{}", mock_server.address().port()),
             handler: "fixtures/handler.handler".into(),
@@ -523,6 +539,17 @@ mod tests {
 
         async_with!(vm.ctx => |ctx|{
             runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
+        })
+        .await;
+
+        let throwing_mock_config = RuntimeConfig {
+            runtime_api: format!("localhost:{}", mock_server.address().port()),
+            handler: "fixtures/throwing-handler.handler".into(),
+            iterations: 10,
+        };
+
+        async_with!(vm.ctx => |ctx|{
+            runtime_client::start_with_cfg(&ctx,throwing_mock_config).await.catch(&ctx).unwrap()
         })
         .await;
 
