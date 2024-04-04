@@ -107,7 +107,7 @@ fn get_fetch_options<'js>(
     let mut body = None;
     if let Some(obj) = resource.as_object() {
         let obj = obj.clone();
-        if obj.instance_of::<crate::http::Request>() {
+        if obj.instance_of::<crate::modules::http::Request>() {
             resource_opts = Some(obj);
         } else if let Some(to_string) = obj.get::<_, Option<Function>>(PredefinedAtom::ToString)? {
             url = Some(to_string.call::<_, String>((This(obj),))?);
