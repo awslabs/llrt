@@ -672,7 +672,7 @@ fn write_lambda_log<'js>(
 
     let current_time: DateTime<Utc> = Utc::now();
     let formatted_time = current_time.format(time_format);
-    let request_id = runtime_client::LAMBDA_REQUEST_ID.lock().unwrap().clone();
+    let request_id = runtime_client::LAMBDA_REQUEST_ID.read().unwrap();
 
     if is_json_log_format {
         result.push('{');
@@ -682,7 +682,7 @@ fn write_lambda_log<'js>(
         result.push_str("\",");
 
         //request id
-        if let Some(id) = request_id {
+        if let Some(id) = request_id.as_ref() {
             result.push_str("\"requestId\":\"");
             result.push_str(&id);
             result.push_str("\",");
@@ -696,8 +696,8 @@ fn write_lambda_log<'js>(
         write!(result, "{}", formatted_time).unwrap();
         result.push('\t');
 
-        match request_id {
-            Some(id) => result.push_str(&id),
+        match request_id.as_ref() {
+            Some(id) => result.push_str(id),
             None => result.push_str("n/a"),
         }
 

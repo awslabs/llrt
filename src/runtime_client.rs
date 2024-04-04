@@ -28,6 +28,7 @@ use rquickjs::{
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
+use std::sync::RwLock;
 use std::{env, result::Result as StdResult, sync::Mutex, time::Instant};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
@@ -54,7 +55,7 @@ static HEADER_CLIENT_CONTEXT: HeaderName = HeaderName::from_static("lambda-runti
 static HEADER_COGNITO_IDENTITY: HeaderName =
     HeaderName::from_static("lambda-runtime-cognito-identity");
 
-pub static LAMBDA_REQUEST_ID: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+pub static LAMBDA_REQUEST_ID: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
 
 type HyperClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
 
@@ -386,7 +387,7 @@ async fn process_event<'js>(
         next_invocation(ctx, client, next_invocation_url, lambda_environment).await?;
     *request_id = context.aws_request_id.clone();
     LAMBDA_REQUEST_ID
-        .lock()
+        .write()
         .unwrap()
         .replace(context.aws_request_id.clone());
 
