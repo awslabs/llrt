@@ -7,52 +7,54 @@ import os from "os";
 describe("readdir", () => {
   it("should read a directory", async () => {
     const dir = await fs.readdir(".cargo");
-    expect(dir).toEqual(["config.toml"])
+    expect(dir).toEqual(["config.toml"]);
   });
 
   it("should read a directory with types", async () => {
     const dir = await fs.readdir(".cargo", { withFileTypes: true });
-    expect(dir).toEqual([{ name: "config.toml" }])
+    expect(dir).toEqual([{ name: "config.toml", parentPath: "./.cargo" }]);
     expect(dir[0].isFile()).toBeTruthy();
   });
 
   it("should read a directory using default import", async () => {
     const dir = await defaultFsImport.promises.readdir(".cargo");
-    expect(dir).toEqual(["config.toml"])
+    expect(dir).toEqual(["config.toml"]);
   });
 
   it("should read a directory using named import", async () => {
     const dir = await namedFsImport.promises.readdir(".cargo");
-    expect(dir).toEqual(["config.toml"])
+    expect(dir).toEqual(["config.toml"]);
   });
 
   it("should read a directory with recursive", async () => {
     const dir = await fs.readdir("fixtures/fs/readdir", { recursive: true });
     const compare = (a: string, b: string) => (a >= b ? 1 : -1);
-    expect(dir.sort(compare)).toEqual(["recursive/readdir.js", "recursive", "readdir.js"].sort(compare));
+    expect(dir.sort(compare)).toEqual(
+      ["recursive/readdir.js", "recursive", "readdir.js"].sort(compare)
+    );
   });
 });
 
 describe("readdirSync", () => {
   it("should read a directory synchronously", () => {
     const dir = defaultFsImport.readdirSync(".cargo");
-    expect(dir).toEqual(["config.toml"])
+    expect(dir).toEqual(["config.toml"]);
   });
 
   it("should read a directory with types synchronously", () => {
     const dir = defaultFsImport.readdirSync(".cargo", { withFileTypes: true });
-    expect(dir).toEqual([{ name: "config.toml" }])
+    expect(dir).toEqual([{ name: "config.toml", parentPath: "./.cargo" }]);
     expect(dir[0].isFile()).toBeTruthy();
   });
 
   it("should read a directory using default import synchronously", () => {
     const dir = defaultFsImport.readdirSync(".cargo");
-    expect(dir).toEqual(["config.toml"])
+    expect(dir).toEqual(["config.toml"]);
   });
 
   it("should read a directory using named import synchronously", () => {
     const dir = namedFsImport.readdirSync(".cargo");
-    expect(dir).toEqual(["config.toml"])
+    expect(dir).toEqual(["config.toml"]);
   });
 
   it("should read a directory with recursive synchronously", () => {
@@ -61,7 +63,9 @@ describe("readdirSync", () => {
     });
     const compare = (a: string | Buffer, b: string | Buffer): number =>
       a >= b ? 1 : -1;
-    expect(dir.sort(compare)).toEqual(["recursive/readdir.js", "recursive", "readdir.js"].sort(compare));
+    expect(dir.sort(compare)).toEqual(
+      ["recursive/readdir.js", "recursive", "readdir.js"].sort(compare)
+    );
   });
 });
 
@@ -158,13 +162,13 @@ describe("mkdtemp", () => {
 });
 
 describe("mkdtempSync", () => {
-  it("should create a temporary directory with a given prefix synchronously",  () => {
+  it("should create a temporary directory with a given prefix synchronously", () => {
     // Create a temporary directory with the given prefix
     const prefix = "test-";
     const dirPath = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), prefix));
 
     // Check that the directory exists
-    const dirExists =  defaultFsImport.statSync(dirPath)
+    const dirExists = defaultFsImport.statSync(dirPath);
     expect(dirExists).toBeTruthy();
 
     // Check that the directory has the correct prefix
@@ -209,7 +213,7 @@ describe("mkdirSync", () => {
     defaultFsImport.mkdirSync(dirPath, { recursive: true });
 
     // Check that the directory exists
-    const dirExists = defaultFsImport.statSync(dirPath)
+    const dirExists = defaultFsImport.statSync(dirPath);
     expect(dirExists).toBeTruthy();
 
     // Clean up the directory

@@ -24,4 +24,17 @@ describe("performance.now()", () => {
     const after = performance.now();
     expect(Number(after)).toBeGreaterThanOrEqual(Number(before));
   });
+
+  describe("performance.toJSON()", () => {
+    it("should have a performance toJSON", () => {
+      expect(defaultImport.toJSON()).toBeDefined();
+      expect(namedImport.toJSON()).toBeDefined();
+    });
+    it("performance.toJSON().timeOrigin should have a positive value", () => {
+      expect(Number(performance.toJSON().timeOrigin)).toBeGreaterThanOrEqual(0);
+    });
+    it("performance.toJSON().timeOrigin should match performance.timeOrigin", () => {
+      expect(performance.toJSON().timeOrigin).toEqual(performance.timeOrigin);
+    });
+  });
 });
