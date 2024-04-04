@@ -1,7 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::console;
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
 use crate::net::HTTP_CLIENT;
@@ -18,7 +17,7 @@ use hyper::{
 use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use once_cell::sync::Lazy;
-use rquickjs::function::Rest;
+
 use rquickjs::Exception;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CatchResultExt, CaughtError, Ctx,
@@ -424,6 +423,8 @@ async fn post_error<'js>(
 
     #[cfg(not(test))]
     {
+        use crate::console;
+        use rquickjs::function::Rest;
         console::log_std_err(
             ctx,
             Rest(vec![error_object.clone()]),
