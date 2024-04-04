@@ -8,9 +8,10 @@ use hyper_util::{
     rt::{TokioExecutor, TokioTimer},
 };
 use rquickjs::{
-    function::Opt,
+    atom::PredefinedAtom,
+    function::{Opt, This},
     prelude::{Async, Func},
-    Ctx, Exception, Object, Result, Value,
+    Coerced, Ctx, Exception, FromJs, Function, Object, Result, Value,
 };
 use tracing::warn;
 
@@ -24,16 +25,11 @@ use crate::{
     http::headers::Headers,
     net::{DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS, TLS_CONFIG},
     security::{ensure_url_access, HTTP_DENY_LIST},
-    utils::{
-        object::{get_bytes, ObjectExt},
-        result::ResultExt,
-    },
+    utils::{object::get_bytes, result::ResultExt},
 };
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
 use super::response::Response;
-
-struct FetchArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>);
 
 pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
     if let Some(Err(err)) = &*HTTP_ALLOW_LIST {
@@ -87,73 +83,16 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         "fetch",
         Func::from(Async(move |ctx, resource, args| {
             let start = Instant::now();
-            let FetchArgs(ctx, resource, args) = FetchArgs(ctx, resource, args);
             let client = client.clone();
 
-            let mut method = Ok(hyper::Method::GET);
-            let mut body = Ok(Full::<Bytes>::default());
-            let mut headers: Option<Result<Headers>> = None;
-
-            let (url, resource_options) = get_url_options(resource);
-            let mut url = url;
-
-            let mut options = None;
-            if let Some(opts) = args.0 {
-                if opts.is_object() {
-                    let opts = opts.into_object().unwrap();
-                    options = Some(opts);
-                }
-            }
-
-            let options = resource_options.or(options);
-
-            if let Some(opts) = options {
-                let method_opts = opts.get_optional::<&str, String>("method");
-
-                headers = opts
-                    .get_optional("headers")
-                    .transpose()
-                    .map(|v| v.and_then(|headers_val| Headers::from_value(&ctx, headers_val)));
-
-                let body_opt: Option<Value> = opts.get("body").unwrap_or_default();
-                let url_opt: Option<String> = opts.get("url").unwrap_or_default();
-
-                if let Some(url_val) = url_opt {
-                    url = Some(Ok(url_val));
-                }
-
-                if let Some(body_value) = body_opt {
-                    let bytes = get_bytes(&ctx, body_value);
-                    body = bytes.map(Full::from);
-                }
-
-                method = method_opts.and_then(|m| {
-                    let m = m.as_deref();
-                    match m {
-                        None | Some("GET") => Ok(hyper::Method::GET),
-                        Some("POST") => Ok(hyper::Method::POST),
-                        Some("PUT") => Ok(hyper::Method::PUT),
-                        Some("CONNECT") => Ok(hyper::Method::CONNECT),
-                        Some("HEAD") => Ok(hyper::Method::HEAD),
-                        Some("PATCH") => Ok(hyper::Method::PATCH),
-                        Some("DELETE") => Ok(hyper::Method::DELETE),
-                        _ => Err(Exception::throw_type(
-                            &ctx,
-                            &format!("Invalid HTTP method: {}", m.unwrap_or("{empty}")),
-                        )),
-                    }
-                });
-            }
+            let options = get_fetch_options(&ctx, resource, args);
 
             async move {
-                let url = url.unwrap_or_else(|| {
-                    Err(Exception::throw_reference(&ctx, "Missing required url"))
-                })?;
+                let options = options?;
 
-                let uri: Uri = url.parse().or_throw(&ctx)?;
-
-                let method = method?;
-                let method_string = method.to_string();
+                let uri: Uri = options.url.parse().or_throw(&ctx)?;
+                let method_string = options.method.to_string();
+                let method = options.method;
 
                 ensure_url_access(&ctx, &uri)?;
 
@@ -163,31 +102,117 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                     .header("user-agent", format!("llrt {}", VERSION))
                     .header("accept", "*/*");
 
-                if let Some(headers) = headers {
-                    for (key, value) in headers?.iter() {
+                if let Some(headers) = options.headers {
+                    for (key, value) in headers.iter() {
                         req = req.header(key, value)
                     }
                 }
 
-                let body = body?;
-
-                let req = req.body(body).or_throw(&ctx)?;
+                let req = req.body(options.body).or_throw(&ctx)?;
                 let res = client.request(req).await.or_throw(&ctx)?; //TODO return ErrorObject
 
-                Response::from_incoming(ctx, res, method_string, url, start)
+                Response::from_incoming(ctx, res, method_string, options.url, start)
             }
         })),
     )?;
     Ok(())
 }
 
-fn get_url_options(resource: Value) -> (Option<Result<String>>, Option<Object>) {
-    if resource.is_string() {
-        let url_string = resource.get();
-        return (Some(url_string), None);
-    } else if resource.is_object() {
-        let resource_obj = resource.into_object().unwrap();
-        return (None, Some(resource_obj));
+struct FetchOptions {
+    method: hyper::Method,
+    url: String,
+    headers: Option<Headers>,
+    body: Full<Bytes>,
+}
+
+fn get_fetch_options<'js>(
+    ctx: &Ctx<'js>,
+    resource: Value<'js>,
+    opts: Opt<Value<'js>>,
+) -> Result<FetchOptions> {
+    let mut url = None;
+    let mut resource_opts = None;
+    let mut arg_opts = None;
+    let mut headers = None;
+    let mut method = None;
+    let mut body = None;
+    if let Some(obj) = resource.as_object() {
+        let obj = obj.clone();
+        if obj.instance_of::<crate::http::Request>() {
+            resource_opts = Some(obj);
+        } else if let Some(to_string) = obj.get::<_, Option<Function>>(PredefinedAtom::ToString)? {
+            url = Some(to_string.call::<_, String>((This(obj),))?);
+        } else {
+            resource_opts = Some(obj);
+        }
+    } else {
+        url = Some(resource.get::<Coerced<String>>()?.to_string());
     }
-    (None, None)
+
+    if let Some(options) = opts.0 {
+        arg_opts = options.into_object();
+    }
+
+    if resource_opts.is_some() || arg_opts.is_some() {
+        if let Some(method_opt) = get_option::<String>("method", &arg_opts, &resource_opts)? {
+            method = Some(match method_opt.as_str() {
+                "GET" => Ok(hyper::Method::GET),
+                "POST" => Ok(hyper::Method::POST),
+                "PUT" => Ok(hyper::Method::PUT),
+                "CONNECT" => Ok(hyper::Method::CONNECT),
+                "HEAD" => Ok(hyper::Method::HEAD),
+                "PATCH" => Ok(hyper::Method::PATCH),
+                "DELETE" => Ok(hyper::Method::DELETE),
+                _ => Err(Exception::throw_type(
+                    ctx,
+                    &format!("Invalid HTTP method: {}", method_opt),
+                )),
+            }?);
+        }
+
+        if let Some(body_opt) = get_option::<Value>("body", &arg_opts, &resource_opts)? {
+            let bytes = get_bytes(ctx, body_opt)?;
+            body = Some(Full::from(bytes));
+        }
+
+        if let Some(url_opt) = get_option::<String>("url", &arg_opts, &resource_opts)? {
+            url = Some(url_opt);
+        }
+
+        if let Some(headers_op) = get_option::<Value>("headers", &arg_opts, &resource_opts)? {
+            headers = Some(Headers::from_value(ctx, headers_op)?);
+        }
+    }
+
+    let url = match url {
+        Some(url) => url,
+        None => return Err(Exception::throw_reference(ctx, "Missing required url")),
+    };
+
+    Ok(FetchOptions {
+        method: method.unwrap_or_default(),
+        url,
+        headers,
+        body: body.unwrap_or_default(),
+    })
+}
+
+fn get_option<'js, V: FromJs<'js> + Sized>(
+    arg: &str,
+    a: &Option<Object<'js>>,
+    b: &Option<Object<'js>>,
+) -> Result<Option<V>> {
+    if let Some(opt) = a {
+        if let Some(value) = opt.get::<_, Option<V>>(arg)? {
+            return Ok(Some(value));
+        }
+    }
+
+    if let Some(opt) = b {
+        if let Some(value) = opt.get::<_, Option<V>>(arg)? {
+            return Ok(Some(value));
+        }
+    }
+
+    Ok(None)
 }
