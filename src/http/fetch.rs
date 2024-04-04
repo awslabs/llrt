@@ -59,7 +59,6 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         Func::from(Async(move |ctx, resource, args| {
             let start = Instant::now();
             let FetchArgs(ctx, resource, args) = FetchArgs(ctx, resource, args);
-            //let client = client.clone();
 
             let mut method = Ok(hyper::Method::GET);
             let mut body = Ok(Full::<Bytes>::default());

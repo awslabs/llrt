@@ -594,11 +594,15 @@ fn format_values<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, tty: bool) -> Resu
     Ok(result)
 }
 
-pub fn log_std_out<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
+fn log_std_out<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
     write_log(stdout(), ctx, args, level)
 }
 
-pub fn log_std_err<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
+pub(crate) fn log_std_err<'js>(
+    ctx: &Ctx<'js>,
+    args: Rest<Value<'js>>,
+    level: LogLevel,
+) -> Result<()> {
     write_log(stderr(), ctx, args, level)
 }
 

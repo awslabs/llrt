@@ -466,9 +466,8 @@ fn get_task_root() -> String {
 fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<String, String> {
     headers
         .get(header)
-        .and_then(|h| h.to_str().ok())
+        .map(|h| String::from_utf8_lossy(h.as_bytes()).to_string())
         .ok_or_else(|| format!("Missing header: {}", header))
-        .map(|h: &str| h.to_string())
 }
 
 #[cfg(test)]
