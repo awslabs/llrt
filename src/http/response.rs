@@ -112,7 +112,7 @@ impl<'js> Response<'js> {
             }
         }
 
-        let headers = Headers::from_http_headers(&ctx, response.headers())?;
+        let headers = Headers::from_http_headers(response.headers())?;
         let headers = Class::instance(ctx.clone(), headers)?;
 
         let status = response.status();

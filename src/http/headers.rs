@@ -11,7 +11,6 @@ use rquickjs::{
 use crate::utils::{
     class::IteratorDef,
     object::{array_to_btree_map, map_to_entries},
-    result::ResultExt,
 };
 
 #[derive(Clone, Default)]
@@ -96,13 +95,13 @@ impl Headers {
         self.headers.iter()
     }
 
-    pub fn from_http_headers(ctx: &Ctx<'_>, header_map: &HeaderMap) -> Result<Self> {
+    pub fn from_http_headers(header_map: &HeaderMap) -> Result<Self> {
         let mut headers = BTreeMap::default();
 
         for (n, v) in header_map.iter() {
             headers.insert(
                 n.to_string(),
-                v.to_owned().to_str().or_throw(ctx)?.to_string(),
+                String::from_utf8_lossy(v.as_bytes()).to_string(),
             );
         }
 
