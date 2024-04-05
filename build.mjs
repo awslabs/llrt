@@ -71,7 +71,6 @@ const ES_BUILD_OPTIONS = {
     "navigator",
     "url",
     "performance",
-    "DOMException",
   ],
 };
 

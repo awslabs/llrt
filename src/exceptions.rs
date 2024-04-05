@@ -1,13 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{
-    atom::PredefinedAtom,
-    function::Opt,
-    module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Result,
-};
 
-use crate::module::export_default;
+use rquickjs::{atom::PredefinedAtom, function::Opt, Class, Ctx, Result};
 
 #[derive(Clone, Default)]
 #[rquickjs::class]
@@ -55,24 +49,4 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Class::<DOMException>::define(&globals)?;
 
     Ok(())
-}
-
-pub struct ExceptionsModule;
-
-impl ModuleDef for ExceptionsModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
-        declare.declare("default")?;
-
-        Ok(())
-    }
-
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
-        Class::<DOMException>::register(ctx)?;
-
-        export_default(ctx, exports, |default| {
-            Class::<DOMException>::define(default)?;
-
-            Ok(())
-        })
-    }
 }
