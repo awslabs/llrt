@@ -152,7 +152,7 @@ pub fn obj_to_array_buffer<'js>(
             _ => {
                 let array_buffer: ArrayBuffer = obj.get("buffer")?;
                 return Ok(Some(array_buffer));
-            }
+            },
         }?;
         return Ok(Some(array_buffer));
     }
