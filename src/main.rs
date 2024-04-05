@@ -19,6 +19,7 @@ mod crypto;
 mod encoding;
 mod environment;
 mod events;
+mod exceptions;
 mod fs;
 mod http;
 mod json;

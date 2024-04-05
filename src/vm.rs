@@ -47,6 +47,7 @@ use crate::{
     encoding::HexModule,
     environment,
     events::EventsModule,
+    exceptions::ExceptionsModule,
     fs::{FsModule, FsPromisesModule},
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     module::ModuleModule,
@@ -138,7 +139,8 @@ create_modules!(
     "process" => ProcessModule,
     "navigator" => NavigatorModule,
     "url" => UrlModule,
-    "performance" => PerformanceModule
+    "performance" => PerformanceModule,
+    "exceptions" => ExceptionsModule
 );
 
 struct ModuleInfo<T: ModuleDef> {
@@ -501,6 +503,7 @@ impl Vm {
             crate::buffer::init(&ctx)?;
             crate::navigator::init(&ctx)?;
             crate::performance::init(&ctx)?;
+            crate::exceptions::init(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
