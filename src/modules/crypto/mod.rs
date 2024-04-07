@@ -44,12 +44,12 @@ fn encoded_bytes<'js>(ctx: Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Val
             let hex = bytes_to_hex_string(bytes);
             let hex = rquickjs::String::from_str(ctx, &hex)?;
             Ok(Value::from_string(hex))
-        }
+        },
         "base64" => {
             let b64 = bytes_to_b64_string(bytes);
             let b64 = rquickjs::String::from_str(ctx, &b64)?;
             Ok(Value::from_string(b64))
-        }
+        },
         _ => bytes_to_typed_array(ctx, bytes),
     }
 }

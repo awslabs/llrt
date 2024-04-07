@@ -145,11 +145,11 @@ async fn start_cli(context: &AsyncContext) {
                     "-v" | "--version" => {
                         print_version();
                         return;
-                    }
+                    },
                     "-h" | "--help" => {
                         usage();
                         return;
-                    }
+                    },
                     "-e" | "--eval" => {
                         if let Some(source) = args.get(i + 1) {
                             Vm::run_and_handle_exceptions(context, |ctx| {
@@ -158,14 +158,14 @@ async fn start_cli(context: &AsyncContext) {
                             .await
                         }
                         return;
-                    }
+                    },
                     "test" => {
                         if let Err(error) = run_tests(context, &args[i + 1..]).await {
                             eprintln!("{error}");
                             exit(1);
                         }
                         return;
-                    }
+                    },
                     "compile" => {
                         #[cfg(not(feature = "lambda"))]
                         {
@@ -195,8 +195,8 @@ async fn start_cli(context: &AsyncContext) {
                             eprintln!("Not supported in \"lambda\" version.");
                             exit(1);
                         }
-                    }
-                    _ => {}
+                    },
+                    _ => {},
                 }
 
                 let (_, ext) = get_basename_ext_name(arg);

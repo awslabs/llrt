@@ -94,11 +94,11 @@ pub fn json_stringify_replacer_space<'js>(
     match write_primitive(&mut context, false)? {
         PrimitiveStatus::Written => {
             return Ok(Some(result));
-        }
+        },
         PrimitiveStatus::Ignored => {
             return Ok(None);
-        }
-        _ => {}
+        },
+        _ => {},
     }
 
     context.depth += 1;
@@ -234,7 +234,7 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<Pr
             context
                 .result
                 .push_str(buffer.format(value.as_int().unwrap()))
-        }
+        },
         Type::Float => {
             let float_value = value.as_float().unwrap();
             const EXP_MASK: u64 = 0x7ff0000000000000;
@@ -255,7 +255,7 @@ fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<Pr
                     unsafe { context.result.as_mut_vec().set_len(len - 2) }
                 }
             }
-        }
+        },
         Type::String => write_string(context.result, &value.as_string().unwrap().to_string()?),
         _ => return Ok(PrimitiveStatus::Iterate),
     }
@@ -346,7 +346,7 @@ fn append_value(context: &mut IterationContext<'_, '_>, add_comma: bool) -> Resu
             context.depth += 1;
             iterate(context)?;
             Ok(true)
-        }
+        },
     }
 }
 
@@ -451,7 +451,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                 write_indentation(context.result, indentation, depth);
             }
             context.result.push('}');
-        }
+        },
         Type::Array => {
             context.result.push('[');
             add_comma = false;
@@ -492,8 +492,8 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                 write_indentation(context.result, indentation, depth);
             }
             context.result.push(']');
-        }
-        _ => {}
+        },
+        _ => {},
     }
     Ok(())
 }

@@ -72,7 +72,7 @@ impl<'js> ReadableStreamInner<'js> {
                     } else {
                         self.listener = None;
                     }
-                }
+                },
                 "readable" => {
                     if added {
                         self.state = ReadableState::Paused;
@@ -80,8 +80,8 @@ impl<'js> ReadableStreamInner<'js> {
                     } else {
                         self.listener = None;
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
         Ok(())
@@ -203,13 +203,13 @@ where
                             return Ok(());
                         }
                         vec![Buffer(buffer).into_js(ctx)?]
-                    }
+                    },
                     "readable" => {
                         vec![]
-                    }
+                    },
                     _ => {
                         vec![]
-                    }
+                    },
                 };
                 Self::emit_str(This(this), ctx, listener, args, false)?;
             }
