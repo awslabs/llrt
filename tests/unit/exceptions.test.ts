@@ -28,6 +28,13 @@ describe("DOMException()", () => {
   it("result of the toString method should be 'Error'", () => {
     expect(e.toString()).toEqual("Error");
   });
+  it("throwing and catching exceptions can be done", () => {
+    try {
+      throw new DOMException();
+    } catch (ex) {
+      expect(ex.toString()).toEqual(e.toString());
+    }
+  });
 });
 
 describe("DOMException('abc')", () => {
@@ -42,6 +49,13 @@ describe("DOMException('abc')", () => {
   it("result of the toString method should be 'Error: abc'", () => {
     expect(e.toString()).toEqual("Error: abc");
   });
+  it("throwing and catching exceptions can be done", () => {
+    try {
+      throw new DOMException("abc");
+    } catch (ex) {
+      expect(ex.toString()).toEqual(e.toString());
+    }
+  });
 });
 
 describe("DOMException('abc', 'def')", () => {
@@ -55,5 +69,12 @@ describe("DOMException('abc', 'def')", () => {
   });
   it("result of the toString method should be 'def: abc'", () => {
     expect(e.toString()).toEqual("def: abc");
+  });
+  it("throwing and catching exceptions can be done", () => {
+    try {
+      throw new DOMException("abc", "def");
+    } catch (ex) {
+      expect(ex.toString()).toEqual(e.toString());
+    }
   });
 });
