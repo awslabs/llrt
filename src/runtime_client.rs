@@ -492,7 +492,7 @@ mod tests {
         runtime_client::{
             self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
         },
-        uuid::uuidv4,
+        modules::uuid::uuidv4,
         vm::Vm,
     };
 

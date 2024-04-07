@@ -23,11 +23,11 @@ use rquickjs::{
     context::EvalOptions,
     function::{Constructor, Opt},
     loader::{
-        BuiltinLoader, BuiltinResolver, FileResolver, Loader, ModuleLoader, RawLoader, Resolver,
+        BuiltinLoader, BuiltinResolver, FileResolver, Loader, RawLoader, Resolver,
         ScriptLoader,
     },
-    module::{ModuleData, ModuleDef},
     prelude::{Func, Rest},
+    module::ModuleData,
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
     Module, Object, Result, String as JsString, Value,
 };
@@ -37,27 +37,11 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 include!("./bytecode_cache.rs");
 
-use crate::modules::{
-    buffer::BufferModule,
-    child_process::ChildProcessModule,
+use crate::{module_builder::ModuleBuilder, modules::{
     console,
-    console::ConsoleModule,
-    crypto::{CryptoModule, SYSTEM_RANDOM},
-    encoding::HexModule,
-    events::EventsModule,
-    fs::{FsModule, FsPromisesModule},
-    module::ModuleModule,
-    navigator::NavigatorModule,
-    net::NetModule,
-    os::OsModule,
-    path::{dirname, join_path, resolve_path, PathModule},
-    performance::PerformanceModule,
-    process::ProcessModule,
-    timers::TimersModule,
-    url::UrlModule,
-    uuid::UuidModule,
-    xml::XmlModule,
-};
+    crypto::SYSTEM_RANDOM,
+    path::{dirname, join_path, resolve_path}
+}};
 
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
@@ -69,36 +53,12 @@ use crate::{
         clone::structured_clone,
         io::get_js_path,
         object::{get_bytes, ObjectExt},
-        UtilModule,
     },
 };
 
 pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
 
-macro_rules! create_modules {
-    ($($name:expr => $module:expr),*) => {
-
-        pub fn create_module_instances() -> (ModuleResolver, ModuleLoader, HashSet<&'static str>) {
-            let mut builtin_resolver = ModuleResolver::default();
-            let mut module_loader = ModuleLoader::default();
-            let mut module_names = HashSet::new();
-
-            $(
-                let module_info = ModuleInfo {
-                    name: $name,
-                    module: $module,
-                };
-
-                builtin_resolver = builtin_resolver.with_module(module_info.name);
-                module_loader = module_loader.with_module(module_info.name, module_info.module);
-                module_names.insert(module_info.name);
-            )*
-
-            (builtin_resolver, module_loader, module_names)
-        }
-    };
-}
-
+// TODO: Add ModuleResolver back in
 #[derive(Debug, Default)]
 pub struct ModuleResolver {
     builtin_resolver: BuiltinResolver,
@@ -119,34 +79,6 @@ impl Resolver for ModuleResolver {
 
         self.builtin_resolver.resolve(ctx, base, name)
     }
-}
-
-create_modules!(
-    "crypto" => CryptoModule,
-    "hex" => HexModule,
-    "fs/promises" => FsPromisesModule,
-    "fs" => FsModule,
-    "os" => OsModule,
-    "timers" => TimersModule,
-    "events" => EventsModule,
-    "module" => ModuleModule,
-    "net" => NetModule,
-    "console" => ConsoleModule,
-    "path" => PathModule,
-    "xml" => XmlModule,
-    "buffer" => BufferModule,
-    "child_process" => ChildProcessModule,
-    "util" => UtilModule,
-    "uuid" => UuidModule,
-    "process" => ProcessModule,
-    "navigator" => NavigatorModule,
-    "url" => UrlModule,
-    "performance" => PerformanceModule
-);
-
-struct ModuleInfo<T: ModuleDef> {
-    name: &'static str,
-    module: T,
 }
 
 pub struct ErrorDetails {
@@ -425,6 +357,7 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
+
 }
 
 struct LifetimeArgs<'js>(Ctx<'js>);
@@ -432,10 +365,23 @@ struct LifetimeArgs<'js>(Ctx<'js>);
 #[allow(dead_code)]
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
+pub struct VmOptions {
+    pub module_builder: crate::module_builder::ModuleBuilder,
+}
+
+impl Default for VmOptions {
+    fn default() -> Self {
+        Self {
+            module_builder: crate::module_builder::ModuleBuilder::with_default(),
+        }
+    }
+}
+
+
 impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
-    pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn from_options(vm_options: VmOptions) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
         if TIME_ORIGIN.load(Ordering::Relaxed) == 0 {
             let time_origin = Utc::now().timestamp_nanos_opt().unwrap_or_default() as usize;
             TIME_ORIGIN.store(time_origin, Ordering::Relaxed)
@@ -468,7 +414,7 @@ impl Vm {
             binary_resolver.add_path(*path);
         }
 
-        let (builtin_resolver, module_loader, module_names) = create_module_instances();
+        let (builtin_resolver, module_loader, module_names, init_globals) = vm_options.module_builder.build();
 
         let resolver = (builtin_resolver, binary_resolver, file_resolver);
 
@@ -495,22 +441,22 @@ impl Vm {
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
-            // TODO: Look if there is a less repetitive way to do this
-            crate::modules::console::init(&ctx)?;
-            crate::modules::encoding::init(&ctx)?;
-            crate::modules::http::init(&ctx)?;
-            crate::modules::timers::init(&ctx)?;
-            crate::modules::process::init(&ctx)?;
-            crate::modules::events::init(&ctx)?;
-            crate::modules::buffer::init(&ctx)?;
-            crate::modules::navigator::init(&ctx)?;
-            crate::modules::performance::init(&ctx)?;
+            for init_global in init_globals {
+                init_global(&ctx)?;
+            }
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
         .await?;
 
         Ok(Vm { runtime, ctx })
+    }
+
+    pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let vm = Self::from_options(VmOptions {
+            module_builder: ModuleBuilder::with_default()
+        }).await?;
+        Ok(vm)
     }
 
     pub fn load_module<'js>(ctx: &Ctx<'js>, filename: PathBuf) -> Result<Object<'js>> {

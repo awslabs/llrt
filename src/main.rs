@@ -23,6 +23,7 @@ mod test_utils;
 mod utils;
 mod modules;
 mod vm;
+mod module_builder;
 
 use minimal_tracer::MinimalTracer;
 use rquickjs::{async_with, AsyncContext, CatchResultExt, Module};
