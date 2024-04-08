@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use rquickjs::{loader::{BuiltinResolver, ModuleLoader}, module::ModuleDef, Ctx, Result};
+use rquickjs::{loader::{BuiltinResolver, ModuleLoader, Resolver}, module::ModuleDef, Ctx, Result};
 use crate::{modules::{
     buffer::BufferModule,
     child_process::ChildProcessModule,
@@ -22,13 +22,35 @@ use crate::{modules::{
     xml::XmlModule,
 }, utils::UtilModule};
 
+#[derive(Debug, Default)]
+pub struct ModuleResolver {
+    builtin_resolver: BuiltinResolver,
+}
+
+impl ModuleResolver {
+    #[must_use]
+    pub fn with_module<P: Into<String>>(mut self, path: P) -> Self {
+        self.builtin_resolver.add_module(path.into());
+        self
+    }
+}
+
+impl Resolver for ModuleResolver {
+    fn resolve(&mut self, ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
+        // Strip node prefix so that we support both with and without
+        let name = name.strip_prefix("node:").unwrap_or(name);
+
+        self.builtin_resolver.resolve(ctx, base, name)
+    }
+}
+
 struct ModuleInfo<T: ModuleDef> {
     name: &'static str,
     module: T,
 }
 
 pub struct ModuleBuilder {
-    builtin_resolver: BuiltinResolver,
+    builtin_resolver: ModuleResolver,
     module_loader: ModuleLoader,
     module_names: HashSet<&'static str>,
     init_global: Vec<fn(&Ctx<'_>) -> Result<()>>
@@ -38,7 +60,7 @@ pub struct ModuleBuilder {
 impl ModuleBuilder {
     pub fn new() -> Self {
         Self {
-            builtin_resolver: BuiltinResolver::default(),
+            builtin_resolver: ModuleResolver::default(),
             module_loader: ModuleLoader::default(),
             module_names: HashSet::new(),
             init_global: Vec::new(),
@@ -96,7 +118,7 @@ impl ModuleBuilder {
         self
     }
 
-    pub fn build(self) -> (BuiltinResolver, ModuleLoader, HashSet<&'static str>, Vec<fn(&Ctx<'_>) -> Result<()>>){
+    pub fn build(self) -> (ModuleResolver, ModuleLoader, HashSet<&'static str>, Vec<fn(&Ctx<'_>) -> Result<()>>){
         (
             self.builtin_resolver,
             self.module_loader,

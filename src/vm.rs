@@ -23,7 +23,7 @@ use rquickjs::{
     context::EvalOptions,
     function::{Constructor, Opt},
     loader::{
-        BuiltinLoader, BuiltinResolver, FileResolver, Loader, RawLoader, Resolver,
+        BuiltinLoader, FileResolver, Loader, RawLoader, Resolver,
         ScriptLoader,
     },
     prelude::{Func, Rest},
@@ -57,29 +57,6 @@ use crate::{
 };
 
 pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
-
-// TODO: Add ModuleResolver back in
-#[derive(Debug, Default)]
-pub struct ModuleResolver {
-    builtin_resolver: BuiltinResolver,
-}
-
-impl ModuleResolver {
-    #[must_use]
-    pub fn with_module<P: Into<String>>(mut self, path: P) -> Self {
-        self.builtin_resolver.add_module(path.into());
-        self
-    }
-}
-
-impl Resolver for ModuleResolver {
-    fn resolve(&mut self, ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
-        // Strip node prefix so that we support both with and without
-        let name = name.strip_prefix("node:").unwrap_or(name);
-
-        self.builtin_resolver.resolve(ctx, base, name)
-    }
-}
 
 pub struct ErrorDetails {
     pub msg: String,
@@ -367,12 +344,24 @@ struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
 pub struct VmOptions {
     pub module_builder: crate::module_builder::ModuleBuilder,
+    pub max_stack_size: usize,
+    pub gc_threshold_mb: usize,
 }
 
 impl Default for VmOptions {
     fn default() -> Self {
         Self {
             module_builder: crate::module_builder::ModuleBuilder::with_default(),
+            max_stack_size: 512 * 1024,
+            gc_threshold_mb: {
+                const DEFAULT_GC_THRESHOLD_MB: usize = 20;
+
+                let gc_threshold_mb: usize = env::var(environment::ENV_LLRT_GC_THRESHOLD_MB)
+                    .map(|threshold| threshold.parse().unwrap_or(DEFAULT_GC_THRESHOLD_MB))
+                    .unwrap_or(DEFAULT_GC_THRESHOLD_MB);
+
+                gc_threshold_mb * 1024 * 1024
+            },            
         }
     }
 }
@@ -427,16 +416,10 @@ impl Vm {
                 .with_extension("cjs"),
         ));
 
-        const DEFAULT_GC_THRESHOLD_MB: usize = 20;
-
-        let gc_threshold_mb: usize = env::var(environment::ENV_LLRT_GC_THRESHOLD_MB)
-            .map(|threshold| threshold.parse().unwrap_or(DEFAULT_GC_THRESHOLD_MB))
-            .unwrap_or(DEFAULT_GC_THRESHOLD_MB);
-
         let runtime = AsyncRuntime::new()?;
-        runtime.set_max_stack_size(512 * 1024).await;
+        runtime.set_max_stack_size(vm_options.max_stack_size).await;
         runtime
-            .set_gc_threshold(gc_threshold_mb * 1024 * 1024)
+            .set_gc_threshold(vm_options.gc_threshold_mb)
             .await;
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
@@ -453,9 +436,7 @@ impl Vm {
     }
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let vm = Self::from_options(VmOptions {
-            module_builder: ModuleBuilder::with_default()
-        }).await?;
+        let vm = Self::from_options(VmOptions::default()).await?;
         Ok(vm)
     }
 
