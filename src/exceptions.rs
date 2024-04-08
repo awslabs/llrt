@@ -1,15 +1,31 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use rquickjs::{function::Opt, Class, Ctx, Result};
+use std::error::Error;
+use std::fmt::{self, Display};
 
-use rquickjs::{atom::PredefinedAtom, function::Opt, Class, Ctx, Result};
-
-#[derive(Clone, Default)]
+#[derive(Debug, Default)]
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
 pub struct DOMException {
     message: String,
     name: String,
 }
+
+impl Display for DOMException {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
+        todo!()
+        /*
+        if self.message.is_empty() {
+            return self.name.clone();
+        }
+
+        format!("{}: {}", &self.name, &self.message)
+        */
+    }
+}
+
+impl Error for DOMException {}
 
 #[rquickjs::methods]
 impl<'js> DOMException {
@@ -29,15 +45,6 @@ impl<'js> DOMException {
     #[qjs(get, rename = "name")]
     pub fn get_name(&self) -> String {
         self.name.clone()
-    }
-
-    #[qjs(rename = PredefinedAtom::ToString)]
-    pub fn to_string(&self) -> String {
-        if self.message.is_empty() {
-            return self.name.clone();
-        }
-
-        format!("{}: {}", &self.name, &self.message)
     }
 }
 
