@@ -33,13 +33,11 @@ impl<'js> DOMException {
 
     #[qjs(rename = PredefinedAtom::ToString)]
     pub fn to_string(&self) -> String {
-        let mut message = String::new();
-
-        if !self.message.is_empty() {
-            message = format!(": {}", &self.message)
+        if self.message.is_empty() {
+            return self.name.clone();
         }
 
-        format!("{}{}", &self.name, message)
+        format!("{}: {}", &self.name, &self.message)
     }
 }
 
