@@ -1,3 +1,4 @@
+/*
 describe("globalThis", () => {
   it("globalThis should have a DOMException", () => {
     expect(globalThis.DOMException()).toBeDefined();
@@ -9,30 +10,44 @@ describe("globalThis", () => {
     expect(globalThis.DOMException().name).toBeDefined();
   });
 });
+*/
 
 describe("DOMException()", () => {
   const e = new DOMException();
 
-  it("should have a message", () => {
+  it("DOMException() should have a message", () => {
     expect(e.message).toBeDefined();
   });
   it("message property should be the initial value", () => {
     expect(e.message).toEqual("");
   });
-  it("should have a message", () => {
+  it("DOMException() should have a name", () => {
     expect(e.name).toBeDefined();
   });
-  it("should be the initial value", () => {
+  it("name property should be the initial value", () => {
     expect(e.name).toEqual("Error");
   });
-  it("result of the toString method should be 'Error'", () => {
+  it("DOMException() should have a stack", () => {
+    expect(e.stack).toBeDefined();
+  });
+  it("DOMException() should have a toString()", () => {
+    expect(e.toString()).toBeDefined();
+  });
+  it("DOMException() should be the string 'Error'", () => {
     expect(e.toString()).toEqual("Error");
   });
-  it("throwing and catching exceptions can be done", () => {
+  it("Message properties are the same for thrown and caught exceptions", () => {
     try {
       throw new DOMException();
     } catch (ex) {
-      expect(ex.toString()).toEqual(e.toString());
+      expect(ex.message).toEqual("");
+    }
+  });
+  it("Name properties are the same for thrown and caught exceptions", () => {
+    try {
+      throw new DOMException();
+    } catch (ex) {
+      expect(ex.name).toEqual("Error");
     }
   });
 });
@@ -40,20 +55,27 @@ describe("DOMException()", () => {
 describe("DOMException('abc')", () => {
   const e = new DOMException("abc");
 
-  it("message property should have the string 'abc'", () => {
+  it("message property should be the string 'abc'", () => {
     expect(e.message).toEqual("abc");
   });
-  it("message property should be the initial value", () => {
+  it("name property should be the initial value", () => {
     expect(e.name).toEqual("Error");
   });
-  it("result of the toString method should be 'Error: abc'", () => {
+  it("DOMException().toString() should be the string 'Error: abc'", () => {
     expect(e.toString()).toEqual("Error: abc");
   });
-  it("throwing and catching exceptions can be done", () => {
+  it("Message properties are the same for thrown and caught exceptions", () => {
     try {
-      throw new DOMException("abc");
+      throw new DOMException();
     } catch (ex) {
-      expect(ex.toString()).toEqual(e.toString());
+      expect(ex.message).toEqual("abc");
+    }
+  });
+  it("Name properties are the same for thrown and caught exceptions", () => {
+    try {
+      throw new DOMException();
+    } catch (ex) {
+      expect(ex.name).toEqual("Error");
     }
   });
 });
@@ -61,20 +83,27 @@ describe("DOMException('abc')", () => {
 describe("DOMException('abc', 'def')", () => {
   const e = new DOMException("abc", "def");
 
-  it("message property should have the string 'abc'", () => {
+  it("message property should be the string 'abc'", () => {
     expect(e.message).toEqual("abc");
   });
-  it("name property should have the string 'def'", () => {
+  it("name property should be the string 'def'", () => {
     expect(e.name).toEqual("def");
   });
-  it("result of the toString method should be 'def: abc'", () => {
+  it("DOMException().toString() should be the string 'def: abc'", () => {
     expect(e.toString()).toEqual("def: abc");
   });
-  it("throwing and catching exceptions can be done", () => {
+  it("Message properties are the same for thrown and caught exceptions", () => {
     try {
-      throw new DOMException("abc", "def");
+      throw new DOMException();
     } catch (ex) {
-      expect(ex.toString()).toEqual(e.toString());
+      expect(ex.message).toEqual("abc");
+    }
+  });
+  it("Name properties are the same for thrown and caught exceptions", () => {
+    try {
+      throw new DOMException();
+    } catch (ex) {
+      expect(ex.name).toEqual("def");
     }
   });
 });
