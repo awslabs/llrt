@@ -37,11 +37,11 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 include!("./bytecode_cache.rs");
 
-use crate::{module_builder::ModuleBuilder, modules::{
+use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
     path::{dirname, join_path, resolve_path}
-}};
+};
 
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},

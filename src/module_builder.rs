@@ -56,7 +56,6 @@ pub struct ModuleBuilder {
     init_global: Vec<fn(&Ctx<'_>) -> Result<()>>
 }
 
-// Builder pattern
 impl ModuleBuilder {
     pub fn new() -> Self {
         Self {
