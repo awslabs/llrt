@@ -66,14 +66,14 @@ describe("DOMException('abc')", () => {
   });
   it("Message properties are the same for thrown and caught exceptions", () => {
     try {
-      throw new DOMException();
+      throw new DOMException("abc");
     } catch (ex) {
       expect(ex.message).toEqual("abc");
     }
   });
   it("Name properties are the same for thrown and caught exceptions", () => {
     try {
-      throw new DOMException();
+      throw new DOMException("abc");
     } catch (ex) {
       expect(ex.name).toEqual("Error");
     }
@@ -94,14 +94,14 @@ describe("DOMException('abc', 'def')", () => {
   });
   it("Message properties are the same for thrown and caught exceptions", () => {
     try {
-      throw new DOMException();
+      throw new DOMException("abc", "def");
     } catch (ex) {
       expect(ex.message).toEqual("abc");
     }
   });
   it("Name properties are the same for thrown and caught exceptions", () => {
     try {
-      throw new DOMException();
+      throw new DOMException("abc", "def");
     } catch (ex) {
       expect(ex.name).toEqual("def");
     }
