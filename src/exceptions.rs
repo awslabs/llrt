@@ -45,6 +45,15 @@ impl DOMException {
     fn stack(&self) -> String {
         self.stack.clone()
     }
+
+    #[qjs(rename = PredefinedAtom::ToString)]
+    pub fn to_string(&self) -> String {
+        if self.message.is_empty() {
+            return self.name.clone();
+        }
+
+        format!("{}: {}", &self.name, &self.message)
+    }
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {

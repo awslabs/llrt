@@ -11,6 +11,9 @@ describe("globalThis", () => {
   it("globalThis.DOMException() should have a stack", () => {
     expect(globalThis.DOMException().stack).toBeDefined();
   });
+  it("globalThis.DOMException() should have a toString()", () => {
+    expect(globalThis.DOMException().toString()).toBeDefined();
+  });
 });
 
 describe("DOMException()", () => {
@@ -30,6 +33,12 @@ describe("DOMException()", () => {
   });
   it("should have a stack", () => {
     expect(e.stack).toBeDefined();
+  });
+  it("should have a toString()", () => {
+    expect(e.toString()).toBeDefined();
+  });
+  it("toString() should return the string 'Error'", () => {
+    expect(e.toString()).toEqual("Error");
   });
   it("message should be the same for thrown and caught exceptions", () => {
     try {
@@ -56,6 +65,9 @@ describe("DOMException('abc')", () => {
   it("name should be the initial value", () => {
     expect(e.name).toEqual("Error");
   });
+  it("toString() should return the string 'Error: abc'", () => {
+    expect(e.toString()).toEqual("Error: abc");
+  });
   it("message should be the same for thrown and caught exceptions", () => {
     try {
       throw new DOMException("abc");
@@ -80,6 +92,9 @@ describe("DOMException('abc', 'def')", () => {
   });
   it("name should be the string 'def'", () => {
     expect(e.name).toEqual("def");
+  });
+  it("toString() should return the string 'def: abc'", () => {
+    expect(e.toString()).toEqual("def: abc");
   });
   it("message should be the same for thrown and caught exceptions", () => {
     try {
