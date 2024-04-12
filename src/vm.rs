@@ -501,6 +501,7 @@ impl Vm {
             crate::buffer::init(&ctx)?;
             crate::navigator::init(&ctx)?;
             crate::performance::init(&ctx)?;
+            crate::exceptions::init(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
