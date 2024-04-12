@@ -2,68 +2,68 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
     atom::PredefinedAtom,
-    function::Constructor,
-    prelude::{Func, This},
-    Ctx, IntoJs, Object, Result, Value,
+    function::{Constructor, Opt},
+    Class, Ctx, Object, Result,
 };
 
-pub struct DOMException {
+#[rquickjs::class]
+#[derive(rquickjs::class::Trace)]
+struct DOMException {
     message: String,
     name: String,
-    stack: Result<String>,
+    stack: String,
 }
 
-impl<'js> IntoJs<'js> for DOMException {
-    fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
-        //TODO: It seems that the parameters are not being pulled in properly from the JavaScript side.
-        let message = self.message;
-        let name = self.name;
-        let val_message = message.into_js(ctx)?;
-        let val_name = name.into_js(ctx)?;
-        let constructor: Constructor = ctx.globals().get(stringify!(DOMException))?;
-        constructor.construct((val_message, val_name))
+#[rquickjs::methods]
+impl DOMException {
+    #[qjs(constructor)]
+    fn new(ctx: Ctx<'_>, message: Opt<String>, name: Opt<String>) -> Result<Self> {
+        let error_ctor: Constructor = ctx.globals().get(PredefinedAtom::Error)?;
+        let new: Object = error_ctor.construct((message.clone(),))?;
+
+        let var_message = message.0.unwrap_or(String::from(""));
+        let var_name = name.0.unwrap_or(String::from("Error"));
+
+        Ok(Self {
+            message: var_message,
+            name: var_name,
+            stack: new.get::<_, String>(PredefinedAtom::Stack)?,
+        })
+    }
+
+    #[qjs(get)]
+    fn message(&self) -> String {
+        self.message.clone()
+    }
+
+    #[qjs(get)]
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    #[qjs(get)]
+    fn stack(&self) -> String {
+        self.stack.clone()
+    }
+
+    #[qjs(rename = PredefinedAtom::ToString)]
+    pub fn to_string(&self) -> String {
+        if self.message.is_empty() {
+            return self.name.clone();
+        }
+
+        format!("{}: {}", &self.name, &self.message)
     }
 }
 
-//impl<'js> DOMException {}
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    let globals = ctx.globals();
+    Class::<DOMException>::define(&globals)?;
 
-fn message<'js>(_this: This<Object<'js>>, _ctx: Ctx<'js>) -> Result<String> {
-    // TODO: I don't know how to get the message property out of this object.
-    Ok("".to_string())
-}
-
-fn name<'js>(_this: This<Object<'js>>, _ctx: Ctx<'js>) -> Result<String> {
-    // TODO: I don't know how to get the name property out of this object.
-    Ok("".to_string())
-}
-
-fn to_string(_this: This<Object<'_>>, _ctx: Ctx) -> Result<String> {
-    // TODO: I don't know how to get the message and name property out of this object.
-    Ok("".to_string())
-}
-
-fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
-    let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
-    // TODO: It accesses struct directly with or without the next 2 lines.
-    prototype.set(PredefinedAtom::Getter, Func::from(message))?;
-    prototype.set(PredefinedAtom::Getter, Func::from(name))?;
-
-    prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
-
-    ctx.globals().set(stringify!(DOMException), constructor)?;
+    let dom_ex_proto = Class::<DOMException>::prototype(ctx.clone()).unwrap();
+    let error_ctor: Object = globals.get(PredefinedAtom::Error)?;
+    let error_proto = error_ctor.get_prototype();
+    dom_ex_proto.set_prototype(error_proto.as_ref())?;
 
     Ok(())
-}
-
-pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
-    let dom_exception = ctx.eval::<Object<'js>, &str>(&format!(
-        "class {0} extends Error {{}}\n{0}",
-        stringify!(DOMException)
-    ))?;
-
-    // TODO: Trying to register with globalThis, but IntoJs conflicts with #[rquickjs::class].
-    //let globals = ctx.globals();
-    //Class::<DOMException>::define(&globals)?;
-
-    set_prototype(ctx, dom_exception)
 }
