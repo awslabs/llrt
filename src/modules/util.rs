@@ -1,4 +1,3 @@
-
 use rquickjs::{
     cstr,
     module::{Declarations, Exports, ModuleDef},
@@ -32,11 +31,11 @@ impl ModuleDef for UtilModule {
     }
 }
 
-impl Into<ModuleInfo<UtilModule>> for UtilModule {
-    fn into(self) -> ModuleInfo<UtilModule> {
+impl From<UtilModule> for ModuleInfo<UtilModule> {
+    fn from(val: UtilModule) -> Self {
         ModuleInfo {
             name: "util",
-            module: self,
+            module: val,
         }
     }
 }

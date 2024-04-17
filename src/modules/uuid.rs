@@ -11,14 +11,12 @@ use uuid::Uuid;
 use uuid_simd::UuidExt;
 
 use crate::{
-    module_builder::ModuleInfo, modules::{
-        crypto::SYSTEM_RANDOM,
-        encoding::encoder::bytes_to_hex,
-        module::export_default,
-    }, utils::{
+    module_builder::ModuleInfo,
+    modules::{crypto::SYSTEM_RANDOM, encoding::encoder::bytes_to_hex, module::export_default},
+    utils::{
         object::{get_bytes, get_bytes_offset_length},
         result::ResultExt,
-    }
+    },
 };
 
 pub struct UuidModule;
@@ -135,11 +133,11 @@ impl ModuleDef for UuidModule {
     }
 }
 
-impl Into<ModuleInfo<UuidModule>> for UuidModule {
-    fn into(self) -> ModuleInfo<UuidModule> {
+impl From<UuidModule> for ModuleInfo<UuidModule> {
+    fn from(val: UuidModule) -> Self {
         ModuleInfo {
             name: "uuid",
-            module: self,
+            module: val,
         }
     }
 }

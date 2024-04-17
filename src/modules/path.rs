@@ -254,11 +254,11 @@ impl ModuleDef for PathModule {
     }
 }
 
-impl Into<ModuleInfo<PathModule>> for PathModule {
-    fn into(self) -> ModuleInfo<PathModule> {
+impl From<PathModule> for ModuleInfo<PathModule> {
+    fn from(val: PathModule) -> Self {
         ModuleInfo {
             name: "path",
-            module: self,
+            module: val,
         }
     }
 }

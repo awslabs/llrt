@@ -33,11 +33,11 @@ impl ModuleDef for UrlModule {
     }
 }
 
-impl Into<ModuleInfo<UrlModule>> for UrlModule {
-    fn into(self) -> ModuleInfo<UrlModule> {
+impl From<UrlModule> for ModuleInfo<UrlModule> {
+    fn from(val: UrlModule) -> Self {
         ModuleInfo {
             name: "url",
-            module: self,
+            module: val,
         }
     }
 }

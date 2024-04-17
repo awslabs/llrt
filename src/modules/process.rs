@@ -170,11 +170,11 @@ impl ModuleDef for ProcessModule {
     }
 }
 
-impl Into<ModuleInfo<ProcessModule>> for ProcessModule {
-    fn into(self) -> ModuleInfo<ProcessModule> {
+impl From<ProcessModule> for ModuleInfo<ProcessModule> {
+    fn from(val: ProcessModule) -> Self {
         ModuleInfo {
             name: "process",
-            module: self,
+            module: val,
         }
     }
 }

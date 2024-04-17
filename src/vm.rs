@@ -22,12 +22,9 @@ use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
     function::{Constructor, Opt},
-    loader::{
-        BuiltinLoader, FileResolver, Loader, RawLoader, Resolver,
-        ScriptLoader,
-    },
-    prelude::{Func, Rest},
+    loader::{BuiltinLoader, FileResolver, Loader, RawLoader, Resolver, ScriptLoader},
     module::ModuleData,
+    prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
     Module, Object, Result, String as JsString, Value,
 };
@@ -40,7 +37,7 @@ include!("./bytecode_cache.rs");
 use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
-    path::{dirname, join_path, resolve_path}
+    path::{dirname, join_path, resolve_path},
 };
 
 use crate::{
@@ -334,7 +331,6 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
-
 }
 
 struct LifetimeArgs<'js>(Ctx<'js>);
@@ -361,16 +357,17 @@ impl Default for VmOptions {
                     .unwrap_or(DEFAULT_GC_THRESHOLD_MB);
 
                 gc_threshold_mb * 1024 * 1024
-            },            
+            },
         }
     }
 }
 
-
 impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
-    pub async fn from_options(vm_options: VmOptions) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn from_options(
+        vm_options: VmOptions,
+    ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
         if TIME_ORIGIN.load(Ordering::Relaxed) == 0 {
             let time_origin = Utc::now().timestamp_nanos_opt().unwrap_or_default() as usize;
             TIME_ORIGIN.store(time_origin, Ordering::Relaxed)
@@ -403,7 +400,8 @@ impl Vm {
             binary_resolver.add_path(*path);
         }
 
-        let (builtin_resolver, module_loader, module_names, init_globals) = vm_options.module_builder.build();
+        let (builtin_resolver, module_loader, module_names, init_globals) =
+            vm_options.module_builder.build();
 
         let resolver = (builtin_resolver, binary_resolver, file_resolver);
 
@@ -418,9 +416,7 @@ impl Vm {
 
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(vm_options.max_stack_size).await;
-        runtime
-            .set_gc_threshold(vm_options.gc_threshold_mb)
-            .await;
+        runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {

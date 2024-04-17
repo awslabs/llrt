@@ -30,13 +30,17 @@ use tokio::{
 };
 
 use crate::{
-    module_builder::ModuleInfo, modules::{
+    module_builder::ModuleInfo,
+    modules::{
         events::{EmitError, Emitter, EventEmitter, EventList},
         module::export_default,
-    }, stream::{
+    },
+    stream::{
         readable::{DefaultReadableStream, ReadableStream},
         writable::{DefaultWritableStream, WritableStream},
-    }, utils::{object::ObjectExt, result::ResultExt}, vm::CtxExtension
+    },
+    utils::{object::ObjectExt, result::ResultExt},
+    vm::CtxExtension,
 };
 
 macro_rules! generate_signal_from_str_fn {
@@ -530,11 +534,11 @@ impl ModuleDef for ChildProcessModule {
     }
 }
 
-impl Into<ModuleInfo<ChildProcessModule>> for ChildProcessModule {
-    fn into(self) -> ModuleInfo<ChildProcessModule> {
+impl From<ChildProcessModule> for ModuleInfo<ChildProcessModule> {
+    fn from(val: ChildProcessModule) -> Self {
         ModuleInfo {
             name: "child_process",
-            module: self,
+            module: val,
         }
     }
 }

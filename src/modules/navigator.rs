@@ -52,11 +52,11 @@ impl ModuleDef for NavigatorModule {
     }
 }
 
-impl Into<ModuleInfo<NavigatorModule>> for NavigatorModule {
-    fn into(self) -> ModuleInfo<NavigatorModule> {
+impl From<NavigatorModule> for ModuleInfo<NavigatorModule> {
+    fn from(val: NavigatorModule) -> Self {
         ModuleInfo {
             name: "navigator",
-            module: self,
+            module: val,
         }
     }
 }

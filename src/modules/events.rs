@@ -18,7 +18,9 @@ use rquickjs::{
 use tracing::trace;
 
 use crate::{
-    module_builder::ModuleInfo, utils::result::ResultExt, vm::{CtxExtension, ErrorExtensions}
+    module_builder::ModuleInfo,
+    utils::result::ResultExt,
+    vm::{CtxExtension, ErrorExtensions},
 };
 
 #[derive(Clone, Debug)]
@@ -530,11 +532,11 @@ impl ModuleDef for EventsModule {
     }
 }
 
-impl Into<ModuleInfo<EventsModule>> for EventsModule {
-    fn into(self) -> ModuleInfo<EventsModule> {
+impl From<EventsModule> for ModuleInfo<EventsModule> {
+    fn from(val: EventsModule) -> Self {
         ModuleInfo {
             name: "events",
-            module: self,
+            module: val,
         }
     }
 }

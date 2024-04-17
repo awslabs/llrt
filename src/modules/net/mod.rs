@@ -88,11 +88,11 @@ impl ModuleDef for NetModule {
     }
 }
 
-impl Into<ModuleInfo<NetModule>> for NetModule {
-    fn into(self) -> ModuleInfo<NetModule> {
+impl From<NetModule> for ModuleInfo<NetModule> {
+    fn from(val: NetModule) -> Self {
         ModuleInfo {
             name: "net",
-            module: self,
+            module: val,
         }
     }
 }

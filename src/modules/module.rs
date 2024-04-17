@@ -51,11 +51,11 @@ impl ModuleDef for ModuleModule {
     }
 }
 
-impl Into<ModuleInfo<ModuleModule>> for ModuleModule {
-    fn into(self) -> ModuleInfo<ModuleModule> {
+impl From<ModuleModule> for ModuleInfo<ModuleModule> {
+    fn from(val: ModuleModule) -> Self {
         ModuleInfo {
             name: "module",
-            module: self,
+            module: val,
         }
     }
 }

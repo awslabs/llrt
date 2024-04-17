@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use rquickjs::{loader::{BuiltinResolver, ModuleLoader, Resolver}, module::ModuleDef, Ctx, Result};
 use crate::modules::{
     buffer::BufferModule,
     child_process::ChildProcessModule,
@@ -18,9 +17,14 @@ use crate::modules::{
     process::ProcessModule,
     timers::TimersModule,
     url::UrlModule,
+    util::UtilModule,
     uuid::UuidModule,
     xml::XmlModule,
-    util::UtilModule,
+};
+use rquickjs::{
+    loader::{BuiltinResolver, ModuleLoader, Resolver},
+    module::ModuleDef,
+    Ctx, Result,
 };
 
 #[derive(Debug, Default)]
@@ -45,6 +49,13 @@ impl Resolver for ModuleResolver {
     }
 }
 
+pub type Modules = (
+    ModuleResolver,
+    ModuleLoader,
+    HashSet<&'static str>,
+    Vec<fn(&Ctx<'_>) -> Result<()>>,
+);
+
 pub struct ModuleInfo<T: ModuleDef> {
     pub name: &'static str,
     pub module: T,
@@ -54,7 +65,7 @@ pub struct ModuleBuilder {
     builtin_resolver: ModuleResolver,
     module_loader: ModuleLoader,
     module_names: HashSet<&'static str>,
-    init_global: Vec<fn(&Ctx<'_>) -> Result<()>>
+    init_global: Vec<fn(&Ctx<'_>) -> Result<()>>,
 }
 
 impl ModuleBuilder {
@@ -105,7 +116,9 @@ impl ModuleBuilder {
         let module_info: ModuleInfo<M> = module.into();
 
         self.builtin_resolver = self.builtin_resolver.with_module(module_info.name);
-        self.module_loader = self.module_loader.with_module(module_info.name, module_info.module);
+        self.module_loader = self
+            .module_loader
+            .with_module(module_info.name, module_info.module);
         self.module_names.insert(module_info.name);
 
         self
@@ -116,13 +129,12 @@ impl ModuleBuilder {
         self
     }
 
-    pub fn build(self) -> (ModuleResolver, ModuleLoader, HashSet<&'static str>, Vec<fn(&Ctx<'_>) -> Result<()>>){
+    pub fn build(self) -> Modules {
         (
             self.builtin_resolver,
             self.module_loader,
             self.module_names,
-            self.init_global
+            self.init_global,
         )
-    }    
+    }
 }
-

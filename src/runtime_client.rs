@@ -489,10 +489,10 @@ mod tests {
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::{
+        modules::uuid::uuidv4,
         runtime_client::{
             self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
         },
-        modules::uuid::uuidv4,
         vm::Vm,
     };
 

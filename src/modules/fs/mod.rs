@@ -72,11 +72,11 @@ impl ModuleDef for FsPromisesModule {
     }
 }
 
-impl Into<ModuleInfo<FsPromisesModule>> for FsPromisesModule {
-    fn into(self) -> ModuleInfo<FsPromisesModule> {
+impl From<FsPromisesModule> for ModuleInfo<FsPromisesModule> {
+    fn from(val: FsPromisesModule) -> Self {
         ModuleInfo {
             name: "fs/promises",
-            module: self,
+            module: val,
         }
     }
 }
@@ -147,11 +147,11 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     Ok(())
 }
 
-impl Into<ModuleInfo<FsModule>> for FsModule {
-    fn into(self) -> ModuleInfo<FsModule> {
+impl From<FsModule> for ModuleInfo<FsModule> {
+    fn from(val: FsModule) -> Self {
         ModuleInfo {
             name: "fs",
-            module: self,
+            module: val,
         }
     }
 }

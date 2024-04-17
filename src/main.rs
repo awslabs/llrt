@@ -15,15 +15,15 @@ mod compiler_common;
 mod environment;
 mod json;
 mod minimal_tracer;
+mod module_builder;
+mod modules;
 mod number;
 mod runtime_client;
 mod security;
 mod stream;
 mod test_utils;
 mod utils;
-mod modules;
 mod vm;
-mod module_builder;
 
 use minimal_tracer::MinimalTracer;
 use rquickjs::{async_with, AsyncContext, CatchResultExt, Module};
@@ -44,18 +44,10 @@ use crate::compiler::compile_file;
 use crate::{
     modules::{
         console,
-        console::LogLevel, 
-        process::{
-            get_arch, 
-            get_platform
-        }
+        console::LogLevel,
+        process::{get_arch, get_platform},
     },
-    utils::io::{
-        get_basename_ext_name, 
-        get_js_path, 
-        DirectoryWalker, 
-        JS_EXTENSIONS
-    },
+    utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
     vm::Vm,
 };
 

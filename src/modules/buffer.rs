@@ -10,13 +10,12 @@ use rquickjs::{
 };
 
 use crate::{
-    module_builder::ModuleInfo, modules::{
-        encoding::encoder::Encoder,
-        module::export_default,
-    }, utils::{
+    module_builder::ModuleInfo,
+    modules::{encoding::encoder::Encoder, module::export_default},
+    utils::{
         object::{get_bytes, get_bytes_offset_length, obj_to_array_buffer},
         result::ResultExt,
-    }
+    },
 };
 
 pub struct Buffer(pub Vec<u8>);
@@ -223,11 +222,11 @@ impl ModuleDef for BufferModule {
     }
 }
 
-impl Into<ModuleInfo<BufferModule>> for BufferModule {
-    fn into(self) -> ModuleInfo<BufferModule> {
+impl From<BufferModule> for ModuleInfo<BufferModule> {
+    fn from(val: BufferModule) -> Self {
         ModuleInfo {
             name: "buffer",
-            module: self,
+            module: val,
         }
     }
 }

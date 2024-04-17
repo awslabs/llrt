@@ -79,11 +79,11 @@ impl ModuleDef for PerformanceModule {
     }
 }
 
-impl Into<ModuleInfo<PerformanceModule>> for PerformanceModule {
-    fn into(self) -> ModuleInfo<PerformanceModule> {
+impl From<PerformanceModule> for ModuleInfo<PerformanceModule> {
+    fn from(val: PerformanceModule) -> Self {
         ModuleInfo {
             name: "performance",
-            module: self,
+            module: val,
         }
     }
 }

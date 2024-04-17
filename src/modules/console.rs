@@ -103,11 +103,11 @@ impl ModuleDef for ConsoleModule {
     }
 }
 
-impl Into<ModuleInfo<ConsoleModule>> for ConsoleModule {
-    fn into(self) -> ModuleInfo<ConsoleModule> {
+impl From<ConsoleModule> for ModuleInfo<ConsoleModule> {
+    fn from(val: ConsoleModule) -> Self {
         ModuleInfo {
             name: "console",
-            module: self,
+            module: val,
         }
     }
 }
@@ -872,8 +872,8 @@ mod tests {
     use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
 
     use crate::{
-        modules::console::{write_lambda_log, LogLevel},
         json::stringify::json_stringify_replacer_space,
+        modules::console::{write_lambda_log, LogLevel},
         test_utils::utils::with_js_runtime,
     };
 

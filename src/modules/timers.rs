@@ -100,11 +100,11 @@ impl ModuleDef for TimersModule {
     }
 }
 
-impl Into<ModuleInfo<TimersModule>> for TimersModule {
-    fn into(self) -> ModuleInfo<TimersModule> {
+impl From<TimersModule> for ModuleInfo<TimersModule> {
+    fn from(val: TimersModule) -> Self {
         ModuleInfo {
             name: "timers",
-            module: self,
+            module: val,
         }
     }
 }

@@ -17,11 +17,11 @@ use tokio::{
 };
 
 use crate::{
+    bytearray_buffer::BytearrayBuffer,
     modules::{
         buffer::Buffer,
         events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
     },
-    bytearray_buffer::BytearrayBuffer,
     stream::set_destroyed_and_error,
     utils::result::ResultExt,
     vm::CtxExtension,
