@@ -14,7 +14,7 @@ use rquickjs::{
     Ctx, Function, Result,
 };
 
-use crate::{modules::module::export_default, vm::CtxExtension};
+use crate::{module_builder::ModuleInfo, modules::module::export_default, vm::CtxExtension};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
 static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -97,6 +97,15 @@ impl ModuleDef for TimersModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<TimersModule>> for TimersModule {
+    fn into(self) -> ModuleInfo<TimersModule> {
+        ModuleInfo {
+            name: "timers",
+            module: self,
+        }
     }
 }
 

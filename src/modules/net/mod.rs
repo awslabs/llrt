@@ -21,7 +21,7 @@ use rustls::{crypto::ring, ClientConfig, RootCertStore};
 use tracing::warn;
 use webpki_roots::TLS_SERVER_ROOTS;
 
-use crate::environment;
+use crate::{environment, module_builder::ModuleInfo};
 
 pub const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS: u64 = 15;
 
@@ -85,5 +85,14 @@ impl ModuleDef for NetModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
         socket::init(ctx.clone(), exports)?;
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<NetModule>> for NetModule {
+    fn into(self) -> ModuleInfo<NetModule> {
+        ModuleInfo {
+            name: "net",
+            module: self,
+        }
     }
 }

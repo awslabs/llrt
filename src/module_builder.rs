@@ -44,9 +44,9 @@ impl Resolver for ModuleResolver {
     }
 }
 
-struct ModuleInfo<T: ModuleDef> {
-    name: &'static str,
-    module: T,
+pub struct ModuleInfo<T: ModuleDef> {
+    pub name: &'static str,
+    pub module: T,
 }
 
 pub struct ModuleBuilder {
@@ -68,43 +68,40 @@ impl ModuleBuilder {
 
     pub fn with_default() -> Self {
         Self::new()
-            .with_module("crypto", CryptoModule)
-            .with_module("hex", HexModule)
+            .with_module(CryptoModule)
+            .with_module(HexModule)
             .with_global(crate::modules::encoding::init)
-            .with_module("fs/promises", FsPromisesModule)
-            .with_module("fs", FsModule)
-            .with_module("os", OsModule)
-            .with_module("timers", TimersModule)
+            .with_module(FsPromisesModule)
+            .with_module(FsModule)
+            .with_module(OsModule)
+            .with_module(TimersModule)
             .with_global(crate::modules::timers::init)
-            .with_module("events", EventsModule)
+            .with_module(EventsModule)
             .with_global(crate::modules::events::init)
-            .with_module("module", ModuleModule)
-            .with_module("net", NetModule)
-            .with_module("console", ConsoleModule)
+            .with_module(ModuleModule)
+            .with_module(NetModule)
+            .with_module(ConsoleModule)
             .with_global(crate::modules::console::init)
-            .with_module("path", PathModule)
-            .with_module("xml", XmlModule)
-            .with_module("buffer", BufferModule)
+            .with_module(PathModule)
+            .with_module(XmlModule)
+            .with_module(BufferModule)
             .with_global(crate::modules::buffer::init)
-            .with_module("child_process", ChildProcessModule)
-            .with_module("util", UtilModule)
-            .with_module("uuid", UuidModule)
-            .with_module("process", ProcessModule)
+            .with_module(ChildProcessModule)
+            .with_module(UtilModule)
+            .with_module(UuidModule)
+            .with_module(ProcessModule)
             .with_global(crate::modules::process::init)
-            .with_module("navigator", NavigatorModule)
+            .with_module(NavigatorModule)
             .with_global(crate::modules::navigator::init)
-            .with_module("url", UrlModule)
-            .with_module("performance", PerformanceModule)
+            .with_module(UrlModule)
+            .with_module(PerformanceModule)
             .with_global(crate::modules::performance::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
     }
 
-    pub fn with_module<M: ModuleDef>(mut self, name: &'static str, module: M) -> Self {
-        let module_info = ModuleInfo {
-            name,
-            module,
-        };
+    pub fn with_module<M: ModuleDef, I: Into<ModuleInfo<M>>>(mut self, module: I) -> Self {
+        let module_info: ModuleInfo<M> = module.into();
 
         self.builtin_resolver = self.builtin_resolver.with_module(module_info.name);
         self.module_loader = self.module_loader.with_module(module_info.name, module_info.module);

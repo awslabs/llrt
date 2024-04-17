@@ -14,7 +14,7 @@ use rquickjs::{
 
 use chrono::Utc;
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 use crate::VERSION;
 
@@ -167,5 +167,14 @@ impl ModuleDef for ProcessModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<ProcessModule>> for ProcessModule {
+    fn into(self) -> ModuleInfo<ProcessModule> {
+        ModuleInfo {
+            name: "process",
+            module: self,
+        }
     }
 }

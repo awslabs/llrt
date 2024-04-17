@@ -5,7 +5,7 @@ use rquickjs::{
     Ctx, Object, Result, Value,
 };
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 use crate::VERSION;
 
@@ -49,5 +49,14 @@ impl ModuleDef for NavigatorModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<NavigatorModule>> for NavigatorModule {
+    fn into(self) -> ModuleInfo<NavigatorModule> {
+        ModuleInfo {
+            name: "navigator",
+            module: self,
+        }
     }
 }

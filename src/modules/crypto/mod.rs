@@ -17,17 +17,15 @@ use rquickjs::{
 };
 
 use crate::{
-    modules::{
+    module_builder::ModuleInfo, modules::{
         buffer::Buffer,
         encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
         module::export_default,
         uuid::uuidv4,
-    },
-    utils::{
+    }, utils::{
         object::{bytes_to_typed_array, get_checked_len, obj_to_array_buffer},
         result::ResultExt,
-    },
-    vm::{CtxExtension, ErrorExtensions},
+    }, vm::{CtxExtension, ErrorExtensions}
 };
 
 use self::{
@@ -189,5 +187,14 @@ impl ModuleDef for CryptoModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<CryptoModule>> for CryptoModule {
+    fn into(self) -> ModuleInfo<CryptoModule> {
+        ModuleInfo {
+            name: "crypto",
+            module: self,
+        }
     }
 }

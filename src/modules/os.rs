@@ -9,7 +9,7 @@ use rquickjs::{
     Ctx, Result,
 };
 
-use crate::modules::{module::export_default, process::get_platform};
+use crate::{module_builder::ModuleInfo, modules::{module::export_default, process::get_platform}};
 
 static OS_INFO: Lazy<(String, String, String)> = Lazy::new(|| {
     if let Ok(uts) = uname::uname() {
@@ -63,5 +63,14 @@ impl ModuleDef for OsModule {
 
             Ok(())
         })
+    }
+}
+
+impl Into<ModuleInfo<OsModule>> for OsModule {
+    fn into(self) -> ModuleInfo<OsModule> {
+        ModuleInfo {
+            name: "os",
+            module: self,
+        }
     }
 }

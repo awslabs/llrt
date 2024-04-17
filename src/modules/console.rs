@@ -18,6 +18,7 @@ use rquickjs::{
 use rquickjs::{Array, Class};
 
 use crate::json::stringify::json_stringify;
+use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::{
     json::escape::escape_json,
@@ -99,6 +100,15 @@ impl ModuleDef for ConsoleModule {
 
             Ok(())
         })
+    }
+}
+
+impl Into<ModuleInfo<ConsoleModule>> for ConsoleModule {
+    fn into(self) -> ModuleInfo<ConsoleModule> {
+        ModuleInfo {
+            name: "console",
+            module: self,
+        }
     }
 }
 

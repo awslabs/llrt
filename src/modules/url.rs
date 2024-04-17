@@ -6,7 +6,7 @@ use rquickjs::{
     Ctx, Result,
 };
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 pub struct UrlModule;
 
 impl ModuleDef for UrlModule {
@@ -30,5 +30,14 @@ impl ModuleDef for UrlModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<UrlModule>> for UrlModule {
+    fn into(self) -> ModuleInfo<UrlModule> {
+        ModuleInfo {
+            name: "url",
+            module: self,
+        }
     }
 }

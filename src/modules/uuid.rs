@@ -11,15 +11,14 @@ use uuid::Uuid;
 use uuid_simd::UuidExt;
 
 use crate::{
-    modules::{
+    module_builder::ModuleInfo, modules::{
         crypto::SYSTEM_RANDOM,
         encoding::encoder::bytes_to_hex,
         module::export_default,
-    },
-    utils::{
+    }, utils::{
         object::{get_bytes, get_bytes_offset_length},
         result::ResultExt,
-    },
+    }
 };
 
 pub struct UuidModule;
@@ -133,5 +132,14 @@ impl ModuleDef for UuidModule {
             default.set("version", Func::from(version))?;
             Ok(())
         })
+    }
+}
+
+impl Into<ModuleInfo<UuidModule>> for UuidModule {
+    fn into(self) -> ModuleInfo<UuidModule> {
+        ModuleInfo {
+            name: "uuid",
+            module: self,
+        }
     }
 }

@@ -6,7 +6,7 @@ use rquickjs::{
     Ctx, Function, Result,
 };
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 pub mod class;
 pub mod clone;
@@ -37,5 +37,14 @@ impl ModuleDef for UtilModule {
 
             Ok(())
         })
+    }
+}
+
+impl Into<ModuleInfo<UtilModule>> for UtilModule {
+    fn into(self) -> ModuleInfo<UtilModule> {
+        ModuleInfo {
+            name: "util",
+            module: self,
+        }
     }
 }

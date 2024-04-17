@@ -18,8 +18,7 @@ use rquickjs::{
 use tracing::trace;
 
 use crate::{
-    utils::result::ResultExt,
-    vm::{CtxExtension, ErrorExtensions},
+    module_builder::ModuleInfo, utils::result::ResultExt, vm::{CtxExtension, ErrorExtensions}
 };
 
 #[derive(Clone, Debug)]
@@ -528,6 +527,15 @@ impl ModuleDef for EventsModule {
         EventEmitter::add_event_emitter_prototype(ctx)?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<EventsModule>> for EventsModule {
+    fn into(self) -> ModuleInfo<EventsModule> {
+        ModuleInfo {
+            name: "events",
+            module: self,
+        }
     }
 }
 

@@ -12,7 +12,7 @@ use rquickjs::{
     Ctx, Object, Result,
 };
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 pub struct PathModule;
 
@@ -251,5 +251,14 @@ impl ModuleDef for PathModule {
             default.prop("delimiter", DELIMITER.to_string())?;
             Ok(())
         })
+    }
+}
+
+impl Into<ModuleInfo<PathModule>> for PathModule {
+    fn into(self) -> ModuleInfo<PathModule> {
+        ModuleInfo {
+            name: "path",
+            module: self,
+        }
     }
 }

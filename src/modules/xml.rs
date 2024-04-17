@@ -27,12 +27,11 @@ const NEL: &[u8] = b"&#x85;";
 const LS: &[u8] = b"&#x2028;";
 
 use crate::{
-    modules::module::export_default,
-    utils::{
+    module_builder::ModuleInfo, modules::module::export_default, utils::{
         object::{get_bytes, ObjectExt},
         result::ResultExt,
         string::JoinToString,
-    },
+    }
 };
 
 #[rquickjs::class]
@@ -564,5 +563,14 @@ impl ModuleDef for XmlModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<XmlModule>> for XmlModule {
+    fn into(self) -> ModuleInfo<Self> {
+        ModuleInfo {
+            name: "xml",
+            module: self,
+        }
     }
 }

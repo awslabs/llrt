@@ -14,7 +14,7 @@ use rquickjs::{
 };
 use rquickjs::{Class, Ctx, Object, Result};
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 use self::access::access;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
@@ -69,6 +69,15 @@ impl ModuleDef for FsPromisesModule {
 
             Ok(())
         })
+    }
+}
+
+impl Into<ModuleInfo<FsPromisesModule>> for FsPromisesModule {
+    fn into(self) -> ModuleInfo<FsPromisesModule> {
+        ModuleInfo {
+            name: "fs/promises",
+            module: self,
+        }
     }
 }
 
@@ -136,4 +145,13 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("constants", constants)?;
 
     Ok(())
+}
+
+impl Into<ModuleInfo<FsModule>> for FsModule {
+    fn into(self) -> ModuleInfo<FsModule> {
+        ModuleInfo {
+            name: "fs",
+            module: self,
+        }
+    }
 }

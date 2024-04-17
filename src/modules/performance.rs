@@ -9,7 +9,7 @@ use rquickjs::{
     Ctx, Object, Result, Value,
 };
 
-use crate::modules::module::export_default;
+use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 use chrono::Utc;
 
@@ -76,5 +76,14 @@ impl ModuleDef for PerformanceModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<PerformanceModule>> for PerformanceModule {
+    fn into(self) -> ModuleInfo<PerformanceModule> {
+        ModuleInfo {
+            name: "performance",
+            module: self,
+        }
     }
 }

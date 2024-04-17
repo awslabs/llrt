@@ -10,11 +10,10 @@ use rquickjs::{
 };
 
 use crate::{
-    modules::module::export_default,
-    utils::{
+    module_builder::ModuleInfo, modules::module::export_default, utils::{
         object::{bytes_to_typed_array, get_bytes},
         result::ResultExt,
-    },
+    }
 };
 
 use self::encoder::{
@@ -53,6 +52,15 @@ impl ModuleDef for HexModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<HexModule>> for HexModule {
+    fn into(self) -> ModuleInfo<HexModule> {
+        ModuleInfo {
+            name: "hex",
+            module: self,
+        }
     }
 }
 

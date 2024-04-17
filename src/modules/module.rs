@@ -6,6 +6,8 @@ use rquickjs::{
     Ctx, Object, Result, Value,
 };
 
+use crate::module_builder::ModuleInfo;
+
 pub fn export_default<'js, F>(ctx: &Ctx<'js>, exports: &mut Exports<'js>, f: F) -> Result<()>
 where
     F: FnOnce(&Object<'js>) -> Result<()>,
@@ -46,5 +48,14 @@ impl ModuleDef for ModuleModule {
         })?;
 
         Ok(())
+    }
+}
+
+impl Into<ModuleInfo<ModuleModule>> for ModuleModule {
+    fn into(self) -> ModuleInfo<ModuleModule> {
+        ModuleInfo {
+            name: "module",
+            module: self,
+        }
     }
 }
