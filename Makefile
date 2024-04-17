@@ -67,6 +67,7 @@ llrt-linux-arm64.zip: | clean-js js
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
 llrt-linux-x86_64.zip: llrt-linux-x64.zip
+llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 
 define release_template
 release-${1}: | clean-js js
