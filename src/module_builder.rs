@@ -97,6 +97,7 @@ impl ModuleBuilder {
             .with_module("performance", PerformanceModule)
             .with_global(crate::modules::performance::init)
             .with_global(crate::modules::http::init)
+            .with_global(crate::modules::exceptions::init)
     }
 
     pub fn with_module<M: ModuleDef>(mut self, name: &'static str, module: M) -> Self {
