@@ -423,7 +423,7 @@ async fn post_error<'js>(
 
     #[cfg(not(test))]
     {
-        use crate::console;
+        use crate::modules::console;
         use rquickjs::function::Rest;
         console::log_std_err(
             ctx,
