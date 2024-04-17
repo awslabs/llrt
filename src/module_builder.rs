@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use rquickjs::{loader::{BuiltinResolver, ModuleLoader, Resolver}, module::ModuleDef, Ctx, Result};
-use crate::{modules::{
+use crate::modules::{
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console::ConsoleModule,
@@ -20,7 +20,8 @@ use crate::{modules::{
     url::UrlModule,
     uuid::UuidModule,
     xml::XmlModule,
-}, utils::UtilModule};
+    util::UtilModule,
+};
 
 #[derive(Debug, Default)]
 pub struct ModuleResolver {

@@ -18,3 +18,4 @@ pub mod url;
 pub mod uuid;
 pub mod xml;
 pub mod exceptions;
+pub mod util;
