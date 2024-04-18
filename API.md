@@ -7,17 +7,18 @@
 
 [alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding)
 
-[from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
+[byteLength](https://nodejs.org/api/buffer.html#static-method-bufferbytelengthstring-encoding)
 
 [concat](https://nodejs.org/api/buffer.html#static-method-bufferconcatlist-totallength)
 
-[byteLength](https://nodejs.org/api/buffer.html#static-method-bufferbytelengthstring-encoding)
+[from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
 
 Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
 
 ## child_process
 
-> [!WARNING] > `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
+> [!WARNING]
+> `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
@@ -62,36 +63,44 @@ Available globally
 ## fs
 
 [accessSync](https://nodejs.org/api/fs.html#fsaccesssyncpath-mode)
+
 [mkdirSync](https://nodejs.org/api/fs.html#fsmkdirsyncpath-options)
+
 [mkdtempSync](https://nodejs.org/api/fs.html#fsmkdtempsyncprefix-options)
+
 [readdirSync](https://nodejs.org/api/fs.html#fsreaddirsyncpath-options)
+
 [readFileSync](https://nodejs.org/api/fs.html#fsreadfilesyncpath-options)
+
 [rmdirSync](https://nodejs.org/api/fs.html#fsrmdirsyncpath-options)
+
 [rmSync](https://nodejs.org/api/fs.html#fsrmsyncpath-options)
+
 [statSync](https://nodejs.org/api/fs.html#fsstatsyncpath-options)
+
 [writeFileSync](https://nodejs.org/api/fs.html#fswritefilesyncfile-data-options)
 
 ## fs/promises
 
-[readdir](https://nodejs.org/api/fs.html#fspromisesreaddirpath-options)
+[access](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
 
-[readFile](https://nodejs.org/api/fs.html#filehandlereadfileoptions)
-
-[writeFile](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
+[constants](https://nodejs.org/api/fs.html#file-access-constants)
 
 [mkdir](https://nodejs.org/api/fs.html#fsmkdirpath-options-callback)
 
 [mkdtemp](https://nodejs.org/api/fs.html#fsmkdtempprefix-options-callback)
 
-[rmdir](https://nodejs.org/api/fs.html#fsrmdirpath-options-callback)
+[readdir](https://nodejs.org/api/fs.html#fspromisesreaddirpath-options)
+
+[readFile](https://nodejs.org/api/fs.html#filehandlereadfileoptions)
 
 [rm](https://nodejs.org/api/fs.html#fsrmpath-options-callback)
 
+[rmdir](https://nodejs.org/api/fs.html#fsrmdirpath-options-callback)
+
 [stat](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
 
-[access](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
-
-[constants](https://nodejs.org/api/fs.html#file-access-constants)
+[writeFile](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
 
 ## hex
 
@@ -106,55 +115,56 @@ export function decode(value: string): Uint8Array;
 
 [createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename)
 
-> [!NOTE] > `require` is available from esm modules natively. This function is just for compatibility
+> [!NOTE]
+> `require` is available from esm modules natively. This function is just for compatibility
 
 ## os
 
 [platform](https://nodejs.org/api/os.html#osplatform)
 
-[tmpdir](https://nodejs.org/api/os.html#osplatform)
-
 [release](https://nodejs.org/api/os.html#osrelease)
+
+[tmpdir](https://nodejs.org/api/os.html#osplatform)
 
 [type](https://nodejs.org/api/os.html#ostype)
 
 ## path
 
-[dirname](https://nodejs.org/api/path.html#pathdirnamepath)
-
 [basename](https://nodejs.org/api/path.html#pathbasenamepath-suffix)
+
+[delimiter](https://nodejs.org/api/path.html#pathdelimiter)
+
+[dirname](https://nodejs.org/api/path.html#pathdirnamepath)
 
 [extname](https://nodejs.org/api/path.html#pathextnamepath)
 
 [format](https://nodejs.org/api/path.html#pathformatpathobject)
 
-[parse](https://nodejs.org/api/path.html#pathparsepath)
+[isAbsolute](https://nodejs.org/api/path.html#pathisabsolutepath)
 
 [join](https://nodejs.org/api/path.html#pathjoinpaths)
 
-[resolve](https://nodejs.org/api/path.html#pathresolvepaths)
-
 [normalize](https://nodejs.org/api/path.html#pathnormalizepath)
 
-[isAbsolute](https://nodejs.org/api/path.html#pathisabsolutepath)
+[parse](https://nodejs.org/api/path.html#pathparsepath)
 
-[delimiter](https://nodejs.org/api/path.html#pathdelimiter)
+[resolve](https://nodejs.org/api/path.html#pathresolvepaths)
 
 ## timers
 
 _Also available globally_
-
-[setImmediate](https://nodejs.org/api/timers.html#setimmediatecallback-args)
-
-[setInterval](https://nodejs.org/api/timers.html#setintervalcallback-delay-args)
-
-[setTimeout](https://nodejs.org/api/timers.html#settimeoutcallback-delay-args)
 
 [clearImmediate](https://nodejs.org/api/timers.html#clearimmediateimmediate)
 
 [clearInterval](https://nodejs.org/api/timers.html#clearintervaltimeout)
 
 [clearTimeout](https://nodejs.org/api/timers.html#cleartimeouttimeout)
+
+[setImmediate](https://nodejs.org/api/timers.html#setimmediatecallback-args)
+
+[setInterval](https://nodejs.org/api/timers.html#setintervalcallback-delay-args)
+
+[setTimeout](https://nodejs.org/api/timers.html#settimeoutcallback-delay-args)
 
 ## url
 
@@ -237,9 +247,9 @@ URLSearchParams.sort(): void;
 > Supported encodings: hex, base64, utf8, iso88591.
 > Supported methods: `encode` & `decode`
 
-[TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
-
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
+
+[TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
 ## uuid
 
@@ -293,22 +303,24 @@ export class XMLParser(options?: XmlParserOptions){
 > These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
 > `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
 
-[createConnection](https://nodejs.org/api/net.html#netcreateconnection)
-
 [connect](https://nodejs.org/api/net.html#netconnect)
+
+[createConnection](https://nodejs.org/api/net.html#netcreateconnection)
 
 [createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
 
 ## Misc Global objects
 
-[structuredClone](https://nodejs.org/api/globals.html#structuredclonevalue-options)
+[atob](https://developer.mozilla.org/en-US/docs/Web/API/atob)
 
 [btoa](https://developer.mozilla.org/en-US/docs/Web/API/btoa)
 
-[atob](https://developer.mozilla.org/en-US/docs/Web/API/atob)
+[DOMException](https://developer.mozilla.org/en-US/docs/Web/API/DOMException)
 
 [navigator.userAgent](https://nodejs.org/api/globals.html#navigatoruseragent)
 
+[performance.now](https://nodejs.org/api/perf_hooks.html#performancenow)
+
 [performance.timeOrigin](https://nodejs.org/api/perf_hooks.html#performancetimeorigin)
 
-[performance.now](https://nodejs.org/api/perf_hooks.html#performancenow)
+[structuredClone](https://nodejs.org/api/globals.html#structuredclonevalue-options)
