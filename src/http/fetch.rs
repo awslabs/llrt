@@ -8,17 +8,19 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::{Async, Func},
-    Coerced, Ctx, Exception, FromJs, Function, Object, Result, Value,
+    Class, Coerced, Ctx, Exception, FromJs, Function, Object, Result, Value,
 };
+use tokio::select;
 
 use std::time::Instant;
 
 use crate::{
     environment,
+    events::AbortSignal,
     http::headers::Headers,
     net::HTTP_CLIENT,
     security::{ensure_url_access, HTTP_DENY_LIST},
-    utils::{object::get_bytes, result::ResultExt},
+    utils::{mc_oneshot, object::get_bytes, result::ResultExt},
 };
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
@@ -62,6 +64,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                 let uri: Uri = options.url.parse().or_throw(&ctx)?;
                 let method_string = options.method.to_string();
                 let method = options.method;
+                let abort_receiver = options.abort_receiver;
 
                 ensure_url_access(&ctx, &uri)?;
 
@@ -78,33 +81,42 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                 }
 
                 let req = req.body(options.body).or_throw(&ctx)?;
-                let res = client.request(req).await.or_throw(&ctx)?; //TODO return ErrorObject
+                let res = if let Some(abort_receiver) = &abort_receiver {
+                    select! {
+                        res = client.request(req) => res.or_throw(&ctx)?,
+                        reason = abort_receiver.recv() => return Err(ctx.throw(reason))
+                    }
+                } else {
+                    client.request(req).await.or_throw(&ctx)?
+                };
 
-                Response::from_incoming(ctx, res, method_string, options.url, start)
+                Response::from_incoming(ctx, res, method_string, options.url, start, abort_receiver)
             }
         })),
     )?;
     Ok(())
 }
 
-struct FetchOptions {
+struct FetchOptions<'js> {
     method: hyper::Method,
     url: String,
     headers: Option<Headers>,
     body: Full<Bytes>,
+    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
 }
 
 fn get_fetch_options<'js>(
     ctx: &Ctx<'js>,
     resource: Value<'js>,
     opts: Opt<Value<'js>>,
-) -> Result<FetchOptions> {
+) -> Result<FetchOptions<'js>> {
     let mut url = None;
     let mut resource_opts = None;
     let mut arg_opts = None;
     let mut headers = None;
     let mut method = None;
     let mut body = None;
+    let mut abort_receiver = None;
     if let Some(obj) = resource.as_object() {
         let obj = obj.clone();
         if obj.instance_of::<crate::http::Request>() {
@@ -151,6 +163,11 @@ fn get_fetch_options<'js>(
         if let Some(headers_op) = get_option::<Value>("headers", &arg_opts, &resource_opts)? {
             headers = Some(Headers::from_value(ctx, headers_op)?);
         }
+
+        if let Some(signal) = get_option::<Class<AbortSignal>>("signal", &arg_opts, &resource_opts)?
+        {
+            abort_receiver = Some(signal.borrow().sender.subscribe());
+        }
     }
 
     let url = match url {
@@ -163,6 +180,7 @@ fn get_fetch_options<'js>(
         url,
         headers,
         body: body.unwrap_or_default(),
+        abort_receiver,
     })
 }
 

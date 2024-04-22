@@ -129,13 +129,13 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 Some(signal_obj) if signal_obj.instance_of::<AbortSignal>() => {
                     let signal = AbortSignal::from_js(&ctx, signal)?;
                     request.signal = Some(Class::instance(ctx.clone(), signal)?);
-                }
+                },
                 _ => {
                     return Err(request_construct_type_error(
                         &ctx,
                         "member signal is not of type AbortSignal.",
                     ));
-                }
+                },
             }
         }
     }
