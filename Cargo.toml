@@ -12,7 +12,7 @@ uncompressed = []
 macro = ["rquickjs/macro"]
 
 [dependencies]
-chrono = { version = "0.4.37", default-features = false, features = ["std"] }
+chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 quick-xml = "0.31.0"
 crc32c = "0.6.5"
 crc32fast = "1.4.0"
