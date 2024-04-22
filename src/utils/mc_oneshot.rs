@@ -99,12 +99,12 @@ mod tests {
 
         let a = tokio::spawn(async move {
             let val = rx1.recv().await; //wait for value to become false
-            assert_eq!(val, true)
+            assert!(val)
         });
 
         let b = tokio::spawn(async move {
             let val = rx2.recv().await; //wait for value to become false
-            assert_eq!(val, true)
+            assert!(val)
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
