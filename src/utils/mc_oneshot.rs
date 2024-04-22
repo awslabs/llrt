@@ -113,6 +113,6 @@ mod tests {
 
         rx3.recv().await;
 
-        join!(a, b);
+        let _ = join!(a, b);
     }
 }
