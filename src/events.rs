@@ -18,6 +18,7 @@ use rquickjs::{
 use tracing::trace;
 
 use crate::{
+    exceptions::DOMException,
     utils::{mc_oneshot, result::ResultExt},
     vm::{CtxExtension, ErrorExtensions},
 };
@@ -410,7 +411,8 @@ impl<'js> AbortController<'js> {
         let reason = if let Some(reason) = reason.0 {
             reason
         } else {
-            Exception::from_value("AbortError".into_js(&ctx)?)?.into_value()
+            let ex = DOMException::new(ctx.clone(), Opt(None), Opt(Some("AbortError".into())))?;
+            Class::instance(ctx.clone(), ex)?.into_value()
         };
 
         let instance = this.0.clone();
@@ -453,6 +455,12 @@ impl<'js> AbortSignal<'js> {
         }
     }
 
+    //TODO implement any
+    // #[qjs(static)]
+    // pub fn any(ctx: Ctx<'js>, signals: Array) -> AbortSignal<'js> {
+
+    // }
+
     #[qjs(get)]
     pub fn aborted(&self) -> bool {
         self.aborted
@@ -475,9 +483,11 @@ impl<'js> AbortSignal<'js> {
     #[qjs(skip)]
     pub fn send_aborted(&mut self, ctx: Ctx<'js>) {
         self.aborted = true;
+
         self.sender.send(
             self.reason
-                .take()
+                .as_ref()
+                .cloned()
                 .unwrap_or_else(|| Undefined.into_value(ctx)),
         )
     }

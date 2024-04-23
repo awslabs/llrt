@@ -8,7 +8,7 @@ use rquickjs::{
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
-struct DOMException {
+pub struct DOMException {
     message: String,
     name: String,
     stack: String,
@@ -17,16 +17,16 @@ struct DOMException {
 #[rquickjs::methods]
 impl DOMException {
     #[qjs(constructor)]
-    fn new(ctx: Ctx<'_>, message: Opt<String>, name: Opt<String>) -> Result<Self> {
+    pub fn new(ctx: Ctx<'_>, message: Opt<String>, name: Opt<String>) -> Result<Self> {
         let error_ctor: Constructor = ctx.globals().get(PredefinedAtom::Error)?;
         let new: Object = error_ctor.construct((message.clone(),))?;
 
-        let var_message = message.0.unwrap_or(String::from(""));
-        let var_name = name.0.unwrap_or(String::from("Error"));
+        let message = message.0.unwrap_or(String::from(""));
+        let name = name.0.unwrap_or(String::from("Error"));
 
         Ok(Self {
-            message: var_message,
-            name: var_name,
+            message,
+            name,
             stack: new.get::<_, String>(PredefinedAtom::Stack)?,
         })
     }

@@ -1,8 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    class::Trace, function::Opt, methods, Class, Ctx, Error, Exception, FromJs, IntoJs, Null,
-    Object, Result, TypedArray, Value,
+    class::Trace, function::Opt, methods, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
+    Result, TypedArray, Value,
 };
 
 use crate::{
@@ -124,29 +124,17 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
 
     if obj.contains_key("signal").unwrap() {
         let signal: Value = obj.get("signal")?;
-        if !signal.is_undefined() && !signal.is_null() {
-            match signal.as_object() {
-                Some(signal_obj) if signal_obj.instance_of::<AbortSignal>() => {
-                    let signal = AbortSignal::from_js(&ctx, signal)?;
-                    request.signal = Some(Class::instance(ctx.clone(), signal)?);
-                },
-                _ => {
-                    return Err(request_construct_type_error(
-                        &ctx,
-                        "member signal is not of type AbortSignal.",
-                    ));
-                },
-            }
-        }
+        let signal = AbortSignal::from_js(&ctx, signal)?;
+        request.signal = Some(Class::instance(ctx.clone(), signal)?);
     }
 
     if obj.contains_key("body").unwrap_or_default() {
         let body: Value = obj.get("body").unwrap();
         if !body.is_undefined() && !body.is_null() {
             if let "GET" | "HEAD" = request.method.as_str() {
-                return Err(request_construct_type_error(
+                return Err(Exception::throw_type(
                     &ctx,
-                    "Request with GET/HEAD method cannot have body.",
+                    "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
                 ));
             }
 
@@ -167,8 +155,4 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
 
     Ok(())
-}
-
-fn request_construct_type_error(ctx: &Ctx, msg: &str) -> Error {
-    Exception::throw_type(ctx, &format!("Failed to construct 'Request': {msg}"))
 }
