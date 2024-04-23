@@ -174,31 +174,35 @@ describe("Request", () => {
 
   it("should accept a signal as an option", () => {
     const controller = new AbortController();
-    const request = new Request('http://localhost', { signal: controller.signal });
+    const request = new Request("http://localhost", {
+      signal: controller.signal,
+    });
     expect(request.signal).toEqual(controller.signal);
   });
 
   it("should accept null or undefined as signal options", () => {
     // @ts-ignore
-    const reqNull = new Request('http://localhost', { signal: null });
+    const reqNull = new Request("http://localhost", { signal: null });
     expect(reqNull.signal).toBeUndefined();
     // @ts-ignore
-    const reqUndef = new Request('http://localhost', { signal: undefined });
+    const reqUndef = new Request("http://localhost", { signal: undefined });
     expect(reqUndef.signal).toBeUndefined();
   });
 
   it("should fail if the signal option is not an object", () => {
     expect(() => {
       // @ts-ignore
-      new Request('http://localhost', { signal: 'type error' })
-    }).toThrow(/member signal is not of type AbortSignal/);
+      new Request("http://localhost", { signal: "type error" });
+    }).toThrow(/property is not an AbortSignal/);
   });
 
   it("should fail if the signal option is not an valid object", () => {
     expect(() => {
-      // @ts-ignore
-      new Request('http://localhost', { signal: new Request('http://localhost') })
-    }).toThrow(/member signal is not of type AbortSignal/);
+      new Request("http://localhost", {
+        // @ts-ignore
+        signal: new Request("http://localhost"),
+      });
+    }).toThrow(/property is not an AbortSignal/);
   });
 });
 

@@ -124,8 +124,15 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
 
     if obj.contains_key("signal").unwrap() {
         let signal: Value = obj.get("signal")?;
-        let signal = AbortSignal::from_js(&ctx, signal)?;
-        request.signal = Some(Class::instance(ctx.clone(), signal)?);
+        if !signal.is_undefined() && !signal.is_null() {
+            let signal = AbortSignal::from_js(&ctx, signal).map_err(|_| {
+                Exception::throw_type(
+                    &ctx,
+                    "Failed to construct 'Request': 'signal' property is not an AbortSignal",
+                )
+            })?;
+            request.signal = Some(Class::instance(ctx.clone(), signal)?);
+        }
     }
 
     if obj.contains_key("body").unwrap_or_default() {
