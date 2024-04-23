@@ -95,8 +95,6 @@ mod tests {
         let rx2 = tx.subscribe();
         let rx3 = tx.subscribe();
 
-        // tx.send(false);
-
         let a = tokio::spawn(async move {
             let val = rx1.recv().await; //wait for value to become false
             assert!(val)
@@ -109,10 +107,13 @@ mod tests {
 
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-        tx.send(false);
+        tx.send(true);
 
-        rx3.recv().await;
+        let val = rx3.recv().await;
+        assert!(val);
 
-        let _ = join!(a, b);
+        let (a, b) = join!(a, b);
+        a.unwrap();
+        b.unwrap();
     }
 }
