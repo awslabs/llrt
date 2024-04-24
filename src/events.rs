@@ -9,10 +9,11 @@ use std::{
 
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
+    function::OnceFn,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    CatchResultExt, Class, Ctx, Exception, Function, IntoJs, Object, Result, String as JsString,
-    Symbol, Undefined, Value,
+    Array, CatchResultExt, Class, Ctx, Exception, Function, IntoJs, Object, Result,
+    String as JsString, Symbol, Undefined, Value,
 };
 
 use tracing::trace;
@@ -407,29 +408,36 @@ impl<'js> AbortController<'js> {
         ctx: Ctx<'js>,
         this: This<Class<'js, Self>>,
         reason: Opt<Value<'js>>,
-    ) -> Result<Class<'js, Self>> {
-        let reason = if let Some(reason) = reason.0 {
-            reason
-        } else {
-            let ex = DOMException::new(ctx.clone(), Opt(None), Opt(Some("AbortError".into())))?;
-            Class::instance(ctx.clone(), ex)?.into_value()
-        };
+    ) -> Result<()> {
+        let instance = this.0.borrow();
+        let signal = instance.signal.clone();
+        let mut signal_borrow = signal.borrow_mut();
+        signal_borrow.set_reason(reason);
+        drop(signal_borrow);
+        AbortSignal::send_aborted(This(signal), ctx)?;
 
-        let instance = this.0.clone();
-
-        let ctrl = instance.borrow_mut();
-        let mut signal = ctrl.signal.borrow_mut();
-
-        signal.set_reason(Opt(Some(reason)));
-        signal.send_aborted(ctx);
-
-        Ok(this.0)
+        Ok(())
     }
 }
 
-#[derive(Clone, Debug)]
+fn get_reason_or_dom_exception<'js>(
+    ctx: &Ctx<'js>,
+    reason: Option<&Value<'js>>,
+    name: &str,
+) -> Result<Value<'js>> {
+    let reason = if let Some(reason) = reason {
+        reason.clone()
+    } else {
+        let ex = DOMException::new(ctx.clone(), Opt(None), Opt(Some(name.into())))?;
+        Class::instance(ctx.clone(), ex)?.into_value()
+    };
+    Ok(reason)
+}
+
+#[derive(Clone)]
 #[rquickjs::class]
 pub struct AbortSignal<'js> {
+    emitter: EventEmitter<'js>,
     aborted: bool,
     reason: Option<Value<'js>>,
     pub sender: mc_oneshot::Sender<Value<'js>>,
@@ -443,23 +451,84 @@ impl<'js> Trace<'js> for AbortSignal<'js> {
     }
 }
 
-#[rquickjs::methods]
+impl<'js> Emitter<'js> for AbortSignal<'js> {
+    fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
+        self.emitter.get_event_list()
+    }
+}
+
+#[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> AbortSignal<'js> {
     #[qjs(constructor)]
     pub fn new() -> Self {
         let (sender, _) = mc_oneshot::channel::<Value<'js>>();
         Self {
+            emitter: EventEmitter::new(),
             aborted: false,
             reason: None,
             sender,
         }
     }
 
-    //TODO implement any
-    // #[qjs(static)]
-    // pub fn any(ctx: Ctx<'js>, signals: Array) -> AbortSignal<'js> {
+    pub fn throw_if_aborted(&self, ctx: Ctx<'js>) -> Result<()> {
+        if self.aborted {
+            return Err(ctx.throw(
+                self.reason
+                    .clone()
+                    .unwrap_or_else(|| Undefined.into_value(ctx.clone())),
+            ));
+        }
+        Ok(())
+    }
 
-    // }
+    #[qjs(static)]
+    pub fn any(ctx: Ctx<'js>, signals: Array<'js>) -> Result<Class<'js, Self>> {
+        let mut new_signal = AbortSignal::new();
+
+        let mut signal_instances = Vec::with_capacity(signals.len());
+
+        for signal in signals.iter() {
+            let signal: Value = signal?;
+            let signal: Class<AbortSignal> = Class::from_value(signal)
+                .map_err(|_| Exception::throw_type(&ctx, "Value is not an AbortSignal instance"))?;
+            let signal_borrow = signal.borrow();
+            if signal_borrow.aborted {
+                new_signal.aborted = true;
+                new_signal.reason = signal_borrow.reason.clone();
+                let new_signal = Class::instance(ctx, new_signal)?;
+                return Ok(new_signal);
+            } else {
+                drop(signal_borrow);
+                signal_instances.push(signal);
+            }
+        }
+
+        let new_signal_instance = Class::instance(ctx.clone(), new_signal)?;
+        for signal in signal_instances {
+            let signal_instance_2 = new_signal_instance.clone();
+            Self::add_event_listener_str(
+                This(signal),
+                &ctx,
+                "abort",
+                Function::new(
+                    ctx.clone(),
+                    OnceFn::from(|ctx, signal| {
+                        struct Args<'js>(Ctx<'js>, This<Class<'js, AbortSignal<'js>>>);
+                        let Args(ctx, signal) = Args(ctx, signal);
+                        let mut borrow = signal_instance_2.borrow_mut();
+                        borrow.aborted = true;
+                        borrow.reason = signal.borrow().reason.clone();
+                        drop(borrow);
+                        Self::send_aborted(This(signal_instance_2), ctx)
+                    }),
+                )?,
+                false,
+                false,
+            )?;
+        }
+
+        Ok(new_signal_instance)
+    }
 
     #[qjs(get)]
     pub fn aborted(&self) -> bool {
@@ -481,37 +550,39 @@ impl<'js> AbortSignal<'js> {
     }
 
     #[qjs(skip)]
-    pub fn send_aborted(&mut self, ctx: Ctx<'js>) {
-        self.aborted = true;
-
-        self.sender.send(
-            self.reason
-                .as_ref()
-                .cloned()
-                .unwrap_or_else(|| Undefined.into_value(ctx)),
-        )
+    pub fn send_aborted(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<()> {
+        let mut borrow = this.borrow_mut();
+        borrow.aborted = true;
+        let reason = get_reason_or_dom_exception(&ctx, borrow.reason.as_ref(), "AbortError")?;
+        borrow.sender.send(reason);
+        drop(borrow);
+        Self::emit_str(this, &ctx, "abort", vec![], false)?;
+        Ok(())
     }
 
     #[qjs(static)]
-    pub fn abort(ctx: Ctx<'js>, reason: Opt<Value<'js>>) -> AbortSignal<'js> {
-        let mut signal = AbortSignal::new();
+    pub fn abort(ctx: Ctx<'js>, reason: Opt<Value<'js>>) -> Result<Class<'js, Self>> {
+        let mut signal = Self::new();
         signal.set_reason(reason);
-        signal.send_aborted(ctx);
-        signal
+        let instance = Class::instance(ctx.clone(), signal)?;
+        Self::send_aborted(This(instance.clone()), ctx)?;
+        Ok(instance)
     }
 
     #[qjs(static)]
     pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
-        let timeout_exception = Exception::from_value("TimeoutError".into_js(&ctx)?)?; // TODO: Timeout DOMException
-        let signal = AbortSignal::new();
+        let timeout_error = get_reason_or_dom_exception(&ctx, None, "TimeoutError")?;
+
+        let signal = Self::new();
         let signal_instance = Class::instance(ctx.clone(), signal)?;
         let signal_instance2 = signal_instance.clone();
 
         ctx.clone().spawn_exit(async move {
             tokio::time::sleep(Duration::from_millis(milliseconds)).await;
             let mut borrow = signal_instance.borrow_mut();
-            borrow.set_reason(Opt(Some(timeout_exception.into_value())));
-            borrow.send_aborted(ctx);
+            borrow.set_reason(Opt(Some(timeout_error)));
+            drop(borrow);
+            Self::send_aborted(This(signal_instance), ctx)?;
             Ok(())
         })?;
 
@@ -547,6 +618,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     Class::<AbortController>::define(&globals)?;
     Class::<AbortSignal>::define(&globals)?;
+
+    AbortSignal::add_event_emitter_prototype(ctx)?;
 
     Ok(())
 }
