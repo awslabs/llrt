@@ -71,7 +71,7 @@ jobs:
       - name: Run tests
         if: inputs.arch != 'aarch64' || inputs.platform != 'linux'
         run: |
-          make test-ci
+          make test-ci 2>&1
       - name: Run tests
         if: inputs.arch == 'aarch64' && inputs.platform == 'linux'
         env:
