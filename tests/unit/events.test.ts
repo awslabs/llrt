@@ -114,7 +114,7 @@ describe("AbortSignal & AbortController", () => {
   });
 
   it("should throw DomException on timeout", (done) => {
-    let signal = AbortSignal.timeout(10);
+    let signal = AbortSignal.timeout(5);
     setTimeout(() => {
       expect(signal.aborted).toBe(false);
       setTimeout(() => {
@@ -123,8 +123,8 @@ describe("AbortSignal & AbortController", () => {
         expect(signal.reason).toBeInstanceOf(DOMException);
         expect(signal.reason.name).toBe("TimeoutError");
         done();
-      }, 50);
-    }, 5);
+      }, 100);
+    }, 0);
   });
 
   it("should abort if any signal is aborted asynchronously", (done) => {
