@@ -12,8 +12,8 @@ use rquickjs::{
     function::OnceFn,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Array, CatchResultExt, Class, Ctx, Exception, Function, IntoJs, Object, Result,
-    String as JsString, Symbol, Undefined, Value,
+    Array, CatchResultExt, Class, Ctx, Exception, Function, Object, Result, String as JsString,
+    Symbol, Undefined, Value,
 };
 
 use tracing::trace;
