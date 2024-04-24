@@ -117,25 +117,13 @@ describe("AbortSignal & AbortController", () => {
     let signal = AbortSignal.timeout(5);
     setTimeout(() => {
       expect(signal.aborted).toBe(false);
-      let time = 0;
-      const interval = setInterval(() => {
-        time++;
-        if (signal.aborted) {
-          clearInterval(interval);
-          console.log("=========================", time);
-          done();
-        }
-      }, 1);
       setTimeout(() => {
-        clearInterval(interval);
-      }, 10000);
-      // setTimeout(() => {
-      //   expect(signal.aborted).toBe(true);
-      //   //@ts-ignore
-      //   expect(signal.reason).toBeInstanceOf(DOMException);
-      //   expect(signal.reason.name).toBe("TimeoutError");
-      //   done();
-      // }, 100);
+        expect(signal.aborted).toBe(true);
+        //@ts-ignore
+        expect(signal.reason).toBeInstanceOf(DOMException);
+        expect(signal.reason.name).toBe("TimeoutError");
+        done();
+      }, 50);
     }, 0);
   });
 
@@ -150,6 +138,6 @@ describe("AbortSignal & AbortController", () => {
     setTimeout(() => {
       expect(new_signal.aborted).toBe(true);
       done();
-    }, 15);
+    }, 50);
   });
 });
