@@ -311,6 +311,10 @@ export class XMLParser(options?: XmlParserOptions){
 
 ## Misc Global objects
 
+[AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController)
+
+[AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)
+
 [atob](https://developer.mozilla.org/en-US/docs/Web/API/atob)
 
 [btoa](https://developer.mozilla.org/en-US/docs/Web/API/btoa)
