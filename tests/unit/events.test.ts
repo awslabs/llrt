@@ -140,4 +140,17 @@ describe("AbortSignal & AbortController", () => {
       done();
     }, 100);
   });
+
+  it("should only emit aborted once", () => {
+    let ctrl = new AbortController();
+    let count = 0;
+    ctrl.signal.onabort = () => {
+      count++;
+    };
+    expect(ctrl.signal.onabort).toEqual(expect.any(Function));
+    ctrl.abort();
+    ctrl.abort();
+    ctrl.abort();
+    expect(count).toBe(1);
+  });
 });
