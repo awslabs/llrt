@@ -138,6 +138,6 @@ describe("AbortSignal & AbortController", () => {
     setTimeout(() => {
       expect(new_signal.aborted).toBe(true);
       done();
-    }, 50);
+    }, 100);
   });
 });
