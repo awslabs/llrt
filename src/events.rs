@@ -523,7 +523,7 @@ impl<'js> AbortSignal<'js> {
                     }),
                 )?,
                 false,
-                false,
+                true,
             )?;
         }
 
