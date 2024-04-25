@@ -270,21 +270,22 @@ where
 
     fn has_listener_str(&self, event: &str) -> bool {
         let key = EventKey::String(String::from(event));
-        self.get_event_list()
-            .read()
-            .unwrap()
-            .iter()
-            .any(|(k, _)| k == &key)
+        has_key(self.get_event_list(), key)
     }
 
     fn has_listener(&self, ctx: Ctx<'js>, event: Value<'js>) -> Result<bool> {
         let key = EventKey::from_value(&ctx, event)?;
-        Ok(self
-            .get_event_list()
-            .read()
-            .unwrap()
-            .iter()
-            .any(|(k, _)| k == &key))
+        Ok(has_key(self.get_event_list(), key))
+    }
+
+    fn get_listeners(&self, ctx: &Ctx<'js>, event: Value<'js>) -> Result<Vec<Function<'js>>> {
+        let key = EventKey::from_value(ctx, event)?;
+        Ok(find_all_listeners(self.get_event_list(), key))
+    }
+
+    fn get_listeners_str(&self, event: &str) -> Vec<Function<'js>> {
+        let key = EventKey::String(String::from(event));
+        find_all_listeners(self.get_event_list(), key)
     }
 
     fn do_emit(
@@ -365,6 +366,23 @@ where
     }
 }
 
+fn find_all_listeners<'js>(
+    events: Arc<RwLock<EventList<'js>>>,
+    key: EventKey<'js>,
+) -> Vec<Function<'js>> {
+    let events = events.read().unwrap();
+    let items = events.iter().find(|(k, _)| k == &key);
+    if let Some((_, callbacks)) = items {
+        callbacks.iter().map(|item| item.callback.clone()).collect()
+    } else {
+        vec![]
+    }
+}
+
+fn has_key<'js>(event_list: Arc<RwLock<EventList<'js>>>, key: EventKey<'js>) -> bool {
+    event_list.read().unwrap().iter().any(|(k, _)| k == &key)
+}
+
 fn to_event<'js>(ctx: &Ctx<'js>, event: &str) -> Result<Value<'js>> {
     let event = JsString::from_str(ctx.clone(), event)?;
     Ok(event.into_value())
@@ -412,6 +430,10 @@ impl<'js> AbortController<'js> {
         let instance = this.0.borrow();
         let signal = instance.signal.clone();
         let mut signal_borrow = signal.borrow_mut();
+        if signal_borrow.aborted {
+            //only once
+            return Ok(());
+        }
         signal_borrow.set_reason(reason);
         drop(signal_borrow);
         AbortSignal::send_aborted(This(signal), ctx)?;
@@ -468,6 +490,21 @@ impl<'js> AbortSignal<'js> {
             reason: None,
             sender,
         }
+    }
+
+    #[qjs(get, rename = "onabort")]
+    pub fn get_on_abort(&self) -> Option<Function<'js>> {
+        Self::get_listeners_str(self, "abort").first().cloned()
+    }
+
+    #[qjs(set, rename = "onabort")]
+    pub fn set_on_abort(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        listener: Function<'js>,
+    ) -> Result<()> {
+        Self::add_event_listener_str(this, &ctx, "abort", listener, false, false)?;
+        Ok(())
     }
 
     pub fn throw_if_aborted(&self, ctx: Ctx<'js>) -> Result<()> {
