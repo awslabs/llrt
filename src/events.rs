@@ -506,7 +506,7 @@ impl<'js> AbortSignal<'js> {
         ctx: Ctx<'js>,
         listener: Function<'js>,
     ) -> Result<()> {
-        Self::add_event_listener_str(this, &ctx, "abort", listener, false, true)?;
+        Self::add_event_listener_str(this, &ctx, "abort", listener, false, false)?;
         Ok(())
     }
 

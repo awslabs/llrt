@@ -149,6 +149,7 @@ describe("AbortSignal & AbortController", () => {
     };
     expect(ctrl.signal.onabort).toEqual(expect.any(Function));
     ctrl.abort();
+    expect(ctrl.signal.onabort).toEqual(expect.any(Function)); //keep listener
     ctrl.abort();
     ctrl.abort();
     expect(count).toBe(1);
