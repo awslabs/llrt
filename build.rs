@@ -140,6 +140,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
         ph_map.build()
     )?;
     writeln!(&mut sdk_bytecode_file, ";")?;
+    sdk_bytecode_file.flush()?;
 
     info!(
         "\n===============================\nUncompressed bytecode size: {}\n===============================",
