@@ -11,6 +11,7 @@ use crate::module::export_default;
 pub mod class;
 pub mod clone;
 pub mod io;
+pub mod mc_oneshot;
 pub mod object;
 pub mod result;
 pub mod string;
