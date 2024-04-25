@@ -494,10 +494,7 @@ impl<'js> AbortSignal<'js> {
 
     #[qjs(get, rename = "onabort")]
     pub fn get_on_abort(&self) -> Option<Function<'js>> {
-        Self::get_listeners_str(&self, "abort")
-            .iter()
-            .next()
-            .map(|e| e.clone())
+        Self::get_listeners_str(self, "abort").first().cloned()
     }
 
     #[qjs(set, rename = "onabort")]
