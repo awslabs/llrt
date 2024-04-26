@@ -280,7 +280,7 @@ async fn next_invocation<'js, 'a>(
     let context = LambdaContext {
         aws_request_id: get_header_value(headers, &HEADER_REQUEST_ID).or_throw(ctx)?,
         invoked_function_arn: get_header_value(headers, &HEADER_INVOKED_FUNCTION_ARN)
-            .or_throw(ctx)?,
+            .unwrap_or("n/a".into()),
         callback_waits_for_empty_event_loop: true,
         get_remaining_time_in_millis,
         client_context,

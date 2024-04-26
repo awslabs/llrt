@@ -9,11 +9,12 @@ use rquickjs::{
     function::Opt,
     ArrayBuffer, Class, Ctx, Exception, Null, Object, Result, Value,
 };
-use tokio::runtime::Handle;
+use tokio::{runtime::Handle, select};
 
 use crate::{
+    events::AbortSignal,
     json::parse::json_parse,
-    utils::{class::get_class, object::get_bytes, result::ResultExt},
+    utils::{class::get_class, mc_oneshot, object::get_bytes, result::ResultExt},
 };
 
 use super::{blob::Blob, headers::Headers};
@@ -101,6 +102,7 @@ impl<'js> Response<'js> {
         method: String,
         url: String,
         start: Instant,
+        abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     ) -> Result<Self> {
         let response_headers = response.headers();
         let mut content_type = None;
@@ -126,6 +128,7 @@ impl<'js> Response<'js> {
             start,
             status: status.as_u16(),
             headers,
+            abort_receiver,
         })
     }
 
@@ -135,7 +138,14 @@ impl<'js> Response<'js> {
                 let mut body = incoming
                     .take()
                     .ok_or(Exception::throw_type(ctx, "Already read"))?;
-                let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
+                let bytes = if let Some(abort_signal) = &self.abort_receiver {
+                    select! {
+                        err = abort_signal.recv() => return Err(ctx.throw(err)),
+                        collected_body = body.body_mut().collect() => collected_body.or_throw(ctx)?.to_bytes()
+                    }
+                } else {
+                    body.body_mut().collect().await.or_throw(ctx)?.to_bytes()
+                };
 
                 bytes.to_vec()
             },
@@ -164,6 +174,7 @@ pub struct Response<'js> {
     status_text: Option<String>,
     headers: Class<'js, Headers>,
     content_type: Option<String>,
+    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
@@ -173,6 +184,7 @@ impl<'js> Response<'js> {
         let mut status = 200;
         let mut headers = None;
         let mut status_text = None;
+        let mut abort_receiver = None;
 
         if let Some(opt) = options.0 {
             if let Some(status_opt) = opt.get("status")? {
@@ -183,6 +195,10 @@ impl<'js> Response<'js> {
             }
             if let Some(status_text_opt) = opt.get("statusText")? {
                 status_text = Some(status_text_opt);
+            }
+
+            if let Some(signal) = opt.get::<_, Option<Class<AbortSignal>>>("signal")? {
+                abort_receiver = Some(signal.borrow().sender.subscribe())
             }
         }
 
@@ -211,6 +227,7 @@ impl<'js> Response<'js> {
             status,
             headers,
             status_text,
+            abort_receiver,
         })
     }
 
@@ -288,6 +305,7 @@ impl<'js> Response<'js> {
             status: self.status,
             status_text: self.status_text.clone(),
             headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
+            abort_receiver: self.abort_receiver.clone(),
         })
     }
 

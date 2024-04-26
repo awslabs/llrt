@@ -137,4 +137,25 @@ describe("fetch", () => {
     });
     proc.on("error", done);
   });
+
+  it("should be abortable using signals", async () => {
+    const abortController = new AbortController();
+    const res = fetch(url, { signal: abortController.signal });
+    abortController.abort();
+    try {
+      await res;
+    } catch (err: any) {
+      expect(err.name).toBe("AbortError");
+    }
+  });
+  it("should be abortable using request signal", async () => {
+    const abortController = new AbortController();
+    const req = new Request(url, { signal: abortController.signal });
+    abortController.abort("aborted");
+    try {
+      await fetch(req);
+    } catch (err: any) {
+      expect(abortController.signal.reason).toBe("aborted");
+    }
+  });
 });

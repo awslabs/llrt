@@ -1,11 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    class::Trace, function::Opt, methods, Class, Ctx, Exception, IntoJs, Null, Object, Result,
-    TypedArray, Value,
+    class::Trace, function::Opt, methods, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
+    Result, TypedArray, Value,
 };
 
-use crate::utils::{class::get_class, object::ObjectExt};
+use crate::{
+    events::AbortSignal,
+    utils::{class::get_class, object::ObjectExt},
+};
 
 use super::{blob::Blob, headers::Headers};
 
@@ -15,6 +18,7 @@ pub struct Request<'js> {
     method: String,
     headers: Option<Class<'js, Headers>>,
     body: Option<Value<'js>>,
+    signal: Option<Class<'js, AbortSignal<'js>>>,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -37,6 +41,7 @@ impl<'js> Request<'js> {
             method: "GET".to_string(),
             headers: None,
             body: None,
+            signal: None,
         };
 
         if input.is_string() {
@@ -84,6 +89,11 @@ impl<'js> Request<'js> {
         true
     }
 
+    #[qjs(get)]
+    fn signal(&self) -> Option<Class<'js, AbortSignal<'js>>> {
+        self.signal.clone()
+    }
+
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
         let headers = if let Some(headers) = &self.headers {
             Some(Class::<Headers>::instance(
@@ -99,6 +109,7 @@ impl<'js> Request<'js> {
             method: self.url.clone(),
             headers,
             body: self.body.clone(),
+            signal: self.signal.clone(),
         })
     }
 }
@@ -109,6 +120,19 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
     if let Some(method) = obj.get_optional("method")? {
         request.method = method;
+    }
+
+    if obj.contains_key("signal").unwrap() {
+        let signal: Value = obj.get("signal")?;
+        if !signal.is_undefined() && !signal.is_null() {
+            let signal = AbortSignal::from_js(&ctx, signal).map_err(|_| {
+                Exception::throw_type(
+                    &ctx,
+                    "Failed to construct 'Request': 'signal' property is not an AbortSignal",
+                )
+            })?;
+            request.signal = Some(Class::instance(ctx.clone(), signal)?);
+        }
     }
 
     if obj.contains_key("body").unwrap_or_default() {
