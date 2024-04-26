@@ -16,7 +16,7 @@ use std::io::Write;
 use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};
 
-const BUNDLE_DIR: &str = "bundle";
+const BUNDLE_DIR: &str = "../bundle";
 
 include!("src/bytecode.rs");
 
@@ -52,7 +52,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     let mut filenames = vec![];
     let mut total_bytes: usize = 0;
 
-    fs::write("VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
+    fs::write("../VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
 
     ctx.with(|ctx| {
         for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {

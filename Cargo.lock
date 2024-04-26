@@ -845,6 +845,18 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 name = "llrt"
 version = "0.1.12-beta"
 dependencies = [
+ "chrono",
+ "llrt_core",
+ "snmalloc-rs",
+ "tokio",
+ "tracing",
+ "tracing-core",
+]
+
+[[package]]
+name = "llrt_core"
+version = "0.1.12-beta"
+dependencies = [
  "async-trait",
  "base64-simd",
  "bytes",
@@ -873,7 +885,6 @@ dependencies = [
  "rustls",
  "ryu",
  "simd-json",
- "snmalloc-rs",
  "socket2",
  "tokio",
  "tokio-context",

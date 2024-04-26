@@ -6,7 +6,7 @@ use rquickjs::{
 };
 
 use crate::{
-    events::AbortSignal,
+    modules::events::AbortSignal,
     utils::{class::get_class, object::ObjectExt},
 };
 

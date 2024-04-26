@@ -12,8 +12,8 @@ use rquickjs::{
 use tokio::{runtime::Handle, select};
 
 use crate::{
-    events::AbortSignal,
     json::parse::json_parse,
+    modules::events::AbortSignal,
     utils::{class::get_class, mc_oneshot, object::get_bytes, result::ResultExt},
 };
 

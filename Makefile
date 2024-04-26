@@ -12,7 +12,7 @@ ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 ZSTD_LIB_CC_x64 = CC="zig cc -target x86_64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 
-TS_SOURCES = $(wildcard src/js/*.ts) $(wildcard src/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
+TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
 
 RELEASE_ARCH_NAME_x64 = x86_64

@@ -16,9 +16,9 @@ use std::time::Instant;
 
 use crate::{
     environment,
+    modules::events::AbortSignal,
     modules::http::headers::Headers,
     modules::net::HTTP_CLIENT,
-    modules::events::AbortSignal,
     security::{ensure_url_access, HTTP_DENY_LIST},
     utils::{mc_oneshot, object::get_bytes, result::ResultExt},
 };
