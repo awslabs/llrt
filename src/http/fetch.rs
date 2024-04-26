@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use bytes::Bytes;
 use http_body_util::Full;
-use hyper::{Request, Uri};
+use hyper::{header::HeaderName, Request, Uri};
 
 use rquickjs::{
     atom::PredefinedAtom,
@@ -25,6 +25,8 @@ use crate::{
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
 use super::response::Response;
+
+const MAX_REDIRECT_COUNT: u32 = 20;
 
 pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
     if let Some(Err(err)) = &*HTTP_ALLOW_LIST {
@@ -61,33 +63,48 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
             async move {
                 let options = options?;
 
-                let uri: Uri = options.url.parse().or_throw(&ctx)?;
+                let mut uri: Uri = options.url.parse().or_throw(&ctx)?;
                 let method_string = options.method.to_string();
                 let method = options.method;
                 let abort_receiver = options.abort_receiver;
 
                 ensure_url_access(&ctx, &uri)?;
 
-                let mut req = Request::builder()
-                    .method(method)
-                    .uri(uri)
-                    .header("user-agent", format!("llrt {}", VERSION))
-                    .header("accept", "*/*");
+                let mut redirect_count = 0;
+                let res = loop {
+                    let req = build_request(&ctx, &method, &uri, &options.headers, &options.body)?;
 
-                if let Some(headers) = options.headers {
-                    for (key, value) in headers.iter() {
-                        req = req.header(key, value)
-                    }
-                }
+                    let res = if let Some(abort_receiver) = &abort_receiver {
+                        select! {
+                            res = client.request(req) => res.or_throw(&ctx)?,
+                            reason = abort_receiver.recv() => return Err(ctx.throw(reason))
+                        }
+                    } else {
+                        client.request(req).await.or_throw(&ctx)?
+                    };
 
-                let req = req.body(options.body).or_throw(&ctx)?;
-                let res = if let Some(abort_receiver) = &abort_receiver {
-                    select! {
-                        res = client.request(req) => res.or_throw(&ctx)?,
-                        reason = abort_receiver.recv() => return Err(ctx.throw(reason))
+                    match res.headers().get(HeaderName::from_static("location")) {
+                        Some(location_headers) => {
+                            if let Ok(location_str) = location_headers.to_str() {
+                                uri = location_str.parse().or_throw(&ctx)?;
+                                ensure_url_access(&ctx, &uri)?;
+                            }
+                        },
+                        None => break res,
+                    };
+
+                    if options.redirect == "manual" {
+                        return Err(Exception::throw_type(&ctx, "Unsupported redirect option"));
+                    } else if options.redirect == "error" {
+                        // TODO: Return Response({type: “error”, status: 0}) to terminate fetch.
+                        return Err(Exception::throw_message(&ctx, "TODO: Not Implemented options.redirect: errror"));
                     }
-                } else {
-                    client.request(req).await.or_throw(&ctx)?
+
+                    redirect_count += 1;
+                    if redirect_count >= MAX_REDIRECT_COUNT {
+                        // TODO: Return Response({type: “error”, status: 0}) to terminate fetch.
+                        return Err(Exception::throw_message(&ctx, "Max retries exceeded"));
+                    }
                 };
 
                 Response::from_incoming(ctx, res, method_string, options.url, start, abort_receiver)
@@ -97,12 +114,35 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
     Ok(())
 }
 
+fn build_request(
+    ctx: &Ctx<'_>,
+    method: &hyper::Method,
+    uri: &Uri,
+    headers: &Option<Headers>,
+    body: &Full<Bytes>,
+) -> Result<Request<Full<Bytes>>> {
+    let mut req = Request::builder()
+        .method(method.clone())
+        .uri(uri.clone())
+        .header("user-agent", format!("llrt {}", VERSION))
+        .header("accept", "*/*");
+
+    if let Some(headers) = headers {
+        for (key, value) in headers.iter() {
+            req = req.header(key, value)
+        }
+    }
+
+    req.body(body.clone()).or_throw(ctx)
+}
+
 struct FetchOptions<'js> {
     method: hyper::Method,
     url: String,
     headers: Option<Headers>,
     body: Full<Bytes>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+    redirect: String,
 }
 
 fn get_fetch_options<'js>(
@@ -117,6 +157,8 @@ fn get_fetch_options<'js>(
     let mut method = None;
     let mut body = None;
     let mut abort_receiver = None;
+    let mut redirect = None;
+
     if let Some(obj) = resource.as_object() {
         let obj = obj.clone();
         if obj.instance_of::<crate::http::Request>() {
@@ -168,6 +210,18 @@ fn get_fetch_options<'js>(
         {
             abort_receiver = Some(signal.borrow().sender.subscribe());
         }
+
+        if let Some(redirect_opt) = get_option::<String>("redirect", &arg_opts, &resource_opts)? {
+            redirect = Some(match redirect_opt.as_str() {
+                "follow" => Ok("follow"),
+                "error" => Ok("error"),
+                "manual" => Ok("manual"),
+                _ => Err(Exception::throw_type(
+                    ctx,
+                    &format!("Invalid redirect option: {}", redirect_opt),
+                )),
+            }?);
+        }
     }
 
     let url = match url {
@@ -181,6 +235,7 @@ fn get_fetch_options<'js>(
         headers,
         body: body.unwrap_or_default(),
         abort_receiver,
+        redirect: redirect.unwrap_or_default().to_string(),
     })
 }
 
