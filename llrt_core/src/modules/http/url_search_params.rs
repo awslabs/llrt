@@ -132,6 +132,7 @@ impl URLSearchParams {
 }
 
 impl URLSearchParams {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(query: &str) -> Self {
         let params = parse_query_string(query);
         Self { params }
