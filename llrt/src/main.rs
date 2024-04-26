@@ -13,7 +13,7 @@ use llrt_core::{
     runtime_client,
     utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
     vm::Vm,
-    AsyncContext, CatchResultExt, Module,
+    AsyncContext, CatchResultExt, Module, VERSION,
 };
 use minimal_tracer::MinimalTracer;
 use std::{
@@ -29,8 +29,6 @@ use tracing::trace;
 
 #[cfg(not(feature = "lambda"))]
 use llrt_core::compiler::compile_file;
-
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
