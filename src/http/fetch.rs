@@ -94,10 +94,9 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                     };
 
                     if options.redirect == "manual" {
-                        return Err(Exception::throw_type(&ctx, "Unsupported redirect option"));
+                        break res;
                     } else if options.redirect == "error" {
-                        // TODO: Return Response({type: “error”, status: 0}) to terminate fetch.
-                        return Err(Exception::throw_message(&ctx, "TODO: Not Implemented options.redirect: errror"));
+                        return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
                     }
 
                     redirect_count += 1;
@@ -157,7 +156,7 @@ fn get_fetch_options<'js>(
     let mut method = None;
     let mut body = None;
     let mut abort_receiver = None;
-    let mut redirect = None;
+    let mut redirect = String::from("");
 
     if let Some(obj) = resource.as_object() {
         let obj = obj.clone();
@@ -212,15 +211,14 @@ fn get_fetch_options<'js>(
         }
 
         if let Some(redirect_opt) = get_option::<String>("redirect", &arg_opts, &resource_opts)? {
-            redirect = Some(match redirect_opt.as_str() {
-                "follow" => Ok("follow"),
-                "error" => Ok("error"),
-                "manual" => Ok("manual"),
-                _ => Err(Exception::throw_type(
+            let redirect_str = redirect_opt.as_str();
+            if !matches!(redirect_str, "follow" | "manual" | "error") {
+                return Err(Exception::throw_type(
                     ctx,
                     &format!("Invalid redirect option: {}", redirect_opt),
-                )),
-            }?);
+                ));
+            }
+            redirect.push_str(redirect_str);
         }
     }
 
@@ -235,7 +233,7 @@ fn get_fetch_options<'js>(
         headers,
         body: body.unwrap_or_default(),
         abort_receiver,
-        redirect: redirect.unwrap_or_default().to_string(),
+        redirect,
     })
 }
 
