@@ -63,7 +63,8 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
             async move {
                 let options = options?;
 
-                let mut uri: Uri = options.url.parse().or_throw(&ctx)?;
+                let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;
+                let mut uri: Uri = initial_uri.clone();
                 let method_string = options.method.to_string();
                 let method = options.method;
                 let abort_receiver = options.abort_receiver;
@@ -80,6 +81,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                         &options.headers,
                         &options.body,
                         &response_status,
+                        &initial_uri,
                     )?;
 
                     let res = if let Some(abort_receiver) = &abort_receiver {
@@ -129,7 +131,10 @@ fn build_request(
     headers: &Option<Headers>,
     body: &Full<Bytes>,
     prev_status: &u16,
+    initial_uri: &Uri,
 ) -> Result<Request<Full<Bytes>>> {
+    let same_origin = is_same_origin(uri, initial_uri);
+
     let change_method = should_change_method(*prev_status, method);
 
     let (method_to_use, req_body) = if change_method {
@@ -146,7 +151,11 @@ fn build_request(
 
     if let Some(headers) = headers {
         for (key, value) in headers.iter() {
-            if change_method && is_request_body_header_name(key.as_str()) {
+            let header_name = key.as_str();
+            if change_method && is_request_body_header_name(header_name) {
+                continue;
+            }
+            if !same_origin && is_cors_non_wildcard_request_header_name(header_name) {
                 continue;
             }
             req = req.header(key, value)
@@ -154,6 +163,24 @@ fn build_request(
     }
 
     req.body(req_body).or_throw(ctx)
+}
+
+fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
+    is_same_scheme(uri, initial_uri)
+        && is_same_host(uri, initial_uri)
+        && is_same_port(uri, initial_uri)
+}
+
+fn is_same_scheme(uri: &Uri, initial_uri: &Uri) -> bool {
+    uri.scheme() == initial_uri.scheme()
+}
+
+fn is_same_host(uri: &Uri, initial_uri: &Uri) -> bool {
+    uri.host() == initial_uri.host()
+}
+
+fn is_same_port(uri: &Uri, initial_uri: &Uri) -> bool {
+    uri.authority().and_then(|a| a.port()) == initial_uri.authority().and_then(|a| a.port())
 }
 
 fn should_change_method(prev_status: u16, method: &Method) -> bool {
@@ -173,6 +200,10 @@ fn is_request_body_header_name(key: &str) -> bool {
         key,
         "content-encoding" | "content-language" | "content-location" | "content-type"
     )
+}
+
+fn is_cors_non_wildcard_request_header_name(key: &str) -> bool {
+    matches!(key, "authorization")
 }
 
 struct FetchOptions<'js> {
@@ -332,5 +363,77 @@ mod tests {
 
         assert!(!is_request_body_header_name("content-length"));
         assert!(!is_request_body_header_name("accept"));
+    }
+
+    #[test]
+    fn test_is_same_origin() {
+        let uri1 = Uri::from_static("https://example.com:8080/path");
+        let uri2 = Uri::from_static("https://example.com:8080/path");
+
+        assert!(is_same_origin(&uri1, &uri2));
+
+        let uri3 = Uri::from_static("http://example.com/path");
+        let uri4 = Uri::from_static("https://example.com/path");
+
+        assert!(!is_same_origin(&uri3, &uri4));
+
+        let uri5 = Uri::from_static("https://example.com:8080/path");
+        let uri6 = Uri::from_static("https://example.org:8080/path");
+
+        assert!(!is_same_origin(&uri5, &uri6));
+
+        let uri7 = Uri::from_static("https://example.com:8080/path");
+        let uri8 = Uri::from_static("https://example.com:8081/path");
+
+        assert!(!is_same_origin(&uri7, &uri8));
+    }
+
+    #[test]
+    fn test_is_same_scheme() {
+        let uri1 = Uri::from_static("https://example.com");
+        let uri2 = Uri::from_static("https://example.com");
+
+        assert!(is_same_scheme(&uri1, &uri2));
+
+        let uri3 = Uri::from_static("http://example.com");
+        let uri4 = Uri::from_static("https://example.com");
+
+        assert!(!is_same_scheme(&uri3, &uri4));
+    }
+
+    #[test]
+    fn test_is_same_host() {
+        let uri1 = Uri::from_static("https://example.com");
+        let uri2 = Uri::from_static("https://example.com");
+
+        assert!(is_same_host(&uri1, &uri2));
+
+        let uri3 = Uri::from_static("https://example.com");
+        let uri4 = Uri::from_static("https://example.org");
+
+        assert!(!is_same_host(&uri3, &uri4));
+    }
+
+    #[test]
+    fn test_is_same_port() {
+        let uri1 = Uri::from_static("https://example.com:8080");
+        let uri2 = Uri::from_static("https://example.com:8080");
+
+        assert!(is_same_port(&uri1, &uri2));
+
+        let uri3 = Uri::from_static("https://example.com:8080");
+        let uri4 = Uri::from_static("https://example.com:9090");
+
+        assert!(!is_same_port(&uri3, &uri4));
+
+        let uri5 = Uri::from_static("https://example.com");
+        let uri6 = Uri::from_static("https://example.com");
+
+        assert!(is_same_port(&uri5, &uri6));
+
+        let uri7 = Uri::from_static("https://example.com:8080");
+        let uri8 = Uri::from_static("https://example.com");
+
+        assert!(!is_same_port(&uri7, &uri8));
     }
 }
