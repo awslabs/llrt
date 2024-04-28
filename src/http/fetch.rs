@@ -130,15 +130,16 @@ fn build_request(
     body: &Full<Bytes>,
     prev_status: &u16,
 ) -> Result<Request<Full<Bytes>>> {
-    let method_clone = method.clone();
-    let change_method = (matches!(prev_status, 301 | 302) && matches!(method_clone, Method::POST))
-        || (matches!(prev_status, 303) && !matches!(method_clone, Method::GET | Method::HEAD));
+    let change_method = should_change_method(*prev_status, method);
+
+    let (method_to_use, req_body) = if change_method {
+        (Method::GET, Full::default())
+    } else {
+        (method.clone(), body.clone())
+    };
 
     let mut req = Request::builder()
-        .method(match change_method {
-            true => Method::GET,
-            _ => method_clone,
-        })
+        .method(method_to_use)
         .uri(uri.clone())
         .header("user-agent", format!("llrt {}", VERSION))
         .header("accept", "*/*");
@@ -152,11 +153,19 @@ fn build_request(
         }
     }
 
-    if change_method {
-        req.body(Full::default()).or_throw(ctx)
-    } else {
-        req.body(body.clone()).or_throw(ctx)
+    req.body(req_body).or_throw(ctx)
+}
+
+fn should_change_method(prev_status: u16, method: &Method) -> bool {
+    if matches!(prev_status, 301 | 302) {
+        return *method == Method::POST;
     }
+
+    if prev_status == 303 {
+        return !matches!(*method, Method::GET | Method::HEAD);
+    }
+
+    false
 }
 
 fn is_request_body_header_name(key: &str) -> bool {
