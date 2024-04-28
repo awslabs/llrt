@@ -306,7 +306,7 @@ mod tests {
         // Test cases for prev_status being 301 or 302
         assert!(should_change_method(301, &Method::POST));
         assert!(should_change_method(302, &Method::POST));
-        
+
         assert!(!should_change_method(301, &Method::GET));
         assert!(!should_change_method(302, &Method::GET));
         assert!(!should_change_method(301, &Method::HEAD));
