@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use bytes::Bytes;
 use http_body_util::Full;
-use hyper::{header::HeaderName, Request, Uri};
+use hyper::{header::HeaderName, Method, Request, Uri};
 
 use rquickjs::{
     atom::PredefinedAtom,
@@ -71,8 +71,16 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                 ensure_url_access(&ctx, &uri)?;
 
                 let mut redirect_count = 0;
+                let mut response_status = 0;
                 let res = loop {
-                    let req = build_request(&ctx, &method, &uri, &options.headers, &options.body)?;
+                    let req = build_request(
+                        &ctx,
+                        &method,
+                        &uri,
+                        &options.headers,
+                        &options.body,
+                        &response_status,
+                    )?;
 
                     let res = if let Some(abort_receiver) = &abort_receiver {
                         select! {
@@ -101,9 +109,10 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 
                     redirect_count += 1;
                     if redirect_count >= MAX_REDIRECT_COUNT {
-                        // TODO: Return Response({type: “error”, status: 0}) to terminate fetch.
                         return Err(Exception::throw_message(&ctx, "Max retries exceeded"));
                     }
+
+                    response_status = res.status().as_u16();
                 };
 
                 Response::from_incoming(ctx, res, method_string, options.url, start, abort_receiver)
@@ -119,20 +128,42 @@ fn build_request(
     uri: &Uri,
     headers: &Option<Headers>,
     body: &Full<Bytes>,
+    prev_status: &u16,
 ) -> Result<Request<Full<Bytes>>> {
+    let method_clone = method.clone();
+    let change_method = (matches!(prev_status, 301 | 302) && matches!(method_clone, Method::POST))
+        || (matches!(prev_status, 303) && !matches!(method_clone, Method::GET | Method::HEAD));
+
     let mut req = Request::builder()
-        .method(method.clone())
+        .method(match change_method {
+            true => Method::GET,
+            _ => method_clone,
+        })
         .uri(uri.clone())
         .header("user-agent", format!("llrt {}", VERSION))
         .header("accept", "*/*");
 
     if let Some(headers) = headers {
         for (key, value) in headers.iter() {
+            if change_method && is_request_body_header_name(key.as_str()) {
+                continue;
+            }
             req = req.header(key, value)
         }
     }
 
-    req.body(body.clone()).or_throw(ctx)
+    if change_method {
+        req.body(Full::default()).or_throw(ctx)
+    } else {
+        req.body(body.clone()).or_throw(ctx)
+    }
+}
+
+fn is_request_body_header_name(key: &str) -> bool {
+    matches!(
+        key,
+        "content-encoding" | "content-language" | "content-location" | "content-type"
+    )
 }
 
 struct FetchOptions<'js> {
