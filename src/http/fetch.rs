@@ -296,3 +296,41 @@ fn get_option<'js, V: FromJs<'js> + Sized>(
 
     Ok(None)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_change_method() {
+        // Test cases for prev_status being 301 or 302
+        assert!(should_change_method(301, &Method::POST));
+        assert!(should_change_method(302, &Method::POST));
+        
+        assert!(!should_change_method(301, &Method::GET));
+        assert!(!should_change_method(302, &Method::GET));
+        assert!(!should_change_method(301, &Method::HEAD));
+        assert!(!should_change_method(302, &Method::HEAD));
+
+        // Test cases for prev_status being 303
+        assert!(should_change_method(303, &Method::POST));
+
+        assert!(!should_change_method(303, &Method::GET));
+        assert!(!should_change_method(303, &Method::HEAD));
+
+        // Test case for other prev_status values
+        assert!(!should_change_method(200, &Method::POST));
+        assert!(!should_change_method(404, &Method::GET));
+    }
+
+    #[test]
+    fn test_is_request_body_header_name() {
+        assert!(is_request_body_header_name("content-encoding"));
+        assert!(is_request_body_header_name("content-language"));
+        assert!(is_request_body_header_name("content-location"));
+        assert!(is_request_body_header_name("content-type"));
+
+        assert!(!is_request_body_header_name("content-length"));
+        assert!(!is_request_body_header_name("accept"));
+    }
+}
