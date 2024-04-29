@@ -18,7 +18,7 @@ crc32c = "0.6.5"
 crc32fast = "1.4.0"
 phf = "0.11.2"
 md-5 = { version = "0.10.6", features = ["asm"] }
-rquickjs = { version = "0.5.1", features = [
+rquickjs = { version = "0.6.0", features = [
     "full-async",
     "parallel",
     "rust-alloc",
@@ -76,7 +76,7 @@ snmalloc-rs = { version = "0.3.5", features = ["lto"] }
 uname = "0.1.1"
 
 [build-dependencies]
-rquickjs = { version = "0.5.1", features = [
+rquickjs = { version = "0.6.0", features = [
     "full-async",
     "rust-alloc",
 ], default-features = false }
