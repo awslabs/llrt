@@ -185,7 +185,7 @@ impl<'js> Response<'js> {
                 }
             },
             Some(BodyVariant::Provided(provided)) => {
-                if let Some(blob) = get_class::<Blob>(provided)? {
+                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {

@@ -28,13 +28,13 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub struct NavigatorModule;
 
 impl ModuleDef for NavigatorModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("userAgent")?;
         declare.declare("default")?;
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
         let navigator: Object = globals.get("navigator")?;
 

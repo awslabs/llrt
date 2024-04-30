@@ -529,7 +529,7 @@ impl<'js> AbortSignal<'js> {
 
         for signal in signals.iter() {
             let signal: Value = signal?;
-            let signal: Class<AbortSignal> = Class::from_value(signal)
+            let signal: Class<AbortSignal> = Class::from_value(&signal)
                 .map_err(|_| Exception::throw_type(&ctx, "Value is not an AbortSignal instance"))?;
             let signal_borrow = signal.borrow();
             if signal_borrow.aborted {
@@ -633,14 +633,14 @@ impl<'js> AbortSignal<'js> {
 pub struct EventsModule;
 
 impl ModuleDef for EventsModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(EventEmitter))?;
         declare.declare("default")?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let ctor = Class::<EventEmitter>::create_constructor(ctx)?
             .expect("Can't create EventEmitter constructor");
         ctor.set(stringify!(EventEmitter), ctor.clone())?;

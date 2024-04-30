@@ -15,7 +15,7 @@ use super::http::url::{
 pub struct UrlModule;
 
 impl ModuleDef for UrlModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(URL))?;
         declare.declare(stringify!(URLSearchParams))?;
         declare.declare("urlToHttpOptions")?;
@@ -28,7 +28,7 @@ impl ModuleDef for UrlModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
         let url: Constructor = globals.get(stringify!(URL))?;
         let url_search_params: Constructor = globals.get(stringify!(URLSearchParams))?;

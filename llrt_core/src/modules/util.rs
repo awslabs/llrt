@@ -1,6 +1,5 @@
 use rquickjs::function::Func;
 use rquickjs::{
-    cstr,
     module::{Declarations, Exports, ModuleDef},
     Ctx, Function, Result,
 };
@@ -12,15 +11,15 @@ use super::console::format_plain;
 pub struct UtilModule;
 
 impl ModuleDef for UtilModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(TextDecoder))?;
         declare.declare(stringify!(TextEncoder))?;
         declare.declare(stringify!(format))?;
-        declare.declare_static(cstr!("default"))?;
+        declare.declare("default")?;
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             let globals = ctx.globals();
 

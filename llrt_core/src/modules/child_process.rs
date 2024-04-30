@@ -505,7 +505,7 @@ where
 pub struct ChildProcessModule;
 
 impl ModuleDef for ChildProcessModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("spawn")?;
         declare.declare("spawnSync")?;
         declare.declare("exec")?;
@@ -514,7 +514,7 @@ impl ModuleDef for ChildProcessModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<ChildProcess>::register(ctx)?;
         Class::<DefaultWritableStream>::register(ctx)?;
         Class::<DefaultReadableStream>::register(ctx)?;

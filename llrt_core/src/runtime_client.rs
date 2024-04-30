@@ -190,8 +190,8 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let init_tasks_size = js_init_tasks.len();
     #[allow(clippy::comparison_chain)]
     if init_tasks_size == 1 {
-        let init_promise = js_init_tasks.get::<Promise<()>>(0)?;
-        init_promise.await.catch(ctx).throw(ctx)?;
+        let init_promise = js_init_tasks.get::<Promise>(0)?;
+        init_promise.into_future().await.or_throw(ctx)?;
     } else if init_tasks_size > 1 {
         let promise_ctor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
         let init_promise: Promise<()> = promise_ctor
@@ -533,7 +533,7 @@ fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<Strin
 mod tests {
 
     use hyper::header::CONTENT_TYPE;
-    use rquickjs::{async_with, CatchResultExt};
+    use rquickjs::{async_with, CatchResultExt, Function, Object, Promise, Result, Value};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::{

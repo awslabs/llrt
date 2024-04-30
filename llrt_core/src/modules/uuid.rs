@@ -93,7 +93,7 @@ fn version(ctx: Ctx<'_>, value: String) -> Result<u8> {
 }
 
 impl ModuleDef for UuidModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("v1")?;
         declare.declare("v3")?;
         declare.declare("v4")?;
@@ -108,7 +108,7 @@ impl ModuleDef for UuidModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             let dns_namespace = Uuid::NAMESPACE_DNS.format_hyphenated().to_string();
             let url_namespace = Uuid::NAMESPACE_URL.format_hyphenated().to_string();

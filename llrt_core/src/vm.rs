@@ -20,6 +20,7 @@ use once_cell::sync::Lazy;
 use chrono::Utc;
 use ring::rand::SecureRandom;
 use rquickjs::{
+    async_with,
     atom::PredefinedAtom,
     context::EvalOptions,
     function::{Constructor, Opt},
@@ -27,7 +28,7 @@ use rquickjs::{
     module::ModuleData,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Result, String as JsString, Value,
+    Object, Result, String as JsString, Value,
 };
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
@@ -200,16 +201,16 @@ impl Default for BinaryLoader {
     }
 }
 
-struct RawLoaderContainer<T>
+struct LoaderContainer<T>
 where
-    T: RawLoader + 'static,
+    T: Loader + 'static,
 {
     loader: T,
     cwd: String,
 }
-impl<T> RawLoaderContainer<T>
+impl<T> LoaderContainer<T>
 where
-    T: RawLoader + 'static,
+    T: Loader + 'static,
 {
     fn new(loader: T) -> Self {
         Self {
@@ -222,16 +223,15 @@ where
     }
 }
 
-unsafe impl<T> RawLoader for RawLoaderContainer<T>
+impl<T> Loader for LoaderContainer<T>
 where
-    T: RawLoader + 'static,
+    T: Loader + 'static,
 {
-    #[allow(clippy::manual_strip)]
-    unsafe fn raw_load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
-        let res = self.loader.raw_load(ctx, name)?;
+    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
+        let res = self.loader.load(ctx, name)?;
 
-        let name = if name.starts_with("./") {
-            &name[2..]
+        let name = if let Some(name) = name.strip_prefix("./") {
+            name
         } else {
             name
         };
@@ -247,33 +247,38 @@ where
 }
 
 impl Loader for BinaryLoader {
-    fn load(&mut self, _ctx: &Ctx<'_>, name: &str) -> Result<ModuleData> {
+    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
         trace!("Loading module: {}", name);
+        let ctx = ctx.clone();
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
             trace!("Loading embedded module: {}", name);
 
-            return load_bytecode_module(name, bytes);
+            return load_bytecode_module(ctx, name, bytes);
         }
         let path = PathBuf::from(name);
         let mut bytes: &[u8] = &std::fs::read(path)?;
 
         if name.ends_with(".lrt") {
             trace!("Loading binary module: {}", name);
-            return load_bytecode_module(name, bytes);
+            return load_bytecode_module(ctx, name, bytes);
         }
         if bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
-        Ok(ModuleData::source(name, bytes))
+        Module::declare(ctx, name, bytes)
     }
 }
 
-pub fn load_bytecode_module(name: &str, buf: &[u8]) -> Result<ModuleData> {
-    let bytes = load_module(buf)?;
-    Ok(unsafe { ModuleData::bytecode(name, bytes) })
+pub fn load_bytecode_module<'js>(
+    ctx: Ctx<'js>,
+    _name: &str,
+    buf: &[u8],
+) -> Result<Module<'js, Declared>> {
+    let bytes = get_module_bytecode(buf)?;
+    unsafe { Module::load(ctx, &bytes) }
 }
 
-fn load_module(input: &[u8]) -> Result<Vec<u8>> {
+fn get_module_bytecode(input: &[u8]) -> Result<Vec<u8>> {
     let (_, compressed, input) = get_bytecode_signature(input)?;
 
     if compressed {
@@ -325,6 +330,7 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
+    timeout_refs: Arc<Mutex<Vec<TimeoutRef>>>,
 }
 
 struct LifetimeArgs<'js>(Ctx<'js>);
@@ -399,7 +405,7 @@ impl Vm {
 
         let resolver = (builtin_resolver, binary_resolver, file_resolver);
 
-        let loader = RawLoaderContainer::new((
+        let loader = LoaderContainer::new((
             module_loader,
             BinaryLoader,
             BuiltinLoader::default(),
@@ -412,6 +418,9 @@ impl Vm {
         runtime.set_max_stack_size(vm_options.max_stack_size).await;
         runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
+
+        let timeout_refs: Arc<Mutex<Vec<TimeoutRef>>> = Arc::new(Mutex::new(Vec::new()));
+
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             for init_global in init_globals {
@@ -422,7 +431,11 @@ impl Vm {
         })
         .await?;
 
-        Ok(Vm { runtime, ctx })
+        Ok(Vm {
+            runtime,
+            ctx,
+            timeout_refs,
+        })
     }
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -444,14 +457,14 @@ impl Vm {
 
     pub async fn run_and_handle_exceptions<'js, F>(ctx: &AsyncContext, f: F)
     where
-        F: FnOnce(Ctx) -> rquickjs::Result<()> + Send,
+        F: FnOnce(Ctx) -> impl Future<Output = rquickjs::Result<()>>,
     {
-        ctx.with(|ctx| {
-            f(ctx.clone())
+        async_with!(ctx => |ctx|{
+            f(ctx.clone()).await
                 .catch(&ctx)
                 .unwrap_or_else(|err| Self::print_error_and_exit(&ctx, err));
         })
-        .await;
+        .await
     }
 
     pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
@@ -484,19 +497,10 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
     json_parse(&ctx, bytes)
 }
 
-fn run_gc(ctx: Ctx<'_>) {
-    trace!("Running GC");
-
-    unsafe {
-        let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
-        qjs::JS_RunGC(rt);
-    };
-}
-
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
 
-    globals.set("__gc", Func::from(run_gc))?;
+    globals.set("__gc", Func::from(|ctx: Ctx| ctx.run_gc()))?;
 
     let number: Function = globals.get(PredefinedAtom::Number)?;
     let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
@@ -612,7 +616,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             trace!("Require: {}", import_name);
 
-            let imported_object: Object = Module::import(&ctx, import_name.clone())?;
+            let imported_object: Object = Module::import(&ctx, import_name.clone())?.finish()?;
             require_in_progress.lock().unwrap().remove(&import_name);
 
             if let Some(exports) = require_exports_ref_2.lock().unwrap().take() {
@@ -641,11 +645,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 }
 
 fn load<'js>(ctx: Ctx<'js>, filename: String, options: Opt<Object<'js>>) -> Result<Value<'js>> {
-    let mut eval_options = EvalOptions {
-        global: true,
-        strict: false,
-        backtrace_barrier: false,
-    };
+    let mut eval_options = EvalOptions::default();
+    eval_options.strict = false;
+    eval_options.promise = true;
 
     if let Some(options) = options.0 {
         if let Some(global) = options.get_optional("global")? {

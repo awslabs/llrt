@@ -101,10 +101,8 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
             lrt_filenames.push(lrt_filename.clone());
             let bytes = {
                 {
-                    let module = unsafe {
-                        Module::unsafe_declare(ctx.clone(), module_name.clone(), source)
-                    }?;
-                    module.write_object(false)
+                    let module = Module::declare(ctx.clone(), module_name.clone(), source)?;
+                    module.write(false)
                 }
             }
             .catch(&ctx)

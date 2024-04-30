@@ -40,14 +40,14 @@ impl HexModule {
 }
 
 impl ModuleDef for HexModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(encode))?;
         declare.declare(stringify!(decode))?;
         declare.declare("default")?;
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             default.set(stringify!(encode), Func::from(Self::encode))?;
             default.set(stringify!(decode), Func::from(Self::decode))?;

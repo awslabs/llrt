@@ -767,7 +767,7 @@ async fn rw_join<'js>(
     Ok(had_error)
 }
 
-pub fn declare(declare: &mut Declarations) -> Result<()> {
+pub fn declare(declare: &Declarations) -> Result<()> {
     declare.declare("createConnection")?;
     declare.declare("connect")?;
     declare.declare("createServer")?;
@@ -776,7 +776,7 @@ pub fn declare(declare: &mut Declarations) -> Result<()> {
     Ok(())
 }
 
-pub fn init<'js>(ctx: Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+pub fn init<'js>(ctx: Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
     export_default(&ctx, exports, |default| {
         Class::<Socket>::define(default)?;
         Class::<Server>::define(default)?;

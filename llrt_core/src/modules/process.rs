@@ -134,7 +134,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub struct ProcessModule;
 
 impl ModuleDef for ProcessModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("env")?;
         declare.declare("cwd")?;
         declare.declare("argv0")?;
@@ -152,7 +152,7 @@ impl ModuleDef for ProcessModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
         let process: Object = globals.get("process")?;
 

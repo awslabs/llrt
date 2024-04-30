@@ -260,6 +260,7 @@ const runTests = async (
     }
     try {
       const start = Date.now();
+      console.log("Running: ", test.desc);
       await executeAsyncOrCallbackFn(test.fn);
 
       const end = Date.now();
@@ -275,71 +276,73 @@ const runTests = async (
   }
 };
 
+type TestPromise = () => Promise<void>;
+
 const runAllTests = async () => {
-  await Promise.all(
-    testList.reduce((acc, testSuite, i) => {
-      if (
-        !testSuite.loadError &&
-        (testSuite.skip ||
-          (onlyCount > 0 && !testSuite.only && !testSuite.containsOnly))
-      ) {
-        return acc;
-      }
-
-      const execute = async () => {
-        let output = new TestOutput();
-        output.appendLine(
-          `${(i > 0 && "\n") || ""}{{STATUS}} ${testSuite.module}`
-        );
-        if (testSuite.loadError) {
-          output.appendError(null, testSuite.loadError);
-          console.error(output.toString());
-          return;
-        }
-        if (testSuite.beforeAll) {
-          await executeAsyncOrCallbackFn(testSuite.beforeAll);
-        }
-        await runTests(testSuite, output, testSuite.tests);
-        const stack = [...testSuite.suites];
-        const depthList: number[] = [];
-        if ((testSuite.tests?.length ?? 0) > 0) {
-          output.setDepth(1);
-        }
-        while (stack.length > 0) {
-          const suite = stack.shift()!;
-
-          if (
-            suite.skip ||
-            (onlyCount > 0 && !suite.only && !suite.containsOnly)
-          ) {
-            continue;
-          }
-          const depth = depthList.shift() ?? 1;
-          output.setDepth(depth);
-          output.appendLine(suite.desc);
-          if (suite.beforeAll) {
-            await executeAsyncOrCallbackFn(suite.beforeAll);
-          }
-          await runTests(testSuite, output, suite.tests);
-          if (suite.afterAll) {
-            await executeAsyncOrCallbackFn(suite.afterAll);
-          }
-          if (suite.suites) {
-            depthList.unshift(
-              ...new Array(suite.suites.length).fill(depth + 1)
-            );
-            stack.unshift(...suite.suites);
-          }
-        }
-        if (testSuite.afterAll) {
-          await executeAsyncOrCallbackFn(testSuite.afterAll);
-        }
-        console.log(output.toString());
-      };
-      acc.push(execute());
+  const testsPromises = testList.reduce<TestPromise[]>((acc, testSuite, i) => {
+    if (
+      !testSuite.loadError &&
+      (testSuite.skip ||
+        (onlyCount > 0 && !testSuite.only && !testSuite.containsOnly))
+    ) {
       return acc;
-    }, [] as Promise<void>[])
-  );
+    }
+
+    const execute = async () => {
+      let output = new TestOutput();
+      output.appendLine(
+        `${(i > 0 && "\n") || ""}{{STATUS}} ${testSuite.module}`
+      );
+      if (testSuite.loadError) {
+        output.appendError(null, testSuite.loadError);
+        console.error(output.toString());
+        return;
+      }
+      if (testSuite.beforeAll) {
+        await executeAsyncOrCallbackFn(testSuite.beforeAll);
+      }
+      await runTests(testSuite, output, testSuite.tests);
+      const stack = [...testSuite.suites];
+      const depthList: number[] = [];
+      if ((testSuite.tests?.length ?? 0) > 0) {
+        output.setDepth(1);
+      }
+      while (stack.length > 0) {
+        const suite = stack.shift()!;
+
+        if (
+          suite.skip ||
+          (onlyCount > 0 && !suite.only && !suite.containsOnly)
+        ) {
+          continue;
+        }
+        const depth = depthList.shift() ?? 1;
+        output.setDepth(depth);
+        output.appendLine(suite.desc);
+        if (suite.beforeAll) {
+          await executeAsyncOrCallbackFn(suite.beforeAll);
+        }
+        await runTests(testSuite, output, suite.tests);
+        if (suite.afterAll) {
+          await executeAsyncOrCallbackFn(suite.afterAll);
+        }
+        if (suite.suites) {
+          depthList.unshift(...new Array(suite.suites.length).fill(depth + 1));
+          stack.unshift(...suite.suites);
+        }
+      }
+      if (testSuite.afterAll) {
+        await executeAsyncOrCallbackFn(testSuite.afterAll);
+      }
+      console.log(output.toString());
+    };
+    acc.push(execute);
+    return acc;
+  }, []);
+  for (let test of testsPromises) {
+    await test();
+    //await promise();
+  }
 };
 
 const findTests = async () => {
