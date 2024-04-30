@@ -332,6 +332,11 @@ fn get_option<'js, V: FromJs<'js> + Sized>(
 mod tests {
     use super::*;
 
+    use rquickjs::{async_with, prelude::Promise, CatchResultExt};
+    use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
+
+    use crate::vm::Vm;
+
     #[test]
     fn test_should_change_method() {
         // Test cases for prev_status being 301 or 302
@@ -435,5 +440,118 @@ mod tests {
         let uri8 = Uri::from_static("https://example.com");
 
         assert!(!is_same_port(&uri7, &uri8));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_function() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(matchers::path("expect/200/"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(matchers::path("expect/301/"))
+            .respond_with(ResponseTemplate::new(301).insert_header(
+                "location",
+                format!("http://{}/{}", mock_server.address(), "expect/200/"),
+            ))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(matchers::path("expect/302/"))
+            .respond_with(ResponseTemplate::new(302).insert_header(
+                "location",
+                format!("http://{}/{}", mock_server.address(), "expect/200/"),
+            ))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(matchers::path("expect/303/"))
+            .respond_with(ResponseTemplate::new(303).insert_header(
+                "location",
+                format!("http://{}/{}", mock_server.address(), "expect/200/"),
+            ))
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(matchers::path("expect/304/"))
+            .respond_with(ResponseTemplate::new(304).insert_header(
+                "location",
+                format!("http://{}/{}", mock_server.address(), "expect/200/"),
+            ))
+            .mount(&mock_server)
+            .await;
+
+        let vm = Vm::new().await.unwrap();
+
+        // NOTE: A minimum redirect test pattern was created. Please add more as needed.
+        async_with!(vm.ctx => |ctx| {
+            let globals = ctx.globals();
+            let run = async {
+                let fetch: Function = globals.get("fetch")?;
+
+                let headers = Object::new(ctx.clone())?;
+                headers.set("content-encoding", "gzip")?;
+                headers.set("content-language", "en")?;
+                headers.set("content-location", "/documents/foo.txt")?;
+                headers.set("content-type", "text/plain")?;
+                headers.set("authorization", "Basic YWxhZGRpbjpvcGVuc2VzYW1l")?;
+
+                let options = Object::new(ctx.clone())?;
+                options.set("redirect", "follow")?;
+                options.set("headers", headers.clone())?;
+
+                // Method: GET, Redirect Pattern: None
+                options.set("method", "GET")?;
+                let url = format!("http://{}/expect/200/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let response = response.borrow();
+
+                assert_eq!(response.status(), 200);
+
+                // Method: GET, Redirect Pattern: 301 -> 200
+                options.set("method", "GET")?;
+                let url = format!("http://{}/expect/301/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let response = response.borrow();
+
+                assert_eq!(response.status(), 200);
+
+                // Method: GET, Redirect Pattern: 302 -> 200
+                options.set("method", "GET")?;
+                let url = format!("http://{}/expect/302/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let response = response.borrow();
+
+                assert_eq!(response.status(), 200);
+
+                // Method: GET, Redirect Pattern: 303 -> 200
+                options.set("method", "GET")?;
+                let url = format!("http://{}/expect/303/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let response = response.borrow();
+
+                assert_eq!(response.status(), 200);
+
+                Ok(())
+            };
+            run.await.catch(&ctx).unwrap();
+        })
+        .await;
+
+        vm.runtime.idle().await;
     }
 }
