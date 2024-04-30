@@ -6,7 +6,7 @@
 
 /lib
 /target
-/src/bytecode_cache.rs
+/llrt_core/src/bytecode_cache.rs
 /example/functions/build
 /slask
 /VERSION
@@ -19,5 +19,4 @@ node_modules
 out.stacks
 yarn-error.log
 llrt-container-*
-llrt
 bootstrap

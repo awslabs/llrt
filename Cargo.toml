@@ -1,96 +1,9 @@
-[package]
-name = "llrt"
-version = "0.1.12-beta"
-edition = "2021"
-license-file = "LICENSE"
-
-[features]
-default = ["macro"]
-lambda = []
-no-sdk = []
-uncompressed = []
-macro = ["rquickjs/macro"]
-
-[dependencies]
-chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.31.0"
-crc32c = "0.6.5"
-crc32fast = "1.4.0"
-phf = "0.11.2"
-md-5 = { version = "0.10.6", features = ["asm"] }
-rquickjs = { version = "0.5.1", features = [
-    "full-async",
-    "parallel",
-    "rust-alloc",
-], default-features = false }
-tokio = { version = "1", features = ["full"] }
-tracing = { version = "0.1.40", features = ["log"] }
-uuid = { version = "1.8.0", default-features = false, features = [
-    "v1",
-    "v3",
-    "v4",
-    "v5",
-    "fast-rng",
-] }
-once_cell = "1.19.0"
-tokio-context = "0.1.3"
-tracing-core = "0.1.32"
-webpki = "0.22.4"
-async-trait = "0.1.80"
-url = "2.5.0"
-zstd = { version = "0.13.1", default-features = false, features = [] }
-libc = "0.2.153"
-base64-simd = "0.8.0"
-hex-simd = "0.8.0"
-socket2 = "0.5.6"
-bytes = "1.6.0"
-uuid-simd = "0.8.0"
-simd-json = { version = "0.13.10", default-features = false, features = [
-    "big-int-as-float",
-] }
-itoa = "1.0.11"
-ryu = "1.0.17"
-fxhash = "0.2.1"
-hyper = { version = "1.3.1", features = ["client", "http1", "http2"] }
-hyper-rustls = { version = "0.27.1", default-features = false, features = [
-    "http2",
-    "http1",
-    "webpki-roots",
-    "webpki-tokio",
-    "ring",
-] }
-hyper-util = "0.1.3"
-http-body-util = "0.1.1"
-rustls = { version = "0.23.5", default-features = false, features = [
-    "tls12",
-    "ring",
-] }
-webpki-roots = "0.26.1"
-tokio-rustls = { version = "0.26.0", features = [
-    "tls12",
-    "ring",
-], default-features = false }
-ring = "0.17.8"
-rand = "0.8.5"
-snmalloc-rs = { version = "0.3.5", features = ["lto"] }
-uname = "0.1.1"
-
-[build-dependencies]
-rquickjs = { version = "0.5.1", features = [
-    "full-async",
-    "rust-alloc",
-], default-features = false }
-relative-path = "1.9.2"
-tokio = { version = "1", features = ["full"] }
-phf_codegen = "0.11.2"
-jwalk = "0.8.1"
-nanoid = "0.4.0"
-
-# [patch.crates-io]
-# rquickjs-sys = { path = "./target/patch/rquickjs-sys-0.4.2" }
-
-# [package.metadata.patch.rquickjs-sys]
-# patches = ["patches/print_invocation_time.patch"]
+[workspace]
+resolver = "2"
+members = [
+    "llrt_core",
+    "llrt",
+]
 
 [profile.flame]
 inherits = "release"
@@ -107,10 +20,3 @@ panic = "abort"
 [profile.test]
 panic = "abort"
 opt-level = 3   #required for large number parsing
-
-[[bin]]
-name = "llrt"
-path = "src/main.rs"
-
-[dev-dependencies]
-wiremock = "0.6.0"

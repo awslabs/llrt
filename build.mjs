@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 process.env.NODE_PATH = ".";
 
 const TMP_DIR = `.tmp-llrt-aws-sdk`;
-const SRC_DIR = path.join("src", "js");
+const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
 const OUT_DIR = "bundle";
 const SHIMS = new Map();

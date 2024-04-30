@@ -94,7 +94,7 @@ const char *data = "$(printf "\\\x%02x" $num_parts)${INPUT_SIZES_STR}${OUTPUT_SI
 EOF
 
 cp "$1" "${1}.bak"
-cp src/main.c $temp_folder/
+cp llrt/src/main.c $temp_folder/
 
 echo "Compiling..."
 
