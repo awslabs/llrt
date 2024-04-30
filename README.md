@@ -196,29 +196,30 @@ export default {
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
 V3 SDK packages not included in the list below have to be bundled with your source code while marking the following packages as external:
 
-| Bundled AWS SDK packages          |
-| --------------------------------- |
-| @aws-sdk/client-cloudwatch-events |
-| @aws-sdk/client-cloudwatch-logs   |
-| @aws-sdk/client-cognito-identity  |
-| @aws-sdk/client-dynamodb          |
-| @aws-sdk/client-eventbridge       |
-| @aws-sdk/client-kms               |
-| @aws-sdk/client-lambda            |
-| @aws-sdk/client-s3                |
-| @aws-sdk/client-secrets-manager   |
-| @aws-sdk/client-ses               |
-| @aws-sdk/client-sfn               |
-| @aws-sdk/client-sns               |
-| @aws-sdk/client-sqs               |
-| @aws-sdk/client-ssm               |
-| @aws-sdk/client-sts               |
-| @aws-sdk/client-xray              |
-| @aws-sdk/credential-providers     |
-| @aws-sdk/lib-dynamodb             |
-| @aws-sdk/s3-request-presigner     |
-| @aws-sdk/util-dynamodb            |
-| @smithy                           |
+|         Bundled AWS SDK packages          |
+| ----------------------------------------- |
+| @aws-sdk/client-cloudwatch-events         |
+| @aws-sdk/client-cloudwatch-logs           |
+| @aws-sdk/client-cognito-identity          |
+| @aws-sdk/client-cognito-identity-provider |
+| @aws-sdk/client-dynamodb                  |
+| @aws-sdk/client-eventbridge               |
+| @aws-sdk/client-kms                       |
+| @aws-sdk/client-lambda                    |
+| @aws-sdk/client-s3                        |
+| @aws-sdk/client-secrets-manager           |
+| @aws-sdk/client-ses                       |
+| @aws-sdk/client-sfn                       |
+| @aws-sdk/client-sns                       |
+| @aws-sdk/client-sqs                       |
+| @aws-sdk/client-ssm                       |
+| @aws-sdk/client-sts                       |
+| @aws-sdk/client-xray                      |
+| @aws-sdk/credential-providers             |
+| @aws-sdk/lib-dynamodb                     |
+| @aws-sdk/s3-request-presigner             |
+| @aws-sdk/util-dynamodb                    |
+| @smithy                                   |
 
 > [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
