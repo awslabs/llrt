@@ -158,6 +158,7 @@ where
         this.0
     }
 
+    #[allow(dead_code)]
     fn flush(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
         let _ = this
             .borrow()
