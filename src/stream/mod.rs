@@ -37,6 +37,7 @@ where
         )
     }
 
+    #[allow(dead_code)]
     fn emit_end(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
         Self::emit_str(This(this), ctx, "end", vec![], false)
     }

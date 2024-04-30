@@ -273,11 +273,13 @@ where
         has_key(self.get_event_list(), key)
     }
 
+    #[allow(dead_code)]
     fn has_listener(&self, ctx: Ctx<'js>, event: Value<'js>) -> Result<bool> {
         let key = EventKey::from_value(&ctx, event)?;
         Ok(has_key(self.get_event_list(), key))
     }
 
+    #[allow(dead_code)]
     fn get_listeners(&self, ctx: &Ctx<'js>, event: Value<'js>) -> Result<Vec<Function<'js>>> {
         let key = EventKey::from_value(ctx, event)?;
         Ok(find_all_listeners(self.get_event_list(), key))
