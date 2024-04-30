@@ -468,6 +468,9 @@ fn get_task_root() -> String {
     env::var(ENV_LAMBDA_TASK_ROOT).unwrap_or_else(|_| {
         env::current_dir()
             .unwrap_or("/".into())
+            .parent()
+            .map(std::path::PathBuf::from)
+            .unwrap()
             .into_os_string()
             .into_string()
             .unwrap()
