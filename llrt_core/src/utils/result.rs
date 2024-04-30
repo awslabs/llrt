@@ -9,10 +9,6 @@ pub trait ResultExt<T> {
     fn or_throw(self, ctx: &Ctx) -> Result<T>;
 }
 
-pub trait CatchPanic<T> {
-    fn unwrap_or_catch_panic(self, ctx: Ctx) -> T;
-}
-
 pub trait OptionExt<T> {
     fn and_then_ok<U, E, F>(self, f: F) -> StdResult<Option<U>, E>
     where

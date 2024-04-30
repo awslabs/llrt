@@ -92,6 +92,10 @@ const SDK_DATA = {
   "client-sfn": ["SFN", "states"],
   "client-xray": ["XRay", "xray"],
   "client-cognito-identity": ["CognitoIdentity", "cognito-idp"],
+  "client-cognito-identity-provider": [
+    "CognitoIdentityProvider",
+    "cognito-idp",
+  ],
 };
 
 const ADDITIONAL_PACKAGES = [
