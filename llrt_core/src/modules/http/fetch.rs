@@ -73,7 +73,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 
                 let mut redirect_count = 0;
                 let mut response_status = 0;
-                let res = loop {
+                let (res, uri) = loop {
                     let req = build_request(
                         &ctx,
                         &method,
@@ -100,11 +100,11 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                                 ensure_url_access(&ctx, &uri)?;
                             }
                         },
-                        None => break res,
+                        None => break (res, uri),
                     };
 
                     if options.redirect == "manual" {
-                        break res;
+                        break (res, uri);
                     } else if options.redirect == "error" {
                         return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
                     }
@@ -117,7 +117,14 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                     response_status = res.status().as_u16();
                 };
 
-                Response::from_incoming(ctx, res, method_string, options.url, start, abort_receiver)
+                Response::from_incoming(
+                    ctx,
+                    res,
+                    method_string,
+                    uri.to_string(),
+                    start,
+                    abort_receiver,
+                )
             }
         })),
     )?;
@@ -516,6 +523,7 @@ mod tests {
                 // Method: GET, Redirect Pattern: 301 -> 200
                 options.set("method", "GET")?;
                 let url = format!("http://{}/expect/301/", mock_server.address().clone());
+                assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
 
                 let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
                 let response = response_promise.await?;
@@ -523,6 +531,7 @@ mod tests {
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
+                assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
 
                 // Method: GET, Redirect Pattern: 302 -> 200
                 options.set("method", "GET")?;
@@ -534,6 +543,7 @@ mod tests {
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
+                assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
 
                 // Method: GET, Redirect Pattern: 303 -> 200
                 options.set("method", "GET")?;
@@ -545,6 +555,7 @@ mod tests {
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
+                assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
 
                 Ok(())
             };
