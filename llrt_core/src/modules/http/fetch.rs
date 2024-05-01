@@ -524,7 +524,6 @@ mod tests {
                 // Method: GET, Redirect Pattern: 301 -> 200
                 options.set("method", "GET")?;
                 let url = format!("http://{}/expect/301/", mock_server.address().clone());
-                assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
 
                 let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
                 let response = response_promise.await?;
