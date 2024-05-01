@@ -519,6 +519,7 @@ mod tests {
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
+                assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
 
                 // Method: GET, Redirect Pattern: 301 -> 200
                 options.set("method", "GET")?;
