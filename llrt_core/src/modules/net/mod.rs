@@ -46,11 +46,18 @@ pub static HTTP_CLIENT: Lazy<Client<HttpsConnector<HttpConnector>, Full<Bytes>>>
     Lazy::new(|| {
         let pool_idle_timeout: u64 = get_pool_idle_timeout();
 
-        let https = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_tls_config(TLS_CONFIG.clone())
-            .https_or_http()
-            .enable_http1()
-            .build();
+        let https = match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
+            Ok("1.1") => hyper_rustls::HttpsConnectorBuilder::new()
+                .with_tls_config(TLS_CONFIG.clone())
+                .https_or_http()
+                .enable_http1()
+                .build(),
+            _ => hyper_rustls::HttpsConnectorBuilder::new()
+                .with_tls_config(TLS_CONFIG.clone())
+                .https_or_http()
+                .enable_all_versions()
+                .build(),
+        };
 
         Client::builder(TokioExecutor::new())
             .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))

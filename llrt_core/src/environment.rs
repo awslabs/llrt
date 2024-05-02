@@ -2,6 +2,7 @@
 pub const ENV_LLRT_NET_ALLOW: &str = "LLRT_NET_ALLOW";
 pub const ENV_LLRT_NET_DENY: &str = "LLRT_NET_DENY";
 pub const ENV_LLRT_NET_POOL_IDLE_TIMEOUT: &str = "LLRT_NET_POOL_IDLE_TIMEOUT";
+pub const ENV_LLRT_HTTP_VERSION: &str = "LLRT_HTTP_VERSION";
 
 //log
 pub const ENV_LLRT_LOG: &str = "LLRT_LOG";
