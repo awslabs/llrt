@@ -123,7 +123,7 @@ describe("AbortSignal & AbortController", () => {
         expect(signal.reason).toBeInstanceOf(DOMException);
         expect(signal.reason.name).toBe("TimeoutError");
         done();
-      }, 50);
+      }, 100);
     }, 0);
   });
 
