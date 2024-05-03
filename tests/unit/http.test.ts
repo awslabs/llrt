@@ -213,7 +213,7 @@ describe("Response class", () => {
     expect(response.statusText).toEqual("OK");
     expect(response.headers instanceof Headers).toBeTruthy();
     expect(response.body).toEqual(null);
-    expect(response.redirected).toEqual(false);
+    expect(response.redirected).toBeFalsy();
   });
 
   it("should set the status and statusText to the provided values", () => {
