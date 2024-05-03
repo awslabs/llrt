@@ -73,7 +73,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 
                 let mut redirect_count = 0;
                 let mut response_status = 0;
-                let (res, uri, redirected) = loop {
+                let res = loop {
                     let req = build_request(
                         &ctx,
                         &method,
@@ -100,11 +100,11 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                                 ensure_url_access(&ctx, &uri)?;
                             }
                         },
-                        None => break (res, uri, !matches!(redirect_count, 0)),
+                        None => break res,
                     };
 
                     if options.redirect == "manual" {
-                        break (res, uri, !matches!(redirect_count, 0));
+                        break res;
                     } else if options.redirect == "error" {
                         return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
                     }
@@ -123,7 +123,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                     method_string,
                     uri.to_string(),
                     start,
-                    redirected,
+                    !matches!(redirect_count, 0),
                     abort_receiver,
                 )
             }
