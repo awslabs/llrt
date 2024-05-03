@@ -73,7 +73,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 
                 let mut redirect_count = 0;
                 let mut response_status = 0;
-                let (res, uri) = loop {
+                let (res, uri, redirected) = loop {
                     let req = build_request(
                         &ctx,
                         &method,
@@ -100,11 +100,11 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                                 ensure_url_access(&ctx, &uri)?;
                             }
                         },
-                        None => break (res, uri),
+                        None => break (res, uri, !matches!(redirect_count, 0)),
                     };
 
                     if options.redirect == "manual" {
-                        break (res, uri);
+                        break (res, uri, !matches!(redirect_count, 0));
                     } else if options.redirect == "error" {
                         return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
                     }
@@ -123,6 +123,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                     method_string,
                     uri.to_string(),
                     start,
+                    redirected,
                     abort_receiver,
                 )
             }
@@ -520,6 +521,7 @@ mod tests {
 
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
+                assert!(!response.redirected());
 
                 // Method: GET, Redirect Pattern: 301 -> 200
                 options.set("method", "GET")?;
@@ -532,6 +534,7 @@ mod tests {
 
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
+                assert!(response.redirected());
 
                 // Method: GET, Redirect Pattern: 302 -> 200
                 options.set("method", "GET")?;
@@ -544,6 +547,7 @@ mod tests {
 
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
+                assert!(response.redirected());
 
                 // Method: GET, Redirect Pattern: 303 -> 200
                 options.set("method", "GET")?;
@@ -556,6 +560,7 @@ mod tests {
 
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
+                assert!(response.redirected());
 
                 Ok(())
             };

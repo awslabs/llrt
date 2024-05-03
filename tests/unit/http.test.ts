@@ -213,6 +213,7 @@ describe("Response class", () => {
     expect(response.statusText).toEqual("OK");
     expect(response.headers instanceof Headers).toBeTruthy();
     expect(response.body).toEqual(null);
+    expect(response.redirected).toEqual(false);
   });
 
   it("should set the status and statusText to the provided values", () => {
@@ -267,6 +268,7 @@ describe("Response class", () => {
     expect(response.type).toEqual(clonedResponse.type);
     expect(response.ok).toEqual(clonedResponse.ok);
     expect(response.bodyUsed).toEqual(clonedResponse.bodyUsed);
+    expect(response.redirected).toEqual(clonedResponse.redirected);
   });
 
   it("should create a Response object with an ok status for status codes in the range 200-299", () => {
