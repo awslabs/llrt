@@ -154,7 +154,7 @@ impl<'js> URL<'js> {
         if protocol.ends_with(':') {
             protocol.pop();
         }
-        self.protocol = protocol.clone();
+        self.protocol.clone_from(&protocol);
         self.update_port_host();
 
         protocol
@@ -168,7 +168,7 @@ impl<'js> URL<'js> {
     #[qjs(set, rename = "port")]
     fn set_port(&mut self, port: Coerced<String>) -> String {
         let port_string = port.to_string();
-        self.port = port_string.clone();
+        self.port.clone_from(&port_string);
         self.update_port_host();
 
         port_string
@@ -181,7 +181,7 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "hostname")]
     fn set_hostname(&mut self, hostname: String) -> String {
-        self.hostname = hostname.clone();
+        self.hostname.clone_from(&hostname);
         hostname
     }
 
@@ -207,7 +207,7 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "pathname")]
     fn set_pathname(&mut self, pathname: String) -> String {
-        self.pathname = pathname.clone();
+        self.pathname.clone_from(&pathname);
         pathname
     }
 
@@ -242,7 +242,7 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "username")]
     fn set_username(&mut self, username: String) -> String {
-        self.username = username.clone();
+        self.username.clone_from(&username);
         username
     }
 
@@ -253,7 +253,7 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "password")]
     fn set_password(&mut self, password: String) -> String {
-        self.password = password.clone();
+        self.password.clone_from(&password);
         password
     }
 }
@@ -306,7 +306,7 @@ impl<'js> URL<'js> {
             self.port = p;
         } else {
             self.port.clear();
-            self.host = self.hostname.clone();
+            self.host.clone_from(&self.hostname);
         }
     }
 }

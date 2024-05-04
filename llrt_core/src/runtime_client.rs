@@ -390,7 +390,7 @@ async fn process_event<'js>(
 ) -> Result<()> {
     let NextInvocationResponse { event, context } =
         next_invocation(ctx, client, next_invocation_url, lambda_environment).await?;
-    *request_id = context.aws_request_id.clone();
+    request_id.clone_from(&context.aws_request_id);
     LAMBDA_REQUEST_ID
         .write()
         .unwrap()

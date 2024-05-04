@@ -534,7 +534,7 @@ impl<'js> AbortSignal<'js> {
             let signal_borrow = signal.borrow();
             if signal_borrow.aborted {
                 new_signal.aborted = true;
-                new_signal.reason = signal_borrow.reason.clone();
+                new_signal.reason.clone_from(&signal_borrow.reason);
                 let new_signal = Class::instance(ctx, new_signal)?;
                 return Ok(new_signal);
             } else {
@@ -557,7 +557,7 @@ impl<'js> AbortSignal<'js> {
                         let Args(ctx, signal) = Args(ctx, signal);
                         let mut borrow = signal_instance_2.borrow_mut();
                         borrow.aborted = true;
-                        borrow.reason = signal.borrow().reason.clone();
+                        borrow.reason.clone_from(&signal.borrow().reason);
                         drop(borrow);
                         Self::send_aborted(This(signal_instance_2), ctx)
                     }),
