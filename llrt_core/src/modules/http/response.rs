@@ -102,6 +102,7 @@ impl<'js> Response<'js> {
         method: String,
         url: String,
         start: Instant,
+        redirected: bool,
         abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     ) -> Result<Self> {
         let response_headers = response.headers();
@@ -123,11 +124,12 @@ impl<'js> Response<'js> {
             body: Some(BodyVariant::Incoming(Some(response))),
             method,
             url,
-            status_text: None,
-            content_type,
             start,
             status: status.as_u16(),
+            status_text: None,
+            redirected,
             headers,
+            content_type,
             abort_receiver,
         })
     }
@@ -172,6 +174,7 @@ pub struct Response<'js> {
     start: Instant,
     status: u16,
     status_text: Option<String>,
+    redirected: bool,
     headers: Class<'js, Headers>,
     content_type: Option<String>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
@@ -223,10 +226,11 @@ impl<'js> Response<'js> {
             method: "GET".into(),
             url: "".into(),
             start: Instant::now(),
-            content_type,
             status,
-            headers,
             status_text,
+            redirected: false,
+            headers,
+            content_type,
             abort_receiver,
         })
     }
@@ -244,6 +248,11 @@ impl<'js> Response<'js> {
     #[qjs(get)]
     pub fn ok(&self) -> bool {
         self.status > 199 && self.status < 300
+    }
+
+    #[qjs(get)]
+    pub fn redirected(&self) -> bool {
+        self.redirected
     }
 
     //FIXME return readable stream when implemented
@@ -298,13 +307,14 @@ impl<'js> Response<'js> {
 
         Ok(Self {
             body,
-            content_type: self.content_type.clone(),
             method: self.method.clone(),
             url: self.url.clone(),
             start: self.start,
             status: self.status,
             status_text: self.status_text.clone(),
+            redirected: self.redirected,
             headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
+            content_type: self.content_type.clone(),
             abort_receiver: self.abort_receiver.clone(),
         })
     }
