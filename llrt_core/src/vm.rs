@@ -70,7 +70,7 @@ pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     Ok((uncompressed_size, rest))
 }
 
-pub(crate) static COMPRESSION_DICT: &[u8] = include_bytes!("../../bundle/compression.dict");
+pub(crate) static COMPRESSION_DICT: &[u8] = include_bytes!("../../bundle/lrt/compression.dict");
 
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));

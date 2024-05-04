@@ -13,7 +13,7 @@ ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 ZSTD_LIB_CC_x64 = CC="zig cc -target x86_64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 
 TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
-STD_JS_FILE = $(BUNDLE_DIR)/@llrt/std.js
+STD_JS_FILE = $(BUNDLE_DIR)/js/@llrt/std.js
 
 RELEASE_ARCH_NAME_x64 = x86_64
 RELEASE_ARCH_NAME_arm64 = arm64
@@ -108,7 +108,7 @@ clean: clean-js
 
 js: $(STD_JS_FILE)
 
-bundle/%.js: $(TS_SOURCES)
+bundle/js/%.js: $(TS_SOURCES)
 	node build.mjs
 
 fix:
@@ -150,15 +150,15 @@ run-cli: js
 
 test: export JS_MINIFY = 0
 test: js
-	cargo run -- test -d bundle/__tests__/unit
+	cargo run -- test -d bundle/js/__tests__/unit
 test-e2e: export JS_MINIFY = 0
 test-e2e: js
-	cargo run -- test -d bundle/__tests__/e2e
+	cargo run -- test -d bundle/js/__tests__/e2e
 
 test-ci: export JS_MINIFY = 0
 test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/__tests__/unit
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h

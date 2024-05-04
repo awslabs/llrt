@@ -10,7 +10,7 @@ process.env.NODE_PATH = ".";
 const TMP_DIR = `.tmp-llrt-aws-sdk`;
 const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
-const OUT_DIR = "bundle";
+const OUT_DIR = "bundle/js";
 const SHIMS = new Map();
 
 async function readFilesRecursive(dir, filePredicate) {
