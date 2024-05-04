@@ -47,5 +47,5 @@ Certain resources need to be created to make sure the integration test has backe
    Assuming you already have a binary built for LLRT, this will run a specific integration tests (e.g.: `s3.e2e.test.ts`)
 
    ```shell
-   make bundle/%.js && target/debug/llrt  test s3.e2e.test
+   make bundle/js/%.js && target/debug/llrt  test s3.e2e.test
    ```

@@ -16,7 +16,8 @@ use std::io::Write;
 use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};
 
-const BUNDLE_DIR: &str = "../bundle";
+const BUNDLE_JS_DIR: &str = "../bundle/js";
+const BUNDLE_LRT_DIR: &str = "../bundle/lrt";
 
 include!("src/bytecode.rs");
 
@@ -36,7 +37,7 @@ include!("src/compiler_common.rs");
 
 #[tokio::main]
 async fn main() -> StdResult<(), Box<dyn Error>> {
-    rerun_if_changed!(BUNDLE_DIR);
+    rerun_if_changed!(BUNDLE_JS_DIR);
 
     let resolver = (DummyResolver,);
     let loader = (DummyLoader,);
@@ -49,16 +50,16 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     let mut sdk_bytecode_file = BufWriter::new(File::create(sdk_bytecode_path)?);
 
     let mut ph_map = phf_codegen::Map::<String>::new();
-    let mut filenames = vec![];
+    let mut lrt_filenames = vec![];
     let mut total_bytes: usize = 0;
 
     fs::write("../VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
 
     ctx.with(|ctx| {
-        for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {
+        for dir_ent in WalkDir::new(BUNDLE_JS_DIR).into_iter().flatten() {
             let path = dir_ent.path();
 
-            let path = path.strip_prefix(BUNDLE_DIR)?.to_owned();
+            let path = path.strip_prefix(BUNDLE_JS_DIR)?.to_owned();
             let path_str = path.to_string_lossy().to_string();
 
             if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js" {
@@ -93,12 +94,9 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
             info!("Compiling module: {}", module_name);
 
-            let filename = dir_ent
-                .path()
-                .with_extension(BYTECODE_EXT)
-                .to_string_lossy()
-                .to_string();
-            filenames.push(filename.clone());
+            let lrt_path = PathBuf::from(BUNDLE_LRT_DIR).join(path.with_extension(BYTECODE_EXT));
+            let lrt_filename = lrt_path.to_string_lossy().to_string();
+            lrt_filenames.push(lrt_filename.clone());
             let bytes = {
                 {
                     let module = unsafe {
@@ -116,18 +114,22 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
             total_bytes += bytes.len();
 
+            fs::create_dir_all(lrt_path.parent().unwrap())?;
             if cfg!(feature = "uncompressed") {
                 let uncompressed = add_bytecode_header(bytes, None);
-                fs::write(&filename, uncompressed)?;
+                fs::write(&lrt_path, uncompressed)?;
             } else {
-                fs::write(&filename, bytes)?;
+                fs::write(&lrt_path, bytes)?;
             }
 
             info!("Done!");
 
             ph_map.entry(
                 module_name,
-                &format!("include_bytes!(\"..{}{}\")", MAIN_SEPARATOR_STR, &filename),
+                &format!(
+                    "include_bytes!(\"..{}{}\")",
+                    MAIN_SEPARATOR_STR, &lrt_filename
+                ),
             );
         }
 
@@ -147,15 +149,15 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
         human_file_size(total_bytes)
     );
 
-    let compression_dictionary_path = Path::new(BUNDLE_DIR)
+    let compression_dictionary_path = Path::new(BUNDLE_LRT_DIR)
         .join("compression.dict")
         .to_string_lossy()
         .to_string();
 
     if cfg!(feature = "uncompressed") {
-        generate_compression_dictionary(&compression_dictionary_path, &filenames)?;
+        generate_compression_dictionary(&compression_dictionary_path, &lrt_filenames)?;
     } else {
-        total_bytes = compress_bytecode(compression_dictionary_path, filenames)?;
+        total_bytes = compress_bytecode(compression_dictionary_path, lrt_filenames)?;
 
         info!(
             "\n===============================\nCompressed bytecode size: {}\n===============================",
