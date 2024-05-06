@@ -5,9 +5,10 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro"]
+default = ["macro", "simd"]
 lambda = []
 no-sdk = []
+simd = []
 uncompressed = []
 macro = ["rquickjs/macro"]
 
