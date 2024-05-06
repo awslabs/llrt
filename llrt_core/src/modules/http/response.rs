@@ -167,12 +167,12 @@ impl<'js> Response<'js> {
                 };
 
                 if let Some(content_encoding) = &self.body_attributes.content_encoding {
-                    let mut data: Vec<u8> = Vec::new();
+                    let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
                     match content_encoding.as_str() {
+                        "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
+                        "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
                         "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
                         "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                        "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                        "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
                         _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
                     };
                     data

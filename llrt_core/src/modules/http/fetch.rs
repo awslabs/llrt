@@ -12,7 +12,7 @@ use rquickjs::{
 };
 use tokio::select;
 
-use std::time::Instant;
+use std::{collections::HashSet, time::Instant};
 
 use crate::{
     environment,
@@ -151,15 +151,14 @@ fn build_request(
         (method.clone(), body.clone())
     };
 
-    let mut req = Request::builder()
-        .method(method_to_use)
-        .uri(uri.clone())
-        .header("user-agent", format!("llrt {}", VERSION))
-        .header("accept", "*/*");
+    let mut req = Request::builder().method(method_to_use).uri(uri.clone());
+
+    let mut detected_headers = HashSet::new();
 
     if let Some(headers) = headers {
         for (key, value) in headers.iter() {
             let header_name = key.as_str();
+            detected_headers.insert(header_name);
             if change_method && is_request_body_header_name(header_name) {
                 continue;
             }
@@ -168,6 +167,16 @@ fn build_request(
             }
             req = req.header(key, value)
         }
+    }
+
+    if !detected_headers.contains("user-agent") {
+        req = req.header("user-agent", format!("llrt {}", VERSION));
+    }
+    if !detected_headers.contains("accept-encoding") {
+        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
+    }
+    if !detected_headers.contains("accept") {
+        req = req.header("accept", "*/*");
     }
 
     req.body(req_body).or_throw(ctx)
