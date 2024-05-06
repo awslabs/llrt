@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#[cfg(feature = "unstable")] //FIXME remove when std::simd is stable
+#[cfg(feature = "nightly")] //FIXME remove when std::simd is stable
 use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
 
 static JSON_ESCAPE_CHARS: [u8; 256] = [
@@ -58,12 +58,12 @@ pub fn escape_json_string_simple(result: &mut String, bytes: &[u8]) {
     }
 }
 
-#[cfg(not(feature = "unstable"))]
+#[cfg(not(feature = "nightly"))]
 pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
     escape_json_string_simple(result, bytes);
 }
 
-#[cfg(feature = "unstable")]
+#[cfg(feature = "nightly")]
 pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
     const USIZE_BYTES: usize = mem::size_of::<usize>();
 
