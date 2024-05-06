@@ -42,7 +42,7 @@ zstd = { version = "0.13.1", default-features = false, features = [] }
 libc = "0.2.153"
 base64-simd = "0.8.0"
 hex-simd = "0.8.0"
-socket2 = "0.5.6"
+socket2 = "0.5.7"
 bytes = "1.6.0"
 uuid-simd = "0.8.0"
 simd-json = { version = "0.13.10", default-features = false, features = [
