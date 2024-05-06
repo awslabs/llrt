@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::time::Instant;
+use std::{collections::HashMap, io::Read, time::Instant};
 
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
@@ -20,7 +20,10 @@ use crate::{
 use super::{blob::Blob, headers::Headers};
 
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+
+use brotlic::DecompressorReader as BrotliDecoder;
+use flate2::read::{GzDecoder, ZlibDecoder};
+use zstd::stream::read::Decoder as ZstdDecoder;
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -115,10 +118,24 @@ impl<'js> Response<'js> {
             }
         }
 
+        let mut content_encoding = None;
+        if let Some(content_encoding_header) =
+            response_headers.get(HeaderName::from_static("content-encoding"))
+        {
+            if let Ok(content_encoding_header) = content_encoding_header.to_str() {
+                content_encoding = Some(content_encoding_header.to_owned())
+            }
+        }
+
         let headers = Headers::from_http_headers(response.headers())?;
         let headers = Class::instance(ctx.clone(), headers)?;
 
         let status = response.status();
+
+        let body_attributes = BodyAttributes {
+            content_type,
+            content_encoding,
+        };
 
         Ok(Self {
             body: Some(BodyVariant::Incoming(Some(response))),
@@ -129,7 +146,7 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected,
             headers,
-            content_type,
+            body_attributes,
             abort_receiver,
         })
     }
@@ -149,7 +166,21 @@ impl<'js> Response<'js> {
                     body.body_mut().collect().await.or_throw(ctx)?.to_bytes()
                 };
 
-                bytes.to_vec()
+                if self.body_attributes.content_encoding.is_none() {
+                    return Ok(Some(bytes.to_vec()));
+                }
+
+                let content_encoding = self.body_attributes.content_encoding.clone();
+                let mut data: Vec<u8> = Vec::new();
+
+                match content_encoding.unwrap().as_str() {
+                    "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                    "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                    "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                    "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
+                    _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
+                };
+                data
             },
             Some(BodyVariant::Provided(provided)) => {
                 if let Some(blob) = get_class::<Blob>(provided)? {
@@ -176,8 +207,14 @@ pub struct Response<'js> {
     status_text: Option<String>,
     redirected: bool,
     headers: Class<'js, Headers>,
-    content_type: Option<String>,
+    body_attributes: BodyAttributes,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+}
+
+#[derive(Clone, Debug)]
+struct BodyAttributes {
+    content_type: Option<String>,
+    content_encoding: Option<String>,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
@@ -219,7 +256,10 @@ impl<'js> Response<'js> {
             }
         });
 
-        let content_type = headers.get("content-type")?;
+        let body_attributes = BodyAttributes {
+            content_type: headers.get("content-type")?,
+            content_encoding: headers.get("content-encoding")?,
+        };
 
         Ok(Self {
             body,
@@ -230,7 +270,7 @@ impl<'js> Response<'js> {
             status_text,
             redirected: false,
             headers,
-            content_type,
+            body_attributes,
             abort_receiver,
         })
     }
@@ -273,7 +313,7 @@ impl<'js> Response<'js> {
         Ok("".into())
     }
 
-    async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+    pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return json_parse(&ctx, bytes);
         }
@@ -289,7 +329,10 @@ impl<'js> Response<'js> {
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(bytes, self.content_type.clone()));
+            return Ok(Blob::from_bytes(
+                bytes,
+                self.body_attributes.content_type.clone(),
+            ));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
@@ -314,7 +357,7 @@ impl<'js> Response<'js> {
             status_text: self.status_text.clone(),
             redirected: self.redirected,
             headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
-            content_type: self.content_type.clone(),
+            body_attributes: self.body_attributes.clone(),
             abort_receiver: self.abort_receiver.clone(),
         })
     }
