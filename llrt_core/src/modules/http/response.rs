@@ -166,21 +166,19 @@ impl<'js> Response<'js> {
                     body.body_mut().collect().await.or_throw(ctx)?.to_bytes()
                 };
 
-                if self.body_attributes.content_encoding.is_none() {
-                    return Ok(Some(bytes.to_vec()));
+                if let Some(content_encoding) = &self.body_attributes.content_encoding {
+                    let mut data: Vec<u8> = Vec::new();
+                    match content_encoding.as_str() {
+                        "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                        "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                        "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                        "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
+                        _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
+                    };
+                    data
+                } else {
+                    bytes.to_vec()
                 }
-
-                let content_encoding = self.body_attributes.content_encoding.clone();
-                let mut data: Vec<u8> = Vec::new();
-
-                match content_encoding.unwrap().as_str() {
-                    "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                    "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                    "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                    "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
-                    _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
-                };
-                data
             },
             Some(BodyVariant::Provided(provided)) => {
                 if let Some(blob) = get_class::<Blob>(provided)? {
