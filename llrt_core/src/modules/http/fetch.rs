@@ -588,11 +588,11 @@ mod tests {
                 options.set("method", "GET")?;
                 let url = format!("http://{}/expect/200/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let mut response = response.borrow_mut();
                 let response_text = response.text(ctx.clone()).await?;
+
 
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
@@ -603,9 +603,8 @@ mod tests {
                 options.set("method", "GET")?;
                 let url = format!("http://{}/expect/301/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
@@ -616,9 +615,8 @@ mod tests {
                 options.set("method", "GET")?;
                 let url = format!("http://{}/expect/302/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
@@ -629,9 +627,8 @@ mod tests {
                 options.set("method", "GET")?;
                 let url = format!("http://{}/expect/303/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let response = response.borrow();
 
                 assert_eq!(response.status(), 200);
@@ -641,9 +638,8 @@ mod tests {
                 // Content-Encoding: zstd
                 let url = format!("http://{}/content-encoding/zstd/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let mut response = response.borrow_mut();
                 let response_text = response.text(ctx.clone()).await?;
 
@@ -652,9 +648,8 @@ mod tests {
                 // Content-Encoding: br
                 let url = format!("http://{}/content-encoding/br/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let mut response = response.borrow_mut();
                 let response_text = response.text(ctx.clone()).await?;
 
@@ -663,22 +658,22 @@ mod tests {
                 // Content-Encoding: gzip
                 let url = format!("http://{}/content-encoding/gzip/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let mut response = response.borrow_mut();
                 let response_text = response.text(ctx.clone()).await?;
+
 
                 assert_eq!(response_text, welcome_message);
 
                 // Content-Encoding: deflate
                 let url = format!("http://{}/content-encoding/deflate/", mock_server.address().clone());
 
-                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
-                let response = response_promise.await?;
-                let response = Class::<Response>::from_value(response)?;
+                let response_promise: Promise = fetch.call((url, options.clone()))?;
+                let response: Class::<Response> = response_promise.into_future().await?;
                 let mut response = response.borrow_mut();
                 let response_text = response.text(ctx.clone()).await?;
+
 
                 assert_eq!(response_text, welcome_message);
 

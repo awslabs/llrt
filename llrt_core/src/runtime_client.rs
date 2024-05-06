@@ -181,12 +181,6 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let js_bootstrap: Object = ctx.globals().get("__bootstrap")?;
     let js_init_tasks: Array = js_bootstrap.get("initTasks")?;
 
-    if js_init.is_function() {
-        let idx = js_init_tasks.len();
-        let js_call: Object = js_init.as_function().unwrap().call(())?;
-        js_init_tasks.set(idx, js_call)?;
-    }
-
     let init_tasks_size = js_init_tasks.len();
     #[allow(clippy::comparison_chain)]
     if init_tasks_size == 1 {
@@ -533,7 +527,7 @@ fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<Strin
 mod tests {
 
     use hyper::header::CONTENT_TYPE;
-    use rquickjs::{async_with, CatchResultExt, Function, Object, Promise, Result, Value};
+    use rquickjs::{async_with, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::{

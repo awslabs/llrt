@@ -3,16 +3,20 @@
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
-    env::{self},
+    env,
     ffi::CStr,
     fmt::Write,
     future::Future,
     io::{self},
     path::{Component, Path, PathBuf},
+    pin::pin,
     process::exit,
     result::Result as StdResult,
-    sync::atomic::{AtomicUsize, Ordering},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
+    task::Poll,
 };
 
 use once_cell::sync::Lazy;
@@ -20,15 +24,15 @@ use once_cell::sync::Lazy;
 use chrono::Utc;
 use ring::rand::SecureRandom;
 use rquickjs::{
-    async_with,
     atom::PredefinedAtom,
     context::EvalOptions,
     function::{Constructor, Opt},
-    loader::{BuiltinLoader, FileResolver, Loader, RawLoader, Resolver, ScriptLoader},
-    module::ModuleData,
+    loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
+    markers::ParallelSend,
+    module::Declared,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Object, Result, String as JsString, Value,
+    Module, Object, Result, String as JsString, Value,
 };
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
@@ -40,6 +44,7 @@ use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
     path::{dirname, join_path, resolve_path},
+    timers::{self, poll_timers, TimerRefList},
 };
 
 use crate::{
@@ -330,10 +335,8 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
-    timeout_refs: Arc<Mutex<Vec<TimeoutRef>>>,
+    timeout_refs: TimerRefList,
 }
-
-struct LifetimeArgs<'js>(Ctx<'js>);
 
 #[allow(dead_code)]
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
@@ -344,10 +347,32 @@ pub struct VmOptions {
     pub gc_threshold_mb: usize,
 }
 
+// #[macro_export]
+// macro_rules! run_async{
+//     ($context:expr => |$ctx:ident| { $($t:tt)* }) => {
+//         $crate::AsyncContext::async_with(&$context,|$ctx| {
+//             let fut = Box::pin(async move {
+
+//                 let ctx2 = $ctx.clone();
+//                 let res = async move {
+//                     $($t)*
+//                 };
+
+//                res.await.catch(&ctx2).unwrap_or_else(|err| Vm::print_error_and_exit(&ctx2, err));
+//             });
+
+//             unsafe fn uplift<'a,'b,R>(f: std::pin::Pin<Box<dyn std::future::Future<Output = R> + 'a>>) -> std::pin::Pin<Box<dyn std::future::Future<Output = R> + 'b + Send>>{
+//                 std::mem::transmute(f)
+//             }
+//             unsafe{ uplift(fut) }
+//         })
+//     };
+// }
+
 impl Default for VmOptions {
     fn default() -> Self {
         Self {
-            module_builder: crate::module_builder::ModuleBuilder::with_default(),
+            module_builder: crate::module_builder::ModuleBuilder::default(),
             max_stack_size: 512 * 1024,
             gc_threshold_mb: {
                 const DEFAULT_GC_THRESHOLD_MB: usize = 20;
@@ -419,14 +444,17 @@ impl Vm {
         runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
 
-        let timeout_refs: Arc<Mutex<Vec<TimeoutRef>>> = Arc::new(Mutex::new(Vec::new()));
+        let timeout_refs = Arc::new(Mutex::new(Vec::new()));
 
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             for init_global in init_globals {
+                if init_global == timers::init {
+                    timers::init_timers(&ctx, &timeout_refs)?;
+                }
                 init_global(&ctx)?;
             }
-            init(&ctx, module_names)?;
+            init(&ctx, module_names, timeout_refs.clone())?;
             Ok::<_, Error>(())
         })
         .await?;
@@ -443,28 +471,31 @@ impl Vm {
         Ok(vm)
     }
 
-    pub fn load_module<'js>(ctx: &Ctx<'js>, filename: PathBuf) -> Result<Object<'js>> {
-        Module::import(ctx, filename.to_string_lossy().to_string())
-    }
-
-    pub async fn run_module(ctx: &AsyncContext, filename: &Path) {
-        Self::run_and_handle_exceptions(ctx, |ctx| {
-            let _res = Vm::load_module(&ctx, filename.to_path_buf())?;
-            Ok(())
-        })
-        .await
-    }
-
-    pub async fn run_and_handle_exceptions<'js, F>(ctx: &AsyncContext, f: F)
+    pub async fn run_with<F>(&self, f: F)
     where
-        F: FnOnce(Ctx) -> impl Future<Output = rquickjs::Result<()>>,
+        F: for<'js> FnOnce(&Ctx<'js>) -> Result<()> + std::marker::Send,
     {
-        async_with!(ctx => |ctx|{
-            f(ctx.clone()).await
-                .catch(&ctx)
-                .unwrap_or_else(|err| Self::print_error_and_exit(&ctx, err));
+        self.ctx
+            .with(|ctx| {
+                if let Err(err) = f(&ctx).catch(&ctx) {
+                    Self::print_error_and_exit(&ctx, err);
+                }
+            })
+            .await;
+    }
+
+    pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool) {
+        self.run_with(|ctx| {
+            let mut options = EvalOptions::default();
+            options.strict = strict;
+            options.promise = true;
+            options.global = false;
+            let _ = ctx.eval_with_options::<Value, _>(source, options)?;
+            Ok::<_, Error>(())
         })
-        .await
+        .await;
+
+        //self.ctx.with(|ctx| {}).await
     }
 
     pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
@@ -484,10 +515,29 @@ impl Vm {
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
-        self.runtime.idle().await;
+        let mut timeout_callbacks = Vec::new();
+        let mut last_time = 0;
+
+        let runtime = self.runtime;
+        let timeout_refs = self.timeout_refs;
+
+        poll_fn(move |cx| {
+            poll_timers(&timeout_refs, &mut timeout_callbacks, &mut last_time);
+
+            let mut pending_job = pin!(runtime.idle());
+
+            if let Poll::Ready(res) = pending_job.as_mut().poll(cx) {
+                let timeouts = timeout_refs.lock().unwrap();
+                if timeouts.is_empty() {
+                    return Poll::Ready(());
+                }
+            }
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        })
+        .await;
 
         drop(self.ctx);
-        drop(self.runtime);
         Ok(())
     }
 }
@@ -497,7 +547,11 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
     json_parse(&ctx, bytes)
 }
 
-fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
+fn init(
+    ctx: &Ctx<'_>,
+    module_names: HashSet<&'static str>,
+    timeout_refs: TimerRefList,
+) -> Result<()> {
     let globals = ctx.globals();
 
     globals.set("__gc", Func::from(|ctx: Ctx| ctx.run_gc()))?;
@@ -616,7 +670,23 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             trace!("Require: {}", import_name);
 
-            let imported_object: Object = Module::import(&ctx, import_name.clone())?.finish()?;
+            //timeout_refs
+
+            let mut timeout_callbacks = Vec::new();
+            let mut last_time = 0;
+
+            let import_promise = Module::import(&ctx, import_name.clone())?;
+
+            let imported_object = loop {
+                if let Some(x) = import_promise.result::<Object>() {
+                    break x?;
+                }
+
+                poll_timers(&timeout_refs, &mut timeout_callbacks, &mut last_time);
+
+                ctx.execute_pending_job();
+            };
+
             require_in_progress.lock().unwrap().remove(&import_name);
 
             if let Some(exports) = require_exports_ref_2.lock().unwrap().take() {

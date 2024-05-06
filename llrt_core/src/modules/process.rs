@@ -85,7 +85,6 @@ fn env_proxy_setter<'js>(
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
-
     let process = Object::new(ctx.clone())?;
     let process_versions = Object::new(ctx.clone())?;
     process_versions.set("llrt", VERSION)?;

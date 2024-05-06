@@ -12,13 +12,6 @@ impl rquickjs::loader::Loader for DummyLoader {
     ) -> rquickjs::Result<rquickjs::Module<'js, rquickjs::module::Declared>> {
         rquickjs::module::Module::declare(ctx.clone(), name, "")
     }
-    // fn load(
-    //     &mut self,
-    //     _ctx: &rquickjs::Ctx<'_>,
-    //     name: &str,
-    // ) -> rquickjs::Result<rquickjs::module::Module> {
-    //     Ok(rquickjs::module::Module::source(name, ""))
-    // }
 }
 
 pub struct DummyResolver;

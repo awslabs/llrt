@@ -1,6 +1,14 @@
-setTimeout(() => {
-  console.log("timeout");
-}, 1000);
+console.log(123);
+
+// setInterval(() => {
+//   console.log("interval");
+// }, 1000);
+
+await Promise.resolve(1);
+
+// setTimeout(() => {
+//   console.log("timeout");
+// }, 1000);
 
 //let signal = AbortSignal.timeout(5);
 

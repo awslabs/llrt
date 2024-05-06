@@ -78,7 +78,6 @@ pub fn btoa(value: String) -> String {
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
-
     globals.set("atob", Func::from(atob))?;
     globals.set("btoa", Func::from(btoa))?;
 
