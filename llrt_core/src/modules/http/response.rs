@@ -304,7 +304,7 @@ impl<'js> Response<'js> {
         self.headers.clone()
     }
 
-    async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
+    pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(String::from_utf8_lossy(&bytes).to_string());
         }
