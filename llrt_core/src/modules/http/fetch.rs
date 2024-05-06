@@ -12,7 +12,7 @@ use rquickjs::{
 };
 use tokio::select;
 
-use std::time::Instant;
+use std::{collections::HashSet, time::Instant};
 
 use crate::{
     environment,
@@ -151,15 +151,14 @@ fn build_request(
         (method.clone(), body.clone())
     };
 
-    let mut req = Request::builder()
-        .method(method_to_use)
-        .uri(uri.clone())
-        .header("user-agent", format!("llrt {}", VERSION))
-        .header("accept", "*/*");
+    let mut req = Request::builder().method(method_to_use).uri(uri.clone());
+
+    let mut detected_headers = HashSet::new();
 
     if let Some(headers) = headers {
         for (key, value) in headers.iter() {
             let header_name = key.as_str();
+            detected_headers.insert(header_name);
             if change_method && is_request_body_header_name(header_name) {
                 continue;
             }
@@ -168,6 +167,16 @@ fn build_request(
             }
             req = req.header(key, value)
         }
+    }
+
+    if !detected_headers.contains("user-agent") {
+        req = req.header("user-agent", format!("llrt {}", VERSION));
+    }
+    if !detected_headers.contains("accept-encoding") {
+        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
+    }
+    if !detected_headers.contains("accept") {
+        req = req.header("accept", "*/*");
     }
 
     req.body(req_body).or_throw(ctx)
@@ -343,6 +352,14 @@ mod tests {
     use rquickjs::{async_with, prelude::Promise, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
+    use brotlic::CompressorReader as BrotliEncoder;
+    use flate2::{
+        read::{GzEncoder, ZlibEncoder},
+        Compression,
+    };
+    use std::io::Read;
+    use zstd::stream::read::Encoder as ZstdEncoder;
+
     use crate::vm::Vm;
 
     #[test]
@@ -453,9 +470,13 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_function() {
         let mock_server = MockServer::start().await;
+        let welcome_message = "Hello, LLRT!";
 
         Mock::given(matchers::path("expect/200/"))
-            .respond_with(ResponseTemplate::new(200))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(String::from_utf8(welcome_message.into()).unwrap()),
+            )
             .mount(&mock_server)
             .await;
 
@@ -491,6 +512,59 @@ mod tests {
             .mount(&mock_server)
             .await;
 
+        let mut data: Vec<u8> = Vec::new();
+        ZstdEncoder::new(welcome_message.as_bytes(), 3)
+            .unwrap()
+            .read_to_end(&mut data)
+            .unwrap();
+        Mock::given(matchers::path("content-encoding/zstd/"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .append_header("content-encoding", "zstd")
+                    .set_body_raw(data.to_owned(), "text/plain"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut data: Vec<u8> = Vec::new();
+        BrotliEncoder::new(welcome_message.as_bytes())
+            .read_to_end(&mut data)
+            .unwrap();
+        Mock::given(matchers::path("content-encoding/br/"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .append_header("content-encoding", "br")
+                    .set_body_raw(data.to_owned(), "text/plain"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut data: Vec<u8> = Vec::new();
+        GzEncoder::new(welcome_message.as_bytes(), Compression::default())
+            .read_to_end(&mut data)
+            .unwrap();
+        Mock::given(matchers::path("content-encoding/gzip/"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .append_header("content-encoding", "gzip")
+                    .set_body_raw(data.to_owned(), "text/plain"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut data: Vec<u8> = Vec::new();
+        ZlibEncoder::new(welcome_message.as_bytes(), Compression::default())
+            .read_to_end(&mut data)
+            .unwrap();
+        Mock::given(matchers::path("content-encoding/deflate/"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .append_header("content-encoding", "deflate")
+                    .set_body_raw(data.to_owned(), "text/plain"),
+            )
+            .mount(&mock_server)
+            .await;
+
         let vm = Vm::new().await.unwrap();
 
         // NOTE: A minimum redirect test pattern was created. Please add more as needed.
@@ -517,11 +591,13 @@ mod tests {
                 let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
                 let response = response_promise.await?;
                 let response = Class::<Response>::from_value(response)?;
-                let response = response.borrow();
+                let mut response = response.borrow_mut();
+                let response_text = response.text(ctx.clone()).await?;
 
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
                 assert!(!response.redirected());
+                assert_eq!(response_text, welcome_message);
 
                 // Method: GET, Redirect Pattern: 301 -> 200
                 options.set("method", "GET")?;
@@ -561,6 +637,50 @@ mod tests {
                 assert_eq!(response.status(), 200);
                 assert_eq!(response.url(), format!("http://{}/expect/200/", mock_server.address().clone()));
                 assert!(response.redirected());
+
+                // Content-Encoding: zstd
+                let url = format!("http://{}/content-encoding/zstd/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let mut response = response.borrow_mut();
+                let response_text = response.text(ctx.clone()).await?;
+
+                assert_eq!(response_text, welcome_message);
+
+                // Content-Encoding: br
+                let url = format!("http://{}/content-encoding/br/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let mut response = response.borrow_mut();
+                let response_text = response.text(ctx.clone()).await?;
+
+                assert_eq!(response_text, welcome_message);
+
+                // Content-Encoding: gzip
+                let url = format!("http://{}/content-encoding/gzip/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let mut response = response.borrow_mut();
+                let response_text = response.text(ctx.clone()).await?;
+
+                assert_eq!(response_text, welcome_message);
+
+                // Content-Encoding: deflate
+                let url = format!("http://{}/content-encoding/deflate/", mock_server.address().clone());
+
+                let response_promise: Promise<Value> = fetch.call((url, options.clone()))?;
+                let response = response_promise.await?;
+                let response = Class::<Response>::from_value(response)?;
+                let mut response = response.borrow_mut();
+                let response_text = response.text(ctx.clone()).await?;
+
+                assert_eq!(response_text, welcome_message);
 
                 Ok(())
             };
