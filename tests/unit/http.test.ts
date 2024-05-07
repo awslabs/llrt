@@ -344,7 +344,7 @@ describe("URL class", () => {
     const url = new URL("https://www.example.com/?foo=bar&baz=qux");
     url.searchParams.set("foo", "new-value");
     expect(url.toString()).toEqual(
-      "https://www.example.com/?baz=qux&foo=new-value"
+      "https://www.example.com/?foo=new-value&baz=qux"
     );
   });
   it("should parse username and password", () => {
@@ -366,8 +366,47 @@ describe("URL class", () => {
 });
 
 describe("URLSearchParams class", () => {
+  it("constructor from array", () => {
+    //@ts-ignore
+    const searchParams = new URLSearchParams([["topic", ["api", "1234"]]]);
+    expect(searchParams.get("topic")).toBe("api,1234");
+  });
+
+  it("constructor from object", () => {
+    const paramsObject = { foo: "1", bar: "2" };
+    const searchParams = new URLSearchParams(paramsObject);
+    expect(searchParams.get("foo")).toBe("1");
+    expect(searchParams.get("bar")).toBe("2");
+  });
+
+  it("constructor from iterator", () => {
+    const paramsArray = [
+      ["foo", "1"],
+      ["bar", "2"],
+    ];
+    const paramsIterator = paramsArray[Symbol.iterator]();
+    //@ts-ignore
+    const searchParams = new URLSearchParams(paramsIterator);
+    expect(searchParams.get("foo")).toBe("1");
+    expect(searchParams.get("bar")).toBe("2");
+  });
+
+  it("constructor from string with special characters", () => {
+    const paramsString = "topic=api&category=coding%20skills";
+    const searchParams = new URLSearchParams(paramsString);
+    expect(searchParams.get("topic")).toBe("api");
+    expect(searchParams.get("category")).toBe("coding skills");
+  });
+
+  it("constructor from URLSearchParams object", () => {
+    const existingParamsString = "topic=api";
+    const existingSearchParams = new URLSearchParams(existingParamsString);
+    const newSearchParams = new URLSearchParams(existingSearchParams);
+    expect(newSearchParams.get("topic")).toBe("api");
+  });
+
   it("should have a parameter if it exists", () => {
-    const paramsString = "topic=api&a=1&a=2&a=3";
+    const paramsString = "?topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
     expect(searchParams.has("topic")).toBeTruthy();
   });
@@ -407,7 +446,7 @@ describe("URLSearchParams class", () => {
     const searchParams = new URLSearchParams(paramsString);
     searchParams.append("topic", "webdev");
     expect(searchParams.toString()).toEqual(
-      "a=1&a=2&a=3&topic=api&topic=webdev"
+      "topic=api&a=1&a=2&a=3&topic=webdev"
     );
   });
 
@@ -415,7 +454,7 @@ describe("URLSearchParams class", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
     const searchParams = new URLSearchParams(paramsString);
     searchParams.set("topic", "More webdev");
-    expect(searchParams.toString()).toEqual("a=1&a=2&a=3&topic=More+webdev");
+    expect(searchParams.toString()).toEqual("topic=More+webdev&a=1&a=2&a=3");
   });
 
   it("should remove the parameter from the query string", () => {
@@ -433,10 +472,10 @@ describe("URLSearchParams class", () => {
       arr.push(p);
     }
     expect(arr).toEqual([
+      ["topic", "api"],
       ["a", "1"],
       ["a", "2"],
       ["a", "3"],
-      ["topic", "api"],
     ]);
   });
 });
