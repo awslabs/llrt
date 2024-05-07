@@ -416,7 +416,7 @@ pub fn url_to_http_options<'js>(ctx: Ctx<'js>, url: Class<'js, URL<'js>>) -> Res
     Ok(obj)
 }
 
-pub fn domain_to_unicode<'js>(domain: &str) -> String {
+pub fn domain_to_unicode(domain: &str) -> String {
     let (url, result) = idna::domain_to_unicode(domain);
     if result.is_err() {
         return String::from("");
@@ -424,7 +424,7 @@ pub fn domain_to_unicode<'js>(domain: &str) -> String {
     url
 }
 
-pub fn domain_to_ascii(domain: &String) -> String {
+pub fn domain_to_ascii(domain: &str) -> String {
     idna::domain_to_ascii(domain).unwrap_or_default()
 }
 
