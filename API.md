@@ -17,8 +17,7 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 ## child_process
 
-> [!WARNING]
-> `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
+> [!WARNING] > `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
@@ -115,8 +114,7 @@ export function decode(value: string): Uint8Array;
 
 [createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename)
 
-> [!NOTE]
-> `require` is available from esm modules natively. This function is just for compatibility
+> [!NOTE] > `require` is available from esm modules natively. This function is just for compatibility
 
 ## os
 
@@ -190,8 +188,6 @@ export class URL {
 }
 ```
 
-### TODO, URL see tracking [ticket](https://github.com/awslabs/llrt/issues/303):
-
 ```typescript
 // Additional utilities in the URL module
 export function domainToASCII(domain: string): string;
@@ -202,11 +198,15 @@ export function fileURLToPath(url: string | URL): string;
 
 export function pathToFileURL(path: string): URL;
 
+export function format(url: string | URL, options?: { fragment?: boolean, unicode?: boolean, auth?: boolean
+}): string;
+
 export function urlToHttpOptions(url: URL): {
   protocol?: string;
   hostname?: string;
   port?: string;
   path?: string;
+  ...
 };
 ```
 
