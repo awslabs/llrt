@@ -125,8 +125,11 @@ impl URLSearchParams {
         let mut string = String::with_capacity(self.params.len() * 2);
         for (i, (key, value)) in self.params.iter().enumerate() {
             string.push_str(&escape(key));
-            string.push('=');
-            string.push_str(&escape(value));
+            if !value.is_empty() {
+                string.push('=');
+                string.push_str(&escape(value));
+            }
+
             if i < length - 1 {
                 string.push('&');
             }

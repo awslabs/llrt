@@ -619,10 +619,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         "require",
         Func::from(move |ctx, specifier: String| -> Result<Value> {
             let LifetimeArgs(ctx) = LifetimeArgs(ctx);
-            let specifier: String = specifier
-                .strip_prefix("node:")
-                .unwrap_or(specifier.as_str())
-                .into();
+            let specifier = if let Some(striped_specifier) = &specifier.strip_prefix("node:") {
+                striped_specifier.to_string()
+            } else {
+                specifier
+            };
             let import_name = if module_names.contains(specifier.as_str())
                 || BYTECODE_CACHE.contains_key(&specifier)
                 || specifier.starts_with('/')

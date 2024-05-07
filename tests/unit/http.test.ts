@@ -1,42 +1,44 @@
-import * as url from "url";
+import * as urlModule from "url";
 
 describe("URL module import", () => {
   it("global URL and imported URL are equal", () => {
     const testUrl = "https://www.example.com";
-    const moduleUrl = new url.URL(testUrl);
+    const moduleUrl = new urlModule.URL(testUrl);
     const globalUrl = new URL(testUrl);
     expect(moduleUrl).toEqual(globalUrl);
   });
   it("global URLSearchParams and imported URLSearchParams are equal", () => {
     const paramsString = "topic=api&a=1&a=2&a=3";
-    const moduleSearchParams = new url.URLSearchParams(paramsString);
+    const moduleSearchParams = new urlModule.URLSearchParams(paramsString);
     const globalSearchParams = new URLSearchParams(paramsString);
     expect(moduleSearchParams).toEqual(globalSearchParams);
   });
   describe("import { URL } from 'url';", () => {
     it("should parse a url hostname", () => {
-      const testUrl = new url.URL("https://www.example.com");
+      const testUrl = new urlModule.URL("https://www.example.com");
       expect(testUrl.protocol).toEqual("https:");
       expect(testUrl.host).toEqual("www.example.com");
       expect(testUrl.hostname).toEqual("www.example.com");
     });
     it("toString method works", () => {
-      const testUrl = new url.URL("/base", "https://www.example.com");
+      const testUrl = new urlModule.URL("/base", "https://www.example.com");
       expect(testUrl.toString()).toEqual("https://www.example.com/base");
     });
     it("canParse method works", () => {
-      const validCanParse = url.URL.canParse("https://www.example.com");
-      const invalidCanParse = url.URL.canParse("not_valid");
+      const validCanParse = urlModule.URL.canParse("https://www.example.com");
+      const invalidCanParse = urlModule.URL.canParse("not_valid");
       expect(validCanParse).toEqual(true);
       expect(invalidCanParse).toEqual(false);
-      expect(url.URL.canParse("/foo", "https://example.org/")).toEqual(true);
+      expect(urlModule.URL.canParse("/foo", "https://example.org/")).toEqual(
+        true
+      );
     });
   });
 
   describe("import { URLSearchParams } from 'url';", () => {
     it("supports URLSearchParams basic API", () => {
       const paramsString = "topic=api&a=1&a=2&a=3";
-      const searchParams = new url.URLSearchParams(paramsString);
+      const searchParams = new urlModule.URLSearchParams(paramsString);
       searchParams.append("foo", "bar");
       expect(searchParams.has("topic")).toBeTruthy();
       expect(searchParams.has("foo")).toBeTruthy();
@@ -540,5 +542,83 @@ describe("Blob class", () => {
     expect(slicedBlob instanceof Blob).toBeTruthy();
     expect(slicedBlob.size).toEqual(5);
     expect(slicedBlob.type).toEqual("text/plain");
+  });
+});
+
+describe("URL Utility Functions", () => {
+  it("converts URL object to http options with urlToHttpOptions", () => {
+    const url = new URL(
+      "https://user:password@example.com:8080/path/to/file?param1=value1&param2=value2#fragment"
+    );
+    const options = urlModule.urlToHttpOptions(url);
+
+    expect(options).toEqual({
+      protocol: "https:",
+      hostname: "example.com",
+      hash: "fragment",
+      search: "?param1=value1&param2=value2",
+      pathname: "/path/to/file",
+      path: "/path/to/file?param1=value1&param2=value2",
+      href: "https://user:password@example.com:8080/path/to/file?param1=value1&param2=value2#fragment",
+      auth: "user:password",
+      port: "8080",
+    });
+  });
+
+  it("handles URL without credentials or port with urlToHttpOptions", () => {
+    const url = new URL("http://example.com/path/to/file");
+    const options = urlModule.urlToHttpOptions(url);
+
+    expect(options).toEqual({
+      protocol: "http:",
+      hostname: "example.com",
+      pathname: "/path/to/file",
+      path: "/path/to/file",
+      href: "http://example.com/path/to/file",
+    });
+  });
+
+  it("converts punycode domain to unicode with domainToUnicode", () => {
+    const unicodeDomain = urlModule.domainToUnicode("xn--d1mi3b5c.com");
+    expect(unicodeDomain).toBe("㶠㶤㷀㶱.com");
+  });
+
+  it("handles already unicode domain with domainToUnicode", () => {
+    const unicodeDomain = urlModule.domainToUnicode("example.com");
+    expect(unicodeDomain).toBe("example.com");
+  });
+
+  it("converts unicode domain to punycode with domainToASCII", () => {
+    const asciiDomain = urlModule.domainToASCII("example.com");
+    expect(asciiDomain).toBe("example.com"); // No conversion needed
+  });
+
+  it("converts non-ASCII domain to punycode with domainToASCII", () => {
+    const asciiDomain = urlModule.domainToASCII("مثال.com");
+
+    expect(asciiDomain).toBe("xn--mgbh0fb.com");
+  });
+
+  it("converts file URL to system path with fileURLToPath", () => {
+    const url = new URL("file:///path/to/file.txt");
+    const path = urlModule.fileURLToPath(url);
+
+    expect(path).toBe("/path/to/file.txt"); // Platform specific path handling might differ
+  });
+
+  it("converts system path to file URL with pathToFileURL", () => {
+    const url = urlModule.pathToFileURL("/path/to/file.txt");
+
+    expect(url.href).toBe("file:///path/to/file.txt"); // Platform specific path handling might differ
+  });
+
+  it("formats URL object into a string with format", () => {
+    const url = new URL("https://a:b@測試?abc#foo");
+
+    expect(url.href).toBe("https://a:b@xn--g6w251d/?abc#foo");
+
+    expect(
+      urlModule.format(url, { fragment: false, unicode: true, auth: false })
+    ).toBe("https://測試/?abc");
   });
 });
