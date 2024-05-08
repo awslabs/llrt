@@ -132,6 +132,24 @@ fn random_fill_sync<'js>(
     Ok(obj)
 }
 
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    let globals = ctx.globals();
+
+    let crypto = Object::new(ctx.clone())?;
+
+    crypto.set("createHash", Func::from(Hash::new))?;
+    crypto.set("createHmac", Func::from(Hmac::new))?;
+    crypto.set("randomBytes", Func::from(get_random_bytes))?;
+    crypto.set("randomInt", Func::from(get_random_int))?;
+    crypto.set("randomUUID", Func::from(uuidv4))?;
+    crypto.set("randomFillSync", Func::from(random_fill_sync))?;
+    crypto.set("randomFill", Func::from(random_fill))?;
+
+    globals.set("crypto", crypto)?;
+
+    Ok(())
+}
+
 pub struct CryptoModule;
 
 impl ModuleDef for CryptoModule {
