@@ -81,6 +81,7 @@ impl ModuleBuilder {
     pub fn with_default() -> Self {
         Self::new()
             .with_module(CryptoModule)
+            .with_global(crate::modules::crypto::init)
             .with_module(HexModule)
             .with_global(crate::modules::encoding::init)
             .with_module(FsPromisesModule)
