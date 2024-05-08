@@ -190,8 +190,6 @@ export class URL {
 }
 ```
 
-### TODO, URL see tracking [ticket](https://github.com/awslabs/llrt/issues/303):
-
 ```typescript
 // Additional utilities in the URL module
 export function domainToASCII(domain: string): string;
@@ -202,11 +200,15 @@ export function fileURLToPath(url: string | URL): string;
 
 export function pathToFileURL(path: string): URL;
 
+export function format(url: string | URL, options?: { fragment?: boolean, unicode?: boolean, auth?: boolean
+}): string;
+
 export function urlToHttpOptions(url: URL): {
   protocol?: string;
   hostname?: string;
   port?: string;
   path?: string;
+  ...
 };
 ```
 

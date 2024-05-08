@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr};
+
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
@@ -5,7 +7,7 @@ use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
     prelude::This,
-    Class, Coerced, Ctx, Exception, FromJs, Function, Result, Value,
+    Class, Coerced, Ctx, Exception, FromJs, Function, Object, Result, Value,
 };
 use url::Url;
 
@@ -90,27 +92,7 @@ impl<'js> URL<'js> {
     }
 
     pub fn to_string(&self) -> String {
-        let search = search_params_to_string(&self.search_params);
-        let hash = &self.hash;
-        let hash = if !hash.is_empty() {
-            format!("#{}", &hash)
-        } else {
-            String::from("")
-        };
-        let mut user_info = String::new();
-        if !self.username.is_empty() {
-            user_info.push_str(&self.username);
-            if !self.password.is_empty() {
-                user_info.push(':');
-                user_info.push_str(&self.password)
-            }
-            user_info.push('@')
-        }
-
-        format!(
-            "{}://{}{}{}{}{}",
-            &self.protocol, user_info, &self.host, &self.pathname, &search, &hash
-        )
+        self.format(true, true, true, false)
     }
 
     #[qjs(get)]
@@ -309,6 +291,47 @@ impl<'js> URL<'js> {
             self.host.clone_from(&self.hostname);
         }
     }
+
+    fn format(
+        &self,
+        include_auth: bool,
+        include_fragment: bool,
+        include_search: bool,
+        unicode_encode: bool,
+    ) -> String {
+        let search = if include_search {
+            search_params_to_string(&self.search_params)
+        } else {
+            String::from("")
+        };
+        let hash = &self.hash;
+        let hash = if include_fragment && !hash.is_empty() {
+            format!("#{}", &hash)
+        } else {
+            String::from("")
+        };
+
+        let mut user_info = String::new();
+        if include_auth && !self.username.is_empty() {
+            user_info.push_str(&self.username);
+            if !self.password.is_empty() {
+                user_info.push(':');
+                user_info.push_str(&self.password)
+            }
+            user_info.push('@')
+        }
+
+        let host = if unicode_encode {
+            domain_to_unicode(&self.host)
+        } else {
+            self.host.clone()
+        };
+
+        format!(
+            "{}://{}{}{}{}{}",
+            &self.protocol, user_info, host, &self.pathname, &search, &hash
+        )
+    }
 }
 
 fn filtered_port(protocol: &str, port: &str) -> Option<String> {
@@ -356,4 +379,105 @@ fn split_colon<'js>(ctx: &Ctx, s: &'js str) -> Result<(&'js str, &'js str)> {
         ));
     }
     Ok((first, second))
+}
+
+pub fn url_to_http_options<'js>(ctx: Ctx<'js>, url: Class<'js, URL<'js>>) -> Result<Object<'js>> {
+    let obj = Object::new(ctx)?;
+
+    let url = url.borrow();
+
+    let port = url.port();
+    let username = url.username();
+    let search = url.search();
+    let hash = url.hash();
+
+    obj.set("protocol", url.protocol())?;
+    obj.set("hostname", url.hostname())?;
+
+    if !hash.is_empty() {
+        obj.set("hash", url.hash())?;
+    }
+    if !search.is_empty() {
+        obj.set("search", url.search())?;
+    }
+
+    obj.set("pathname", url.pathname())?;
+    obj.set("path", format!("{}{}", url.pathname(), url.search()))?;
+    obj.set("href", url.href())?;
+
+    if !username.is_empty() {
+        obj.set("auth", format!("{}:{}", username, url.password()))?;
+    }
+
+    if !port.is_empty() {
+        obj.set("port", url.port())?;
+    }
+
+    Ok(obj)
+}
+
+pub fn domain_to_unicode(domain: &str) -> String {
+    let (url, result) = idna::domain_to_unicode(domain);
+    if result.is_err() {
+        return String::from("");
+    }
+    url
+}
+
+pub fn domain_to_ascii(domain: &str) -> String {
+    idna::domain_to_ascii(domain).unwrap_or_default()
+}
+
+//options are ignored, no windows support yet
+pub fn path_to_file_url<'js>(ctx: Ctx<'js>, path: String, _: Opt<Value>) -> Result<URL<'js>> {
+    let url = Url::from_file_path(path).unwrap();
+    URL::create(ctx, url)
+}
+
+//options are ignored, no windows support yet
+pub fn file_url_to_path<'js>(ctx: Ctx<'js>, url: Value<'js>) -> Result<String> {
+    let url_string = if let Ok(url) = Class::<URL>::from_value(url.clone()) {
+        url.borrow().to_string()
+    } else {
+        url.get::<Coerced<String>>()?.to_string()
+    };
+
+    let path = if let Some(path) = &url_string.strip_prefix("file://") {
+        path.to_string()
+    } else {
+        url_string
+    };
+
+    Ok(PathBuf::from_str(&path)
+        .or_throw(&ctx)?
+        .to_string_lossy()
+        .to_string())
+}
+
+pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> Result<String> {
+    let mut fragment = true;
+    let mut unicode = false;
+    let mut auth = true;
+    let mut search = true;
+
+    // Parse options if provided
+    if let Some(options) = options.0 {
+        if options.is_object() {
+            let options = options.as_object().unwrap();
+            if let Some(value) = options.get("fragment")? {
+                fragment = value;
+            }
+            if let Ok(value) = options.get("unicode") {
+                unicode = value;
+            }
+            if let Ok(value) = options.get("auth") {
+                auth = value;
+            }
+            if let Ok(value) = options.get("search") {
+                search = value
+            }
+        }
+    }
+
+    Ok(url.borrow().format(auth, fragment, search, unicode))
 }
