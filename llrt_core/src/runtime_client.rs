@@ -165,13 +165,16 @@ impl RuntimeConfig {
     }
 }
 
-pub async fn start(ctx: &Ctx<'_>) -> Result<()> {
-    start_with_cfg(ctx, RuntimeConfig::default(ctx)?).await
+pub fn start<'js>(ctx: Ctx<'js>) -> Result<()> {
+    start_with_cfg(ctx.clone(), RuntimeConfig::default(&ctx)?)
 }
 
-async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
-    let (module_name, handler_name) = get_module_and_handler_name(ctx, &config.handler)?;
-    let task_root = get_task_root();
+fn start_with_cfg<'js>(ctx: Ctx<'js>, config: RuntimeConfig) -> Result<()> {
+    ctx.clone()
+        .spawn_exit(async move {
+            let base_url = format!("http://{}/{}", config.runtime_api, ENV_RUNTIME_PATH);
+            let base_url2 = base_url.clone();
+            let ctx2 = ctx.clone();
 
     //allows CJS handlers
     let require_function: Function = ctx.globals().get("require")?;
@@ -194,30 +197,55 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         init_promise.await.catch(ctx).throw(ctx)?;
     }
 
-    let handler: Value = js_handler_module.get(handler_name.as_str())?;
+                let js_handler_module_promise: Promise =
+                    Module::import(&ctx, format!("{}/{}", task_root, module_name))?;
+                println!("a");
+                let js_handler_module: Object = js_handler_module_promise.into_future().await?;
+                println!("b");
+                let js_bootstrap: Object = globals.get("__bootstrap")?;
+                let js_init_tasks: Array = js_bootstrap.get("initTasks")?;
 
-    if !handler.is_function() {
-        return Err(Exception::throw_message(
-            ctx,
-            &format!(
-                "\"{}\" is not a function in \"{}\"",
-                handler_name, module_name
-            ),
-        ));
-    }
+                let init_tasks_size = js_init_tasks.len();
+                #[allow(clippy::comparison_chain)]
+                if init_tasks_size == 1 {
+                    let init_promise = js_init_tasks.get::<Promise>(0)?;
+                    init_promise.into_future().await.or_throw(&ctx)?;
+                } else if init_tasks_size > 1 {
+                    let promise_actor: Object = globals.get(PredefinedAtom::Promise)?;
+                    let init_promise: Promise = promise_actor
+                        .get::<_, Function>("all")?
+                        .call((js_init_tasks.clone(),))?;
+                    init_promise.into_future().await.catch(&ctx).throw(&ctx)?;
+                }
 
-    let client = (*HTTP_CLIENT).clone();
+                let handler: Value = js_handler_module.get(handler_name.as_str())?;
 
-    let base_url = format!("http://{}/{}", config.runtime_api, ENV_RUNTIME_PATH);
-    let handler = handler.as_function().unwrap();
-    if let Err(err) = start_process_events(ctx, &client, handler, base_url.as_str(), &config)
-        .await
-        .map_err(|e| CaughtError::from_error(ctx, e))
-    {
-        post_error(ctx, &client, &base_url, "/init/error", &err, None).await?;
-        Vm::print_error_and_exit(ctx, err);
-    }
-    Ok(())
+                if !handler.is_function() {
+                    return Err(Exception::throw_message(
+                        &ctx,
+                        &format!(
+                            "\"{}\" is not a function in \"{}\"",
+                            handler_name, module_name
+                        ),
+                    ));
+                }
+
+                let handler = handler.as_function().unwrap();
+                start_process_events(&ctx, &client, handler, &base_url, &config).await?;
+                Ok(())
+            };
+            if let Err(err) = res.await.catch(&ctx2) {
+                let client = (*HTTP_CLIENT).clone();
+                post_error(&ctx2, &client, &base_url2, "/init/error", &err, None).await?;
+                #[cfg(not(test))]
+                {
+                    Vm::print_error_and_exit(&ctx2, err);
+                }
+            }
+
+            Ok(())
+        })
+        .map(move |_| ())
 }
 
 async fn next_invocation<'js, 'a>(
@@ -527,7 +555,6 @@ fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<Strin
 mod tests {
 
     use hyper::header::CONTENT_TYPE;
-    use rquickjs::{async_with, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::{
@@ -538,9 +565,11 @@ mod tests {
         vm::Vm,
     };
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn runtime() {
         let mock_server = MockServer::start().await;
+
+        let iterations = 10;
 
         Mock::given(matchers::method("GET"))
             .and(matchers::path(format!(
@@ -553,6 +582,8 @@ mod tests {
                     .insert_header(&HEADER_INVOKED_FUNCTION_ARN, "n/a")
                     .set_body_string(r#"{"hello": "world"}"#),
             )
+            .named("/invocation/next")
+            .expect(iterations + 1)
             .mount(&mock_server)
             .await;
 
@@ -562,6 +593,8 @@ mod tests {
             ))
             .and(matchers::header(&CONTENT_TYPE, "application/json"))
             .respond_with(ResponseTemplate::new(202))
+            .named("/invocation/response")
+            .expect(iterations)
             .mount(&mock_server)
             .await;
 
@@ -569,6 +602,17 @@ mod tests {
             .and(matchers::path_regex(r#"invocation/[A-z0-9-]{1,}/error$"#))
             .and(matchers::header(&CONTENT_TYPE, "application/json"))
             .respond_with(ResponseTemplate::new(202))
+            .named("/invocation/error")
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(matchers::method("POST"))
+            .and(matchers::path_regex("init/error"))
+            .and(matchers::header(&CONTENT_TYPE, "application/json"))
+            .respond_with(ResponseTemplate::new(202))
+            .named("/init/error")
+            .expect(1)
             .mount(&mock_server)
             .await;
 

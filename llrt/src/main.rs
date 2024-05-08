@@ -4,16 +4,14 @@
 mod minimal_tracer;
 
 use llrt_core::{
-    async_with,
     modules::{
-        self,
         console::{self, LogLevel},
         process::{get_arch, get_platform},
     },
     runtime_client,
     utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
     vm::Vm,
-    AsyncContext, CatchResultExt, Module, Value, VERSION,
+    VERSION,
 };
 use minimal_tracer::MinimalTracer;
 use std::{
@@ -96,12 +94,7 @@ Options:
 }
 
 async fn start_runtime(vm: &Vm) {
-    async_with!(vm.ctx => |ctx|{
-        if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
-            Vm::print_error_and_exit(&ctx, err)
-        }
-    })
-    .await;
+    vm.run_with(|ctx| runtime_client::start(ctx.clone())).await
 }
 
 async fn start_cli(vm: &Vm) {

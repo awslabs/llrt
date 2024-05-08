@@ -1,8 +1,13 @@
 console.log(123);
 
-// setInterval(() => {
-//   console.log("interval");
-// }, 1000);
+let i = setInterval(() => {
+  console.log("interval");
+}, 1000);
+
+setTimeout(() => {
+  console.log("timeout");
+  clearInterval(i);
+}, 5000);
 
 await Promise.resolve(1);
 

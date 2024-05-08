@@ -28,7 +28,6 @@ use rquickjs::{
     context::EvalOptions,
     function::{Constructor, Opt},
     loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
-    markers::ParallelSend,
     module::Declared,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
@@ -526,7 +525,7 @@ impl Vm {
 
             let mut pending_job = pin!(runtime.idle());
 
-            if let Poll::Ready(res) = pending_job.as_mut().poll(cx) {
+            if let Poll::Ready(_) = pending_job.as_mut().poll(cx) {
                 let timeouts = timeout_refs.lock().unwrap();
                 if timeouts.is_empty() {
                     return Poll::Ready(());
@@ -669,8 +668,6 @@ fn init(
             drop(map);
 
             trace!("Require: {}", import_name);
-
-            //timeout_refs
 
             let mut timeout_callbacks = Vec::new();
             let mut last_time = 0;

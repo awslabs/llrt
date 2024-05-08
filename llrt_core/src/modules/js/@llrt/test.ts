@@ -384,6 +384,7 @@ const findTests = async () => {
 const printStats = () => {
   const end = Date.now();
   const includedCount = onlyCount || testCount - skippedCount;
+  console.log(includedCount);
   const passed = includedCount == passedCount && failedCount == 0;
   const status = passed
     ? Color.GREEN_BACKGROUND(" \u2714 ALL PASSED ")
@@ -400,8 +401,8 @@ const printStats = () => {
 
 try {
   await findTests();
-  // await runAllTests();
-  // printStats();
+  await runAllTests();
+  printStats();
 } catch (e) {
   console.error(e);
   process.exit(1);

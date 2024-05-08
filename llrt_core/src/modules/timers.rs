@@ -179,9 +179,9 @@ pub(crate) fn poll_timers(
                     timeout.expires = current_time + timeout.delay;
                     timeout_callbacks.push(Some((cb.clone(), ctx)));
                     timeout.callback.replace(cb);
+                } else {
+                    return false;
                 }
-
-                return false;
             }
             true
         });
