@@ -1,7 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#[cfg(feature = "nightly")] //FIXME remove when std::simd is stable
-use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
+#[cfg(rust_nightly)] //FIXME remove when std::simd is stable
+use std::simd::{
+    prelude::{SimdPartialEq, SimdPartialOrd},
+    u8x16, Simd,
+};
+//use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
 
 static JSON_ESCAPE_CHARS: [u8; 256] = [
     0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8, 15u8, 16u8,
@@ -58,13 +62,15 @@ pub fn escape_json_string_simple(result: &mut String, bytes: &[u8]) {
     }
 }
 
-#[cfg(not(feature = "nightly"))]
+#[cfg(not(rust_nightly))]
 pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
     escape_json_string_simple(result, bytes);
 }
 
-#[cfg(feature = "nightly")]
+#[cfg(rust_nightly)]
 pub fn escape_json_string(result: &mut String, bytes: &[u8]) {
+    use std::mem;
+
     const USIZE_BYTES: usize = mem::size_of::<usize>();
 
     let len = bytes.len();

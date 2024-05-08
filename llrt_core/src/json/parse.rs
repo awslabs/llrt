@@ -51,6 +51,14 @@ impl<'js> PathItem<'js> {
 }
 
 pub fn json_parse<'js>(ctx: &Ctx<'js>, mut json: Vec<u8>) -> Result<Value<'js>> {
+    #[cfg(not(test))]
+    {
+        //don't use simd for small json objects
+        if json.len() < 128 * 32 {
+            return ctx.json_parse(json);
+        }
+    }
+
     let tape = simd_json::to_tape(&mut json).or_throw(ctx)?;
 
     let mut str_key = "";

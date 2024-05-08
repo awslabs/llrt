@@ -37,6 +37,8 @@ include!("src/compiler_common.rs");
 
 #[tokio::main]
 async fn main() -> StdResult<(), Box<dyn Error>> {
+    set_nightly_cfg();
+
     rerun_if_changed!(BUNDLE_JS_DIR);
 
     let resolver = (DummyResolver,);
@@ -166,6 +168,24 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn set_nightly_cfg() {
+    let rustc = std::env::var("RUSTC").unwrap();
+    let version = std::process::Command::new(rustc)
+        .arg("--version")
+        .output()
+        .unwrap();
+
+    assert!(version.status.success());
+
+    let stdout = String::from_utf8(version.stdout).unwrap();
+    assert!(stdout.contains("rustc"));
+    let nightly = stdout.contains("nightly") || stdout.contains("dev");
+    if nightly {
+        println!("cargo:rustc-cfg=rust_nightly");
+        println!("cargo::rustc-check-cfg=cfg(rust_nightly)");
+    }
 }
 
 fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::Result<usize> {
