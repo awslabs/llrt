@@ -17,7 +17,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     Ctx, Result,
 };
-use rustls::{crypto::ring, ClientConfig, RootCertStore};
+use rustls::{crypto::ring, version, ClientConfig, RootCertStore};
 use tracing::warn;
 use webpki_roots::TLS_SERVER_ROOTS;
 
@@ -46,17 +46,13 @@ pub static HTTP_CLIENT: Lazy<Client<HttpsConnector<HttpConnector>, Full<Bytes>>>
     Lazy::new(|| {
         let pool_idle_timeout: u64 = get_pool_idle_timeout();
 
+        let builder = hyper_rustls::HttpsConnectorBuilder::new()
+            .with_tls_config(TLS_CONFIG.clone())
+            .https_or_http();
+
         let https = match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
-            Ok("1.1") => hyper_rustls::HttpsConnectorBuilder::new()
-                .with_tls_config(TLS_CONFIG.clone())
-                .https_or_http()
-                .enable_http1()
-                .build(),
-            _ => hyper_rustls::HttpsConnectorBuilder::new()
-                .with_tls_config(TLS_CONFIG.clone())
-                .https_or_http()
-                .enable_all_versions()
-                .build(),
+            Ok("1.1") => builder.enable_http1().build(),
+            _ => builder.enable_all_versions().build(),
         };
 
         Client::builder(TokioExecutor::new())
@@ -72,11 +68,15 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
         root_certificates.roots.push(cert)
     }
 
-    ClientConfig::builder_with_provider(ring::default_provider().into())
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(root_certificates)
-        .with_no_client_auth()
+    let builder = ClientConfig::builder_with_provider(ring::default_provider().into());
+
+    match env::var(environment::ENV_LLRT_TLS_VERSION).as_deref() {
+        Ok("1.3") => builder.with_safe_default_protocol_versions(),
+        _ => builder.with_protocol_versions(&[&version::TLS12]), //Use TLS 1.2 by default to increase compat and keep latency low
+    }
+    .unwrap()
+    .with_root_certificates(root_certificates)
+    .with_no_client_auth()
 });
 
 pub struct NetModule;
