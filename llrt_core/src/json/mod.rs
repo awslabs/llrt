@@ -33,17 +33,17 @@ mod tests {
             ];
 
             for json_str in json_data {
-                println!("==========");
-                println!("{}", json_str);
-                println!("==========");
+                // debug!("==========");
+                // println!("{}", json_str);
+                // println!("==========");
                 let json = json_str.to_string();
                 let json2 = json.clone();
 
                 let value = json_parse(&ctx, json2.into_bytes())?;
                 let new_json = json_stringify_replacer_space(&ctx, value.clone(),None,Some("  ".into()))?.unwrap();
                 let builtin_json = ctx.json_stringify_replacer_space(value,Null,"  ".to_string())?.unwrap().to_string()?;
-                println!("==========");
-                println!("{}", new_json);
+                // println!("==========");
+                // println!("{}", new_json);
                 assert_eq!(new_json, builtin_json);
             }
 
@@ -200,6 +200,7 @@ mod tests {
 
         let data = [
             json.clone(),
+            generate_json(&json, 1),
             generate_json(&json, 10),
             generate_json(&json, 100),
             generate_json(&json, 1000),

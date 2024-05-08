@@ -55,7 +55,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly-2024-05-03
+          toolchain: nightly
       - name: Run tests
         if: inputs.arch != 'aarch64' || inputs.platform != 'linux'
         run: |

@@ -4,6 +4,13 @@ version = "0.1.12-beta"
 edition = "2021"
 license-file = "LICENSE"
 
+[features]
+default = ["macro"]
+macro = ["llrt_core/macro"]
+lambda = ["llrt_core/lambda"]
+no-sdk = ["llrt_core/no-sdk"]
+uncompressed = ["llrt_core/uncompressed"]
+
 [dependencies]
 llrt_core = { path = "../llrt_core" }
 tracing = { version = "0.1.40", features = ["log"] }
