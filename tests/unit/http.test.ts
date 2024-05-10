@@ -39,14 +39,18 @@ describe("URL module import", () => {
     it("supports URLSearchParams basic API", () => {
       const paramsString = "topic=api&a=1&a=2&a=3";
       const searchParams = new urlModule.URLSearchParams(paramsString);
+      expect(searchParams.size).toEqual(4);
       searchParams.append("foo", "bar");
+      expect(searchParams.size).toEqual(5);
       expect(searchParams.has("topic")).toBeTruthy();
       expect(searchParams.has("foo")).toBeTruthy();
       searchParams.delete("foo");
+      expect(searchParams.size).toEqual(4);
       expect(searchParams.has("foo")).toBeFalsy();
       expect(searchParams.get("topic")).toEqual("api");
       expect(searchParams.getAll("a")).toEqual(["1", "2", "3"]);
       searchParams.set("topic", "node");
+      expect(searchParams.size).toEqual(4);
       expect(searchParams.get("topic")).toEqual("node");
     });
   });
@@ -479,6 +483,41 @@ describe("URLSearchParams class", () => {
       ["a", "2"],
       ["a", "3"],
     ]);
+  });
+
+  it("should for_each all parameters in the query string", () => {
+    const paramsString = "topic=api&a=1&a=2&a=3";
+    const searchParams = new URLSearchParams(paramsString);
+    let arr: [string, string][] = [];
+    searchParams.forEach((value, key) => {
+      arr.push([key, value]);
+    });
+    expect(arr).toEqual([
+      ["topic", "api"],
+      ["a", "1"],
+      ["a", "2"],
+      ["a", "3"],
+    ]);
+  });
+
+  it("should get key parameters in the query string", () => {
+    const paramsString = "key1=value1&key2=value2";
+    const searchParams = new URLSearchParams(paramsString);
+    let keys = "";
+    for (const key of searchParams.keys()) {
+      keys = keys + key;
+    }
+    expect(keys).toEqual("key1key2");
+  });
+
+  it("should get value parameters in the query string", () => {
+    const paramsString = "key1=value1&key2=value2";
+    const searchParams = new URLSearchParams(paramsString);
+    let values = "";
+    for (const value of searchParams.values()) {
+      values = values + value;
+    }
+    expect(values).toEqual("value1value2");
   });
 });
 

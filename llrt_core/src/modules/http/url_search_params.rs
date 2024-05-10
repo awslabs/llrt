@@ -59,6 +59,11 @@ impl URLSearchParams {
         Ok(URLSearchParams { params: Vec::new() })
     }
 
+    #[qjs(get)]
+    pub fn size(&mut self) -> usize {
+        self.params.len()
+    }
+
     pub fn append(&mut self, key: String, value: String) {
         self.params.push((key, value));
     }
@@ -137,6 +142,10 @@ impl URLSearchParams {
         string
     }
 
+    pub fn keys(&mut self) -> Vec<String> {
+        self.params.iter().map(|(k, _)| k.clone()).collect()
+    }
+
     pub fn values(&mut self) -> Vec<String> {
         self.params.iter().map(|(_, v)| v.clone()).collect()
     }
@@ -148,6 +157,13 @@ impl URLSearchParams {
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
     pub fn iterator<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         self.js_iterator(ctx)
+    }
+
+    pub fn for_each(&self, callback: Function<'_>) -> Result<()> {
+        for param in self.params.iter() {
+            callback.call((param.1.clone(), param.0.clone()))?
+        }
+        Ok(())
     }
 }
 
