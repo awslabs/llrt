@@ -133,7 +133,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Ok(())
 }
 
-const NEWLINE_LOOKUP: [char; 2] = [NEWLINE, CARRIAGE_RETURN];
+pub const NEWLINE_LOOKUP: [char; 2] = [NEWLINE, CARRIAGE_RETURN];
 const COLOR_RESET: &str = "\x1b[0m";
 const COLOR_BLACK: &str = "\x1b[30m";
 const COLOR_GREEN: &str = "\x1b[32m";
@@ -240,7 +240,7 @@ fn is_primitive_like_or_void(typeof_value: Type) -> bool {
 }
 
 #[inline(always)]
-fn stringify_value<'js>(
+pub fn stringify_value<'js>(
     result: &mut String,
     ctx: &Ctx<'js>,
     obj: Value<'js>,
@@ -579,21 +579,30 @@ fn format_plain<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
     format_values(&ctx, args, false)
 }
 
-fn format_values_internal<'js>(
+pub fn format_values_internal<'js>(
     result: &mut String,
     ctx: &Ctx<'js>,
     args: Rest<Value<'js>>,
     tty: bool,
     newline_char: char,
 ) -> Result<()> {
-    let mut write_space = false;
-    for arg in args.0.into_iter() {
-        if write_space {
-            result.push(' ');
+    // Parse arguments
+    let mut str_pattern_option_value: String = String::with_capacity(64);
+    let mut replacements = Vec::with_capacity(args.len() - 1);
+    for (index, arg) in args.0.into_iter().enumerate() {
+        if index == 0 {
+            stringify_value(&mut str_pattern_option_value, ctx, arg, tty, newline_char)?;
+        } else {
+            let mut result = String::with_capacity(64);
+            stringify_value(&mut result, ctx, arg, tty, newline_char)?;
+            replacements.push(result)
         }
-        stringify_value(result, ctx, arg, tty, newline_char)?;
-        write_space = true
     }
+
+    result.push_str(&format_string(
+        str_pattern_option_value.as_str(),
+        &replacements,
+    ));
     Ok(())
 }
 
@@ -615,6 +624,63 @@ pub(crate) fn log_std_err<'js>(
     level: LogLevel,
 ) -> Result<()> {
     write_log(stderr(), ctx, args, level)
+}
+
+fn format_string(format_str: &str, replacements: &[String]) -> String {
+    // Quick return if we don't have anything to replace
+    if replacements.is_empty() {
+        return format_str.to_owned();
+    }
+
+    // Define capacity
+    let mut capacity = format_str.len() + replacements.len(); // add the number of replacements in case we have more to account for spaces
+    for replacement in replacements {
+        capacity += replacement.len();
+    }
+    let mut result = String::with_capacity(capacity);
+    let mut replacement_idx = 0;
+
+    // Iterate over chars to find patterns
+    let mut chars = format_str.chars().peekable();
+    while let Some(current_char) = chars.next() {
+        if current_char == '%' {
+            if let Some(next_char) = chars.next() {
+                // Handle the case of %s, %d, etc, we keep it simple and only replaces string
+                let need_to_put_back_chars = match next_char {
+                    's' | 'd' | 'i' | 'f' | 'o' | 'O' | 'j' => {
+                        if replacement_idx < replacements.len() {
+                            result.push_str(&replacements[replacement_idx]);
+                            replacement_idx += 1;
+                            false
+                        } else {
+                            true
+                        }
+                    },
+                    '%' => {
+                        // Handle the case of %% where we want to push only one %
+                        result.push(current_char);
+                        false
+                    },
+                    _ => true,
+                };
+                // Nothing was replaced, just add back what we found
+                if need_to_put_back_chars {
+                    result.push(current_char);
+                    result.push(next_char);
+                }
+            }
+        } else {
+            result.push(current_char);
+        }
+    }
+
+    // Add what remains
+    if replacement_idx < replacements.len() {
+        result.push(' ');
+        result.push_str(&replacements[replacement_idx..].join(" "));
+    }
+
+    result
 }
 
 #[allow(clippy::unused_io_amount)]
@@ -754,18 +820,28 @@ fn write_lambda_log<'js>(
 
             let mut exception = None;
 
-            let mut write_space = false;
-            for arg in args.0.into_iter() {
-                if write_space {
-                    values_string.push(' ');
-                }
+            // Parse arguments
+            let mut str_pattern_option_value: String = String::with_capacity(64);
+            let mut replacements = Vec::with_capacity(args.len() - 1);
+            for (index, arg) in args.0.into_iter().enumerate() {
                 if arg.is_error() && exception.is_none() {
                     let exception_value = arg.clone();
                     exception = Some(exception_value.into_exception().unwrap());
                 }
-                stringify_value(&mut values_string, ctx, arg, is_tty, NEWLINE)?;
-                write_space = true
+
+                if index == 0 {
+                    stringify_value(&mut str_pattern_option_value, ctx, arg, is_tty, NEWLINE)?;
+                } else {
+                    let mut result = String::with_capacity(64);
+                    stringify_value(&mut result, ctx, arg, is_tty, NEWLINE)?;
+                    replacements.push(result)
+                }
             }
+
+            values_string.push_str(&format_string(
+                str_pattern_option_value.as_str(),
+                &replacements,
+            ));
 
             result.push_str(&escape_json(values_string.as_bytes()));
             result.push('\"');
