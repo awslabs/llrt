@@ -220,6 +220,9 @@ export class URLSearchParams {
     init?: string | string[][] | Record<string, string> | URLSearchParams
   );
 
+  // properties
+  size: number;
+ 
   // Methods
   append(name: string, value: string): void;
   delete(name: string): void;
@@ -231,6 +234,8 @@ export class URLSearchParams {
 
   [Symbol.iterator](): IterableIterator<[string, string]>;
   entries(): IterableIterator<[string, string]>;
+  forEach(): IterableIterator<[string, string]>;
+  keys(): IterableIterator<string>;
   values(): IterableIterator<string>;
 
   toString(): string;
