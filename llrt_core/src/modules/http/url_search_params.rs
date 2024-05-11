@@ -60,7 +60,7 @@ impl URLSearchParams {
     }
 
     #[qjs(get)]
-    pub fn size(&mut self) -> usize {
+    pub fn size(&self) -> usize {
         self.params.len()
     }
 
