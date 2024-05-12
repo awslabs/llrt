@@ -161,7 +161,7 @@ describe("Request class", () => {
     expect(request.body).toEqual(null);
   });
 
-  it("should set the body to the provided value", async () => {
+  it("should set the body to the provided value", () => {
     const body = "hello world!";
     const request = new Request("https://example.com", {
       body,
