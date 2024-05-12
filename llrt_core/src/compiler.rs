@@ -45,8 +45,8 @@ pub async fn compile_file(input_filename: &Path, output_filename: &Path) -> Resu
 
         trace!("Compiling module: {}", module_name);
 
-        let module = unsafe { Module::unsafe_declare(ctx.clone(), module_name, source).unwrap() };
-        let bytes = module.write_object(false).unwrap();
+        let module = Module::declare(ctx.clone(), module_name, source).unwrap();
+        let bytes = module.write(false).unwrap();
         let filename = output_filename.to_string_lossy().to_string();
         let compressed = compress_module(&bytes).unwrap();
         fs::write(filename, &compressed).unwrap();

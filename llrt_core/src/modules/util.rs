@@ -12,15 +12,15 @@ use crate::{module_builder::ModuleInfo, modules::module::export_default};
 pub struct UtilModule;
 
 impl ModuleDef for UtilModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(TextDecoder))?;
         declare.declare(stringify!(TextEncoder))?;
         declare.declare(stringify!(format))?;
-        declare.declare_static(cstr!("default"))?;
+        declare.declare_c_str(cstr!("default"))?;
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             let globals = ctx.globals();
 

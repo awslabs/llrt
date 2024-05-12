@@ -37,7 +37,7 @@ where
         .map(|p| p.instance_of::<C>())
         .unwrap_or_default()
     {
-        return Ok(Some(Class::<C>::from_value(provided.clone())?));
+        return Ok(Some(Class::<C>::from_value(provided)?));
     }
     Ok(None)
 }

@@ -82,14 +82,14 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
 pub struct NetModule;
 
 impl ModuleDef for NetModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         socket::declare(declare)?;
-        declare.declare_static(cstr!("default"))?;
+        declare.declare_c_str(cstr!("default"))?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         socket::init(ctx.clone(), exports)?;
         Ok(())
     }

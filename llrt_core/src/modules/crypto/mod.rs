@@ -153,7 +153,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub struct CryptoModule;
 
 impl ModuleDef for CryptoModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("createHash")?;
         declare.declare("createHmac")?;
         declare.declare("Crc32")?;
@@ -175,7 +175,7 @@ impl ModuleDef for CryptoModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Hash>::register(ctx)?;
         Class::<Hmac>::register(ctx)?;
         Class::<ShaHash>::register(ctx)?;

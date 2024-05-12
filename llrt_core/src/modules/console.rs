@@ -86,14 +86,14 @@ impl LogLevel {
 pub struct ConsoleModule;
 
 impl ModuleDef for ConsoleModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(Console))?;
         declare.declare("default")?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Console>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
@@ -199,7 +199,7 @@ fn stringify_primitive<'js>(
         Type::String => result.push_str(&value.as_string().unwrap().to_string()?),
         Type::Symbol => {
             let description = value.as_symbol().unwrap().description()?;
-            let description = description.to_string()?;
+            let description = description.into_string().unwrap().to_string()?;
             result.push_str("Symbol(");
             if description != "undefined" {
                 result.push_str(&description);

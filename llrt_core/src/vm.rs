@@ -22,11 +22,10 @@ use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
     function::{Constructor, Opt},
-    loader::{BuiltinLoader, FileResolver, Loader, RawLoader, Resolver, ScriptLoader},
-    module::ModuleData,
+    loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Result, String as JsString, Value,
+    Module, Object, Promise, Result, String as JsString, Value,
 };
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
@@ -206,16 +205,16 @@ impl Default for BinaryLoader {
     }
 }
 
-struct RawLoaderContainer<T>
+struct LoaderContainer<T>
 where
-    T: RawLoader + 'static,
+    T: Loader + 'static,
 {
     loader: T,
     cwd: String,
 }
-impl<T> RawLoaderContainer<T>
+impl<T> LoaderContainer<T>
 where
-    T: RawLoader + 'static,
+    T: Loader + 'static,
 {
     fn new(loader: T) -> Self {
         Self {
@@ -228,13 +227,13 @@ where
     }
 }
 
-unsafe impl<T> RawLoader for RawLoaderContainer<T>
+impl<T> Loader for LoaderContainer<T>
 where
-    T: RawLoader + 'static,
+    T: Loader + 'static,
 {
     #[allow(clippy::manual_strip)]
-    unsafe fn raw_load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
-        let res = self.loader.raw_load(ctx, name)?;
+    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+        let res = self.loader.load(ctx, name)?;
 
         let name = if name.starts_with("./") {
             &name[2..]
@@ -253,30 +252,33 @@ where
 }
 
 impl Loader for BinaryLoader {
-    fn load(&mut self, _ctx: &Ctx<'_>, name: &str) -> Result<ModuleData> {
+    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
         trace!("Loading module: {}", name);
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
             trace!("Loading embedded module: {}", name);
 
-            return load_bytecode_module(name, bytes);
+            let bytes = load_module(bytes)?;
+            return load_bytecode_module(ctx, &bytes);
         }
         let path = PathBuf::from(name);
         let mut bytes: &[u8] = &std::fs::read(path)?;
 
         if name.ends_with(".lrt") {
             trace!("Loading binary module: {}", name);
-            return load_bytecode_module(name, bytes);
+            let bytes = load_module(bytes)?;
+            return load_bytecode_module(ctx, &bytes);
         }
         if bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
-        Ok(ModuleData::source(name, bytes))
+
+        Module::declare(ctx.clone(), name, bytes)
     }
 }
 
-pub fn load_bytecode_module(name: &str, buf: &[u8]) -> Result<ModuleData> {
+pub fn load_bytecode_module<'js>(ctx: &Ctx<'js>, buf: &[u8]) -> Result<Module<'js>> {
     let bytes = load_module(buf)?;
-    Ok(unsafe { ModuleData::bytecode(name, bytes) })
+    Ok(unsafe { Module::load(ctx.clone(), &bytes)? })
 }
 
 fn load_module(input: &[u8]) -> Result<Vec<u8>> {
@@ -405,7 +407,7 @@ impl Vm {
 
         let resolver = (builtin_resolver, binary_resolver, file_resolver);
 
-        let loader = RawLoaderContainer::new((
+        let loader = LoaderContainer::new((
             module_loader,
             BinaryLoader,
             BuiltinLoader::default(),
@@ -436,7 +438,7 @@ impl Vm {
         Ok(vm)
     }
 
-    pub fn load_module<'js>(ctx: &Ctx<'js>, filename: PathBuf) -> Result<Object<'js>> {
+    pub fn load_module<'js>(ctx: &Ctx<'js>, filename: PathBuf) -> Result<Promise<'js>> {
         Module::import(ctx, filename.to_string_lossy().to_string())
     }
 
@@ -647,7 +649,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             trace!("Require: {}", import_name);
 
-            let imported_object: Object = Module::import(&ctx, import_name.clone())?;
+            let imported_object: Promise = Module::import(&ctx, import_name.clone())?;
             require_in_progress.lock().unwrap().remove(&import_name);
 
             if let Some(exports) = require_exports_ref_2.lock().unwrap().take() {
@@ -676,11 +678,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 }
 
 fn load<'js>(ctx: Ctx<'js>, filename: String, options: Opt<Object<'js>>) -> Result<Value<'js>> {
-    let mut eval_options = EvalOptions {
-        global: true,
-        strict: false,
-        backtrace_barrier: false,
-    };
+    let mut eval_options = EvalOptions::default();
+    eval_options.global = true;
+    eval_options.strict = false;
+    eval_options.backtrace_barrier = false;
+    eval_options.promise = true;
 
     if let Some(options) = options.0 {
         if let Some(global) = options.get_optional("global")? {

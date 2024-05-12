@@ -20,8 +20,8 @@ use once_cell::sync::Lazy;
 
 use rquickjs::Exception;
 use rquickjs::{
-    atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CatchResultExt, CaughtError, Ctx,
-    Function, IntoJs, Module, Object, Result, ThrowResultExt, Value,
+    atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CaughtError, Ctx, Function,
+    IntoJs, Module, Object, Result, Value,
 };
 
 use tracing::info;
@@ -170,7 +170,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let (module_name, handler_name) = get_module_and_handler_name(ctx, &config.handler)?;
     let task_root = get_task_root();
 
-    let js_handler_module: Object = Module::import(ctx, format!("{}/{}", task_root, module_name))?;
+    let js_handler_module = Module::import(ctx, format!("{}/{}", task_root, module_name))?;
     let js_init = js_handler_module.get::<_, Value>("init")?;
     let js_bootstrap: Object = ctx.globals().get("__bootstrap")?;
     let js_init_tasks: Array = js_bootstrap.get("initTasks")?;
@@ -184,14 +184,18 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let init_tasks_size = js_init_tasks.len();
     #[allow(clippy::comparison_chain)]
     if init_tasks_size == 1 {
-        let init_promise = js_init_tasks.get::<Promise<()>>(0)?;
-        init_promise.await.catch(ctx).throw(ctx)?;
+        let init_promise = js_init_tasks.get::<Promise>(0)?;
+
+        // FIXME: I doubt this is right?
+        init_promise.result::<()>();
     } else if init_tasks_size > 1 {
         let promise_actor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
-        let init_promise: Promise<()> = promise_actor
+        let init_promise: Promise = promise_actor
             .get::<_, Function>("all")?
             .call((js_init_tasks.clone(),))?;
-        init_promise.await.catch(ctx).throw(ctx)?;
+
+        // FIXME: I doubt this is right?
+        init_promise.result::<()>();
     }
 
     let handler: Value = js_handler_module.get(handler_name.as_str())?;
@@ -397,9 +401,8 @@ async fn process_event<'js>(
         .replace(context.aws_request_id.clone());
 
     let js_context = context.into_js(ctx)?;
-    let promise =
-        handler.call::<_, Promise<Value>>((event.clone(), js_context.as_value().clone()))?;
-    let result: Value = promise.await?;
+    let promise = handler.call::<_, Promise>((event.clone(), js_context.as_value().clone()))?;
+    let result: Value = promise.into_value();
     invoke_response(ctx, client, base_url, request_id, result).await?;
     Ok(())
 }

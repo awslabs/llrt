@@ -468,11 +468,9 @@ impl<'js> XmlNode<'js> {
                         // Add children to the stack in reverse order (to maintain original order)
                         for child in borrow.children.iter().rev() {
                             if let Some(obj) = child.as_object() {
-                                if let Some(node) = Class::<Self>::from_object(obj.clone()) {
+                                if let Some(node) = Class::<Self>::from_object(obj) {
                                     stack.push(NodeStackEntry::Node(node))
-                                } else if let Some(text) =
-                                    Class::<XmlText>::from_object(obj.clone())
-                                {
+                                } else if let Some(text) = Class::<XmlText>::from_object(obj) {
                                     xml_text.push_str(&text.borrow().value);
                                 } else {
                                     let to_string_fn = obj.get::<_, Function>("toString")?;
@@ -546,7 +544,7 @@ fn escape_element(value: &str) -> String {
 pub struct XmlModule;
 
 impl ModuleDef for XmlModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(XMLParser))?;
         declare.declare(stringify!(XmlText))?;
         declare.declare(stringify!(XmlNode))?;
@@ -556,7 +554,7 @@ impl ModuleDef for XmlModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             Class::<XMLParser>::define(default)?;
             Class::<XmlText>::define(default)?;

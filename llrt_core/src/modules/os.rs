@@ -44,7 +44,7 @@ fn get_tmp_dir() -> String {
 pub struct OsModule;
 
 impl ModuleDef for OsModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("type")?;
         declare.declare("release")?;
         declare.declare("tmpdir")?;
@@ -56,7 +56,7 @@ impl ModuleDef for OsModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             default.set("type", Func::from(get_type))?;
             default.set("release", Func::from(get_release))?;

@@ -8,7 +8,7 @@ use rquickjs::{
 
 use crate::module_builder::ModuleInfo;
 
-pub fn export_default<'js, F>(ctx: &Ctx<'js>, exports: &mut Exports<'js>, f: F) -> Result<()>
+pub fn export_default<'js, F>(ctx: &Ctx<'js>, exports: &Exports<'js>, f: F) -> Result<()>
 where
     F: FnOnce(&Object<'js>) -> Result<()>,
 {
@@ -33,14 +33,14 @@ fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
 }
 
 impl ModuleDef for ModuleModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("createRequire")?;
         declare.declare("default")?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             default.set("createRequire", Func::from(create_require))?;
 

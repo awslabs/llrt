@@ -75,7 +75,7 @@ fn clear_timeout_interval(timeouts: &Arc<Mutex<Vec<Timeout>>>, id: usize) {
 pub struct TimersModule;
 
 impl ModuleDef for TimersModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("setTimeout")?;
         declare.declare("clearTimeout")?;
         declare.declare("setInterval")?;
@@ -84,7 +84,7 @@ impl ModuleDef for TimersModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
 
         export_default(ctx, exports, |default| {
