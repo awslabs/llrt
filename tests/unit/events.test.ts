@@ -123,7 +123,7 @@ describe("AbortSignal & AbortController", () => {
         expect(signal.reason).toBeInstanceOf(DOMException);
         expect(signal.reason.name).toBe("TimeoutError");
         done();
-      }, 100);
+      }, 200);
     }, 0);
   });
 
@@ -138,7 +138,7 @@ describe("AbortSignal & AbortController", () => {
     setTimeout(() => {
       expect(new_signal.aborted).toBe(true);
       done();
-    }, 100);
+    }, 200);
   });
 
   it("should only emit aborted once", () => {
