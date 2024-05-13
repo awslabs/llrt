@@ -1,16 +1,35 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    class::Trace, function::Opt, methods, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
+    class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
     Result, TypedArray, Value,
 };
 
 use crate::{
+    json::parse::json_parse,
     modules::events::AbortSignal,
-    utils::{class::get_class, object::ObjectExt},
+    utils::{class::get_class, object::get_bytes, object::ObjectExt},
 };
 
 use super::{blob::Blob, headers::Headers};
+
+impl<'js> Request<'js> {
+    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
+        let bytes = match &mut self.body {
+            Some(provided) => {
+                if let Some(blob) = get_class::<Blob>(provided)? {
+                    let blob = blob.borrow();
+                    blob.get_bytes()
+                } else {
+                    get_bytes(ctx, provided.clone())?
+                }
+            },
+            None => return Ok(None),
+        };
+
+        Ok(Some(bytes))
+    }
+}
 
 #[rquickjs::class]
 pub struct Request<'js> {
@@ -32,7 +51,7 @@ impl<'js> Trace<'js> for Request<'js> {
     }
 }
 
-#[methods]
+#[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Request<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, input: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
@@ -92,6 +111,42 @@ impl<'js> Request<'js> {
     #[qjs(get)]
     fn signal(&self) -> Option<Class<'js, AbortSignal<'js>>> {
         self.signal.clone()
+    }
+
+    #[qjs(get)]
+    fn body_used(&self) -> bool {
+        self.body.is_some()
+    }
+
+    #[qjs(get)]
+    fn mode(&self) -> String {
+        "navigate".to_string()
+    }
+
+    #[qjs(get)]
+    fn cache(&self) -> String {
+        "no-store".to_string()
+    }
+
+    pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return Ok(String::from_utf8_lossy(&bytes).to_string());
+        }
+        Ok("".into())
+    }
+
+    pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return json_parse(&ctx, bytes);
+        }
+        Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
+    }
+
+    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return ArrayBuffer::new(ctx, bytes);
+        }
+        ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {

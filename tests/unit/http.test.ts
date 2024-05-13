@@ -56,7 +56,7 @@ describe("URL module import", () => {
   });
 });
 
-describe("Headers", () => {
+describe("Headers class", () => {
   it("should construct a new Headers object with the provided headers", () => {
     const headers = { "content-type": "application/json" };
     const h = new Headers(headers);
@@ -110,7 +110,7 @@ describe("Headers", () => {
   });
 });
 
-describe("Request", () => {
+describe("Request class", () => {
   it("should construct a new Request object with the provided URL", () => {
     const url = "https://example.com";
     const request = new Request(url);
@@ -122,6 +122,21 @@ describe("Request", () => {
     expect(request.method).toEqual("GET");
   });
 
+  it("should set the mode to navigate by default", () => {
+    const request = new Request("https://example.com");
+    expect(request.mode).toEqual("navigate");
+  });
+
+  it("should set the cache to no-store by default", () => {
+    const request = new Request("https://example.com");
+    expect(request.cache).toEqual("no-store");
+  });
+
+  it("should set the bodyUsed to false by default", () => {
+    const request = new Request("https://example.com");
+    expect(request.bodyUsed).toBeFalsy();
+  });
+  
   it("should set the method to the provided value", () => {
     const method = "POST";
     const request = new Request("https://example.com", { method });
@@ -153,6 +168,7 @@ describe("Request", () => {
       method: "POST",
     });
     expect(request.body).toStrictEqual(body);
+    expect(request.bodyUsed).toBeTruthy();
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {
@@ -164,6 +180,7 @@ describe("Request", () => {
     expect(request.body).toStrictEqual(
       new Uint8Array(await blob.arrayBuffer())
     );
+    expect(request.bodyUsed).toBeTruthy();
   });
 
   it("should accept another request object as argument", () => {
@@ -209,6 +226,27 @@ describe("Request", () => {
         signal: new Request("http://localhost"),
       });
     }).toThrow(/property is not an AbortSignal/);
+  });
+
+  it("should set the body to the provided value", async () => {
+    const body = "Hello, world!";
+    const request = new Request("http://localhost", {
+      body: body,
+      method: "POST",
+    });
+    expect(await request.text()).toStrictEqual(body);
+    expect(request.bodyUsed).toBeTruthy();
+  });
+
+  it("should set the body to a JSON object if a JSON object is provided", () => {
+    const jsonBody = { key: "value" };
+    const request = new Request("http://localhost", {
+      body: JSON.stringify(jsonBody),
+      method: "POST",
+    });
+    request.json().then((parsedJson) => {
+      expect(parsedJson).toStrictEqual(jsonBody);
+    });
   });
 });
 
@@ -258,7 +296,7 @@ describe("Response class", () => {
     const response = new Response(JSON.stringify(jsonBody), {
       headers: { "Content-Type": "application/json" },
     });
-    return response.json().then((parsedJson) => {
+    response.json().then((parsedJson) => {
       expect(parsedJson).toStrictEqual(jsonBody);
     });
   });
