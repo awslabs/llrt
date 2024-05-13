@@ -18,6 +18,7 @@ use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use once_cell::sync::Lazy;
 
+use rquickjs::function::This;
 use rquickjs::Exception;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CatchResultExt, CaughtError, Ctx,
@@ -187,10 +188,10 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         let init_promise = js_init_tasks.get::<Promise<()>>(0)?;
         init_promise.await.catch(ctx).throw(ctx)?;
     } else if init_tasks_size > 1 {
-        let promise_actor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
-        let init_promise: Promise<()> = promise_actor
+        let promise_ctor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
+        let init_promise: Promise<()> = promise_ctor
             .get::<_, Function>("all")?
-            .call((js_init_tasks.clone(),))?;
+            .call((This(promise_ctor), js_init_tasks.clone()))?;
         init_promise.await.catch(ctx).throw(ctx)?;
     }
 
