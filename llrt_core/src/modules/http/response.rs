@@ -1,13 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashMap, io::Read, time::Instant};
+use std::{
+    collections::{BTreeMap, HashMap},
+    io::Read,
+    time::Instant,
+};
 
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Ctx, Exception, Null, Object, Result, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, Value,
 };
 use tokio::{runtime::Handle, select};
 
@@ -304,6 +308,30 @@ impl<'js> Response<'js> {
         self.headers.clone()
     }
 
+    #[qjs(get, rename = "type")]
+    fn response_type(&self) -> &'js str {
+        match &self.status {
+            0 => "error",
+            _ => "basic",
+        }
+    }
+
+    #[qjs(get)]
+    fn status_text(&self) -> String {
+        if let Some(text) = &self.status_text {
+            return text.to_string();
+        }
+        STATUS_TEXTS.get(&self.status).unwrap_or(&"").to_string()
+    }
+
+    #[qjs(get)]
+    fn body_used(&self) -> bool {
+        if let Some(BodyVariant::Incoming(body)) = &self.body {
+            return body.is_none();
+        }
+        false
+    }
+
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(String::from_utf8_lossy(&bytes).to_string());
@@ -360,25 +388,94 @@ impl<'js> Response<'js> {
         })
     }
 
-    #[qjs(get, rename = "type")]
-    fn response_type(&self) -> &'js str {
-        "basic"
+    #[qjs(static)]
+    fn error(ctx: Ctx<'js>) -> Result<Self> {
+        Ok(Self {
+            body: None,
+            method: "".into(),
+            url: "".into(),
+            start: Instant::now(),
+            status: 0,
+            status_text: None,
+            redirected: false,
+            headers: Class::instance(ctx.clone(), Headers::default())?,
+            body_attributes: BodyAttributes {
+                content_type: None,
+                content_encoding: None,
+            },
+            abort_receiver: None,
+        })
     }
 
-    #[qjs(get)]
-    fn status_text(&self) -> String {
-        if let Some(text) = &self.status_text {
-            return text.to_string();
+    #[qjs(static, rename = "json")]
+    fn json_static(ctx: Ctx<'js>, body: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+        let mut status = 200;
+        let mut headers = None;
+        let mut status_text = None;
+
+        if let Some(opt) = options.0 {
+            if let Some(status_opt) = opt.get("status")? {
+                status = status_opt;
+            }
+            if let Some(headers_opt) = opt.get("headers")? {
+                headers = Some(Headers::from_value(&ctx, headers_opt)?);
+            }
+            if let Some(status_text_opt) = opt.get("statusText")? {
+                status_text = Some(status_text_opt);
+            }
         }
-        STATUS_TEXTS.get(&self.status).unwrap_or(&"").to_string()
+
+        let headers = if let Some(headers) = headers {
+            Class::instance(ctx.clone(), headers)
+        } else {
+            Class::instance(ctx.clone(), Headers::default())
+        }?;
+
+        let body = Some(BodyVariant::Provided(body));
+
+        let body_attributes = BodyAttributes {
+            content_type: headers.get("content-type")?,
+            content_encoding: headers.get("content-encoding")?,
+        };
+
+        Ok(Self {
+            body,
+            method: "".into(),
+            url: "".into(),
+            start: Instant::now(),
+            status,
+            status_text,
+            redirected: false,
+            headers,
+            body_attributes,
+            abort_receiver: None,
+        })
     }
 
-    #[qjs(get)]
-    fn body_used(&self) -> bool {
-        if let Some(BodyVariant::Incoming(body)) = &self.body {
-            return body.is_none();
-        }
-        false
+    #[qjs(static)]
+    fn redirect(ctx: Ctx<'js>, url: String, status: Opt<u16>) -> Result<Self> {
+        let status = status.0.unwrap_or(302_u16);
+
+        let mut header = BTreeMap::new();
+        header.insert("location".to_string(), Coerced(url.to_string()));
+        let headers = Headers::from_map(header);
+        let headers = Class::instance(ctx.clone(), headers)?;
+
+        Ok(Self {
+            body: None,
+            method: "".into(),
+            url: "".into(),
+            start: Instant::now(),
+            status,
+            status_text: None,
+            redirected: false,
+            headers,
+            body_attributes: BodyAttributes {
+                content_type: None,
+                content_encoding: None,
+            },
+            abort_receiver: None,
+        })
     }
 }
 

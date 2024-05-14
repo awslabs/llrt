@@ -136,7 +136,7 @@ describe("Request class", () => {
     const request = new Request("https://example.com");
     expect(request.bodyUsed).toBeFalsy();
   });
-  
+
   it("should set the method to the provided value", () => {
     const method = "POST";
     const request = new Request("https://example.com", { method });
@@ -323,6 +323,52 @@ describe("Response class", () => {
   it("should create a Response object with not-ok status for status codes outside the range 200-299", () => {
     const response = new Response("Error", { status: 404 });
     expect(!response.ok).toBeTruthy();
+  });
+
+  it("should be returned specified values in error static function", () => {
+    const response = Response.error();
+    expect(response.status).toEqual(0);
+    expect(response.statusText).toEqual("");
+    expect(response.headers instanceof Headers).toBeTruthy();
+    expect(response.body).toEqual(null);
+    expect(response.type).toEqual("error");
+  });
+
+  it("should be returned specified values in redirect static function called single param", () => {
+    const redirectUrl = "http://localhost/";
+    const response = Response.redirect(redirectUrl);
+    expect(response.status).toEqual(302);
+    expect(response.headers.get("location")).toEqual(redirectUrl);
+  });
+
+  it("should be returned specified values in redirect static function called double param", () => {
+    const redirectUrl = "http://localhost/";
+    const response = Response.redirect(redirectUrl, 301);
+    expect(response.status).toEqual(301);
+    expect(response.headers.get("location")).toEqual(redirectUrl);
+  });
+
+  it("should be returned specified values in json static function called single param", () => {
+    const jsonBody = { some: "data", more: "information" };
+    const response = Response.json(JSON.stringify(jsonBody));
+    expect(response.status).toEqual(200);
+    response.json().then((parsedJson) => {
+      expect(parsedJson).toStrictEqual(jsonBody);
+    });
+  });
+
+  it("should be returned specified values in json static function called double param", () => {
+    const jsonBody = { some: "data", more: "information" };
+    const response = Response.json(JSON.stringify(jsonBody), {
+      status: 200,
+      statusText: "SuperSmashingGreat!",
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(response.status).toEqual(200);
+    expect(response.statusText).toEqual("SuperSmashingGreat!");
+    response.json().then((parsedJson) => {
+      expect(parsedJson).toStrictEqual(jsonBody);
+    });
   });
 });
 
