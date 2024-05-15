@@ -244,11 +244,7 @@ impl<'js> Response<'js> {
             }
         }
 
-        let headers = if let Some(headers) = headers {
-            Class::instance(ctx.clone(), headers)
-        } else {
-            Class::instance(ctx.clone(), Headers::default())
-        }?;
+        let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
 
         let body = body.0.and_then(|body| {
             if body.is_null() || body.is_undefined() {
@@ -425,11 +421,7 @@ impl<'js> Response<'js> {
             }
         }
 
-        let headers = if let Some(headers) = headers {
-            Class::instance(ctx.clone(), headers)
-        } else {
-            Class::instance(ctx.clone(), Headers::default())
-        }?;
+        let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
 
         let body = Some(BodyVariant::Provided(body));
 
