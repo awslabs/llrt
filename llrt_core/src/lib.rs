@@ -1,6 +1,7 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::inherent_to_string)]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
+#![cfg_attr(rust_nightly, feature(unsized_locals))]
 
 #[macro_use]
 mod macros;
