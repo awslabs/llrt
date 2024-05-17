@@ -19,7 +19,7 @@ impl File {
     #[qjs(constructor)]
     fn new<'js>(
         ctx: Ctx<'js>,
-        filebits: Value<'js>,
+        data: Value<'js>,
         filename: String,
         options: Opt<Object<'js>>,
     ) -> Result<Self> {
@@ -27,12 +27,11 @@ impl File {
 
         if let Some(ref opts) = options.0 {
             if let Some(x) = opts.get::<_, Option<Coerced<i64>>>("lastModified")? {
-                println!("lastModified: {:?}", x.0);
                 last_modified = x.0;
             }
         }
 
-        let blob = Blob::new(ctx, Opt::from(Some(filebits)), options)?;
+        let blob = Blob::new(ctx, Opt(Some(data)), options)?;
 
         Ok(Self {
             blob,

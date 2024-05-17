@@ -15,8 +15,7 @@ use rquickjs::{Class, Ctx, Result};
 use crate::modules::http::headers::Headers;
 
 use self::{
-    blob::Blob, file::File, request::Request, response::Response, url::URL,
-    url_search_params::URLSearchParams,
+    file::File, request::Request, response::Response, url::URL, url_search_params::URLSearchParams,
 };
 
 pub fn init(ctx: &Ctx) -> Result<()> {
@@ -25,11 +24,13 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     fetch::init(ctx, &globals)?;
 
     Class::<Request>::define(&globals)?;
-    Class::<Blob>::define(&globals)?;
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define(&globals)?;
     Class::<URLSearchParams>::define(&globals)?;
     Class::<URL>::define(&globals)?;
+
+    blob::init(ctx, &globals)?;
+
     Class::<File>::define(&globals)?;
 
     Ok(())

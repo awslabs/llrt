@@ -3,9 +3,13 @@
 use std::ops::RangeInclusive;
 
 use rquickjs::{
-    class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object,
-    Result, Value,
+    atom::PredefinedAtom,
+    class::{JsClass, Trace},
+    function::{Func, Opt},
+    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object, Result, Value,
 };
+
+use super::file::File;
 
 enum EndingType {
     Native,
@@ -125,6 +129,14 @@ impl Blob {
     pub fn get_bytes(&self) -> Vec<u8> {
         self.data.clone()
     }
+
+    //FIXME: cant use procedural macro for Symbol rename + static, see https://github.com/DelSkayn/rquickjs/issues/315
+    pub fn has_instance(value: Value<'_>) -> bool {
+        if let Some(obj) = value.as_object() {
+            return obj.instance_of::<Self>() || obj.instance_of::<File>();
+        }
+        false
+    }
 }
 
 fn bytes_from_parts<'js>(
@@ -190,23 +202,18 @@ fn bytes_from_parts<'js>(
             if start < len {
                 data.extend(&bytes[start..len]);
             }
-
-            // let bytes = string.as_bytes();
-
-            // let input_reader = std::io::BufReader::new(bytes);
-            // for line in input_reader.lines() {
-            //     let line = line?;
-            //     data.extend_from_slice(line.as_bytes());
-            //     data.extend_from_slice(LINE_ENDING);
-            // }
-
-            // let len = data.len();
-
-            // match &bytes[string_len - min(string_len, 2)..] {
-            //     LINE_ENDING => {}
-            //     _ => data.truncate(len - LINE_ENDING.len()),
-            // }
         }
     }
     Ok(data)
+}
+
+pub(crate) fn init<'js>(ctx: &Ctx<'js>, globals: &Object<'js>) -> Result<()> {
+    if let Some(constructor) = Class::<Blob>::create_constructor(ctx)? {
+        constructor.prop(
+            PredefinedAtom::SymbolHasInstance,
+            Func::from(Blob::has_instance),
+        )?;
+        let _ = &globals.set(Blob::NAME, constructor)?;
+    }
+    Ok(())
 }
