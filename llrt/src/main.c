@@ -280,25 +280,25 @@ int main(int argc, char *argv[])
   double t2 = micro_seconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
 
-  char **new_argv = malloc((size_t)(argc + 1) * sizeof *new_argv);
-  for (uint8_t i = 0; i < argc; ++i)
-  {
-    if (i == 0)
-    {
-      size_t length = strlen(appname) + 2;
-      new_argv[i] = malloc(length);
-      memcpy(new_argv[i], "/", 1);
-      memcpy(new_argv[i] + 1, appname, length);
-      setenv("_", new_argv[i], true);
-    }
-    else
-    {
-      size_t length = strlen(argv[i]) + 1;
-      new_argv[i] = malloc(length);
-      memcpy(new_argv[i], argv[i], length);
-    }
-  }
-  new_argv[argc] = NULL;
+  // char **new_argv = malloc((size_t)(argc + 1) * sizeof *new_argv);
+  // for (uint8_t i = 0; i < argc; ++i)
+  // {
+  //   if (i == 0)
+  //   {
+  //     size_t length = strlen(appname) + 2;
+  //     new_argv[i] = malloc(length);
+  //     memcpy(new_argv[i], "/", 1);
+  //     memcpy(new_argv[i] + 1, appname, length);
+  //     setenv("_", new_argv[i], true);
+  //   }
+  //   else
+  //   {
+  //     size_t length = strlen(argv[i]) + 1;
+  //     new_argv[i] = malloc(length);
+  //     memcpy(new_argv[i], argv[i], length);
+  //   }
+  // }
+  // new_argv[argc] = NULL;
 
   unsigned long startTime = (unsigned long)(micro_seconds() / 1000.0);
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 
   logInfo("Starting app\n");
 
-  fexecve(outputFd, new_argv, environ);
+  fexecve(outputFd, argv, environ);
 
   logError("Failed to start executable");
 

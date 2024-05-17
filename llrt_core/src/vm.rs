@@ -1,17 +1,25 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    cell::RefCell,
     cmp::min,
     collections::{HashMap, HashSet},
     env,
     ffi::CStr,
     fmt::Write,
-    future::{poll_fn, Future},
-    io,
+    fs::File,
+    future::Future,
+    io::{self, Read, Seek, SeekFrom},
+    mem::{size_of, MaybeUninit},
     path::{Component, Path, PathBuf},
     pin::pin,
     process::exit,
     result::Result as StdResult,
+    slice,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex, Once, RwLock,
+    },
     sync::{Arc, Mutex},
     task::Poll,
 };
@@ -30,16 +38,20 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
     Module, Object, Result, Value,
 };
+use tokio::{
+    fs,
+    sync::oneshot::{self, Receiver},
+};
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-include!("./bytecode_cache.rs");
-
-use crate::modules::{
-    console,
-    crypto::SYSTEM_RANDOM,
-    path::{dirname, join_path, resolve_path},
-    timers::{self, poll_timers, TimerPoller},
+use crate::{
+    bytecode::BYTECODE_EMBEDDED_SIGNATURE,
+    modules::{
+        console,
+        crypto::SYSTEM_RANDOM,
+        path::{dirname, join_path, resolve_path},
+    },
 };
 
 use crate::{
@@ -53,6 +65,20 @@ use crate::{
         object::{get_bytes, ObjectExt},
     },
 };
+
+#[derive(Default)]
+pub struct EmbeddedBytecodeData {
+    argv_0: String,
+    index: HashMap<String, (usize, usize)>,
+}
+
+thread_local! {
+    static SELF_FILE: RefCell<Option<File>> = RefCell::new(None);
+}
+
+pub static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<EmbeddedBytecodeData>> =
+    Lazy::new(|| RwLock::new(EmbeddedBytecodeData::default()));
+
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
@@ -127,7 +153,9 @@ impl Resolver for BinaryResolver {
     fn resolve(&mut self, _ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         trace!("Try resolve \"{}\" from \"{}\"", name, base);
 
-        if BYTECODE_CACHE.contains_key(name) {
+        let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
+
+        if embedded_bytecode_data.index.contains_key(name) {
             return Ok(name.to_string());
         }
 
@@ -157,11 +185,11 @@ impl Resolver for BinaryResolver {
 
         trace!("Normalized path: {}, key: {}", normalized_path, cache_key);
 
-        if BYTECODE_CACHE.contains_key(cache_key) {
+        if embedded_bytecode_data.index.contains_key(cache_key) {
             return Ok(cache_key.to_string());
         }
 
-        if BYTECODE_CACHE.contains_key(base) {
+        if embedded_bytecode_data.index.contains_key(base) {
             normalized_path = name;
             if Path::new(normalized_path).exists() {
                 return Ok(normalized_path.to_string());
@@ -246,12 +274,29 @@ where
 impl Loader for BinaryLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
         trace!("Loading module: {}", name);
-        let ctx = ctx.clone();
-        if let Some(bytes) = BYTECODE_CACHE.get(name) {
+        let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
+        if let Some((bytes_size, bytes_pos)) = embedded_bytecode_data.index.get(name) {
             trace!("Loading embedded module: {}", name);
 
-            return load_bytecode_module(ctx, name, bytes);
+            let mut buf = SELF_FILE.with(|self_file| {
+                let mut buf = vec![0; *bytes_size];
+                let mut borrow = self_file.borrow_mut();
+                if let Some(file) = borrow.as_mut() {
+                    file.seek(SeekFrom::Start((*bytes_pos) as u64))?;
+                    file.read_exact(&mut buf)?;
+                } else {
+                    let mut file = File::open(&embedded_bytecode_data.argv_0)?;
+                    file.seek(SeekFrom::Start((*bytes_pos) as u64))?;
+                    file.read_exact(&mut buf)?;
+                    *borrow = Some(file);
+                }
+
+                Ok::<_, Error>(buf)
+            })?;
+
+            return load_bytecode_module(name, &mut buf);
         }
+        drop(embedded_bytecode_data);
         let path = PathBuf::from(name);
         let mut bytes: &[u8] = &std::fs::read(path)?;
 
@@ -356,6 +401,8 @@ impl Default for VmOptions {
     }
 }
 
+static SYNC_OBJ: Once = Once::new();
+
 impl Vm {
     pub const ENV_LAMBDA_TASK_ROOT: &'static str = "LAMBDA_TASK_ROOT";
 
@@ -364,9 +411,13 @@ impl Vm {
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
         llrt_modules::time::init();
 
-        SYSTEM_RANDOM
-            .fill(&mut [0; 8])
-            .expect("Failed to initialize SystemRandom");
+        SYNC_OBJ.call_once(|| {
+            SYSTEM_RANDOM
+                .fill(&mut [0; 8])
+                .expect("Failed to initialize SystemRandom");
+
+            init_embedded_bytecode().expect("Error reading embedded bytecode");
+        });
 
         let mut file_resolver = FileResolver::default();
         let mut binary_resolver = BinaryResolver::default();
@@ -516,6 +567,106 @@ impl Vm {
     }
 }
 
+fn init_embedded_bytecode() -> std::io::Result<()> {
+    let argv_0 = env::args().nth(0).expect("Failed to get argv0");
+    let mut file = File::open(&argv_0)?;
+
+    let mut embedded_bytecode_signature_buf = [0; BYTECODE_EMBEDDED_SIGNATURE.len()];
+    let meta = file.metadata()?;
+    let total_file_size = meta.len();
+    let signature_len = BYTECODE_EMBEDDED_SIGNATURE.len();
+    let signed_signature_len = signature_len as i64;
+    file.seek(SeekFrom::End(-signed_signature_len))?;
+    file.read_exact(&mut embedded_bytecode_signature_buf)?;
+
+    if embedded_bytecode_signature_buf != BYTECODE_EMBEDDED_SIGNATURE {
+        return Ok(());
+    }
+
+    struct EmbeddedMeta {
+        package_count: u32,
+        bytecode_pos: u32,
+        package_index_pos: u32,
+    }
+
+    impl EmbeddedMeta {
+        fn read(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<Self> {
+            Ok(EmbeddedMeta {
+                package_count: read_u32(file, buf)?,
+                bytecode_pos: read_u32(file, buf)?,
+                package_index_pos: read_u32(file, buf)?,
+            })
+        }
+    }
+
+    let embedded_meta_size = size_of::<EmbeddedMeta>();
+
+    let meta_and_signature_size = embedded_meta_size + signature_len;
+
+    file.seek(SeekFrom::Current(-(meta_and_signature_size as i64)))?;
+
+    let mut u32_buf = [0; size_of::<u32>()];
+    let mut u16_buf = [0; size_of::<u16>()];
+
+    let embedded_metadata = EmbeddedMeta::read(&mut file, &mut u32_buf)?;
+
+    file.seek(SeekFrom::Current(
+        -(total_file_size as i64
+            - (embedded_metadata.package_index_pos as i64 + signed_signature_len)),
+    ))?;
+
+    let mut embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.write().unwrap();
+    embedded_bytecode_data
+        .index
+        .reserve(embedded_metadata.package_count as usize);
+    embedded_bytecode_data.argv_0 = argv_0;
+
+    let mut current_pos = embedded_metadata.package_index_pos as usize;
+
+    let end_pos = total_file_size as usize - meta_and_signature_size;
+
+    loop {
+        let name_len = read_u16(&mut file, &mut u16_buf)?;
+        let mut buf: Vec<u8> = vec![0; name_len as usize];
+        file.read_exact(&mut buf)?;
+
+        let name = unsafe { String::from_utf8_unchecked(buf) };
+
+        let bytecode_size = read_u32(&mut file, &mut u32_buf)?;
+        let bytecode_offset = read_u32(&mut file, &mut u32_buf)?;
+
+        current_pos = current_pos + name_len as usize + u16_buf.len() + (u32_buf.len() * 2);
+
+        embedded_bytecode_data.index.insert(
+            name,
+            (
+                bytecode_size as usize,
+                embedded_metadata.bytecode_pos as usize + bytecode_offset as usize,
+            ),
+        );
+
+        if current_pos == end_pos {
+            break;
+        }
+    }
+
+    drop(embedded_bytecode_data);
+
+    Ok(())
+}
+
+#[inline(always)]
+fn read_u32(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<u32> {
+    file.read_exact(buf)?;
+    Ok(u32::from_le_bytes(*buf))
+}
+
+#[inline(always)]
+fn read_u16(file: &mut File, buf: &mut [u8; size_of::<u16>()]) -> std::io::Result<u16> {
+    file.read_exact(buf)?;
+    Ok(u16::from_le_bytes(*buf))
+}
+
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
     let bytes = get_bytes(&ctx, value)?;
     json_parse(&ctx, bytes)
@@ -623,7 +774,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 specifier
             };
             let import_name = if module_names.contains(specifier.as_str())
-                || BYTECODE_CACHE.contains_key(&specifier)
+                || EMBEDDED_BYTECODE_DATA
+                    .read()
+                    .unwrap()
+                    .index
+                    .contains_key(&specifier)
                 || specifier.starts_with('/')
             {
                 specifier
