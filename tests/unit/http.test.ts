@@ -100,18 +100,13 @@ describe("Headers class", () => {
     next = iterator.next();
     expect(next.value).toStrictEqual([
       "set-cookie",
-      "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT, BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+      "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT",
     ]);
-    // TODO: In fact, it should be divided and iterated, as in the comment line.
-    // expect(next.value).toStrictEqual([
-    //   "set-cookie",
-    //   "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT",
-    // ]);
-    // next = iterator.next();
-    // expect(next.value).toStrictEqual([
-    //   "set-cookie",
-    //   "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
-    // ]);
+    next = iterator.next();
+    expect(next.value).toStrictEqual([
+      "set-cookie",
+      "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    ]);
     next = iterator.next();
     expect(next.value).toStrictEqual(undefined);
   });

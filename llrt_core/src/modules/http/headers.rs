@@ -8,10 +8,7 @@ use rquickjs::{
     Result, Value,
 };
 
-use crate::utils::{
-    class::IteratorDef,
-    object::{array_to_btree_map, map_to_entries},
-};
+use crate::utils::{class::IteratorDef, object::array_to_btree_map};
 
 const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
 
@@ -209,6 +206,29 @@ impl Headers {
 
 impl<'js> IteratorDef<'js> for Headers {
     fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        map_to_entries(&ctx, self.headers.clone())
+        let array = Array::new(ctx.clone())?;
+        let mut idx = 0;
+
+        for (key, value) in &self.headers {
+            match value {
+                HeaderValue::Single(s) => {
+                    let entry = Array::new(ctx.clone())?;
+                    entry.set(0, key)?;
+                    entry.set(1, s)?;
+                    array.set(idx, entry)?;
+                    idx += 1;
+                },
+                HeaderValue::Multiple(v) => {
+                    for val in v {
+                        let entry = Array::new(ctx.clone())?;
+                        entry.set(0, key)?;
+                        entry.set(1, val)?;
+                        array.set(idx, entry)?;
+                        idx += 1;
+                    }
+                },
+            }
+        }
+        Ok(array)
     }
 }
