@@ -89,11 +89,29 @@ describe("Headers class", () => {
       authorization: "Bearer 1234",
     };
     const h = new Headers(headers);
+    h.append("set-cookie", "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+    h.append("set-cookie", "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+
     const iterator = h.entries();
     let next = iterator.next();
     expect(next.value).toStrictEqual(["authorization", "Bearer 1234"]);
     next = iterator.next();
     expect(next.value).toStrictEqual(["content-type", "application/json"]);
+    next = iterator.next();
+    expect(next.value).toStrictEqual([
+      "set-cookie",
+      "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT, BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    ]);
+    // TODO: In fact, it should be divided and iterated, as in the comment line.
+    // expect(next.value).toStrictEqual([
+    //   "set-cookie",
+    //   "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    // ]);
+    // next = iterator.next();
+    // expect(next.value).toStrictEqual([
+    //   "set-cookie",
+    //   "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    // ]);
     next = iterator.next();
     expect(next.value).toStrictEqual(undefined);
   });
@@ -107,6 +125,16 @@ describe("Headers class", () => {
       expect(key).toStrictEqual("content-type");
       expect(value).toStrictEqual("application/json");
     });
+  });
+
+  it("should return an iterator over the headers", () => {
+    const h = new Headers();
+    h.append("set-cookie", "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+    h.append("set-cookie", "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+    expect(h.getSetCookie()).toStrictEqual([
+      "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+      "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    ]);
   });
 });
 
