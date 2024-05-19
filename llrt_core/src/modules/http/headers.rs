@@ -1,48 +1,24 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::BTreeMap, fmt};
+use std::collections::BTreeMap;
 
 use hyper::HeaderMap;
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, IntoJs,
-    Result, Value,
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Result,
+    Value,
 };
 
-use crate::utils::{class::IteratorDef, object::array_to_btree_map};
+use crate::utils::{class::IteratorDef, object::map_to_entries};
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
 const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
-
-#[derive(Clone)]
-pub enum HeaderValue {
-    Single(String),
-    Multiple(Vec<String>),
-}
-
-impl fmt::Display for HeaderValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            HeaderValue::Single(s) => write!(f, "{}", s),
-            HeaderValue::Multiple(v) => write!(f, "{}", v.join("")),
-        }
-    }
-}
-
-impl<'js> IntoJs<'js> for HeaderValue {
-    fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
-        match self {
-            HeaderValue::Single(s) => s.into_js(ctx),
-            HeaderValue::Multiple(v) => v.join(", ").into_js(ctx),
-        }
-    }
-}
 
 #[derive(Clone, Default)]
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
 pub struct Headers {
     #[qjs(skip_trace)]
-    headers: BTreeMap<String, HeaderValue>,
+    headers: Vec<(String, String)>,
 }
 
 #[methods(rename_all = "camelCase")]
@@ -52,63 +28,89 @@ impl Headers {
         if let Some(init) = init.into_inner() {
             if init.is_array() {
                 let array = init.into_array().unwrap();
-                let headers = array_to_btree_map(&ctx, array)?;
-                return Ok(Self::from_map(headers));
+                let headers = Self::array_to_headers(array)?;
+                return Ok(Self::from_vec(headers));
             } else if init.is_object() {
                 return Self::from_value(&ctx, init);
             }
         }
-        Ok(Headers::default())
+        Ok(Self {
+            headers: Vec::new(),
+        })
     }
 
     pub fn append(&mut self, key: String, value: String) {
-        self.insert_header_value(key, value, true);
-    }
-
-    pub fn get(&mut self, key: String) -> Option<String> {
-        match self.headers.get(&key.to_lowercase()).map(|v| v.to_owned()) {
-            Some(HeaderValue::Single(s)) => Some(s),
-            Some(HeaderValue::Multiple(v)) => Some(v.join(", ")),
-            _ => None,
+        let key = key.to_lowercase();
+        if key == HEADERS_KEY_SET_COOKIE {
+            return self.headers.push((key, value));
+        }
+        if let Some((_, existing_value)) = self.headers.iter_mut().find(|(k, _)| k == &key) {
+            match key.as_str() {
+                HEADERS_KEY_COOKIE => existing_value.push_str("; "),
+                _ => existing_value.push_str(", "),
+            }
+            existing_value.push_str(&value);
+        } else {
+            self.headers.push((key, value));
         }
     }
 
-    pub fn get_set_cookie(&mut self) -> Vec<String> {
-        match self
-            .headers
-            .get(HEADERS_KEY_SET_COOKIE)
-            .map(|v| v.to_owned())
-        {
-            Some(HeaderValue::Multiple(v)) => v,
-            _ => Vec::new(),
+    pub fn get(&self, key: String) -> Option<String> {
+        let key = key.to_lowercase();
+        let mut result = String::new();
+        for (k, v) in &self.headers {
+            if k == &key {
+                if !result.is_empty() {
+                    result.push_str(", ");
+                }
+                result.push_str(v);
+            }
+        }
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
         }
     }
 
-    pub fn has(&mut self, key: String) -> bool {
-        self.headers.contains_key(&key.to_lowercase())
+    pub fn get_set_cookie(&self) -> Vec<String> {
+        self.headers
+            .iter()
+            .filter_map(|(k, v)| {
+                if k.eq_ignore_ascii_case(HEADERS_KEY_SET_COOKIE) {
+                    Some(v.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn has(&self, key: String) -> bool {
+        let key = key.to_lowercase();
+        self.headers.iter().any(|(k, _)| k == &key)
     }
 
     pub fn set(&mut self, key: String, value: String) {
-        self.insert_header_value(key, value, false);
+        let key = key.to_lowercase();
+        if let Some((_, existing_value)) = self.headers.iter_mut().find(|(k, _)| k == &key) {
+            *existing_value = value;
+        } else {
+            self.headers.push((key, value));
+        }
     }
 
     pub fn delete(&mut self, key: String) {
-        self.headers.remove(&key.to_lowercase());
+        let key = key.to_lowercase();
+        self.headers.retain(|(k, _)| k != &key);
     }
 
-    pub fn keys(&mut self) -> Vec<String> {
-        self.headers.keys().cloned().collect::<Vec<String>>()
+    pub fn keys(&self) -> Vec<String> {
+        self.headers.iter().map(|(k, _)| k.clone()).collect()
     }
 
     pub fn values(&self) -> Vec<String> {
-        self.headers
-            .values()
-            .flat_map(|value| match value {
-                HeaderValue::Single(s) => Some(vec![s.clone()]),
-                HeaderValue::Multiple(v) => Some(v.clone()),
-            })
-            .flatten()
-            .collect()
+        self.headers.iter().map(|(_, v)| v.clone()).collect()
     }
 
     pub fn entries<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -121,15 +123,8 @@ impl Headers {
     }
 
     pub fn for_each(&self, callback: Function<'_>) -> Result<()> {
-        for (key, value) in &self.headers {
-            match value {
-                HeaderValue::Single(s) => callback.call((s, key))?,
-                HeaderValue::Multiple(v) => {
-                    for val in v {
-                        callback.call((val, key))?;
-                    }
-                },
-            }
+        for (k, v) in &self.headers {
+            callback.call((v.clone(), k.clone()))?;
         }
         Ok(())
     }
@@ -137,28 +132,18 @@ impl Headers {
 
 impl Headers {
     pub fn iter(&self) -> impl Iterator<Item = (&String, &String)> {
-        self.headers
-            .iter()
-            .flat_map(|(k, v)| match v {
-                HeaderValue::Single(s) => Some(vec![(k, s)].into_iter()),
-                HeaderValue::Multiple(v) => Some(
-                    v.iter()
-                        .map(move |s| (k, s as &String))
-                        .collect::<Vec<_>>()
-                        .into_iter(),
-                ),
-            })
-            .flatten()
+        self.headers.iter().map(|(k, v)| (k, v))
     }
 
     pub fn from_http_headers(header_map: &HeaderMap) -> Result<Self> {
-        let mut headers = Headers::default();
-
-        for (key, value) in header_map.iter() {
-            let mapping_value = String::from_utf8_lossy(value.as_bytes()).to_string();
-            headers.insert_header_value(key.to_string(), mapping_value, true);
+        let mut headers = Vec::new();
+        for (n, v) in header_map.iter() {
+            headers.push((
+                n.to_string(),
+                String::from_utf8_lossy(v.as_bytes()).to_string(),
+            ));
         }
-        Ok(headers)
+        Ok(Self { headers })
     }
 
     pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
@@ -175,77 +160,36 @@ impl Headers {
     }
 
     pub fn from_map(map: BTreeMap<String, Coerced<String>>) -> Self {
-        let mut headers = Headers::default();
-
-        for (key, value) in map {
-            headers.insert_header_value(key, value.to_string(), true);
-        }
-        headers
+        let headers = map
+            .into_iter()
+            .map(|(k, v)| (k.to_lowercase(), v.to_string()))
+            .collect();
+        Self { headers }
     }
 
-    fn insert_header_value(&mut self, key: String, value: String, appending: bool) {
-        let key = key.to_lowercase();
-
-        if let Some(header_value) = self.headers.get_mut(&key) {
-            match header_value {
-                HeaderValue::Single(existing_value) => match appending {
-                    true => {
-                        let separator = if key == HEADERS_KEY_COOKIE {
-                            "; "
-                        } else {
-                            ", "
-                        };
-                        *header_value =
-                            HeaderValue::Single(format!("{}{}{}", existing_value, separator, value))
-                    },
-                    false => *header_value = HeaderValue::Single(value),
-                },
-                HeaderValue::Multiple(existing_values) => match appending {
-                    true => existing_values.push(value),
-                    false => {
-                        existing_values.clear();
-                        existing_values.push(value);
-                    },
-                },
-            };
-        } else {
-            match key.as_str() {
-                HEADERS_KEY_SET_COOKIE => self
-                    .headers
-                    .insert(key.to_string(), HeaderValue::Multiple(vec![value])),
-                _ => self
-                    .headers
-                    .insert(key.to_string(), HeaderValue::Single(value)),
-            };
+    pub fn from_vec(vec: Vec<(String, String)>) -> Self {
+        let mut headers = Vec::new();
+        for (k, v) in vec {
+            headers.push((k.to_lowercase(), v));
         }
+        Self { headers }
+    }
+
+    fn array_to_headers(array: Array<'_>) -> Result<Vec<(String, String)>> {
+        let mut vec = Vec::new();
+        for entry in array.into_iter().flatten() {
+            if let Some(array_entry) = entry.as_array() {
+                let key = array_entry.get::<String>(0)?;
+                let value = array_entry.get::<String>(1)?;
+                vec.push((key, value));
+            }
+        }
+        Ok(vec)
     }
 }
 
 impl<'js> IteratorDef<'js> for Headers {
     fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        let array = Array::new(ctx.clone())?;
-        let mut idx = 0;
-
-        for (key, value) in &self.headers {
-            match value {
-                HeaderValue::Single(s) => {
-                    let entry = Array::new(ctx.clone())?;
-                    entry.set(0, key)?;
-                    entry.set(1, s)?;
-                    array.set(idx, entry)?;
-                    idx += 1;
-                },
-                HeaderValue::Multiple(v) => {
-                    for val in v {
-                        let entry = Array::new(ctx.clone())?;
-                        entry.set(0, key)?;
-                        entry.set(1, val)?;
-                        array.set(idx, entry)?;
-                        idx += 1;
-                    }
-                },
-            }
-        }
-        Ok(array)
+        map_to_entries(&ctx, self.headers.clone())
     }
 }
