@@ -99,8 +99,15 @@ impl Headers {
         self.headers.keys().cloned().collect::<Vec<String>>()
     }
 
-    pub fn values(&mut self) -> Vec<HeaderValue> {
-        self.headers.values().cloned().collect::<Vec<HeaderValue>>()
+    pub fn values(&self) -> Vec<String> {
+        self.headers
+            .values()
+            .flat_map(|value| match value {
+                HeaderValue::Single(s) => Some(vec![s.clone()]),
+                HeaderValue::Multiple(v) => Some(v.clone()),
+            })
+            .flatten()
+            .collect()
     }
 
     pub fn entries<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -116,7 +123,11 @@ impl Headers {
         for (key, value) in &self.headers {
             match value {
                 HeaderValue::Single(s) => callback.call((s, key))?,
-                HeaderValue::Multiple(v) => callback.call((v, key))?,
+                HeaderValue::Multiple(v) => {
+                    for val in v {
+                        callback.call((val, key))?;
+                    }
+                },
             }
         }
         Ok(())
