@@ -77,7 +77,7 @@ impl Headers {
         self.headers
             .iter()
             .filter_map(|(k, v)| {
-                if k.eq_ignore_ascii_case(HEADERS_KEY_SET_COOKIE) {
+                if k == HEADERS_KEY_SET_COOKIE {
                     Some(v.clone())
                 } else {
                     None
@@ -171,7 +171,7 @@ impl Headers {
         let mut vec = Vec::new();
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
-                let key = array_entry.get::<String>(0)?;
+                let key = array_entry.get::<String>(0)?.to_lowercase();
                 let value = array_entry.get::<String>(1)?;
                 vec.push((key, value));
             }
