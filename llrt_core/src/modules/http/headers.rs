@@ -29,7 +29,7 @@ impl Headers {
             if init.is_array() {
                 let array = init.into_array().unwrap();
                 let headers = Self::array_to_headers(array)?;
-                return Ok(Self::from_vec(headers));
+                return Ok(Self { headers });
             } else if init.is_object() {
                 return Self::from_value(&ctx, init);
             }
@@ -164,14 +164,6 @@ impl Headers {
             .into_iter()
             .map(|(k, v)| (k.to_lowercase(), v.to_string()))
             .collect();
-        Self { headers }
-    }
-
-    pub fn from_vec(vec: Vec<(String, String)>) -> Self {
-        let mut headers = Vec::new();
-        for (k, v) in vec {
-            headers.push((k.to_lowercase(), v));
-        }
         Self { headers }
     }
 
