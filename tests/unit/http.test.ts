@@ -131,6 +131,20 @@ describe("Headers class", () => {
       "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
     ]);
   });
+
+  it("should be returned as a semicolon-delimited string", () => {
+    const h = new Headers();
+    h.append("cookie", "AAA=123");
+    h.append("cookie", "BBB=456");
+    expect(h.get("cookie")).toStrictEqual("AAA=123; BBB=456");
+  });
+
+  it("should be returned as a comma-delimited string", () => {
+    const h = new Headers();
+    h.append("accept-encoding", "zstd");
+    h.append("accept-encoding", "br");
+    expect(h.get("accept-encoding")).toStrictEqual("zstd, br");
+  });
 });
 
 describe("Request class", () => {

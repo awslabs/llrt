@@ -10,6 +10,7 @@ use rquickjs::{
 
 use crate::utils::{class::IteratorDef, object::array_to_btree_map};
 
+const HEADERS_KEY_COOKIE: &str = "cookie";
 const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
 
 #[derive(Clone)]
@@ -189,8 +190,13 @@ impl Headers {
             match header_value {
                 HeaderValue::Single(existing_value) => match appending {
                     true => {
+                        let separator = if key == HEADERS_KEY_COOKIE {
+                            "; "
+                        } else {
+                            ", "
+                        };
                         *header_value =
-                            HeaderValue::Single(format!("{}, {}", existing_value, value))
+                            HeaderValue::Single(format!("{}{}{}", existing_value, separator, value))
                     },
                     false => *header_value = HeaderValue::Single(value),
                 },
