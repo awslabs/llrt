@@ -93,6 +93,11 @@ impl Headers {
 
     pub fn set(&mut self, key: String, value: String) {
         let key = key.to_lowercase();
+        if key == HEADERS_KEY_SET_COOKIE
+            && self.headers.iter().filter(|(k, _)| k == &key).count() > 1
+        {
+            self.headers.retain(|(k, _)| k != &key);
+        }
         if let Some((_, existing_value)) = self.headers.iter_mut().find(|(k, _)| k == &key) {
             *existing_value = value;
         } else {
