@@ -57,20 +57,22 @@ impl Headers {
 
     pub fn get(&self, key: String) -> Option<String> {
         let key = key.to_lowercase();
-        let mut result = String::new();
-        for (k, v) in &self.headers {
-            if k == &key {
-                if !result.is_empty() {
-                    result.push_str(", ");
-                }
-                result.push_str(v);
-            }
+        if key == HEADERS_KEY_SET_COOKIE {
+            let result: Vec<String> = self
+                .headers
+                .iter()
+                .filter_map(|(k, v)| if k == &key { Some(v.clone()) } else { None })
+                .collect();
+            return if result.is_empty() {
+                None
+            } else {
+                Some(result.join(", "))
+            };
         }
-        if result.is_empty() {
-            None
-        } else {
-            Some(result)
-        }
+        self.headers
+            .iter()
+            .find(|(k, _)| k == &key)
+            .map(|(_, v)| v.clone())
     }
 
     pub fn get_set_cookie(&self) -> Vec<String> {
