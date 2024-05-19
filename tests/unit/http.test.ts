@@ -127,7 +127,7 @@ describe("Headers class", () => {
     });
   });
 
-  it("should return an iterator over the headers", () => {
+  it("should be returned as array type of string", () => {
     const h = new Headers();
     h.append("set-cookie", "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT");
     h.append("set-cookie", "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT");

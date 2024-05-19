@@ -146,9 +146,8 @@ impl Headers {
         let mut headers = Headers::default();
 
         for (key, value) in header_map.iter() {
-            let normalized_key = key.to_string().to_lowercase();
             let mapping_value = String::from_utf8_lossy(value.as_bytes()).to_string();
-            headers.insert_header_value(normalized_key, mapping_value, true);
+            headers.insert_header_value(key.to_string(), mapping_value, true);
         }
         Ok(headers)
     }
@@ -170,8 +169,7 @@ impl Headers {
         let mut headers = Headers::default();
 
         for (key, value) in map {
-            let normalized_key = key.to_lowercase();
-            headers.insert_header_value(normalized_key, value.to_string(), true);
+            headers.insert_header_value(key, value.to_string(), true);
         }
         headers
     }
