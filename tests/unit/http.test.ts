@@ -336,6 +336,7 @@ describe("Response class", () => {
 
   it("should be returned specified values in redirect static function called single param", () => {
     const redirectUrl = "http://localhost/";
+    //@ts-ignore
     const response = Response.redirect(redirectUrl);
     expect(response.status).toEqual(302);
     expect(response.headers.get("location")).toEqual(redirectUrl);
@@ -743,5 +744,78 @@ describe("URL Utility Functions", () => {
     expect(
       urlModule.format(url, { fragment: false, unicode: true, auth: false })
     ).toBe("https://測試/?abc");
+  });
+});
+
+describe("File class", () => {
+  it("should construct a new File", () => {
+    const file = new File(["Hello, world!"], "hello.txt", {
+      type: "text/plain",
+    });
+
+    expect(file.size).toBe(13);
+    expect(file.type).toBe("text/plain");
+    expect(file.name).toBe("hello.txt");
+  });
+
+  it("should return the correct lastModified date", () => {
+    const fileWithDate = new File([], "file.bin", {
+      lastModified: new Date(Date.UTC(2017, 1, 1, 0, 0, 0, 0)).getTime(),
+    });
+    expect(fileWithDate.lastModified).toBe(1485907200000);
+  });
+
+  it("has a name", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file.name).toBe("example.txt");
+  });
+
+  it("has content", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file.size).toBeGreaterThan(0);
+  });
+
+  it("has a size", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file.size).toBeGreaterThan(0);
+  });
+
+  it("has a type", () => {
+    const file = new File(["file content"], "example.txt", {
+      type: "text/plain",
+    });
+    expect(file.type).toBe("text/plain");
+  });
+
+  it("has last modified date", () => {
+    const file = new File(["file content"], "example.txt");
+    const now = new Date();
+    expect(file.lastModified).toBeLessThanOrEqual(now.getTime());
+  });
+
+  it("can slice file", () => {
+    const file = new File(["file content"], "example.txt");
+    const slice = file.slice(0, 5);
+    expect(slice).toBeInstanceOf(Blob);
+    expect(slice.size).toBe(5);
+  });
+
+  it("can read file as text", async () => {
+    const file = new File(["file content"], "example.txt");
+    const text = await file.text();
+    expect(text).toBe("file content");
+  });
+
+  it("can read file as arrayBuffer", async () => {
+    const file = new File([1, 2, 3, 4] as any, "example.txt");
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    expect(Array.from(uint8Array)).toStrictEqual([49, 50, 51, 52]);
+    expect(uint8Array.length).toBe(4);
+  });
+
+  it("is an instance of Blob", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file).toBeInstanceOf(Blob);
   });
 });

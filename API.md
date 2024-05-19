@@ -52,13 +52,17 @@ Available globally
 
 [fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch)
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
 >
 > - `keepalive` is always true
 > - `request.body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
 > - `response.body` returns `null`. Use `response.text()`, `response.json()` etc
 > - `mode`, `credentials`, `referrerPolicy`, `priority`, `cache` is not available/applicable
+
+## file
+
+[file](https://developer.mozilla.org/en-US/docs/Web/API/File)
 
 ## fs
 
