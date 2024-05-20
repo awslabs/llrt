@@ -89,11 +89,24 @@ describe("Headers class", () => {
       authorization: "Bearer 1234",
     };
     const h = new Headers(headers);
+    h.append("set-cookie", "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+    h.append("set-cookie", "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+
     const iterator = h.entries();
     let next = iterator.next();
     expect(next.value).toStrictEqual(["authorization", "Bearer 1234"]);
     next = iterator.next();
     expect(next.value).toStrictEqual(["content-type", "application/json"]);
+    next = iterator.next();
+    expect(next.value).toStrictEqual([
+      "set-cookie",
+      "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    ]);
+    next = iterator.next();
+    expect(next.value).toStrictEqual([
+      "set-cookie",
+      "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    ]);
     next = iterator.next();
     expect(next.value).toStrictEqual(undefined);
   });
@@ -107,6 +120,30 @@ describe("Headers class", () => {
       expect(key).toStrictEqual("content-type");
       expect(value).toStrictEqual("application/json");
     });
+  });
+
+  it("should be returned as array type of string", () => {
+    const h = new Headers();
+    h.append("set-cookie", "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+    h.append("set-cookie", "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT");
+    expect(h.getSetCookie()).toStrictEqual([
+      "AAA=123; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+      "BBB=456; expires=Sun, 10-Nov-2024 12:29:35 GMT",
+    ]);
+  });
+
+  it("should be returned as a semicolon-delimited string", () => {
+    const h = new Headers();
+    h.append("cookie", "AAA=123");
+    h.append("cookie", "BBB=456");
+    expect(h.get("cookie")).toStrictEqual("AAA=123; BBB=456");
+  });
+
+  it("should be returned as a comma-delimited string", () => {
+    const h = new Headers();
+    h.append("accept-encoding", "zstd");
+    h.append("accept-encoding", "br");
+    expect(h.get("accept-encoding")).toStrictEqual("zstd, br");
   });
 });
 
