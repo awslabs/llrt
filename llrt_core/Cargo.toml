@@ -39,7 +39,7 @@ webpki = "0.22.4"
 async-trait = "0.1.80"
 url = "2.5.0"
 zstd = { version = "0.13.1", default-features = false, features = [] }
-libc = "0.2.154"
+libc = "0.2.155"
 base64-simd = "0.8.0"
 hex-simd = "0.8.0"
 socket2 = "0.5.7"
