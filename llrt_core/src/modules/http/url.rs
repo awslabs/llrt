@@ -238,6 +238,13 @@ impl<'js> URL<'js> {
         self.password.clone_from(&password);
         password
     }
+
+    #[qjs(rename = PredefinedAtom::ToJSON)]
+    fn to_json(&self) -> String {
+        // NOTE: It is not wrong to return as a string.
+        // https://developer.mozilla.org/en-US/docs/Web/API/URL/toJSON
+        self.to_string()
+    }
 }
 
 impl<'js> URL<'js> {
