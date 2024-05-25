@@ -491,6 +491,14 @@ describe("URL class", () => {
   it("canParse works for relative urls", () => {
     expect(URL.canParse("/foo", "https://example.org/")).toEqual(true);
   });
+  it("should return the URL as a string", () => {
+    const url = new URL(
+      "https://developer.mozilla.org/ja/docs/Web/API/URL/toString"
+    );
+    expect(url.toJSON()).toEqual(
+      "https://developer.mozilla.org/ja/docs/Web/API/URL/toString"
+    );
+  });
 });
 
 describe("URLSearchParams class", () => {
