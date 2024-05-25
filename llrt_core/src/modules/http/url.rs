@@ -241,7 +241,6 @@ impl<'js> URL<'js> {
 
     #[qjs(rename = PredefinedAtom::ToJSON)]
     fn to_json(&self) -> String {
-        // NOTE: It is not wrong to return as a string.
         // https://developer.mozilla.org/en-US/docs/Web/API/URL/toJSON
         self.to_string()
     }
