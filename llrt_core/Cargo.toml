@@ -59,7 +59,7 @@ hyper-rustls = { version = "0.27.1", default-features = false, features = [
     "webpki-tokio",
     "ring",
 ] }
-hyper-util = "0.1.3"
+hyper-util = "0.1.4"
 http-body-util = "0.1.1"
 rustls = { version = "0.23.7", default-features = false, features = [
     "tls12",
