@@ -313,7 +313,13 @@ You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x64.zip`. You can 
 
 ## Running Lambda emulator
 
-Please note that in order to run the example you will need:
+Please note that in order to run the example you will need to run the following from the repo root:
+
+- A root to locate the example `index.mjs`
+
+```bash
+export LAMBDA_TASK_ROOT=$(pwd)
+```
 
 - Valid AWS credentials via a `~/.aws/credentials` or via environment variables.
 
@@ -323,8 +329,13 @@ export AWS_SECRET_ACCESS_KEY=YYY
 export AWS_REGION=us-east-1
 ```
 
-- A DynamoDB table (with `id` as the partition key) on `us-east-1`
-- The `dynamodb:PutItem` IAM permission on this table. You can use this policy (don't forget to modify <YOUR_ACCOUNT_ID>):
+- A DynamoDB table (with `id` as the partition key) in the same region as above such as `us-east-1
+
+```bash
+export TABLE_NAME=quickjs-table
+```
+
+- The `dynamodb:PutItem` IAM permission on this table. You can use this policy (don't forget to modify `<YOUR_ACCOUNT_ID>` and `<TABLE_NAME>`, and change the region if you're not using `us-east-1`):
 
 ```json
 {
@@ -334,7 +345,7 @@ export AWS_REGION=us-east-1
       "Sid": "putItem",
       "Effect": "Allow",
       "Action": "dynamodb:PutItem",
-      "Resource": "arn:aws:dynamodb:us-east-1:<YOUR_ACCOUNT_ID>:table/quickjs-table"
+      "Resource": "arn:aws:dynamodb:us-east-1:<YOUR_ACCOUNT_ID>:table/<TABLE_NAME>"
     }
   ]
 }
