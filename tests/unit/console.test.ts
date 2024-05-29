@@ -15,8 +15,8 @@ it("should format strings correctly", () => {
   expect(util.format("Hello %%, %s! How are you, %s?", "Alice", "Bob")).toEqual(
     "Hello %, Alice! How are you, Bob?"
   );
-  expect(util.format("The %s %d %f.", "quick", "42", "3.14")).toEqual(
-    "The quick 42 3.14."
+  expect(util.format("The %s %d %f. %i", "quick", "42", "3.14", "abc")).toEqual(
+    "The quick 42 3.14. NaN"
   );
   expect(
     util.format("Unmatched placeholders: %s %x %% %q", "one", "two")

@@ -8,7 +8,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
-use rquickjs::function::This;
+use rquickjs::function::{Constructor, This};
 use rquickjs::module::{Declarations, Exports, ModuleDef};
 use rquickjs::{
     atom::PredefinedAtom,
@@ -523,7 +523,7 @@ fn format_values_internal<'js>(
                                     result.push_str(str.as_str());
                                     continue;
                                 },
-                                b'd' => options.number_ctor.call((iter.next().unwrap().1,))?,
+                                b'd' => options.number_function.call((iter.next().unwrap().1,))?,
                                 b'i' => options.parse_int.call((iter.next().unwrap().1,))?,
                                 b'f' => options.parse_float.call((iter.next().unwrap().1,))?,
                                 b'j' => {
@@ -583,7 +583,7 @@ struct FormatOptions<'js> {
     show_hidden: bool,
     get_own_property_desc_fn: Function<'js>,
     object_prototype: Object<'js>,
-    number_ctor: Function<'js>,
+    number_function: Function<'js>,
     parse_float: Function<'js>,
     parse_int: Function<'js>,
 }
@@ -599,7 +599,7 @@ impl<'js> FormatOptions<'js> {
         let get_own_property_desc_fn: Function =
             object_ctor.get(PredefinedAtom::GetOwnPropertyDescriptor)?;
 
-        let number_ctor = globals.get(PredefinedAtom::Number)?;
+        let number_function = globals.get(PredefinedAtom::Number)?;
         let parse_float = globals.get("parseFloat")?;
         let parse_int = globals.get("parseInt")?;
 
@@ -609,7 +609,7 @@ impl<'js> FormatOptions<'js> {
             show_hidden: true,
             get_own_property_desc_fn,
             object_prototype,
-            number_ctor,
+            number_function,
             parse_float,
             parse_int,
         };
