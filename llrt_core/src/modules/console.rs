@@ -42,7 +42,9 @@ const MAX_EXPANSION_DEPTH: usize = 4;
 const OBJECT_ARRAY_START: [char; 2] = ['[', '{'];
 const OBJECT_ARRAY_END: [char; 2] = [']', '}'];
 const LINE_BREAK_LOOKUP: [&str; 3] = ["", "\r", "\n"];
+const SPACING_LOOKUP: [&str; 2] = ["", " "];
 const SINGLE_QUOTE_LOOKUP: [&str; 2] = ["", "\'"];
+const CLASS_FUNCTION_LOOKUP: [&str; 2] = ["[function: ", "[class: "];
 const INDENTATION_LOOKUP: [&str; MAX_INDENTATION_LEVEL + 1] =
     ["", "  ", "    ", "        ", "                "];
 
@@ -175,16 +177,6 @@ fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool, newlin
 #[inline(always)]
 fn push_indentation(result: &mut String, depth: usize) {
     result.push_str(INDENTATION_LOOKUP[depth]);
-
-    // let width = depth * 2; //two spaces per level
-
-    // if width <= SPACE_INDENTATION_LENGTH {
-    //     result.push_str(&SPACE_INDENTATION[..width]);
-    //     return;
-    // }
-    // let indentation = SPACE_INDENTATION.repeat(width / SPACE_INDENTATION_LENGTH);
-
-    // result.push_str(&indentation[..width]);
 }
 
 impl Color {
@@ -277,11 +269,8 @@ fn format_raw_inner<'js>(
         },
         Type::Bool => {
             Color::YELLOW.push(result, color_enabled);
-            result.push_str(if value.as_bool().unwrap() {
-                "true"
-            } else {
-                "false"
-            })
+            const BOOL_STRINGS: [&str; 2] = ["false", "true"];
+            result.push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
         },
         Type::BigInt => {
             Color::YELLOW.push(result, color_enabled);
@@ -316,9 +305,14 @@ fn format_raw_inner<'js>(
         Type::Function | Type::Constructor => {
             Color::CYAN.push(result, color_enabled);
             let obj = value.as_object().unwrap();
-            let name: String = obj
+
+            const ANONYMOUS: &str = "(anonymous)";
+            let mut name: String = obj
                 .get(PredefinedAtom::Name)
-                .unwrap_or("(anonymous)".into());
+                .unwrap_or(String::with_capacity(ANONYMOUS.len()));
+            if name.is_empty() {
+                name.push_str(ANONYMOUS);
+            }
 
             let mut is_class = false;
             if obj.contains_key(PredefinedAtom::Prototype)? {
@@ -328,8 +322,7 @@ fn format_raw_inner<'js>(
                 let writable: bool = desc.get(PredefinedAtom::Writable)?;
                 is_class = !writable;
             }
-
-            result.push_str(if is_class { "[class: " } else { "[function: " });
+            result.push_str(CLASS_FUNCTION_LOOKUP[is_class as usize]);
             result.push_str(&name);
             result.push(']');
         },
@@ -351,7 +344,6 @@ fn format_raw_inner<'js>(
                 result.push_str(&name);
                 result.push_str(": ");
                 result.push_str(&message);
-                result.push_str(LINE_BREAK_LOOKUP[1 + (options.newline as usize)]);
                 Color::BLACK.push(result, color_enabled);
                 if let Ok(stack) = stack {
                     for line in stack.trim().split('\n') {
@@ -481,6 +473,7 @@ fn format_raw_inner<'js>(
                 result.push_str(
                     LINE_BREAK_LOOKUP[first & apply_indentation & 1 + (options.newline as usize)],
                 );
+                result.push_str(SPACING_LOOKUP[first & !apply_indentation & 1]);
                 push_indentation(result, first & apply_indentation & depth);
                 result.push(OBJECT_ARRAY_END[(!is_array) as usize]);
             } else {
@@ -953,7 +946,7 @@ mod tests {
             //validate second argument passed
             assert_eq!(
                 write_log([obj.into_value(), true.into_js(&ctx)?].into())?,
-                r#"{"time":"","level":"INFO","message":"{ a: 1, b: 'Hello' } true"}"#
+                r#"{"time":"","level":"INFO","message":"{\n  a: 1,\n  b: 'Hello'\n} true"}"#
             );
 
             //single error
@@ -1026,13 +1019,13 @@ mod tests {
 
             assert_eq!(
                 write_log([obj.clone().into_value()].into())?,
-                 "\tn/a\tINFO\t{ a: 1, b: 'Hello' }"
+                 "\tn/a\tINFO\t{\r  a: 1,\r  b: 'Hello'\r}"
             );
 
             //validate second argument passed
             assert_eq!(
                 write_log([obj.clone().into_value(), true.into_js(&ctx)?].into())?,
-                "\tn/a\tINFO\t{ a: 1, b: 'Hello' } true"
+                "\tn/a\tINFO\t{\r  a: 1,\r  b: 'Hello'\r} true"
             );
 
             //single error

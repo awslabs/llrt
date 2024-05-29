@@ -225,10 +225,12 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
 
     match type_of {
         Type::Null | Type::Undefined => context.result.push_str("null"),
-        Type::Bool => context.result.push_str(match value.as_bool().unwrap() {
-            true => "true",
-            false => "false",
-        }),
+        Type::Bool => {
+            const BOOL_STRINGS: [&str; 2] = ["false", "true"];
+            context
+                .result
+                .push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
+        },
         Type::Int => {
             let mut buffer = itoa::Buffer::new();
             context
@@ -354,19 +356,12 @@ fn append_value(context: &mut StringifyContext<'_, '_>, add_comma: bool) -> Resu
 fn write_key(string: &mut String, key: &str, indent: bool) {
     string.push('"');
     escape_json_string(string, key.as_bytes());
-    if indent {
-        string.push_str("\": ");
-    } else {
-        string.push_str("\":");
-    }
+    const SUFFIXES: [&str; 2] = ["\":", "\": "];
+    string.push_str(SUFFIXES[indent as usize]);
 }
 
 #[inline(always)]
 fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool) {
-    if !add_comma && !has_indentation {
-        return;
-    }
-
     const SEPARATOR_TABLE: [&str; 4] = [
         "",    // add_comma = false, has_indentation = false
         ",",   // add_comma = false, has_indentation = true

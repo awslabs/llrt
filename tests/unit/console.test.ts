@@ -138,16 +138,16 @@ it("should log complex object", () => {
   expect(stringObj).toEqual(
     `
 {
-  1: Symbol(foo),
-  2: Promise {},
-  3: {},
-  4: [ 1, 2, 3 ],
+  '1': Symbol(foo),
+  '2': Promise {},
+  '3': {},
+  '4': [ 1, 2, 3 ],
   a: 1,
   b: \'foo\',
   c: {
     d: ${date.toISOString()},
     e: [ 2.2, true, [], {} ],
-    f: { g: 1, h: 2, i: 3, j: { k: [Object], m: [Object] } },
+    f: { g: 1, h: 2, i: 3, j: { k: [Object], m: [Array] } },
     n: [ 1, 2, 3 ]
   },
   o: [Circular],
@@ -161,6 +161,7 @@ it("should log complex object", () => {
   x: [class: Instance],
   y: null,
   z: undefined,
+  '3.14': 1,
   abc: 123
 }
 `.trim()
