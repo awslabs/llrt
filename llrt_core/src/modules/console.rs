@@ -250,60 +250,56 @@ fn format_raw_inner<'js>(
 ) -> Result<()> {
     let value_type = value.type_of();
 
-    let color_enabled = if options.color {
-        !0 // All bits set to 1
-    } else {
-        0 // All bits set to 0
-    };
-
+    let color_enabled_mask = bitmask(options.color);
+    let not_root_mask = bitmask(depth != 0);
     let not_root = (depth != 0) as usize;
 
     match value_type {
         Type::Uninitialized | Type::Null => {
-            Color::BOLD.push(result, color_enabled);
+            Color::BOLD.push(result, color_enabled_mask);
             result.push_str("null")
         },
         Type::Undefined => {
-            Color::BLACK.push(result, color_enabled);
+            Color::BLACK.push(result, color_enabled_mask);
             result.push_str("undefined")
         },
         Type::Bool => {
-            Color::YELLOW.push(result, color_enabled);
+            Color::YELLOW.push(result, color_enabled_mask);
             const BOOL_STRINGS: [&str; 2] = ["false", "true"];
             result.push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
         },
         Type::BigInt => {
-            Color::YELLOW.push(result, color_enabled);
+            Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = itoa::Buffer::new();
             let big_int = value.as_big_int().unwrap();
             result.push_str(buffer.format(big_int.clone().to_i64().unwrap()));
             result.push('n');
         },
         Type::Int => {
-            Color::YELLOW.push(result, color_enabled);
+            Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = itoa::Buffer::new();
             result.push_str(buffer.format(value.as_int().unwrap()));
         },
         Type::Float => {
-            Color::YELLOW.push(result, color_enabled);
+            Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = ryu::Buffer::new();
             result.push_str(buffer.format_finite(value.as_float().unwrap()));
         },
         Type::String => {
-            Color::GREEN.push(result, color_enabled);
+            Color::GREEN.push(result, not_root_mask & color_enabled_mask);
             result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
             result.push_str(&value.as_string().unwrap().to_string().unwrap());
             result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
         },
         Type::Symbol => {
-            Color::YELLOW.push(result, color_enabled);
+            Color::YELLOW.push(result, color_enabled_mask);
             let description = value.as_symbol().unwrap().description().unwrap();
             result.push_str("Symbol(");
             result.push_str(&description.to_string().unwrap());
             result.push(')');
         },
         Type::Function | Type::Constructor => {
-            Color::CYAN.push(result, color_enabled);
+            Color::CYAN.push(result, color_enabled_mask);
             let obj = value.as_object().unwrap();
 
             const ANONYMOUS: &str = "(anonymous)";
@@ -329,9 +325,9 @@ fn format_raw_inner<'js>(
         Type::Array | Type::Object | Type::Exception => {
             let hash = fxhash::hash(&value);
             if visited.contains(&hash) {
-                Color::CYAN.push(result, color_enabled);
+                Color::CYAN.push(result, color_enabled_mask);
                 result.push_str(CIRCULAR);
-                Color::reset(result, color_enabled);
+                Color::reset(result, color_enabled_mask);
                 return Ok(());
             }
             visited.insert(hash);
@@ -344,7 +340,7 @@ fn format_raw_inner<'js>(
                 result.push_str(&name);
                 result.push_str(": ");
                 result.push_str(&message);
-                Color::BLACK.push(result, color_enabled);
+                Color::BLACK.push(result, color_enabled_mask);
                 if let Ok(stack) = stack {
                     for line in stack.trim().split('\n') {
                         result.push_str(LINE_BREAK_LOOKUP[1 + (options.newline as usize)]);
@@ -352,7 +348,7 @@ fn format_raw_inner<'js>(
                         result.push_str(line);
                     }
                 }
-                Color::reset(result, color_enabled);
+                Color::reset(result, color_enabled_mask);
                 return Ok(());
             }
 
@@ -363,16 +359,16 @@ fn format_raw_inner<'js>(
                 class_name = get_class_name(&value)?;
                 match class_name.as_deref() {
                     Some("Date") => {
-                        Color::MAGENTA.push(result, color_enabled);
+                        Color::MAGENTA.push(result, color_enabled_mask);
                         let iso_fn: Function =
                             value.as_object().unwrap().get("toISOString").unwrap();
                         let str: String = iso_fn.call((This(value),))?;
                         result.push_str(&str);
-                        Color::reset(result, color_enabled);
+                        Color::reset(result, color_enabled_mask);
                         return Ok(());
                     },
                     Some("RegExp") => {
-                        Color::RED.push(result, color_enabled);
+                        Color::RED.push(result, color_enabled_mask);
                         let obj = value.as_object().unwrap();
                         let source: String = obj.get("source")?;
                         let flags: String = obj.get("flags")?;
@@ -380,7 +376,7 @@ fn format_raw_inner<'js>(
                         result.push_str(&source);
                         result.push('/');
                         result.push_str(&flags);
-                        Color::reset(result, color_enabled);
+                        Color::reset(result, color_enabled_mask);
                         return Ok(());
                     },
                     None | Some("") | Some("Object") => {
@@ -435,7 +431,7 @@ fn format_raw_inner<'js>(
                     }
                 }
 
-                let apply_indentation = if !is_array && depth < 2 { !0 } else { 0 };
+                let apply_indentation = bitmask(!is_array && depth < 2);
 
                 let mut first = 0;
                 let mut numeric_key;
@@ -450,11 +446,11 @@ fn format_raw_inner<'js>(
                             result.push(SPACING);
                         }
                         if !is_array {
-                            Color::GREEN.push(result, color_enabled & numeric_key);
+                            Color::GREEN.push(result, color_enabled_mask & numeric_key);
                             result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
                             result.push_str(&key);
                             result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
-                            Color::reset(result, color_enabled & numeric_key);
+                            Color::reset(result, color_enabled_mask & numeric_key);
                             result.push(':');
                             result.push(SPACING);
                         }
@@ -477,16 +473,21 @@ fn format_raw_inner<'js>(
                 push_indentation(result, first & apply_indentation & depth);
                 result.push(OBJECT_ARRAY_END[(!is_array) as usize]);
             } else {
-                Color::CYAN.push(result, color_enabled);
+                Color::CYAN.push(result, color_enabled_mask);
                 result.push_str(OBJECT_ARRAY_LOOKUP[is_object as usize]);
             }
         },
         _ => {},
     }
 
-    Color::reset(result, color_enabled);
+    Color::reset(result, color_enabled_mask);
 
     Ok(())
+}
+
+#[inline(always)]
+fn bitmask(condition: bool) -> usize {
+    !(condition as usize).wrapping_sub(1)
 }
 
 fn format_values_internal<'js>(
@@ -514,6 +515,7 @@ fn format_values_internal<'js>(
                         next_byte = bytes[i + 1];
                         i += 1;
                         if iter.peek().is_some() {
+                            i += 1;
                             show_hidden = false;
                             let value = match next_byte {
                                 b's' => {
@@ -540,7 +542,12 @@ fn format_values_internal<'js>(
                                     // CSS is ignored
                                     continue;
                                 },
+                                b'%' => {
+                                    result.push(byte as char);
+                                    continue;
+                                },
                                 _ => {
+                                    result.push(byte as char);
                                     result.push(next_byte as char);
                                     continue;
                                 },
@@ -550,6 +557,7 @@ fn format_values_internal<'js>(
                             format_raw(result, value, options)?;
                             continue;
                         }
+                        result.push(byte as char);
                         result.push(next_byte as char);
                     } else {
                         result.push(byte as char);
