@@ -10,7 +10,7 @@ use crate::json::escape::escape_json_string;
 
 const CIRCULAR_REF_DETECTION_DEPTH: usize = 20;
 
-struct IterationContext<'a, 'js> {
+struct StringifyContext<'a, 'js> {
     ctx: &'a Ctx<'js>,
     result: &'a mut String,
     value: &'a Value<'js>,
@@ -77,7 +77,7 @@ pub fn json_stringify_replacer_space<'js>(
 
     let mut ancestors = Vec::with_capacity(10);
 
-    let mut context = IterationContext {
+    let mut context = StringifyContext {
         ctx,
         result: &mut result,
         value: &value,
@@ -119,13 +119,13 @@ fn write_indentation(result: &mut String, indentation: Option<&str>, depth: usiz
 #[inline(always)]
 #[cold]
 fn run_to_json<'js>(
-    context: &mut IterationContext<'_, 'js>,
+    context: &mut StringifyContext<'_, 'js>,
     js_object: &Object<'js>,
 ) -> Result<()> {
     let to_json = js_object.get::<_, Function>(PredefinedAtom::ToJSON)?;
     let val = to_json.call((This(js_object.clone()),))?;
     append_value(
-        &mut IterationContext {
+        &mut StringifyContext {
             ctx: context.ctx,
             result: context.result,
             value: &val,
@@ -153,7 +153,7 @@ enum PrimitiveStatus {
 #[inline(always)]
 #[cold]
 fn run_replacer<'js>(
-    context: &mut IterationContext<'_, 'js>,
+    context: &mut StringifyContext<'_, 'js>,
     replacer_fn: &Function<'js>,
     add_comma: bool,
 ) -> Result<PrimitiveStatus> {
@@ -171,7 +171,7 @@ fn run_replacer<'js>(
     };
     let new_value = replacer_fn.call((This(parent), get_key_or_index(key, index), value))?;
     write_primitive(
-        &mut IterationContext {
+        &mut StringifyContext {
             ctx,
             result: context.result,
             value: &new_value,
@@ -189,7 +189,7 @@ fn run_replacer<'js>(
 }
 
 #[inline(always)]
-fn write_primitive(context: &mut IterationContext, add_comma: bool) -> Result<PrimitiveStatus> {
+fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<PrimitiveStatus> {
     if let Some(replacer_fn) = context.replacer_fn {
         return run_replacer(context, replacer_fn, add_comma);
     }
@@ -338,7 +338,7 @@ fn detect_circular_reference(
 }
 
 #[inline(always)]
-fn append_value(context: &mut IterationContext<'_, '_>, add_comma: bool) -> Result<bool> {
+fn append_value(context: &mut StringifyContext<'_, '_>, add_comma: bool) -> Result<bool> {
     match write_primitive(context, add_comma)? {
         PrimitiveStatus::Written => Ok(true),
         PrimitiveStatus::Ignored => Ok(false),
@@ -374,8 +374,8 @@ fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool) {
         ",\n", // add_comma = true, has_indentation = true
     ];
 
-    let separator = SEPARATOR_TABLE[(add_comma as usize) | ((has_indentation as usize) << 1)];
-    result.push_str(separator);
+    let index = (add_comma as usize) | ((has_indentation as usize) << 1);
+    result.push_str(SEPARATOR_TABLE[index]);
 }
 
 #[inline(always)]
@@ -394,7 +394,7 @@ fn get_key_or_index(key: Option<&str>, index: Option<usize>) -> String {
 }
 
 #[inline(always)]
-fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
+fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
     let mut add_comma;
     let mut value_written;
     let elem = context.value;
@@ -429,7 +429,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
                 let val = js_object.get(&key)?;
 
                 add_comma = append_value(
-                    &mut IterationContext {
+                    &mut StringifyContext {
                         ctx,
                         result: context.result,
                         value: &val,
@@ -471,7 +471,7 @@ fn iterate(context: &mut IterationContext<'_, '_>) -> Result<()> {
             for (i, val) in js_array.iter::<Value>().enumerate() {
                 let val = val?;
                 add_comma = append_value(
-                    &mut IterationContext {
+                    &mut StringifyContext {
                         ctx,
                         result: context.result,
                         value: &val,

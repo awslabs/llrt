@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "llrt_core",
-    "llrt",
-]
+members = ["llrt_core", "llrt"]
 
 [profile.flame]
 inherits = "release"
@@ -19,4 +16,4 @@ panic = "abort"
 
 [profile.test]
 panic = "abort"
-opt-level = 3   #required for large number parsing
+opt-level = 1   #required for large number parsing
