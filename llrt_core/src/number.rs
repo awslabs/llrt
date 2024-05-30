@@ -187,30 +187,34 @@ pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<S
         }
 
         let mut buffer = ryu::Buffer::new();
-        let str = match float_to_string(&mut buffer, float) {
-            Ok(value) => value,
-            Err(value) => return Ok(value.into()),
-        };
-        let len = str.len();
-        if unsafe { str.get_unchecked(str.len() - 2..) } == ".0" {
-            let mut string = str.to_string();
-            unsafe { string.as_mut_vec().set_len(len - 2) }
-            return Ok(string);
-        }
-        return Ok(str.to_string());
+        return float_to_string(&mut buffer, float).map(|f| f.into());
     }
     Ok("".into())
+}
+
+pub fn float_to_string<'a>(buffer: &'a mut ryu::Buffer, float: f64) -> Result<&'a str> {
+    let str = match float_to_str(buffer, float) {
+        Ok(value) => value,
+        Err(value) => return Ok(value.into()),
+    };
+    let len = str.len();
+    if unsafe { str.get_unchecked(str.len() - 2..) } == ".0" {
+        let bytes = str.as_bytes();
+
+        return Ok(unsafe { std::str::from_utf8_unchecked(&bytes[..len - 2]) });
+    }
+    Ok(str)
 }
 
 /// Returns a string representation of the float value.
 ///
 /// Returns error with a `str` if value is non-finite
 #[inline(always)]
-pub fn float_to_string(buf: &mut ryu::Buffer, float: f64) -> StdResult<&str, &str> {
+pub fn float_to_str(buf: &mut ryu::Buffer, float: f64) -> StdResult<&str, &str> {
     const EXP_MASK: u64 = 0x7ff0000000000000;
     let bits = float.to_bits();
     if bits & EXP_MASK == EXP_MASK {
-        return Err(write_nonfinite(bits));
+        return Err(get_nonfinite(bits));
     }
 
     let str = buf.format_finite(float);
@@ -219,7 +223,7 @@ pub fn float_to_string(buf: &mut ryu::Buffer, float: f64) -> StdResult<&str, &st
 
 #[inline(always)]
 #[cold]
-fn write_nonfinite<'a>(bits: u64) -> &'a str {
+fn get_nonfinite<'a>(bits: u64) -> &'a str {
     const MANTISSA_MASK: u64 = 0x000fffffffffffff;
     const SIGN_MASK: u64 = 0x8000000000000000;
     if bits & MANTISSA_MASK != 0 {

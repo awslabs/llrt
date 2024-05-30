@@ -8,7 +8,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
-use rquickjs::function::{Constructor, This};
+use rquickjs::function::This;
 use rquickjs::module::{Declarations, Exports, ModuleDef};
 use rquickjs::{
     atom::PredefinedAtom,
@@ -21,6 +21,7 @@ use rquickjs::{Array, Class, Coerced};
 use crate::json::stringify::json_stringify;
 use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
+use crate::number::float_to_string;
 use crate::{
     json::escape::escape_json,
     runtime_client,
@@ -283,7 +284,7 @@ fn format_raw_inner<'js>(
         Type::Float => {
             Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = ryu::Buffer::new();
-            result.push_str(buffer.format_finite(value.as_float().unwrap()));
+            result.push_str(float_to_string(&mut buffer, value.as_float().unwrap())?);
         },
         Type::String => {
             Color::GREEN.push(result, not_root_mask & color_enabled_mask);
