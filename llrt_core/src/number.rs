@@ -192,10 +192,10 @@ pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<S
     Ok("".into())
 }
 
-pub fn float_to_string<'a>(buffer: &'a mut ryu::Buffer, float: f64) -> Result<&'a str> {
+pub fn float_to_string(buffer: &mut ryu::Buffer, float: f64) -> Result<&str> {
     let str = match float_to_str(buffer, float) {
         Ok(value) => value,
-        Err(value) => return Ok(value.into()),
+        Err(value) => return Ok(value),
     };
     let len = str.len();
     if unsafe { str.get_unchecked(str.len() - 2..) } == ".0" {

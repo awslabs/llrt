@@ -442,7 +442,7 @@ fn format_raw_inner<'js>(
                     if !(value.is_function() && filter_functions) {
                         numeric_key = if key.parse::<f64>().is_ok() { !0 } else { 0 };
                         write_sep(result, first > 0, apply_indentation > 0, options.newline);
-                        push_indentation(result, apply_indentation & depth + 1);
+                        push_indentation(result, apply_indentation & (depth + 1));
                         if depth > MAX_INDENTATION_LEVEL - 1 {
                             result.push(SPACING);
                         }
@@ -468,7 +468,7 @@ fn format_raw_inner<'js>(
                     }
                 }
                 result.push_str(
-                    LINE_BREAK_LOOKUP[first & apply_indentation & 1 + (options.newline as usize)],
+                    LINE_BREAK_LOOKUP[first & apply_indentation & (1 + (options.newline as usize))],
                 );
                 result.push_str(SPACING_LOOKUP[first & !apply_indentation & 1]);
                 push_indentation(result, first & apply_indentation & depth);
