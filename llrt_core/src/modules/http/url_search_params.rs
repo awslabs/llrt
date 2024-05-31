@@ -95,7 +95,7 @@ impl URLSearchParams {
     pub fn set(&mut self, key: String, value: String) {
         let mut modified = false;
         let mut same = false;
-        self.params.retain_mut(move |(k, v)| {
+        self.params.retain_mut(|(k, v)| {
             same = k == &key;
             if !modified && same {
                 modified = true;
@@ -105,6 +105,10 @@ impl URLSearchParams {
 
             !same
         });
+
+        if !modified {
+            self.params.push((key, value));
+        }
     }
 
     pub fn delete(&mut self, key: String) {
