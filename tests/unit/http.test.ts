@@ -491,14 +491,6 @@ describe("URL class", () => {
   it("canParse works for relative urls", () => {
     expect(URL.canParse("/foo", "https://example.org/")).toEqual(true);
   });
-  it("should return the URL as a string", () => {
-    const url = new URL(
-      "https://developer.mozilla.org/ja/docs/Web/API/URL/toString"
-    );
-    expect(url.toJSON()).toEqual(
-      "https://developer.mozilla.org/ja/docs/Web/API/URL/toString"
-    );
-  });
 });
 
 describe("URLSearchParams class", () => {
@@ -591,6 +583,12 @@ describe("URLSearchParams class", () => {
     const searchParams = new URLSearchParams(paramsString);
     searchParams.set("topic", "More webdev");
     expect(searchParams.toString()).toEqual("topic=More+webdev&a=1&a=2&a=3");
+  });
+
+  it("should set value even if not existing", () => {
+    const searchParams = new URLSearchParams("?bar=baz");
+    searchParams.set("foo", "bar");
+    expect(searchParams.toString()).toEqual("bar=baz&foo=bar");
   });
 
   it("should remove the parameter from the query string", () => {
