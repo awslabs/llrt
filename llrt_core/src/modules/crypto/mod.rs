@@ -3,7 +3,7 @@
 mod crc32;
 mod md5_hash;
 mod sha_hash;
-use std::slice;
+use std::{mem, slice};
 
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
@@ -13,7 +13,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
-    Class, Ctx, Error, Function, IntoJs, Null, Object, Result, Value,
+    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 
 use crate::{
@@ -25,6 +25,7 @@ use crate::{
         uuid::uuidv4,
     },
     utils::{
+        class::get_class_name,
         object::{bytes_to_typed_array, get_checked_len, obj_to_array_buffer},
         result::ResultExt,
     },
@@ -132,6 +133,49 @@ fn random_fill_sync<'js>(
     Ok(obj)
 }
 
+macro_rules! fill_typed_array {
+    ($ty:ty, $bytes:expr, $rng:expr) => {{
+        let size = mem::size_of::<$ty>();
+        for chunk in $bytes.chunks_exact_mut(size) {
+            let val_bytes = $rng.gen::<$ty>().to_ne_bytes();
+            chunk.copy_from_slice(&val_bytes[..size]);
+        }
+    }};
+}
+
+fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
+    let mut rng = rand::thread_rng();
+
+    if let Some(array_buffer) = obj_to_array_buffer(&ctx, &obj)? {
+        let raw = array_buffer
+            .as_raw()
+            .ok_or("ArrayBuffer is detached")
+            .or_throw(&ctx)?;
+
+        if raw.len > 65536 {
+            return Err(Exception::throw_message(&ctx, "QuotaExceededError"));
+        }
+
+        let bytes = unsafe { std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+        match get_class_name(&obj)?.unwrap().as_str() {
+            "Int8Array" => fill_typed_array!(i8, bytes, rng),
+            "Uint8Array" | "Uint8ClampedArray" => fill_typed_array!(u8, bytes, rng),
+            "Int16Array" => fill_typed_array!(i16, bytes, rng),
+            "Uint16Array" => fill_typed_array!(u16, bytes, rng),
+            "Int32Array" => fill_typed_array!(i32, bytes, rng),
+            "Uint32Array" => fill_typed_array!(u32, bytes, rng),
+            "Float32Array" => fill_typed_array!(f32, bytes, rng),
+            "Float64Array" => fill_typed_array!(f64, bytes, rng),
+            "BigInt64Array" => fill_typed_array!(i64, bytes, rng),
+            "BigUint64Array" => fill_typed_array!(u64, bytes, rng),
+            _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
+        }
+    }
+
+    Ok(obj)
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
@@ -144,6 +188,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     crypto.set("randomUUID", Func::from(uuidv4))?;
     crypto.set("randomFillSync", Func::from(random_fill_sync))?;
     crypto.set("randomFill", Func::from(random_fill))?;
+    crypto.set("getRandomValues", Func::from(get_random_values))?;
 
     globals.set("crypto", crypto)?;
 
@@ -164,6 +209,7 @@ impl ModuleDef for CryptoModule {
         declare.declare("randomInt")?;
         declare.declare("randomFillSync")?;
         declare.declare("randomFill")?;
+        declare.declare("getRandomValues")?;
 
         for sha_algorithm in ShaAlgorithm::iterate() {
             let class_name = sha_algorithm.class_name();
@@ -204,6 +250,7 @@ impl ModuleDef for CryptoModule {
             default.set("randomUUID", Func::from(uuidv4))?;
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;
+            default.set("getRandomValues", Func::from(get_random_values))?;
             Ok(())
         })?;
 

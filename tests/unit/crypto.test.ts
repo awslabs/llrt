@@ -140,4 +140,101 @@ describe("random", () => {
       expect(randomInt).toBeGreaterThanOrEqual(0);
     }
   });
+
+  it("should generate random bytes synchronously into a Int8Array using getRandomValues", () => {
+    const int8Array = new Int8Array(10);
+    defaultImport.getRandomValues(int8Array);
+    expect(int8Array.length).toEqual(10);
+    for (const byte of int8Array) {
+      expect(byte >= -128 && byte <= 127).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Uint8Array using getRandomValues", () => {
+    const uint8Array = new Uint8Array(10);
+    defaultImport.getRandomValues(uint8Array);
+    expect(uint8Array.length).toEqual(10);
+    for (const byte of uint8Array) {
+      expect(byte >= 0 && byte <= 255).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Uint8ClampedArray using getRandomValues", () => {
+    const uint8ClampedArray = new Uint8ClampedArray(10);
+    defaultImport.getRandomValues(uint8ClampedArray);
+    expect(uint8ClampedArray.length).toEqual(10);
+    for (const byte of uint8ClampedArray) {
+      expect(byte >= 0 && byte <= 255).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Int16Array using getRandomValues", () => {
+    const int16Array = new Int16Array(10);
+    defaultImport.getRandomValues(int16Array);
+    expect(int16Array.length).toEqual(10);
+    for (const byte of int16Array) {
+      expect(byte >= -32768 && byte <= 32767).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Uint16Array using getRandomValues", () => {
+    const uint16Array = new Uint16Array(10);
+    defaultImport.getRandomValues(uint16Array);
+    expect(uint16Array.length).toEqual(10);
+    for (const byte of uint16Array) {
+      expect(byte >= 0 && byte <= 65535).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Int32Array using getRandomValues", () => {
+    const int32Array = new Int32Array(10);
+    defaultImport.getRandomValues(int32Array);
+    expect(int32Array.length).toEqual(10);
+    for (const byte of int32Array) {
+      expect(byte >= -2147483648 && byte <= 2147483647).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Uint32Array using getRandomValues", () => {
+    const uint32Array = new Uint32Array(10);
+    defaultImport.getRandomValues(uint32Array);
+    expect(uint32Array.length).toEqual(10);
+    for (const byte of uint32Array) {
+      expect(byte >= 0 && byte <= 4294967295).toBeTruthy();
+    }
+  });
+  it("should generate random bytes synchronously into a Float32Array using getRandomValues", () => {
+    const float32Array = new Float32Array(10);
+    defaultImport.getRandomValues(float32Array);
+    expect(float32Array.length).toEqual(10);
+    for (const byte of float32Array) {
+      expect(
+        (byte >= -3.4028234663852886e38 && byte <= 3.4028234663852886e38) ||
+          byte >= 1.2 * 10 ** -38
+      ).toBeTruthy();
+    }
+  });
+
+  it("should generate random bytes synchronously into a Float64Array using getRandomValues", () => {
+    const float64Array = new Float64Array(10);
+    defaultImport.getRandomValues(float64Array);
+    expect(float64Array.length).toEqual(10);
+    for (const byte of float64Array) {
+      expect(
+        (byte >= -1.7976931348623157e308 && byte <= 1.7976931348623157e308) ||
+          byte >= 5.0 * 10 ** -324
+      ).toBeTruthy();
+    }
+  });
+
+  it("should be an error, if it exceeds 65536 bytes", () => {
+    const int8Array = new BigInt64Array(65536 / 8 + 1);
+    let errorMessage = "";
+    try {
+      defaultImport.getRandomValues(int8Array);
+    } catch (ex) {
+      errorMessage = ex.message;
+    }
+    expect(errorMessage).toEqual("QuotaExceededError");
+  });
 });
