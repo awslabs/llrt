@@ -13,7 +13,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
-    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
+    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, TypedArray, Value,
 };
 
 use crate::{
@@ -146,31 +146,46 @@ macro_rules! fill_typed_array {
 fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
     let mut rng = rand::thread_rng();
 
-    if let Some(array_buffer) = obj_to_array_buffer(&ctx, &obj)? {
-        let raw = array_buffer
-            .as_raw()
-            .ok_or("ArrayBuffer is detached")
-            .or_throw(&ctx)?;
+    let class_name = get_class_name(&obj)?.unwrap();
 
-        if raw.len > 65536 {
-            return Err(Exception::throw_message(&ctx, "QuotaExceededError"));
-        }
+    let array_buffer = match class_name.as_str() {
+        "Int8Array" => TypedArray::<i8>::from_object(obj.clone())?.arraybuffer(),
+        "Uint8ClampedArray" => obj.get("buffer")?,
+        "Uint8Array" => TypedArray::<u8>::from_object(obj.clone())?.arraybuffer(),
+        "Int16Array" => TypedArray::<i16>::from_object(obj.clone())?.arraybuffer(),
+        "Uint16Array" => TypedArray::<u16>::from_object(obj.clone())?.arraybuffer(),
+        "Int32Array" => TypedArray::<i32>::from_object(obj.clone())?.arraybuffer(),
+        "Uint32Array" => TypedArray::<u32>::from_object(obj.clone())?.arraybuffer(),
+        "Float32Array" => TypedArray::<f32>::from_object(obj.clone())?.arraybuffer(),
+        "Float64Array" => TypedArray::<f64>::from_object(obj.clone())?.arraybuffer(),
+        "BigInt64Array" => TypedArray::<i64>::from_object(obj.clone())?.arraybuffer(),
+        "BigUint64Array" => TypedArray::<u64>::from_object(obj.clone())?.arraybuffer(),
+        _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
+    }?;
 
-        let bytes = unsafe { std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+    let raw = array_buffer
+        .as_raw()
+        .ok_or("ArrayBuffer is detached")
+        .or_throw(&ctx)?;
 
-        match get_class_name(&obj)?.unwrap().as_str() {
-            "Int8Array" => fill_typed_array!(i8, bytes, rng),
-            "Uint8Array" | "Uint8ClampedArray" => fill_typed_array!(u8, bytes, rng),
-            "Int16Array" => fill_typed_array!(i16, bytes, rng),
-            "Uint16Array" => fill_typed_array!(u16, bytes, rng),
-            "Int32Array" => fill_typed_array!(i32, bytes, rng),
-            "Uint32Array" => fill_typed_array!(u32, bytes, rng),
-            "Float32Array" => fill_typed_array!(f32, bytes, rng),
-            "Float64Array" => fill_typed_array!(f64, bytes, rng),
-            "BigInt64Array" => fill_typed_array!(i64, bytes, rng),
-            "BigUint64Array" => fill_typed_array!(u64, bytes, rng),
-            _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
-        }
+    if raw.len > 65536 {
+        return Err(Exception::throw_message(&ctx, "QuotaExceededError"));
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+    match class_name.as_str() {
+        "Int8Array" => fill_typed_array!(i8, bytes, rng),
+        "Uint8Array" | "Uint8ClampedArray" => fill_typed_array!(u8, bytes, rng),
+        "Int16Array" => fill_typed_array!(i16, bytes, rng),
+        "Uint16Array" => fill_typed_array!(u16, bytes, rng),
+        "Int32Array" => fill_typed_array!(i32, bytes, rng),
+        "Uint32Array" => fill_typed_array!(u32, bytes, rng),
+        "Float32Array" => fill_typed_array!(f32, bytes, rng),
+        "Float64Array" => fill_typed_array!(f64, bytes, rng),
+        "BigInt64Array" => fill_typed_array!(i64, bytes, rng),
+        "BigUint64Array" => fill_typed_array!(u64, bytes, rng),
+        _ => {},
     }
 
     Ok(obj)
