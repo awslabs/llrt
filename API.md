@@ -32,6 +32,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [createHmac](https://nodejs.org/api/crypto.html#cryptocreatehmacalgorithm-key-options)
 
+[getRandomValues](https://nodejs.org/api/crypto.html#cryptogetrandomvaluestypedarray)
+
 [randomBytes](https://nodejs.org/api/crypto.html#cryptorandombytessize-callback)
 
 [randomFill](https://nodejs.org/api/crypto.html#cryptorandomfillbuffer-offset-size-callback)
@@ -190,6 +192,7 @@ export class URL {
   username: string;
 
   canParse(input: string, base?: string): boolean;
+  toJSON(): string;
   toString(): string;
 }
 ```
