@@ -3,11 +3,11 @@
 use std::collections::{BTreeMap, HashMap};
 
 use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, Array, ArrayBuffer, Coerced, Ctx, Exception,
-    FromJs, Function, IntoAtom, IntoJs, Object, Result, TypedArray, Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoAtom, IntoJs, Object, Result,
+    TypedArray, Value,
 };
 
-use super::{class::get_class_name, result::ResultExt};
+use super::result::ResultExt;
 
 #[allow(dead_code)]
 pub fn array_to_hash_map<'js>(
@@ -97,7 +97,7 @@ pub fn get_bytes_offset_length<'js>(
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some(array_buffer) = obj_to_array_buffer(ctx, obj)? {
+        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
             return get_array_buffer_bytes(array_buffer, offset, length);
         }
     }
@@ -118,42 +118,53 @@ fn bytes_from_js_string(string: String, offset: usize, length: Option<usize>) ->
     string.as_bytes()[offset..offset + checked_length].to_vec()
 }
 
-pub fn obj_to_array_buffer<'js>(
-    ctx: &Ctx<'js>,
-    obj: &Object<'js>,
-) -> Result<Option<ArrayBuffer<'js>>> {
+pub fn obj_to_array_buffer<'js>(obj: &Object<'js>) -> Result<Option<ArrayBuffer<'js>>> {
     //most common
     if let Ok(typed_array) = TypedArray::<u8>::from_object(obj.clone()) {
         return Ok(Some(typed_array.arraybuffer()?));
     }
-
     //second most common
     if let Some(array_buffer) = ArrayBuffer::from_object(obj.clone()) {
         return Ok(Some(array_buffer));
     }
 
-    let globals = ctx.globals();
-    let data_view: Constructor = globals.get(PredefinedAtom::ArrayBuffer)?;
-    let is_data_view: Function = data_view.get("isView")?;
+    if let Ok(typed_array) = TypedArray::<i8>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
 
-    if is_data_view.call::<_, bool>((obj.clone(),))? {
-        let class_name = get_class_name(obj)?.unwrap();
+    if let Ok(typed_array) = TypedArray::<u16>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
 
-        let array_buffer = match class_name.as_str() {
-            "Int8Array" => TypedArray::<i8>::from_object(obj.clone())?.arraybuffer(),
-            "Uint16Array" => TypedArray::<u16>::from_object(obj.clone())?.arraybuffer(),
-            "Int16Array" => TypedArray::<i16>::from_object(obj.clone())?.arraybuffer(),
-            "Uint32Array" => TypedArray::<u32>::from_object(obj.clone())?.arraybuffer(),
-            "Int32Array" => TypedArray::<i32>::from_object(obj.clone())?.arraybuffer(),
-            "Uint64Array" => TypedArray::<u64>::from_object(obj.clone())?.arraybuffer(),
-            "Int64Array" => TypedArray::<i64>::from_object(obj.clone())?.arraybuffer(),
-            "Float32Array" => TypedArray::<f32>::from_object(obj.clone())?.arraybuffer(),
-            "Float64Array" => TypedArray::<f64>::from_object(obj.clone())?.arraybuffer(),
-            _ => {
-                let array_buffer: ArrayBuffer = obj.get("buffer")?;
-                return Ok(Some(array_buffer));
-            },
-        }?;
+    if let Ok(typed_array) = TypedArray::<i16>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<u32>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<i32>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<u64>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<i64>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<f32>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(typed_array) = TypedArray::<f64>::from_object(obj.clone()) {
+        return Ok(Some(typed_array.arraybuffer()?));
+    }
+
+    if let Ok(array_buffer) = obj.get("buffer")? {
         return Ok(Some(array_buffer));
     }
 

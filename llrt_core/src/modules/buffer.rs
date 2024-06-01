@@ -60,7 +60,7 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some(array_buffer) = obj_to_array_buffer(&ctx, obj)? {
+        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
             return Ok(array_buffer.len());
         }
     }
@@ -104,7 +104,7 @@ fn alloc<'js>(
             return Buffer(bytes).into_js(&ctx);
         }
         if let Some(obj) = value.as_object() {
-            if let Some(array_buffer) = obj_to_array_buffer(&ctx, obj)? {
+            if let Some(array_buffer) = obj_to_array_buffer(obj)? {
                 return alloc_byte_ref(&ctx, array_buffer.as_ref(), length);
             }
         }
