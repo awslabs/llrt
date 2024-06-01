@@ -7,7 +7,7 @@ use std::{mem, slice};
 
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
-use rand::Rng;
+use rand::{Rng, RngCore};
 use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{
     function::{Constructor, Opt},
@@ -159,16 +159,12 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
         let bytes = unsafe { std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
 
         match get_class_name(&obj)?.unwrap().as_str() {
-            "Int8Array" => fill_typed_array!(i8, bytes, rng),
-            "Uint8Array" | "Uint8ClampedArray" => fill_typed_array!(u8, bytes, rng),
-            "Int16Array" => fill_typed_array!(i16, bytes, rng),
-            "Uint16Array" => fill_typed_array!(u16, bytes, rng),
-            "Int32Array" => fill_typed_array!(i32, bytes, rng),
-            "Uint32Array" => fill_typed_array!(u32, bytes, rng),
+            "Int8Array" | "Uint8Array" | "Uint8ClampedArray" | "Int16Array" | "Uint16Array"
+            | "Int32Array" | "Uint32Array" | "BigInt64Array" | "BigUint64Array" => {
+                rng.fill_bytes(bytes)
+            },
             "Float32Array" => fill_typed_array!(f32, bytes, rng),
             "Float64Array" => fill_typed_array!(f64, bytes, rng),
-            "BigInt64Array" => fill_typed_array!(i64, bytes, rng),
-            "BigUint64Array" => fill_typed_array!(u64, bytes, rng),
             _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
         }
     }
