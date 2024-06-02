@@ -3,7 +3,7 @@
 mod crc32;
 mod md5_hash;
 mod sha_hash;
-use std::{mem, slice};
+use std::slice;
 
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
@@ -133,16 +133,6 @@ fn random_fill_sync<'js>(
     Ok(obj)
 }
 
-macro_rules! fill_typed_array {
-    ($ty:ty, $bytes:expr, $rng:expr) => {{
-        let size = mem::size_of::<$ty>();
-        for chunk in $bytes.chunks_exact_mut(size) {
-            let val_bytes = $rng.gen::<$ty>().to_ne_bytes();
-            chunk.copy_from_slice(&val_bytes[..size]);
-        }
-    }};
-}
-
 fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
     let mut rng = rand::thread_rng();
 
@@ -163,8 +153,6 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             | "Int32Array" | "Uint32Array" | "BigInt64Array" | "BigUint64Array" => {
                 rng.fill_bytes(bytes)
             },
-            "Float32Array" => fill_typed_array!(f32, bytes, rng),
-            "Float64Array" => fill_typed_array!(f64, bytes, rng),
             _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
         }
     }

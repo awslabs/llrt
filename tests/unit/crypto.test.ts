@@ -146,7 +146,7 @@ describe("random", () => {
     defaultImport.getRandomValues(int8Array);
     expect(int8Array.length).toEqual(10);
     for (const byte of int8Array) {
-      expect(byte >= -128 && byte <= 127).toBeTruthy();
+      expect(byte >= -0x80 && byte <= 0x7f).toBeTruthy();
     }
   });
 
@@ -155,7 +155,7 @@ describe("random", () => {
     defaultImport.getRandomValues(uint8Array);
     expect(uint8Array.length).toEqual(10);
     for (const byte of uint8Array) {
-      expect(byte >= 0 && byte <= 255).toBeTruthy();
+      expect(byte >= 0x00 && byte <= 0xff).toBeTruthy();
     }
   });
 
@@ -164,7 +164,7 @@ describe("random", () => {
     defaultImport.getRandomValues(uint8ClampedArray);
     expect(uint8ClampedArray.length).toEqual(10);
     for (const byte of uint8ClampedArray) {
-      expect(byte >= 0 && byte <= 255).toBeTruthy();
+      expect(byte >= 0x00 && byte <= 0xff).toBeTruthy();
     }
   });
 
@@ -173,7 +173,7 @@ describe("random", () => {
     defaultImport.getRandomValues(int16Array);
     expect(int16Array.length).toEqual(10);
     for (const byte of int16Array) {
-      expect(byte >= -32768 && byte <= 32767).toBeTruthy();
+      expect(byte >= -0x8000 && byte <= 0x7fff).toBeTruthy();
     }
   });
 
@@ -182,7 +182,7 @@ describe("random", () => {
     defaultImport.getRandomValues(uint16Array);
     expect(uint16Array.length).toEqual(10);
     for (const byte of uint16Array) {
-      expect(byte >= 0 && byte <= 65535).toBeTruthy();
+      expect(byte >= 0x0000 && byte <= 0xffff).toBeTruthy();
     }
   });
 
@@ -191,7 +191,7 @@ describe("random", () => {
     defaultImport.getRandomValues(int32Array);
     expect(int32Array.length).toEqual(10);
     for (const byte of int32Array) {
-      expect(byte >= -2147483648 && byte <= 2147483647).toBeTruthy();
+      expect(byte >= -0x80000000 && byte <= 0x7fffffff).toBeTruthy();
     }
   });
 
@@ -200,30 +200,7 @@ describe("random", () => {
     defaultImport.getRandomValues(uint32Array);
     expect(uint32Array.length).toEqual(10);
     for (const byte of uint32Array) {
-      expect(byte >= 0 && byte <= 4294967295).toBeTruthy();
-    }
-  });
-  it("should generate random bytes synchronously into a Float32Array using getRandomValues", () => {
-    const float32Array = new Float32Array(10);
-    defaultImport.getRandomValues(float32Array);
-    expect(float32Array.length).toEqual(10);
-    for (const byte of float32Array) {
-      expect(
-        (byte >= -3.4028234663852886e38 && byte <= 3.4028234663852886e38) ||
-          byte >= 1.2 * 10 ** -38
-      ).toBeTruthy();
-    }
-  });
-
-  it("should generate random bytes synchronously into a Float64Array using getRandomValues", () => {
-    const float64Array = new Float64Array(10);
-    defaultImport.getRandomValues(float64Array);
-    expect(float64Array.length).toEqual(10);
-    for (const byte of float64Array) {
-      expect(
-        (byte >= -1.7976931348623157e308 && byte <= 1.7976931348623157e308) ||
-          byte >= 5.0 * 10 ** -324
-      ).toBeTruthy();
+      expect(byte >= 0x00000000 && byte <= 0xffffffff).toBeTruthy();
     }
   });
 
