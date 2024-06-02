@@ -13,7 +13,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
-    Class, Ctx, Error, Function, IntoJs, Null, Object, Result, Value,
+    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 
 use crate::{
@@ -25,6 +25,7 @@ use crate::{
         uuid::uuidv4,
     },
     utils::{
+        class::get_class_name,
         object::{bytes_to_typed_array, get_checked_len, obj_to_array_buffer},
         result::ResultExt,
     },
@@ -115,7 +116,7 @@ fn random_fill_sync<'js>(
 ) -> Result<Object<'js>> {
     let offset = offset.unwrap_or(0);
 
-    if let Some(array_buffer) = obj_to_array_buffer(&ctx, &obj)? {
+    if let Some(array_buffer) = obj_to_array_buffer(&obj)? {
         let checked_len = get_checked_len(array_buffer.len(), size.0, offset);
 
         let raw = array_buffer
@@ -127,6 +128,31 @@ fn random_fill_sync<'js>(
         SYSTEM_RANDOM
             .fill(&mut bytes[offset..offset + checked_len])
             .unwrap();
+    }
+
+    Ok(obj)
+}
+
+fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
+    if let Some(array_buffer) = obj_to_array_buffer(&obj)? {
+        let raw = array_buffer
+            .as_raw()
+            .ok_or("ArrayBuffer is detached")
+            .or_throw(&ctx)?;
+
+        if raw.len > 65536 {
+            return Err(Exception::throw_message(&ctx, "QuotaExceededError"));
+        }
+
+        let bytes = unsafe { std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+        match get_class_name(&obj)?.unwrap().as_str() {
+            "Int8Array" | "Uint8Array" | "Uint8ClampedArray" | "Int16Array" | "Uint16Array"
+            | "Int32Array" | "Uint32Array" | "BigInt64Array" | "BigUint64Array" => {
+                SYSTEM_RANDOM.fill(&mut bytes[..]).unwrap()
+            },
+            _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
+        }
     }
 
     Ok(obj)
@@ -144,6 +170,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     crypto.set("randomUUID", Func::from(uuidv4))?;
     crypto.set("randomFillSync", Func::from(random_fill_sync))?;
     crypto.set("randomFill", Func::from(random_fill))?;
+    crypto.set("getRandomValues", Func::from(get_random_values))?;
 
     globals.set("crypto", crypto)?;
 
@@ -164,6 +191,7 @@ impl ModuleDef for CryptoModule {
         declare.declare("randomInt")?;
         declare.declare("randomFillSync")?;
         declare.declare("randomFill")?;
+        declare.declare("getRandomValues")?;
 
         for sha_algorithm in ShaAlgorithm::iterate() {
             let class_name = sha_algorithm.class_name();
@@ -204,6 +232,7 @@ impl ModuleDef for CryptoModule {
             default.set("randomUUID", Func::from(uuidv4))?;
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;
+            default.set("getRandomValues", Func::from(get_random_values))?;
             Ok(())
         })?;
 
