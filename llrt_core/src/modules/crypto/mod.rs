@@ -7,7 +7,7 @@ use std::slice;
 
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
-use rand::{Rng, RngCore};
+use rand::Rng;
 use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{
     function::{Constructor, Opt},
@@ -134,8 +134,6 @@ fn random_fill_sync<'js>(
 }
 
 fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
-    let mut rng = rand::thread_rng();
-
     if let Some(array_buffer) = obj_to_array_buffer(&obj)? {
         let raw = array_buffer
             .as_raw()
@@ -151,7 +149,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
         match get_class_name(&obj)?.unwrap().as_str() {
             "Int8Array" | "Uint8Array" | "Uint8ClampedArray" | "Int16Array" | "Uint16Array"
             | "Int32Array" | "Uint32Array" | "BigInt64Array" | "BigUint64Array" => {
-                rng.fill_bytes(bytes)
+                SYSTEM_RANDOM.fill(&mut bytes[..]).unwrap()
             },
             _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
         }
