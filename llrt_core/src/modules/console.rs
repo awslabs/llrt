@@ -16,12 +16,13 @@ use rquickjs::{
     prelude::{Func, Rest},
     Ctx, Function, Object, Result, Type, Value,
 };
-use rquickjs::{Array, Class, Coerced};
+use rquickjs::{Array, Class, Coerced, Symbol};
 
 use crate::json::stringify::json_stringify;
 use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::number::float_to_string;
+use crate::utils::object::CreateSymbol;
 use crate::{
     json::escape::escape_json,
     runtime_client,
@@ -31,6 +32,8 @@ use crate::{
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
+
+pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
 
 const NEWLINE: char = '\n';
 const SPACING: char = ' ';
@@ -160,8 +163,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("error", Func::from(log_error))?;
     console.set("warn", Func::from(log_warn))?;
     console.set("assert", Func::from(log_assert))?;
-    console.set("__format", Func::from(js_format))?;
-    console.set("__formatPlain", Func::from(format_plain))?;
+    console.set("__format", Func::from(|ctx, args| format(&ctx, args)))?;
 
     globals.set("console", console)?;
 
@@ -220,16 +222,12 @@ fn log<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
     log_std_out(&ctx, args, LogLevel::Info)
 }
 
-fn js_format<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
-    format(&ctx, args)
+pub fn format_plain<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
+    format_values(&ctx, args, false)
 }
 
 pub fn format<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
     format_values(ctx, args, stdout().is_terminal())
-}
-
-pub fn format_plain<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
-    format_values(&ctx, args, false)
 }
 
 #[inline(always)]
@@ -415,64 +413,30 @@ fn format_raw_inner<'js>(
                 }
 
                 let obj = value.as_object().unwrap();
+                if let Ok(obj) = &obj.get::<_, Object>(options.custom_inspect_symbol.as_atom()) {
+                    let is_array = is_typed_array || obj.is_array();
+                    return write_object(
+                        result,
+                        obj,
+                        options,
+                        visited,
+                        depth,
+                        color_enabled_mask,
+                        is_array,
+                    );
+                }
+
                 let is_array = is_typed_array || obj.is_array();
 
-                result.push(OBJECT_ARRAY_START[(!is_array) as usize]);
-
-                let mut keys = obj.keys();
-                let mut filter_functions = false;
-
-                if !is_array && keys.len() == 0 {
-                    if let Some(proto) = obj.get_prototype() {
-                        if proto != options.object_prototype {
-                            keys = proto.own_keys(Filter::new().private().string().symbol());
-
-                            filter_functions = true;
-                        }
-                    }
-                }
-
-                let apply_indentation = bitmask(!is_array && depth < 2);
-
-                let mut first = 0;
-                let mut numeric_key;
-                let length = keys.len();
-                for (i, key) in keys.flatten().enumerate() {
-                    let value: Value = obj.get::<&String, _>(&key).unwrap();
-                    if !(value.is_function() && filter_functions) {
-                        numeric_key = if key.parse::<f64>().is_ok() { !0 } else { 0 };
-                        write_sep(result, first > 0, apply_indentation > 0, options.newline);
-                        push_indentation(result, apply_indentation & (depth + 1));
-                        if depth > MAX_INDENTATION_LEVEL - 1 {
-                            result.push(SPACING);
-                        }
-                        if !is_array {
-                            Color::GREEN.push(result, color_enabled_mask & numeric_key);
-                            result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
-                            result.push_str(&key);
-                            result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
-                            Color::reset(result, color_enabled_mask & numeric_key);
-                            result.push(':');
-                            result.push(SPACING);
-                        }
-
-                        format_raw_inner(result, value, options, visited, depth + 1)?;
-                        first = !0;
-                        if i > 99 {
-                            result.push_str("... ");
-                            let mut buffer = itoa::Buffer::new();
-                            result.push_str(buffer.format(length - i));
-                            result.push_str(" more items");
-                            break;
-                        }
-                    }
-                }
-                result.push_str(
-                    LINE_BREAK_LOOKUP[first & apply_indentation & (1 + (options.newline as usize))],
-                );
-                result.push_str(SPACING_LOOKUP[first & !apply_indentation & 1]);
-                push_indentation(result, first & apply_indentation & depth);
-                result.push(OBJECT_ARRAY_END[(!is_array) as usize]);
+                write_object(
+                    result,
+                    obj,
+                    options,
+                    visited,
+                    depth,
+                    color_enabled_mask,
+                    is_array,
+                )?;
             } else {
                 Color::CYAN.push(result, color_enabled_mask);
                 result.push_str(OBJECT_ARRAY_LOOKUP[is_object as usize]);
@@ -483,6 +447,71 @@ fn format_raw_inner<'js>(
 
     Color::reset(result, color_enabled_mask);
 
+    Ok(())
+}
+
+fn write_object<'js>(
+    result: &mut String,
+    obj: &Object<'js>,
+    options: &FormatOptions<'js>,
+    visited: &mut FxHashSet<usize>,
+    depth: usize,
+    color_enabled_mask: usize,
+    is_array: bool,
+) -> Result<()> {
+    result.push(OBJECT_ARRAY_START[(!is_array) as usize]);
+
+    let mut keys = obj.keys();
+    let mut filter_functions = false;
+    if !is_array && keys.len() == 0 {
+        if let Some(proto) = obj.get_prototype() {
+            if proto != options.object_prototype {
+                keys = proto.own_keys(options.object_filter);
+
+                filter_functions = true;
+            }
+        }
+    }
+    let apply_indentation = bitmask(!is_array && depth < 2);
+
+    let mut first = 0;
+    let mut numeric_key;
+    let length = keys.len();
+    for (i, key) in keys.flatten().enumerate() {
+        let value: Value = obj.get::<&String, _>(&key)?;
+        if !(value.is_function() && filter_functions) {
+            numeric_key = if key.parse::<f64>().is_ok() { !0 } else { 0 };
+            write_sep(result, first > 0, apply_indentation > 0, options.newline);
+            push_indentation(result, apply_indentation & (depth + 1));
+            if depth > MAX_INDENTATION_LEVEL - 1 {
+                result.push(SPACING);
+            }
+            if !is_array {
+                Color::GREEN.push(result, color_enabled_mask & numeric_key);
+                result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
+                result.push_str(&key);
+                result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
+                Color::reset(result, color_enabled_mask & numeric_key);
+                result.push(':');
+                result.push(SPACING);
+            }
+
+            format_raw_inner(result, value, options, visited, depth + 1)?;
+            first = !0;
+            if i > 99 {
+                result.push_str("... ");
+                let mut buffer = itoa::Buffer::new();
+                result.push_str(buffer.format(length - i));
+                result.push_str(" more items");
+                break;
+            }
+        }
+    }
+    result
+        .push_str(LINE_BREAK_LOOKUP[first & apply_indentation & (1 + (options.newline as usize))]);
+    result.push_str(SPACING_LOOKUP[first & !apply_indentation & 1]);
+    push_indentation(result, first & apply_indentation & depth);
+    result.push(OBJECT_ARRAY_END[(!is_array) as usize]);
     Ok(())
 }
 
@@ -500,6 +529,9 @@ fn format_values_internal<'js>(
     let size = args.len();
     let mut iter = args.0.into_iter().enumerate().peekable();
 
+    let current_filter = options.object_filter;
+    let default_filter = Filter::default();
+
     while let Some((index, arg)) = iter.next() {
         if index == 0 && size > 1 {
             if let Some(str) = arg.as_string() {
@@ -507,7 +539,6 @@ fn format_values_internal<'js>(
                 let bytes = str.as_bytes();
                 let mut i = 0;
                 let len = bytes.len();
-                let mut show_hidden;
                 let mut next_byte;
                 let mut byte;
                 while i < len {
@@ -517,7 +548,7 @@ fn format_values_internal<'js>(
                         i += 1;
                         if iter.peek().is_some() {
                             i += 1;
-                            show_hidden = false;
+
                             let value = match next_byte {
                                 b's' => {
                                     let str = iter.next().unwrap().1.get::<Coerced<String>>()?;
@@ -534,11 +565,11 @@ fn format_values_internal<'js>(
                                     );
                                     continue;
                                 },
-                                b'o' => {
-                                    show_hidden = true;
+                                b'O' => {
+                                    options.object_filter = default_filter;
                                     iter.next().unwrap().1
                                 },
-                                b'0' => iter.next().unwrap().1,
+                                b'o' => iter.next().unwrap().1,
                                 b'c' => {
                                     // CSS is ignored
                                     continue;
@@ -554,8 +585,8 @@ fn format_values_internal<'js>(
                                 },
                             };
                             options.color = false;
-                            options.show_hidden = show_hidden;
                             format_raw(result, value, options)?;
+                            options.object_filter = current_filter;
                             continue;
                         }
                         result.push(byte as char);
@@ -581,12 +612,13 @@ fn format_values_internal<'js>(
 struct FormatOptions<'js> {
     color: bool,
     newline: bool,
-    show_hidden: bool,
     get_own_property_desc_fn: Function<'js>,
     object_prototype: Object<'js>,
     number_function: Function<'js>,
     parse_float: Function<'js>,
     parse_int: Function<'js>,
+    object_filter: Filter,
+    custom_inspect_symbol: Symbol<'js>,
 }
 impl<'js> FormatOptions<'js> {
     fn new(ctx: &Ctx<'js>, color: bool, newline: bool) -> Result<Self> {
@@ -604,15 +636,20 @@ impl<'js> FormatOptions<'js> {
         let parse_float = globals.get("parseFloat")?;
         let parse_int = globals.get("parseInt")?;
 
+        let object_filter = Filter::new().private().string().symbol();
+        let custom_inspect_symbol =
+            Symbol::for_description(&globals, CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+
         let options = FormatOptions {
             color,
             newline,
-            show_hidden: true,
+            object_filter,
             get_own_property_desc_fn,
             object_prototype,
             number_function,
             parse_float,
             parse_int,
+            custom_inspect_symbol,
         };
         Ok(options)
     }

@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use rquickjs::{
-    Array, ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoAtom, IntoJs, Object, Result,
-    TypedArray, Value,
+    atom::PredefinedAtom, function::Constructor, Array, ArrayBuffer, Coerced, Ctx, Exception,
+    FromJs, Function, IntoAtom, IntoJs, Object, Result, TypedArray, Value,
 };
 
 use super::result::ResultExt;
@@ -208,5 +208,17 @@ impl<'js> ObjectExt<'js> for Value<'js> {
             return obj.get_optional(k);
         }
         Ok(None)
+    }
+}
+
+pub trait CreateSymbol<'js> {
+    fn for_description(globals: &Object<'js>, description: &'static str) -> Result<Symbol<'js>>;
+}
+
+impl<'js> CreateSymbol<'js> for Symbol<'js> {
+    fn for_description(globals: &Object<'js>, description: &'static str) -> Result<Symbol<'js>> {
+        let symbol_function: Function = globals.get(PredefinedAtom::Symbol)?;
+        let for_function: Function = symbol_function.get(PredefinedAtom::For)?;
+        for_function.call((description,))
     }
 }

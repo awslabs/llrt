@@ -3,10 +3,6 @@ import { Console as NodeConsole } from "node:console";
 import { Console } from "console";
 import util from "util";
 
-function log(...args: any[]) {
-  return (console as any).__formatPlain(...args);
-}
-
 it("should format strings correctly", () => {
   expect(util.format("%s:%s", "foo", "bar")).toEqual("foo:bar");
   expect(util.format(1, 2, 3)).toEqual("1 2 3");
@@ -30,7 +26,7 @@ it("should format strings correctly", () => {
 });
 
 it("should log module", () => {
-  let module = log(timers);
+  let module = util.format(timers);
 
   expect(module).toEqual(
     `
@@ -133,7 +129,7 @@ it("should log complex object", () => {
   // Add a circular reference
   obj.o = obj;
 
-  const stringObj = log(obj);
+  const stringObj = util.format(obj);
 
   expect(stringObj).toEqual(
     `
@@ -166,4 +162,12 @@ it("should log complex object", () => {
 }
 `.trim()
   );
+});
+
+it("should log Headers", () => {
+  const headers = new Headers();
+  headers.append("foo", "bar");
+  expect(util.format(headers)).toEqual(`Headers {
+  foo: 'bar'
+}`);
 });
