@@ -41,9 +41,9 @@
     "@types/jest": "29.5.12",
     "@types/readable-stream": "4.0.14",
     "@types/uuid": "9.0.8",
-    "esbuild": "0.21.3",
+    "esbuild": "0.21.4",
     "esbuild-plugins-node-modules-polyfill": "1.6.4",
-    "prettier": "3.2.5",
+    "prettier": "3.3.0",
     "pretty-quick": "4.0.0",
     "pure-http": "4.0.2",
     "readable-stream": "4.5.2",
@@ -51,5 +51,6 @@
     "ts-node": "^10.9.2",
     "typescript": "5.4.5",
     "vitest": "^1.6.0"
-  }
+  },
+  "packageManager": "yarn@1.22.22"
 }
