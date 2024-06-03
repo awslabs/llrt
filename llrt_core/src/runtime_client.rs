@@ -3,9 +3,11 @@
 
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
+use crate::modules::console;
 use crate::modules::net::HTTP_CLIENT;
+use crate::utils::class::get_class_name;
 use crate::utils::result::ResultExt;
-use crate::vm::{ErrorDetails, Vm};
+use crate::vm::Vm;
 use bytes::Bytes;
 use chrono::Utc;
 use http_body_util::{BodyExt, Full};
@@ -18,11 +20,11 @@ use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use once_cell::sync::Lazy;
 
-use rquickjs::function::This;
+use rquickjs::function::{Rest, This};
 use rquickjs::Exception;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CatchResultExt, CaughtError, Ctx,
-    Function, IntoJs, Module, Object, Result, ThrowResultExt, Value,
+    Function, IntoJs, Object, Result, ThrowResultExt, Value,
 };
 
 use tracing::info;
@@ -171,7 +173,10 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let (module_name, handler_name) = get_module_and_handler_name(ctx, &config.handler)?;
     let task_root = get_task_root();
 
-    let js_handler_module: Object = Module::import(ctx, format!("{}/{}", task_root, module_name))?;
+    //allows CJS handlers
+    let require_function: Function = ctx.globals().get("require")?;
+    let js_handler_module: Object =
+        require_function.call((format!("{}/{}", task_root, module_name),))?;
     let js_init = js_handler_module.get::<_, Value>("init")?;
     let js_bootstrap: Object = ctx.globals().get("__bootstrap")?;
     let js_init_tasks: Array = js_bootstrap.get("initTasks")?;
@@ -340,6 +345,8 @@ async fn start_process_events<'js>(
 
     let lambda_environment = LambdaEnvironment::new();
 
+    let promise_ctor: Value = ctx.globals().get(PredefinedAtom::Promise)?;
+
     loop {
         let now = Instant::now();
 
@@ -351,6 +358,7 @@ async fn start_process_events<'js>(
             &next_invocation_url,
             &mut request_id,
             &lambda_environment,
+            &promise_ctor,
         )
         .await
         .map_err(|e| CaughtError::from_error(ctx, e))
@@ -380,6 +388,7 @@ async fn start_process_events<'js>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn process_event<'js>(
     ctx: &Ctx<'js>,
     client: &HyperClient,
@@ -388,6 +397,7 @@ async fn process_event<'js>(
     next_invocation_url: &str,
     request_id: &mut String,
     lambda_environment: &LambdaEnvironment,
+    promise_constructor: &Value<'js>,
 ) -> Result<()> {
     let NextInvocationResponse { event, context } =
         next_invocation(ctx, client, next_invocation_url, lambda_environment).await?;
@@ -398,9 +408,15 @@ async fn process_event<'js>(
         .replace(context.aws_request_id.clone());
 
     let js_context = context.into_js(ctx)?;
-    let promise =
-        handler.call::<_, Promise<Value>>((event.clone(), js_context.as_value().clone()))?;
-    let result: Value = promise.await?;
+    let handler_result =
+        handler.call::<_, Value>((event.clone(), js_context.as_value().clone()))?;
+
+    let result = match handler_result.as_object() {
+        Some(obj) if obj.is_instance_of(promise_constructor) => {
+            handler_result.get::<Promise<Value>>()?.await?
+        },
+        _ => handler_result,
+    };
     invoke_response(ctx, client, base_url, request_id, result).await?;
     Ok(())
 }
@@ -413,12 +429,39 @@ async fn post_error<'js>(
     error: &CaughtError<'js>,
     request_id: Option<&String>,
 ) -> Result<()> {
-    let ErrorDetails { msg, r#type, stack } = Vm::error_details(ctx, error);
+    let mut error_stack = String::new();
+    let mut error_type = String::from("Error");
+    let error_msg = match error {
+        CaughtError::Error(err) => format!("Error: {:?}", &err),
+        CaughtError::Exception(ex) => {
+            let error_name = get_class_name(ex)
+                .unwrap_or(None)
+                .unwrap_or(String::from("Error"));
+
+            let mut str = String::with_capacity(100);
+            str.push_str(&error_name);
+            str.push_str(": ");
+            str.push_str(&ex.message().unwrap_or_default());
+
+            error_type = error_name;
+
+            if let Some(mut stack) = ex.stack() {
+                console::replace_newline_with_carriage_return(&mut stack);
+                error_stack = stack
+            }
+            str
+        },
+        CaughtError::Value(value) => {
+            let log_msg = console::format_values(ctx, Rest(vec![value.clone()]), false)
+                .unwrap_or(String::from("{unknown value}"));
+            format!("Error: {}", &log_msg)
+        },
+    };
 
     let error_object = Object::new(ctx.clone())?;
-    error_object.set("errorType", r#type.clone())?;
-    error_object.set("errorMessage", msg)?;
-    error_object.set("stackTrace", stack)?;
+    error_object.set("errorType", error_type.clone())?;
+    error_object.set("errorMessage", error_msg)?;
+    error_object.set("stackTrace", error_stack)?;
     error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
     let error_object = error_object.into_value();
 
@@ -441,7 +484,7 @@ async fn post_error<'js>(
         .method("POST")
         .uri(url)
         .header(CONTENT_TYPE, "application/json")
-        .header(&HEADER_ERROR_TYPE, r#type)
+        .header(&HEADER_ERROR_TYPE, error_type)
         .body(Full::from(bytes::Bytes::from(error_body)))
         .or_throw(ctx)?;
     let res = client.request(req).await.or_throw(ctx)?;
@@ -457,24 +500,27 @@ async fn post_error<'js>(
 }
 
 fn get_module_and_handler_name(ctx: &Ctx, handler: &str) -> Result<(String, String)> {
-    let parts: Vec<_> = handler.split('.').filter(|&s| !s.is_empty()).collect();
-
-    match parts.as_slice() {
-        [module_name, handler_name] => Ok((module_name.to_string(), handler_name.to_string())),
-        _ => Err(Exception::throw_message(ctx,  &format!("Invalid handler name or LAMBDA_HANDLER env value: \"{}\": Should be in format {{filename}}.{{method_name}}", handler)))
-    }
+    handler.rfind('.')
+        .and_then(|pos| {
+            let (module_name, handler_name) = handler.split_at(pos);
+            if !module_name.is_empty() && handler_name.len() > 1 { //removes the dot and make sure the length is greater than 0
+                Some((module_name.to_string(), handler_name[1..].to_string()))
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| Exception::throw_message(ctx, &format!(
+            "Invalid handler name or LAMBDA_HANDLER env value: \"{}\": Should be in format {{filepath}}.{{method_name}}", 
+            handler
+        )))
 }
 
 fn get_task_root() -> String {
     env::var(ENV_LAMBDA_TASK_ROOT).unwrap_or_else(|_| {
         env::current_dir()
-            .unwrap_or("/".into())
-            .parent()
-            .map(std::path::PathBuf::from)
-            .unwrap()
-            .into_os_string()
-            .into_string()
-            .unwrap()
+            .ok()
+            .and_then(|path| path.into_os_string().into_string().ok())
+            .unwrap_or_else(|| "/".to_string())
     })
 }
 
@@ -534,29 +580,26 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let mock_config = RuntimeConfig {
-            runtime_api: format!("localhost:{}", mock_server.address().port()),
-            handler: "fixtures/handler.handler".into(),
-            iterations: 10,
-        };
+        let runtime_api = format!("localhost:{}", mock_server.address().port());
 
         let vm = Vm::new().await.unwrap();
 
-        async_with!(vm.ctx => |ctx|{
-            runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
-        })
-        .await;
+        async fn run_with_handler(vm: &Vm, handler: &str, runtime_api: &str) {
+            let mock_config = RuntimeConfig {
+                runtime_api: runtime_api.into(),
+                handler: handler.into(),
+                iterations: 10,
+            };
 
-        let throwing_mock_config = RuntimeConfig {
-            runtime_api: format!("localhost:{}", mock_server.address().port()),
-            handler: "fixtures/throwing-handler.handler".into(),
-            iterations: 10,
-        };
+            async_with!(vm.ctx => |ctx|{
+                runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
+            })
+            .await;
+        }
 
-        async_with!(vm.ctx => |ctx|{
-            runtime_client::start_with_cfg(&ctx,throwing_mock_config).await.catch(&ctx).unwrap()
-        })
-        .await;
+        run_with_handler(&vm, "../fixtures/handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/primitive-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/throwing-handler.handler", &runtime_api).await;
 
         vm.runtime.idle().await;
     }

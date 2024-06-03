@@ -655,7 +655,7 @@ impl<'js> FormatOptions<'js> {
     }
 }
 
-fn format_values<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, tty: bool) -> Result<String> {
+pub fn format_values<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, tty: bool) -> Result<String> {
     let mut result = String::with_capacity(64);
     let mut options = FormatOptions::new(ctx, tty, !AWS_LAMBDA_MODE.load(Ordering::Relaxed))?;
     format_values_internal(&mut result, ctx, args, &mut options)?;
@@ -686,7 +686,11 @@ where
 {
     let is_tty = output.is_terminal();
     let mut result = String::new();
-    let is_lambda_mode = AWS_LAMBDA_MODE.load(Ordering::Relaxed);
+    let mut is_lambda_mode = AWS_LAMBDA_MODE.load(Ordering::Relaxed);
+
+    if is_lambda_mode && is_tty {
+        is_lambda_mode = false;
+    }
 
     if is_lambda_mode {
         let is_json_log_format = AWS_LAMBDA_JSON_LOG_FORMAT.load(Ordering::Relaxed);
@@ -866,17 +870,22 @@ fn write_lambda_log<'js>(
         let mut options = FormatOptions::new(ctx, is_tty && !is_json_log_format, is_newline)?;
         format_values_internal(result, ctx, args, &mut options)?;
 
-        let str_bytes = unsafe { result.as_bytes_mut() }; //OK since we just modify newlines
-
-        //modify \n inside of strings, stacks etc
-        let mut pos = 0;
-        while let Some(index) = str_bytes[pos..].iter().position(|b| *b == b'\n') {
-            str_bytes[pos + index] = b'\r';
-            pos += index + 1; // Move the position after the found '\n'
-        }
+        replace_newline_with_carriage_return(result);
     }
 
     Ok(true)
+}
+
+pub fn replace_newline_with_carriage_return(result: &mut str) {
+    //OK since we just modify newlines
+    let str_bytes = unsafe { result.as_bytes_mut() };
+
+    //modify \n inside of strings, stacks etc
+    let mut pos = 0;
+    while let Some(index) = str_bytes[pos..].iter().position(|b| *b == b'\n') {
+        str_bytes[pos + index] = b'\r';
+        pos += index + 1; // Move the position after the found '\n'
+    }
 }
 
 #[derive(rquickjs::class::Trace)]

@@ -5,6 +5,7 @@ use std::{
     collections::{HashMap, HashSet},
     env::{self},
     ffi::CStr,
+    fmt::Write,
     future::Future,
     io::{self},
     path::{Component, Path, PathBuf},
@@ -46,7 +47,6 @@ use crate::{
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     number::number_to_string,
     utils::{
-        class::get_class_name,
         clone::structured_clone,
         io::get_js_path,
         object::{get_bytes, ObjectExt},
@@ -54,12 +54,6 @@ use crate::{
 };
 
 pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
-
-pub struct ErrorDetails {
-    pub msg: String,
-    pub r#type: String,
-    pub stack: String,
-}
 
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
@@ -461,48 +455,19 @@ impl Vm {
     }
 
     pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
-        let ErrorDetails {
-            msg,
-            r#type: _,
-            stack: _,
-        } = Self::error_details(ctx, &err);
-        eprintln!("{}", msg);
-        exit(1)
-    }
-
-    pub fn error_details<'js>(ctx: &Ctx<'js>, err: &CaughtError<'js>) -> ErrorDetails {
-        let (mut err_stack, mut err_type): (String, String) =
-            (String::default(), String::from("Error"));
-        let error_msg = match err {
-            CaughtError::Error(err) => format!("Error: {:?}", &err),
-            CaughtError::Exception(ex) => {
-                let error_name = get_class_name(ex)
-                    .unwrap_or(None)
-                    .unwrap_or(String::from("Error"));
-
-                let mut str = String::with_capacity(100);
-                str.push_str(&error_name);
-                str.push_str(": ");
-                str.push_str(&ex.message().unwrap_or_default());
-                str.push('\n');
-                err_type = error_name;
-                if let Some(stack) = ex.stack() {
-                    str.push_str(&stack);
-                    err_stack = stack;
-                }
-                str
-            },
-            CaughtError::Value(value) => {
-                let log_msg = console::format(ctx, Rest(vec![value.clone()]))
-                    .unwrap_or(String::from("{unknown value}"));
-                format!("Error: {}", &log_msg)
-            },
+        let mut error_str = String::new();
+        write!(error_str, "Error: {:?}", err).unwrap();
+        if let Ok(error) = err.into_value(ctx) {
+            if console::log_std_err(ctx, Rest(vec![error.clone()]), console::LogLevel::Fatal)
+                .is_err()
+            {
+                eprintln!("{}", error_str);
+            };
+            exit(1)
+        } else {
+            eprintln!("{}", error_str);
+            exit(1)
         };
-        ErrorDetails {
-            msg: error_msg,
-            r#type: err_type,
-            stack: err_stack,
-        }
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
