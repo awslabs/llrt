@@ -19,7 +19,7 @@
         "AWS_LAMBDA_FUNCTION_NAME": "n/a",
         "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": "1",
         "AWS_LAMBDA_FUNCTION_VERSION": "1",
-        "_AWS_LAMBDA_RUNTIME_API": "http://localhost:3000",
+        //"AWS_LAMBDA_RUNTIME_API": "localhost:3000",
         "_EXIT_LOOP": "1",
         "RUST_LOG": "llrt=trace,hyper::http=trace",
         //"_HANDLER": "index.handler",
