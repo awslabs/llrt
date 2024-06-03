@@ -130,7 +130,7 @@ run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
 run: | clean-js js
-	cargo run -r -vv
+	cargo run -vv
 
 run-ssr: export AWS_LAMBDA_RUNTIME_API = localhost:3000
 run-ssr: export TABLE_NAME=quickjs-table
