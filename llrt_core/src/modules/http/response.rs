@@ -11,7 +11,7 @@ use hyper::{body::Incoming, header::HeaderName};
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, TypedArray, Value,
 };
 use tokio::{runtime::Handle, select};
 
@@ -347,6 +347,13 @@ impl<'js> Response<'js> {
             return ArrayBuffer::new(ctx, bytes);
         }
         ArrayBuffer::new(ctx, Vec::<u8>::new())
+    }
+
+    async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return TypedArray::new(ctx, bytes).map(|m| m.into_value());
+        }
+        TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
