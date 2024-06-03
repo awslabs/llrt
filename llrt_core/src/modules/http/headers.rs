@@ -4,11 +4,14 @@ use std::collections::BTreeMap;
 
 use hyper::HeaderMap;
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Result,
-    Value,
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Object,
+    Result, Value,
 };
 
-use crate::utils::{class::IteratorDef, object::map_to_entries};
+use crate::utils::{
+    class::{CustomInspect, IteratorDef},
+    object::map_to_entries,
+};
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
 const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
@@ -190,5 +193,16 @@ impl Headers {
 impl<'js> IteratorDef<'js> for Headers {
     fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
         map_to_entries(&ctx, self.headers.clone())
+    }
+}
+
+impl<'js> CustomInspect<'js> for Headers {
+    fn custom_inspect(&self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let obj = Object::new(ctx)?;
+        for (k, v) in self.headers.iter() {
+            obj.set(k, v)?;
+        }
+
+        Ok(obj)
     }
 }

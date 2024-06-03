@@ -12,7 +12,7 @@ pub mod url_search_params;
 
 use rquickjs::{Class, Ctx, Result};
 
-use crate::modules::http::headers::Headers;
+use crate::{modules::http::headers::Headers, utils::class::CustomInspectExtension};
 
 use self::{
     file::File, request::Request, response::Response, url::URL, url_search_params::URLSearchParams,
@@ -25,7 +25,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
 
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;
-    Class::<Headers>::define(&globals)?;
+    Class::<Headers>::define_with_custom_inspect(&globals)?;
     Class::<URLSearchParams>::define(&globals)?;
     Class::<URL>::define(&globals)?;
 

@@ -8,21 +8,23 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
+use rquickjs::function::This;
 use rquickjs::module::{Declarations, Exports, ModuleDef};
 use rquickjs::{
     atom::PredefinedAtom,
     object::Filter,
-    prelude::{Func, Rest, This},
+    prelude::{Func, Rest},
     Ctx, Function, Object, Result, Type, Value,
 };
-use rquickjs::{Array, Class};
+use rquickjs::{Array, Class, Coerced, Symbol};
 
 use crate::json::stringify::json_stringify;
 use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
+use crate::number::float_to_string;
+use crate::utils::object::CreateSymbol;
 use crate::{
     json::escape::escape_json,
-    number::float_to_string,
     runtime_client,
     utils::{class::get_class_name, result::ResultExt},
 };
@@ -31,21 +33,57 @@ pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
 
-//TODO The same principle can be added to JSON.stringify if indentation is space or tab
-const SPACE_INDENTATION: &str = "                                                                                                                                                                                                                                                                ";
-const SPACE_INDENTATION_LENGTH: usize = SPACE_INDENTATION.len();
+pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
 
-#[inline(always)]
-fn push_indentation(result: &mut String, depth: usize) {
-    let width = depth * 2;
-    if width <= SPACE_INDENTATION_LENGTH {
-        result.push_str(&SPACE_INDENTATION[..width]);
-        return;
+const NEWLINE: char = '\n';
+const SPACING: char = ' ';
+const CIRCULAR: &str = "[Circular]";
+const OBJECT_ARRAY_LOOKUP: [&str; 2] = ["[Array]", "[Object]"];
+const TIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
+
+const MAX_INDENTATION_LEVEL: usize = 4;
+const MAX_EXPANSION_DEPTH: usize = 4;
+const OBJECT_ARRAY_START: [char; 2] = ['[', '{'];
+const OBJECT_ARRAY_END: [char; 2] = [']', '}'];
+const LINE_BREAK_LOOKUP: [&str; 3] = ["", "\r", "\n"];
+const SPACING_LOOKUP: [&str; 2] = ["", " "];
+const SINGLE_QUOTE_LOOKUP: [&str; 2] = ["", "\'"];
+const CLASS_FUNCTION_LOOKUP: [&str; 2] = ["[function: ", "[class: "];
+const INDENTATION_LOOKUP: [&str; MAX_INDENTATION_LEVEL + 1] =
+    ["", "  ", "    ", "        ", "                "];
+
+macro_rules! ascii_colors {
+    ( $( $name:ident => $value:expr ),* ) => {
+        #[derive(Debug, Clone, Copy)]
+        pub enum Color {
+            $(
+                $name = $value+1,
+            )*
+        }
+
+        pub const COLOR_LOOKUP: [&str; 39] = {
+            let mut array = [""; 39];
+            $(
+                //shift 1 position so if disabled we return ""
+                array[Color::$name as usize] = concat!("\x1b[", stringify!($value), "m");
+            )*
+            array
+        };
     }
-    let indentation = SPACE_INDENTATION.repeat(width / SPACE_INDENTATION_LENGTH);
-
-    result.push_str(&indentation[..width]);
 }
+
+ascii_colors!(
+    RESET => 0,
+    BOLD => 1,
+    BLACK => 30,
+    RED => 31,
+    GREEN => 32,
+    YELLOW => 33,
+    BLUE => 34,
+    MAGENTA => 35,
+    CYAN => 36,
+    WHITE => 37
+);
 
 #[derive(Clone)]
 pub enum LogLevel {
@@ -125,418 +163,35 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("error", Func::from(log_error))?;
     console.set("warn", Func::from(log_warn))?;
     console.set("assert", Func::from(log_assert))?;
-    console.set("__format", Func::from(js_format))?;
-    console.set("__formatPlain", Func::from(format_plain))?;
+    console.set("__format", Func::from(|ctx, args| format(&ctx, args)))?;
 
     globals.set("console", console)?;
 
     Ok(())
 }
 
-pub const NEWLINE_LOOKUP: [char; 2] = [NEWLINE, CARRIAGE_RETURN];
-const COLOR_RESET: &str = "\x1b[0m";
-const COLOR_BLACK: &str = "\x1b[30m";
-const COLOR_GREEN: &str = "\x1b[32m";
-const COLOR_YELLOW: &str = "\x1b[33m";
-const COLOR_PURPLE: &str = "\x1b[35m";
-const COLOR_CYAN: &str = "\x1b[36m";
-
-const NEWLINE: char = '\n';
-const CARRIAGE_RETURN: char = '\r';
-const SPACING: char = ' ';
-const SINGLE_QUOTE: char = '\'';
-const SEPARATOR: char = ',';
-const CIRCULAR: &str = "[Circular]";
-const OBJECT: &str = "[Object]";
-const TIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
-
-fn stringify_primitive<'js>(
-    result: &mut String,
-    _ctx: &Ctx<'js>,
-    value: &Value<'js>,
-    value_type: Type,
-    tty: bool,
-) -> Result<()> {
-    let mut has_color = false;
-    if tty {
-        has_color = true;
-        match value_type {
-            Type::Undefined => result.push_str(COLOR_BLACK),
-            Type::Int | Type::Float | Type::Bool => result.push_str(COLOR_YELLOW),
-            Type::Symbol => result.push_str(COLOR_GREEN),
-            Type::BigInt => result.push_str(COLOR_YELLOW),
-            _ => has_color = false,
-        }
-    }
-
-    match value_type {
-        Type::Uninitialized | Type::Null => result.push_str("null"),
-        Type::Undefined => result.push_str("undefined"),
-        Type::Bool => result.push_str(if value.as_bool().unwrap() {
-            "true"
-        } else {
-            "false"
-        }),
-        Type::BigInt => {
-            let mut buffer = itoa::Buffer::new();
-            let big_int = value.as_big_int().unwrap();
-            result.push_str(buffer.format(big_int.clone().to_i64()?));
-            result.push('n');
-        },
-        Type::Int => {
-            let mut buffer = itoa::Buffer::new();
-            result.push_str(buffer.format(value.as_int().unwrap()))
-        },
-        Type::Float => {
-            let mut buffer = ryu::Buffer::new();
-            result.push_str(
-                match float_to_string(&mut buffer, value.as_float().unwrap()) {
-                    Ok(v) => v,
-                    Err(v) => v,
-                },
-            )
-        },
-        Type::String => result.push_str(&value.as_string().unwrap().to_string()?),
-        Type::Symbol => {
-            let description = value.as_symbol().unwrap().description()?;
-            let description = description.to_string()?;
-            result.push_str("Symbol(");
-            if description != "undefined" {
-                result.push_str(&description);
-            }
-            result.push(')');
-        },
-        _ => {},
-    }
-    if has_color {
-        result.push_str(COLOR_RESET);
-    }
-    Ok(())
-}
-
-struct StringifyItem<'js> {
-    value: Option<Value<'js>>,
-    depth: usize,
-    key: Option<String>,
-    end: Option<char>,
-    expand: bool,
+#[inline(always)]
+fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool, newline: bool) {
+    const SEPARATOR_TABLE: [&str; 8] = ["", ",", "\r", ",\r", " ", ", ", "\n", ",\n"];
+    let index = (add_comma as usize) | (has_indentation as usize) << 1 | (newline as usize) << 2;
+    result.push_str(SEPARATOR_TABLE[index]);
 }
 
 #[inline(always)]
-fn is_primitive_like_or_void(typeof_value: Type) -> bool {
-    matches!(
-        typeof_value,
-        Type::Uninitialized
-            | Type::Undefined
-            | Type::Null
-            | Type::Bool
-            | Type::Int
-            | Type::Float
-            | Type::String
-            | Type::BigInt
-            | Type::Symbol
-            | Type::Unknown
-    )
+fn push_indentation(result: &mut String, depth: usize) {
+    result.push_str(INDENTATION_LOOKUP[depth]);
 }
 
-#[inline(always)]
-pub fn stringify_value<'js>(
-    result: &mut String,
-    ctx: &Ctx<'js>,
-    obj: Value<'js>,
-    tty: bool,
-    newline_char: char,
-) -> Result<()> {
-    let obj_type = obj.type_of();
-
-    if is_primitive_like_or_void(obj_type) {
-        stringify_primitive(result, ctx, &obj, obj_type, tty)?;
-        return Ok(());
+impl Color {
+    #[inline(always)]
+    fn push(self, value: &mut String, enabled: usize) {
+        value.push_str(COLOR_LOOKUP[self as usize & enabled])
     }
 
-    //let obj = obj.to_owned();
-    let default_obj = Object::new(ctx.clone())?;
-    let object_ctor: Object = default_obj.get(PredefinedAtom::Constructor)?;
-    let object_prototype = default_obj
-        .get_prototype()
-        .ok_or("Can't get prototype")
-        .or_throw(ctx)?;
-    let get_own_property_desc_fn: Function =
-        object_ctor.get(PredefinedAtom::GetOwnPropertyDescriptor)?;
-
-    let mut stack = Vec::<StringifyItem>::with_capacity(32);
-
-    let mut visited = FxHashSet::default();
-
-    stack.push(StringifyItem {
-        value: Some(obj),
-        depth: 0,
-        key: None,
-        end: None,
-        expand: false,
-    });
-
-    while let Some(StringifyItem {
-        value,
-        depth,
-        key,
-        end,
-        expand,
-    }) = stack.pop()
-    {
-        if let Some(end) = end {
-            if expand {
-                result.push(newline_char);
-                if !stack.is_empty() {
-                    push_indentation(result, depth);
-                }
-            }
-            result.push(end);
-        } else {
-            if expand {
-                result.push(newline_char);
-                push_indentation(result, depth);
-            }
-            if let Some(key) = key {
-                result.push_str(&key);
-                result.push(':');
-                result.push(SPACING);
-            }
-
-            if let Some(value) = value {
-                let typeof_value = value.type_of();
-
-                if is_primitive_like_or_void(typeof_value) {
-                    if typeof_value == Type::String {
-                        if tty {
-                            result.push_str(COLOR_GREEN)
-                        }
-                        result.push(SINGLE_QUOTE);
-                        result.push_str(&value.as_string().unwrap().to_string().unwrap());
-                        result.push(SINGLE_QUOTE);
-                        if tty {
-                            result.push_str(COLOR_RESET)
-                        }
-                    } else {
-                        stringify_primitive(result, ctx, &value, typeof_value, tty)?;
-                    }
-                } else if typeof_value == Type::Function || typeof_value == Type::Constructor {
-                    if tty {
-                        result.push_str(COLOR_CYAN);
-                    }
-
-                    let obj = value.as_object().unwrap();
-                    let mut name: String =
-                        obj.get(PredefinedAtom::Name).unwrap_or(String::from(""));
-                    if name.is_empty() {
-                        name.push_str("(anonymous)")
-                    }
-
-                    let mut is_class = false;
-                    if obj.contains_key(PredefinedAtom::Prototype)? {
-                        let desc: Object = get_own_property_desc_fn.call((value, "prototype"))?;
-                        let writable: bool = desc.get(PredefinedAtom::Writable)?;
-                        is_class = !writable;
-                    }
-
-                    result.push_str(if is_class { "[class: " } else { "[function: " });
-                    result.push_str(&name);
-                    result.push(']');
-
-                    if tty {
-                        result.push_str(COLOR_RESET);
-                    }
-                } else if typeof_value == Type::Array
-                    || typeof_value == Type::Object
-                    || typeof_value == Type::Exception
-                {
-                    let hash = fxhash::hash(&value);
-                    if visited.contains(&hash) {
-                        if tty {
-                            result.push_str(COLOR_CYAN);
-                        }
-                        result.push_str(CIRCULAR);
-                        if tty {
-                            result.push_str(COLOR_RESET);
-                        }
-                    } else {
-                        visited.insert(hash);
-                        let mut class_name = None;
-                        let mut is_object_like = false;
-                        if value.is_error() {
-                            let obj = value.as_object().unwrap();
-                            let name: String = obj.get(PredefinedAtom::Name).unwrap();
-                            let message: String = obj.get(PredefinedAtom::Message).unwrap();
-                            let stack: Result<String> = obj.get(PredefinedAtom::Stack);
-                            result.push_str(&name);
-                            result.push_str(": ");
-                            result.push_str(&message);
-                            result.push(newline_char);
-                            if tty {
-                                result.push_str(COLOR_BLACK);
-                            }
-                            if let Ok(stack) = stack {
-                                stack.trim().split('\n').for_each(|line| {
-                                    push_indentation(result, depth + 1);
-                                    result.push_str(line);
-                                });
-                            }
-                            if tty {
-                                result.push_str(COLOR_RESET);
-                            }
-                        } else if typeof_value == Type::Object {
-                            let cl = get_class_name(&value)?;
-                            match cl.as_deref() {
-                                Some("Date") => {
-                                    if tty {
-                                        result.push_str(COLOR_PURPLE);
-                                    }
-                                    let this = value.as_object().unwrap().to_owned();
-                                    let iso_fn: Function =
-                                        value.as_object().unwrap().get("toISOString").unwrap();
-
-                                    let str: String = iso_fn.call((This(this),)).unwrap();
-                                    result.push_str(&str);
-                                    if tty {
-                                        result.push_str(COLOR_RESET);
-                                    }
-                                },
-                                Some("Promise") => {
-                                    result.push_str("Promise {}");
-                                },
-                                None | Some("") | Some("Object") => {
-                                    is_object_like = true;
-                                },
-                                _ => {
-                                    class_name = cl;
-                                    is_object_like = true;
-                                },
-                            }
-                        } else {
-                            is_object_like = true;
-                        }
-
-                        if is_object_like {
-                            if depth < 4 {
-                                let mut is_typed_array = false;
-                                if let Some(class_name) = class_name {
-                                    result.push_str(&class_name);
-                                    result.push(SPACING);
-                                    is_typed_array = matches!(
-                                        class_name.as_str(),
-                                        "Int8Array"
-                                            | "Uint8Array"
-                                            | "Uint8ClampedArray"
-                                            | "Int16Array"
-                                            | "Uint16Array"
-                                            | "Int32Array"
-                                            | "Uint32Array"
-                                            | "Int64Array"
-                                            | "Uint64Array"
-                                            | "Float32Array"
-                                            | "Float64Array"
-                                            | "Buffer"
-                                    )
-                                }
-
-                                let obj = value.as_object().unwrap();
-
-                                let is_array = is_typed_array || obj.is_array();
-
-                                result.push(if is_array { '[' } else { '{' });
-
-                                let mut keys = obj.keys().rev();
-                                let mut filter_functions = false;
-
-                                if !is_array && keys.len() == 0 {
-                                    if let Some(proto) = obj.get_prototype() {
-                                        if proto != object_prototype {
-                                            keys = proto
-                                                .own_keys(Filter::new().private().string().symbol())
-                                                .rev();
-                                            filter_functions = true;
-                                        }
-                                    }
-                                }
-
-                                stack.push(StringifyItem {
-                                    value: None,
-                                    depth,
-                                    key: None,
-                                    end: Some(if is_array { ']' } else { '}' }),
-                                    expand: false,
-                                });
-
-                                let mut i = 0;
-                                let stack_len = stack.len();
-                                let mut expand_stack = false;
-                                let mut has_value = false;
-                                for key in keys.flatten() {
-                                    let value: Value = obj.get(&key).unwrap();
-                                    if !(value.is_function() && filter_functions) {
-                                        has_value = true;
-                                        let is_error = value.is_error();
-                                        let is_obj = value.is_object() && depth < 2;
-                                        if !expand_stack && (is_error || is_obj) {
-                                            expand_stack = true;
-                                        }
-                                        stack.push(StringifyItem {
-                                            value: Some(value),
-                                            depth: depth + 1,
-                                            expand: false,
-                                            key: if is_array { None } else { Some(key) },
-                                            end: None,
-                                        });
-                                        i += 1;
-                                    }
-                                }
-
-                                if expand_stack {
-                                    for item in
-                                        stack.iter_mut().take(stack_len + i).skip(stack_len - 1)
-                                    {
-                                        item.expand = true
-                                    }
-                                }
-
-                                if has_value && !expand_stack {
-                                    result.push(SPACING);
-                                }
-                            } else {
-                                if tty {
-                                    result.push_str(COLOR_CYAN);
-                                }
-                                result.push_str(OBJECT);
-                                if tty {
-                                    result.push_str(COLOR_RESET);
-                                }
-                                if stack.last().and_then(|n| n.end).is_none() {
-                                    result.push(SEPARATOR);
-                                }
-                                result.push(SPACING);
-                            }
-                            continue;
-                        };
-                    }
-                }
-            }
-        }
-
-        if !stack.is_empty() {
-            let next = stack.last().unwrap();
-            let next_is_end = next.end.is_some();
-            let next_expand = next.expand;
-            if !next_is_end {
-                result.push(SEPARATOR);
-            }
-
-            if !next_expand {
-                result.push(SPACING);
-            }
-        }
+    #[inline(always)]
+    fn reset(value: &mut String, enabled: usize) {
+        value.push_str(COLOR_LOOKUP[Color::RESET as usize & enabled])
     }
-
-    Ok(())
 }
 
 fn log_error<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
@@ -567,50 +222,443 @@ fn log<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
     log_std_out(&ctx, args, LogLevel::Info)
 }
 
-fn js_format<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
-    format(&ctx, args)
+pub fn format_plain<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
+    format_values(&ctx, args, false)
 }
 
 pub fn format<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
     format_values(ctx, args, stdout().is_terminal())
 }
 
-fn format_plain<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
-    format_values(&ctx, args, false)
-}
-
-pub fn format_values_internal<'js>(
+#[inline(always)]
+fn format_raw<'js>(
     result: &mut String,
-    ctx: &Ctx<'js>,
-    args: Rest<Value<'js>>,
-    tty: bool,
-    newline_char: char,
+    value: Value<'js>,
+    options: &FormatOptions<'js>,
 ) -> Result<()> {
-    // Parse arguments
-    let mut str_pattern_option_value: String = String::with_capacity(64);
-    let mut replacements = Vec::with_capacity(args.len() - 1);
-    for (index, arg) in args.0.into_iter().enumerate() {
-        if index == 0 {
-            stringify_value(&mut str_pattern_option_value, ctx, arg, tty, newline_char)?;
-        } else {
-            let mut result = String::with_capacity(64);
-            stringify_value(&mut result, ctx, arg, tty, newline_char)?;
-            replacements.push(result)
-        }
-    }
-
-    result.push_str(&format_string(
-        str_pattern_option_value.as_str(),
-        &replacements,
-    ));
+    format_raw_inner(result, value, options, &mut FxHashSet::default(), 0)?;
     Ok(())
 }
 
-#[inline]
+fn format_raw_inner<'js>(
+    result: &mut String,
+    value: Value<'js>,
+    options: &FormatOptions<'js>,
+    visited: &mut FxHashSet<usize>,
+    depth: usize,
+) -> Result<()> {
+    let value_type = value.type_of();
+
+    let color_enabled_mask = bitmask(options.color);
+    let not_root_mask = bitmask(depth != 0);
+    let not_root = (depth != 0) as usize;
+
+    match value_type {
+        Type::Uninitialized | Type::Null => {
+            Color::BOLD.push(result, color_enabled_mask);
+            result.push_str("null")
+        },
+        Type::Undefined => {
+            Color::BLACK.push(result, color_enabled_mask);
+            result.push_str("undefined")
+        },
+        Type::Bool => {
+            Color::YELLOW.push(result, color_enabled_mask);
+            const BOOL_STRINGS: [&str; 2] = ["false", "true"];
+            result.push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
+        },
+        Type::BigInt => {
+            Color::YELLOW.push(result, color_enabled_mask);
+            let mut buffer = itoa::Buffer::new();
+            let big_int = value.as_big_int().unwrap();
+            result.push_str(buffer.format(big_int.clone().to_i64().unwrap()));
+            result.push('n');
+        },
+        Type::Int => {
+            Color::YELLOW.push(result, color_enabled_mask);
+            let mut buffer = itoa::Buffer::new();
+            result.push_str(buffer.format(value.as_int().unwrap()));
+        },
+        Type::Float => {
+            Color::YELLOW.push(result, color_enabled_mask);
+            let mut buffer = ryu::Buffer::new();
+            result.push_str(float_to_string(&mut buffer, value.as_float().unwrap())?);
+        },
+        Type::String => {
+            Color::GREEN.push(result, not_root_mask & color_enabled_mask);
+            result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
+            result.push_str(&value.as_string().unwrap().to_string().unwrap());
+            result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
+        },
+        Type::Symbol => {
+            Color::YELLOW.push(result, color_enabled_mask);
+            let description = value.as_symbol().unwrap().description().unwrap();
+            result.push_str("Symbol(");
+            result.push_str(&description.to_string().unwrap());
+            result.push(')');
+        },
+        Type::Function | Type::Constructor => {
+            Color::CYAN.push(result, color_enabled_mask);
+            let obj = value.as_object().unwrap();
+
+            const ANONYMOUS: &str = "(anonymous)";
+            let mut name: String = obj
+                .get(PredefinedAtom::Name)
+                .unwrap_or(String::with_capacity(ANONYMOUS.len()));
+            if name.is_empty() {
+                name.push_str(ANONYMOUS);
+            }
+
+            let mut is_class = false;
+            if obj.contains_key(PredefinedAtom::Prototype)? {
+                let desc: Object = options
+                    .get_own_property_desc_fn
+                    .call((value, "prototype"))?;
+                let writable: bool = desc.get(PredefinedAtom::Writable)?;
+                is_class = !writable;
+            }
+            result.push_str(CLASS_FUNCTION_LOOKUP[is_class as usize]);
+            result.push_str(&name);
+            result.push(']');
+        },
+        Type::Array | Type::Object | Type::Exception => {
+            let hash = fxhash::hash(&value);
+            if visited.contains(&hash) {
+                Color::CYAN.push(result, color_enabled_mask);
+                result.push_str(CIRCULAR);
+                Color::reset(result, color_enabled_mask);
+                return Ok(());
+            }
+            visited.insert(hash);
+
+            if value.is_error() {
+                let obj = value.as_object().unwrap();
+                let name: String = obj.get(PredefinedAtom::Name).unwrap();
+                let message: String = obj.get(PredefinedAtom::Message).unwrap();
+                let stack: Result<String> = obj.get(PredefinedAtom::Stack);
+                result.push_str(&name);
+                result.push_str(": ");
+                result.push_str(&message);
+                Color::BLACK.push(result, color_enabled_mask);
+                if let Ok(stack) = stack {
+                    for line in stack.trim().split('\n') {
+                        result.push_str(LINE_BREAK_LOOKUP[1 + (options.newline as usize)]);
+                        push_indentation(result, depth + 1);
+                        result.push_str(line);
+                    }
+                }
+                Color::reset(result, color_enabled_mask);
+                return Ok(());
+            }
+
+            let mut class_name: Option<String> = None;
+            let mut is_object = false;
+            if value_type == Type::Object {
+                is_object = true;
+                class_name = get_class_name(&value)?;
+                match class_name.as_deref() {
+                    Some("Date") => {
+                        Color::MAGENTA.push(result, color_enabled_mask);
+                        let iso_fn: Function =
+                            value.as_object().unwrap().get("toISOString").unwrap();
+                        let str: String = iso_fn.call((This(value),))?;
+                        result.push_str(&str);
+                        Color::reset(result, color_enabled_mask);
+                        return Ok(());
+                    },
+                    Some("RegExp") => {
+                        Color::RED.push(result, color_enabled_mask);
+                        let obj = value.as_object().unwrap();
+                        let source: String = obj.get("source")?;
+                        let flags: String = obj.get("flags")?;
+                        result.push('/');
+                        result.push_str(&source);
+                        result.push('/');
+                        result.push_str(&flags);
+                        Color::reset(result, color_enabled_mask);
+                        return Ok(());
+                    },
+                    None | Some("") | Some("Object") => {
+                        class_name = None;
+                    },
+                    Some("Promise") => {
+                        //TODO add promise state here
+                        result.push_str("Promise {}");
+                        return Ok(());
+                    },
+                    _ => {},
+                }
+            }
+
+            if depth < MAX_EXPANSION_DEPTH {
+                let mut is_typed_array = false;
+                if let Some(class_name) = class_name {
+                    result.push_str(&class_name);
+                    result.push(SPACING);
+                    is_typed_array = matches!(
+                        class_name.as_str(),
+                        "Int8Array"
+                            | "Uint8Array"
+                            | "Uint8ClampedArray"
+                            | "Int16Array"
+                            | "Uint16Array"
+                            | "Int32Array"
+                            | "Uint32Array"
+                            | "Int64Array"
+                            | "Uint64Array"
+                            | "Float32Array"
+                            | "Float64Array"
+                            | "Buffer"
+                    );
+                }
+
+                let obj = value.as_object().unwrap();
+                if let Ok(obj) = &obj.get::<_, Object>(options.custom_inspect_symbol.as_atom()) {
+                    let is_array = is_typed_array || obj.is_array();
+                    return write_object(
+                        result,
+                        obj,
+                        options,
+                        visited,
+                        depth,
+                        color_enabled_mask,
+                        is_array,
+                    );
+                }
+
+                let is_array = is_typed_array || obj.is_array();
+
+                write_object(
+                    result,
+                    obj,
+                    options,
+                    visited,
+                    depth,
+                    color_enabled_mask,
+                    is_array,
+                )?;
+            } else {
+                Color::CYAN.push(result, color_enabled_mask);
+                result.push_str(OBJECT_ARRAY_LOOKUP[is_object as usize]);
+            }
+        },
+        _ => {},
+    }
+
+    Color::reset(result, color_enabled_mask);
+
+    Ok(())
+}
+
+fn write_object<'js>(
+    result: &mut String,
+    obj: &Object<'js>,
+    options: &FormatOptions<'js>,
+    visited: &mut FxHashSet<usize>,
+    depth: usize,
+    color_enabled_mask: usize,
+    is_array: bool,
+) -> Result<()> {
+    result.push(OBJECT_ARRAY_START[(!is_array) as usize]);
+
+    let mut keys = obj.keys();
+    let mut filter_functions = false;
+    if !is_array && keys.len() == 0 {
+        if let Some(proto) = obj.get_prototype() {
+            if proto != options.object_prototype {
+                keys = proto.own_keys(options.object_filter);
+
+                filter_functions = true;
+            }
+        }
+    }
+    let apply_indentation = bitmask(!is_array && depth < 2);
+
+    let mut first = 0;
+    let mut numeric_key;
+    let length = keys.len();
+    for (i, key) in keys.flatten().enumerate() {
+        let value: Value = obj.get::<&String, _>(&key)?;
+        if !(value.is_function() && filter_functions) {
+            numeric_key = if key.parse::<f64>().is_ok() { !0 } else { 0 };
+            write_sep(result, first > 0, apply_indentation > 0, options.newline);
+            push_indentation(result, apply_indentation & (depth + 1));
+            if depth > MAX_INDENTATION_LEVEL - 1 {
+                result.push(SPACING);
+            }
+            if !is_array {
+                Color::GREEN.push(result, color_enabled_mask & numeric_key);
+                result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
+                result.push_str(&key);
+                result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
+                Color::reset(result, color_enabled_mask & numeric_key);
+                result.push(':');
+                result.push(SPACING);
+            }
+
+            format_raw_inner(result, value, options, visited, depth + 1)?;
+            first = !0;
+            if i > 99 {
+                result.push_str("... ");
+                let mut buffer = itoa::Buffer::new();
+                result.push_str(buffer.format(length - i));
+                result.push_str(" more items");
+                break;
+            }
+        }
+    }
+    result
+        .push_str(LINE_BREAK_LOOKUP[first & apply_indentation & (1 + (options.newline as usize))]);
+    result.push_str(SPACING_LOOKUP[first & !apply_indentation & 1]);
+    push_indentation(result, first & apply_indentation & depth);
+    result.push(OBJECT_ARRAY_END[(!is_array) as usize]);
+    Ok(())
+}
+
+#[inline(always)]
+fn bitmask(condition: bool) -> usize {
+    !(condition as usize).wrapping_sub(1)
+}
+
+fn format_values_internal<'js>(
+    result: &mut String,
+    ctx: &Ctx<'js>,
+    args: Rest<Value<'js>>,
+    options: &mut FormatOptions<'js>,
+) -> Result<()> {
+    let size = args.len();
+    let mut iter = args.0.into_iter().enumerate().peekable();
+
+    let current_filter = options.object_filter;
+    let default_filter = Filter::default();
+
+    while let Some((index, arg)) = iter.next() {
+        if index == 0 && size > 1 {
+            if let Some(str) = arg.as_string() {
+                let str = str.to_string()?;
+                let bytes = str.as_bytes();
+                let mut i = 0;
+                let len = bytes.len();
+                let mut next_byte;
+                let mut byte;
+                while i < len {
+                    byte = bytes[i];
+                    if byte == b'%' && i + 1 < len {
+                        next_byte = bytes[i + 1];
+                        i += 1;
+                        if iter.peek().is_some() {
+                            i += 1;
+
+                            let value = match next_byte {
+                                b's' => {
+                                    let str = iter.next().unwrap().1.get::<Coerced<String>>()?;
+                                    result.push_str(str.as_str());
+                                    continue;
+                                },
+                                b'd' => options.number_function.call((iter.next().unwrap().1,))?,
+                                b'i' => options.parse_int.call((iter.next().unwrap().1,))?,
+                                b'f' => options.parse_float.call((iter.next().unwrap().1,))?,
+                                b'j' => {
+                                    result.push_str(
+                                        &json_stringify(ctx, iter.next().unwrap().1)?
+                                            .unwrap_or("undefined".into()),
+                                    );
+                                    continue;
+                                },
+                                b'O' => {
+                                    options.object_filter = default_filter;
+                                    iter.next().unwrap().1
+                                },
+                                b'o' => iter.next().unwrap().1,
+                                b'c' => {
+                                    // CSS is ignored
+                                    continue;
+                                },
+                                b'%' => {
+                                    result.push(byte as char);
+                                    continue;
+                                },
+                                _ => {
+                                    result.push(byte as char);
+                                    result.push(next_byte as char);
+                                    continue;
+                                },
+                            };
+                            options.color = false;
+                            format_raw(result, value, options)?;
+                            options.object_filter = current_filter;
+                            continue;
+                        }
+                        result.push(byte as char);
+                        result.push(next_byte as char);
+                    } else {
+                        result.push(byte as char);
+                    }
+
+                    i += 1;
+                }
+                continue;
+            }
+        }
+        if index != 0 {
+            result.push(SPACING);
+        }
+        format_raw(result, arg, options)?;
+    }
+
+    Ok(())
+}
+
+struct FormatOptions<'js> {
+    color: bool,
+    newline: bool,
+    get_own_property_desc_fn: Function<'js>,
+    object_prototype: Object<'js>,
+    number_function: Function<'js>,
+    parse_float: Function<'js>,
+    parse_int: Function<'js>,
+    object_filter: Filter,
+    custom_inspect_symbol: Symbol<'js>,
+}
+impl<'js> FormatOptions<'js> {
+    fn new(ctx: &Ctx<'js>, color: bool, newline: bool) -> Result<Self> {
+        let globals = ctx.globals();
+        let default_obj = Object::new(ctx.clone())?;
+        let object_ctor: Object = default_obj.get(PredefinedAtom::Constructor)?;
+        let object_prototype = default_obj
+            .get_prototype()
+            .ok_or("Can't get prototype")
+            .or_throw(ctx)?;
+        let get_own_property_desc_fn: Function =
+            object_ctor.get(PredefinedAtom::GetOwnPropertyDescriptor)?;
+
+        let number_function = globals.get(PredefinedAtom::Number)?;
+        let parse_float = globals.get("parseFloat")?;
+        let parse_int = globals.get("parseInt")?;
+
+        let object_filter = Filter::new().private().string().symbol();
+        let custom_inspect_symbol =
+            Symbol::for_description(&globals, CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+
+        let options = FormatOptions {
+            color,
+            newline,
+            object_filter,
+            get_own_property_desc_fn,
+            object_prototype,
+            number_function,
+            parse_float,
+            parse_int,
+            custom_inspect_symbol,
+        };
+        Ok(options)
+    }
+}
+
 fn format_values<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, tty: bool) -> Result<String> {
     let mut result = String::with_capacity(64);
-    let newline_char = NEWLINE_LOOKUP[AWS_LAMBDA_MODE.load(Ordering::Relaxed) as usize];
-    format_values_internal(&mut result, ctx, args, tty, newline_char)?;
+    let mut options = FormatOptions::new(ctx, tty, !AWS_LAMBDA_MODE.load(Ordering::Relaxed))?;
+    format_values_internal(&mut result, ctx, args, &mut options)?;
     Ok(result)
 }
 
@@ -624,63 +672,6 @@ pub(crate) fn log_std_err<'js>(
     level: LogLevel,
 ) -> Result<()> {
     write_log(stderr(), ctx, args, level)
-}
-
-fn format_string(format_str: &str, replacements: &[String]) -> String {
-    // Quick return if we don't have anything to replace
-    if replacements.is_empty() {
-        return format_str.to_owned();
-    }
-
-    // Define capacity
-    let mut capacity = format_str.len() + replacements.len(); // add the number of replacements in case we have more to account for spaces
-    for replacement in replacements {
-        capacity += replacement.len();
-    }
-    let mut result = String::with_capacity(capacity);
-    let mut replacement_idx = 0;
-
-    // Iterate over chars to find patterns
-    let mut chars = format_str.chars().peekable();
-    while let Some(current_char) = chars.next() {
-        if current_char == '%' {
-            if let Some(next_char) = chars.next() {
-                // Handle the case of %s, %d, etc, we keep it simple and only replaces string
-                let need_to_put_back_chars = match next_char {
-                    's' | 'd' | 'i' | 'f' | 'o' | 'O' | 'j' => {
-                        if replacement_idx < replacements.len() {
-                            result.push_str(&replacements[replacement_idx]);
-                            replacement_idx += 1;
-                            false
-                        } else {
-                            true
-                        }
-                    },
-                    '%' => {
-                        // Handle the case of %% where we want to push only one %
-                        result.push(current_char);
-                        false
-                    },
-                    _ => true,
-                };
-                // Nothing was replaced, just add back what we found
-                if need_to_put_back_chars {
-                    result.push(current_char);
-                    result.push(next_char);
-                }
-            }
-        } else {
-            result.push(current_char);
-        }
-    }
-
-    // Add what remains
-    if replacement_idx < replacements.len() {
-        result.push(' ');
-        result.push_str(&replacements[replacement_idx..].join(" "));
-    }
-
-    result
 }
 
 #[allow(clippy::unused_io_amount)]
@@ -713,7 +704,8 @@ where
             return Ok(());
         }
     } else {
-        format_values_internal(&mut result, ctx, args, is_tty, NEWLINE)?;
+        let mut options = FormatOptions::new(ctx, is_tty, true)?;
+        format_values_internal(&mut result, ctx, args, &mut options)?;
     }
 
     result.push(NEWLINE);
@@ -736,7 +728,7 @@ fn write_lambda_log<'js>(
     max_log_level: usize,
     time_format: &str,
 ) -> Result<bool> {
-    let mut newline_char = NEWLINE;
+    let mut is_newline = true;
 
     if is_json_log_format && max_log_level < level.clone() as usize {
         //do not log if we don't meet the log level
@@ -744,7 +736,7 @@ fn write_lambda_log<'js>(
     }
     result.reserve(64);
     if !is_tty {
-        newline_char = CARRIAGE_RETURN;
+        is_newline = false;
     }
 
     let current_time: DateTime<Utc> = Utc::now();
@@ -820,28 +812,17 @@ fn write_lambda_log<'js>(
 
             let mut exception = None;
 
-            // Parse arguments
-            let mut str_pattern_option_value: String = String::with_capacity(64);
-            let mut replacements = Vec::with_capacity(args.len() - 1);
-            for (index, arg) in args.0.into_iter().enumerate() {
+            let mut options = FormatOptions::new(ctx, is_tty, true)?;
+
+            for arg in args.0.iter() {
                 if arg.is_error() && exception.is_none() {
                     let exception_value = arg.clone();
                     exception = Some(exception_value.into_exception().unwrap());
-                }
-
-                if index == 0 {
-                    stringify_value(&mut str_pattern_option_value, ctx, arg, is_tty, NEWLINE)?;
-                } else {
-                    let mut result = String::with_capacity(64);
-                    stringify_value(&mut result, ctx, arg, is_tty, NEWLINE)?;
-                    replacements.push(result)
+                    break;
                 }
             }
 
-            values_string.push_str(&format_string(
-                str_pattern_option_value.as_str(),
-                &replacements,
-            ));
+            format_values_internal(&mut values_string, ctx, args, &mut options)?;
 
             result.push_str(&escape_json(values_string.as_bytes()));
             result.push('\"');
@@ -882,16 +863,12 @@ fn write_lambda_log<'js>(
 
         result.push('}');
     } else {
-        format_values_internal(
-            result,
-            ctx,
-            args,
-            is_tty && !is_json_log_format,
-            newline_char,
-        )?;
+        let mut options = FormatOptions::new(ctx, is_tty && !is_json_log_format, is_newline)?;
+        format_values_internal(result, ctx, args, &mut options)?;
 
         let str_bytes = unsafe { result.as_bytes_mut() }; //OK since we just modify newlines
 
+        //modify \n inside of strings, stacks etc
         let mut pos = 0;
         while let Some(index) = str_bytes[pos..].iter().position(|b| *b == b'\n') {
             str_bytes[pos + index] = b'\r';
@@ -1015,7 +992,7 @@ mod tests {
             //validate second argument passed
             assert_eq!(
                 write_log([obj.into_value(), true.into_js(&ctx)?].into())?,
-                r#"{"time":"","level":"INFO","message":"{ a: 1, b: 'Hello' } true"}"#
+                r#"{"time":"","level":"INFO","message":"{\n  a: 1,\n  b: 'Hello'\n} true"}"#
             );
 
             //single error
@@ -1088,13 +1065,13 @@ mod tests {
 
             assert_eq!(
                 write_log([obj.clone().into_value()].into())?,
-                 "\tn/a\tINFO\t{ a: 1, b: 'Hello' }"
+                 "\tn/a\tINFO\t{\r  a: 1,\r  b: 'Hello'\r}"
             );
 
             //validate second argument passed
             assert_eq!(
                 write_log([obj.clone().into_value(), true.into_js(&ctx)?].into())?,
-                "\tn/a\tINFO\t{ a: 1, b: 'Hello' } true"
+                "\tn/a\tINFO\t{\r  a: 1,\r  b: 'Hello'\r} true"
             );
 
             //single error

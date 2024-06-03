@@ -1,11 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    atom::PredefinedAtom, class::JsClass, prelude::This, Array, Class, Ctx, Function, Object,
-    Result, Value,
+    atom::PredefinedAtom, class::JsClass, object::Accessor, prelude::This, Array, Class, Ctx,
+    Function, Object, Result, Symbol, Value,
 };
 
-use super::{object::ObjectExt, result::OptionExt};
+use crate::modules::console::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
+
+use super::{
+    object::{CreateSymbol, ObjectExt},
+    result::OptionExt,
+};
 
 pub trait IteratorDef<'js>
 where
@@ -40,4 +45,33 @@ where
         return Ok(Some(Class::<C>::from_value(provided.clone())?));
     }
     Ok(None)
+}
+
+pub trait CustomInspectExtension<'js> {
+    fn define_with_custom_inspect(globals: &Object<'js>) -> Result<()>;
+}
+
+pub trait CustomInspect<'js>
+where
+    Self: JsClass<'js>,
+{
+    fn custom_inspect(&self, ctx: Ctx<'js>) -> Result<Object<'js>>;
+}
+
+impl<'js, C> CustomInspectExtension<'js> for Class<'js, C>
+where
+    C: JsClass<'js> + CustomInspect<'js> + 'js,
+{
+    fn define_with_custom_inspect(globals: &Object<'js>) -> Result<()> {
+        Self::define(globals)?;
+        let custom_inspect_symbol =
+            Symbol::for_description(globals, CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+        if let Some(proto) = Class::<C>::prototype(globals.ctx().clone()) {
+            proto.prop(
+                custom_inspect_symbol,
+                Accessor::from(|this: This<Class<'js, C>>, ctx| this.borrow().custom_inspect(ctx)),
+            )?;
+        }
+        Ok(())
+    }
 }

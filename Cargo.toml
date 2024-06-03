@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "llrt_core",
-    "llrt",
-]
+members = ["llrt_core", "llrt"]
 
 [profile.flame]
 inherits = "release"

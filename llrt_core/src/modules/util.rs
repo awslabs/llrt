@@ -1,13 +1,13 @@
-use rquickjs::function::{Func, Rest};
+use rquickjs::function::Func;
 use rquickjs::{
     cstr,
     module::{Declarations, Exports, ModuleDef},
-    Ctx, Function, Result, Value,
+    Ctx, Function, Result,
 };
-use std::sync::atomic::Ordering;
 
-use crate::modules::console::{format_values_internal, AWS_LAMBDA_MODE, NEWLINE_LOOKUP};
 use crate::{module_builder::ModuleInfo, modules::module::export_default};
+
+use super::console::format_plain;
 
 pub struct UtilModule;
 
@@ -29,7 +29,7 @@ impl ModuleDef for UtilModule {
 
             default.set(stringify!(TextEncoder), encoder)?;
             default.set(stringify!(TextDecoder), decoder)?;
-            default.set("format", Func::from(format))?;
+            default.set("format", Func::from(format_plain))?;
 
             Ok(())
         })
@@ -43,12 +43,4 @@ impl From<UtilModule> for ModuleInfo<UtilModule> {
             module: val,
         }
     }
-}
-
-fn format<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
-    let mut result = String::with_capacity(64);
-    let newline_char = NEWLINE_LOOKUP[AWS_LAMBDA_MODE.load(Ordering::Relaxed) as usize];
-    format_values_internal(&mut result, &ctx, args, false, newline_char)?;
-
-    Ok(result)
 }

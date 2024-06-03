@@ -3,29 +3,33 @@ import { Console as NodeConsole } from "node:console";
 import { Console } from "console";
 import util from "util";
 
-function log(...args: any[]) {
-  return (console as any).__formatPlain(...args);
-}
-
 it("should format strings correctly", () => {
-
-  expect(util.format('%s:%s', 'foo', "bar")).toEqual("foo:bar")
-  expect(util.format(1, 2, 3)).toEqual("1 2 3")
-  expect(util.format("%% %s")).toEqual("%% %s")
-  expect(util.format("%s:%s", "foo")).toEqual("foo:%s")
-  expect(util.format("Hello %%, %s! How are you, %s?", "Alice", "Bob")).toEqual("Hello %, Alice! How are you, Bob?")
-  expect(util.format("The %s %d %f.", "quick", "42", "3.14")).toEqual("The quick 42 3.14.")
-  expect(util.format("Unmatched placeholders: %s %x %% %q", "one", "two")).toEqual("Unmatched placeholders: one %x % %q two")
-  expect(util.format("Unmatched placeholders: %s", "one", "two","three")).toEqual("Unmatched placeholders: one two three")
+  expect(util.format("%s:%s", "foo", "bar")).toEqual("foo:bar");
+  expect(util.format(1, 2, 3)).toEqual("1 2 3");
+  expect(util.format("%% %s")).toEqual("%% %s");
+  expect(util.format("%s:%s", "foo")).toEqual("foo:%s");
+  expect(util.format("Hello %%, %s! How are you, %s?", "Alice", "Bob")).toEqual(
+    "Hello %, Alice! How are you, Bob?"
+  );
+  expect(util.format("The %s %d %f. %i", "quick", "42", "3.14", "abc")).toEqual(
+    "The quick 42 3.14. NaN"
+  );
+  expect(
+    util.format("Unmatched placeholders: %s %x %% %q", "one", "two")
+  ).toEqual("Unmatched placeholders: one %x % %q two");
+  expect(
+    util.format("Unmatched placeholders: %s", "one", "two", "three")
+  ).toEqual("Unmatched placeholders: one two three");
 
   // Should not throw any exceptions
-  console.log('%s:%s', 'foo', "bar")
-})
+  console.log("%s:%s", "foo", "bar");
+});
 
 it("should log module", () => {
-  let module = log(timers);
+  let module = util.format(timers);
 
-  expect(module).toEqual(    `
+  expect(module).toEqual(
+    `
 {
   clearInterval: [function: (anonymous)],
   clearTimeout: [function: (anonymous)],
@@ -39,7 +43,7 @@ it("should log module", () => {
   setTimeout: [function: (anonymous)]
 }
 `.trim()
-  )
+  );
 });
 it("should log using console object", () => {
   const consoleObj = new Console({
@@ -98,7 +102,7 @@ it("should log complex object", () => {
           k: {
             l: "foo",
           },
-          m: [1, 2, 3],
+          m: new Array(1000).fill(0),
         },
       },
       n: [1, 2, 3],
@@ -117,6 +121,7 @@ it("should log complex object", () => {
     1: Symbol.for("foo"),
     2: new Promise(() => {}),
     3: {},
+    [3.14]: 1,
     4: [1, 2, 3],
     abc: 123,
   };
@@ -124,20 +129,21 @@ it("should log complex object", () => {
   // Add a circular reference
   obj.o = obj;
 
-  const stringObj = log(obj);
+  const stringObj = util.format(obj);
 
-  expect(stringObj).toEqual(    `
+  expect(stringObj).toEqual(
+    `
 {
-  1: Symbol(foo),
-  2: Promise {},
-  3: {},
-  4: [ 1, 2, 3 ],
+  '1': Symbol(foo),
+  '2': Promise {},
+  '3': {},
+  '4': [ 1, 2, 3 ],
   a: 1,
   b: \'foo\',
   c: {
     d: ${date.toISOString()},
     e: [ 2.2, true, [], {} ],
-    f: { g: 1, h: 2, i: 3, j: { k: [Object], m: [Object] } },
+    f: { g: 1, h: 2, i: 3, j: { k: [Object], m: [Array] } },
     n: [ 1, 2, 3 ]
   },
   o: [Circular],
@@ -151,9 +157,17 @@ it("should log complex object", () => {
   x: [class: Instance],
   y: null,
   z: undefined,
+  '3.14': 1,
   abc: 123
 }
 `.trim()
-  )
+  );
+});
 
+it("should log Headers", () => {
+  const headers = new Headers();
+  headers.append("foo", "bar");
+  expect(util.format(headers)).toEqual(`Headers {
+  foo: 'bar'
+}`);
 });
