@@ -149,6 +149,13 @@ impl<'js> Request<'js> {
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
+    async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return TypedArray::new(ctx, bytes).map(|m| m.into_value());
+        }
+        TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
+    }
+
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
         let headers = if let Some(headers) = &self.headers {
             Some(Class::<Headers>::instance(

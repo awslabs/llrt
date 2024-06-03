@@ -275,15 +275,22 @@ describe("Request class", () => {
     expect(request.bodyUsed).toBeTruthy();
   });
 
-  it("should set the body to a JSON object if a JSON object is provided", () => {
+  it("should set the body to a JSON object if a JSON object is provided", async () => {
     const jsonBody = { key: "value" };
     const request = new Request("http://localhost", {
       body: JSON.stringify(jsonBody),
       method: "POST",
     });
-    request.json().then((parsedJson) => {
-      expect(parsedJson).toStrictEqual(jsonBody);
+    expect(await request.json()).toStrictEqual(jsonBody);
+  });
+
+  it("should set the body to a bytes object if a bytes object is provided", async () => {
+    const myArray = new Uint8Array([1, 2, 3]);
+    const request = new Request("http://localhost", {
+      body: myArray,
+      method: "POST",
     });
+    expect(await request.bytes()).toStrictEqual(myArray);
   });
 });
 
@@ -324,18 +331,21 @@ describe("Response class", () => {
   it("should set the body to a Blob if a Blob is provided", async () => {
     const blob = new Blob(["Hello, world!"], { type: "text/plain" });
     const response = new Response(blob);
-
     expect(await response.text()).toEqual("Hello, world!");
   });
 
-  it("should set the body to a JSON object if a JSON object is provided", () => {
+  it("should set the body to a JSON object if a JSON object is provided", async () => {
     const jsonBody = { key: "value" };
     const response = new Response(JSON.stringify(jsonBody), {
       headers: { "Content-Type": "application/json" },
     });
-    response.json().then((parsedJson) => {
-      expect(parsedJson).toStrictEqual(jsonBody);
-    });
+    expect(await response.json()).toStrictEqual(jsonBody);
+  });
+
+  it("should set the body to a bytes object if a bytes object is provided", async () => {
+    const myArray = new Uint8Array([1, 2, 3]);
+    const response = new Response(myArray);
+    expect(await response.bytes()).toStrictEqual(myArray);
   });
 
   it("should clone the response with the clone() method", () => {
