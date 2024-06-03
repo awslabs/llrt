@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, Array, ArrayBuffer, Coerced, Ctx, Exception,
-    FromJs, Function, IntoAtom, IntoJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, Array, ArrayBuffer, Coerced, Ctx, Exception, FromJs, Function, IntoAtom,
+    IntoJs, Object, Result, Symbol, TypedArray, Value,
 };
 
 use super::result::ResultExt;
