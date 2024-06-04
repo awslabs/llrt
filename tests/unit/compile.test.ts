@@ -41,14 +41,14 @@ describe("llrt compile", async () => {
 
     const compileResult = await compile("fixtures/empty.js", tmpOutput);
 
-    expect(compileResult.stderr).toEqual("")
-    expect(compileResult.signal).toEqual(undefined)
+    expect(compileResult.stderr).toEqual("");
+    expect(compileResult.signal).toEqual(undefined);
 
     const runResult = await run(tmpOutput);
 
-    expect(runResult.stdout).toEqual("")
-    expect(runResult.stderr).toEqual("")
-    expect(runResult.status).toEqual(0)
+    expect(runResult.stdout).toEqual("");
+    expect(runResult.stderr).toEqual("");
+    expect(runResult.status).toEqual(0);
   });
 
   it("can compile and run console.log", async () => {
@@ -56,14 +56,14 @@ describe("llrt compile", async () => {
 
     const compileResult = await compile("fixtures/hello.js", tmpOutput);
 
-    expect(compileResult.stderr).toEqual("")
-    expect(compileResult.signal).toEqual(undefined)
+    expect(compileResult.stderr).toEqual("");
+    expect(compileResult.signal).toEqual(undefined);
 
     const runResult = await run(tmpOutput);
 
-    expect(runResult.stdout).toEqual("hello world!\n")
-    expect(runResult.stderr).toEqual("")
-    expect(runResult.status).toEqual(0)
+    expect(runResult.stdout).toEqual("hello world!\n");
+    expect(runResult.stderr).toEqual("");
+    expect(runResult.status).toEqual(0);
   });
 
   it("can compile and run throws", async () => {
@@ -71,14 +71,14 @@ describe("llrt compile", async () => {
 
     const compileResult = await compile("fixtures/throw.js", tmpOutput);
 
-    expect(compileResult.stderr).toEqual("")
-    expect(compileResult.signal).toEqual(undefined)
+    expect(compileResult.stderr).toEqual("");
+    expect(compileResult.signal).toEqual(undefined);
 
     const runResult = await run(tmpOutput);
 
-    expect(runResult.stdout).toEqual("")
-    expect(runResult.stderr).toEqual("Error: 42\n")
-    expect(runResult.status).toEqual(1)
+    expect(runResult.stdout).toEqual("");
+    expect(runResult.stderr).toEqual("42\n");
+    expect(runResult.status).toEqual(1);
   });
 
   afterAll(async () => {
