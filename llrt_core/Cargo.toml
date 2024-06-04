@@ -14,7 +14,7 @@ macro = ["rquickjs/macro"]
 [dependencies]
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 quick-xml = "0.31.0"
-crc32c = { rev = "04eabbc6ef33e0afe529da729e65916c48f9d032", git = "https://github.com/zowens/crc32c.git" }
+crc32c = { version = "0.6.7" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
 md-5 = { version = "0.10.6", features = ["asm"] }
