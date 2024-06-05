@@ -3,8 +3,6 @@ import fs from "fs/promises";
 import { createRequire } from "module";
 import path from "path";
 
-//import { resolveDefaultsModeConfig } from "./node_modules/@smithy/util-defaults-mode-browser/dist-es/resolveDefaultsModeConfig.js";
-
 const require = createRequire(import.meta.url);
 
 process.env.NODE_PATH = ".";
