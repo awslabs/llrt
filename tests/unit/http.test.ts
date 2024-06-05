@@ -492,13 +492,18 @@ describe("URL class", () => {
     expect(url.username).toEqual("anonymous");
     expect(url.password).toEqual("flabada");
   });
-  it("should provide canParse util", () => {
+  it("should provide parse/canParse util", () => {
     const validUrl = "https://www.example.com/";
     const invalidUrl = "not_a_valid_url";
+    expect(URL.parse(validUrl).href).toEqual(validUrl);
     expect(URL.canParse(validUrl)).toEqual(true);
+    expect(URL.parse(invalidUrl)).toBeNull();
     expect(URL.canParse(invalidUrl)).toEqual(false);
   });
-  it("canParse works for relative urls", () => {
+  it("parse/canParse works for relative urls", () => {
+    expect(URL.parse("/foo", "https://example.org/").href).toEqual(
+      "https://example.org/foo"
+    );
     expect(URL.canParse("/foo", "https://example.org/")).toEqual(true);
   });
 });
