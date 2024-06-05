@@ -5,6 +5,7 @@ import {
   aws_lambda_nodejs,
   aws_s3,
   aws_logs,
+  aws_iam,
   aws_cloudfront,
   aws_cloudfront_origins,
   aws_apigatewayv2,
@@ -324,7 +325,7 @@ const main = async () => {
     "LlrtReactFunction",
     {
       functionName: "example-llrt-react",
-      code: aws_lambda.Code.fromAsset("../functions/build"),
+      code: aws_lambda.Code.fromAsset("../functions/build/react"),
       handler: "index.handler",
       ...props,
       runtime: aws_lambda.Runtime.PROVIDED_AL2023,
@@ -334,6 +335,29 @@ const main = async () => {
       },
       layers: [llrtLayer],
     }
+  );
+
+  // LLRT, function with non-included AWS SDK client
+  const llrtNonIncludedSdkFunction = new aws_lambda.Function(
+    stack,
+    "LlrtNonProvided",
+    {
+      functionName: "example-llrt-non-provided",
+      handler: "index.handler",
+      code: aws_lambda.Code.fromAsset("../functions/build/external"),
+      ...props,
+      environment: {},
+      runtime: aws_lambda.Runtime.PROVIDED_AL2023,
+      layers: [llrtLayer],
+    }
+  );
+
+  //add describe instances permission to llrtNonIncludedSdkFunction
+  llrtNonIncludedSdkFunction.addToRolePolicy(
+    new aws_iam.PolicyStatement({
+      actions: ["ec2:DescribeInstances"],
+      resources: ["*"],
+    })
   );
 
   todoTable.grantReadWriteData(reactFunction);

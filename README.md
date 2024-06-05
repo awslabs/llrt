@@ -137,7 +137,9 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 
 ### ESBuild
 
-    esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy --external:uuid
+```shell
+esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy --external:uuid
+```
 
 ### Rollup
 
@@ -194,7 +196,7 @@ export default {
 ## Using AWS SDK (v3) with LLRT
 
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
-V3 SDK packages not included in the list below have to be bundled with your source code while marking the following packages as external:
+V3 SDK packages not included in the list below have to be bundled with your source code. For an example on how to use a non-included SDK, see [this example build script (buildExternalSdkFunction)](example/functions/build.mjs)
 
 |         Bundled AWS SDK packages          |
 | ----------------------------------------- |
@@ -219,7 +221,9 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | @aws-sdk/lib-dynamodb                     |
 | @aws-sdk/s3-request-presigner             |
 | @aws-sdk/util-dynamodb                    |
+| @aws-sdk/util-user-agent-browser          |
 | @smithy                                   |
+| @aws-crypto                               |
 
 > [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
