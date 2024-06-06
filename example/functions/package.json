@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.588.0",
+    "@aws-sdk/client-ec2": "^3.590.0",
     "@aws-sdk/client-s3": "3.588.0",
     "aws-sdk": "2.1632.0",
     "esbuild-css-modules-plugin": "3.1.2",

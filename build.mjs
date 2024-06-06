@@ -100,9 +100,11 @@ const SDK_DATA = {
 };
 
 const ADDITIONAL_PACKAGES = [
+  "@aws-sdk/core",
   "@aws-sdk/util-dynamodb",
   "@aws-sdk/credential-providers",
   "@aws-sdk/s3-request-presigner",
+  "@aws-sdk/util-user-agent-browser",
   "@smithy/config-resolver",
   "@smithy/core",
   "@smithy/eventstream-codec",
@@ -140,6 +142,13 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/util-waiter",
 ];
 
+const REPLACEMENT_PACKAGES = {
+  "@aws-crypto/sha1-browser": "shims/aws-crypto-sha1.js",
+  "@aws-crypto/sha256-browser": "shims/aws-crypto-sha256.js",
+  "@aws-crypto/crc32": "shims/aws-crypto-crc32.js",
+  "@aws-crypto/crc32c": "shims/aws-crypto-crc32c.js",
+};
+
 const SERVICE_ENDPOINT_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
@@ -154,7 +163,7 @@ Object.keys(SDK_DATA).forEach((sdk) => {
   CLIENTS_BY_SDK[sdk] = clientName;
 });
 
-function runtimeConfigWrapper(config) {
+function resolveDefaultsModeConfigWrapper(config) {
   if (!config.credentials) {
     config.credentials = {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -165,7 +174,7 @@ function runtimeConfigWrapper(config) {
   if (!config.region) {
     config.region = process.env.AWS_REGION;
   }
-  return getRuntimeConfig(config);
+  return resolveDefaultsModeConfig(config);
 }
 
 const awsJsonSharedCommand = (name, input, context, request) => {
@@ -202,9 +211,9 @@ function defaultEndpointResolver(endpointParams, context = {}) {
 
 const WRAPPERS = [
   {
-    name: "getRuntimeConfig",
-    filter: /runtimeConfig\.shared\.js$/,
-    wrapper: runtimeConfigWrapper,
+    name: "resolveDefaultsModeConfig",
+    filter: /resolveDefaultsModeConfig.js$/,
+    wrapper: resolveDefaultsModeConfigWrapper,
   },
 ];
 
@@ -511,42 +520,6 @@ async function loadShims() {
   ]);
 }
 
-const PACKAGE_NAME_CACHE = {};
-async function findPackageName(filePath) {
-  const firstDir = path.dirname(filePath);
-
-  if (PACKAGE_NAME_CACHE[firstDir]) {
-    return PACKAGE_NAME_CACHE[firstDir];
-  }
-
-  let currentDir = firstDir;
-  while (true) {
-    const packageJsonPath = path.join(currentDir, "package.json");
-
-    const packageJsonExists = await fs
-      .access(packageJsonPath)
-      .then(() => true)
-      .catch(() => false);
-
-    if (packageJsonExists) {
-      const packageJsonContent = await fs.readFile(packageJsonPath, "utf8");
-      const packageJson = JSON.parse(packageJsonContent);
-
-      if (packageJson && packageJson.name) {
-        PACKAGE_NAME_CACHE[firstDir] = packageJson.name;
-        return packageJson.name;
-      }
-    }
-
-    const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) {
-      return null;
-    }
-
-    currentDir = parentDir;
-  }
-}
-
 async function buildLibrary() {
   const defaultLibEsBuildOption = {
     chunkNames: "llrt-[name]-runtime-[hash]",
@@ -604,18 +577,25 @@ async function buildSdks() {
 
   const sdkEntryPoints = Object.fromEntries(sdkEntryList);
 
-  await esbuild.build({
-    entryPoints: sdkEntryPoints,
-    plugins: [AWS_SDK_PLUGIN, esbuildShimPlugin([[/^bowser$/]])],
-    alias: {
-      "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
-      "fast-xml-parser": "xml",
-      "@smithy/md5-js": "crypto",
-    },
-    chunkNames: "llrt-[name]-sdk-[hash]",
-    metafile: true,
-    ...ES_BUILD_OPTIONS,
-  });
+  await Promise.all([
+    esbuild.build({
+      entryPoints: sdkEntryPoints,
+      plugins: [AWS_SDK_PLUGIN, esbuildShimPlugin([[/^bowser$/]])],
+      alias: {
+        "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
+        "fast-xml-parser": "xml",
+        "@smithy/md5-js": "crypto",
+      },
+      chunkNames: "llrt-[name]-sdk-[hash]",
+      metafile: true,
+      ...ES_BUILD_OPTIONS,
+    }),
+    esbuild.build({
+      entryPoints: REPLACEMENT_PACKAGES,
+      ...ES_BUILD_OPTIONS,
+      sourcemap: false,
+    }),
+  ]);
 
   //console.log(await esbuild.analyzeMetafile(result.metafile));
 }

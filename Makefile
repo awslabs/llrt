@@ -129,7 +129,7 @@ run: export _EXIT_ITERATIONS = 1
 run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
-run: | clean-js js
+run: 
 	cargo run -vv
 
 run-ssr: export AWS_LAMBDA_RUNTIME_API = localhost:3000
