@@ -64,43 +64,40 @@ impl<'js> URL<'js> {
 
     #[qjs(static)]
     pub fn can_parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> bool {
-        !Self::parse(ctx.clone(), input.clone(), Opt(base.clone())).is_null()
+        match Self::parse(ctx.clone(), input.clone(), Opt(base.clone())) {
+            Ok(val) => !val.is_null(),
+            Err(_) => false,
+        }
     }
 
     #[qjs(static)]
-    pub fn parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> Value<'js> {
+    pub fn parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> Result<Value<'js>> {
         if let Some(base) = base.0 {
-            let base_string = match get_string(&ctx.clone(), base) {
+            let base_string = match get_string(&ctx, base) {
                 Ok(s) => s,
-                Err(_) => return Null.into_js(&ctx).unwrap(),
+                Err(_) => return Null.into_js(&ctx),
             };
-            let path_string = match get_string(&ctx.clone(), input) {
+            let path_string = match get_string(&ctx, input) {
                 Ok(s) => s,
-                Err(_) => return Null.into_js(&ctx).unwrap(),
+                Err(_) => return Null.into_js(&ctx),
             };
 
             match base_string.parse::<Url>() {
                 Ok(base_url) => {
                     if let Ok(parsed_url) = base_url.join(&path_string) {
-                        return URL::create(ctx.clone(), parsed_url)
-                            .unwrap()
-                            .into_js(&ctx.clone())
-                            .unwrap();
+                        return URL::create(ctx.clone(), parsed_url).unwrap().into_js(&ctx);
                     }
                 },
-                Err(_) => return Null.into_js(&ctx).unwrap(),
+                Err(_) => return Null.into_js(&ctx),
             }
         } else if input.is_string() {
             if let Ok(string_val) = input.get::<String>() {
                 if let Ok(parsed_url) = Url::parse(&string_val) {
-                    return URL::create(ctx.clone(), parsed_url)
-                        .unwrap()
-                        .into_js(&ctx.clone())
-                        .unwrap();
+                    return URL::create(ctx.clone(), parsed_url).unwrap().into_js(&ctx);
                 }
             }
         }
-        Null.into_js(&ctx).unwrap()
+        Null.into_js(&ctx)
     }
 
     pub fn to_string(&self) -> String {
