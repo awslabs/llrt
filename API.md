@@ -191,6 +191,7 @@ export class URL {
   searchParams: URLSearchParams;
   username: string;
 
+  parse(input: string, base?: string): URL | null;
   canParse(input: string, base?: string): boolean;
   toJSON(): string;
   toString(): string;
