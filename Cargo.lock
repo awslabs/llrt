@@ -889,7 +889,7 @@ dependencies = [
 
 [[package]]
 name = "llrt"
-version = "0.1.14-beta"
+version = "0.1.15-beta"
 dependencies = [
  "chrono",
  "llrt_core",
@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_core"
-version = "0.1.14-beta"
+version = "0.1.15-beta"
 dependencies = [
  "async-trait",
  "base64-simd",
