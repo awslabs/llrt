@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use hyper::HeaderMap;
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, Object,
-    Result, Value,
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, IntoJs,
+    Null, Object, Result, Value,
 };
 
 use crate::utils::{
@@ -58,7 +58,7 @@ impl Headers {
         }
     }
 
-    pub fn get(&self, key: String) -> Option<String> {
+    pub fn get<'js>(&self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
         let key = key.to_lowercase();
         if key == HEADERS_KEY_SET_COOKIE {
             let result: Vec<String> = self
@@ -67,15 +67,20 @@ impl Headers {
                 .filter_map(|(k, v)| if k == &key { Some(v.clone()) } else { None })
                 .collect();
             return if result.is_empty() {
-                None
+                Null.into_js(&ctx)
             } else {
-                Some(result.join(", "))
+                result.join(", ").into_js(&ctx)
             };
         }
-        self.headers
+        match self
+            .headers
             .iter()
             .find(|(k, _)| k == &key)
             .map(|(_, v)| v.clone())
+        {
+            Some(s) => s.into_js(&ctx),
+            None => Null.into_js(&ctx),
+        }
     }
 
     pub fn get_set_cookie(&self) -> Vec<String> {
