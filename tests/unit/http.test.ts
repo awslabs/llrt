@@ -80,7 +80,7 @@ describe("Headers class", () => {
     const headers = { "Content-Type": "application/json" };
     const h = new Headers(headers);
     h.delete("Content-Type");
-    expect(h.get("Content-Type")).toEqual(undefined);
+    expect(h.get("Content-Type")).toBeNull();
   });
 
   it("should return an iterator over the headers", () => {
