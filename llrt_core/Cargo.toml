@@ -86,6 +86,7 @@ flate2 = { version = "1.0.30", features = [
 brotlic = "0.8.2"
 idna = "1.0.1"
 encoding_rs = "0.8.34"
+memmap2 = "0.9.4"
 
 [build-dependencies]
 rquickjs = { version = "0.6.2", features = [
