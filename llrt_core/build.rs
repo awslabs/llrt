@@ -4,14 +4,12 @@ use std::{
     collections::HashSet,
     env,
     error::Error,
-    fs::{self, File},
-    io::{self, BufWriter},
-    path::{Path, PathBuf, MAIN_SEPARATOR_STR},
+    fs::{self},
+    io::{self},
+    path::{Path, PathBuf},
     process::Command,
     result::Result as StdResult,
 };
-
-use std::io::Write;
 
 use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};

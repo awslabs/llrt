@@ -10,12 +10,11 @@ use std::{
     fs::File,
     future::Future,
     io::{self, Read, Seek, SeekFrom},
-    mem::{size_of, MaybeUninit},
+    mem::size_of,
     path::{Component, Path, PathBuf},
     pin::pin,
     process::exit,
     result::Result as StdResult,
-    slice,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex, Once, RwLock,
@@ -38,10 +37,7 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
     Module, Object, Result, Value,
 };
-use tokio::{
-    fs,
-    sync::oneshot::{self, Receiver},
-};
+use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
@@ -73,7 +69,7 @@ pub struct EmbeddedBytecodeData {
 }
 
 thread_local! {
-    static SELF_FILE: RefCell<Option<File>> = RefCell::new(None);
+    static SELF_FILE: RefCell<Option<File>> = const { RefCell::new(None) };
 }
 
 pub static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<EmbeddedBytecodeData>> =
@@ -568,7 +564,7 @@ impl Vm {
 }
 
 fn init_embedded_bytecode() -> std::io::Result<()> {
-    let argv_0 = env::args().nth(0).expect("Failed to get argv0");
+    let argv_0 = env::args().next().expect("Failed to get argv0");
     let mut file = File::open(&argv_0)?;
 
     let mut embedded_bytecode_signature_buf = [0; BYTECODE_EMBEDDED_SIGNATURE.len()];
