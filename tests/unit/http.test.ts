@@ -217,6 +217,7 @@ describe("Request class", () => {
     expect(request.body).toStrictEqual(
       new Uint8Array(await blob.arrayBuffer())
     );
+    expect(request.body).toStrictEqual(await blob.bytes());
     expect(request.bodyUsed).toBeTruthy();
   });
 
@@ -713,6 +714,15 @@ describe("Blob class", () => {
     const arrayBuffer = await blob.arrayBuffer();
 
     expect(arrayBuffer).toBeInstanceOf(ArrayBuffer);
+  });
+
+  it("should return an Uint8Array with the bytes() method", async () => {
+    const blobData = ["Hello, world!"];
+    const blob = new Blob(blobData, { type: "text/plain" });
+
+    const bytes = await blob.bytes();
+
+    expect(bytes).toBeInstanceOf(Uint8Array);
   });
 
   it("should return a DataView with the slice method", () => {

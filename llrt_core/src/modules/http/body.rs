@@ -61,6 +61,11 @@ impl<'js> Body<'js> {
         Ok(Blob::from_bytes(bytes, self.content_type.take())) //no need to copy, we can only take bytes once
     }
 
+    pub async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let bytes = self.take_bytes(&ctx).await?;
+        TypedArray::new(ctx, bytes).map(|m| m.into_value())
+    }
+
     pub fn is_used(&self) -> bool {
         if let BodyVariant::Incoming(data) = &self.data {
             return data.is_none();

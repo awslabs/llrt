@@ -6,7 +6,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{JsClass, Trace},
     function::{Func, Opt},
-    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object, Result, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
 };
 
 use super::file::File;
@@ -95,6 +95,10 @@ impl Blob {
     #[qjs(rename = "arrayBuffer")]
     pub async fn array_buffer<'js>(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
         ArrayBuffer::new(ctx, self.data.to_vec())
+    }
+
+    async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        TypedArray::new(ctx, self.data.to_vec()).map(|m| m.into_value())
     }
 
     pub fn slice(&self, start: Opt<isize>, end: Opt<isize>, content_type: Opt<String>) -> Blob {
