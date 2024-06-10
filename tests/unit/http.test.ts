@@ -293,6 +293,17 @@ describe("Request class", () => {
     });
     expect(await request.bytes()).toStrictEqual(myArray);
   });
+
+  it("should set the body to a Blob if a Blob is provided", async () => {
+    const blob = new Blob(["Hello, world!"], { type: "text/plain" });
+    const request = new Request("http://localhost", {
+      body: blob,
+      method: "POST",
+    });
+    expect(await request.text()).toEqual("Hello, world!");
+    expect((await request.blob()).size).toEqual(blob.size);
+    expect((await request.blob()).type).toEqual(blob.type);
+  });
 });
 
 describe("Response class", () => {

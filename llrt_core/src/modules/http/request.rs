@@ -37,6 +37,7 @@ pub struct Request<'js> {
     method: String,
     headers: Option<Class<'js, Headers>>,
     body: Option<Value<'js>>,
+    content_type: Option<String>,
     signal: Option<Class<'js, AbortSignal<'js>>>,
 }
 
@@ -60,6 +61,7 @@ impl<'js> Request<'js> {
             method: "GET".to_string(),
             headers: None,
             body: None,
+            content_type: None,
             signal: None,
         };
 
@@ -156,6 +158,13 @@ impl<'js> Request<'js> {
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
 
+    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return Ok(Blob::from_bytes(bytes, self.content_type.clone()));
+        }
+        Ok(Blob::from_bytes(Vec::<u8>::new(), None))
+    }
+
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
         let headers = if let Some(headers) = &self.headers {
             Some(Class::<Headers>::instance(
@@ -171,6 +180,7 @@ impl<'js> Request<'js> {
             method: self.url.clone(),
             headers,
             body: self.body.clone(),
+            content_type: self.content_type.clone(),
             signal: self.signal.clone(),
         })
     }
@@ -207,11 +217,17 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 ));
             }
 
-            request.body = if let Some(blob) = get_class::<Blob>(&body)? {
-                let blob = blob.borrow();
-                Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value())
-            } else {
-                Some(body)
+            match get_class::<Blob>(&body)? {
+                Some(blob) => {
+                    let blob = blob.borrow();
+                    request.body =
+                        Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value());
+                    request.content_type = Some(blob.mime_type());
+                },
+                None => {
+                    request.body = Some(body);
+                    request.content_type = None;
+                },
             }
         }
     }
