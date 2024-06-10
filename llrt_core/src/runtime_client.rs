@@ -274,12 +274,12 @@ async fn next_invocation<'js, 'a>(
         .unwrap();
 
     let client_context = if let Some(json) = headers.get(&HEADER_CLIENT_CONTEXT) {
-        json_parse(ctx, json.as_bytes().into())
+        json_parse(ctx, json.as_bytes())
     } else {
         rquickjs::Undefined.into_js(ctx)
     }?;
     let cognito_identity_json = if let Some(json) = headers.get(&HEADER_COGNITO_IDENTITY) {
-        json_parse(ctx, json.as_bytes().into())
+        json_parse(ctx, json.as_bytes())
     } else {
         rquickjs::Undefined.into_js(ctx)
     }?;
@@ -294,7 +294,7 @@ async fn next_invocation<'js, 'a>(
         lambda_environment,
     };
     let bytes = res.collect().await.or_throw(ctx)?.to_bytes();
-    let event: Value<'js> = json_parse(ctx, bytes.into())?;
+    let event: Value<'js> = json_parse(ctx, bytes)?;
 
     Ok(NextInvocationResponse { event, context })
 }

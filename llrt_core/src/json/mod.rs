@@ -6,7 +6,6 @@ pub mod stringify;
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
 
     use rquickjs::{Array, CatchResultExt, IntoJs, Null, Object, Undefined, Value};
 
@@ -33,17 +32,12 @@ mod tests {
             ];
 
             for json_str in json_data {
-                // debug!("==========");
-                // println!("{}", json_str);
-                // println!("==========");
                 let json = json_str.to_string();
                 let json2 = json.clone();
 
-                let value = json_parse(&ctx, json2.into_bytes())?;
+                let value = json_parse(&ctx, json2)?;
                 let new_json = json_stringify_replacer_space(&ctx, value.clone(),None,Some("  ".into()))?.unwrap();
                 let builtin_json = ctx.json_stringify_replacer_space(value,Null,"  ".to_string())?.unwrap().to_string()?;
-                // println!("==========");
-                // println!("{}", new_json);
                 assert_eq!(new_json, builtin_json);
             }
 
@@ -92,7 +86,7 @@ mod tests {
     async fn huge_numbers() {
         with_js_runtime(|ctx| {
 
-            let big_int_value = json_parse(&ctx, b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999".to_vec())?;
+            let big_int_value = json_parse(&ctx, b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999")?;
 
             let stringified = json_stringify(&ctx, big_int_value.clone())?.unwrap();
             let stringified_2 = ctx.json_stringify(big_int_value)?.unwrap().to_string()?.replace("e+", "e");
@@ -167,89 +161,6 @@ mod tests {
                 panic!("Expected an error, but got Ok");
             }
 
-            Ok(())
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn json_perf() {
-        let json = JSON.to_string();
-
-        fn generate_json(child_json: &str, size: usize) -> String {
-            let mut json = String::with_capacity(child_json.len() * size);
-            json.push('{');
-            for i in 0..size {
-                json.push_str("\"obj");
-                json.push_str(&i.to_string());
-                json.push_str("\":");
-                json.push_str(child_json);
-                json.push(',');
-            }
-            json.push_str("\"array\":[");
-            for i in 0..size {
-                json.push_str(child_json);
-                if i < size - 1 {
-                    json.push(',');
-                }
-            }
-
-            json.push_str("]}");
-            json
-        }
-
-        let data = [
-            json.clone(),
-            generate_json(&json, 1),
-            generate_json(&json, 10),
-            generate_json(&json, 100),
-            generate_json(&json, 1000),
-        ];
-
-        with_js_runtime(|ctx| {
-            for data in data.into_iter() {
-                let size = data.len();
-                let data2 = data.clone().into_bytes();
-                let now = Instant::now();
-                let value = json_parse(&ctx, data2).unwrap();
-
-                let t1 = now.elapsed();
-
-                let now = Instant::now();
-                let value2 = ctx.json_parse(data).unwrap();
-                let t2 = now.elapsed();
-
-                let value3 = value.clone();
-
-                let now = Instant::now();
-                let json_string1 = json_stringify(&ctx, value3).unwrap().unwrap().to_string();
-
-                let t3 = now.elapsed();
-
-                let now = Instant::now();
-                let json_string2 = ctx
-                    .json_stringify(value2)
-                    .unwrap()
-                    .unwrap()
-                    .to_string()
-                    .unwrap();
-                let t4 = now.elapsed();
-
-                let json_string3 = ctx
-                    .json_stringify(value)
-                    .unwrap()
-                    .unwrap()
-                    .to_string()
-                    .unwrap();
-
-                assert_eq!(json_string1, json_string2);
-                assert_eq!(json_string2, json_string3);
-
-                println!(
-                    "Size {}:\n\tparse: {:?} vs. {:?}\n\tstringify: {:?} vs. {:?}",
-                    size, t1, t2, t3, t4
-                );
-            }
             Ok(())
         })
         .await;
