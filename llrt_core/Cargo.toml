@@ -65,7 +65,7 @@ rustls = { version = "0.23.8", default-features = false, features = [
     "tls12",
     "ring",
 ] }
-webpki-roots = "0.26.1"
+webpki-roots = "0.26.2"
 tokio-rustls = { version = "0.26.0", features = [
     "tls12",
     "ring",
