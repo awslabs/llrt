@@ -92,3 +92,8 @@ nanoid = "0.4.0"
 
 [dev-dependencies]
 wiremock = "0.6.0"
+criterion = "0.5.1"
+
+[[bench]]
+name = "json"
+harness = false
