@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+#![allow(dead_code)]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use llrt_core::json::{parse::json_parse, stringify::json_stringify};
 use rquickjs::{Context, Runtime};
