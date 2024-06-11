@@ -162,7 +162,10 @@ impl<'js> Request<'js> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(Blob::from_bytes(bytes, self.content_type.clone()));
         }
-        Ok(Blob::from_bytes(Vec::<u8>::new(), None))
+        Ok(Blob::from_bytes(
+            Vec::<u8>::new(),
+            self.content_type.clone(),
+        ))
     }
 
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
@@ -222,7 +225,10 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                     let blob = blob.borrow();
                     request.body =
                         Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value());
-                    request.content_type = Some(blob.mime_type());
+                    request.content_type = match blob.mime_type().len() {
+                        0 => None,
+                        _ => Some(blob.mime_type()),
+                    };
                 },
                 None => {
                     request.body = Some(body);
@@ -235,6 +241,12 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     if obj.contains_key("headers").unwrap() {
         let headers: Value = obj.get("headers")?;
         let headers = Headers::from_value(&ctx, headers)?;
+        if request.content_type.is_none() {
+            request.content_type = headers
+                .iter()
+                .find(|(k, _)| k == &"content-type")
+                .map(|(_, v)| v.clone());
+        }
         let headers = Class::instance(ctx, headers)?;
         request.headers = Some(headers);
     }
