@@ -282,7 +282,7 @@ fn format_raw_inner<'js>(
         Type::Float => {
             Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = ryu::Buffer::new();
-            result.push_str(float_to_string(&mut buffer, value.as_float().unwrap())?);
+            result.push_str(float_to_string(&mut buffer, value.as_float().unwrap()));
         },
         Type::String => {
             Color::GREEN.push(result, not_root_mask & color_enabled_mask);

@@ -16,15 +16,15 @@ use rquickjs::{
     Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
 
-const AMP: &[u8] = b"&amp;";
-const LT: &[u8] = b"&lt;";
-const GT: &[u8] = b"&gt;";
-const QUOT: &[u8] = b"&quot;";
-const APOS: &[u8] = b"&apos;";
-const CR: &[u8] = b"&#x0D;";
-const LF: &[u8] = b"&#x0A;";
-const NEL: &[u8] = b"&#x85;";
-const LS: &[u8] = b"&#x2028;";
+const AMP: &str = "&amp;";
+const LT: &str = "&lt;";
+const GT: &str = "&gt;";
+const QUOT: &str = "&quot;";
+const APOS: &str = "&apos;";
+const CR: &str = "&#x0D;";
+const LF: &str = "&#x0A;";
+const NEL: &str = "&#x85;";
+const LS: &str = "&#x2028;";
 
 use crate::{
     module_builder::ModuleInfo,
@@ -338,9 +338,9 @@ impl<'js> Trace<'js> for XmlText {
 impl XmlText {
     #[qjs(constructor)]
     fn new(value: String) -> Self {
-        XmlText {
-            value: escape_element(&value),
-        }
+        let mut escaped = String::with_capacity(value.len());
+        escape_element(&mut escaped, &value);
+        XmlText { value: escaped }
     }
 
     fn to_string(&self) -> String {
@@ -456,7 +456,7 @@ impl<'js> XmlNode<'js> {
                         xml_text.push(' ');
                         xml_text.push_str(attribute_name);
                         xml_text.push_str("=\"");
-                        xml_text.push_str(&escape_attribute(attribute));
+                        escape_attribute(&mut xml_text, attribute);
                         xml_text.push('"');
                     }
 
@@ -506,41 +506,33 @@ impl<'js> XmlNode<'js> {
     }
 }
 
-fn escape_attribute(value: &str) -> String {
-    let mut result = Vec::with_capacity(value.len());
-
+fn escape_attribute(text: &mut String, value: &str) {
     for c in value.chars() {
         match c {
-            '&' => result.extend_from_slice(AMP),
-            '<' => result.extend_from_slice(LT),
-            '>' => result.extend_from_slice(GT),
-            '"' => result.extend_from_slice(QUOT),
-            _ => result.push(c as u8),
+            '&' => text.push_str(AMP),
+            '<' => text.push_str(LT),
+            '>' => text.push_str(GT),
+            '"' => text.push_str(QUOT),
+            _ => text.push(c),
         }
     }
-
-    String::from_utf8(result).unwrap()
 }
 
-fn escape_element(value: &str) -> String {
-    let mut result = Vec::with_capacity(value.len());
-
+fn escape_element(text: &mut String, value: &str) {
     for c in value.chars() {
         match c {
-            '&' => result.extend_from_slice(AMP),
-            '<' => result.extend_from_slice(LT),
-            '>' => result.extend_from_slice(GT),
-            '\'' => result.extend_from_slice(APOS),
-            '"' => result.extend_from_slice(QUOT),
-            '\r' => result.extend_from_slice(CR),
-            '\n' => result.extend_from_slice(LF),
-            '\u{0085}' => result.extend_from_slice(NEL),
-            '\u{2028}' => result.extend_from_slice(LS),
-            _ => result.push(c as u8),
+            '&' => text.push_str(AMP),
+            '<' => text.push_str(LT),
+            '>' => text.push_str(GT),
+            '\'' => text.push_str(APOS),
+            '"' => text.push_str(QUOT),
+            '\r' => text.push_str(CR),
+            '\n' => text.push_str(LF),
+            '\u{0085}' => text.push_str(NEL),
+            '\u{2028}' => text.push_str(LS),
+            _ => text.push(c),
         }
     }
-
-    String::from_utf8(result).unwrap()
 }
 
 pub struct XmlModule;

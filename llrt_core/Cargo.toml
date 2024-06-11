@@ -97,3 +97,7 @@ criterion = "0.5.1"
 [[bench]]
 name = "json"
 harness = false
+
+[[bench]]
+name = "numbers"
+harness = false
