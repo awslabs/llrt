@@ -4,67 +4,86 @@ use rquickjs::{
     function::{Opt, This},
     Ctx, Exception, Result, Value,
 };
-use std::{fmt::Write, result::Result as StdResult};
+use std::result::Result as StdResult;
 
 const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
-const BUF_SIZE: usize = 81;
+const BUF_SIZE: usize = 80;
+const BIN_MAX_DIGITS: usize = 64;
+const OCT_MAX_DIGITS: usize = 21;
 
-macro_rules! write_formatted {
-    ($format:expr, $number:expr) => {{
-        let digits = ($number as f64).log10() as usize + 2;
-        let mut string = String::with_capacity(digits);
-        write!(string, $format, $number).unwrap();
-        string
-    }};
-}
-
-fn i64_to_base_n(number: i64, radix: u8) -> String {
-    match radix {
-        2 => return write_formatted!("{:b}", number),
-        8 => return write_formatted!("{:o}", number),
-        10 => return write_formatted!("{}", number),
-        16 => return write_formatted!("{:x}", number),
-        _ => {},
-    }
-
-    let mut positive_number = number;
-    let mut index = 0;
-    let mut buf = [0_u8; BUF_SIZE];
-    if number < 0 {
-        positive_number = -number;
-        index = 1;
-        buf[0] = b'-';
-    }
-
-    let index = internal_i64_to_base_n(&mut buf, index, positive_number, radix);
-    String::from_utf8_lossy(&buf[..index]).into_owned()
+#[inline(always)]
+pub fn to_dec(number: i64) -> String {
+    itoa::Buffer::new().format(number).into()
 }
 
 #[inline(always)]
-fn internal_i64_to_base_n(
-    buf: &mut [u8; BUF_SIZE],
-    start_index: usize,
-    number: i64,
-    radix: u8,
-) -> usize {
-    let mut n = number;
-    let mut end_index = BUF_SIZE - 1;
-    let mut index = start_index;
+pub fn to_base_less_than_10(buf: &mut [u8], num: i64, base: i64) -> String {
+    let max = buf.len();
 
-    while n > 0 {
-        let digit = n % radix as i64;
-        buf[end_index] = DIGITS[digit as usize];
-        n /= radix as i64;
-        end_index -= 1;
-        index += 1;
+    if num == 0 {
+        return "0".into();
+    }
+    let mut index = max;
+    let mut n = num;
+
+    let mut string = String::with_capacity(max + 1);
+
+    if n < 0 {
+        n = !n + 1;
+        string.push('-');
     }
 
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            buf.as_ptr().add(end_index + 1),
-            buf.as_mut_ptr().add(start_index),
-            index,
-        )
+    while n > 0 {
+        index -= 1;
+        buf[index] = (n % base) as u8 + b'0';
+        n /= base;
+    }
+
+    string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[index..max]) });
+    string
+}
+
+pub fn i64_to_base_n(number: i64, radix: u8) -> String {
+    match radix {
+        10 => {
+            return to_dec(number);
+        },
+        2 => {
+            let mut buf = [0u8; BIN_MAX_DIGITS];
+            return to_base_less_than_10(&mut buf, number, 2);
+        },
+        8 => {
+            let mut buf = [0u8; OCT_MAX_DIGITS];
+            return to_base_less_than_10(&mut buf, number, 8);
+        },
+        _ => {},
+    }
+
+    let mut abs_number = number;
+
+    let mut buf = [0u8; BUF_SIZE];
+    let mut string = String::with_capacity(BUF_SIZE);
+    if number < 0 {
+        abs_number = -number;
+        string.push('-');
+    }
+
+    let index = internal_i64_to_base_n(&mut buf, abs_number, radix);
+
+    string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[index..BUF_SIZE]) });
+    string
+}
+
+#[inline(always)]
+fn internal_i64_to_base_n(buf: &mut [u8], number: i64, radix: u8) -> usize {
+    let mut n = number;
+    let mut index = BUF_SIZE;
+
+    while n > 0 {
+        index -= 1;
+        let digit = n % radix as i64;
+        buf[index] = DIGITS[digit as usize];
+        n /= radix as i64;
     }
 
     index
@@ -92,12 +111,7 @@ fn next_up(num: f64) -> f64 {
 }
 
 #[inline(always)]
-fn fractional_to_base(
-    buf: &mut [u8; BUF_SIZE],
-    mut index: usize,
-    mut number: f64,
-    radix: u8,
-) -> usize {
+fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: u8) -> usize {
     let mut is_odd = number <= 0x1fffffffffffffi64 as f64 && (number as i64) & 1 != 0;
     let mut digit;
 
@@ -149,61 +163,44 @@ fn fractional_to_base(
 
 #[inline(always)]
 fn f64_to_base_n(number: f64, radix: u8) -> String {
-    let mut positive_num = number;
-    let mut index = 0;
-    let mut buf = [0_u8; BUF_SIZE];
+    let mut abs_num = number;
+    let mut string = String::with_capacity(BUF_SIZE);
+    let mut buf = [0u8; BUF_SIZE];
+
     if number < 0.0 {
-        positive_num = -number;
-        index = 1;
-        buf[0] = b'-';
+        abs_num = -number;
+        string.push('-');
     }
 
-    let integer_part = positive_num.trunc();
-    let fractional_part = positive_num - integer_part;
-    let integer_part = positive_num as i64;
+    let integer_part = abs_num.trunc();
+    let fractional_part = abs_num - integer_part;
+    let integer_part = abs_num as i64;
 
-    index = internal_i64_to_base_n(&mut buf, index, integer_part, radix);
+    let mut index = internal_i64_to_base_n(&mut buf, integer_part, radix);
+    string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[index..BUF_SIZE]) });
+
+    index = BUF_SIZE - index;
+
     let dot_index = index;
     index = fractional_to_base(&mut buf, index + 1, fractional_part, radix);
     if index - 1 > dot_index {
         buf[dot_index] = b'.';
     }
 
-    String::from(unsafe { std::str::from_utf8_unchecked(&buf[..index]) })
+    string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[..index]) });
+    string
 }
 
-pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<String> {
-    if let Some(int) = this.as_int() {
-        if let Some(radix) = radix.0 {
-            check_radix(&ctx, radix)?;
-            return Ok(i64_to_base_n(int as i64, radix));
-        }
-        return Ok(write_formatted!("{}", int));
-    }
-    if let Some(float) = this.as_float() {
-        if let Some(radix) = radix.0 {
-            check_radix(&ctx, radix)?;
-            return Ok(f64_to_base_n(float, radix));
-        }
-
-        let mut buffer = ryu::Buffer::new();
-        return float_to_string(&mut buffer, float).map(|f| f.into());
-    }
-    Ok("".into())
-}
-
-pub fn float_to_string(buffer: &mut ryu::Buffer, float: f64) -> Result<&str> {
+pub fn float_to_string(buffer: &mut ryu::Buffer, float: f64) -> &str {
     let str = match float_to_str(buffer, float) {
         Ok(value) => value,
-        Err(value) => return Ok(value),
+        Err(value) => return value,
     };
     let len = str.len();
-    if unsafe { str.get_unchecked(str.len() - 2..) } == ".0" {
-        let bytes = str.as_bytes();
-
-        return Ok(unsafe { std::str::from_utf8_unchecked(&bytes[..len - 2]) });
+    if unsafe { str.get_unchecked(len - 2..) } == ".0" {
+        return unsafe { std::str::from_utf8_unchecked(&str.as_bytes()[..len - 2]) };
     }
-    Ok(str)
+    str
 }
 
 /// Returns a string representation of the float value.
@@ -239,10 +236,80 @@ fn get_nonfinite<'a>(bits: u64) -> &'a str {
 #[cold]
 fn check_radix(ctx: &Ctx, radix: u8) -> Result<()> {
     if !(2..=36).contains(&radix) {
-        return Err(Exception::throw_message(
-            ctx,
-            "radix must be between 2 and 36",
-        ));
+        return Err(Exception::throw_type(ctx, "radix must be between 2 and 36"));
     }
     Ok(())
+}
+
+pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<String> {
+    if let Some(int) = this.as_int() {
+        if let Some(radix) = radix.0 {
+            check_radix(&ctx, radix)?;
+            return Ok(i64_to_base_n(int as i64, radix));
+        }
+        let mut buffer = itoa::Buffer::new();
+        return Ok(buffer.format(int).into());
+    }
+    if let Some(float) = this.as_float() {
+        if let Some(radix) = radix.0 {
+            check_radix(&ctx, radix)?;
+            return Ok(f64_to_base_n(float, radix));
+        }
+
+        let mut buffer = ryu::Buffer::new();
+        return Ok(float_to_string(&mut buffer, float).into());
+    }
+    Ok("".into())
+}
+
+#[cfg(test)]
+mod test {
+    use rand::{thread_rng, Rng};
+
+    use crate::number::{float_to_string, i64_to_base_n};
+
+    #[test]
+    fn test_base_conversions() {
+        let mut rng = thread_rng();
+
+        for _ in 0..1_000_000 {
+            // Generate random i64 and radix values
+            let num: i64 = rng.gen_range(i64::MIN + 1..i64::MAX - 1);
+
+            let minus_str = if num < 0 { "-" } else { "" };
+
+            //test bin
+            let expected_bin = format!("{}{:b}", minus_str, num.abs());
+            let actual_bin = i64_to_base_n(num, 2);
+            assert_eq!(expected_bin, actual_bin);
+
+            //test octal
+            let expected_octal = format!("{}{:o}", minus_str, num.abs());
+            let actual_octal = i64_to_base_n(num, 8);
+            assert_eq!(expected_octal, actual_octal);
+
+            //test hex
+            let expected_hex = format!("{}{:x}", minus_str, num.abs());
+            let actual_hex = i64_to_base_n(num, 16);
+            assert_eq!(expected_hex, actual_hex);
+        }
+
+        // Test i64_to_base_n
+        let base_36 = i64_to_base_n(123456789, 36);
+        assert_eq!("21i3v9", base_36);
+
+        let base_36 = i64_to_base_n(-123456789, 36);
+        assert_eq!("-21i3v9", base_36);
+
+        let mut buf = ryu::Buffer::new();
+
+        let float = float_to_string(&mut buf, 123.456);
+        assert_eq!("123.456", float);
+
+        let float = float_to_string(&mut buf, 123.);
+        assert_eq!("123", float);
+
+        let float = float_to_string(&mut buf, 0.0);
+        assert_eq!("0", float);
+    }
 }

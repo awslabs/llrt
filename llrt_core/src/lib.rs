@@ -15,7 +15,7 @@ pub mod json;
 // mod minimal_tracer;
 mod module_builder;
 pub mod modules;
-mod number;
+pub mod number;
 pub mod runtime_client;
 mod security;
 mod stream;
