@@ -302,7 +302,19 @@ describe("Request class", () => {
     });
     expect(await request.text()).toEqual("Hello, world!");
     expect((await request.blob()).size).toEqual(blob.size);
-    expect((await request.blob()).type).toEqual(blob.type);
+    expect((await request.blob()).type).toEqual("");
+  });
+
+  it("should set the body to a Blob if Blob and content-type are provided", async () => {
+    const blob = new Blob(["Hello, world!"], { type: "text/html" });
+    const request = new Request("http://localhost", {
+      body: blob,
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+    });
+    expect(await request.text()).toEqual("Hello, world!");
+    expect((await request.blob()).size).toEqual(blob.size);
+    expect((await request.blob()).type).toEqual("text/plain");
   });
 });
 

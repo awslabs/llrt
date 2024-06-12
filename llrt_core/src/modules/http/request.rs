@@ -37,7 +37,6 @@ pub struct Request<'js> {
     method: String,
     headers: Option<Class<'js, Headers>>,
     body: Option<Value<'js>>,
-    content_type: Option<String>,
     signal: Option<Class<'js, AbortSignal<'js>>>,
 }
 
@@ -61,7 +60,6 @@ impl<'js> Request<'js> {
             method: "GET".to_string(),
             headers: None,
             body: None,
-            content_type: None,
             signal: None,
         };
 
@@ -159,13 +157,15 @@ impl<'js> Request<'js> {
     }
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
+        let headers = Headers::from_value(&ctx, self.headers().unwrap().as_value().clone())?;
+        let mime_type = headers
+            .iter()
+            .find(|(k, _)| k == &"content-type")
+            .map(|(_, v)| v.clone());
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(bytes, self.content_type.clone()));
+            return Ok(Blob::from_bytes(bytes, mime_type));
         }
-        Ok(Blob::from_bytes(
-            Vec::<u8>::new(),
-            self.content_type.clone(),
-        ))
+        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
     }
 
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
@@ -183,7 +183,6 @@ impl<'js> Request<'js> {
             method: self.url.clone(),
             headers,
             body: self.body.clone(),
-            content_type: self.content_type.clone(),
             signal: self.signal.clone(),
         })
     }
@@ -197,8 +196,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         request.method = method;
     }
 
-    if obj.contains_key("signal").unwrap() {
-        let signal: Value = obj.get("signal")?;
+    if let Some(signal) = obj.get_optional::<_, Value>("signal")? {
         if !signal.is_undefined() && !signal.is_null() {
             let signal = AbortSignal::from_js(&ctx, signal).map_err(|_| {
                 Exception::throw_type(
@@ -210,8 +208,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         }
     }
 
-    if obj.contains_key("body").unwrap_or_default() {
-        let body: Value = obj.get("body").unwrap();
+    if let Some(body) = obj.get_optional::<_, Value>("body")? {
         if !body.is_undefined() && !body.is_null() {
             if let "GET" | "HEAD" = request.method.as_str() {
                 return Err(Exception::throw_type(
@@ -220,33 +217,18 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 ));
             }
 
-            match get_class::<Blob>(&body)? {
+            request.body = match get_class::<Blob>(&body)? {
                 Some(blob) => {
                     let blob = blob.borrow();
-                    request.body =
-                        Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value());
-                    request.content_type = match blob.mime_type().len() {
-                        0 => None,
-                        _ => Some(blob.mime_type()),
-                    };
+                    Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value())
                 },
-                None => {
-                    request.body = Some(body);
-                    request.content_type = None;
-                },
+                None => Some(body),
             }
         }
     }
 
-    if obj.contains_key("headers").unwrap() {
-        let headers: Value = obj.get("headers")?;
+    if let Some(headers) = obj.get_optional("headers")? {
         let headers = Headers::from_value(&ctx, headers)?;
-        if request.content_type.is_none() {
-            request.content_type = headers
-                .iter()
-                .find(|(k, _)| k == &"content-type")
-                .map(|(_, v)| v.clone());
-        }
         let headers = Class::instance(ctx, headers)?;
         request.headers = Some(headers);
     }
