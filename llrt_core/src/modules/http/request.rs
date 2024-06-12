@@ -158,10 +158,13 @@ impl<'js> Request<'js> {
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         let headers = Headers::from_value(&ctx, self.headers().unwrap().as_value().clone())?;
-        let mime_type = headers
-            .iter()
-            .find(|(k, _)| k == &"content-type")
-            .map(|(_, v)| v.clone());
+        let mime_type = headers.iter().find_map(|(k, v)| {
+            if k == "content-type" {
+                Some(v.clone())
+            } else {
+                None
+            }
+        });
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(Blob::from_bytes(bytes, mime_type));
         }
