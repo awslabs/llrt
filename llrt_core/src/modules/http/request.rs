@@ -156,6 +156,21 @@ impl<'js> Request<'js> {
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
 
+    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
+        let headers = Headers::from_value(&ctx, self.headers().unwrap().as_value().clone())?;
+        let mime_type = headers.iter().find_map(|(k, v)| {
+            if k == "content-type" {
+                Some(v.clone())
+            } else {
+                None
+            }
+        });
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return Ok(Blob::from_bytes(bytes, mime_type));
+        }
+        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
+    }
+
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
         let headers = if let Some(headers) = &self.headers {
             Some(Class::<Headers>::instance(
@@ -184,8 +199,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         request.method = method;
     }
 
-    if obj.contains_key("signal").unwrap() {
-        let signal: Value = obj.get("signal")?;
+    if let Some(signal) = obj.get_optional::<_, Value>("signal")? {
         if !signal.is_undefined() && !signal.is_null() {
             let signal = AbortSignal::from_js(&ctx, signal).map_err(|_| {
                 Exception::throw_type(
@@ -197,8 +211,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         }
     }
 
-    if obj.contains_key("body").unwrap_or_default() {
-        let body: Value = obj.get("body").unwrap();
+    if let Some(body) = obj.get_optional::<_, Value>("body")? {
         if !body.is_undefined() && !body.is_null() {
             if let "GET" | "HEAD" = request.method.as_str() {
                 return Err(Exception::throw_type(
@@ -216,8 +229,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         }
     }
 
-    if obj.contains_key("headers").unwrap() {
-        let headers: Value = obj.get("headers")?;
+    if let Some(headers) = obj.get_optional("headers")? {
         let headers = Headers::from_value(&ctx, headers)?;
         let headers = Class::instance(ctx, headers)?;
         request.headers = Some(headers);
