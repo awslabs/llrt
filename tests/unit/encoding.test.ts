@@ -30,31 +30,29 @@ describe("atoa & btoa", () => {
 describe("TextDecoder", () => {
   it("Should be able to decode even non UTF-8 labels ", () => {
     const hono = "炎"; // hono - [炎] means flame🔥 in Japanese
-    const hono_sjis = new Uint8Array([0x89, 0x8a]);
+    const honoSjis = new Uint8Array([0x89, 0x8a]);
     const decoded = new TextDecoder("sjis");
     expect(decoded.encoding).toEqual("shift-jis");
     expect(decoded.fatal).toBeFalsy();
     expect(decoded.ignoreBOM).toBeFalsy();
-    expect(decoded.decode(hono_sjis)).toEqual(hono);
+    expect(decoded.decode(honoSjis)).toEqual(hono);
   });
 
   it("should be removed BOM", () => {
     const smile = "😄";
-    const bom_plus_smile = new Uint8Array([
-      0xef, 0xbb, 0xbf, 240, 159, 152, 132,
-    ]);
+    const bomPlusSmile = new Uint8Array([0xef, 0xbb, 0xbf, 240, 159, 152, 132]);
     const decoded = new TextDecoder("utf8", { ignoreBOM: true });
     expect(decoded.encoding).toEqual("utf-8");
     expect(decoded.ignoreBOM).toBeTruthy();
-    expect(decoded.decode(bom_plus_smile)).toEqual(smile);
+    expect(decoded.decode(bomPlusSmile)).toEqual(smile);
   });
 
   it("should be generated fatal error", () => {
-    const illegal_string = new Uint8Array([0xff, 0xfe, 0xfd]);
+    const illegalString = new Uint8Array([0xff, 0xfe, 0xfd]);
     try {
       const decoded = new TextDecoder("utf-8", { fatal: true });
       expect(decoded.fatal).toBeTruthy();
-      const a = decoded.decode(illegal_string);
+      const a = decoded.decode(illegalString);
     } catch (ex) {
       expect(ex.message).toEqual("Fatal error");
     }

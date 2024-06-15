@@ -20,13 +20,12 @@ pub struct TextDecoder {
 impl<'js> TextDecoder {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, label: Opt<String>, options: Opt<Object<'js>>) -> Result<Self> {
-        let mut label = label.0.unwrap_or(String::from("utf-8"));
+        let label = match label.0 {
+            Some(lbl) if !lbl.is_empty() => lbl,
+            Some(_) | None => String::from("utf-8"),
+        };
         let mut fatal = false;
         let mut ignore_bom = false;
-
-        if label.is_empty() {
-            label = String::from("utf-8");
-        }
 
         let encoding = match Encoding::for_label(label.as_bytes()) {
             Some(enc) => enc.name().to_string(),
