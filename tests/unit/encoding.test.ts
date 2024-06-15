@@ -41,6 +41,8 @@ describe("TextDecoder", () => {
   it("should not be removed BOM", () => {
     const smile = "😄";
     const bomPlusSmile = new Uint8Array([0xef, 0xbb, 0xbf, 240, 159, 152, 132]);
+    expect(new TextDecoder("utf8").decode(bomPlusSmile)).toEqual(smile);
+
     const decoded = new TextDecoder("utf8", { ignoreBOM: true });
     expect(decoded.encoding).toEqual("utf-8");
     expect(decoded.ignoreBOM).toBeTruthy();
