@@ -72,8 +72,8 @@ impl<'js> TextDecoder {
 
         if decoder == encoding_rs::UTF_8 {
             (str, has_error) = match self.ignore_bom {
-                true => decoder.decode_without_bom_handling(&bytes),
                 false => decoder.decode_with_bom_removal(&bytes),
+                true => decoder.decode_without_bom_handling(&bytes),
             }
         } else {
             (str, _, has_error) = decoder.decode(&bytes);
