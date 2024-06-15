@@ -13,7 +13,7 @@ use crate::{
     module_builder::ModuleInfo,
     modules::{encoding::encoder::Encoder, module::export_default},
     utils::{
-        object::{get_bytes, get_bytes_offset_length, obj_to_array_buffer},
+        object::{get_bytes, get_bytes_offset_length, get_checked_len, obj_to_array_buffer},
         result::ResultExt,
     },
 };
@@ -23,17 +23,30 @@ pub struct Buffer(pub Vec<u8>);
 impl<'js> IntoJs<'js> for Buffer {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let array_buffer = ArrayBuffer::new(ctx.clone(), self.0)?;
-        let value = array_buffer.into_js(ctx)?;
-        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
-        constructor.construct((value,))
+        Self::from_array_buffer(ctx, array_buffer)
     }
 }
 
 impl<'js> Buffer {
     pub fn to_string(&self, ctx: &Ctx<'js>, encoding: &str) -> Result<String> {
         Encoder::from_str(encoding)
-            .and_then(|enc| enc.encode_to_string(&self.0))
+            .and_then(|enc| enc.encode_to_string(self.0.as_ref()))
             .or_throw(ctx)
+    }
+
+    fn from_array_buffer(ctx: &Ctx<'js>, buffer: ArrayBuffer<'js>) -> Result<Value<'js>> {
+        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
+        constructor.construct((buffer,))
+    }
+
+    fn from_array_buffer_offset_length(
+        ctx: &Ctx<'js>,
+        array_buffer: ArrayBuffer<'js>,
+        offset: usize,
+        length: usize,
+    ) -> Result<Value<'js>> {
+        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
+        constructor.construct((array_buffer, offset, length))
     }
 }
 
@@ -60,8 +73,8 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
-            return Ok(array_buffer.len());
+        if let Some((_, source_length)) = obj_to_array_buffer(obj)? {
+            return Ok(source_length);
         }
     }
 
@@ -104,7 +117,7 @@ fn alloc<'js>(
             return Buffer(bytes).into_js(&ctx);
         }
         if let Some(obj) = value.as_object() {
-            if let Some(array_buffer) = obj_to_array_buffer(obj)? {
+            if let Some((array_buffer, _)) = obj_to_array_buffer(obj)? {
                 return alloc_byte_ref(&ctx, array_buffer.as_ref(), length);
             }
         }
@@ -119,7 +132,7 @@ fn alloc_byte_ref<'js>(ctx: &Ctx<'js>, byte_ref: &[u8], length: usize) -> Result
     for i in 0..length {
         bytes[i] = byte_ref[i % byte_ref_length];
     }
-    return Buffer(bytes).into_js(ctx);
+    Buffer(bytes).into_js(ctx)
 }
 
 fn concat<'js>(ctx: Ctx<'js>, list: Array<'js>, max_length: Opt<usize>) -> Result<Value<'js>> {
@@ -167,6 +180,25 @@ fn from<'js>(
         }
     }
 
+    if let Some(obj) = value.as_object() {
+        if let Some((array_buffer, source_length)) = obj_to_array_buffer(obj)? {
+            let offset = offset.unwrap_or(0);
+            let checked_length = get_checked_len(source_length, length.0, offset);
+            if let Some(stringify!(Buffer)) = obj
+                .get::<_, Option<String>>(PredefinedAtom::StaticComputedField)?
+                .as_deref()
+            {
+                //TODO copy bytes
+            }
+            return Buffer::from_array_buffer_offset_length(
+                &ctx,
+                array_buffer,
+                offset,
+                checked_length,
+            );
+        }
+    }
+
     let mut bytes = get_bytes_offset_length(&ctx, value, offset, length.0)?;
 
     if let Some(encoding) = encoding {
@@ -185,6 +217,8 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
 
     let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
+    //not assessable from js
+    prototype.prop(PredefinedAtom::StaticComputedField, stringify!(Buffer))?;
 
     ctx.globals().set(stringify!(Buffer), constructor)?;
 
