@@ -38,13 +38,14 @@ describe("TextDecoder", () => {
     expect(decoded.decode(honoSjis)).toEqual(hono);
   });
 
-  it("should be removed BOM", () => {
+  it("should not be removed BOM", () => {
     const smile = "😄";
     const bomPlusSmile = new Uint8Array([0xef, 0xbb, 0xbf, 240, 159, 152, 132]);
     const decoded = new TextDecoder("utf8", { ignoreBOM: true });
     expect(decoded.encoding).toEqual("utf-8");
     expect(decoded.ignoreBOM).toBeTruthy();
-    expect(decoded.decode(bomPlusSmile)).toEqual(smile);
+    const encoded = new TextEncoder().encode(decoded.decode(bomPlusSmile));
+    expect(encoded).toEqual(bomPlusSmile);
   });
 
   it("should be generated fatal error", () => {
