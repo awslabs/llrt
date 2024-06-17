@@ -3,10 +3,10 @@ describe("Buffer.alloc", () => {
     const size = 10;
     const buffer = Buffer.alloc(size);
 
-    expect(buffer.length).toEqual(size)
+    expect(buffer.length).toEqual(size);
 
     for (const byte of buffer) {
-      expect(byte).toEqual(0)
+      expect(byte).toEqual(0);
     }
   });
 
@@ -15,7 +15,7 @@ describe("Buffer.alloc", () => {
     const fillString = "abc";
     const buffer = Buffer.alloc(size, fillString);
 
-    expect(buffer.toString()).toEqual("abcabcab")
+    expect(buffer.toString()).toEqual("abcabcab");
   });
 
   it("should create a buffer with specified size and fill with an encoded string value", () => {
@@ -23,7 +23,7 @@ describe("Buffer.alloc", () => {
     const fillString = "616263";
     const buffer = Buffer.alloc(size, fillString, "hex");
 
-    expect(buffer.toString()).toEqual("abcabcab")
+    expect(buffer.toString()).toEqual("abcabcab");
   });
 
   it("should create a buffer with specified size and fill with a Buffer value", () => {
@@ -31,7 +31,7 @@ describe("Buffer.alloc", () => {
     const fillBuffer = Buffer.from([1, 2, 3]);
     const buffer = Buffer.alloc(size, fillBuffer);
 
-    expect(buffer).toStrictEqual(Buffer.from([1, 2, 3, 1, 2, 3]))
+    expect(buffer).toStrictEqual(Buffer.from([1, 2, 3, 1, 2, 3]));
   });
 
   it("should create a buffer with specified size and fill with a Uint8Array value", () => {
@@ -39,7 +39,7 @@ describe("Buffer.alloc", () => {
     const fillUint8Array = new Uint8Array([5, 10, 15]);
     const buffer = Buffer.alloc(size, fillUint8Array);
 
-    expect(buffer).toStrictEqual(Buffer.from([5, 10, 15, 5, 10]))
+    expect(buffer).toStrictEqual(Buffer.from([5, 10, 15, 5, 10]));
   });
 
   it("should create a buffer with specified size and fill with an integer value", () => {
@@ -48,7 +48,7 @@ describe("Buffer.alloc", () => {
     const buffer = Buffer.alloc(size, fillInteger);
 
     for (const byte of buffer) {
-      expect(byte).toEqual(fillInteger)
+      expect(byte).toEqual(fillInteger);
     }
   });
 
@@ -56,7 +56,7 @@ describe("Buffer.alloc", () => {
     const size = 10;
     let buffer = Buffer.alloc(size, true as any);
     for (const byte of buffer) {
-      expect(byte).toEqual(0)
+      expect(byte).toEqual(0);
     }
   });
 });
@@ -66,7 +66,7 @@ describe("Buffer.from", () => {
     const input = "Hello, world!";
     const buffer = Buffer.from(input, "utf-8");
 
-    expect(buffer.toString()).toEqual(input)
+    expect(buffer.toString()).toEqual(input);
   });
 
   it("should create a buffer from an array of bytes", () => {
@@ -74,7 +74,7 @@ describe("Buffer.from", () => {
     const buffer = Buffer.from(byteArray);
 
     for (let i = 0; i < byteArray.length; i++) {
-      expect(buffer[i]).toEqual(byteArray[i])
+      expect(buffer[i]).toEqual(byteArray[i]);
     }
   });
 
@@ -82,18 +82,18 @@ describe("Buffer.from", () => {
     const input = "SGVsbG8sIHdvcmxkIQ==";
     const buffer = Buffer.from(input, "base64");
 
-    expect(buffer.toString()).toEqual("Hello, world!")
+    expect(buffer.toString()).toEqual("Hello, world!");
 
     const input2 = "SGVsbG8sIHdvcmxkIQ";
     const buffer2 = Buffer.from(input2, "base64");
-    expect(buffer2.toString()).toEqual("Hello, world!")
+    expect(buffer2.toString()).toEqual("Hello, world!");
   });
 
   it("should create a buffer from a string with hex encoding", () => {
     const input = "48656c6c6f2c20776f726c6421";
     const buffer = Buffer.from(input, "hex");
 
-    expect(buffer.toString()).toEqual("Hello, world!")
+    expect(buffer.toString()).toEqual("Hello, world!");
   });
 
   it("should create a buffer from a portion of an array with offset and length", () => {
@@ -104,9 +104,9 @@ describe("Buffer.from", () => {
     // @ts-ignore
     const buffer = Buffer.from(byteArray, offset, length);
 
-    expect(buffer.length).toEqual(length)
+    expect(buffer.length).toEqual(length);
     for (let i = 0; i < length; i++) {
-      expect(buffer[i]).toEqual(byteArray[offset + i])
+      expect(buffer[i]).toEqual(byteArray[offset + i]);
     }
   });
 
@@ -116,18 +116,37 @@ describe("Buffer.from", () => {
     let offset = 0;
     // @ts-ignore
     let buffer = Buffer.from(byteArray, offset, length);
-    expect(buffer.length).toEqual(byteArray.length)
+    expect(buffer.length).toEqual(byteArray.length);
     for (let i = 0; i < length; i++) {
-      expect(buffer[i]).toEqual(byteArray[offset + i])
+      expect(buffer[i]).toEqual(byteArray[offset + i]);
     }
 
     // @ts-ignore
     buffer = Buffer.from(byteArray, 99, 2);
-    expect(buffer.length).toEqual(0)
+    expect(buffer.length).toEqual(0);
 
     // @ts-ignore
     buffer = Buffer.from(byteArray, 99, 999);
-    expect(buffer.length).toEqual(0)
+    expect(buffer.length).toEqual(0);
+  });
+
+  it("should use same memory for sub arrays", () => {
+    const typedArray = new Uint8Array([65, 66, 67, 68, 69]);
+
+    const a = Buffer.from(typedArray.buffer);
+    const b = Buffer.from(typedArray.subarray(1, 4));
+    const c = Buffer.from(a);
+
+    expect(a.buffer).toStrictEqual(b.buffer);
+    expect(a.toString()).toEqual("ABCDE");
+    expect(b.toString()).toEqual("BCD");
+    expect(c.toString()).toEqual("ABCDE");
+
+    typedArray.set([70, 71], 1);
+
+    expect(a.toString()).toEqual("AFGDE");
+    expect(b.toString()).toEqual("FGD");
+    expect(c.toString()).toEqual("ABCDE");
   });
 });
 
@@ -136,21 +155,21 @@ describe("toString", () => {
     const input = "Hello, world!";
     const buffer = Buffer.from(input);
 
-    expect(buffer.toString("utf-8")).toEqual(input)
+    expect(buffer.toString("utf-8")).toEqual(input);
   });
 
   it("should convert buffer to a string with base64 encoding", () => {
     const input = "SGVsbG8sIHdvcmxkIQ==";
     const buffer = Buffer.from(input, "base64");
 
-    expect(buffer.toString("base64")).toEqual(input)
+    expect(buffer.toString("base64")).toEqual(input);
   });
 
   it("should convert buffer to a string with hex encoding", () => {
     const input = "48656c6c6f2c20776f726c6421";
     const buffer = Buffer.from(input, "hex");
 
-    expect(buffer.toString("hex")).toEqual(input)
+    expect(buffer.toString("hex")).toEqual(input);
   });
 });
 
@@ -161,7 +180,7 @@ describe("Buffer.concat", () => {
     const buffer3 = Buffer.from("World");
     const resultBuffer = Buffer.concat([buffer1, buffer2, buffer3]);
 
-    expect(resultBuffer.toString()).toEqual("Hello World")
+    expect(resultBuffer.toString()).toEqual("Hello World");
   });
 
   it("should handle empty buffers in the array", () => {
@@ -170,20 +189,20 @@ describe("Buffer.concat", () => {
     const buffer3 = Buffer.from("World");
     const resultBuffer = Buffer.concat([buffer1, buffer2, buffer3]);
 
-    expect(resultBuffer.toString()).toEqual("HelloWorld")
+    expect(resultBuffer.toString()).toEqual("HelloWorld");
   });
 
   it("should handle an array with a single buffer", () => {
     const buffer = Buffer.from("SingleBuffer");
     const resultBuffer = Buffer.concat([buffer]);
 
-    expect(resultBuffer.toString()).toEqual("SingleBuffer")
+    expect(resultBuffer.toString()).toEqual("SingleBuffer");
   });
 
   it("should handle an empty array of buffers", () => {
     const resultBuffer = Buffer.concat([]);
 
-    expect(resultBuffer.toString()).toEqual("")
+    expect(resultBuffer.toString()).toEqual("");
   });
 
   it("should throw an error when the list contains a non-buffer", () => {
@@ -208,11 +227,11 @@ describe("Buffer.concat", () => {
     const buffer3 = Buffer.from("89");
     const resultBuffer = Buffer.concat([buffer1, buffer2, buffer3], 4);
 
-    expect(resultBuffer.toString()).toEqual("1234")
+    expect(resultBuffer.toString()).toEqual("1234");
 
     const resultBuffer2 = Buffer.concat([buffer1, buffer2, buffer3], 3);
 
-    expect(resultBuffer2.toString()).toEqual("123")
+    expect(resultBuffer2.toString()).toEqual("123");
   });
 
   it("should throw an error when totalLength is less than the actual length of concatenated buffers", () => {
@@ -220,8 +239,8 @@ describe("Buffer.concat", () => {
     const buffer2 = Buffer.from("World");
     const resultBuffer = Buffer.concat([buffer1, buffer2], 999);
 
-    expect(resultBuffer.toString()).toEqual("HelloWorld")
-    expect(resultBuffer.length).toEqual(buffer1.length + buffer2.length)
+    expect(resultBuffer.toString()).toEqual("HelloWorld");
+    expect(resultBuffer.length).toEqual(buffer1.length + buffer2.length);
   });
 });
 
@@ -229,37 +248,37 @@ describe("Buffer.byteLength", () => {
   it("should return the correct byte length for ASCII string", () => {
     const length = Buffer.byteLength("Hello");
 
-    expect(length).toEqual(5)
+    expect(length).toEqual(5);
   });
 
   it("should return the correct byte length for UTF-8 string", () => {
     const length = Buffer.byteLength("👋");
 
-    expect(length).toEqual(4)
+    expect(length).toEqual(4);
   });
 
   it("should return the correct byte length for UTF-8 string", () => {
     const length = Buffer.byteLength("你好");
 
-    expect(length).toEqual(6)
+    expect(length).toEqual(6);
   });
 
   it("should return the correct byte length for a buffer", () => {
     const buffer = Buffer.from([1, 2, 3, 4, 5]);
     const length = Buffer.byteLength(buffer);
 
-    expect(length).toEqual(5)
+    expect(length).toEqual(5);
   });
 
   it("should return the correct byte length for a hex-encoded string", () => {
     const length = Buffer.byteLength("deadbeef", "hex");
 
-    expect(length).toEqual(4)
+    expect(length).toEqual(4);
   });
 
   it("should return the correct byte length for a base64-encoded string", () => {
     const length = Buffer.byteLength("SGVsbG8gV29ybGQ=", "base64");
 
-    expect(length).toEqual(11)
+    expect(length).toEqual(11);
   });
 });
