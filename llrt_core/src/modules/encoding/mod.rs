@@ -1,7 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 pub mod encoder;
-pub mod string_builder;
 pub mod text_decoder;
 pub mod text_encoder;
 
@@ -21,7 +20,6 @@ use crate::{
 };
 
 use self::encoder::{bytes_from_b64, bytes_from_hex, bytes_to_b64_string, bytes_to_hex_string};
-use self::string_builder::StringBuilder;
 use self::text_decoder::TextDecoder;
 use self::text_encoder::TextEncoder;
 
@@ -86,7 +84,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     Class::<TextEncoder>::define(&globals)?;
     Class::<TextDecoder>::define(&globals)?;
-    Class::<StringBuilder>::define(&globals)?;
 
     Ok(())
 }

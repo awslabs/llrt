@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{function::Opt, Ctx, Exception, FromJs, Object, Result, Value};
+use rquickjs::{function::Opt, Ctx, Exception, Object, Result, Value};
 
 use std::borrow::Cow;
 
-use crate::utils::object::get_bytes;
+use crate::utils::{object::get_bytes, object::ObjectExt, result::ResultExt};
 use encoding_rs::Encoding;
 
 #[rquickjs::class]
@@ -20,23 +20,24 @@ pub struct TextDecoder {
 impl<'js> TextDecoder {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, label: Opt<String>, options: Opt<Object<'js>>) -> Result<Self> {
-        let label = match label.0 {
-            Some(lbl) if !lbl.is_empty() => lbl,
-            Some(_) | None => String::from("utf-8"),
-        };
+        let label = label
+            .0
+            .filter(|lbl| !lbl.is_empty())
+            .unwrap_or_else(|| String::from("utf-8"));
         let mut fatal = false;
         let mut ignore_bom = false;
 
-        let encoding = match Encoding::for_label(label.as_bytes()) {
-            Some(enc) => enc.name().to_string(),
-            None => return Err(Exception::throw_type(&ctx, "Unsupported encoding label")),
-        };
+        let encoding = Encoding::for_label(label.as_bytes())
+            .map(|enc| enc.name().to_string())
+            .or_throw_msg(&ctx, "Unsupported encoding label")?;
 
-        if let Some(opt) = get_option::<bool>("fatal", &options)? {
-            fatal = opt;
-        }
-        if let Some(opt) = get_option::<bool>("ignoreBOM", &options)? {
-            ignore_bom = opt;
+        if let Some(options) = options.0 {
+            if let Some(opt) = options.get_optional("fatal")? {
+                fatal = opt;
+            }
+            if let Some(opt) = options.get_optional("ignoreBOM")? {
+                ignore_bom = opt;
+            }
         }
 
         Ok(TextDecoder {
@@ -85,16 +86,4 @@ impl<'js> TextDecoder {
 
         Ok(str.into_owned())
     }
-}
-
-fn get_option<'js, V: FromJs<'js> + Sized>(
-    arg: &str,
-    a: &Option<Object<'js>>,
-) -> Result<Option<V>> {
-    if let Some(opt) = a {
-        if let Some(value) = opt.get::<_, Option<V>>(arg)? {
-            return Ok(Some(value));
-        }
-    }
-    Ok(None)
 }
