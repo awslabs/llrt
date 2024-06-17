@@ -26,7 +26,7 @@ use crate::{
     },
     utils::{
         class::get_class_name,
-        object::{bytes_to_typed_array, get_checked_len, obj_to_array_buffer},
+        object::{bytes_to_typed_array, get_start_end_indexes, obj_to_array_buffer},
         result::ResultExt,
     },
     vm::{CtxExtension, ErrorExtensions},
@@ -98,11 +98,11 @@ fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> 
     ctx.clone().spawn_exit(async move {
         if let Err(err) = random_fill_sync(ctx.clone(), obj.clone(), Opt(offset), Opt(size)) {
             let err = err.into_value(&ctx)?;
-            callback.call((err,))?;
+            () = callback.call((err,))?;
 
             return Ok(());
         }
-        callback.call((Null.into_js(&ctx), obj))?;
+        () = callback.call((Null.into_js(&ctx), obj))?;
         Ok::<_, Error>(())
     })?;
     Ok(())
@@ -116,17 +116,17 @@ fn random_fill_sync<'js>(
 ) -> Result<Object<'js>> {
     let offset = offset.unwrap_or(0);
 
-    if let Some(array_buffer) = obj_to_array_buffer(&obj)? {
-        let checked_len = get_checked_len(array_buffer.len(), size.0, offset);
+    if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(&obj)? {
+        let (start, end) = get_start_end_indexes(source_length, size.0, offset);
 
         let raw = array_buffer
             .as_raw()
             .ok_or("ArrayBuffer is detached")
             .or_throw(&ctx)?;
-        let bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+        let bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), source_length) };
 
         SYSTEM_RANDOM
-            .fill(&mut bytes[offset..offset + checked_len])
+            .fill(&mut bytes[start + source_offset..end - source_offset])
             .unwrap();
     }
 
@@ -134,22 +134,27 @@ fn random_fill_sync<'js>(
 }
 
 fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
-    if let Some(array_buffer) = obj_to_array_buffer(&obj)? {
+    if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(&obj)? {
         let raw = array_buffer
             .as_raw()
             .ok_or("ArrayBuffer is detached")
             .or_throw(&ctx)?;
 
-        if raw.len > 65536 {
-            return Err(Exception::throw_message(&ctx, "QuotaExceededError"));
+        if source_length > 0x10000 {
+            return Err(Exception::throw_message(
+                &ctx,
+                "QuotaExceededError: The requested length exceeds 65,536 bytes",
+            ));
         }
 
-        let bytes = unsafe { std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+        let bytes = unsafe {
+            std::slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
+        };
 
         match get_class_name(&obj)?.unwrap().as_str() {
             "Int8Array" | "Uint8Array" | "Uint8ClampedArray" | "Int16Array" | "Uint16Array"
             | "Int32Array" | "Uint32Array" | "BigInt64Array" | "BigUint64Array" => {
-                SYSTEM_RANDOM.fill(&mut bytes[..]).unwrap()
+                SYSTEM_RANDOM.fill(bytes).unwrap()
             },
             _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
         }

@@ -209,9 +209,11 @@ describe("random", () => {
     let errorMessage = "";
     try {
       defaultImport.getRandomValues(int8Array);
-    } catch (ex) {
+    } catch (ex: any) {
       errorMessage = ex.message;
     }
-    expect(errorMessage).toEqual("QuotaExceededError");
+    expect(errorMessage).toEqual(
+      "QuotaExceededError: The requested length exceeds 65,536 bytes"
+    );
   });
 });

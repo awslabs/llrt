@@ -116,9 +116,8 @@ impl<'js> XMLParser<'js> {
 
     pub fn parse(&self, ctx: Ctx<'js>, xml: Value<'js>) -> Result<Object<'js>> {
         let bytes = get_bytes(&ctx, xml)?;
-
         let mut reader = Reader::from_reader(bytes.as_ref());
-        reader.trim_text(true);
+        reader.config_mut().trim_text(true);
 
         let mut current_obj = StackObject::new(ctx.clone())?;
         current_obj.has_value = true;

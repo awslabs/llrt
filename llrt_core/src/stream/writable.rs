@@ -210,7 +210,7 @@ where
                     Exception::throw_message(&ctx, "This socket has been ended by the other party")
                         .into_value(&ctx)?;
 
-                cb.call((err,))?;
+                () = cb.call((err,))?;
             }
         }
 
@@ -255,7 +255,7 @@ where
                                         }
 
                                         if let Some(cb) = cb {
-                                            cb.call(())?;
+                                            () = cb.call(())?;
                                         }
                                     },
                                     Some(WriteCommand::End) => {

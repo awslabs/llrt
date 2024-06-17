@@ -139,7 +139,7 @@ impl Headers {
 
     pub fn for_each(&self, callback: Function<'_>) -> Result<()> {
         for (k, v) in &self.headers {
-            callback.call((v.clone(), k.clone()))?;
+            () = callback.call((v.clone(), k.clone()))?;
         }
         Ok(())
     }

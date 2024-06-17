@@ -67,7 +67,12 @@ fn parse(ctx: Ctx<'_>, value: String) -> Result<TypedArray<u8>> {
 }
 
 fn stringify<'js>(ctx: Ctx<'js>, value: Value<'js>, offset: Opt<u8>) -> Result<String> {
-    let value = get_bytes_offset_length(&ctx, value, offset.0.map(|o| o.into()), None)?;
+    let value = get_bytes_offset_length(
+        &ctx,
+        value,
+        offset.0.map(|o| o.into()).unwrap_or_default(),
+        None,
+    )?;
     let value = bytes_to_hex(&value);
 
     let uuid = Uuid::try_parse_ascii(&value)

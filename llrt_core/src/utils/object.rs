@@ -59,53 +59,48 @@ where
     Ok(array)
 }
 
-pub fn get_checked_len(source_len: usize, target_len: Option<usize>, offset: usize) -> usize {
-    let target_len = target_len.unwrap_or(source_len);
+pub fn get_start_end_indexes(
+    source_len: usize,
+    target_len: Option<usize>,
+    offset: usize,
+) -> (usize, usize) {
+    if offset > source_len {
+        return (0, 0);
+    }
 
-    if offset >= target_len {
-        return 0;
+    let target_len = target_len.unwrap_or(source_len - offset);
+
+    if offset + target_len > source_len {
+        return (offset, source_len);
     }
-    if (offset + target_len) > source_len {
-        return source_len;
-    }
-    target_len
+
+    (offset, target_len + offset)
 }
 
 pub fn get_bytes_offset_length<'js>(
     ctx: &Ctx<'js>,
     value: Value<'js>,
-    offset: Option<usize>,
+    offset: usize,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
-    let offset = offset.unwrap_or(0);
-
-    if let Some(val) = value.as_string() {
-        let string = val.to_string()?;
-        return Ok(bytes_from_js_string(string, offset, length));
+    if let Some(bytes) = get_string_bytes(&value, offset, length)? {
+        return Ok(bytes);
     }
-    if value.is_array() {
-        let array = value.as_array().unwrap();
-        let checked_length = get_checked_len(array.len(), length, offset);
-        let mut bytes: Vec<u8> = Vec::with_capacity(checked_length);
-
-        for val in array.iter::<u8>().skip(offset).take(checked_length) {
-            let val: u8 = val.or_throw_msg(ctx, "array value is not u8")?;
-            bytes.push(val);
-        }
-
+    if let Some(bytes) = get_array_bytes(ctx, &value, offset, length)? {
         return Ok(bytes);
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
-            return get_array_buffer_bytes(array_buffer, offset, length);
+        if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(obj)? {
+            let (start, end) = get_start_end_indexes(source_length, length, offset);
+            let bytes: &[u8] = array_buffer.as_ref();
+            return Ok(bytes[start + source_offset..end - source_offset].to_vec());
         }
     }
 
-    if let Ok(val) = value.get::<Coerced<String>>() {
-        let string = val.to_string();
-        return Ok(bytes_from_js_string(string, offset, length));
-    };
+    if let Some(bytes) = get_coerced_string_bytes(&value, offset, length) {
+        return Ok(bytes);
+    }
 
     Err(Exception::throw_message(
         ctx,
@@ -113,76 +108,146 @@ pub fn get_bytes_offset_length<'js>(
     ))
 }
 
-fn bytes_from_js_string(string: String, offset: usize, length: Option<usize>) -> Vec<u8> {
-    let checked_length = get_checked_len(string.len(), length, offset);
-    string.as_bytes()[offset..offset + checked_length].to_vec()
+pub fn get_array_bytes<'js>(
+    ctx: &Ctx<'js>,
+    value: &Value<'js>,
+    offset: usize,
+    length: Option<usize>,
+) -> Result<Option<Vec<u8>>> {
+    if value.is_array() {
+        let array = value.as_array().unwrap();
+        let (start, end) = get_start_end_indexes(array.len(), length, offset);
+        let size = end - start;
+        let mut bytes: Vec<u8> = Vec::with_capacity(size);
+
+        for val in array.iter::<u8>().skip(start).take(size) {
+            let val: u8 = val.or_throw_msg(ctx, "array value is not u8")?;
+            bytes.push(val);
+        }
+
+        return Ok(Some(bytes));
+    }
+    Ok(None)
 }
 
-pub fn obj_to_array_buffer<'js>(obj: &Object<'js>) -> Result<Option<ArrayBuffer<'js>>> {
+pub fn get_coerced_string_bytes(
+    value: &Value<'_>,
+    offset: usize,
+    length: Option<usize>,
+) -> Option<Vec<u8>> {
+    if let Ok(val) = value.get::<Coerced<String>>() {
+        let string = val.to_string();
+        return Some(bytes_from_js_string(string, offset, length));
+    };
+    None
+}
+
+#[inline]
+pub fn get_string_bytes(
+    value: &Value<'_>,
+    offset: usize,
+    length: Option<usize>,
+) -> Result<Option<Vec<u8>>> {
+    if let Some(val) = value.as_string() {
+        let string = val.to_string()?;
+        return Ok(Some(bytes_from_js_string(string, offset, length)));
+    }
+    Ok(None)
+}
+
+fn bytes_from_js_string(string: String, offset: usize, length: Option<usize>) -> Vec<u8> {
+    let (start, end) = get_start_end_indexes(string.len(), length, offset);
+    string.as_bytes()[start..end].to_vec()
+}
+
+pub fn obj_to_array_buffer<'js>(
+    obj: &Object<'js>,
+) -> Result<Option<(ArrayBuffer<'js>, usize, usize)>> {
     //most common
     if let Ok(typed_array) = TypedArray::<u8>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len();
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
     //second most common
     if let Some(array_buffer) = ArrayBuffer::from_object(obj.clone()) {
-        return Ok(Some(array_buffer));
+        let byte_length = array_buffer.len();
+        return Ok(Some((array_buffer, byte_length, 0)));
     }
 
     if let Ok(typed_array) = TypedArray::<i8>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len();
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<u16>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 2;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<i16>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 2;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<u32>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 4;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<i32>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 4;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<u64>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 8;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<i64>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 8;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<f32>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 4;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
     if let Ok(typed_array) = TypedArray::<f64>::from_object(obj.clone()) {
-        return Ok(Some(typed_array.arraybuffer()?));
+        let byte_length = typed_array.len() * 8;
+        let offset: usize = typed_array.get("byteOffset")?;
+        return Ok(Some((typed_array.arraybuffer()?, byte_length, offset)));
     }
 
-    if let Ok(array_buffer) = obj.get("buffer")? {
-        return Ok(Some(array_buffer));
+    if let Ok(array_buffer) = obj.get::<_, ArrayBuffer>("buffer") {
+        let length = array_buffer.len();
+        return Ok(Some((array_buffer, length, 0)));
     }
 
     Ok(None)
 }
 
-fn get_array_buffer_bytes(
+pub fn get_array_buffer_bytes(
     array_buffer: ArrayBuffer<'_>,
-    offset: usize,
-    length: Option<usize>,
-) -> Result<Vec<u8>> {
+    start: usize,
+    end_end: usize,
+) -> Vec<u8> {
     let bytes: &[u8] = array_buffer.as_ref();
-    let checked_length = get_checked_len(bytes.len(), length, offset);
-    Ok(bytes[offset..offset + checked_length].to_vec())
+    bytes[start..end_end].to_vec()
 }
 
 pub fn get_bytes<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Vec<u8>> {
-    get_bytes_offset_length(ctx, value, None, None)
+    get_bytes_offset_length(ctx, value, 0, None)
 }
 
 pub fn bytes_to_typed_array<'js>(ctx: Ctx<'js>, bytes: &[u8]) -> Result<Value<'js>> {

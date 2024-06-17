@@ -13,7 +13,10 @@ use crate::{
     module_builder::ModuleInfo,
     modules::{encoding::encoder::Encoder, module::export_default},
     utils::{
-        object::{get_bytes, get_bytes_offset_length, obj_to_array_buffer},
+        object::{
+            get_array_buffer_bytes, get_array_bytes, get_bytes, get_coerced_string_bytes,
+            get_start_end_indexes, get_string_bytes, obj_to_array_buffer,
+        },
         result::ResultExt,
     },
 };
@@ -23,17 +26,42 @@ pub struct Buffer(pub Vec<u8>);
 impl<'js> IntoJs<'js> for Buffer {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let array_buffer = ArrayBuffer::new(ctx.clone(), self.0)?;
-        let value = array_buffer.into_js(ctx)?;
-        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
-        constructor.construct((value,))
+        Self::from_array_buffer(ctx, array_buffer)
     }
 }
 
 impl<'js> Buffer {
     pub fn to_string(&self, ctx: &Ctx<'js>, encoding: &str) -> Result<String> {
         Encoder::from_str(encoding)
-            .and_then(|enc| enc.encode_to_string(&self.0))
+            .and_then(|enc| enc.encode_to_string(self.0.as_ref()))
             .or_throw(ctx)
+    }
+
+    fn from_array_buffer(ctx: &Ctx<'js>, buffer: ArrayBuffer<'js>) -> Result<Value<'js>> {
+        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
+        constructor.construct((buffer,))
+    }
+
+    fn from_array_buffer_offset_length(
+        ctx: &Ctx<'js>,
+        array_buffer: ArrayBuffer<'js>,
+        offset: usize,
+        length: usize,
+    ) -> Result<Value<'js>> {
+        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
+        constructor.construct((array_buffer, offset, length))
+    }
+
+    fn from_encoding(
+        ctx: &Ctx<'js>,
+        mut bytes: Vec<u8>,
+        encoding: Option<String>,
+    ) -> Result<Value<'js>> {
+        if let Some(encoding) = encoding {
+            let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
+            bytes = encoder.decode(bytes).or_throw(ctx)?;
+        }
+        Buffer(bytes).into_js(ctx)
     }
 }
 
@@ -60,8 +88,8 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some(array_buffer) = obj_to_array_buffer(obj)? {
-            return Ok(array_buffer.len());
+        if let Some((_, source_length, _)) = obj_to_array_buffer(obj)? {
+            return Ok(source_length);
         }
     }
 
@@ -104,8 +132,9 @@ fn alloc<'js>(
             return Buffer(bytes).into_js(&ctx);
         }
         if let Some(obj) = value.as_object() {
-            if let Some(array_buffer) = obj_to_array_buffer(obj)? {
-                return alloc_byte_ref(&ctx, array_buffer.as_ref(), length);
+            if let Some((array_buffer, source_length, offset)) = obj_to_array_buffer(obj)? {
+                let bytes: &[u8] = array_buffer.as_ref();
+                return alloc_byte_ref(&ctx, &bytes[offset..offset + source_length], length);
             }
         }
     }
@@ -119,7 +148,7 @@ fn alloc_byte_ref<'js>(ctx: &Ctx<'js>, byte_ref: &[u8], length: usize) -> Result
     for i in 0..length {
         bytes[i] = byte_ref[i % byte_ref_length];
     }
-    return Buffer(bytes).into_js(ctx);
+    Buffer(bytes).into_js(ctx)
 }
 
 fn concat<'js>(ctx: Ctx<'js>, list: Array<'js>, max_length: Opt<usize>) -> Result<Value<'js>> {
@@ -157,24 +186,59 @@ fn from<'js>(
     length: Opt<usize>,
 ) -> Result<Value<'js>> {
     let mut encoding: Option<String> = None;
-    let mut offset: Option<usize> = None;
+    let mut offset = 0;
 
     if let Some(offset_or_encoding) = offset_or_encoding.0 {
         if offset_or_encoding.is_string() {
             encoding = Some(offset_or_encoding.get()?);
         } else if offset_or_encoding.is_number() {
-            offset = Some(offset_or_encoding.get()?);
+            offset = offset_or_encoding.get()?;
         }
     }
 
-    let mut bytes = get_bytes_offset_length(&ctx, value, offset, length.0)?;
-
-    if let Some(encoding) = encoding {
-        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
-        bytes = encoder.decode(bytes).or_throw(&ctx)?;
+    if let Some(bytes) = get_string_bytes(&value, offset, length.0)? {
+        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+    }
+    if let Some(bytes) = get_array_bytes(&ctx, &value, offset, length.0)? {
+        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
     }
 
-    Buffer(bytes).into_js(&ctx)
+    if let Some(obj) = value.as_object() {
+        if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(obj)? {
+            let (start, end) = get_start_end_indexes(source_length, length.0, offset);
+
+            //buffers from buffer should be copied
+            if obj
+                .get::<_, Option<String>>(PredefinedAtom::Meta)?
+                .as_deref()
+                == Some(stringify!(Buffer))
+                || encoding.is_some()
+            {
+                let bytes = get_array_buffer_bytes(
+                    array_buffer,
+                    start + source_offset,
+                    end - source_offset,
+                );
+                return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+            } else {
+                return Buffer::from_array_buffer_offset_length(
+                    &ctx,
+                    array_buffer,
+                    start + source_offset,
+                    end - start,
+                );
+            }
+        }
+    }
+
+    if let Some(bytes) = get_coerced_string_bytes(&value, offset, length.0) {
+        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+    }
+
+    Err(Exception::throw_message(
+        &ctx,
+        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or interpretable as string",
+    ))
 }
 
 fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
@@ -185,6 +249,8 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
 
     let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
+    //not assessable from js
+    prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 
     ctx.globals().set(stringify!(Buffer), constructor)?;
 

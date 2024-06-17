@@ -13,7 +13,7 @@ macro = ["rquickjs/macro"]
 
 [dependencies]
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.31.0"
+quick-xml = "0.32.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
@@ -60,8 +60,8 @@ hyper-rustls = { version = "0.27.2", default-features = false, features = [
     "ring",
 ] }
 hyper-util = "0.1.5"
-http-body-util = "0.1.1"
-rustls = { version = "0.23.9", default-features = false, features = [
+http-body-util = "0.1.2"
+rustls = { version = "0.23.10", default-features = false, features = [
     "tls12",
     "ring",
 ] }
@@ -77,7 +77,7 @@ flate2 = { version = "1.0.30", features = [
     "zlib-ng",
 ], default-features = false }
 brotlic = "0.8.2"
-idna = "0.5.0"
+idna = "1.0.0"
 encoding_rs = "0.8.34"
 
 [build-dependencies]
