@@ -13,7 +13,7 @@ macro = ["rquickjs/macro"]
 
 [dependencies]
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.31.0"
+quick-xml = "0.32.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
