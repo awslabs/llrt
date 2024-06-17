@@ -77,7 +77,7 @@ flate2 = { version = "1.0.30", features = [
     "zlib-ng",
 ], default-features = false }
 brotlic = "0.8.2"
-idna = "0.5.0"
+idna = "1.0.0"
 
 [build-dependencies]
 rquickjs = { version = "0.5.1", features = [
