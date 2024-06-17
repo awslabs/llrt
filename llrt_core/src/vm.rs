@@ -635,7 +635,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         }),
     )?;
 
-    Module::import(ctx, "@llrt/std")?;
+    () = Module::import(ctx, "@llrt/std")?;
 
     Ok(())
 }

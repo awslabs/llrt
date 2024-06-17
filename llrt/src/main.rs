@@ -263,7 +263,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
 
     Vm::run_and_handle_exceptions(ctx, |ctx| {
         ctx.globals().set("__testEntries", entries)?;
-        Module::import(&ctx, "@llrt/test")?;
+        () = Module::import(&ctx, "@llrt/test")?;
 
         Ok(())
     })

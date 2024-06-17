@@ -98,11 +98,11 @@ fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> 
     ctx.clone().spawn_exit(async move {
         if let Err(err) = random_fill_sync(ctx.clone(), obj.clone(), Opt(offset), Opt(size)) {
             let err = err.into_value(&ctx)?;
-            callback.call((err,))?;
+            () = callback.call((err,))?;
 
             return Ok(());
         }
-        callback.call((Null.into_js(&ctx), obj))?;
+        () = callback.call((Null.into_js(&ctx), obj))?;
         Ok::<_, Error>(())
     })?;
     Ok(())
