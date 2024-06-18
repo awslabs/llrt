@@ -37,8 +37,8 @@
     "@aws-sdk/credential-providers": "3.600.0",
     "@aws-sdk/lib-dynamodb": "3.600.0",
     "@aws-sdk/s3-request-presigner": "3.600.0",
+    "@jest/types": "29.6.3",
     "@types/chai": "4.3.16",
-    "@types/jest": "29.5.12",
     "@types/readable-stream": "4.0.14",
     "@types/uuid": "9.0.8",
     "esbuild": "0.21.5",
@@ -50,7 +50,7 @@
     "stream-browserify": "3.0.0",
     "ts-node": "^10.9.2",
     "typescript": "5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "1.6.0"
   },
   "packageManager": "yarn@1.22.22"
 }
