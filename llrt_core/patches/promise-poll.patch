@@ -1,0 +1,15 @@
+--- src/value/promise.rs
++++ src/value/promise.rs
+@@ -177,6 +177,12 @@ where
+             return Poll::Ready(x);
+         }
+ 
++        let opaque: &mut crate::runtime::raw::Opaque = unsafe {
++            let rt = qjs::JS_GetRuntime(this.promise.ctx.as_ptr());
++            &mut *(qjs::JS_GetRuntimeOpaque(rt) as *mut _)
++        };
++        opaque.spawner().poll(cx);
++
+         if this.state.is_none() {
+             let inner = Rc::new(RefCell::new(cx.waker().clone()));
+             this.state = Some(inner.clone());

@@ -9,6 +9,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
@@ -19,7 +20,25 @@ use crate::{module_builder::ModuleInfo, modules::module::export_default, vm::Vm}
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
 
-pub type TimerRefList = Arc<Mutex<Vec<TimeoutRef>>>;
+pub(crate) struct RuntimeTimerState {
+    timers: Vec<TimeoutRef>,
+    last_time: usize,
+    rt: *mut qjs::JSRuntime,
+}
+impl RuntimeTimerState {
+    fn new(rt: *mut qjs::JSRuntime) -> Self {
+        Self {
+            timers: Vec::new(),
+            rt,
+            last_time: 0,
+        }
+    }
+}
+
+unsafe impl Send for RuntimeTimerState {}
+
+pub(crate) static RUNTIME_TIMERS: Lazy<Mutex<Vec<RuntimeTimerState>>> =
+    Lazy::new(|| Mutex::new(Vec::new()));
 
 pub struct TimeoutRef {
     callback: Option<Persistent<Function<'static>>>,
@@ -46,7 +65,6 @@ fn get_current_time_millis() -> usize {
 
 fn set_timeout_interval<'js>(
     ctx: &Ctx<'js>,
-    timeouts: &TimerRefList,
     cb: Function<'js>,
     delay: usize,
     repeating: bool,
@@ -56,27 +74,43 @@ fn set_timeout_interval<'js>(
 
     let callback = Persistent::<Function>::save(ctx, cb);
 
-    timeouts.lock().unwrap().push(TimeoutRef {
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
+
+    let timeout_ref = TimeoutRef {
         expires,
         callback: Some(callback),
         ctx: ctx.as_raw(),
         id,
         repeating,
         delay,
-    });
+    };
+
+    if let Some(entry) = rt_timers.iter_mut().find(|state| state.rt == rt) {
+        entry.timers.push(timeout_ref);
+    } else {
+        let mut entry = RuntimeTimerState::new(rt);
+        entry.timers.push(timeout_ref);
+        rt_timers.push(entry);
+    }
 
     Ok(id)
 }
 
-fn clear_timeout_interval(ctx: &Ctx<'_>, timeouts: &TimerRefList, id: usize) -> Result<()> {
-    let mut timeouts = timeouts.lock().unwrap();
-    if let Some(timeout) = timeouts.iter_mut().find(|t| t.id == id) {
-        if let Some(timeout) = timeout.callback.take() {
-            timeout.restore(ctx)?; //prevent memory leaks
+fn clear_timeout_interval(ctx: &Ctx<'_>, id: usize) -> Result<()> {
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
+
+    if let Some(entry) = rt_timers.iter_mut().find(|t| t.rt == rt) {
+        if let Some(timeout) = entry.timers.iter_mut().find(|t| t.id == id) {
+            if let Some(timeout) = timeout.callback.take() {
+                timeout.restore(ctx)?; //prevent memory leaks
+            }
+            timeout.expires = 0;
+            timeout.repeating = false;
         }
-        timeout.expires = 0;
-        timeout.repeating = false;
     }
+
     Ok(())
 }
 
@@ -122,36 +156,27 @@ pub fn init(_ctx: &Ctx<'_>) -> Result<()> {
     Ok(())
 }
 
-pub fn init_timers(ctx: &Ctx<'_>, timeout_refs: &TimerRefList) -> Result<()> {
+pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
-
-    let timeout_refs_1 = timeout_refs.clone();
-    let timeout_refs_2 = timeout_refs.clone();
-    let timeout_refs_3 = timeout_refs.clone();
-    let timeout_refs_4 = timeout_refs.clone();
 
     globals.set(
         "setTimeout",
-        Func::from(move |ctx, cb, delay| {
-            set_timeout_interval(&ctx, &timeout_refs_1, cb, delay, false)
-        }),
+        Func::from(move |ctx, cb, delay| set_timeout_interval(&ctx, cb, delay, false)),
     )?;
 
     globals.set(
         "setInterval",
-        Func::from(move |ctx, cb, delay| {
-            set_timeout_interval(&ctx, &timeout_refs_2, cb, delay, true)
-        }),
+        Func::from(move |ctx, cb, delay| set_timeout_interval(&ctx, cb, delay, true)),
     )?;
 
     globals.set(
         "clearTimeout",
-        Func::from(move |ctx: Ctx, id: usize| clear_timeout_interval(&ctx, &timeout_refs_3, id)),
+        Func::from(move |ctx: Ctx, id: usize| clear_timeout_interval(&ctx, id)),
     )?;
 
     globals.set(
         "clearInterval",
-        Func::from(move |ctx: Ctx, id: usize| clear_timeout_interval(&ctx, &timeout_refs_4, id)),
+        Func::from(move |ctx: Ctx, id: usize| clear_timeout_interval(&ctx, id)),
     )?;
 
     globals.set("setImmediate", Func::from(set_immediate))?;
@@ -159,40 +184,56 @@ pub fn init_timers(ctx: &Ctx<'_>, timeout_refs: &TimerRefList) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn poll_timers(
-    timeouts: &Arc<Mutex<Vec<TimeoutRef>>>,
-    timeout_callbacks: &mut Vec<Option<(Persistent<Function<'static>>, NonNull<qjs::JSContext>)>>,
-    last_time: &mut usize,
-) -> bool {
-    let mut timeouts = timeouts.lock().unwrap();
+pub trait TimerPoller {
+    fn poll_timers(&self) -> bool;
+}
 
-    let current_time = get_current_time_millis();
-    if current_time - *last_time >= 1 {
-        timeouts.retain_mut(|timeout| {
-            if timeout.expires < current_time {
-                let ctx = timeout.ctx;
-                if let Some(cb) = timeout.callback.take() {
-                    if !timeout.repeating {
-                        timeout_callbacks.push(Some((cb, ctx)));
+impl<'js> TimerPoller for Ctx<'js> {
+    fn poll_timers(&self) -> bool {
+        let rt = unsafe { qjs::JS_GetRuntime(self.as_raw().as_ptr()) };
+
+        poll_timers(rt)
+    }
+}
+
+pub fn poll_timers(rt: *mut qjs::JSRuntime) -> bool {
+    let mut executing_timers: Vec<
+        Option<(Persistent<Function<'static>>, NonNull<qjs::JSContext>)>,
+    > = Vec::new();
+
+    let mut has_pending_timeouts = false;
+
+    let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
+
+    if let Some(state) = rt_timers.iter_mut().find(|state| state.rt == rt) {
+        let current_time = get_current_time_millis();
+        if current_time - state.last_time >= 1 {
+            state.timers.retain_mut(|timeout| {
+                if timeout.expires < current_time {
+                    let ctx = timeout.ctx;
+                    if let Some(cb) = timeout.callback.take() {
+                        if !timeout.repeating {
+                            executing_timers.push(Some((cb, ctx)));
+                            return false;
+                        }
+                        timeout.expires = current_time + timeout.delay;
+                        executing_timers.push(Some((cb.clone(), ctx)));
+                        timeout.callback.replace(cb);
+                    } else {
                         return false;
                     }
-                    timeout.expires = current_time + timeout.delay;
-                    timeout_callbacks.push(Some((cb.clone(), ctx)));
-                    timeout.callback.replace(cb);
-                } else {
-                    return false;
                 }
-            }
-            true
-        });
+                true
+            });
+        }
+
+        has_pending_timeouts = !state.timers.is_empty();
+        state.last_time = current_time;
+        drop(rt_timers);
     }
 
-    let has_pending_timeouts = !timeouts.is_empty();
-
-    drop(timeouts);
-
-    if !timeout_callbacks.is_empty() {
-        for item in timeout_callbacks.iter_mut() {
+    if !executing_timers.is_empty() {
+        for item in executing_timers.iter_mut() {
             if let Some((timeout, ctx)) = item.take() {
                 let ctx2 = unsafe { Ctx::from_raw(ctx) };
                 if let Ok(timeout) = timeout.restore(&ctx2) {
@@ -202,9 +243,8 @@ pub(crate) fn poll_timers(
                 }
             }
         }
-        timeout_callbacks.clear();
+        executing_timers.clear();
     }
 
-    *last_time = current_time;
     has_pending_timeouts
 }

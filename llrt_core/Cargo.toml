@@ -11,6 +11,13 @@ no-sdk = []
 uncompressed = []
 macro = ["rquickjs/macro"]
 
+[package.metadata.patch.rquickjs-core]
+version = "*"
+patches = ["patches/promise-poll.patch"]
+
+[patch.crates-io]
+rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
+
 [dependencies]
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 quick-xml = "0.32.0"
@@ -90,6 +97,7 @@ tokio = { version = "1", features = ["full"] }
 phf_codegen = "0.11.2"
 jwalk = "0.8.1"
 nanoid = "0.4.0"
+cargo-patch = "0.3.2"
 
 [dev-dependencies]
 wiremock = "0.6.0"

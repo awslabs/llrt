@@ -43,7 +43,7 @@ use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
     path::{dirname, join_path, resolve_path},
-    timers::{self, poll_timers, TimerRefList},
+    timers::{self, poll_timers, TimerPoller},
 };
 
 use crate::{
@@ -334,7 +334,6 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
-    timeout_refs: TimerRefList,
 }
 
 #[allow(dead_code)]
@@ -443,26 +442,20 @@ impl Vm {
         runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
 
-        let timeout_refs = Arc::new(Mutex::new(Vec::new()));
-
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             for init_global in init_globals {
                 if init_global == timers::init {
-                    timers::init_timers(&ctx, &timeout_refs)?;
+                    timers::init_timers(&ctx)?;
                 }
                 init_global(&ctx)?;
             }
-            init(&ctx, module_names, timeout_refs.clone())?;
+            init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
         .await?;
 
-        Ok(Vm {
-            runtime,
-            ctx,
-            timeout_refs,
-        })
+        Ok(Vm { runtime, ctx })
     }
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -514,22 +507,28 @@ impl Vm {
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
-        let mut timeout_callbacks = Vec::new();
-        let mut last_time = 0;
+        let rt = self
+            .ctx
+            .with(|ctx| unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) as usize })
+            .await;
+
+        let rt = rt as *mut qjs::JSRuntime;
 
         let runtime = self.runtime;
-        let timeout_refs = self.timeout_refs;
 
         poll_fn(move |cx| {
-            poll_timers(&timeout_refs, &mut timeout_callbacks, &mut last_time);
+            poll_timers(rt);
 
             let mut pending_job = pin!(runtime.idle());
 
             if let Poll::Ready(_) = pending_job.as_mut().poll(cx) {
-                let timeouts = timeout_refs.lock().unwrap();
-                if timeouts.is_empty() {
+                if !poll_timers(rt) {
                     return Poll::Ready(());
                 }
+                // let timeouts = timeout_refs.lock().unwrap();
+                // if timeouts.is_empty() {
+                //     return Poll::Ready(());
+                // }
             }
             cx.waker().wake_by_ref();
             Poll::Pending
@@ -546,11 +545,7 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
     json_parse(&ctx, bytes)
 }
 
-fn init(
-    ctx: &Ctx<'_>,
-    module_names: HashSet<&'static str>,
-    timeout_refs: TimerRefList,
-) -> Result<()> {
+fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let globals = ctx.globals();
 
     globals.set("__gc", Func::from(|ctx: Ctx| ctx.run_gc()))?;
@@ -640,7 +635,8 @@ fn init(
     globals.set(
         "require",
         Func::from(move |ctx, specifier: String| -> Result<Value> {
-            let LifetimeArgs(ctx) = LifetimeArgs(ctx);
+            struct Args<'js>(Ctx<'js>);
+            let Args(ctx) = Args(ctx);
             let specifier = if let Some(striped_specifier) = &specifier.strip_prefix("node:") {
                 striped_specifier.to_string()
             } else {
@@ -669,9 +665,6 @@ fn init(
 
             trace!("Require: {}", import_name);
 
-            let mut timeout_callbacks = Vec::new();
-            let mut last_time = 0;
-
             let import_promise = Module::import(&ctx, import_name.clone())?;
 
             let imported_object = loop {
@@ -679,8 +672,7 @@ fn init(
                     break x?;
                 }
 
-                poll_timers(&timeout_refs, &mut timeout_callbacks, &mut last_time);
-
+                ctx.poll_timers();
                 ctx.execute_pending_job();
             };
 
