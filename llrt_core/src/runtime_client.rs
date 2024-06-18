@@ -23,8 +23,8 @@ use once_cell::sync::Lazy;
 use rquickjs::function::{Rest, This};
 use rquickjs::Exception;
 use rquickjs::{
-    atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CatchResultExt, CaughtError, Ctx,
-    Function, IntoJs, Object, Result, ThrowResultExt, Value,
+    atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CaughtError, Ctx, Function,
+    IntoJs, Object, Result, Value,
 };
 
 use tracing::info;
@@ -190,14 +190,14 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let init_tasks_size = js_init_tasks.len();
     #[allow(clippy::comparison_chain)]
     if init_tasks_size == 1 {
-        let init_promise = js_init_tasks.get::<Promise<()>>(0)?;
-        init_promise.await.catch(ctx).throw(ctx)?;
+        let init_promise = js_init_tasks.get::<Promise>(0)?;
+        init_promise.into_future::<()>().await?;
     } else if init_tasks_size > 1 {
         let promise_ctor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
-        let init_promise: Promise<()> = promise_ctor
+        let init_promise: Promise = promise_ctor
             .get::<_, Function>("all")?
             .call((This(promise_ctor), js_init_tasks.clone()))?;
-        init_promise.await.catch(ctx).throw(ctx)?;
+        init_promise.into_future().await?;
     }
 
     let handler: Value = js_handler_module.get(handler_name.as_str())?;
@@ -413,7 +413,10 @@ async fn process_event<'js>(
 
     let result = match handler_result.as_object() {
         Some(obj) if obj.is_instance_of(promise_constructor) => {
-            handler_result.get::<Promise<Value>>()?.await?
+            handler_result
+                .get::<Promise>()?
+                .into_future::<Value>()
+                .await?
         },
         _ => handler_result,
     };

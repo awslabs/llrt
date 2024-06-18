@@ -4,7 +4,7 @@ use std::{
     ptr::NonNull,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
+        Mutex,
     },
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -40,6 +40,13 @@ unsafe impl Send for RuntimeTimerState {}
 pub(crate) static RUNTIME_TIMERS: Lazy<Mutex<Vec<RuntimeTimerState>>> =
     Lazy::new(|| Mutex::new(Vec::new()));
 
+struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
+
+unsafe impl Send for ExecutingTimer {}
+
+static EXECUTING_TIMERS: Lazy<Mutex<Vec<Option<ExecutingTimer>>>> =
+    Lazy::new(|| Mutex::new(Vec::new()));
+
 pub struct TimeoutRef {
     callback: Option<Persistent<Function<'static>>>,
     pub expires: usize,
@@ -63,7 +70,7 @@ fn get_current_time_millis() -> usize {
         .as_millis() as usize
 }
 
-fn set_timeout_interval<'js>(
+pub fn set_timeout_interval<'js>(
     ctx: &Ctx<'js>,
     cb: Function<'js>,
     delay: usize,
@@ -197,13 +204,11 @@ impl<'js> TimerPoller for Ctx<'js> {
 }
 
 pub fn poll_timers(rt: *mut qjs::JSRuntime) -> bool {
-    let mut executing_timers: Vec<
-        Option<(Persistent<Function<'static>>, NonNull<qjs::JSContext>)>,
-    > = Vec::new();
-
     let mut has_pending_timeouts = false;
 
     let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
+
+    let mut executing_timers = EXECUTING_TIMERS.lock().unwrap();
 
     if let Some(state) = rt_timers.iter_mut().find(|state| state.rt == rt) {
         let current_time = get_current_time_millis();
@@ -213,11 +218,11 @@ pub fn poll_timers(rt: *mut qjs::JSRuntime) -> bool {
                     let ctx = timeout.ctx;
                     if let Some(cb) = timeout.callback.take() {
                         if !timeout.repeating {
-                            executing_timers.push(Some((cb, ctx)));
+                            executing_timers.push(Some(ExecutingTimer(ctx, cb)));
                             return false;
                         }
                         timeout.expires = current_time + timeout.delay;
-                        executing_timers.push(Some((cb.clone(), ctx)));
+                        executing_timers.push(Some(ExecutingTimer(ctx, cb.clone())));
                         timeout.callback.replace(cb);
                     } else {
                         return false;
@@ -233,8 +238,9 @@ pub fn poll_timers(rt: *mut qjs::JSRuntime) -> bool {
     }
 
     if !executing_timers.is_empty() {
+        has_pending_timeouts = true;
         for item in executing_timers.iter_mut() {
-            if let Some((timeout, ctx)) = item.take() {
+            if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
                 let ctx2 = unsafe { Ctx::from_raw(ctx) };
                 if let Ok(timeout) = timeout.restore(&ctx2) {
                     if let Err(err) = timeout.call::<_, ()>(()).catch(&ctx2) {
@@ -245,6 +251,7 @@ pub fn poll_timers(rt: *mut qjs::JSRuntime) -> bool {
         }
         executing_timers.clear();
     }
+    drop(executing_timers);
 
     has_pending_timeouts
 }

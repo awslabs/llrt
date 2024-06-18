@@ -124,14 +124,14 @@ impl LogLevel {
 pub struct ConsoleModule;
 
 impl ModuleDef for ConsoleModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(Console))?;
         declare.declare("default")?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Console>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
@@ -294,7 +294,7 @@ fn format_raw_inner<'js>(
             Color::YELLOW.push(result, color_enabled_mask);
             let description = value.as_symbol().unwrap().description().unwrap();
             result.push_str("Symbol(");
-            result.push_str(&description.to_string().unwrap());
+            result.push_str(&description.get::<String>().unwrap());
             result.push(')');
         },
         Type::Function | Type::Constructor => {
@@ -320,6 +320,10 @@ fn format_raw_inner<'js>(
             result.push_str(CLASS_FUNCTION_LOOKUP[is_class as usize]);
             result.push_str(&name);
             result.push(']');
+        },
+        Type::Promise => {
+            result.push_str("Promise {}");
+            return Ok(());
         },
         Type::Array | Type::Object | Type::Exception => {
             let hash = fxhash::hash(&value);
@@ -380,11 +384,6 @@ fn format_raw_inner<'js>(
                     },
                     None | Some("") | Some("Object") => {
                         class_name = None;
-                    },
-                    Some("Promise") => {
-                        //TODO add promise state here
-                        result.push_str("Promise {}");
-                        return Ok(());
                     },
                     _ => {},
                 }

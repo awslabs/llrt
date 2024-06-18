@@ -4,6 +4,7 @@
 mod minimal_tracer;
 
 use llrt_core::{
+    async_with,
     modules::{
         console::{self, LogLevel},
         process::{get_arch, get_platform},
@@ -11,7 +12,7 @@ use llrt_core::{
     runtime_client,
     utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
     vm::Vm,
-    VERSION,
+    CatchResultExt, VERSION,
 };
 use minimal_tracer::MinimalTracer;
 use std::{
@@ -94,7 +95,12 @@ Options:
 }
 
 async fn start_runtime(vm: &Vm) {
-    vm.run_with(|ctx| runtime_client::start(ctx.clone())).await
+    async_with!(vm.ctx => |ctx|{
+        if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
+            Vm::print_error_and_exit(&ctx, err)
+        }
+    })
+    .await;
 }
 
 async fn start_cli(vm: &Vm) {
@@ -185,18 +191,11 @@ async fn start_cli(vm: &Vm) {
 }
 
 async fn run_file(vm: &Vm, filename: &Path) {
-    match fs::read(filename).await {
-        Ok(source) => {
-            vm.run(source, false).await;
-        },
-        Err(err) => {
-            eprintln!(
-                "Unable to read: {}, {}",
-                filename.to_str().unwrap_or_default(),
-                err
-            )
-        },
-    }
+    vm.run(
+        format!("import \"{}\"", filename.to_string_lossy().to_string()),
+        false,
+    )
+    .await;
 }
 
 async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> {
@@ -236,7 +235,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
     trace!("Scanning directory \"{}\"", root);
 
     let mut directory_walker = DirectoryWalker::new(PathBuf::from(root), |name| {
-        name != "node_modules" || !name.starts_with('.')
+        name != "node_modules" && !name.starts_with('.')
     });
     directory_walker.set_recursive(true);
 

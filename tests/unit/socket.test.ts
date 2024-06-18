@@ -16,7 +16,7 @@ describe("createServer and connect", () => {
     const message = "Hello from client";
     const server = net.createServer((socket) => {
       socket.on("data", (data) => {
-        expect(data.toString()).toEqual(message)
+        expect(data.toString()).toEqual(message);
         socket.write(data);
       });
     });
@@ -24,7 +24,7 @@ describe("createServer and connect", () => {
       const client = net.connect((server.address() as any).port, () => {
         client.write(message);
         client.on("data", (data) => {
-          expect(data.toString()).toEqual(message)
+          expect(data.toString()).toEqual(message);
           client.end(() => {
             server.close(done);
           });
@@ -41,7 +41,7 @@ describe("createServer and connect", () => {
     server.listen(() => {
       const client = net.connect((server.address() as any).port, () => {
         client.on("data", (data) => {
-          expect(data.toString()).toEqual(message)
+          expect(data.toString()).toEqual(message);
           client.end(() => {
             server.close(done);
           });
@@ -89,7 +89,7 @@ describe("error handling", () => {
           server.close();
           done();
         });
-      }, 100);
+      }, 5);
     });
 
     server.listen(() => {

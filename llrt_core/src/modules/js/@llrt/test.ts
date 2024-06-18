@@ -275,9 +275,29 @@ const runTests = async (
   }
 };
 
+async function promiseAllMax(
+  concurrencyLimit: number,
+  promiseFunctions: (() => Promise<any>)[]
+) {
+  const results = new Array(promiseFunctions.length);
+  let currentIndex = 0;
+
+  const executePromise = async () => {
+    while (currentIndex < promiseFunctions.length) {
+      const index = currentIndex++;
+      results[index] = await promiseFunctions[index]();
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrencyLimit }, executePromise));
+
+  return results;
+}
+
 const runAllTests = async () => {
-  await Promise.all(
-    testList.reduce((acc, testSuite, i) => {
+  await promiseAllMax(
+    5,
+    testList.reduce<(() => Promise<void>)[]>((acc, testSuite, i) => {
       if (
         !testSuite.loadError &&
         (testSuite.skip ||
@@ -336,9 +356,9 @@ const runAllTests = async () => {
         }
         console.log(output.toString());
       };
-      acc.push(execute());
+      acc.push(execute);
       return acc;
-    }, [] as Promise<void>[])
+    }, [])
   );
 };
 
@@ -384,7 +404,6 @@ const findTests = async () => {
 const printStats = () => {
   const end = Date.now();
   const includedCount = onlyCount || testCount - skippedCount;
-  console.log(includedCount);
   const passed = includedCount == passedCount && failedCount == 0;
   const status = passed
     ? Color.GREEN_BACKGROUND(" \u2714 ALL PASSED ")

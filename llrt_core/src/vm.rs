@@ -6,8 +6,8 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    future::Future,
-    io::{self},
+    future::{poll_fn, Future},
+    io,
     path::{Component, Path, PathBuf},
     pin::pin,
     process::exit,
@@ -345,28 +345,6 @@ pub struct VmOptions {
     pub gc_threshold_mb: usize,
 }
 
-// #[macro_export]
-// macro_rules! run_async{
-//     ($context:expr => |$ctx:ident| { $($t:tt)* }) => {
-//         $crate::AsyncContext::async_with(&$context,|$ctx| {
-//             let fut = Box::pin(async move {
-
-//                 let ctx2 = $ctx.clone();
-//                 let res = async move {
-//                     $($t)*
-//                 };
-
-//                res.await.catch(&ctx2).unwrap_or_else(|err| Vm::print_error_and_exit(&ctx2, err));
-//             });
-
-//             unsafe fn uplift<'a,'b,R>(f: std::pin::Pin<Box<dyn std::future::Future<Output = R> + 'a>>) -> std::pin::Pin<Box<dyn std::future::Future<Output = R> + 'b + Send>>{
-//                 std::mem::transmute(f)
-//             }
-//             unsafe{ uplift(fut) }
-//         })
-//     };
-// }
-
 impl Default for VmOptions {
     fn default() -> Self {
         Self {
@@ -445,11 +423,9 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             for init_global in init_globals {
-                if init_global == timers::init {
-                    timers::init_timers(&ctx)?;
-                }
                 init_global(&ctx)?;
             }
+            timers::init_timers(&ctx)?;
             init(&ctx, module_names)?;
             Ok::<_, Error>(())
         })
@@ -521,14 +497,8 @@ impl Vm {
 
             let mut pending_job = pin!(runtime.idle());
 
-            if let Poll::Ready(_) = pending_job.as_mut().poll(cx) {
-                if !poll_timers(rt) {
-                    return Poll::Ready(());
-                }
-                // let timeouts = timeout_refs.lock().unwrap();
-                // if timeouts.is_empty() {
-                //     return Poll::Ready(());
-                // }
+            if pending_job.as_mut().poll(cx).is_ready() && !poll_timers(rt) {
+                return Poll::Ready(());
             }
             cx.waker().wake_by_ref();
             Poll::Pending
@@ -698,7 +668,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         }),
     )?;
 
-    () = Module::import(ctx, "@llrt/std")?;
+    () = Module::import(ctx, "@llrt/std")?.finish()?;
 
     Ok(())
 }
