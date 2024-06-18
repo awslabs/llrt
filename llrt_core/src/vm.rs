@@ -452,6 +452,17 @@ impl Vm {
             .await;
     }
 
+    pub async fn run_file(&self, filename: &Path) {
+        self.run(
+            format!(
+                r#"import("{}").catch((e) => {{console.error(e);process.exit(1)}})"#,
+                filename.to_string_lossy()
+            ),
+            false,
+        )
+        .await;
+    }
+
     pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool) {
         self.run_with(|ctx| {
             let mut options = EvalOptions::default();
@@ -462,8 +473,6 @@ impl Vm {
             Ok::<_, Error>(())
         })
         .await;
-
-        //self.ctx.with(|ctx| {}).await
     }
 
     pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {

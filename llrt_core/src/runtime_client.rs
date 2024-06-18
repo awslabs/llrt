@@ -197,7 +197,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         let init_promise: Promise = promise_ctor
             .get::<_, Function>("all")?
             .call((This(promise_ctor), js_init_tasks.clone()))?;
-        init_promise.into_future().await?;
+        () = init_promise.into_future().await?;
     }
 
     let handler: Value = js_handler_module.get(handler_name.as_str())?;

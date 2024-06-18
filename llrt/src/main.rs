@@ -23,7 +23,6 @@ use std::{
     sync::atomic::Ordering,
     time::Instant,
 };
-use tokio::fs;
 
 use tracing::trace;
 
@@ -171,14 +170,14 @@ async fn start_cli(vm: &Vm) {
                 let file_exists = filename.exists();
                 if let ".js" | ".mjs" | ".cjs" = ext.as_str() {
                     if file_exists {
-                        return run_file(vm, filename).await;
+                        return vm.run_file(filename).await;
                     } else {
                         eprintln!("No such file: {}", arg);
                         exit(1);
                     }
                 }
                 if file_exists {
-                    return run_file(vm, filename).await;
+                    return vm.run_file(filename).await;
                 }
                 eprintln!("Unknown command: {}", arg);
                 usage();
@@ -186,16 +185,8 @@ async fn start_cli(vm: &Vm) {
             }
         }
     } else if let Some(filename) = get_js_path("index") {
-        run_file(vm, &filename).await;
+        vm.run_file(&filename).await;
     }
-}
-
-async fn run_file(vm: &Vm, filename: &Path) {
-    vm.run(
-        format!("import \"{}\"", filename.to_string_lossy().to_string()),
-        false,
-    )
-    .await;
 }
 
 async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> {
