@@ -85,7 +85,7 @@ flate2 = { version = "1.0.30", features = [
 ], default-features = false }
 brotlic = "0.8.2"
 idna = "1.0.0"
-encoding_rs = { version = "0.8.34", features = ["simd-accel"] }
+encoding_rs = "0.8.34"
 
 [build-dependencies]
 rquickjs = { version = "0.6.2", features = [
