@@ -221,7 +221,7 @@ pub fn is_absolute(path: String) -> bool {
 }
 
 impl ModuleDef for PathModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("basename")?;
         declare.declare("dirname")?;
         declare.declare("extname")?;
@@ -237,7 +237,7 @@ impl ModuleDef for PathModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             default.set("dirname", Func::from(dirname))?;
             default.set("basename", Func::from(basename))?;

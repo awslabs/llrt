@@ -6,14 +6,13 @@ mod minimal_tracer;
 use llrt_core::{
     async_with,
     modules::{
-        self,
         console::{self, LogLevel},
         process::{get_arch, get_platform},
     },
     runtime_client,
     utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
     vm::Vm,
-    AsyncContext, CatchResultExt, Module, VERSION,
+    CatchResultExt, VERSION,
 };
 use minimal_tracer::MinimalTracer;
 use std::{
@@ -53,9 +52,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         console::AWS_LAMBDA_MODE.store(true, Ordering::Relaxed);
         console::AWS_LAMBDA_JSON_LOG_FORMAT.store(aws_lambda_json_log_format, Ordering::Relaxed);
 
-        start_runtime(&vm.ctx).await
+        start_runtime(&vm).await
     } else {
-        start_cli(&vm.ctx).await;
+        start_cli(&vm).await;
     }
 
     vm.idle().await?;
@@ -94,8 +93,8 @@ Options:
     );
 }
 
-async fn start_runtime(context: &AsyncContext) {
-    async_with!(context => |ctx|{
+async fn start_runtime(vm: &Vm) {
+    async_with!(vm.ctx => |ctx|{
         if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
             Vm::print_error_and_exit(&ctx, err)
         }
@@ -103,7 +102,7 @@ async fn start_runtime(context: &AsyncContext) {
     .await;
 }
 
-async fn start_cli(context: &AsyncContext) {
+async fn start_cli(vm: &Vm) {
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 1 {
@@ -121,15 +120,12 @@ async fn start_cli(context: &AsyncContext) {
                     },
                     "-e" | "--eval" => {
                         if let Some(source) = args.get(i + 1) {
-                            Vm::run_and_handle_exceptions(context, |ctx| {
-                                ctx.eval(source.as_bytes())
-                            })
-                            .await
+                            vm.run(source.as_bytes(), false).await;
                         }
                         return;
                     },
                     "test" => {
-                        if let Err(error) = run_tests(context, &args[i + 1..]).await {
+                        if let Err(error) = run_tests(vm, &args[i + 1..]).await {
                             eprintln!("{error}");
                             exit(1);
                         }
@@ -174,22 +170,14 @@ async fn start_cli(context: &AsyncContext) {
                 let file_exists = filename.exists();
                 if let ".js" | ".mjs" | ".cjs" = ext.as_str() {
                     if file_exists {
-                        Vm::run_module(context, filename).await;
-                        return;
+                        return vm.run_file(filename).await;
                     } else {
                         eprintln!("No such file: {}", arg);
                         exit(1);
                     }
                 }
                 if file_exists {
-                    Vm::run_module(
-                        context,
-                        Path::new(&modules::path::resolve_path(
-                            [filename.to_string_lossy().to_string()].iter(),
-                        )),
-                    )
-                    .await;
-                    return;
+                    return vm.run_file(filename).await;
                 }
                 eprintln!("Unknown command: {}", arg);
                 usage();
@@ -197,11 +185,11 @@ async fn start_cli(context: &AsyncContext) {
             }
         }
     } else if let Some(filename) = get_js_path("index") {
-        Vm::run_module(context, &filename).await
+        vm.run_file(&filename).await;
     }
 }
 
-async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(), String> {
+async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> {
     let mut filters: Vec<&str> = Vec::with_capacity(args.len());
 
     let mut root = ".";
@@ -238,7 +226,7 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
     trace!("Scanning directory \"{}\"", root);
 
     let mut directory_walker = DirectoryWalker::new(PathBuf::from(root), |name| {
-        name != "node_modules" || !name.starts_with('.')
+        name != "node_modules" && !name.starts_with('.')
     });
     directory_walker.set_recursive(true);
 
@@ -261,12 +249,21 @@ async fn run_tests(ctx: &AsyncContext, args: &[std::string::String]) -> Result<(
 
     trace!("Found tests in {}ms", now.elapsed().as_millis());
 
-    Vm::run_and_handle_exceptions(ctx, |ctx| {
+    vm.run_with(|ctx| {
         ctx.globals().set("__testEntries", entries)?;
-        () = Module::import(&ctx, "@llrt/test")?;
+        //() = Module::import(&ctx, "@llrt/test")?;
 
         Ok(())
     })
     .await;
+
+    vm.run(
+        r#"
+        import "@llrt/test"
+    "#,
+        false,
+    )
+    .await;
+
     Ok(())
 }

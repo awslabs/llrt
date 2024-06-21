@@ -451,7 +451,7 @@ pub fn path_to_file_url<'js>(ctx: Ctx<'js>, path: String, _: Opt<Value>) -> Resu
 
 //options are ignored, no windows support yet
 pub fn file_url_to_path<'js>(ctx: Ctx<'js>, url: Value<'js>) -> Result<String> {
-    let url_string = if let Ok(url) = Class::<URL>::from_value(url.clone()) {
+    let url_string = if let Ok(url) = Class::<URL>::from_value(&url) {
         url.borrow().to_string()
     } else {
         url.get::<Coerced<String>>()?.to_string()

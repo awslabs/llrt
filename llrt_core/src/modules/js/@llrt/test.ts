@@ -275,9 +275,29 @@ const runTests = async (
   }
 };
 
+async function promiseAllMax(
+  concurrencyLimit: number,
+  promiseFunctions: (() => Promise<any>)[]
+) {
+  const results = new Array(promiseFunctions.length);
+  let currentIndex = 0;
+
+  const executePromise = async () => {
+    while (currentIndex < promiseFunctions.length) {
+      const index = currentIndex++;
+      results[index] = await promiseFunctions[index]();
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrencyLimit }, executePromise));
+
+  return results;
+}
+
 const runAllTests = async () => {
-  await Promise.all(
-    testList.reduce((acc, testSuite, i) => {
+  await promiseAllMax(
+    5,
+    testList.reduce<(() => Promise<void>)[]>((acc, testSuite, i) => {
       if (
         !testSuite.loadError &&
         (testSuite.skip ||
@@ -336,9 +356,9 @@ const runAllTests = async () => {
         }
         console.log(output.toString());
       };
-      acc.push(execute());
+      acc.push(execute);
       return acc;
-    }, [] as Promise<void>[])
+    }, [])
   );
 };
 
@@ -398,13 +418,11 @@ const printStats = () => {
   }
 };
 
-const main = async () => {
+try {
   await findTests();
   await runAllTests();
   printStats();
-};
-
-main().catch((e) => {
+} catch (e) {
   console.error(e);
   process.exit(1);
-});
+}

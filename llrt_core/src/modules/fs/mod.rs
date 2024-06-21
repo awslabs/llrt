@@ -39,7 +39,7 @@ pub const CONSTANT_X_OK: u32 = 1;
 pub struct FsPromisesModule;
 
 impl ModuleDef for FsPromisesModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("access")?;
         declare.declare("open")?;
         declare.declare("readFile")?;
@@ -60,7 +60,7 @@ impl ModuleDef for FsPromisesModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
         Class::<Stat>::register(ctx)?;
 
@@ -84,7 +84,7 @@ impl From<FsPromisesModule> for ModuleInfo<FsPromisesModule> {
 pub struct FsModule;
 
 impl ModuleDef for FsModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("promises")?;
         declare.declare("accessSync")?;
         declare.declare("mkdirSync")?;
@@ -101,7 +101,7 @@ impl ModuleDef for FsModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
         Class::<Stat>::register(ctx)?;
 

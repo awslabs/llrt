@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
     atom::PredefinedAtom,
-    cstr,
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
@@ -268,14 +267,14 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
 pub struct BufferModule;
 
 impl ModuleDef for BufferModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(Buffer))?;
-        declare.declare_static(cstr!("default"))?;
+        declare.declare("default")?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
         let buf: Constructor = globals.get(stringify!(Buffer))?;
 

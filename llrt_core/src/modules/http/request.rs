@@ -220,7 +220,8 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 ));
             }
 
-            request.body = if let Some(blob) = get_class::<Blob>(&body)? {
+            request.body = if let Some(blob) = body.as_object().and_then(Class::<Blob>::from_object)
+            {
                 let blob = blob.borrow();
                 Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value())
             } else {

@@ -53,7 +53,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub struct PerformanceModule;
 
 impl ModuleDef for PerformanceModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("timeOrigin")?;
         declare.declare("now")?;
         declare.declare("toJSON")?;
@@ -61,7 +61,7 @@ impl ModuleDef for PerformanceModule {
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
         let performance: Object = globals.get("performance")?;
 

@@ -1,5 +1,7 @@
 import { EventEmitter } from "events";
 
+const sleep = (millis: number) => new Promise((cb) => setTimeout(cb, millis));
+
 describe("EventEmitter", () => {
   it("should use custom EventEmitter", () => {
     let called = 0;
@@ -113,32 +115,27 @@ describe("AbortSignal & AbortController", () => {
     expect(signal.reason).toEqual("cancelled");
   });
 
-  it("should throw DomException on timeout", (done) => {
-    let signal = AbortSignal.timeout(5);
-    setTimeout(() => {
-      expect(signal.aborted).toBe(false);
-      setTimeout(() => {
-        expect(signal.aborted).toBe(true);
-        //@ts-ignore
-        expect(signal.reason).toBeInstanceOf(DOMException);
-        expect(signal.reason.name).toBe("TimeoutError");
-        done();
-      }, 200);
-    }, 0);
+  it("should throw DomException on timeout", async () => {
+    const signal = AbortSignal.timeout(5);
+    expect(signal.aborted).toBe(false);
+
+    await sleep(10);
+    expect(signal.aborted).toBe(true);
+    //@ts-ignore
+    expect(signal.reason).toBeInstanceOf(DOMException);
+    expect(signal.reason.name).toBe("TimeoutError");
   });
 
-  it("should abort if any signal is aborted asynchronously", (done) => {
-    let signal = AbortSignal.timeout(10);
+  it("should abort if any signal is aborted asynchronously", async () => {
+    let signal = AbortSignal.timeout(5);
     let ctrl = new AbortController();
     //@ts-ignore
     let new_signal: AbortSignal = AbortSignal.any([signal, ctrl.signal]);
 
     expect(new_signal.aborted).toBe(false);
 
-    setTimeout(() => {
-      expect(new_signal.aborted).toBe(true);
-      done();
-    }, 200);
+    await sleep(10);
+    expect(new_signal.aborted).toBe(true);
   });
 
   it("should only emit aborted once", () => {

@@ -2,18 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::mutable_key_type, clippy::for_kv_map)]
 
-use std::{
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::sync::{Arc, RwLock};
 
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     function::OnceFn,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Array, CatchResultExt, Class, Ctx, Exception, Function, Object, Result, String as JsString,
-    Symbol, Undefined, Value,
+    Array, CatchResultExt, Class, Ctx, Error, Exception, Function, Object, Result,
+    String as JsString, Symbol, Undefined, Value,
 };
 
 use tracing::trace;
@@ -22,8 +19,10 @@ use crate::{
     module_builder::ModuleInfo,
     modules::exceptions::DOMException,
     utils::{mc_oneshot, result::ResultExt},
-    vm::{CtxExtension, ErrorExtensions},
+    vm::ErrorExtensions,
 };
+
+use super::timers::set_timeout_interval;
 
 #[derive(Clone, Debug)]
 pub enum EventKey<'js> {
@@ -529,7 +528,7 @@ impl<'js> AbortSignal<'js> {
 
         for signal in signals.iter() {
             let signal: Value = signal?;
-            let signal: Class<AbortSignal> = Class::from_value(signal)
+            let signal: Class<AbortSignal> = Class::from_value(&signal)
                 .map_err(|_| Exception::throw_type(&ctx, "Value is not an AbortSignal instance"))?;
             let signal_borrow = signal.borrow();
             if signal_borrow.aborted {
@@ -610,21 +609,29 @@ impl<'js> AbortSignal<'js> {
     }
 
     #[qjs(static)]
-    pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
+    pub fn timeout(ctx: Ctx<'js>, milliseconds: usize) -> Result<Class<'js, Self>> {
         let timeout_error = get_reason_or_dom_exception(&ctx, None, "TimeoutError")?;
 
         let signal = Self::new();
         let signal_instance = Class::instance(ctx.clone(), signal)?;
         let signal_instance2 = signal_instance.clone();
 
-        ctx.clone().spawn_exit(async move {
-            tokio::time::sleep(Duration::from_millis(milliseconds)).await;
-            let mut borrow = signal_instance.borrow_mut();
-            borrow.set_reason(Opt(Some(timeout_error)));
-            drop(borrow);
-            Self::send_aborted(This(signal_instance), ctx)?;
-            Ok(())
-        })?;
+        let cb = Function::new(
+            ctx.clone(),
+            OnceFn::from(move |ctx| {
+                let mut borrow = signal_instance.borrow_mut();
+                borrow.set_reason(Opt(Some(timeout_error)));
+                drop(borrow);
+                Self::send_aborted(This(signal_instance), ctx)?;
+                Ok::<_, Error>(())
+            }),
+        )?;
+
+        set_timeout_interval(&ctx, cb, milliseconds, false)?;
+
+        // ctx.clone().spawn_exit(async move {
+        //     tokio::time::sleep(Duration::from_millis(milliseconds)).await;
+        // })?;
 
         Ok(signal_instance2)
     }
@@ -633,14 +640,14 @@ impl<'js> AbortSignal<'js> {
 pub struct EventsModule;
 
 impl ModuleDef for EventsModule {
-    fn declare(declare: &mut Declarations) -> Result<()> {
+    fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(EventEmitter))?;
         declare.declare("default")?;
 
         Ok(())
     }
 
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &mut Exports<'js>) -> Result<()> {
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let ctor = Class::<EventEmitter>::create_constructor(ctx)?
             .expect("Can't create EventEmitter constructor");
         ctor.set(stringify!(EventEmitter), ctor.clone())?;

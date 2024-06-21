@@ -9,7 +9,7 @@ use rquickjs::{
 
 use crate::{
     json::parse::json_parse,
-    utils::{class::get_class, object::get_bytes, result::ResultExt},
+    utils::{object::get_bytes, result::ResultExt},
 };
 
 use super::blob::Blob;
@@ -157,7 +157,7 @@ impl<'js> Body<'js> {
                 bytes.to_vec()
             },
             BodyVariant::Provided(provided) => {
-                if let Some(blob) = get_class::<Blob>(provided)? {
+                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {

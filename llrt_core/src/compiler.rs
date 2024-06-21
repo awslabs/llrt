@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{fs, io, path::Path};
 
-use rquickjs::{Context, Module, Runtime};
+use rquickjs::{CatchResultExt, Context, Module, Runtime};
 use tracing::trace;
 use zstd::bulk::Compressor;
 
 use crate::{
     bytecode::add_bytecode_header,
     compiler_common::{human_file_size, DummyLoader, DummyResolver},
-    vm::COMPRESSION_DICT,
+    utils::result::ResultExt,
+    vm::{Vm, COMPRESSION_DICT},
 };
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
@@ -21,38 +22,48 @@ fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     Ok(compressed)
 }
 
-pub async fn compile_file(input_filename: &Path, output_filename: &Path) -> Result<(), String> {
+pub async fn compile_file(
+    input_filename: &Path,
+    output_filename: &Path,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let resolver = (DummyResolver,);
     let loader = (DummyLoader,);
 
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new()?;
     rt.set_loader(resolver, loader);
-    let ctx = Context::full(&rt).unwrap();
+    let ctx = Context::full(&rt)?;
 
     let mut total_bytes: usize = 0;
     let mut compressed_bytes: usize = 0;
     let mut js_bytes: usize = 0;
 
     ctx.with(|ctx| {
-        let source = fs::read_to_string(input_filename)
-            .unwrap_or_else(|_| panic!("Unable to load: {}", input_filename.to_string_lossy()));
-        js_bytes = source.len();
+        (|| {
+            let source = fs::read_to_string(input_filename).or_throw_msg(
+                &ctx,
+                &format!("Unable to load: {}", input_filename.to_string_lossy()),
+            )?;
+            js_bytes = source.len();
 
-        let module_name = input_filename
-            .with_extension("")
-            .to_string_lossy()
-            .to_string();
+            let module_name = input_filename
+                .with_extension("")
+                .to_string_lossy()
+                .to_string();
 
-        trace!("Compiling module: {}", module_name);
+            trace!("Compiling module: {}", module_name);
 
-        let module = unsafe { Module::unsafe_declare(ctx.clone(), module_name, source).unwrap() };
-        let bytes = module.write_object(false).unwrap();
-        let filename = output_filename.to_string_lossy().to_string();
-        let compressed = compress_module(&bytes).unwrap();
-        fs::write(filename, &compressed).unwrap();
+            let module = Module::declare(ctx.clone(), module_name, source)?;
+            let bytes = module.write(false)?;
+            let filename = output_filename.to_string_lossy().to_string();
+            let compressed = compress_module(&bytes)?;
+            fs::write(filename, &compressed)?;
 
-        total_bytes += bytes.len();
-        compressed_bytes += compressed.len();
+            total_bytes += bytes.len();
+            compressed_bytes += compressed.len();
+            Ok(())
+        })()
+        .catch(&ctx)
+        .unwrap_or_else(|err| Vm::print_error_and_exit(&ctx, err))
     });
 
     trace!("JS size: {}", human_file_size(js_bytes));

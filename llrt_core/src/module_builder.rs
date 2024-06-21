@@ -68,17 +68,8 @@ pub struct ModuleBuilder {
     init_global: Vec<fn(&Ctx<'_>) -> Result<()>>,
 }
 
-impl ModuleBuilder {
-    pub fn new() -> Self {
-        Self {
-            builtin_resolver: ModuleResolver::default(),
-            module_loader: ModuleLoader::default(),
-            module_names: HashSet::new(),
-            init_global: Vec::new(),
-        }
-    }
-
-    pub fn with_default() -> Self {
+impl Default for ModuleBuilder {
+    fn default() -> Self {
         Self::new()
             .with_module(CryptoModule)
             .with_global(crate::modules::crypto::init)
@@ -111,6 +102,17 @@ impl ModuleBuilder {
             .with_global(crate::modules::performance::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
+    }
+}
+
+impl ModuleBuilder {
+    pub fn new() -> Self {
+        Self {
+            builtin_resolver: ModuleResolver::default(),
+            module_loader: ModuleLoader::default(),
+            module_names: HashSet::new(),
+            init_global: Vec::new(),
+        }
     }
 
     pub fn with_module<M: ModuleDef, I: Into<ModuleInfo<M>>>(mut self, module: I) -> Self {

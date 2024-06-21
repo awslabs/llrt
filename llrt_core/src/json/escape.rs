@@ -5,7 +5,6 @@ use std::simd::{
     prelude::{SimdPartialEq, SimdPartialOrd},
     u8x16, Simd,
 };
-//use std::simd::{u8x16, Mask, Simd, SimdPartialEq, SimdPartialOrd, ToBitMask};
 
 static JSON_ESCAPE_CHARS: [u8; 256] = [
     0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8, 15u8, 16u8,

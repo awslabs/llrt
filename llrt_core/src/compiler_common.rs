@@ -5,12 +5,12 @@
 pub struct DummyLoader;
 
 impl rquickjs::loader::Loader for DummyLoader {
-    fn load(
+    fn load<'js>(
         &mut self,
-        _ctx: &rquickjs::Ctx<'_>,
+        ctx: &rquickjs::Ctx<'js>,
         name: &str,
-    ) -> rquickjs::Result<rquickjs::module::ModuleData> {
-        Ok(rquickjs::module::ModuleData::source(name, ""))
+    ) -> rquickjs::Result<rquickjs::Module<'js, rquickjs::module::Declared>> {
+        rquickjs::module::Module::declare(ctx.clone(), name, "")
     }
 }
 

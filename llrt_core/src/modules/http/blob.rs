@@ -158,7 +158,7 @@ fn bytes_from_parts<'js>(
     for elem in array.iter::<Value>() {
         let elem = elem?;
         if let Some(object) = elem.as_object() {
-            if let Some(x) = Class::<Blob>::from_object(object.clone()) {
+            if let Some(x) = Class::<Blob>::from_object(object) {
                 data.extend_from_slice(&x.borrow().data);
                 continue;
             }
