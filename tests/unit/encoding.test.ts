@@ -71,7 +71,7 @@ describe("TextDecoder", () => {
 });
 
 describe("TextEncoder", () => {
-  it("should be able to encodeInto of surrogate pair character", () => {
+  it("should be able to encodeInto of surrogate pair character(Short Array)", () => {
     const hono = "🔥";
     const encoded = new TextEncoder();
 
@@ -80,12 +80,22 @@ describe("TextEncoder", () => {
     expect(result3.read).toEqual(0);
     expect(result3.written).toEqual(0);
     expect(u8Array3).toEqual(new Uint8Array([0, 0, 0]));
+  });
+
+  it("should be able to encodeInto of surrogate pair character(Equal Length Array)", () => {
+    const hono = "🔥";
+    const encoded = new TextEncoder();
 
     const u8Array4 = new Uint8Array(4);
     const result4 = encoded.encodeInto(hono, u8Array4);
     expect(result4.read).toEqual(2);
     expect(result4.written).toEqual(4);
     expect(u8Array4).toEqual(new Uint8Array([240, 159, 148, 165]));
+  });
+
+  it("should be able to encodeInto of surrogate pair character(Long Array)", () => {
+    const hono = "🔥";
+    const encoded = new TextEncoder();
 
     const u8Array5 = new Uint8Array(5);
     const result5 = encoded.encodeInto(hono, u8Array5);

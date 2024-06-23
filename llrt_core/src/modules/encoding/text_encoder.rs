@@ -3,7 +3,6 @@
 use rquickjs::{Ctx, Object, Result, TypedArray, Value};
 
 use crate::utils::{object::obj_to_array_buffer, result::ResultExt};
-use std::str::from_utf8;
 
 #[derive(rquickjs::class::Trace)]
 #[rquickjs::class]
@@ -46,7 +45,9 @@ impl TextEncoder {
 
             let mut enc = encoding_rs::UTF_8.new_encoder();
             (_, _, written, _) = enc.encode_from_utf8(string.as_str(), bytes, false);
-            read = from_utf8(&bytes[..written]).unwrap().encode_utf16().count();
+            read = string[..written]
+                .chars()
+                .fold(0, |acc, ch| acc + ch.len_utf16());
         }
 
         let obj = Object::new(ctx)?;
