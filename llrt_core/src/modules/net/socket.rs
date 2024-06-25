@@ -28,7 +28,7 @@ use tracing::trace;
 
 use crate::{
     modules::{
-        events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
+        events::{event_emitter::EventEmitter, EmitError, Emitter, EventKey, EventList},
         module::export_default,
     },
     security::ensure_net_access,

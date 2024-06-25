@@ -32,7 +32,7 @@ use tokio::{
 use crate::{
     module_builder::ModuleInfo,
     modules::{
-        events::{EmitError, Emitter, EventEmitter, EventList},
+        events::{event_emitter::EventEmitter, EmitError, Emitter, EventList},
         module::export_default,
     },
     stream::{

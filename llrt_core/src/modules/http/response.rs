@@ -17,7 +17,7 @@ use tokio::{runtime::Handle, select};
 
 use crate::{
     json::parse::json_parse,
-    modules::events::AbortSignal,
+    modules::events::abort_signal::AbortSignal,
     utils::{mc_oneshot, object::get_bytes, result::ResultExt},
 };
 

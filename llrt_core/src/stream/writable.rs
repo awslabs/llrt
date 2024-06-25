@@ -18,7 +18,7 @@ use tokio::{
 };
 
 use crate::{
-    modules::events::{EmitError, Emitter, EventEmitter, EventList},
+    modules::events::{event_emitter::EventEmitter, EmitError, Emitter, EventList},
     stream::set_destroyed_and_error,
     utils::{object::get_bytes, result::ResultExt},
     vm::{CtxExtension, ErrorExtensions},
