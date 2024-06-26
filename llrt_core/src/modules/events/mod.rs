@@ -10,6 +10,7 @@ pub mod event_target;
 
 use std::sync::{Arc, RwLock};
 
+use crate::utils::object::ObjectExt;
 use rquickjs::{
     class::{JsClass, OwnedBorrow, Tracer},
     module::{Declarations, Exports, ModuleDef},
@@ -135,10 +136,10 @@ where
         let proto = Class::<Self>::prototype(ctx.clone())
             .or_throw_msg(ctx, "Prototype for EventTarget not found")?;
 
-        let on = Function::new(ctx.clone(), Self::on)?;
+        let on = Function::new(ctx.clone(), Self::evt_add_event_listener)?;
         let off = Function::new(ctx.clone(), Self::remove_event_listener)?;
 
-        proto.set("dispatchEvent", Func::from(Self::emit))?;
+        proto.set("dispatchEvent", Func::from(Self::evt_dispatch_event))?;
 
         proto.set("addEventListener", on)?;
 
@@ -230,6 +231,22 @@ where
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
         Self::add_event_listener(this, ctx, event, listener, true, true)
+    }
+
+    fn evt_add_event_listener(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+        options: Opt<Object<'js>>,
+    ) -> Result<Class<'js, Self>> {
+        let mut once = false;
+        if let Some(opt) = options.0 {
+            if let Some(once_opt) = opt.get("once")? {
+                once = once_opt;
+            }
+        }
+        Self::add_event_listener(this, ctx, event, listener, false, once)
     }
 
     fn add_event_listener(
@@ -351,6 +368,15 @@ where
         args: Rest<Value<'js>>,
     ) -> Result<()> {
         Self::do_emit(event, this, &ctx, args, false)
+    }
+
+    fn evt_dispatch_event(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+    ) -> Result<()> {
+        let event_type = event.get_optional("type")?.unwrap();
+        Self::do_emit(event_type, this, &ctx, Rest(vec![event]), false)
     }
 
     fn event_names(this: This<OwnedBorrow<'js, Self>>, ctx: Ctx<'js>) -> Result<Vec<Value<'js>>> {

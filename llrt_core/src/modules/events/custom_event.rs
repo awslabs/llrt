@@ -7,7 +7,6 @@ use crate::utils::object::ObjectExt;
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
 pub struct CustomEvent<'js> {
-    #[qjs(skip_trace)]
     event_type: String,
     detail: Option<Value<'js>>,
 }
@@ -35,6 +34,7 @@ impl<'js> CustomEvent<'js> {
         Null.into_js(&ctx)
     }
 
+    #[qjs(get, rename = "type")]
     pub fn event_type(&self) -> String {
         self.event_type.clone()
     }
