@@ -1,7 +1,0 @@
-features:
-- name: autonomous-custom-elements
-  files:
-  - newtarget.html
-- name: customized-built-in-elements
-  files:
-  - newtarget-customized-builtins.html

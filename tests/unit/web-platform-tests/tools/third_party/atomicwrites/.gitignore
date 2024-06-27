@@ -1,9 +1,0 @@
-.tox
-*.pyc
-*.pyo
-__pycache__
-*.egg-info
-docs/_build
-build
-dist
-.cache

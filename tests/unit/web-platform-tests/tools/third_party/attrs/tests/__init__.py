@@ -1,1 +1,0 @@
-# SPDX-License-Identifier: MIT

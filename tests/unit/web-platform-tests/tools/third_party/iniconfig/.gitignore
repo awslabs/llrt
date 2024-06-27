@@ -1,8 +1,0 @@
-*.egg-info
-*.pyc
-.cache/
-.eggs/
-build/
-dist/
-__pycache__
-.tox/

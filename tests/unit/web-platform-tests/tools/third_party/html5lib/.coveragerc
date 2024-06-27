@@ -1,8 +1,0 @@
-[run]
-branch = True
-source = html5lib
-
-[paths]
-source =
-   html5lib
-   .tox/*/lib/python*/site-packages/html5lib

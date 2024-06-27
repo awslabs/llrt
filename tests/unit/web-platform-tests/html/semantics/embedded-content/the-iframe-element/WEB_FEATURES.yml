@@ -1,4 +1,0 @@
-features:
-- name: loading-lazy
-  files:
-  - iframe-loading-lazy*

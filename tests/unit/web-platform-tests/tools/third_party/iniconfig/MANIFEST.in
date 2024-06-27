@@ -1,5 +1,0 @@
-include LICENSE
-include example.ini
-include tox.ini
-include src/iniconfig/py.typed
-recursive-include src *.pyi

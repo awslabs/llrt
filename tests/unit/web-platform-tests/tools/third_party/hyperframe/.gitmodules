@@ -1,3 +1,0 @@
-[submodule "test/http2-frame-test-case"]
-	path = test/http2-frame-test-case
-	url = https://github.com/http2jp/http2-frame-test-case.git

@@ -1,6 +1,0 @@
-{
-  "accounts_endpoint": "/common/redirect.py?location=/fedcm/support/accounts.py",
-  "client_metadata_endpoint": "client_metadata.py",
-  "id_assertion_endpoint": "token.py",
-  "login_url": "login.html"
-}
