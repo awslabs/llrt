@@ -5,14 +5,13 @@
 pub mod abort_controller;
 pub mod abort_signal;
 pub mod custom_event;
-pub mod event_emitter;
 pub mod event_target;
 
 use std::sync::{Arc, RwLock};
 
 use crate::utils::object::ObjectExt;
 use rquickjs::{
-    class::{JsClass, OwnedBorrow, Tracer},
+    class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
     CatchResultExt, Class, Ctx, Function, Object, Result, String as JsString, Symbol, Value,
@@ -27,7 +26,7 @@ use crate::{
 
 use self::{
     abort_controller::AbortController, abort_signal::AbortSignal, custom_event::CustomEvent,
-    event_emitter::EventEmitter, event_target::EventTarget,
+    event_target::EventTarget,
 };
 
 #[derive(Clone, Debug)]
@@ -67,6 +66,35 @@ pub struct EventItem<'js> {
 
 pub type EventList<'js> = Vec<(EventKey<'js>, Vec<EventItem<'js>>)>;
 pub type Events<'js> = Arc<RwLock<EventList<'js>>>;
+
+#[rquickjs::class]
+#[derive(Clone)]
+pub struct EventEmitter<'js> {
+    pub events: Events<'js>,
+}
+
+impl<'js> Emitter<'js> for EventEmitter<'js> {
+    fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
+        self.events.clone()
+    }
+}
+
+impl<'js> Trace<'js> for EventEmitter<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.trace_event_emitter(tracer);
+    }
+}
+
+#[rquickjs::methods]
+impl<'js> EventEmitter<'js> {
+    #[qjs(constructor)]
+    pub fn new() -> Self {
+        Self {
+            #[allow(clippy::arc_with_non_send_sync)]
+            events: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+}
 
 pub trait EmitError<'js> {
     fn emit_error<C>(self, ctx: &Ctx<'js>, this: Class<'js, C>) -> Result<bool>

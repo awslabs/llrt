@@ -20,7 +20,7 @@ use crate::{
     bytearray_buffer::BytearrayBuffer,
     modules::{
         buffer::Buffer,
-        events::{event_emitter::EventEmitter, EmitError, Emitter, EventKey, EventList},
+        events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
     },
     stream::set_destroyed_and_error,
     utils::result::ResultExt,
