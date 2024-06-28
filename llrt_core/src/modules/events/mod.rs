@@ -19,10 +19,7 @@ use rquickjs::{
 
 use tracing::trace;
 
-use crate::{
-    module_builder::ModuleInfo, modules::exceptions::DOMException, utils::result::ResultExt,
-    vm::ErrorExtensions,
-};
+use crate::{module_builder::ModuleInfo, utils::result::ResultExt, vm::ErrorExtensions};
 
 use self::{
     abort_controller::AbortController, abort_signal::AbortSignal, custom_event::CustomEvent,
@@ -445,20 +442,6 @@ fn has_key<'js>(event_list: Arc<RwLock<EventList<'js>>>, key: EventKey<'js>) -> 
 fn to_event<'js>(ctx: &Ctx<'js>, event: &str) -> Result<Value<'js>> {
     let event = JsString::from_str(ctx.clone(), event)?;
     Ok(event.into_value())
-}
-
-fn get_reason_or_dom_exception<'js>(
-    ctx: &Ctx<'js>,
-    reason: Option<&Value<'js>>,
-    name: &str,
-) -> Result<Value<'js>> {
-    let reason = if let Some(reason) = reason {
-        reason.clone()
-    } else {
-        let ex = DOMException::new(ctx.clone(), Opt(None), Opt(Some(name.into())))?;
-        Class::instance(ctx.clone(), ex)?.into_value()
-    };
-    Ok(reason)
 }
 
 pub struct EventsModule;

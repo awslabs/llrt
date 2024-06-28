@@ -9,9 +9,11 @@ use rquickjs::{
     Array, Class, Ctx, Error, Exception, Function, Result, Undefined, Value,
 };
 
-use crate::{modules::timers::set_timeout_interval, utils::mc_oneshot};
-
-use super::{get_reason_or_dom_exception, Emitter, EventEmitter, EventList};
+use super::{Emitter, EventEmitter, EventList};
+use crate::{
+    modules::{exceptions::DOMException, timers::set_timeout_interval},
+    utils::mc_oneshot,
+};
 
 #[derive(Clone)]
 #[rquickjs::class]
@@ -190,4 +192,18 @@ impl<'js> AbortSignal<'js> {
 
         Ok(signal_instance2)
     }
+}
+
+fn get_reason_or_dom_exception<'js>(
+    ctx: &Ctx<'js>,
+    reason: Option<&Value<'js>>,
+    name: &str,
+) -> Result<Value<'js>> {
+    let reason = if let Some(reason) = reason {
+        reason.clone()
+    } else {
+        let ex = DOMException::new(ctx.clone(), Opt(None), Opt(Some(name.into())))?;
+        Class::instance(ctx.clone(), ex)?.into_value()
+    };
+    Ok(reason)
 }
