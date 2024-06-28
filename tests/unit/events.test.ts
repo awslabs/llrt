@@ -12,7 +12,7 @@ describe("EventEmitter", () => {
       called++;
     };
 
-    class MyEmitter extends EventEmitter {}
+    class MyEmitter extends EventEmitter { }
     const myEmitter = new MyEmitter();
     const myEmitter2 = new MyEmitter();
 
@@ -154,7 +154,7 @@ describe("AbortSignal & AbortController", () => {
 });
 
 describe("EventTarget", () => {
-  it("should prepend event listeners", async () => {
+  it("should execute event listeners", () => {
     const myTarget = new EventTarget();
 
     const eventsArray: string[] = [];
