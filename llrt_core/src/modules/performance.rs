@@ -2,14 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::atomic::Ordering;
 
-use rquickjs::{
-    atom::PredefinedAtom,
-    module::{Declarations, Exports, ModuleDef},
-    prelude::Func,
-    Ctx, Object, Result, Value,
-};
-
-use crate::{module_builder::ModuleInfo, modules::module::export_default};
+use rquickjs::{atom::PredefinedAtom, prelude::Func, Ctx, Object, Result};
 
 use chrono::Utc;
 
@@ -48,42 +41,4 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     globals.set("performance", performance)?;
 
     Ok(())
-}
-
-pub struct PerformanceModule;
-
-impl ModuleDef for PerformanceModule {
-    fn declare(declare: &Declarations) -> Result<()> {
-        declare.declare("timeOrigin")?;
-        declare.declare("now")?;
-        declare.declare("toJSON")?;
-        declare.declare("default")?;
-        Ok(())
-    }
-
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        let globals = ctx.globals();
-        let performance: Object = globals.get("performance")?;
-
-        export_default(ctx, exports, |default| {
-            for name in performance.keys::<String>() {
-                let name = name?;
-                let value: Value = performance.get(&name)?;
-                default.set(name, value)?;
-            }
-
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-}
-
-impl From<PerformanceModule> for ModuleInfo<PerformanceModule> {
-    fn from(val: PerformanceModule) -> Self {
-        ModuleInfo {
-            name: "performance",
-            module: val,
-        }
-    }
 }
