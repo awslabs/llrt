@@ -7,7 +7,7 @@ use rquickjs::{
 
 use crate::{
     json::parse::json_parse,
-    modules::events::AbortSignal,
+    modules::events::abort_signal::AbortSignal,
     utils::{class::get_class, object::get_bytes, object::ObjectExt},
 };
 

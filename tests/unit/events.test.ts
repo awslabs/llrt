@@ -12,7 +12,7 @@ describe("EventEmitter", () => {
       called++;
     };
 
-    class MyEmitter extends EventEmitter {}
+    class MyEmitter extends EventEmitter { }
     const myEmitter = new MyEmitter();
     const myEmitter2 = new MyEmitter();
 
@@ -150,5 +150,30 @@ describe("AbortSignal & AbortController", () => {
     ctrl.abort();
     ctrl.abort();
     expect(count).toBe(1);
+  });
+});
+
+describe("EventTarget", () => {
+  it("should execute event listeners", () => {
+    const myTarget = new EventTarget();
+
+    const eventsArray: string[] = [];
+
+    myTarget.addEventListener("event", () => {
+      eventsArray.push("1st");
+    });
+    myTarget.addEventListener(
+      "event",
+      () => {
+        eventsArray.push("2nd");
+      },
+      { once: true }
+    );
+
+    myTarget.dispatchEvent(new CustomEvent("event"));
+    expect(eventsArray).toEqual(["1st", "2nd"]);
+
+    myTarget.dispatchEvent(new CustomEvent("event"));
+    expect(eventsArray).toEqual(["1st", "2nd", "1st"]);
   });
 });

@@ -16,7 +16,7 @@ use std::{collections::HashSet, time::Instant};
 
 use crate::{
     environment,
-    modules::events::AbortSignal,
+    modules::events::abort_signal::AbortSignal,
     modules::http::headers::Headers,
     modules::net::HTTP_CLIENT,
     security::{ensure_url_access, HTTP_DENY_LIST},
