@@ -9,11 +9,9 @@ use crate::modules::{
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
     module::ModuleModule,
-    navigator::NavigatorModule,
     net::NetModule,
     os::OsModule,
     path::PathModule,
-    performance::PerformanceModule,
     process::ProcessModule,
     timers::TimersModule,
     url::UrlModule,
@@ -95,10 +93,8 @@ impl Default for ModuleBuilder {
             .with_module(UuidModule)
             .with_module(ProcessModule)
             .with_global(crate::modules::process::init)
-            .with_module(NavigatorModule)
             .with_global(crate::modules::navigator::init)
             .with_module(UrlModule)
-            .with_module(PerformanceModule)
             .with_global(crate::modules::performance::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
