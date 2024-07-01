@@ -21,12 +21,3 @@ out.stacks
 yarn-error.log
 llrt-container-*
 bootstrap
-
-# GNU Global
-/GPATH
-/GRTAGS
-/GTAGS
-
-# ctags
-/.ctags.d
-/tags
