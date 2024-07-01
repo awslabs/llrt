@@ -148,7 +148,7 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "pathname")]
     pub fn set_pathname(&mut self, pathname: Coerced<String>) -> String {
-        let _ = quirks::set_pathname(&mut self.url.borrow_mut(), pathname.as_str());
+        quirks::set_pathname(&mut self.url.borrow_mut(), pathname.as_str());
         pathname.0
     }
 
@@ -189,7 +189,7 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "search")]
     pub fn set_search(&mut self, search: Coerced<String>) -> String {
-        let _ = quirks::set_search(&mut self.url.borrow_mut(), search.as_str());
+        quirks::set_search(&mut self.url.borrow_mut(), search.as_str());
         search.0
     }
 

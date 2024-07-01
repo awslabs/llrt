@@ -109,7 +109,7 @@ impl<'js> URLSearchParams {
             })
             .collect();
 
-        if new_pairs.len() > 0 {
+        if !new_pairs.is_empty() {
             self.url
                 .borrow_mut()
                 .query_pairs_mut()
@@ -221,7 +221,7 @@ impl<'js> URLSearchParams {
             self.url.borrow().query_pairs().into_owned().collect();
         new_pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
 
-        if new_pairs.len() == 0 {
+        if new_pairs.is_empty() {
             self.url.borrow_mut().set_query(None);
         } else {
             self.url
@@ -267,12 +267,13 @@ impl<'js> URLSearchParams {
 }
 
 impl<'js> URLSearchParams {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(query: String) -> Self {
-        let query = query.strip_prefix("?").unwrap_or(query.as_str());
+        let query = query.strip_prefix('?').unwrap_or(query.as_str());
         let url = "http://example.com"
             .parse::<Url>()
             .unwrap()
-            .join(("?".to_string() + &query).as_str())
+            .join(("?".to_string() + query).as_str())
             .unwrap();
         Self {
             url: Rc::new(RefCell::new(url)),
@@ -302,7 +303,7 @@ impl<'js> URLSearchParams {
                     }
                 };
                 Err(Exception::throw_type(
-                    &ctx,
+                    ctx,
                     "Invalid tuple: Each query pair must be an iterable [name, value] tuple",
                 ))
             })
@@ -329,10 +330,9 @@ impl<'js> URLSearchParams {
         let mut url: Url = "http://example.com".parse().unwrap();
         let query_pairs: Vec<(String, String)> = object
             .keys::<Value<'js>>()
-            .into_iter()
             .map(|key| {
                 let key = key?;
-                let key_string: String = Coerced::from_js(&ctx, key.clone())?.0;
+                let key_string: String = Coerced::from_js(ctx, key.clone())?.0;
                 let value: String = object.get::<_, Coerced<String>>(key)?.0;
                 Ok((key_string, value))
             })
