@@ -85,7 +85,6 @@ flate2 = { version = "1.0.30", features = [
 ], default-features = false }
 brotlic = "0.8.2"
 encoding_rs = "0.8.34"
-hostname-validator = "1.1.1"
 regex = "1.10.5"
 lazy_static = "1.5.0"
 
