@@ -20,7 +20,7 @@ rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 
 [dependencies]
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.33.0"
+quick-xml = "0.35.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
@@ -32,7 +32,7 @@ rquickjs = { version = "0.6.2", features = [
 ], default-features = false }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.40", features = ["log"] }
-uuid = { version = "1.9.0", default-features = false, features = [
+uuid = { version = "1.9.1", default-features = false, features = [
     "v1",
     "v3",
     "v4",
