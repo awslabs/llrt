@@ -1,11 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{
-    module::{Declarations, Exports, ModuleDef},
-    Ctx, Object, Result, Value,
-};
-
-use crate::{module_builder::ModuleInfo, modules::module::export_default};
+use rquickjs::{Ctx, Object, Result};
 
 use crate::VERSION;
 
@@ -23,40 +18,4 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     globals.set("navigator", navigator)?;
 
     Ok(())
-}
-
-pub struct NavigatorModule;
-
-impl ModuleDef for NavigatorModule {
-    fn declare(declare: &Declarations) -> Result<()> {
-        declare.declare("userAgent")?;
-        declare.declare("default")?;
-        Ok(())
-    }
-
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        let globals = ctx.globals();
-        let navigator: Object = globals.get("navigator")?;
-
-        export_default(ctx, exports, |default| {
-            for name in navigator.keys::<String>() {
-                let name = name?;
-                let value: Value = navigator.get(&name)?;
-                default.set(name, value)?;
-            }
-
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-}
-
-impl From<NavigatorModule> for ModuleInfo<NavigatorModule> {
-    fn from(val: NavigatorModule) -> Self {
-        ModuleInfo {
-            name: "navigator",
-            module: val,
-        }
-    }
 }
