@@ -1235,6 +1235,17 @@
         }, timeout * tests.timeout_multiplier);
     }
 
+    /**
+     * Resets the test harness
+     */
+    function reset() {
+        tests = new Tests();
+        test_environment = create_test_environment();
+        seen_func_name = Object.create(null);
+        test_environment.on_tests_ready();
+    }
+    expose(reset, 'reset');
+
     expose(test, 'test');
     expose(async_test, 'async_test');
     expose(promise_test, 'promise_test');
