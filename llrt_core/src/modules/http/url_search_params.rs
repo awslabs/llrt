@@ -95,7 +95,6 @@ impl<'js> URLSearchParams {
             .url
             .borrow()
             .query_pairs()
-            .into_owned()
             .filter(|(k, v)| {
                 if let Some(value) = value.clone() {
                     if !value.is_undefined() {
@@ -107,6 +106,7 @@ impl<'js> URLSearchParams {
                 }
                 *k != key
             })
+            .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
 
         if !new_pairs.is_empty() {
@@ -138,7 +138,6 @@ impl<'js> URLSearchParams {
             .url
             .borrow()
             .query_pairs()
-            .into_owned()
             .find(|(k, _)| *k == key)
             .map(|(_, v)| v)
         {
@@ -176,8 +175,7 @@ impl<'js> URLSearchParams {
         self.url
             .borrow()
             .query_pairs()
-            .into_owned()
-            .map(|(k, _)| k)
+            .map(|(k, _)| k.to_string())
             .collect()
     }
 
@@ -240,7 +238,14 @@ impl<'js> URLSearchParams {
         self.url
             .borrow()
             .query_pairs()
-            .map(|(key, value)| format!("{}={}", escape(key.as_ref()), escape(value.as_ref())))
+            .map(|(key, value)| {
+                [
+                    escape(key.as_ref()),
+                    "=".to_string(),
+                    escape(value.as_ref()),
+                ]
+                .join("")
+            })
             .collect::<Vec<String>>()
             .join("&")
     }
@@ -249,8 +254,7 @@ impl<'js> URLSearchParams {
         self.url
             .borrow()
             .query_pairs()
-            .into_owned()
-            .map(|(_, v)| v)
+            .map(|(_, v)| v.to_string())
             .collect()
     }
 

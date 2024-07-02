@@ -288,11 +288,11 @@ pub fn url_to_http_options<'js>(ctx: Ctx<'js>, url: Class<'js, URL<'js>>) -> Res
     }
 
     obj.set("pathname", url.pathname())?;
-    obj.set("path", format!("{}{}", url.pathname(), url.search()))?;
+    obj.set("path", [url.pathname(), url.search()].join(""))?;
     obj.set("href", url.href())?;
 
     if !username.is_empty() {
-        obj.set("auth", format!("{}:{}", username, url.password()))?;
+        obj.set("auth", [username, ":".to_string(), url.password()].join(""))?;
     }
 
     if !port.is_empty() {
@@ -393,13 +393,14 @@ pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> R
         url.host()
     };
 
-    Ok(format!(
-        "{}//{}{}{}{}{}",
+    Ok([
         url.protocol(),
+        "//".to_string(),
         user_info,
         host,
         url.pathname(),
         search,
-        hash
-    ))
+        hash,
+    ]
+    .join(""))
 }
