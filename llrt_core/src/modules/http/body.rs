@@ -75,14 +75,14 @@ impl<'js> Body<'js> {
 }
 
 impl<'js> Body<'js> {
-    pub async fn get_text(ctx: Ctx<'js>, body: &Option<Class<'js, Self>>) -> Result<String> {
+    pub async fn get_text(ctx: Ctx<'js>, body: Option<&Class<'js, Self>>) -> Result<String> {
         if let Some(body) = body {
             return body.borrow_mut().text(ctx).await;
         }
         Ok("".into())
     }
 
-    pub async fn get_json(ctx: Ctx<'js>, body: &Option<Class<'js, Self>>) -> Result<Value<'js>> {
+    pub async fn get_json(ctx: Ctx<'js>, body: Option<&Class<'js, Self>>) -> Result<Value<'js>> {
         if let Some(body) = body {
             return body.borrow_mut().json(ctx).await;
         }
@@ -91,7 +91,7 @@ impl<'js> Body<'js> {
 
     pub async fn get_array_buffer(
         ctx: Ctx<'js>,
-        body: &Option<Class<'js, Self>>,
+        body: Option<&Class<'js, Self>>,
     ) -> Result<ArrayBuffer<'js>> {
         if let Some(body) = body {
             return body.borrow_mut().array_buffer(ctx).await;
@@ -99,14 +99,14 @@ impl<'js> Body<'js> {
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
-    pub async fn get_blob(ctx: Ctx<'js>, body: &Option<Class<'js, Self>>) -> Result<Blob> {
+    pub async fn get_blob(ctx: Ctx<'js>, body: Option<&Class<'js, Self>>) -> Result<Blob> {
         if let Some(body) = body {
             return body.borrow_mut().blob(ctx).await;
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
 
-    pub fn get_body(ctx: Ctx<'js>, body: &Option<Class<'js, Self>>) -> Result<Value<'js>> {
+    pub fn get_body(ctx: Ctx<'js>, body: Option<&Class<'js, Self>>) -> Result<Value<'js>> {
         if let Some(body) = body {
             return Ok(body.clone().into_value());
         }

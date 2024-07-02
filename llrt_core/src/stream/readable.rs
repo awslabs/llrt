@@ -60,8 +60,7 @@ impl<'js> Trace<'js> for ReadableStreamInner<'js> {
 impl<'js> ReadableStreamInner<'js> {
     pub fn on_event_changed(&mut self, event: EventKey<'js>, added: bool) -> Result<()> {
         if let EventKey::String(event) = event {
-            let event = event.as_str();
-            match event {
+            match event.as_ref() {
                 "data" => {
                     if added {
                         if self.state == ReadableState::Paused {
