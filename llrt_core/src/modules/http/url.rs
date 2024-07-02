@@ -226,7 +226,7 @@ impl<'js> URL<'js> {
 
     #[qjs(static)]
     pub fn can_parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> bool {
-        Self::parse(ctx, input, base).map_or_else(|_| false, |instance| !instance.is_null())
+        Self::new(ctx, input, base).is_ok()
     }
 
     #[qjs(static)]
