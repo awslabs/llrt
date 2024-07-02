@@ -11,7 +11,7 @@ use std::{
     future::{poll_fn, Future},
     io::{self, Read, Seek, SeekFrom},
     mem::size_of,
-    os::fd::{FromRawFd, OwnedFd, RawFd},
+    os::fd::FromRawFd,
     path::{Component, Path, PathBuf},
     pin::pin,
     process::exit,
@@ -295,7 +295,7 @@ impl Loader for BinaryLoader {
             let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
             if let Some((bytes_size, bytes_pos)) = embedded_bytecode_data.index.get(name) {
                 trace!("Loading embedded module: {}", name);
-                let mut buf = SELF_FILE.with(|self_file| {
+                let buf = SELF_FILE.with(|self_file| {
                     let mut buf = vec![0; *bytes_size];
                     let mut borrow = self_file.borrow_mut();
                     if let Some(file) = borrow.as_mut() {
@@ -319,7 +319,7 @@ impl Loader for BinaryLoader {
                     Ok::<_, Error>(buf)
                 })?;
 
-                return load_bytecode_module(ctx.clone(), &mut buf);
+                return load_bytecode_module(ctx.clone(), &buf);
             }
             drop(embedded_bytecode_data);
             let path = PathBuf::from(name);
