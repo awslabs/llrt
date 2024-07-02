@@ -7,7 +7,10 @@ pub mod abort_signal;
 pub mod custom_event;
 pub mod event_target;
 
-use std::sync::{Arc, RwLock};
+use std::{
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 
 use crate::utils::object::ObjectExt;
 use rquickjs::{
@@ -29,14 +32,14 @@ use self::{
 #[derive(Clone, Debug)]
 pub enum EventKey<'js> {
     Symbol(Symbol<'js>),
-    String(String),
+    String(Rc<str>),
 }
 
 impl<'js> EventKey<'js> {
     fn from_value(ctx: &Ctx, value: Value<'js>) -> Result<Self> {
         if value.is_string() {
             let key: String = value.get()?;
-            Ok(EventKey::String(key))
+            Ok(EventKey::String(key.into()))
         } else {
             let sym = value.into_symbol().ok_or("Not a symbol").or_throw(ctx)?;
             Ok(EventKey::Symbol(sym))
@@ -314,7 +317,7 @@ where
     }
 
     fn has_listener_str(&self, event: &str) -> bool {
-        let key = EventKey::String(String::from(event));
+        let key = EventKey::String(event.into());
         has_key(self.get_event_list(), key)
     }
 
@@ -331,7 +334,7 @@ where
     }
 
     fn get_listeners_str(&self, event: &str) -> Vec<Function<'js>> {
-        let key = EventKey::String(String::from(event));
+        let key = EventKey::String(event.into());
         find_all_listeners(self.get_event_list(), key)
     }
 
