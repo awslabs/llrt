@@ -4,8 +4,6 @@ use std::{path::PathBuf, str::FromStr};
 // SPDX-License-Identifier: Apache-2.0
 use super::url_search_params::URLSearchParams;
 use crate::utils::result::ResultExt;
-use lazy_static::lazy_static;
-use regex::Regex;
 use rquickjs::atom::PredefinedAtom;
 use rquickjs::class::Trace;
 use rquickjs::function::Opt;
@@ -14,11 +12,24 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use url::{quirks, Url};
 
-// Use static regex to avoid re-compiling every usage
-lazy_static! {
-    // Naive check for delimiter, a colon ":", that's *probably* not part of an
-    // IPv6 address
-    static ref HOSTNAME_DELIMITER_REGEX: Regex = Regex::new(r":[^\]]*$").unwrap();
+/// Naively checks for hostname delimiter, a colon ":", that's *probably* not
+/// part of an IPv6 address
+///
+/// # Arguments
+///
+/// * `hostname` - The hostname.
+///
+/// # Returns
+///
+/// Returns whether the hostname contains a colon that's not followed by a
+/// closing square bracket.
+fn has_colon_delimiter(hostname: &str) -> bool {
+    if let Some(last_colon_index) = hostname.rfind(':') {
+        // Check if there's any closing bracket after the last colon
+        !hostname[last_colon_index..].contains(']')
+    } else {
+        false
+    }
 }
 
 /// Represents a JavaScript
@@ -108,7 +119,7 @@ impl<'js> URL<'js> {
     #[qjs(set, rename = "hostname")]
     pub fn set_hostname(&mut self, hostname: Coerced<String>) -> String {
         // TODO: This should be fixed in Url
-        if HOSTNAME_DELIMITER_REGEX.find(hostname.as_str()).is_none() {
+        if !has_colon_delimiter(hostname.as_str()) {
             let _ = quirks::set_hostname(&mut self.url.borrow_mut(), hostname.as_str());
         }
         hostname.0
