@@ -50,8 +50,8 @@ async function buildFileIndex(source, target, fileData) {
   for (let [name, data] of fileData) {
     dataBuffers.push(data);
 
-    if(name.startsWith("llrt-chunk-")){
-      name = `${name}.js`
+    if (name.startsWith("llrt-chunk-")) {
+      name = `${name}.js`;
     }
 
     const nameLengthBuffer = uint16Buffer(name.length);
@@ -87,8 +87,6 @@ async function buildFileIndex(source, target, fileData) {
   const signatureBuffer = Buffer.from("lrt");
 
   let allIndexBuffers = Buffer.concat(indexBuffers);
-
-  console.log("index buffer size: ", allIndexBuffers.length);
 
   const finalBuffer = Buffer.concat([
     sourceData,

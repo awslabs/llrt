@@ -324,9 +324,13 @@ int main(int argc, char *argv[])
   char mimallocReserveMemoryMb[16];
   sprintf(mimallocReserveMemoryMb, "%iMiB", (int)(memorySize * memoryFactor));
 
+  char outputFdStr[10];
+  sprintf(outputFdStr, "%i", outputFd);
+
   setenv("_START_TIME", startTimeStr, false);
   setenv("MIMALLOC_RESERVE_OS_MEMORY", mimallocReserveMemoryMb, false);
   setenv("MIMALLOC_LIMIT_OS_ALLOC", "1", false);
+  setenv("LLRT_MEMFD", outputFdStr, false);
 
   logInfo("Starting app\n");
 

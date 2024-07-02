@@ -1,15 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    cell::RefCell,
     cmp::min,
     collections::{HashMap, HashSet},
     env,
     ffi::CStr,
     fmt::Write,
     fs::File,
-    future::Future,
-    io::{self, Read},
+    future::{poll_fn, Future},
+    io::{self, Read, Seek, SeekFrom},
     mem::size_of,
+    os::fd::{FromRawFd, OwnedFd, RawFd},
     path::{Component, Path, PathBuf},
     pin::pin,
     process::exit,
@@ -18,11 +20,9 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex, Once, RwLock,
     },
-    sync::{Arc, Mutex},
     task::Poll,
 };
 
-use memmap2::{Advice, Mmap};
 use once_cell::sync::Lazy;
 
 pub use llrt_utils::{ctx::CtxExtension, error::ErrorExtensions};
@@ -47,6 +47,7 @@ use crate::{
         console,
         crypto::SYSTEM_RANDOM,
         path::{dirname, join_path, resolve_path},
+        timers::{self, poll_timers, TimerPoller},
     },
 };
 
@@ -64,15 +65,33 @@ use crate::{
 
 #[derive(Default)]
 pub struct EmbeddedBytecodeData {
-    argv_0: String,
+    argv_0: Option<String>,
+    mem_fd: Option<i32>,
     index: HashMap<String, (usize, usize)>,
 }
 
-pub static SELF_MEM_MAP: Lazy<RwLock<Option<Mmap>>> = Lazy::new(|| RwLock::new(None));
+#[cfg(unix)]
+fn file_from_raw_fd(raw_fd: i32) -> std::io::Result<File> {
+    #[cfg(not(unix))]
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Unsupported on non-unix platforms",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        let dup_fd = unsafe { libc::dup(raw_fd) };
+        if dup_fd == -1 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(unsafe { File::from_raw_fd(dup_fd) })
+    }
+}
 
-// thread_local! {
-//     static SELF_FILE: RefCell<Option<File>> = const { RefCell::new(None) };
-// }
+thread_local! {
+    static SELF_FILE: RefCell<Option<File>> = const { RefCell::new(None) };
+}
 
 pub static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<EmbeddedBytecodeData>> =
     Lazy::new(|| RwLock::new(EmbeddedBytecodeData::default()));
@@ -272,35 +291,57 @@ where
 impl Loader for BinaryLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
         trace!("Loading module: {}", name);
-        let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
-        if let Some((bytes_size, bytes_pos)) = embedded_bytecode_data.index.get(name) {
-            trace!("Loading embedded module: {}", name);
+        {
+            let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
+            if let Some((bytes_size, bytes_pos)) = embedded_bytecode_data.index.get(name) {
+                trace!("Loading embedded module: {}", name);
+                let mut buf = SELF_FILE.with(|self_file| {
+                    let mut buf = vec![0; *bytes_size];
+                    let mut borrow = self_file.borrow_mut();
+                    if let Some(file) = borrow.as_mut() {
+                        file.seek(SeekFrom::Start((*bytes_pos) as u64))?;
+                        file.read_exact(&mut buf)?;
+                    } else {
+                        let mut file = if let Some(mem_fd) = embedded_bytecode_data.mem_fd {
+                            file_from_raw_fd(mem_fd)
+                        } else if let Some(argv_0) = &embedded_bytecode_data.argv_0 {
+                            File::open(argv_0)
+                        } else {
+                            unreachable!()
+                        }?;
 
-            if let Some(mmap) = SELF_MEM_MAP.read().unwrap().as_ref() {
-                let buf = &mmap[*bytes_pos..*bytes_pos + *bytes_size];
-                return load_bytecode_module(name, buf);
+                        file.seek(SeekFrom::Start((*bytes_pos) as u64))?;
+                        file.read_exact(&mut buf)?;
+
+                        *borrow = Some(file);
+                    }
+
+                    Ok::<_, Error>(buf)
+                })?;
+
+                return load_bytecode_module(ctx.clone(), &mut buf);
             }
-        }
-        drop(embedded_bytecode_data);
-        let path = PathBuf::from(name);
-        let mut bytes: &[u8] = &std::fs::read(path)?;
+            drop(embedded_bytecode_data);
+            let path = PathBuf::from(name);
+            let mut bytes: &[u8] = &std::fs::read(path)?;
 
-        if name.ends_with(".lrt") {
-            trace!("Loading binary module: {}", name);
-            return load_bytecode_module(ctx, name, bytes);
+            if name.ends_with(".lrt") {
+                trace!("Loading binary module: {}", name);
+                return load_bytecode_module(ctx.clone(), bytes);
+            }
+            if bytes.starts_with(b"#!") {
+                bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
+            }
+            Module::declare(ctx.clone(), name, bytes)
         }
-        if bytes.starts_with(b"#!") {
-            bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
-        }
-        Module::declare(ctx, name, bytes)
+        .map_err(|err| {
+            trace!("Failed to load module: {}", err);
+            err
+        })
     }
 }
 
-pub fn load_bytecode_module<'js>(
-    ctx: Ctx<'js>,
-    _name: &str,
-    buf: &[u8],
-) -> Result<Module<'js, Declared>> {
+pub fn load_bytecode_module<'js>(ctx: Ctx<'js>, buf: &[u8]) -> Result<Module<'js, Declared>> {
     let bytes = get_module_bytecode(buf)?;
     unsafe { Module::load(ctx, &bytes) }
 }
@@ -554,55 +595,84 @@ impl Vm {
 
 fn init_embedded_bytecode() -> std::io::Result<()> {
     let argv_0 = env::args().next().expect("Failed to get argv0");
-    let file = File::open(&argv_0)?;
+    let mut embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.write().unwrap();
 
-    let mmap = unsafe { Mmap::map(&file)? };
-    mmap.advise(Advice::Sequential).unwrap();
+    let mut file = if let Ok(fd_string) = env::var("LLRT_MEMFD") {
+        let mem_fd: i32 = fd_string
+            .parse()
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Invalid memfd"))?;
 
-    let total_file_size = mmap.len();
+        embedded_bytecode_data.mem_fd = Some(mem_fd);
+        file_from_raw_fd(mem_fd)?
+    } else {
+        let file = File::open(&argv_0)?;
+        embedded_bytecode_data.argv_0 = Some(argv_0);
+        file
+    };
 
+    let mut embedded_bytecode_signature_buf = [0; BYTECODE_EMBEDDED_SIGNATURE.len()];
+    let meta = file.metadata()?;
+    let total_file_size = meta.len();
     let signature_len = BYTECODE_EMBEDDED_SIGNATURE.len();
-    let signed_signature_len = signature_len as isize;
+    let signed_signature_len = signature_len as i64;
+    file.seek(SeekFrom::End(-signed_signature_len))?;
+    file.read_exact(&mut embedded_bytecode_signature_buf)?;
 
-    if &mmap[(total_file_size as isize - signed_signature_len) as usize..]
-        != BYTECODE_EMBEDDED_SIGNATURE
-    {
+    if embedded_bytecode_signature_buf != BYTECODE_EMBEDDED_SIGNATURE {
         return Ok(());
     }
 
-    #[repr(C)]
     struct EmbeddedMeta {
         package_count: u32,
         bytecode_pos: u32,
         package_index_pos: u32,
     }
 
+    impl EmbeddedMeta {
+        fn read(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<Self> {
+            Ok(EmbeddedMeta {
+                package_count: read_u32(file, buf)?,
+                bytecode_pos: read_u32(file, buf)?,
+                package_index_pos: read_u32(file, buf)?,
+            })
+        }
+    }
+
     let embedded_meta_size = size_of::<EmbeddedMeta>();
+
     let meta_and_signature_size = embedded_meta_size + signature_len;
 
-    let meta_start = (total_file_size as isize - meta_and_signature_size as isize) as usize;
-    let meta_end = (total_file_size as isize - signature_len as isize) as usize;
+    file.seek(SeekFrom::Current(-(meta_and_signature_size as i64)))?;
 
-    let embedded_metadata: EmbeddedMeta =
-        unsafe { std::ptr::read(mmap[meta_start..meta_end].as_ptr() as *const _) };
+    let mut u32_buf = [0; size_of::<u32>()];
+    let mut u16_buf = [0; size_of::<u16>()];
 
-    let mut embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.write().unwrap();
+    let embedded_metadata = EmbeddedMeta::read(&mut file, &mut u32_buf)?;
+
+    file.seek(SeekFrom::Current(
+        -(total_file_size as i64
+            - (embedded_metadata.package_index_pos as i64 + signed_signature_len)),
+    ))?;
+
     embedded_bytecode_data
         .index
         .reserve(embedded_metadata.package_count as usize);
-    embedded_bytecode_data.argv_0 = argv_0;
 
     let mut current_pos = embedded_metadata.package_index_pos as usize;
+
     let end_pos = total_file_size as usize - meta_and_signature_size;
 
     loop {
-        let name_len = read_u16(&mmap, &mut current_pos);
-        let name = String::from_utf8_lossy(&mmap[current_pos..current_pos + name_len as usize])
-            .into_owned();
-        current_pos += name_len as usize;
+        let name_len = read_u16(&mut file, &mut u16_buf)?;
+        let mut buf: Vec<u8> = vec![0; name_len as usize];
+        file.read_exact(&mut buf)?;
 
-        let bytecode_size = read_u32(&mmap, &mut current_pos);
-        let bytecode_offset = read_u32(&mmap, &mut current_pos);
+        let name = unsafe { String::from_utf8_unchecked(buf) };
+
+        let bytecode_size = read_u32(&mut file, &mut u32_buf)?;
+        let bytecode_offset = read_u32(&mut file, &mut u32_buf)?;
+
+        current_pos = current_pos + name_len as usize + u16_buf.len() + (u32_buf.len() * 2);
 
         embedded_bytecode_data.index.insert(
             name,
@@ -617,25 +687,21 @@ fn init_embedded_bytecode() -> std::io::Result<()> {
         }
     }
 
-    mmap.advise(Advice::Random).unwrap();
-
-    SELF_MEM_MAP.write().unwrap().replace(mmap);
+    drop(embedded_bytecode_data);
 
     Ok(())
 }
 
 #[inline(always)]
-fn read_u32(data: &[u8], pos: &mut usize) -> u32 {
-    let value = unsafe { std::ptr::read_unaligned(data.as_ptr().add(*pos) as *const u32) };
-    *pos += 4;
-    u32::from_le(value)
+fn read_u32(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<u32> {
+    file.read_exact(buf)?;
+    Ok(u32::from_le_bytes(*buf))
 }
 
 #[inline(always)]
-fn read_u16(data: &[u8], pos: &mut usize) -> u16 {
-    let value = unsafe { std::ptr::read_unaligned(data.as_ptr().add(*pos) as *const u16) };
-    *pos += 2;
-    u16::from_le(value)
+fn read_u16(file: &mut File, buf: &mut [u8; size_of::<u16>()]) -> std::io::Result<u16> {
+    file.read_exact(buf)?;
+    Ok(u16::from_le_bytes(*buf))
 }
 
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
