@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use quick_xml::{
     events::{BytesStart, Event},
@@ -32,7 +32,6 @@ use crate::{
     utils::{
         object::{get_bytes, ObjectExt},
         result::ResultExt,
-        string::JoinToString,
     },
 };
 
@@ -122,9 +121,9 @@ impl<'js> XMLParser<'js> {
         let mut current_obj = StackObject::new(ctx.clone())?;
         current_obj.has_value = true;
         let mut buf = Vec::new();
-        let mut current_key = String::new();
-        let mut current_value: Option<String> = None;
-        let mut path: Vec<(String, StackObject<'js>)> = vec![];
+        let mut current_key: Rc<str> = "".into();
+        let mut current_value: Option<Rc<str>> = None;
+        let mut path: Vec<(Rc<str>, StackObject<'js>)> = vec![];
         let mut has_attributes = false;
 
         loop {
@@ -172,12 +171,15 @@ impl<'js> XMLParser<'js> {
                 },
                 Ok(Event::CData(text)) => {
                     let text = text.escape().or_throw(&ctx)?;
-                    let tag_value = String::from_utf8_lossy(text.as_ref()).to_string();
+                    let tag_value = String::from_utf8_lossy(text.as_ref());
+                    let tag_value = tag_value.as_ref();
                     let tag_value =
                         self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
                     if has_attributes {
                         current_obj.has_value = true;
-                        current_obj.obj.set(&self.text_node_name, tag_value)?;
+                        current_obj
+                            .obj
+                            .set(&self.text_node_name, tag_value.as_ref())?;
                     } else {
                         current_value = Some(tag_value)
                     }
@@ -185,14 +187,16 @@ impl<'js> XMLParser<'js> {
                 Ok(Event::Text(ref text)) => {
                     let tag_value = text
                         .unescape_with(|v| self.entities.get(v).map(|x| x.as_str()))
-                        .or_throw(&ctx)?
-                        .to_string();
+                        .or_throw(&ctx)?;
+                    let tag_value = tag_value.as_ref();
                     let tag_value =
                         self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
 
                     if has_attributes {
                         current_obj.has_value = true;
-                        current_obj.obj.set(&self.text_node_name, tag_value)?;
+                        current_obj
+                            .obj
+                            .set(&self.text_node_name, tag_value.as_ref())?;
                     } else {
                         current_value = Some(tag_value)
                     }
@@ -211,11 +215,10 @@ impl<'js> XMLParser<'js> {
         ctx: &Ctx<'js>,
         reader: &Reader<&[u8]>,
         tag: &BytesStart<'_>,
-    ) -> Result<String> {
+    ) -> Result<Rc<str>> {
         let tag = tag.name();
         let tag_name = reader.decoder().decode(tag.as_ref()).or_throw(ctx)?;
-
-        Ok(tag_name.to_string())
+        Ok(tag_name.as_ref().into())
     }
 
     fn process_end(
@@ -245,88 +248,99 @@ impl<'js> XMLParser<'js> {
         Ok(())
     }
 
+    fn set_attribute(
+        &self,
+        stack_object: &mut StackObject<'js>,
+        path: &Vec<&str>,
+        key: &str,
+        value: &str,
+    ) -> Result<()> {
+        if let Some(attribute_value_processor) = &self.attribute_value_processor {
+            let jpath = path.join(".");
+            let jpath = jpath.as_str();
+            if let Some(new_value) =
+                attribute_value_processor.call::<_, Option<String>>((key, value, jpath))?
+            {
+                stack_object.obj.set(key, new_value)?;
+                return Ok(());
+            }
+        }
+        stack_object.obj.set(key, value)?;
+        Ok(())
+    }
+
     fn process_attributes(
         &self,
         ctx: &Ctx<'js>,
         reader: &Reader<&[u8]>,
-        path: &[(String, StackObject<'js>)],
+        path: &[(Rc<str>, StackObject<'js>)],
         tag: &BytesStart<'_>,
         stack_object: &mut StackObject<'js>,
         has_attributes: &mut bool,
     ) -> Result<()> {
         if !self.ignore_attributes {
+            let jpath_str = path.iter().map(|(k, _)| k.as_ref()).collect::<Vec<_>>();
             for attribute in tag.attributes() {
                 stack_object.has_value = true;
                 *has_attributes = true;
                 let attr = attribute.or_throw(ctx)?;
 
+                let value = reader.decoder().decode(attr.value.as_ref()).or_throw(ctx)?;
+                let value = value.as_ref();
+
                 let key_slice = attr.key.as_ref();
-                let key = if !self.attribute_name_prefix.is_empty() {
+                if !self.attribute_name_prefix.is_empty() {
                     let prefix_bytes = self.attribute_name_prefix.as_bytes();
                     let mut key_bytes = Vec::with_capacity(prefix_bytes.len() + key_slice.len());
                     key_bytes.extend_from_slice(prefix_bytes);
                     key_bytes.extend_from_slice(key_slice);
 
-                    reader
-                        .decoder()
-                        .decode(&key_bytes)
-                        .or_throw(ctx)?
-                        .to_string()
+                    let key = reader.decoder().decode(&key_bytes).or_throw(ctx)?;
+                    self.set_attribute(stack_object, &jpath_str, key.as_ref(), value)?;
                 } else {
-                    reader
-                        .decoder()
-                        .decode(key_slice)
-                        .or_throw(ctx)?
-                        .to_string()
+                    let key = reader.decoder().decode(key_slice).or_throw(ctx)?;
+                    self.set_attribute(stack_object, &jpath_str, key.as_ref(), value)?;
                 };
-
-                let mut value = reader
-                    .decoder()
-                    .decode(attr.value.as_ref())
-                    .or_throw(ctx)?
-                    .to_string();
-
-                if let Some(attribute_value_processor) = &self.attribute_value_processor {
-                    let jpath: String = path.iter().join_to_string(".", |(k, _)| k);
-                    if let Some(new_value) =
-                        attribute_value_processor.call((key.clone(), value.clone(), jpath))?
-                    {
-                        value = new_value
-                    }
-                }
-                stack_object.obj.set(key, value)?;
             }
         }
         Ok(())
     }
 
-    fn process_tag_value(
+    fn process_tag_value<'a>(
         &self,
-        path: &[(String, StackObject<'js>)],
-        key: &String,
-        value: String,
+        path: &[(Rc<str>, StackObject<'js>)],
+        key: &str,
+        value: &str,
         has_attributes: bool,
-    ) -> Result<String> {
+    ) -> Result<Rc<str>> {
         if value.is_empty() {
-            return Ok(value);
+            return Ok(value.into());
         }
 
         if let Some(tag_value_processor) = &self.tag_value_processor {
-            let jpath: String = path.iter().join_to_string(".", |(k, _)| k);
-            if let Some(new_value) =
-                tag_value_processor.call((key, value.clone(), jpath, has_attributes))?
-            {
-                return Ok(new_value);
+            let jpath = path
+                .iter()
+                .map(|(k, _)| k.as_ref())
+                .collect::<Vec<_>>()
+                .join(".");
+
+            if let Some(new_value) = tag_value_processor.call::<_, Option<String>>((
+                key,
+                value,
+                jpath,
+                has_attributes,
+            ))? {
+                return Ok(new_value.into());
             }
         }
-        Ok::<_, Error>(value)
+        Ok::<_, Error>(value.into())
     }
 }
 
 #[derive(Debug, Clone)]
 #[rquickjs::class]
 struct XmlText {
-    value: String,
+    value: Rc<str>,
 }
 
 impl<'js> Trace<'js> for XmlText {
@@ -339,11 +353,13 @@ impl XmlText {
     fn new(value: String) -> Self {
         let mut escaped = String::with_capacity(value.len());
         escape_element(&mut escaped, &value);
-        XmlText { value: escaped }
+        XmlText {
+            value: escaped.into(),
+        }
     }
 
-    fn to_string(&self) -> String {
-        self.value.clone()
+    fn to_string(&self) -> &str {
+        self.value.as_ref()
     }
 }
 
@@ -477,7 +493,7 @@ impl<'js> XmlNode<'js> {
                                     xml_text.push_str(&string_value);
                                 }
                             } else {
-                                let string_value: String = child
+                                let string_value = child
                                     .clone()
                                     .try_into_string()
                                     .map_err(|err| format!("Unable to convert {:?} to string", err))
@@ -504,6 +520,7 @@ impl<'js> XmlNode<'js> {
 }
 
 fn escape_attribute(text: &mut String, value: &str) {
+    text.reserve(value.len());
     for c in value.chars() {
         match c {
             '&' => text.push_str(AMP),
@@ -516,6 +533,7 @@ fn escape_attribute(text: &mut String, value: &str) {
 }
 
 fn escape_element(text: &mut String, value: &str) {
+    text.reserve(value.len());
     for c in value.chars() {
         match c {
             '&' => text.push_str(AMP),
