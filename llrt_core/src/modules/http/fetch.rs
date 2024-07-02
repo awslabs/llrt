@@ -156,8 +156,7 @@ fn build_request(
     let mut detected_headers = HashSet::new();
 
     if let Some(headers) = headers {
-        for (key, value) in headers.iter() {
-            let header_name = key.as_str();
+        for (header_name, value) in headers.iter() {
             detected_headers.insert(header_name);
             if change_method && is_request_body_header_name(header_name) {
                 continue;
@@ -165,7 +164,7 @@ fn build_request(
             if !same_origin && is_cors_non_wildcard_request_header_name(header_name) {
                 continue;
             }
-            req = req.header(key, value)
+            req = req.header(header_name, value)
         }
     }
 
