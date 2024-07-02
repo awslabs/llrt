@@ -78,7 +78,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                         &ctx,
                         &method,
                         &uri,
-                        &options.headers,
+                        options.headers.as_ref(),
                         &options.body,
                         &response_status,
                         &initial_uri,
@@ -136,7 +136,7 @@ fn build_request(
     ctx: &Ctx<'_>,
     method: &hyper::Method,
     uri: &Uri,
-    headers: &Option<Headers>,
+    headers: Option<&Headers>,
     body: &Full<Bytes>,
     prev_status: &u16,
     initial_uri: &Uri,
@@ -264,7 +264,9 @@ fn get_fetch_options<'js>(
     }
 
     if resource_opts.is_some() || arg_opts.is_some() {
-        if let Some(method_opt) = get_option::<String>("method", &arg_opts, &resource_opts)? {
+        if let Some(method_opt) =
+            get_option::<String>("method", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             method = Some(match method_opt.as_str() {
                 "GET" => Ok(hyper::Method::GET),
                 "POST" => Ok(hyper::Method::POST),
@@ -280,25 +282,34 @@ fn get_fetch_options<'js>(
             }?);
         }
 
-        if let Some(body_opt) = get_option::<Value>("body", &arg_opts, &resource_opts)? {
+        if let Some(body_opt) =
+            get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             let bytes = get_bytes(ctx, body_opt)?;
             body = Some(Full::from(bytes));
         }
 
-        if let Some(url_opt) = get_option::<String>("url", &arg_opts, &resource_opts)? {
+        if let Some(url_opt) =
+            get_option::<String>("url", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             url = Some(url_opt);
         }
 
-        if let Some(headers_op) = get_option::<Value>("headers", &arg_opts, &resource_opts)? {
+        if let Some(headers_op) =
+            get_option::<Value>("headers", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             headers = Some(Headers::from_value(ctx, headers_op)?);
         }
 
-        if let Some(signal) = get_option::<Class<AbortSignal>>("signal", &arg_opts, &resource_opts)?
+        if let Some(signal) =
+            get_option::<Class<AbortSignal>>("signal", arg_opts.as_ref(), resource_opts.as_ref())?
         {
             abort_receiver = Some(signal.borrow().sender.subscribe());
         }
 
-        if let Some(redirect_opt) = get_option::<String>("redirect", &arg_opts, &resource_opts)? {
+        if let Some(redirect_opt) =
+            get_option::<String>("redirect", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             let redirect_str = redirect_opt.as_str();
             if !matches!(redirect_str, "follow" | "manual" | "error") {
                 return Err(Exception::throw_type(
@@ -327,8 +338,8 @@ fn get_fetch_options<'js>(
 
 fn get_option<'js, V: FromJs<'js> + Sized>(
     arg: &str,
-    a: &Option<Object<'js>>,
-    b: &Option<Object<'js>>,
+    a: Option<&Object<'js>>,
+    b: Option<&Object<'js>>,
 ) -> Result<Option<V>> {
     if let Some(opt) = a {
         if let Some(value) = opt.get::<_, Option<V>>(arg)? {
