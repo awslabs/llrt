@@ -39,10 +39,10 @@ use crate::{
 struct XMLParser<'js> {
     tag_value_processor: Option<Function<'js>>,
     attribute_value_processor: Option<Function<'js>>,
-    attribute_name_prefix: String,
+    attribute_name_prefix: Rc<str>,
     ignore_attributes: bool,
-    text_node_name: String,
-    entities: HashMap<String, String>,
+    text_node_name: Rc<str>,
+    entities: HashMap<Rc<str>, Rc<str>>,
 }
 
 impl<'js> Trace<'js> for XMLParser<'js> {
@@ -103,14 +103,14 @@ impl<'js> XMLParser<'js> {
             tag_value_processor,
             attribute_value_processor,
             entities: HashMap::new(),
-            attribute_name_prefix,
+            attribute_name_prefix: attribute_name_prefix.into(),
             ignore_attributes,
-            text_node_name,
+            text_node_name: text_node_name.into(),
         })
     }
 
     pub fn add_entity(&mut self, key: String, value: String) {
-        self.entities.insert(key, value);
+        self.entities.insert(key.into(), value.into());
     }
 
     pub fn parse(&self, ctx: Ctx<'js>, xml: Value<'js>) -> Result<Object<'js>> {
@@ -179,14 +179,14 @@ impl<'js> XMLParser<'js> {
                         current_obj.has_value = true;
                         current_obj
                             .obj
-                            .set(&self.text_node_name, tag_value.as_ref())?;
+                            .set(self.text_node_name.as_ref(), tag_value.as_ref())?;
                     } else {
                         current_value = Some(tag_value)
                     }
                 },
                 Ok(Event::Text(ref text)) => {
                     let tag_value = text
-                        .unescape_with(|v| self.entities.get(v).map(|x| x.as_str()))
+                        .unescape_with(|v| self.entities.get(v).map(|x| x.as_ref()))
                         .or_throw(&ctx)?;
                     let tag_value = tag_value.as_ref();
                     let tag_value =
@@ -196,7 +196,7 @@ impl<'js> XMLParser<'js> {
                         current_obj.has_value = true;
                         current_obj
                             .obj
-                            .set(&self.text_node_name, tag_value.as_ref())?;
+                            .set(self.text_node_name.as_ref(), tag_value.as_ref())?;
                     } else {
                         current_value = Some(tag_value)
                     }
