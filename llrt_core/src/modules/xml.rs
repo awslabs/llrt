@@ -251,7 +251,7 @@ impl<'js> XMLParser<'js> {
     fn set_attribute(
         &self,
         stack_object: &mut StackObject<'js>,
-        path: &Vec<&str>,
+        path: &[&str],
         key: &str,
         value: &str,
     ) -> Result<()> {
@@ -306,7 +306,7 @@ impl<'js> XMLParser<'js> {
         Ok(())
     }
 
-    fn process_tag_value<'a>(
+    fn process_tag_value(
         &self,
         path: &[(Rc<str>, StackObject<'js>)],
         key: &str,
