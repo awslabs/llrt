@@ -30,19 +30,19 @@ fn static_node_to_value<'js>(ctx: &Ctx<'js>, node: StaticNode) -> Result<Value<'
 }
 
 fn parse_node<'js>(ctx: &Ctx<'js>, tape: &[Node], index: usize) -> Result<(Value<'js>, usize)> {
-    match &tape[index] {
+    match tape[index] {
         Node::String(value) => Ok((value.into_js(ctx)?, index + 1)),
-        Node::Static(node) => Ok((static_node_to_value(ctx, *node)?, index + 1)),
+        Node::Static(node) => Ok((static_node_to_value(ctx, node)?, index + 1)),
         Node::Object { len, .. } => {
             let js_object = Object::new(ctx.clone())?;
             let mut current_index = index + 1;
 
-            for _ in 0..*len {
-                if let Node::String(key) = &tape[current_index] {
+            for _ in 0..len {
+                if let Node::String(key) = tape[current_index] {
                     current_index += 1;
                     let (value, new_index) = parse_node(ctx, tape, current_index)?;
                     current_index = new_index;
-                    js_object.set(*key, value)?;
+                    js_object.set(key, value)?;
                 }
             }
 
@@ -52,7 +52,7 @@ fn parse_node<'js>(ctx: &Ctx<'js>, tape: &[Node], index: usize) -> Result<(Value
             let js_array = Array::new(ctx.clone())?;
             let mut current_index = index + 1;
 
-            for i in 0..*len {
+            for i in 0..len {
                 let (value, new_index) = parse_node(ctx, tape, current_index)?;
                 current_index = new_index;
                 js_array.set(i, value)?;
