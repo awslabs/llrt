@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use rquickjs::{
     atom::PredefinedAtom, function::This, Ctx, Exception, Function, Object, Result, Type, Value,
@@ -19,9 +19,11 @@ struct StringifyContext<'a, 'js> {
     key: Option<&'a str>,
     index: Option<usize>,
     parent: Option<&'a Object<'js>>,
-    ancestors: &'a mut Vec<(usize, String)>,
+    ancestors: &'a mut Vec<(usize, Rc<str>)>,
     replacer_fn: Option<&'a Function<'js>>,
     include_keys_replacer: Option<&'a HashSet<String>>,
+    itoa_buffer: &'a mut itoa::Buffer,
+    ryu_buffer: &'a mut ryu::Buffer,
 }
 
 #[allow(dead_code)]
@@ -50,6 +52,9 @@ pub fn json_stringify_replacer_space<'js>(
 
     let tmp_function;
 
+    let mut itoa_buffer = itoa::Buffer::new();
+    let mut ryu_buffer = ryu::Buffer::new();
+
     if let Some(replacer) = replacer {
         if let Some(function) = replacer.as_function() {
             tmp_function = function.clone();
@@ -61,11 +66,9 @@ pub fn json_stringify_replacer_space<'js>(
                 if let Some(string) = value.as_string() {
                     filter.insert(string.to_string()?);
                 } else if let Some(number) = value.as_int() {
-                    let mut buffer = itoa::Buffer::new();
-                    filter.insert(buffer.format(number).to_string());
+                    filter.insert(itoa_buffer.format(number).to_string());
                 } else if let Some(number) = value.as_float() {
-                    let mut buffer = ryu::Buffer::new();
-                    filter.insert(buffer.format(number).to_string());
+                    filter.insert(ryu_buffer.format(number).to_string());
                 }
             }
             include_keys_replacer = Some(filter);
@@ -89,6 +92,8 @@ pub fn json_stringify_replacer_space<'js>(
         ancestors: &mut ancestors,
         replacer_fn,
         include_keys_replacer,
+        itoa_buffer: &mut itoa_buffer,
+        ryu_buffer: &mut ryu_buffer,
     };
 
     match write_primitive(&mut context, false)? {
@@ -137,6 +142,8 @@ fn run_to_json<'js>(
             ancestors: context.ancestors,
             replacer_fn: context.replacer_fn,
             include_keys_replacer: context.include_keys_replacer,
+            itoa_buffer: context.itoa_buffer,
+            ryu_buffer: context.ryu_buffer,
         },
         false,
     )?;
@@ -169,7 +176,11 @@ fn run_replacer<'js>(
         parent.set("", value.clone())?;
         parent
     };
-    let new_value = replacer_fn.call((This(parent), get_key_or_index(key, index), value))?;
+    let new_value = replacer_fn.call((
+        This(parent),
+        get_key_or_index(context.itoa_buffer, key, index),
+        value,
+    ))?;
     write_primitive(
         &mut StringifyContext {
             ctx,
@@ -183,12 +194,13 @@ fn run_replacer<'js>(
             include_keys_replacer: None,
             depth: context.depth,
             ancestors: context.ancestors,
+            itoa_buffer: context.itoa_buffer,
+            ryu_buffer: context.ryu_buffer,
         },
         add_comma,
     )
 }
 
-#[inline(always)]
 fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<PrimitiveStatus> {
     if let Some(replacer_fn) = context.replacer_fn {
         return run_replacer(context, replacer_fn, add_comma);
@@ -208,8 +220,8 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
     }
 
     if let Some(include_keys_replacer) = include_keys_replacer {
-        let key = get_key_or_index(key, index);
-        if !include_keys_replacer.contains(&key) {
+        let key = get_key_or_index(context.itoa_buffer, key, index);
+        if !include_keys_replacer.contains(key) {
             return Ok(PrimitiveStatus::Ignored);
         }
     };
@@ -231,12 +243,9 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
                 .result
                 .push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
         },
-        Type::Int => {
-            let mut buffer = itoa::Buffer::new();
-            context
-                .result
-                .push_str(buffer.format(value.as_int().unwrap()))
-        },
+        Type::Int => context
+            .result
+            .push_str(context.itoa_buffer.format(value.as_int().unwrap())),
         Type::Float => {
             let float_value = value.as_float().unwrap();
             const EXP_MASK: u64 = 0x7ff0000000000000;
@@ -244,8 +253,7 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
             if bits & EXP_MASK == EXP_MASK {
                 context.result.push_str("null");
             } else {
-                let mut buffer = ryu::Buffer::new();
-                let str = buffer.format_finite(value.as_float().unwrap());
+                let str = context.ryu_buffer.format_finite(value.as_float().unwrap());
 
                 let bytes = str.as_bytes();
                 let len = bytes.len();
@@ -281,14 +289,14 @@ fn write_indented_separator(
 }
 
 #[cold]
-#[inline(always)]
 fn detect_circular_reference(
     ctx: &Ctx<'_>,
     value: &Object<'_>,
     key: Option<&str>,
     index: Option<usize>,
     parent: Option<&Object<'_>>,
-    ancestors: &mut Vec<(usize, String)>,
+    ancestors: &mut Vec<(usize, Rc<str>)>,
+    itoa_buffer: &mut itoa::Buffer,
 ) -> Result<()> {
     let parent_ptr = unsafe { parent.unwrap().as_raw().u.ptr as usize };
     let current_ptr = unsafe { value.as_raw().u.ptr as usize };
@@ -332,8 +340,11 @@ fn detect_circular_reference(
     }
     ancestors.push((
         current_ptr,
-        key.map(|k| k.to_string())
-            .unwrap_or_else(|| format!("[{}]", index.unwrap_or_default())),
+        key.map(|k| k.into()).unwrap_or_else(|| {
+            ["[", itoa_buffer.format(index.unwrap_or_default()), "]"]
+                .join("")
+                .into()
+        }),
     ));
 
     Ok(())
@@ -381,14 +392,14 @@ fn write_string(string: &mut String, value: &str) {
 }
 
 #[inline(always)]
-fn get_key_or_index(key: Option<&str>, index: Option<usize>) -> String {
-    key.map(|k| k.to_string()).unwrap_or_else(|| {
-        let mut buffer = itoa::Buffer::new();
-        buffer.format(index.unwrap_or_default()).to_string()
-    })
+fn get_key_or_index<'a>(
+    itoa_buffer: &'a mut itoa::Buffer,
+    key: Option<&'a str>,
+    index: Option<usize>,
+) -> &'a str {
+    key.unwrap_or_else(|| itoa_buffer.format(index.unwrap_or_default()))
 }
 
-#[inline(always)]
 fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
     let mut add_comma;
     let mut value_written;
@@ -412,6 +423,7 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
                     context.index,
                     context.parent,
                     context.ancestors,
+                    context.itoa_buffer,
                 )?;
             }
 
@@ -436,6 +448,8 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
                         ancestors: context.ancestors,
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
+                        itoa_buffer: context.itoa_buffer,
+                        ryu_buffer: context.ryu_buffer,
                     },
                     value_written,
                 )?;
@@ -461,6 +475,7 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
                     context.index,
                     context.parent,
                     context.ancestors,
+                    context.itoa_buffer,
                 )?;
             }
             for (i, val) in js_array.iter::<Value>().enumerate() {
@@ -478,6 +493,8 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
                         ancestors: context.ancestors,
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
+                        itoa_buffer: context.itoa_buffer,
+                        ryu_buffer: context.ryu_buffer,
                     },
                     add_comma,
                 )?;
