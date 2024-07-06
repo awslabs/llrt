@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
   setenv("_START_TIME", startTimeStr, false);
   setenv("MIMALLOC_RESERVE_OS_MEMORY", mimallocReserveMemoryMb, false);
   setenv("MIMALLOC_LIMIT_OS_ALLOC", "1", false);
-  setenv("LLRT_MEMFD", outputFdStr, false);
+  setenv("LLRT_MEM_FD", outputFdStr, false);
 
   logInfo("Starting app\n");
 

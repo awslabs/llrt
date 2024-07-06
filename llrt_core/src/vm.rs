@@ -1,7 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
-    cell::RefCell,
     cmp::min,
     collections::{HashMap, HashSet},
     env,
@@ -64,10 +63,57 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct EmbeddedBytecodeData {
-    argv_0: Option<String>,
-    mem_fd: Option<i32>,
-    index: HashMap<String, (usize, usize)>,
+pub struct BytecodeCache {
+    data: Box<[u8]>,
+    map: HashMap<Arc<str>, Arc<[u8]>>,
+}
+
+impl BytecodeCache {
+    pub fn new(data: Vec<u8>, package_count: usize) -> Self {
+        let data = data.into_boxed_slice();
+        let mut cache = BytecodeCache {
+            data,
+            map: HashMap::with_capacity(package_count),
+        };
+        let mut offset = 0;
+        let data = &cache.data;
+        let mut entries = Vec::new();
+
+        loop {
+            let name_len_start = offset;
+            let name_len_end = offset + size_of::<u16>();
+            let name_len =
+                u16_from_le_byte_slice_unchecked(&data[name_len_start..name_len_end]) as usize;
+
+            let bytecode_size_start = name_len_end + name_len;
+
+            let name =
+                unsafe { std::str::from_utf8_unchecked(&data[name_len_end..bytecode_size_start]) };
+
+            let bytecode_start = bytecode_size_start + size_of::<u32>();
+
+            let bytecode_size =
+                u32_from_le_byte_slice_unchecked(&data[bytecode_size_start..bytecode_start])
+                    as usize;
+
+            let bytecode_end = bytecode_start + bytecode_size;
+
+            entries.push((name.to_owned(), bytecode_start..bytecode_end));
+
+            offset = bytecode_start + bytecode_size;
+
+            if offset >= data.len() {
+                break;
+            }
+        }
+
+        for (name, range) in entries {
+            let key = Arc::from(name);
+            let value = Arc::from(&cache.data[range]);
+            cache.map.insert(key, value);
+        }
+        cache
+    }
 }
 
 #[cfg(unix)]
@@ -89,12 +135,8 @@ fn file_from_raw_fd(raw_fd: i32) -> std::io::Result<File> {
     }
 }
 
-thread_local! {
-    static SELF_FILE: RefCell<Option<File>> = const { RefCell::new(None) };
-}
-
-pub static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<EmbeddedBytecodeData>> =
-    Lazy::new(|| RwLock::new(EmbeddedBytecodeData::default()));
+pub static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<BytecodeCache>> =
+    Lazy::new(|| RwLock::new(BytecodeCache::default()));
 
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
@@ -172,7 +214,7 @@ impl Resolver for BinaryResolver {
 
         let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
 
-        if embedded_bytecode_data.index.contains_key(name) {
+        if embedded_bytecode_data.map.contains_key(name) {
             return Ok(name.to_string());
         }
 
@@ -202,11 +244,11 @@ impl Resolver for BinaryResolver {
 
         trace!("Normalized path: {}, key: {}", normalized_path, cache_key);
 
-        if embedded_bytecode_data.index.contains_key(cache_key) {
+        if embedded_bytecode_data.map.contains_key(cache_key) {
             return Ok(cache_key.to_string());
         }
 
-        if embedded_bytecode_data.index.contains_key(base) {
+        if embedded_bytecode_data.map.contains_key(base) {
             normalized_path = name;
             if Path::new(normalized_path).exists() {
                 return Ok(normalized_path.to_string());
@@ -293,33 +335,9 @@ impl Loader for BinaryLoader {
         trace!("Loading module: {}", name);
         {
             let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
-            if let Some((bytes_size, bytes_pos)) = embedded_bytecode_data.index.get(name) {
+            if let Some(bytes) = embedded_bytecode_data.map.get(name) {
                 trace!("Loading embedded module: {}", name);
-                let buf = SELF_FILE.with(|self_file| {
-                    let mut buf = vec![0; *bytes_size];
-                    let mut borrow = self_file.borrow_mut();
-                    if let Some(file) = borrow.as_mut() {
-                        file.seek(SeekFrom::Start((*bytes_pos) as u64))?;
-                        file.read_exact(&mut buf)?;
-                    } else {
-                        let mut file = if let Some(mem_fd) = embedded_bytecode_data.mem_fd {
-                            file_from_raw_fd(mem_fd)
-                        } else if let Some(argv_0) = &embedded_bytecode_data.argv_0 {
-                            File::open(argv_0)
-                        } else {
-                            unreachable!()
-                        }?;
-
-                        file.seek(SeekFrom::Start((*bytes_pos) as u64))?;
-                        file.read_exact(&mut buf)?;
-
-                        *borrow = Some(file);
-                    }
-
-                    Ok::<_, Error>(buf)
-                })?;
-
-                return load_bytecode_module(ctx.clone(), &buf);
+                return load_bytecode_module(ctx.clone(), bytes);
             }
             drop(embedded_bytecode_data);
             let path = PathBuf::from(name);
@@ -593,26 +611,34 @@ impl Vm {
     }
 }
 
+fn u32_from_le_byte_slice_unchecked(bytes: &[u8]) -> u32 {
+    (bytes[0] as u32)
+        | ((bytes[1] as u32) << 8)
+        | ((bytes[2] as u32) << 16)
+        | ((bytes[3] as u32) << 24)
+}
+
+fn u16_from_le_byte_slice_unchecked(bytes: &[u8]) -> u16 {
+    (bytes[0] as u16) | ((bytes[1] as u16) << 8)
+}
+
 fn init_embedded_bytecode() -> std::io::Result<()> {
+    trace!("Loading embedded bytecode");
     let argv_0 = env::args().next().expect("Failed to get argv0");
     let mut embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.write().unwrap();
 
-    let mut file = if let Ok(fd_string) = env::var("LLRT_MEMFD") {
-        let mem_fd: i32 = fd_string
-            .parse()
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Invalid memfd"))?;
-
-        embedded_bytecode_data.mem_fd = Some(mem_fd);
-        file_from_raw_fd(mem_fd)?
+    let mut file = if let Ok(fd_string) = env::var("LLRT_MEM_FD") {
+        let mem_fd: i32 = fd_string.parse().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Invalid bytecode-cache fd")
+        })?;
+        file_from_raw_fd(mem_fd)
     } else {
-        let file = File::open(&argv_0)?;
-        embedded_bytecode_data.argv_0 = Some(argv_0);
-        file
-    };
+        File::open(argv_0)
+    }?;
 
     let mut embedded_bytecode_signature_buf = [0; BYTECODE_EMBEDDED_SIGNATURE.len()];
-    let meta = file.metadata()?;
-    let total_file_size = meta.len();
+    let file_metadata = file.metadata()?;
+    let total_file_size = file_metadata.len();
     let signature_len = BYTECODE_EMBEDDED_SIGNATURE.len();
     let signed_signature_len = signature_len as i64;
     file.seek(SeekFrom::End(-signed_signature_len))?;
@@ -625,15 +651,15 @@ fn init_embedded_bytecode() -> std::io::Result<()> {
     struct EmbeddedMeta {
         package_count: u32,
         bytecode_pos: u32,
-        package_index_pos: u32,
     }
 
     impl EmbeddedMeta {
-        fn read(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<Self> {
+        fn read(file: &mut File) -> std::io::Result<Self> {
+            let mut buf = [0; size_of::<u32>() * 2];
+            file.read_exact(&mut buf)?;
             Ok(EmbeddedMeta {
-                package_count: read_u32(file, buf)?,
-                bytecode_pos: read_u32(file, buf)?,
-                package_index_pos: read_u32(file, buf)?,
+                package_count: u32_from_le_byte_slice_unchecked(&buf[..size_of::<u32>()]),
+                bytecode_pos: u32_from_le_byte_slice_unchecked(&buf[size_of::<u32>()..]),
             })
         }
     }
@@ -644,65 +670,38 @@ fn init_embedded_bytecode() -> std::io::Result<()> {
 
     file.seek(SeekFrom::Current(-(meta_and_signature_size as i64)))?;
 
-    let mut u32_buf = [0; size_of::<u32>()];
-    let mut u16_buf = [0; size_of::<u16>()];
-
-    let embedded_metadata = EmbeddedMeta::read(&mut file, &mut u32_buf)?;
+    let embedded_metadata = EmbeddedMeta::read(&mut file)?;
 
     file.seek(SeekFrom::Current(
-        -(total_file_size as i64
-            - (embedded_metadata.package_index_pos as i64 + signed_signature_len)),
+        -(total_file_size as i64 - (embedded_metadata.bytecode_pos as i64 + signed_signature_len)),
     ))?;
 
-    embedded_bytecode_data
-        .index
-        .reserve(embedded_metadata.package_count as usize);
+    let total_cache_size = total_file_size as usize
+        - embedded_metadata.bytecode_pos as usize
+        - meta_and_signature_size;
 
-    let mut current_pos = embedded_metadata.package_index_pos as usize;
+    let mut buf = vec![0; total_cache_size];
+    trace!("Loading bytecode cache of {} kB", total_cache_size / 1024);
+    file.read_exact(&mut buf)?;
 
-    let end_pos = total_file_size as usize - meta_and_signature_size;
+    let bytecode_cache = BytecodeCache::new(buf, embedded_metadata.package_count as usize);
 
-    loop {
-        let name_len = read_u16(&mut file, &mut u16_buf)?;
-        let mut buf: Vec<u8> = vec![0; name_len as usize];
-        file.read_exact(&mut buf)?;
-
-        let name = unsafe { String::from_utf8_unchecked(buf) };
-
-        let bytecode_size = read_u32(&mut file, &mut u32_buf)?;
-        let bytecode_offset = read_u32(&mut file, &mut u32_buf)?;
-
-        current_pos = current_pos + name_len as usize + u16_buf.len() + (u32_buf.len() * 2);
-
-        embedded_bytecode_data.index.insert(
-            name,
-            (
-                bytecode_size as usize,
-                embedded_metadata.bytecode_pos as usize + bytecode_offset as usize,
-            ),
-        );
-
-        if current_pos == end_pos {
-            break;
-        }
-    }
-
-    drop(embedded_bytecode_data);
+    *embedded_bytecode_data = bytecode_cache;
 
     Ok(())
 }
 
-#[inline(always)]
-fn read_u32(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<u32> {
-    file.read_exact(buf)?;
-    Ok(u32::from_le_bytes(*buf))
-}
+// #[inline(always)]
+// fn read_u32(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<u32> {
+//     file.read_exact(buf)?;
+//     Ok(u32::from_le_bytes(*buf))
+// }
 
-#[inline(always)]
-fn read_u16(file: &mut File, buf: &mut [u8; size_of::<u16>()]) -> std::io::Result<u16> {
-    file.read_exact(buf)?;
-    Ok(u16::from_le_bytes(*buf))
-}
+// #[inline(always)]
+// fn read_u16(file: &mut File, buf: &mut [u8; size_of::<u16>()]) -> std::io::Result<u16> {
+//     file.read_exact(buf)?;
+//     Ok(u16::from_le_bytes(*buf))
+// }
 
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
     let bytes = get_bytes(&ctx, value)?;
@@ -814,8 +813,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 || EMBEDDED_BYTECODE_DATA
                     .read()
                     .unwrap()
-                    .index
-                    .contains_key(&specifier)
+                    .map
+                    .contains_key(&Arc::from(specifier.as_str()))
                 || specifier.starts_with('/')
             {
                 specifier
