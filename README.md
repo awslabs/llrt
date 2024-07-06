@@ -219,6 +219,7 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | @aws-sdk/client-xray                      |
 | @aws-sdk/credential-providers             |
 | @aws-sdk/lib-dynamodb                     |
+| @aws-sdk/lib-storage                      |
 | @aws-sdk/s3-request-presigner             |
 | @aws-sdk/util-dynamodb                    |
 | @aws-sdk/util-user-agent-browser          |

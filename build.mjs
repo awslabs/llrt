@@ -79,6 +79,7 @@ const SDK_DATA = {
   "client-kms": ["KMS", "kms"],
   "client-lambda": ["Lambda", "lambda"],
   "client-s3": ["S3", "s3"],
+  "lib-storage": ["Upload", "s3"],
   "client-secrets-manager": ["SecretsManager", "secretsmanager"],
   "client-ses": ["SES", "email"],
   "client-sns": ["SNS", "sns"],
@@ -197,8 +198,9 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     const { hostname, protocol, pathname, search } = endpoint.url;
     const [bucket, host] = hostname.split(".s3.");
     if (host) {
-      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${search ? `?${search}` : ""
-        }`;
+      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${
+        search ? `?${search}` : ""
+      }`;
       endpoint.url.href = newHref;
     }
   }
@@ -348,8 +350,9 @@ const AWS_SDK_PLUGIN = {
 
         console.log("Optimized:", name);
 
-        source = `const ${awsJsonSharedCommand.name
-          } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
+        source = `const ${
+          awsJsonSharedCommand.name
+        } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
 
         return {
           contents: source,
