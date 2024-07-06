@@ -68,10 +68,8 @@ const ES_BUILD_OPTIONS = {
     "buffer",
     "xml",
     "net",
-    "navigator",
     "util",
     "url",
-    "performance",
   ],
 };
 
@@ -199,9 +197,8 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     const { hostname, protocol, pathname, search } = endpoint.url;
     const [bucket, host] = hostname.split(".s3.");
     if (host) {
-      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${
-        search ? `?${search}` : ""
-      }`;
+      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${search ? `?${search}` : ""
+        }`;
       endpoint.url.href = newHref;
     }
   }
@@ -351,9 +348,8 @@ const AWS_SDK_PLUGIN = {
 
         console.log("Optimized:", name);
 
-        source = `const ${
-          awsJsonSharedCommand.name
-        } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
+        source = `const ${awsJsonSharedCommand.name
+          } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
 
         return {
           contents: source,
