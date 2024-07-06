@@ -8,16 +8,16 @@ use std::{
 
 use tokio::fs::{self};
 
-pub fn get_basename_ext_name(path: &str) -> (String, String) {
+pub fn get_basename_ext_name<'a>(path: &'a str) -> (&'a str, &'a str) {
     let path = path.strip_prefix("./").unwrap_or(path);
     let (basename, ext) = path.split_at(path.rfind('.').unwrap_or(path.len()));
-    (basename.to_string(), ext.to_string())
+    (basename, ext)
 }
 
 pub static JS_EXTENSIONS: &[&str] = &[".js", ".mjs", ".cjs"];
 
 pub fn get_js_path(path: &str) -> Option<PathBuf> {
-    let (mut basename, ext) = get_basename_ext_name(path);
+    let (basename, ext) = get_basename_ext_name(path);
 
     let filepath = Path::new(path);
 
@@ -27,20 +27,22 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
         return Some(filepath.to_owned());
     }
 
-    if filepath.is_dir() && exists {
-        basename = format!("{}/index", &basename);
-    }
-
-    for ext in JS_EXTENSIONS {
-        let path = &format!("{}{}", &basename, ext);
-
-        let path = Path::new(path);
-        if path.exists() {
-            return Some(path.to_owned());
+    fn check_extensions(basename: &str) -> Option<PathBuf> {
+        for ext in JS_EXTENSIONS {
+            let path: &str = &[basename, ext].join("");
+            let path = Path::new(path);
+            if path.exists() {
+                return Some(path.to_owned());
+            }
         }
+        None
     }
 
-    None
+    if filepath.is_dir() && exists {
+        let basename: &str = &([basename, "/index"].join(""));
+        return check_extensions(basename);
+    }
+    check_extensions(basename)
 }
 
 pub struct DirectoryWalker<T>
@@ -110,13 +112,12 @@ where
         let mut stream = fs::read_dir(dir).await?;
 
         while let Some(entry) = stream.next_entry().await? {
-            let entry_path = entry.path();
-
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !(self.filter)(&name) {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if !(self.filter)(name.as_ref()) {
                 continue;
             }
-
+            let entry_path = entry.path();
             let metadata = fs::symlink_metadata(&entry_path).await?;
 
             self.stack.push((entry_path, Some(metadata)));
@@ -128,8 +129,9 @@ where
         let dir = std::fs::read_dir(dir)?;
 
         for entry in dir.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !(self.filter)(&name) {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if !(self.filter)(name.as_ref()) {
                 continue;
             }
             let entry_path = entry.path();
