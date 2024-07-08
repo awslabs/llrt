@@ -231,23 +231,23 @@ impl<'js> URLSearchParams {
     }
 
     pub fn to_string(&self) -> String {
-        fn escape(value: &str) -> String {
-            url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
-        }
-
+        // The Url create doesn't properly encode query params for all edge
+        // cases, so we need to construct the query string by percent-encoding
+        // each key/value
+        // TODO: This should probably be fixed in the Url crate
         self.url
             .borrow()
             .query_pairs()
-            .map(|(key, value)| {
-                [
-                    escape(key.as_ref()),
-                    "=".to_string(),
-                    escape(value.as_ref()),
-                ]
-                .join("")
+            .fold(String::new(), |mut acc, (key, value)| {
+                if !acc.is_empty() {
+                    acc.push('&');
+                }
+                url::form_urlencoded::byte_serialize(key.as_bytes()).for_each(|b| acc.push_str(b));
+                acc.push('=');
+                url::form_urlencoded::byte_serialize(value.as_bytes())
+                    .for_each(|b| acc.push_str(b));
+                acc
             })
-            .collect::<Vec<String>>()
-            .join("&")
     }
 
     pub fn values(&mut self) -> Vec<String> {
