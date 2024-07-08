@@ -235,10 +235,10 @@ impl<'js> URLSearchParams {
         // cases, so we need to construct the query string by percent-encoding
         // each key/value
         // TODO: This should probably be fixed in the Url crate
-        self.url
-            .borrow()
-            .query_pairs()
-            .fold(String::new(), |mut acc, (key, value)| {
+        let url = self.url.borrow();
+        url.query_pairs().fold(
+            String::with_capacity(url.query().map_or(0, |q| q.len())),
+            |mut acc, (key, value)| {
                 if !acc.is_empty() {
                     acc.push('&');
                 }
@@ -247,7 +247,8 @@ impl<'js> URLSearchParams {
                 url::form_urlencoded::byte_serialize(value.as_bytes())
                     .for_each(|b| acc.push_str(b));
                 acc
-            })
+            },
+        )
     }
 
     pub fn values(&mut self) -> Vec<String> {
