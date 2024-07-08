@@ -100,9 +100,10 @@ const SDK_DATA = {
 
 const ADDITIONAL_PACKAGES = [
   "@aws-sdk/core",
-  "@aws-sdk/util-dynamodb",
   "@aws-sdk/credential-providers",
+  "@aws-sdk/s3-presigned-post",
   "@aws-sdk/s3-request-presigner",
+  "@aws-sdk/util-dynamodb",
   "@aws-sdk/util-user-agent-browser",
   "@smithy/config-resolver",
   "@smithy/core",
