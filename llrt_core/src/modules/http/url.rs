@@ -337,22 +337,26 @@ pub fn file_url_to_path<'js>(ctx: Ctx<'js>, url: Value<'js>) -> Result<String> {
 }
 
 pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> Result<String> {
+    let url = url.borrow();
+    let mut string = url.protocol();
+    string.push_str("//");
+
     let mut include_fragment = true;
     let mut unicode_encode = false;
     let mut include_auth = true;
     let mut include_search = true;
 
     // Parse options if provided
-    if let Some(options) = options.0 {
+    if let Some(options) = options.into_inner() {
         if let Some(options) = options.as_object() {
-            if let Ok(value) = options.get("fragment") {
-                include_fragment = value;
-            }
             if let Ok(value) = options.get("unicode") {
                 unicode_encode = value;
             }
             if let Ok(value) = options.get("auth") {
                 include_auth = value;
+            }
+            if let Ok(value) = options.get("fragment") {
+                include_fragment = value;
             }
             if let Ok(value) = options.get("search") {
                 include_search = value
@@ -360,47 +364,34 @@ pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> R
         }
     }
 
-    let url = url.borrow();
-    let search = if include_search {
-        url.search()
-    } else {
-        String::from("")
-    };
-
-    let hash = if include_fragment {
-        url.hash()
-    } else {
-        String::from("")
-    };
-
-    let mut user_info = String::new();
     if include_auth {
         let username = url.username();
         let password = url.password();
         if !username.is_empty() {
-            user_info.push_str(&username);
+            string.push_str(&username);
             if !password.is_empty() {
-                user_info.push(':');
-                user_info.push_str(&password)
+                string.push(':');
+                string.push_str(&password);
             }
-            user_info.push('@')
+            string.push('@');
         }
     }
 
-    let host = if unicode_encode {
-        domain_to_unicode(&url.host())
+    if unicode_encode {
+        string.push_str(&domain_to_unicode(&url.host()));
     } else {
-        url.host()
-    };
+        string.push_str(&url.host());
+    }
 
-    Ok([
-        url.protocol(),
-        "//".to_string(),
-        user_info,
-        host,
-        url.pathname(),
-        search,
-        hash,
-    ]
-    .join(""))
+    string.push_str(&url.pathname());
+
+    if include_search {
+        string.push_str(&url.search());
+    }
+
+    if include_fragment {
+        string.push_str(&url.hash());
+    }
+
+    Ok(string)
 }
