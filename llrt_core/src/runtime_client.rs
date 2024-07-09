@@ -140,9 +140,10 @@ impl RuntimeConfig {
             runtime_api: env::var(AWS_LAMBDA_RUNTIME_API).map_err(|_| {
                 Exception::throw_message(
                     ctx,
-                    &format!(
-                        "Environment variable {} is not defined.",
-                        AWS_LAMBDA_RUNTIME_API
+                    concat!(
+                        "Environment variable ",
+                        stringify!(AWS_LAMBDA_RUNTIME_API),
+                        " is not defined.",
                     ),
                 )
             })?,
@@ -151,9 +152,12 @@ impl RuntimeConfig {
                 .map_err(|_| {
                     Exception::throw_message(
                         ctx,
-                        &format!(
-                            "Environment {} or {} is not defined.",
-                            ENV_UNDERSCORE_HANDLER, ENV_LAMBDA_HANDLER
+                        concat!(
+                            "Environment variable ",
+                            stringify!(ENV_LAMBDA_HANDLER),
+                            " or ",
+                            stringify!(ENV_UNDERSCORE_HANDLER),
+                            " is not defined.",
                         ),
                     )
                 })?,
@@ -175,8 +179,8 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
 
     //allows CJS handlers
     let require_function: Function = ctx.globals().get("require")?;
-    let js_handler_module: Object =
-        require_function.call((format!("{}/{}", task_root, module_name),))?;
+    let require_specifier: String = [task_root.as_str(), module_name].join("/");
+    let js_handler_module: Object = require_function.call((require_specifier,))?;
     let js_init = js_handler_module.get::<_, Value>("init")?;
     let js_bootstrap: Object = ctx.globals().get("__bootstrap")?;
     let js_init_tasks: Array = js_bootstrap.get("initTasks")?;
@@ -200,21 +204,25 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         () = init_promise.into_future().await?;
     }
 
-    let handler: Value = js_handler_module.get(handler_name.as_str())?;
+    let handler: Value = js_handler_module.get(handler_name)?;
 
     if !handler.is_function() {
         return Err(Exception::throw_message(
             ctx,
-            &format!(
-                "\"{}\" is not a function in \"{}\"",
-                handler_name, module_name
-            ),
+            &[
+                "\"",
+                handler_name,
+                "\" is not a function in \"",
+                module_name,
+                "\"",
+            ]
+            .concat(),
         ));
     }
 
     let client = (*HTTP_CLIENT).clone();
 
-    let base_url = format!("http://{}/{}", config.runtime_api, ENV_RUNTIME_PATH);
+    let base_url = ["http://", &config.runtime_api, "/", ENV_RUNTIME_PATH].concat();
     let handler = handler.as_function().unwrap();
     if let Err(err) = start_process_events(ctx, &client, handler, base_url.as_str(), &config)
         .await
@@ -228,7 +236,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
 
 async fn next_invocation<'js, 'a>(
     ctx: &Ctx<'js>,
-    client: &HyperClient,
+    client: &'a HyperClient,
     uri: &str,
     lambda_environment: &'a LambdaEnvironment,
 ) -> Result<NextInvocationResponse<'js, 'a>> {
@@ -246,18 +254,18 @@ async fn next_invocation<'js, 'a>(
         let res_str = String::from_utf8_lossy(res_bytes.as_slice());
         return Err(Exception::throw_message(
             ctx,
-            &format!("Unexpected /invocation/next response: {:?}", res_str),
+            &["Unexpected /invocation/next response: ", &res_str].concat(),
         ));
     }
 
-    if let Some(trace_id_value) = res.headers().get(&HEADER_TRACE_ID) {
+    let headers = res.headers();
+
+    if let Some(trace_id_value) = headers.get(&HEADER_TRACE_ID) {
         let trace_id_value = String::from_utf8_lossy(trace_id_value.as_bytes());
         env::set_var(ENV_X_AMZN_TRACE_ID, trace_id_value.as_ref());
     } else {
         env::remove_var(ENV_X_AMZN_TRACE_ID);
     };
-
-    let headers = res.headers();
 
     let deadline_ms = get_header_value(headers, &HEADER_DEADLINE_MS)
         .unwrap_or("0".into())
@@ -309,7 +317,7 @@ async fn invoke_response<'js>(
     let result_json = stringify::json_stringify(ctx, result)?;
     let req = Request::builder()
         .method("POST")
-        .uri(format!("{}/invocation/{}/response", base_url, request_id))
+        .uri([base_url, "/invocation/", request_id, "/response"].concat())
         .header(CONTENT_TYPE, "application/json")
         .body(Full::from(bytes::Bytes::from(
             result_json.unwrap_or_default(),
@@ -324,7 +332,7 @@ async fn invoke_response<'js>(
             let res_str = String::from_utf8_lossy(res_bytes.as_slice());
             Err(Exception::throw_message(
                 ctx,
-                &format!("Unexpected /invocation/response response: {}", res_str),
+                &["Unexpected /invocation/response response: ", &res_str].concat(),
             ))
         },
     }
@@ -339,7 +347,7 @@ async fn start_process_events<'js>(
     config: &RuntimeConfig,
 ) -> rquickjs::Result<()> {
     let mut iterations = 0;
-    let next_invocation_url = format!("{base_url}/invocation/next");
+    let next_invocation_url = [base_url, "/invocation/next"].concat();
 
     let mut request_id = String::with_capacity(36); //length of uuid
 
@@ -367,7 +375,7 @@ async fn start_process_events<'js>(
                 Vm::print_error_and_exit(ctx, err);
             }
 
-            let error_path = format!("/invocation/{}/error", request_id);
+            let error_path = ["/invocation/", &request_id, "/error"].concat();
             if let Err(err) =
                 post_error(ctx, client, base_url, &error_path, &err, Some(&request_id))
                     .await
@@ -401,11 +409,12 @@ async fn process_event<'js>(
 ) -> Result<()> {
     let NextInvocationResponse { event, context } =
         next_invocation(ctx, client, next_invocation_url, lambda_environment).await?;
-    request_id.clone_from(&context.aws_request_id);
+    request_id.clear();
+    request_id.push_str(&context.aws_request_id);
     LAMBDA_REQUEST_ID
         .write()
         .unwrap()
-        .replace(context.aws_request_id.clone());
+        .replace(context.aws_request_id.to_owned());
 
     let js_context = context.into_js(ctx)?;
     let handler_result =
@@ -457,7 +466,7 @@ async fn post_error<'js>(
         CaughtError::Value(value) => {
             let log_msg = console::format_values(ctx, Rest(vec![value.clone()]), false)
                 .unwrap_or(String::from("{unknown value}"));
-            format!("Error: {}", &log_msg)
+            ["Error: ", &log_msg].concat()
         },
     };
 
@@ -479,7 +488,7 @@ async fn post_error<'js>(
 
     let error_body = json_stringify(ctx, error_object)?.unwrap_or_default();
 
-    let url = format!("{base_url}{path}");
+    let url = [base_url, path].concat();
 
     let req = Request::builder()
         .method("POST")
@@ -494,26 +503,35 @@ async fn post_error<'js>(
         let res_str = String::from_utf8_lossy(res_bytes.as_slice());
         return Err(Exception::throw_message(
             ctx,
-            &format!("Unexpected {} response: {}", path, res_str),
+            &["Unexpected ", path, " response: ", &res_str].concat(),
         ));
     }
     Ok(())
 }
 
-fn get_module_and_handler_name(ctx: &Ctx, handler: &str) -> Result<(String, String)> {
-    handler.rfind('.')
+fn get_module_and_handler_name<'a>(ctx: &Ctx, handler: &'a str) -> Result<(&'a str, &'a str)> {
+    handler
+        .rfind('.')
         .and_then(|pos| {
             let (module_name, handler_name) = handler.split_at(pos);
-            if !module_name.is_empty() && handler_name.len() > 1 { //removes the dot and make sure the length is greater than 0
-                Some((module_name.to_string(), handler_name[1..].to_string()))
+            if !module_name.is_empty() && handler_name.len() > 1 {
+                //removes the dot and make sure the length is greater than 0
+                Some((module_name, &handler_name[1..]))
             } else {
                 None
             }
         })
-        .ok_or_else(|| Exception::throw_message(ctx, &format!(
-            "Invalid handler name or LAMBDA_HANDLER env value: \"{}\": Should be in format {{filepath}}.{{method_name}}", 
-            handler
-        )))
+        .ok_or_else(|| {
+            Exception::throw_message(
+                ctx,
+                &[
+                    "Invalid handler name or LAMBDA_HANDLER env value: \"",
+                    handler,
+                    "\": Should be in format {{filepath}}.{{method_name}}",
+                ]
+                .concat(),
+            )
+        })
 }
 
 fn get_task_root() -> String {
@@ -529,7 +547,7 @@ fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<Strin
     headers
         .get(header)
         .map(|h| String::from_utf8_lossy(h.as_bytes()).to_string())
-        .ok_or_else(|| format!("Missing header: {}", header))
+        .ok_or_else(|| ["Missing or invalid header: ", header.as_str()].concat())
 }
 
 #[cfg(test)]

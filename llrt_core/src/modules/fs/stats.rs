@@ -187,7 +187,7 @@ impl Stat {
 pub async fn stat_fn(ctx: Ctx<'_>, path: String) -> Result<Stat> {
     let metadata = fs::metadata(&path)
         .await
-        .or_throw_msg(&ctx, &format!("Can't stat \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't stat \"", &path, "\""].concat())?;
 
     let stats = Stat::new(metadata);
 
@@ -196,7 +196,7 @@ pub async fn stat_fn(ctx: Ctx<'_>, path: String) -> Result<Stat> {
 
 pub fn stat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stat> {
     let metadata =
-        std::fs::metadata(&path).or_throw_msg(&ctx, &format!("Can't stat \"{}\"", &path))?;
+        std::fs::metadata(&path).or_throw_msg(&ctx, &["Can't stat \"", &path, "\""].concat())?;
 
     let stats = Stat::new(metadata);
 

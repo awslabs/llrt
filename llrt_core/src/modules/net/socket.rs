@@ -342,7 +342,7 @@ impl<'js> Socket<'js> {
             ensure_net_access(&ctx, &path)?;
         }
         if let Some(port) = port {
-            let hostname = format!("{}:{}", host, port);
+            let hostname = get_hostname(&host, port);
             ensure_net_access(&ctx, &hostname)?;
             addr = Some(hostname);
         }
@@ -393,6 +393,10 @@ impl<'js> Socket<'js> {
 
         Ok(this)
     }
+}
+
+fn get_hostname(host: &str, port: u16) -> String {
+    [host, itoa::Buffer::new().format(port)].join(":")
 }
 
 impl<'js> Socket<'js> {
@@ -573,6 +577,12 @@ impl<'js> Server<'js> {
                 callback = Some(callback_arg.clone());
             } else {
                 if let Some(port_arg) = first.as_int() {
+                    if port_arg > 0xFFFF {
+                        return Err(Exception::throw_range(
+                            &ctx,
+                            "port should be between 0 and 65535",
+                        ));
+                    }
                     port = Some(port_arg);
                 }
                 if let Some(path_arg) = first.as_string() {
@@ -636,10 +646,9 @@ impl<'js> Server<'js> {
 
         ctx.spawn_exit(async move {
             let listener = if let Some(port) = port {
-                let listener = TcpListener::bind(format!(
-                    "{}:{}",
-                    host.unwrap_or_else(|| String::from("0.0.0.0")),
-                    port
+                let listener = TcpListener::bind(get_hostname(
+                    &host.unwrap_or_else(|| String::from("0.0.0.0")),
+                    port as u16,
                 ))
                 .await
                 .or_throw(&ctx2)?;

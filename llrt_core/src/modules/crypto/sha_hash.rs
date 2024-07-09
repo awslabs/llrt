@@ -31,7 +31,7 @@ impl Hmac {
             _ => {
                 return Err(Exception::throw_message(
                     &ctx,
-                    &format!("Algorithm \"{}\" not supported", &algorithm),
+                    &["Algorithm \"", &algorithm, "\" not supported"].concat(),
                 ))
             },
         };
@@ -89,7 +89,7 @@ impl Hash {
             _ => {
                 return Err(Exception::throw_message(
                     &ctx,
-                    &format!("Algorithm \"{}\" not supported", &algorithm),
+                    &["Algorithm \"", &algorithm, "\" not supported"].concat(),
                 ))
             },
         };

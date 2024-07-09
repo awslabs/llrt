@@ -15,7 +15,7 @@ pub async fn read_file<'js>(
 ) -> Result<Value<'js>> {
     let bytes = fs::read(&path)
         .await
-        .or_throw_msg(&ctx, &format!("Can't read \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't read \"", &path, "\""].concat())?;
 
     handle_read_file_bytes(&ctx, options, bytes)
 }
@@ -25,7 +25,8 @@ pub fn read_file_sync<'js>(
     path: String,
     options: Opt<Value<'js>>,
 ) -> Result<Value<'js>> {
-    let bytes = std::fs::read(&path).or_throw_msg(&ctx, &format!("Can't read \"{}\"", &path))?;
+    let bytes =
+        std::fs::read(&path).or_throw_msg(&ctx, &["Can't read \"", &path, "\""].concat())?;
 
     handle_read_file_bytes(&ctx, options, bytes)
 }

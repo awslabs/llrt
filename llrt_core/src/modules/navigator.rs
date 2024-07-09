@@ -5,7 +5,7 @@ use rquickjs::{Ctx, Object, Result};
 use crate::VERSION;
 
 fn get_user_agent() -> String {
-    format!("llrt {}", VERSION)
+    ["llrt ", VERSION].concat()
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {

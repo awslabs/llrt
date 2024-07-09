@@ -34,7 +34,7 @@ macro_rules! encoder_enum {
                     $(
                         stringify!($variant) => Ok(Self::$variant),
                     )*
-                    _ => Err(format!("Unsupported encoding: {}", encoding)),
+                    _ => Err(["Unsupported encoding: ", &encoding].concat()),
                 }
             }
         }

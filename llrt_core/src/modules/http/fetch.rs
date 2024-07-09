@@ -29,25 +29,25 @@ use super::response::Response;
 const MAX_REDIRECT_COUNT: u32 = 20;
 
 pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
-    if let Some(Err(err)) = &*HTTP_ALLOW_LIST {
+    if let Some(Err(_)) = &*HTTP_ALLOW_LIST {
         return Err(Exception::throw_reference(
             ctx,
-            &format!(
-                r#""{}" env contains an invalid URI: {}"#,
+            &[
                 environment::ENV_LLRT_NET_ALLOW,
-                &err.to_string()
-            ),
+                " env contains an invalid URI",
+            ]
+            .concat(),
         ));
     }
 
-    if let Some(Err(err)) = &*HTTP_DENY_LIST {
+    if let Some(Err(_)) = &*HTTP_DENY_LIST {
         return Err(Exception::throw_reference(
             ctx,
-            &format!(
-                r#""{}" env contains an invalid URI: {}"#,
-                environment::ENV_LLRT_NET_ALLOW,
-                &err.to_string()
-            ),
+            &[
+                environment::ENV_LLRT_NET_DENY,
+                " env contains an invalid URI",
+            ]
+            .concat(),
         ));
     }
 
@@ -169,7 +169,7 @@ fn build_request(
     }
 
     if !detected_headers.contains("user-agent") {
-        req = req.header("user-agent", format!("llrt {}", VERSION));
+        req = req.header("user-agent", ["llrt ", VERSION].concat());
     }
     if !detected_headers.contains("accept-encoding") {
         req = req.header("accept-encoding", "zstd, br, gzip, deflate");
@@ -276,7 +276,7 @@ fn get_fetch_options<'js>(
                 "DELETE" => Ok(hyper::Method::DELETE),
                 _ => Err(Exception::throw_type(
                     ctx,
-                    &format!("Invalid HTTP method: {}", method_opt),
+                    &["Invalid HTTP method: ", &method_opt].concat(),
                 )),
             }?);
         }
@@ -313,7 +313,7 @@ fn get_fetch_options<'js>(
             if !matches!(redirect_str, "follow" | "manual" | "error") {
                 return Err(Exception::throw_type(
                     ctx,
-                    &format!("Invalid redirect option: {}", redirect_opt),
+                    &["Invalid redirect option: ", redirect_str].concat(),
                 ));
             }
             redirect.push_str(redirect_str);

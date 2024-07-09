@@ -68,7 +68,7 @@ fn basename(path: String, suffix: Opt<String>) -> String {
         return String::from(".");
     }
     let (base, ext) = name_extname(&path);
-    let name = format!("{}{}", base, ext);
+    let name = [base, ext].concat();
     if let Some(suffix) = suffix.0 {
         name.strip_suffix(&suffix).unwrap_or(&name)
     } else {
@@ -141,7 +141,7 @@ fn parse(ctx: Ctx, path_str: String) -> Result<Object> {
 
     obj.set("root", root)?;
     obj.set("dir", parent)?;
-    obj.set("base", format!("{}{}", name, extension))?;
+    obj.set("base", [name, extension].concat())?;
     obj.set("ext", extension)?;
     obj.set("name", name)?;
 

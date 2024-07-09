@@ -27,8 +27,8 @@ fn build_http_access_list(list: Option<Vec<String>>) -> Option<StdResult<Vec<Uri
     list.map(|list| {
         list.iter()
             .flat_map(|entry| {
-                let with_http = format!("http://{}", entry);
-                let with_https = format!("https://{}", entry);
+                let with_http = ["http://", entry].concat();
+                let with_https = ["https://", entry].concat();
                 vec![with_http, with_https]
             })
             .map(|url| url.parse())
@@ -57,7 +57,7 @@ pub fn ensure_net_access(ctx: &Ctx<'_>, resource: &String) -> Result<()> {
         if !allow_list.contains(resource) {
             return Err(Exception::throw_message(
                 ctx,
-                &format!("Network address not allowed: {}", resource),
+                &["Network address not allowed: ", resource].concat(),
             ));
         }
     }
@@ -66,7 +66,7 @@ pub fn ensure_net_access(ctx: &Ctx<'_>, resource: &String) -> Result<()> {
         if deny_list.contains(resource) {
             return Err(Exception::throw_message(
                 ctx,
-                &format!("Network address denied: {}", resource),
+                &["Network address denied: ", resource].concat(),
             ));
         }
     }
@@ -93,11 +93,16 @@ pub fn ensure_url_access(ctx: &Ctx<'_>, uri: &Uri) -> Result<()> {
 
 fn url_restricted_error(ctx: &Ctx<'_>, message: &str, uri: &Uri) -> Error {
     let uri_host = uri.host().unwrap_or_default();
-    let uri_port = uri
-        .port_u16()
-        .map(|p| format!(":{}", p))
-        .unwrap_or_default();
-    Exception::throw_message(ctx, &format!("{}: {}{}", message, uri_host, uri_port))
+    let mut message_string = String::with_capacity(message.len() + 100);
+    message_string.push_str(message);
+    message_string.push_str(": ");
+    message_string.push_str(uri_host);
+    if let Some(port) = uri.port_u16() {
+        message_string.push(':');
+        message_string.push_str(itoa::Buffer::new().format(port))
+    }
+
+    Exception::throw_message(ctx, &message_string)
 }
 
 fn url_match(list: &[Uri], uri: &Uri) -> bool {

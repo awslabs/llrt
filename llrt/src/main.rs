@@ -204,7 +204,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
         if arg == "-d" {
             if let Some(dir) = args.get(i + 1) {
                 if !Path::new(dir).exists() {
-                    return Err(format!("\"{}\" does not exist", dir.as_str()));
+                    return Err(["\"", dir.as_str(), "\" does not exist"].concat());
                 }
                 root = dir;
                 skip_next = true;
@@ -232,7 +232,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
 
     let test_js_extensions: Vec<String> = JS_EXTENSIONS
         .iter()
-        .map(|ext| [".test", ext].join(""))
+        .map(|ext| [".test", ext].concat())
         .collect();
 
     while let Some((entry, _)) = directory_walker.walk().await.map_err(|e| e.to_string())? {

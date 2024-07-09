@@ -8,7 +8,7 @@ use std::{
 
 use tokio::fs::{self};
 
-pub fn get_basename_ext_name<'a>(path: &'a str) -> (&'a str, &'a str) {
+pub fn get_basename_ext_name(path: &str) -> (&str, &str) {
     let path = path.strip_prefix("./").unwrap_or(path);
     let (basename, ext) = path.split_at(path.rfind('.').unwrap_or(path.len()));
     (basename, ext)
@@ -29,7 +29,7 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
 
     fn check_extensions(basename: &str) -> Option<PathBuf> {
         for ext in JS_EXTENSIONS {
-            let path: &str = &[basename, ext].join("");
+            let path: &str = &[basename, ext].concat();
             let path = Path::new(path);
             if path.exists() {
                 return Some(path.to_owned());
@@ -39,7 +39,7 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
     }
 
     if filepath.is_dir() && exists {
-        let basename: &str = &([basename, "/index"].join(""));
+        let basename: &str = &([basename, "/index"].concat());
         return check_extensions(basename);
     }
     check_extensions(basename)

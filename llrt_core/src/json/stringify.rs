@@ -315,34 +315,31 @@ fn detect_circular_reference(
 
         let first = &iter.next().unwrap().1;
 
-        let mut path = iter
-            .rev()
-            .take(4)
-            .rev()
-            .fold(String::new(), |mut acc, (_, key)| {
+        let mut message = iter.rev().take(4).rev().fold(
+            String::from("Circular reference detected at: \".."),
+            |mut acc, (_, key)| {
                 if !key.starts_with('[') {
                     acc.push('.');
                 }
                 acc.push_str(key);
                 acc
-            });
+            },
+        );
 
         if !first.starts_with('[') {
-            path.push('.');
+            message.push('.');
         }
 
-        path.push_str(first);
+        message.push_str(first);
+        message.push('"');
 
-        return Err(Exception::throw_type(
-            ctx,
-            &format!("Circular reference detected at: \"..{}\"", path),
-        ));
+        return Err(Exception::throw_type(ctx, &message));
     }
     ancestors.push((
         current_ptr,
         key.map(|k| k.into()).unwrap_or_else(|| {
             ["[", itoa_buffer.format(index.unwrap_or_default()), "]"]
-                .join("")
+                .concat()
                 .into()
         }),
     ));

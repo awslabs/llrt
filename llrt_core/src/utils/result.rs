@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::result::Result as StdResult;
+use std::{fmt::Write, result::Result as StdResult};
 
 use rquickjs::{Ctx, Exception, Result};
 
@@ -17,7 +17,13 @@ pub trait OptionExt<T> {
 
 impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
     fn or_throw_msg(self, ctx: &Ctx, msg: &str) -> Result<T> {
-        self.map_err(|e| Exception::throw_message(ctx, &format!("{}. {}", msg, &e.to_string())))
+        self.map_err(|e| {
+            let mut message = String::with_capacity(100);
+            message.push_str(msg);
+            message.push_str(". ");
+            write!(message, "{}", e).unwrap();
+            Exception::throw_message(ctx, &message)
+        })
     }
 
     fn or_throw(self, ctx: &Ctx) -> Result<T> {

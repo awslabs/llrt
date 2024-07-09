@@ -16,11 +16,11 @@ pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
     } else {
         fs::create_dir(&path).await
     }
-    .or_throw_msg(&ctx, &format!("Can't create dir \"{}\"", &path))?;
+    .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
 
     fs::set_permissions(&path, PermissionsExt::from_mode(mode))
         .await
-        .or_throw_msg(&ctx, &format!("Can't set permissions of \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't set permissions of \"", &path, "\""].concat())?;
 
     Ok(path)
 }
@@ -33,10 +33,10 @@ pub fn mkdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -
     } else {
         std::fs::create_dir(&path)
     }
-    .or_throw_msg(&ctx, &format!("Can't create dir \"{}\"", &path))?;
+    .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
 
     std::fs::set_permissions(&path, PermissionsExt::from_mode(mode))
-        .or_throw_msg(&ctx, &format!("Can't set permissions of \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't set permissions of \"", &path, "\""].concat())?;
 
     Ok(path)
 }
@@ -69,16 +69,16 @@ fn random_chars(len: usize) -> String {
 }
 
 pub async fn mkdtemp(ctx: Ctx<'_>, prefix: String) -> Result<String> {
-    let path = format!("{},{}", &prefix, &random_chars(6));
+    let path = [prefix.as_str(), random_chars(6).as_str()].join(",");
     fs::create_dir_all(&path)
         .await
-        .or_throw_msg(&ctx, &format!("Can't create dir \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
     Ok(path)
 }
 
 pub fn mkdtemp_sync(ctx: Ctx<'_>, prefix: String) -> Result<String> {
-    let path = format!("{},{}", &prefix, &random_chars(6));
+    let path = [prefix.as_str(), random_chars(6).as_str()].join(",");
     std::fs::create_dir_all(&path)
-        .or_throw_msg(&ctx, &format!("Can't create dir \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
     Ok(path)
 }
