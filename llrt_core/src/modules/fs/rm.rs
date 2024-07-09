@@ -14,7 +14,7 @@ pub async fn rmdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
     } else {
         fs::remove_dir(&path).await
     }
-    .or_throw_msg(&ctx, &format!("Can't remove dir \"{}\"", &path))?;
+    .or_throw_msg(&ctx, &["Can't remove dir \"", &path, "\""].concat())?;
 
     Ok(())
 }
@@ -28,7 +28,7 @@ pub fn rmdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -
     } else {
         std::fs::remove_dir(&path)
     }
-    .or_throw_msg(&ctx, &format!("Can't remove dir \"{}\"", &path))?;
+    .or_throw_msg(&ctx, &["Can't remove dir \"", &path, "\""].concat())?;
 
     Ok(())
 }
@@ -49,7 +49,7 @@ pub async fn rmfile<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>)
         } else {
             fs::remove_file(&path).await
         })
-        .or_throw_msg(&ctx, &format!("Can't remove file \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't remove file \"", &path, "\""].concat())?;
 
         Ok(())
     }

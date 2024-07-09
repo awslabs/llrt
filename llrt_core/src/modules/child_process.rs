@@ -46,7 +46,7 @@ use crate::{
 macro_rules! generate_signal_from_str_fn {
     ($($signal:path),*) => {
         fn process_signal_from_str(signal: &str) -> Option<i32> {
-            let signal = format!("libc::{}", signal);
+            let signal = ["libc::", signal].concat();
             match signal.as_str() {
                 $(stringify!($signal) => Some($signal),)*
                 _ => None,
@@ -310,7 +310,7 @@ async fn wait_for_process<'js>(
                             if unsafe { libc::killpg(pid as i32, signal) } == 0 {
                                 continue;
                             } else {
-                               return Err(Exception::throw_message(ctx, &format!("Failed to send signal {} to process {}", signal, pid)));
+                               return Err(Exception::throw_message(ctx, &["Failed to send signal ",itoa::Buffer::new().format(signal)," to process ", itoa::Buffer::new().format(pid)].concat()));
                             }
                         }
                     }else{

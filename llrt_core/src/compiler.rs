@@ -41,7 +41,7 @@ pub async fn compile_file(
         (|| {
             let source = fs::read_to_string(input_filename).or_throw_msg(
                 &ctx,
-                &format!("Unable to load: {}", input_filename.to_string_lossy()),
+                &["Unable to load: ", &input_filename.to_string_lossy()].concat(),
             )?;
             js_bytes = source.len();
 

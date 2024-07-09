@@ -118,7 +118,7 @@ where
 
     fn add_writable_stream_prototype(ctx: &Ctx<'js>) -> Result<()> {
         let proto = Class::<Self>::prototype(ctx.clone())
-            .or_throw_msg(ctx, &format!("Prototype for {} not found", Self::NAME))?;
+            .or_throw_msg(ctx, &["Prototype for ", Self::NAME, " not found"].concat())?;
 
         proto.set("write", Func::from(Self::write))?;
 

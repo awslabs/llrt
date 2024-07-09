@@ -257,9 +257,11 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
 }
 
 pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
-    let buffer = ctx.eval::<Object<'js>, &str>(&format!(
-        "class {0} extends Uint8Array {{}}\n{0}",
-        stringify!(Buffer)
+    let buffer = ctx.eval::<Object<'js>, &str>(concat!(
+        "class ",
+        stringify!(Buffer),
+        " extends Uint8Array {}\n",
+        stringify!(Buffer),
     ))?;
     set_prototype(ctx, buffer)
 }

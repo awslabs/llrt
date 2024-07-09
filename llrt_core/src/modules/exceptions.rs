@@ -52,7 +52,7 @@ impl DOMException {
             return self.name.clone();
         }
 
-        format!("{}: {}", &self.name, &self.message)
+        [self.name.as_str(), self.message.as_str()].join(": ")
     }
 }
 

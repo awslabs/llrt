@@ -28,6 +28,7 @@ impl rquickjs::loader::Resolver for DummyResolver {
 }
 
 pub fn human_file_size(size: usize) -> String {
+    const UNITS: [&str; 6] = ["B", "kB", "MB", "GB", "TB", "PB"];
     let fsize = size as f64;
     let i = if size == 0 {
         0
@@ -35,6 +36,45 @@ pub fn human_file_size(size: usize) -> String {
         (fsize.log2() / 1024f64.log2()).floor() as i32
     };
     let size = fsize / 1024f64.powi(i);
-    let units = ["B", "kB", "MB", "GB", "TB", "PB"];
-    format!("{:.3} {}", size, units[i as usize])
+
+    let mut result = String::with_capacity(16);
+
+    // Convert float to integer with 3 decimal places
+    let scaled = (size * 1000.0).round() as i64;
+    let integral = scaled / 1000;
+    let fractional = scaled % 1000;
+
+    // Custom integer to string conversion
+    fn int_to_string(mut n: i64, buf: &mut String) {
+        if n == 0 {
+            buf.push('0');
+            return;
+        }
+        let mut digits = [0u8; 20];
+        let mut i = 0;
+        while n > 0 {
+            digits[i] = (n % 10) as u8;
+            n /= 10;
+            i += 1;
+        }
+        for &digit in digits[..i].iter().rev() {
+            buf.push((digit + b'0') as char);
+        }
+    }
+
+    // Convert integral part
+    int_to_string(integral, &mut result);
+    result.push('.');
+
+    let len_before = result.len();
+
+    // Convert fractional part with zero-padding
+    int_to_string(fractional, &mut result);
+    for _ in (result.len() - len_before)..3 {
+        result.push('0');
+    }
+
+    result.push(' ');
+    result.push_str(UNITS[i as usize]);
+    result
 }

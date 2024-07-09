@@ -29,25 +29,25 @@ use super::response::Response;
 const MAX_REDIRECT_COUNT: u32 = 20;
 
 pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
-    if let Some(Err(err)) = &*HTTP_ALLOW_LIST {
+    if let Some(Err(_)) = &*HTTP_ALLOW_LIST {
         return Err(Exception::throw_reference(
             ctx,
-            &format!(
-                r#""{}" env contains an invalid URI: {}"#,
+            &[
                 environment::ENV_LLRT_NET_ALLOW,
-                &err.to_string()
-            ),
+                " env contains an invalid URI",
+            ]
+            .concat(),
         ));
     }
 
-    if let Some(Err(err)) = &*HTTP_DENY_LIST {
+    if let Some(Err(_)) = &*HTTP_DENY_LIST {
         return Err(Exception::throw_reference(
             ctx,
-            &format!(
-                r#""{}" env contains an invalid URI: {}"#,
-                environment::ENV_LLRT_NET_ALLOW,
-                &err.to_string()
-            ),
+            &[
+                environment::ENV_LLRT_NET_DENY,
+                " env contains an invalid URI",
+            ]
+            .concat(),
         ));
     }
 
@@ -78,7 +78,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                         &ctx,
                         &method,
                         &uri,
-                        &options.headers,
+                        options.headers.as_ref(),
                         &options.body,
                         &response_status,
                         &initial_uri,
@@ -136,7 +136,7 @@ fn build_request(
     ctx: &Ctx<'_>,
     method: &hyper::Method,
     uri: &Uri,
-    headers: &Option<Headers>,
+    headers: Option<&Headers>,
     body: &Full<Bytes>,
     prev_status: &u16,
     initial_uri: &Uri,
@@ -156,8 +156,7 @@ fn build_request(
     let mut detected_headers = HashSet::new();
 
     if let Some(headers) = headers {
-        for (key, value) in headers.iter() {
-            let header_name = key.as_str();
+        for (header_name, value) in headers.iter() {
             detected_headers.insert(header_name);
             if change_method && is_request_body_header_name(header_name) {
                 continue;
@@ -165,12 +164,12 @@ fn build_request(
             if !same_origin && is_cors_non_wildcard_request_header_name(header_name) {
                 continue;
             }
-            req = req.header(key, value)
+            req = req.header(header_name, value)
         }
     }
 
     if !detected_headers.contains("user-agent") {
-        req = req.header("user-agent", format!("llrt {}", VERSION));
+        req = req.header("user-agent", ["llrt ", VERSION].concat());
     }
     if !detected_headers.contains("accept-encoding") {
         req = req.header("accept-encoding", "zstd, br, gzip, deflate");
@@ -264,7 +263,9 @@ fn get_fetch_options<'js>(
     }
 
     if resource_opts.is_some() || arg_opts.is_some() {
-        if let Some(method_opt) = get_option::<String>("method", &arg_opts, &resource_opts)? {
+        if let Some(method_opt) =
+            get_option::<String>("method", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             method = Some(match method_opt.as_str() {
                 "GET" => Ok(hyper::Method::GET),
                 "POST" => Ok(hyper::Method::POST),
@@ -275,35 +276,44 @@ fn get_fetch_options<'js>(
                 "DELETE" => Ok(hyper::Method::DELETE),
                 _ => Err(Exception::throw_type(
                     ctx,
-                    &format!("Invalid HTTP method: {}", method_opt),
+                    &["Invalid HTTP method: ", &method_opt].concat(),
                 )),
             }?);
         }
 
-        if let Some(body_opt) = get_option::<Value>("body", &arg_opts, &resource_opts)? {
+        if let Some(body_opt) =
+            get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             let bytes = get_bytes(ctx, body_opt)?;
             body = Some(Full::from(bytes));
         }
 
-        if let Some(url_opt) = get_option::<String>("url", &arg_opts, &resource_opts)? {
+        if let Some(url_opt) =
+            get_option::<String>("url", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             url = Some(url_opt);
         }
 
-        if let Some(headers_op) = get_option::<Value>("headers", &arg_opts, &resource_opts)? {
+        if let Some(headers_op) =
+            get_option::<Value>("headers", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             headers = Some(Headers::from_value(ctx, headers_op)?);
         }
 
-        if let Some(signal) = get_option::<Class<AbortSignal>>("signal", &arg_opts, &resource_opts)?
+        if let Some(signal) =
+            get_option::<Class<AbortSignal>>("signal", arg_opts.as_ref(), resource_opts.as_ref())?
         {
             abort_receiver = Some(signal.borrow().sender.subscribe());
         }
 
-        if let Some(redirect_opt) = get_option::<String>("redirect", &arg_opts, &resource_opts)? {
+        if let Some(redirect_opt) =
+            get_option::<String>("redirect", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
             let redirect_str = redirect_opt.as_str();
             if !matches!(redirect_str, "follow" | "manual" | "error") {
                 return Err(Exception::throw_type(
                     ctx,
-                    &format!("Invalid redirect option: {}", redirect_opt),
+                    &["Invalid redirect option: ", redirect_str].concat(),
                 ));
             }
             redirect.push_str(redirect_str);
@@ -327,8 +337,8 @@ fn get_fetch_options<'js>(
 
 fn get_option<'js, V: FromJs<'js> + Sized>(
     arg: &str,
-    a: &Option<Object<'js>>,
-    b: &Option<Object<'js>>,
+    a: Option<&Object<'js>>,
+    b: Option<&Object<'js>>,
 ) -> Result<Option<V>> {
     if let Some(opt) = a {
         if let Some(value) = opt.get::<_, Option<V>>(arg)? {

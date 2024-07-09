@@ -11,16 +11,19 @@ use crate::utils::result::ResultExt;
 use super::{CONSTANT_F_OK, CONSTANT_R_OK, CONSTANT_W_OK, CONSTANT_X_OK};
 
 pub async fn access(ctx: Ctx<'_>, path: String, mode: Opt<u32>) -> Result<()> {
-    let metadata = fs::metadata(&path)
-        .await
-        .or_throw_msg(&ctx, &format!("No such file or directory \"{}\"", &path))?;
+    let metadata = fs::metadata(&path).await.or_throw_msg(
+        &ctx,
+        &["No such file or directory \"", &path, "\""].concat(),
+    )?;
 
     verify_metadata(&ctx, mode, metadata)
 }
 
 pub fn access_sync(ctx: Ctx<'_>, path: String, mode: Opt<u32>) -> Result<()> {
-    let metadata = std::fs::metadata(path.clone())
-        .or_throw_msg(&ctx, &format!("No such file or directory \"{}\"", &path))?;
+    let metadata = std::fs::metadata(path.clone()).or_throw_msg(
+        &ctx,
+        &["No such file or directory \"", &path, "\""].concat(),
+    )?;
 
     verify_metadata(&ctx, mode, metadata)
 }

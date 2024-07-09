@@ -168,7 +168,7 @@ async fn start_cli(vm: &Vm) {
 
                 let filename = Path::new(arg);
                 let file_exists = filename.exists();
-                if let ".js" | ".mjs" | ".cjs" = ext.as_str() {
+                if let ".js" | ".mjs" | ".cjs" = ext {
                     if file_exists {
                         return vm.run_file(filename).await;
                     } else {
@@ -204,7 +204,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
         if arg == "-d" {
             if let Some(dir) = args.get(i + 1) {
                 if !Path::new(dir).exists() {
-                    return Err(format!("\"{}\" does not exist", dir.as_str()));
+                    return Err(["\"", dir.as_str(), "\" does not exist"].concat());
                 }
                 root = dir;
                 skip_next = true;
@@ -230,14 +230,16 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
     });
     directory_walker.set_recursive(true);
 
+    let test_js_extensions: Vec<String> = JS_EXTENSIONS
+        .iter()
+        .map(|ext| [".test", ext].concat())
+        .collect();
+
     while let Some((entry, _)) = directory_walker.walk().await.map_err(|e| e.to_string())? {
-        if let Some(name) = entry
-            .file_name()
-            .map(|name| name.to_string_lossy().to_string())
-        {
-            for ext in JS_EXTENSIONS {
-                let ext_name = format!(".test{}", ext);
-                let ext_name = ext_name.as_str();
+        if let Some(name) = entry.file_name() {
+            let name = name.to_string_lossy();
+            let name = name.as_ref();
+            for ext_name in &test_js_extensions {
                 if name.ends_with(ext_name)
                     && (!has_filters || filters.iter().any(|&f| name.contains(f)))
                 {
@@ -251,8 +253,6 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
 
     vm.run_with(|ctx| {
         ctx.globals().set("__testEntries", entries)?;
-        //() = Module::import(&ctx, "@llrt/test")?;
-
         Ok(())
     })
     .await;

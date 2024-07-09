@@ -10,15 +10,15 @@ use crate::utils::result::ResultExt;
 pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> Result<()> {
     let mut file = fs::File::create(&path)
         .await
-        .or_throw_msg(&ctx, &format!("Can't create file \"{}\"", &path))?;
+        .or_throw_msg(&ctx, &["Can't create file \"", &path, "\""].concat())?;
+
+    let write_error_message = &["Can't write file \"", &path, "\""].concat();
 
     let bytes = get_bytes(&ctx, data)?;
     file.write_all(&bytes)
         .await
-        .or_throw_msg(&ctx, &format!("Can't write \"{}\"", &path))?;
-    file.flush()
-        .await
-        .or_throw_msg(&ctx, &format!("Can't write \"{}\"", &path))?;
+        .or_throw_msg(&ctx, write_error_message)?;
+    file.flush().await.or_throw_msg(&ctx, write_error_message)?;
 
     Ok(())
 }
@@ -26,7 +26,7 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
 pub fn write_file_sync<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> Result<()> {
     let bytes = get_bytes(&ctx, data)?;
 
-    std::fs::write(&path, bytes).or_throw_msg(&ctx, &format!("Can't write \"{}\"", &path))?;
+    std::fs::write(&path, bytes).or_throw_msg(&ctx, &["Can't write \"{}\"", &path].concat())?;
 
     Ok(())
 }

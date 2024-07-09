@@ -243,7 +243,7 @@ where
         if name.starts_with('/') {
             set_import_meta(&res, name)?;
         } else {
-            set_import_meta(&res, &format!("{}/{}", &self.cwd, name))?;
+            set_import_meta(&res, &[self.cwd.as_str(), name].join("/"))?;
         };
 
         Ok(res)
@@ -454,10 +454,12 @@ impl Vm {
 
     pub async fn run_file(&self, filename: &Path) {
         self.run(
-            format!(
-                r#"import("{}").catch((e) => {{console.error(e);process.exit(1)}})"#,
-                filename.to_string_lossy()
-            ),
+            [
+                r#"import(""#,
+                &filename.to_string_lossy(),
+                r#"").catch((e) => {{console.error(e);process.exit(1)}})"#,
+            ]
+            .concat(),
             false,
         )
         .await;
@@ -718,7 +720,7 @@ fn get_script_or_module_name(ctx: Ctx<'_>) -> String {
 
 fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     let meta: Object = module.meta()?;
-    meta.prop("url", format!("file://{}", filepath))?;
+    meta.prop("url", ["file://", filepath].concat())?;
     Ok(())
 }
 

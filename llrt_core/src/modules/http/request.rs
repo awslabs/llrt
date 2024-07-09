@@ -160,7 +160,7 @@ impl<'js> Request<'js> {
         let headers = Headers::from_value(&ctx, self.headers().unwrap().as_value().clone())?;
         let mime_type = headers.iter().find_map(|(k, v)| {
             if k == "content-type" {
-                Some(v.clone())
+                Some(v.to_string())
             } else {
                 None
             }
