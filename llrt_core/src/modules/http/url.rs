@@ -2,398 +2,269 @@ use std::{path::PathBuf, str::FromStr};
 
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{
-    atom::PredefinedAtom,
-    class::{Trace, Tracer},
-    function::Opt,
-    prelude::This,
-    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Null, Object, Result, Value,
-};
-use url::Url;
-
-use crate::utils::result::ResultExt;
-
 use super::url_search_params::URLSearchParams;
+use crate::utils::result::ResultExt;
+use rquickjs::atom::PredefinedAtom;
+use rquickjs::class::Trace;
+use rquickjs::function::Opt;
+use rquickjs::{Class, Coerced, Ctx, Exception, FromJs, IntoJs, Null, Object, Result, Value};
+use std::cell::RefCell;
+use std::rc::Rc;
+use url::{quirks, Url};
 
-static DEFAULT_PORTS: &[&str] = &["21", "80", "443"];
-static DEFAULT_PROTOCOLS: &[&str] = &["ftp", "http", "https"];
-
-#[derive(Clone)]
-#[rquickjs::class]
-pub struct URL<'js> {
-    protocol: String,
-    host: String,
-    hostname: String,
-    port: String,
-    pathname: String,
-    hash: String,
-    search_params: Class<'js, URLSearchParams>,
-    username: String,
-    password: String,
+/// Naively checks for hostname delimiter, a colon ":", that's *probably* not
+/// part of an IPv6 address
+///
+/// # Arguments
+///
+/// * `hostname` - The hostname.
+///
+/// # Returns
+///
+/// Returns whether the hostname contains a colon that's not followed by a
+/// closing square bracket.
+fn has_colon_delimiter(hostname: &str) -> bool {
+    if let Some(last_colon_index) = hostname.rfind(':') {
+        // Check if there's any closing bracket after the last colon
+        !hostname[last_colon_index..].contains(']')
+    } else {
+        false
+    }
 }
 
-impl<'js> Trace<'js> for URL<'js> {
-    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        self.search_params.trace(tracer);
-    }
+/// Represents a JavaScript
+/// [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL) as defined
+/// by the [WHATWG URL standard](https://url.spec.whatwg.org/) in the JavaScript
+/// context.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // This is JavaScript
+/// const url = new URL("https://url.spec.whatwg.org/");
+/// console.log(url.href);
+/// ```
+#[derive(Clone, Trace)]
+#[rquickjs::class]
+pub struct URL<'js> {
+    // URL and URLSearchParams work together to manipulate URLs, so using a
+    // reference counter (Rc) allows them to have shared ownership of the
+    // undering Url, and a RefCell allows interior mutability.
+    #[qjs(skip_trace)]
+    url: Rc<RefCell<Url>>,
+    search_params: Class<'js, URLSearchParams>,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> URL<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> Result<Self> {
-        if let Some(base) = base.0 {
-            let base_string = get_string(&ctx, base)?;
-            let path_string = get_string(&ctx, input)?;
-            let base: Url = base_string.parse().or_throw_msg(&ctx, "Invalid URL")?;
-            let url = base
-                .join(path_string.as_str())
-                .or_throw_msg(&ctx, "Invalid URL")?;
-            return Self::create(ctx, url);
+        let input: Result<Coerced<String>> = Coerced::from_js(&ctx, input);
+        if let Some(base) = base.into_inner() {
+            if let Some(base) = base.as_string() {
+                if let Ok(base) = base.to_string() {
+                    let mut url: Url = base.parse().map_err(|err| {
+                        Exception::throw_type(&ctx, format!("Invalid base URL: {}", err).as_str())
+                    })?;
+
+                    if let Ok(input) = input {
+                        url = url.join(input.as_str()).map_err(|err| {
+                            Exception::throw_type(&ctx, format!("Invalid URL: {}", err).as_str())
+                        })?;
+                    }
+
+                    return Self::from_url(ctx, url);
+                }
+            }
         }
 
-        if input.is_string() {
-            let string: String = input.get()?;
-            Self::from_str(ctx, &string)
-        } else if input.is_object() {
-            Self::from_js(&ctx, input)
+        if let Ok(input) = input {
+            Self::from_str(ctx, input.as_str())
         } else {
             Err(Exception::throw_message(&ctx, "Invalid URL"))
         }
     }
 
-    #[qjs(static)]
-    pub fn can_parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> bool {
-        match Self::parse(ctx.clone(), input.clone(), Opt(base.clone())) {
-            Ok(val) => !val.is_null(),
-            Err(_) => false,
-        }
+    //
+    // Properties
+    //
+
+    #[qjs(get)]
+    pub fn hash(&self) -> String {
+        quirks::hash(&self.url.borrow()).to_string()
     }
 
-    #[qjs(static)]
-    pub fn parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> Result<Value<'js>> {
-        if let Some(base) = base.0 {
-            let base_string = match get_string(&ctx, base) {
-                Ok(s) => s,
-                Err(_) => return Null.into_js(&ctx),
-            };
-            let path_string = match get_string(&ctx, input) {
-                Ok(s) => s,
-                Err(_) => return Null.into_js(&ctx),
-            };
-
-            match base_string.parse::<Url>() {
-                Ok(base_url) => {
-                    if let Ok(parsed_url) = base_url.join(&path_string) {
-                        return URL::create(ctx.clone(), parsed_url).unwrap().into_js(&ctx);
-                    }
-                },
-                Err(_) => return Null.into_js(&ctx),
-            }
-        } else if input.is_string() {
-            if let Ok(string_val) = input.get::<String>() {
-                if let Ok(parsed_url) = Url::parse(&string_val) {
-                    return URL::create(ctx.clone(), parsed_url).unwrap().into_js(&ctx);
-                }
-            }
-        }
-        Null.into_js(&ctx)
-    }
-
-    pub fn to_string(&self) -> String {
-        self.format(true, true, true, false)
+    #[qjs(set, rename = "hash")]
+    pub fn set_hash(&mut self, hash: String) -> String {
+        quirks::set_hash(&mut self.url.borrow_mut(), hash.as_str());
+        hash
     }
 
     #[qjs(get)]
-    fn search_params(&self) -> Class<'js, URLSearchParams> {
-        self.search_params.clone()
+    pub fn host(&self) -> String {
+        quirks::host(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "host")]
+    pub fn set_host(&mut self, host: Coerced<String>) -> String {
+        let _ = quirks::set_host(&mut self.url.borrow_mut(), host.as_str());
+        host.0
     }
 
     #[qjs(get)]
-    fn href(&self) -> String {
-        self.to_string()
+    pub fn hostname(&self) -> String {
+        quirks::hostname(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "hostname")]
+    pub fn set_hostname(&mut self, hostname: Coerced<String>) -> String {
+        // TODO: This should be fixed in Url
+        if !has_colon_delimiter(hostname.as_str()) {
+            let _ = quirks::set_hostname(&mut self.url.borrow_mut(), hostname.as_str());
+        }
+        hostname.0
+    }
+
+    #[qjs(get)]
+    pub fn href(&self) -> String {
+        quirks::href(&self.url.borrow()).to_string()
     }
 
     #[qjs(set, rename = "href")]
-    fn set_href(&mut self, ctx: Ctx<'js>, href: String) -> Result<String> {
-        let new = Self::from_str(ctx, &href)?;
-
-        self.protocol = new.protocol;
-        self.host = new.host;
-        self.hostname = new.hostname;
-        self.port = new.port;
-        self.pathname = new.pathname;
-        self.hash = new.hash;
-        self.search_params = new.search_params;
-        self.username = new.username;
-        self.password = new.password;
+    pub fn set_href(&mut self, href: String) -> Result<String> {
+        let _ = quirks::set_href(&mut self.url.borrow_mut(), href.as_str());
         Ok(href)
     }
 
     #[qjs(get)]
-    fn origin(&self) -> String {
-        format!("{}://{}", &self.protocol, &self.host)
+    pub fn origin(&self) -> String {
+        quirks::origin(&self.url.borrow()).to_string()
     }
 
     #[qjs(get)]
-    fn protocol(&self) -> String {
-        format!("{}:", &self.protocol)
-    }
-
-    #[qjs(set, rename = "protocol")]
-    fn set_protocol(&mut self, mut protocol: String) -> String {
-        if protocol.ends_with(':') {
-            protocol.pop();
-        }
-        self.protocol.clone_from(&protocol);
-        self.update_port_host();
-
-        protocol
-    }
-
-    #[qjs(get)]
-    fn port(&self) -> String {
-        self.port.clone()
-    }
-
-    #[qjs(set, rename = "port")]
-    fn set_port(&mut self, port: Coerced<String>) -> String {
-        let port_string = port.to_string();
-        self.port.clone_from(&port_string);
-        self.update_port_host();
-
-        port_string
-    }
-
-    #[qjs(get)]
-    fn hostname(&self) -> String {
-        self.hostname.clone()
-    }
-
-    #[qjs(set, rename = "hostname")]
-    fn set_hostname(&mut self, hostname: String) -> String {
-        self.hostname.clone_from(&hostname);
-        hostname
-    }
-
-    #[qjs(get)]
-    fn host(&self) -> String {
-        self.host.clone()
-    }
-
-    #[qjs(set, rename = "host")]
-    fn set_host(&mut self, ctx: Ctx<'js>, host: String) -> Result<String> {
-        let (name, port) = split_colon(&ctx, &host)?;
-        self.hostname = name.to_string();
-        self.port = port.to_string();
-        self.update_port_host();
-
-        Ok(self.host.clone())
-    }
-
-    #[qjs(get)]
-    fn pathname(&self) -> String {
-        self.pathname.clone()
-    }
-
-    #[qjs(set, rename = "pathname")]
-    fn set_pathname(&mut self, pathname: String) -> String {
-        self.pathname.clone_from(&pathname);
-        pathname
-    }
-
-    #[qjs(get)]
-    fn search(&self) -> String {
-        search_params_to_string(&self.search_params)
-    }
-
-    #[qjs(set, rename = "search")]
-    fn set_search(&mut self, ctx: Ctx<'js>, search: String) -> Result<String> {
-        let search_params = URLSearchParams::from_str(&search);
-        let search_params = Class::instance(ctx, search_params)?;
-        self.search_params = search_params;
-        Ok(search)
-    }
-
-    #[qjs(get)]
-    fn hash(&self) -> String {
-        self.hash.clone()
-    }
-
-    #[qjs(set, rename = "hash")]
-    fn set_hash(&mut self, hash: String) -> String {
-        let pound_hash = format!("#{}", &hash);
-        self.hash = hash;
-        pound_hash
-    }
-    #[qjs(get)]
-    fn username(&self) -> String {
-        self.username.clone()
-    }
-
-    #[qjs(set, rename = "username")]
-    fn set_username(&mut self, username: String) -> String {
-        self.username.clone_from(&username);
-        username
-    }
-
-    #[qjs(get)]
-    fn password(&self) -> String {
-        self.password.clone()
+    pub fn password(&self) -> String {
+        quirks::password(&self.url.borrow()).to_string()
     }
 
     #[qjs(set, rename = "password")]
-    fn set_password(&mut self, password: String) -> String {
-        self.password.clone_from(&password);
-        password
+    pub fn set_password(&mut self, password: Coerced<String>) -> String {
+        let _ = quirks::set_password(&mut self.url.borrow_mut(), password.as_str());
+        password.0
     }
 
+    #[qjs(get)]
+    pub fn pathname(&self) -> String {
+        quirks::pathname(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "pathname")]
+    pub fn set_pathname(&mut self, pathname: Coerced<String>) -> String {
+        quirks::set_pathname(&mut self.url.borrow_mut(), pathname.as_str());
+        pathname.0
+    }
+
+    #[qjs(get)]
+    pub fn port(&self) -> String {
+        quirks::port(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "port")]
+    pub fn set_port(&mut self, ctx: Ctx<'js>, port: Value<'js>) -> Value<'js> {
+        // TODO: negative ports should be handled in Url
+        if port.is_null() || port.is_undefined() || (port.is_int() && port.as_int().unwrap() < 0) {
+            return port;
+        }
+
+        let port_string: Result<Coerced<String>> = Coerced::from_js(&ctx, port.clone());
+        if let Ok(port_string) = port_string {
+            let _ = quirks::set_port(&mut self.url.borrow_mut(), port_string.as_str());
+        }
+        port
+    }
+
+    #[qjs(get)]
+    pub fn protocol(&self) -> String {
+        quirks::protocol(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "protocol")]
+    pub fn set_protocol(&mut self, protocol: Coerced<String>) -> String {
+        let _ = quirks::set_protocol(&mut self.url.borrow_mut(), protocol.as_str());
+        protocol.0
+    }
+
+    #[qjs(get)]
+    pub fn search(&self) -> String {
+        quirks::search(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "search")]
+    pub fn set_search(&mut self, search: Coerced<String>) -> String {
+        quirks::set_search(&mut self.url.borrow_mut(), search.as_str());
+        search.0
+    }
+
+    #[qjs(get)]
+    pub fn search_params(&self) -> &Value<'js> {
+        self.search_params.as_value()
+    }
+
+    #[qjs(get)]
+    pub fn username(&self) -> String {
+        quirks::username(&self.url.borrow()).to_string()
+    }
+
+    #[qjs(set, rename = "username")]
+    pub fn set_username(&mut self, username: Coerced<String>) -> String {
+        let _ = quirks::set_username(&mut self.url.borrow_mut(), username.as_str());
+        username.0
+    }
+
+    //
+    // Static methods
+    //
+
+    #[qjs(static)]
+    pub fn can_parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> bool {
+        Self::new(ctx, input, base).is_ok()
+    }
+
+    #[qjs(static)]
+    pub fn parse(ctx: Ctx<'js>, input: Value<'js>, base: Opt<Value<'js>>) -> Result<Value<'js>> {
+        Self::new(ctx.clone(), input, base)
+            .map_or_else(|_| Null.into_js(&ctx), |instance| instance.into_js(&ctx))
+    }
+
+    //
+    // Instance methods
+    //
+
     #[qjs(rename = PredefinedAtom::ToJSON)]
-    fn to_json(&self) -> String {
+    pub fn to_json(&self) -> String {
         // https://developer.mozilla.org/en-US/docs/Web/API/URL/toJSON
         self.to_string()
+    }
+
+    pub fn to_string(&self) -> String {
+        self.url.borrow().to_string()
     }
 }
 
 impl<'js> URL<'js> {
-    fn create(ctx: Ctx<'js>, url: Url) -> Result<Self> {
-        let query = url.query().unwrap_or_default();
-        let search_params = URLSearchParams::from_str(query);
+    pub fn from_str(ctx: Ctx<'js>, input: &str) -> Result<Self> {
+        let url: Url = input
+            .parse()
+            .map_err(|_| Exception::throw_type(&ctx, "Invalid URL"))?;
+        Self::from_url(ctx, url)
+    }
 
-        let hostname = url.host().map(|h| h.to_string()).unwrap_or_default();
-        let protocol = url.scheme().to_string();
-
-        let port = filtered_port(
-            &protocol,
-            &url.port().map(|p| p.to_string()).unwrap_or_default(),
-        );
-
-        let host = format!(
-            "{}{}",
-            &hostname,
-            &port.clone().map(|p| format!(":{}", &p)).unwrap_or_default()
-        );
-
-        let username = url.username().to_string();
-        let password = url.password().unwrap_or_default().to_string();
-
+    pub fn from_url(ctx: Ctx<'js>, url: Url) -> Result<Self> {
+        let url = Rc::new(RefCell::new(url));
+        let search_params = URLSearchParams::from_url(&url);
         let search_params = Class::instance(ctx, search_params)?;
 
-        Ok(Self {
-            protocol,
-            host,
-            hostname,
-            port: port.unwrap_or_default(),
-            pathname: url.path().to_string(),
-            hash: url.fragment().map(|f| f.to_string()).unwrap_or_default(),
-            search_params,
-            username,
-            password,
-        })
+        Ok(Self { url, search_params })
     }
-
-    pub fn from_str(ctx: Ctx<'js>, input: &str) -> Result<Self> {
-        let url: Url = input.parse().or_throw_msg(&ctx, "Invalid URL")?;
-        Self::create(ctx, url)
-    }
-
-    fn update_port_host(&mut self) {
-        if let Some(p) = filtered_port(&self.protocol, &self.port) {
-            self.host = format!("{}:{}", self.hostname, self.port);
-            self.port = p;
-        } else {
-            self.port.clear();
-            self.host.clone_from(&self.hostname);
-        }
-    }
-
-    fn format(
-        &self,
-        include_auth: bool,
-        include_fragment: bool,
-        include_search: bool,
-        unicode_encode: bool,
-    ) -> String {
-        let search = if include_search {
-            search_params_to_string(&self.search_params)
-        } else {
-            String::from("")
-        };
-        let hash = &self.hash;
-        let hash = if include_fragment && !hash.is_empty() {
-            format!("#{}", &hash)
-        } else {
-            String::from("")
-        };
-
-        let mut user_info = String::new();
-        if include_auth && !self.username.is_empty() {
-            user_info.push_str(&self.username);
-            if !self.password.is_empty() {
-                user_info.push(':');
-                user_info.push_str(&self.password)
-            }
-            user_info.push('@')
-        }
-
-        let host = if unicode_encode {
-            domain_to_unicode(&self.host)
-        } else {
-            self.host.clone()
-        };
-
-        format!(
-            "{}://{}{}{}{}{}",
-            &self.protocol, user_info, host, &self.pathname, &search, &hash
-        )
-    }
-}
-
-fn filtered_port(protocol: &str, port: &str) -> Option<String> {
-    if let Some(pos) = DEFAULT_PROTOCOLS.iter().position(|&p| p == protocol) {
-        if DEFAULT_PORTS[pos] == port {
-            return None;
-        }
-    }
-    if port.is_empty() {
-        return None;
-    }
-    Some(port.to_string())
-}
-
-fn get_string(ctx: &Ctx, input: Value) -> Result<String> {
-    if input.is_string() {
-        input.get()
-    } else if input.is_object() {
-        let obj = input.as_object().unwrap();
-        let to_string_fn: Function = obj.get(PredefinedAtom::ToString)?;
-        to_string_fn.call((This(input),))
-    } else {
-        Err(Exception::throw_type(ctx, "Invalid URL"))
-    }
-}
-
-fn search_params_to_string(search_params: &Class<'_, URLSearchParams>) -> String {
-    let search_params = search_params.borrow().to_string();
-
-    if !search_params.is_empty() {
-        format!("?{}", &search_params)
-    } else {
-        search_params
-    }
-}
-
-fn split_colon<'js>(ctx: &Ctx, s: &'js str) -> Result<(&'js str, &'js str)> {
-    let mut parts = s.split(':');
-    let first = parts.next().unwrap_or("");
-    let second = parts.next().unwrap_or("");
-    if parts.next().is_some() || (first.is_empty() && second.is_empty()) {
-        return Err(Exception::throw_message(
-            ctx,
-            "String contains more than one ':'",
-        ));
-    }
-    Ok((first, second))
 }
 
 pub fn url_to_http_options<'js>(ctx: Ctx<'js>, url: Class<'js, URL<'js>>) -> Result<Object<'js>> {
@@ -404,49 +275,45 @@ pub fn url_to_http_options<'js>(ctx: Ctx<'js>, url: Class<'js, URL<'js>>) -> Res
     let port = url.port();
     let username = url.username();
     let search = url.search();
-    let hash = url.hash();
+    let hash = url.url.borrow().fragment().unwrap_or("").to_string();
 
     obj.set("protocol", url.protocol())?;
     obj.set("hostname", url.hostname())?;
 
     if !hash.is_empty() {
-        obj.set("hash", url.hash())?;
+        obj.set("hash", hash)?;
     }
     if !search.is_empty() {
-        obj.set("search", url.search())?;
+        obj.set("search", search)?;
     }
 
     obj.set("pathname", url.pathname())?;
-    obj.set("path", format!("{}{}", url.pathname(), url.search()))?;
+    obj.set("path", [url.pathname(), url.search()].join(""))?;
     obj.set("href", url.href())?;
 
     if !username.is_empty() {
-        obj.set("auth", format!("{}:{}", username, url.password()))?;
+        obj.set("auth", [username, ":".to_string(), url.password()].join(""))?;
     }
 
     if !port.is_empty() {
-        obj.set("port", url.port())?;
+        obj.set("port", port)?;
     }
 
     Ok(obj)
 }
 
 pub fn domain_to_unicode(domain: &str) -> String {
-    let (url, result) = idna::domain_to_unicode(domain);
-    if result.is_err() {
-        return String::from("");
-    }
-    url
+    quirks::domain_to_unicode(domain)
 }
 
 pub fn domain_to_ascii(domain: &str) -> String {
-    idna::domain_to_ascii(domain).unwrap_or_default()
+    quirks::domain_to_ascii(domain)
 }
 
 //options are ignored, no windows support yet
 pub fn path_to_file_url<'js>(ctx: Ctx<'js>, path: String, _: Opt<Value>) -> Result<URL<'js>> {
     let url = Url::from_file_path(path).unwrap();
-    URL::create(ctx, url)
+    URL::from_url(ctx, url)
 }
 
 //options are ignored, no windows support yet
@@ -470,29 +337,61 @@ pub fn file_url_to_path<'js>(ctx: Ctx<'js>, url: Value<'js>) -> Result<String> {
 }
 
 pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> Result<String> {
-    let mut fragment = true;
-    let mut unicode = false;
-    let mut auth = true;
-    let mut search = true;
+    let url = url.borrow();
+    let mut string = url.protocol();
+    string.push_str("//");
+
+    let mut include_fragment = true;
+    let mut unicode_encode = false;
+    let mut include_auth = true;
+    let mut include_search = true;
 
     // Parse options if provided
-    if let Some(options) = options.0 {
-        if options.is_object() {
-            let options = options.as_object().unwrap();
-            if let Some(value) = options.get("fragment")? {
-                fragment = value;
-            }
+    if let Some(options) = options.into_inner() {
+        if let Some(options) = options.as_object() {
             if let Ok(value) = options.get("unicode") {
-                unicode = value;
+                unicode_encode = value;
             }
             if let Ok(value) = options.get("auth") {
-                auth = value;
+                include_auth = value;
+            }
+            if let Ok(value) = options.get("fragment") {
+                include_fragment = value;
             }
             if let Ok(value) = options.get("search") {
-                search = value
+                include_search = value
             }
         }
     }
 
-    Ok(url.borrow().format(auth, fragment, search, unicode))
+    if include_auth {
+        let username = url.username();
+        let password = url.password();
+        if !username.is_empty() {
+            string.push_str(&username);
+            if !password.is_empty() {
+                string.push(':');
+                string.push_str(&password);
+            }
+            string.push('@');
+        }
+    }
+
+    if unicode_encode {
+        string.push_str(&domain_to_unicode(&url.host()));
+    } else {
+        string.push_str(&url.host());
+    }
+
+    string.push_str(&url.pathname());
+
+    if include_search {
+        string.push_str(&url.search());
+    }
+
+    if include_fragment {
+        string.push_str(&url.hash());
+    }
+
+    Ok(string)
 }

@@ -1,217 +1,391 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-use rquickjs::{
-    atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, Function, IntoJs, Null, Object,
-    Result, Symbol, Value,
-};
-
 use crate::utils::class::IteratorDef;
+use rquickjs::atom::PredefinedAtom;
+use rquickjs::class::Trace;
+use rquickjs::function::Opt;
+use rquickjs::{
+    Array, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Null, Object, Result, Symbol,
+    Value,
+};
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::rc::Rc;
+use url::Url;
 
-type Params = Vec<(String, String)>;
-
-#[derive(Clone, Default)]
+/// Represents `URLSearchParams` in the JavaScript context
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams>
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // This is JavaScript
+/// const params = new URLSearchParams();
+/// params.set("foo", "bar");
+/// ```
+#[derive(Clone, Trace)]
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
 pub struct URLSearchParams {
+    // URL and URLSearchParams work together to manipulate URLs, so using a
+    // reference counter (Rc) allows them to have shared ownership of the
+    // undering Url, and a RefCell allows interior mutability.
     #[qjs(skip_trace)]
-    params: Params,
+    pub url: Rc<RefCell<Url>>,
 }
 
+// URLSearchParams is designed to operate directly on the underlying Url to
+// avoid maintaining derived state that can get out of sync. When it's used
+// independently, it still needs a valid URL (http://example.com), but this
+// doesn't have any effect on using URLSearchParams with URL as the params are
+// stringified when added to a URL.
+//
+// ```js
+// const params = new URLSearchParams("foo=bar");
+// const url = new URL("http://github.com");
+// url.search = params; // This works as expected
+// ```
 #[rquickjs::methods(rename_all = "camelCase")]
-impl URLSearchParams {
+impl<'js> URLSearchParams {
     #[qjs(constructor)]
-    pub fn new<'js>(ctx: Ctx<'js>, init: Opt<Value<'js>>) -> Result<Self> {
+    pub fn new(ctx: Ctx<'js>, init: Opt<Value<'js>>) -> Result<Self> {
         if let Some(init) = init.into_inner() {
             if init.is_string() {
-                let string: String = init.into_string().unwrap().to_string().unwrap();
-                return Ok(Self::from_str(&string));
+                let string: String = Coerced::from_js(&ctx, init)?.0;
+                return Ok(Self::from_str(string));
             } else if init.is_array() {
-                let array = init.into_array().unwrap();
-                return Ok(Self::from_array(array));
+                return Self::from_array(&ctx, init.into_array().unwrap());
             } else if init.is_object() {
-                let obj = init.into_object().unwrap();
-
-                let iterator = Symbol::iterator(ctx.clone());
-
-                if obj.contains_key(iterator)? {
-                    let array_object: Object = ctx.globals().get(PredefinedAtom::Array)?;
-                    let array_from: Function = array_object.get(PredefinedAtom::From)?;
-                    let value: Value = array_from.call((obj,))?;
-                    let array = value.into_array().unwrap();
-                    return Ok(Self::from_array(array));
-                }
-
-                let keys = obj.keys::<String>();
-                let key_len = keys.len();
-
-                let mut params = Vec::with_capacity(key_len);
-
-                for key in keys {
-                    let key = key?;
-                    let val = obj.get::<_, Coerced<String>>(&key)?;
-                    params.push((key, val.to_string()))
-                }
-                return Ok(Self { params });
+                return Self::from_object(&ctx, init.into_object().unwrap());
             }
         }
+        let url: Url = "http://example.com".parse().unwrap();
 
-        Ok(URLSearchParams { params: Vec::new() })
+        Ok(URLSearchParams {
+            url: Rc::new(RefCell::new(url)),
+        })
     }
+
+    //
+    // Properties
+    //
 
     #[qjs(get)]
     pub fn size(&self) -> usize {
-        self.params.len()
+        self.url.borrow().query_pairs().count()
     }
 
-    pub fn append(&mut self, key: String, value: String) {
-        self.params.push((key, value));
+    //
+    // Instance methods
+    //
+
+    pub fn append(&mut self, key: Coerced<String>, value: Coerced<String>) {
+        self.url
+            .borrow_mut()
+            .query_pairs_mut()
+            .append_pair(key.as_str(), value.as_str());
     }
 
-    pub fn get<'js>(&mut self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
-        self.params
-            .iter()
-            .find(|(k, _)| k == &key)
-            .map(|(_, v)| v.into_js(&ctx))
-            .unwrap_or_else(|| Null.into_js(&ctx))
-    }
+    pub fn delete(&mut self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) {
+        let key = key.0;
+        let value = value.into_inner();
 
-    pub fn get_all(&mut self, key: String) -> Vec<String> {
-        self.params
-            .iter()
-            .filter_map(|(k, v)| if k == &key { Some(v.clone()) } else { None })
-            .collect()
-    }
+        let new_pairs: Vec<_> = self
+            .url
+            .borrow()
+            .query_pairs()
+            .filter(|(k, v)| {
+                if let Some(value) = value.clone() {
+                    if !value.is_undefined() {
+                        let value: Result<Coerced<String>> = Coerced::from_js(&ctx, value);
+                        if let Ok(value) = value {
+                            return !(*k == key && *v == *value);
+                        }
+                    }
+                }
+                *k != key
+            })
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
 
-    pub fn sort(&mut self) {
-        self.params.sort_by(|(a, _), (b, _)| a.cmp(b));
-    }
-
-    pub fn has(&mut self, key: String) -> bool {
-        self.params.iter().any(|(k, _)| k == &key.to_lowercase())
-    }
-
-    #[allow(unused_assignments)] //clippy bug?
-    pub fn set(&mut self, key: String, value: String) {
-        let mut modified = false;
-        let mut same = false;
-        self.params.retain_mut(|(k, v)| {
-            same = k == &key;
-            if !modified && same {
-                modified = true;
-                v.clone_from(&value);
-                return modified;
-            }
-
-            !same
-        });
-
-        if !modified {
-            self.params.push((key, value));
+        if !new_pairs.is_empty() {
+            self.url
+                .borrow_mut()
+                .query_pairs_mut()
+                .clear()
+                .extend_pairs(new_pairs);
+        } else {
+            self.url.borrow_mut().set_query(None);
         }
     }
 
-    pub fn delete(&mut self, key: String) {
-        if let Some(pos) = self
-            .params
-            .iter()
-            .position(|(k, _)| k == &key.to_lowercase())
+    pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        self.js_iterator(ctx)
+    }
+
+    pub fn for_each(&self, callback: Function<'js>) -> Result<()> {
+        self.url
+            .borrow()
+            .query_pairs()
+            .into_owned()
+            .try_for_each(|(k, v)| callback.call((v, k)))?;
+        Ok(())
+    }
+
+    pub fn get(&mut self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
+        match self
+            .url
+            .borrow()
+            .query_pairs()
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| v)
         {
-            self.params.remove(pos);
+            Some(value) => value.into_js(&ctx),
+            None => Null.into_js(&ctx),
+        }
+    }
+
+    pub fn get_all(&mut self, key: String) -> Vec<String> {
+        self.url
+            .borrow()
+            .query_pairs()
+            .filter_map(|(k, v)| if k == key { Some(v.to_string()) } else { None })
+            .collect()
+    }
+
+    pub fn has(&self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) -> bool {
+        let key = key.0;
+        let value = value.into_inner();
+        self.url.borrow().query_pairs().any(|(k, v)| {
+            if let Some(value) = value.clone() {
+                if !value.is_undefined() {
+                    let value: Result<Coerced<String>> = Coerced::from_js(&ctx, value);
+                    if let Ok(value) = value {
+                        return *k == key && *v == *value;
+                    }
+                }
+            }
+
+            *k == key
+        })
+    }
+
+    pub fn keys(&mut self) -> Vec<String> {
+        self.url
+            .borrow()
+            .query_pairs()
+            .map(|(k, _)| k.to_string())
+            .collect()
+    }
+
+    pub fn set(&mut self, key: Coerced<String>, value: Coerced<String>) {
+        let key = key.0;
+        let value = value.0;
+
+        // Use a HashSet just to filter duplicates
+        let mut uniques = HashSet::new();
+        let mut new_query_pairs: Vec<(String, String)> = Vec::new();
+
+        for (k, v) in self.url.borrow().query_pairs() {
+            // Update the value for an existing key
+            let value = if k == key {
+                value.clone()
+            } else {
+                v.to_string()
+            };
+
+            let query_pair = (k.to_string(), value);
+            if uniques.insert(query_pair.clone()) {
+                new_query_pairs.push(query_pair);
+            }
+        }
+
+        // Append a new key/value pair
+        let query_pair = (key, value);
+        if uniques.insert(query_pair.clone()) {
+            new_query_pairs.push(query_pair);
+        }
+
+        self.url
+            .borrow_mut()
+            .query_pairs_mut()
+            .clear()
+            .extend_pairs(new_query_pairs);
+    }
+
+    pub fn sort(&mut self) {
+        let mut new_pairs: Vec<(String, String)> =
+            self.url.borrow().query_pairs().into_owned().collect();
+        new_pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        if new_pairs.is_empty() {
+            self.url.borrow_mut().set_query(None);
+        } else {
+            self.url
+                .borrow_mut()
+                .query_pairs_mut()
+                .clear()
+                .extend_pairs(new_pairs);
         }
     }
 
     pub fn to_string(&self) -> String {
-        let length = self.params.len();
-        if length == 0 {
-            return String::from("");
-        }
-
-        fn escape(value: &str) -> String {
-            url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
-        }
-
-        let mut string = String::with_capacity(self.params.len() * 2);
-        for (i, (key, value)) in self.params.iter().enumerate() {
-            string.push_str(&escape(key));
-            if !value.is_empty() {
-                string.push('=');
-                string.push_str(&escape(value));
-            }
-
-            if i < length - 1 {
-                string.push('&');
-            }
-        }
-        string
-    }
-
-    pub fn keys(&mut self) -> Vec<String> {
-        self.params.iter().map(|(k, _)| k.clone()).collect()
+        // The Url create doesn't properly encode query params for all edge
+        // cases, so we need to construct the query string by percent-encoding
+        // each key/value
+        // TODO: This should probably be fixed in the Url crate
+        let url = self.url.borrow();
+        url.query_pairs().fold(
+            String::with_capacity(url.query().map_or(0, |q| q.len())),
+            |mut acc, (key, value)| {
+                if !acc.is_empty() {
+                    acc.push('&');
+                }
+                url::form_urlencoded::byte_serialize(key.as_bytes()).for_each(|b| acc.push_str(b));
+                acc.push('=');
+                url::form_urlencoded::byte_serialize(value.as_bytes())
+                    .for_each(|b| acc.push_str(b));
+                acc
+            },
+        )
     }
 
     pub fn values(&mut self) -> Vec<String> {
-        self.params.iter().map(|(_, v)| v.clone()).collect()
-    }
-
-    pub fn entries<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
+        self.url
+            .borrow()
+            .query_pairs()
+            .map(|(_, v)| v.to_string())
+            .collect()
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
-    pub fn iterator<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
-    }
-
-    pub fn for_each(&self, callback: Function<'_>) -> Result<()> {
-        for param in self.params.iter() {
-            callback.call((param.1.clone(), param.0.clone()))?
-        }
-        Ok(())
+    pub fn iterator(&self, ctx: Ctx<'js>) -> Result<Class<'js, URLSearchParamsIter>> {
+        Class::instance(
+            ctx,
+            URLSearchParamsIter {
+                index: 0,
+                params: self.clone(),
+            },
+        )
     }
 }
 
-impl URLSearchParams {
+impl<'js> URLSearchParams {
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(query: &str) -> Self {
-        let params = Self::parse_query_string(query);
-        Self { params }
-    }
-
-    fn from_array(array: Array) -> Self {
-        let mut params: Params = Vec::with_capacity(array.len());
-
-        for value in array.into_iter().flatten() {
-            if let Some(entry) = value.as_array() {
-                if let Ok(key) = entry.get::<Coerced<String>>(0) {
-                    let key = key.to_string();
-                    if let Ok(value) = entry.get::<Coerced<String>>(1) {
-                        params.push((key, value.to_string()));
-                    }
-                }
-            }
+    pub fn from_str(query: String) -> Self {
+        let query = query.strip_prefix('?').unwrap_or(query.as_str());
+        let url = "http://example.com"
+            .parse::<Url>()
+            .unwrap()
+            .join(("?".to_string() + query).as_str())
+            .unwrap();
+        Self {
+            url: Rc::new(RefCell::new(url)),
         }
-        Self { params }
     }
 
-    fn parse_query_string(query_string: &str) -> Params {
-        let query = match query_string.strip_prefix('?') {
-            Some(q) => q,
-            None => query_string,
-        };
+    pub fn from_url(url: &Rc<RefCell<Url>>) -> Self {
+        Self {
+            url: Rc::clone(url),
+        }
+    }
 
-        let params = url::form_urlencoded::parse(query.as_bytes())
-            .map(|(k, v)| (k.to_string(), v.to_string()))
+    pub fn from_array(ctx: &Ctx<'js>, array: Array) -> Result<Self> {
+        let mut url: Url = "http://example.com".parse().unwrap();
+        let query_pairs: Vec<(String, String)> = array
+            .into_iter()
+            .map(|value| {
+                if let Ok(value) = value {
+                    if let Some(pair) = value.as_array() {
+                        if pair.len() == 2 {
+                            if let Ok(key) = pair.get::<Coerced<String>>(0) {
+                                if let Ok(value) = pair.get::<Coerced<String>>(1) {
+                                    return Ok((key.to_string(), value.to_string()));
+                                }
+                            }
+                        }
+                    }
+                };
+                Err(Exception::throw_type(
+                    ctx,
+                    "Invalid tuple: Each query pair must be an iterable [name, value] tuple",
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
             .collect();
 
-        params
+        url.query_pairs_mut().extend_pairs(query_pairs);
+
+        Ok(Self {
+            url: Rc::new(RefCell::new(url)),
+        })
+    }
+
+    pub fn from_object(ctx: &Ctx<'js>, object: Object<'js>) -> Result<Self> {
+        let iterator = Symbol::iterator(ctx.clone());
+        if object.contains_key(iterator)? {
+            let array_object: Object = ctx.globals().get(PredefinedAtom::Array)?;
+            let array_from: Function = array_object.get(PredefinedAtom::From)?;
+            let query_pairs: Array = array_from.call((object,))?;
+            return Self::from_array(ctx, query_pairs);
+        }
+
+        let mut url: Url = "http://example.com".parse().unwrap();
+        let query_pairs: Vec<(String, String)> = object
+            .keys::<Value<'js>>()
+            .map(|key| {
+                let key = key?;
+                let key_string: String = Coerced::from_js(ctx, key.clone())?.0;
+                let value: String = object.get::<_, Coerced<String>>(key)?.0;
+                Ok((key_string, value))
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .collect();
+
+        url.query_pairs_mut().extend_pairs(query_pairs);
+
+        Ok(Self {
+            url: Rc::new(RefCell::new(url)),
+        })
+    }
+}
+
+#[derive(Trace)]
+#[rquickjs::class]
+pub struct URLSearchParamsIter {
+    params: URLSearchParams,
+    index: u32,
+}
+
+#[rquickjs::methods]
+impl<'js> URLSearchParamsIter {
+    pub fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        let value = (*self.params.url.borrow())
+            .query_pairs()
+            .nth(self.index as _)
+            .map(|(k, v)| vec![k.to_string(), v.to_string()]);
+
+        if let Some(value) = value {
+            obj.set("done", false)?;
+            obj.set("value", value)?;
+        } else {
+            obj.set("done", true)?;
+        }
+
+        self.index += 1;
+
+        Ok(obj)
     }
 }
 
 impl<'js> IteratorDef<'js> for URLSearchParams {
     fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
         let array = Array::new(ctx.clone())?;
-        for (idx, (key, value)) in self.params.iter().enumerate() {
+        for (idx, (key, value)) in self.url.borrow().query_pairs().into_owned().enumerate() {
             let entry = Array::new(ctx.clone())?;
             entry.set(0, key)?;
             entry.set(1, value)?;

@@ -13,7 +13,7 @@ use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    qjs, CatchResultExt, Ctx, Function, Persistent, Result,
+    qjs, CatchResultExt, Ctx, Function, Persistent, Result, Value,
 };
 
 use crate::{module_builder::ModuleInfo, modules::module::export_default, vm::Vm};
@@ -178,12 +178,24 @@ pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
 
     globals.set(
         "clearTimeout",
-        Func::from(move |ctx: Ctx, id: usize| clear_timeout_interval(&ctx, id)),
+        Func::from(move |ctx: Ctx, id: Value| {
+            if let Some(id) = id.as_number() {
+                clear_timeout_interval(&ctx, id as _)
+            } else {
+                Ok(())
+            }
+        }),
     )?;
 
     globals.set(
         "clearInterval",
-        Func::from(move |ctx: Ctx, id: usize| clear_timeout_interval(&ctx, id)),
+        Func::from(move |ctx: Ctx, id: Value| {
+            if let Some(id) = id.as_number() {
+                clear_timeout_interval(&ctx, id as _)
+            } else {
+                Ok(())
+            }
+        }),
     )?;
 
     globals.set("setImmediate", Func::from(set_immediate))?;
