@@ -45,7 +45,7 @@ tracing-core = "0.1.32"
 webpki = "0.22.4"
 async-trait = "0.1.81"
 url = "2.5.2"
-zstd = { version = "0.13.1", default-features = false, features = [] }
+zstd = { version = "0.13.2", default-features = false, features = [] }
 libc = "0.2.155"
 base64-simd = "0.8.0"
 hex-simd = "0.8.0"
