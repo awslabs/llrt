@@ -1,6 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 use rquickjs::{ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value};
 
 use super::result::ResultExt;
