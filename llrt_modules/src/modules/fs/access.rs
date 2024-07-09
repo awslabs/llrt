@@ -2,10 +2,9 @@ use std::fs::Metadata;
 
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::result::ResultExt;
 use rquickjs::{prelude::Opt, Ctx, Exception, Result};
 use tokio::fs;
-
-use crate::utils::result::ResultExt;
 
 #[allow(dead_code, unused_imports)]
 use super::{CONSTANT_F_OK, CONSTANT_R_OK, CONSTANT_W_OK, CONSTANT_X_OK};

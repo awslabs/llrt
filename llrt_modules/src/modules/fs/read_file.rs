@@ -1,12 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{function::Opt, Ctx, IntoJs, Result, Value};
 use tokio::fs;
 
-use crate::{
-    modules::buffer::Buffer,
-    utils::{object::ObjectExt, result::ResultExt},
-};
+use crate::modules::buffer::Buffer;
 
 pub async fn read_file<'js>(
     ctx: Ctx<'js>,

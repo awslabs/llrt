@@ -8,13 +8,14 @@ mod rm;
 mod stats;
 mod write_file;
 
+use llrt_utils::module::export_default;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Async, Func},
 };
 use rquickjs::{Class, Ctx, Object, Result};
 
-use crate::{module_builder::ModuleInfo, modules::module::export_default};
+use crate::module_info::ModuleInfo;
 
 use self::access::access;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};

@@ -1,9 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::result::ResultExt;
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
-
-use crate::utils::result::ResultExt;
 
 #[allow(clippy::manual_async_fn)]
 pub async fn rmdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {

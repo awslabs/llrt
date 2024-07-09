@@ -1,18 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#[cfg(unix)]
+use std::os::unix::fs::FileTypeExt;
 use std::{fs::Metadata, path::PathBuf};
 
+use llrt_utils::fs::DirectoryWalker;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
 };
 
-#[cfg(unix)]
-use std::os::unix::fs::FileTypeExt;
-
-use crate::{
-    modules::path::{is_absolute, CURRENT_DIR_STR},
-    utils::io::DirectoryWalker,
-};
+use crate::modules::path::{is_absolute, CURRENT_DIR_STR};
 
 #[derive(rquickjs::class::Trace)]
 #[rquickjs::class]

@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::os::unix::prelude::PermissionsExt;
 
+use llrt_utils::result::ResultExt;
 use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
-
-use crate::utils::result::ResultExt;
 
 pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
     let (recursive, mode) = get_params(options);

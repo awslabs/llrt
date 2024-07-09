@@ -1,17 +1,16 @@
-pub mod buffer;
+pub use llrt_modules::{buffer, fs, path};
+
 pub mod child_process;
 pub mod console;
 pub mod crypto;
 pub mod encoding;
 pub mod events;
 pub mod exceptions;
-pub mod fs;
 pub mod http;
 pub mod module;
 pub mod navigator;
 pub mod net;
 pub mod os;
-pub mod path;
 pub mod performance;
 pub mod process;
 pub mod timers;

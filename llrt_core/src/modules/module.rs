@@ -1,30 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+pub use llrt_utils::module::export_default;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    Ctx, Object, Result, Value,
+    Ctx, Result, Value,
 };
 
 use crate::module_builder::ModuleInfo;
-
-pub fn export_default<'js, F>(ctx: &Ctx<'js>, exports: &Exports<'js>, f: F) -> Result<()>
-where
-    F: FnOnce(&Object<'js>) -> Result<()>,
-{
-    let default = Object::new(ctx.clone())?;
-    f(&default)?;
-
-    for name in default.keys::<String>() {
-        let name = name?;
-        let value: Value = default.get(&name)?;
-        exports.export(name, value)?;
-    }
-
-    exports.export("default", default)?;
-
-    Ok(())
-}
 
 pub struct ModuleModule;
 
