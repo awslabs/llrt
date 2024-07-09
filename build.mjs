@@ -147,6 +147,7 @@ const REPLACEMENT_PACKAGES = {
   "@aws-crypto/sha256-browser": "shims/aws-crypto-sha256.js",
   "@aws-crypto/crc32": "shims/aws-crypto-crc32.js",
   "@aws-crypto/crc32c": "shims/aws-crypto-crc32c.js",
+  "@smithy/abort-controller": "shims/smithy-abort-controller.js",
 };
 
 const SERVICE_ENDPOINT_BY_PACKAGE = {};
