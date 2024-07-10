@@ -1,5 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::{
+    bytes::{
+        get_array_buffer_bytes, get_array_bytes, get_bytes, get_coerced_string_bytes,
+        get_start_end_indexes, get_string_bytes, obj_to_array_buffer,
+    },
+    encoding::Encoder,
+    module::export_default,
+    result::ResultExt,
+};
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
@@ -8,17 +17,7 @@ use rquickjs::{
     Array, ArrayBuffer, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
 };
 
-use crate::{
-    module_builder::ModuleInfo,
-    modules::{encoding::encoder::Encoder, module::export_default},
-    utils::{
-        object::{
-            get_array_buffer_bytes, get_array_bytes, get_bytes, get_coerced_string_bytes,
-            get_start_end_indexes, get_string_bytes, obj_to_array_buffer,
-        },
-        result::ResultExt,
-    },
-};
+use crate::module_info::ModuleInfo;
 
 pub struct Buffer(pub Vec<u8>);
 

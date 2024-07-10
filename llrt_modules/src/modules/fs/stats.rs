@@ -1,19 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::utils::result::ResultExt;
-
-use rquickjs::{Ctx, Result};
-use tokio::fs;
-
+#[cfg(unix)]
+use std::os::unix::fs::FileTypeExt;
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 use std::{
     fs::Metadata,
     time::{Duration, SystemTime},
 };
 
-#[cfg(unix)]
-use std::os::unix::fs::FileTypeExt;
-#[cfg(unix)]
-use std::os::unix::fs::MetadataExt;
+use llrt_utils::result::ResultExt;
+use rquickjs::{Ctx, Result};
+use tokio::fs;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]

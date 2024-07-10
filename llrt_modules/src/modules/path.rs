@@ -5,6 +5,7 @@ use std::{
     slice::Iter,
 };
 
+use llrt_utils::module::export_default;
 use rquickjs::{
     function::Opt,
     module::{Declarations, Exports, ModuleDef},
@@ -12,7 +13,7 @@ use rquickjs::{
     Ctx, Object, Result,
 };
 
-use crate::{module_builder::ModuleInfo, modules::module::export_default};
+use crate::module_info::ModuleInfo;
 
 pub struct PathModule;
 

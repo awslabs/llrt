@@ -1,0 +1,22 @@
+[package]
+name = "llrt_modules"
+version = "0.1.15-beta"
+edition = "2021"
+license-file = "LICENSE"
+
+[features]
+default = ["all"]
+all = ["buffer", "fs", "path"]
+
+buffer = ["llrt_utils/encoding"]
+fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
+path = []
+
+[dependencies]
+llrt_utils = { path = "../llrt_utils", default-features = false }
+rquickjs = { version = "0.6", features = [
+  "macro",
+  "futures",
+], default-features = false }
+ring = { version = "0.17", optional = true }
+tokio = { version = "1" }

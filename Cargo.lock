@@ -2437,7 +2437,6 @@ name = "llrt_core"
 version = "0.1.15-beta"
 dependencies = [
  "async-trait",
- "base64-simd",
  "brotlic",
  "bytes",
  "cargo-patch",
@@ -2448,7 +2447,6 @@ dependencies = [
  "encoding_rs",
  "flate2",
  "fxhash",
- "hex-simd",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -2456,6 +2454,8 @@ dependencies = [
  "itoa",
  "jwalk",
  "libc",
+ "llrt_modules",
+ "llrt_utils",
  "md-5",
  "nanoid",
  "once_cell",
@@ -2483,6 +2483,26 @@ dependencies = [
  "webpki-roots",
  "wiremock",
  "zstd",
+]
+
+[[package]]
+name = "llrt_modules"
+version = "0.1.15-beta"
+dependencies = [
+ "llrt_utils",
+ "ring",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_utils"
+version = "0.1.15-beta"
+dependencies = [
+ "base64-simd",
+ "hex-simd",
+ "rquickjs",
+ "tokio",
 ]
 
 [[package]]

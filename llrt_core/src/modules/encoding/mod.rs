@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub mod encoder;
+pub mod encoder {
+    pub use llrt_utils::encoding::*;
+}
 pub mod text_decoder;
 pub mod text_encoder;
 

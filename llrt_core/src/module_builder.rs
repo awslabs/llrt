@@ -19,6 +19,7 @@ use crate::modules::{
     uuid::UuidModule,
     xml::XmlModule,
 };
+pub use llrt_modules::ModuleInfo;
 use rquickjs::{
     loader::{BuiltinResolver, ModuleLoader, Resolver},
     module::ModuleDef,
@@ -53,11 +54,6 @@ pub type Modules = (
     HashSet<&'static str>,
     Vec<fn(&Ctx<'_>) -> Result<()>>,
 );
-
-pub struct ModuleInfo<T: ModuleDef> {
-    pub name: &'static str,
-    pub module: T,
-}
 
 pub struct ModuleBuilder {
     builtin_resolver: ModuleResolver,
