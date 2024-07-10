@@ -13,6 +13,10 @@ pub trait OptionExt<T> {
     fn and_then_ok<U, E, F>(self, f: F) -> StdResult<Option<U>, E>
     where
         F: FnOnce(T) -> StdResult<Option<U>, E>;
+
+    fn unwrap_or_else_ok<E, F>(self, f: F) -> StdResult<T, E>
+    where
+        F: FnOnce() -> StdResult<T, E>;
 }
 
 impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
@@ -49,6 +53,16 @@ impl<T> OptionExt<T> for Option<T> {
         match self {
             Some(v) => f(v),
             None => Ok(None),
+        }
+    }
+
+    fn unwrap_or_else_ok<E, F>(self, f: F) -> StdResult<T, E>
+    where
+        F: FnOnce() -> StdResult<T, E>,
+    {
+        match self {
+            Some(v) => Ok(v),
+            None => f(),
         }
     }
 }

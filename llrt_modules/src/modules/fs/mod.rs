@@ -1,7 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod access;
+mod file_handle;
 mod mkdir;
+mod open;
 mod read_dir;
 mod read_file;
 mod rm;
