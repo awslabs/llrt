@@ -25,7 +25,7 @@ impl<'js> TextDecoder {
         let mut fatal = false;
         let mut ignore_bom = false;
 
-        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+        let encoder = Encoder::from_str(&encoding).or_throw_range(&ctx, None)?;
 
         if let Some(options) = options.0 {
             if let Some(opt) = options.get_optional("fatal")? {
@@ -59,7 +59,11 @@ impl<'js> TextDecoder {
     }
 
     pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = get_bytes(&ctx, buffer)?;
+        let bytes = if buffer.is_undefined() {
+            vec![]
+        } else {
+            get_bytes(&ctx, buffer)?
+        };
         let start_pos = if !self.ignore_bom && bytes.len() >= 2 && bytes[..2] == [0xFF, 0xFE] {
             2
         } else if !self.ignore_bom && bytes.len() >= 3 && bytes[..3] == [0xEF, 0xBB, 0xBF] {
@@ -70,6 +74,6 @@ impl<'js> TextDecoder {
 
         self.encoder
             .encode_to_string(&bytes[start_pos..], !self.fatal)
-            .or_throw(&ctx)
+            .or_throw_type(&ctx, None)
     }
 }

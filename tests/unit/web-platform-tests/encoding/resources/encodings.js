@@ -466,3 +466,4 @@ const encodings_table =
   }
 ]
 ;
+export default encodings_table;

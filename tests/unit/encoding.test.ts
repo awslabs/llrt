@@ -67,7 +67,9 @@ describe("TextDecoder", () => {
     try {
       const decoded = new TextDecoder("nonexistent_label");
     } catch (ex) {
-      expect(ex.message).toEqual("Unsupported encoding: Nonexistentlabel");
+      expect(ex.message).toEqual(
+        'The "nonexistent_label" encoding is not supported'
+      );
     }
   });
 });

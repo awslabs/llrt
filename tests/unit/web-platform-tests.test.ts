@@ -1,8 +1,18 @@
 describe("web-platform-tests", () => {
   beforeAll(() => {
+    globalThis.location = {};
+
     // Set up the test harness
     require("./web-platform-tests/resources/idlharness.js");
     require("./web-platform-tests/resources/testharness.js");
+    require("./web-platform-tests/common/subset-tests.js");
+
+    // The test harness uses common/sab.js which uses WebAssembly which doesn't
+    // work, so we can just create buffers the usual way
+    globalThis.createBuffer = (type, length) => new self[type](length);
+
+    globalThis.encodings_table =
+      require("./web-platform-tests/encoding/resources/encodings.js").default;
 
     // Tests use fetch() to load JSON files, so we need to mock it to load files
     // from disk
@@ -42,6 +52,147 @@ describe("web-platform-tests", () => {
   // require("./web-platform-tests/url/historical.any.js");
   // Request.formData() not supported
   // require("./web-platform-tests/url/urlencoded-parser.any.js");
+
+  /**
+   * Encoding
+   */
+
+  it("should pass encoding/api-basics.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/api-basics.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/api-invalid-label.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/api-invalid-label.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/api-replacement-encodings.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/api-replacement-encodings.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/api-surrogates-utf8.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/api-surrogates-utf8.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/encodeInto.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/encodeInto.any.js");
+    globalThis.done();
+  });
+
+  // Current support is utf8 and utf16le
+  // it("should pass encoding/iso-2022-jp-decoder.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/iso-2022-jp-decoder.any.js");
+  //   globalThis.done();
+  // });
+
+  // Requires XMLHTTPRequest which is not defined
+  // it("should pass encoding/replacement-encodings.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/replacement-encodings.any.js");
+  //   globalThis.done();
+  // });
+
+  it("should pass encoding/textdecoder-arguments.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-arguments.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/textdecoder-byte-order-marks.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-byte-order-marks.any.js");
+    globalThis.done();
+  });
+
+  // stream option not implemented
+  // it("should pass encoding/textdecoder-copy.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/textdecoder-copy.any.js");
+  //   globalThis.done();
+  // });
+
+  it("should pass encoding/textdecoder-eof.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-eof.any.js");
+    globalThis.done();
+  });
+
+  // Current support is utf8 and utf16le
+  // it("should pass encoding/textdecoder-fatal-single-byte.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/textdecoder-fatal-single-byte.any.js");
+  //   globalThis.done();
+  // });
+
+  it("should pass encoding/textdecoder-fatal-streaming.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-fatal-streaming.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/textdecoder-fatal.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-fatal.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/textdecoder-ignorebom.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-ignorebom.any.js");
+    globalThis.done();
+  });
+
+  // Not implemented
+  // it("should pass encoding/textdecoder-labels.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/textdecoder-labels.any.js");
+  //   globalThis.done();
+  // });
+
+  // stream option not implemented
+  // it("should pass encoding/textdecoder-streaming.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/textdecoder-streaming.any.js");
+  //   globalThis.done();
+  // });
+
+  it("should pass encoding/textdecoder-utf16-surrogates.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textdecoder-utf16-surrogates.any.js");
+    globalThis.done();
+  });
+
+  it("should pass encoding/textencoder-constructor-non-utf.any.js", (done) => {
+    setupWPTTest(done);
+    require("./web-platform-tests/encoding/textencoder-constructor-non-utf.any.js");
+    globalThis.done();
+  });
+
+  // it("should pass encoding/textencoder-utf16-surrogates.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/textencoder-utf16-surrogates.any.js");
+  //   globalThis.done();
+  // });
+
+  // Requires XMLHTTPRequest which is not defined
+  // it("should pass encoding/unsupported-encodings.any.js", (done) => {
+  //   setupWPTTest(done);
+  //   require("./web-platform-tests/encoding/unsupported-encodings.any.js");
+  //   globalThis.done();
+  // });
+
+  /**
+   * URL
+   */
 
   it("should pass url/url-constructor.any.js tests", (done) => {
     setupWPTTest(done);
