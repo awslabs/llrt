@@ -1,15 +1,13 @@
-use std::{path::PathBuf, str::FromStr};
-
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 use super::url_search_params::URLSearchParams;
 use crate::utils::result::ResultExt;
-use rquickjs::atom::PredefinedAtom;
-use rquickjs::class::Trace;
-use rquickjs::function::Opt;
-use rquickjs::{Class, Coerced, Ctx, Exception, FromJs, IntoJs, Null, Object, Result, Value};
-use std::cell::RefCell;
-use std::rc::Rc;
+use rquickjs::{
+    atom::PredefinedAtom, class::Trace, function::Opt, Class, Coerced, Ctx, Exception, FromJs,
+    IntoJs, Null, Object, Result, Value,
+};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, str::FromStr};
 use url::{quirks, Url};
 
 /// Naively checks for hostname delimiter, a colon ":", that's *probably* not

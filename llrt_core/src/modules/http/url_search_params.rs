@@ -2,16 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::utils::class::IteratorDef;
-use rquickjs::atom::PredefinedAtom;
-use rquickjs::class::Trace;
-use rquickjs::function::Opt;
 use rquickjs::{
-    Array, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Null, Object, Result, Symbol,
-    Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, Array, Class, Coerced, Ctx, Exception,
+    FromJs, Function, IntoJs, Null, Object, Result, Symbol, Value,
 };
-use std::cell::RefCell;
-use std::collections::HashSet;
-use std::rc::Rc;
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 use url::Url;
 
 /// Represents `URLSearchParams` in the JavaScript context
@@ -89,20 +84,16 @@ impl<'js> URLSearchParams {
 
     pub fn delete(&mut self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) {
         let key = key.0;
-        let value = value.into_inner();
+
+        let value = get_coerced_string_value(&ctx, value);
 
         let new_pairs: Vec<_> = self
             .url
             .borrow()
             .query_pairs()
             .filter(|(k, v)| {
-                if let Some(value) = value.clone() {
-                    if !value.is_undefined() {
-                        let value: Result<Coerced<String>> = Coerced::from_js(&ctx, value);
-                        if let Ok(value) = value {
-                            return !(*k == key && *v == *value);
-                        }
-                    }
+                if let Some(value) = value.as_ref() {
+                    return !(*k == key && *v == *value);
                 }
                 *k != key
             })
@@ -155,18 +146,12 @@ impl<'js> URLSearchParams {
     }
 
     pub fn has(&self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) -> bool {
+        let value = get_coerced_string_value(&ctx, value);
         let key = key.0;
-        let value = value.into_inner();
         self.url.borrow().query_pairs().any(|(k, v)| {
-            if let Some(value) = value.clone() {
-                if !value.is_undefined() {
-                    let value: Result<Coerced<String>> = Coerced::from_js(&ctx, value);
-                    if let Ok(value) = value {
-                        return *k == key && *v == *value;
-                    }
-                }
+            if let Some(value) = value.as_ref() {
+                return *k == key && *v == *value;
             }
-
             *k == key
         })
     }
@@ -274,11 +259,15 @@ impl<'js> URLSearchParams {
 impl<'js> URLSearchParams {
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(query: String) -> Self {
-        let query = query.strip_prefix('?').unwrap_or(query.as_str());
+        let query = if !query.starts_with('?') {
+            ["?", &query].concat()
+        } else {
+            query
+        };
         let url = "http://example.com"
             .parse::<Url>()
             .unwrap()
-            .join(("?".to_string() + query).as_str())
+            .join(&query)
             .unwrap();
         Self {
             url: Rc::new(RefCell::new(url)),
@@ -393,4 +382,15 @@ impl<'js> IteratorDef<'js> for URLSearchParams {
         }
         Ok(array)
     }
+}
+
+fn get_coerced_string_value<'js>(ctx: &Ctx<'js>, value: Opt<Value<'js>>) -> Option<String> {
+    if let Some(value) = value.0 {
+        if !value.is_undefined() {
+            if let Ok(value) = Coerced::<String>::from_js(ctx, value) {
+                return Some(value.0);
+            }
+        }
+    };
+    None
 }
