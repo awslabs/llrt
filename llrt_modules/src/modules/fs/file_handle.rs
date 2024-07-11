@@ -14,6 +14,7 @@ use tokio::{fs::File, task};
 use super::{read_file, Stat};
 
 const DEFAULT_BUFFER_SIZE: usize = 16384;
+const DEFAULT_ENCODING: &str = "utf8";
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
@@ -254,7 +255,7 @@ impl FileHandle {
                 let encoding = length_or_encoding
                     .0
                     .and_then(|e| e.right())
-                    .unwrap_or_else(|| "utf8".to_string());
+                    .unwrap_or_else(|| DEFAULT_ENCODING.to_string());
                 let buffer = Encoder::from_str(&encoding)
                     .and_then(|enc| enc.decode_from_string(string.clone()))
                     .or_throw(&ctx)?;
@@ -275,7 +276,44 @@ impl FileHandle {
         Ok(result)
     }
 
-    async fn write_file(&self) {}
+    async fn write_file<'js>(
+        &mut self,
+        ctx: Ctx<'js>,
+        data: Either<ArrayBufferView<'js>, String>,
+        options_or_encoding: Opt<Either<WriteFileOptions, String>>,
+    ) -> Result<()> {
+        let file = self.file_mut(&ctx)?;
+
+        // Always overwrite the whole file
+        file.set_len(0)
+            .await
+            .or_throw_msg(&ctx, "Failed to truncate file")?;
+
+        let encoding = match options_or_encoding.0 {
+            Some(Either::Left(options)) => options.encoding,
+            Some(Either::Right(encoding)) => Some(encoding),
+            _ => None,
+        }
+        .unwrap_or_else(|| DEFAULT_ENCODING.to_string());
+
+        let buffer = match &data {
+            Either::Left(buffer) => {
+                let buffer = buffer.as_bytes().or_throw_msg(&ctx, "Buffer is detached")?;
+                Cow::Borrowed(buffer)
+            },
+            Either::Right(string) => {
+                let buffer = Encoder::from_str(&encoding)
+                    .and_then(|enc| enc.decode_from_string(string.clone()))
+                    .or_throw(&ctx)?;
+                Cow::Owned(buffer)
+            },
+        };
+
+        file.write_all(&buffer)
+            .await
+            .or_throw_msg(&ctx, "Failed to write to file")?;
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -321,6 +359,24 @@ impl<'js> FromJs<'js> for WriteOptions {
         let length = obj.get_optional::<_, usize>("length")?;
 
         Ok(Self { offset, length })
+    }
+}
+
+#[derive(Default)]
+struct WriteFileOptions {
+    encoding: Option<String>,
+}
+
+impl<'js> FromJs<'js> for WriteFileOptions {
+    fn from_js(_ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        let ty_name = value.type_name();
+        let obj = value
+            .as_object()
+            .ok_or(Error::new_from_js(ty_name, "Object"))?;
+
+        let encoding = obj.get_optional::<_, String>("encoding")?;
+
+        Ok(Self { encoding })
     }
 }
 
@@ -426,6 +482,36 @@ mod tests {
                     call_test::<u32, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
 
                 assert_eq!(result, 11);
+            })
+        })
+        .await;
+
+        let file_content = tokio::fs::read(path).await.unwrap();
+        assert_eq!(file_content, b"Hello World");
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_write_file() {
+        let (file, path) =
+            given_file("Other Data", OpenOptions::new().write(true).append(true)).await;
+        let path_1 = path.clone();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            await filehandle.writeFile("Hello World", "utf8");
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                call_test::<(), _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
             })
         })
         .await;
