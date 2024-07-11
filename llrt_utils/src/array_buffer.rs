@@ -99,12 +99,16 @@ impl<'js> ArrayBufferView<'js> {
         self.buffer.is_empty()
     }
 
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        self.buffer.as_bytes()
+    }
+
     /// Mutable buffer for the view.
     ///
     /// # Safety
     /// This is only safe if you have a lock on the runtime.
     /// Do not pass it directly to other threads.
-    pub unsafe fn buffer_mut(&self) -> Option<&mut [u8]> {
+    pub unsafe fn as_bytes_mut(&self) -> Option<&mut [u8]> {
         let raw = self.buffer.as_raw()?;
         Some(std::slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len))
     }

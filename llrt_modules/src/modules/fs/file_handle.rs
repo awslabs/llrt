@@ -1,15 +1,17 @@
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 use either::Either;
 use llrt_utils::array_buffer::ArrayBufferView;
+use llrt_utils::encoding::Encoder;
 use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
 use rquickjs::function::Opt;
-use rquickjs::{Ctx, Error, FromJs, Object, Result, Value};
-use tokio::io::AsyncReadExt;
+use rquickjs::{Ctx, Error, FromJs, Null, Object, Result, Value};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{fs::File, task};
 
-use super::read_file;
+use super::{read_file, Stat};
 
 const DEFAULT_BUFFER_SIZE: usize = 16384;
 
@@ -151,7 +153,7 @@ impl FileHandle {
 
         let dst_buf = unsafe {
             buffer
-                .buffer_mut()
+                .as_bytes_mut()
                 .or_throw_msg(&ctx, "Buffer is detached")?
         };
         dst_buf[offset..].copy_from_slice(&buf);
@@ -187,7 +189,14 @@ impl FileHandle {
 
     async fn read_lines(&self) {}
 
-    async fn stat(&self) {}
+    async fn stat(&self, ctx: Ctx<'_>) -> Result<Stat> {
+        let metadata = self
+            .file(&ctx)?
+            .metadata()
+            .await
+            .or_throw_msg(&ctx, "Can't stat file")?;
+        Ok(Stat::new(metadata))
+    }
 
     async fn sync(&self, ctx: Ctx<'_>) -> Result<()> {
         self.file(&ctx)?
@@ -204,9 +213,67 @@ impl FileHandle {
             .or_throw_msg(&ctx, "Can't truncate file")
     }
 
-    async fn utimes(&self) {}
+    // Setting times not supported in tokio
+    // See https://github.com/tokio-rs/tokio/issues/6368
+    // async fn utimes(&mut self,  ctx: Ctx<'_>, atime: Value<'_>, mtime: Value<'_>) -> Result<()>
 
-    async fn write(&mut self, ctx: Ctx<'_>) {}
+    async fn write<'js>(
+        &mut self,
+        ctx: Ctx<'js>,
+        buffer_or_string: Either<ArrayBufferView<'js>, String>,
+        offset_or_options_or_position: Opt<Either<Either<usize, Null>, WriteOptions>>,
+        length_or_encoding: Opt<Either<usize, String>>,
+        // Not supporting position for now since it is not available in tokio.
+        // See https://github.com/tokio-rs/tokio/issues/699
+        // position: Opt<Either<isize, Null>>,
+    ) -> Result<Object<'js>> {
+        let mut options = match offset_or_options_or_position.0 {
+            Some(Either::Left(Either::Left(offset_or_position))) => {
+                if buffer_or_string.is_left() {
+                    WriteOptions {
+                        offset: Some(offset_or_position),
+                        ..Default::default()
+                    }
+                } else {
+                    WriteOptions::default()
+                }
+            },
+            Some(Either::Right(options)) => options,
+            _ => WriteOptions::default(),
+        };
+        if let Some(Either::Left(length)) = length_or_encoding.0 {
+            options.length = Some(length);
+        }
+
+        let buffer = match &buffer_or_string {
+            Either::Left(buffer) => {
+                let buffer = buffer.as_bytes().or_throw_msg(&ctx, "Buffer is detached")?;
+                Cow::Borrowed(buffer)
+            },
+            Either::Right(string) => {
+                let encoding = length_or_encoding
+                    .0
+                    .and_then(|e| e.right())
+                    .unwrap_or_else(|| "utf8".to_string());
+                let buffer = Encoder::from_str(&encoding)
+                    .and_then(|enc| enc.decode_from_string(string.clone()))
+                    .or_throw(&ctx)?;
+                Cow::Owned(buffer)
+            },
+        };
+
+        let offset = options.offset.unwrap_or(0);
+        let length = options.length.unwrap_or(buffer.len() - offset);
+        self.file_mut(&ctx)?
+            .write_all(&buffer[offset..length])
+            .await
+            .or_throw_msg(&ctx, "Failed to write to file")?;
+
+        let result = Object::new(ctx)?;
+        result.set("bytesWritten", length)?;
+        result.set("buffer", buffer_or_string)?;
+        Ok(result)
+    }
 
     async fn write_file(&self) {}
 }
@@ -234,6 +301,26 @@ impl<'js> FromJs<'js> for ReadOptions<'js> {
             offset,
             length,
         })
+    }
+}
+
+#[derive(Default)]
+struct WriteOptions {
+    offset: Option<usize>,
+    length: Option<usize>,
+}
+
+impl<'js> FromJs<'js> for WriteOptions {
+    fn from_js(_ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        let ty_name = value.type_name();
+        let obj = value
+            .as_object()
+            .ok_or(Error::new_from_js(ty_name, "Object"))?;
+
+        let offset = obj.get_optional::<_, usize>("offset")?;
+        let length = obj.get_optional::<_, usize>("length")?;
+
+        Ok(Self { offset, length })
     }
 }
 
@@ -312,5 +399,38 @@ mod tests {
             })
         })
         .await;
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_write() {
+        let (file, path) = given_file("", OpenOptions::new().write(true)).await;
+        let path_1 = path.clone();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            const { bytesWritten } = await filehandle.write("Hello World", null, "utf8");
+                            return bytesWritten;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<u32, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
+
+                assert_eq!(result, 11);
+            })
+        })
+        .await;
+
+        let file_content = tokio::fs::read(path).await.unwrap();
+        assert_eq!(file_content, b"Hello World");
     }
 }
