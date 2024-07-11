@@ -191,10 +191,6 @@ impl FileHandle {
         read_file::handle_read_file_bytes(&ctx, options, bytes)
     }
 
-    async fn read_lines(&self, ctx: Ctx<'_>) -> Result<()> {
-        todo!()
-    }
-
     async fn stat(&self, ctx: Ctx<'_>) -> Result<Stat> {
         let metadata = self
             .file(&ctx)?
