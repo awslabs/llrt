@@ -6,68 +6,13 @@ pub mod encoder {
 pub mod text_decoder;
 pub mod text_encoder;
 
-use rquickjs::{
-    module::{Declarations, Exports, ModuleDef},
-    prelude::Func,
-    Class, Ctx, Result, Value,
-};
+use rquickjs::{prelude::Func, Class, Ctx, Result};
 
-use crate::{
-    module_builder::ModuleInfo,
-    modules::module::export_default,
-    utils::{
-        object::{bytes_to_typed_array, get_bytes},
-        result::ResultExt,
-    },
-};
+use crate::utils::result::ResultExt;
 
-use self::encoder::{bytes_from_b64, bytes_from_hex, bytes_to_b64_string, bytes_to_hex_string};
+use self::encoder::{bytes_from_b64, bytes_to_b64_string};
 use self::text_decoder::TextDecoder;
 use self::text_encoder::TextEncoder;
-
-pub struct HexModule;
-
-impl HexModule {
-    pub fn encode<'js>(ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = get_bytes(&ctx, buffer)?;
-        Ok(bytes_to_hex_string(&bytes))
-    }
-
-    pub fn decode(ctx: Ctx, encoded: String) -> Result<Value> {
-        let bytes = bytes_from_hex(encoded.as_bytes())
-            .or_throw_msg(&ctx, "Cannot decode unrecognized sequence")?;
-
-        bytes_to_typed_array(ctx, &bytes)
-    }
-}
-
-impl ModuleDef for HexModule {
-    fn declare(declare: &Declarations) -> Result<()> {
-        declare.declare(stringify!(encode))?;
-        declare.declare(stringify!(decode))?;
-        declare.declare("default")?;
-        Ok(())
-    }
-
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        export_default(ctx, exports, |default| {
-            default.set(stringify!(encode), Func::from(Self::encode))?;
-            default.set(stringify!(decode), Func::from(Self::decode))?;
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-}
-
-impl From<HexModule> for ModuleInfo<HexModule> {
-    fn from(val: HexModule) -> Self {
-        ModuleInfo {
-            name: "hex",
-            module: val,
-        }
-    }
-}
 
 pub fn atob(ctx: Ctx<'_>, encoded_value: String) -> Result<String> {
     let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;

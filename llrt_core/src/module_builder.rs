@@ -5,7 +5,6 @@ use crate::modules::{
     child_process::ChildProcessModule,
     console::ConsoleModule,
     crypto::CryptoModule,
-    encoding::HexModule,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
     module::ModuleModule,
@@ -67,7 +66,6 @@ impl Default for ModuleBuilder {
         Self::new()
             .with_module(CryptoModule)
             .with_global(crate::modules::crypto::init)
-            .with_module(HexModule)
             .with_global(crate::modules::encoding::init)
             .with_module(FsPromisesModule)
             .with_module(FsModule)
