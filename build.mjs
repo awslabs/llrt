@@ -56,7 +56,7 @@ const ES_BUILD_OPTIONS = {
     "node:console",
     "crypto",
     "uuid",
-    "hex",
+    "@llrt/hex",
     "os",
     "fs",
     "child_process",

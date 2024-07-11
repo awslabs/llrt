@@ -7,6 +7,7 @@ use crate::modules::{
     crypto::CryptoModule,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
+    llrt::hex::LlrtHexModule,
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
@@ -92,6 +93,7 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::performance::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
+            .with_module(LlrtHexModule)
     }
 }
 

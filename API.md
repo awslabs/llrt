@@ -108,7 +108,7 @@ Available globally
 
 [writeFile](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
 
-## hex
+## @llrt/hex
 
 ```typescript
 export function encode(
