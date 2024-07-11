@@ -1,5 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#[cfg(not(feature = "encoding-simd"))]
+use base64::{
+    alphabet,
+    engine::general_purpose::STANDARD,
+    engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig},
+    Engine,
+};
+#[cfg(feature = "encoding-simd")]
 use hex_simd::AsciiCase;
 
 macro_rules! encoder_enum {
@@ -86,28 +94,68 @@ impl Encoder {
     }
 }
 
+#[cfg(feature = "encoding-simd")]
 pub fn bytes_to_hex(bytes: &[u8]) -> Vec<u8> {
     hex_simd::encode_type(bytes, AsciiCase::Lower)
 }
 
+#[cfg(not(feature = "encoding-simd"))]
+pub fn bytes_to_hex(bytes: &[u8]) -> Vec<u8> {
+    hex::encode(bytes).into_bytes()
+}
+
+#[cfg(feature = "encoding-simd")]
 pub fn bytes_from_hex(hex_bytes: &[u8]) -> Result<Vec<u8>, String> {
     hex_simd::decode_to_vec(hex_bytes).map_err(|err| err.to_string())
 }
 
+#[cfg(not(feature = "encoding-simd"))]
+pub fn bytes_from_hex(hex_bytes: &[u8]) -> Result<Vec<u8>, String> {
+    hex::decode(hex_bytes).map_err(|err| err.to_string())
+}
+
+#[cfg(feature = "encoding-simd")]
 pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
     base64_simd::STANDARD.encode_to_string(bytes)
 }
 
+#[cfg(not(feature = "encoding-simd"))]
+pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
+    STANDARD.encode(bytes)
+}
+
+#[cfg(feature = "encoding-simd")]
 pub fn bytes_from_b64(bytes: &[u8]) -> Result<Vec<u8>, String> {
     base64_simd::forgiving_decode_to_vec(bytes).map_err(|e| e.to_string())
 }
 
+#[cfg(not(feature = "encoding-simd"))]
+pub fn bytes_from_b64(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    const STANDARD_FORGIVING: GeneralPurpose = GeneralPurpose::new(
+        &alphabet::STANDARD,
+        GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent),
+    );
+    STANDARD_FORGIVING.decode(bytes).map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "encoding-simd")]
 pub fn bytes_to_b64(bytes: &[u8]) -> Vec<u8> {
     base64_simd::STANDARD.encode_type(bytes)
 }
 
+#[cfg(not(feature = "encoding-simd"))]
+pub fn bytes_to_b64(bytes: &[u8]) -> Vec<u8> {
+    STANDARD.encode(bytes).into_bytes()
+}
+
+#[cfg(feature = "encoding-simd")]
 pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
     hex_simd::encode_to_string(bytes, AsciiCase::Lower)
+}
+
+#[cfg(not(feature = "encoding-simd"))]
+pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
+    hex::encode(bytes)
 }
 
 pub fn bytes_to_string(bytes: &[u8]) -> String {

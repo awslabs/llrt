@@ -19,8 +19,8 @@ patches = ["patches/promise-poll.patch"]
 rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 
 [dependencies]
-llrt_modules = { path = "../llrt_modules", features = ["all"] }
-llrt_utils = { path = "../llrt_utils", features = ["all"] }
+llrt_modules = { path = "../llrt_modules", features = ["all-simd"], default-features = false }
+llrt_utils = { path = "../llrt_utils", features = ["all-simd"], default-features = false }
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 quick-xml = "0.35.0"
 crc32c = { version = "0.6.8" }
