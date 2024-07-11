@@ -33,19 +33,27 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
     }
 
     fn or_throw_range(self, ctx: &Ctx, msg: Option<&str>) -> Result<T> {
-        match msg {
-            Some(msg) => self
-                .map_err(|e| Exception::throw_range(ctx, &format!("{}. {}", msg, &e.to_string()))),
-            None => self.map_err(|e| Exception::throw_range(ctx, &format!("{e}"))),
-        }
+        self.map_err(|e| {
+            let mut message = String::with_capacity(100);
+            if let Some(msg) = msg {
+                message.push_str(msg);
+                message.push_str(". ");
+            }
+            write!(message, "{}", e).unwrap();
+            Exception::throw_range(ctx, &message)
+        })
     }
 
     fn or_throw_type(self, ctx: &Ctx, msg: Option<&str>) -> Result<T> {
-        match msg {
-            Some(msg) => self
-                .map_err(|e| Exception::throw_type(ctx, &format!("{}. {}", msg, &e.to_string()))),
-            None => self.map_err(|e| Exception::throw_type(ctx, &format!("{e}"))),
-        }
+        self.map_err(|e| {
+            let mut message = String::with_capacity(100);
+            if let Some(msg) = msg {
+                message.push_str(msg);
+                message.push_str(". ");
+            }
+            write!(message, "{}", e).unwrap();
+            Exception::throw_type(ctx, &message)
+        })
     }
 
     fn or_throw(self, ctx: &Ctx) -> Result<T> {
@@ -55,19 +63,19 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
 
 impl<T> ResultExt<T> for Option<T> {
     fn or_throw_msg(self, ctx: &Ctx, msg: &str) -> Result<T> {
-        self.ok_or(Exception::throw_message(ctx, msg))
+        self.ok_or_else(|| Exception::throw_message(ctx, msg))
     }
 
     fn or_throw_range(self, ctx: &Ctx, msg: Option<&str>) -> Result<T> {
-        self.ok_or(Exception::throw_range(ctx, msg.unwrap_or("")))
+        self.ok_or_else(|| Exception::throw_range(ctx, msg.unwrap_or("")))
     }
 
     fn or_throw_type(self, ctx: &Ctx, msg: Option<&str>) -> Result<T> {
-        self.ok_or(Exception::throw_type(ctx, msg.unwrap_or("")))
+        self.ok_or_else(|| Exception::throw_type(ctx, msg.unwrap_or("")))
     }
 
     fn or_throw(self, ctx: &Ctx) -> Result<T> {
-        self.ok_or(Exception::throw_message(ctx, "Value is not present"))
+        self.ok_or_else(|| Exception::throw_message(ctx, "Value is not present"))
     }
 }
 
