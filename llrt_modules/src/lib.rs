@@ -7,3 +7,4 @@ mod module_info;
 mod modules;
 #[cfg(test)]
 mod test;
+mod utils;

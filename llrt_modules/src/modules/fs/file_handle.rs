@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 use either::Either;
-use llrt_utils::array_buffer::ArrayBufferView;
 use llrt_utils::encoding::Encoder;
 use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
@@ -12,6 +11,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{fs::File, task};
 
 use super::{read_file, Stat};
+use crate::buffer::Buffer;
+use crate::utils::array_buffer::ArrayBufferView;
 
 const DEFAULT_BUFFER_SIZE: usize = 16384;
 const DEFAULT_ENCODING: &str = "utf8";
@@ -132,7 +133,9 @@ impl FileHandle {
         let buffer = options_1
             .buffer
             .or(options_2.buffer)
-            .unwrap_or_else_ok(|| ArrayBufferView::new(ctx.clone(), DEFAULT_BUFFER_SIZE))?;
+            .unwrap_or_else_ok(|| {
+                ArrayBufferView::from_buffer(&ctx, Buffer::alloc(DEFAULT_BUFFER_SIZE))
+            })?;
         let offset = options_1.offset.or(options_2.offset).unwrap_or(0);
         let length = options_1
             .length
@@ -188,7 +191,9 @@ impl FileHandle {
         read_file::handle_read_file_bytes(&ctx, options, bytes)
     }
 
-    async fn read_lines(&self) {}
+    async fn read_lines(&self, ctx: Ctx<'_>) -> Result<()> {
+        todo!()
+    }
 
     async fn stat(&self, ctx: Ctx<'_>) -> Result<Stat> {
         let metadata = self
@@ -386,7 +391,10 @@ mod tests {
     use tokio::fs::OpenOptions;
 
     use super::*;
-    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+    use crate::{
+        buffer,
+        test::{call_test, test_async_with, ModuleEvaluator},
+    };
 
     async fn given_file(content: &str, options: &mut OpenOptions) -> (File, PathBuf) {
         // Create file
@@ -413,6 +421,37 @@ mod tests {
                             const view = new Uint8Array(buffer);
                             const read = await filehandle.read(view);
                             return Array.from(view);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+
+                assert!(result.starts_with(b"Hello World"));
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_read_buffer() {
+        let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                buffer::init(&ctx).unwrap();
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            const buffer = Buffer.alloc(4096);
+                            const read = await filehandle.read(buffer);
+                            return Array.from(buffer);
                         }
                     "#,
                 )

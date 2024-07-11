@@ -41,6 +41,7 @@ pub async fn open(ctx: Ctx<'_>, path: String, flags: String, mode: Opt<u32>) -> 
 #[cfg(test)]
 mod tests {
     use crate::{
+        buffer,
         fs::FsPromisesModule,
         test::{call_test, given_file, test_async_with, ModuleEvaluator},
     };
@@ -53,6 +54,7 @@ mod tests {
             .to_string();
         test_async_with(|ctx| {
             Box::pin(async move {
+                buffer::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<FsPromisesModule>(ctx.clone(), "fs/promises")
                     .await
                     .unwrap();
@@ -68,7 +70,7 @@ mod tests {
                             try {
                                 filehandle = await open(path, 'r+');
                                 let { buffer } = await filehandle.read();
-                                return Array.from(new Uint8Array(buffer));
+                                return Array.from(buffer);
                             } finally {
                                 await filehandle?.close();
                             }
