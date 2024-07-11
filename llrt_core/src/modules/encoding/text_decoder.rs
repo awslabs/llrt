@@ -59,11 +59,7 @@ impl<'js> TextDecoder {
     }
 
     pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = if buffer.is_undefined() {
-            vec![]
-        } else {
-            get_bytes(&ctx, buffer)?
-        };
+        let bytes = get_bytes(&ctx, buffer)?;
         let start_pos = if !self.ignore_bom && bytes.len() >= 2 && bytes[..2] == [0xFF, 0xFE] {
             2
         } else if !self.ignore_bom && bytes.len() >= 3 && bytes[..3] == [0xEF, 0xBB, 0xBF] {
