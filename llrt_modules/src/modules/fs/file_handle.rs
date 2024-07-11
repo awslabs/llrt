@@ -9,6 +9,8 @@ use rquickjs::{Ctx, Error, FromJs, Object, Result, Value};
 use tokio::io::AsyncReadExt;
 use tokio::{fs::File, task};
 
+use super::read_file;
+
 const DEFAULT_BUFFER_SIZE: usize = 16384;
 
 #[rquickjs::class]
@@ -160,7 +162,28 @@ impl FileHandle {
         Ok(result)
     }
 
-    async fn read_file(&self) {}
+    async fn read_file<'js>(
+        &mut self,
+        ctx: Ctx<'js>,
+        options: Opt<Either<String, read_file::ReadFileOptions>>,
+    ) -> Result<Value<'js>> {
+        let size = self
+            .file(&ctx)?
+            .metadata()
+            .await
+            .map(|m| m.len() as usize)
+            .ok();
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(size.unwrap_or(0))
+            .or_throw_msg(&ctx, "Out of memory")?;
+
+        self.file_mut(&ctx)?
+            .read_to_end(&mut bytes)
+            .await
+            .or_throw_msg(&ctx, "Failed to read file")?;
+        read_file::handle_read_file_bytes(&ctx, options, bytes)
+    }
 
     async fn read_lines(&self) {}
 
@@ -257,6 +280,35 @@ mod tests {
                     call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
 
                 assert!(result.starts_with(b"Hello World"));
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_read_file() {
+        let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            const data = await filehandle.readFile("utf8");
+                            return data;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<String, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+
+                assert_eq!(result, "Hello World");
             })
         })
         .await;
