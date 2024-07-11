@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use rquickjs::{ArrayBuffer, Ctx, Error, FromJs, IntoJs, Object, Result, TypedArray, Value};
 
 #[cfg(feature = "buffer")]
