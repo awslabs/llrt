@@ -20,6 +20,7 @@ use rquickjs::{Class, Ctx, Object, Result};
 use crate::module_info::ModuleInfo;
 
 use self::access::access;
+use self::file_handle::FileHandle;
 use self::open::open;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::{read_file, read_file_sync};
@@ -66,6 +67,7 @@ impl ModuleDef for FsPromisesModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
+        Class::<FileHandle>::register(ctx)?;
         Class::<Stat>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
@@ -107,6 +109,7 @@ impl ModuleDef for FsModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
+        Class::<FileHandle>::register(ctx)?;
         Class::<Stat>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
