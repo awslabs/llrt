@@ -20,15 +20,27 @@ impl TextEncoder {
     }
 
     pub fn encode<'js>(&self, ctx: Ctx<'js>, string: Opt<Value<'js>>) -> Result<Value<'js>> {
+        let mut buffer = "".to_string();
         if let Some(string) = string.0 {
             if let Some(string) = string.as_string() {
-                if let Ok(string) = string.to_string() {
-                    return TypedArray::new(ctx, string.as_bytes()).map(|m| m.into_value());
+                match string.to_string() {
+                    Ok(string) => buffer = string,
+                    Err(_) => {
+                        return Err(Exception::throw_message(
+                            &ctx,
+                            "Failed to convert the \"string\" argument to a string.",
+                        ))
+                    },
                 }
+            } else if !string.is_undefined() {
+                return Err(Exception::throw_message(
+                    &ctx,
+                    "The \"string\" argument must be a string.",
+                ));
             }
         }
 
-        TypedArray::new(ctx.clone(), []).map(|m: TypedArray<'_, u8>| m.into_value())
+        TypedArray::new(ctx.clone(), buffer.as_bytes()).map(|m: TypedArray<'_, u8>| m.into_value())
     }
 
     pub fn encode_into<'js>(
