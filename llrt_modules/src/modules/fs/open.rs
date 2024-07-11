@@ -37,3 +37,52 @@ pub async fn open(ctx: Ctx<'_>, path: String, flags: String, mode: Opt<u32>) -> 
 
     Ok(FileHandle::new(file, path))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        fs::FsPromisesModule,
+        test::{call_test, given_file, test_async_with, ModuleEvaluator},
+    };
+
+    #[tokio::test]
+    async fn test_file_handle_read() {
+        let path = given_file("Hello World")
+            .await
+            .to_string_lossy()
+            .to_string();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<FsPromisesModule>(ctx.clone(), "fs/promises")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { open } from 'fs/promises';
+
+                        export async function test(path) {
+                            let filehandle = null;
+                            try {
+                                filehandle = await open(path, 'r+');
+                                let { buffer } = await filehandle.read();
+                                return Array.from(new Uint8Array(buffer));
+                            } finally {
+                                await filehandle?.close();
+                            }
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<Vec<u8>, _>(&ctx, &module, (path,)).await;
+
+                assert!(result.starts_with(b"Hello World"));
+            })
+        })
+        .await;
+    }
+}

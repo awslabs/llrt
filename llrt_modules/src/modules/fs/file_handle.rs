@@ -1,12 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use either::Either;
 use llrt_utils::array_buffer::ArrayBufferView;
 use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
 use rquickjs::function::Opt;
-use rquickjs::{Ctx, Error, FromJs, Null, Object, Result, Value};
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use rquickjs::{Ctx, Error, FromJs, Object, Result, Value};
+use tokio::io::AsyncReadExt;
 use tokio::{fs::File, task};
 
 const DEFAULT_BUFFER_SIZE: usize = 16384;
@@ -216,17 +216,15 @@ impl<'js> FromJs<'js> for ReadOptions<'js> {
 
 #[cfg(test)]
 mod tests {
-    use rquickjs::{CatchResultExt, Class, Promise};
+    use rquickjs::Class;
     use tokio::fs::OpenOptions;
 
     use super::*;
-    use crate::test::test_async_with;
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
 
     async fn given_file(content: &str, options: &mut OpenOptions) -> (File, PathBuf) {
         // Create file
-        let tmp_dir = std::env::temp_dir();
-        let path = tmp_dir.join(nanoid::nanoid!());
-        tokio::fs::write(&path, content).await.unwrap();
+        let path = crate::test::given_file(content).await;
 
         // Open in right mode
         let file = options.open(&path).await.unwrap();
@@ -240,27 +238,23 @@ mod tests {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
 
-                ctx.globals()
-                    .set("testFile", FileHandle::new(file, path))
-                    .unwrap();
-
-                let result = ctx
-                    .eval::<Promise, _>(
-                        r#"
-                        (async function(){
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
                             const buffer = new ArrayBuffer(4096);
                             const view = new Uint8Array(buffer);
-                            const read = await testFile.read(view);
+                            const read = await filehandle.read(view);
                             return Array.from(view);
-                        })()
+                        }
                     "#,
-                    )
-                    .catch(&ctx)
-                    .unwrap()
-                    .into_future::<Vec<u8>>()
-                    .await
-                    .catch(&ctx)
-                    .unwrap();
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
 
                 assert!(result.starts_with(b"Hello World"));
             })

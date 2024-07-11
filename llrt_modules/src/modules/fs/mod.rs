@@ -20,6 +20,7 @@ use rquickjs::{Class, Ctx, Object, Result};
 use crate::module_info::ModuleInfo;
 
 use self::access::access;
+use self::open::open;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::{read_file, read_file_sync};
 use self::rm::{rmdir, rmfile};
@@ -135,15 +136,19 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     constants.set("W_OK", CONSTANT_W_OK)?;
     constants.set("X_OK", CONSTANT_X_OK)?;
 
-    exports.set("readdir", Func::from(Async(read_dir)))?;
+    exports.set("access", Func::from(Async(access)))?;
+    exports.set("open", Func::from(Async(open)))?;
     exports.set("readFile", Func::from(Async(read_file)))?;
     exports.set("writeFile", Func::from(Async(write_file)))?;
+    // exports.set("appendFile", Func::from(Async(append_file)))?;
+    // exports.set("copyFile", Func::from(Async(copy_file)))?;
+    // exports.set("rename", Func::from(Async(rename)))?;
+    exports.set("readdir", Func::from(Async(read_dir)))?;
     exports.set("mkdir", Func::from(Async(mkdir)))?;
     exports.set("mkdtemp", Func::from(Async(mkdtemp)))?;
-    exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("rm", Func::from(Async(rmfile)))?;
+    exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("stat", Func::from(Async(stat_fn)))?;
-    exports.set("access", Func::from(Async(access)))?;
 
     exports.set("constants", constants)?;
 
