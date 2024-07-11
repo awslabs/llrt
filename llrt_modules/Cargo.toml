@@ -1,8 +1,11 @@
 [package]
 name = "llrt_modules"
+description = "LLRT Modules for rquickjs"
 version = "0.1.15-beta"
 edition = "2021"
-license-file = "LICENSE"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
 
 [features]
 default = ["all"]
@@ -13,7 +16,7 @@ fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 path = []
 
 [dependencies]
-llrt_utils = { path = "../llrt_utils", default-features = false }
+llrt_utils = { version = "0.1.15-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { version = "0.6", features = [
   "macro",
   "futures",
