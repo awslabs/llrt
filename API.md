@@ -297,7 +297,7 @@ export function version(arr: Array | Uint8Array): number;
 
 [createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
 
-## @llrt/hex
+## llrt:hex
 
 ```typescript
 export function encode(
@@ -306,7 +306,7 @@ export function encode(
 export function decode(value: string): Uint8Array;
 ```
 
-## @llrt/xml
+## llrt:xml
 
 A lightweight and fast XML parser
 

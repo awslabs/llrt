@@ -578,7 +578,7 @@ impl ModuleDef for LlrtXmlModule {
 impl From<LlrtXmlModule> for ModuleInfo<LlrtXmlModule> {
     fn from(val: LlrtXmlModule) -> Self {
         ModuleInfo {
-            name: "@llrt/xml",
+            name: "llrt:xml",
             module: val,
         }
     }

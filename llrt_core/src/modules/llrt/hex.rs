@@ -59,7 +59,7 @@ impl ModuleDef for LlrtHexModule {
 impl From<LlrtHexModule> for ModuleInfo<LlrtHexModule> {
     fn from(val: LlrtHexModule) -> Self {
         ModuleInfo {
-            name: "@llrt/hex",
+            name: "llrt:hex",
             module: val,
         }
     }
