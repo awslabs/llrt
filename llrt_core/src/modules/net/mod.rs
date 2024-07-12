@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 mod socket;
 
-use std::{env, time::Duration};
+use std::{env, fs::File, io::BufReader, time::Duration};
 
 use bytes::Bytes;
 use http_body_util::Full;
@@ -65,6 +65,15 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
 
     for cert in TLS_SERVER_ROOTS.iter().cloned() {
         root_certificates.roots.push(cert)
+    }
+
+    if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS).as_deref() {
+        if let Ok(file) = File::open(extra_ca_certs) {
+            let mut reader = BufReader::new(file);
+            root_certificates.add_parsable_certificates(
+                rustls_pemfile::certs(&mut reader).filter_map(std::io::Result::ok),
+            );
+        }
     }
 
     let builder = ClientConfig::builder_with_provider(ring::default_provider().into());
