@@ -68,11 +68,17 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
     }
 
     if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS) {
-        if let Ok(file) = File::open(extra_ca_certs) {
-            let mut reader = BufReader::new(file);
-            root_certificates.add_parsable_certificates(
-                rustls_pemfile::certs(&mut reader).filter_map(std::io::Result::ok),
-            );
+        match File::open(&extra_ca_certs) {
+            Ok(file) => {
+                let mut reader = BufReader::new(file);
+                root_certificates.add_parsable_certificates(
+                    rustls_pemfile::certs(&mut reader).filter_map(std::io::Result::ok),
+                );
+            },
+            _ => warn!(
+                r#"Ignoring extra certs from "{}", load failed"#,
+                extra_ca_certs
+            ),
         }
     }
 
