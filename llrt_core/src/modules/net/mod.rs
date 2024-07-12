@@ -67,7 +67,7 @@ pub static TLS_CONFIG: Lazy<ClientConfig> = Lazy::new(|| {
         root_certificates.roots.push(cert)
     }
 
-    if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS).as_deref() {
+    if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS) {
         if let Ok(file) = File::open(extra_ca_certs) {
             let mut reader = BufReader::new(file);
             root_certificates.add_parsable_certificates(
