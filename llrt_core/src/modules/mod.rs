@@ -7,6 +7,7 @@ pub mod encoding;
 pub mod events;
 pub mod exceptions;
 pub mod http;
+pub mod llrt;
 pub mod module;
 pub mod navigator;
 pub mod net;

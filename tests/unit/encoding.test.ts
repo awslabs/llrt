@@ -1,6 +1,6 @@
-import hex from "hex";
+import hex from "@llrt/hex";
 
-describe("hex", () => {
+describe("@llrt/hex", () => {
   it("should encode/decode text", () => {
     let hello = "hello";
     const encoded = new TextEncoder().encode(hello);
