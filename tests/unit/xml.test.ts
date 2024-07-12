@@ -1,4 +1,4 @@
-import { XMLParser, XmlText, XmlNode } from "xml";
+import { XMLParser, XmlText, XmlNode } from "@llrt/xml";
 
 describe("XMLParser options and handling", () => {
   it("should parse xml", () => {
@@ -25,7 +25,7 @@ describe("XMLParser options and handling", () => {
       attributeValueProcessor: (_, val) => val.toUpperCase(),
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should apply tagValueProcessor", () => {
@@ -39,7 +39,7 @@ describe("XMLParser options and handling", () => {
       tagValueProcessor: (_, val) => val.toUpperCase(),
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it('should handle attributeNamePrefix with default "@"', () => {
@@ -55,7 +55,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle custom attributeNamePrefix", () => {
@@ -72,7 +72,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle siblings with the same tag name as an array", () => {
@@ -85,7 +85,7 @@ describe("XMLParser options and handling", () => {
     };
     const parser = new XMLParser();
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle empty tag attributes", () => {
@@ -99,7 +99,7 @@ describe("XMLParser options and handling", () => {
     };
     const parser = new XMLParser({ ignoreAttributes: false });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle attributes and text content for sibling arrays", () => {
@@ -117,7 +117,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle attributes and text content for sibling arrays for empty tags", () => {
@@ -130,7 +130,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle empty child tags", () => {
@@ -142,7 +142,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 
   it("should handle attributes and text content for sibling arrays", () => {
@@ -155,7 +155,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
   it("should handle attributes and text content for different objects and siblings", () => {
     const xmlString =
@@ -170,7 +170,7 @@ describe("XMLParser options and handling", () => {
       ignoreAttributes: false,
     });
     const result = parser.parse(xmlString);
-    expect(result).toStrictEqual(expectedResult)
+    expect(result).toStrictEqual(expectedResult);
   });
 });
 
@@ -178,19 +178,19 @@ describe("XML Builder", () => {
   it("Can create XmlText with escaped values", () => {
     let xml = new XmlText("<john>doe</john>").toString();
 
-    expect(xml).toEqual("&lt;john&gt;doe&lt;/john&gt;")
+    expect(xml).toEqual("&lt;john&gt;doe&lt;/john&gt;");
   });
 
   it("Can build XML with empty tag", () => {
     let xml = new XmlNode("data").toString();
 
-    expect(xml).toEqual("<data/>")
+    expect(xml).toEqual("<data/>");
   });
 
   it("Can build XML with child", () => {
     let xml = new XmlNode("data", ["example"]).toString();
 
-    expect(xml).toEqual("<data>example</data>")
+    expect(xml).toEqual("<data>example</data>");
   });
 
   it("Can build XML with nested child", () => {
@@ -201,7 +201,9 @@ describe("XML Builder", () => {
     xml.addChildNode(node);
     node.addChildNode(node2);
 
-    expect(xml.toString()).toEqual("<root>example<expression>foo<expression>bar</expression></expression></root>")
+    expect(xml.toString()).toEqual(
+      "<root>example<expression>foo<expression>bar</expression></expression></root>"
+    );
   });
 
   it("Can build XML with deeply nested child", () => {
@@ -213,7 +215,9 @@ describe("XML Builder", () => {
     node.addChildNode(node2);
     node2.addChildNode(node3);
 
-    expect(xml.toString()).toEqual("<root><level1><level2><level3>foobar</level3></level2></level1></root>")
+    expect(xml.toString()).toEqual(
+      "<root><level1><level2><level3>foobar</level3></level2></level1></root>"
+    );
   });
 
   it("Can build XML with attributes", () => {
@@ -223,6 +227,6 @@ describe("XML Builder", () => {
       .addAttribute("example3", "data3")
       .removeAttribute("example3");
 
-    expect(xml.toString()).toEqual('<root example="data" example2="data2"/>')
+    expect(xml.toString()).toEqual('<root example="data" example2="data2"/>');
   });
 });
