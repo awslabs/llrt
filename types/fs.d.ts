@@ -24,6 +24,7 @@ declare module "fs" {
    * Valid types for path values in "fs".
    */
   export type PathLike = string;
+  export type Mode = number;
 
   /**
    * A representation of a directory entry, which can be a file or a subdirectory
@@ -73,6 +74,38 @@ declare module "fs" {
     parentPath: string;
   }
 
+  export interface MakeDirectoryOptions {
+    /**
+     * Indicates whether parent folders should be created.
+     * If a folder was created, the path to the first created folder will be returned.
+     * @default false
+     */
+    recursive?: boolean | undefined;
+    /**
+     * A file mode. If not specified
+     * @default 0o777
+     */
+    mode?: Mode | undefined;
+  }
+
+  /**
+   * Synchronously creates a directory. Returns the `path`.
+   *
+   * See the POSIX [`mkdir(2)`](http://man7.org/linux/man-pages/man2/mkdir.2.html) documentation for more details.
+   */
+  export function mkdirSync(
+    path: PathLike,
+    options?: MakeDirectoryOptions
+  ): string;
+
+  /**
+   * Returns the created directory path.
+   *
+   * For detailed information, see the documentation of the asynchronous version of
+   * this API: {@link mkdtemp}.
+   */
+  export function mkdtempSync(prefix: string): string;
+
   /**
    * Reads the contents of the directory.
    *
@@ -89,6 +122,19 @@ declare module "fs" {
   ): string[];
 
   /**
+   * Synchronous readdir (2) - read a directory.
+   * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
+   * @param options If called with `withFileTypes: true` the result data will be an array of Dirent.
+   */
+  export function readdirSync(
+    path: PathLike,
+    options: {
+      withFileTypes: true;
+      recursive?: boolean | undefined;
+    }
+  ): Dirent[];
+
+  /**
    * Synchronously tests a user's permissions for the file or directory specified
    * by `path`. The `mode` argument is an optional integer that specifies the
    * accessibility checks to be performed. `mode` should be either the value `fs.constants.F_OK` or a mask consisting of the bitwise OR of any of `fs.constants.R_OK`, `fs.constants.W_OK`, and
@@ -99,7 +145,7 @@ declare module "fs" {
    * the method will return `undefined`.
    *
    * ```js
-   * import { accessSync, constants } from 'node:fs';
+   * import { accessSync, constants } from 'fs';
    *
    * try {
    *   accessSync('etc/passwd', constants.R_OK | constants.W_OK);
