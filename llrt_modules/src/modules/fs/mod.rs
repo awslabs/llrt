@@ -96,6 +96,7 @@ impl ModuleDef for FsModule {
         declare.declare("rmSync")?;
         declare.declare("statSync")?;
         declare.declare("writeFileSync")?;
+        declare.declare("constants")?;
 
         declare.declare("default")?;
 
@@ -109,6 +110,7 @@ impl ModuleDef for FsModule {
         export_default(ctx, exports, |default| {
             let promises = Object::new(ctx.clone())?;
             export_promises(ctx, &promises)?;
+            export_constants(ctx, default)?;
 
             default.set("promises", promises)?;
             default.set("accessSync", Func::from(access_sync))?;
@@ -127,11 +129,7 @@ impl ModuleDef for FsModule {
 }
 
 fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
-    let constants = Object::new(ctx.clone())?;
-    constants.set("F_OK", CONSTANT_F_OK)?;
-    constants.set("R_OK", CONSTANT_R_OK)?;
-    constants.set("W_OK", CONSTANT_W_OK)?;
-    constants.set("X_OK", CONSTANT_X_OK)?;
+    export_constants(ctx, exports)?;
 
     exports.set("readdir", Func::from(Async(read_dir)))?;
     exports.set("readFile", Func::from(Async(read_file)))?;
@@ -142,6 +140,16 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("rm", Func::from(Async(rmfile)))?;
     exports.set("stat", Func::from(Async(stat_fn)))?;
     exports.set("access", Func::from(Async(access)))?;
+
+    Ok(())
+}
+
+fn export_constants<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
+    let constants = Object::new(ctx.clone())?;
+    constants.set("F_OK", CONSTANT_F_OK)?;
+    constants.set("R_OK", CONSTANT_R_OK)?;
+    constants.set("W_OK", CONSTANT_W_OK)?;
+    constants.set("X_OK", CONSTANT_X_OK)?;
 
     exports.set("constants", constants)?;
 
