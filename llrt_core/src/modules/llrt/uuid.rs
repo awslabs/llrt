@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-pub struct UuidModule;
+pub struct LlrtUuidModule;
 
 static ERROR_MESSAGE: &str = "Not a valid UUID";
 
@@ -92,7 +92,7 @@ fn version(ctx: Ctx<'_>, value: String) -> Result<u8> {
     Ok(uuid.get_version().map(|v| v as u8).unwrap_or(0))
 }
 
-impl ModuleDef for UuidModule {
+impl ModuleDef for LlrtUuidModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("v1")?;
         declare.declare("v3")?;
@@ -138,10 +138,10 @@ impl ModuleDef for UuidModule {
     }
 }
 
-impl From<UuidModule> for ModuleInfo<UuidModule> {
-    fn from(val: UuidModule) -> Self {
+impl From<LlrtUuidModule> for ModuleInfo<LlrtUuidModule> {
+    fn from(val: LlrtUuidModule) -> Self {
         ModuleInfo {
-            name: "uuid",
+            name: "llrt:uuid",
             module: val,
         }
     }

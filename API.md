@@ -257,7 +257,28 @@ URLSearchParams.sort(): void;
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
-## uuid
+## net
+
+> [!WARNING]
+> These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
+> `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
+
+[connect](https://nodejs.org/api/net.html#netconnect)
+
+[createConnection](https://nodejs.org/api/net.html#netcreateconnection)
+
+[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
+
+## llrt:hex
+
+```typescript
+export function encode(
+  value: string | Array | ArrayBuffer | Uint8Array
+): string;
+export function decode(value: string): Uint8Array;
+```
+
+## llrt:uuid
 
 ```typescript
 export const NIL: string;
@@ -283,27 +304,6 @@ export function stringify(arr: Array | Uint8Array): string;
 export function validate(arr: string): boolean;
 
 export function version(arr: Array | Uint8Array): number;
-```
-
-## net
-
-> [!WARNING]
-> These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
-> `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
-
-[connect](https://nodejs.org/api/net.html#netconnect)
-
-[createConnection](https://nodejs.org/api/net.html#netcreateconnection)
-
-[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
-
-## llrt:hex
-
-```typescript
-export function encode(
-  value: string | Array | ArrayBuffer | Uint8Array
-): string;
-export function decode(value: string): Uint8Array;
 ```
 
 ## llrt:xml

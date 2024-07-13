@@ -21,8 +21,8 @@ use crate::{
     modules::{
         buffer::Buffer,
         encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
+        llrt::uuid::uuidv4,
         module::export_default,
-        uuid::uuidv4,
     },
     utils::{
         class::get_class_name,

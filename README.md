@@ -113,7 +113,6 @@ The test runner also has support for filters. Using filters is as simple as addi
 | fs            | ✔︎     | ✘⏱     |
 | path          | ✔︎     | ✔︎     |
 | timers        | ✔︎     | ✔︎     |
-| uuid          | ✔︎     | ✔︎     |
 | crypto        | ✔︎     | ✔︎     |
 | process       | ✔︎     | ✔︎     |
 | encoding      | ✔︎     | ✔︎     |
@@ -135,10 +134,19 @@ Since LLRT is meant for performance critical application it's not recommended to
 
 LLRT can work with any bundler of your choice. Below are some configurations for popular bundlers:
 
+> [!WARNING]
+> LLRT implements native modules that are largely compatible with the following external packages.
+> By implementing the following conversions in the bundler's alias function, your application may be faster, but we recommend that you test thoroughly as they are not fully compatible.
+
+| Node.js         | LLRT      |
+| --------------- | --------- |
+| fast-xml-parser | llrt:xml  | 
+| uuid            | llrt:uuid |
+
 ### ESBuild
 
 ```shell
-esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy --external:uuid
+esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy
 ```
 
 ### Rollup
@@ -157,7 +165,7 @@ export default {
     target: "es2020",
   },
   plugins: [resolve(), commonjs(), terser()],
-  external: ["@aws-sdk", "@smithy", "uuid"],
+  external: ["@aws-sdk", "@smithy"],
 };
 ```
 
@@ -179,7 +187,7 @@ export default {
   resolve: {
     extensions: [".js"],
   },
-  externals: [nodeExternals(), "@aws-sdk", "@smithy", "uuid"],
+  externals: [nodeExternals(), "@aws-sdk", "@smithy"],
   optimization: {
     minimize: true,
     minimizer: [
