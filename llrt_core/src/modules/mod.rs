@@ -17,4 +17,3 @@ pub mod process;
 pub mod timers;
 pub mod url;
 pub mod util;
-pub mod uuid;

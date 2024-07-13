@@ -7,7 +7,7 @@ use crate::modules::{
     crypto::CryptoModule,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
-    llrt::{hex::LlrtHexModule, xml::LlrtXmlModule},
+    llrt::{hex::LlrtHexModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
@@ -16,7 +16,6 @@ use crate::modules::{
     timers::TimersModule,
     url::UrlModule,
     util::UtilModule,
-    uuid::UuidModule,
 };
 pub use llrt_modules::ModuleInfo;
 use rquickjs::{
@@ -83,7 +82,6 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::buffer::init)
             .with_module(ChildProcessModule)
             .with_module(UtilModule)
-            .with_module(UuidModule)
             .with_module(ProcessModule)
             .with_global(crate::modules::process::init)
             .with_global(crate::modules::navigator::init)
@@ -92,6 +90,7 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
             .with_module(LlrtHexModule)
+            .with_module(LlrtUuidModule)
             .with_module(LlrtXmlModule)
     }
 }
