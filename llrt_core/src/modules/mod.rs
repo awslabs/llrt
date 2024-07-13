@@ -18,4 +18,3 @@ pub mod timers;
 pub mod url;
 pub mod util;
 pub mod uuid;
-pub mod xml;
