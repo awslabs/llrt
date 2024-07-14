@@ -62,6 +62,8 @@ impl<'js> TextDecoder {
         let bytes = get_bytes(&ctx, buffer)?;
         let start_pos = if !self.ignore_bom && bytes.len() >= 2 && bytes[..2] == [0xFF, 0xFE] {
             2
+        } else if !self.ignore_bom && bytes.len() >= 3 && bytes[..3] == [0xEF, 0xBB, 0xBF] {
+            3
         } else {
             0
         };
