@@ -60,7 +60,14 @@ impl<'js> TextDecoder {
 
     pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
         let bytes = get_bytes(&ctx, buffer)?;
+        let start_pos = if !self.ignore_bom && bytes.len() >= 2 && bytes[..2] == [0xFF, 0xFE] {
+            2
+        } else {
+            0
+        };
 
-        self.encoder.encode_to_string(&bytes).or_throw(&ctx)
+        self.encoder
+            .encode_to_string(&bytes[start_pos..])
+            .or_throw(&ctx)
     }
 }
