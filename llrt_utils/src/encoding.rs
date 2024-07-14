@@ -47,6 +47,7 @@ encoder_enum! {
         Base64,
         Utf8,
         Iso88591,
+        Utf16le,
     }
 }
 
@@ -56,6 +57,7 @@ impl Encoder {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
             Self::Base64 => Ok(bytes_to_b64_string(bytes)),
             Self::Utf8 | Self::Iso88591 => Ok(bytes_to_string(bytes)),
+            Self::Utf16le => bytes_to_utf16_string(bytes),
         }
     }
 
@@ -65,6 +67,7 @@ impl Encoder {
             Self::Hex => Ok(bytes_to_hex(bytes)),
             Self::Base64 => Ok(bytes_to_b64(bytes)),
             Self::Utf8 | Self::Iso88591 => Ok(bytes.to_vec()),
+            Self::Utf16le => Err(String::from("This method is not yet supported")),
         }
     }
 
@@ -73,6 +76,7 @@ impl Encoder {
             Self::Hex => bytes_from_hex(&bytes),
             Self::Base64 => bytes_from_b64(&bytes),
             Self::Utf8 | Self::Iso88591 => Ok(bytes),
+            Self::Utf16le => Err(String::from("This method is not yet supported")),
         }
     }
 
@@ -82,6 +86,7 @@ impl Encoder {
             Self::Hex => bytes_from_hex(string.as_bytes()),
             Self::Base64 => bytes_from_b64(string.as_bytes()),
             Self::Utf8 | Self::Iso88591 => Ok(string.into_bytes()),
+            Self::Utf16le => Err(String::from("This method is not yet supported")),
         }
     }
 
@@ -91,6 +96,7 @@ impl Encoder {
             Self::Base64 => "base64",
             Self::Utf8 => "utf-8",
             Self::Iso88591 => "iso-8859-1",
+            Self::Utf16le => "utf-16le",
         }
     }
 }
@@ -121,4 +127,14 @@ pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
 
 pub fn bytes_to_string(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).to_string()
+}
+
+pub fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, String> {
+    let data16 = bytes
+        .chunks(2)
+        .map(|e| e.try_into().map(u16::from_be_bytes))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(String::from_utf16_lossy(&data16))
 }
