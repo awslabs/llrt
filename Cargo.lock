@@ -2477,7 +2477,6 @@ dependencies = [
  "ryu",
  "simd-json",
  "socket2",
- "thiserror",
  "tokio",
  "tokio-context",
  "tokio-rustls",

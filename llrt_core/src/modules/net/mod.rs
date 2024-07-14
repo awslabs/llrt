@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 mod socket;
 
-use std::{env, fs::File, io::BufReader, result::Result as StdResult, time::Duration};
+use std::{env, fs::File, io, result::Result as StdResult, time::Duration};
 
 use bytes::Bytes;
 use http_body_util::Full;
@@ -17,7 +17,6 @@ use rquickjs::{
     Ctx, Result,
 };
 use rustls::{crypto::ring, version, ClientConfig, RootCertStore};
-use thiserror::Error;
 use tracing::warn;
 use webpki_roots::TLS_SERVER_ROOTS;
 
@@ -25,13 +24,7 @@ use crate::{environment, module_builder::ModuleInfo};
 
 pub const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS: u64 = 15;
 
-#[derive(Error, Debug, Clone)]
-pub enum ClientConfigError {
-    #[error(r#"Failed to open extra CA certificates file "{0}""#)]
-    CaFileOpenError(String),
-}
-
-pub type ClientConfigResult<T> = StdResult<T, ClientConfigError>;
+pub type ClientConfigResult<T> = StdResult<T, Box<dyn std::error::Error + Send + Sync>>;
 
 pub fn get_pool_idle_timeout() -> u64 {
     let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
@@ -56,7 +49,7 @@ pub static HTTP_CLIENT: Lazy<
     let pool_idle_timeout: u64 = get_pool_idle_timeout();
 
     let builder = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(TLS_CONFIG.clone()?)
+        .with_tls_config(TLS_CONFIG.as_ref()?.clone())
         .https_or_http();
 
     let https = match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
@@ -70,7 +63,7 @@ pub static HTTP_CLIENT: Lazy<
         .build(https))
 });
 
-pub static TLS_CONFIG: Lazy<ClientConfigResult<ClientConfig>> = Lazy::new(|| {
+pub static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
     let mut root_certificates = RootCertStore::empty();
 
     for cert in TLS_SERVER_ROOTS.iter().cloned() {
@@ -78,12 +71,18 @@ pub static TLS_CONFIG: Lazy<ClientConfigResult<ClientConfig>> = Lazy::new(|| {
     }
 
     if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS) {
-        let file = File::open(&extra_ca_certs)
-            .map_err(|_| ClientConfigError::CaFileOpenError(extra_ca_certs))?;
-        let mut reader = BufReader::new(file);
-        root_certificates.add_parsable_certificates(
-            rustls_pemfile::certs(&mut reader).filter_map(StdResult::ok),
-        );
+        if !extra_ca_certs.is_empty() {
+            let file = File::open(extra_ca_certs).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    "Failed to open extra CA certificates file",
+                )
+            })?;
+            let mut reader = io::BufReader::new(file);
+            root_certificates.add_parsable_certificates(
+                rustls_pemfile::certs(&mut reader).filter_map(io::Result::ok),
+            );
+        }
     }
 
     let builder = ClientConfig::builder_with_provider(ring::default_provider().into());
