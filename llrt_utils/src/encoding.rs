@@ -129,9 +129,22 @@ pub fn bytes_to_string(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).to_string()
 }
 
+#[cfg(not(rust_nightly))]
 pub fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, String> {
     let data16 = bytes
         .chunks(2)
+        .map(|e| e.try_into().map(u16::from_be_bytes))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(String::from_utf16_lossy(&data16))
+}
+
+#[cfg(rust_nightly)]
+pub fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, String> {
+    let data16 = bytes
+        .array_chunks()
+        .cloned()
         .map(|e| e.try_into().map(u16::from_be_bytes))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
