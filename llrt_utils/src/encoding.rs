@@ -84,6 +84,15 @@ impl Encoder {
             Self::Utf8 | Self::Iso88591 => Ok(string.into_bytes()),
         }
     }
+
+    pub fn as_label(&self) -> &str {
+        match self {
+            Self::Hex => "hex",
+            Self::Base64 => "base64",
+            Self::Utf8 => "utf-8",
+            Self::Iso88591 => "iso-8859-1",
+        }
+    }
 }
 
 pub fn bytes_to_hex(bytes: &[u8]) -> Vec<u8> {
