@@ -18,13 +18,12 @@ pub struct TextDecoder {
 impl<'js> TextDecoder {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, label: Opt<String>, options: Opt<Object<'js>>) -> Result<Self> {
-        let mut encoding = label.0.unwrap_or(String::from("utf-8"));
+        let encoding = label
+            .0
+            .filter(|lbl| !lbl.is_empty())
+            .unwrap_or_else(|| String::from("utf-8"));
         let mut fatal = false;
         let mut ignore_bom = false;
-
-        if encoding.is_empty() {
-            encoding = String::from("utf-8");
-        }
 
         let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
 
