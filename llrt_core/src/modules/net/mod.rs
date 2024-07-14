@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 mod socket;
 
-use std::{env, fs::File, io, result::Result as StdResult, time::Duration};
+use std::{env, fs::File, io, time::Duration};
 
 use bytes::Bytes;
 use http_body_util::Full;
@@ -24,8 +24,6 @@ use crate::{environment, module_builder::ModuleInfo};
 
 pub const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS: u64 = 15;
 
-pub type ClientConfigResult<T> = StdResult<T, Box<dyn std::error::Error + Send + Sync>>;
-
 pub fn get_pool_idle_timeout() -> u64 {
     let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
         .map(|timeout| {
@@ -43,25 +41,29 @@ pub fn get_pool_idle_timeout() -> u64 {
     pool_idle_timeout
 }
 
-pub static HTTP_CLIENT: Lazy<
-    ClientConfigResult<Client<HttpsConnector<HttpConnector>, Full<Bytes>>>,
-> = Lazy::new(|| {
-    let pool_idle_timeout: u64 = get_pool_idle_timeout();
+pub static HTTP_CLIENT: Lazy<io::Result<Client<HttpsConnector<HttpConnector>, Full<Bytes>>>> =
+    Lazy::new(|| {
+        let pool_idle_timeout: u64 = get_pool_idle_timeout();
 
-    let builder = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(TLS_CONFIG.as_ref()?.clone())
-        .https_or_http();
+        let maybe_tls_config = match &*TLS_CONFIG {
+            Ok(tls_config) => io::Result::Ok(tls_config.clone()),
+            Err(e) => io::Result::Err(io::Error::new(e.kind(), e.to_string())),
+        };
 
-    let https = match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
-        Ok("1.1") => builder.enable_http1().build(),
-        _ => builder.enable_all_versions().build(),
-    };
+        let builder = hyper_rustls::HttpsConnectorBuilder::new()
+            .with_tls_config(maybe_tls_config?)
+            .https_or_http();
 
-    Ok(Client::builder(TokioExecutor::new())
-        .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))
-        .pool_timer(TokioTimer::new())
-        .build(https))
-});
+        let https = match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
+            Ok("1.1") => builder.enable_http1().build(),
+            _ => builder.enable_all_versions().build(),
+        };
+
+        Ok(Client::builder(TokioExecutor::new())
+            .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))
+            .pool_timer(TokioTimer::new())
+            .build(https))
+    });
 
 pub static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
     let mut root_certificates = RootCertStore::empty();
@@ -72,12 +74,8 @@ pub static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
 
     if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS) {
         if !extra_ca_certs.is_empty() {
-            let file = File::open(extra_ca_certs).map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    "Failed to open extra CA certificates file",
-                )
-            })?;
+            let file = File::open(extra_ca_certs)
+                .map_err(|_| io::Error::other("Failed to open extra CA certificates file"))?;
             let mut reader = io::BufReader::new(file);
             root_certificates.add_parsable_certificates(
                 rustls_pemfile::certs(&mut reader).filter_map(io::Result::ok),
