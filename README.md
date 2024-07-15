@@ -367,6 +367,39 @@ Then run llrt:
 ### `LLRT_EXTRA_CA_CERTS=file`
 Load extra certificate authorities from a PEM encoded file
 
+### `LLRT_HTTP_VERSION=value`
+Restrict HTTP requests to use a specific version. By default HTTP 1.1 and 2 are enabled. Set this variable to `1.1` to only use HTTP 1.1
+
+### `LLRT_LOG=[target][=][level][,...]`
+Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priorty logs.
+
+Log levels in descending priority order:
+- `Error`
+- `Warn | Warning`
+- `Info`
+- `Debug`
+- `Trace`
+
+Example filters:
+- `warn` will enable all warning and error logs
+- `llrt_core::vm=trace` will enable all logs in the `llrt_core::vm` module
+- `warn,llrt_core::vm=trace` will enable all logs in the `llrt_core::vm` module and all warning and error logs in other modules
+
+### `LLRT_NET_ALLOW="host[ ...]"`
+Space-delimited list of hosts or socket paths which should be allowed for network connections. Network connections will be denied for any host or socket path missing from this list. Set an empty list to deny all connections
+
+### `LLRT_NET_DENY="host[ ...]"`
+Space-delimited list of hosts or socket paths which should be denied for network connections
+
+### `LLRT_NET_POOL_IDLE_TIMEOUT=value`
+Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 15 seconds
+
+### `LLRT_TLS_VERSION=value`
+Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
+
+### `LLRT_GC_THRESHOLD_MB=value`
+Set a memory threshold in MB for garbage collection. Default threshold is 20MB
+
 ## Benchmark Methodology
 
 Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox.
