@@ -8,7 +8,7 @@ use llrt_utils::encoding::Encoder;
 use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
 use rquickjs::function::Opt;
-use rquickjs::{Ctx, Error, FromJs, Null, Object, Result, Value};
+use rquickjs::{Ctx, Error, Exception, FromJs, Null, Object, Result, Value};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
 use tokio::{fs::File, task};
 
@@ -146,6 +146,7 @@ impl FileHandle {
             .position
             .or(options_2.position)
             .or(position.0.flatten());
+        validate_length_offset(&ctx, length, offset, buffer.len())?;
 
         // It is not safe to pass the buffer from `ArrayBufferView` to `File::read`
         // since the read is done in a different thread and we cannot garantee
@@ -297,6 +298,7 @@ impl FileHandle {
         let offset = options.offset.unwrap_or(0);
         let length = options.length.unwrap_or(buffer.len() - offset);
         let position = options.position.or(position.0.flatten());
+        validate_length_offset(&ctx, length, offset, buffer.len())?;
 
         let file = self.file_mut(&ctx)?;
 
@@ -379,6 +381,27 @@ impl FileHandle {
     }
 }
 
+fn validate_length_offset(
+    ctx: &Ctx<'_>,
+    length: usize,
+    offset: usize,
+    buffer_length: usize,
+) -> Result<()> {
+    if offset > buffer_length {
+        return Err(Exception::throw_range(
+            ctx,
+            &format!("offset ({}) <= {}", offset, buffer_length),
+        ));
+    }
+    if length > buffer_length - offset {
+        return Err(Exception::throw_range(
+            ctx,
+            &format!("length ({}) <= {}", length, buffer_length - offset),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Default)]
 struct ReadOptions<'js> {
     buffer: Option<ArrayBufferView<'js>>,
@@ -454,13 +477,13 @@ impl<'js> FromJs<'js> for WriteFileOptions {
 
 #[cfg(test)]
 mod tests {
-    use rquickjs::{CatchResultExt, Class};
+    use rquickjs::{CatchResultExt, CaughtError, Class};
     use tokio::fs::OpenOptions;
 
     use super::*;
     use crate::{
         buffer,
-        test::{call_test, test_async_with, ModuleEvaluator},
+        test::{call_test, call_test_err, test_async_with, ModuleEvaluator},
     };
 
     async fn given_file(content: &str, options: &mut OpenOptions) -> (File, PathBuf) {
@@ -620,6 +643,42 @@ mod tests {
                     "test",
                     r#"
                         export async function test(filehandle) {
+                            const buffer = new ArrayBuffer(4096);
+                            const view = new Uint8Array(buffer);
+                            await filehandle.read(view, { length: 2000, offset: 3000 });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let error = call_test_err::<(), _>(&ctx, &module, (FileHandle::new(file, path),))
+                    .await
+                    .unwrap_err();
+
+                let CaughtError::Exception(exception) = error else {
+                    panic!("Expected exception");
+                };
+
+                assert_eq!(exception.message().unwrap(), "length (2000) <= 1096");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_read_out_of_range() {
+        let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                buffer::init(&ctx).unwrap();
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
                             const buffer = Buffer.alloc(4096);
                             const read = await filehandle.read(buffer);
                             return Array.from(buffer);
@@ -732,6 +791,43 @@ mod tests {
 
         let file_content = tokio::fs::read(path).await.unwrap();
         assert_eq!(file_content, b"a\x00\x00\x00Hello World");
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_write_out_of_range() {
+        let (file, path) = given_file("", OpenOptions::new().write(true)).await;
+        let path_1 = path.clone();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            await filehandle.write("Hello World", { offset: 5, length: 20 });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let error = call_test_err::<(), _>(&ctx, &module, (FileHandle::new(file, path_1),))
+                    .await
+                    .unwrap_err();
+
+                let CaughtError::Exception(exception) = error else {
+                    panic!("Expected exception");
+                };
+
+                assert_eq!(exception.message().unwrap(), "length (20) <= 6");
+            })
+        })
+        .await;
+
+        let file_content = tokio::fs::read(path).await.unwrap();
+        assert_eq!(file_content, b"");
     }
 
     #[tokio::test]

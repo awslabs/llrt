@@ -5,7 +5,7 @@ use rquickjs::{
     function::IntoArgs,
     module::{Evaluated, ModuleDef},
     promise::MaybePromise,
-    AsyncContext, AsyncRuntime, CatchResultExt, Ctx, FromJs, Function, Module, Result,
+    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, FromJs, Function, Module, Result,
 };
 
 pub async fn given_file(content: &str) -> PathBuf {
@@ -34,17 +34,26 @@ where
     T: FromJs<'js>,
     A: IntoArgs<'js>,
 {
+    call_test_err(ctx, module, args).await.unwrap()
+}
+
+pub async fn call_test_err<'js, T, A>(
+    ctx: &Ctx<'js>,
+    module: &Module<'js, Evaluated>,
+    args: A,
+) -> std::result::Result<T, CaughtError<'js>>
+where
+    T: FromJs<'js>,
+    A: IntoArgs<'js>,
+{
     module
         .get::<_, Function>("test")
-        .catch(ctx)
-        .unwrap()
+        .catch(ctx)?
         .call::<_, MaybePromise>(args)
-        .catch(ctx)
-        .unwrap()
+        .catch(ctx)?
         .into_future::<T>()
         .await
         .catch(ctx)
-        .unwrap()
 }
 
 pub struct ModuleEvaluator;
