@@ -1,5 +1,5 @@
 declare module "buffer" {
-  type BufferEncoding = "utf8" | "base64" | "iso88591" | "hex";
+  export type BufferEncoding = "utf8" | "base64" | "iso88591" | "hex";
   type WithImplicitCoercion<T> =
     | T
     | {

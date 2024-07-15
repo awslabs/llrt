@@ -18,6 +18,7 @@
  */
 declare module "fs" {
   import * as promises from "fs/promises";
+  import { Buffer, BufferEncoding } from "buffer";
   export { promises };
 
   /**
@@ -25,6 +26,63 @@ declare module "fs" {
    */
   export type PathLike = string;
   export type Mode = number;
+
+  export interface StatsBase<T> {
+    isFile(): boolean;
+    isDirectory(): boolean;
+    isBlockDevice(): boolean;
+    isCharacterDevice(): boolean;
+    isSymbolicLink(): boolean;
+    isFIFO(): boolean;
+    isSocket(): boolean;
+    dev: T;
+    ino: T;
+    mode: T;
+    nlink: T;
+    uid: T;
+    gid: T;
+    rdev: T;
+    size: T;
+    blksize: T;
+    blocks: T;
+    atimeMs: T;
+    mtimeMs: T;
+    ctimeMs: T;
+    birthtimeMs: T;
+    atime: Date;
+    mtime: Date;
+    ctime: Date;
+    birthtime: Date;
+  }
+  export interface Stats extends StatsBase<number> {}
+  /**
+   * A `fs.Stats` object provides information about a file.
+   *
+   * `Stat` objects are not to be created directly using the `new` keyword.
+   *
+   * ```console
+   * Stats {
+   *   dev: 2114,
+   *   ino: 48064969,
+   *   mode: 33188,
+   *   nlink: 1,
+   *   uid: 85,
+   *   gid: 100,
+   *   rdev: 0,
+   *   size: 527,
+   *   blksize: 4096,
+   *   blocks: 8,
+   *   atimeMs: 1318289051000.1,
+   *   mtimeMs: 1318289051000.1,
+   *   ctimeMs: 1318289051000.1,
+   *   birthtimeMs: 1318289051000.1,
+   *   atime: Mon, 10 Oct 2011 23:24:11 GMT,
+   *   mtime: Mon, 10 Oct 2011 23:24:11 GMT,
+   *   ctime: Mon, 10 Oct 2011 23:24:11 GMT,
+   *   birthtime: Mon, 10 Oct 2011 23:24:11 GMT }
+   * ```
+   */
+  export class Stats {}
 
   /**
    * A representation of a directory entry, which can be a file or a subdirectory
@@ -73,6 +131,55 @@ declare module "fs" {
      */
     parentPath: string;
   }
+
+  export interface StatSyncFn extends Function {
+    (path: PathLike): Stats;
+  }
+  /**
+   * Synchronous stat - Get file status.
+   * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
+   */
+  export const statSync: StatSyncFn;
+
+  export interface RmDirOptions {
+    /**
+     * @deprecated Use `fs.rm(path, { recursive: true, force: true })` instead.
+     *
+     * If `true`, perform a recursive directory removal. In
+     * recursive mode, operations are retried on failure.
+     * @default false
+     */
+    recursive?: boolean | undefined;
+  }
+
+  /**
+   * Synchronous [`rmdir(2)`](http://man7.org/linux/man-pages/man2/rmdir.2.html). Returns `undefined`.
+   *
+   * Using `fs.rmdirSync()` on a file (not a directory) results in an `ENOENT` error
+   * on Windows and an `ENOTDIR` error on POSIX.
+   *
+   * To get a behavior similar to the `rm -rf` Unix command, use {@link rmSync} with options `{ recursive: true, force: true }`.
+   */
+  export function rmdirSync(path: PathLike, options?: RmDirOptions): void;
+
+  export interface RmOptions {
+    /**
+     * When `true`, exceptions will be ignored if `path` does not exist.
+     * @default false
+     */
+    force?: boolean | undefined;
+    /**
+     * If `true`, perform a recursive directory removal. In
+     * recursive mode, operations are retried on failure.
+     * @default false
+     */
+    recursive?: boolean | undefined;
+  }
+
+  /**
+   * Synchronously removes files and directories (modeled on the standard POSIX `rm` utility). Returns `undefined`.
+   */
+  export function rmSync(path: PathLike, options?: RmOptions): void;
 
   export interface MakeDirectoryOptions {
     /**
@@ -133,6 +240,67 @@ declare module "fs" {
       recursive?: boolean | undefined;
     }
   ): Dirent[];
+
+  /**
+   * Returns the contents of the `path`.
+   *
+   * For detailed information, see the documentation of the asynchronous version of
+   * this API: {@link readFile}.
+   *
+   * If the `encoding` option is specified then this function returns a
+   * string. Otherwise it returns a buffer.
+   *
+   * @param path A path to a file.
+   */
+  export function readFileSync(
+    path: PathLike,
+    options?: {
+      encoding?: null | undefined;
+    } | null
+  ): Buffer;
+
+  /**
+   * Synchronously reads the entire contents of a file.
+   * @param path A path to a file.
+   * @param options Either the encoding for the result, or an object that contains the encoding.
+   */
+  export function readFileSync(
+    path: PathLike,
+    options:
+      | {
+          encoding: BufferEncoding;
+        }
+      | BufferEncoding
+  ): string;
+
+  /**
+   * Returns `undefined`.
+   *
+   * For detailed information, see the documentation of the asynchronous version of
+   * this API: {@link writeFile}.
+   * @param file A path to a file.
+   */
+  export function writeFileSync(
+    file: PathLike,
+    data:
+      | string
+      | Buffer
+      | QuickJS.ArrayBufferView
+      | ArrayBuffer
+      | SharedArrayBuffer
+  ): void;
+
+  export namespace constants {
+    // File Access Constants
+    /** Constant for fs.access(). File is visible to the calling process. */
+    const F_OK: number;
+    /** Constant for fs.access(). File can be read by the calling process. */
+    const R_OK: number;
+    /** Constant for fs.access(). File can be written by the calling process. */
+    const W_OK: number;
+    /** Constant for fs.access(). File can be executed by the calling process. */
+    const X_OK: number;
+  }
 
   /**
    * Synchronously tests a user's permissions for the file or directory specified
