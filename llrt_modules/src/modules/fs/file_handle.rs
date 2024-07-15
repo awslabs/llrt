@@ -189,11 +189,9 @@ impl FileHandle {
             }
         }
 
-        let dst_buf = unsafe {
-            buffer
-                .as_bytes_mut()
-                .or_throw_msg(&ctx, "Buffer is detached")?
-        };
+        let dst_buf = buffer
+            .as_bytes_mut()
+            .or_throw_msg(&ctx, "Buffer is detached")?;
         dst_buf[offset..].copy_from_slice(&buf);
 
         let result = Object::new(ctx)?;
@@ -456,7 +454,7 @@ impl<'js> FromJs<'js> for WriteFileOptions {
 
 #[cfg(test)]
 mod tests {
-    use rquickjs::Class;
+    use rquickjs::{CatchResultExt, Class};
     use tokio::fs::OpenOptions;
 
     use super::*;
@@ -558,8 +556,41 @@ mod tests {
                         export async function test(filehandle) {
                             const buffer = new ArrayBuffer(4096);
                             const view = new Uint8Array(buffer);
-                            const read = await filehandle.read(view, { position: 6 });
-                            const read = await filehandle.read(view, { offset: 5 });
+                            await filehandle.read(view, { position: 6 });
+                            await filehandle.read(view, { offset: 5 });
+                            return Array.from(view);
+                        }
+                    "#,
+                )
+                .await
+                .catch(&ctx)
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+
+                assert!(result.starts_with(b"WorldHello World"));
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_read_subarray() {
+        let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            const buffer = new ArrayBuffer(4096);
+                            const view = new Uint8Array(buffer);
+                            const subarray = view.subarray(3, 8);
+                            const read = await filehandle.read(subarray);
                             return Array.from(view);
                         }
                     "#,
@@ -570,7 +601,7 @@ mod tests {
                 let result =
                     call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
 
-                assert!(result.starts_with(b"WorldHello World"));
+                assert!(result.starts_with(b"\x00\x00\x00Hello\x00"));
             })
         })
         .await;
