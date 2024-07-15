@@ -367,6 +367,9 @@ Then run llrt:
 ### `LLRT_EXTRA_CA_CERTS=file`
 Load extra certificate authorities from a PEM encoded file
 
+### `LLRT_GC_THRESHOLD_MB=value`
+Set a memory threshold in MB for garbage collection. Default threshold is 20MB
+
 ### `LLRT_HTTP_VERSION=value`
 Restrict HTTP requests to use a specific version. By default HTTP 1.1 and 2 are enabled. Set this variable to `1.1` to only use HTTP 1.1
 
@@ -396,9 +399,6 @@ Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 1
 
 ### `LLRT_TLS_VERSION=value`
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
-
-### `LLRT_GC_THRESHOLD_MB=value`
-Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 
 ## Benchmark Methodology
 
