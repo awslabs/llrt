@@ -22,7 +22,7 @@ rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 llrt_modules = { path = "../llrt_modules", features = ["all"] }
 llrt_utils = { path = "../llrt_utils", features = ["all"] }
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.35.0"
+quick-xml = "0.36.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
