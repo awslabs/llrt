@@ -57,7 +57,9 @@ describe("TextDecoder", () => {
       expect(decoded.fatal).toBeTruthy();
       const a = decoded.decode(illegalString);
     } catch (ex) {
-      expect(ex.message).toEqual("Fatal error");
+      expect(ex.message).toEqual(
+        "invalid utf-8 sequence of 1 bytes from index 0"
+      );
     }
   });
 

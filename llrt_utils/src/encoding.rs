@@ -52,12 +52,12 @@ encoder_enum! {
 }
 
 impl Encoder {
-    pub fn encode_to_string(&self, bytes: &[u8]) -> Result<String, String> {
+    pub fn encode_to_string(&self, bytes: &[u8], lossy: bool) -> Result<String, String> {
         match self {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
             Self::Base64 => Ok(bytes_to_b64_string(bytes)),
-            Self::Utf8 | Self::Iso88591 => Ok(bytes_to_string(bytes)),
-            Self::Utf16le => bytes_to_utf16_string(bytes),
+            Self::Utf8 | Self::Iso88591 => bytes_to_string(bytes, lossy),
+            Self::Utf16le => bytes_to_utf16_string(bytes, lossy),
         }
     }
 
@@ -125,23 +125,29 @@ pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
     hex_simd::encode_to_string(bytes, AsciiCase::Lower)
 }
 
-pub fn bytes_to_string(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).to_string()
+pub fn bytes_to_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
+    match lossy {
+        true => Ok(String::from_utf8_lossy(bytes).to_string()),
+        false => String::from_utf8(bytes.to_vec()).map_err(|e| e.to_string()),
+    }
 }
 
 #[cfg(not(rust_nightly))]
-pub fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, String> {
+pub fn bytes_to_utf16_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
     let data16 = bytes
         .chunks(2)
         .map(|e| e.try_into().map(u16::from_le_bytes))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    Ok(String::from_utf16_lossy(&data16))
+    match lossy {
+        true => Ok(String::from_utf16_lossy(&data16)),
+        false => String::from_utf16(&data16).map_err(|e| e.to_string()),
+    }
 }
 
 #[cfg(rust_nightly)]
-pub fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, String> {
+pub fn bytes_to_utf16_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
     let data16 = bytes
         .array_chunks()
         .cloned()
@@ -149,5 +155,8 @@ pub fn bytes_to_utf16_string(bytes: &[u8]) -> Result<String, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    Ok(String::from_utf16_lossy(&data16))
+    match lossy {
+        true => Ok(String::from_utf16_lossy(&data16)),
+        false => String::from_utf16(&data16).map_err(|e| e.to_string()),
+    }
 }

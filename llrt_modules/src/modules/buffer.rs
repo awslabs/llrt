@@ -31,7 +31,7 @@ impl<'js> IntoJs<'js> for Buffer {
 impl<'js> Buffer {
     pub fn to_string(&self, ctx: &Ctx<'js>, encoding: &str) -> Result<String> {
         Encoder::from_str(encoding)
-            .and_then(|enc| enc.encode_to_string(self.0.as_ref()))
+            .and_then(|enc| enc.encode_to_string(self.0.as_ref(), true))
             .or_throw(ctx)
     }
 
@@ -102,7 +102,7 @@ fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<
     let bytes: &[u8] = typed_array.as_ref();
     let encoding = encoding.0.unwrap_or_else(|| String::from("utf-8"));
     let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
-    encoder.encode_to_string(bytes).or_throw(&ctx)
+    encoder.encode_to_string(bytes, true).or_throw(&ctx)
 }
 
 fn alloc<'js>(
