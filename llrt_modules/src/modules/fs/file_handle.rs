@@ -155,7 +155,9 @@ impl FileHandle {
         let mut buf = vec![0u8; length];
         let file = self.file_mut(&ctx)?;
 
-        // Seek to the position
+        // Tokio doesn't offer an API for positional reads. This means we have
+        // to seek to the position, read the file, and then seek back to the original
+        // position. See https://github.com/tokio-rs/tokio/issues/699
         let mut cursor = None;
         if let Some(position) = position {
             cursor = Some(
@@ -168,21 +170,20 @@ impl FileHandle {
                 .or_throw_msg(&ctx, "Can't seek file")?;
         }
 
-        // Read the file
         let bytes_read = file
             .read(&mut buf)
             .await
             .or_throw_msg(&ctx, "Failed to read file")?;
 
-        // Reset the file at the original position
+        // Reset the file at the original position. If there is an error while
+        // resetting the cursor, we close the file pre-emptively since future
+        // reads would be invalid.
         if let Some(cursor) = cursor {
             if let Err(err) = file
                 .seek(SeekFrom::Start(cursor))
                 .await
                 .or_throw_msg(&ctx, "Failed to reset cursor")
             {
-                // If there is an error while resetting the cursor, we close
-                // the file pre-emptively since future reads would not be correct.
                 self.close().await;
                 return Err(err);
             }
@@ -258,9 +259,7 @@ impl FileHandle {
         buffer_or_string: Either<ArrayBufferView<'js>, String>,
         offset_or_options_or_position: Opt<Either<Either<usize, Null>, WriteOptions>>,
         length_or_encoding: Opt<Either<usize, String>>,
-        // Not supporting position for now since it is not available in tokio.
-        // See https://github.com/tokio-rs/tokio/issues/699
-        // position: Opt<Either<isize, Null>>,
+        position: Opt<Option<u64>>,
     ) -> Result<Object<'js>> {
         let mut options = match offset_or_options_or_position.0 {
             Some(Either::Left(Either::Left(offset_or_position))) => {
@@ -299,10 +298,42 @@ impl FileHandle {
 
         let offset = options.offset.unwrap_or(0);
         let length = options.length.unwrap_or(buffer.len() - offset);
-        self.file_mut(&ctx)?
-            .write_all(&buffer[offset..length])
+        let position = options.position.or(position.0.flatten());
+
+        let file = self.file_mut(&ctx)?;
+
+        // Tokio doesn't offer an API for positional writes. This means we have
+        // to seek to the position, write to the file, and then seek back to the original
+        // position. See https://github.com/tokio-rs/tokio/issues/699
+        let mut cursor = None;
+        if let Some(position) = position {
+            cursor = Some(
+                file.seek(SeekFrom::Current(0))
+                    .await
+                    .or_throw_msg(&ctx, "Can't get cursor")?,
+            );
+            file.seek(SeekFrom::Start(position))
+                .await
+                .or_throw_msg(&ctx, "Can't seek file")?;
+        }
+
+        file.write_all(&buffer[offset..length])
             .await
             .or_throw_msg(&ctx, "Failed to write to file")?;
+
+        // Reset the file at the original position. If there is an error while
+        // resetting the cursor, we close the file pre-emptively since future
+        // writes would be invalid.
+        if let Some(cursor) = cursor {
+            if let Err(err) = file
+                .seek(SeekFrom::Start(cursor))
+                .await
+                .or_throw_msg(&ctx, "Failed to reset cursor")
+            {
+                self.close().await;
+                return Err(err);
+            }
+        }
 
         let result = Object::new(ctx)?;
         result.set("bytesWritten", length)?;
@@ -383,6 +414,7 @@ impl<'js> FromJs<'js> for ReadOptions<'js> {
 struct WriteOptions {
     offset: Option<usize>,
     length: Option<usize>,
+    position: Option<u64>,
 }
 
 impl<'js> FromJs<'js> for WriteOptions {
@@ -394,8 +426,13 @@ impl<'js> FromJs<'js> for WriteOptions {
 
         let offset = obj.get_optional::<_, usize>("offset")?;
         let length = obj.get_optional::<_, usize>("length")?;
+        let position = obj.get_optional::<_, u64>("position")?;
 
-        Ok(Self { offset, length })
+        Ok(Self {
+            offset,
+            length,
+            position,
+        })
     }
 }
 
@@ -591,6 +628,40 @@ mod tests {
 
         let file_content = tokio::fs::read(path).await.unwrap();
         assert_eq!(file_content, b"Hello World");
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_write_position() {
+        let (file, path) = given_file("", OpenOptions::new().write(true)).await;
+        let path_1 = path.clone();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            const { bytesWritten } = await filehandle.write("Hello World", null, "utf8", 4);
+                            await filehandle.write("a", null, "utf8");
+                            return bytesWritten;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<u32, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
+
+                assert_eq!(result, 11);
+            })
+        })
+        .await;
+
+        let file_content = tokio::fs::read(path).await.unwrap();
+        assert_eq!(file_content, b"a\x00\x00\x00Hello World");
     }
 
     #[tokio::test]
