@@ -506,6 +506,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_file_handle_read_concurrent() {
+        let (file_a, path_a) = given_file(&"a".repeat(20000), OpenOptions::new().read(true)).await;
+        let (file_b, path_b) = given_file(&"b".repeat(20000), OpenOptions::new().read(true)).await;
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandleA, filehandleB) {
+                            const buffer = new ArrayBuffer(10000);
+                            const view = new Uint8Array(buffer);
+                            const read = await Promise.all([filehandleA.read(view), filehandleB.read(view)]);
+                            return Array.from(view);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file_a, path_a), FileHandle::new(file_b, path_b))).await;
+
+                assert_eq!(result.len(), 10000);
+                if result.iter().all(|&b| b == b'a') {
+                    println!("All a");
+                } else if result.iter().all(|&b| b == b'b') {
+                    println!("All b");
+                } else {
+                    println!("Mixed");
+                }
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
     async fn test_file_handle_read_position() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
         test_async_with(|ctx| {
