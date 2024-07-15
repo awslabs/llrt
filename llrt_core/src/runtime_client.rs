@@ -220,7 +220,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         ));
     }
 
-    let client = (*HTTP_CLIENT).clone();
+    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?.clone();
 
     let base_url = ["http://", &config.runtime_api, "/", ENV_RUNTIME_PATH].concat();
     let handler = handler.as_function().unwrap();

@@ -22,7 +22,7 @@ rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 llrt_modules = { path = "../llrt_modules", features = ["all"] }
 llrt_utils = { path = "../llrt_utils", features = ["all"] }
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.35.0"
+quick-xml = "0.36.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
@@ -34,7 +34,7 @@ rquickjs = { version = "0.6.2", features = [
 ], default-features = false }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.40", features = ["log"] }
-uuid = { version = "1.9.1", default-features = false, features = [
+uuid = { version = "1.10.0", default-features = false, features = [
     "v1",
     "v3",
     "v4",
@@ -50,7 +50,7 @@ url = "2.5.2"
 zstd = { version = "0.13.2", default-features = false, features = [] }
 libc = "0.2.155"
 socket2 = "0.5.7"
-bytes = "1.6.0"
+bytes = "1.6.1"
 uuid-simd = "0.8.0"
 simd-json = { version = "0.13.10", default-features = false, features = [
     "big-int-as-float",
@@ -58,7 +58,7 @@ simd-json = { version = "0.13.10", default-features = false, features = [
 itoa = "1.0.11"
 ryu = "1.0.18"
 fxhash = "0.2.1"
-hyper = { version = "1.4.0", features = ["client", "http1", "http2"] }
+hyper = { version = "1.4.1", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.27.2", default-features = false, features = [
     "http2",
     "http1",
@@ -84,6 +84,7 @@ flate2 = { version = "1.0.30", features = [
     "zlib-ng",
 ], default-features = false }
 brotlic = "0.8.2"
+rustls-pemfile = "2.1.2"
 
 [build-dependencies]
 rquickjs = { version = "0.6.2", features = [
