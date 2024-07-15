@@ -7,12 +7,16 @@ license-file = "LICENSE"
 [features]
 default = ["all"]
 all = ["fs", "encoding"]
+all-simd = ["fs", "encoding-simd"]
 
 fs = ["tokio/fs"]
-encoding = ["base64-simd", "hex-simd"]
+encoding = ["base64", "hex"]
+encoding-simd = ["base64-simd", "hex-simd"]
 
 [dependencies]
+base64 = { version = "0.22", optional = true }
 base64-simd = { version = "0.8.0", optional = true }
+hex = { version = "0.4", optional = true }
 hex-simd = { version = "0.8.0", optional = true }
 rquickjs = { version = "0.6.2", features = [
   "array-buffer",

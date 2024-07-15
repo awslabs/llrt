@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#[cfg(feature = "buffer")]
+#[cfg(any(feature = "buffer", feature = "buffer-simd"))]
 pub mod buffer;
 #[cfg(feature = "fs")]
 pub mod fs;

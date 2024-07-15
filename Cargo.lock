@@ -2506,7 +2506,9 @@ dependencies = [
 name = "llrt_utils"
 version = "0.1.15-beta"
 dependencies = [
+ "base64 0.22.1",
  "base64-simd",
+ "hex",
  "hex-simd",
  "rquickjs",
  "tokio",
