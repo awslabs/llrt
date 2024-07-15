@@ -9,7 +9,7 @@ use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
 use rquickjs::function::Opt;
 use rquickjs::{Ctx, Error, FromJs, Null, Object, Result, Value};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
 use tokio::{fs::File, task};
 
 use super::{read_file, Stat};
@@ -111,9 +111,7 @@ impl FileHandle {
         buffer_or_options: Opt<Either<ArrayBufferView<'js>, ReadOptions<'js>>>,
         options_or_offset: Opt<Either<ReadOptions<'js>, usize>>,
         length: Opt<usize>,
-        // Not supporting position for now since it is not available in tokio.
-        // See https://github.com/tokio-rs/tokio/issues/699
-        // position: Opt<Either<isize, Null>>,
+        position: Opt<Option<u64>>, // -1 is not supported
     ) -> Result<Object<'js>> {
         let options_1 = match buffer_or_options.0 {
             Some(Either::Left(buffer)) => ReadOptions {
@@ -144,6 +142,10 @@ impl FileHandle {
             .or(options_2.length)
             .or(length.0)
             .unwrap_or_else(|| buffer.len() - offset);
+        let position = options_1
+            .position
+            .or(options_2.position)
+            .or(position.0.flatten());
 
         // It is not safe to pass the buffer from `ArrayBufferView` to `File::read`
         // since the read is done in a different thread and we cannot garantee
@@ -151,11 +153,40 @@ impl FileHandle {
         // Ideally, we should make our own version of `BufReader` to reuse the buffer
         // instead of doing an allocation on each read.
         let mut buf = vec![0u8; length];
-        let bytes_read = self
-            .file_mut(&ctx)?
+        let file = self.file_mut(&ctx)?;
+
+        // Seek to the position
+        let mut cursor = None;
+        if let Some(position) = position {
+            cursor = Some(
+                file.seek(SeekFrom::Current(0))
+                    .await
+                    .or_throw_msg(&ctx, "Can't get cursor")?,
+            );
+            file.seek(SeekFrom::Start(position))
+                .await
+                .or_throw_msg(&ctx, "Can't seek file")?;
+        }
+
+        // Read the file
+        let bytes_read = file
             .read(&mut buf)
             .await
             .or_throw_msg(&ctx, "Failed to read file")?;
+
+        // Reset the file at the original position
+        if let Some(cursor) = cursor {
+            if let Err(err) = file
+                .seek(SeekFrom::Start(cursor))
+                .await
+                .or_throw_msg(&ctx, "Failed to reset cursor")
+            {
+                // If there is an error while resetting the cursor, we close
+                // the file pre-emptively since future reads would not be correct.
+                self.close().await;
+                return Err(err);
+            }
+        }
 
         let dst_buf = unsafe {
             buffer
@@ -324,6 +355,7 @@ struct ReadOptions<'js> {
     buffer: Option<ArrayBufferView<'js>>,
     offset: Option<usize>,
     length: Option<usize>,
+    position: Option<u64>,
 }
 
 impl<'js> FromJs<'js> for ReadOptions<'js> {
@@ -336,11 +368,13 @@ impl<'js> FromJs<'js> for ReadOptions<'js> {
         let buffer = obj.get_optional::<_, ArrayBufferView<'js>>("buffer")?;
         let offset = obj.get_optional::<_, usize>("offset")?;
         let length = obj.get_optional::<_, usize>("length")?;
+        let position = obj.get_optional::<_, u64>("position")?;
 
         Ok(Self {
             buffer,
             offset,
             length,
+            position,
         })
     }
 }
@@ -429,6 +463,38 @@ mod tests {
                     call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
 
                 assert!(result.starts_with(b"Hello World"));
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_read_position() {
+        let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            const buffer = new ArrayBuffer(4096);
+                            const view = new Uint8Array(buffer);
+                            const read = await filehandle.read(view, { position: 6 });
+                            const read = await filehandle.read(view, { offset: 5 });
+                            return Array.from(view);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+
+                assert!(result.starts_with(b"WorldHello World"));
             })
         })
         .await;
