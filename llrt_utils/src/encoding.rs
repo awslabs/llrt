@@ -66,8 +66,7 @@ impl Encoder {
         match self {
             Self::Hex => Ok(bytes_to_hex(bytes)),
             Self::Base64 => Ok(bytes_to_b64(bytes)),
-            Self::Utf8 | Self::Iso88591 => Ok(bytes.to_vec()),
-            Self::Utf16le => Err(String::from("This method is not yet supported")),
+            Self::Utf8 | Self::Iso88591 | Self::Utf16le => Ok(bytes.to_vec()),
         }
     }
 
@@ -75,18 +74,19 @@ impl Encoder {
         match self {
             Self::Hex => bytes_from_hex(&bytes),
             Self::Base64 => bytes_from_b64(&bytes),
-            Self::Utf8 | Self::Iso88591 => Ok(bytes),
-            Self::Utf16le => Err(String::from("This method is not yet supported")),
+            Self::Utf8 | Self::Iso88591 | Self::Utf16le => Ok(bytes),
         }
     }
 
-    #[allow(dead_code)]
     pub fn decode_from_string(&self, string: String) -> Result<Vec<u8>, String> {
         match self {
             Self::Hex => bytes_from_hex(string.as_bytes()),
             Self::Base64 => bytes_from_b64(string.as_bytes()),
             Self::Utf8 | Self::Iso88591 => Ok(string.into_bytes()),
-            Self::Utf16le => Err(String::from("This method is not yet supported")),
+            Self::Utf16le => Ok(string
+                .encode_utf16()
+                .flat_map(|utf16| utf16.to_le_bytes())
+                .collect::<Vec<u8>>()),
         }
     }
 
