@@ -50,7 +50,7 @@ url = "2.5.2"
 zstd = { version = "0.13.2", default-features = false, features = [] }
 libc = "0.2.155"
 socket2 = "0.5.7"
-bytes = "1.6.0"
+bytes = "1.6.1"
 uuid-simd = "0.8.0"
 simd-json = { version = "0.13.10", default-features = false, features = [
     "big-int-as-float",
