@@ -374,7 +374,7 @@ Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 Restrict HTTP requests to use a specific version. By default HTTP 1.1 and 2 are enabled. Set this variable to `1.1` to only use HTTP 1.1
 
 ### `LLRT_LOG=[target][=][level][,...]`
-Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priorty logs.
+Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priority logs.
 
 Log levels in descending priority order:
 - `Error`
