@@ -42,17 +42,14 @@ impl TextEncoder {
                 std::slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
             };
 
-            string.chars().for_each(|ch| {
-                let len = ch.len_utf8();
-                if written + len > bytes.len() {
-                    return;
-                }
-                written += len;
-            });
-            bytes[..written].copy_from_slice(&string.as_bytes()[..written]);
-            read = string[..written]
+            let bytes_len = bytes.len();
+            written = string
                 .chars()
-                .fold(0, |acc, ch| acc + ch.len_utf16());
+                .take_while(|ch| (written + ch.len_utf8()) <= bytes_len)
+                .map(|ch| ch.len_utf8())
+                .sum();
+            bytes[..written].copy_from_slice(&string.as_bytes()[..written]);
+            read = string[..written].chars().map(|ch| ch.len_utf16()).sum();
         }
 
         let obj = Object::new(ctx)?;
