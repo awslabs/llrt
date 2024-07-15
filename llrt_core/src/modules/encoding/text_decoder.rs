@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{encoding::Encoder, object::ObjectExt};
-use rquickjs::{function::Opt, Ctx, Object, Result, Value};
+use rquickjs::{function::Opt, Ctx, Exception, Object, Result, Value};
 
 use crate::utils::{object::get_bytes, result::ResultExt};
 
@@ -68,8 +68,19 @@ impl<'js> TextDecoder {
             0
         };
 
-        self.encoder
+        let str = self
+            .encoder
             .encode_to_string(&bytes[start_pos..])
-            .or_throw(&ctx)
+            .or_throw(&ctx)?;
+
+        if self.fatal
+            && str
+                .as_bytes()
+                .windows(3)
+                .any(|window: &[u8]| window == [0xEF, 0xBF, 0xBD])
+        {
+            return Err(Exception::throw_type(&ctx, "Fatal error"));
+        }
+        Ok(str)
     }
 }

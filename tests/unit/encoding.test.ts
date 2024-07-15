@@ -38,6 +38,29 @@ describe("TextDecoder", () => {
     expect(decoded.decode(ary_u8)).toEqual("H€llo world!");
   });
 
+  it("should not be removed BOM", () => {
+    const smile = "😄";
+    const bomPlusSmile = new Uint8Array([0xef, 0xbb, 0xbf, 240, 159, 152, 132]);
+    expect(new TextDecoder("utf8").decode(bomPlusSmile)).toEqual(smile);
+
+    const decoded = new TextDecoder("utf8", { ignoreBOM: true });
+    expect(decoded.encoding).toEqual("utf-8");
+    expect(decoded.ignoreBOM).toBeTruthy();
+    const encoded = new TextEncoder().encode(decoded.decode(bomPlusSmile));
+    expect(encoded).toEqual(bomPlusSmile);
+  });
+
+  it("should be generated fatal error", () => {
+    const illegalString = new Uint8Array([0xff, 0xfe, 0xfd]);
+    try {
+      const decoded = new TextDecoder("utf-8", { fatal: true });
+      expect(decoded.fatal).toBeTruthy();
+      const a = decoded.decode(illegalString);
+    } catch (ex) {
+      expect(ex.message).toEqual("Fatal error");
+    }
+  });
+
   it("should be generated unsupported error", () => {
     try {
       const decoded = new TextDecoder("nonexistent_label");
