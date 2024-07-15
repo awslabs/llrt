@@ -43,11 +43,13 @@ impl TextEncoder {
             };
 
             let bytes_len = bytes.len();
-            written = string
-                .chars()
-                .take_while(|ch| (written + ch.len_utf8()) <= bytes_len)
-                .map(|ch| ch.len_utf8())
-                .sum();
+            for ch in string.chars() {
+                let len = ch.len_utf8();
+                if written + len > bytes_len {
+                    break;
+                }
+                written += len;
+            }
             bytes[..written].copy_from_slice(&string.as_bytes()[..written]);
             read = string[..written].chars().map(|ch| ch.len_utf16()).sum();
         }
