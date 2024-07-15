@@ -119,6 +119,6 @@ describe("TextEncoder", () => {
         32, 74, 97, 112, 97, 110, 101, 115, 101,
       ])
     );
-    expect(new TextDecoder().decode(u8Array40)).toStrictEqual(hono);
+    expect(new TextDecoder().decode(u8Array40)).toEqual(hono);
   });
 });
