@@ -52,7 +52,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
     }
 
     //init eagerly
-    let client = &*HTTP_CLIENT;
+    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
 
     globals.set(
         "fetch",

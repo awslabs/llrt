@@ -362,6 +362,11 @@ Then run llrt:
 
     make run
 
+## Environment Variables
+
+### `LLRT_EXTRA_CA_CERTS=file`
+Load extra certificate authorities from a PEM encoded file
+
 ## Benchmark Methodology
 
 Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox.
