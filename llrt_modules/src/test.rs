@@ -56,7 +56,7 @@ impl ModuleEvaluator {
         source: &str,
     ) -> Result<Module<'js, Evaluated>> {
         let (module, module_eval) = Module::declare(ctx, name, source)?.eval()?;
-        module_eval.into_future().await?;
+        module_eval.into_future::<()>().await?;
         Ok(module)
     }
 
@@ -65,7 +65,7 @@ impl ModuleEvaluator {
         M: ModuleDef,
     {
         let (module, module_eval) = Module::evaluate_def::<M, _>(ctx, name)?;
-        module_eval.into_future().await?;
+        module_eval.into_future::<()>().await?;
         Ok(module)
     }
 }
