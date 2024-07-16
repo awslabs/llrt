@@ -13,10 +13,16 @@ fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 path = []
 
 [dependencies]
+either = "1"
 llrt_utils = { path = "../llrt_utils", default-features = false }
 rquickjs = { version = "0.6", features = [
+  "either",
   "macro",
   "futures",
 ], default-features = false }
 ring = { version = "0.17", optional = true }
-tokio = { version = "1" }
+tokio = { version = "1", features = ["rt", "io-util"] }
+
+[dev-dependencies]
+nanoid = "0.4.0"
+tokio = { version = "1", features = ["full"] }

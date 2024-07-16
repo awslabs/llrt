@@ -29,6 +29,10 @@ impl<'js> IntoJs<'js> for Buffer {
 }
 
 impl<'js> Buffer {
+    pub fn alloc(length: usize) -> Self {
+        Self(vec![0; length])
+    }
+
     pub fn to_string(&self, ctx: &Ctx<'js>, encoding: &str) -> Result<String> {
         Encoder::from_str(encoding)
             .and_then(|enc| enc.encode_to_string(self.0.as_ref(), true))

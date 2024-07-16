@@ -1,7 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod access;
+mod file_handle;
 mod mkdir;
+mod open;
 mod read_dir;
 mod read_file;
 mod rm;
@@ -18,6 +20,8 @@ use rquickjs::{Class, Ctx, Object, Result};
 use crate::module_info::ModuleInfo;
 
 use self::access::access;
+use self::file_handle::FileHandle;
+use self::open::open;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::{read_file, read_file_sync};
 use self::rm::{rmdir, rmfile};
@@ -63,6 +67,7 @@ impl ModuleDef for FsPromisesModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
+        Class::<FileHandle>::register(ctx)?;
         Class::<Stat>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
@@ -105,6 +110,7 @@ impl ModuleDef for FsModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
+        Class::<FileHandle>::register(ctx)?;
         Class::<Stat>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
@@ -131,15 +137,19 @@ impl ModuleDef for FsModule {
 fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     export_constants(ctx, exports)?;
 
-    exports.set("readdir", Func::from(Async(read_dir)))?;
+    exports.set("access", Func::from(Async(access)))?;
+    exports.set("open", Func::from(Async(open)))?;
     exports.set("readFile", Func::from(Async(read_file)))?;
     exports.set("writeFile", Func::from(Async(write_file)))?;
+    // exports.set("appendFile", Func::from(Async(append_file)))?;
+    // exports.set("copyFile", Func::from(Async(copy_file)))?;
+    // exports.set("rename", Func::from(Async(rename)))?;
+    exports.set("readdir", Func::from(Async(read_dir)))?;
     exports.set("mkdir", Func::from(Async(mkdir)))?;
     exports.set("mkdtemp", Func::from(Async(mkdtemp)))?;
-    exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("rm", Func::from(Async(rmfile)))?;
+    exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("stat", Func::from(Async(stat_fn)))?;
-    exports.set("access", Func::from(Async(access)))?;
 
     Ok(())
 }
