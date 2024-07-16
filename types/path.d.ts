@@ -115,6 +115,10 @@ declare module "path" {
        */
       extname(path: string): string;
       /**
+       * The platform-specific file separator. '\\' or '/'.
+       */
+      readonly sep: "\\" | "/";
+      /**
        * The platform-specific file delimiter. ';' or ':'.
        */
       readonly delimiter: ";" | ":";

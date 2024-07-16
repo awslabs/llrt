@@ -88,7 +88,7 @@ declare module "fs" {
    * A representation of a directory entry, which can be a file or a subdirectory
    * within the directory. A directory entry is a combination of the file name and file type pairs.
    *
-   * Additionally, when {@link readdir} or {@link readdirSync} is called with
+   * Additionally, when {@link promises.readdir} or {@link readdirSync} is called with
    * the `withFileTypes` option set to `true`, the resulting array is filled with `fs.Dirent` objects, rather than strings.
    */
   export class Dirent {
@@ -137,7 +137,7 @@ declare module "fs" {
   }
   /**
    * Synchronous stat - Get file status.
-   * @param path A path to a file. If a URL is provided, it must use the `file:` protocol.
+   * @param path A path to a file.
    */
   export const statSync: StatSyncFn;
 
@@ -209,7 +209,7 @@ declare module "fs" {
    * Returns the created directory path.
    *
    * For detailed information, see the documentation of the asynchronous version of
-   * this API: {@link mkdtemp}.
+   * this API: {@link promises.mkdtemp}.
    */
   export function mkdtempSync(prefix: string): string;
 
@@ -245,7 +245,7 @@ declare module "fs" {
    * Returns the contents of the `path`.
    *
    * For detailed information, see the documentation of the asynchronous version of
-   * this API: {@link readFile}.
+   * this API: {@link promises.readFile}.
    *
    * If the `encoding` option is specified then this function returns a
    * string. Otherwise it returns a buffer.
@@ -277,7 +277,7 @@ declare module "fs" {
    * Returns `undefined`.
    *
    * For detailed information, see the documentation of the asynchronous version of
-   * this API: {@link writeFile}.
+   * this API: {@link promises.writeFile}.
    * @param file A path to a file.
    */
   export function writeFileSync(
@@ -324,5 +324,5 @@ declare module "fs" {
    * ```
    * @param [mode=fs.constants.F_OK]
    */
-  export function accessSync(path: PathLike, mode?: number): void;
+  export function accessSync(path: PathLike, mode?: Mode): void;
 }
