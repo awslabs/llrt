@@ -174,7 +174,8 @@ impl Stats {
     pub fn atime_ms(&self, ctx: Ctx<'_>) -> Result<u64> {
         #[cfg(unix)]
         {
-            Ok(self.metadata.atime_nsec() / 1e6 as u64)
+            _ = ctx;
+            Ok(self.metadata.atime_nsec() as u64 / 1e6 as u64)
         }
         #[cfg(not(unix))]
         {
@@ -186,7 +187,8 @@ impl Stats {
     pub fn mtime_ms(&self, ctx: Ctx<'_>) -> Result<u64> {
         #[cfg(unix)]
         {
-            Ok(self.metadata.mtime_nsec() / 1e6 as u64)
+            _ = ctx;
+            Ok(self.metadata.mtime_nsec() as u64 / 1e6 as u64)
         }
         #[cfg(not(unix))]
         {
@@ -198,7 +200,8 @@ impl Stats {
     pub fn ctime_ms(&self, ctx: Ctx<'_>) -> Result<u64> {
         #[cfg(unix)]
         {
-            Ok(self.metadata.ctime_nsec() / 1e6 as u64)
+            _ = ctx;
+            Ok(self.metadata.ctime_nsec() as u64 / 1e6 as u64)
         }
         #[cfg(not(unix))]
         {
@@ -225,11 +228,11 @@ impl Stats {
         self.metadata.modified().or_throw(&ctx)
     }
 
-    #[allow(unused_variables)]
     #[qjs(get, enumerable)]
     pub fn ctime(&self, ctx: Ctx<'_>) -> Result<SystemTime> {
         #[cfg(unix)]
         {
+            _ = ctx;
             Ok(SystemTime::UNIX_EPOCH + Duration::from_nanos(self.metadata.ctime_nsec() as u64))
         }
         #[cfg(not(unix))]
@@ -330,6 +333,7 @@ pub fn stat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stats> {
     Ok(stats)
 }
 
+#[allow(dead_code)]
 #[inline(always)]
 fn to_msec(time: SystemTime) -> u64 {
     time.duration_since(SystemTime::UNIX_EPOCH)

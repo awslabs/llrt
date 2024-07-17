@@ -28,12 +28,12 @@ pub async fn open(ctx: Ctx<'_>, path: String, flags: String, mode: Opt<u32>) -> 
             ))
         },
     };
-    #[cfg(linux)]
+    #[cfg(unix)]
     {
         let mode = mode.0.unwrap_or(0o666);
         options.mode(mode);
     }
-    #[cfg(not(linux))]
+    #[cfg(not(unix))]
     {
         _ = mode;
     }
