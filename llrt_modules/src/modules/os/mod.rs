@@ -2,40 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::env;
 
-use once_cell::sync::Lazy;
+use llrt_utils::module::export_default;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
     Ctx, Result,
 };
 
-use crate::{
-    module_builder::ModuleInfo,
-    modules::{module::export_default, process::get_platform},
-};
+#[cfg(unix)]
+use self::unix::{get_release, get_type, get_version};
+#[cfg(windows)]
+use self::windows::{get_release, get_type, get_version};
+use crate::module_info::ModuleInfo;
+use crate::process::get_platform;
 
-static OS_INFO: Lazy<(String, String, String)> = Lazy::new(|| {
-    if let Ok(uts) = uname::uname() {
-        return (uts.sysname, uts.release, uts.version);
-    }
-    (
-        String::from("n/a"),
-        String::from("n/a"),
-        String::from("n/a"),
-    )
-});
-
-fn get_type() -> &'static str {
-    &OS_INFO.0
-}
-
-fn get_release() -> &'static str {
-    &OS_INFO.1
-}
-
-fn get_version() -> &'static str {
-    &OS_INFO.2
-}
+#[cfg(unix)]
+mod unix;
+#[cfg(windows)]
+mod windows;
 
 fn get_tmp_dir() -> String {
     env::temp_dir().to_string_lossy().to_string()

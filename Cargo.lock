@@ -2490,6 +2490,7 @@ dependencies = [
  "libc",
  "llrt_utils",
  "nanoid",
+ "once_cell",
  "ring",
  "rquickjs",
  "tokio",

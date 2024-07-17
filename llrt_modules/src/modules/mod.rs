@@ -8,3 +8,5 @@ pub mod fs;
 pub mod os;
 #[cfg(feature = "path")]
 pub mod path;
+#[cfg(feature = "process")]
+pub mod process;
