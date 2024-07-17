@@ -837,8 +837,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_file_handle_write_file() {
-        let (file, path) =
-            given_file("Other Data", OpenOptions::new().write(true).append(true)).await;
+        let (file, path) = given_file(
+            "Other very very very very long Data",
+            OpenOptions::new().write(true),
+        )
+        .await;
         let path_1 = path.clone();
         test_async_with(|ctx| {
             Box::pin(async move {
