@@ -79,7 +79,6 @@ tokio-rustls = { version = "0.26.0", features = [
 ], default-features = false }
 ring = "0.17.8"
 rand = "0.8.5"
-uname = "0.1.1"
 flate2 = { version = "1.0.30", features = [
     "zlib-ng",
 ], default-features = false }
