@@ -6,6 +6,14 @@
 
 // Keep this file in sync with url-setters-a-area.window.js.
 
+export default function({
+  assert_equals,
+  fetch,
+  promise_test,
+  subsetTestByKey,
+  test,
+}) {
+
 promise_test(() => fetch("resources/setters_tests.json").then(res => res.json()).then(runURLSettersTests), "Loading data…");
 
 function runURLSettersTests(all_test_cases) {
@@ -32,3 +40,5 @@ function runURLSettersTests(all_test_cases) {
     }
   }
 }
+
+};

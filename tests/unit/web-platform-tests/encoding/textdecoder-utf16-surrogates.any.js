@@ -1,6 +1,12 @@
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: UTF-16 surrogate handling
 
+export default function({
+    assert_equals,
+    assert_throws_js,
+    test,
+}) {
+
 var bad = [
     {
         encoding: 'utf-16le',
@@ -44,3 +50,5 @@ bad.forEach(function(t) {
         });
     }, t.encoding + ' - ' + t.name + ' (fatal flag set)');
 });
+
+};

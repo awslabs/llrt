@@ -1,3 +1,9 @@
+export default function({
+    assert_equals,
+    assert_true,
+    test,
+}) {
+
 test(function() {
     var params = new URLSearchParams('a=b&c=d');
     assert_equals(params.get('a'), 'b');
@@ -19,3 +25,5 @@ test(function() {
     assert_equals(params.get('third'), '', 'Search params object has name "third" with the empty value.');
     assert_equals(params.get('fourth'), null, 'Search params object has no "fourth" name and value.');
 }, 'More get() basics');
+
+};

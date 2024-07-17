@@ -5,6 +5,16 @@
 // META: variant=?include=mailto
 // META: variant=?exclude=(file|javascript|mailto)
 
+export default function({
+  assert_equals,
+  assert_throws_js,
+  assert_true,
+  fetch,
+  promise_test,
+  subsetTestByKey,
+  test,
+}) {
+
 function runURLTests(urlTests) {
   for (const expected of urlTests) {
     // Skip comments
@@ -51,3 +61,5 @@ function runURLTests(urlTests) {
 }
 
 promise_test(() => fetch("resources/urltestdata.json").then(res => res.json()).then(runURLTests), "Loading data…");
+
+};

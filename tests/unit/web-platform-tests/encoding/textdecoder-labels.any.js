@@ -2,6 +2,12 @@
 // META: script=resources/encodings.js
 // META: timeout=long
 
+export default function({
+  assert_equals,
+  encodings_table,
+  test,
+}) {
+
 var whitespace = [' ', '\t', '\n', '\f', '\r'];
 encodings_table.forEach(function(section) {
   section.encodings.filter(function(encoding) {
@@ -31,3 +37,5 @@ encodings_table.forEach(function(section) {
     });
   });
 });
+
+};

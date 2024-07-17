@@ -1,6 +1,13 @@
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: Basics
 
+export default function({
+  assert_array_equals,
+  assert_equals,
+  test,
+  testDecodeSample,
+}) {
+
 test(function() {
     assert_equals((new TextEncoder).encoding, 'utf-8', 'default encoding is utf-8');
     assert_equals((new TextDecoder).encoding, 'utf-8', 'default encoding is utf-8');
@@ -51,3 +58,5 @@ testDecodeSample(
 //   sample,
 //   [0x7A, 0x00, 0xA2, 0x00, 0x34, 0x6C, 0x34, 0xD8, 0x1E, 0xDD, 0xFF, 0xF8, 0xFF, 0xDB, 0xFD, 0xDF, 0xFE, 0xFF]
 // );
+
+};

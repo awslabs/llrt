@@ -1,6 +1,12 @@
 // META: title=Encoding API: Legacy encodings
 // META: script=resources/encodings.js
 
+export default function({
+    assert_equals,
+    encodings_table,
+    test,
+}) {
+
 encodings_table.forEach(function(section) {
     section.encodings.forEach(function(encoding) {
         if (!['UTF-8', 'UTF-16LE'].includes(encoding.name)) return;
@@ -15,3 +21,5 @@ encodings_table.forEach(function(section) {
         }, 'Encoding argument not considered for encode: ' + encoding.name);
     });
 });
+
+};

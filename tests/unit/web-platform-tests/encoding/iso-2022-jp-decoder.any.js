@@ -1,5 +1,11 @@
 // META: global=window,dedicatedworker,shadowrealm
 //
+
+export default function({
+  assert_equals,
+  test,
+}) {
+
 function decode(input, output, desc) {
   test(function() {
     var d = new TextDecoder("iso-2022-jp"),
@@ -50,3 +56,5 @@ decode([0x50, 0x1b, 0x28, 0x4A], "P", "character, Roman ESC")
 decode([0x50, 0x1b, 0x28, 0x49], "P", "character, Katakana ESC")
 decode([0x50, 0x1b, 0x24, 0x40], "P", "character, Multibyte ESC")
 decode([0x50, 0x1b, 0x24, 0x42], "P", "character, Multibyte ESC #2")
+
+};

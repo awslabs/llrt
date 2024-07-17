@@ -4,6 +4,9 @@
 /* Documentation: https://web-platform-tests.org/writing-tests/testharness-api.html
  * (../docs/_writing-tests/testharness-api.md) */
 
+export default function(self) {
+    const location = self.location;
+
 (function (global_scope)
 {
     // default timeout is 10 seconds, test can override if needed
@@ -1234,17 +1237,6 @@
             func.apply(outer_this, args);
         }, timeout * tests.timeout_multiplier);
     }
-
-    /**
-     * Resets the test harness
-     */
-    function reset() {
-        tests = new Tests();
-        test_environment = create_test_environment();
-        seen_func_name = Object.create(null);
-        test_environment.on_tests_ready();
-    }
-    expose(reset, 'reset');
 
     expose(test, 'test');
     expose(async_test, 'async_test');
@@ -4957,3 +4949,5 @@ table#results span.actual {\
 
 })(self);
 // vim: set expandtab shiftwidth=4 tabstop=4:
+
+};

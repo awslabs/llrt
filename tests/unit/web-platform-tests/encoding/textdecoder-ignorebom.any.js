@@ -1,6 +1,13 @@
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: TextDecoder ignoreBOM option
 
+export default function({
+    assert_equals,
+    assert_false,
+    assert_true,
+    test,
+}) {
+
 var cases = [
     {encoding: 'utf-8', bytes: [0xEF, 0xBB, 0xBF, 0x61, 0x62, 0x63]},
     {encoding: 'utf-16le', bytes: [0xFF, 0xFE, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00]},
@@ -50,3 +57,5 @@ test(function() {
     assert_true(new TextDecoder('utf-8', {ignoreBOM: true}).ignoreBOM, 'The ignoreBOM attribute can be set using an option.');
 
 }, 'The ignoreBOM attribute of TextDecoder');
+
+};

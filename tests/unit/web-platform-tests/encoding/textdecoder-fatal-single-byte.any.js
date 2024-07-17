@@ -11,6 +11,13 @@
 // META: variant=?7001-last
 // META: script=/common/subset-tests.js
 
+export default function({
+    assert_equals,
+    assert_throws_js,
+    subsetTest,
+    test,
+}) {
+
 var singleByteEncodings = [
      {encoding: 'IBM866', bad: []},
      {encoding: 'ISO-8859-2', bad: []},
@@ -58,3 +65,5 @@ singleByteEncodings.forEach(function(t) {
         }
     }
 });
+
+};

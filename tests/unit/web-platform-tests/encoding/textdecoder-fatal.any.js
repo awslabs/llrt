@@ -1,6 +1,14 @@
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: Fatal flag
 
+export default function({
+    assert_equals,
+    assert_false,
+    assert_throws_js,
+    assert_true,
+    test,
+}) {
+
 var bad = [
     { encoding: 'utf-8', input: [0xFF], name: 'invalid code' },
     { encoding: 'utf-8', input: [0xC0], name: 'ends early' },
@@ -79,3 +87,5 @@ test(() => {
                 '♥',
                 'decode() should not throw on subsequent call');
 }, 'Error seen with fatal does not prevent future decodes');
+
+};

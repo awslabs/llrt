@@ -1,6 +1,12 @@
 // META: title=Encoding API: replacement encoding
 // META: script=resources/encodings.js
 
+export default function({
+    assert_throws_js,
+    encodings_table,
+    test,
+}) {
+
 encodings_table.forEach(function(section) {
     section.encodings.filter(function(encoding) {
         return encoding.name === 'replacement';
@@ -13,3 +19,4 @@ encodings_table.forEach(function(section) {
     });
 });
 
+};

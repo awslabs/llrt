@@ -1,3 +1,6 @@
+export default function(self) {
+  const location = self.location;
+
 (function() {
   var subTestStart = 0;
   var subTestEnd = Infinity;
@@ -58,3 +61,5 @@
   self.shouldRunSubTest = shouldRunSubTest;
   self.subsetTest = subsetTest;
 })();
+
+};

@@ -1,6 +1,12 @@
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: End-of-file
 
+export default function({
+    assert_equals,
+    assert_throws_js,
+    test,
+}) {
+
 test(function() {
     [
         {encoding: 'utf-8', sequence: [0xC0]},
@@ -43,3 +49,5 @@ test(function() {
 //     assert_equals(decoder.decode(even), '\u0000');
 
 // }, 'Fatal flag, streaming cases');
+
+};

@@ -1,6 +1,11 @@
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: TextDecoder decode() optional arguments
 
+export default function({
+  assert_equals,
+  test,
+}) {
+
 test(t => {
   const decoder = new TextDecoder();
 
@@ -48,3 +53,5 @@ test(t => {
   //   'Undefined as first arg should flush the stream');
 
 }, 'TextDecoder decode() with undefined and options');
+
+};

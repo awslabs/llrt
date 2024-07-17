@@ -1,3 +1,8 @@
+export default function({
+  assert_equals,
+  test,
+}) {
+
 function urlString({ scheme = "https",
                      username = "username",
                      password = "password",
@@ -126,3 +131,5 @@ for(const scheme of ["https", "wpt++"]) {
     }
   }
 }
+
+};

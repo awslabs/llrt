@@ -1,3 +1,9 @@
+export default function({
+    assert_equals,
+    assert_true,
+    test,
+}) {
+
 test(function() {
     var params = new URLSearchParams();
     params.append('a', 'b');
@@ -37,3 +43,5 @@ test(function() {
     params.append('first', 10);
     assert_equals(params.get('first'), '1', 'Search params object has name "first" with value "1"');
 }, 'Append multiple');
+
+};

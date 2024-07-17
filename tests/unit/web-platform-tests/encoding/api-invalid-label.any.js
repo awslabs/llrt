@@ -7,6 +7,15 @@
 // META: script=resources/encodings.js
 // META: script=/common/subset-tests.js
 
+export default function({
+  assert_throws_js,
+  encodings_table,
+  format_value,
+  setup,
+  subsetTest,
+  test,
+}) {
+
 var tests = ["invalid-invalidLabel"];
 setup(function() {
   encodings_table.forEach(function(section) {
@@ -27,3 +36,5 @@ tests.forEach(function(input) {
     assert_throws_js(RangeError, function() { new TextDecoder(input); });
   }, 'Invalid label ' + format_value(input) + ' should be rejected by TextDecoder.');
 });
+
+};

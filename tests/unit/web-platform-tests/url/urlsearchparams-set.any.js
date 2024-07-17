@@ -1,3 +1,9 @@
+export default function({
+    assert_equals,
+    assert_true,
+    test,
+}) {
+
 test(function() {
     var params = new URLSearchParams('a=b&c=d');
     params.set('a', 'B');
@@ -20,3 +26,5 @@ test(function() {
     assert_true(params.has('a'), 'Search params object has name "a"');
     assert_equals(params.get('a'), '4', 'Search params object has name "a" with value "4"');
 }, 'URLSearchParams.set');
+
+};
