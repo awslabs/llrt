@@ -61,3 +61,99 @@ impl From<OsModule> for ModuleInfo<OsModule> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+
+    #[tokio::test]
+    async fn test_type() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { type } from 'os';
+
+                        export async function test() {
+                            return type()
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert!(result == "Linux" || result == "Windows_NT" || result == "Darwin");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_release() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { release } from 'os';
+
+                        export async function test() {
+                            return release()
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert!(!result.is_empty()); // Format is platform dependant
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_version() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { version } from 'os';
+
+                        export async function test() {
+                            return version()
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert!(!result.is_empty()); // Format is platform dependant
+            })
+        })
+        .await;
+    }
+}
