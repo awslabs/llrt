@@ -6,10 +6,11 @@ license-file = "LICENSE"
 
 [features]
 default = ["all"]
-all = ["buffer", "fs", "path"]
+all = ["buffer", "fs", "os", "path"]
 
 buffer = ["llrt_utils/encoding"]
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
+os = ["libc"]
 path = []
 
 [dependencies]
@@ -22,6 +23,9 @@ rquickjs = { version = "0.6", features = [
 ], default-features = false }
 ring = { version = "0.17", optional = true }
 tokio = { version = "1", features = ["rt", "io-util"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = { version = "0.2", optional = true }
 
 [dev-dependencies]
 nanoid = "0.4.0"
