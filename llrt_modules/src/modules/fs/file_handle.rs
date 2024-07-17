@@ -9,16 +9,17 @@ use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
 use rquickjs::function::Opt;
 use rquickjs::{Ctx, Error, Exception, FromJs, Null, Object, Result, Value};
+use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
-use tokio::{fs::File, task};
 
-use super::{read_file, Stat};
+use super::{read_file, Stats};
 use crate::buffer::Buffer;
 use crate::utils::array_buffer::ArrayBufferView;
 
 const DEFAULT_BUFFER_SIZE: usize = 16384;
 const DEFAULT_ENCODING: &str = "utf8";
 
+#[allow(dead_code)]
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
 pub struct FileHandle {
@@ -47,6 +48,7 @@ impl FileHandle {
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl FileHandle {
+    #[allow(unused_variables)]
     async fn chmod(&self, ctx: Ctx<'_>, mode: u32) -> Result<()> {
         #[cfg(unix)]
         {
@@ -60,14 +62,17 @@ impl FileHandle {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     async fn chown(&self, ctx: Ctx<'_>, uid: u32, gid: u32) -> Result<()> {
         #[cfg(unix)]
         {
             let path = self.path.clone();
-            task::spawn_blocking(move || std::os::unix::fs::chown(&path, Some(uid), Some(gid)))
-                .await
-                .or_throw(&ctx)?
-                .or_throw_msg(&ctx, "Can't modify file owner")?;
+            tokio::task::spawn_blocking(move || {
+                std::os::unix::fs::chown(&path, Some(uid), Some(gid))
+            })
+            .await
+            .or_throw(&ctx)?
+            .or_throw_msg(&ctx, "Can't modify file owner")?;
         }
         Ok(())
     }
@@ -224,13 +229,13 @@ impl FileHandle {
         read_file::handle_read_file_bytes(&ctx, options, bytes)
     }
 
-    async fn stat(&self, ctx: Ctx<'_>) -> Result<Stat> {
+    async fn stat(&self, ctx: Ctx<'_>) -> Result<Stats> {
         let metadata = self
             .file(&ctx)?
             .metadata()
             .await
             .or_throw_msg(&ctx, "Can't stat file")?;
-        Ok(Stat::new(metadata))
+        Ok(Stats::new(metadata))
     }
 
     async fn sync(&self, ctx: Ctx<'_>) -> Result<()> {

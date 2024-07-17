@@ -28,8 +28,15 @@ pub async fn open(ctx: Ctx<'_>, path: String, flags: String, mode: Opt<u32>) -> 
             ))
         },
     };
-    let mode = mode.0.unwrap_or(0o666);
-    options.mode(mode);
+    #[cfg(linux)]
+    {
+        let mode = mode.0.unwrap_or(0o666);
+        options.mode(mode);
+    }
+    #[cfg(not(linux))]
+    {
+        _ = mode;
+    }
 
     let path = PathBuf::from(path);
     let file = options
