@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, env, sync::atomic::Ordering};
 
-use llrt_modules::process::get_platform;
+pub use llrt_modules::process::get_platform;
 use rquickjs::{
     atom::PredefinedAtom,
     convert::Coerced,
