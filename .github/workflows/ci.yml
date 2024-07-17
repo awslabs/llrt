@@ -56,3 +56,24 @@ jobs:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
+  modules:
+    needs:
+      - check
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+          - os: macos-latest
+            platform: darwin
+            arch: x86_64
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+    uses: ./.github/workflows/build-modules.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}
+      arch: ${{ matrix.arch }}
+
