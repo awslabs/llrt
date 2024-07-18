@@ -15,6 +15,250 @@ declare module "fs/promises" {
     Stats,
   } from "fs";
 
+  export type FileSystemFlags =
+    | "a"
+    | "ax"
+    | "a+"
+    | "r"
+    | "r+"
+    | "w"
+    | "wx"
+    | "w+"
+    | "wx+";
+
+  interface FileReadResult<T extends QuickJS.ArrayBufferView> {
+    bytesRead: number;
+    buffer: T;
+  }
+
+  interface FileReadOptions<T extends QuickJS.ArrayBufferView = Buffer> {
+    /**
+     * @default `Buffer.alloc(16384)`
+     */
+    buffer?: T;
+    /**
+     * @default 0
+     */
+    offset?: number | null;
+    /**
+     * @default `buffer.byteLength - offset`
+     */
+    length?: number | null;
+    position?: number | null;
+  }
+
+  class FileHandle {
+    /**
+     * The numeric file descriptor managed by the {FileHandle} object.
+     */
+    readonly fd: number;
+
+    /**
+     * Changes the ownership of the file. A wrapper for [`chown(2)`](http://man7.org/linux/man-pages/man2/chown.2.html).
+     * @param uid The file's new owner's user id.
+     * @param gid The file's new group's group id.
+     * @return Fulfills with `undefined` upon success.
+     */
+    chown(uid: number, gid: number): Promise<void>;
+
+    /**
+     * Modifies the permissions on the file. See [`chmod(2)`](http://man7.org/linux/man-pages/man2/chmod.2.html).
+     * @param mode the file mode bit mask.
+     * @return Fulfills with `undefined` upon success.
+     */
+    chmod(mode: Mode): Promise<void>;
+
+    /**
+     * Forces all currently queued I/O operations associated with the file to the
+     * operating system's synchronized I/O completion state. Refer to the POSIX [`fdatasync(2)`](http://man7.org/linux/man-pages/man2/fdatasync.2.html) documentation for details.
+     *
+     * Unlike `filehandle.sync` this method does not flush modified metadata.
+     * @return Fulfills with `undefined` upon success.
+     */
+    datasync(): Promise<void>;
+
+    /**
+     * Request that all data for the open file descriptor is flushed to the storage
+     * device. The specific implementation is operating system and device specific.
+     * Refer to the POSIX [`fsync(2)`](http://man7.org/linux/man-pages/man2/fsync.2.html) documentation for more detail.
+     * @return Fulfills with `undefined` upon success.
+     */
+    sync(): Promise<void>;
+
+    /**
+     * Reads data from the file and stores that in the given buffer.
+     *
+     * If the file is not modified concurrently, the end-of-file is reached when the
+     * number of bytes read is zero.
+     * @param buffer A buffer that will be filled with the file data read.
+     * @param offset The location in the buffer at which to start filling.
+     * @param length The number of bytes to read.
+     * @param position The location where to begin reading data from the file. If `null`, data will be read from the current file position, and the position will be updated. If `position` is an
+     * integer, the current file position will remain unchanged.
+     * @return Fulfills upon success with an object with two properties: bytesRead and buffer
+     */
+    read<T extends QuickJS.ArrayBufferView>(
+      buffer: T,
+      offset?: number | null,
+      length?: number | null,
+      position?: number | null
+    ): Promise<FileReadResult<T>>;
+    read<T extends QuickJS.ArrayBufferView = Buffer>(
+      buffer: T,
+      options?: FileReadOptions<T>
+    ): Promise<FileReadResult<T>>;
+    read<T extends QuickJS.ArrayBufferView = Buffer>(
+      options?: FileReadOptions<T>
+    ): Promise<FileReadResult<T>>;
+
+    /**
+     * Asynchronously reads the entire contents of a file.
+     *
+     * If `options` is a string, then it specifies the `encoding`.
+     *
+     * The `FileHandle` has to support reading.
+     *
+     * If one or more `filehandle.read()` calls are made on a file handle and then a `filehandle.readFile()` call is made, the data will be read from the current
+     * position till the end of the file. It doesn't always read from the beginning
+     * of the file.
+     * @return Fulfills upon a successful read with the contents of the file. If no encoding is specified (using `options.encoding`), the data is returned as a {Buffer} object. Otherwise, the
+     * data will be a string.
+     */
+    readFile(
+      options?: {
+        encoding?: null | undefined;
+      } | null
+    ): Promise<Buffer>;
+    readFile(
+      options:
+        | {
+            encoding: BufferEncoding;
+          }
+        | BufferEncoding
+    ): Promise<string>;
+
+    /**
+     * Get {FileHandle} status.
+     * @return Fulfills with the {fs.Stats} object.
+     */
+    stat(): Promise<Stats>;
+
+    /**
+     * Truncates the file.
+     *
+     * If the file was larger than `len` bytes, only the first `len` bytes will be
+     * retained in the file.
+     *
+     * The following example retains only the first four bytes of the file:
+     *
+     * ```js
+     * import { open } from 'fs/promises';
+     *
+     * let filehandle = null;
+     * try {
+     *   filehandle = await open('temp.txt', 'r+');
+     *   await filehandle.truncate(4);
+     * } finally {
+     *   await filehandle?.close();
+     * }
+     * ```
+     *
+     * If the file previously was shorter than `len` bytes, it is extended, and the
+     * extended part is filled with null bytes (`'\0'`):
+     *
+     * @param [len=0]
+     * @return Fulfills with `undefined` upon success.
+     */
+    truncate(len?: number): Promise<void>;
+
+    /**
+     * Asynchronously writes data to a file, replacing the file if it already exists.
+     *
+     * If `options` is a string, then it specifies the `encoding`.
+     *
+     * The `FileHandle` has to support writing.
+     *
+     * It is unsafe to use `filehandle.writeFile()` multiple times on the same file
+     * without waiting for the promise to be fulfilled (or rejected).
+     *
+     * If one or more `filehandle.write()` calls are made on a file handle and then a`filehandle.writeFile()` call is made, the data will be written from the
+     * current position till the end of the file. It doesn't always write from the beginning of the file.
+     */
+    writeFile(
+      data: string | QuickJS.ArrayBufferView,
+      options?:
+        | {
+            encoding?: BufferEncoding | null;
+          }
+        | BufferEncoding
+        | null
+    ): Promise<void>;
+
+    /**
+     * Write `buffer` to the file.
+     *
+     * The promise is fulfilled with an object containing two properties:
+     *
+     * It is unsafe to use `filehandle.write()` multiple times on the same file
+     * without waiting for the promise to be fulfilled (or rejected). For this
+     * scenario, use `filehandle.createWriteStream()`.
+     *
+     * On Linux, positional writes do not work when the file is opened in append mode.
+     * The kernel ignores the position argument and always appends the data to
+     * the end of the file.
+     * @param offset The start position from within `buffer` where the data to write begins.
+     * @param [length=buffer.byteLength - offset] The number of bytes from `buffer` to write.
+     * @param [position='null'] The offset from the beginning of the file where the data from `buffer` should be written. If `position` is not a `number`, the data will be written at the current
+     * position. See the POSIX pwrite(2) documentation for more detail.
+     */
+    write<TBuffer extends QuickJS.ArrayBufferView>(
+      buffer: TBuffer,
+      offset?: number | null,
+      length?: number | null,
+      position?: number | null
+    ): Promise<{
+      bytesWritten: number;
+      buffer: TBuffer;
+    }>;
+    write<TBuffer extends QuickJS.ArrayBufferView>(
+      buffer: TBuffer,
+      options?: {
+        offset?: number | null;
+        length?: number | null;
+        position?: number | null;
+      } | null
+    ): Promise<{
+      bytesWritten: number;
+      buffer: TBuffer;
+    }>;
+    write(
+      data: string,
+      position?: number | null,
+      encoding?: BufferEncoding | null
+    ): Promise<{
+      bytesWritten: number;
+      buffer: string;
+    }>;
+
+    /**
+     * Closes the file handle after waiting for any pending operation on the handle to
+     * complete.
+     *
+     * ```js
+     * import { open } from 'fs/promises';
+     *
+     * let filehandle;
+     * try {
+     *   filehandle = await open('thefile.txt', 'r');
+     * } finally {
+     *   await filehandle?.close();
+     * }
+     * ```
+     * @return Fulfills with `undefined` upon success.
+     */
+    close(): Promise<void>;
+  }
+
   const constants: typeof fsConstants;
 
   /**
@@ -49,6 +293,23 @@ declare module "fs/promises" {
    * @return Fulfills with `undefined` upon success.
    */
   function access(path: PathLike, mode?: Mode): Promise<void>;
+
+  /**
+   * Opens a `FileHandle`.
+   *
+   * Refer to the POSIX [`open(2)`](http://man7.org/linux/man-pages/man2/open.2.html) documentation for more detail.
+   *
+   * Some characters (`< > : " / \ | ? *`) are reserved under Windows as documented
+   * by [Naming Files, Paths, and Namespaces](https://docs.microsoft.com/en-us/windows/desktop/FileIO/naming-a-file).
+   * @param [flags='r'] See {FileSystemFlags}.
+   * @param [mode=0o666] Sets the file mode if the file is created (UNIX).
+   * @return Fulfills with a {FileHandle} object.
+   */
+  function open(
+    path: PathLike,
+    flags?: FileSystemFlags,
+    mode?: Mode
+  ): Promise<FileHandle>;
 
   /**
    * Removes the directory identified by `path`.
