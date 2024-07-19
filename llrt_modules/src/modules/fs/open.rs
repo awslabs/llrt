@@ -8,9 +8,14 @@ use tokio::fs::OpenOptions;
 
 use super::file_handle::FileHandle;
 
-pub async fn open(ctx: Ctx<'_>, path: String, flags: String, mode: Opt<u32>) -> Result<FileHandle> {
+pub async fn open(
+    ctx: Ctx<'_>,
+    path: String,
+    flags: Opt<String>,
+    mode: Opt<u32>,
+) -> Result<FileHandle> {
     let mut options = OpenOptions::new();
-    match flags.as_str() {
+    match flags.0.as_deref().unwrap_or("r") {
         // We are not supporting the sync modes
         "a" => options.append(true).create(true),
         "ax" => options.append(true).create_new(true),
@@ -21,15 +26,22 @@ pub async fn open(ctx: Ctx<'_>, path: String, flags: String, mode: Opt<u32>) -> 
         "wx" => options.write(true).create_new(true),
         "w+" => options.write(true).read(true).create(true).truncate(true),
         "wx+" => options.write(true).read(true).create_new(true),
-        _ => {
+        flags => {
             return Err(Exception::throw_message(
                 &ctx,
                 &format!("Invalid flags '{}'", flags),
             ))
         },
     };
-    let mode = mode.0.unwrap_or(0o666);
-    options.mode(mode);
+    #[cfg(unix)]
+    {
+        let mode = mode.0.unwrap_or(0o666);
+        options.mode(mode);
+    }
+    #[cfg(not(unix))]
+    {
+        _ = mode;
+    }
 
     let path = PathBuf::from(path);
     let file = options
@@ -54,6 +66,8 @@ mod tests {
             .await
             .to_string_lossy()
             .to_string();
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
@@ -82,11 +96,13 @@ mod tests {
                 .await
                 .unwrap();
 
-                let result = call_test::<Vec<u8>, _>(&ctx, &module, (path,)).await;
+                let result = call_test::<Vec<u8>, _>(&ctx, &module, (path_1,)).await;
 
                 assert!(result.starts_with(b"Hello World"));
             })
         })
         .await;
+
+        tokio::fs::remove_file(path).await.unwrap();
     }
 }

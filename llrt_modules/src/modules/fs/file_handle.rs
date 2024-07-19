@@ -9,16 +9,17 @@ use llrt_utils::object::ObjectExt;
 use llrt_utils::result::{OptionExt, ResultExt};
 use rquickjs::function::Opt;
 use rquickjs::{Ctx, Error, Exception, FromJs, Null, Object, Result, Value};
+use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
-use tokio::{fs::File, task};
 
-use super::{read_file, Stat};
+use super::{read_file, Stats};
 use crate::buffer::Buffer;
 use crate::utils::array_buffer::ArrayBufferView;
 
 const DEFAULT_BUFFER_SIZE: usize = 16384;
 const DEFAULT_ENCODING: &str = "utf8";
 
+#[allow(dead_code)]
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
 pub struct FileHandle {
@@ -47,6 +48,7 @@ impl FileHandle {
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl FileHandle {
+    #[allow(unused_variables)]
     async fn chmod(&self, ctx: Ctx<'_>, mode: u32) -> Result<()> {
         #[cfg(unix)]
         {
@@ -60,14 +62,17 @@ impl FileHandle {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     async fn chown(&self, ctx: Ctx<'_>, uid: u32, gid: u32) -> Result<()> {
         #[cfg(unix)]
         {
             let path = self.path.clone();
-            task::spawn_blocking(move || std::os::unix::fs::chown(&path, Some(uid), Some(gid)))
-                .await
-                .or_throw(&ctx)?
-                .or_throw_msg(&ctx, "Can't modify file owner")?;
+            tokio::task::spawn_blocking(move || {
+                std::os::unix::fs::chown(&path, Some(uid), Some(gid))
+            })
+            .await
+            .or_throw(&ctx)?
+            .or_throw_msg(&ctx, "Can't modify file owner")?;
         }
         Ok(())
     }
@@ -224,13 +229,13 @@ impl FileHandle {
         read_file::handle_read_file_bytes(&ctx, options, bytes)
     }
 
-    async fn stat(&self, ctx: Ctx<'_>) -> Result<Stat> {
+    async fn stat(&self, ctx: Ctx<'_>) -> Result<Stats> {
         let metadata = self
             .file(&ctx)?
             .metadata()
             .await
             .or_throw_msg(&ctx, "Can't stat file")?;
-        Ok(Stat::new(metadata))
+        Ok(Stats::new(metadata))
     }
 
     async fn sync(&self, ctx: Ctx<'_>) -> Result<()> {
@@ -498,6 +503,8 @@ mod tests {
     #[tokio::test]
     async fn test_file_handle_read() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
@@ -518,18 +525,23 @@ mod tests {
                 .unwrap();
 
                 let result =
-                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
 
                 assert!(result.starts_with(b"Hello World"));
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_read_concurrent() {
         let (file_a, path_a) = given_file(&"a".repeat(20000), OpenOptions::new().read(true)).await;
         let (file_b, path_b) = given_file(&"b".repeat(20000), OpenOptions::new().read(true)).await;
+        let path_a_1 = path_a.clone();
+        let path_b_1 = path_b.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
@@ -550,7 +562,7 @@ mod tests {
                 .unwrap();
 
                 let result =
-                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file_a, path_a), FileHandle::new(file_b, path_b))).await;
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file_a, path_a_1), FileHandle::new(file_b, path_b_1))).await;
 
                 assert_eq!(result.len(), 10000);
                 if result.iter().all(|&b| b == b'a') {
@@ -563,11 +575,16 @@ mod tests {
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path_a).await.unwrap();
+        tokio::fs::remove_file(&path_b).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_read_position() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
@@ -590,17 +607,21 @@ mod tests {
                 .unwrap();
 
                 let result =
-                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
 
                 assert!(result.starts_with(b"WorldHello World"));
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_read_subarray() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
@@ -622,17 +643,21 @@ mod tests {
                 .unwrap();
 
                 let result =
-                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
 
                 assert!(result.starts_with(b"\x00\x00\x00Hello\x00"));
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_read_buffer() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
@@ -652,7 +677,7 @@ mod tests {
                 .await
                 .unwrap();
 
-                let error = call_test_err::<(), _>(&ctx, &module, (FileHandle::new(file, path),))
+                let error = call_test_err::<(), _>(&ctx, &module, (FileHandle::new(file, path_1),))
                     .await
                     .unwrap_err();
 
@@ -664,11 +689,15 @@ mod tests {
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_read_out_of_range() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
@@ -689,17 +718,21 @@ mod tests {
                 .unwrap();
 
                 let result =
-                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+                    call_test::<Vec<u8>, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
 
                 assert!(result.starts_with(b"Hello World"));
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_read_file() {
         let (file, path) = given_file("Hello World", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
@@ -718,18 +751,21 @@ mod tests {
                 .unwrap();
 
                 let result =
-                    call_test::<String, _>(&ctx, &module, (FileHandle::new(file, path),)).await;
+                    call_test::<String, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
 
                 assert_eq!(result, "Hello World");
             })
         })
         .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_file_handle_write() {
         let (file, path) = given_file("", OpenOptions::new().write(true)).await;
         let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 Class::<FileHandle>::register(&ctx).unwrap();
@@ -740,6 +776,7 @@ mod tests {
                     r#"
                         export async function test(filehandle) {
                             const { bytesWritten } = await filehandle.write("Hello World", null, "utf8");
+                            await filehandle.sync();
                             return bytesWritten;
                         }
                     "#,
@@ -755,7 +792,8 @@ mod tests {
         })
         .await;
 
-        let file_content = tokio::fs::read(path).await.unwrap();
+        let file_content = tokio::fs::read(&path).await.unwrap();
+        tokio::fs::remove_file(&path).await.unwrap();
         assert_eq!(file_content, b"Hello World");
     }
 
@@ -774,6 +812,7 @@ mod tests {
                         export async function test(filehandle) {
                             const { bytesWritten } = await filehandle.write("Hello World", null, "utf8", 4);
                             await filehandle.write("a", null, "utf8");
+                            await filehandle.sync();
                             return bytesWritten;
                         }
                     "#,
@@ -789,7 +828,8 @@ mod tests {
         })
         .await;
 
-        let file_content = tokio::fs::read(path).await.unwrap();
+        let file_content = tokio::fs::read(&path).await.unwrap();
+        tokio::fs::remove_file(&path).await.unwrap();
         assert_eq!(file_content, b"a\x00\x00\x00Hello World");
     }
 
@@ -826,14 +866,18 @@ mod tests {
         })
         .await;
 
-        let file_content = tokio::fs::read(path).await.unwrap();
+        let file_content = tokio::fs::read(&path).await.unwrap();
+        tokio::fs::remove_file(&path).await.unwrap();
         assert_eq!(file_content, b"");
     }
 
     #[tokio::test]
     async fn test_file_handle_write_file() {
-        let (file, path) =
-            given_file("Other Data", OpenOptions::new().write(true).append(true)).await;
+        let (file, path) = given_file(
+            "Other very very very very long Data",
+            OpenOptions::new().write(true),
+        )
+        .await;
         let path_1 = path.clone();
         test_async_with(|ctx| {
             Box::pin(async move {
@@ -845,6 +889,7 @@ mod tests {
                     r#"
                         export async function test(filehandle) {
                             await filehandle.writeFile("Hello World", "utf8");
+                            await filehandle.sync();
                         }
                     "#,
                 )
@@ -856,7 +901,8 @@ mod tests {
         })
         .await;
 
-        let file_content = tokio::fs::read(path).await.unwrap();
+        let file_content = tokio::fs::read(&path).await.unwrap();
+        tokio::fs::remove_file(&path).await.unwrap();
         assert_eq!(file_content, b"Hello World");
     }
 }

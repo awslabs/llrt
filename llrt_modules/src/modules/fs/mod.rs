@@ -25,7 +25,7 @@ use self::open::open;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::{read_file, read_file_sync};
 use self::rm::{rmdir, rmfile};
-use self::stats::{stat_fn, Stat};
+use self::stats::{stat_fn, Stats};
 use self::write_file::write_file;
 
 use crate::modules::fs::{
@@ -68,7 +68,7 @@ impl ModuleDef for FsPromisesModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
         Class::<FileHandle>::register(ctx)?;
-        Class::<Stat>::register(ctx)?;
+        Class::<Stats>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
             export_promises(ctx, default)?;
@@ -111,7 +111,7 @@ impl ModuleDef for FsModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         Class::<Dirent>::register(ctx)?;
         Class::<FileHandle>::register(ctx)?;
-        Class::<Stat>::register(ctx)?;
+        Class::<Stats>::register(ctx)?;
 
         export_default(ctx, exports, |default| {
             let promises = Object::new(ctx.clone())?;

@@ -4,5 +4,9 @@
 pub mod buffer;
 #[cfg(feature = "fs")]
 pub mod fs;
+#[cfg(feature = "os")]
+pub mod os;
 #[cfg(feature = "path")]
 pub mod path;
+#[cfg(feature = "process")]
+pub mod process;
