@@ -66,6 +66,8 @@ mod tests {
             .await
             .to_string_lossy()
             .to_string();
+        let path_1 = path.clone();
+
         test_async_with(|ctx| {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
@@ -94,11 +96,13 @@ mod tests {
                 .await
                 .unwrap();
 
-                let result = call_test::<Vec<u8>, _>(&ctx, &module, (path,)).await;
+                let result = call_test::<Vec<u8>, _>(&ctx, &module, (path_1,)).await;
 
                 assert!(result.starts_with(b"Hello World"));
             })
         })
         .await;
+
+        tokio::fs::remove_file(path).await.unwrap();
     }
 }
