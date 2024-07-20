@@ -17,14 +17,12 @@ use std::{collections::HashSet, time::Instant};
 use crate::{
     environment,
     modules::events::abort_signal::AbortSignal,
-    modules::http::headers::Headers,
-    modules::net::HTTP_CLIENT,
     security::{ensure_url_access, HTTP_DENY_LIST},
     utils::{mc_oneshot, object::get_bytes, result::ResultExt},
 };
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
-use super::response::Response;
+use super::{headers::Headers, response::Response, HTTP_CLIENT};
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 

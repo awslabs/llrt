@@ -4,7 +4,7 @@
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
 use crate::modules::console;
-use crate::modules::net::HTTP_CLIENT;
+use crate::modules::http::HTTP_CLIENT;
 use crate::utils::class::get_class_name;
 use crate::utils::result::ResultExt;
 use crate::vm::Vm;
