@@ -36,11 +36,24 @@ enum ReadyState {
     WriteOnly,
 }
 
+impl ReadyState {
+    pub fn to_string(&self) -> String {
+        String::from(match self {
+            ReadyState::Opening => "opening",
+            ReadyState::Open => "open",
+            ReadyState::Closed => "closed",
+            ReadyState::ReadOnly => "readOnly",
+            ReadyState::WriteOnly => "writeOnly",
+        })
+    }
+}
+
 enum NetStream {
     Tcp((TcpStream, SocketAddr)),
     #[cfg(unix)]
     Unix((UnixStream, tokio::net::unix::SocketAddr)),
 }
+
 impl NetStream {
     async fn process<'js>(
         self,
@@ -83,18 +96,6 @@ impl Listener {
                 .map(|(stream, addr)| NetStream::Unix((stream, addr)))
                 .or_throw(ctx),
         }
-    }
-}
-
-impl ReadyState {
-    pub fn to_string(&self) -> String {
-        String::from(match self {
-            ReadyState::Opening => "opening",
-            ReadyState::Open => "open",
-            ReadyState::Closed => "closed",
-            ReadyState::ReadOnly => "readOnly",
-            ReadyState::WriteOnly => "writeOnly",
-        })
     }
 }
 

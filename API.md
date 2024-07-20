@@ -115,6 +115,18 @@ Available globally
 > [!NOTE]
 > `require` is available from esm modules natively. This function is just for compatibility
 
+## net
+
+> [!WARNING]
+> These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
+> `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
+
+[connect](https://nodejs.org/api/net.html#netconnect)
+
+[createConnection](https://nodejs.org/api/net.html#netcreateconnection)
+
+[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
+
 ## os
 
 [platform](https://nodejs.org/api/os.html#osplatform)
@@ -241,33 +253,14 @@ export class URLSearchParams {
 }
 ```
 
-### TODO, URLSearchParams see tracking [ticket](https://github.com/awslabs/llrt/issues/307):
-
-```typescript
-URLSearchParams.sort(): void;
-```
-
 ## util
 
 > [!IMPORTANT]
-> Supported encodings: hex, base64, utf8, iso88591.
-> Supported methods: `encode` & `decode`
+> Supported encodings: hex, base64, utf8, utf16le, iso88591.
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
-
-## net
-
-> [!WARNING]
-> These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
-> `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
-
-[connect](https://nodejs.org/api/net.html#netconnect)
-
-[createConnection](https://nodejs.org/api/net.html#netcreateconnection)
-
-[createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
 
 ## llrt:hex
 
