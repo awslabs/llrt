@@ -1,3 +1,5 @@
+import { Performance } from "perf_hooks";
+
 export {};
 
 declare global {
@@ -19,4 +21,6 @@ declare global {
     // Move that to process module once we declare it
     type Platform = "darwin" | "linux" | "win32";
   }
+
+  var performance: Performance
 }

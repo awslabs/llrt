@@ -12,16 +12,12 @@ use std::{
     pin::pin,
     process::exit,
     result::Result as StdResult,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
     task::Poll,
 };
 
 use once_cell::sync::Lazy;
 
-use chrono::Utc;
 pub use llrt_utils::{ctx::CtxExtension, error::ErrorExtensions};
 use ring::rand::SecureRandom;
 use rquickjs::{
@@ -57,9 +53,6 @@ use crate::{
         object::{get_bytes, ObjectExt},
     },
 };
-
-pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
-
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
@@ -369,10 +362,7 @@ impl Vm {
     pub async fn from_options(
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
-        if TIME_ORIGIN.load(Ordering::Relaxed) == 0 {
-            let time_origin = Utc::now().timestamp_nanos_opt().unwrap_or_default() as usize;
-            TIME_ORIGIN.store(time_origin, Ordering::Relaxed)
-        }
+        llrt_modules::perf_hooks::init();
 
         SYSTEM_RANDOM
             .fill(&mut [0; 8])

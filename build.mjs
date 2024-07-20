@@ -70,6 +70,7 @@ const ES_BUILD_OPTIONS = {
     "llrt:hex",
     "llrt:uuid",
     "llrt:xml",
+    "perf_hooks",
   ],
 };
 
