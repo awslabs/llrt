@@ -1,113 +1,171 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+mod server;
 mod socket;
 
-use std::{env, fs::File, io, time::Duration};
-
-use bytes::Bytes;
-use http_body_util::Full;
-use hyper_rustls::HttpsConnector;
-use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client},
-    rt::{TokioExecutor, TokioTimer},
+use crate::{
+    module_builder::ModuleInfo,
+    modules::{events::Emitter, module::export_default},
+    utils::result::ResultExt,
 };
-use once_cell::sync::Lazy;
+
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    Ctx, Result,
+    prelude::{Func, This},
+    Class, Ctx, IntoJs, Result,
 };
-use rustls::{crypto::ring, version, ClientConfig, RootCertStore};
-use tracing::warn;
-use webpki_roots::TLS_SERVER_ROOTS;
 
-use crate::{environment, module_builder::ModuleInfo};
+use std::{net::SocketAddr, result::Result as StdResult};
 
-pub const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS: u64 = 15;
+#[cfg(unix)]
+use tokio::{
+    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+    sync::oneshot::Receiver,
+};
 
-pub fn get_pool_idle_timeout() -> u64 {
-    let pool_idle_timeout: u64 = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT)
-        .map(|timeout| {
-            timeout
-                .parse()
-                .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS)
-        })
-        .unwrap_or(DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS);
-    if pool_idle_timeout > 300 {
-        warn!(
-            r#""{}" is exceeds 300s (5min), risking errors due to possible server connection closures."#,
-            environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT
-        )
-    }
-    pool_idle_timeout
+use self::{server::Server, socket::Socket};
+
+const LOCALHOST: &str = "localhost";
+
+#[allow(dead_code)]
+enum ReadyState {
+    Opening,
+    Open,
+    Closed,
+    ReadOnly,
+    WriteOnly,
 }
 
-pub static HTTP_CLIENT: Lazy<io::Result<Client<HttpsConnector<HttpConnector>, Full<Bytes>>>> =
-    Lazy::new(|| {
-        let pool_idle_timeout: u64 = get_pool_idle_timeout();
-
-        let maybe_tls_config = match &*TLS_CONFIG {
-            Ok(tls_config) => io::Result::Ok(tls_config.clone()),
-            Err(e) => io::Result::Err(io::Error::new(e.kind(), e.to_string())),
-        };
-
-        let builder = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_tls_config(maybe_tls_config?)
-            .https_or_http();
-
-        let https = match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
-            Ok("1.1") => builder.enable_http1().build(),
-            _ => builder.enable_all_versions().build(),
-        };
-
-        Ok(Client::builder(TokioExecutor::new())
-            .pool_idle_timeout(Duration::from_secs(pool_idle_timeout))
-            .pool_timer(TokioTimer::new())
-            .build(https))
-    });
-
-pub static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
-    let mut root_certificates = RootCertStore::empty();
-
-    for cert in TLS_SERVER_ROOTS.iter().cloned() {
-        root_certificates.roots.push(cert)
+enum NetStream {
+    Tcp((TcpStream, SocketAddr)),
+    #[cfg(unix)]
+    Unix((UnixStream, tokio::net::unix::SocketAddr)),
+}
+impl NetStream {
+    async fn process<'js>(
+        self,
+        socket: &Class<'js, Socket<'js>>,
+        ctx: &Ctx<'js>,
+        allow_half_open: bool,
+    ) -> Result<bool> {
+        let (readable_done, writable_done) = match self {
+            NetStream::Tcp((stream, _)) => {
+                Socket::process_tcp_stream(socket, ctx, stream, allow_half_open)
+            },
+            #[cfg(unix)]
+            NetStream::Unix((stream, _)) => {
+                Socket::process_unix_stream(socket, ctx, stream, allow_half_open)
+            },
+        }?;
+        let had_error = rw_join(ctx, readable_done, writable_done).await?;
+        Ok(had_error)
     }
+}
 
-    if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS) {
-        if !extra_ca_certs.is_empty() {
-            let file = File::open(extra_ca_certs)
-                .map_err(|_| io::Error::other("Failed to open extra CA certificates file"))?;
-            let mut reader = io::BufReader::new(file);
-            root_certificates.add_parsable_certificates(
-                rustls_pemfile::certs(&mut reader).filter_map(io::Result::ok),
-            );
+enum Listener {
+    Tcp(TcpListener),
+    #[cfg(unix)]
+    Unix(UnixListener),
+}
+
+impl Listener {
+    async fn accept<'js>(&self, ctx: &Ctx<'js>) -> Result<NetStream> {
+        match self {
+            Listener::Tcp(tcp) => tcp
+                .accept()
+                .await
+                .map(|(stream, addr)| NetStream::Tcp((stream, addr)))
+                .or_throw(ctx),
+            #[cfg(unix)]
+            Listener::Unix(unix) => unix
+                .accept()
+                .await
+                .map(|(stream, addr)| NetStream::Unix((stream, addr)))
+                .or_throw(ctx),
         }
     }
+}
 
-    let builder = ClientConfig::builder_with_provider(ring::default_provider().into());
+impl ReadyState {
+    pub fn to_string(&self) -> String {
+        String::from(match self {
+            ReadyState::Opening => "opening",
+            ReadyState::Open => "open",
+            ReadyState::Closed => "closed",
+            ReadyState::ReadOnly => "readOnly",
+            ReadyState::WriteOnly => "writeOnly",
+        })
+    }
+}
 
-    Ok(
-        match env::var(environment::ENV_LLRT_TLS_VERSION).as_deref() {
-            Ok("1.3") => builder.with_safe_default_protocol_versions(),
-            _ => builder.with_protocol_versions(&[&version::TLS12]), //Use TLS 1.2 by default to increase compat and keep latency low
-        }
-        .unwrap()
-        .with_root_certificates(root_certificates)
-        .with_no_client_auth(),
-    )
-});
+fn get_hostname(host: &str, port: u16) -> String {
+    [host, itoa::Buffer::new().format(port)].join(":")
+}
+
+fn get_address_parts(
+    ctx: &Ctx,
+    addr: StdResult<SocketAddr, std::io::Error>,
+) -> Result<(String, u16, String)> {
+    let addr = addr.or_throw(ctx)?;
+    Ok((
+        addr.ip().to_string(),
+        addr.port(),
+        String::from(if addr.is_ipv4() { "IPv4" } else { "IPv6" }),
+    ))
+}
+
+async fn rw_join<'js>(
+    ctx: &Ctx<'js>,
+    readable_done: Receiver<bool>,
+    writable_done: Receiver<bool>,
+) -> Result<bool> {
+    let (readable_res, writable_res) = tokio::join!(readable_done, writable_done);
+    let had_error = readable_res.or_throw_msg(ctx, "Readable sender dropped")?
+        || writable_res.or_throw_msg(ctx, "Writable sender dropped")?;
+    Ok(had_error)
+}
 
 pub struct NetModule;
 
 impl ModuleDef for NetModule {
     fn declare(declare: &Declarations) -> Result<()> {
-        socket::declare(declare)?;
+        declare.declare("createConnection")?;
+        declare.declare("connect")?;
+        declare.declare("createServer")?;
+        declare.declare(stringify!(Socket))?;
+        declare.declare(stringify!(Server))?;
         declare.declare("default")?;
 
         Ok(())
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        socket::init(ctx.clone(), exports)?;
+        export_default(ctx, exports, |default| {
+            Class::<Socket>::define(default)?;
+            Class::<Server>::define(default)?;
+
+            Socket::add_event_emitter_prototype(ctx)?;
+            Server::add_event_emitter_prototype(ctx)?;
+
+            let connect = Func::from(|ctx, args| {
+                struct Args<'js>(Ctx<'js>);
+                let Args(ctx) = Args(ctx);
+                let this = Socket::new(ctx.clone(), false)?;
+                Socket::connect(This(this), ctx.clone(), args)
+            })
+            .into_js(ctx)?;
+
+            default.set("createConnection", connect.clone())?;
+            default.set("connect", connect)?;
+            default.set(
+                "createServer",
+                Func::from(|ctx, args| {
+                    struct Args<'js>(Ctx<'js>);
+                    let Args(ctx) = Args(ctx);
+                    Server::new(ctx.clone(), args)
+                }),
+            )
+        })?;
         Ok(())
     }
 }
