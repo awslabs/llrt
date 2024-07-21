@@ -422,17 +422,16 @@ impl Vm {
 
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
-            for init_global in init_globals {
-                if let Err(err) = init_global(&ctx).catch(&ctx) {
-                    Self::print_error_and_exit(&ctx, err);
+            (|| {
+                for init_global in init_globals {
+                    init_global(&ctx)?;
                 }
-            }
-            if let Err(err) = timers::init_timers(&ctx).catch(&ctx) {
-                Self::print_error_and_exit(&ctx, err);
-            }
-            if let Err(err) = init(&ctx, module_names).catch(&ctx) {
-                Self::print_error_and_exit(&ctx, err);
-            }
+                timers::init_timers(&ctx)?;
+                init(&ctx, module_names)?;
+                Ok(())
+            })()
+            .catch(&ctx)
+            .unwrap_or_else(|err| Self::print_error_and_exit(&ctx, err));
             Ok::<_, Error>(())
         })
         .await?;
