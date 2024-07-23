@@ -36,6 +36,8 @@
  * The members and methods of the classes defined by this file are all at least
  * briefly documented, hopefully.
  */
+export default function(self){
+
 (function(){
 "use strict";
 // Support subsetTestByKey from /common/subset-tests-by-key.js, but make it optional
@@ -133,7 +135,7 @@ function awaitNCallbacks(n, cb, ctx)
 
 /// IdlHarnessError ///
 // Entry point
-self.IdlHarnessError = function(message)
+const IdlHarnessError = function(message)
 {
     /**
      * Message to be printed as the error's toString invocation.
@@ -151,7 +153,7 @@ IdlHarnessError.prototype.toString = function()
 
 /// IdlArray ///
 // Entry point
-self.IdlArray = function()
+const IdlArray = function()
 {
     /**
      * A map from strings to the corresponding named IdlObject, such as
@@ -3473,6 +3475,8 @@ IdlNamespace.prototype.test = function ()
 };
 
 }());
+
+};
 
 /**
  * idl_test is a promise_test wrapper that handles the fetching of the IDL,

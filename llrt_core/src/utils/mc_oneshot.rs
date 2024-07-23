@@ -11,10 +11,25 @@ use std::{
     task::{Context, Poll},
 };
 
+use rquickjs::{
+    class::{Trace, Tracer},
+    Value,
+};
+
 #[derive(Clone, Debug)]
 pub struct Sender<T: Clone> {
     is_sent: Arc<AtomicBool>,
     value: Arc<RwLock<Option<T>>>,
+}
+
+impl<'js> Trace<'js> for Sender<Value<'js>> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        if let Ok(v) = self.value.as_ref().read() {
+            if let Some(v) = v.as_ref() {
+                tracer.mark(v)
+            }
+        }
+    }
 }
 
 impl<T: Clone> Sender<T> {

@@ -1,3 +1,10 @@
+export default function({
+  assert_equals,
+  assert_false,
+  assert_true,
+  test,
+}) {
+
 test(function() {
     var params = new URLSearchParams('a=b&c=d');
     params.delete('a');
@@ -81,3 +88,5 @@ test(() => {
   params.delete('a', undefined);
   assert_equals(params.toString(), 'b=d');
 }, "Two-argument delete() respects undefined as second arg");
+
+};

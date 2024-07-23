@@ -1,3 +1,10 @@
+export default function({
+  assert_equals,
+  assert_throws_js,
+  assert_true,
+  test,
+}) {
+
 function bURL(url, base) {
   return new URL(url, base || "about:blank")
 }
@@ -70,3 +77,5 @@ function runURLSearchParamTests() {
   }, 'URL.searchParams and URL.search setters, update propagation')
 }
 runURLSearchParamTests()
+
+};

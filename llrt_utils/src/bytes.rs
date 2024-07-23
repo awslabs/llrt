@@ -28,6 +28,9 @@ pub fn get_bytes_offset_length<'js>(
     offset: usize,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
+    if value.is_undefined() {
+        return Ok(vec![]);
+    }
     if let Some(bytes) = get_string_bytes(&value, offset, length)? {
         return Ok(bytes);
     }

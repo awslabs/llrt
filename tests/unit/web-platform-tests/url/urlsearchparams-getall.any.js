@@ -1,3 +1,10 @@
+export default function({
+    assert_array_equals,
+    assert_equals,
+    assert_true,
+    test,
+}) {
+
 test(function() {
     var params = new URLSearchParams('a=b&c=d');
     assert_array_equals(params.getAll('a'), ['b']);
@@ -23,3 +30,5 @@ test(function() {
     assert_true(matches && matches.length == 1, 'Search params object has values for name "a"');
     assert_array_equals(matches, ['one'], 'Search params object has expected name "a" values');
 }, 'getAll() multiples');
+
+};

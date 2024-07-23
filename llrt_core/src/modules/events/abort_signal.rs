@@ -29,6 +29,8 @@ impl<'js> Trace<'js> for AbortSignal<'js> {
         if let Some(reason) = &self.reason {
             tracer.mark(reason);
         }
+        self.emitter.trace(tracer);
+        self.sender.trace(tracer);
     }
 }
 
