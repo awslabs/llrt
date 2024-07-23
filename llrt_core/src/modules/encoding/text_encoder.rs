@@ -65,7 +65,7 @@ impl TextEncoder {
                 written += len;
             }
             dst[..written].copy_from_slice(&src.as_bytes()[..written]);
-            let read: usize = src[..written].chars().map(|ch| ch.len_utf16()).sum();
+            let read: usize = src[..written].chars().map(char::len_utf16).sum();
 
             let obj = Object::new(ctx)?;
             obj.set("read", read)?;
