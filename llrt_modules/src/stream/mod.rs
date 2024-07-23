@@ -6,8 +6,6 @@ use tokio::sync::broadcast::error::RecvError;
 
 use crate::modules::events::Emitter;
 
-use self::{readable::DefaultReadableStream, writable::DefaultWritableStream};
-
 pub mod readable;
 pub mod writable;
 
@@ -43,4 +41,14 @@ where
     }
 }
 
-impl_stream_events!(DefaultReadableStream, DefaultWritableStream);
+#[macro_export]
+macro_rules! impl_stream_events {
+
+    ($($struct:ident),*) => {
+        $(
+            impl<'js> $crate::stream::SteamEvents<'js> for $struct<'js> {}
+        )*
+    };
+}
+
+pub use impl_stream_events;

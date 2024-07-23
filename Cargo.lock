@@ -2622,6 +2622,7 @@ name = "llrt_modules"
 version = "0.1.15-beta"
 dependencies = [
  "either",
+ "itoa",
  "libc",
  "llrt_utils",
  "nanoid",
@@ -2629,6 +2630,7 @@ dependencies = [
  "ring",
  "rquickjs",
  "tokio",
+ "tracing",
  "windows-registry",
  "windows-result",
  "windows-version",
@@ -2642,6 +2644,7 @@ dependencies = [
  "hex-simd",
  "rquickjs",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

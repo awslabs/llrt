@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #[cfg(feature = "buffer")]
 pub mod buffer;
+#[cfg(feature = "child-process")]
+pub mod child_process;
+#[cfg(feature = "events")]
+pub mod events;
 #[cfg(feature = "fs")]
 pub mod fs;
 #[cfg(feature = "os")]

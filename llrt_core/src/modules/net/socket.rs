@@ -1,5 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::sync::{Arc, RwLock};
+
+use llrt_modules::stream::impl_stream_events;
+use rquickjs::{
+    class::{Trace, Tracer},
+    prelude::{Opt, Rest, This},
+    Class, Ctx, Error, Exception, Function, Object, Result, Value,
+};
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    net::{TcpStream, UnixStream},
+    sync::oneshot::Receiver,
+};
+use tracing::trace;
+
+use super::{get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
 use crate::{
     modules::events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
     security::ensure_net_access,
@@ -11,24 +27,6 @@ use crate::{
     utils::{object::ObjectExt, result::ResultExt},
     vm::CtxExtension,
 };
-
-use rquickjs::{
-    class::{Trace, Tracer},
-    prelude::{Opt, Rest, This},
-    Class, Ctx, Error, Exception, Function, Object, Result, Value,
-};
-
-use std::sync::{Arc, RwLock};
-
-use tokio::{
-    io::{AsyncRead, AsyncWrite},
-    net::{TcpStream, UnixStream},
-    sync::oneshot::Receiver,
-};
-
-use tracing::trace;
-
-use super::{get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
 
 impl_stream_events!(Socket);
 

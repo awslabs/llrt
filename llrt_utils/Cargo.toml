@@ -6,8 +6,9 @@ license-file = "LICENSE"
 
 [features]
 default = ["all"]
-all = ["fs", "encoding"]
+all = ["ctx", "fs", "encoding"]
 
+ctx = ["tokio/sync"]
 fs = ["tokio/fs"]
 encoding = ["base64-simd", "hex-simd"]
 
@@ -18,6 +19,7 @@ rquickjs = { version = "0.6.2", features = [
   "array-buffer",
 ], default-features = false }
 tokio = { version = "1", optional = true }
+tracing = "0.1"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rust_nightly)'] }

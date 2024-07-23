@@ -3,8 +3,10 @@
 #![cfg_attr(rust_nightly, feature(array_chunks))]
 
 pub mod bytes;
+pub mod ctx;
 #[cfg(feature = "encoding")]
 pub mod encoding;
+pub mod error;
 #[cfg(feature = "fs")]
 pub mod fs;
 pub mod module;

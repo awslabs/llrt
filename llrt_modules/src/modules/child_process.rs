@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#[cfg(unix)]
+use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::{
     collections::HashMap,
     io::Result as IoResult,
@@ -8,11 +10,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
-#[cfg(unix)]
-use std::os::unix::process::ExitStatusExt;
-
+use llrt_utils::{ctx::CtxExtension, module::export_default, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     convert::Coerced,
@@ -29,18 +27,13 @@ use tokio::{
     },
 };
 
+use crate::module_info::ModuleInfo;
 use crate::{
-    module_builder::ModuleInfo,
-    modules::{
-        events::{EmitError, Emitter, EventEmitter, EventList},
-        module::export_default,
-    },
+    modules::events::{EmitError, Emitter, EventEmitter, EventList},
     stream::{
         readable::{DefaultReadableStream, ReadableStream},
         writable::{DefaultWritableStream, WritableStream},
     },
-    utils::{object::ObjectExt, result::ResultExt},
-    vm::CtxExtension,
 };
 
 macro_rules! generate_signal_from_str_fn {
