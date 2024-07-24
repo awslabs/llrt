@@ -1,6 +1,5 @@
-pub use llrt_modules::{buffer, fs, os, path};
+pub use llrt_modules::{buffer, child_process, fs, os, path};
 
-// pub mod child_process;
 pub mod console;
 pub mod crypto;
 pub mod encoding;

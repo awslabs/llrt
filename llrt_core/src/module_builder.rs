@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::modules::{
     buffer::BufferModule,
-    //child_process::ChildProcessModule,
+    child_process::ChildProcessModule,
     console::ConsoleModule,
     crypto::CryptoModule,
     events::EventsModule,
@@ -80,7 +80,7 @@ impl Default for ModuleBuilder {
             .with_module(PathModule)
             .with_module(BufferModule)
             .with_global(crate::modules::buffer::init)
-            //.with_module(ChildProcessModule)
+            .with_module(ChildProcessModule)
             .with_module(UtilModule)
             .with_module(ProcessModule)
             .with_global(crate::modules::process::init)
