@@ -28,10 +28,10 @@ jobs:
           crate publish
           sleep 10
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.registry-token }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
       - name: Publish modules
         working-directory: ./llrt_modules
         run: |
           crate publish
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.registry-token }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
