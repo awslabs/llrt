@@ -1,11 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#[cfg(windows)]
+use std::os::windows::io::{FromRawHandle, RawHandle};
 #[cfg(unix)]
-use std::os::unix::process::{CommandExt, ExitStatusExt};
+use std::os::{
+    fd::FromRawFd,
+    unix::process::{CommandExt, ExitStatusExt},
+};
 use std::{
     collections::HashMap,
     io::Result as IoResult,
-    os::fd::FromRawFd,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
 };
@@ -16,7 +20,7 @@ use rquickjs::{
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Class, Ctx, Error, Exception, IntoJs, Result, Undefined, Value,
+    Class, Ctx, Error, Exception, IntoJs, Result, Value,
 };
 use tokio::{
     io::AsyncRead,
@@ -36,6 +40,7 @@ use crate::{
     },
 };
 
+#[cfg(unix)]
 macro_rules! generate_signal_from_str_fn {
     ($($signal:path),*) => {
         fn process_signal_from_str(signal: &str) -> Option<i32> {
@@ -56,6 +61,7 @@ macro_rules! generate_signal_from_str_fn {
     };
 }
 
+#[cfg(unix)]
 generate_signal_from_str_fn!(
     libc::SIGHUP,
     libc::SIGINT,
@@ -69,6 +75,16 @@ generate_signal_from_str_fn!(
     libc::SIGALRM,
     libc::SIGTERM
 );
+
+fn prepare_shell_command(cmd: String, command_args: Option<Vec<String>>) -> String {
+    let mut string_args = cmd;
+    if let Some(command_args) = command_args {
+        string_args.push(' ');
+        string_args.push_str(&command_args.join(" "));
+    }
+    string_args.push(' ');
+    string_args
+}
 
 #[allow(dead_code)]
 #[rquickjs::class]
@@ -99,7 +115,16 @@ impl StdioEnum {
             StdioEnum::Piped => Stdio::piped(),
             StdioEnum::Ignore => Stdio::null(),
             StdioEnum::Inherit => Stdio::inherit(),
-            StdioEnum::Fd(id) => unsafe { Stdio::from_raw_fd(*id) },
+            StdioEnum::Fd(id) => {
+                #[cfg(unix)]
+                unsafe {
+                    Stdio::from_raw_fd(*id)
+                }
+                #[cfg(windows)]
+                unsafe {
+                    Stdio::from_raw_handle(*id as RawHandle)
+                }
+            },
         }
     }
 }
@@ -112,6 +137,7 @@ impl<'js> ChildProcess<'js> {
     }
 
     fn kill(&mut self, _ctx: Ctx<'js>, signal: Opt<Value<'js>>) -> Result<bool> {
+        #[cfg(unix)]
         let signal = if let Some(signal) = signal.0 {
             if signal.is_number() {
                 Some(signal.as_number().unwrap() as i32)
@@ -122,8 +148,15 @@ impl<'js> ChildProcess<'js> {
                 None
             }
         } else {
-            None
+            process_signal_from_str("SIGTERM")
         };
+
+        #[cfg(not(unix))]
+        {
+            _ = signal;
+        }
+        #[cfg(not(unix))]
+        let signal = Some(9); // SIGKILL
 
         if let Some(kill_signal_tx) = self.kill_signal_tx.take() {
             return Ok(kill_signal_tx.send(signal).is_ok());
@@ -201,12 +234,12 @@ impl<'js> ChildProcess<'js> {
                             if let Some(s) = exit_signal {
                                 signal = signal_str_from_i32(s).into_js(&ctx3)?;
                             } else {
-                                signal = Undefined.into_value(ctx3.clone());
+                                signal = rquickjs::Undefined.into_value(ctx3.clone());
                             }
                         }
                         #[cfg(not(unix))]
                         {
-                            signal = Undefined.into_value(&ctx3);
+                            signal = "SIGKILL".into_js(&ctx3)?;
                         }
 
                         ChildProcess::emit_str(
@@ -290,34 +323,34 @@ async fn wait_for_process<'js>(
                 {
                     exit_signal.replace(exit_status.signal().unwrap_or_default());
                 }
+                #[cfg(not(unix))]
+                {
+                    _ = exit_signal;
+                }
                 break;
             }
             Ok(signal) = kill_signal_rx.recv() => {
-
                 #[cfg(unix)]
                 {
                     if let Some(signal) = signal {
-
                         if let Some(pid) = child.id() {
-
                             if unsafe { libc::killpg(pid as i32, signal) } == 0 {
                                 continue;
                             } else {
                                return Err(Exception::throw_message(ctx, &["Failed to send signal ",itoa::Buffer::new().format(signal)," to process ", itoa::Buffer::new().format(pid)].concat()));
                             }
                         }
-                    }else{
+                    } else {
                         child.kill().await.or_throw(ctx)?;
                         break;
                     }
-
                 }
                 #[cfg(not(unix))]
                 {
+                    _ = signal;
                     child.kill().await.or_throw(ctx)?;
                     break;
                 }
-
             },
         }
     }
@@ -339,7 +372,7 @@ fn spawn<'js>(
     let args_0 = args_and_opts.first();
     let args_1 = args_and_opts.get(1);
 
-    let mut opts = args_0.and_then(|o| o.as_object()).map(|o| o.to_owned());
+    let mut opts = None;
 
     if args_1.is_some() {
         opts = args_1.and_then(|o| o.as_object()).map(|o| o.to_owned());
@@ -373,15 +406,25 @@ fn spawn<'js>(
             .get_optional::<&str, bool>("shell")?
             .unwrap_or_default()
         {
-            let mut string_args = cmd;
-            if let Some(command_args) = command_args {
-                string_args.push(' ');
-                string_args.push_str(&command_args.join(" "));
+            let string_args = prepare_shell_command(cmd, command_args);
+            #[cfg(windows)]
+            {
+                command_args = Some(vec![String::from("/d /s /c"), string_args]);
+                "cmd.exe".to_string()
             }
-            string_args.push(' ');
-
-            command_args = Some(vec![String::from("-c"), string_args]);
-            "/bin/sh".to_string()
+            #[cfg(not(windows))]
+            {
+                command_args = Some(vec![String::from("-c"), string_args]);
+                "/bin/sh".to_string()
+            }
+        } else if let Some(shell) = opts.get_optional::<&str, String>("shell")? {
+            let string_args = prepare_shell_command(cmd, command_args);
+            if shell.ends_with("cmd") || shell.ends_with("cmd.exe") {
+                command_args = Some(vec![String::from("/d /s /c"), string_args]);
+            } else {
+                command_args = Some(vec![String::from("-c"), string_args]);
+            }
+            shell
         } else {
             cmd
         }
@@ -399,9 +442,11 @@ fn spawn<'js>(
     let mut stderr = StdioEnum::Piped;
 
     if let Some(opts) = opts {
+        #[cfg(unix)]
         if let Some(gid) = opts.get_optional("gid")? {
             command.gid(gid);
         }
+        #[cfg(unix)]
         if let Some(uid) = opts.get_optional("uid")? {
             command.gid(uid);
         }
@@ -428,7 +473,7 @@ fn spawn<'js>(
                 for (i, item) in stdio.iter::<Value>().enumerate() {
                     let item = item?;
                     let stdio = if item.is_undefined() || item.is_null() {
-                        StdioEnum::Ignore
+                        StdioEnum::Piped
                     } else if let Some(std_io_str) = item.as_string() {
                         str_to_stdio(&ctx, &std_io_str.to_string()?)?
                     } else if let Some(fd) = item.as_number() {
@@ -500,9 +545,6 @@ pub struct ChildProcessModule;
 impl ModuleDef for ChildProcessModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("spawn")?;
-        declare.declare("spawnSync")?;
-        declare.declare("exec")?;
-        declare.declare("execSync")?;
         declare.declare("default")?;
         Ok(())
     }
