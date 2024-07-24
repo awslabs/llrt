@@ -1,6 +1,6 @@
-import hex from "hex";
+import hex from "llrt:hex";
 
-describe("hex", () => {
+describe("llrt:hex", () => {
   it("should encode/decode text", () => {
     let hello = "hello";
     const encoded = new TextEncoder().encode(hello);
@@ -28,14 +28,14 @@ describe("atoa & btoa", () => {
 });
 
 describe("TextDecoder", () => {
-  it("should be able to decode even non UTF-8 labels", () => {
-    const hono = "炎"; // hono - [炎] means flame🔥 in Japanese
-    const honoSjis = new Uint8Array([0x89, 0x8a]);
-    const decoded = new TextDecoder("sjis");
-    expect(decoded.encoding).toEqual("shift-jis");
-    expect(decoded.fatal).toBeFalsy();
-    expect(decoded.ignoreBOM).toBeFalsy();
-    expect(decoded.decode(honoSjis)).toEqual(hono);
+  it("should be able to decode UTF-16LE labels", () => {
+    const ary_u8 = new Uint8Array([
+      0x48, 0x00, 0xac, 0x20, 0x6c, 0x00, 0x6c, 0x00, 0x6f, 0x00, 0x20, 0x00,
+      0x77, 0x00, 0x6f, 0x00, 0x72, 0x00, 0x6c, 0x00, 0x64, 0x00, 0x21, 0x00,
+    ]);
+    const decoded = new TextDecoder("UTF-16LE");
+    expect(decoded.encoding).toEqual("utf-16le");
+    expect(decoded.decode(ary_u8)).toEqual("H€llo world!");
   });
 
   it("should not be removed BOM", () => {
@@ -57,7 +57,9 @@ describe("TextDecoder", () => {
       expect(decoded.fatal).toBeTruthy();
       const a = decoded.decode(illegalString);
     } catch (ex) {
-      expect(ex.message).toEqual("Fatal error");
+      expect(ex.message).toEqual(
+        "invalid utf-8 sequence of 1 bytes from index 0"
+      );
     }
   });
 
@@ -65,7 +67,7 @@ describe("TextDecoder", () => {
     try {
       const decoded = new TextDecoder("nonexistent_label");
     } catch (ex) {
-      expect(ex.message).toEqual("Unsupported encoding label");
+      expect(ex.message).toEqual("Unsupported encoding: Nonexistentlabel");
     }
   });
 });

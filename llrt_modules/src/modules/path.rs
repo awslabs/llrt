@@ -233,6 +233,7 @@ impl ModuleDef for PathModule {
         declare.declare("normalize")?;
         declare.declare("isAbsolute")?;
         declare.declare("delimiter")?;
+        declare.declare("sep")?;
 
         declare.declare("default")?;
         Ok(())
@@ -250,6 +251,7 @@ impl ModuleDef for PathModule {
             default.set("normalize", Func::from(normalize))?;
             default.set("isAbsolute", Func::from(is_absolute))?;
             default.prop("delimiter", DELIMITER.to_string())?;
+            default.prop("sep", MAIN_SEPARATOR.to_string())?;
             Ok(())
         })
     }

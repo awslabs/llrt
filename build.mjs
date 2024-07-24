@@ -55,8 +55,6 @@ const ES_BUILD_OPTIONS = {
     "console",
     "node:console",
     "crypto",
-    "uuid",
-    "hex",
     "os",
     "fs",
     "child_process",
@@ -66,10 +64,12 @@ const ES_BUILD_OPTIONS = {
     "path",
     "events",
     "buffer",
-    "xml",
     "net",
     "util",
     "url",
+    "llrt:hex",
+    "llrt:uuid",
+    "llrt:xml",
   ],
 };
 
@@ -584,8 +584,9 @@ async function buildSdks() {
       plugins: [AWS_SDK_PLUGIN, esbuildShimPlugin([[/^bowser$/]])],
       alias: {
         "@aws-sdk/util-utf8": "@aws-sdk/util-utf8-browser",
-        "fast-xml-parser": "xml",
         "@smithy/md5-js": "crypto",
+        "fast-xml-parser": "llrt:xml",
+        uuid: "llrt:uuid",
       },
       chunkNames: "llrt-[name]-sdk-[hash]",
       metafile: true,

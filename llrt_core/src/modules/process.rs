@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, env, sync::atomic::Ordering};
 
+pub use llrt_modules::process::get_platform;
 use rquickjs::{
     atom::PredefinedAtom,
     convert::Coerced,
@@ -34,15 +35,6 @@ pub fn get_arch() -> &'static str {
     }
 
     arch
-}
-
-pub fn get_platform() -> &'static str {
-    let platform = env::consts::OS;
-    match platform {
-        "macos" => "darwin",
-        "windows" => "win32",
-        _ => platform,
-    }
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {

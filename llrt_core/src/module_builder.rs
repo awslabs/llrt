@@ -5,9 +5,9 @@ use crate::modules::{
     child_process::ChildProcessModule,
     console::ConsoleModule,
     crypto::CryptoModule,
-    encoding::HexModule,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
+    llrt::{hex::LlrtHexModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
@@ -16,8 +16,6 @@ use crate::modules::{
     timers::TimersModule,
     url::UrlModule,
     util::UtilModule,
-    uuid::UuidModule,
-    xml::XmlModule,
 };
 pub use llrt_modules::ModuleInfo;
 use rquickjs::{
@@ -67,7 +65,6 @@ impl Default for ModuleBuilder {
         Self::new()
             .with_module(CryptoModule)
             .with_global(crate::modules::crypto::init)
-            .with_module(HexModule)
             .with_global(crate::modules::encoding::init)
             .with_module(FsPromisesModule)
             .with_module(FsModule)
@@ -81,12 +78,10 @@ impl Default for ModuleBuilder {
             .with_module(ConsoleModule)
             .with_global(crate::modules::console::init)
             .with_module(PathModule)
-            .with_module(XmlModule)
             .with_module(BufferModule)
             .with_global(crate::modules::buffer::init)
             .with_module(ChildProcessModule)
             .with_module(UtilModule)
-            .with_module(UuidModule)
             .with_module(ProcessModule)
             .with_global(crate::modules::process::init)
             .with_global(crate::modules::navigator::init)
@@ -94,6 +89,9 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::performance::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
+            .with_module(LlrtHexModule)
+            .with_module(LlrtUuidModule)
+            .with_module(LlrtXmlModule)
     }
 }
 

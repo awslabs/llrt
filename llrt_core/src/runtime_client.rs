@@ -4,7 +4,7 @@
 use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
 use crate::modules::console;
-use crate::modules::net::HTTP_CLIENT;
+use crate::modules::http::HTTP_CLIENT;
 use crate::utils::class::get_class_name;
 use crate::utils::result::ResultExt;
 use crate::vm::Vm;
@@ -220,7 +220,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         ));
     }
 
-    let client = (*HTTP_CLIENT).clone();
+    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?.clone();
 
     let base_url = ["http://", &config.runtime_api, "/", ENV_RUNTIME_PATH].concat();
     let handler = handler.as_function().unwrap();
@@ -558,7 +558,7 @@ mod tests {
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::{
-        modules::uuid::uuidv4,
+        modules::llrt::uuid::uuidv4,
         runtime_client::{
             self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
         },

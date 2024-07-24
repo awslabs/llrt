@@ -550,9 +550,9 @@ fn escape_element(text: &mut String, value: &str) {
     }
 }
 
-pub struct XmlModule;
+pub struct LlrtXmlModule;
 
-impl ModuleDef for XmlModule {
+impl ModuleDef for LlrtXmlModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(XMLParser))?;
         declare.declare(stringify!(XmlText))?;
@@ -575,10 +575,10 @@ impl ModuleDef for XmlModule {
     }
 }
 
-impl From<XmlModule> for ModuleInfo<XmlModule> {
-    fn from(val: XmlModule) -> Self {
+impl From<LlrtXmlModule> for ModuleInfo<LlrtXmlModule> {
+    fn from(val: LlrtXmlModule) -> Self {
         ModuleInfo {
-            name: "xml",
+            name: "llrt:xml",
             module: val,
         }
     }

@@ -9,17 +9,41 @@ readme = "README.md"
 
 [features]
 default = ["all"]
-all = ["buffer", "fs", "path"]
+all = ["buffer", "fs", "os", "path", "process"]
 
 buffer = ["llrt_utils/encoding"]
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
+os = [
+  "process",
+  "libc",
+  "windows-result",
+  "windows-registry",
+  "windows-version",
+  "once_cell",
+]
 path = []
+process = []
 
 [dependencies]
+either = "1"
+once_cell = { version = "1", optional = true }
 llrt_utils = { version = "0.1.15-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { version = "0.6", features = [
+  "either",
   "macro",
   "futures",
 ], default-features = false }
 ring = { version = "0.17", optional = true }
-tokio = { version = "1" }
+tokio = { version = "1", features = ["rt", "io-util"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = { version = "0.2", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-registry = { version = "0.2", optional = true }
+windows-result = { version = "0.2", optional = true }
+windows-version = { version = "0.1", optional = true }
+
+[dev-dependencies]
+nanoid = "0.4.0"
+tokio = { version = "1", features = ["full"] }

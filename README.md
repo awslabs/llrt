@@ -113,7 +113,6 @@ The test runner also has support for filters. Using filters is as simple as addi
 | fs            | ✔︎     | ✘⏱     |
 | path          | ✔︎     | ✔︎     |
 | timers        | ✔︎     | ✔︎     |
-| uuid          | ✔︎     | ✔︎     |
 | crypto        | ✔︎     | ✔︎     |
 | process       | ✔︎     | ✔︎     |
 | encoding      | ✔︎     | ✔︎     |
@@ -135,10 +134,19 @@ Since LLRT is meant for performance critical application it's not recommended to
 
 LLRT can work with any bundler of your choice. Below are some configurations for popular bundlers:
 
+> [!WARNING]
+> LLRT implements native modules that are largely compatible with the following external packages.
+> By implementing the following conversions in the bundler's alias function, your application may be faster, but we recommend that you test thoroughly as they are not fully compatible.
+
+| Node.js         | LLRT      |
+| --------------- | --------- |
+| fast-xml-parser | llrt:xml  | 
+| uuid            | llrt:uuid |
+
 ### ESBuild
 
 ```shell
-esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy --external:uuid
+esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy
 ```
 
 ### Rollup
@@ -157,7 +165,7 @@ export default {
     target: "es2020",
   },
   plugins: [resolve(), commonjs(), terser()],
-  external: ["@aws-sdk", "@smithy", "uuid"],
+  external: ["@aws-sdk", "@smithy"],
 };
 ```
 
@@ -179,7 +187,7 @@ export default {
   resolve: {
     extensions: [".js"],
   },
-  externals: [nodeExternals(), "@aws-sdk", "@smithy", "uuid"],
+  externals: [nodeExternals(), "@aws-sdk", "@smithy"],
   optimization: {
     minimize: true,
     minimizer: [
@@ -353,6 +361,44 @@ Start the `lambda-server.js` in a separate terminal
 Then run llrt:
 
     make run
+
+## Environment Variables
+
+### `LLRT_EXTRA_CA_CERTS=file`
+Load extra certificate authorities from a PEM encoded file
+
+### `LLRT_GC_THRESHOLD_MB=value`
+Set a memory threshold in MB for garbage collection. Default threshold is 20MB
+
+### `LLRT_HTTP_VERSION=value`
+Restrict HTTP requests to use a specific version. By default HTTP 1.1 and 2 are enabled. Set this variable to `1.1` to only use HTTP 1.1
+
+### `LLRT_LOG=[target][=][level][,...]`
+Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priority logs.
+
+Log levels in descending priority order:
+- `Error`
+- `Warn | Warning`
+- `Info`
+- `Debug`
+- `Trace`
+
+Example filters:
+- `warn` will enable all warning and error logs
+- `llrt_core::vm=trace` will enable all logs in the `llrt_core::vm` module
+- `warn,llrt_core::vm=trace` will enable all logs in the `llrt_core::vm` module and all warning and error logs in other modules
+
+### `LLRT_NET_ALLOW="host[ ...]"`
+Space-delimited list of hosts or socket paths which should be allowed for network connections. Network connections will be denied for any host or socket path missing from this list. Set an empty list to deny all connections
+
+### `LLRT_NET_DENY="host[ ...]"`
+Space-delimited list of hosts or socket paths which should be denied for network connections
+
+### `LLRT_NET_POOL_IDLE_TIMEOUT=value`
+Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 15 seconds
+
+### `LLRT_TLS_VERSION=value`
+Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
 
 ## Benchmark Methodology
 
