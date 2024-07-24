@@ -10,6 +10,7 @@ use std::os::{
 use std::{
     collections::HashMap,
     io::Result as IoResult,
+    os::windows::process::CommandExt,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
 };
@@ -76,14 +77,30 @@ generate_signal_from_str_fn!(
     libc::SIGTERM
 );
 
-fn prepare_shell_command(cmd: String, command_args: Option<Vec<String>>) -> String {
+fn prepare_shell_args(
+    shell: &str,
+    windows_verbatim_arguments: &mut bool,
+    cmd: String,
+    command_args: Option<Vec<String>>,
+) -> Vec<String> {
     let mut string_args = cmd;
     if let Some(command_args) = command_args {
         string_args.push(' ');
         string_args.push_str(&command_args.join(" "));
     }
     string_args.push(' ');
-    string_args
+
+    if shell.ends_with("cmd") || shell.ends_with("cmd.exe") {
+        *windows_verbatim_arguments = true;
+        vec![
+            String::from("/d"),
+            String::from("/s"),
+            String::from("/c"),
+            ["\"", &string_args, "\""].concat(),
+        ]
+    } else {
+        vec![String::from("-c"), string_args]
+    }
 }
 
 #[allow(dead_code)]
@@ -401,29 +418,36 @@ fn spawn<'js>(
         None
     };
 
+    let mut windows_verbatim_arguments = if let Some(opts) = &opts {
+        opts.get_optional::<&str, bool>("windowsVerbatimArguments")?
+            .unwrap_or_default()
+    } else {
+        false
+    };
+
     let cmd = if let Some(opts) = &opts {
         if opts
             .get_optional::<&str, bool>("shell")?
             .unwrap_or_default()
         {
-            let string_args = prepare_shell_command(cmd, command_args);
             #[cfg(windows)]
-            {
-                command_args = Some(vec![String::from("/d /s /c"), string_args]);
-                "cmd.exe".to_string()
-            }
+            let shell = "cmd.exe".to_string();
             #[cfg(not(windows))]
-            {
-                command_args = Some(vec![String::from("-c"), string_args]);
-                "/bin/sh".to_string()
-            }
+            let shell = "/bin/sh".to_string();
+            command_args = Some(prepare_shell_args(
+                &shell,
+                &mut windows_verbatim_arguments,
+                cmd,
+                command_args,
+            ));
+            shell
         } else if let Some(shell) = opts.get_optional::<&str, String>("shell")? {
-            let string_args = prepare_shell_command(cmd, command_args);
-            if shell.ends_with("cmd") || shell.ends_with("cmd.exe") {
-                command_args = Some(vec![String::from("/d /s /c"), string_args]);
-            } else {
-                command_args = Some(vec![String::from("-c"), string_args]);
-            }
+            command_args = Some(prepare_shell_args(
+                &shell,
+                &mut windows_verbatim_arguments,
+                cmd,
+                command_args,
+            ));
             shell
         } else {
             cmd
@@ -434,7 +458,11 @@ fn spawn<'js>(
 
     let mut command = StdCommand::new(cmd.clone());
     if let Some(args) = &command_args {
-        command.args(args);
+        if cfg!(windows) && windows_verbatim_arguments {
+            command.raw_arg(args.join(" "));
+        } else {
+            command.args(args);
+        }
     }
 
     let mut stdin = StdioEnum::Piped;
@@ -575,5 +603,116 @@ impl From<ChildProcessModule> for ModuleInfo<ChildProcessModule> {
             name: "child_process",
             module: val,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rquickjs::CatchResultExt;
+
+    use super::*;
+    use crate::{
+        buffer,
+        test::{call_test, test_async_with, ModuleEvaluator},
+    };
+
+    async fn given_test_utils(ctx: Ctx<'_>) {
+        buffer::init(&ctx).unwrap();
+        ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+            .await
+            .unwrap();
+        ModuleEvaluator::eval_js(
+            ctx,
+            "test_utils",
+            r#"
+                export async function driveChild(child) {
+                    let output = '';
+                    child.stdout.on('data', (data) => {
+                        output += data.toString();
+                    });
+
+                    let error = '';
+                    child.stderr.on('data', (data) => {
+                        error += data.toString();
+                    });
+
+                    const exitCode = await new Promise((resolve, reject) => {
+                        child.on('close', resolve);
+                    });
+
+                    if (exitCode) {
+                        throw new Error( `subprocess error exit ${exitCode}, ${error}`);
+                    }
+
+                    return output;
+                }
+            "#,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_spawn() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                given_test_utils(ctx.clone()).await;
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { spawn } from "child_process";
+                        import { driveChild } from "test_utils";
+
+                        export async function test() {
+                            const child = spawn('echo', ['Hello, world!']);
+                            const result = await driveChild(child);
+                            return result;
+                        }
+                    "#,
+                )
+                .await
+                .catch(&ctx)
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert_eq!(result, "Hello, world!\n");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_spawn_shell() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                given_test_utils(ctx.clone()).await;
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { spawn } from "child_process";
+                        import { driveChild } from "test_utils";
+
+                        export async function test() {
+                            const child = spawn('echo', ['Hello, world!'], { shell: true });
+                            const result = await driveChild(child);
+                            return result;
+                        }
+                    "#,
+                )
+                .await
+                .catch(&ctx)
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert_eq!(result, "Hello, world! \r\n");
+            })
+        })
+        .await;
     }
 }
