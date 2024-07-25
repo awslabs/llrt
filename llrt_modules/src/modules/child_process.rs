@@ -1,7 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 #[cfg(windows)]
-use std::os::windows::io::{FromRawHandle, RawHandle};
+use std::os::windows::{
+    io::{FromRawHandle, RawHandle},
+    process::CommandExt,
+};
 #[cfg(unix)]
 use std::os::{
     fd::FromRawFd,
@@ -10,7 +13,6 @@ use std::os::{
 use std::{
     collections::HashMap,
     io::Result as IoResult,
-    os::windows::process::CommandExt,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
 };
@@ -458,11 +460,14 @@ fn spawn<'js>(
 
     let mut command = StdCommand::new(cmd.clone());
     if let Some(args) = &command_args {
-        if cfg!(windows) && windows_verbatim_arguments {
+        #[cfg(windows)]
+        if windows_verbatim_arguments {
             command.raw_arg(args.join(" "));
         } else {
             command.args(args);
         }
+        #[cfg(not(windows))]
+        command.args(args);
     }
 
     let mut stdin = StdioEnum::Piped;
