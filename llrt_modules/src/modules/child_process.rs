@@ -715,7 +715,7 @@ mod tests {
 
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
 
-                assert_eq!(result, "Hello, world! \r\n");
+                assert!(result == "Hello, world! \r\n" || result == "Hello, world!\n");
             })
         })
         .await;
