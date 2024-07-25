@@ -204,9 +204,8 @@ where
             .is_err()
         {
             if let Some(cb) = callback {
-                let err =
-                    Exception::throw_message(&ctx, "This socket has been ended by the other party")
-                        .into_value(&ctx)?;
+                let err = Exception::throw_message(&ctx, "This stream has been ended")
+                    .into_value(&ctx)?;
 
                 () = cb.call((err,))?;
             }
@@ -247,13 +246,28 @@ where
                             command = command_rx.recv() => {
                                  match command {
                                     Some(WriteCommand::Write(data, cb, flush)) => {
-                                        writer.write_all(&data).await.or_throw(&ctx3)?;
-                                        if flush {
-                                            writer.flush().await.or_throw(&ctx3)?;
-                                        }
+                                        let result = async {
+                                            writer.write_all(&data).await?;
+                                            if flush {
+                                                writer.flush().await.or_throw(&ctx3)?;
+                                            }
+                                            Ok::<_, Error>(())
+                                        }.await;
 
-                                        if let Some(cb) = cb {
-                                            () = cb.call(())?;
+                                        match result {
+                                            Ok(_) => {
+                                                if let Some(cb) = cb {
+                                                    () = cb.call(())?;
+                                                }
+                                            },
+                                            Err(err) => {
+                                                let err2 = Exception::throw_message(&ctx3, &err.to_string());
+                                                if let Some(cb) = cb {
+                                                    let err = err.into_value(&ctx3)?;
+                                                    () = cb.call((err,))?;
+                                                }
+                                                return Err(err2);
+                                            }
                                         }
                                     },
                                     Some(WriteCommand::End) => {

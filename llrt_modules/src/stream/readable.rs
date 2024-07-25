@@ -359,7 +359,7 @@ where
                     Self::emit_str(This(this2), &ctx3, "end", vec![], false)?;
                 }
 
-                  if let Some(error_value) = error_value{
+                if let Some(error_value) = error_value{
                     return Err(ctx3.throw(error_value));
                 }
 
