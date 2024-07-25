@@ -62,3 +62,11 @@ jobs:
             ./llrt-linux-arm64.zip
             ./llrt-darwin-x64.zip
             ./llrt-darwin-arm64.zip
+  publish:
+    needs:
+      - build
+    uses: ./.github/workflows/publish.yml
+    with:
+      ref: ${{ github.ref }}
+    secrets:
+      registry-token: ${{ secrets.registry-token }}

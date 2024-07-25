@@ -1,8 +1,10 @@
 [package]
 name = "llrt_utils"
+description = "LLRT utilities"
 version = "0.1.15-beta"
 edition = "2021"
-license-file = "LICENSE"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
 
 [features]
 default = ["all"]

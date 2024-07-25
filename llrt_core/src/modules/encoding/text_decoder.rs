@@ -25,7 +25,7 @@ impl<'js> TextDecoder {
         let mut fatal = false;
         let mut ignore_bom = false;
 
-        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+        let encoder = Encoder::from_str(&encoding).or_throw_range(&ctx, None)?;
 
         if let Some(options) = options.0 {
             if let Some(opt) = options.get_optional("fatal")? {
@@ -70,6 +70,6 @@ impl<'js> TextDecoder {
 
         self.encoder
             .encode_to_string(&bytes[start_pos..], !self.fatal)
-            .or_throw(&ctx)
+            .or_throw_type(&ctx, None)
     }
 }

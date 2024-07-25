@@ -18,7 +18,7 @@ macro_rules! encoder_enum {
             #[allow(clippy::should_implement_trait)]
             pub fn from_str(encoding: &str) -> Result<Self, String> {
 
-                let encoding:String = encoding.chars()
+                let normalized:String = encoding.chars()
                     .enumerate()
                     .map(|(i, c)| {
                         if i == 0 {
@@ -30,11 +30,11 @@ macro_rules! encoder_enum {
                     .filter(|&c| c != '-' && c != '_')
                     .collect();
 
-                match encoding.as_str() {
+                match normalized.as_str() {
                     $(
                         stringify!($variant) => Ok(Self::$variant),
                     )*
-                    _ => Err(["Unsupported encoding: ", &encoding].concat()),
+                    _ => Err(["The \"", &encoding, "\" encoding is not supported"].concat()),
                 }
             }
         }

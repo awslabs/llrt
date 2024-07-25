@@ -1,3 +1,9 @@
+export default function({
+  assert_false,
+  assert_true,
+  test,
+}) {
+
 test(function() {
     var params = new URLSearchParams('a=b&c=d');
     assert_true(params.has('a'));
@@ -43,3 +49,5 @@ test(() => {
   assert_true(params.has('a', 'd'));
   assert_true(params.has('a', undefined));
 }, "Two-argument has() respects undefined as second arg");
+
+};
