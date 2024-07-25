@@ -185,7 +185,7 @@ fn set_nightly_cfg() {
     assert!(stdout.contains("rustc"));
     let nightly = stdout.contains("nightly") || stdout.contains("dev");
     if nightly {
-        println!("cargo:rustc-cfg=rust_nightly");
+        println!("cargo::rustc-cfg=rust_nightly");
         println!("cargo::rustc-check-cfg=cfg(rust_nightly)");
     }
 }
