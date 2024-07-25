@@ -96,7 +96,7 @@ impl FileHandle {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            self.file(&ctx)?.as_raw_fd().or_throw(&ctx)
+            Ok(self.file(&ctx)?.as_raw_fd())
         }
         #[cfg(windows)]
         {
