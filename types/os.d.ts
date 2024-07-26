@@ -36,3 +36,7 @@ declare module "os" {
    */
   function tmpdir(): string;
 }
+
+declare module "node:os" {
+  export * from "os";
+}

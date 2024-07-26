@@ -166,3 +166,7 @@ declare module "buffer" {
 
   export { Buffer };
 }
+
+declare module "node:buffer" {
+  export * from "buffer";
+}

@@ -326,3 +326,7 @@ declare module "fs" {
    */
   export function accessSync(path: PathLike, mode?: Mode): void;
 }
+
+declare module "node:fs" {
+  export * from "fs";
+}

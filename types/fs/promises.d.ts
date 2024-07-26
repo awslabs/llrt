@@ -503,3 +503,7 @@ declare module "fs/promises" {
       | BufferEncoding
   ): Promise<string>;
 }
+
+declare module "node:fs/promises" {
+  export * from "fs/promises";
+}
