@@ -256,7 +256,7 @@ export class URLSearchParams {
 ## util
 
 > [!IMPORTANT]
-> Supported encodings: hex, base64, utf8, utf16le, iso88591.
+> Supported encodings: hex, base64, utf-8, utf-16le, windows-1252.
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
