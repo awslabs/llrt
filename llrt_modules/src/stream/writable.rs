@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
+use llrt_utils::{bytes::get_bytes, ctx::CtxExtension, error::ErrorExtensions, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
     Class, Ctx, Error, Exception, Function, Result, Value,
 };
-
 use tokio::{
     io::{AsyncWrite, AsyncWriteExt, BufWriter},
     sync::{
@@ -17,14 +17,11 @@ use tokio::{
     },
 };
 
+use super::{impl_stream_events, SteamEvents};
 use crate::{
     modules::events::{EmitError, Emitter, EventEmitter, EventList},
     stream::set_destroyed_and_error,
-    utils::{object::get_bytes, result::ResultExt},
-    vm::{CtxExtension, ErrorExtensions},
 };
-
-use super::SteamEvents;
 
 pub struct WritableStreamInner<'js> {
     emitter: EventEmitter<'js>,
@@ -36,6 +33,12 @@ pub struct WritableStreamInner<'js> {
     emit_close: bool,
     is_destroyed: bool,
     destroy_tx: Sender<Option<Value<'js>>>,
+}
+
+impl<'js> Trace<'js> for WritableStreamInner<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.emitter.trace(tracer);
+    }
 }
 
 impl<'js> WritableStreamInner<'js> {
@@ -71,18 +74,6 @@ pub struct DefaultWritableStream<'js> {
     inner: WritableStreamInner<'js>,
 }
 
-impl<'js> Trace<'js> for WritableStreamInner<'js> {
-    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        self.emitter.trace(tracer);
-    }
-}
-
-impl<'js> Emitter<'js> for DefaultWritableStream<'js> {
-    fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
-        self.inner.emitter.get_event_list()
-    }
-}
-
 impl<'js> DefaultWritableStream<'js> {
     fn with_emitter(ctx: Ctx<'js>, emitter: EventEmitter<'js>) -> Result<Class<'js, Self>> {
         Class::instance(
@@ -95,6 +86,13 @@ impl<'js> DefaultWritableStream<'js> {
 
     pub fn new(ctx: Ctx<'js>) -> Result<Class<'js, Self>> {
         Self::with_emitter(ctx, EventEmitter::new())
+    }
+}
+
+impl_stream_events!(DefaultWritableStream);
+impl<'js> Emitter<'js> for DefaultWritableStream<'js> {
+    fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
+        self.inner.emitter.get_event_list()
     }
 }
 
@@ -206,9 +204,8 @@ where
             .is_err()
         {
             if let Some(cb) = callback {
-                let err =
-                    Exception::throw_message(&ctx, "This socket has been ended by the other party")
-                        .into_value(&ctx)?;
+                let err = Exception::throw_message(&ctx, "This stream has been ended")
+                    .into_value(&ctx)?;
 
                 () = cb.call((err,))?;
             }
@@ -249,13 +246,28 @@ where
                             command = command_rx.recv() => {
                                  match command {
                                     Some(WriteCommand::Write(data, cb, flush)) => {
-                                        writer.write_all(&data).await.or_throw(&ctx3)?;
-                                        if flush {
-                                            writer.flush().await.or_throw(&ctx3)?;
-                                        }
+                                        let result = async {
+                                            writer.write_all(&data).await?;
+                                            if flush {
+                                                writer.flush().await.or_throw(&ctx3)?;
+                                            }
+                                            Ok::<_, Error>(())
+                                        }.await;
 
-                                        if let Some(cb) = cb {
-                                            () = cb.call(())?;
+                                        match result {
+                                            Ok(_) => {
+                                                if let Some(cb) = cb {
+                                                    () = cb.call(())?;
+                                                }
+                                            },
+                                            Err(err) => {
+                                                let err2 = Exception::throw_message(&ctx3, &err.to_string());
+                                                if let Some(cb) = cb {
+                                                    let err = err.into_value(&ctx3)?;
+                                                    () = cb.call((err,))?;
+                                                }
+                                                return Err(err2);
+                                            }
                                         }
                                     },
                                     Some(WriteCommand::End) => {

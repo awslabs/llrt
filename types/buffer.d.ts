@@ -91,7 +91,7 @@ declare module "buffer" {
      * truncated to `totalLength`.
      *
      * ```js
-     * import { Buffer } from 'node:buffer';
+     * import { Buffer } from 'buffer';
      *
      * // Create a single `Buffer` from a list of three `Buffer` instances.
      *
@@ -131,7 +131,7 @@ declare module "buffer" {
      * If `fill` is specified, the allocated `Buffer` will be initialized by calling `buf.fill(fill)`.
      *
      * ```js
-     * import { Buffer } from 'node:buffer';
+     * import { Buffer } from 'buffer';
      *
      * const buf = Buffer.alloc(5, 'a');
      *

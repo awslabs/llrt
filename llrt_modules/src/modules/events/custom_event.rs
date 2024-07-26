@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{prelude::Opt, Ctx, IntoJs, Null, Result, Value};
 
-use crate::utils::object::ObjectExt;
+use llrt_utils::object::ObjectExt;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]

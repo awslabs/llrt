@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{atomic::AtomicUsize, Arc, RwLock};
 
+use llrt_utils::{ctx::CtxExtension, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
     Class, Ctx, Error, IntoJs, Null, Result, Value,
 };
-
 use tokio::{
     io::{AsyncRead, AsyncReadExt, BufReader},
     sync::{
@@ -17,17 +17,15 @@ use tokio::{
 };
 
 use crate::{
-    bytearray_buffer::BytearrayBuffer,
     modules::{
         buffer::Buffer,
         events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
     },
     stream::set_destroyed_and_error,
-    utils::result::ResultExt,
-    vm::CtxExtension,
+    utils::bytearray_buffer::BytearrayBuffer,
 };
 
-use super::{SteamEvents, DEFAULT_BUFFER_SIZE};
+use super::{impl_stream_events, SteamEvents, DEFAULT_BUFFER_SIZE};
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum ReadableState {
@@ -126,6 +124,7 @@ impl<'js> DefaultReadableStream<'js> {
     }
 }
 
+impl_stream_events!(DefaultReadableStream);
 impl<'js> Emitter<'js> for DefaultReadableStream<'js> {
     fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
         self.inner.emitter.get_event_list()
@@ -360,7 +359,7 @@ where
                     Self::emit_str(This(this2), &ctx3, "end", vec![], false)?;
                 }
 
-                  if let Some(error_value) = error_value{
+                if let Some(error_value) = error_value{
                     return Err(ctx3.throw(error_value));
                 }
 

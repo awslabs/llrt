@@ -1,22 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::{
-    modules::events::{EmitError, Emitter, EventEmitter, EventList},
-    stream::SteamEvents,
-    utils::{object::ObjectExt, result::ResultExt},
-    vm::CtxExtension,
-};
-
-use rquickjs::{
-    prelude::{Opt, Rest, This},
-    Class, Ctx, Exception, Function, Object, Result, Undefined, Value,
-};
 
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, RwLock,
 };
 
+use llrt_modules::stream::impl_stream_events;
+use rquickjs::{
+    prelude::{Opt, Rest, This},
+    Class, Ctx, Exception, Function, Object, Result, Undefined, Value,
+};
 use tokio::{
     net::{TcpListener, UnixListener},
     select,
@@ -24,6 +18,12 @@ use tokio::{
 };
 
 use super::{get_address_parts, get_hostname, socket::Socket, Listener, NetStream};
+use crate::{
+    modules::events::{EmitError, Emitter, EventEmitter, EventList},
+    stream::SteamEvents,
+    utils::{object::ObjectExt, result::ResultExt},
+    vm::CtxExtension,
+};
 
 impl_stream_events!(Server);
 

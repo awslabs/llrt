@@ -141,7 +141,7 @@ impl BytearrayBuffer {
 
 #[cfg(test)]
 mod tests {
-    use crate::bytearray_buffer::BytearrayBuffer;
+    use super::BytearrayBuffer;
 
     #[tokio::test]
     async fn clear_while_writing() {

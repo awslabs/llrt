@@ -92,17 +92,17 @@ impl FileHandle {
     }
 
     #[qjs(get)]
-    async fn fd(&self, ctx: Ctx<'_>) -> Result<isize> {
+    async fn fd(&self, ctx: Ctx<'_>) -> Result<i32> {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            self.file(&ctx)?.as_raw_fd().try_into().or_throw(&ctx)
+            Ok(self.file(&ctx)?.as_raw_fd())
         }
         #[cfg(windows)]
         {
             use std::os::windows::io::AsRawHandle;
             let handle = self.file(&ctx)?.as_raw_handle();
-            Ok(handle as isize)
+            Ok(handle as i32)
         }
         #[cfg(not(any(unix, windows)))]
         {
@@ -904,5 +904,36 @@ mod tests {
         let file_content = tokio::fs::read(&path).await.unwrap();
         tokio::fs::remove_file(&path).await.unwrap();
         assert_eq!(file_content, b"Hello World");
+    }
+
+    #[tokio::test]
+    async fn test_file_handle_fd() {
+        let (file, path) = given_file("", OpenOptions::new().read(true)).await;
+        let path_1 = path.clone();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                Class::<FileHandle>::register(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test(filehandle) {
+                            return filehandle.fd;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<i32, _>(&ctx, &module, (FileHandle::new(file, path_1),)).await;
+
+                assert!(result > 0);
+            })
+        })
+        .await;
+
+        tokio::fs::remove_file(&path).await.unwrap();
     }
 }

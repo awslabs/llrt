@@ -1,24 +1,29 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#[cfg(windows)]
+use std::os::windows::{
+    io::{FromRawHandle, RawHandle},
+    process::CommandExt,
+};
+#[cfg(unix)]
+use std::os::{
+    fd::FromRawFd,
+    unix::process::{CommandExt, ExitStatusExt},
+};
 use std::{
     collections::HashMap,
     io::Result as IoResult,
-    os::fd::FromRawFd,
     process::{Command as StdCommand, Stdio},
     sync::{Arc, RwLock},
 };
 
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
-#[cfg(unix)]
-use std::os::unix::process::ExitStatusExt;
-
+use llrt_utils::{ctx::CtxExtension, module::export_default, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Class, Ctx, Error, Exception, IntoJs, Result, Undefined, Value,
+    Class, Ctx, Error, Exception, IntoJs, Result, Value,
 };
 use tokio::{
     io::AsyncRead,
@@ -29,20 +34,16 @@ use tokio::{
     },
 };
 
+use crate::module_info::ModuleInfo;
 use crate::{
-    module_builder::ModuleInfo,
-    modules::{
-        events::{EmitError, Emitter, EventEmitter, EventList},
-        module::export_default,
-    },
+    modules::events::{EmitError, Emitter, EventEmitter, EventList},
     stream::{
         readable::{DefaultReadableStream, ReadableStream},
         writable::{DefaultWritableStream, WritableStream},
     },
-    utils::{object::ObjectExt, result::ResultExt},
-    vm::CtxExtension,
 };
 
+#[cfg(unix)]
 macro_rules! generate_signal_from_str_fn {
     ($($signal:path),*) => {
         fn process_signal_from_str(signal: &str) -> Option<i32> {
@@ -63,6 +64,7 @@ macro_rules! generate_signal_from_str_fn {
     };
 }
 
+#[cfg(unix)]
 generate_signal_from_str_fn!(
     libc::SIGHUP,
     libc::SIGINT,
@@ -76,6 +78,32 @@ generate_signal_from_str_fn!(
     libc::SIGALRM,
     libc::SIGTERM
 );
+
+fn prepare_shell_args(
+    shell: &str,
+    windows_verbatim_arguments: &mut bool,
+    cmd: String,
+    command_args: Option<Vec<String>>,
+) -> Vec<String> {
+    let mut string_args = cmd;
+    if let Some(command_args) = command_args {
+        string_args.push(' ');
+        string_args.push_str(&command_args.join(" "));
+    }
+    string_args.push(' ');
+
+    if shell.ends_with("cmd") || shell.ends_with("cmd.exe") {
+        *windows_verbatim_arguments = true;
+        vec![
+            String::from("/d"),
+            String::from("/s"),
+            String::from("/c"),
+            ["\"", &string_args, "\""].concat(),
+        ]
+    } else {
+        vec![String::from("-c"), string_args]
+    }
+}
 
 #[allow(dead_code)]
 #[rquickjs::class]
@@ -106,7 +134,16 @@ impl StdioEnum {
             StdioEnum::Piped => Stdio::piped(),
             StdioEnum::Ignore => Stdio::null(),
             StdioEnum::Inherit => Stdio::inherit(),
-            StdioEnum::Fd(id) => unsafe { Stdio::from_raw_fd(*id) },
+            StdioEnum::Fd(id) => {
+                #[cfg(unix)]
+                unsafe {
+                    Stdio::from_raw_fd(*id)
+                }
+                #[cfg(windows)]
+                unsafe {
+                    Stdio::from_raw_handle(*id as RawHandle)
+                }
+            },
         }
     }
 }
@@ -119,6 +156,7 @@ impl<'js> ChildProcess<'js> {
     }
 
     fn kill(&mut self, _ctx: Ctx<'js>, signal: Opt<Value<'js>>) -> Result<bool> {
+        #[cfg(unix)]
         let signal = if let Some(signal) = signal.0 {
             if signal.is_number() {
                 Some(signal.as_number().unwrap() as i32)
@@ -129,8 +167,15 @@ impl<'js> ChildProcess<'js> {
                 None
             }
         } else {
-            None
+            process_signal_from_str("SIGTERM")
         };
+
+        #[cfg(not(unix))]
+        {
+            _ = signal;
+        }
+        #[cfg(not(unix))]
+        let signal = Some(9); // SIGKILL
 
         if let Some(kill_signal_tx) = self.kill_signal_tx.take() {
             return Ok(kill_signal_tx.send(signal).is_ok());
@@ -208,12 +253,12 @@ impl<'js> ChildProcess<'js> {
                             if let Some(s) = exit_signal {
                                 signal = signal_str_from_i32(s).into_js(&ctx3)?;
                             } else {
-                                signal = Undefined.into_value(ctx3.clone());
+                                signal = rquickjs::Undefined.into_value(ctx3.clone());
                             }
                         }
                         #[cfg(not(unix))]
                         {
-                            signal = Undefined.into_value(&ctx3);
+                            signal = "SIGKILL".into_js(&ctx3)?;
                         }
 
                         ChildProcess::emit_str(
@@ -297,34 +342,34 @@ async fn wait_for_process<'js>(
                 {
                     exit_signal.replace(exit_status.signal().unwrap_or_default());
                 }
+                #[cfg(not(unix))]
+                {
+                    _ = exit_signal;
+                }
                 break;
             }
             Ok(signal) = kill_signal_rx.recv() => {
-
                 #[cfg(unix)]
                 {
                     if let Some(signal) = signal {
-
                         if let Some(pid) = child.id() {
-
                             if unsafe { libc::killpg(pid as i32, signal) } == 0 {
                                 continue;
                             } else {
                                return Err(Exception::throw_message(ctx, &["Failed to send signal ",itoa::Buffer::new().format(signal)," to process ", itoa::Buffer::new().format(pid)].concat()));
                             }
                         }
-                    }else{
+                    } else {
                         child.kill().await.or_throw(ctx)?;
                         break;
                     }
-
                 }
                 #[cfg(not(unix))]
                 {
+                    _ = signal;
                     child.kill().await.or_throw(ctx)?;
                     break;
                 }
-
             },
         }
     }
@@ -346,7 +391,7 @@ fn spawn<'js>(
     let args_0 = args_and_opts.first();
     let args_1 = args_and_opts.get(1);
 
-    let mut opts = args_0.and_then(|o| o.as_object()).map(|o| o.to_owned());
+    let mut opts = None;
 
     if args_1.is_some() {
         opts = args_1.and_then(|o| o.as_object()).map(|o| o.to_owned());
@@ -375,20 +420,37 @@ fn spawn<'js>(
         None
     };
 
+    let mut windows_verbatim_arguments = if let Some(opts) = &opts {
+        opts.get_optional::<&str, bool>("windowsVerbatimArguments")?
+            .unwrap_or_default()
+    } else {
+        false
+    };
+
     let cmd = if let Some(opts) = &opts {
         if opts
             .get_optional::<&str, bool>("shell")?
             .unwrap_or_default()
         {
-            let mut string_args = cmd;
-            if let Some(command_args) = command_args {
-                string_args.push(' ');
-                string_args.push_str(&command_args.join(" "));
-            }
-            string_args.push(' ');
-
-            command_args = Some(vec![String::from("-c"), string_args]);
-            "/bin/sh".to_string()
+            #[cfg(windows)]
+            let shell = "cmd.exe".to_string();
+            #[cfg(not(windows))]
+            let shell = "/bin/sh".to_string();
+            command_args = Some(prepare_shell_args(
+                &shell,
+                &mut windows_verbatim_arguments,
+                cmd,
+                command_args,
+            ));
+            shell
+        } else if let Some(shell) = opts.get_optional::<&str, String>("shell")? {
+            command_args = Some(prepare_shell_args(
+                &shell,
+                &mut windows_verbatim_arguments,
+                cmd,
+                command_args,
+            ));
+            shell
         } else {
             cmd
         }
@@ -398,6 +460,13 @@ fn spawn<'js>(
 
     let mut command = StdCommand::new(cmd.clone());
     if let Some(args) = &command_args {
+        #[cfg(windows)]
+        if windows_verbatim_arguments {
+            command.raw_arg(args.join(" "));
+        } else {
+            command.args(args);
+        }
+        #[cfg(not(windows))]
         command.args(args);
     }
 
@@ -406,9 +475,11 @@ fn spawn<'js>(
     let mut stderr = StdioEnum::Piped;
 
     if let Some(opts) = opts {
+        #[cfg(unix)]
         if let Some(gid) = opts.get_optional("gid")? {
             command.gid(gid);
         }
+        #[cfg(unix)]
         if let Some(uid) = opts.get_optional("uid")? {
             command.gid(uid);
         }
@@ -435,7 +506,7 @@ fn spawn<'js>(
                 for (i, item) in stdio.iter::<Value>().enumerate() {
                     let item = item?;
                     let stdio = if item.is_undefined() || item.is_null() {
-                        StdioEnum::Ignore
+                        StdioEnum::Piped
                     } else if let Some(std_io_str) = item.as_string() {
                         str_to_stdio(&ctx, &std_io_str.to_string()?)?
                     } else if let Some(fd) = item.as_number() {
@@ -507,9 +578,6 @@ pub struct ChildProcessModule;
 impl ModuleDef for ChildProcessModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("spawn")?;
-        declare.declare("spawnSync")?;
-        declare.declare("exec")?;
-        declare.declare("execSync")?;
         declare.declare("default")?;
         Ok(())
     }
@@ -540,5 +608,116 @@ impl From<ChildProcessModule> for ModuleInfo<ChildProcessModule> {
             name: "child_process",
             module: val,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rquickjs::CatchResultExt;
+
+    use super::*;
+    use crate::{
+        buffer,
+        test::{call_test, test_async_with, ModuleEvaluator},
+    };
+
+    async fn given_test_utils(ctx: Ctx<'_>) {
+        buffer::init(&ctx).unwrap();
+        ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+            .await
+            .unwrap();
+        ModuleEvaluator::eval_js(
+            ctx,
+            "test_utils",
+            r#"
+                export async function driveChild(child) {
+                    let output = '';
+                    child.stdout.on('data', (data) => {
+                        output += data.toString();
+                    });
+
+                    let error = '';
+                    child.stderr.on('data', (data) => {
+                        error += data.toString();
+                    });
+
+                    const exitCode = await new Promise((resolve, reject) => {
+                        child.on('close', resolve);
+                    });
+
+                    if (exitCode) {
+                        throw new Error( `subprocess error exit ${exitCode}, ${error}`);
+                    }
+
+                    return output;
+                }
+            "#,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_spawn() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                given_test_utils(ctx.clone()).await;
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { spawn } from "child_process";
+                        import { driveChild } from "test_utils";
+
+                        export async function test() {
+                            const child = spawn('echo', ['Hello, world!']);
+                            const result = await driveChild(child);
+                            return result;
+                        }
+                    "#,
+                )
+                .await
+                .catch(&ctx)
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert_eq!(result, "Hello, world!\n");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_spawn_shell() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                given_test_utils(ctx.clone()).await;
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { spawn } from "child_process";
+                        import { driveChild } from "test_utils";
+
+                        export async function test() {
+                            const child = spawn('echo', ['Hello, world!'], { shell: true });
+                            const result = await driveChild(child);
+                            return result;
+                        }
+                    "#,
+                )
+                .await
+                .catch(&ctx)
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert!(result == "Hello, world! \r\n" || result == "Hello, world!\n");
+            })
+        })
+        .await;
     }
 }
