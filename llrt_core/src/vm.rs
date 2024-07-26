@@ -532,7 +532,7 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>
 }
 
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
-    llrt_utils::ctx::set_error_handler(|ctx, err| {
+    llrt_utils::ctx::set_spawn_error_handler(|ctx, err| {
         Vm::print_error_and_exit(ctx, err);
     });
 

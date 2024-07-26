@@ -14,6 +14,8 @@ static ERROR_HANDLER: OnceLock<Box<dyn for<'js> Fn(&Ctx<'js>, CaughtError<'js>) 
     OnceLock::new();
 
 pub trait CtxExtension<'js> {
+    /// Despite naming, this will not necessarily exit the parent process.
+    /// It depends on the handler set by `set_spawn_error_handler`.
     fn spawn_exit<F, R>(&self, future: F) -> Result<Receiver<R>>
     where
         F: Future<Output = Result<R>> + 'js,
@@ -65,7 +67,7 @@ impl<'js> CtxExtension<'js> for Ctx<'js> {
     }
 }
 
-pub fn set_error_handler<F>(handler: F)
+pub fn set_spawn_error_handler<F>(handler: F)
 where
     F: for<'js> Fn(&Ctx<'js>, CaughtError<'js>) + Sync + Send + 'static,
 {
