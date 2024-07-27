@@ -1,4 +1,4 @@
-pub use llrt_modules::{buffer, child_process, fs, os, path};
+pub use llrt_modules::{buffer, child_process, fs, os, path, perf_hooks, performance};
 
 pub mod console;
 pub mod crypto;
@@ -10,7 +10,6 @@ pub mod llrt;
 pub mod module;
 pub mod navigator;
 pub mod net;
-pub mod performance;
 pub mod process;
 pub mod timers;
 pub mod url;

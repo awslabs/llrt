@@ -9,7 +9,17 @@ readme = "README.md"
 
 [features]
 default = ["all"]
-all = ["buffer", "child-process", "events", "fs", "os", "path", "process"]
+all = [
+  "buffer",
+  "child-process",
+  "events",
+  "fs",
+  "os",
+  "path",
+  "process",
+  "perf_hooks",
+  "performance",
+]
 
 buffer = ["llrt_utils/encoding"]
 child-process = ["events", "__stream", "itoa"]
@@ -25,11 +35,17 @@ os = [
 ]
 path = []
 process = []
+perf_hooks = []
+performance = ["perf_hooks"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
 
 [dependencies]
+chrono = { version = "0.4.38", default-features = false, features = [
+  "std",
+  "now",
+] }
 either = "1"
 itoa = { version = "1", optional = true }
 once_cell = { version = "1", optional = true }

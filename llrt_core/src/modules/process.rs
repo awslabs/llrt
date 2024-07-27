@@ -19,7 +19,7 @@ use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 use crate::VERSION;
 
-use crate::vm::TIME_ORIGIN;
+use llrt_modules::perf_hooks::TIME_ORIGIN;
 
 fn cwd() -> String {
     env::current_dir().unwrap().to_string_lossy().to_string()
