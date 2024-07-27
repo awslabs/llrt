@@ -1,10 +1,29 @@
 declare module "buffer" {
   export type BufferEncoding =
-    | "utf-8"
-    | "utf-16le"
-    | "windows-1252"
+    | "hex"
     | "base64"
-    | "hex";
+    | "utf-8"
+    | "utf8"
+    | "unicode-1-1-utf8"
+    | "utf-16le"
+    | "utf-16"
+    | "windows-1252"
+    | "ansi_x3.4-1968"
+    | "ascii"
+    | "cp1252"
+    | "cp819"
+    | "csisolatin1"
+    | "ibm819"
+    | "iso-8859-1"
+    | "iso-ir-100"
+    | "iso8859-1"
+    | "iso88591"
+    | "iso_8859-1"
+    | "iso_8859-1:1987"
+    | "l1"
+    | "latin1"
+    | "us-ascii"
+    | "x-cp1252";
   type WithImplicitCoercion<T> =
     | T
     | {
