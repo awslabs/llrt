@@ -87,6 +87,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_now() {
+        init();
         test_async_with(|ctx| {
             Box::pin(async move {
                 ModuleEvaluator::eval_rust::<PerfHooksModule>(ctx.clone(), "perf_hooks")
@@ -119,6 +120,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_time_origin() {
+        init();
         test_async_with(|ctx| {
             Box::pin(async move {
                 ModuleEvaluator::eval_rust::<PerfHooksModule>(ctx.clone(), "perf_hooks")
@@ -147,6 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_to_json() {
+        init();
         test_async_with(|ctx| {
             Box::pin(async move {
                 ModuleEvaluator::eval_rust::<PerfHooksModule>(ctx.clone(), "perf_hooks")
