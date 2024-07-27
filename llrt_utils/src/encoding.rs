@@ -2,62 +2,67 @@
 // SPDX-License-Identifier: Apache-2.0
 use hex_simd::AsciiCase;
 
-macro_rules! encoder_enum {
-    (
-        $(#[$attr:meta])*
-        pub enum $enum_name:ident {
-            $($variant:ident),* $(,)?
-        }
-    ) => {
-        $(#[$attr])*
-        pub enum $enum_name {
-            $($variant),*
-        }
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
-        impl $enum_name {
-            #[allow(clippy::should_implement_trait)]
-            pub fn from_str(encoding: &str) -> Result<Self, String> {
-
-                let normalized:String = encoding.chars()
-                    .enumerate()
-                    .map(|(i, c)| {
-                        if i == 0 {
-                            c.to_ascii_uppercase()
-                        } else {
-                            c.to_ascii_lowercase()
-                        }
-                    })
-                    .filter(|&c| c != '-' && c != '_')
-                    .collect();
-
-                match normalized.as_str() {
-                    $(
-                        stringify!($variant) => Ok(Self::$variant),
-                    )*
-                    _ => Err(["The \"", &encoding, "\" encoding is not supported"].concat()),
-                }
-            }
-        }
-    };
+#[derive(Clone)]
+pub enum Encoder {
+    Hex,
+    Base64,
+    Windows1252,
+    Utf8,
+    Utf16le,
 }
 
-encoder_enum! {
-    pub enum Encoder {
-        Hex,
-        Base64,
-        Utf8,
-        Iso88591,
-        Utf16le,
-    }
-}
+static ENCODING_MAP: Lazy<HashMap<&'static str, Encoder>> = Lazy::new(|| {
+    let mut map = HashMap::with_capacity(24);
+    // Encoder::Hex
+    map.insert("hex", Encoder::Hex);
+    // Encoder::Base64
+    map.insert("base64", Encoder::Base64);
+    // Encoder::Utf8
+    map.insert("utf-8", Encoder::Utf8);
+    map.insert("utf8", Encoder::Utf8);
+    map.insert("unicode-1-1-utf8", Encoder::Utf8);
+    // Encoder::Utf16le
+    map.insert("utf-16le", Encoder::Utf16le);
+    map.insert("utf-16", Encoder::Utf16le);
+    // Encoder::Windows1252
+    map.insert("windows-1252", Encoder::Windows1252);
+    map.insert("ansi_x3.4-1968", Encoder::Windows1252);
+    map.insert("ascii", Encoder::Windows1252);
+    map.insert("cp1252", Encoder::Windows1252);
+    map.insert("cp819", Encoder::Windows1252);
+    map.insert("csisolatin1", Encoder::Windows1252);
+    map.insert("ibm819", Encoder::Windows1252);
+    map.insert("iso-8859-1", Encoder::Windows1252);
+    map.insert("iso-ir-100", Encoder::Windows1252);
+    map.insert("iso8859-1", Encoder::Windows1252);
+    map.insert("iso88591", Encoder::Windows1252);
+    map.insert("iso_8859-1", Encoder::Windows1252);
+    map.insert("iso_8859-1:1987", Encoder::Windows1252);
+    map.insert("l1", Encoder::Windows1252);
+    map.insert("latin1", Encoder::Windows1252);
+    map.insert("us-ascii", Encoder::Windows1252);
+    map.insert("x-cp1252", Encoder::Windows1252);
+    map
+});
 
 impl Encoder {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(encoding: &str) -> Result<Self, String> {
+        ENCODING_MAP
+            .get(encoding.to_ascii_lowercase().as_str())
+            .cloned()
+            .ok_or_else(|| ["The \"", encoding, "\" encoding is not supported"].concat())
+    }
+
     pub fn encode_to_string(&self, bytes: &[u8], lossy: bool) -> Result<String, String> {
         match self {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
             Self::Base64 => Ok(bytes_to_b64_string(bytes)),
-            Self::Utf8 | Self::Iso88591 => bytes_to_string(bytes, lossy),
-            Self::Utf16le => bytes_to_utf16_string(bytes, lossy),
+            Self::Utf8 | Self::Windows1252 => bytes_to_string(bytes, lossy),
+            Self::Utf16le => bytes_to_utf16le_string(bytes, lossy),
         }
     }
 
@@ -66,7 +71,7 @@ impl Encoder {
         match self {
             Self::Hex => Ok(bytes_to_hex(bytes)),
             Self::Base64 => Ok(bytes_to_b64(bytes)),
-            Self::Utf8 | Self::Iso88591 | Self::Utf16le => Ok(bytes.to_vec()),
+            Self::Utf8 | Self::Windows1252 | Self::Utf16le => Ok(bytes.to_vec()),
         }
     }
 
@@ -74,7 +79,7 @@ impl Encoder {
         match self {
             Self::Hex => bytes_from_hex(&bytes),
             Self::Base64 => bytes_from_b64(&bytes),
-            Self::Utf8 | Self::Iso88591 | Self::Utf16le => Ok(bytes),
+            Self::Utf8 | Self::Windows1252 | Self::Utf16le => Ok(bytes),
         }
     }
 
@@ -82,7 +87,7 @@ impl Encoder {
         match self {
             Self::Hex => bytes_from_hex(string.as_bytes()),
             Self::Base64 => bytes_from_b64(string.as_bytes()),
-            Self::Utf8 | Self::Iso88591 => Ok(string.into_bytes()),
+            Self::Utf8 | Self::Windows1252 => Ok(string.into_bytes()),
             Self::Utf16le => Ok(string
                 .encode_utf16()
                 .flat_map(|utf16| utf16.to_le_bytes())
@@ -94,8 +99,8 @@ impl Encoder {
         match self {
             Self::Hex => "hex",
             Self::Base64 => "base64",
+            Self::Windows1252 => "windows-1252",
             Self::Utf8 => "utf-8",
-            Self::Iso88591 => "iso-8859-1",
             Self::Utf16le => "utf-16le",
         }
     }
@@ -133,7 +138,7 @@ pub fn bytes_to_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
 }
 
 #[cfg(not(rust_nightly))]
-pub fn bytes_to_utf16_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
+pub fn bytes_to_utf16le_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
     let data16 = bytes
         .chunks(2)
         .map(|e| e.try_into().map(u16::from_le_bytes))
@@ -147,7 +152,7 @@ pub fn bytes_to_utf16_string(bytes: &[u8], lossy: bool) -> Result<String, String
 }
 
 #[cfg(rust_nightly)]
-pub fn bytes_to_utf16_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
+pub fn bytes_to_utf16le_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
     let data16 = bytes
         .array_chunks()
         .cloned()
