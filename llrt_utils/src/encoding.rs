@@ -15,7 +15,7 @@ pub enum Encoder {
 }
 
 static ENCODING_MAP: Lazy<HashMap<&'static str, Encoder>> = Lazy::new(|| {
-    let mut map = HashMap::new();
+    let mut map = HashMap::with_capacity(24);
     // Encoder::Hex
     map.insert("hex", Encoder::Hex);
     // Encoder::Base64
