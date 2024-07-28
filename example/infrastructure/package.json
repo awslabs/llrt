@@ -9,12 +9,12 @@
     "hotswap": "cdk deploy --hotswap"
   },
   "devDependencies": {
-    "@types/node": "20.14.9",
-    "aws-cdk": "2.147.2",
-    "aws-cdk-lib": "2.147.2",
+    "@types/node": "20.14.12",
+    "aws-cdk": "2.150.0",
+    "aws-cdk-lib": "2.150.0",
     "constructs": "10.3.0",
-    "esbuild": "0.21.5",
+    "esbuild": "0.23.0",
     "ts-node": "10.9.2",
-    "typescript": "5.5.2"
+    "typescript": "5.5.4"
   }
 }
