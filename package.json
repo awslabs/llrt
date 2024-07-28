@@ -46,11 +46,12 @@
     "esbuild": "0.23.0",
     "esbuild-plugins-node-modules-polyfill": "1.6.4",
     "prettier": "3.3.3",
+    "pretty-format": "29.7.0",
     "pretty-quick": "4.0.0",
     "pure-http": "4.0.2",
     "readable-stream": "4.5.2",
     "stream-browserify": "3.0.0",
-    "ts-node": "^10.9.2",
+    "ts-node": "10.9.2",
     "typescript": "5.5.4",
     "vitest": "2.0.4"
   },
