@@ -515,7 +515,7 @@ async function loadShims() {
     loadShim(/@smithy\/util-hex-encoding/, "@smithy/util-hex-encoding.js"),
     loadShim(/@smithy\/util-utf8/, "@smithy/util-utf8.js"),
     loadShim(/@smithy\/util-base64/, "@smithy/util-base64.js"),
-    loadShim(/mnemonist\/lru-cache/, "mnemonist/lru-cache.js"),
+    loadShim(/mnemonist\/lru-cache\.js/, "mnemonist/lru-cache.js"),
     loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
     loadShim(/sdk-stream-mixin.browser\.js/, "sdk-stream-mixin.js"),
     loadShim(/stream-collector\.js/, "stream-collector.js"),
