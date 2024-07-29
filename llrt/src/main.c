@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <zstd.h>
 #include <stdarg.h>
-
+#include <sys/mman.h>
 #include <sys/syscall.h>
 
 #ifdef __x86_64__
@@ -176,7 +176,7 @@ static void readData(
   *compressedData = (uint8_t *)&data[dataOffset];
 }
 
-static void decompress(char **uncompressedData, uint32_t *uncompressedSize)
+static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int outputFd)
 {
 
 #include "data.c"
@@ -202,7 +202,16 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize)
 
   readData(data, parts, &inputSizes, &outputSizes, &compressedData, uncompressedSize);
 
-  uncompressed = (char *)malloc(*uncompressedSize);
+  if (ftruncate(outputFd, *uncompressedSize) == -1)
+  {
+    err(1, "Failed to set file size");
+  }
+
+  uncompressed = mmap(NULL, *uncompressedSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
+  if (uncompressed == MAP_FAILED)
+  {
+    err(1, "Memory mapping failed: Unable to map %u bytes. Make sure you have enough memory available", *uncompressedSize);
+  }
   if (!uncompressed)
   {
     err(1, "Memory allocation failed: Unable to allocate %u bytes. Make sure you have enough memory available", *uncompressedSize);
@@ -263,14 +272,16 @@ int main(int argc, char *argv[])
   char *uncompressedData;
   uint32_t uncompressedSize;
 
-  decompress(&uncompressedData, &uncompressedSize);
+  decompress(&uncompressedData, &uncompressedSize, outputFd);
 
   double t1 = micro_seconds();
   logInfo("Runtime starting\n");
   logInfo("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
 
-  write(outputFd, uncompressedData, uncompressedSize);
-  free(uncompressedData);
+  if (munmap(uncompressedData, uncompressedSize) == -1)
+  {
+    err(1, "Failed to unmap memory");
+  }
 
   double t2 = micro_seconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
