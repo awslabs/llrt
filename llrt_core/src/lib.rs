@@ -24,6 +24,6 @@ mod test_utils;
 pub mod utils;
 pub mod vm;
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub use llrt_modules::VERSION;
 
 pub use rquickjs::{async_with, AsyncContext, CatchResultExt, Module, Value};

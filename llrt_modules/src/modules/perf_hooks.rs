@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::ModuleInfo;
+use crate::{ModuleInfo, TIME_ORIGIN};
 use chrono::Utc;
 use llrt_utils::module::export_default;
 use rquickjs::{
@@ -9,9 +9,7 @@ use rquickjs::{
     prelude::Func,
     Ctx, Object, Result,
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-pub static TIME_ORIGIN: AtomicUsize = AtomicUsize::new(0);
+use std::sync::atomic::Ordering;
 
 fn get_time_origin() -> f64 {
     let time_origin = TIME_ORIGIN.load(Ordering::Relaxed) as f64;
