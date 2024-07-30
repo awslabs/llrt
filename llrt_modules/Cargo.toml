@@ -35,21 +35,23 @@ os = [
 ]
 path = []
 process = []
-perf_hooks = []
+perf_hooks = ["chrono"]
 performance = ["perf_hooks"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
 
 [dependencies]
-chrono = { version = "0.4.38", default-features = false, features = [
+chrono = { version = "0.4", default-features = false, features = [
   "std",
   "now",
-] }
+], optional = true }
 either = "1"
 itoa = { version = "1", optional = true }
 once_cell = { version = "1", optional = true }
-llrt_utils = { version = "0.1.15-beta", path = "../llrt_utils", default-features = false, features = ["ctx"] }
+llrt_utils = { version = "0.1.15-beta", path = "../llrt_utils", default-features = false, features = [
+  "ctx",
+] }
 rquickjs = { version = "0.6", features = [
   "array-buffer",
   "either",
