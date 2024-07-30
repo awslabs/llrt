@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <zstd.h>
 #include <stdarg.h>
-
+#include <sys/mman.h>
 #include <sys/syscall.h>
 
 #ifdef __x86_64__
@@ -127,9 +127,9 @@ typedef struct
 {
   uint32_t srcSize;
   uint32_t dstSize;
+  uint32_t id;
   const void *inputBuffer;
   const void *outputBuffer;
-  uint32_t id;
 } DecompressThreadArgs;
 
 static void *decompressPartial(void *arg)
@@ -139,7 +139,7 @@ static void *decompressPartial(void *arg)
   size_t dstSize = args->dstSize;
 
   size_t const dSize = ZSTD_decompress((void *)args->outputBuffer, dstSize, args->inputBuffer, srcSize);
-  free(args);
+
   if (ZSTD_isError(dSize))
   {
     printf("%s!\n", ZSTD_getErrorName(dSize));
@@ -171,12 +171,10 @@ static void readData(
   // Calculate the offset to the compressed data
   uint8_t dataOffset = 1 + (2 * metadataSize);
 
-  fflush(stdout);
-
   *compressedData = (uint8_t *)&data[dataOffset];
 }
 
-static void decompress(char **uncompressedData, uint32_t *uncompressedSize)
+static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int outputFd)
 {
 
 #include "data.c"
@@ -202,29 +200,34 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize)
 
   readData(data, parts, &inputSizes, &outputSizes, &compressedData, uncompressedSize);
 
-  uncompressed = (char *)malloc(*uncompressedSize);
-  if (!uncompressed)
+  if (ftruncate(outputFd, *uncompressedSize) == -1)
   {
-    err(1, "Memory allocation failed: Unable to allocate %u bytes. Make sure you have enough memory available", *uncompressedSize);
+    err(1, "Failed to set file size");
   }
 
+  uncompressed = mmap(NULL, *uncompressedSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
+  if (uncompressed == MAP_FAILED || !uncompressed)
+  {
+    err(1, "Memory mapping failed: Unable to map %u bytes. Make sure you have enough memory available", *uncompressedSize);
+  }
+
+  DecompressThreadArgs args[parts];
   for (uint32_t i = 0; i < parts; i++)
   {
-    DecompressThreadArgs *args = malloc(sizeof(DecompressThreadArgs));
-    args->inputBuffer = compressedData + inputOffset;
-    args->outputBuffer = uncompressed + outputOffset;
-    args->srcSize = inputSizes[i];
-    args->dstSize = outputSizes[i];
-    args->id = i;
+    args[i].inputBuffer = compressedData + inputOffset;
+    args[i].outputBuffer = uncompressed + outputOffset;
+    args[i].srcSize = inputSizes[i];
+    args[i].dstSize = outputSizes[i];
+    args[i].id = i;
     inputOffset += inputSizes[i];
     outputOffset += outputSizes[i];
     if (parts > 1)
     {
-      pthread_create(&threads[i], NULL, decompressPartial, (void *)args);
+      pthread_create(&threads[i], NULL, decompressPartial, (void *)&args[i]);
     }
     else
     {
-      if (decompressPartial((void *)args) > 0)
+      if (decompressPartial((void *)&args[i]) > 0)
       {
         err(1, "failed to decompress");
       }
@@ -263,14 +266,16 @@ int main(int argc, char *argv[])
   char *uncompressedData;
   uint32_t uncompressedSize;
 
-  decompress(&uncompressedData, &uncompressedSize);
+  decompress(&uncompressedData, &uncompressedSize, outputFd);
 
   double t1 = micro_seconds();
   logInfo("Runtime starting\n");
   logInfo("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
 
-  write(outputFd, uncompressedData, uncompressedSize);
-  free(uncompressedData);
+  if (munmap(uncompressedData, uncompressedSize) == -1)
+  {
+    err(1, "Failed to unmap memory");
+  }
 
   double t2 = micro_seconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
@@ -329,7 +334,7 @@ int main(int argc, char *argv[])
 
   logError("Failed to start executable");
 
-  err(1, "%s failed", "fexecve");
+  err(1, "fexecve failed");
 
   return 1;
 }
