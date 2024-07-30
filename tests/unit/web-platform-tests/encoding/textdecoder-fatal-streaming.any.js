@@ -11,7 +11,7 @@ test(function() {
     [
         {encoding: 'utf-8', sequence: [0xC0]},
         {encoding: 'utf-16le', sequence: [0x00]},
-        // {encoding: 'utf-16be', sequence: [0x00]}
+        {encoding: 'utf-16be', sequence: [0x00]}
     ].forEach(function(testCase) {
 
         assert_throws_js(TypeError, function() {
