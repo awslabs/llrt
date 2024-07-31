@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use hex_simd::AsciiCase;
 
-use once_cell::sync::Lazy;
-use std::collections::HashMap;
-
 #[derive(Clone)]
 pub enum Encoder {
     Hex,
@@ -15,39 +12,36 @@ pub enum Encoder {
     Utf16be,
 }
 
-static ENCODING_MAP: Lazy<HashMap<&'static str, Encoder>> = Lazy::new(|| {
-    let mut map = HashMap::with_capacity(24);
-    // Encoder::Hex
-    map.insert("hex", Encoder::Hex);
-    // Encoder::Base64
-    map.insert("base64", Encoder::Base64);
-    // Encoder::Utf8
-    map.insert("utf-8", Encoder::Utf8);
-    map.insert("utf8", Encoder::Utf8);
-    map.insert("unicode-1-1-utf8", Encoder::Utf8);
-    // Encoder::Utf16le
-    map.insert("utf-16le", Encoder::Utf16le);
-    map.insert("utf-16", Encoder::Utf16le);
-    // Encoder::Windows1252
-    map.insert("windows-1252", Encoder::Windows1252);
-    map.insert("ansi_x3.4-1968", Encoder::Windows1252);
-    map.insert("ascii", Encoder::Windows1252);
-    map.insert("cp1252", Encoder::Windows1252);
-    map.insert("cp819", Encoder::Windows1252);
-    map.insert("csisolatin1", Encoder::Windows1252);
-    map.insert("ibm819", Encoder::Windows1252);
-    map.insert("iso-8859-1", Encoder::Windows1252);
-    map.insert("iso-ir-100", Encoder::Windows1252);
-    map.insert("iso8859-1", Encoder::Windows1252);
-    map.insert("iso88591", Encoder::Windows1252);
-    map.insert("iso_8859-1", Encoder::Windows1252);
-    map.insert("iso_8859-1:1987", Encoder::Windows1252);
-    map.insert("l1", Encoder::Windows1252);
-    map.insert("latin1", Encoder::Windows1252);
-    map.insert("us-ascii", Encoder::Windows1252);
-    map.insert("x-cp1252", Encoder::Windows1252);
-    map
-});
+const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
+    "hex" => Encoder::Hex,
+    "base64" => Encoder::Base64,
+    "utf-8" => Encoder::Utf8,
+    "utf8" => Encoder::Utf8,
+    "unicode-1-1-utf8" => Encoder::Utf8,
+    "utf-16le" => Encoder::Utf16le,
+    "utf16le" => Encoder::Utf16le,
+    "utf-16" => Encoder::Utf16le,
+    "utf16" => Encoder::Utf16le,
+    "utf-16be" => Encoder::Utf16be,
+    "utf16be" => Encoder::Utf16be,
+    "windows-1252" => Encoder::Windows1252,
+    "ansi_x3.4-1968" => Encoder::Windows1252,
+    "ascii" => Encoder::Windows1252,
+    "cp1252" => Encoder::Windows1252,
+    "cp819" => Encoder::Windows1252,
+    "csisolatin1" => Encoder::Windows1252,
+    "ibm819" => Encoder::Windows1252,
+    "iso-8859-1" => Encoder::Windows1252,
+    "iso-ir-100" => Encoder::Windows1252,
+    "iso8859-1" => Encoder::Windows1252,
+    "iso88591" => Encoder::Windows1252,
+    "iso_8859-1" => Encoder::Windows1252,
+    "iso_8859-1:1987" => Encoder::Windows1252,
+    "l1" => Encoder::Windows1252,
+    "latin1" => Encoder::Windows1252,
+    "us-ascii" => Encoder::Windows1252,
+    "x-cp1252" => Encoder::Windows1252,
+};
 
 impl Encoder {
     #[allow(clippy::should_implement_trait)]
