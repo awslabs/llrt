@@ -24,8 +24,8 @@ pub fn get_platform() -> &'static str {
     }
 }
 
-fn cwd() -> String {
-    env::current_dir().unwrap().to_string_lossy().to_string()
+fn cwd(ctx: Ctx<'_>) -> std::io::Result<Result<rquickjs::String<'_>>> {
+    env::current_dir().map(|path| rquickjs::String::from_str(ctx, path.to_string_lossy().as_ref()))
 }
 
 pub fn get_arch() -> &'static str {
