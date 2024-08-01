@@ -3,6 +3,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use quick_xml::{
+    escape::resolve_xml_entity,
     events::{BytesStart, Event},
     Reader,
 };
@@ -99,10 +100,12 @@ impl<'js> XMLParser<'js> {
             }
         }
 
+        let entities = HashMap::new();
+
         Ok(XMLParser {
             tag_value_processor,
             attribute_value_processor,
-            entities: HashMap::new(),
+            entities,
             attribute_name_prefix: attribute_name_prefix.into(),
             ignore_attributes,
             text_node_name: text_node_name.into(),
@@ -116,7 +119,8 @@ impl<'js> XMLParser<'js> {
     pub fn parse(&self, ctx: Ctx<'js>, xml: Value<'js>) -> Result<Object<'js>> {
         let bytes = get_bytes(&ctx, xml)?;
         let mut reader = Reader::from_reader(bytes.as_ref());
-        reader.config_mut().trim_text(true);
+        let config = reader.config_mut();
+        config.trim_text(true);
 
         let mut current_obj = StackObject::new(ctx.clone())?;
         current_obj.has_value = true;
@@ -186,7 +190,10 @@ impl<'js> XMLParser<'js> {
                 },
                 Ok(Event::Text(ref text)) => {
                     let tag_value = text
-                        .unescape_with(|v| self.entities.get(v).map(|x| x.as_ref()))
+                        .unescape_with(|v| {
+                            resolve_xml_entity(v)
+                                .or_else(|| self.entities.get(v).map(|x| x.as_ref()))
+                        })
                         .or_throw(&ctx)?;
                     let tag_value = tag_value.as_ref();
                     let tag_value =
