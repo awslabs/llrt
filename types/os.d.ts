@@ -28,7 +28,7 @@ declare module "os" {
    * Returns a string identifying the operating system platform for which
    * the Node.js binary was compiled. The value is set at compile time.
    */
-  export function platform(): QuickJS.Platform;
+  export function platform(): Platform;
 
   /**
    * Returns the operating system's default directory for temporary files as a
