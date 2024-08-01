@@ -63,6 +63,8 @@ async fn main() -> anyhow::Result<()> {
 | path          | ✔︎     | ✔︎          | `path`          |
 | perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    |
 | os            | ✔︎     | ⚠️           | `os`            |
+| exceptions    | ✔︎     | ⚠️           | `exceptions`    |
+| navigator     | ✔︎     | ⚠️           | `navigator`     |
 | Other modules | ✔︎     | ✘            | N/A             |
 
 _⚠️ = partially supported_

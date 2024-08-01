@@ -6,8 +6,12 @@ pub mod buffer;
 pub mod child_process;
 #[cfg(feature = "events")]
 pub mod events;
+#[cfg(feature = "exceptions")]
+pub mod exceptions;
 #[cfg(feature = "fs")]
 pub mod fs;
+#[cfg(feature = "navigator")]
+pub mod navigator;
 #[cfg(feature = "os")]
 pub mod os;
 #[cfg(feature = "path")]

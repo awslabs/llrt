@@ -1,18 +1,18 @@
 describe("globalThis", () => {
   it("globalThis should have a DOMException", () => {
-    expect(globalThis.DOMException()).toBeDefined();
+    expect(new globalThis.DOMException()).toBeDefined();
   });
   it("globalThis.DOMException() should have a message", () => {
-    expect(globalThis.DOMException().message).toBeDefined();
+    expect(new globalThis.DOMException().message).toBeDefined();
   });
   it("globalThis.DOMException() should have a name", () => {
-    expect(globalThis.DOMException().name).toBeDefined();
+    expect(new globalThis.DOMException().name).toBeDefined();
   });
   it("globalThis.DOMException() should have a stack", () => {
-    expect(globalThis.DOMException().stack).toBeDefined();
+    expect(new globalThis.DOMException().stack).toBeDefined();
   });
   it("globalThis.DOMException() should have a toString()", () => {
-    expect(globalThis.DOMException().toString()).toBeDefined();
+    expect(new globalThis.DOMException().toString()).toBeDefined();
   });
 });
 

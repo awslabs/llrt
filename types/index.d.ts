@@ -10,3 +10,5 @@
 /// <reference types="./process.d.ts" />
 /// <reference types="./stream.d.ts" />
 /// <reference types="./perf_hooks.d.ts" />
+/// <reference types="./exceptions.d.ts" />
+/// <reference types="./navigator.d.ts" />

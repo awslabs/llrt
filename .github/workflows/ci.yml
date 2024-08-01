@@ -65,15 +65,18 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
+            toolchain: stable
           - os: macos-latest
             platform: darwin
             arch: x86_64
+            toolchain: stable
           - os: windows-latest
             platform: windows
             arch: x86_64
+            toolchain: stable-x86_64-pc-windows-gnu
     uses: ./.github/workflows/build-modules.yml
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
-
+      toolchain: ${{ matrix.toolchain }}
