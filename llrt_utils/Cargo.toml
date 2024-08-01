@@ -23,6 +23,7 @@ rquickjs = { version = "0.6.2", features = [
 tokio = { version = "1", optional = true }
 tracing = "0.1"
 once_cell = "1.19.0"
+phf = { version = "0.11.2", features = ["macros"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rust_nightly)'] }

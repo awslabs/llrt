@@ -60,10 +60,12 @@ impl<'js> TextDecoder {
 
     pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
         let bytes = get_bytes(&ctx, buffer)?;
-        let start_pos = if !self.ignore_bom && bytes.len() >= 2 && bytes[..2] == [0xFF, 0xFE] {
-            2
-        } else if !self.ignore_bom && bytes.len() >= 3 && bytes[..3] == [0xEF, 0xBB, 0xBF] {
-            3
+        let start_pos = if !self.ignore_bom {
+            match bytes.get(..3) {
+                Some([0xFF, 0xFE, ..]) | Some([0xFE, 0xFF, ..]) => 2,
+                Some([0xEF, 0xBB, 0xBF]) => 3,
+                _ => 0,
+            }
         } else {
             0
         };
