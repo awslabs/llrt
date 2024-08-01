@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::{ModuleInfo, TIME_ORIGIN, VERSION};
 use chrono::Utc;
-use llrt_utils::module::export_default;
+use llrt_utils::{module::export_default, result::ResultExt};
 use rquickjs::{
     atom::PredefinedAtom,
     convert::Coerced,
@@ -24,8 +24,10 @@ pub fn get_platform() -> &'static str {
     }
 }
 
-fn cwd(ctx: Ctx<'_>) -> std::io::Result<Result<rquickjs::String<'_>>> {
-    env::current_dir().map(|path| rquickjs::String::from_str(ctx, path.to_string_lossy().as_ref()))
+fn cwd(ctx: Ctx<'_>) -> Result<rquickjs::String<'_>> {
+    env::current_dir()
+        .or_throw(&ctx)
+        .and_then(|path| rquickjs::String::from_str(ctx, path.to_string_lossy().as_ref()))
 }
 
 pub fn get_arch() -> &'static str {
