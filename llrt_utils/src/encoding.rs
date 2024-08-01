@@ -57,8 +57,8 @@ impl Encoder {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
             Self::Base64 => Ok(bytes_to_b64_string(bytes)),
             Self::Utf8 | Self::Windows1252 => bytes_to_string(bytes, lossy),
-            Self::Utf16le => bytes_to_utf16le_string(bytes, lossy),
-            Self::Utf16be => bytes_to_utf16be_string(bytes, lossy),
+            Self::Utf16le => bytes_to_utf16_string(bytes, Endian::Little, lossy),
+            Self::Utf16be => bytes_to_utf16_string(bytes, Endian::Big, lossy),
         }
     }
 
@@ -178,12 +178,4 @@ pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Resul
     } else {
         String::from_utf16(&data16).map_err(|e| e.to_string())
     }
-}
-
-pub fn bytes_to_utf16le_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
-    bytes_to_utf16_string(bytes, Endian::Little, lossy)
-}
-
-pub fn bytes_to_utf16be_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
-    bytes_to_utf16_string(bytes, Endian::Big, lossy)
 }
