@@ -519,6 +519,7 @@ async function loadShims() {
     loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
     loadShim(/sdk-stream-mixin.browser\.js/, "sdk-stream-mixin.js"),
     loadShim(/stream-collector\.js/, "stream-collector.js"),
+    loadShim(/splitStream.browser\.js/, "@smithy/split-stream.js"),
   ]);
 }
 
