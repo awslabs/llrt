@@ -184,5 +184,27 @@ declare module "buffer" {
   interface Buffer extends Uint8Array {}
   var Buffer: BufferConstructor;
 
-  export { Buffer };
+  /**
+   * Decodes a string of Base64-encoded data into bytes, and encodes those bytes
+   * into a string using UTF-8.
+   *
+   * The `data` may be any JavaScript-value that can be coerced into a string.
+   *
+   * @legacy Use `Buffer.from(data, 'base64')` instead.
+   * @param data The Base64-encoded input string.
+   */
+  function atob(data: string): string;
+
+  /**
+   * Decodes a string into bytes using UTF-8, and encodes those bytes
+   * into a string using Base64.
+   *
+   * The `data` may be any JavaScript-value that can be coerced into a string.
+   *
+   * @legacy Use `buf.toString('base64')` instead.
+   * @param data An ASCII (Latin1) string.
+   */
+  function btoa(data: string): string;
+
+  export { Buffer, atob, btoa };
 }

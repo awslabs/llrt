@@ -14,7 +14,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
-    Array, ArrayBuffer, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
 };
 
 use crate::module_info::ModuleInfo;
@@ -259,12 +259,14 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     Ok(())
 }
 
-pub fn atob(ctx: Ctx<'_>, encoded_value: String) -> Result<String> {
+pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::String<'_>> {
     let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
-    Ok(unsafe { String::from_utf8_unchecked(vec) })
+    // SAFETY: QuickJS will replace invalid characters with U+FFFD
+    let str = unsafe { String::from_utf8_unchecked(vec) };
+    rquickjs::String::from_str(ctx, &str)
 }
 
-pub fn btoa(value: String) -> String {
+pub fn btoa(value: Coerced<String>) -> String {
     bytes_to_b64_string(value.as_bytes())
 }
 
@@ -319,5 +321,101 @@ impl From<BufferModule> for ModuleInfo<BufferModule> {
             name: "buffer",
             module: val,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+
+    #[tokio::test]
+    async fn test_atob() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "aGVsbG8gd29ybGQ=".to_string();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { atob } from 'buffer';
+
+                        export async function test(data) {
+                            return atob(data);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "hello world");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_atob_invalid_utf8() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "aGVsbG/Ad29ybGQ=".to_string();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { atob } from 'buffer';
+
+                        export async function test(data) {
+                            return atob(data);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "hello�world");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_btoa() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "hello world".to_string();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { btoa } from 'buffer';
+
+                        export async function test(data) {
+                            return btoa(data);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "aGVsbG8gd29ybGQ=");
+            })
+        })
+        .await;
     }
 }
