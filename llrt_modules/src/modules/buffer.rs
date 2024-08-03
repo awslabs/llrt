@@ -5,7 +5,7 @@ use llrt_utils::{
         get_array_buffer_bytes, get_array_bytes, get_bytes, get_coerced_string_bytes,
         get_start_end_indexes, get_string_bytes, obj_to_array_buffer,
     },
-    encoding::Encoder,
+    encoding::{bytes_from_b64, bytes_to_b64_string, Encoder},
     module::export_default,
     result::ResultExt,
 };
@@ -259,14 +259,31 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     Ok(())
 }
 
+pub fn atob(ctx: Ctx<'_>, encoded_value: String) -> Result<String> {
+    let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
+    Ok(unsafe { String::from_utf8_unchecked(vec) })
+}
+
+pub fn btoa(value: String) -> String {
+    bytes_to_b64_string(value.as_bytes())
+}
+
 pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
+    // Buffer
     let buffer = ctx.eval::<Object<'js>, &str>(concat!(
         "class ",
         stringify!(Buffer),
         " extends Uint8Array {}\n",
         stringify!(Buffer),
     ))?;
-    set_prototype(ctx, buffer)
+    set_prototype(ctx, buffer)?;
+
+    // Conversion
+    let globals = ctx.globals();
+    globals.set("atob", Func::from(atob))?;
+    globals.set("btoa", Func::from(btoa))?;
+
+    Ok(())
 }
 
 pub struct BufferModule;
@@ -274,6 +291,8 @@ pub struct BufferModule;
 impl ModuleDef for BufferModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(Buffer))?;
+        declare.declare("atob")?;
+        declare.declare("btoa")?;
         declare.declare("default")?;
 
         Ok(())
@@ -285,6 +304,8 @@ impl ModuleDef for BufferModule {
 
         export_default(ctx, exports, |default| {
             default.set(stringify!(Buffer), buf)?;
+            default.set("atob", Func::from(atob))?;
+            default.set("btoa", Func::from(btoa))?;
             Ok(())
         })?;
 
