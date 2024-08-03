@@ -16,9 +16,8 @@ all = [
   "fs",
   "os",
   "path",
+  "perf-hooks",
   "process",
-  "perf_hooks",
-  "performance",
 ]
 
 buffer = ["llrt_utils/encoding"]
@@ -35,8 +34,7 @@ os = [
 ]
 path = []
 process = []
-perf_hooks = ["chrono"]
-performance = ["perf_hooks"]
+perf-hooks = ["chrono"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]

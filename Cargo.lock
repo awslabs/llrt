@@ -2639,7 +2639,6 @@ version = "0.1.15-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
- "once_cell",
  "phf",
  "rquickjs",
  "tokio",

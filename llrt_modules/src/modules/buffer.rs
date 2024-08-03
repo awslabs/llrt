@@ -5,7 +5,7 @@ use llrt_utils::{
         get_array_buffer_bytes, get_array_bytes, get_bytes, get_coerced_string_bytes,
         get_start_end_indexes, get_string_bytes, obj_to_array_buffer,
     },
-    encoding::Encoder,
+    encoding::{bytes_from_b64, bytes_to_b64_string, Encoder},
     module::export_default,
     result::ResultExt,
 };
@@ -14,7 +14,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
-    Array, ArrayBuffer, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
 };
 
 use crate::module_info::ModuleInfo;
@@ -259,14 +259,33 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     Ok(())
 }
 
+pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::String<'_>> {
+    let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
+    // SAFETY: QuickJS will replace invalid characters with U+FFFD
+    let str = unsafe { String::from_utf8_unchecked(vec) };
+    rquickjs::String::from_str(ctx, &str)
+}
+
+pub fn btoa(value: Coerced<String>) -> String {
+    bytes_to_b64_string(value.as_bytes())
+}
+
 pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
+    // Buffer
     let buffer = ctx.eval::<Object<'js>, &str>(concat!(
         "class ",
         stringify!(Buffer),
         " extends Uint8Array {}\n",
         stringify!(Buffer),
     ))?;
-    set_prototype(ctx, buffer)
+    set_prototype(ctx, buffer)?;
+
+    // Conversion
+    let globals = ctx.globals();
+    globals.set("atob", Func::from(atob))?;
+    globals.set("btoa", Func::from(btoa))?;
+
+    Ok(())
 }
 
 pub struct BufferModule;
@@ -274,6 +293,8 @@ pub struct BufferModule;
 impl ModuleDef for BufferModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(Buffer))?;
+        declare.declare("atob")?;
+        declare.declare("btoa")?;
         declare.declare("default")?;
 
         Ok(())
@@ -285,6 +306,8 @@ impl ModuleDef for BufferModule {
 
         export_default(ctx, exports, |default| {
             default.set(stringify!(Buffer), buf)?;
+            default.set("atob", Func::from(atob))?;
+            default.set("btoa", Func::from(btoa))?;
             Ok(())
         })?;
 
@@ -298,5 +321,101 @@ impl From<BufferModule> for ModuleInfo<BufferModule> {
             name: "buffer",
             module: val,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+
+    #[tokio::test]
+    async fn test_atob() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "aGVsbG8gd29ybGQ=".to_string();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { atob } from 'buffer';
+
+                        export async function test(data) {
+                            return atob(data);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "hello world");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_atob_invalid_utf8() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "aGVsbG/Ad29ybGQ=".to_string();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { atob } from 'buffer';
+
+                        export async function test(data) {
+                            return atob(data);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "hello�world");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_btoa() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "hello world".to_string();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { btoa } from 'buffer';
+
+                        export async function test(data) {
+                            return btoa(data);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "aGVsbG8gd29ybGQ=");
+            })
+        })
+        .await;
     }
 }
