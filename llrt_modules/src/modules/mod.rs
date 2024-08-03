@@ -12,9 +12,9 @@ pub mod fs;
 pub mod os;
 #[cfg(feature = "path")]
 pub mod path;
-#[cfg(feature = "perf_hooks")]
+#[cfg(feature = "perf-hooks")]
 pub mod perf_hooks;
-#[cfg(feature = "performance")]
+#[cfg(feature = "perf-hooks")]
 pub mod performance;
 #[cfg(feature = "process")]
 pub mod process;

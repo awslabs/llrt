@@ -53,13 +53,17 @@ async fn main() -> anyhow::Result<()> {
 > [!NOTE]
 > Only a fraction of the Node.js APIs are supported. Below is a high level overview of partially supported APIs and modules.
 
-|               | Node.js | LLRT Modules | Feature  |
-| ------------- | ------- | ------------ | -------- |
-| buffer        | ✔︎     | ✔︎️         | `buffer` |
-| fs/promises   | ✔︎     | ⚠️           | `fs`     |
-| fs            | ✔︎     | ⚠️           | `fs`     |
-| path          | ✔︎     | ✔︎          | `path`   |
-| Other modules | ✔︎     | ✘            | N/A      |
+|               | Node.js | LLRT Modules | Feature         |
+| ------------- | ------- | ------------ | --------------- |
+| buffer        | ✔︎     | ✔︎️         | `buffer`        |
+| child process | ✔︎     | ⚠️           | `child-process` |
+| events        | ✔︎     | ⚠️           | `events`        |
+| fs/promises   | ✔︎     | ⚠️           | `fs`            |
+| fs            | ✔︎     | ⚠️           | `fs`            |
+| path          | ✔︎     | ✔︎          | `path`          |
+| perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    |
+| os            | ✔︎     | ⚠️           | `os`            |
+| Other modules | ✔︎     | ✘            | N/A             |
 
 _⚠️ = partially supported_
 _⏱ = planned partial support_
