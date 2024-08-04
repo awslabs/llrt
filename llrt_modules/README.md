@@ -65,6 +65,7 @@ async fn main() -> anyhow::Result<()> {
 | os            | ✔︎     | ⚠️           | `os`            |
 | exceptions    | ✔︎     | ⚠️           | `exceptions`    |
 | navigator     | ✔︎     | ⚠️           | `navigator`     |
+| zlib          | ✔︎     | ⚠️           | `zlib`          |
 | Other modules | ✔︎     | ✘            | N/A             |
 
 _⚠️ = partially supported_
