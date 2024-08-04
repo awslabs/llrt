@@ -27,7 +27,12 @@ declare module "process" {
   // Alias for compatibility
   interface ProcessEnv extends Dict<string> {}
   interface HRTime {
-    (time?: [number, number]): [number, number];
+    (): [number, number];
+
+    /**
+     * The `bigint` version of the `{@link process.hrtime()}` method returning the current high-resolution real time in nanoseconds as a `bigint`.
+     */
+    bigint(): bigint;
   }
   interface ProcessRelease {
     name: string;

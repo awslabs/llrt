@@ -14,7 +14,5 @@ pub mod os;
 pub mod path;
 #[cfg(feature = "perf-hooks")]
 pub mod perf_hooks;
-#[cfg(feature = "perf-hooks")]
-pub mod performance;
 #[cfg(feature = "process")]
 pub mod process;
