@@ -7,11 +7,12 @@ use flate2::{
     read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder, ZlibDecoder, ZlibEncoder},
     Compression,
 };
-use llrt_utils::{bytes::get_array_bytes, ctx::CtxExtension, module::export_default};
+use llrt_utils::{ctx::CtxExtension, module::export_default, object::ObjectExt};
 use rquickjs::function::Func;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Result, Value,
+    prelude::Opt,
+    Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Result, Value,
 };
 
 use crate::{utils::array_buffer::ArrayBufferView, ModuleInfo};
@@ -20,17 +21,26 @@ use super::buffer::Buffer;
 
 macro_rules! define_sync_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
-        pub fn $fn_name<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
-            $converter(ctx.clone(), value, $command)
+        pub fn $fn_name<'js>(
+            ctx: Ctx<'js>,
+            value: Value<'js>,
+            options: Opt<Object<'js>>,
+        ) -> Result<Value<'js>> {
+            $converter(ctx.clone(), value, options, $command)
         }
     };
 }
 
 macro_rules! define_async_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
-        pub fn $fn_name<'js>(ctx: Ctx<'js>, value: Value<'js>, cb: Function<'js>) -> Result<()> {
+        pub fn $fn_name<'js>(
+            ctx: Ctx<'js>,
+            value: Value<'js>,
+            options: Opt<Object<'js>>,
+            cb: Function<'js>,
+        ) -> Result<()> {
             ctx.clone().spawn_exit(async move {
-                match $converter(ctx.clone(), value, $command) {
+                match $converter(ctx.clone(), value, options, $command) {
                     Ok(obj) => {
                         () = cb.call((Null.into_js(&ctx), obj))?;
                         Ok::<_, Error>(())
@@ -58,30 +68,30 @@ enum ZlibCommand {
 fn zlib_converter<'js>(
     ctx: Ctx<'js>,
     value: Value<'js>,
+    options: Opt<Object<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
     let src = if value.is_string() {
         let string = value.as_string().unwrap().to_string()?;
         string.as_bytes().to_vec()
-    } else if value.is_array() {
-        get_array_bytes(&ctx, &value, 0, None)?.unwrap()
     } else {
         let buffer = ArrayBufferView::from_js(&ctx, value)?;
         buffer.as_bytes().unwrap().to_vec()
     };
 
+    let mut level = Compression::default();
+    if let Some(options) = options.0 {
+        if let Some(opt) = options.get_optional("level")? {
+            level = Compression::new(opt);
+        }
+    }
+
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        ZlibCommand::Inflate => {
-            ZlibEncoder::new(&src[..], Compression::default()).read_to_end(&mut dst)?
-        },
-        ZlibCommand::InflateRaw => {
-            DeflateEncoder::new(&src[..], Compression::default()).read_to_end(&mut dst)?
-        },
-        ZlibCommand::Gzip => {
-            GzEncoder::new(&src[..], Compression::default()).read_to_end(&mut dst)?
-        },
+        ZlibCommand::Inflate => ZlibEncoder::new(&src[..], level).read_to_end(&mut dst)?,
+        ZlibCommand::InflateRaw => DeflateEncoder::new(&src[..], level).read_to_end(&mut dst)?,
+        ZlibCommand::Gzip => GzEncoder::new(&src[..], level).read_to_end(&mut dst)?,
         ZlibCommand::Deflate => ZlibDecoder::new(&src[..]).read_to_end(&mut dst)?,
         ZlibCommand::DeflateRaw => DeflateDecoder::new(&src[..]).read_to_end(&mut dst)?,
         ZlibCommand::Gunzip => GzDecoder::new(&src[..]).read_to_end(&mut dst)?,
@@ -116,13 +126,12 @@ enum BrotliCommand {
 fn brotli_converter<'js>(
     ctx: Ctx<'js>,
     value: Value<'js>,
+    _options: Opt<Object<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
     let src = if value.is_string() {
         let string = value.as_string().unwrap().to_string()?;
         string.as_bytes().to_vec()
-    } else if value.is_array() {
-        get_array_bytes(&ctx, &value, 0, None)?.unwrap()
     } else {
         let buffer = ArrayBufferView::from_js(&ctx, value)?;
         buffer.as_bytes().unwrap().to_vec()
