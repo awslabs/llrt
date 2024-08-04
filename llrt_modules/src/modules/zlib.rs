@@ -7,11 +7,11 @@ use flate2::{
     read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder, ZlibDecoder, ZlibEncoder},
     Compression,
 };
-use llrt_utils::{ctx::CtxExtension, module::export_default, object::ObjectExt};
+use llrt_utils::{ctx::CtxExtension, module::export_default, object::ObjectExt, result::ResultExt};
 use rquickjs::function::Func;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    prelude::Opt,
+    prelude::{Opt, Rest},
     Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Result, Value,
 };
 use zstd::{
@@ -35,14 +35,23 @@ macro_rules! define_sync_function {
     };
 }
 
-macro_rules! define_async_function {
+macro_rules! define_cb_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
         pub fn $fn_name<'js>(
             ctx: Ctx<'js>,
             value: Value<'js>,
-            options: Opt<Object<'js>>,
-            cb: Function<'js>,
+            args: Rest<Object<'js>>,
         ) -> Result<()> {
+            let mut args_iter = args.0.into_iter().rev();
+            let cb: Function = args_iter
+                .next()
+                .and_then(|v| <rquickjs::Value<'_> as Clone>::clone(&v).into_function())
+                .or_throw_msg(&ctx, "Callback required")?;
+            let options = match args_iter.next() {
+                Some(v) => Opt(Some(v)),
+                None => Opt(None),
+            };
+
             ctx.clone().spawn_exit(async move {
                 match $converter(ctx.clone(), value, options, $command) {
                     Ok(obj) => {
@@ -104,22 +113,22 @@ fn zlib_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(deflate, zlib_converter, ZlibCommand::Deflate);
+define_cb_function!(deflate, zlib_converter, ZlibCommand::Deflate);
 define_sync_function!(deflate_sync, zlib_converter, ZlibCommand::Deflate);
 
-define_async_function!(deflate_raw, zlib_converter, ZlibCommand::DeflateRaw);
+define_cb_function!(deflate_raw, zlib_converter, ZlibCommand::DeflateRaw);
 define_sync_function!(deflate_raw_sync, zlib_converter, ZlibCommand::DeflateRaw);
 
-define_async_function!(gzip, zlib_converter, ZlibCommand::Gzip);
+define_cb_function!(gzip, zlib_converter, ZlibCommand::Gzip);
 define_sync_function!(gzip_sync, zlib_converter, ZlibCommand::Gzip);
 
-define_async_function!(inflate, zlib_converter, ZlibCommand::Inflate);
+define_cb_function!(inflate, zlib_converter, ZlibCommand::Inflate);
 define_sync_function!(inflate_sync, zlib_converter, ZlibCommand::Inflate);
 
-define_async_function!(inflate_raw, zlib_converter, ZlibCommand::InflateRaw);
+define_cb_function!(inflate_raw, zlib_converter, ZlibCommand::InflateRaw);
 define_sync_function!(inflate_raw_sync, zlib_converter, ZlibCommand::InflateRaw);
 
-define_async_function!(gunzip, zlib_converter, ZlibCommand::Gunzip);
+define_cb_function!(gunzip, zlib_converter, ZlibCommand::Gunzip);
 define_sync_function!(gunzip_sync, zlib_converter, ZlibCommand::Gunzip);
 
 enum BrotliCommand {
@@ -151,10 +160,10 @@ fn brotli_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(br_comp, brotli_converter, BrotliCommand::Compress);
+define_cb_function!(br_comp, brotli_converter, BrotliCommand::Compress);
 define_sync_function!(br_comp_sync, brotli_converter, BrotliCommand::Compress);
 
-define_async_function!(br_decomp, brotli_converter, BrotliCommand::Decompress);
+define_cb_function!(br_decomp, brotli_converter, BrotliCommand::Decompress);
 define_sync_function!(br_decomp_sync, brotli_converter, BrotliCommand::Decompress);
 
 enum ZstdCommand {
@@ -193,10 +202,10 @@ fn zstd_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(zstd_comp, zstd_converter, ZstdCommand::Compress);
+define_cb_function!(zstd_comp, zstd_converter, ZstdCommand::Compress);
 define_sync_function!(zstd_comp_sync, zstd_converter, ZstdCommand::Compress);
 
-define_async_function!(zstd_decomp, zstd_converter, ZstdCommand::Decompress);
+define_cb_function!(zstd_decomp, zstd_converter, ZstdCommand::Decompress);
 define_sync_function!(zstd_decomp_sync, zstd_converter, ZstdCommand::Decompress);
 
 pub struct ZlibModule;
