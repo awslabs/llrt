@@ -143,6 +143,3 @@ declare module "zlib" {
      */
     function zstandardDecompressSync(buf: InputType, options?: ZstandardOptions): Buffer;
 }
-declare module "node:zlib" {
-    export * from "zlib";
-}
