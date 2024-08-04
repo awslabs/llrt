@@ -67,6 +67,7 @@ const ES_BUILD_OPTIONS = {
     "net",
     "util",
     "url",
+    "zlib",
     "llrt:hex",
     "llrt:uuid",
     "llrt:xml",
