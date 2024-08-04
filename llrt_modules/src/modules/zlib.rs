@@ -7,19 +7,18 @@ use flate2::{
     read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder, ZlibDecoder, ZlibEncoder},
     Compression,
 };
-use llrt_utils::{ctx::CtxExtension, module::export_default, object::ObjectExt, result::ResultExt};
+use llrt_utils::{
+    bytes::get_bytes, ctx::CtxExtension, module::export_default, object::ObjectExt,
+    result::ResultExt,
+};
 use rquickjs::function::Func;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Opt, Rest},
-    Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Result, Value,
-};
-use zstd::{
-    stream::read::{Decoder as ZstdDecoder, Encoder as ZstdEncoder},
-    zstd_safe::CompressionLevel,
+    Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 
-use crate::{utils::array_buffer::ArrayBufferView, ModuleInfo};
+use crate::ModuleInfo;
 
 use super::buffer::Buffer;
 
@@ -84,13 +83,7 @@ fn zlib_converter<'js>(
     options: Opt<Object<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
-    let src = if value.is_string() {
-        let string = value.as_string().unwrap().to_string()?;
-        string.as_bytes().to_vec()
-    } else {
-        let buffer = ArrayBufferView::from_js(&ctx, value)?;
-        buffer.as_bytes().unwrap().to_vec()
-    };
+    let src = get_bytes(&ctx, value)?;
 
     let mut level = Compression::default();
     if let Some(options) = options.0 {
@@ -142,13 +135,7 @@ fn brotli_converter<'js>(
     _options: Opt<Object<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
-    let src = if value.is_string() {
-        let string = value.as_string().unwrap().to_string()?;
-        string.as_bytes().to_vec()
-    } else {
-        let buffer = ArrayBufferView::from_js(&ctx, value)?;
-        buffer.as_bytes().unwrap().to_vec()
-    };
+    let src = get_bytes(&ctx, value)?;
 
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
@@ -165,48 +152,6 @@ define_sync_function!(br_comp_sync, brotli_converter, BrotliCommand::Compress);
 
 define_cb_function!(br_decomp, brotli_converter, BrotliCommand::Decompress);
 define_sync_function!(br_decomp_sync, brotli_converter, BrotliCommand::Decompress);
-
-enum ZstdCommand {
-    Compress,
-    Decompress,
-}
-
-fn zstd_converter<'js>(
-    ctx: Ctx<'js>,
-    value: Value<'js>,
-    options: Opt<Object<'js>>,
-    command: ZstdCommand,
-) -> Result<Value<'js>> {
-    let src = if value.is_string() {
-        let string = value.as_string().unwrap().to_string()?;
-        string.as_bytes().to_vec()
-    } else {
-        let buffer = ArrayBufferView::from_js(&ctx, value)?;
-        buffer.as_bytes().unwrap().to_vec()
-    };
-
-    let mut level = CompressionLevel::default();
-    if let Some(options) = options.0 {
-        if let Some(opt) = options.get_optional("level")? {
-            level = opt;
-        }
-    }
-
-    let mut dst: Vec<u8> = Vec::with_capacity(src.len());
-
-    let _ = match command {
-        ZstdCommand::Compress => ZstdEncoder::new(&src[..], level)?.read_to_end(&mut dst)?,
-        ZstdCommand::Decompress => ZstdDecoder::new(&src[..])?.read_to_end(&mut dst)?,
-    };
-
-    Buffer(dst).into_js(&ctx)
-}
-
-define_cb_function!(zstd_comp, zstd_converter, ZstdCommand::Compress);
-define_sync_function!(zstd_comp_sync, zstd_converter, ZstdCommand::Compress);
-
-define_cb_function!(zstd_decomp, zstd_converter, ZstdCommand::Decompress);
-define_sync_function!(zstd_decomp_sync, zstd_converter, ZstdCommand::Decompress);
 
 pub struct ZlibModule;
 
@@ -235,12 +180,6 @@ impl ModuleDef for ZlibModule {
 
         declare.declare("brotliDecompress")?;
         declare.declare("brotliDecompressSync")?;
-
-        declare.declare("zstandardCompress")?;
-        declare.declare("zstandardCompressSync")?;
-
-        declare.declare("zstandardDecompress")?;
-        declare.declare("zstandardDecompressSync")?;
 
         declare.declare("default")?;
         Ok(())
@@ -271,12 +210,6 @@ impl ModuleDef for ZlibModule {
 
             default.set("brotliDecompress", Func::from(br_decomp))?;
             default.set("brotliDecompressSync", Func::from(br_decomp_sync))?;
-
-            default.set("zstandardCompress", Func::from(zstd_comp))?;
-            default.set("zstandardCompressSync", Func::from(zstd_comp_sync))?;
-
-            default.set("zstandardDecompress", Func::from(zstd_decomp))?;
-            default.set("zstandardDecompressSync", Func::from(zstd_decomp_sync))?;
 
             Ok(())
         })

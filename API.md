@@ -296,16 +296,6 @@ export class URLSearchParams {
 
 [brotliDecompressSync](https://nodejs.org/api/zlib.html#zlibbrotlidecompresssyncbuffer-options)
 
-
-> [!NOTE]
-> The following functions are LLRT's own implementation of Zstandard format compression/decompression.
-
-- zstandardCompress
-- zstandardCompressSync
-- zstandardDecompress
-- zstandardDecompressSync
-
-
 ## llrt:hex
 
 ```typescript
