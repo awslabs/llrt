@@ -3,7 +3,10 @@
 use std::io::Read;
 
 use brotlic::{CompressorReader as BrotliEncoder, DecompressorReader as BrotliDecoder};
-use flate2::read::{DeflateDecoder, GzDecoder, ZlibDecoder};
+use flate2::{
+    read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder, ZlibDecoder, ZlibEncoder},
+    Compression,
+};
 use llrt_utils::{bytes::get_array_bytes, ctx::CtxExtension, module::export_default};
 use rquickjs::function::Func;
 use rquickjs::{
@@ -44,6 +47,9 @@ macro_rules! define_async_function {
 }
 
 enum ZlibCommand {
+    Inflate,
+    InflateRaw,
+    Gzip,
     Deflate,
     DeflateRaw,
     Gunzip,
@@ -67,6 +73,15 @@ fn zlib_converter<'js>(
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
+        ZlibCommand::Inflate => {
+            ZlibEncoder::new(&src[..], Compression::default()).read_to_end(&mut dst)?
+        },
+        ZlibCommand::InflateRaw => {
+            DeflateEncoder::new(&src[..], Compression::default()).read_to_end(&mut dst)?
+        },
+        ZlibCommand::Gzip => {
+            GzEncoder::new(&src[..], Compression::default()).read_to_end(&mut dst)?
+        },
         ZlibCommand::Deflate => ZlibDecoder::new(&src[..]).read_to_end(&mut dst)?,
         ZlibCommand::DeflateRaw => DeflateDecoder::new(&src[..]).read_to_end(&mut dst)?,
         ZlibCommand::Gunzip => GzDecoder::new(&src[..]).read_to_end(&mut dst)?,
@@ -75,13 +90,23 @@ fn zlib_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_sync_function!(deflate_sync, zlib_converter, ZlibCommand::Deflate);
-define_sync_function!(deflate_raw_sync, zlib_converter, ZlibCommand::DeflateRaw);
-define_sync_function!(gunzip_sync, zlib_converter, ZlibCommand::Gunzip);
+define_async_function!(inflate, zlib_converter, ZlibCommand::Inflate);
+define_sync_function!(inflate_sync, zlib_converter, ZlibCommand::Inflate);
+
+define_async_function!(inflate_raw, zlib_converter, ZlibCommand::InflateRaw);
+define_sync_function!(inflate_raw_sync, zlib_converter, ZlibCommand::InflateRaw);
+
+define_async_function!(gzip, zlib_converter, ZlibCommand::Gzip);
+define_sync_function!(gzip_sync, zlib_converter, ZlibCommand::Gzip);
 
 define_async_function!(deflate, zlib_converter, ZlibCommand::Deflate);
+define_sync_function!(deflate_sync, zlib_converter, ZlibCommand::Deflate);
+
 define_async_function!(deflate_raw, zlib_converter, ZlibCommand::DeflateRaw);
+define_sync_function!(deflate_raw_sync, zlib_converter, ZlibCommand::DeflateRaw);
+
 define_async_function!(gunzip, zlib_converter, ZlibCommand::Gunzip);
+define_sync_function!(gunzip_sync, zlib_converter, ZlibCommand::Gunzip);
 
 enum BrotliCommand {
     Compress,
@@ -113,42 +138,70 @@ fn brotli_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_sync_function!(compress_sync, brotli_converter, BrotliCommand::Compress);
-define_sync_function!(decompress_sync, brotli_converter, BrotliCommand::Decompress);
-
 define_async_function!(compress, brotli_converter, BrotliCommand::Compress);
+define_sync_function!(compress_sync, brotli_converter, BrotliCommand::Compress);
+
 define_async_function!(decompress, brotli_converter, BrotliCommand::Decompress);
+define_sync_function!(decompress_sync, brotli_converter, BrotliCommand::Decompress);
 
 pub struct ZlibModule;
 
 impl ModuleDef for ZlibModule {
     fn declare(declare: &Declarations) -> Result<()> {
+        declare.declare("inflate")?;
+        declare.declare("inflateSync")?;
+
+        declare.declare("inflateRaw")?;
+        declare.declare("inflateRawSync")?;
+
+        declare.declare("gzip")?;
+        declare.declare("gzipSync")?;
+
         declare.declare("deflate")?;
         declare.declare("deflateSync")?;
+
         declare.declare("deflateRaw")?;
         declare.declare("deflateRawSync")?;
+
         declare.declare("gunzip")?;
         declare.declare("gunzipSync")?;
+
         declare.declare("brotliCompress")?;
-        declare.declare("brotliDecompress")?;
         declare.declare("brotliCompressSync")?;
+
+        declare.declare("brotliDecompress")?;
         declare.declare("brotliDecompressSync")?;
+
         declare.declare("default")?;
         Ok(())
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
+            default.set("inflate", Func::from(inflate))?;
+            default.set("inflateSync", Func::from(inflate_sync))?;
+
+            default.set("inflateRaw", Func::from(inflate_raw))?;
+            default.set("inflateRawSync", Func::from(inflate_raw_sync))?;
+
+            default.set("gzip", Func::from(gzip))?;
+            default.set("gzipSync", Func::from(gzip_sync))?;
+
             default.set("deflate", Func::from(deflate))?;
             default.set("deflateSync", Func::from(deflate_sync))?;
+
             default.set("deflateRaw", Func::from(deflate_raw))?;
             default.set("deflateRawSync", Func::from(deflate_raw_sync))?;
+
             default.set("gunzip", Func::from(gunzip))?;
             default.set("gunzipSync", Func::from(gunzip_sync))?;
+
             default.set("brotliCompress", Func::from(compress))?;
-            default.set("brotliDecompress", Func::from(decompress))?;
             default.set("brotliCompressSync", Func::from(compress_sync))?;
+
+            default.set("brotliDecompress", Func::from(decompress))?;
             default.set("brotliDecompressSync", Func::from(decompress_sync))?;
+
             Ok(())
         })
     }
