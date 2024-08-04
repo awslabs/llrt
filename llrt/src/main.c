@@ -116,7 +116,7 @@ static uint32_t calculateSum(uint32_t *array, uint8_t size)
   return sum;
 }
 
-static double micro_seconds()
+static double microSeconds()
 {
   struct timeval tv;
   gettimeofday(&tv, NULL);
@@ -128,6 +128,9 @@ typedef struct
   uint32_t srcSize;
   uint32_t dstSize;
   uint32_t id;
+  uint32_t extraFd;
+  uint32_t extraDataSize;
+  const void *extraData;
   const void *inputBuffer;
   const void *outputBuffer;
 } DecompressThreadArgs;
@@ -135,6 +138,12 @@ typedef struct
 static void *decompressPartial(void *arg)
 {
   DecompressThreadArgs *args = (DecompressThreadArgs *)arg;
+
+  if (args->extraData != NULL)
+  {
+    write(args->extraFd, args->extraData, args->extraDataSize);
+  }
+
   size_t srcSize = args->srcSize;
   size_t dstSize = args->dstSize;
 
@@ -145,6 +154,20 @@ static void *decompressPartial(void *arg)
     printf("%s!\n", ZSTD_getErrorName(dSize));
     return (void *)1;
   }
+  return (void *)0;
+}
+
+typedef struct
+{
+  int fd;
+  char *data;
+  size_t size;
+} WriteFdThreadArgs;
+
+void *writeFdThread(void *arg)
+{
+  WriteFdThreadArgs *args = (WriteFdThreadArgs *)arg;
+  write(args->fd, args->data, args->size);
   return (void *)0;
 }
 
@@ -174,7 +197,7 @@ static void readData(
   *compressedData = (uint8_t *)&data[dataOffset];
 }
 
-static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int outputFd)
+static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int outputFd, int extraFd)
 {
 
 #include "data.c"
@@ -184,8 +207,15 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
   uint32_t *outputSizes;
   uint32_t inputOffset = 0;
   uint32_t outputOffset = 0;
+  uint32_t extraDataSize = *(uint32_t *)extra;
+
   char *uncompressed;
   uint8_t *compressedData;
+
+  char *extraData = (char *)extra + sizeof(uint32_t);
+  pthread_t writeFdThreadId;
+
+  logInfo("Extra data size %lu bytes \n", extraDataSize);
 
   pthread_t threads[parts];
 
@@ -219,6 +249,12 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     args[i].srcSize = inputSizes[i];
     args[i].dstSize = outputSizes[i];
     args[i].id = i;
+    if (i == 0 && extraDataSize > 0)
+    {
+      args[i].extraFd = extraFd;
+      args[i].extraData = extraData;
+      args[i].extraDataSize = extraDataSize;
+    }
     inputOffset += inputSizes[i];
     outputOffset += outputSizes[i];
     if (parts > 1)
@@ -243,7 +279,7 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     }
   }
 
-  *uncompressedData = uncompressed;
+   *uncompressedData = uncompressed;
 }
 
 int main(int argc, char *argv[])
@@ -255,7 +291,7 @@ int main(int argc, char *argv[])
   char *tmpAppname = strrchr(argv[0], '/');
   char *appname = tmpAppname ? ++tmpAppname : argv[0];
 
-  double t0 = micro_seconds();
+  double t0 = microSeconds();
 
   int outputFd = memfd_create_syscall(appname, 0);
   if (outputFd == -1)
@@ -263,12 +299,18 @@ int main(int argc, char *argv[])
     err(1, "Could not create memfd");
   }
 
+  int extraFd = memfd_create_syscall("__bootstrap_extra", 0);
+  if (extraFd == -1)
+  {
+    err(1, "Could not create memfd");
+  }
+
   char *uncompressedData;
   uint32_t uncompressedSize;
 
-  decompress(&uncompressedData, &uncompressedSize, outputFd);
+  decompress(&uncompressedData, &uncompressedSize, outputFd, extraFd);
 
-  double t1 = micro_seconds();
+  double t1 = microSeconds();
   logInfo("Runtime starting\n");
   logInfo("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
 
@@ -277,30 +319,15 @@ int main(int argc, char *argv[])
     err(1, "Failed to unmap memory");
   }
 
-  double t2 = micro_seconds();
+  if ()
+  {
+    err(1, "Failed to unmap memory");
+  }
+
+  double t2 = microSeconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
 
-  // char **new_argv = malloc((size_t)(argc + 1) * sizeof *new_argv);
-  // for (uint8_t i = 0; i < argc; ++i)
-  // {
-  //   if (i == 0)
-  //   {
-  //     size_t length = strlen(appname) + 2;
-  //     new_argv[i] = malloc(length);
-  //     memcpy(new_argv[i], "/", 1);
-  //     memcpy(new_argv[i] + 1, appname, length);
-  //     setenv("_", new_argv[i], true);
-  //   }
-  //   else
-  //   {
-  //     size_t length = strlen(argv[i]) + 1;
-  //     new_argv[i] = malloc(length);
-  //     memcpy(new_argv[i], argv[i], length);
-  //   }
-  // }
-  // new_argv[argc] = NULL;
-
-  unsigned long startTime = (unsigned long)(micro_seconds() / 1000.0);
+  unsigned long startTime = (unsigned long)(microSeconds() / 1000.0);
 
   char startTimeStr[16];
   sprintf(startTimeStr, "%lu", startTime);
@@ -325,7 +352,7 @@ int main(int argc, char *argv[])
   sprintf(mimallocReserveMemoryMb, "%iMiB", (int)(memorySize * memoryFactor));
 
   char outputFdStr[10];
-  sprintf(outputFdStr, "%i", outputFd);
+  sprintf(outputFdStr, "%i", extraFd);
 
   setenv("_START_TIME", startTimeStr, false);
   setenv("MIMALLOC_RESERVE_OS_MEMORY", mimallocReserveMemoryMb, false);

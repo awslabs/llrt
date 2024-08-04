@@ -20,6 +20,7 @@ use std::{
         Arc, Mutex, Once, RwLock,
     },
     task::Poll,
+    time::Instant,
 };
 
 use once_cell::sync::Lazy;
@@ -623,6 +624,7 @@ fn u16_from_le_byte_slice_unchecked(bytes: &[u8]) -> u16 {
 }
 
 fn init_embedded_bytecode() -> std::io::Result<()> {
+    let now = Instant::now();
     trace!("Loading embedded bytecode");
     let argv_0 = env::args().next().expect("Failed to get argv0");
     let mut embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.write().unwrap();
@@ -631,6 +633,7 @@ fn init_embedded_bytecode() -> std::io::Result<()> {
         let mem_fd: i32 = fd_string.parse().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Invalid bytecode-cache fd")
         })?;
+        trace!("Using raw memfd");
         file_from_raw_fd(mem_fd)
     } else {
         File::open(argv_0)
@@ -687,6 +690,8 @@ fn init_embedded_bytecode() -> std::io::Result<()> {
     let bytecode_cache = BytecodeCache::new(buf, embedded_metadata.package_count as usize);
 
     *embedded_bytecode_data = bytecode_cache;
+
+    trace!("Building cache took: {:?}", now.elapsed());
 
     Ok(())
 }

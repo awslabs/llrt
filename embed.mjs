@@ -30,7 +30,7 @@ async function readFileData(files) {
   );
 }
 
-async function buildFileIndex(source, target, fileData) {
+async function buildFileIndex(source, target, fileData, writeRaw) {
   const uint32Buffer = (length) => {
     const buffer = Buffer.alloc(4);
     buffer.writeUInt32LE(length);
@@ -61,7 +61,7 @@ async function buildFileIndex(source, target, fileData) {
   }
 
   const packageCount = fileData.length;
-  const cachePosition = sourceData.length;
+  const cachePosition = writeRaw ? 0 : sourceData.length;
 
   const metadataBuffer = Buffer.concat([
     uint32Buffer(packageCount),
@@ -73,14 +73,21 @@ async function buildFileIndex(source, target, fileData) {
 
   console.log("Embedded size:", cacheBuffer.length / 1024, "kB");
 
-  const finalBuffer = Buffer.concat([sourceData, cacheBuffer, metadataBuffer]);
+  const finalBuffer = Buffer.concat([
+    ...(writeRaw ? [] : [sourceData]),
+    cacheBuffer,
+    metadataBuffer,
+  ]);
 
   await fs.writeFile(target, finalBuffer);
-  await fs.chmod(target, 0o755);
+  if (!writeRaw) {
+    await fs.chmod(target, 0o755);
+  }
 }
 
-const source = process.argv[2];
-const target = process.argv[3];
+const [source, target, rawArg] = process.argv.slice(2);
+const writeRaw = rawArg == "-r" || rawArg == "--raw";
+
 if (!source || !target) {
   console.error(
     `No source or target specified, use:\n${path.basename(process.argv[0])} ${path.basename(process.argv[1])} {input_target} {output_target}`
@@ -92,4 +99,4 @@ console.log("Reading files...");
 const files = await readFiles();
 console.log("Reading file data...");
 const filesContents = await readFileData(files);
-await buildFileIndex(source, target, filesContents);
+await buildFileIndex(source, target, filesContents, writeRaw);

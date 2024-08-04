@@ -72,9 +72,10 @@ llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 define release_template
 release-${1}: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
-	node embed.mjs target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
-	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	
+
+	node embed.mjs target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bytecode -r
+	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bytecode
+
 # cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed -vv
 # mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}
 	@rm -rf llrt-lambda-${1}.zip
@@ -131,7 +132,7 @@ run: export _EXIT_ITERATIONS = 1
 run: export JS_MINIFY = 0
 run: export RUST_LOG = llrt=trace
 run: export _HANDLER = index.handler
-run: 
+run:
 	cargo run -vv
 
 run-ssr: export AWS_LAMBDA_RUNTIME_API = localhost:3000

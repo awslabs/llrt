@@ -4,19 +4,15 @@
 
 set -e
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -lt 2 ]; then
   echo "Error: Two file arguments are required."
-  echo "Usage: $0 input_file output_file"
+  echo "Usage: $0 input_file output_file {uncompressed_data}"
   exit 1
 fi
 
-
-# Set the number of parts to split the file into
-num_parts=2
-data_size=$(wc -c < "$1")
-
 srcfile="$1"
 dstfile="$2"
+extrafile="$3"
 
 # Check if the bytes start with \x7fELF
 if [[ $(hexdump -n 4 -e '4/1 "%02x"' $srcfile) != "7f454c46" ]]; then
@@ -36,6 +32,12 @@ else
     echo "The binary is not an ARM64 or X86_64 ELF executable"
     exit 1
 fi
+
+# Set the number of parts to split the file into
+num_parts=2
+data_size=$(wc -c < "$srcfile")
+extra_data_size=$(wc -c < "$extrafile")
+extra_data_hexed=$(hexdump -v -e '/1 " %02x"' "$extrafile" | sed 's/ /\\\\x/g')
 
 
 # Create a temporary directory to store the parts
@@ -70,7 +72,7 @@ for file in ${temp_folder}/*; do
     rm "${file}"
 done
 
-function little_endian_hex()
+function to_u32_le_hex()
 {
     local hex_code=""
     local number
@@ -86,11 +88,13 @@ function little_endian_hex()
     echo "$hex_code"
 }
 
-INPUT_SIZES_STR=$(little_endian_hex ${input_sizes[@]})
-OUTPUT_SIZES_STR=$(little_endian_hex ${output_sizes[@]})
+INPUT_SIZES_STR=$(to_u32_le_hex ${input_sizes[@]})
+OUTPUT_SIZES_STR=$(to_u32_le_hex ${output_sizes[@]})
+EXTRA_SIZE_STR=$(to_u32_le_hex ${extra_data_size})
 
 cat <<EOF > ${temp_folder}/data.c
 const char *data = "$(printf "\\\x%02x" $num_parts)${INPUT_SIZES_STR}${OUTPUT_SIZES_STR}$(printf "$compressed_data")";
+const char *extra = "${EXTRA_SIZE_STR}$(printf "$extra_data_hexed")";
 EOF
 
 cp "$1" "${1}.bak"
