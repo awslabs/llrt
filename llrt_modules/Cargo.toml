@@ -64,6 +64,7 @@ flate2 = { version = "1.0.30", features = [
     "zlib-ng",
 ], default-features = false }
 brotlic = "0.8.2"
+zstd = { version = "0.13.2", default-features = false, features = [] }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", optional = true }

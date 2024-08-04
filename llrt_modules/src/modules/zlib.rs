@@ -14,6 +14,10 @@ use rquickjs::{
     prelude::Opt,
     Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Result, Value,
 };
+use zstd::{
+    stream::read::{Decoder as ZstdDecoder, Encoder as ZstdEncoder},
+    zstd_safe::CompressionLevel,
+};
 
 use crate::{utils::array_buffer::ArrayBufferView, ModuleInfo};
 
@@ -147,11 +151,73 @@ fn brotli_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(compress, brotli_converter, BrotliCommand::Compress);
-define_sync_function!(compress_sync, brotli_converter, BrotliCommand::Compress);
+define_async_function!(br_compress, brotli_converter, BrotliCommand::Compress);
+define_sync_function!(br_compress_sync, brotli_converter, BrotliCommand::Compress);
 
-define_async_function!(decompress, brotli_converter, BrotliCommand::Decompress);
-define_sync_function!(decompress_sync, brotli_converter, BrotliCommand::Decompress);
+define_async_function!(br_decompress, brotli_converter, BrotliCommand::Decompress);
+define_sync_function!(
+    br_decompress_sync,
+    brotli_converter,
+    BrotliCommand::Decompress
+);
+
+enum ZstandardCommand {
+    Compress,
+    Decompress,
+}
+
+fn zstandard_converter<'js>(
+    ctx: Ctx<'js>,
+    value: Value<'js>,
+    options: Opt<Object<'js>>,
+    command: ZstandardCommand,
+) -> Result<Value<'js>> {
+    let src = if value.is_string() {
+        let string = value.as_string().unwrap().to_string()?;
+        string.as_bytes().to_vec()
+    } else {
+        let buffer = ArrayBufferView::from_js(&ctx, value)?;
+        buffer.as_bytes().unwrap().to_vec()
+    };
+
+    let mut level = CompressionLevel::default();
+    if let Some(options) = options.0 {
+        if let Some(opt) = options.get_optional("level")? {
+            level = opt;
+        }
+    }
+
+    let mut dst: Vec<u8> = Vec::with_capacity(src.len());
+
+    let _ = match command {
+        ZstandardCommand::Compress => ZstdEncoder::new(&src[..], level)?.read_to_end(&mut dst)?,
+        ZstandardCommand::Decompress => ZstdDecoder::new(&src[..])?.read_to_end(&mut dst)?,
+    };
+
+    Buffer(dst).into_js(&ctx)
+}
+
+define_async_function!(
+    zstd_compress,
+    zstandard_converter,
+    ZstandardCommand::Compress
+);
+define_sync_function!(
+    zstd_compress_sync,
+    zstandard_converter,
+    ZstandardCommand::Compress
+);
+
+define_async_function!(
+    zstd_decompress,
+    zstandard_converter,
+    ZstandardCommand::Decompress
+);
+define_sync_function!(
+    zstd_decompress_sync,
+    zstandard_converter,
+    ZstandardCommand::Decompress
+);
 
 pub struct ZlibModule;
 
@@ -181,6 +247,12 @@ impl ModuleDef for ZlibModule {
         declare.declare("brotliDecompress")?;
         declare.declare("brotliDecompressSync")?;
 
+        declare.declare("zstandardCompress")?;
+        declare.declare("zstandardCompressSync")?;
+
+        declare.declare("zstandardDecompress")?;
+        declare.declare("zstandardDecompressSync")?;
+
         declare.declare("default")?;
         Ok(())
     }
@@ -205,11 +277,17 @@ impl ModuleDef for ZlibModule {
             default.set("gunzip", Func::from(gunzip))?;
             default.set("gunzipSync", Func::from(gunzip_sync))?;
 
-            default.set("brotliCompress", Func::from(compress))?;
-            default.set("brotliCompressSync", Func::from(compress_sync))?;
+            default.set("brotliCompress", Func::from(br_compress))?;
+            default.set("brotliCompressSync", Func::from(br_compress_sync))?;
 
-            default.set("brotliDecompress", Func::from(decompress))?;
-            default.set("brotliDecompressSync", Func::from(decompress_sync))?;
+            default.set("brotliDecompress", Func::from(br_decompress))?;
+            default.set("brotliDecompressSync", Func::from(br_decompress_sync))?;
+
+            default.set("zstandardCompress", Func::from(zstd_compress))?;
+            default.set("zstandardCompressSync", Func::from(zstd_compress_sync))?;
+
+            default.set("zstandardDecompress", Func::from(zstd_decompress))?;
+            default.set("zstandardDecompressSync", Func::from(zstd_decompress_sync))?;
 
             Ok(())
         })
