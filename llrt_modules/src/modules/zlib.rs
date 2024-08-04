@@ -61,11 +61,11 @@ macro_rules! define_async_function {
 }
 
 enum ZlibCommand {
-    Inflate,
-    InflateRaw,
-    Gzip,
     Deflate,
     DeflateRaw,
+    Gzip,
+    Inflate,
+    InflateRaw,
     Gunzip,
 }
 
@@ -93,31 +93,31 @@ fn zlib_converter<'js>(
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        ZlibCommand::Inflate => ZlibEncoder::new(&src[..], level).read_to_end(&mut dst)?,
-        ZlibCommand::InflateRaw => DeflateEncoder::new(&src[..], level).read_to_end(&mut dst)?,
+        ZlibCommand::Deflate => ZlibEncoder::new(&src[..], level).read_to_end(&mut dst)?,
+        ZlibCommand::DeflateRaw => DeflateEncoder::new(&src[..], level).read_to_end(&mut dst)?,
         ZlibCommand::Gzip => GzEncoder::new(&src[..], level).read_to_end(&mut dst)?,
-        ZlibCommand::Deflate => ZlibDecoder::new(&src[..]).read_to_end(&mut dst)?,
-        ZlibCommand::DeflateRaw => DeflateDecoder::new(&src[..]).read_to_end(&mut dst)?,
+        ZlibCommand::Inflate => ZlibDecoder::new(&src[..]).read_to_end(&mut dst)?,
+        ZlibCommand::InflateRaw => DeflateDecoder::new(&src[..]).read_to_end(&mut dst)?,
         ZlibCommand::Gunzip => GzDecoder::new(&src[..]).read_to_end(&mut dst)?,
     };
 
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(inflate, zlib_converter, ZlibCommand::Inflate);
-define_sync_function!(inflate_sync, zlib_converter, ZlibCommand::Inflate);
-
-define_async_function!(inflate_raw, zlib_converter, ZlibCommand::InflateRaw);
-define_sync_function!(inflate_raw_sync, zlib_converter, ZlibCommand::InflateRaw);
-
-define_async_function!(gzip, zlib_converter, ZlibCommand::Gzip);
-define_sync_function!(gzip_sync, zlib_converter, ZlibCommand::Gzip);
-
 define_async_function!(deflate, zlib_converter, ZlibCommand::Deflate);
 define_sync_function!(deflate_sync, zlib_converter, ZlibCommand::Deflate);
 
 define_async_function!(deflate_raw, zlib_converter, ZlibCommand::DeflateRaw);
 define_sync_function!(deflate_raw_sync, zlib_converter, ZlibCommand::DeflateRaw);
+
+define_async_function!(gzip, zlib_converter, ZlibCommand::Gzip);
+define_sync_function!(gzip_sync, zlib_converter, ZlibCommand::Gzip);
+
+define_async_function!(inflate, zlib_converter, ZlibCommand::Inflate);
+define_sync_function!(inflate_sync, zlib_converter, ZlibCommand::Inflate);
+
+define_async_function!(inflate_raw, zlib_converter, ZlibCommand::InflateRaw);
+define_sync_function!(inflate_raw_sync, zlib_converter, ZlibCommand::InflateRaw);
 
 define_async_function!(gunzip, zlib_converter, ZlibCommand::Gunzip);
 define_sync_function!(gunzip_sync, zlib_converter, ZlibCommand::Gunzip);
@@ -223,20 +223,20 @@ pub struct ZlibModule;
 
 impl ModuleDef for ZlibModule {
     fn declare(declare: &Declarations) -> Result<()> {
-        declare.declare("inflate")?;
-        declare.declare("inflateSync")?;
-
-        declare.declare("inflateRaw")?;
-        declare.declare("inflateRawSync")?;
-
-        declare.declare("gzip")?;
-        declare.declare("gzipSync")?;
-
         declare.declare("deflate")?;
         declare.declare("deflateSync")?;
 
         declare.declare("deflateRaw")?;
         declare.declare("deflateRawSync")?;
+
+        declare.declare("gzip")?;
+        declare.declare("gzipSync")?;
+
+        declare.declare("inflate")?;
+        declare.declare("inflateSync")?;
+
+        declare.declare("inflateRaw")?;
+        declare.declare("inflateRawSync")?;
 
         declare.declare("gunzip")?;
         declare.declare("gunzipSync")?;
@@ -259,20 +259,20 @@ impl ModuleDef for ZlibModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            default.set("inflate", Func::from(inflate))?;
-            default.set("inflateSync", Func::from(inflate_sync))?;
-
-            default.set("inflateRaw", Func::from(inflate_raw))?;
-            default.set("inflateRawSync", Func::from(inflate_raw_sync))?;
-
-            default.set("gzip", Func::from(gzip))?;
-            default.set("gzipSync", Func::from(gzip_sync))?;
-
             default.set("deflate", Func::from(deflate))?;
             default.set("deflateSync", Func::from(deflate_sync))?;
 
             default.set("deflateRaw", Func::from(deflate_raw))?;
             default.set("deflateRawSync", Func::from(deflate_raw_sync))?;
+
+            default.set("gzip", Func::from(gzip))?;
+            default.set("gzipSync", Func::from(gzip_sync))?;
+
+            default.set("inflate", Func::from(inflate))?;
+            default.set("inflateSync", Func::from(inflate_sync))?;
+
+            default.set("inflateRaw", Func::from(inflate_raw))?;
+            default.set("inflateRawSync", Func::from(inflate_raw_sync))?;
 
             default.set("gunzip", Func::from(gunzip))?;
             default.set("gunzipSync", Func::from(gunzip_sync))?;
