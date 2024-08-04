@@ -20,6 +20,7 @@ all = [
   "process",
   "exceptions",
   "navigator",
+  "zlib",
 ]
 
 buffer = ["llrt_utils/encoding"]
@@ -38,6 +39,8 @@ process = []
 perf-hooks = []
 navigator = []
 exceptions = []
+zlib = []
+
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
 
@@ -57,6 +60,10 @@ rquickjs = { version = "0.6", features = [
 ring = { version = "0.17", optional = true }
 tokio = { version = "1", features = ["rt", "io-util"] }
 tracing = "0.1"
+flate2 = { version = "1.0.30", features = [
+    "zlib-ng",
+], default-features = false }
+brotlic = "0.8.2"
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", optional = true }
