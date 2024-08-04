@@ -25,7 +25,6 @@ child-process = ["events", "__stream", "itoa"]
 events = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 os = [
-  "process",
   "libc",
   "windows-result",
   "windows-registry",
@@ -34,16 +33,12 @@ os = [
 ]
 path = []
 process = []
-perf-hooks = ["chrono"]
+perf-hooks = []
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
 
 [dependencies]
-chrono = { version = "0.4", default-features = false, features = [
-  "std",
-  "now",
-], optional = true }
 either = "1"
 itoa = { version = "1", optional = true }
 once_cell = { version = "1", optional = true }

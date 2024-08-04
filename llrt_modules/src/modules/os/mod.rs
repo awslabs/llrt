@@ -14,7 +14,7 @@ use self::unix::{get_release, get_type, get_version};
 #[cfg(windows)]
 use self::windows::{get_release, get_type, get_version};
 use crate::module_info::ModuleInfo;
-use crate::process::get_platform;
+use crate::sysinfo::get_platform;
 
 #[cfg(unix)]
 mod unix;

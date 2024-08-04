@@ -1,7 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::{ModuleInfo, TIME_ORIGIN, VERSION};
-use chrono::Utc;
+use std::env;
+use std::{collections::HashMap, sync::atomic::Ordering};
+
 use llrt_utils::{module::export_default, result::ResultExt};
 use rquickjs::{
     atom::PredefinedAtom,
@@ -12,17 +13,9 @@ use rquickjs::{
     prelude::Func,
     Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
 };
-use std::env;
-use std::{collections::HashMap, sync::atomic::Ordering};
 
-pub fn get_platform() -> &'static str {
-    let platform = env::consts::OS;
-    match platform {
-        "macos" => "darwin",
-        "windows" => "win32",
-        _ => platform,
-    }
-}
+pub use crate::sysinfo::{get_arch, get_platform};
+use crate::{time, ModuleInfo, VERSION};
 
 fn cwd(ctx: Ctx<'_>) -> Result<rquickjs::String<'_>> {
     env::current_dir()
@@ -30,31 +23,19 @@ fn cwd(ctx: Ctx<'_>) -> Result<rquickjs::String<'_>> {
         .and_then(|path| rquickjs::String::from_str(ctx, path.to_string_lossy().as_ref()))
 }
 
-pub fn get_arch() -> &'static str {
-    let arch = env::consts::ARCH;
-
-    match arch {
-        "x86_64" | "x86" => return "x64",
-        "aarch64" => return "arm64",
-        _ => (),
-    }
-
-    arch
-}
-
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {
-    let now = Utc::now().timestamp_nanos_opt().unwrap_or_default() as u64;
-    let started = TIME_ORIGIN.load(Ordering::Relaxed) as u64;
+    let now = time::now_nanos();
+    let started = time::TIME_ORIGIN.load(Ordering::Relaxed);
 
-    let elapsed = now - started;
+    let elapsed = now.checked_sub(started).unwrap_or_default();
 
     BigInt::from_u64(ctx, elapsed)
 }
 
 fn hr_time(ctx: Ctx<'_>) -> Result<Array<'_>> {
-    let now = Utc::now().timestamp_nanos_opt().unwrap_or_default() as u64;
-    let started = TIME_ORIGIN.load(Ordering::Relaxed) as u64;
-    let elapsed = now - started;
+    let now = time::now_nanos();
+    let started = time::TIME_ORIGIN.load(Ordering::Relaxed);
+    let elapsed = now.checked_sub(started).unwrap_or_default();
 
     let seconds = elapsed / 1_000_000_000;
     let remaining_nanos = elapsed % 1_000_000_000;
@@ -172,5 +153,79 @@ impl From<ProcessModule> for ModuleInfo<ProcessModule> {
             name: "process",
             module: val,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+
+    #[tokio::test]
+    async fn test_hr_time() {
+        time::init();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<ProcessModule>(ctx.clone(), "process")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { hrtime } from 'process';
+
+                        export async function test() {
+                            // TODO: Delaying with setTimeout
+                            for(let i=0; i < (1<<20); i++){}
+                            return hrtime()
+
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<Vec<u32>, _>(&ctx, &module, ()).await;
+                assert_eq!(result.len(), 2);
+                assert_eq!(result[0], 0);
+                assert!(result[1] > 0);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_hr_time_bigint() {
+        time::init();
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<ProcessModule>(ctx.clone(), "process")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { hrtime } from 'process';
+
+                        export async function test() {
+                            // TODO: Delaying with setTimeout
+                            for(let i=0; i < (1<<20); i++){}
+                            return hrtime.bigint()
+
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<Coerced<i64>, _>(&ctx, &module, ()).await;
+                assert!(result.0 > 0);
+            })
+        })
+        .await;
     }
 }

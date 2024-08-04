@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::{ModuleInfo, TIME_ORIGIN};
-use chrono::Utc;
+use std::sync::atomic::Ordering;
+
 use llrt_utils::module::export_default;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -9,19 +9,21 @@ use rquickjs::{
     prelude::Func,
     Ctx, Object, Result,
 };
-use std::sync::atomic::Ordering;
+
+use crate::{time, ModuleInfo};
 
 fn get_time_origin() -> f64 {
-    let time_origin = TIME_ORIGIN.load(Ordering::Relaxed) as f64;
+    let time_origin = time::TIME_ORIGIN.load(Ordering::Relaxed) as f64;
 
     time_origin / 1e6
 }
 
 fn now() -> f64 {
-    let now = Utc::now().timestamp_nanos_opt().unwrap_or_default() as f64;
-    let started = TIME_ORIGIN.load(Ordering::Relaxed) as f64;
+    let now = time::now_nanos();
+    let started = time::TIME_ORIGIN.load(Ordering::Relaxed);
+    let elapsed = now.checked_sub(started).unwrap_or_default();
 
-    (now - started) / 1e6
+    (elapsed as f64) / 1e6
 }
 
 fn to_json(ctx: Ctx<'_>) -> Result<Object<'_>> {
@@ -32,15 +34,7 @@ fn to_json(ctx: Ctx<'_>) -> Result<Object<'_>> {
     Ok(obj)
 }
 
-// For accuracy reasons, this function should be executed when the vm is initialized
-pub fn init() {
-    if TIME_ORIGIN.load(Ordering::Relaxed) == 0 {
-        let time_origin = Utc::now().timestamp_nanos_opt().unwrap_or_default() as usize;
-        TIME_ORIGIN.store(time_origin, Ordering::Relaxed)
-    }
-}
-
-pub(crate) fn new_performance(ctx: Ctx<'_>) -> Result<Object<'_>> {
+fn new_performance(ctx: Ctx<'_>) -> Result<Object<'_>> {
     let global = ctx.globals();
     global.get("performance").or_else(|_| {
         let performance = Object::new(ctx)?;
@@ -78,6 +72,12 @@ impl From<PerfHooksModule> for ModuleInfo<PerfHooksModule> {
         }
     }
 }
+
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    new_performance(ctx.clone())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,7 +85,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_now() {
-        init();
+        time::init();
         test_async_with(|ctx| {
             Box::pin(async move {
                 ModuleEvaluator::eval_rust::<PerfHooksModule>(ctx.clone(), "perf_hooks")
@@ -118,7 +118,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_time_origin() {
-        init();
+        time::init();
         test_async_with(|ctx| {
             Box::pin(async move {
                 ModuleEvaluator::eval_rust::<PerfHooksModule>(ctx.clone(), "perf_hooks")
@@ -147,7 +147,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_to_json() {
-        init();
+        time::init();
         test_async_with(|ctx| {
             Box::pin(async move {
                 ModuleEvaluator::eval_rust::<PerfHooksModule>(ctx.clone(), "perf_hooks")

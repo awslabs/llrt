@@ -362,7 +362,7 @@ impl Vm {
     pub async fn from_options(
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
-        llrt_modules::perf_hooks::init();
+        llrt_modules::time::init();
 
         SYSTEM_RANDOM
             .fill(&mut [0; 8])

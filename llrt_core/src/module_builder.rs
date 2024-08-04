@@ -13,7 +13,6 @@ use crate::modules::{
     os::OsModule,
     path::PathModule,
     perf_hooks::PerfHooksModule,
-    performance,
     process::ProcessModule,
     timers::TimersModule,
     url::UrlModule,
@@ -88,13 +87,13 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::process::init)
             .with_global(crate::modules::navigator::init)
             .with_module(UrlModule)
-            .with_global(performance::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
             .with_module(LlrtHexModule)
             .with_module(LlrtUuidModule)
             .with_module(LlrtXmlModule)
             .with_module(PerfHooksModule)
+            .with_global(crate::modules::perf_hooks::init)
     }
 }
 
