@@ -151,26 +151,22 @@ fn brotli_converter<'js>(
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(br_compress, brotli_converter, BrotliCommand::Compress);
-define_sync_function!(br_compress_sync, brotli_converter, BrotliCommand::Compress);
+define_async_function!(br_comp, brotli_converter, BrotliCommand::Compress);
+define_sync_function!(br_comp_sync, brotli_converter, BrotliCommand::Compress);
 
-define_async_function!(br_decompress, brotli_converter, BrotliCommand::Decompress);
-define_sync_function!(
-    br_decompress_sync,
-    brotli_converter,
-    BrotliCommand::Decompress
-);
+define_async_function!(br_decomp, brotli_converter, BrotliCommand::Decompress);
+define_sync_function!(br_decomp_sync, brotli_converter, BrotliCommand::Decompress);
 
-enum ZstandardCommand {
+enum ZstdCommand {
     Compress,
     Decompress,
 }
 
-fn zstandard_converter<'js>(
+fn zstd_converter<'js>(
     ctx: Ctx<'js>,
     value: Value<'js>,
     options: Opt<Object<'js>>,
-    command: ZstandardCommand,
+    command: ZstdCommand,
 ) -> Result<Value<'js>> {
     let src = if value.is_string() {
         let string = value.as_string().unwrap().to_string()?;
@@ -190,34 +186,18 @@ fn zstandard_converter<'js>(
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        ZstandardCommand::Compress => ZstdEncoder::new(&src[..], level)?.read_to_end(&mut dst)?,
-        ZstandardCommand::Decompress => ZstdDecoder::new(&src[..])?.read_to_end(&mut dst)?,
+        ZstdCommand::Compress => ZstdEncoder::new(&src[..], level)?.read_to_end(&mut dst)?,
+        ZstdCommand::Decompress => ZstdDecoder::new(&src[..])?.read_to_end(&mut dst)?,
     };
 
     Buffer(dst).into_js(&ctx)
 }
 
-define_async_function!(
-    zstd_compress,
-    zstandard_converter,
-    ZstandardCommand::Compress
-);
-define_sync_function!(
-    zstd_compress_sync,
-    zstandard_converter,
-    ZstandardCommand::Compress
-);
+define_async_function!(zstd_comp, zstd_converter, ZstdCommand::Compress);
+define_sync_function!(zstd_comp_sync, zstd_converter, ZstdCommand::Compress);
 
-define_async_function!(
-    zstd_decompress,
-    zstandard_converter,
-    ZstandardCommand::Decompress
-);
-define_sync_function!(
-    zstd_decompress_sync,
-    zstandard_converter,
-    ZstandardCommand::Decompress
-);
+define_async_function!(zstd_decomp, zstd_converter, ZstdCommand::Decompress);
+define_sync_function!(zstd_decomp_sync, zstd_converter, ZstdCommand::Decompress);
 
 pub struct ZlibModule;
 
@@ -277,17 +257,17 @@ impl ModuleDef for ZlibModule {
             default.set("gunzip", Func::from(gunzip))?;
             default.set("gunzipSync", Func::from(gunzip_sync))?;
 
-            default.set("brotliCompress", Func::from(br_compress))?;
-            default.set("brotliCompressSync", Func::from(br_compress_sync))?;
+            default.set("brotliCompress", Func::from(br_comp))?;
+            default.set("brotliCompressSync", Func::from(br_comp_sync))?;
 
-            default.set("brotliDecompress", Func::from(br_decompress))?;
-            default.set("brotliDecompressSync", Func::from(br_decompress_sync))?;
+            default.set("brotliDecompress", Func::from(br_decomp))?;
+            default.set("brotliDecompressSync", Func::from(br_decomp_sync))?;
 
-            default.set("zstandardCompress", Func::from(zstd_compress))?;
-            default.set("zstandardCompressSync", Func::from(zstd_compress_sync))?;
+            default.set("zstandardCompress", Func::from(zstd_comp))?;
+            default.set("zstandardCompressSync", Func::from(zstd_comp_sync))?;
 
-            default.set("zstandardDecompress", Func::from(zstd_decompress))?;
-            default.set("zstandardDecompressSync", Func::from(zstd_decompress_sync))?;
+            default.set("zstandardDecompress", Func::from(zstd_decomp))?;
+            default.set("zstandardDecompressSync", Func::from(zstd_decomp_sync))?;
 
             Ok(())
         })
