@@ -2632,7 +2632,6 @@ dependencies = [
  "windows-registry",
  "windows-result",
  "windows-version",
- "zstd",
 ]
 
 [[package]]

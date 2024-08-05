@@ -39,7 +39,7 @@ process = []
 perf-hooks = []
 navigator = []
 exceptions = []
-zlib = ["flate2", "brotlic", "zstd"]
+zlib = ["flate2", "brotlic"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
@@ -64,7 +64,6 @@ flate2 = { version = "1.0.30", features = [
     "zlib-ng",
 ], default-features = false, optional = true }
 brotlic = { version = "0.8.2", optional = true }
-zstd = { version = "0.13.2", default-features = false, features = [], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", optional = true }

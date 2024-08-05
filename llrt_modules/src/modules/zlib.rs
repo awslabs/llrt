@@ -15,7 +15,7 @@ use rquickjs::function::Func;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Opt, Rest},
-    Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
+    Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
 };
 
 use crate::ModuleInfo;
@@ -27,7 +27,7 @@ macro_rules! define_sync_function {
         pub fn $fn_name<'js>(
             ctx: Ctx<'js>,
             value: Value<'js>,
-            options: Opt<Object<'js>>,
+            options: Opt<Value<'js>>,
         ) -> Result<Value<'js>> {
             $converter(ctx.clone(), value, options, $command)
         }
@@ -39,13 +39,13 @@ macro_rules! define_cb_function {
         pub fn $fn_name<'js>(
             ctx: Ctx<'js>,
             value: Value<'js>,
-            args: Rest<Object<'js>>,
+            args: Rest<Value<'js>>,
         ) -> Result<()> {
             let mut args_iter = args.0.into_iter().rev();
             let cb: Function = args_iter
                 .next()
-                .and_then(|v| <rquickjs::Value<'_> as Clone>::clone(&v).into_function())
-                .or_throw_msg(&ctx, "Callback required")?;
+                .and_then(|v| v.into_function())
+                .or_throw_msg(&ctx, "Callback parameter is not a function")?;
             let options = match args_iter.next() {
                 Some(v) => Opt(Some(v)),
                 None => Opt(None),
@@ -80,7 +80,7 @@ enum ZlibCommand {
 fn zlib_converter<'js>(
     ctx: Ctx<'js>,
     value: Value<'js>,
-    options: Opt<Object<'js>>,
+    options: Opt<Value<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
     let src = get_bytes(&ctx, value)?;
@@ -132,7 +132,7 @@ enum BrotliCommand {
 fn brotli_converter<'js>(
     ctx: Ctx<'js>,
     value: Value<'js>,
-    _options: Opt<Object<'js>>,
+    _options: Opt<Value<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
     let src = get_bytes(&ctx, value)?;
