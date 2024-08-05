@@ -262,6 +262,40 @@ export class URLSearchParams {
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
+## zlib
+
+[deflate](https://nodejs.org/api/zlib.html#zlibdeflatebuffer-options-callback)
+
+[deflateSync](https://nodejs.org/api/zlib.html#zlibdeflatesyncbuffer-options)
+
+[deflateRaw](https://nodejs.org/api/zlib.html#zlibdeflaterawbuffer-options-callback)
+
+[deflateRawSync](https://nodejs.org/api/zlib.html#zlibdeflaterawsyncbuffer-options)
+
+[gzip](https://nodejs.org/api/zlib.html#zlibgzipbuffer-options-callback)
+
+[gzipSync](https://nodejs.org/api/zlib.html#zlibgzipsyncbuffer-options)
+
+[inflate](https://nodejs.org/api/zlib.html#zlibinflatebuffer-options-callback)
+
+[inflateSync](https://nodejs.org/api/zlib.html#zlibinflatesyncbuffer-options)
+
+[inflateRaw](https://nodejs.org/api/zlib.html#zlibinflaterawbuffer-options-callback)
+
+[inflateRawSync](https://nodejs.org/api/zlib.html#zlibinflaterawsyncbuffer-options)
+
+[gunzip](https://nodejs.org/api/zlib.html#zlibgunzipbuffer-options-callback)
+
+[gunzipSync](https://nodejs.org/api/zlib.html#zlibgunzipsyncbuffer-options)
+
+[brotliCompress](https://nodejs.org/api/zlib.html#zlibbrotlicompressbuffer-options-callback)
+
+[brotliCompressSync](https://nodejs.org/api/zlib.html#zlibbrotlicompresssyncbuffer-options)
+
+[brotliDecompress](https://nodejs.org/api/zlib.html#zlibbrotlidecompressbuffer-options-callback)
+
+[brotliDecompressSync](https://nodejs.org/api/zlib.html#zlibbrotlidecompresssyncbuffer-options)
+
 ## llrt:hex
 
 ```typescript

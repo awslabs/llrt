@@ -118,6 +118,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | encoding      | ✔︎     | ✔︎     |
 | console       | ✔︎     | ✔︎     |
 | events        | ✔︎     | ✔︎     |
+| zlib          | ✔︎     | ✔︎     |
 | ESM           | ✔︎     | ✔︎     |
 | CJS           | ✔︎     | ✔︎     |
 | async/await   | ✔︎     | ✔︎     |

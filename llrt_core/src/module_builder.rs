@@ -17,6 +17,7 @@ use crate::modules::{
     timers::TimersModule,
     url::UrlModule,
     util::UtilModule,
+    zlib::ZlibModule,
 };
 pub use llrt_modules::ModuleInfo;
 use rquickjs::{
@@ -94,6 +95,7 @@ impl Default for ModuleBuilder {
             .with_module(LlrtXmlModule)
             .with_module(PerfHooksModule)
             .with_global(crate::modules::perf_hooks::init)
+            .with_module(ZlibModule)
     }
 }
 

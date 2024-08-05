@@ -12,3 +12,4 @@
 /// <reference types="./perf_hooks.d.ts" />
 /// <reference types="./exceptions.d.ts" />
 /// <reference types="./navigator.d.ts" />
+/// <reference types="./zlib.d.ts" />
