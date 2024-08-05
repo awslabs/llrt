@@ -47,6 +47,7 @@ use crate::{
     environment,
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     number::number_to_string,
+    security,
     utils::{
         clone::structured_clone,
         io::get_js_path,
@@ -363,6 +364,7 @@ impl Vm {
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
         llrt_modules::time::init();
+        security::init();
 
         SYSTEM_RANDOM
             .fill(&mut [0; 8])

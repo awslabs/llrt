@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
-use llrt_modules::stream::impl_stream_events;
+use llrt_utils::{ctx::CtxExtension, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},
@@ -15,17 +15,15 @@ use tokio::{
 };
 use tracing::trace;
 
-use super::{get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
+use super::{ensure_access, get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
 use crate::{
     modules::events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
-    security::ensure_net_access,
     stream::{
+        impl_stream_events,
         readable::{ReadableStream, ReadableStreamInner},
         writable::{WritableStream, WritableStreamInner},
         SteamEvents,
     },
-    utils::{object::ObjectExt, result::ResultExt},
-    vm::CtxExtension,
 };
 
 impl_stream_events!(Socket);
@@ -233,11 +231,11 @@ impl<'js> Socket<'js> {
         }
 
         if let Some(path) = path.clone() {
-            ensure_net_access(&ctx, &path)?;
+            ensure_access(&ctx, &path)?;
         }
         if let Some(port) = port {
             let hostname = get_hostname(&host, port);
-            ensure_net_access(&ctx, &hostname)?;
+            ensure_access(&ctx, &hostname)?;
             addr = Some(hostname);
         }
 

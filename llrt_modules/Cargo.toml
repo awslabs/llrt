@@ -13,19 +13,23 @@ all = [
   "buffer",
   "child-process",
   "events",
+  "exceptions",
   "fs",
+  "navigator",
+  "net",
   "os",
   "path",
   "perf-hooks",
   "process",
-  "exceptions",
-  "navigator",
 ]
 
 buffer = ["llrt_utils/encoding"]
 child-process = ["events", "__stream", "itoa"]
 events = []
+exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
+navigator = []
+net = ["events", "__stream"]
 os = [
   "libc",
   "windows-result",
@@ -36,8 +40,7 @@ os = [
 path = []
 process = []
 perf-hooks = []
-navigator = []
-exceptions = []
+
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
 

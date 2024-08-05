@@ -10,18 +10,24 @@ use std::{
 
 use crate::environment::{ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY};
 
-pub static NET_ALLOW_LIST: Lazy<Option<Vec<String>>> =
-    Lazy::new(|| build_access_list(env::var(ENV_LLRT_NET_ALLOW)));
-
-pub static NET_DENY_LIST: Lazy<Option<Vec<String>>> =
-    Lazy::new(|| build_access_list(env::var(ENV_LLRT_NET_DENY)));
-
 // Create global Lazy variables for allowlist and denylist
 pub static HTTP_ALLOW_LIST: Lazy<Option<StdResult<Vec<Uri>, InvalidUri>>> =
-    Lazy::new(|| build_http_access_list(NET_ALLOW_LIST.clone()));
+    Lazy::new(|| build_http_access_list(llrt_modules::net::get_allow_list().cloned()));
 
 pub static HTTP_DENY_LIST: Lazy<Option<StdResult<Vec<Uri>, InvalidUri>>> =
-    Lazy::new(|| build_http_access_list(NET_DENY_LIST.clone()));
+    Lazy::new(|| build_http_access_list(llrt_modules::net::get_deny_list().cloned()));
+
+pub fn init() {
+    let allow_list = build_access_list(env::var(ENV_LLRT_NET_ALLOW));
+    if let Some(allow_list) = allow_list {
+        llrt_modules::net::set_allow_list(allow_list);
+    }
+
+    let deny_list = build_access_list(env::var(ENV_LLRT_NET_DENY));
+    if let Some(deny_list) = deny_list {
+        llrt_modules::net::set_deny_list(deny_list);
+    }
+}
 
 fn build_http_access_list(list: Option<Vec<String>>) -> Option<StdResult<Vec<Uri>, InvalidUri>> {
     list.map(|list| {
@@ -50,27 +56,6 @@ fn build_access_list(env_value: StdResult<String, VarError>) -> Option<Vec<Strin
             })
             .collect()
     })
-}
-
-pub fn ensure_net_access(ctx: &Ctx<'_>, resource: &String) -> Result<()> {
-    if let Some(allow_list) = &*NET_ALLOW_LIST {
-        if !allow_list.contains(resource) {
-            return Err(Exception::throw_message(
-                ctx,
-                &["Network address not allowed: ", resource].concat(),
-            ));
-        }
-    }
-
-    if let Some(deny_list) = &*NET_DENY_LIST {
-        if deny_list.contains(resource) {
-            return Err(Exception::throw_message(
-                ctx,
-                &["Network address denied: ", resource].concat(),
-            ));
-        }
-    }
-    Ok(())
 }
 
 pub fn ensure_url_access(ctx: &Ctx<'_>, uri: &Uri) -> Result<()> {
