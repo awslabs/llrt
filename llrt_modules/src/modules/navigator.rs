@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{Ctx, Object, Result};
 
-use crate::VERSION;
-
-fn get_user_agent() -> String {
-    ["llrt ", VERSION].concat()
+fn get_user_agent() -> &'static str {
+    concat!("llrt ", env!("CARGO_PKG_VERSION"))
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {

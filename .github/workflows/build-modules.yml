@@ -11,6 +11,9 @@ on:
       arch:
         required: true
         type: string
+      toolchain:
+        required: true
+        type: string
 
 jobs:
   build:
@@ -23,7 +26,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable # Modules should work on stable, not just nightly
+          toolchain: ${{ inputs.toolchain }} # Modules should work on stable, not just nightly
       - name: Run tests
         run: |
           cargo test -p llrt_modules

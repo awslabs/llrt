@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::new_without_default)]
+#![allow(clippy::inherent_to_string)]
 pub use self::module_info::ModuleInfo;
 pub use self::modules::*;
 
