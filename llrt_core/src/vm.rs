@@ -8,21 +8,20 @@ use std::{
     fmt::Write,
     fs::File,
     future::{poll_fn, Future},
-    io::{self, Read, Seek, SeekFrom},
+    io::{self},
     mem::size_of,
+    ops::Range,
     os::fd::FromRawFd,
     path::{Component, Path, PathBuf},
     pin::pin,
     process::exit,
     result::Result as StdResult,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex, Once, RwLock,
-    },
+    sync::{Arc, Mutex, Once, RwLock},
     task::Poll,
     time::Instant,
 };
 
+use memmap2::{Advice, Mmap};
 use once_cell::sync::Lazy;
 
 pub use llrt_utils::{ctx::CtxExtension, error::ErrorExtensions};
@@ -37,12 +36,12 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
     Module, Object, Result, Value,
 };
-use tokio::sync::oneshot::{self, Receiver};
+
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 use crate::{
-    bytecode::BYTECODE_EMBEDDED_SIGNATURE,
+    bytecode::{self, BYTECODE_EMBEDDED_SIGNATURE},
     modules::{
         console,
         crypto::SYSTEM_RANDOM,
@@ -63,57 +62,51 @@ use crate::{
     },
 };
 
-#[derive(Default)]
-pub struct BytecodeCache {
-    data: Box<[u8]>,
-    map: HashMap<Arc<str>, Arc<[u8]>>,
+struct BytecodeCache {
+    data: Mmap,
+    map: HashMap<Box<str>, Range<usize>>,
 }
 
 impl BytecodeCache {
-    pub fn new(data: Vec<u8>, package_count: usize) -> Self {
-        let data = data.into_boxed_slice();
-        let mut cache = BytecodeCache {
-            data,
-            map: HashMap::with_capacity(package_count),
-        };
-        let mut offset = 0;
-        let data = &cache.data;
-        let mut entries = Vec::new();
+    pub fn new(data: Mmap, start_position: usize, length: usize, package_count: usize) -> Self {
+        let mut offset = start_position;
+        let mut map = HashMap::with_capacity(package_count);
 
         loop {
             let name_len_start = offset;
             let name_len_end = offset + size_of::<u16>();
             let name_len =
                 u16_from_le_byte_slice_unchecked(&data[name_len_start..name_len_end]) as usize;
-
-            let bytecode_size_start = name_len_end + name_len;
+            let bytecode_pos_start = name_len_end + name_len;
 
             let name =
-                unsafe { std::str::from_utf8_unchecked(&data[name_len_end..bytecode_size_start]) };
+                unsafe { std::str::from_utf8_unchecked(&data[name_len_end..bytecode_pos_start]) };
 
-            let bytecode_start = bytecode_size_start + size_of::<u32>();
-
-            let bytecode_size =
-                u32_from_le_byte_slice_unchecked(&data[bytecode_size_start..bytecode_start])
+            let bytecode_pos_end = bytecode_pos_start + size_of::<u32>();
+            let bytecode_pos =
+                u32_from_le_byte_slice_unchecked(&data[bytecode_pos_start..bytecode_pos_end])
                     as usize;
 
-            let bytecode_end = bytecode_start + bytecode_size;
+            let bytecode_size_start = bytecode_pos_end;
+            let bytecode_size_end = bytecode_size_start + size_of::<u32>();
+            let bytecode_size =
+                u32_from_le_byte_slice_unchecked(&data[bytecode_size_start..bytecode_size_end])
+                    as usize;
 
-            entries.push((name.to_owned(), bytecode_start..bytecode_end));
+            map.insert(name.into(), bytecode_pos..bytecode_pos + bytecode_size);
 
-            offset = bytecode_start + bytecode_size;
+            offset = bytecode_size_end;
 
-            if offset >= data.len() {
+            if offset >= length - 1 {
                 break;
             }
         }
 
-        for (name, range) in entries {
-            let key = Arc::from(name);
-            let value = Arc::from(&cache.data[range]);
-            cache.map.insert(key, value);
-        }
-        cache
+        Self { data, map }
+    }
+
+    fn get(&self, name: &str) -> Option<&[u8]> {
+        self.map.get(name).map(|range| &self.data[range.clone()])
     }
 }
 
@@ -136,8 +129,8 @@ fn file_from_raw_fd(raw_fd: i32) -> std::io::Result<File> {
     }
 }
 
-pub static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<BytecodeCache>> =
-    Lazy::new(|| RwLock::new(BytecodeCache::default()));
+static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<Option<BytecodeCache>>> =
+    Lazy::new(|| RwLock::new(None));
 
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
@@ -214,6 +207,7 @@ impl Resolver for BinaryResolver {
         trace!("Try resolve \"{}\" from \"{}\"", name, base);
 
         let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
+        let embedded_bytecode_data = embedded_bytecode_data.as_ref().unwrap();
 
         if embedded_bytecode_data.map.contains_key(name) {
             return Ok(name.to_string());
@@ -336,11 +330,12 @@ impl Loader for BinaryLoader {
         trace!("Loading module: {}", name);
         {
             let embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.read().unwrap();
-            if let Some(bytes) = embedded_bytecode_data.map.get(name) {
+            let embedded_bytecode_data = embedded_bytecode_data.as_ref().unwrap();
+            if let Some(bytes) = embedded_bytecode_data.get(name) {
                 trace!("Loading embedded module: {}", name);
                 return load_bytecode_module(ctx.clone(), bytes);
             }
-            drop(embedded_bytecode_data);
+
             let path = PathBuf::from(name);
             let mut bytes: &[u8] = &std::fs::read(path)?;
 
@@ -629,84 +624,72 @@ fn init_embedded_bytecode() -> std::io::Result<()> {
     let argv_0 = env::args().next().expect("Failed to get argv0");
     let mut embedded_bytecode_data = EMBEDDED_BYTECODE_DATA.write().unwrap();
 
-    let mut file = if let Ok(fd_string) = env::var("LLRT_MEM_FD") {
+    let file = if let Ok(fd_string) = env::var("LLRT_MEM_FD") {
         let mem_fd: i32 = fd_string.parse().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Invalid bytecode-cache fd")
         })?;
-        trace!("Using raw memfd");
+        trace!("Using raw memfd bytecode cache");
         file_from_raw_fd(mem_fd)
     } else {
         File::open(argv_0)
     }?;
 
-    let mut embedded_bytecode_signature_buf = [0; BYTECODE_EMBEDDED_SIGNATURE.len()];
-    let file_metadata = file.metadata()?;
-    let total_file_size = file_metadata.len();
-    let signature_len = BYTECODE_EMBEDDED_SIGNATURE.len();
-    let signed_signature_len = signature_len as i64;
-    file.seek(SeekFrom::End(-signed_signature_len))?;
-    file.read_exact(&mut embedded_bytecode_signature_buf)?;
+    let mmap = unsafe { Mmap::map(&file)? };
+    mmap.advise(Advice::Sequential).unwrap();
 
-    if embedded_bytecode_signature_buf != BYTECODE_EMBEDDED_SIGNATURE {
+    let total_file_size = mmap.len();
+
+    let signature_len = BYTECODE_EMBEDDED_SIGNATURE.len();
+    let signed_signature_len = signature_len as isize;
+
+    if &mmap[(total_file_size as isize - signed_signature_len) as usize..]
+        != BYTECODE_EMBEDDED_SIGNATURE
+    {
         return Ok(());
     }
 
+    #[repr(C)]
+    #[derive(Debug)]
     struct EmbeddedMeta {
         package_count: u32,
         bytecode_pos: u32,
-    }
-
-    impl EmbeddedMeta {
-        fn read(file: &mut File) -> std::io::Result<Self> {
-            let mut buf = [0; size_of::<u32>() * 2];
-            file.read_exact(&mut buf)?;
-            Ok(EmbeddedMeta {
-                package_count: u32_from_le_byte_slice_unchecked(&buf[..size_of::<u32>()]),
-                bytecode_pos: u32_from_le_byte_slice_unchecked(&buf[size_of::<u32>()..]),
-            })
-        }
+        package_index_pos: u32,
     }
 
     let embedded_meta_size = size_of::<EmbeddedMeta>();
-
     let meta_and_signature_size = embedded_meta_size + signature_len;
 
-    file.seek(SeekFrom::Current(-(meta_and_signature_size as i64)))?;
+    let meta_start = (total_file_size as isize - meta_and_signature_size as isize) as usize;
+    let meta_end = (total_file_size as isize - signature_len as isize) as usize;
 
-    let embedded_metadata = EmbeddedMeta::read(&mut file)?;
+    let embedded_metadata: EmbeddedMeta =
+        unsafe { std::ptr::read(mmap[meta_start..meta_end].as_ptr() as *const _) };
 
-    file.seek(SeekFrom::Current(
-        -(total_file_size as i64 - (embedded_metadata.bytecode_pos as i64 + signed_signature_len)),
-    ))?;
+    println!("Metadata: {:?}", embedded_metadata);
 
-    let total_cache_size = total_file_size as usize
-        - embedded_metadata.bytecode_pos as usize
-        - meta_and_signature_size;
+    let bytecode_pos = embedded_metadata.bytecode_pos as usize;
+    let start_position = embedded_metadata.package_index_pos as usize;
+    let end_pos = total_file_size as usize - meta_and_signature_size;
+    let length = end_pos - bytecode_pos;
 
-    let mut buf = vec![0; total_cache_size];
-    trace!("Loading bytecode cache of {} kB", total_cache_size / 1024);
-    file.read_exact(&mut buf)?;
+    trace!(
+        "Loading bytecode cache of {} kB",
+        (end_pos - bytecode_pos) / 1024
+    );
 
-    let bytecode_cache = BytecodeCache::new(buf, embedded_metadata.package_count as usize);
+    let bytecode_cache = BytecodeCache::new(
+        mmap,
+        start_position,
+        length,
+        embedded_metadata.package_count as usize,
+    );
 
-    *embedded_bytecode_data = bytecode_cache;
+    *embedded_bytecode_data = Some(bytecode_cache);
 
     trace!("Building cache took: {:?}", now.elapsed());
 
     Ok(())
 }
-
-// #[inline(always)]
-// fn read_u32(file: &mut File, buf: &mut [u8; size_of::<u32>()]) -> std::io::Result<u32> {
-//     file.read_exact(buf)?;
-//     Ok(u32::from_le_bytes(*buf))
-// }
-
-// #[inline(always)]
-// fn read_u16(file: &mut File, buf: &mut [u8; size_of::<u16>()]) -> std::io::Result<u16> {
-//     file.read_exact(buf)?;
-//     Ok(u16::from_le_bytes(*buf))
-// }
 
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
     let bytes = get_bytes(&ctx, value)?;
@@ -818,8 +801,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 || EMBEDDED_BYTECODE_DATA
                     .read()
                     .unwrap()
+                    .as_ref()
+                    .unwrap()
                     .map
-                    .contains_key(&Arc::from(specifier.as_str()))
+                    .contains_key(specifier.as_str())
                 || specifier.starts_with('/')
             {
                 specifier

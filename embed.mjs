@@ -44,7 +44,9 @@ async function buildFileIndex(source, target, fileData, writeRaw) {
   };
 
   const sourceData = await fs.readFile(source);
-  const cacheBuffers = [];
+  const packageIndexList = [];
+  let offset = 0;
+  const bytecodeData = [];
 
   for (let [name, data] of fileData) {
     if (name.startsWith("llrt-chunk-")) {
@@ -54,30 +56,44 @@ async function buildFileIndex(source, target, fileData, writeRaw) {
     const nameBuffer = Buffer.from(name);
 
     const bytecodeSizeBuffer = uint32Buffer(data.length);
+    const bytecodeOffsetBuffer = uint32Buffer(offset);
 
-    cacheBuffers.push(
-      Buffer.concat([nameLengthBuffer, nameBuffer, bytecodeSizeBuffer, data])
+    packageIndexList.push(
+      Buffer.concat([
+        nameLengthBuffer,
+        nameBuffer,
+        bytecodeOffsetBuffer,
+        bytecodeSizeBuffer,
+      ])
     );
+
+    offset += data.length;
+    bytecodeData.push(data);
   }
 
+  const allBytecodeData = Buffer.concat(bytecodeData);
+
   const packageCount = fileData.length;
-  const cachePosition = writeRaw ? 0 : sourceData.length;
+  const bytecodePosition = writeRaw ? 0 : sourceData.length;
+  const packageIndexPosition = bytecodePosition + allBytecodeData.length;
 
   const metadataBuffer = Buffer.concat([
     uint32Buffer(packageCount),
-    uint32Buffer(cachePosition),
+    uint32Buffer(bytecodePosition),
+    uint32Buffer(packageIndexPosition),
     Buffer.from("lrt"),
   ]);
 
-  const cacheBuffer = Buffer.concat(cacheBuffers);
-
-  console.log("Embedded size:", cacheBuffer.length / 1024, "kB");
+  const packageIndexBuffer = Buffer.concat(packageIndexList);
 
   const finalBuffer = Buffer.concat([
     ...(writeRaw ? [] : [sourceData]),
-    cacheBuffer,
+    allBytecodeData,
+    packageIndexBuffer,
     metadataBuffer,
   ]);
+
+  console.log("Embedded size:", allBytecodeData.length / 1024, "kB");
 
   await fs.writeFile(target, finalBuffer);
   if (!writeRaw) {

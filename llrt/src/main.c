@@ -128,9 +128,9 @@ typedef struct
   uint32_t srcSize;
   uint32_t dstSize;
   uint32_t id;
-  uint32_t extraFd;
   uint32_t extraDataSize;
-  const void *extraData;
+  const void *extraSrc;
+  const void *extraDst;
   const void *inputBuffer;
   const void *outputBuffer;
 } DecompressThreadArgs;
@@ -139,9 +139,10 @@ static void *decompressPartial(void *arg)
 {
   DecompressThreadArgs *args = (DecompressThreadArgs *)arg;
 
-  if (args->extraData != NULL)
+  if (args->extraSrc != NULL)
   {
-    write(args->extraFd, args->extraData, args->extraDataSize);
+    memcpy((void *)args->extraDst, args->extraSrc, args->extraDataSize);
+    munmap((void *)args->extraDst, args->extraDataSize);
   }
 
   size_t srcSize = args->srcSize;
@@ -208,12 +209,12 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
   uint32_t inputOffset = 0;
   uint32_t outputOffset = 0;
   uint32_t extraDataSize = *(uint32_t *)extra;
+  char *extraDataMap;
 
   char *uncompressed;
   uint8_t *compressedData;
 
   char *extraData = (char *)extra + sizeof(uint32_t);
-  pthread_t writeFdThreadId;
 
   logInfo("Extra data size %lu bytes \n", extraDataSize);
 
@@ -235,6 +236,15 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     err(1, "Failed to set file size");
   }
 
+  if (extraDataSize > 0)
+  {
+    if (ftruncate(extraFd, extraDataSize) == -1)
+    {
+      err(1, "Failed to set file size");
+    }
+    extraDataMap = (char *)mmap(NULL, extraDataSize, PROT_WRITE | PROT_READ, MAP_SHARED, extraFd, 0);
+  }
+
   uncompressed = mmap(NULL, *uncompressedSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
   if (uncompressed == MAP_FAILED || !uncompressed)
   {
@@ -251,8 +261,8 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     args[i].id = i;
     if (i == 0 && extraDataSize > 0)
     {
-      args[i].extraFd = extraFd;
-      args[i].extraData = extraData;
+      args[i].extraSrc = extraData;
+      args[i].extraDst = extraDataMap;
       args[i].extraDataSize = extraDataSize;
     }
     inputOffset += inputSizes[i];
@@ -279,7 +289,7 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     }
   }
 
-   *uncompressedData = uncompressed;
+  *uncompressedData = uncompressed;
 }
 
 int main(int argc, char *argv[])
@@ -319,11 +329,6 @@ int main(int argc, char *argv[])
     err(1, "Failed to unmap memory");
   }
 
-  if ()
-  {
-    err(1, "Failed to unmap memory");
-  }
-
   double t2 = microSeconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
 
@@ -351,13 +356,13 @@ int main(int argc, char *argv[])
   char mimallocReserveMemoryMb[16];
   sprintf(mimallocReserveMemoryMb, "%iMiB", (int)(memorySize * memoryFactor));
 
-  char outputFdStr[10];
-  sprintf(outputFdStr, "%i", extraFd);
+  char extraFdStr[14];
+  sprintf(extraFdStr, "%i", extraFd);
 
   setenv("_START_TIME", startTimeStr, false);
   setenv("MIMALLOC_RESERVE_OS_MEMORY", mimallocReserveMemoryMb, false);
   setenv("MIMALLOC_LIMIT_OS_ALLOC", "1", false);
-  setenv("LLRT_MEM_FD", outputFdStr, false);
+  setenv("LLRT_MEM_FD", extraFdStr, false);
 
   logInfo("Starting app\n");
 
