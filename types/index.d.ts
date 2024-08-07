@@ -13,3 +13,4 @@
 /// <reference types="./perf_hooks.d.ts" />
 /// <reference types="./process.d.ts" />
 /// <reference types="./stream.d.ts" />
+/// <reference types="./zlib.d.ts" />

@@ -1,5 +1,5 @@
 pub use llrt_modules::{
-    buffer, child_process, exceptions, fs, navigator, net, os, path, perf_hooks, process,
+    buffer, child_process, exceptions, fs, navigator, net, os, path, perf_hooks, process, zlib,
 };
 
 pub mod console;

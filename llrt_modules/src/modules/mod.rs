@@ -22,3 +22,5 @@ pub mod path;
 pub mod perf_hooks;
 #[cfg(feature = "process")]
 pub mod process;
+#[cfg(feature = "zlib")]
+pub mod zlib;

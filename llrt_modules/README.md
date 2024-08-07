@@ -67,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
 | path          | ✔︎     | ✔︎          | `path`          |
 | perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    |
 | process       | ✔︎     | ✔︎          | `process`       |
+| zlib          | ✔︎     | ⚠️           | `zlib`          |
 | Other modules | ✔︎     | ✘            | N/A             |
 
 _⚠️ = partially supported_
