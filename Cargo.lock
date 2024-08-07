@@ -2623,6 +2623,7 @@ dependencies = [
  "llrt_utils",
  "nanoid",
  "once_cell",
+ "rand",
  "ring",
  "rquickjs",
  "tokio",

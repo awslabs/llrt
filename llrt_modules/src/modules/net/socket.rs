@@ -406,3 +406,95 @@ impl<'js> Socket<'js> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use rand::Rng;
+    use rquickjs::{function::IntoArgs, module::Evaluated, Ctx, FromJs, Module};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+    use crate::{buffer, net::NetModule};
+
+    async fn server(port: u16) {
+        let listerner = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+
+        let (mut stream, _) = listerner.accept().await.unwrap();
+        stream.set_nodelay(true).unwrap();
+
+        // Read
+        let mut buf = vec![0; 1024];
+        let n = stream.read(&mut buf).await.unwrap();
+
+        // Write
+        stream.write_all(&buf[..n]).await.unwrap();
+        stream.flush().await.unwrap();
+    }
+
+    async fn call_test_delay<'js, T, A>(
+        ctx: &Ctx<'js>,
+        module: &Module<'js, Evaluated>,
+        args: A,
+    ) -> T
+    where
+        T: FromJs<'js>,
+        A: IntoArgs<'js>,
+    {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        call_test::<T, _>(ctx, module, args).await
+    }
+
+    #[tokio::test]
+    async fn test_server_echo() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                buffer::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<NetModule>(ctx.clone(), "net")
+                    .await
+                    .unwrap();
+
+                let mut rng = rand::thread_rng();
+                let port: u16 = rng.gen_range(49152..=65535);
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { connect } from 'net';
+
+                        export async function test(port) {
+                            const socket = connect({ port });
+                            const txData = "Hello World";
+                            return new Promise((resolve, reject) => {
+                                socket.on('connect', () => {
+                                    socket.write(txData, (err) => {
+                                        if (err) {
+                                            reject(err);
+                                        }
+                                    });
+                                });
+                                socket.on('data', (rxData) => {
+                                    resolve(rxData.toString() === txData);
+                                });
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let (ok, _) = tokio::join!(
+                    call_test_delay::<bool, _>(&ctx, &module, (port,)),
+                    server(port)
+                );
+                assert!(ok)
+            })
+        })
+        .await;
+    }
+}

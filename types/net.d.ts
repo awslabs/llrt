@@ -38,7 +38,7 @@ declare module "net" {
     | "closed";
 
   /**
-   * This class is an abstraction of a TCP socket or a streaming `IPC` endpoint (uses named pipes on Windows, and Unix domain sockets otherwise).
+   * This class is an abstraction of a TCP socket or a streaming `IPC` endpoint (only available on Unix with domain sockets).
    * It is also an `EventEmitter`.
    *
    * A `net.Socket` can be created by the user and used directly to interact with a server. For example, it is returned by {@link createConnection},

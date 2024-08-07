@@ -71,4 +71,5 @@ windows-version = { version = "0.1", optional = true }
 
 [dev-dependencies]
 nanoid = "0.4.0"
+rand = "0.8.5"
 tokio = { version = "1", features = ["full"] }

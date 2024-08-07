@@ -329,3 +329,80 @@ impl<'js> Server<'js> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use rand::Rng;
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpStream,
+    };
+
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+    use crate::{buffer, net::NetModule};
+
+    async fn call_tcp(port: u16) {
+        // Connect to server
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port))
+            .await
+            .unwrap();
+        stream.set_nodelay(true).unwrap();
+
+        // Write
+        let msg = b"Hello, world!";
+        stream.write_all(msg).await.unwrap();
+        stream.flush().await.unwrap();
+
+        // Read
+        let mut buf = vec![0; 1024];
+        let n = stream.read(&mut buf).await.unwrap();
+
+        assert_eq!(&buf[..n], msg);
+    }
+
+    #[tokio::test]
+    async fn test_server_echo() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                buffer::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<NetModule>(ctx.clone(), "net")
+                    .await
+                    .unwrap();
+
+                let mut rng = rand::thread_rng();
+                let port: u16 = rng.gen_range(49152..=65535);
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { createServer } from 'net';
+
+                        export async function test(port) {
+                            const server = createServer(socket => {
+                                socket.on('data', data => {
+                                    socket.write(data, () => server.close());
+                                });
+                            });
+
+                            server.listen(port, '127.0.0.1');
+
+                            return new Promise((resolve, reject) => {
+                                server.on('close', () => resolve());
+                                server.on('error', (err) => reject(err));
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                tokio::join!(call_test::<(), _>(&ctx, &module, (port,)), call_tcp(port));
+            })
+        })
+        .await;
+    }
+}
