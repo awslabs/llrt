@@ -6,9 +6,11 @@ use std::sync::{
 };
 
 use llrt_utils::{ctx::CtxExtension, object::ObjectExt, result::ResultExt};
+#[cfg(unix)]
+use rquickjs::IntoJs;
 use rquickjs::{
     prelude::{Opt, Rest, This},
-    Class, Ctx, Exception, Function, IntoJs, Object, Result, Undefined, Value,
+    Class, Ctx, Exception, Function, Object, Result, Undefined, Value,
 };
 #[cfg(unix)]
 use tokio::net::UnixListener;
@@ -284,7 +286,7 @@ impl<'js> Server<'js> {
             {
                 _ = path;
                 return Err(Exception::throw_type(
-                    &ctx2,
+                    &ctx,
                     "Unix domain sockets are not supported on this platform",
                 ));
             }
