@@ -58,13 +58,15 @@ async fn main() -> anyhow::Result<()> {
 | buffer        | ✔︎     | ✔︎️         | `buffer`        |
 | child process | ✔︎     | ⚠️           | `child-process` |
 | events        | ✔︎     | ⚠️           | `events`        |
+| exceptions    | ✔︎     | ⚠️           | `exceptions`    |
 | fs/promises   | ✔︎     | ⚠️           | `fs`            |
 | fs            | ✔︎     | ⚠️           | `fs`            |
+| navigator     | ✔︎     | ⚠️           | `navigator`     |
+| net           | ✔︎     | ⚠️           | `net`           |
+| os            | ✔︎     | ⚠️           | `os`            |
 | path          | ✔︎     | ✔︎          | `path`          |
 | perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    |
-| os            | ✔︎     | ⚠️           | `os`            |
-| exceptions    | ✔︎     | ⚠️           | `exceptions`    |
-| navigator     | ✔︎     | ⚠️           | `navigator`     |
+| process       | ✔︎     | ✔︎          | `process`       |
 | Other modules | ✔︎     | ✘            | N/A             |
 
 _⚠️ = partially supported_
