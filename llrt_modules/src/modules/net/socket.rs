@@ -105,6 +105,11 @@ impl<'js> Socket<'js> {
     }
 
     #[qjs(get, enumerable)]
+    pub fn pending(&self) -> bool {
+        self.pending
+    }
+
+    #[qjs(get, enumerable)]
     pub fn remote_address(&self) -> Option<String> {
         self.remote_address.clone()
     }
