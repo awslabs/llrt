@@ -8,9 +8,11 @@ use rquickjs::{
     prelude::{Opt, Rest, This},
     Class, Ctx, Error, Exception, Function, Object, Result, Value,
 };
+#[cfg(unix)]
+use tokio::net::UnixStream;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::{TcpStream, UnixStream},
+    net::TcpStream,
     sync::oneshot::Receiver,
 };
 use tracing::trace;
@@ -260,8 +262,19 @@ impl<'js> Socket<'js> {
             let this3 = this2.clone();
             let connect = async move {
                 let (readable_done, writable_done) = if let Some(path) = path {
-                    let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
-                    Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                    #[cfg(unix)]
+                    {
+                        let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
+                        Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        _ = path;
+                        return Err(Exception::throw_type(
+                            &ctx3,
+                            "Unix domain sockets are not supported on this platform",
+                        ));
+                    }
                 } else if let Some(addr) = addr {
                     let stream = TcpStream::connect(addr).await.or_throw(&ctx3)?;
                     Self::process_tcp_stream(&this2, &ctx3, stream, allow_half_open)
@@ -328,6 +341,7 @@ impl<'js> Socket<'js> {
         Self::process_stream(this, ctx, reader, writer, allow_half_open)
     }
 
+    #[cfg(unix)]
     pub fn process_unix_stream(
         this: &Class<'js, Self>,
         ctx: &Ctx<'js>,

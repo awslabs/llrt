@@ -8,6 +8,12 @@ use rquickjs::{
     prelude::{Func, This},
     Class, Ctx, IntoJs, Result,
 };
+#[cfg(unix)]
+use tokio::net::{UnixListener, UnixStream};
+use tokio::{
+    net::{TcpListener, TcpStream},
+    sync::oneshot::Receiver,
+};
 
 use self::security::ensure_access;
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
@@ -16,12 +22,6 @@ use crate::{module_info::ModuleInfo, modules::events::Emitter};
 mod security;
 mod server;
 mod socket;
-
-#[cfg(unix)]
-use tokio::{
-    net::{TcpListener, TcpStream, UnixListener, UnixStream},
-    sync::oneshot::Receiver,
-};
 
 use self::{server::Server, socket::Socket};
 

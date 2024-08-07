@@ -10,8 +10,10 @@ use rquickjs::{
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, Function, Object, Result, Undefined, Value,
 };
+#[cfg(unix)]
+use tokio::net::UnixListener;
 use tokio::{
-    net::{TcpListener, UnixListener},
+    net::TcpListener,
     select,
     sync::broadcast::{self, Sender},
 };
@@ -206,16 +208,19 @@ impl<'js> Server<'js> {
 
                 Listener::Tcp(listener)
             } else if let Some(path) = path {
-                if !cfg!(unix) {
+                #[cfg(unix)]
+                {
+                    let listener: UnixListener = UnixListener::bind(path).or_throw(&ctx2)?;
+                    Listener::Unix(listener)
+                }
+                #[cfg(not(unix))]
+                {
+                    _ = path;
                     return Err(Exception::throw_type(
                         &ctx2,
                         "Unix domain sockets are not supported on this platform",
                     ));
                 }
-
-                let listener: UnixListener = UnixListener::bind(path).or_throw(&ctx2)?;
-
-                Listener::Unix(listener)
             } else {
                 panic!("unreachable")
             };
