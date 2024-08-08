@@ -2555,7 +2555,7 @@ checksum = "643cb0b8d4fcc284004d5fd0d67ccf61dfffadb7f75e1e71bc420f4688a3a704"
 
 [[package]]
 name = "llrt"
-version = "0.1.15-beta"
+version = "0.2.0-beta"
 dependencies = [
  "chrono",
  "llrt_core",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_core"
-version = "0.1.15-beta"
+version = "0.2.0-beta"
 dependencies = [
  "async-trait",
  "brotlic",
@@ -2615,7 +2615,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_modules"
-version = "0.1.15-beta"
+version = "0.2.0-beta"
 dependencies = [
  "brotlic",
  "either",
@@ -2637,7 +2637,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_utils"
-version = "0.1.15-beta"
+version = "0.2.0-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
