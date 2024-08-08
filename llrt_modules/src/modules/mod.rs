@@ -12,6 +12,8 @@ pub mod exceptions;
 pub mod fs;
 #[cfg(feature = "navigator")]
 pub mod navigator;
+#[cfg(feature = "net")]
+pub mod net;
 #[cfg(feature = "os")]
 pub mod os;
 #[cfg(feature = "path")]

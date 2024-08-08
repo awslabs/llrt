@@ -17,9 +17,6 @@ pub mod modules;
 pub mod number;
 pub mod runtime_client;
 mod security;
-mod stream {
-    pub use llrt_modules::stream::*;
-}
 mod test_utils;
 pub mod utils;
 pub mod vm;

@@ -1,18 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, RwLock,
 };
 
-use llrt_modules::stream::impl_stream_events;
+use llrt_utils::{ctx::CtxExtension, object::ObjectExt, result::ResultExt};
+#[cfg(unix)]
+use rquickjs::IntoJs;
 use rquickjs::{
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, Function, Object, Result, Undefined, Value,
 };
+#[cfg(unix)]
+use tokio::net::UnixListener;
 use tokio::{
-    net::{TcpListener, UnixListener},
+    net::TcpListener,
     select,
     sync::broadcast::{self, Sender},
 };
@@ -20,9 +23,8 @@ use tokio::{
 use super::{get_address_parts, get_hostname, socket::Socket, Listener, NetStream};
 use crate::{
     modules::events::{EmitError, Emitter, EventEmitter, EventList},
+    stream::impl_stream_events,
     stream::SteamEvents,
-    utils::{object::ObjectExt, result::ResultExt},
-    vm::CtxExtension,
 };
 
 impl_stream_events!(Server);
@@ -36,6 +38,8 @@ pub struct Server<'js> {
     close_tx: Sender<()>,
     #[qjs(skip_trace)]
     allow_half_open: bool,
+    #[qjs(skip_trace)]
+    already_listen: Arc<AtomicBool>,
 }
 
 impl<'js> Emitter<'js> for Server<'js> {
@@ -75,6 +79,7 @@ impl<'js> Server<'js> {
                 address: Undefined.into_value(ctx.clone()),
                 close_tx,
                 allow_half_open,
+                already_listen: Arc::new(AtomicBool::new(false)),
             },
         )?;
 
@@ -112,9 +117,14 @@ impl<'js> Server<'js> {
         let mut callback = None;
 
         let borrow = this.borrow();
-        let mut close_tx = borrow.close_tx.subscribe();
+        let mut close_rx = borrow.close_tx.subscribe();
         let allow_half_open = borrow.allow_half_open;
+        let already_running = borrow.already_listen.clone();
         drop(borrow);
+
+        if already_running.load(Ordering::Relaxed) {
+            return Err(Exception::throw_message(&ctx, "ERR_SERVER_ALREADY_LISTEN"));
+        }
 
         if let Some(first) = args_iter.next() {
             if let Some(callback_arg) = first.as_function() {
@@ -189,37 +199,14 @@ impl<'js> Server<'js> {
         }
 
         ctx.spawn_exit(async move {
-            let listener = if let Some(port) = port {
-                let listener = TcpListener::bind(get_hostname(
-                    &host.unwrap_or_else(|| String::from("0.0.0.0")),
-                    port as u16,
-                ))
-                .await
-                .or_throw(&ctx2)?;
-
-                let address_object = Object::new(ctx2.clone())?;
-
-                let (address, port, family) = get_address_parts(&ctx2, listener.local_addr())?;
-                address_object.set("address", address)?;
-                address_object.set("port", port)?;
-                address_object.set("family", family)?;
-
-                this.borrow_mut().address = address_object.into_value();
-
-                Listener::Tcp(listener)
-            } else if let Some(path) = path {
-                if !cfg!(unix) {
-                    return Err(Exception::throw_type(
-                        &ctx2,
-                        "Unix domain sockets are not supported on this platform",
-                    ));
-                }
-
-                let listener: UnixListener = UnixListener::bind(path).or_throw(&ctx2)?;
-
-                Listener::Unix(listener)
-            } else {
-                panic!("unreachable")
+            already_running.store(true, Ordering::Relaxed);
+            let listener = match Self::bind(this.clone(), ctx2.clone(), port, host, path).await {
+                Ok(listener) => listener,
+                Err(e) => {
+                    already_running.store(false, Ordering::Relaxed);
+                    Err::<(), _>(e).emit_error(&ctx2, this.clone())?;
+                    return Ok(()); // Don't stop the VM if failed to bind
+                },
             };
 
             Self::emit_str(This(this.clone()), &ctx2, "listening", vec![], false)?;
@@ -233,17 +220,19 @@ impl<'js> Server<'js> {
                         Self::handle_socket_connection(
                             this2.clone(),
                             ctx3.clone(),
-                            socket,active_connections.clone(),
+                            socket,
+                            active_connections.clone(),
                             allow_half_open
                         ).emit_error(&ctx3, this2)?;
                     },
-                    _ = close_tx.recv() => {
+                    _ = close_rx.recv() => {
                         break;
                     }
                 }
             }
 
             Self::emit_str(this, &ctx2, "close", vec![], false)?;
+            already_running.store(false, Ordering::Relaxed);
 
             Ok(())
         })?;
@@ -261,6 +250,52 @@ impl<'js> Server<'js> {
 }
 
 impl<'js> Server<'js> {
+    async fn bind(
+        this: Class<'js, Self>,
+        ctx: Ctx<'js>,
+        port: Option<i32>,
+        host: Option<String>,
+        path: Option<String>,
+    ) -> Result<Listener> {
+        let listener = if let Some(port) = port {
+            let listener = TcpListener::bind(get_hostname(
+                &host.unwrap_or_else(|| String::from("0.0.0.0")),
+                port as u16,
+            ))
+            .await
+            .or_throw(&ctx)?;
+
+            let address_object = Object::new(ctx.clone())?;
+
+            let (address, port, family) = get_address_parts(&ctx, listener.local_addr())?;
+            address_object.set("address", address)?;
+            address_object.set("port", port)?;
+            address_object.set("family", family)?;
+
+            this.borrow_mut().address = address_object.into_value();
+
+            Listener::Tcp(listener)
+        } else if let Some(path) = path {
+            #[cfg(unix)]
+            {
+                let listener: UnixListener = UnixListener::bind(&path).or_throw(&ctx)?;
+                this.borrow_mut().address = path.into_js(&ctx)?;
+                Listener::Unix(listener)
+            }
+            #[cfg(not(unix))]
+            {
+                _ = path;
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "Unix domain sockets are not supported on this platform",
+                ));
+            }
+        } else {
+            panic!("unreachable")
+        };
+        Ok(listener)
+    }
+
     fn handle_socket_connection(
         this: Class<'js, Self>,
         ctx: Ctx<'js>,
@@ -294,5 +329,82 @@ impl<'js> Server<'js> {
         })?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use rand::Rng;
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpStream,
+    };
+
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+    use crate::{buffer, net::NetModule};
+
+    async fn call_tcp(port: u16) {
+        // Connect to server
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port))
+            .await
+            .unwrap();
+        stream.set_nodelay(true).unwrap();
+
+        // Write
+        let msg = b"Hello, world!";
+        stream.write_all(msg).await.unwrap();
+        stream.flush().await.unwrap();
+
+        // Read
+        let mut buf = vec![0; 1024];
+        let n = stream.read(&mut buf).await.unwrap();
+
+        assert_eq!(&buf[..n], msg);
+    }
+
+    #[tokio::test]
+    async fn test_server_echo() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                buffer::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<NetModule>(ctx.clone(), "net")
+                    .await
+                    .unwrap();
+
+                let mut rng = rand::thread_rng();
+                let port: u16 = rng.gen_range(49152..=65535);
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { createServer } from 'net';
+
+                        export async function test(port) {
+                            const server = createServer(socket => {
+                                socket.on('data', data => {
+                                    socket.write(data, () => server.close());
+                                });
+                            });
+
+                            server.listen(port, '127.0.0.1');
+
+                            return new Promise((resolve, reject) => {
+                                server.on('close', () => resolve());
+                                server.on('error', (err) => reject(err));
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                tokio::join!(call_test::<(), _>(&ctx, &module, (port,)), call_tcp(port));
+            })
+        })
+        .await;
     }
 }

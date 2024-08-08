@@ -2,30 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
-use llrt_modules::stream::impl_stream_events;
+use llrt_utils::{ctx::CtxExtension, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},
     Class, Ctx, Error, Exception, Function, Object, Result, Value,
 };
+#[cfg(unix)]
+use tokio::net::UnixStream;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::{TcpStream, UnixStream},
+    net::TcpStream,
     sync::oneshot::Receiver,
 };
 use tracing::trace;
 
-use super::{get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
+use super::{ensure_access, get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
 use crate::{
     modules::events::{EmitError, Emitter, EventEmitter, EventKey, EventList},
-    security::ensure_net_access,
     stream::{
+        impl_stream_events,
         readable::{ReadableStream, ReadableStreamInner},
         writable::{WritableStream, WritableStreamInner},
         SteamEvents,
     },
-    utils::{object::ObjectExt, result::ResultExt},
-    vm::CtxExtension,
 };
 
 impl_stream_events!(Socket);
@@ -102,6 +102,11 @@ impl<'js> Socket<'js> {
     #[qjs(get, enumerable)]
     pub fn connecting(&self) -> bool {
         self.connecting
+    }
+
+    #[qjs(get, enumerable)]
+    pub fn pending(&self) -> bool {
+        self.pending
     }
 
     #[qjs(get, enumerable)]
@@ -233,11 +238,11 @@ impl<'js> Socket<'js> {
         }
 
         if let Some(path) = path.clone() {
-            ensure_net_access(&ctx, &path)?;
+            ensure_access(&ctx, &path)?;
         }
         if let Some(port) = port {
             let hostname = get_hostname(&host, port);
-            ensure_net_access(&ctx, &hostname)?;
+            ensure_access(&ctx, &hostname)?;
             addr = Some(hostname);
         }
 
@@ -262,8 +267,19 @@ impl<'js> Socket<'js> {
             let this3 = this2.clone();
             let connect = async move {
                 let (readable_done, writable_done) = if let Some(path) = path {
-                    let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
-                    Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                    #[cfg(unix)]
+                    {
+                        let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
+                        Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        _ = path;
+                        return Err(Exception::throw_type(
+                            &ctx3,
+                            "Unix domain sockets are not supported on this platform",
+                        ));
+                    }
                 } else if let Some(addr) = addr {
                     let stream = TcpStream::connect(addr).await.or_throw(&ctx3)?;
                     Self::process_tcp_stream(&this2, &ctx3, stream, allow_half_open)
@@ -330,6 +346,7 @@ impl<'js> Socket<'js> {
         Self::process_stream(this, ctx, reader, writer, allow_half_open)
     }
 
+    #[cfg(unix)]
     pub fn process_unix_stream(
         this: &Class<'js, Self>,
         ctx: &Ctx<'js>,
@@ -387,5 +404,97 @@ impl<'js> Socket<'js> {
 
         drop(borrow);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use rand::Rng;
+    use rquickjs::{function::IntoArgs, module::Evaluated, Ctx, FromJs, Module};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+    use crate::{buffer, net::NetModule};
+
+    async fn server(port: u16) {
+        let listerner = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+
+        let (mut stream, _) = listerner.accept().await.unwrap();
+        stream.set_nodelay(true).unwrap();
+
+        // Read
+        let mut buf = vec![0; 1024];
+        let n = stream.read(&mut buf).await.unwrap();
+
+        // Write
+        stream.write_all(&buf[..n]).await.unwrap();
+        stream.flush().await.unwrap();
+    }
+
+    async fn call_test_delay<'js, T, A>(
+        ctx: &Ctx<'js>,
+        module: &Module<'js, Evaluated>,
+        args: A,
+    ) -> T
+    where
+        T: FromJs<'js>,
+        A: IntoArgs<'js>,
+    {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        call_test::<T, _>(ctx, module, args).await
+    }
+
+    #[tokio::test]
+    async fn test_server_echo() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                buffer::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<NetModule>(ctx.clone(), "net")
+                    .await
+                    .unwrap();
+
+                let mut rng = rand::thread_rng();
+                let port: u16 = rng.gen_range(49152..=65535);
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { connect } from 'net';
+
+                        export async function test(port) {
+                            const socket = connect({ port });
+                            const txData = "Hello World";
+                            return new Promise((resolve, reject) => {
+                                socket.on('connect', () => {
+                                    socket.write(txData, (err) => {
+                                        if (err) {
+                                            reject(err);
+                                        }
+                                    });
+                                });
+                                socket.on('data', (rxData) => {
+                                    resolve(rxData.toString() === txData);
+                                });
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let (ok, _) = tokio::join!(
+                    call_test_delay::<bool, _>(&ctx, &module, (port,)),
+                    server(port)
+                );
+                assert!(ok)
+            })
+        })
+        .await;
     }
 }

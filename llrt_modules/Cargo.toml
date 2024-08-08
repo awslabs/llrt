@@ -13,20 +13,24 @@ all = [
   "buffer",
   "child-process",
   "events",
+  "exceptions",
   "fs",
+  "navigator",
+  "net",
   "os",
   "path",
   "perf-hooks",
   "process",
-  "exceptions",
-  "navigator",
   "zlib",
 ]
 
 buffer = ["llrt_utils/encoding"]
 child-process = ["events", "__stream", "itoa"]
 events = []
+exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
+navigator = []
+net = ["events", "__stream"]
 os = [
   "libc",
   "windows-result",
@@ -37,8 +41,6 @@ os = [
 path = []
 process = []
 perf-hooks = []
-navigator = []
-exceptions = []
 zlib = ["flate2", "brotlic"]
 
 __bytearray-buffer = ["tokio/sync"]
@@ -61,7 +63,7 @@ ring = { version = "0.17", optional = true }
 tokio = { version = "1", features = ["rt", "io-util"] }
 tracing = "0.1"
 flate2 = { version = "1.0.30", features = [
-    "zlib-ng",
+  "zlib-ng",
 ], default-features = false, optional = true }
 brotlic = { version = "0.8.2", optional = true }
 
@@ -75,4 +77,5 @@ windows-version = { version = "0.1", optional = true }
 
 [dev-dependencies]
 nanoid = "0.4.0"
+rand = "0.8.5"
 tokio = { version = "1", features = ["full"] }

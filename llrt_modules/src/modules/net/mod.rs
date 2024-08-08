@@ -1,27 +1,27 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-mod server;
-mod socket;
+use std::{net::SocketAddr, result::Result as StdResult};
 
-use crate::{
-    module_builder::ModuleInfo,
-    modules::{events::Emitter, module::export_default},
-    utils::result::ResultExt,
-};
-
+use llrt_utils::{module::export_default, result::ResultExt};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
     Class, Ctx, IntoJs, Result,
 };
-
-use std::{net::SocketAddr, result::Result as StdResult};
-
 #[cfg(unix)]
+use tokio::net::{UnixListener, UnixStream};
 use tokio::{
-    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+    net::{TcpListener, TcpStream},
     sync::oneshot::Receiver,
 };
+
+use self::security::ensure_access;
+pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
+use crate::{module_info::ModuleInfo, modules::events::Emitter};
+
+mod security;
+mod server;
+mod socket;
 
 use self::{server::Server, socket::Socket};
 
