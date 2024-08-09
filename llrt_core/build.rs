@@ -133,7 +133,8 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
                 &format!(
                     "include_bytes!(\"..{}{}\")",
                     MAIN_SEPARATOR_STR, &lrt_filename
-                ),
+                )
+                .replace(MAIN_SEPARATOR_STR, "/"),
             );
         }
 
