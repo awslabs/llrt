@@ -157,6 +157,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let console = Object::new(ctx.clone())?;
 
     console.set("log", Func::from(log))?;
+    console.set("clear", Func::from(clear))?;
     console.set("debug", Func::from(log_debug))?;
     console.set("info", Func::from(log))?;
     console.set("trace", Func::from(log_trace))?;
@@ -220,6 +221,10 @@ fn log_assert<'js>(ctx: Ctx<'js>, expression: bool, args: Rest<Value<'js>>) -> R
 
 fn log<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
     log_std_out(&ctx, args, LogLevel::Info)
+}
+
+fn clear() {
+    let _ = stdout().write_all(b"\x1b[1;1H\x1b[0J");
 }
 
 pub fn format_plain<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<String> {
@@ -902,7 +907,9 @@ impl Console {
     pub fn log<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
         log(ctx, args)
     }
-
+    pub fn clear(&self) {
+        clear()
+    }
     pub fn debug<'js>(&self, ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
         log_debug(ctx, args)
     }
