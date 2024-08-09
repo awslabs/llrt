@@ -17,6 +17,8 @@ tracing = { version = "0.1.40", features = ["log"] }
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 tracing-core = "0.1.32"
 tokio = { version = "1", features = ["full"] }
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 snmalloc-rs = { version = "0.3.6", features = ["lto"] }
 
 [[bin]]
