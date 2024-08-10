@@ -194,7 +194,7 @@ export default {
     minimizer: [
       new TerserPlugin({
         terserOptions: {
-          ecma: 2020,
+          ecma: 2023,
         },
       }),
     ],
