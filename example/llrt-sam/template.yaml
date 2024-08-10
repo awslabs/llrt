@@ -37,7 +37,7 @@ Resources:
           - "@smithy"
           - uuid
         Minify: false
-        Target: "es2020"
+        Target: "es2023"
         Sourcemap: false
         Format: esm
         OutExtension:

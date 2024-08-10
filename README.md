@@ -43,12 +43,6 @@ ENV LAMBDA_HANDLER "app.handler"
 CMD [ "llrt" ]
 ```
 
-That's it 🎉
-
-> [!IMPORTANT]
-> Even though LLRT supports [ES2020](https://262.ecma-international.org/11.0/) it's **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
-> All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
-
 ### Option 4: AWS SAM
 
 The following [example project](example/llrt-sam/) sets up a lambda
@@ -67,6 +61,12 @@ const handler = new LlrtFunction(this, "Handler", {
 ```
 
 See [Construct Hub](https://constructs.dev/packages/cdk-lambda-llrt/) and [its examples](https://github.com/tmokmss/cdk-lambda-llrt/tree/main/example) for more details.
+
+That's it 🎉
+
+> [!IMPORTANT]
+> Even though LLRT supports [ES2023](https://262.ecma-international.org/14.0/) it's **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
+> All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
 
 ## Testing & ensuring compatibility
 
@@ -141,13 +141,13 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 
 | Node.js         | LLRT      |
 | --------------- | --------- |
-| fast-xml-parser | llrt:xml  | 
+| fast-xml-parser | llrt:xml  |
 | uuid            | llrt:uuid |
 
 ### ESBuild
 
 ```shell
-esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy
+esbuild index.js --platform=node --target=es2023 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy
 ```
 
 ### Rollup
@@ -163,7 +163,7 @@ export default {
     file: "dist/bundle.js",
     format: "esm",
     sourcemap: true,
-    target: "es2020",
+    target: "es2023",
   },
   plugins: [resolve(), commonjs(), terser()],
   external: ["@aws-sdk", "@smithy"],
@@ -207,7 +207,7 @@ export default {
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
 V3 SDK packages not included in the list below have to be bundled with your source code. For an example on how to use a non-included SDK, see [this example build script (buildExternalSdkFunction)](example/functions/build.mjs)
 
-|         Bundled AWS SDK packages          |
+| Bundled AWS SDK packages                  |
 | ----------------------------------------- |
 | @aws-sdk/client-cloudwatch-events         |
 | @aws-sdk/client-cloudwatch-logs           |
@@ -247,7 +247,7 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 
 ## Running TypeScript with LLRT
 
-Same principle as dependencies applies when using TypeScript. TypeScript must be bundled and transpiled into ES2020 JavaScript.
+Same principle as dependencies applies when using TypeScript. TypeScript must be bundled and transpiled into ES2023 JavaScript.
 
 > [!NOTE]
 > LLRT will not support running TypeScript without transpilation. This is by design for performance reasons. Transpiling requires CPU and memory that adds latency and cost during execution. This can be avoided if done ahead of time during deployment.
@@ -366,18 +366,23 @@ Then run llrt:
 ## Environment Variables
 
 ### `LLRT_EXTRA_CA_CERTS=file`
+
 Load extra certificate authorities from a PEM encoded file
 
 ### `LLRT_GC_THRESHOLD_MB=value`
+
 Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 
 ### `LLRT_HTTP_VERSION=value`
+
 Restrict HTTP requests to use a specific version. By default HTTP 1.1 and 2 are enabled. Set this variable to `1.1` to only use HTTP 1.1
 
 ### `LLRT_LOG=[target][=][level][,...]`
+
 Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priority logs.
 
 Log levels in descending priority order:
+
 - `Error`
 - `Warn | Warning`
 - `Info`
@@ -385,20 +390,25 @@ Log levels in descending priority order:
 - `Trace`
 
 Example filters:
+
 - `warn` will enable all warning and error logs
 - `llrt_core::vm=trace` will enable all logs in the `llrt_core::vm` module
 - `warn,llrt_core::vm=trace` will enable all logs in the `llrt_core::vm` module and all warning and error logs in other modules
 
 ### `LLRT_NET_ALLOW="host[ ...]"`
+
 Space-delimited list of hosts or socket paths which should be allowed for network connections. Network connections will be denied for any host or socket path missing from this list. Set an empty list to deny all connections
 
 ### `LLRT_NET_DENY="host[ ...]"`
+
 Space-delimited list of hosts or socket paths which should be denied for network connections
 
 ### `LLRT_NET_POOL_IDLE_TIMEOUT=value`
+
 Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 15 seconds
 
 ### `LLRT_TLS_VERSION=value`
+
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
 
 ## Benchmark Methodology

@@ -25,7 +25,7 @@ async function buildReact() {
       platform: "node",
     }),
     external: ["@aws-sdk"],
-    target: "es2020",
+    target: "es2023",
     format: devMode ? "cjs" : "esm",
     define: {
       "process.env.NODE_ENV": JSON.stringify("production"),
@@ -54,7 +54,7 @@ async function buildExternalSdkFunction() {
     },
     logLevel: "info",
     platform: "browser",
-    target: "es2020",
+    target: "es2023",
     format: "esm",
     bundle: true,
     minify: true,
