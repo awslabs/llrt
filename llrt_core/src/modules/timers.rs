@@ -12,7 +12,7 @@ use std::{
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    prelude::Func,
+    prelude::{Func, Opt},
     qjs, CatchResultExt, Ctx, Function, Persistent, Result, Value,
 };
 
@@ -168,12 +168,18 @@ pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
 
     globals.set(
         "setTimeout",
-        Func::from(move |ctx, cb, delay| set_timeout_interval(&ctx, cb, delay, false)),
+        Func::from(move |ctx, cb, delay: Opt<f64>| {
+            let delay = delay.unwrap_or(0.).max(0.) as usize;
+            set_timeout_interval(&ctx, cb, delay, false)
+        }),
     )?;
 
     globals.set(
         "setInterval",
-        Func::from(move |ctx, cb, delay| set_timeout_interval(&ctx, cb, delay, true)),
+        Func::from(move |ctx, cb, delay: Opt<f64>| {
+            let delay = delay.unwrap_or(0.).max(0.) as usize;
+            set_timeout_interval(&ctx, cb, delay, true)
+        }),
     )?;
 
     globals.set(
