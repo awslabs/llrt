@@ -76,4 +76,22 @@ describe("timers", () => {
   it("should import timers", () => {
     expect(timers.setTimeout).toEqual(setTimeout)
   });
+
+  it("delay is optional", async () => {
+    const start = Date.now();
+    await new Promise((resolve) => {
+      setTimeout(resolve);
+    });
+    const end = Date.now();
+    expect(end - start >= 0).toBeTruthy();
+  });
+
+  it("delay can be negative.", async () => {
+    const start = Date.now();
+    await new Promise((resolve) => {
+      setTimeout(resolve, -1);
+    });
+    const end = Date.now();
+    expect(end - start >= 0).toBeTruthy();
+  });
 });
