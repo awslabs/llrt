@@ -1,6 +1,6 @@
+use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::bytes::get_bytes;
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result, Value};
 use tokio::fs;
@@ -13,8 +13,8 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
 
     let write_error_message = &["Can't write file \"", &path, "\""].concat();
 
-    let bytes = get_bytes(&ctx, data)?;
-    file.write_all(&bytes)
+    let mut bytes = ObjectBytes::from(&ctx, data)?;
+    file.write_all(&bytes.get_bytes())
         .await
         .or_throw_msg(&ctx, write_error_message)?;
     file.flush().await.or_throw_msg(&ctx, write_error_message)?;
@@ -23,9 +23,10 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
 }
 
 pub fn write_file_sync<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> Result<()> {
-    let bytes = get_bytes(&ctx, data)?;
+    let mut bytes = ObjectBytes::from(&ctx, data)?;
 
-    std::fs::write(&path, bytes).or_throw_msg(&ctx, &["Can't write \"{}\"", &path].concat())?;
+    std::fs::write(&path, bytes.get_bytes())
+        .or_throw_msg(&ctx, &["Can't write \"{}\"", &path].concat())?;
 
     Ok(())
 }

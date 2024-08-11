@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{encoding::Encoder, object::ObjectExt};
+use llrt_utils::{bytes::ObjectBytes, encoding::Encoder, object::ObjectExt};
 use rquickjs::{function::Opt, Ctx, Object, Result, Value};
 
-use crate::utils::{object::get_bytes, result::ResultExt};
+use crate::utils::result::ResultExt;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
@@ -59,7 +59,8 @@ impl<'js> TextDecoder {
     }
 
     pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = get_bytes(&ctx, buffer)?;
+        let mut bytes = ObjectBytes::from(&ctx, buffer)?;
+        let bytes = bytes.get_bytes();
         let start_pos = if !self.ignore_bom {
             match bytes.get(..3) {
                 Some([0xFF, 0xFE, ..]) | Some([0xFE, 0xFF, ..]) => 2,

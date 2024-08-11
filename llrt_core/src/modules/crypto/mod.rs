@@ -5,6 +5,7 @@ mod md5_hash;
 mod sha_hash;
 use std::slice;
 
+use llrt_utils::bytes::ObjectBytes;
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
 use rand::Rng;
@@ -25,8 +26,7 @@ use crate::{
         module::export_default,
     },
     utils::{
-        class::get_class_name,
-        object::{bytes_to_typed_array, get_start_end_indexes, obj_to_array_buffer},
+        object::{bytes_to_typed_array, get_start_end_indexes},
         result::ResultExt,
     },
     vm::{CtxExtension, ErrorExtensions},
@@ -116,13 +116,16 @@ fn random_fill_sync<'js>(
 ) -> Result<Object<'js>> {
     let offset = offset.unwrap_or(0);
 
-    if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(&obj)? {
-        let (start, end) = get_start_end_indexes(source_length, size.0, offset);
-
+    if let Some(object_bytes) = ObjectBytes::from_array_buffer(&obj)? {
+        let (array_buffer, source_length, source_offset) =
+            object_bytes.get_array_buffer()?.unwrap();
         let raw = array_buffer
             .as_raw()
             .ok_or("ArrayBuffer is detached")
             .or_throw(&ctx)?;
+
+        let (start, end) = get_start_end_indexes(source_length, size.0, offset);
+
         let bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), source_length) };
 
         SYSTEM_RANDOM
@@ -134,7 +137,16 @@ fn random_fill_sync<'js>(
 }
 
 fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
-    if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(&obj)? {
+    if let Some(object_bytes) = ObjectBytes::from_array_buffer(&obj)? {
+        if matches!(
+            object_bytes,
+            ObjectBytes::F64Array(_) | ObjectBytes::F32Array(_)
+        ) {
+            return Err(Exception::throw_message(&ctx, "Unsupported TypedArray"));
+        }
+
+        let (array_buffer, source_length, source_offset) =
+            object_bytes.get_array_buffer()?.unwrap();
         let raw = array_buffer
             .as_raw()
             .ok_or("ArrayBuffer is detached")
@@ -151,13 +163,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             std::slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
         };
 
-        match get_class_name(&obj)?.unwrap().as_str() {
-            "Int8Array" | "Uint8Array" | "Uint8ClampedArray" | "Int16Array" | "Uint16Array"
-            | "Int32Array" | "Uint32Array" | "BigInt64Array" | "BigUint64Array" => {
-                SYSTEM_RANDOM.fill(bytes).unwrap()
-            },
-            _ => return Err(Exception::throw_message(&ctx, "Unsupported TypedArray")),
-        }
+        SYSTEM_RANDOM.fill(bytes).unwrap()
     }
 
     Ok(obj)

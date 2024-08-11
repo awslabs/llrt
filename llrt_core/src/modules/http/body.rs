@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, Response};
+use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{
     class::{Trace, Tracer},
     ArrayBuffer, Class, Ctx, Exception, IntoJs, Null, Result, TypedArray, Value,
 };
 
-use crate::{
-    json::parse::json_parse,
-    utils::{object::get_bytes, result::ResultExt},
-};
+use crate::{json::parse::json_parse, utils::result::ResultExt};
 
 use super::blob::Blob;
 
@@ -161,7 +159,8 @@ impl<'js> Body<'js> {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    get_bytes(ctx, provided.clone())?
+                    let mut bytes = ObjectBytes::from(ctx, provided.clone())?;
+                    bytes.get_bytes().into()
                 }
             },
         };

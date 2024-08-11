@@ -1,3 +1,4 @@
+use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use once_cell::sync::Lazy;
@@ -13,10 +14,7 @@ use uuid_simd::UuidExt;
 use crate::{
     module_builder::ModuleInfo,
     modules::{crypto::SYSTEM_RANDOM, encoding::encoder::bytes_to_hex, module::export_default},
-    utils::{
-        object::{get_bytes, get_bytes_offset_length},
-        result::ResultExt,
-    },
+    utils::result::ResultExt,
 };
 
 pub struct LlrtUuidModule;
@@ -35,7 +33,9 @@ fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Uuid> {
     if value.is_string() {
         Uuid::try_parse(&value.as_string().unwrap().to_string()?)
     } else {
-        Uuid::from_slice(&get_bytes(ctx, value)?)
+        let mut bytes = ObjectBytes::from(ctx, value)?;
+        let bytes = bytes.get_bytes();
+        Uuid::from_slice(bytes.as_ref())
     }
     .or_throw_msg(ctx, ERROR_MESSAGE)
 }
@@ -127,13 +127,13 @@ fn parse(ctx: Ctx<'_>, value: String) -> Result<TypedArray<u8>> {
 }
 
 fn stringify<'js>(ctx: Ctx<'js>, value: Value<'js>, offset: Opt<u8>) -> Result<String> {
-    let value = get_bytes_offset_length(
+    let mut bytes = ObjectBytes::from_offset(
         &ctx,
         value,
         offset.0.map(|o| o.into()).unwrap_or_default(),
         None,
     )?;
-    let value = bytes_to_hex(&value);
+    let value = bytes_to_hex(&bytes.get_bytes());
 
     let uuid = Uuid::try_parse_ascii(&value)
         .or_throw_msg(&ctx, ERROR_MESSAGE)?

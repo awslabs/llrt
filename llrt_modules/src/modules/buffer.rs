@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{
     bytes::{
-        get_array_buffer_bytes, get_array_bytes, get_bytes, get_coerced_string_bytes,
-        get_start_end_indexes, get_string_bytes, obj_to_array_buffer,
+        get_array_bytes, get_coerced_string_bytes, get_start_end_indexes, get_string_bytes,
+        ObjectBytes,
     },
     encoding::{bytes_from_b64, bytes_to_b64_string, Encoder},
     module::export_default,
@@ -61,7 +61,7 @@ impl<'js> Buffer {
     ) -> Result<Value<'js>> {
         if let Some(encoding) = encoding {
             let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
-            bytes = encoder.decode(bytes).or_throw(ctx)?;
+            bytes = encoder.decode(&bytes).or_throw(ctx)?;
         }
         Buffer(bytes).into_js(ctx)
     }
@@ -71,8 +71,9 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     //slow path
     if let Some(encoding) = encoding.0 {
         let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
-        let bytes = get_bytes(&ctx, value)?;
-        return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
+        let mut a = ObjectBytes::from(&ctx, value)?;
+        let bytes = a.get_bytes();
+        return Ok(encoder.decode(&bytes).or_throw(&ctx)?.len());
     }
     //fast path
     if let Some(val) = value.as_string() {
@@ -90,8 +91,8 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some((_, source_length, _)) = obj_to_array_buffer(obj)? {
-            return Ok(source_length);
+        if let Some(mut ob) = ObjectBytes::from_array_buffer(obj)? {
+            return Ok(ob.get_bytes().len());
         }
     }
 
@@ -134,9 +135,9 @@ fn alloc<'js>(
             return Buffer(bytes).into_js(&ctx);
         }
         if let Some(obj) = value.as_object() {
-            if let Some((array_buffer, source_length, offset)) = obj_to_array_buffer(obj)? {
-                let bytes: &[u8] = array_buffer.as_ref();
-                return alloc_byte_ref(&ctx, &bytes[offset..offset + source_length], length);
+            if let Some(mut ob) = ObjectBytes::from_array_buffer(obj)? {
+                let bytes = ob.get_bytes();
+                return alloc_byte_ref(&ctx, &bytes, length);
             }
         }
     }
@@ -201,13 +202,14 @@ fn from<'js>(
     if let Some(bytes) = get_string_bytes(&value, offset, length.0)? {
         return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
     }
-    if let Some(bytes) = get_array_bytes(&ctx, &value, offset, length.0)? {
+    if let Some(bytes) = get_array_bytes(&value, offset, length.0)? {
         return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
     }
 
     if let Some(obj) = value.as_object() {
-        if let Some((array_buffer, source_length, source_offset)) = obj_to_array_buffer(obj)? {
-            let (start, end) = get_start_end_indexes(source_length, length.0, offset);
+        if let Some(mut ab_bytes) = ObjectBytes::from_array_buffer(obj)? {
+            let bytes = ab_bytes.get_bytes();
+            let (start, end) = get_start_end_indexes(bytes.len(), length.0, offset);
 
             //buffers from buffer should be copied
             if obj
@@ -216,13 +218,10 @@ fn from<'js>(
                 == Some(stringify!(Buffer))
                 || encoding.is_some()
             {
-                let bytes = get_array_buffer_bytes(
-                    array_buffer,
-                    start + source_offset,
-                    end - source_offset,
-                );
+                let bytes = bytes.to_vec();
                 return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
             } else {
+                let (array_buffer, _, source_offset) = ab_bytes.get_array_buffer()?.unwrap(); //we know it's an array buffer
                 return Buffer::from_array_buffer_offset_length(
                     &ctx,
                     array_buffer,

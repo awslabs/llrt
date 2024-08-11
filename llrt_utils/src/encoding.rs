@@ -71,11 +71,11 @@ impl Encoder {
         }
     }
 
-    pub fn decode(&self, bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    pub fn decode(&self, bytes: &[u8]) -> Result<Vec<u8>, String> {
         match self {
-            Self::Hex => bytes_from_hex(&bytes),
-            Self::Base64 => bytes_from_b64(&bytes),
-            Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => Ok(bytes),
+            Self::Hex => bytes_from_hex(bytes),
+            Self::Base64 => bytes_from_b64(bytes),
+            Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => Ok(bytes.to_vec()),
         }
     }
 

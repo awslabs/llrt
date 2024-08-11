@@ -1,3 +1,4 @@
+use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
@@ -8,7 +9,7 @@ use rquickjs::{
 use crate::{
     json::parse::json_parse,
     modules::events::abort_signal::AbortSignal,
-    utils::{class::get_class, object::get_bytes, object::ObjectExt},
+    utils::{class::get_class, object::ObjectExt},
 };
 
 use super::{blob::Blob, headers::Headers};
@@ -21,7 +22,8 @@ impl<'js> Request<'js> {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    get_bytes(ctx, provided.clone())?
+                    let mut bytes = ObjectBytes::from(ctx, provided.clone())?;
+                    bytes.get_bytes().to_vec()
                 }
             },
             None => return Ok(None),

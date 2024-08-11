@@ -16,6 +16,7 @@ use std::{
     task::Poll,
 };
 
+use llrt_utils::bytes::ObjectBytes;
 use once_cell::sync::Lazy;
 
 pub use llrt_utils::{ctx::CtxExtension, error::ErrorExtensions};
@@ -48,11 +49,7 @@ use crate::{
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     number::number_to_string,
     security,
-    utils::{
-        clone::structured_clone,
-        io::get_js_path,
-        object::{get_bytes, ObjectExt},
-    },
+    utils::{clone::structured_clone, io::get_js_path, object::ObjectExt},
 };
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
@@ -519,7 +516,8 @@ impl Vm {
 }
 
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
-    let bytes = get_bytes(&ctx, value)?;
+    let mut bytes = ObjectBytes::from(&ctx, value)?;
+    let bytes = bytes.get_bytes();
     json_parse(&ctx, bytes)
 }
 

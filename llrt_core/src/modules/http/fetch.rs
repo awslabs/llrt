@@ -4,6 +4,7 @@ use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{header::HeaderName, Method, Request, Uri};
 
+use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
@@ -18,7 +19,7 @@ use crate::{
     environment,
     modules::events::abort_signal::AbortSignal,
     security::{ensure_url_access, HTTP_DENY_LIST},
-    utils::{mc_oneshot, object::get_bytes, result::ResultExt},
+    utils::{mc_oneshot, result::ResultExt},
 };
 use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
@@ -282,7 +283,8 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let bytes = get_bytes(ctx, body_opt)?;
+            let mut bytes = ObjectBytes::from(ctx, body_opt)?;
+            let bytes = bytes.get_bytes().to_vec();
             body = Some(Full::from(bytes));
         }
 

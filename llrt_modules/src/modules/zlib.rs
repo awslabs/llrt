@@ -8,7 +8,7 @@ use flate2::{
     Compression,
 };
 use llrt_utils::{
-    bytes::get_bytes, ctx::CtxExtension, module::export_default, object::ObjectExt,
+    bytes::ObjectBytes, ctx::CtxExtension, module::export_default, object::ObjectExt,
     result::ResultExt,
 };
 use rquickjs::function::Func;
@@ -83,7 +83,8 @@ fn zlib_converter<'js>(
     options: Opt<Value<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
-    let src = get_bytes(&ctx, value)?;
+    let mut bytes = ObjectBytes::from(&ctx, value)?;
+    let src = bytes.get_bytes();
 
     let mut level = Compression::default();
     if let Some(options) = options.0 {
@@ -135,7 +136,8 @@ fn brotli_converter<'js>(
     _options: Opt<Value<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
-    let src = get_bytes(&ctx, value)?;
+    let mut bytes = ObjectBytes::from(&ctx, value)?;
+    let src = bytes.get_bytes();
 
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 

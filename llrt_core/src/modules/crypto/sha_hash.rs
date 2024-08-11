@@ -1,3 +1,4 @@
+use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use ring::{
@@ -6,7 +7,7 @@ use ring::{
 };
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Value};
 
-use crate::utils::object::{bytes_to_typed_array, get_bytes};
+use crate::utils::object::bytes_to_typed_array;
 
 use super::encoded_bytes;
 
@@ -21,7 +22,7 @@ pub struct Hmac {
 impl Hmac {
     #[qjs(skip)]
     pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, secret: Value<'js>) -> Result<Self> {
-        let key_value = get_bytes(&ctx, secret)?;
+        let mut key_value = ObjectBytes::from(&ctx, secret)?;
 
         let algorithm = match algorithm.to_lowercase().as_str() {
             "sha1" => hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
@@ -37,7 +38,7 @@ impl Hmac {
         };
 
         Ok(Self {
-            context: HmacContext::with_key(&hmac::Key::new(algorithm, &key_value)),
+            context: HmacContext::with_key(&hmac::Key::new(algorithm, &key_value.get_bytes())),
         })
     }
 
@@ -56,7 +57,8 @@ impl Hmac {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = get_bytes(&ctx, value)?;
+        let mut bytes = ObjectBytes::from(&ctx, value)?;
+        let bytes = bytes.get_bytes();
         this.0.borrow_mut().context.update(&bytes);
 
         Ok(this.0)
@@ -116,7 +118,8 @@ impl Hash {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = get_bytes(&ctx, value)?;
+        let mut bytes = ObjectBytes::from(&ctx, value)?;
+        let bytes = bytes.get_bytes();
         this.0.borrow_mut().context.update(&bytes);
         Ok(this.0)
     }
@@ -171,13 +174,11 @@ impl ShaHash {
         algorithm: ShaAlgorithm,
         secret: Opt<Value<'js>>,
     ) -> Result<Self> {
-        let secret = secret.0;
-        let secret = match secret {
-            Some(secret) => {
-                let bytes = get_bytes(&ctx, secret)?;
-                Some(bytes)
-            },
-            None => None,
+        let secret = if let Some(secret) = secret.0 {
+            let mut bytes = ObjectBytes::from(&ctx, secret)?;
+            Some(bytes.get_bytes().to_vec())
+        } else {
+            None
         };
 
         Ok(ShaHash {
@@ -208,8 +209,8 @@ impl ShaHash {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = get_bytes(&ctx, value)?;
-        this.0.borrow_mut().bytes = bytes;
+        let mut bytes = ObjectBytes::from(&ctx, value)?;
+        this.0.borrow_mut().bytes = bytes.get_bytes().to_vec();
         Ok(this.0)
     }
 }
