@@ -182,7 +182,7 @@ lib/x64/libzstd.a:
 
 bench:
 	cargo build -r
-	hyperfine -N --warm64up=100 "node fixtures/hello.js" "deno run fixtures/hello.js" "bun fixtures/hello.js" "$(BUILD_DIR)/llrt fixtures/hello.js" "qjs fixtures/hello.js"
+	hyperfine -N --warmup=100 "node fixtures/hello.js" "deno run fixtures/hello.js" "bun fixtures/hello.js" "$(BUILD_DIR)/llrt fixtures/hello.js" "qjs fixtures/hello.js"
 
 deploy:
 	cd example/infrastructure && yarn deploy --require-approval never
