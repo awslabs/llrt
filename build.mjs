@@ -45,7 +45,7 @@ const ES_BUILD_OPTIONS = {
   splitting: MINIFY_JS,
   minify: MINIFY_JS,
   sourcemap: true,
-  target: "es2022",
+  target: "es2023",
   outdir: OUT_DIR,
   bundle: true,
   logLevel: "info",
