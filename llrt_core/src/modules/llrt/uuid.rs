@@ -33,9 +33,9 @@ fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Uuid> {
     if value.is_string() {
         Uuid::try_parse(&value.as_string().unwrap().to_string()?)
     } else {
-        let mut bytes = ObjectBytes::from(ctx, &value)?;
-        let bytes = bytes.get_bytes();
-        Uuid::from_slice(bytes.as_ref())
+        let bytes = ObjectBytes::from(ctx, &value)?;
+        let bytes = bytes.as_bytes();
+        Uuid::from_slice(bytes)
     }
     .or_throw_msg(ctx, ERROR_MESSAGE)
 }
@@ -127,13 +127,13 @@ fn parse(ctx: Ctx<'_>, value: String) -> Result<TypedArray<u8>> {
 }
 
 fn stringify<'js>(ctx: Ctx<'js>, value: Value<'js>, offset: Opt<u8>) -> Result<String> {
-    let mut bytes = ObjectBytes::from_offset(
+    let bytes = ObjectBytes::from_offset(
         &ctx,
         &value,
         offset.0.map(|o| o.into()).unwrap_or_default(),
         None,
     )?;
-    let value = bytes_to_hex(&bytes.get_bytes());
+    let value = bytes_to_hex(bytes.as_bytes());
 
     let uuid = Uuid::try_parse_ascii(&value)
         .or_throw_msg(&ctx, ERROR_MESSAGE)?

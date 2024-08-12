@@ -246,10 +246,10 @@ where
                             command = command_rx.recv() => {
                                  match command {
                                     Some(WriteCommand::Write(value, cb, flush)) => {
-                                        let mut bytes = ObjectBytes::from(&ctx3, &value)?;
-                                        let data = bytes.get_bytes();
+                                        let bytes = ObjectBytes::from(&ctx3, &value)?;
+                                        let data = bytes.as_bytes();
                                         let result = async {
-                                            writer.write_all(&data).await?;
+                                            writer.write_all(data).await?;
                                             if flush {
                                                 writer.flush().await.or_throw(&ctx3)?;
                                             }

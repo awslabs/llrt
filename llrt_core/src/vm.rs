@@ -516,8 +516,8 @@ impl Vm {
 }
 
 fn json_parse_string<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<Value<'js>> {
-    let mut bytes = ObjectBytes::from(&ctx, &value)?;
-    let bytes = bytes.get_bytes();
+    let bytes = ObjectBytes::from(&ctx, &value)?;
+    let bytes = bytes.as_bytes();
     json_parse(&ctx, bytes)
 }
 

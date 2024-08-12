@@ -21,8 +21,8 @@ pub struct LlrtHexModule;
 
 impl LlrtHexModule {
     pub fn encode<'js>(ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let mut bytes = ObjectBytes::from(&ctx, &buffer)?;
-        Ok(bytes_to_hex_string(&bytes.get_bytes()))
+        let bytes = ObjectBytes::from(&ctx, &buffer)?;
+        Ok(bytes_to_hex_string(bytes.as_bytes()))
     }
 
     pub fn decode(ctx: Ctx, encoded: String) -> Result<Value> {

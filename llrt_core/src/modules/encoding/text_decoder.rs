@@ -59,8 +59,8 @@ impl<'js> TextDecoder {
     }
 
     pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let mut bytes = ObjectBytes::from(&ctx, &buffer)?;
-        let bytes = bytes.get_bytes();
+        let bytes = ObjectBytes::from(&ctx, &buffer)?;
+        let bytes = bytes.as_bytes();
         let start_pos = if !self.ignore_bom {
             match bytes.get(..3) {
                 Some([0xFF, 0xFE, ..]) | Some([0xFE, 0xFF, ..]) => 2,

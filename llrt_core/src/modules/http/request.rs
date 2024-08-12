@@ -20,7 +20,7 @@ impl<'js> Request<'js> {
         match &self.body {
             Some(provided) => {
                 let bytes = if let Some(blob) = get_class::<Blob>(provided)? {
-                    ObjectBytes::Vec(Some(blob.borrow().get_bytes()))
+                    ObjectBytes::Vec(blob.borrow().get_bytes())
                 } else {
                     ObjectBytes::from(ctx, provided)?
                 };
@@ -129,30 +129,30 @@ impl<'js> Request<'js> {
     }
 
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
-        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
-            let bytes = bytes.get_bytes();
-            return Ok(String::from_utf8_lossy(&bytes).to_string());
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            let bytes = bytes.as_bytes();
+            return Ok(String::from_utf8_lossy(bytes).to_string());
         }
         Ok("".into())
     }
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, bytes.get_bytes());
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return json_parse(&ctx, bytes.as_bytes());
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
 
     async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
-            return ArrayBuffer::new(ctx, bytes.get_bytes());
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return ArrayBuffer::new(ctx, bytes.as_bytes());
         }
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
     async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
-            return TypedArray::new(ctx, bytes.get_bytes()).map(|m| m.into_value());
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return TypedArray::new(ctx, bytes.as_bytes()).map(|m| m.into_value());
         }
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
@@ -166,8 +166,8 @@ impl<'js> Request<'js> {
                 None
             }
         });
-        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(bytes.get_bytes().into(), mime_type));
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            return Ok(Blob::from_bytes(bytes.into(), mime_type));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
     }

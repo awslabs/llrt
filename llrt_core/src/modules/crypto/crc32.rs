@@ -33,8 +33,8 @@ impl Crc32c {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let mut bytes = ObjectBytes::from(&ctx, &value)?;
-        this.0.borrow_mut().hasher.write(&bytes.get_bytes());
+        let bytes = ObjectBytes::from(&ctx, &value)?;
+        this.0.borrow_mut().hasher.write(bytes.as_bytes());
         Ok(this.0)
     }
 }
@@ -66,8 +66,8 @@ impl Crc32 {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let mut bytes = ObjectBytes::from(&ctx, &value)?;
-        this.0.borrow_mut().hasher.write(&bytes.get_bytes());
+        let bytes = ObjectBytes::from(&ctx, &value)?;
+        this.0.borrow_mut().hasher.write(bytes.as_bytes());
         Ok(this.0)
     }
 }

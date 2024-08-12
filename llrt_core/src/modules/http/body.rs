@@ -159,8 +159,8 @@ impl<'js> Body<'js> {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    let mut bytes = ObjectBytes::from(ctx, provided)?;
-                    bytes.get_bytes().into()
+                    let bytes = ObjectBytes::from(ctx, provided)?;
+                    bytes.into()
                 }
             },
         };

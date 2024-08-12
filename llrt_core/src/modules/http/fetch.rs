@@ -13,7 +13,7 @@ use rquickjs::{
 };
 use tokio::select;
 
-use std::{borrow::Cow, collections::HashSet, mem, time::Instant};
+use std::{collections::HashSet, time::Instant};
 
 use crate::{
     environment,
@@ -78,7 +78,7 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
                         &method,
                         &uri,
                         options.headers.as_ref(),
-                        &options.body,
+                        options.body.as_ref(),
                         &response_status,
                         &initial_uri,
                     )?;
@@ -136,7 +136,7 @@ fn build_request(
     method: &hyper::Method,
     uri: &Uri,
     headers: Option<&Headers>,
-    body: &Full<Bytes>,
+    body: Option<&BodyBytes>,
     prev_status: &u16,
     initial_uri: &Uri,
 ) -> Result<Request<Full<Bytes>>> {
@@ -144,10 +144,10 @@ fn build_request(
 
     let change_method = should_change_method(*prev_status, method);
 
-    let (method_to_use, req_body) = if change_method {
-        (Method::GET, Full::default())
+    let (method_to_use, body) = if change_method {
+        (Method::GET, None)
     } else {
-        (method.clone(), body.clone())
+        (method.clone(), body)
     };
 
     let mut req = Request::builder().method(method_to_use).uri(uri.clone());
@@ -177,7 +177,8 @@ fn build_request(
         req = req.header("accept", "*/*");
     }
 
-    req.body(req_body).or_throw(ctx)
+    req.body(body.map(|b| b.body.clone()).unwrap_or_default())
+        .or_throw(ctx)
 }
 
 fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
@@ -221,11 +222,24 @@ fn is_cors_non_wildcard_request_header_name(key: &str) -> bool {
     matches!(key, "authorization")
 }
 
+struct BodyBytes<'js> {
+    object_bytes: ObjectBytes<'js>,
+    body: Full<Bytes>,
+}
+impl<'js> BodyBytes<'js> {
+    fn new(object_bytes: ObjectBytes<'js>) -> Self {
+        //this is safe since we hold on to ObjectBytes
+        let raw_bytes: &'static [u8] = unsafe { std::mem::transmute(object_bytes.as_bytes()) };
+        let body = Full::from(Bytes::from_static(raw_bytes));
+        Self { object_bytes, body }
+    }
+}
+
 struct FetchOptions<'js> {
     method: hyper::Method,
     url: String,
     headers: Option<Headers>,
-    body: Full<Bytes>,
+    body: Option<BodyBytes<'js>>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     redirect: String,
 }
@@ -283,11 +297,8 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let mut bytes = ObjectBytes::from(ctx, &body_opt)?;
-            let bytes = bytes.get_bytes();
-            //this is fine since we're only holding on to bytes in this function
-            let static_bytes: Cow<'static, [u8]> = unsafe { mem::transmute(bytes) };
-            body = Some(Full::from(static_bytes));
+            let bytes = ObjectBytes::from(ctx, &body_opt)?;
+            body = Some(BodyBytes::new(bytes));
         }
 
         if let Some(url_opt) =
@@ -331,7 +342,7 @@ fn get_fetch_options<'js>(
         method: method.unwrap_or_default(),
         url,
         headers,
-        body: body.unwrap_or_default(),
+        body,
         abort_receiver,
         redirect,
     })

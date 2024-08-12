@@ -1,8 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::borrow::Cow;
-
 use rquickjs::{ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value};
 
 #[derive(Clone)]
@@ -18,7 +16,19 @@ pub enum ObjectBytes<'js> {
     F32Array(TypedArray<'js, f32>),
     F64Array(TypedArray<'js, f64>),
     DataView(ArrayBuffer<'js>),
-    Vec(Option<Vec<u8>>),
+    Vec(Vec<u8>),
+}
+
+impl<'js> From<ObjectBytes<'js>> for Vec<u8> {
+    fn from(value: ObjectBytes<'js>) -> Self {
+        value.into_bytes()
+    }
+}
+
+impl<'a, 'js> From<&'a ObjectBytes<'js>> for &'a [u8] {
+    fn from(value: &'a ObjectBytes<'js>) -> Self {
+        value.as_bytes()
+    }
 }
 
 impl<'js> ObjectBytes<'js> {
@@ -35,13 +45,13 @@ impl<'js> ObjectBytes<'js> {
         length: Option<usize>,
     ) -> Result<Self> {
         if value.is_undefined() {
-            return Ok(ObjectBytes::Vec(Some(vec![])));
+            return Ok(ObjectBytes::Vec(vec![]));
         }
-        if let Some(bytes) = get_string_bytes(&value, offset, length)? {
-            return Ok(ObjectBytes::Vec(Some(bytes)));
+        if let Some(bytes) = get_string_bytes(value, offset, length)? {
+            return Ok(ObjectBytes::Vec(bytes));
         }
-        if let Some(bytes) = get_array_bytes(&value, offset, length)? {
-            return Ok(ObjectBytes::Vec(Some(bytes)));
+        if let Some(bytes) = get_array_bytes(value, offset, length)? {
+            return Ok(ObjectBytes::Vec(bytes));
         }
 
         if let Some(obj) = value.as_object() {
@@ -50,8 +60,8 @@ impl<'js> ObjectBytes<'js> {
             }
         }
 
-        if let Some(bytes) = get_coerced_string_bytes(&value, offset, length) {
-            return Ok(ObjectBytes::Vec(Some(bytes)));
+        if let Some(bytes) = get_coerced_string_bytes(value, offset, length) {
+            return Ok(ObjectBytes::Vec(bytes));
         }
 
         Err(Exception::throw_message(
@@ -60,44 +70,30 @@ impl<'js> ObjectBytes<'js> {
     ))
     }
 
-    pub fn get_bytes(&mut self) -> Cow<'_, [u8]> {
-        let cow = match self {
-            ObjectBytes::U8Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::I8Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::U16Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::I16Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::U32Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::I32Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::U64Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::I64Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::F32Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
-            ObjectBytes::F64Array(array) => {
-                Cow::Borrowed(array.as_bytes().expect(Self::DETACHED_ERROR))
-            },
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            ObjectBytes::U8Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::I8Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::U16Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::I16Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::U32Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::I32Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::U64Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::I64Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::F32Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
+            ObjectBytes::F64Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
             ObjectBytes::DataView(array_buffer) => {
-                Cow::Borrowed(array_buffer.as_bytes().expect(Self::DETACHED_ERROR))
+                array_buffer.as_bytes().expect(Self::DETACHED_ERROR)
             },
-            ObjectBytes::Vec(bytes) => Cow::Owned(bytes.take().expect("Bytes already taken")),
-        };
-        cow
+            ObjectBytes::Vec(bytes) => bytes.as_ref(),
+        }
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        if let ObjectBytes::Vec(bytes) = self {
+            return bytes;
+        }
+        self.as_bytes().to_vec()
     }
 
     pub fn from_array_buffer(obj: &Object<'js>) -> Result<Option<ObjectBytes<'js>>> {

@@ -190,8 +190,8 @@ impl<'js> Response<'js> {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    let mut bytes = ObjectBytes::from(ctx, provided)?;
-                    bytes.get_bytes().to_vec()
+                    let bytes = ObjectBytes::from(ctx, provided)?;
+                    bytes.as_bytes().to_vec()
                 }
             },
             None => return Ok(None),
