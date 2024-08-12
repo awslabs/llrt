@@ -78,6 +78,9 @@ fn get_random_int(_ctx: Ctx, first: i64, second: Opt<i64>) -> Result<i64> {
     Ok(random_number)
 }
 
+const NOT_ARRAY_BUFFER_ERROR: &'static str = "Not an ArrayBuffer";
+const ARRAY_BUFFER_DETACHED_ERROR: &'static str = "ArrayBuffer is detached";
+
 fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
     let args_iter = args.0.into_iter();
     let mut args_iter = args_iter.rev();
@@ -117,11 +120,12 @@ fn random_fill_sync<'js>(
     let offset = offset.unwrap_or(0);
 
     if let Some(object_bytes) = ObjectBytes::from_array_buffer(&obj)? {
-        let (array_buffer, source_length, source_offset) =
-            object_bytes.get_array_buffer()?.unwrap();
+        let (array_buffer, source_length, source_offset) = object_bytes
+            .get_array_buffer()?
+            .expect(NOT_ARRAY_BUFFER_ERROR);
         let raw = array_buffer
             .as_raw()
-            .ok_or("ArrayBuffer is detached")
+            .ok_or(ARRAY_BUFFER_DETACHED_ERROR)
             .or_throw(&ctx)?;
 
         let (start, end) = get_start_end_indexes(source_length, size.0, offset);
@@ -145,11 +149,12 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             return Err(Exception::throw_message(&ctx, "Unsupported TypedArray"));
         }
 
-        let (array_buffer, source_length, source_offset) =
-            object_bytes.get_array_buffer()?.unwrap();
+        let (array_buffer, source_length, source_offset) = object_bytes
+            .get_array_buffer()?
+            .expect(NOT_ARRAY_BUFFER_ERROR);
         let raw = array_buffer
             .as_raw()
-            .ok_or("ArrayBuffer is detached")
+            .ok_or(ARRAY_BUFFER_DETACHED_ERROR)
             .or_throw(&ctx)?;
 
         if source_length > 0x10000 {

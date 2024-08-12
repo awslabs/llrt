@@ -223,6 +223,7 @@ fn is_cors_non_wildcard_request_header_name(key: &str) -> bool {
 }
 
 struct BodyBytes<'js> {
+    #[allow(dead_code)]
     object_bytes: ObjectBytes<'js>,
     body: Full<Bytes>,
 }
