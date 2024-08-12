@@ -5,7 +5,10 @@ mod md5_hash;
 mod sha_hash;
 use std::slice;
 
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{
+    bytes::ObjectBytes,
+    error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
+};
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
 use rand::Rng;
@@ -78,9 +81,6 @@ fn get_random_int(_ctx: Ctx, first: i64, second: Opt<i64>) -> Result<i64> {
     Ok(random_number)
 }
 
-const NOT_ARRAY_BUFFER_ERROR: &str = "Not an ArrayBuffer";
-const ARRAY_BUFFER_DETACHED_ERROR: &str = "ArrayBuffer is detached";
-
 fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
     let args_iter = args.0.into_iter();
     let mut args_iter = args_iter.rev();
@@ -122,10 +122,10 @@ fn random_fill_sync<'js>(
     if let Some(object_bytes) = ObjectBytes::from_array_buffer(&obj)? {
         let (array_buffer, source_length, source_offset) = object_bytes
             .get_array_buffer()?
-            .expect(NOT_ARRAY_BUFFER_ERROR);
+            .expect(ERROR_MSG_NOT_ARRAY_BUFFER);
         let raw = array_buffer
             .as_raw()
-            .ok_or(ARRAY_BUFFER_DETACHED_ERROR)
+            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
             .or_throw(&ctx)?;
 
         let (start, end) = get_start_end_indexes(source_length, size.0, offset);
@@ -151,10 +151,10 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
 
         let (array_buffer, source_length, source_offset) = object_bytes
             .get_array_buffer()?
-            .expect(NOT_ARRAY_BUFFER_ERROR);
+            .expect(ERROR_MSG_NOT_ARRAY_BUFFER);
         let raw = array_buffer
             .as_raw()
-            .ok_or(ARRAY_BUFFER_DETACHED_ERROR)
+            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
             .or_throw(&ctx)?;
 
         if source_length > 0x10000 {

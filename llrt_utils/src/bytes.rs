@@ -3,6 +3,8 @@
 
 use rquickjs::{ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value};
 
+use crate::error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED;
+
 #[derive(Clone)]
 pub enum ObjectBytes<'js> {
     U8Array(TypedArray<'js, u8>),
@@ -32,8 +34,6 @@ impl<'a, 'js> From<&'a ObjectBytes<'js>> for &'a [u8] {
 }
 
 impl<'js> ObjectBytes<'js> {
-    const DETACHED_ERROR: &'static str = "ArrayBuffer is detached";
-
     pub fn from(ctx: &Ctx<'js>, value: &Value<'js>) -> Result<Self> {
         Self::from_offset(ctx, value, 0, None)
     }
@@ -72,19 +72,35 @@ impl<'js> ObjectBytes<'js> {
 
     pub fn as_bytes(&self) -> &[u8] {
         match self {
-            ObjectBytes::U8Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::I8Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::U16Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::I16Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::U32Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::I32Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::U64Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::I64Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::F32Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::F64Array(array) => array.as_bytes().expect(Self::DETACHED_ERROR),
-            ObjectBytes::DataView(array_buffer) => {
-                array_buffer.as_bytes().expect(Self::DETACHED_ERROR)
+            ObjectBytes::U8Array(array) => array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED),
+            ObjectBytes::I8Array(array) => array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED),
+            ObjectBytes::U16Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
             },
+            ObjectBytes::I16Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::U32Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::I32Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::U64Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::I64Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::F32Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::F64Array(array) => {
+                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            },
+            ObjectBytes::DataView(array_buffer) => array_buffer
+                .as_bytes()
+                .expect(ERROR_MSG_ARRAY_BUFFER_DETACHED),
             ObjectBytes::Vec(bytes) => bytes.as_ref(),
         }
     }
