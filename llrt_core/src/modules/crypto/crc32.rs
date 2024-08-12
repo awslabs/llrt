@@ -3,9 +3,8 @@
 use std::hash::Hasher;
 
 use crc32c::Crc32cHasher;
+use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{prelude::This, Class, Ctx, Result, Value};
-
-use crate::utils::object::get_bytes;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
@@ -34,8 +33,8 @@ impl Crc32c {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = get_bytes(&ctx, value)?;
-        this.0.borrow_mut().hasher.write(&bytes);
+        let bytes = ObjectBytes::from(&ctx, &value)?;
+        this.0.borrow_mut().hasher.write(bytes.as_bytes());
         Ok(this.0)
     }
 }
@@ -67,8 +66,8 @@ impl Crc32 {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = get_bytes(&ctx, value)?;
-        this.0.borrow_mut().hasher.write(&bytes);
+        let bytes = ObjectBytes::from(&ctx, &value)?;
+        this.0.borrow_mut().hasher.write(bytes.as_bytes());
         Ok(this.0)
     }
 }

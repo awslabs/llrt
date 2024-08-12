@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use hex_simd::AsciiCase;
@@ -71,11 +73,13 @@ impl Encoder {
         }
     }
 
-    pub fn decode(&self, bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    pub fn decode<'a, T: Into<Cow<'a, [u8]>>>(&self, bytes: T) -> Result<Vec<u8>, String> {
         match self {
-            Self::Hex => bytes_from_hex(&bytes),
-            Self::Base64 => bytes_from_b64(&bytes),
-            Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => Ok(bytes),
+            Self::Hex => bytes_from_hex(&bytes.into()),
+            Self::Base64 => bytes_from_b64(&bytes.into()),
+            Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => {
+                Ok(bytes.into().into())
+            },
         }
     }
 

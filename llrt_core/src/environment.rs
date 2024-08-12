@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 //network
 pub const ENV_LLRT_NET_ALLOW: &str = "LLRT_NET_ALLOW";
 pub const ENV_LLRT_NET_DENY: &str = "LLRT_NET_DENY";

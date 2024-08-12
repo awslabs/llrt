@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, rc::Rc};
 
+use llrt_utils::bytes::ObjectBytes;
 use quick_xml::{
     escape::resolve_xml_entity,
     events::{BytesStart, Event},
@@ -30,10 +31,7 @@ const LS: &str = "&#x2028;";
 use crate::{
     module_builder::ModuleInfo,
     modules::module::export_default,
-    utils::{
-        object::{get_bytes, ObjectExt},
-        result::ResultExt,
-    },
+    utils::{object::ObjectExt, result::ResultExt},
 };
 
 #[rquickjs::class]
@@ -117,8 +115,9 @@ impl<'js> XMLParser<'js> {
     }
 
     pub fn parse(&self, ctx: Ctx<'js>, xml: Value<'js>) -> Result<Object<'js>> {
-        let bytes = get_bytes(&ctx, xml)?;
-        let mut reader = Reader::from_reader(bytes.as_ref());
+        let bytes = ObjectBytes::from(&ctx, &xml)?;
+        let bytes = bytes.as_bytes();
+        let mut reader = Reader::from_reader(bytes);
         let config = reader.config_mut();
         config.trim_text(true);
 

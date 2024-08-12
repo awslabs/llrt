@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
-use llrt_utils::{bytes::get_bytes, ctx::CtxExtension, error::ErrorExtensions, result::ResultExt};
+use llrt_utils::{
+    bytes::ObjectBytes, ctx::CtxExtension, error::ErrorExtensions, result::ResultExt,
+};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
@@ -64,7 +66,7 @@ impl<'js> WritableStreamInner<'js> {
 #[allow(dead_code)]
 pub enum WriteCommand<'js> {
     End,
-    Write(Vec<u8>, Option<Function<'js>>, bool),
+    Write(Value<'js>, Option<Function<'js>>, bool),
     Flush,
 }
 
@@ -192,15 +194,13 @@ where
         cb: Opt<Function<'js>>,
         flush: bool,
     ) -> Result<()> {
-        let bytes = get_bytes(&ctx, value)?;
-
         let callback = cb.0;
 
         if this
             .borrow()
             .inner()
             .command_tx
-            .send(WriteCommand::Write(bytes, callback.clone(), flush))
+            .send(WriteCommand::Write(value, callback.clone(), flush))
             .is_err()
         {
             if let Some(cb) = callback {
@@ -245,9 +245,11 @@ where
                         tokio::select! {
                             command = command_rx.recv() => {
                                  match command {
-                                    Some(WriteCommand::Write(data, cb, flush)) => {
+                                    Some(WriteCommand::Write(value, cb, flush)) => {
+                                        let bytes = ObjectBytes::from(&ctx3, &value)?;
+                                        let data = bytes.as_bytes();
                                         let result = async {
-                                            writer.write_all(&data).await?;
+                                            writer.write_all(data).await?;
                                             if flush {
                                                 writer.flush().await.or_throw(&ctx3)?;
                                             }

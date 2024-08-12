@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, Response};
+use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{
     class::{Trace, Tracer},
     ArrayBuffer, Class, Ctx, Exception, IntoJs, Null, Result, TypedArray, Value,
 };
 
-use crate::{
-    json::parse::json_parse,
-    utils::{object::get_bytes, result::ResultExt},
-};
+use crate::{json::parse::json_parse, utils::result::ResultExt};
 
 use super::blob::Blob;
 
@@ -154,14 +152,15 @@ impl<'js> Body<'js> {
                     .take()
                     .ok_or(Exception::throw_type(ctx, "Already read"))?;
                 let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
-                bytes.to_vec()
+                bytes.into()
             },
             BodyVariant::Provided(provided) => {
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    get_bytes(ctx, provided.clone())?
+                    let bytes = ObjectBytes::from(ctx, provided)?;
+                    bytes.into()
                 }
             },
         };

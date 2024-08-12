@@ -1,10 +1,11 @@
+use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use md5::{Digest as Md5Digest, Md5 as MdHasher};
 
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
-use crate::utils::object::{bytes_to_typed_array, get_bytes};
+use crate::utils::object::bytes_to_typed_array;
 
 use super::encoded_bytes;
 
@@ -41,8 +42,8 @@ impl Md5 {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = get_bytes(&ctx, value)?;
-        this.0.borrow_mut().hasher.update(&bytes);
+        let bytes = ObjectBytes::from(&ctx, &value)?;
+        this.0.borrow_mut().hasher.update(bytes.as_bytes());
         Ok(this.0)
     }
 }

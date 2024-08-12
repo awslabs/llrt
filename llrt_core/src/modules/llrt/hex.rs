@@ -4,6 +4,7 @@ pub mod encoder {
     pub use llrt_utils::encoding::*;
 }
 
+use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
@@ -11,12 +12,7 @@ use rquickjs::{
 };
 
 use crate::{
-    module_builder::ModuleInfo,
-    modules::module::export_default,
-    utils::{
-        object::{bytes_to_typed_array, get_bytes},
-        result::ResultExt,
-    },
+    module_builder::ModuleInfo, modules::module::export_default, utils::result::ResultExt,
 };
 
 use self::encoder::{bytes_from_hex, bytes_to_hex_string};
@@ -25,8 +21,8 @@ pub struct LlrtHexModule;
 
 impl LlrtHexModule {
     pub fn encode<'js>(ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = get_bytes(&ctx, buffer)?;
-        Ok(bytes_to_hex_string(&bytes))
+        let bytes = ObjectBytes::from(&ctx, &buffer)?;
+        Ok(bytes_to_hex_string(bytes.as_bytes()))
     }
 
     pub fn decode(ctx: Ctx, encoded: String) -> Result<Value> {

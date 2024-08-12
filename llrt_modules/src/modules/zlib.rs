@@ -8,7 +8,7 @@ use flate2::{
     Compression,
 };
 use llrt_utils::{
-    bytes::get_bytes, ctx::CtxExtension, module::export_default, object::ObjectExt,
+    bytes::ObjectBytes, ctx::CtxExtension, module::export_default, object::ObjectExt,
     result::ResultExt,
 };
 use rquickjs::function::Func;
@@ -83,7 +83,8 @@ fn zlib_converter<'js>(
     options: Opt<Value<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
-    let src = get_bytes(&ctx, value)?;
+    let bytes = ObjectBytes::from(&ctx, &value)?;
+    let src = bytes.as_bytes();
 
     let mut level = Compression::default();
     if let Some(options) = options.0 {
@@ -95,12 +96,12 @@ fn zlib_converter<'js>(
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        ZlibCommand::Deflate => ZlibEncoder::new(&src[..], level).read_to_end(&mut dst)?,
-        ZlibCommand::DeflateRaw => DeflateEncoder::new(&src[..], level).read_to_end(&mut dst)?,
-        ZlibCommand::Gzip => GzEncoder::new(&src[..], level).read_to_end(&mut dst)?,
-        ZlibCommand::Inflate => ZlibDecoder::new(&src[..]).read_to_end(&mut dst)?,
-        ZlibCommand::InflateRaw => DeflateDecoder::new(&src[..]).read_to_end(&mut dst)?,
-        ZlibCommand::Gunzip => GzDecoder::new(&src[..]).read_to_end(&mut dst)?,
+        ZlibCommand::Deflate => ZlibEncoder::new(src, level).read_to_end(&mut dst)?,
+        ZlibCommand::DeflateRaw => DeflateEncoder::new(src, level).read_to_end(&mut dst)?,
+        ZlibCommand::Gzip => GzEncoder::new(src, level).read_to_end(&mut dst)?,
+        ZlibCommand::Inflate => ZlibDecoder::new(src).read_to_end(&mut dst)?,
+        ZlibCommand::InflateRaw => DeflateDecoder::new(src).read_to_end(&mut dst)?,
+        ZlibCommand::Gunzip => GzDecoder::new(src).read_to_end(&mut dst)?,
     };
 
     Buffer(dst).into_js(&ctx)
@@ -135,13 +136,14 @@ fn brotli_converter<'js>(
     _options: Opt<Value<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
-    let src = get_bytes(&ctx, value)?;
+    let bytes = ObjectBytes::from(&ctx, &value)?;
+    let src = bytes.as_bytes();
 
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        BrotliCommand::Compress => BrotliEncoder::new(&src[..]).read_to_end(&mut dst)?,
-        BrotliCommand::Decompress => BrotliDecoder::new(&src[..]).read_to_end(&mut dst)?,
+        BrotliCommand::Compress => BrotliEncoder::new(src).read_to_end(&mut dst)?,
+        BrotliCommand::Decompress => BrotliDecoder::new(src).read_to_end(&mut dst)?,
     };
 
     Buffer(dst).into_js(&ctx)
