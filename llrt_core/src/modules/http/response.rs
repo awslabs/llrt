@@ -190,7 +190,7 @@ impl<'js> Response<'js> {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    let mut bytes = ObjectBytes::from(ctx, provided.clone())?;
+                    let mut bytes = ObjectBytes::from(ctx, provided)?;
                     bytes.get_bytes().to_vec()
                 }
             },

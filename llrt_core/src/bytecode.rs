@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 pub const BYTECODE_VERSION: &str = "lrt01";
 pub const BYTECODE_COMPRESSED: u8 = b'c';
 pub const BYTECODE_UNCOMPRESSED: u8 = b'u';

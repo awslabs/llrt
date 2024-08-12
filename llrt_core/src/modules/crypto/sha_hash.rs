@@ -22,7 +22,7 @@ pub struct Hmac {
 impl Hmac {
     #[qjs(skip)]
     pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, secret: Value<'js>) -> Result<Self> {
-        let mut key_value = ObjectBytes::from(&ctx, secret)?;
+        let mut key_value = ObjectBytes::from(&ctx, &secret)?;
 
         let algorithm = match algorithm.to_lowercase().as_str() {
             "sha1" => hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
@@ -57,7 +57,7 @@ impl Hmac {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let mut bytes = ObjectBytes::from(&ctx, value)?;
+        let mut bytes = ObjectBytes::from(&ctx, &value)?;
         let bytes = bytes.get_bytes();
         this.0.borrow_mut().context.update(&bytes);
 
@@ -118,7 +118,7 @@ impl Hash {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let mut bytes = ObjectBytes::from(&ctx, value)?;
+        let mut bytes = ObjectBytes::from(&ctx, &value)?;
         let bytes = bytes.get_bytes();
         this.0.borrow_mut().context.update(&bytes);
         Ok(this.0)
@@ -175,7 +175,7 @@ impl ShaHash {
         secret: Opt<Value<'js>>,
     ) -> Result<Self> {
         let secret = if let Some(secret) = secret.0 {
-            let mut bytes = ObjectBytes::from(&ctx, secret)?;
+            let mut bytes = ObjectBytes::from(&ctx, &secret)?;
             Some(bytes.get_bytes().to_vec())
         } else {
             None
@@ -209,7 +209,7 @@ impl ShaHash {
         ctx: Ctx<'js>,
         value: Value<'js>,
     ) -> Result<Class<'js, Self>> {
-        let mut bytes = ObjectBytes::from(&ctx, value)?;
+        let mut bytes = ObjectBytes::from(&ctx, &value)?;
         this.0.borrow_mut().bytes = bytes.get_bytes().to_vec();
         Ok(this.0)
     }

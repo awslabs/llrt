@@ -13,7 +13,7 @@ use rquickjs::{
 };
 use tokio::select;
 
-use std::{collections::HashSet, time::Instant};
+use std::{borrow::Cow, collections::HashSet, mem, time::Instant};
 
 use crate::{
     environment,
@@ -283,9 +283,11 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let mut bytes = ObjectBytes::from(ctx, body_opt)?;
-            let bytes = bytes.get_bytes().to_vec();
-            body = Some(Full::from(bytes));
+            let mut bytes = ObjectBytes::from(ctx, &body_opt)?;
+            let bytes = bytes.get_bytes();
+            //this is fine since we're only holding on to bytes in this function
+            let static_bytes: Cow<'static, [u8]> = unsafe { mem::transmute(bytes) };
+            body = Some(Full::from(static_bytes));
         }
 
         if let Some(url_opt) =

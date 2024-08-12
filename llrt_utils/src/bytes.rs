@@ -24,13 +24,13 @@ pub enum ObjectBytes<'js> {
 impl<'js> ObjectBytes<'js> {
     const DETACHED_ERROR: &'static str = "ArrayBuffer is detached";
 
-    pub fn from(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    pub fn from(ctx: &Ctx<'js>, value: &Value<'js>) -> Result<Self> {
         Self::from_offset(ctx, value, 0, None)
     }
 
     pub fn from_offset(
         ctx: &Ctx<'js>,
-        value: Value<'js>,
+        value: &Value<'js>,
         offset: usize,
         length: Option<usize>,
     ) -> Result<Self> {

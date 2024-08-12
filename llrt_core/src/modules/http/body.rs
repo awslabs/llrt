@@ -152,14 +152,14 @@ impl<'js> Body<'js> {
                     .take()
                     .ok_or(Exception::throw_type(ctx, "Already read"))?;
                 let bytes = body.body_mut().collect().await.or_throw(ctx)?.to_bytes();
-                bytes.to_vec()
+                bytes.into()
             },
             BodyVariant::Provided(provided) => {
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    let mut bytes = ObjectBytes::from(ctx, provided.clone())?;
+                    let mut bytes = ObjectBytes::from(ctx, provided)?;
                     bytes.get_bytes().into()
                 }
             },

@@ -71,9 +71,9 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     //slow path
     if let Some(encoding) = encoding.0 {
         let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
-        let mut a = ObjectBytes::from(&ctx, value)?;
+        let mut a = ObjectBytes::from(&ctx, &value)?;
         let bytes = a.get_bytes();
-        return Ok(encoder.decode(&bytes).or_throw(&ctx)?.len());
+        return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
     }
     //fast path
     if let Some(val) = value.as_string() {

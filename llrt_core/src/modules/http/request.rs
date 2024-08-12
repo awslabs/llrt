@@ -1,6 +1,7 @@
-use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
+use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{
     class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
     Result, TypedArray, Value,
@@ -15,21 +16,18 @@ use crate::{
 use super::{blob::Blob, headers::Headers};
 
 impl<'js> Request<'js> {
-    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        let bytes = match &mut self.body {
+    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<ObjectBytes<'js>>> {
+        match &self.body {
             Some(provided) => {
-                if let Some(blob) = get_class::<Blob>(provided)? {
-                    let blob = blob.borrow();
-                    blob.get_bytes()
+                let bytes = if let Some(blob) = get_class::<Blob>(provided)? {
+                    ObjectBytes::Vec(Some(blob.borrow().get_bytes()))
                 } else {
-                    let mut bytes = ObjectBytes::from(ctx, provided.clone())?;
-                    bytes.get_bytes().to_vec()
-                }
+                    ObjectBytes::from(ctx, provided)?
+                };
+                Ok(Some(bytes))
             },
-            None => return Ok(None),
-        };
-
-        Ok(Some(bytes))
+            None => Ok(None),
+        }
     }
 }
 
@@ -131,29 +129,30 @@ impl<'js> Request<'js> {
     }
 
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
+        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
+            let bytes = bytes.get_bytes();
             return Ok(String::from_utf8_lossy(&bytes).to_string());
         }
         Ok("".into())
     }
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, bytes);
+        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
+            return json_parse(&ctx, bytes.get_bytes());
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
 
     async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return ArrayBuffer::new(ctx, bytes);
+        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
+            return ArrayBuffer::new(ctx, bytes.get_bytes());
         }
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
     async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return TypedArray::new(ctx, bytes).map(|m| m.into_value());
+        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
+            return TypedArray::new(ctx, bytes.get_bytes()).map(|m| m.into_value());
         }
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
@@ -167,8 +166,8 @@ impl<'js> Request<'js> {
                 None
             }
         });
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(bytes, mime_type));
+        if let Some(mut bytes) = self.take_bytes(&ctx).await? {
+            return Ok(Blob::from_bytes(bytes.get_bytes().into(), mime_type));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
     }
