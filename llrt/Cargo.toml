@@ -21,6 +21,9 @@ tokio = { version = "1", features = ["full"] }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 snmalloc-rs = { version = "0.3.6", features = ["lto"] }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+mimalloc = { version = "0.1.43" }
+
 [[bin]]
 name = "llrt"
 path = "src/main.rs"
