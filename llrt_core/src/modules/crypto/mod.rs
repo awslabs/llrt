@@ -78,8 +78,8 @@ fn get_random_int(_ctx: Ctx, first: i64, second: Opt<i64>) -> Result<i64> {
     Ok(random_number)
 }
 
-const NOT_ARRAY_BUFFER_ERROR: &'static str = "Not an ArrayBuffer";
-const ARRAY_BUFFER_DETACHED_ERROR: &'static str = "ArrayBuffer is detached";
+const NOT_ARRAY_BUFFER_ERROR: &str = "Not an ArrayBuffer";
+const ARRAY_BUFFER_DETACHED_ERROR: &str = "ArrayBuffer is detached";
 
 fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
     let args_iter = args.0.into_iter();
