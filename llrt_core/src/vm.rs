@@ -34,7 +34,7 @@ use rquickjs::{
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-include!("./bytecode_cache.rs");
+include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
 use crate::modules::{
     console,
@@ -60,7 +60,8 @@ pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     Ok((uncompressed_size, rest))
 }
 
-pub(crate) static COMPRESSION_DICT: &[u8] = include_bytes!("../../bundle/lrt/compression.dict");
+pub(crate) static COMPRESSION_DICT: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
