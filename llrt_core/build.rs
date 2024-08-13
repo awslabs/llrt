@@ -6,7 +6,7 @@ use std::{
     error::Error,
     fs::{self, File},
     io::{self, BufWriter},
-    path::{Path, PathBuf, MAIN_SEPARATOR_STR},
+    path::{Path, PathBuf},
     process::Command,
     result::Result as StdResult,
 };
