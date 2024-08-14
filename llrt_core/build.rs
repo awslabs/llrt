@@ -6,7 +6,7 @@ use std::{
     error::Error,
     fs::{self, File},
     io::{self, BufWriter},
-    path::{Path, PathBuf, MAIN_SEPARATOR_STR},
+    path::{Path, PathBuf},
     process::Command,
     result::Result as StdResult,
 };
@@ -17,7 +17,6 @@ use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};
 
 const BUNDLE_JS_DIR: &str = "../bundle/js";
-const BUNDLE_LRT_DIR: &str = "../bundle/lrt";
 
 include!("src/bytecode.rs");
 
@@ -52,7 +51,9 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     rt.set_loader(resolver, loader);
     let ctx = Context::full(&rt)?;
 
-    let sdk_bytecode_path = Path::new("src").join("bytecode_cache.rs");
+    let out_dir = env::var("OUT_DIR").unwrap();
+
+    let sdk_bytecode_path = Path::new(&out_dir).join("bytecode_cache.rs");
     let mut sdk_bytecode_file = BufWriter::new(File::create(sdk_bytecode_path)?);
 
     let mut ph_map = phf_codegen::Map::<String>::new();
@@ -100,7 +101,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
             info!("Compiling module: {}", module_name);
 
-            let lrt_path = PathBuf::from(BUNDLE_LRT_DIR).join(path.with_extension(BYTECODE_EXT));
+            let lrt_path = PathBuf::from(&out_dir).join(path.with_extension(BYTECODE_EXT));
             let lrt_filename = lrt_path.to_string_lossy().to_string();
             lrt_filenames.push(lrt_filename.clone());
             let bytes = {
@@ -130,11 +131,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
             ph_map.entry(
                 module_name,
-                &format!(
-                    "include_bytes!(\"..{}{}\")",
-                    MAIN_SEPARATOR_STR, &lrt_filename
-                )
-                .replace(MAIN_SEPARATOR_STR, "/"),
+                &format!("include_bytes!(\"{}\")", &lrt_filename),
             );
         }
 
@@ -154,7 +151,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
         human_file_size(total_bytes)
     );
 
-    let compression_dictionary_path = Path::new(BUNDLE_LRT_DIR)
+    let compression_dictionary_path = Path::new(&out_dir)
         .join("compression.dict")
         .to_string_lossy()
         .to_string();
