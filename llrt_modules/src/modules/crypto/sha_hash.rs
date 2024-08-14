@@ -85,6 +85,7 @@ impl Hash {
         let algorithm = match algorithm.to_lowercase().as_str() {
             "sha1" => &digest::SHA1_FOR_LEGACY_USE_ONLY,
             "sha256" => &digest::SHA256,
+            "sha384" => &digest::SHA384,
             "sha512" => &digest::SHA512,
             _ => {
                 return Err(Exception::throw_message(
