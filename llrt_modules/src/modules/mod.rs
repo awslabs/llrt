@@ -4,12 +4,16 @@
 pub mod buffer;
 #[cfg(feature = "child-process")]
 pub mod child_process;
+#[cfg(feature = "crypto")]
+pub mod crypto;
 #[cfg(feature = "events")]
 pub mod events;
 #[cfg(feature = "exceptions")]
 pub mod exceptions;
 #[cfg(feature = "fs")]
 pub mod fs;
+#[cfg(feature = "llrt")]
+pub mod llrt;
 #[cfg(feature = "navigator")]
 pub mod navigator;
 #[cfg(feature = "net")]

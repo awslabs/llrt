@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, rc::Rc};
 
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{
+    bytes::ObjectBytes, module::export_default, object::ObjectExt, result::ResultExt,
+};
 use quick_xml::{
     escape::resolve_xml_entity,
     events::{BytesStart, Event},
     Reader,
 };
-
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
@@ -17,6 +18,8 @@ use rquickjs::{
     prelude::This,
     Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
+
+use crate::ModuleInfo;
 
 const AMP: &str = "&amp;";
 const LT: &str = "&lt;";
@@ -27,12 +30,6 @@ const CR: &str = "&#x0D;";
 const LF: &str = "&#x0A;";
 const NEL: &str = "&#x85;";
 const LS: &str = "&#x2028;";
-
-use crate::{
-    module_builder::ModuleInfo,
-    modules::module::export_default,
-    utils::{object::ObjectExt, result::ResultExt},
-};
 
 #[rquickjs::class]
 struct XMLParser<'js> {

@@ -12,9 +12,11 @@ default = ["all"]
 all = [
   "buffer",
   "child-process",
+  "crypto",
   "events",
   "exceptions",
   "fs",
+  "llrt",
   "navigator",
   "net",
   "os",
@@ -27,9 +29,11 @@ all = [
 
 buffer = ["llrt_utils/encoding"]
 child-process = ["events", "__stream", "itoa"]
+crypto = ["crc32c", "crc32fast", "md-5", "rand", "llrt"]
 events = []
 exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
+llrt = ["uuid", "uuid-simd", "quick-xml"]
 navigator = []
 net = ["events", "__stream"]
 os = [
@@ -68,6 +72,25 @@ flate2 = { version = "1.0.30", features = [
   "zlib-ng",
 ], default-features = false, optional = true }
 brotlic = { version = "0.8.2", optional = true }
+uuid = { version = "1.10.0", default-features = false, features = [
+    "v1",
+    "v3",
+    "v4",
+    "v5",
+    "v6",
+    "v7",
+    "fast-rng",
+], optional = true }
+uuid-simd = { version = "0.8.0", optional = true }
+quick-xml = { version = "0.36.0", optional = true }
+rand = { version = "0.8.5", optional = true }
+crc32c = { version = "0.6.8", optional = true }
+crc32fast= { version = "1.4.2", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+md-5 = { version = "0.10.6", optional = true }
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+md-5 = { version = "0.10.6", features = ["asm"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", optional = true }

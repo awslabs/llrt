@@ -6,8 +6,13 @@ mod sha_hash;
 use std::slice;
 
 use llrt_utils::{
-    bytes::ObjectBytes,
+    bytes::{bytes_to_typed_array, get_start_end_indexes, ObjectBytes},
+    ctx::CtxExtension,
+    encoding::{bytes_to_b64_string, bytes_to_hex_string},
+    error::ErrorExtensions,
     error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
+    module::export_default,
+    result::ResultExt,
 };
 use once_cell::sync::Lazy;
 use rand::prelude::ThreadRng;
@@ -21,18 +26,8 @@ use rquickjs::{
 };
 
 use crate::{
-    module_builder::ModuleInfo,
-    modules::{
-        buffer::Buffer,
-        encoding::encoder::{bytes_to_b64_string, bytes_to_hex_string},
-        llrt::uuid::uuidv4,
-        module::export_default,
-    },
-    utils::{
-        object::{bytes_to_typed_array, get_start_end_indexes},
-        result::ResultExt,
-    },
-    vm::{CtxExtension, ErrorExtensions},
+    modules::{buffer::Buffer, llrt::uuid::uuidv4},
+    ModuleInfo,
 };
 
 use self::{

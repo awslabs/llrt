@@ -5,6 +5,8 @@
 pub use self::module_info::ModuleInfo;
 pub use self::modules::*;
 
+#[macro_use]
+mod macros;
 mod module_info;
 mod modules;
 #[cfg(feature = "__stream")]
