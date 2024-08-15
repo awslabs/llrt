@@ -25,13 +25,13 @@ jobs:
       - name: Publish utils
         working-directory: ./llrt_utils
         run: |
-          crate publish
+          cargo publish
           sleep 10
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
       - name: Publish modules
         working-directory: ./llrt_modules
         run: |
-          crate publish
+          cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
