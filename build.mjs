@@ -125,8 +125,8 @@ const _ComputeServices = {
   "client-lambda": ["Lambda", "lambda"],
 };
 const _Containers = {
-  "client-ecs": ["ECS", "ecs"],
   "client-ecr": ["ECR", "ecr"],
+  "client-ecs": ["ECS", "ecs"],
   "client-eks": ["EKS", "eks"],
   "client-servicediscovery": ["ServiceDiscovery", "discovery"],
 };
@@ -196,7 +196,6 @@ const _SecurityIdentityAndCompliance = {
 const _Storage = {
   "client-efs": ["EFS", "elasticfilesystem"],
   "client-s3": ["S3", "s3"],
-  "lib-storage": ["Upload", "s3"],
 };
 
 const SDK_DATA = {
@@ -232,6 +231,7 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/fetch-http-handler",
   "@smithy/invalid-dependency",
   "@smithy/is-array-buffer",
+  "@smithy/middleware-compression",
   "@smithy/middleware-content-length",
   "@smithy/middleware-endpoint",
   "@smithy/middleware-retry",

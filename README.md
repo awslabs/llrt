@@ -238,8 +238,8 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 
 | Containers                       |
 | -------------------------------- |
-| @aws-sdk/client-ecs              |
 | @aws-sdk/client-ecr              |
+| @aws-sdk/client-ecs              |
 | @aws-sdk/client-eks              |
 | @aws-sdk/client-servicediscovery |
 
@@ -264,9 +264,9 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | Machine Learning (ML) and Artificial Intelligence (AI) |
 | ------------------------------------------------------ |
 | @aws-sdk/client-bedrock                                |
+| @aws-sdk/client-bedrock-runtime                        |
 | @aws-sdk/client-bedrock-agent                          |
 | @aws-sdk/client-bedrock-agent-runtime                  |
-| @aws-sdk/client-bedrock-runtime                        |
 | @aws-sdk/client-polly                                  |
 | @aws-sdk/client-rekognition                            |
 | @aws-sdk/client-textract                               |
@@ -278,8 +278,8 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | @aws-sdk/client-appconfigdata     |
 | @aws-sdk/client-cloudformation    |
 | @aws-sdk/client-cloudwatch        |
-| @aws-sdk/client-cloudwatch-logs   |
 | @aws-sdk/client-cloudwatch-events |
+| @aws-sdk/client-cloudwatch-logs   |
 | @aws-sdk/client-service-catalog   |
 | @aws-sdk/client-ssm               |
 
@@ -311,6 +311,7 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 
 | Other bundled packages           |
 | -------------------------------- |
+| @aws-crypto                      |
 | @aws-sdk/credential-providers    |
 | @aws-sdk/lib-dynamodb            |
 | @aws-sdk/lib-storage             |
@@ -319,7 +320,6 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | @aws-sdk/util-dynamodb           |
 | @aws-sdk/util-user-agent-browser |
 | @smithy                          |
-| @aws-crypto                      |
 
 > [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
