@@ -75,29 +75,145 @@ const ES_BUILD_OPTIONS = {
   ],
 };
 
-const SDK_DATA = {
-  "client-dynamodb": ["DynamoDB", "dynamodb"],
-  "lib-dynamodb": ["DynamoDBDocument", "dynamodb"],
-  "client-kms": ["KMS", "kms"],
-  "client-lambda": ["Lambda", "lambda"],
-  "client-s3": ["S3", "s3"],
-  "lib-storage": ["Upload", "s3"],
-  "client-secrets-manager": ["SecretsManager", "secretsmanager"],
-  "client-ses": ["SES", "email"],
+// API Endpoint Definitions
+//
+// const _Classification = {
+//   "PackageName": ["ClientName", "ServiceEndpoint"],
+// }
+//
+// The meanings of each and how to look them up are as follows.
+//
+//   1. _Classification
+//   https://docs.aws.amazon.com/whitepapers/latest/aws-overview/amazon-web-services-cloud-platform.html
+//
+//   2. ClientName
+//   https://www.npmjs.com/search?q=%40aws-sdk%2Fclient-
+//
+//    Case) @aws-sdk/client-sts
+//    [Import Section](https://www.npmjs.com/package/@aws-sdk/client-sts#getting-started)
+//
+//    > // ES6+ example
+//    > import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
+//               ^^^ <- This part except for the "client"
+//
+//   3. ServiceEndpoint
+//   https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
+//
+const _Analytics = {
+  "client-athena": ["Athena", "athena"],
+  "client-firehose": ["Firehose", "firehose"],
+  "client-glue": ["Glue", "glue"],
+  "client-kinesis": ["Kinesis", "kinesis"],
+  "client-opensearch": ["OpenSearch", "es"],
+  "client-opensearchserverless": ["OpenSearchServerless", "aoss"],
+};
+const _ApplicationIntegration = {
+  "client-eventbridge": ["EventBridge", "events"],
+  "client-scheduler": ["Scheduler", "scheduler"],
+  "client-sfn": ["SFN", "states"],
   "client-sns": ["SNS", "sns"],
   "client-sqs": ["SQS", "sqs"],
-  "client-sts": ["STS", "sts"],
-  "client-ssm": ["SSM", "ssm"],
+};
+const _BusinessApplications = {
+  "client-ses": ["SES", "email"],
+  "client-sesv2": ["SESv2", "email"],
+};
+const _ComputeServices = {
+  "client-auto-scaling": ["AutoScaling", "autoscaling"],
+  "client-batch": ["Batch", "batch"],
+  "client-ec2": ["EC2", "ec2"],
+  "client-lambda": ["Lambda", "lambda"],
+};
+const _Containers = {
+  "client-ecs": ["ECS", "ecs"],
+  "client-ecr": ["ECR", "ecr"],
+  "client-eks": ["EKS", "eks"],
+  "client-servicediscovery": ["ServiceDiscovery", "discovery"],
+};
+const _Databases = {
+  "client-dynamodb": ["DynamoDB", "dynamodb"],
+  "client-dynamodb-streams": ["DynamoDBStreams", "streams.dynamodb"],
+  "client-elasticache": ["ElastiCache", "elasticache"],
+  "client-rds": ["RDS", "rds"],
+  "client-rds-data": ["RDSData", "rds-data"],
+  "lib-dynamodb": ["DynamoDBDocument", "dynamodb"],
+};
+const _DeveloperTools = {
+  "client-xray": ["XRay", "xray"],
+};
+const _FrontendWebAndMobileServices = {
+  "client-amplify": ["Amplify", "amplify"],
+  "client-appsync": ["AppSync", "appsync"],
+  "client-location": ["Location", "geo"],
+};
+const _MachineLearningAndArtificialIntelligence = {
+  "client-bedrock": ["Bedrock", "bedrock"],
+  "client-bedrock-agent": ["BedrockAgent", "bedrock-agent"],
+  "client-bedrock-agent-runtime": [
+    "BedrockAgentRuntime",
+    "bedrock-agent-runtime",
+  ],
+  "client-bedrock-runtime": ["BedrockRuntime", "bedrock-runtime"],
+  "client-polly": ["Polly", "polly"],
+  "client-rekognition": ["Rekognition", "rekognition"],
+  "client-textract": ["Textract", "textract"],
+  "client-translate": ["Translate", "translate"],
+};
+const _ManagementAndGovernance = {
+  "client-appconfig": ["AppConfig", "appconfig"],
+  "client-appconfigdata": ["AppConfigData", "appconfigdata"],
+  "client-cloudformation": ["CloudFormation", "cloudformation"],
+  "client-cloudwatch": ["CloudWatch", "monitoring"],
   "client-cloudwatch-logs": ["CloudWatchLogs", "logs"],
   "client-cloudwatch-events": ["CloudWatchEvents", "events"],
-  "client-eventbridge": ["EventBridge", "events"],
-  "client-sfn": ["SFN", "states"],
-  "client-xray": ["XRay", "xray"],
+  "client-service-catalog": ["ServiceCatalog", "servicecatalog"],
+  "client-ssm": ["SSM", "ssm"],
+};
+const _Media = {
+  "client-mediaconvert": ["MediaConvert", "mediaconvert"],
+};
+const _NetworkingAndContentDelivery = {
+  "client-api-gateway": ["APIGateway", "apigateway"],
+  "client-apigatewayv2": ["ApiGatewayV2", "apigateway"],
+  "client-elastic-load-balancing-v2": [
+    "ElasticLoadBalancingV2",
+    "elasticloadbalancing",
+  ],
+};
+const _SecurityIdentityAndCompliance = {
+  "client-acm": ["ACM", "acm"],
   "client-cognito-identity": ["CognitoIdentity", "cognito-idp"],
   "client-cognito-identity-provider": [
     "CognitoIdentityProvider",
     "cognito-idp",
   ],
+  "client-iam": ["IAM", "iam"],
+  "client-kms": ["KMS", "kms"],
+  "client-secrets-manager": ["SecretsManager", "secretsmanager"],
+  "client-sso": ["SSO", "sso"],
+  "client-sts": ["STS", "sts"],
+};
+const _Storage = {
+  "client-efs": ["EFS", "elasticfilesystem"],
+  "client-s3": ["S3", "s3"],
+  "lib-storage": ["Upload", "s3"],
+};
+
+const SDK_DATA = {
+  ..._Analytics,
+  ..._ApplicationIntegration,
+  ..._BusinessApplications,
+  ..._ComputeServices,
+  ..._Containers,
+  ..._Databases,
+  ..._DeveloperTools,
+  ..._FrontendWebAndMobileServices,
+  ..._MachineLearningAndArtificialIntelligence,
+  ..._ManagementAndGovernance,
+  ..._Media,
+  ..._NetworkingAndContentDelivery,
+  ..._SecurityIdentityAndCompliance,
+  ..._Storage,
 };
 
 const ADDITIONAL_PACKAGES = [
