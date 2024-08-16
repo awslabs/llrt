@@ -99,6 +99,14 @@ const ES_BUILD_OPTIONS = {
 //   3. ServiceEndpoint
 //   https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
 //
+//    Case) @aws-sdk/client-sts
+//    [Service endpoints Section](https://docs.aws.amazon.com/general/latest/gr/sts.html#sts_region)
+//
+//    > | Region Name    | Region    | Endpoint                    | Protocol |
+//    > | -------------- | --------- | --------------------------- | -------- |
+//    > | US East (Ohio) | us-east-2 | sts.us-east-2.amazonaws.com | HTTPS    |
+//                                     ^^^ <- String before "region"
+//
 const _Analytics = {
   "client-athena": ["Athena", "athena"],
   "client-firehose": ["Firehose", "firehose"],
