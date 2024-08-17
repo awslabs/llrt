@@ -78,7 +78,7 @@ const ES_BUILD_OPTIONS = {
 // API Endpoint Definitions
 //
 // const _Classification = {
-//   "PackageName": ["ClientName", "ServiceEndpoint"],
+//   "PackageName": ["ClientName", ["ServiceEndpoints", ...]],
 // }
 //
 // The meanings of each and how to look them up are as follows.
@@ -96,7 +96,7 @@ const ES_BUILD_OPTIONS = {
 //    > import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 //               ^^^ <- This part except for the "client"
 //
-//   3. ServiceEndpoint
+//   3. ServiceEndpoints
 //   https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
 //
 //    Case) @aws-sdk/client-sts
@@ -107,103 +107,107 @@ const ES_BUILD_OPTIONS = {
 //    > | US East (Ohio) | us-east-2 | sts.us-east-2.amazonaws.com | HTTPS    |
 //                                     ^^^ <- String before "region"
 //
+//    If multiple endpoints are required, such as @aws-sdk/client-sso, register multiple endpoints in the array.
+//
 const _Analytics = {
-  "client-athena": ["Athena", "athena"],
-  "client-firehose": ["Firehose", "firehose"],
-  "client-glue": ["Glue", "glue"],
-  "client-kinesis": ["Kinesis", "kinesis"],
-  "client-opensearch": ["OpenSearch", "es"],
-  "client-opensearchserverless": ["OpenSearchServerless", "aoss"],
+  "client-athena": ["Athena", ["athena"]],
+  "client-firehose": ["Firehose", ["firehose"]],
+  "client-glue": ["Glue", ["glue"]],
+  "client-kinesis": ["Kinesis", ["kinesis"]],
+  "client-opensearch": ["OpenSearch", ["es"]],
+  "client-opensearchserverless": ["OpenSearchServerless", ["aoss"]],
 };
 const _ApplicationIntegration = {
-  "client-eventbridge": ["EventBridge", "events"],
-  "client-scheduler": ["Scheduler", "scheduler"],
-  "client-sfn": ["SFN", "states"],
-  "client-sns": ["SNS", "sns"],
-  "client-sqs": ["SQS", "sqs"],
+  "client-eventbridge": ["EventBridge", ["events"]],
+  "client-scheduler": ["Scheduler", ["scheduler"]],
+  "client-sfn": ["SFN", ["states"]],
+  "client-sns": ["SNS", ["sns"]],
+  "client-sqs": ["SQS", ["sqs"]],
 };
 const _BusinessApplications = {
-  "client-ses": ["SES", "email"],
-  "client-sesv2": ["SESv2", "email"],
+  "client-ses": ["SES", ["email"]],
+  "client-sesv2": ["SESv2", ["email"]],
 };
 const _ComputeServices = {
-  "client-auto-scaling": ["AutoScaling", "autoscaling"],
-  "client-batch": ["Batch", "batch"],
-  "client-ec2": ["EC2", "ec2"],
-  "client-lambda": ["Lambda", "lambda"],
+  "client-auto-scaling": ["AutoScaling", ["autoscaling"]],
+  "client-batch": ["Batch", ["batch"]],
+  "client-ec2": ["EC2", ["ec2"]],
+  "client-lambda": ["Lambda", ["lambda"]],
 };
 const _Containers = {
-  "client-ecr": ["ECR", "ecr"],
-  "client-ecs": ["ECS", "ecs"],
-  "client-eks": ["EKS", "eks"],
-  "client-servicediscovery": ["ServiceDiscovery", "discovery"],
+  "client-ecr": ["ECR", ["ecr"]],
+  "client-ecs": ["ECS", ["ecs"]],
+  "client-eks": ["EKS", ["eks"]],
+  "client-servicediscovery": ["ServiceDiscovery", ["discovery"]],
 };
 const _Databases = {
-  "client-dynamodb": ["DynamoDB", "dynamodb"],
-  "client-dynamodb-streams": ["DynamoDBStreams", "streams.dynamodb"],
-  "client-elasticache": ["ElastiCache", "elasticache"],
-  "client-rds": ["RDS", "rds"],
-  "client-rds-data": ["RDSData", "rds-data"],
-  "lib-dynamodb": ["DynamoDBDocument", "dynamodb"],
+  "client-dynamodb": ["DynamoDB", ["dynamodb"]],
+  "client-dynamodb-streams": ["DynamoDBStreams", ["streams.dynamodb"]],
+  "client-elasticache": ["ElastiCache", ["elasticache"]],
+  "client-rds": ["RDS", ["rds"]],
+  "client-rds-data": ["RDSData", ["rds-data"]],
+  "lib-dynamodb": ["DynamoDBDocument", ["dynamodb"]],
 };
 const _DeveloperTools = {
-  "client-xray": ["XRay", "xray"],
+  "client-xray": ["XRay", ["xray"]],
 };
 const _FrontendWebAndMobileServices = {
-  "client-amplify": ["Amplify", "amplify"],
-  "client-appsync": ["AppSync", "appsync"],
-  "client-location": ["Location", "geo"],
+  "client-amplify": ["Amplify", ["amplify"]],
+  "client-appsync": ["AppSync", ["appsync"]],
+  "client-location": ["Location", ["geo"]],
 };
 const _MachineLearningAndArtificialIntelligence = {
-  "client-bedrock": ["Bedrock", "bedrock"],
-  "client-bedrock-agent": ["BedrockAgent", "bedrock-agent"],
+  "client-bedrock": ["Bedrock", ["bedrock"]],
+  "client-bedrock-agent": ["BedrockAgent", ["bedrock-agent"]],
   "client-bedrock-agent-runtime": [
     "BedrockAgentRuntime",
-    "bedrock-agent-runtime",
+    ["bedrock-agent-runtime"],
   ],
-  "client-bedrock-runtime": ["BedrockRuntime", "bedrock-runtime"],
-  "client-polly": ["Polly", "polly"],
-  "client-rekognition": ["Rekognition", "rekognition"],
-  "client-textract": ["Textract", "textract"],
-  "client-translate": ["Translate", "translate"],
+  "client-bedrock-runtime": ["BedrockRuntime", ["bedrock-runtime"]],
+  "client-polly": ["Polly", ["polly"]],
+  "client-rekognition": ["Rekognition", ["rekognition"]],
+  "client-textract": ["Textract", ["textract"]],
+  "client-translate": ["Translate", ["translate"]],
 };
 const _ManagementAndGovernance = {
-  "client-appconfig": ["AppConfig", "appconfig"],
-  "client-appconfigdata": ["AppConfigData", "appconfigdata"],
-  "client-cloudformation": ["CloudFormation", "cloudformation"],
-  "client-cloudwatch": ["CloudWatch", "monitoring"],
-  "client-cloudwatch-logs": ["CloudWatchLogs", "logs"],
-  "client-cloudwatch-events": ["CloudWatchEvents", "events"],
-  "client-service-catalog": ["ServiceCatalog", "servicecatalog"],
-  "client-ssm": ["SSM", "ssm"],
+  "client-appconfig": ["AppConfig", ["appconfig"]],
+  "client-appconfigdata": ["AppConfigData", ["appconfigdata"]],
+  "client-cloudformation": ["CloudFormation", ["cloudformation"]],
+  "client-cloudwatch": ["CloudWatch", ["monitoring"]],
+  "client-cloudwatch-logs": ["CloudWatchLogs", ["logs"]],
+  "client-cloudwatch-events": ["CloudWatchEvents", ["events"]],
+  "client-service-catalog": ["ServiceCatalog", ["servicecatalog"]],
+  "client-ssm": ["SSM", ["ssm"]],
 };
 const _Media = {
-  "client-mediaconvert": ["MediaConvert", "mediaconvert"],
+  "client-mediaconvert": ["MediaConvert", ["mediaconvert"]],
 };
 const _NetworkingAndContentDelivery = {
-  "client-api-gateway": ["APIGateway", "apigateway"],
-  "client-apigatewayv2": ["ApiGatewayV2", "apigateway"],
+  "client-api-gateway": ["APIGateway", ["apigateway"]],
+  "client-apigatewayv2": ["ApiGatewayV2", ["apigateway"]],
   "client-elastic-load-balancing-v2": [
     "ElasticLoadBalancingV2",
-    "elasticloadbalancing",
+    ["elasticloadbalancing"],
   ],
 };
 const _SecurityIdentityAndCompliance = {
-  "client-acm": ["ACM", "acm"],
-  "client-cognito-identity": ["CognitoIdentity", "cognito-idp"],
+  "client-acm": ["ACM", ["acm"]],
+  "client-cognito-identity": ["CognitoIdentity", ["cognito-idp"]],
   "client-cognito-identity-provider": [
     "CognitoIdentityProvider",
-    "cognito-idp",
+    ["cognito-idp"],
   ],
-  "client-iam": ["IAM", "iam"],
-  "client-kms": ["KMS", "kms"],
-  "client-secrets-manager": ["SecretsManager", "secretsmanager"],
-  "client-sso": ["SSO", "sso"],
-  "client-sts": ["STS", "sts"],
+  "client-iam": ["IAM", ["iam"]],
+  "client-kms": ["KMS", ["kms"]],
+  "client-secrets-manager": ["SecretsManager", ["secretsmanager"]],
+  "client-sso": ["SSO", ["sso", "identitystore"]],
+  "client-sso-admin": ["SSOAdmin", ["sso", "identitystore"]],
+  "client-sso-oidc": ["SSOOIDC", ["sso", "identitystore"]],
+  "client-sts": ["STS", ["sts"]],
 };
 const _Storage = {
-  "client-efs": ["EFS", "elasticfilesystem"],
-  "client-s3": ["S3", "s3"],
+  "client-efs": ["EFS", ["elasticfilesystem"]],
+  "client-s3": ["S3", ["s3"]],
 };
 
 const SDK_DATA = {
@@ -276,17 +280,17 @@ const REPLACEMENT_PACKAGES = {
   "@smithy/abort-controller": "shims/@smithy/abort-controller.js",
 };
 
-const SERVICE_ENDPOINT_BY_PACKAGE = {};
+const SERVICE_ENDPOINTS_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
 const SDK_PACKAGES = [...ADDITIONAL_PACKAGES];
 
 Object.keys(SDK_DATA).forEach((sdk) => {
-  const [clientName, serviceEndpoint] = SDK_DATA[sdk] || [];
+  const [clientName, serviceEndpoints] = SDK_DATA[sdk] || [];
   const sdkPackage = `@aws-sdk/${sdk}`;
   SDK_PACKAGES.push(sdkPackage);
   SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
-  SERVICE_ENDPOINT_BY_PACKAGE[sdk] = serviceEndpoint;
+  SERVICE_ENDPOINTS_BY_PACKAGE[sdk] = serviceEndpoints;
   CLIENTS_BY_SDK[sdk] = clientName;
 });
 
@@ -689,13 +693,16 @@ async function buildSdks() {
       const packagePath = path.join(TMP_DIR, pkg);
       const sdk = SDKS_BY_SDK_PACKAGES[pkg];
       const sdkIndexFile = path.join(packagePath, "index.js");
-      const serviceName = SERVICE_ENDPOINT_BY_PACKAGE[sdk];
+      const serviceNames = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
 
       await fs.mkdir(packagePath, { recursive: true });
 
       let sdkContents = `export * from "${pkg}";`;
-      if (serviceName) {
-        sdkContents += `\nif(__bootstrap.addAwsSdkInitTask){\n   __bootstrap.addAwsSdkInitTask("${serviceName}");\n}`;
+      if (serviceNames) {
+        for (const serviceName of serviceNames) {
+          sdkContents += `\nif(__bootstrap.addAwsSdkInitTask){\n   __bootstrap.addAwsSdkInitTask("${serviceName}");}`;
+        }
+        sdkContents += "\n";
       }
       await fs.writeFile(sdkIndexFile, sdkContents);
 

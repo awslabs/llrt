@@ -73,6 +73,8 @@
     "@aws-sdk/client-sqs": "3.632.0",
     "@aws-sdk/client-ssm": "3.632.0",
     "@aws-sdk/client-sso": "3.621.0",
+    "@aws-sdk/client-sso-admin": "3.621.0",
+    "@aws-sdk/client-sso-oidc": "3.621.0",
     "@aws-sdk/client-sts": "3.632.0",
     "@aws-sdk/client-textract": "3.621.0",
     "@aws-sdk/client-translate": "3.621.0",

@@ -302,6 +302,8 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | @aws-sdk/client-kms                       |
 | @aws-sdk/client-secrets-manager           |
 | @aws-sdk/client-sso                       |
+| @aws-sdk/client-sso-admin                 |
+| @aws-sdk/client-sso-oidc                  |
 | @aws-sdk/client-sts                       |
 
 | Storage             |
