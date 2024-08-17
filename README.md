@@ -255,7 +255,7 @@ V3 SDK packages not included in the list below have to be bundled with your sour
 | -------------------- |
 | @aws-sdk/client-xray |
 
-| Front-end Web and mobile services |
+| Front-end web and mobile services |
 | --------------------------------- |
 | @aws-sdk/client-amplify           |
 | @aws-sdk/client-appsync           |

@@ -124,16 +124,19 @@ const _ApplicationIntegration = {
   "client-sns": ["SNS", ["sns"]],
   "client-sqs": ["SQS", ["sqs"]],
 };
+const _Blockchain = {};
 const _BusinessApplications = {
   "client-ses": ["SES", ["email"]],
   "client-sesv2": ["SESv2", ["email"]],
 };
+const _CloudFinancialManagement = {};
 const _ComputeServices = {
   "client-auto-scaling": ["AutoScaling", ["autoscaling"]],
   "client-batch": ["Batch", ["batch"]],
   "client-ec2": ["EC2", ["ec2"]],
   "client-lambda": ["Lambda", ["lambda"]],
 };
+const _CustomerEnablement = {};
 const _Containers = {
   "client-ecr": ["ECR", ["ecr"]],
   "client-ecs": ["ECS", ["ecs"]],
@@ -151,11 +154,14 @@ const _Databases = {
 const _DeveloperTools = {
   "client-xray": ["XRay", ["xray"]],
 };
+const _EndUserComputing = {};
 const _FrontendWebAndMobileServices = {
   "client-amplify": ["Amplify", ["amplify"]],
   "client-appsync": ["AppSync", ["appsync"]],
   "client-location": ["Location", ["geo"]],
 };
+const _GameTech = {};
+const _InternetOfThings = {};
 const _MachineLearningAndArtificialIntelligence = {
   "client-bedrock": ["Bedrock", ["bedrock"]],
   "client-bedrock-agent": ["BedrockAgent", ["bedrock-agent"]],
@@ -182,6 +188,7 @@ const _ManagementAndGovernance = {
 const _Media = {
   "client-mediaconvert": ["MediaConvert", ["mediaconvert"]],
 };
+const _MigrationAndTransfer = {};
 const _NetworkingAndContentDelivery = {
   "client-api-gateway": ["APIGateway", ["apigateway"]],
   "client-apigatewayv2": ["ApiGatewayV2", ["apigateway"]],
@@ -190,6 +197,9 @@ const _NetworkingAndContentDelivery = {
     ["elasticloadbalancing"],
   ],
 };
+const _QuantumTechnologies = {};
+const _Robotics = {};
+const _Satellite = {};
 const _SecurityIdentityAndCompliance = {
   "client-acm": ["ACM", ["acm"]],
   "client-cognito-identity": ["CognitoIdentity", ["cognito-idp"]],
@@ -214,16 +224,26 @@ const _Storage = {
 const SDK_DATA = {
   ..._Analytics,
   ..._ApplicationIntegration,
+  ..._Blockchain,
   ..._BusinessApplications,
+  ..._CloudFinancialManagement,
   ..._ComputeServices,
+  ..._CustomerEnablement,
   ..._Containers,
   ..._Databases,
   ..._DeveloperTools,
+  ..._EndUserComputing,
   ..._FrontendWebAndMobileServices,
+  ..._GameTech,
+  ..._InternetOfThings,
   ..._MachineLearningAndArtificialIntelligence,
   ..._ManagementAndGovernance,
   ..._Media,
+  ..._MigrationAndTransfer,
   ..._NetworkingAndContentDelivery,
+  ..._QuantumTechnologies,
+  ..._Robotics,
+  ..._Satellite,
   ..._SecurityIdentityAndCompliance,
   ..._Storage,
 };
