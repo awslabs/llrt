@@ -208,6 +208,7 @@ const _SecurityIdentityAndCompliance = {
 const _Storage = {
   "client-efs": ["EFS", ["elasticfilesystem"]],
   "client-s3": ["S3", ["s3"]],
+  "lib-storage": ["Upload", ["s3"]],
 };
 
 const SDK_DATA = {
