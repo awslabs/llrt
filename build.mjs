@@ -120,7 +120,7 @@ const _Analytics = {
 const _ApplicationIntegration = {
   "client-eventbridge": ["EventBridge", ["events"]],
   "client-scheduler": ["Scheduler", ["scheduler"]],
-  "client-sfn": ["SFN", ["states"]],
+  "client-sfn": ["SFN", ["states", "sync-states"]],
   "client-sns": ["SNS", ["sns"]],
   "client-sqs": ["SQS", ["sqs"]],
 };
@@ -138,7 +138,7 @@ const _ComputeServices = {
 };
 const _CustomerEnablement = {};
 const _Containers = {
-  "client-ecr": ["ECR", ["ecr"]],
+  "client-ecr": ["ECR", ["ecr", "api.ecr"]],
   "client-ecs": ["ECS", ["ecs"]],
   "client-eks": ["EKS", ["eks"]],
   "client-servicediscovery": ["ServiceDiscovery", ["discovery"]],
@@ -165,11 +165,11 @@ const _InternetOfThings = {};
 const _MachineLearningAndArtificialIntelligence = {
   "client-bedrock": ["Bedrock", ["bedrock"]],
   "client-bedrock-agent": ["BedrockAgent", ["bedrock-agent"]],
+  "client-bedrock-runtime": ["BedrockRuntime", ["bedrock-runtime"]],
   "client-bedrock-agent-runtime": [
     "BedrockAgentRuntime",
     ["bedrock-agent-runtime"],
   ],
-  "client-bedrock-runtime": ["BedrockRuntime", ["bedrock-runtime"]],
   "client-polly": ["Polly", ["polly"]],
   "client-rekognition": ["Rekognition", ["rekognition"]],
   "client-textract": ["Textract", ["textract"]],
@@ -202,7 +202,7 @@ const _Robotics = {};
 const _Satellite = {};
 const _SecurityIdentityAndCompliance = {
   "client-acm": ["ACM", ["acm"]],
-  "client-cognito-identity": ["CognitoIdentity", ["cognito-idp"]],
+  "client-cognito-identity": ["CognitoIdentity", ["cognito-identity"]],
   "client-cognito-identity-provider": [
     "CognitoIdentityProvider",
     ["cognito-idp"],
