@@ -6,14 +6,11 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    future::{poll_fn, Future},
     io,
     path::{Component, Path, PathBuf},
-    pin::pin,
     process::exit,
     result::Result as StdResult,
     sync::{Arc, Mutex},
-    task::Poll,
 };
 
 use llrt_utils::bytes::ObjectBytes;
@@ -40,7 +37,7 @@ use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
     path::{dirname, join_path, resolve_path},
-    timers::{self, poll_timers, TimerPoller},
+    timers::{self},
 };
 
 use crate::{
@@ -489,30 +486,32 @@ impl Vm {
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
-        let rt = self
-            .ctx
-            .with(|ctx| unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) as usize })
-            .await;
-
-        let rt = rt as *mut qjs::JSRuntime;
-
-        let runtime = self.runtime;
-
-        poll_fn(move |cx| {
-            poll_timers(rt);
-
-            let mut pending_job = pin!(runtime.idle());
-
-            if pending_job.as_mut().poll(cx).is_ready() && !poll_timers(rt) {
-                return Poll::Ready(());
-            }
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        })
-        .await;
-
-        drop(self.ctx);
+        self.runtime.idle().await;
         Ok(())
+        // let rt = self
+        //     .ctx
+        //     .with(|ctx| unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) as usize })
+        //     .await;
+
+        // let rt = rt as *mut qjs::JSRuntime;
+
+        // let runtime = self.runtime;
+
+        // poll_fn(move |cx| {
+        //     poll_timers(rt);
+
+        //     let mut pending_job = pin!(runtime.idle());
+
+        //     if pending_job.as_mut().poll(cx).is_ready() && !poll_timers(rt) {
+        //         return Poll::Ready(());
+        //     }
+        //     cx.waker().wake_by_ref();
+        //     Poll::Pending
+        // })
+        // .await;
+
+        // drop(self.ctx);
+        // Ok(())
     }
 }
 
@@ -653,7 +652,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     break x?;
                 }
 
-                ctx.poll_timers();
+                //ctx.poll_timers();
                 ctx.execute_pending_job();
             };
 
