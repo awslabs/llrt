@@ -16,11 +16,7 @@ use rquickjs::{
     qjs, CatchResultExt, Ctx, Function, Persistent, Result,
 };
 
-use crate::{
-    module_builder::ModuleInfo,
-    modules::module::export_default,
-    vm::{CtxExtension, Vm},
-};
+use crate::{module_builder::ModuleInfo, modules::module::export_default, vm::Vm};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
 static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -76,9 +72,7 @@ pub fn set_timeout_interval<'js>(
         rt_timers.push(entry);
     }
     drop(rt_timers);
-    if !TIME_POLL_ACTIVE.swap(true, Ordering::Relaxed) {
-        poll_timers(ctx, rt)?
-    }
+    create_spawn_loop(ctx, rt)?;
 
     Ok(id)
 }
@@ -183,76 +177,86 @@ pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
     Ok(())
 }
 
-struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
+pub struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
 
 unsafe impl Send for ExecutingTimer {}
 
 #[inline(always)]
-fn poll_timers(ctx: &Ctx<'_>, rt: *mut qjs::JSRuntime) -> Result<()> {
-    ctx.spawn_exit(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(1));
+fn create_spawn_loop(ctx: &Ctx<'_>, rt: *mut qjs::JSRuntime) -> Result<()> {
+    if !TIME_POLL_ACTIVE.swap(true, Ordering::Relaxed) {
+        ctx.spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(4));
 
-        let mut executing_timers: Option<Vec<Option<ExecutingTimer>>> = Some(Vec::new());
+            let mut executing_timers: Option<Vec<Option<ExecutingTimer>>> = Some(Vec::new());
+            let mut exit_after_next_tick = false;
+            loop {
+                interval.tick().await;
 
-        let mut exit_after_next_tick = false;
-        loop {
-            interval.tick().await;
-
-            let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
-            if let Some(state) = rt_timers.iter_mut().find(|t| t.rt == rt) {
-                let mut call_vec = executing_timers.take().unwrap(); //avoid creating a new vec
-                let current_time = get_current_time_millis();
-                let mut had_items = false;
-
-                state.timers.retain_mut(|timeout| {
-                    had_items = true;
-                    exit_after_next_tick = false;
-                    if timeout.expires < current_time {
-                        let ctx = timeout.ctx;
-                        if let Some(cb) = timeout.callback.take() {
-                            if !timeout.repeating {
-                                call_vec.push(Some(ExecutingTimer(ctx, cb)));
-                                return false;
-                            }
-                            timeout.expires = current_time + timeout.delay;
-                            call_vec.push(Some(ExecutingTimer(ctx, cb.clone())));
-                            timeout.callback.replace(cb);
-                        } else {
-                            return false;
-                        }
-                    }
-                    true
-                });
-
-                drop(rt_timers);
-
-                if !call_vec.is_empty() {
-                    for item in call_vec.iter_mut() {
-                        if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
-                            let ctx2 = unsafe { Ctx::from_raw(ctx) };
-                            if let Ok(timeout) = timeout.restore(&ctx2) {
-                                if let Err(err) = timeout.call::<_, ()>(()).catch(&ctx2) {
-                                    Vm::print_error_and_exit(&ctx2, err);
-                                }
-                            }
-                        }
-                    }
-                    call_vec.clear();
-                }
-
-                executing_timers.replace(call_vec);
-
-                if !had_items {
-                    if exit_after_next_tick {
-                        break;
-                    }
-                    exit_after_next_tick = true;
+                if !poll_timers(rt, &mut executing_timers, &mut exit_after_next_tick) {
+                    break;
                 }
             }
-        }
-        TIME_POLL_ACTIVE.store(false, Ordering::Relaxed);
-
-        Ok(())
-    })?;
+            TIME_POLL_ACTIVE.store(false, Ordering::Relaxed);
+        });
+    }
     Ok(())
+}
+
+pub fn poll_timers(
+    rt: *mut qjs::JSRuntime,
+    executing_timers: &mut Option<Vec<Option<ExecutingTimer>>>,
+    exit_after_next_tick: &mut bool,
+) -> bool {
+    let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
+    if let Some(state) = rt_timers.iter_mut().find(|t| t.rt == rt) {
+        let mut call_vec = executing_timers.take().unwrap(); //avoid creating a new vec
+        let current_time = get_current_time_millis();
+        let mut had_items = false;
+
+        state.timers.retain_mut(|timeout| {
+            had_items = true;
+            *exit_after_next_tick = false;
+            if timeout.expires < current_time {
+                let ctx = timeout.ctx;
+                if let Some(cb) = timeout.callback.take() {
+                    if !timeout.repeating {
+                        call_vec.push(Some(ExecutingTimer(ctx, cb)));
+                        return false;
+                    }
+                    timeout.expires = current_time + timeout.delay;
+                    call_vec.push(Some(ExecutingTimer(ctx, cb.clone())));
+                    timeout.callback.replace(cb);
+                } else {
+                    return false;
+                }
+            }
+            true
+        });
+
+        drop(rt_timers);
+
+        if !call_vec.is_empty() {
+            for item in call_vec.iter_mut() {
+                if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
+                    let ctx2 = unsafe { Ctx::from_raw(ctx) };
+                    if let Ok(timeout) = timeout.restore(&ctx2) {
+                        if let Err(err) = timeout.call::<_, ()>(()).catch(&ctx2) {
+                            Vm::print_error_and_exit(&ctx2, err);
+                        }
+                    }
+                }
+            }
+            call_vec.clear();
+        }
+
+        executing_timers.replace(call_vec);
+
+        if !had_items {
+            if *exit_after_next_tick {
+                return false;
+            }
+            *exit_after_next_tick = true;
+        }
+    }
+    true
 }
