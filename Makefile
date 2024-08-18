@@ -56,43 +56,70 @@ release-linux: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
 release-darwin: | llrt-darwin-x64.zip llrt-darwin-arm64.zip
 release-windows: | llrt-windows-x64.zip
 
+llrt-darwin-x64.zip: export SDK_BUNDLE_MODE = NONE
 llrt-darwin-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64)
+	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64) --features no-sdk
 	zip -j $@ target/$(TARGET_darwin_x86_64)/release/llrt
 
+llrt-darwin-arm64.zip: export SDK_BUNDLE_MODE = NONE
 llrt-darwin-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64)
+	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64) --features no-sdk
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
+llrt-linux-x64.zip: export SDK_BUNDLE_MODE = NONE
 llrt-linux-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
+	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64) --features no-sdk
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
 llrt-windows-x64.zip: | clean-js js
 	cargo $(BUILD_ARG) --target $(TARGET_windows_x64)
 	zip -j $@ target/$(TARGET_windows_x64)/release/llrt.exe
 
+llrt-linux-arm64.zip: export SDK_BUNDLE_MODE = NONE
 llrt-linux-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
+	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64) --features no-sdk
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
 llrt-linux-x86_64.zip: llrt-linux-x64.zip
 llrt-windows-x86_64.zip: llrt-windows-x64.zip
 llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 
-define release_template
-release-${1}: | clean-js js
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
+define lambda_release_template
+release-${1}-full-sdk: export SDK_BUNDLE_MODE = FULL
+release-${1}-full-sdk: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed -vv
-	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}
+	@rm -rf llrt-lambda-${1}-full-sdk.zip
+	zip -j llrt-lambda-${1}-full-sdk.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
+	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}-full-sdk
+
+llrt-lambda-${1}-full-sdk: release-${1}-full-sdk
+
+release-${1}: export SDK_BUNDLE_MODE = STD
+release-${1}: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
+	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
 	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
+	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}
 
 llrt-lambda-${1}: release-${1}
+
+release-${1}-no-sdk: export SDK_BUNDLE_MODE = NONE
+release-${1}-no-sdk: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features no-sdk
+	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	@rm -rf llrt-lambda-${1}-no-sdk.zip
+	zip -j llrt-lambda-${1}-no-sdk.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features no-sdk,uncompressed
+	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}-no-sdk
+
+llrt-lambda-${1}-no-sdk: release-${1}-no-sdk
 endef
 
-$(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target))))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target))))
 
 build: js
 	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
