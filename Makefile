@@ -81,8 +81,12 @@ llrt-windows-x86_64.zip: llrt-windows-x64.zip
 llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 
 define lambda_release_template
-release-${1}-full-sdk: export SDK_BUNDLE_MODE = FULL
-release-${1}-full-sdk: | clean-js js
+release-${1}-full-sdk: llrt-lambda-${1}-full-sdk
+release-${1}: llrt-lambda-${1}
+release-${1}-no-sdk: llrt-lambda-${1}-no-sdk
+
+llrt-lambda-${1}-full-sdk: export SDK_BUNDLE_MODE = FULL
+llrt-lambda-${1}-full-sdk: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}-full-sdk.zip
@@ -90,10 +94,8 @@ release-${1}-full-sdk: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}-full-sdk
 
-llrt-lambda-${1}-full-sdk: release-${1}-full-sdk
-
-release-${1}: export SDK_BUNDLE_MODE = STD
-release-${1}: | clean-js js
+llrt-lambda-${1}: export SDK_BUNDLE_MODE = STD
+llrt-lambda-${1}: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}.zip
@@ -101,17 +103,13 @@ release-${1}: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}
 
-llrt-lambda-${1}: release-${1}
-
-release-${1}-no-sdk: | clean-js js
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features no-sdk
+llrt-lambda-${1}-no-sdk: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}-no-sdk.zip
 	zip -j llrt-lambda-${1}-no-sdk.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features no-sdk,uncompressed
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}-no-sdk
-
-llrt-lambda-${1}-no-sdk: release-${1}-no-sdk
 endef
 
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target))))
