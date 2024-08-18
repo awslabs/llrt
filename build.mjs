@@ -78,7 +78,7 @@ const ES_BUILD_OPTIONS = {
 // API Endpoint Definitions
 //
 // const _Classification = {
-//   "PackageName": ["ClientName", ["ServiceEndpoints", ...]],
+//   ...BUNDLE_TARGET({ "PackageName": ["ClientName", ["ServiceEndpoints", ...]] }),
 // }
 //
 // The meanings of each and how to look them up are as follows.
@@ -86,7 +86,14 @@ const ES_BUILD_OPTIONS = {
 //   1. _Classification
 //   https://docs.aws.amazon.com/whitepapers/latest/aws-overview/amazon-web-services-cloud-platform.html
 //
-//   2. ClientName
+//   2. BUNDLE_TARGET
+//
+//     It is like a macro when switching the bundle target according to the environment variable SDK_BUNDLE_MODE.
+//
+//     FULL : The bundle is eligible when SDK_BUNDLE_MODE is 'FULL'.
+//     STD : The bundle is eligible when SDK_BUNDLE_MODE is 'STD' or 'FULL'.
+//
+//   3. ClientName
 //   https://www.npmjs.com/search?q=%40aws-sdk%2Fclient-
 //
 //    Case) @aws-sdk/client-sts
@@ -96,7 +103,7 @@ const ES_BUILD_OPTIONS = {
 //    > import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 //               ^^^ <- This part except for the "client"
 //
-//   3. ServiceEndpoints
+//   4. ServiceEndpoints
 //   https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
 //
 //    Case) @aws-sdk/client-sts
@@ -109,116 +116,137 @@ const ES_BUILD_OPTIONS = {
 //
 //    If multiple endpoints are required, such as @aws-sdk/client-sso, register multiple endpoints in the array.
 //
+const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "FULL"; // "FULL" or "STD" or "NONE"
+
+const _FULL = SDK_BUNDLE_MODE == "FULL";
+const _STD = _FULL || SDK_BUNDLE_MODE == "STD";
+const FULL = (arg) => (_FULL ? arg : {});
+const STD = (arg) => (_STD ? arg : Array.isArray(arg) ? [] : {});
+
 const _Analytics = {
-  "client-athena": ["Athena", ["athena"]],
-  "client-firehose": ["Firehose", ["firehose"]],
-  "client-glue": ["Glue", ["glue"]],
-  "client-kinesis": ["Kinesis", ["kinesis"]],
-  "client-opensearch": ["OpenSearch", ["es"]],
-  "client-opensearchserverless": ["OpenSearchServerless", ["aoss"]],
+  ...FULL({ "client-athena": ["Athena", ["athena"]] }),
+  ...FULL({ "client-firehose": ["Firehose", ["firehose"]] }),
+  ...FULL({ "client-glue": ["Glue", ["glue"]] }),
+  ...FULL({ "client-kinesis": ["Kinesis", ["kinesis"]] }),
+  ...FULL({ "client-opensearch": ["OpenSearch", ["es"]] }),
+  ...FULL({
+    "client-opensearchserverless": ["OpenSearchServerless", ["aoss"]],
+  }),
 };
 const _ApplicationIntegration = {
-  "client-eventbridge": ["EventBridge", ["events"]],
-  "client-scheduler": ["Scheduler", ["scheduler"]],
-  "client-sfn": ["SFN", ["states", "sync-states"]],
-  "client-sns": ["SNS", ["sns"]],
-  "client-sqs": ["SQS", ["sqs"]],
+  ...STD({ "client-eventbridge": ["EventBridge", ["events"]] }),
+  ...FULL({ "client-scheduler": ["Scheduler", ["scheduler"]] }),
+  ...STD({ "client-sfn": ["SFN", ["states", "sync-states"]] }),
+  ...STD({ "client-sns": ["SNS", ["sns"]] }),
+  ...STD({ "client-sqs": ["SQS", ["sqs"]] }),
 };
 const _Blockchain = {};
 const _BusinessApplications = {
-  "client-ses": ["SES", ["email"]],
-  "client-sesv2": ["SESv2", ["email"]],
+  ...STD({ "client-ses": ["SES", ["email"]] }),
+  ...FULL({ "client-sesv2": ["SESv2", ["email"]] }),
 };
 const _CloudFinancialManagement = {};
 const _ComputeServices = {
-  "client-auto-scaling": ["AutoScaling", ["autoscaling"]],
-  "client-batch": ["Batch", ["batch"]],
-  "client-ec2": ["EC2", ["ec2"]],
-  "client-lambda": ["Lambda", ["lambda"]],
+  ...FULL({ "client-auto-scaling": ["AutoScaling", ["autoscaling"]] }),
+  ...FULL({ "client-batch": ["Batch", ["batch"]] }),
+  ...FULL({ "client-ec2": ["EC2", ["ec2"]] }),
+  ...STD({ "client-lambda": ["Lambda", ["lambda"]] }),
 };
 const _CustomerEnablement = {};
 const _Containers = {
-  "client-ecr": ["ECR", ["ecr", "api.ecr"]],
-  "client-ecs": ["ECS", ["ecs"]],
-  "client-eks": ["EKS", ["eks"]],
-  "client-servicediscovery": ["ServiceDiscovery", ["discovery"]],
+  ...FULL({ "client-ecr": ["ECR", ["ecr", "api.ecr"]] }),
+  ...FULL({ "client-ecs": ["ECS", ["ecs"]] }),
+  ...FULL({ "client-eks": ["EKS", ["eks"]] }),
+  ...FULL({ "client-servicediscovery": ["ServiceDiscovery", ["discovery"]] }),
 };
 const _Databases = {
-  "client-dynamodb": ["DynamoDB", ["dynamodb"]],
-  "client-dynamodb-streams": ["DynamoDBStreams", ["streams.dynamodb"]],
-  "client-elasticache": ["ElastiCache", ["elasticache"]],
-  "client-rds": ["RDS", ["rds"]],
-  "client-rds-data": ["RDSData", ["rds-data"]],
-  "lib-dynamodb": ["DynamoDBDocument", ["dynamodb"]],
+  ...STD({ "client-dynamodb": ["DynamoDB", ["dynamodb"]] }),
+  ...FULL({
+    "client-dynamodb-streams": ["DynamoDBStreams", ["streams.dynamodb"]],
+  }),
+  ...FULL({ "client-elasticache": ["ElastiCache", ["elasticache"]] }),
+  ...FULL({ "client-rds": ["RDS", ["rds"]] }),
+  ...FULL({ "client-rds-data": ["RDSData", ["rds-data"]] }),
+  ...STD({ "lib-dynamodb": ["DynamoDBDocument", ["dynamodb"]] }),
 };
 const _DeveloperTools = {
-  "client-xray": ["XRay", ["xray"]],
+  ...STD({ "client-xray": ["XRay", ["xray"]] }),
 };
 const _EndUserComputing = {};
 const _FrontendWebAndMobileServices = {
-  "client-amplify": ["Amplify", ["amplify"]],
-  "client-appsync": ["AppSync", ["appsync"]],
-  "client-location": ["Location", ["geo"]],
+  ...FULL({ "client-amplify": ["Amplify", ["amplify"]] }),
+  ...FULL({ "client-appsync": ["AppSync", ["appsync"]] }),
+  ...FULL({ "client-location": ["Location", ["geo"]] }),
 };
 const _GameTech = {};
 const _InternetOfThings = {};
 const _MachineLearningAndArtificialIntelligence = {
-  "client-bedrock": ["Bedrock", ["bedrock"]],
-  "client-bedrock-agent": ["BedrockAgent", ["bedrock-agent"]],
-  "client-bedrock-runtime": ["BedrockRuntime", ["bedrock-runtime"]],
-  "client-bedrock-agent-runtime": [
-    "BedrockAgentRuntime",
-    ["bedrock-agent-runtime"],
-  ],
-  "client-polly": ["Polly", ["polly"]],
-  "client-rekognition": ["Rekognition", ["rekognition"]],
-  "client-textract": ["Textract", ["textract"]],
-  "client-translate": ["Translate", ["translate"]],
+  ...FULL({ "client-bedrock": ["Bedrock", ["bedrock"]] }),
+  ...FULL({ "client-bedrock-agent": ["BedrockAgent", ["bedrock-agent"]] }),
+  ...FULL({
+    "client-bedrock-runtime": ["BedrockRuntime", ["bedrock-runtime"]],
+  }),
+  ...FULL({
+    "client-bedrock-agent-runtime": [
+      "BedrockAgentRuntime",
+      ["bedrock-agent-runtime"],
+    ],
+  }),
+  ...FULL({ "client-polly": ["Polly", ["polly"]] }),
+  ...FULL({ "client-rekognition": ["Rekognition", ["rekognition"]] }),
+  ...FULL({ "client-textract": ["Textract", ["textract"]] }),
+  ...FULL({ "client-translate": ["Translate", ["translate"]] }),
 };
 const _ManagementAndGovernance = {
-  "client-appconfig": ["AppConfig", ["appconfig"]],
-  "client-appconfigdata": ["AppConfigData", ["appconfigdata"]],
-  "client-cloudformation": ["CloudFormation", ["cloudformation"]],
-  "client-cloudwatch": ["CloudWatch", ["monitoring"]],
-  "client-cloudwatch-logs": ["CloudWatchLogs", ["logs"]],
-  "client-cloudwatch-events": ["CloudWatchEvents", ["events"]],
-  "client-service-catalog": ["ServiceCatalog", ["servicecatalog"]],
-  "client-ssm": ["SSM", ["ssm"]],
+  ...FULL({ "client-appconfig": ["AppConfig", ["appconfig"]] }),
+  ...FULL({ "client-appconfigdata": ["AppConfigData", ["appconfigdata"]] }),
+  ...FULL({ "client-cloudformation": ["CloudFormation", ["cloudformation"]] }),
+  ...FULL({ "client-cloudwatch": ["CloudWatch", ["monitoring"]] }),
+  ...STD({ "client-cloudwatch-logs": ["CloudWatchLogs", ["logs"]] }),
+  ...STD({ "client-cloudwatch-events": ["CloudWatchEvents", ["events"]] }),
+  ...FULL({ "client-service-catalog": ["ServiceCatalog", ["servicecatalog"]] }),
+  ...STD({ "client-ssm": ["SSM", ["ssm"]] }),
 };
 const _Media = {
-  "client-mediaconvert": ["MediaConvert", ["mediaconvert"]],
+  ...FULL({ "client-mediaconvert": ["MediaConvert", ["mediaconvert"]] }),
 };
 const _MigrationAndTransfer = {};
 const _NetworkingAndContentDelivery = {
-  "client-api-gateway": ["APIGateway", ["apigateway"]],
-  "client-apigatewayv2": ["ApiGatewayV2", ["apigateway"]],
-  "client-elastic-load-balancing-v2": [
-    "ElasticLoadBalancingV2",
-    ["elasticloadbalancing"],
-  ],
+  ...FULL({ "client-api-gateway": ["APIGateway", ["apigateway"]] }),
+  ...FULL({ "client-apigatewayv2": ["ApiGatewayV2", ["apigateway"]] }),
+  ...FULL({
+    "client-elastic-load-balancing-v2": [
+      "ElasticLoadBalancingV2",
+      ["elasticloadbalancing"],
+    ],
+  }),
 };
 const _QuantumTechnologies = {};
 const _Robotics = {};
 const _Satellite = {};
 const _SecurityIdentityAndCompliance = {
-  "client-acm": ["ACM", ["acm"]],
-  "client-cognito-identity": ["CognitoIdentity", ["cognito-identity"]],
-  "client-cognito-identity-provider": [
-    "CognitoIdentityProvider",
-    ["cognito-idp"],
-  ],
-  "client-iam": ["IAM", ["iam"]],
-  "client-kms": ["KMS", ["kms"]],
-  "client-secrets-manager": ["SecretsManager", ["secretsmanager"]],
-  "client-sso": ["SSO", ["sso", "identitystore"]],
-  "client-sso-admin": ["SSOAdmin", ["sso", "identitystore"]],
-  "client-sso-oidc": ["SSOOIDC", ["sso", "identitystore"]],
-  "client-sts": ["STS", ["sts"]],
+  ...FULL({ "client-acm": ["ACM", ["acm"]] }),
+  ...STD({
+    "client-cognito-identity": ["CognitoIdentity", ["cognito-identity"]],
+  }),
+  ...STD({
+    "client-cognito-identity-provider": [
+      "CognitoIdentityProvider",
+      ["cognito-idp"],
+    ],
+  }),
+  ...FULL({ "client-iam": ["IAM", ["iam"]] }),
+  ...STD({ "client-kms": ["KMS", ["kms"]] }),
+  ...STD({ "client-secrets-manager": ["SecretsManager", ["secretsmanager"]] }),
+  ...FULL({ "client-sso": ["SSO", ["sso", "identitystore"]] }),
+  ...FULL({ "client-sso-admin": ["SSOAdmin", ["sso", "identitystore"]] }),
+  ...FULL({ "client-sso-oidc": ["SSOOIDC", ["sso", "identitystore"]] }),
+  ...STD({ "client-sts": ["STS", ["sts"]] }),
 };
 const _Storage = {
-  "client-efs": ["EFS", ["elasticfilesystem"]],
-  "client-s3": ["S3", ["s3"]],
-  "lib-storage": ["Upload", ["s3"]],
+  ...FULL({ "client-efs": ["EFS", ["elasticfilesystem"]] }),
+  ...STD({ "client-s3": ["S3", ["s3"]] }),
+  ...STD({ "lib-storage": ["Upload", ["s3"]] }),
 };
 
 const SDK_DATA = {
@@ -248,7 +276,7 @@ const SDK_DATA = {
   ..._Storage,
 };
 
-const ADDITIONAL_PACKAGES = [
+const ADDITIONAL_PACKAGES = STD([
   "@aws-sdk/core",
   "@aws-sdk/credential-providers",
   "@aws-sdk/s3-presigned-post",
@@ -291,15 +319,15 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/util-uri-escape",
   "@smithy/util-utf8",
   "@smithy/util-waiter",
-];
+]);
 
-const REPLACEMENT_PACKAGES = {
+const REPLACEMENT_PACKAGES = STD({
   "@aws-crypto/sha1-browser": "shims/@aws-crypto/sha1-browser.js",
   "@aws-crypto/sha256-browser": "shims/@aws-crypto/sha256-browser.js",
   "@aws-crypto/crc32": "shims/@aws-crypto/crc32.js",
   "@aws-crypto/crc32c": "shims/@aws-crypto/crc32c.js",
   "@smithy/abort-controller": "shims/@smithy/abort-controller.js",
-};
+});
 
 const SERVICE_ENDPOINTS_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
@@ -351,9 +379,8 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     const { hostname, protocol, pathname, search } = endpoint.url;
     const [bucket, host] = hostname.split(".s3.");
     if (host) {
-      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${
-        search ? `?${search}` : ""
-      }`;
+      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${search ? `?${search}` : ""
+        }`;
       endpoint.url.href = newHref;
     }
   }
@@ -503,9 +530,8 @@ const AWS_SDK_PLUGIN = {
 
         console.log("Optimized:", name);
 
-        source = `const ${
-          awsJsonSharedCommand.name
-        } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
+        source = `const ${awsJsonSharedCommand.name
+          } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
 
         return {
           contents: source,
