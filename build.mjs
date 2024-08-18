@@ -116,7 +116,7 @@ const ES_BUILD_OPTIONS = {
 //
 //    If multiple endpoints are required, such as @aws-sdk/client-sso, register multiple endpoints in the array.
 //
-const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "FULL"; // "FULL" or "STD" or "NONE"
+const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
 
 const _FULL = SDK_BUNDLE_MODE == "FULL";
 const _STD = _FULL || SDK_BUNDLE_MODE == "STD";
@@ -379,8 +379,9 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     const { hostname, protocol, pathname, search } = endpoint.url;
     const [bucket, host] = hostname.split(".s3.");
     if (host) {
-      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${search ? `?${search}` : ""
-        }`;
+      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${
+        search ? `?${search}` : ""
+      }`;
       endpoint.url.href = newHref;
     }
   }
@@ -530,8 +531,9 @@ const AWS_SDK_PLUGIN = {
 
         console.log("Optimized:", name);
 
-        source = `const ${awsJsonSharedCommand.name
-          } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
+        source = `const ${
+          awsJsonSharedCommand.name
+        } = ${awsJsonSharedCommand.toString()}\n\n${source}`;
 
         return {
           contents: source,
