@@ -2,6 +2,15 @@ import idlharness from "./web-platform-tests/resources/idlharness.js";
 import testharness from "./web-platform-tests/resources/testharness.js";
 import subsetTests from "./web-platform-tests/common/subset-tests.js";
 import encodings from "./web-platform-tests/encoding/resources/encodings.js";
+import {
+  ReadableStream,
+  ByteLengthQueuingStrategy,
+  CountQueuingStrategy,
+  ReadableStreamDefaultReader,
+  ReadableByteStreamController,
+  ReadableStreamBYOBRequest,
+  WritableStream,
+} from "stream/web";
 
 const runTest = (test, done) => {
   //
@@ -30,6 +39,8 @@ const runTest = (test, done) => {
         json: () => Promise.resolve(data),
       });
     },
+    setTimeout: setTimeout,
+    DOMException: DOMException,
     // Some tests require location to be defined
     location: {},
   };
@@ -44,6 +55,17 @@ const runTest = (test, done) => {
     explicit_done: true,
     debug: process.env.DEBUG !== undefined,
   });
+
+  globalThis.ReadableStream = ReadableStream;
+  globalThis.ByteLengthQueuingStrategy = ByteLengthQueuingStrategy;
+  globalThis.CountQueuingStrategy = CountQueuingStrategy;
+  globalThis.ReadableStreamDefaultReader = ReadableStreamDefaultReader;
+  globalThis.ReadableByteStreamController = ReadableByteStreamController;
+  globalThis.ReadableStreamBYOBRequest = ReadableStreamBYOBRequest;
+
+  globalThis.WritableStream = WritableStream;
+
+  globalThis.gc = globalThis.__gc;
 
   context.add_completion_callback((tests, status, assertions) => {
     // Check that tests were actually executed not including the optional step
@@ -381,6 +403,428 @@ describe("web-platform-tests", () => {
           .default,
         done
       );
+    });
+  });
+
+  describe("streams", () => {
+    describe("readable-streams", () => {
+      it("should pass async-iterator.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/async-iterator.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass bad-strategies.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/bad-strategies.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass bad-underlying-sources.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/bad-underlying-sources.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass cancel.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/cancel.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass constructor.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/constructor.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass count-queueing-strategy-integration.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/count-queuing-strategy-integration.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass default-reader.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/default-reader.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass floating-point-total-queue-size.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/floating-point-total-queue-size.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass from.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/from.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass garbage-collection.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/garbage-collection.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass general.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/general.any.js")
+            .default,
+          done
+        );
+      });
+
+      // needs owning type impl
+      // it("should pass owning-type.any.js tests", (done) => {
+      //   runTest(
+      //     require("./web-platform-tests/streams/readable-streams/owning-type.any.js")
+      //       .default,
+      //     done
+      //   );
+      // });
+
+      // needs handling of patched Promise.then fns
+      // it("should pass patched-global.any.js tests", (done) => {
+      //   runTest(
+      //     require("./web-platform-tests/streams/readable-streams/patched-global.any.js")
+      //       .default,
+      //     done
+      //   );
+      // });
+
+      it("should pass reentrant-strategies.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/reentrant-strategies.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass tee.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/tee.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass templated.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-streams/templated.any.js")
+            .default,
+          done
+        );
+      });
+    });
+
+    describe("readable-byte-streams", () => {
+      it("should pass bad-buffers-and-views.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/bad-buffers-and-views.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass construct-byob-request.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass enqueue-with-detached-buffer.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/enqueue-with-detached-buffer.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass general.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/general.any.js")
+            .default,
+          done
+        );
+      });
+
+      // requires WebAssembly (!?)
+      // it("should pass non-transferable-buffers.any.js tests", (done) => {
+      //   runTest(
+      //     require("./web-platform-tests/streams/readable-byte-streams/non-transferable-buffers.any.js")
+      //       .default,
+      //     done
+      //   );
+      // });
+
+      it("should pass read-min.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/read-min.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass respond-after-enqueue.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/respond-after-enqueue.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass tee.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/readable-byte-streams/tee.any.js")
+            .default,
+          done
+        );
+      });
+    });
+
+    describe("writable-streams", () => {
+      it("should pass aborting.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/aborting.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass bad-strategies.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/bad-strategies.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass bad-underlying-sinks.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/bad-underlying-sinks.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass byte-length-queuing-strategy.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/byte-length-queuing-strategy.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass close.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/close.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass constructor.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/constructor.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass count-queuing-strategy.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/count-queuing-strategy.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass error.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/error.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass floating-point-total-queue-size.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/floating-point-total-queue-size.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass general.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/general.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass properties.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/properties.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass reentrant-strategy.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/reentrant-strategy.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass start.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/start.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass write.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/writable-streams/write.any.js")
+            .default,
+          done
+        );
+      });
+    });
+
+    describe("piping", () => {
+      it("should pass abort.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/abort.any.js").default,
+          done
+        );
+      });
+
+      it("should pass close-propagation-backward.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/close-propagation-backward.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass close-propagation-forward.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/close-propagation-forward.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass error-propagation-backward.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/error-propagation-backward.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass error-propagation-forward.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/error-propagation-forward.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass flow-control.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/flow-control.any.js")
+            .default,
+          done
+        );
+      });
+
+      // waiting on resolution of https://github.com/whatwg/streams/issues/1243.
+      // it("should pass general-addition.any.js tests", (done) => {
+      //   runTest(
+      //     require("./web-platform-tests/streams/piping/general-addition.any.js")
+      //       .default,
+      //     done
+      //   );
+      // });
+
+      it("should pass general.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/general.any.js").default,
+          done
+        );
+      });
+
+      it("should pass multiple-propagation.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/multiple-propagation.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass pipe-through.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/pipe-through.any.js")
+            .default,
+          done
+        );
+      });
+
+      it("should pass then-interception.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/streams/piping/then-interception.any.js")
+            .default,
+          done
+        );
+      });
+
+      // requires TransformStream
+      // it("should pass throwing-options.any.js tests", (done) => {
+      //   runTest(
+      //     require("./web-platform-tests/streams/piping/throwing-options.any.js")
+      //       .default,
+      //     done
+      //   );
+      // });
+
+      // requires TransformStream
+      // it("should pass transform-streams.any.js tests", (done) => {
+      //   runTest(
+      //     require("./web-platform-tests/streams/piping/transform-streams.any.js")
+      //       .default,
+      //     done
+      //   );
+      // });
     });
   });
 });

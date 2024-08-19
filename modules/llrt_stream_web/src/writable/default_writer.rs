@@ -1,0 +1,536 @@
+use rquickjs::{
+    class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace},
+    function::Constructor,
+    prelude::{Opt, This},
+    Class, Ctx, Exception, JsLifetime, Promise, Result, Value,
+};
+
+use super::{
+    default_controller::WritableStreamDefaultController, objects::WritableStreamObjects,
+    writer::WritableStreamWriter, ResolveablePromise, WritableStream, WritableStreamOwned,
+    WritableStreamState,
+};
+use crate::{promise_rejected_with, promise_resolved_with, Null};
+
+#[rquickjs::class]
+#[derive(JsLifetime, Trace)]
+pub(crate) struct WritableStreamDefaultWriter<'js> {
+    pub(crate) ready_promise: ResolveablePromise<'js>,
+    pub(crate) closed_promise: ResolveablePromise<'js>,
+    stream: Option<Class<'js, WritableStream<'js>>>,
+}
+
+pub(crate) type WritableStreamDefaultWriterClass<'js> =
+    Class<'js, WritableStreamDefaultWriter<'js>>;
+pub(crate) type WritableStreamDefaultWriterOwned<'js> =
+    OwnedBorrowMut<'js, WritableStreamDefaultWriter<'js>>;
+
+#[rquickjs::methods(rename_all = "camelCase")]
+impl<'js> WritableStreamDefaultWriter<'js> {
+    // this is required by web platform tests
+    #[qjs(get)]
+    pub fn constructor(ctx: Ctx<'js>) -> Result<Option<Constructor<'js>>> {
+        <WritableStreamDefaultWriter as JsClass>::constructor(&ctx)
+    }
+
+    #[qjs(constructor)]
+    fn new(ctx: Ctx<'js>, stream: WritableStreamOwned<'js>) -> Result<Class<'js, Self>> {
+        // Perform ? SetUpWritableStreamDefaultWriter(this, stream).
+        let (_, writer) = Self::set_up_writable_stream_default_writer(&ctx, stream)?;
+        Ok(writer)
+    }
+
+    #[qjs(get)]
+    fn closed(writer: This<OwnedBorrowMut<'js, Self>>) -> Promise<'js> {
+        // Return this.[[closedPromise]].
+        writer.0.closed_promise.promise.clone()
+    }
+
+    #[qjs(get)]
+    fn desired_size(ctx: Ctx<'js>, writer: This<OwnedBorrowMut<'js, Self>>) -> Result<Null<f64>> {
+        match writer.0.stream {
+            // If this.[[stream]] is undefined, throw a TypeError exception.
+            None => Err(Exception::throw_type(
+                &ctx,
+                "Cannot desiredSize a stream using a released writer",
+            )),
+            Some(ref stream) => {
+                // Return ! WritableStreamDefaultWriterGetDesiredSize(this).
+                Self::writable_stream_default_writer_get_desired_size(OwnedBorrow::from_class(
+                    stream.clone(),
+                ))
+            },
+        }
+    }
+
+    #[qjs(get)]
+    fn ready(writer: This<OwnedBorrowMut<'js, Self>>) -> Promise<'js> {
+        // Return this.[[readyPromise]].
+        writer.0.ready_promise.promise.clone()
+    }
+
+    fn abort(
+        ctx: Ctx<'js>,
+        writer: This<OwnedBorrowMut<'js, Self>>,
+        reason: Opt<Value<'js>>,
+    ) -> Result<Promise<'js>> {
+        // If this.[[stream]] is undefined, throw a TypeError exception.
+        match writer.0.stream {
+            None => {
+                let e: Value =
+                    ctx.eval(r#"new TypeError("Cannot abort a stream using a released writer")"#)?;
+
+                promise_rejected_with(&ctx, e)
+            },
+            Some(ref stream) => {
+                let stream = OwnedBorrowMut::from_class(stream.clone());
+                let controller = OwnedBorrowMut::from_class(
+                    stream
+                        .controller
+                        .clone()
+                        .expect("Abort called on a writable stream that has no controller"),
+                );
+
+                let objects = WritableStreamObjects {
+                    stream,
+                    controller,
+                    writer: writer.0,
+                };
+
+                // Return ! WritableStreamDefaultWriterAbort(this, reason).
+                Self::writable_stream_default_writer_abort(ctx.clone(), objects, reason.0)
+            },
+        }
+    }
+
+    fn close(ctx: Ctx<'js>, writer: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
+        // If this.[[stream]] is undefined, throw a TypeError exception.
+        match writer.0.stream {
+            None => {
+                let e: Value =
+                    ctx.eval(r#"new TypeError("Cannot close a stream using a released writer")"#)?;
+
+                promise_rejected_with(&ctx, e)
+            },
+            Some(ref stream) => {
+                let stream = OwnedBorrowMut::from_class(stream.clone());
+                // If ! WritableStreamCloseQueuedOrInFlight(stream) is true, return a promise rejected with a TypeError exception.
+                if stream.writable_stream_close_queued_or_in_flight() {
+                    let e: Value =
+                        ctx.eval(r#"new TypeError("Cannot close an already-closing stream")"#)?;
+
+                    return promise_rejected_with(&ctx, e);
+                }
+
+                let controller = OwnedBorrowMut::from_class(
+                    stream
+                        .controller
+                        .clone()
+                        .expect("Close called on a writable stream that has no controller"),
+                );
+
+                let objects = WritableStreamObjects {
+                    stream,
+                    controller,
+                    writer: writer.0,
+                };
+
+                // Return ! WritableStreamDefaultWriterClose(this).
+                Self::writable_stream_default_writer_close(ctx, objects)
+            },
+        }
+    }
+
+    fn release_lock(ctx: Ctx<'js>, writer: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
+        // If this.[[stream]] is undefined, throw a TypeError exception.
+        match writer.0.stream {
+            // If stream is undefined, return.
+            None => Ok(()),
+            Some(ref stream) => {
+                let stream = OwnedBorrowMut::from_class(stream.clone());
+
+                let controller = OwnedBorrowMut::from_class(
+                    stream
+                        .controller
+                        .clone()
+                        .expect("releaseLock called on a writable stream that has no controller"),
+                );
+
+                // Perform ! WritableStreamDefaultWriterRelease(this).
+                Self::writable_stream_default_writer_release(
+                    &ctx,
+                    WritableStreamObjects {
+                        stream,
+                        controller,
+                        writer: writer.0,
+                    },
+                )
+            },
+        }
+    }
+
+    fn write(
+        ctx: Ctx<'js>,
+        writer: This<OwnedBorrowMut<'js, Self>>,
+        chunk: Opt<Value<'js>>,
+    ) -> Result<Promise<'js>> {
+        // If this.[[stream]] is undefined, throw a TypeError exception.
+        match writer.0.stream {
+            None => {
+                let e: Value =
+                    ctx.eval(r#"new TypeError("Cannot write a stream using a released writer")"#)?;
+
+                promise_rejected_with(&ctx, e)
+            },
+            Some(ref stream) => {
+                let stream = OwnedBorrowMut::from_class(stream.clone());
+                let controller = OwnedBorrowMut::from_class(
+                    stream
+                        .controller
+                        .clone()
+                        .expect("Write called on a writable stream that has no controller"),
+                );
+
+                let objects = WritableStreamObjects {
+                    stream,
+                    controller,
+                    writer: writer.0,
+                };
+
+                // Return ! WritableStreamDefaultWriterWrite(this, chunk).
+                Self::writable_stream_default_writer_write(
+                    ctx.clone(),
+                    objects,
+                    chunk.0.unwrap_or(Value::new_undefined(ctx)),
+                )
+            },
+        }
+    }
+}
+
+impl<'js> WritableStreamDefaultWriter<'js> {
+    pub(crate) fn acquire_writable_stream_default_writer(
+        ctx: &Ctx<'js>,
+        stream: WritableStreamOwned<'js>,
+    ) -> Result<(WritableStreamOwned<'js>, Class<'js, Self>)> {
+        Self::set_up_writable_stream_default_writer(ctx, stream)
+    }
+
+    pub(super) fn set_up_writable_stream_default_writer(
+        ctx: &Ctx<'js>,
+        mut stream: WritableStreamOwned<'js>,
+    ) -> Result<(WritableStreamOwned<'js>, Class<'js, Self>)> {
+        // If ! IsWritableStreamLocked(stream) is true, throw a TypeError exception.
+        if stream.is_writable_stream_locked() {
+            return Err(Exception::throw_type(
+                ctx,
+                "This stream has already been locked for exclusive writing by another writer",
+            ));
+        }
+
+        let stream_class = stream.into_inner();
+        stream = OwnedBorrowMut::from_class(stream_class.clone());
+
+        let (ready_promise, closed_promise) = match stream.state {
+            WritableStreamState::Writable => {
+                let ready_promise = if !stream.writable_stream_close_queued_or_in_flight()
+                    && stream.backpressure
+                {
+                    // If ! WritableStreamCloseQueuedOrInFlight(stream) is false and stream.[[backpressure]] is true, set writer.[[readyPromise]] to a new promise.
+                    ResolveablePromise::new(ctx)?
+                } else {
+                    // Otherwise, set writer.[[readyPromise]] to a promise resolved with undefined.
+                    ResolveablePromise::resolved_with(ctx, Ok(Value::new_undefined(ctx.clone())))?
+                };
+
+                // Set writer.[[closedPromise]] to a new promise.
+                (ready_promise, ResolveablePromise::new(ctx)?)
+            },
+            WritableStreamState::Erroring => {
+                let stored_error = stream
+                    .stored_error
+                    .clone()
+                    .expect("stream in error state without stored error");
+                let ready_promise = ResolveablePromise::rejected_with(ctx, stored_error)?;
+                ready_promise.set_is_handled()?;
+                // Set writer.[[closedPromise]] to a new promise.
+                (ready_promise, ResolveablePromise::new(ctx)?)
+            },
+            WritableStreamState::Closed => {
+                let promise =
+                    ResolveablePromise::resolved_with(ctx, Ok(Value::new_undefined(ctx.clone())))?;
+                // Set writer.[[readyPromise]] to a promise resolved with undefined.
+                // Set writer.[[closedPromise]] to a promise resolved with undefined.
+                (promise.clone(), promise)
+            },
+            WritableStreamState::Errored => {
+                // Let storedError be stream.[[storedError]].
+                let stored_error = stream
+                    .stored_error
+                    .clone()
+                    .expect("stream in error state without stored error");
+                let promise = ResolveablePromise::rejected_with(ctx, stored_error)?;
+                promise.set_is_handled()?;
+                // Set writer.[[readyPromise]] to a promise rejected with storedError.
+                // Set writer.[[readyPromise]].[[PromiseIsHandled]] to true.
+                // Set writer.[[closedPromise]] to a promise rejected with storedError.
+                // Set writer.[[closedPromise]].[[PromiseIsHandled]] to true.
+                (promise.clone(), promise)
+            },
+        };
+
+        let writer = Self {
+            ready_promise,
+            closed_promise,
+            // Set writer.[[stream]] to stream.
+            stream: Some(stream_class),
+        };
+
+        let writer = Class::instance(ctx.clone(), writer)?;
+
+        stream.writer = Some(writer.clone());
+
+        Ok((stream, writer))
+    }
+
+    pub(super) fn writable_stream_default_writer_ensure_ready_promise_rejected(
+        &mut self,
+        ctx: &Ctx<'js>,
+        error: Value<'js>,
+    ) -> Result<()> {
+        if self.ready_promise.is_pending() {
+            // If writer.[[readyPromise]].[[PromiseState]] is "pending", reject writer.[[readyPromise]] with error.
+            self.ready_promise.reject(error)?;
+        } else {
+            // Otherwise, set writer.[[readyPromise]] to a promise rejected with error.
+            self.ready_promise = ResolveablePromise::rejected_with(ctx, error)?;
+        }
+
+        // Set writer.[[readyPromise]].[[PromiseIsHandled]] to true.
+        self.ready_promise.set_is_handled()?;
+        Ok(())
+    }
+
+    pub(super) fn writable_stream_default_writer_ensure_closed_promise_rejected(
+        &mut self,
+        ctx: &Ctx<'js>,
+        error: Value<'js>,
+    ) -> Result<()> {
+        if self.closed_promise.is_pending() {
+            // If writer.[[closedPromise]].[[PromiseState]] is "pending", reject writer.[[closedPromise]] with error.
+            self.closed_promise.reject(error)?;
+        } else {
+            // Otherwise, set writer.[[closedPromise]] to a promise rejected with error.
+            self.closed_promise = ResolveablePromise::rejected_with(ctx, error)?;
+        }
+
+        // Set writer.[[closedPromise]].[[PromiseIsHandled]] to true.
+        self.closed_promise.set_is_handled()?;
+        Ok(())
+    }
+
+    pub(super) fn writable_stream_default_writer_get_desired_size(
+        // Let stream be writer.[[stream]].
+        stream: OwnedBorrow<'js, WritableStream<'js>>,
+    ) -> Result<Null<f64>> {
+        // Let state be stream.[[state]].
+        let state = stream.state;
+
+        // If state is "errored" or "erroring", return null.
+        if matches!(
+            state,
+            WritableStreamState::Errored | WritableStreamState::Erroring
+        ) {
+            return Ok(Null(None));
+        }
+
+        // If state is "closed", return 0.
+        if matches!(state, WritableStreamState::Closed) {
+            return Ok(Null(Some(0.0)));
+        }
+
+        // Return ! WritableStreamDefaultControllerGetDesiredSize(stream.[[controller]]).
+        let controller = OwnedBorrow::from_class(
+            stream
+                .controller
+                .clone()
+                .expect("Stream in state writable must have a controller"),
+        );
+
+        Ok(Null(Some(
+            controller.writable_stream_default_controller_get_desired_size(),
+        )))
+    }
+
+    fn writable_stream_default_writer_abort(
+        ctx: Ctx<'js>,
+        objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
+        reason: Option<Value<'js>>,
+    ) -> Result<Promise<'js>> {
+        // Return ! WritableStreamAbort(stream, reason).
+        let (promise, _) = WritableStream::writable_stream_abort(ctx, objects, reason)?;
+        Ok(promise)
+    }
+
+    fn writable_stream_default_writer_close(
+        ctx: Ctx<'js>,
+        objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
+    ) -> Result<Promise<'js>> {
+        // Return ! WritableStreamClose(stream).
+        let (promise, _) = WritableStream::writable_stream_close(ctx, objects)?;
+        Ok(promise)
+    }
+
+    pub(crate) fn writable_stream_default_writer_close_with_error_propagation(
+        ctx: Ctx<'js>,
+        // Let stream be writer.[[stream]].
+        objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
+    ) -> Result<Promise<'js>> {
+        // Let state be stream.[[state]].
+        // If ! WritableStreamCloseQueuedOrInFlight(stream) is true or state is "closed", return a promise resolved with undefined.
+        if objects.stream.writable_stream_close_queued_or_in_flight()
+            || objects.stream.state == WritableStreamState::Closed
+        {
+            return promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())));
+        }
+
+        // If state is "errored", return a promise rejected with stream.[[storedError]].
+        if objects.stream.state == WritableStreamState::Errored {
+            return promise_rejected_with(
+                &ctx,
+                objects
+                    .stream
+                    .stored_error
+                    .clone()
+                    .expect("stream in error state without stored error"),
+            );
+        }
+
+        // Return ! WritableStreamDefaultWriterClose(writer).
+        Self::writable_stream_default_writer_close(ctx, objects)
+    }
+
+    pub(crate) fn writable_stream_default_writer_release(
+        ctx: &Ctx<'js>,
+        mut objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
+    ) -> Result<()> {
+        // Let releasedError be a new TypeError.
+        let released_error: Value =
+            ctx.eval(r#"new TypeError("Writer was released and can no longer be used to monitor the stream's closedness")"#)?;
+
+        // Perform ! WritableStreamDefaultWriterEnsureReadyPromiseRejected(writer, releasedError).
+        objects
+            .writer
+            .writable_stream_default_writer_ensure_ready_promise_rejected(
+                ctx,
+                released_error.clone(),
+            )?;
+        // Perform ! WritableStreamDefaultWriterEnsureClosedPromiseRejected(writer, releasedError).
+        objects
+            .writer
+            .writable_stream_default_writer_ensure_closed_promise_rejected(ctx, released_error)?;
+
+        // Set stream.[[writer]] to undefined.
+        objects.stream.writer = None;
+        // Set writer.[[stream]] to undefined.
+        objects.writer.stream = None;
+
+        Ok(())
+    }
+
+    pub(crate) fn writable_stream_default_writer_write(
+        ctx: Ctx<'js>,
+        objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
+        chunk: Value<'js>,
+    ) -> Result<Promise<'js>> {
+        // Let chunkSize be ! WritableStreamDefaultControllerGetChunkSize(controller, chunk).
+        let (chunk_size, mut objects) =
+            WritableStreamDefaultController::writable_stream_default_controller_get_chunk_size(
+                ctx.clone(),
+                objects,
+                chunk.clone(),
+            )?;
+
+        let stream_class = objects.stream.into_inner();
+        objects.stream = OwnedBorrowMut::from_class(stream_class.clone());
+
+        // If stream is not equal to writer.[[stream]], return a promise rejected with a TypeError exception.
+        if objects.writer.stream != Some(stream_class) {
+            let e: Value =
+                ctx.eval(r#"new TypeError("Cannot write to a stream using a released writer")"#)?;
+
+            return promise_rejected_with(&ctx, e);
+        }
+
+        // Let state be stream.[[state]].
+        let state = objects.stream.state;
+        // If state is "errored", return a promise rejected with stream.[[storedError]].
+        if matches!(state, WritableStreamState::Errored) {
+            return promise_rejected_with(
+                &ctx,
+                objects
+                    .stream
+                    .stored_error
+                    .clone()
+                    .expect("stream in error state without stored error"),
+            );
+        }
+
+        // If ! WritableStreamCloseQueuedOrInFlight(stream) is true or state is "closed", return a promise rejected with a TypeError exception indicating that the stream is closing or closed.
+        if objects.stream.writable_stream_close_queued_or_in_flight()
+            || matches!(state, WritableStreamState::Closed)
+        {
+            let e: Value = ctx.eval(
+                r#"new TypeError("The stream is closing or closed and cannot be written to")"#,
+            )?;
+
+            return promise_rejected_with(&ctx, e);
+        }
+
+        // If state is "erroring", return a promise rejected with stream.[[storedError]].
+        if matches!(state, WritableStreamState::Erroring) {
+            return promise_rejected_with(
+                &ctx,
+                objects
+                    .stream
+                    .stored_error
+                    .clone()
+                    .expect("stream in erroring state without stored error"),
+            );
+        }
+
+        // Let promise be ! WritableStreamAddWriteRequest(stream).
+        let promise = objects.stream.writable_stream_add_write_request(&ctx);
+        // Perform ! WritableStreamDefaultControllerWrite(controller, chunk, chunkSize).
+        WritableStreamDefaultController::writable_stream_default_controller_write(
+            ctx, objects, chunk, chunk_size,
+        )?;
+
+        // Return promise.
+        promise
+    }
+}
+
+impl<'js> WritableStreamWriter<'js> for WritableStreamDefaultWriterOwned<'js> {
+    type Class = WritableStreamDefaultWriterClass<'js>;
+
+    fn with_writer<C>(
+        self,
+        ctx: C,
+        default: impl FnOnce(
+            C,
+            WritableStreamDefaultWriterOwned<'js>,
+        ) -> Result<(C, WritableStreamDefaultWriterOwned<'js>)>,
+        _: impl FnOnce(C) -> Result<C>,
+    ) -> Result<(C, Self)> {
+        default(ctx, self)
+    }
+
+    fn into_inner(self) -> Self::Class {
+        self.into_inner()
+    }
+
+    fn from_class(class: Self::Class) -> Self {
+        OwnedBorrowMut::from_class(class)
+    }
+}

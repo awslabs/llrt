@@ -25,6 +25,7 @@ all = [
   "path",
   "perf-hooks",
   "process",
+  "stream-web",
   "timers",
   "url",
   "zlib",
@@ -47,6 +48,7 @@ os = ["llrt_os"]
 path = ["llrt_path"]
 process = ["llrt_process"]
 perf-hooks = ["llrt_perf_hooks"]
+stream-web = ["llrt_stream_web"]
 timers = ["llrt_timers"]
 url = ["llrt_url"]
 zlib = ["llrt_zlib"]
@@ -68,6 +70,7 @@ llrt_os = { version = "0.4.0-beta", path = "../modules/llrt_os", optional = true
 llrt_path = { version = "0.4.0-beta", path = "../modules/llrt_path", optional = true }
 llrt_process = { version = "0.4.0-beta", path = "../modules/llrt_process", optional = true }
 llrt_perf_hooks = { version = "0.4.0-beta", path = "../modules/llrt_perf_hooks", optional = true }
+llrt_stream_web = { version = "0.4.0-beta", path = "../modules/llrt_stream_web", optional = true }
 llrt_timers = { version = "0.4.0-beta", path = "../modules/llrt_timers", optional = true }
 llrt_url = { version = "0.4.0-beta", path = "../modules/llrt_url", optional = true }
 llrt_utils = { version = "0.4.0-beta", path = "../libs/llrt_utils" }

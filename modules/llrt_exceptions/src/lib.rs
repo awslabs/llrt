@@ -9,6 +9,7 @@ pub struct DOMException {
     message: String,
     name: String,
     stack: String,
+    code: u8,
 }
 
 #[rquickjs::methods]
@@ -24,9 +25,37 @@ impl DOMException {
         let message = message.0.unwrap_or(String::from(""));
         let name = name.0.unwrap_or(String::from("Error"));
 
+        // https://webidl.spec.whatwg.org/#dfn-error-names-table
+        let code = match name.as_str() {
+            "IndexSizeError" => 1,
+            "HierarchyRequestError" => 3,
+            "WrongDocumentError" => 4,
+            "InvalidCharacterError" => 5,
+            "NoModificationAllowedError" => 7,
+            "NotFoundError" => 8,
+            "NotSupportedError" => 9,
+            "InUseAttributeError" => 10,
+            "InvalidStateError" => 11,
+            "SyntaxError" => 12,
+            "InvalidModificationError" => 13,
+            "NamespaceError" => 14,
+            "InvalidAccessError" => 15,
+            "TypeMismatchError" => 17,
+            "SecurityError" => 18,
+            "NetworkError" => 19,
+            "AbortError" => 20,
+            "URLMismatchError" => 21,
+            "QuotaExceededError" => 22,
+            "TimeoutError" => 23,
+            "InvalidNodeTypeError" => 24,
+            "DataCloneError" => 25,
+            _ => 0,
+        };
+
         Ok(Self {
             message,
             name,
+            code,
             stack: new.get::<_, String>(PredefinedAtom::Stack)?,
         })
     }
@@ -39,6 +68,11 @@ impl DOMException {
     #[qjs(get)]
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+
+    #[qjs(get)]
+    pub fn code(&self) -> u8 {
+        self.code
     }
 
     #[qjs(get)]

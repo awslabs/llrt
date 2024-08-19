@@ -69,6 +69,15 @@ impl<'js> AbortSignal<'js> {
         Ok(())
     }
 
+    pub fn remove_on_abort(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        listener: Function<'js>,
+    ) -> Result<()> {
+        Self::remove_event_listener_str(this, &ctx, "abort", listener)?;
+        Ok(())
+    }
+
     pub fn throw_if_aborted(&self, ctx: Ctx<'js>) -> Result<()> {
         if self.aborted {
             return Err(ctx.throw(
@@ -141,11 +150,10 @@ impl<'js> AbortSignal<'js> {
 
     #[qjs(set, rename = "reason")]
     pub fn set_reason(&mut self, reason: Opt<Value<'js>>) {
-        if let Some(new_reason) = reason.0 {
-            self.reason.replace(new_reason);
-        } else {
-            self.reason.take();
-        }
+        match reason.0 {
+            Some(new_reason) if !new_reason.is_undefined() => self.reason.replace(new_reason),
+            _ => self.reason.take(),
+        };
     }
 
     #[qjs(skip)]
@@ -153,6 +161,7 @@ impl<'js> AbortSignal<'js> {
         let mut borrow = this.borrow_mut();
         borrow.aborted = true;
         let reason = get_reason_or_dom_exception(&ctx, borrow.reason.as_ref(), "AbortError")?;
+        borrow.reason = Some(reason.clone());
         borrow.sender.send(reason);
         drop(borrow);
         Self::emit_str(this, &ctx, "abort", vec![], false)?;

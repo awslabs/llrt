@@ -16,6 +16,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Class::<AbortSignal>::define(&globals)?;
 
     AbortSignal::add_event_emitter_prototype(ctx)?;
+    AbortSignal::add_event_target_prototype(ctx)?;
 
     Ok(())
 }

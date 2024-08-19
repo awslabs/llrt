@@ -218,11 +218,6 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
     let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
     number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
 
-    let readable_stream_stub = ctx.eval::<Value,_>(
-            r#"class ReadableStream{constructor(){throw Error(`ReadableStream is not supported via global scope. Enable this by adding this to your code:\nimport { ReadableStream } from "stream";\nglobalThis.ReadableStream = ReadableStream;`)}};"#
-    )?;
-
-    globals.set("ReadableStream", readable_stream_stub)?;
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
     globals.set("load", Func::from(load))?;

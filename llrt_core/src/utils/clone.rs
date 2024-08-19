@@ -8,9 +8,8 @@ use llrt_utils::{
 };
 use rquickjs::{
     atom::PredefinedAtom,
-    function::This,
-    function::{Constructor, Opt},
-    Array, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
+    function::{Constructor, Opt, This},
+    Array, ArrayBuffer, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
 };
 
 use super::hash;
@@ -343,11 +342,17 @@ fn append_transfer_value<'js>(
     object_key: Option<String>,
     array_index: Option<usize>,
 ) -> Result<()> {
+    let value = if let Some(ab) = ArrayBuffer::from_value(value.clone()) {
+        ab.get::<_, Function>("transfer")?.call((This(ab),))?
+    } else {
+        value.clone()
+    };
+
     tape.push(TapeItem {
         parent,
         object_key,
         array_index,
-        value: TapeValue::Value(value.clone()),
+        value: TapeValue::Value(value),
     });
     Ok(())
 }
