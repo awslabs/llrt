@@ -123,13 +123,17 @@ stdlib:
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_windows_x64)
 else
-stdlib:
+stdlib-x64:
 	rustup target add $(TARGET_linux_x86_64)
-	rustup target add $(TARGET_linux_arm64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+
+stdlib-arm64:
+	rustup target add $(TARGET_linux_arm64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_arm64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_arm64)
-	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+
+stdlib: | stdlib-x64 stdlib-arm64
 endif
 
 toolchain:
@@ -228,4 +232,4 @@ deploy:
 check:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib test test-ci run js run-release build release clean flame deploy
+.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy
