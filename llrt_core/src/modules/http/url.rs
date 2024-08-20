@@ -169,7 +169,10 @@ impl<'js> URL<'js> {
     #[qjs(set, rename = "port")]
     pub fn set_port(&mut self, ctx: Ctx<'js>, port: Value<'js>) -> Value<'js> {
         // TODO: negative ports should be handled in Url
-        if port.is_null() || port.is_undefined() || (port.is_int() && port.as_int().unwrap() < 0) {
+        if port.is_null()
+            || port.is_undefined()
+            || (port.is_int() && unsafe { port.as_int().unwrap_unchecked() } < 0)
+        {
             return port;
         }
 
@@ -310,7 +313,9 @@ pub fn domain_to_ascii(domain: &str) -> String {
 
 //options are ignored, no windows support yet
 pub fn path_to_file_url<'js>(ctx: Ctx<'js>, path: String, _: Opt<Value>) -> Result<URL<'js>> {
-    let url = Url::from_file_path(path).unwrap();
+    let url = Url::from_file_path(&path)
+        .map_err(|_| Exception::throw_type(&ctx, &["Path is not absolute: ", &path].concat()))?;
+
     URL::from_url(ctx, url)
 }
 

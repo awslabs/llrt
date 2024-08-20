@@ -102,7 +102,8 @@ pub fn structured_clone<'js>(
                             continue;
                         }
 
-                        let object = value.as_object().unwrap();
+                        //unsafe OK since we're guaranteed to be object by the match
+                        let object = unsafe { value.as_object().unwrap_unchecked() };
 
                         if object.is_instance_of(&date_ctor) {
                             append_ctor_value(
@@ -202,7 +203,8 @@ pub fn structured_clone<'js>(
                             value: TapeValue::Array(new),
                         });
                         stack.push(StackItem::ObjectEnd);
-                        let array = value.as_array().unwrap();
+                        //unsafe OK since we're guaranteed to be object by the match
+                        let array = unsafe { value.as_array().unwrap_unchecked() };
 
                         //reverse for loop of items in array
                         for array_index in (0usize..array.len()).rev() {

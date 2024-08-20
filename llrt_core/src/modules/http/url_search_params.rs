@@ -50,12 +50,12 @@ impl<'js> URLSearchParams {
                 let string: String = Coerced::from_js(&ctx, init)?.0;
                 return Ok(Self::from_str(string));
             } else if init.is_array() {
-                return Self::from_array(&ctx, init.into_array().unwrap());
+                return Self::from_array(&ctx, unsafe { init.into_array().unwrap_unchecked() });
             } else if init.is_object() {
-                return Self::from_object(&ctx, init.into_object().unwrap());
+                return Self::from_object(&ctx, unsafe { init.into_object().unwrap_unchecked() });
             }
         }
-        let url: Url = "http://example.com".parse().unwrap();
+        let url: Url = unsafe { "http://example.com".parse().unwrap_unchecked() };
 
         Ok(URLSearchParams {
             url: Rc::new(RefCell::new(url)),
@@ -264,11 +264,13 @@ impl<'js> URLSearchParams {
         } else {
             query
         };
-        let url = "http://example.com"
-            .parse::<Url>()
-            .unwrap()
-            .join(&query)
-            .unwrap();
+        let url = unsafe {
+            "http://example.com"
+                .parse::<Url>()
+                .unwrap_unchecked()
+                .join(&query)
+                .unwrap_unchecked()
+        };
         Self {
             url: Rc::new(RefCell::new(url)),
         }

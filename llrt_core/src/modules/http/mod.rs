@@ -104,7 +104,7 @@ pub static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
             Ok("1.3") => builder.with_safe_default_protocol_versions(),
             _ => builder.with_protocol_versions(&[&version::TLS12]), //Use TLS 1.2 by default to increase compat and keep latency low
         }
-        .unwrap()
+        .expect("TLS configuration failed")
         .with_root_certificates(root_certificates)
         .with_no_client_auth(),
     )

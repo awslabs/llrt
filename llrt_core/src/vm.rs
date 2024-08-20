@@ -106,15 +106,12 @@ impl BinaryResolver {
         }
         normalized
     }
-}
 
-impl Default for BinaryResolver {
-    fn default() -> Self {
-        let cwd = env::current_dir().unwrap();
-        Self {
-            cwd,
+    fn new() -> io::Result<Self> {
+        Ok(Self {
             paths: Vec::with_capacity(10),
-        }
+            cwd: env::current_dir()?,
+        })
     }
 }
 
@@ -366,7 +363,7 @@ impl Vm {
             .expect("Failed to initialize SystemRandom");
 
         let mut file_resolver = FileResolver::default();
-        let mut binary_resolver = BinaryResolver::default();
+        let mut binary_resolver = BinaryResolver::new()?;
         let mut paths: Vec<&str> = Vec::with_capacity(10);
 
         paths.push(".");

@@ -32,7 +32,7 @@ impl Headers {
     pub fn new<'js>(ctx: Ctx<'js>, init: Opt<Value<'js>>) -> Result<Self> {
         if let Some(init) = init.into_inner() {
             if init.is_array() {
-                let array = init.into_array().unwrap();
+                let array = unsafe { init.into_array().unwrap_unchecked() };
                 let headers = Self::array_to_headers(array)?;
                 return Ok(Self { headers });
             } else if init.is_object() {
@@ -166,7 +166,7 @@ impl Headers {
 
     pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         if value.is_object() {
-            let headers_obj = value.as_object().unwrap();
+            let headers_obj = unsafe { value.as_object().unwrap_unchecked() };
             return if headers_obj.instance_of::<Headers>() {
                 Headers::from_js(ctx, value)
             } else {

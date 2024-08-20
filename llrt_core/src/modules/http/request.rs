@@ -66,7 +66,9 @@ impl<'js> Request<'js> {
         if input.is_string() {
             request.url = input.get()?;
         } else if input.is_object() {
-            assign_request(&mut request, ctx.clone(), input.as_object().unwrap())?;
+            assign_request(&mut request, ctx.clone(), unsafe {
+                input.as_object().unwrap_unchecked()
+            })?;
         }
         if let Some(options) = options.0 {
             assign_request(&mut request, ctx.clone(), &options)?;
