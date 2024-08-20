@@ -3,50 +3,23 @@
 use std::{
     ptr::NonNull,
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Mutex,
     },
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    qjs, CatchResultExt, Ctx, Function, Persistent, Result, Value,
+    qjs, CatchResultExt, Ctx, Function, Persistent, Result,
 };
 
 use crate::{module_builder::ModuleInfo, modules::module::export_default, vm::Vm};
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
-
-pub(crate) struct RuntimeTimerState {
-    timers: Vec<TimeoutRef>,
-    last_time: usize,
-    rt: *mut qjs::JSRuntime,
-}
-impl RuntimeTimerState {
-    fn new(rt: *mut qjs::JSRuntime) -> Self {
-        Self {
-            timers: Vec::new(),
-            rt,
-            last_time: 0,
-        }
-    }
-}
-
-unsafe impl Send for RuntimeTimerState {}
-
-pub(crate) static RUNTIME_TIMERS: Lazy<Mutex<Vec<RuntimeTimerState>>> =
-    Lazy::new(|| Mutex::new(Vec::new()));
-
-struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
-
-unsafe impl Send for ExecutingTimer {}
-
-static EXECUTING_TIMERS: Lazy<Mutex<Vec<Option<ExecutingTimer>>>> =
-    Lazy::new(|| Mutex::new(Vec::new()));
-
+static TIME_POLL_ACTIVE: AtomicBool = AtomicBool::new(false);
 pub struct TimeoutRef {
     callback: Option<Persistent<Function<'static>>>,
     pub expires: usize,
@@ -56,8 +29,6 @@ pub struct TimeoutRef {
     delay: usize,
 }
 
-unsafe impl Send for TimeoutRef {}
-
 fn set_immediate(cb: Function) -> Result<()> {
     cb.defer::<()>(())?;
     Ok(())
@@ -66,8 +37,8 @@ fn set_immediate(cb: Function) -> Result<()> {
 fn get_current_time_millis() -> usize {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis() as usize
+        .map(|t| t.as_millis() as usize)
+        .unwrap_or(0)
 }
 
 pub fn set_timeout_interval<'js>(
@@ -100,18 +71,20 @@ pub fn set_timeout_interval<'js>(
         entry.timers.push(timeout_ref);
         rt_timers.push(entry);
     }
+    drop(rt_timers);
+    create_spawn_loop(ctx, rt)?;
 
     Ok(id)
 }
 
-fn clear_timeout_interval(ctx: &Ctx<'_>, id: usize) -> Result<()> {
+fn clear_timeout_interval(ctx: Ctx<'_>, id: usize) -> Result<()> {
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
     let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
 
-    if let Some(entry) = rt_timers.iter_mut().find(|t| t.rt == rt) {
-        if let Some(timeout) = entry.timers.iter_mut().find(|t| t.id == id) {
+    if let Some(state) = rt_timers.iter_mut().find(|t| t.rt == rt) {
+        if let Some(timeout) = state.timers.iter_mut().find(|t| t.id == id) {
             if let Some(timeout) = timeout.callback.take() {
-                timeout.restore(ctx)?; //prevent memory leaks
+                timeout.restore(&ctx)?; //prevent memory leaks
             }
             timeout.expires = 0;
             timeout.repeating = false;
@@ -119,6 +92,24 @@ fn clear_timeout_interval(ctx: &Ctx<'_>, id: usize) -> Result<()> {
     }
 
     Ok(())
+}
+
+unsafe impl Send for RuntimeTimerState {}
+
+pub(crate) static RUNTIME_TIMERS: Lazy<Mutex<Vec<RuntimeTimerState>>> =
+    Lazy::new(|| Mutex::new(Vec::new()));
+
+pub(crate) struct RuntimeTimerState {
+    timers: Vec<TimeoutRef>,
+    rt: *mut qjs::JSRuntime,
+}
+impl RuntimeTimerState {
+    fn new(rt: *mut qjs::JSRuntime) -> Self {
+        Self {
+            timers: Vec::new(),
+            rt,
+        }
+    }
 }
 
 pub struct TimersModule;
@@ -158,11 +149,6 @@ impl From<TimersModule> for ModuleInfo<TimersModule> {
     }
 }
 
-pub fn init(_ctx: &Ctx<'_>) -> Result<()> {
-    //timers handled separately below
-    Ok(())
-}
-
 pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
@@ -182,94 +168,95 @@ pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
         }),
     )?;
 
-    globals.set(
-        "clearTimeout",
-        Func::from(move |ctx: Ctx, id: Value| {
-            if let Some(id) = id.as_number() {
-                clear_timeout_interval(&ctx, id as _)
-            } else {
-                Ok(())
-            }
-        }),
-    )?;
+    globals.set("clearTimeout", Func::from(clear_timeout_interval))?;
 
-    globals.set(
-        "clearInterval",
-        Func::from(move |ctx: Ctx, id: Value| {
-            if let Some(id) = id.as_number() {
-                clear_timeout_interval(&ctx, id as _)
-            } else {
-                Ok(())
-            }
-        }),
-    )?;
+    globals.set("clearInterval", Func::from(clear_timeout_interval))?;
 
     globals.set("setImmediate", Func::from(set_immediate))?;
 
     Ok(())
 }
 
-pub trait TimerPoller {
-    fn poll_timers(&self) -> bool;
-}
+pub struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
 
-impl<'js> TimerPoller for Ctx<'js> {
-    fn poll_timers(&self) -> bool {
-        let rt = unsafe { qjs::JS_GetRuntime(self.as_raw().as_ptr()) };
+unsafe impl Send for ExecutingTimer {}
 
-        poll_timers(rt)
+#[inline(always)]
+fn create_spawn_loop(ctx: &Ctx<'_>, rt: *mut qjs::JSRuntime) -> Result<()> {
+    if !TIME_POLL_ACTIVE.swap(true, Ordering::Relaxed) {
+        ctx.spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(4));
+
+            let mut executing_timers: Option<Vec<Option<ExecutingTimer>>> = Some(Vec::new());
+            let mut exit_after_next_tick = false;
+            loop {
+                interval.tick().await;
+
+                if !poll_timers(rt, &mut executing_timers, &mut exit_after_next_tick) {
+                    break;
+                }
+            }
+            TIME_POLL_ACTIVE.store(false, Ordering::Relaxed);
+        });
     }
+    Ok(())
 }
 
-pub fn poll_timers(rt: *mut qjs::JSRuntime) -> bool {
-    let mut has_pending_timeouts = false;
-
+pub fn poll_timers(
+    rt: *mut qjs::JSRuntime,
+    executing_timers: &mut Option<Vec<Option<ExecutingTimer>>>,
+    exit_after_next_tick: &mut bool,
+) -> bool {
     let mut rt_timers = RUNTIME_TIMERS.lock().unwrap();
-
-    let mut executing_timers = EXECUTING_TIMERS.lock().unwrap();
-
-    if let Some(state) = rt_timers.iter_mut().find(|state| state.rt == rt) {
+    if let Some(state) = rt_timers.iter_mut().find(|t| t.rt == rt) {
+        let mut call_vec = executing_timers.take().unwrap(); //avoid creating a new vec
         let current_time = get_current_time_millis();
-        if current_time - state.last_time >= 1 {
-            state.timers.retain_mut(|timeout| {
-                if timeout.expires < current_time {
-                    let ctx = timeout.ctx;
-                    if let Some(cb) = timeout.callback.take() {
-                        if !timeout.repeating {
-                            executing_timers.push(Some(ExecutingTimer(ctx, cb)));
-                            return false;
-                        }
-                        timeout.expires = current_time + timeout.delay;
-                        executing_timers.push(Some(ExecutingTimer(ctx, cb.clone())));
-                        timeout.callback.replace(cb);
-                    } else {
+        let mut had_items = false;
+
+        state.timers.retain_mut(|timeout| {
+            had_items = true;
+            *exit_after_next_tick = false;
+            if timeout.expires < current_time {
+                let ctx = timeout.ctx;
+                if let Some(cb) = timeout.callback.take() {
+                    if !timeout.repeating {
+                        call_vec.push(Some(ExecutingTimer(ctx, cb)));
                         return false;
                     }
+                    timeout.expires = current_time + timeout.delay;
+                    call_vec.push(Some(ExecutingTimer(ctx, cb.clone())));
+                    timeout.callback.replace(cb);
+                } else {
+                    return false;
                 }
-                true
-            });
-        }
+            }
+            true
+        });
 
-        has_pending_timeouts = !state.timers.is_empty();
-        state.last_time = current_time;
         drop(rt_timers);
-    }
 
-    if !executing_timers.is_empty() {
-        has_pending_timeouts = true;
-        for item in executing_timers.iter_mut() {
-            if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
-                let ctx2 = unsafe { Ctx::from_raw(ctx) };
-                if let Ok(timeout) = timeout.restore(&ctx2) {
-                    if let Err(err) = timeout.call::<_, ()>(()).catch(&ctx2) {
-                        Vm::print_error_and_exit(&ctx2, err);
+        if !call_vec.is_empty() {
+            for item in call_vec.iter_mut() {
+                if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
+                    let ctx2 = unsafe { Ctx::from_raw(ctx) };
+                    if let Ok(timeout) = timeout.restore(&ctx2) {
+                        if let Err(err) = timeout.call::<_, ()>(()).catch(&ctx2) {
+                            Vm::print_error_and_exit(&ctx2, err);
+                        }
                     }
                 }
             }
+            call_vec.clear();
         }
-        executing_timers.clear();
-    }
-    drop(executing_timers);
 
-    has_pending_timeouts
+        executing_timers.replace(call_vec);
+
+        if !had_items {
+            if *exit_after_next_tick {
+                return false;
+            }
+            *exit_after_next_tick = true;
+        }
+    }
+    true
 }
