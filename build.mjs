@@ -80,7 +80,7 @@ const ES_BUILD_OPTIONS = {
 //
 // const SDK_DATA = {
 //   // Classification
-//   "PackageName": ["ClientName", ["ServiceEndpoints", ...], fullSdkOnly],
+//   "PackageName": ["ClientName", "ServiceEndpoint", fullSdkOnly],
 // }
 //
 // The meanings of each and how to look them up are as follows.
@@ -98,7 +98,7 @@ const ES_BUILD_OPTIONS = {
 //    > import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 //               ^^^ <- This part except for the "client"
 //
-//   3. ServiceEndpoints
+//   3. ServiceEndpoint
 //   https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
 //
 //    Case) @aws-sdk/client-sts
@@ -109,7 +109,8 @@ const ES_BUILD_OPTIONS = {
 //    > | US East (Ohio) | us-east-2 | sts.us-east-2.amazonaws.com | HTTPS    |
 //                                     ^^^ <- String before "region"
 //
-//    If multiple endpoints are required, such as @aws-sdk/client-sso, register multiple endpoints in the array.
+//    If multiple endpoints are required, such as `states` and `sync-states` in @aws-sdk/client-sfn,
+//    multiple endpoints can be specified by making them an array.
 //
 //   4. fullSdkOnly
 //
@@ -121,88 +122,88 @@ const ES_BUILD_OPTIONS = {
 //
 const SDK_DATA = {
   // Analytics
-  "client-athena": ["Athena", ["athena"], true],
-  "client-firehose": ["Firehose", ["firehose"], true],
-  "client-glue": ["Glue", ["glue"], true],
-  "client-kinesis": ["Kinesis", ["kinesis"], true],
-  "client-opensearch": ["OpenSearch", ["es"], true],
-  "client-opensearchserverless": ["OpenSearchServerless", ["aoss"], true],
+  "client-athena": ["Athena", "athena", true],
+  "client-firehose": ["Firehose", "firehose", true],
+  "client-glue": ["Glue", "glue", true],
+  "client-kinesis": ["Kinesis", "kinesis", true],
+  "client-opensearch": ["OpenSearch", "es", true],
+  "client-opensearchserverless": ["OpenSearchServerless", "aoss", true],
   // ApplicationIntegration
-  "client-eventbridge": ["EventBridge", ["events"], false],
-  "client-scheduler": ["Scheduler", ["scheduler"], true],
+  "client-eventbridge": ["EventBridge", "events", false],
+  "client-scheduler": ["Scheduler", "scheduler", true],
   "client-sfn": ["SFN", ["states", "sync-states"], false],
-  "client-sns": ["SNS", ["sns"], false],
-  "client-sqs": ["SQS", ["sqs"], false],
+  "client-sns": ["SNS", "sns", false],
+  "client-sqs": ["SQS", "sqs", false],
   // Blockchain
   ...{},
   // BusinessApplications
-  "client-ses": ["SES", ["email"], false],
-  "client-sesv2": ["SESv2", ["email"], true],
+  "client-ses": ["SES", "email", false],
+  "client-sesv2": ["SESv2", "email", true],
   // CloudFinancialManagement
   ...{},
   // ComputeServices
-  "client-auto-scaling": ["AutoScaling", ["autoscaling"], true],
-  "client-batch": ["Batch", ["batch"], true],
-  "client-ec2": ["EC2", ["ec2"], true],
-  "client-lambda": ["Lambda", ["lambda"], false],
+  "client-auto-scaling": ["AutoScaling", "autoscaling", true],
+  "client-batch": ["Batch", "batch", true],
+  "client-ec2": ["EC2", "ec2", true],
+  "client-lambda": ["Lambda", "lambda", false],
   // CustomerEnablement
   ...{},
   // Containers
-  "client-ecr": ["ECR", ["ecr", "api.ecr"], true],
-  "client-ecs": ["ECS", ["ecs"], true],
-  "client-eks": ["EKS", ["eks"], true],
-  "client-servicediscovery": ["ServiceDiscovery", ["discovery"], true],
+  "client-ecr": ["ECR", "api.ecr", true],
+  "client-ecs": ["ECS", "ecs", true],
+  "client-eks": ["EKS", "eks", true],
+  "client-servicediscovery": ["ServiceDiscovery", "discovery", true],
   // Databases
-  "client-dynamodb": ["DynamoDB", ["dynamodb"], false],
-  "client-dynamodb-streams": ["DynamoDBStreams", ["streams.dynamodb"], true],
-  "client-elasticache": ["ElastiCache", ["elasticache"], true],
-  "client-rds": ["RDS", ["rds"], true],
-  "client-rds-data": ["RDSData", ["rds-data"], true],
-  "lib-dynamodb": ["DynamoDBDocument", ["dynamodb"], false],
+  "client-dynamodb": ["DynamoDB", "dynamodb", false],
+  "client-dynamodb-streams": ["DynamoDBStreams", "streams.dynamodb", true],
+  "client-elasticache": ["ElastiCache", "elasticache", true],
+  "client-rds": ["RDS", "rds", true],
+  "client-rds-data": ["RDSData", "rds-data", true],
+  "lib-dynamodb": ["DynamoDBDocument", "dynamodb", false],
   // DeveloperTools
-  "client-xray": ["XRay", ["xray"], false],
+  "client-xray": ["XRay", "xray", false],
   // EndUserComputing
   ...{},
   // FrontendWebAndMobileServices
-  "client-amplify": ["Amplify", ["amplify"], true],
-  "client-appsync": ["AppSync", ["appsync"], true],
-  "client-location": ["Location", ["geo"], true],
+  "client-amplify": ["Amplify", "amplify", true],
+  "client-appsync": ["AppSync", "appsync", true],
+  "client-location": ["Location", "geo", true],
   // GameTech
   ...{},
   // InternetOfThings
   ...{},
   // MachineLearningAndArtificialIntelligence
-  "client-bedrock": ["Bedrock", ["bedrock"], true],
-  "client-bedrock-agent": ["BedrockAgent", ["bedrock-agent"], true],
-  "client-bedrock-runtime": ["BedrockRuntime", ["bedrock-runtime"], true],
+  "client-bedrock": ["Bedrock", "bedrock", true],
+  "client-bedrock-agent": ["BedrockAgent", "bedrock-agent", true],
+  "client-bedrock-runtime": ["BedrockRuntime", "bedrock-runtime", true],
   "client-bedrock-agent-runtime": [
     "BedrockAgentRuntime",
-    ["bedrock-agent-runtime"],
+    "bedrock-agent-runtime",
     true,
   ],
-  "client-polly": ["Polly", ["polly"], true],
-  "client-rekognition": ["Rekognition", ["rekognition"], true],
-  "client-textract": ["Textract", ["textract"], true],
-  "client-translate": ["Translate", ["translate"], true],
+  "client-polly": ["Polly", "polly", true],
+  "client-rekognition": ["Rekognition", "rekognition", true],
+  "client-textract": ["Textract", "textract", true],
+  "client-translate": ["Translate", "translate", true],
   // ManagementAndGovernance
-  "client-appconfig": ["AppConfig", ["appconfig"], true],
-  "client-appconfigdata": ["AppConfigData", ["appconfigdata"], true],
-  "client-cloudformation": ["CloudFormation", ["cloudformation"], true],
-  "client-cloudwatch": ["CloudWatch", ["monitoring"], true],
-  "client-cloudwatch-logs": ["CloudWatchLogs", ["logs"], false],
-  "client-cloudwatch-events": ["CloudWatchEvents", ["events"], false],
-  "client-service-catalog": ["ServiceCatalog", ["servicecatalog"], true],
-  "client-ssm": ["SSM", ["ssm"], false],
+  "client-appconfig": ["AppConfig", "appconfig", true],
+  "client-appconfigdata": ["AppConfigData", "appconfigdata", true],
+  "client-cloudformation": ["CloudFormation", "cloudformation", true],
+  "client-cloudwatch": ["CloudWatch", "monitoring", true],
+  "client-cloudwatch-logs": ["CloudWatchLogs", "logs", false],
+  "client-cloudwatch-events": ["CloudWatchEvents", "events", false],
+  "client-service-catalog": ["ServiceCatalog", "servicecatalog", true],
+  "client-ssm": ["SSM", "ssm", false],
   // Media
-  "client-mediaconvert": ["MediaConvert", ["mediaconvert"], true],
+  "client-mediaconvert": ["MediaConvert", "mediaconvert", true],
   // MigrationAndTransfer
   ...{},
   // NetworkingAndContentDelivery
-  "client-api-gateway": ["APIGateway", ["apigateway"], true],
-  "client-apigatewayv2": ["ApiGatewayV2", ["apigateway"], true],
+  "client-api-gateway": ["APIGateway", "apigateway", true],
+  "client-apigatewayv2": ["ApiGatewayV2", "apigateway", true],
   "client-elastic-load-balancing-v2": [
     "ElasticLoadBalancingV2",
-    ["elasticloadbalancing"],
+    "elasticloadbalancing",
     true,
   ],
   // QuantumTechnologies
@@ -212,24 +213,24 @@ const SDK_DATA = {
   // Satellite
   ...{},
   // SecurityIdentityAndCompliance
-  "client-acm": ["ACM", ["acm"], true],
-  "client-cognito-identity": ["CognitoIdentity", ["cognito-identity"], false],
+  "client-acm": ["ACM", "acm", true],
+  "client-cognito-identity": ["CognitoIdentity", "cognito-identity", false],
   "client-cognito-identity-provider": [
     "CognitoIdentityProvider",
-    ["cognito-idp"],
+    "cognito-idp",
     false,
   ],
-  "client-iam": ["IAM", ["iam"], true],
-  "client-kms": ["KMS", ["kms"], false],
-  "client-secrets-manager": ["SecretsManager", ["secretsmanager"], false],
-  "client-sso": ["SSO", ["sso", "identitystore"], true],
-  "client-sso-admin": ["SSOAdmin", ["sso", "identitystore"], true],
-  "client-sso-oidc": ["SSOOIDC", ["sso", "identitystore"], true],
-  "client-sts": ["STS", ["sts"], false],
+  "client-iam": ["IAM", "iam", true],
+  "client-kms": ["KMS", "kms", false],
+  "client-secrets-manager": ["SecretsManager", "secretsmanager", false],
+  "client-sso": ["SSO", "identitystore", true],
+  "client-sso-admin": ["SSOAdmin", "identitystore", true],
+  "client-sso-oidc": ["SSOOIDC", "identitystore", true],
+  "client-sts": ["STS", "sts", false],
   // Storage
-  "client-efs": ["EFS", ["elasticfilesystem"], true],
-  "client-s3": ["S3", ["s3"], false],
-  "lib-storage": ["Upload", ["s3"], false],
+  "client-efs": ["EFS", "elasticfilesystem", true],
+  "client-s3": ["S3", "s3", false],
+  "lib-storage": ["Upload", "s3", false],
 };
 
 const ADDITIONAL_PACKAGES = [
@@ -700,8 +701,8 @@ async function buildSdks() {
       const packagePath = path.join(TMP_DIR, pkg);
       const sdk = SDKS_BY_SDK_PACKAGES[pkg];
       const sdkIndexFile = path.join(packagePath, "index.js");
-      const serviceNames = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
-
+      const value = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
+      const serviceNames = Array.isArray(value) ? value : [value];
       await fs.mkdir(packagePath, { recursive: true });
 
       let sdkContents = `export * from "${pkg}";`;
