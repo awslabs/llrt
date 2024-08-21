@@ -130,8 +130,8 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
             info!("Done!");
 
             ph_map.entry(
-                module_name,
-                &format!("include_bytes!(\"{}\")", &lrt_filename),
+                module_name.replace("\\", "/"),
+                &format!("include_bytes!(\"{}\")", &lrt_filename).replace("\\", "/"),
             );
         }
 
