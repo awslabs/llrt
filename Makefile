@@ -69,7 +69,7 @@ llrt-linux-x64.zip: | clean-js js
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
 llrt-windows-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_windows_x64)
+	cargo $(BUILD_ARG) --target $(TARGET_windows_x64) --features no-sdk
 	zip -j $@ target/$(TARGET_windows_x64)/release/llrt.exe
 
 llrt-linux-arm64.zip: | clean-js js
