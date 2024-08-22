@@ -57,8 +57,8 @@ jobs:
           merge-multiple: true
       - name: Fix permissions
         run: |
-          chmod 755 ./llrt-container-x64
-          chmod 755 ./llrt-container-arm64
+          chmod 755 ./llrt-container-x64*
+          chmod 755 ./llrt-container-arm64*
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
@@ -69,6 +69,14 @@ jobs:
             ./llrt-lambda-arm64.zip
             ./llrt-container-x64
             ./llrt-container-arm64
+            ./llrt-lambda-x64-full-sdk.zip
+            ./llrt-lambda-arm64-full-sdk.zip
+            ./llrt-container-x64-full-sdk
+            ./llrt-container-arm64-full-sdk
+            ./llrt-lambda-x64-no-sdk.zip
+            ./llrt-lambda-arm64-no-sdk.zip
+            ./llrt-container-x64-no-sdk
+            ./llrt-container-arm64-no-sdk
             ./llrt-linux-x64.zip
             ./llrt-windows-x64.zip
             ./llrt-linux-arm64.zip

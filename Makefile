@@ -57,42 +57,45 @@ release-darwin: | llrt-darwin-x64.zip llrt-darwin-arm64.zip
 release-windows: | llrt-windows-x64.zip
 
 llrt-darwin-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64)
+	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64) --features no-sdk
 	zip -j $@ target/$(TARGET_darwin_x86_64)/release/llrt
 
 llrt-darwin-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64)
+	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64) --features no-sdk
 	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
 
 llrt-linux-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64)
+	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64) --features no-sdk
 	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
 
 llrt-windows-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_windows_x64)
+	cargo $(BUILD_ARG) --target $(TARGET_windows_x64) --features no-sdk
 	zip -j $@ target/$(TARGET_windows_x64)/release/llrt.exe
 
 llrt-linux-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64)
+	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64) --features no-sdk
 	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
 
 llrt-linux-x86_64.zip: llrt-linux-x64.zip
 llrt-windows-x86_64.zip: llrt-windows-x64.zip
 llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 
-define release_template
-release-${1}: | clean-js js
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda -vv
-	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed -vv
-	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}
-	@rm -rf llrt-lambda-${1}.zip
-	zip -j llrt-lambda-${1}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+define lambda_release_template
+release-${1}${2}: llrt-lambda-${1}${2}
 
-llrt-lambda-${1}: release-${1}
+llrt-lambda-${1}${2}: export SDK_BUNDLE_MODE = ${3}
+llrt-lambda-${1}${2}: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
+	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	@rm -rf llrt-lambda-${1}${2}.zip
+	zip -j llrt-lambda-${1}${2}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
+	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}${2}
 endef
 
-$(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target))))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target),-full-sdk,FULL)))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target),,STD)))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target),-no-sdk,NONE)))
 
 build: js
 	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
@@ -103,13 +106,17 @@ stdlib:
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_windows_x64)
 else
-stdlib:
+stdlib-x64:
 	rustup target add $(TARGET_linux_x86_64)
-	rustup target add $(TARGET_linux_arm64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+
+stdlib-arm64:
+	rustup target add $(TARGET_linux_arm64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_arm64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_arm64)
-	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+
+stdlib: | stdlib-x64 stdlib-arm64
 endif
 
 toolchain:
@@ -208,4 +215,4 @@ deploy:
 check:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib test test-ci run js run-release build release clean flame deploy
+.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy

@@ -99,6 +99,8 @@ jobs:
           make libs-${{ inputs.release }}
           make llrt-linux-${{ inputs.release }}.zip
           make release-${{ inputs.release }}
+          make release-${{ inputs.release }}-no-sdk
+          make release-${{ inputs.release }}-full-sdk
       - name: Build Darwin binaries
         if: inputs.release && inputs.platform == 'darwin'
         run: |
@@ -119,8 +121,8 @@ jobs:
           name: artifacts-${{ inputs.platform }}-${{ inputs.arch }}
           path: |
             *.zip
-            llrt-container-arm64
-            llrt-container-x64
+            llrt-container-arm64*
+            llrt-container-x64*
       - name: Upload changelog
         if: inputs.release && inputs.platform == 'linux' && inputs.arch == 'x86_64'
         uses: actions/upload-artifact@v4

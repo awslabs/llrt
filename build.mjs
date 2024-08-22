@@ -12,6 +12,7 @@ const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
 const OUT_DIR = "bundle/js";
 const SHIMS = new Map();
+const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
 
 async function readFilesRecursive(dir, filePredicate) {
   const dirents = await fs.readdir(dir, { withFileTypes: true });
@@ -75,29 +76,161 @@ const ES_BUILD_OPTIONS = {
   ],
 };
 
+// API Endpoint Definitions
+//
+// const SDK_DATA = {
+//   // Classification
+//   "PackageName": ["ClientName", "ServiceEndpoint", fullSdkOnly],
+// }
+//
+// The meanings of each and how to look them up are as follows.
+//
+//   1. Classification
+//   https://docs.aws.amazon.com/whitepapers/latest/aws-overview/amazon-web-services-cloud-platform.html
+//
+//   2. ClientName
+//   https://www.npmjs.com/search?q=%40aws-sdk%2Fclient-
+//
+//    Case) @aws-sdk/client-sts
+//    [Import Section](https://www.npmjs.com/package/@aws-sdk/client-sts#getting-started)
+//
+//    > // ES6+ example
+//    > import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
+//               ^^^ <- This part except for the "client"
+//
+//   3. ServiceEndpoint
+//   https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
+//
+//    Case) @aws-sdk/client-sts
+//    [Service endpoints Section](https://docs.aws.amazon.com/general/latest/gr/sts.html#sts_region)
+//
+//    > | Region Name    | Region    | Endpoint                    | Protocol |
+//    > | -------------- | --------- | --------------------------- | -------- |
+//    > | US East (Ohio) | us-east-2 | sts.us-east-2.amazonaws.com | HTTPS    |
+//                                     ^^^ <- String before "region"
+//
+//    If multiple endpoints are required, such as `states` and `sync-states` in @aws-sdk/client-sfn,
+//    multiple endpoints can be specified by making them an array.
+//
+//   4. fullSdkOnly
+//
+//     If you want to bundle only 'full-sdk', specify `true`.
+//     Specify `false` if you want to bundle for both 'std-sdk' and 'full-sdk'.
+//
+//     The combination of SDK_BUNDLE_MODE and fullSdkOnly automatically determines whether the bundle is eligible or not.
+//     Note that if SDK_BUNDLE_MODE is 'NONE', the above values are completely ignored and any SDKs are excluded from the bundle.
+//
 const SDK_DATA = {
-  "client-dynamodb": ["DynamoDB", "dynamodb"],
-  "lib-dynamodb": ["DynamoDBDocument", "dynamodb"],
-  "client-kms": ["KMS", "kms"],
-  "client-lambda": ["Lambda", "lambda"],
-  "client-s3": ["S3", "s3"],
-  "lib-storage": ["Upload", "s3"],
-  "client-secrets-manager": ["SecretsManager", "secretsmanager"],
-  "client-ses": ["SES", "email"],
-  "client-sns": ["SNS", "sns"],
-  "client-sqs": ["SQS", "sqs"],
-  "client-sts": ["STS", "sts"],
-  "client-ssm": ["SSM", "ssm"],
-  "client-cloudwatch-logs": ["CloudWatchLogs", "logs"],
-  "client-cloudwatch-events": ["CloudWatchEvents", "events"],
-  "client-eventbridge": ["EventBridge", "events"],
-  "client-sfn": ["SFN", "states"],
-  "client-xray": ["XRay", "xray"],
-  "client-cognito-identity": ["CognitoIdentity", "cognito-idp"],
+  // Analytics
+  "client-athena": ["Athena", "athena", true],
+  "client-firehose": ["Firehose", "firehose", true],
+  "client-glue": ["Glue", "glue", true],
+  "client-kinesis": ["Kinesis", "kinesis", true],
+  "client-opensearch": ["OpenSearch", "es", true],
+  "client-opensearchserverless": ["OpenSearchServerless", "aoss", true],
+  // ApplicationIntegration
+  "client-eventbridge": ["EventBridge", "events", false],
+  "client-scheduler": ["Scheduler", "scheduler", true],
+  "client-sfn": ["SFN", ["states", "sync-states"], false],
+  "client-sns": ["SNS", "sns", false],
+  "client-sqs": ["SQS", "sqs", false],
+  // Blockchain
+  ...{},
+  // BusinessApplications
+  "client-ses": ["SES", "email", false],
+  "client-sesv2": ["SESv2", "email", true],
+  // CloudFinancialManagement
+  ...{},
+  // ComputeServices
+  "client-auto-scaling": ["AutoScaling", "autoscaling", true],
+  "client-batch": ["Batch", "batch", true],
+  "client-ec2": ["EC2", "ec2", true],
+  "client-lambda": ["Lambda", "lambda", false],
+  // CustomerEnablement
+  ...{},
+  // Containers
+  "client-ecr": ["ECR", "api.ecr", true],
+  "client-ecs": ["ECS", "ecs", true],
+  "client-eks": ["EKS", "eks", true],
+  "client-servicediscovery": ["ServiceDiscovery", "discovery", true],
+  // Databases
+  "client-dynamodb": ["DynamoDB", "dynamodb", false],
+  "client-dynamodb-streams": ["DynamoDBStreams", "streams.dynamodb", true],
+  "client-elasticache": ["ElastiCache", "elasticache", true],
+  "client-rds": ["RDS", "rds", true],
+  "client-rds-data": ["RDSData", "rds-data", true],
+  "lib-dynamodb": ["DynamoDBDocument", "dynamodb", false],
+  // DeveloperTools
+  "client-xray": ["XRay", "xray", false],
+  // EndUserComputing
+  ...{},
+  // FrontendWebAndMobileServices
+  "client-amplify": ["Amplify", "amplify", true],
+  "client-appsync": ["AppSync", "appsync", true],
+  "client-location": ["Location", "geo", true],
+  // GameTech
+  ...{},
+  // InternetOfThings
+  ...{},
+  // MachineLearningAndArtificialIntelligence
+  "client-bedrock": ["Bedrock", "bedrock", true],
+  "client-bedrock-agent": ["BedrockAgent", "bedrock-agent", true],
+  "client-bedrock-runtime": ["BedrockRuntime", "bedrock-runtime", true],
+  "client-bedrock-agent-runtime": [
+    "BedrockAgentRuntime",
+    "bedrock-agent-runtime",
+    true,
+  ],
+  "client-polly": ["Polly", "polly", true],
+  "client-rekognition": ["Rekognition", "rekognition", true],
+  "client-textract": ["Textract", "textract", true],
+  "client-translate": ["Translate", "translate", true],
+  // ManagementAndGovernance
+  "client-appconfig": ["AppConfig", "appconfig", true],
+  "client-appconfigdata": ["AppConfigData", "appconfigdata", true],
+  "client-cloudformation": ["CloudFormation", "cloudformation", true],
+  "client-cloudwatch": ["CloudWatch", "monitoring", true],
+  "client-cloudwatch-logs": ["CloudWatchLogs", "logs", false],
+  "client-cloudwatch-events": ["CloudWatchEvents", "events", false],
+  "client-service-catalog": ["ServiceCatalog", "servicecatalog", true],
+  "client-ssm": ["SSM", "ssm", false],
+  // Media
+  "client-mediaconvert": ["MediaConvert", "mediaconvert", true],
+  // MigrationAndTransfer
+  ...{},
+  // NetworkingAndContentDelivery
+  "client-api-gateway": ["APIGateway", "apigateway", true],
+  "client-apigatewayv2": ["ApiGatewayV2", "apigateway", true],
+  "client-elastic-load-balancing-v2": [
+    "ElasticLoadBalancingV2",
+    "elasticloadbalancing",
+    true,
+  ],
+  // QuantumTechnologies
+  ...{},
+  // Robotics
+  ...{},
+  // Satellite
+  ...{},
+  // SecurityIdentityAndCompliance
+  "client-acm": ["ACM", "acm", true],
+  "client-cognito-identity": ["CognitoIdentity", "cognito-identity", false],
   "client-cognito-identity-provider": [
     "CognitoIdentityProvider",
     "cognito-idp",
+    false,
   ],
+  "client-iam": ["IAM", "iam", true],
+  "client-kms": ["KMS", "kms", false],
+  "client-secrets-manager": ["SecretsManager", "secretsmanager", false],
+  "client-sso": ["SSO", "identitystore", true],
+  "client-sso-admin": ["SSOAdmin", "identitystore", true],
+  "client-sso-oidc": ["SSOOIDC", "identitystore", true],
+  "client-sts": ["STS", "sts", false],
+  // Storage
+  "client-efs": ["EFS", "elasticfilesystem", true],
+  "client-s3": ["S3", "s3", false],
+  "lib-storage": ["Upload", "s3", false],
 };
 
 const ADDITIONAL_PACKAGES = [
@@ -116,6 +249,7 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/fetch-http-handler",
   "@smithy/invalid-dependency",
   "@smithy/is-array-buffer",
+  "@smithy/middleware-compression",
   "@smithy/middleware-content-length",
   "@smithy/middleware-endpoint",
   "@smithy/middleware-retry",
@@ -152,18 +286,20 @@ const REPLACEMENT_PACKAGES = {
   "@smithy/abort-controller": "shims/@smithy/abort-controller.js",
 };
 
-const SERVICE_ENDPOINT_BY_PACKAGE = {};
+const SERVICE_ENDPOINTS_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
 const SDK_PACKAGES = [...ADDITIONAL_PACKAGES];
 
 Object.keys(SDK_DATA).forEach((sdk) => {
-  const [clientName, serviceEndpoint] = SDK_DATA[sdk] || [];
-  const sdkPackage = `@aws-sdk/${sdk}`;
-  SDK_PACKAGES.push(sdkPackage);
-  SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
-  SERVICE_ENDPOINT_BY_PACKAGE[sdk] = serviceEndpoint;
-  CLIENTS_BY_SDK[sdk] = clientName;
+  const [clientName, serviceEndpoints, fullSdkOnly] = SDK_DATA[sdk] || [];
+  if (SDK_BUNDLE_MODE == "FULL" || (SDK_BUNDLE_MODE == "STD" && !fullSdkOnly)) {
+    const sdkPackage = `@aws-sdk/${sdk}`;
+    SDK_PACKAGES.push(sdkPackage);
+    SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
+    SERVICE_ENDPOINTS_BY_PACKAGE[sdk] = serviceEndpoints;
+    CLIENTS_BY_SDK[sdk] = clientName;
+  }
 });
 
 function resolveDefaultsModeConfigWrapper(config) {
@@ -565,13 +701,15 @@ async function buildSdks() {
       const packagePath = path.join(TMP_DIR, pkg);
       const sdk = SDKS_BY_SDK_PACKAGES[pkg];
       const sdkIndexFile = path.join(packagePath, "index.js");
-      const serviceName = SERVICE_ENDPOINT_BY_PACKAGE[sdk];
-
+      const value = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
+      const serviceNames = Array.isArray(value) ? value : [value];
       await fs.mkdir(packagePath, { recursive: true });
 
       let sdkContents = `export * from "${pkg}";`;
-      if (serviceName) {
-        sdkContents += `\nif(__bootstrap.addAwsSdkInitTask){\n   __bootstrap.addAwsSdkInitTask("${serviceName}");\n}`;
+      if (serviceNames) {
+        for (const serviceName of serviceNames) {
+          sdkContents += `\nif(__bootstrap.addAwsSdkInitTask){\n   __bootstrap.addAwsSdkInitTask("${serviceName}");\n}`;
+        }
       }
       await fs.writeFile(sdkIndexFile, sdkContents);
 
@@ -611,9 +749,15 @@ console.log("Building...");
 await createOutputDirectories();
 let error;
 try {
-  await loadShims();
+  if (SDK_BUNDLE_MODE != "NONE") {
+    await loadShims();
+  }
+
   await buildLibrary();
-  await buildSdks();
+
+  if (SDK_BUNDLE_MODE != "NONE") {
+    await buildSdks();
+  }
 } catch (e) {
   error = e;
 }

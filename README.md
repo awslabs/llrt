@@ -207,34 +207,131 @@ export default {
 LLRT includes many AWS SDK clients and utils as part of the runtime, built into the executable. These SDK Clients have been specifically fine-tuned to offer best performance while not compromising on compatibility. LLRT replaces some JavaScript dependencies used by the AWS SDK by native ones such as Hash calculations and XML parsing.
 V3 SDK packages not included in the list below have to be bundled with your source code. For an example on how to use a non-included SDK, see [this example build script (buildExternalSdkFunction)](example/functions/build.mjs)
 
-| Bundled AWS SDK packages                  |
-| ----------------------------------------- |
-| @aws-sdk/client-cloudwatch-events         |
-| @aws-sdk/client-cloudwatch-logs           |
-| @aws-sdk/client-cognito-identity          |
-| @aws-sdk/client-cognito-identity-provider |
-| @aws-sdk/client-dynamodb                  |
-| @aws-sdk/client-eventbridge               |
-| @aws-sdk/client-kms                       |
-| @aws-sdk/client-lambda                    |
-| @aws-sdk/client-s3                        |
-| @aws-sdk/client-secrets-manager           |
-| @aws-sdk/client-ses                       |
-| @aws-sdk/client-sfn                       |
-| @aws-sdk/client-sns                       |
-| @aws-sdk/client-sqs                       |
-| @aws-sdk/client-ssm                       |
-| @aws-sdk/client-sts                       |
-| @aws-sdk/client-xray                      |
-| @aws-sdk/credential-providers             |
-| @aws-sdk/lib-dynamodb                     |
-| @aws-sdk/lib-storage                      |
-| @aws-sdk/s3-presigned-post                |
-| @aws-sdk/s3-request-presigner             |
-| @aws-sdk/util-dynamodb                    |
-| @aws-sdk/util-user-agent-browser          |
-| @smithy                                   |
-| @aws-crypto                               |
+LLRT supports the following three bundles by default. Bundle types and suffixes are as follows.
+
+| Bundle Type | Suffix      | Purpose of Use                                            |
+| ----------- | ----------- | --------------------------------------------------------- |
+| no-sdk      | \*-no-sdk   | Suitable for workloads that do not use `@aws-sdk`.        |
+| std-sdk     | (none)      | Suitable for workloads that utilize the major `@aws-sdk`. |
+| full-sdk    | \*-full-sdk | Suitable for workloads that utilize any `@aws-sdk`.       |
+
+The relationship between the supported packages for each bundle type is as follows.
+
+| Analytics                            | no-sdk | std-sdk | full-sdk |
+| ------------------------------------ | ------ | ------- | -------- |
+| @aws-sdk/client-athena               |        |         | ✔︎      |
+| @aws-sdk/client-firehose             |        |         | ✔︎      |
+| @aws-sdk/client-glue                 |        |         | ✔︎      |
+| @aws-sdk/client-kinesis              |        |         | ✔︎      |
+| @aws-sdk/client-opensearch           |        |         | ✔︎      |
+| @aws-sdk/client-opensearchserverless |        |         | ✔︎      |
+
+| Application integration     | no-sdk | std-sdk | full-sdk |
+| --------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-eventbridge |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-scheduler   |        |         | ✔︎      |
+| @aws-sdk/client-sfn         |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-sns         |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-sqs         |        | ✔︎     | ✔︎      |
+
+| Business applications | no-sdk | std-sdk | full-sdk |
+| --------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-ses   |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-sesv2 |        |         | ✔︎      |
+
+| Compute services             | no-sdk | std-sdk | full-sdk |
+| ---------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-auto-scaling |        |         | ✔︎      |
+| @aws-sdk/client-batch        |        |         | ✔︎      |
+| @aws-sdk/client-ec2          |        |         | ✔︎      |
+| @aws-sdk/client-lambda       |        |         | ✔︎      |
+
+| Containers                       | no-sdk | std-sdk | full-sdk |
+| -------------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-ecr              |        |         | ✔︎      |
+| @aws-sdk/client-ecs              |        |         | ✔︎      |
+| @aws-sdk/client-eks              |        |         | ✔︎      |
+| @aws-sdk/client-servicediscovery |        |         | ✔︎      |
+
+| Databases                        | no-sdk | std-sdk | full-sdk |
+| -------------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-dynamodb         |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-dynamodb-streams |        |         | ✔︎      |
+| @aws-sdk/client-elasticache      |        |         | ✔︎      |
+| @aws-sdk/client-rds              |        |         | ✔︎      |
+| @aws-sdk/client-rds-data         |        |         | ✔︎      |
+
+| Developer tools      | no-sdk | std-sdk | full-sdk |
+| -------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-xray |        | ✔︎     | ✔︎      |
+
+| Front-end web and mobile services | no-sdk | std-sdk | full-sdk |
+| --------------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-amplify           |        |         | ✔︎      |
+| @aws-sdk/client-appsync           |        |         | ✔︎      |
+| @aws-sdk/client-location          |        |         | ✔︎      |
+
+| Machine Learning (ML) and Artificial Intelligence (AI) | no-sdk | std-sdk | full-sdk |
+| ------------------------------------------------------ | ------ | ------- | -------- |
+| @aws-sdk/client-bedrock                                |        |         | ✔︎      |
+| @aws-sdk/client-bedrock-runtime                        |        |         | ✔︎      |
+| @aws-sdk/client-bedrock-agent                          |        |         | ✔︎      |
+| @aws-sdk/client-bedrock-agent-runtime                  |        |         | ✔︎      |
+| @aws-sdk/client-polly                                  |        |         | ✔︎      |
+| @aws-sdk/client-rekognition                            |        |         | ✔︎      |
+| @aws-sdk/client-textract                               |        |         | ✔︎      |
+| @aws-sdk/client-translate                              |        |         | ✔︎      |
+
+| Management and governance         | no-sdk | std-sdk | full-sdk |
+| --------------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-appconfig         |        |         | ✔︎      |
+| @aws-sdk/client-appconfigdata     |        |         | ✔︎      |
+| @aws-sdk/client-cloudformation    |        |         | ✔︎      |
+| @aws-sdk/client-cloudwatch        |        |         | ✔︎      |
+| @aws-sdk/client-cloudwatch-events |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-cloudwatch-logs   |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-service-catalog   |        |         | ✔︎      |
+| @aws-sdk/client-ssm               |        | ✔︎     | ✔︎      |
+
+| Media                        | no-sdk | std-sdk | full-sdk |
+| ---------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-mediaconvert |        |         | ✔︎      |
+
+| Networking and content delivery           | no-sdk | std-sdk | full-sdk |
+| ----------------------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-api-gateway               |        |         | ✔︎      |
+| @aws-sdk/client-apigatewayv2              |        |         | ✔︎      |
+| @aws-sdk/client-elastic-load-balancing-v2 |        |         | ✔︎      |
+
+| Security, identity, and compliance        | no-sdk | std-sdk | full-sdk |
+| ----------------------------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-acm                       |        |         | ✔︎      |
+| @aws-sdk/client-cognito-identity          |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-cognito-identity-provider |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-iam                       |        |         | ✔︎      |
+| @aws-sdk/client-kms                       |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-secrets-manager           |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-sso                       |        |         | ✔︎      |
+| @aws-sdk/client-sso-admin                 |        |         | ✔︎      |
+| @aws-sdk/client-sso-oidc                  |        |         | ✔︎      |
+| @aws-sdk/client-sts                       |        | ✔︎     | ✔︎      |
+
+| Storage             | no-sdk | std-sdk | full-sdk |
+| ------------------- | ------ | ------- | -------- |
+| @aws-sdk/client-efs |        |         | ✔︎      |
+| @aws-sdk/client-s3  |        | ✔︎     | ✔︎      |
+
+| Other bundled packages           | no-sdk | std-sdk | full-sdk |
+| -------------------------------- | ------ | ------- | -------- |
+| @aws-crypto                      |        | ✔︎     | ✔︎      |
+| @aws-sdk/credential-providers    |        | ✔︎     | ✔︎      |
+| @aws-sdk/lib-dynamodb            |        | ✔︎     | ✔︎      |
+| @aws-sdk/lib-storage             |        | ✔︎     | ✔︎      |
+| @aws-sdk/s3-presigned-post       |        | ✔︎     | ✔︎      |
+| @aws-sdk/s3-request-presigner    |        | ✔︎     | ✔︎      |
+| @aws-sdk/util-dynamodb           |        | ✔︎     | ✔︎      |
+| @aws-sdk/util-user-agent-browser |        | ✔︎     | ✔︎      |
+| @smithy                          |        | ✔︎     | ✔︎      |
 
 > [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
