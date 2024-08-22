@@ -261,12 +261,15 @@ pub fn poll_timers(
     sleep: Option<&mut Pin<&mut Sleep>>,
     deadline: Option<&mut Instant>,
 ) -> bool {
+    static MIN_SLEEP: Duration = Duration::from_millis(4);
+    static FAR_FUTURE: Duration = Duration::from_secs(84200 * 365 * 30);
+
     let mut rt_timers = RT_TIMER_STATE.lock().unwrap();
     let state = get_timer_state(&mut rt_timers, rt);
     let now = Instant::now();
 
     let mut had_items = false;
-    let mut lowest = now + Duration::from_secs(84200 * 365 * 30);
+    let mut lowest = now + FAR_FUTURE;
     state.timers.retain_mut(|timeout| {
         had_items = true;
         if timeout.deadline < now {
@@ -294,6 +297,9 @@ pub fn poll_timers(
     let has_items = !state.timers.is_empty();
 
     if had_items {
+        if lowest - now < MIN_SLEEP {
+            lowest = now + MIN_SLEEP;
+        }
         if let Some(sleep) = sleep {
             sleep.as_mut().reset(lowest);
         }
