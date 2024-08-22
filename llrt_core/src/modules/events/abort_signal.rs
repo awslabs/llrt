@@ -168,7 +168,7 @@ impl<'js> AbortSignal<'js> {
     }
 
     #[qjs(static)]
-    pub fn timeout(ctx: Ctx<'js>, milliseconds: usize) -> Result<Class<'js, Self>> {
+    pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
         let timeout_error = get_reason_or_dom_exception(&ctx, None, "TimeoutError")?;
 
         let signal = Self::new();
