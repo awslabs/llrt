@@ -29,7 +29,7 @@ pub async fn open(
         flags => {
             return Err(Exception::throw_message(
                 &ctx,
-                &format!("Invalid flags '{}'", flags),
+                &["Invalid flags '", flags, "'"].concat(),
             ))
         },
     };

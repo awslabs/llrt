@@ -144,9 +144,9 @@ impl<'js> Socket<'js> {
         ctx: Ctx<'js>,
         error: Opt<Value<'js>>,
     ) -> Class<'js, Self> {
+        this.borrow_mut().destroyed = true;
         ReadableStream::destroy(This(this.clone()), ctx.clone(), Opt(None));
         WritableStream::destroy(This(this.clone()), ctx.clone(), error);
-
         this.0
     }
 
@@ -195,7 +195,12 @@ impl<'js> Socket<'js> {
     ) -> Result<Class<'js, Self>> {
         let args = args.0;
 
-        let allow_half_open = this.borrow().allow_half_open;
+        let borrow = this.borrow();
+        let allow_half_open = borrow.allow_half_open;
+        if borrow.destroyed {
+            return Err(Exception::throw_message(&ctx, "Socket destroyed"));
+        }
+        drop(borrow);
 
         let mut port = None;
         let mut host = String::from(LOCALHOST);
@@ -265,6 +270,10 @@ impl<'js> Socket<'js> {
             let ctx2 = ctx.clone();
             let ctx3 = ctx.clone();
             let this3 = this2.clone();
+            if this3.borrow().destroyed {
+                Socket::emit_close(this3.clone(), &ctx3, false)?;
+                return Ok(());
+            }
             let connect = async move {
                 let (readable_done, writable_done) = if let Some(path) = path {
                     #[cfg(unix)]
