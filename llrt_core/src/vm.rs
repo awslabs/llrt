@@ -13,6 +13,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use llrt_modules::timers::{self, poll_timers};
 use llrt_utils::bytes::ObjectBytes;
 use once_cell::sync::Lazy;
 
@@ -38,7 +39,6 @@ use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
     path::{dirname, join_path, resolve_path},
-    timers::{self, poll_timers},
 };
 
 use crate::{
@@ -641,7 +641,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 }
 
                 if deadline < Instant::now() {
-                    poll_timers(rt, &mut executing_timers, None, Some(&mut deadline));
+                    poll_timers(rt, &mut executing_timers, None, Some(&mut deadline))?;
                 }
 
                 ctx.execute_pending_job();

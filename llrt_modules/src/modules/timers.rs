@@ -11,11 +11,12 @@ use std::{
     time::Duration,
 };
 
+use llrt_utils::{ctx::CtxExtension, module::export_default};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    qjs, CatchResultExt, Ctx, Function, Persistent, Result,
+    qjs, Ctx, Function, Persistent, Result,
 };
 use tokio::{
     select,
@@ -23,7 +24,7 @@ use tokio::{
     time::{Instant, Sleep},
 };
 
-use crate::{module_builder::ModuleInfo, modules::module::export_default, vm::Vm};
+use crate::ModuleInfo;
 
 static TIMER_ID: AtomicUsize = AtomicUsize::new(0);
 static RT_TIMER_STATE: Lazy<Mutex<Vec<RuntimeTimerState>>> = Lazy::new(|| Mutex::new(Vec::new()));
@@ -151,6 +152,7 @@ impl ModuleDef for TimersModule {
         declare.declare("setTimeout")?;
         declare.declare("clearTimeout")?;
         declare.declare("setInterval")?;
+        declare.declare("setImmediate")?;
         declare.declare("clearInterval")?;
         declare.declare("default")?;
         Ok(())
@@ -160,7 +162,13 @@ impl ModuleDef for TimersModule {
         let globals = ctx.globals();
 
         export_default(ctx, exports, |default| {
-            let functions = ["setTimeout", "clearTimeout", "setInterval", "clearInterval"];
+            let functions = [
+                "setTimeout",
+                "clearTimeout",
+                "setInterval",
+                "clearInterval",
+                "setImmediate",
+            ];
             for func_name in functions {
                 let function: Function = globals.get(func_name)?;
                 default.set(func_name, function)?;
@@ -221,7 +229,7 @@ fn create_spawn_loop(
     timer_abort: Rc<Notify>,
     deadline: Instant,
 ) -> Result<()> {
-    ctx.spawn(async move {
+    ctx.spawn_exit_simple(async move {
         let mut sleep = pin!(tokio::time::sleep_until(deadline));
 
         let mut executing_timers: Vec<Option<ExecutingTimer>> = Default::default();
@@ -232,10 +240,11 @@ fn create_spawn_loop(
                 _ = sleep.as_mut() => {}
             }
 
-            if !poll_timers(rt, &mut executing_timers, Some(&mut sleep), None) {
+            if !poll_timers(rt, &mut executing_timers, Some(&mut sleep), None)? {
                 break;
             }
         }
+        Ok(())
     });
 
     Ok(())
@@ -250,7 +259,7 @@ pub fn poll_timers(
     call_vec: &mut Vec<Option<ExecutingTimer>>,
     sleep: Option<&mut Pin<&mut Sleep>>,
     deadline: Option<&mut Instant>,
-) -> bool {
+) -> Result<bool> {
     static MIN_SLEEP: Duration = Duration::from_millis(4);
     static FAR_FUTURE: Duration = Duration::from_secs(84200 * 365 * 30);
 
@@ -305,9 +314,7 @@ pub fn poll_timers(
         if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
             let ctx2 = unsafe { Ctx::from_raw(ctx) };
             if let Ok(timeout) = timeout.restore(&ctx2) {
-                if let Err(err) = timeout.call::<_, ()>(()).catch(&ctx2) {
-                    Vm::print_error_and_exit(&ctx2, err);
-                }
+                timeout.call::<_, ()>(())?;
             }
         }
     }
@@ -319,7 +326,164 @@ pub fn poll_timers(
         let is_empty = state.timers.is_empty();
         state.running = !is_empty;
 
-        return !is_empty;
+        return Ok(!is_empty);
     }
-    true
+    Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{call_test, test_async_with, ModuleEvaluator};
+
+    #[tokio::test]
+    async fn test_timers() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init_timers(&ctx).unwrap();
+
+                // Assume we have a TimersModule that provides setTimeout, setImmediate, and setInterval
+                ModuleEvaluator::eval_rust::<TimersModule>(ctx.clone(), "timers")
+                    .await
+                    .unwrap();
+
+                // Test setTimeout
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_setTimeout",
+                    r#"
+                        import { setTimeout } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                setTimeout(() => resolve('timeout'), 100);
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "timeout");
+
+                // Test setImmediate
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_setImmediate",
+                    r#"
+                        import { setImmediate } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                setImmediate(() => resolve('immediate'));
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "immediate");
+
+                // Test setInterval
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_setInterval",
+                    r#"
+                        import { setInterval, clearInterval } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                let count = 0;
+                                const intervalId = setInterval(() => {
+                                    count++;
+                                    if (count === 3) {
+                                        clearInterval(intervalId);
+                                        resolve(count);
+                                    }
+                                }, 10);
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<i32, _>(&ctx, &module, ()).await;
+                assert_eq!(result, 3);
+
+                // Test nested timers
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_nestedTimers",
+                    r#"
+                        import { setTimeout, setImmediate } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                setTimeout(() => {
+                                    setImmediate(() => {
+                                        setTimeout(() => {
+                                            resolve('nested');
+                                        }, 10);
+                                    });
+                                }, 10);
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "nested");
+
+                // Test canceling timeout
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_cancelTimeout",
+                    r#"
+                        import { setTimeout, clearTimeout } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                const timeoutId = setTimeout(() => {
+                                    resolve('should not happen');
+                                }, 10);
+                                clearTimeout(timeoutId);
+                                setTimeout(() => resolve('canceled'), 20);
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "canceled");
+
+                // Test multiple intervals
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_multipleIntervals",
+                    r#"
+                        import { setInterval, clearInterval } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                let count1 = 0, count2 = 0;
+                                const id1 = setInterval(() => {
+                                    count1++;
+                                    if (count1 === 2) clearInterval(id1);
+                                }, 10);
+                                const id2 = setInterval(() => {
+                                    count2++;
+                                    if (count2 === 3) {
+                                        clearInterval(id2);
+                                        resolve([count1, count2]);
+                                    }
+                                }, 20);
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<Vec<i32>, _>(&ctx, &module, ()).await;
+                assert_eq!(result, vec![2, 3]);
+            })
+        })
+        .await;
+    }
 }

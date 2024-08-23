@@ -37,8 +37,10 @@ it("should log module", () => {
     setTimeout: [function: (anonymous)],
     clearTimeout: [function: (anonymous)],
     setInterval: [function: (anonymous)],
-    clearInterval: [function: (anonymous)]
+    clearInterval: [function: (anonymous)],
+    setImmediate: [function: (anonymous)]
   },
+  setImmediate: [function: (anonymous)],
   setInterval: [function: (anonymous)],
   setTimeout: [function: (anonymous)]
 }
