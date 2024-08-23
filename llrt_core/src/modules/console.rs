@@ -270,41 +270,49 @@ fn format_raw_inner<'js>(
         Type::Bool => {
             Color::YELLOW.push(result, color_enabled_mask);
             const BOOL_STRINGS: [&str; 2] = ["false", "true"];
-            result.push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
+            result.push_str(BOOL_STRINGS[unsafe { value.as_bool().unwrap_unchecked() } as usize]);
         },
         Type::BigInt => {
             Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = itoa::Buffer::new();
-            let big_int = value.as_big_int().unwrap();
+            let big_int = unsafe { value.as_big_int().unwrap_unchecked() };
             result.push_str(buffer.format(big_int.clone().to_i64().unwrap()));
             result.push('n');
         },
         Type::Int => {
             Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = itoa::Buffer::new();
-            result.push_str(buffer.format(value.as_int().unwrap()));
+            result.push_str(buffer.format(unsafe { value.as_int().unwrap_unchecked() }));
         },
         Type::Float => {
             Color::YELLOW.push(result, color_enabled_mask);
             let mut buffer = ryu::Buffer::new();
-            result.push_str(float_to_string(&mut buffer, value.as_float().unwrap()));
+            result.push_str(float_to_string(&mut buffer, unsafe {
+                value.as_float().unwrap_unchecked()
+            }));
         },
         Type::String => {
             Color::GREEN.push(result, not_root_mask & color_enabled_mask);
             result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
-            result.push_str(&value.as_string().unwrap().to_string().unwrap());
+            result.push_str(unsafe {
+                &value
+                    .as_string()
+                    .unwrap_unchecked()
+                    .to_string()
+                    .unwrap_unchecked()
+            });
             result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
         },
         Type::Symbol => {
             Color::YELLOW.push(result, color_enabled_mask);
-            let description = value.as_symbol().unwrap().description().unwrap();
+            let description = unsafe { value.as_symbol().unwrap_unchecked() }.description()?;
             result.push_str("Symbol(");
-            result.push_str(&description.get::<String>().unwrap());
+            result.push_str(&unsafe { description.get::<String>().unwrap_unchecked() });
             result.push(')');
         },
         Type::Function | Type::Constructor => {
             Color::CYAN.push(result, color_enabled_mask);
-            let obj = value.as_object().unwrap();
+            let obj = unsafe { value.as_object().unwrap_unchecked() };
 
             const ANONYMOUS: &str = "(anonymous)";
             let mut name: String = obj
@@ -339,11 +347,11 @@ fn format_raw_inner<'js>(
                 return Ok(());
             }
             visited.insert(hash);
+            let obj = unsafe { value.as_object().unwrap_unchecked() };
 
             if value.is_error() {
-                let obj = value.as_object().unwrap();
-                let name: String = obj.get(PredefinedAtom::Name).unwrap();
-                let message: String = obj.get(PredefinedAtom::Message).unwrap();
+                let name: String = obj.get(PredefinedAtom::Name)?;
+                let message: String = obj.get(PredefinedAtom::Message)?;
                 let stack: Result<String> = obj.get(PredefinedAtom::Stack);
                 result.push_str(&name);
                 result.push_str(": ");
@@ -368,8 +376,7 @@ fn format_raw_inner<'js>(
                 match class_name.as_deref() {
                     Some("Date") => {
                         Color::MAGENTA.push(result, color_enabled_mask);
-                        let iso_fn: Function =
-                            value.as_object().unwrap().get("toISOString").unwrap();
+                        let iso_fn: Function = obj.get("toISOString").unwrap();
                         let str: String = iso_fn.call((This(value),))?;
                         result.push_str(&str);
                         Color::reset(result, color_enabled_mask);
@@ -377,7 +384,6 @@ fn format_raw_inner<'js>(
                     },
                     Some("RegExp") => {
                         Color::RED.push(result, color_enabled_mask);
-                        let obj = value.as_object().unwrap();
                         let source: String = obj.get("source")?;
                         let flags: String = obj.get("flags")?;
                         result.push('/');
@@ -416,9 +422,9 @@ fn format_raw_inner<'js>(
                     );
                 }
 
-                let obj = value.as_object().unwrap();
+                let is_array = is_typed_array || obj.is_array();
+
                 if let Ok(obj) = &obj.get::<_, Object>(options.custom_inspect_symbol.as_atom()) {
-                    let is_array = is_typed_array || obj.is_array();
                     return write_object(
                         result,
                         obj,
@@ -429,8 +435,6 @@ fn format_raw_inner<'js>(
                         is_array,
                     );
                 }
-
-                let is_array = is_typed_array || obj.is_array();
 
                 write_object(
                     result,
@@ -553,27 +557,29 @@ fn format_values_internal<'js>(
                         if iter.peek().is_some() {
                             i += 1;
 
+                            let mut next_value = || unsafe { iter.next().unwrap_unchecked() }.1;
+
                             let value = match next_byte {
                                 b's' => {
-                                    let str = iter.next().unwrap().1.get::<Coerced<String>>()?;
+                                    let str = next_value().get::<Coerced<String>>()?;
                                     result.push_str(str.as_str());
                                     continue;
                                 },
-                                b'd' => options.number_function.call((iter.next().unwrap().1,))?,
-                                b'i' => options.parse_int.call((iter.next().unwrap().1,))?,
-                                b'f' => options.parse_float.call((iter.next().unwrap().1,))?,
+                                b'd' => options.number_function.call((next_value(),))?,
+                                b'i' => options.parse_int.call((next_value(),))?,
+                                b'f' => options.parse_float.call((next_value(),))?,
                                 b'j' => {
                                     result.push_str(
-                                        &json_stringify(ctx, iter.next().unwrap().1)?
+                                        &json_stringify(ctx, next_value())?
                                             .unwrap_or("undefined".into()),
                                     );
                                     continue;
                                 },
                                 b'O' => {
                                     options.object_filter = default_filter;
-                                    iter.next().unwrap().1
+                                    next_value()
                                 },
-                                b'o' => iter.next().unwrap().1,
+                                b'o' => next_value(),
                                 b'c' => {
                                     // CSS is ignored
                                     continue;
@@ -787,7 +793,7 @@ fn write_lambda_log<'js>(
         let mut values_string = String::with_capacity(64);
 
         if args.0.len() == 1 {
-            let mut first_arg = args.0.first().unwrap().clone();
+            let mut first_arg = unsafe { args.0.first().unwrap_unchecked() }.clone();
 
             if first_arg.is_error() || first_arg.is_exception() {
                 if let Some(exception) = first_arg.as_exception() {

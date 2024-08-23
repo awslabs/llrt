@@ -241,19 +241,21 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
             const BOOL_STRINGS: [&str; 2] = ["false", "true"];
             context
                 .result
-                .push_str(BOOL_STRINGS[value.as_bool().unwrap() as usize]);
+                .push_str(BOOL_STRINGS[unsafe { value.as_bool().unwrap_unchecked() } as usize]);
         },
-        Type::Int => context
-            .result
-            .push_str(context.itoa_buffer.format(value.as_int().unwrap())),
+        Type::Int => context.result.push_str(
+            context
+                .itoa_buffer
+                .format(unsafe { value.as_int().unwrap_unchecked() }),
+        ),
         Type::Float => {
-            let float_value = value.as_float().unwrap();
+            let float_value = unsafe { value.as_float().unwrap_unchecked() };
             const EXP_MASK: u64 = 0x7ff0000000000000;
             let bits = float_value.to_bits();
             if bits & EXP_MASK == EXP_MASK {
                 context.result.push_str("null");
             } else {
-                let str = context.ryu_buffer.format_finite(value.as_float().unwrap());
+                let str = context.ryu_buffer.format_finite(float_value);
 
                 let bytes = str.as_bytes();
                 let len = bytes.len();
@@ -266,7 +268,10 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
                 }
             }
         },
-        Type::String => write_string(context.result, &value.as_string().unwrap().to_string()?),
+        Type::String => write_string(
+            context.result,
+            &unsafe { value.as_string().unwrap_unchecked() }.to_string()?,
+        ),
         _ => return Ok(PrimitiveStatus::Iterate),
     }
     Ok(PrimitiveStatus::Written)
@@ -298,7 +303,7 @@ fn detect_circular_reference(
     ancestors: &mut Vec<(usize, Rc<str>)>,
     itoa_buffer: &mut itoa::Buffer,
 ) -> Result<()> {
-    let parent_ptr = unsafe { parent.unwrap().as_raw().u.ptr as usize };
+    let parent_ptr = unsafe { parent.unwrap_unchecked().as_raw().u.ptr as usize };
     let current_ptr = unsafe { value.as_raw().u.ptr as usize };
 
     while !ancestors.is_empty()
@@ -313,7 +318,7 @@ fn detect_circular_reference(
     if ancestors.iter().any(|(ptr, _)| ptr == &current_ptr) {
         let mut iter = ancestors.iter_mut();
 
-        let first = &iter.next().unwrap().1;
+        let first = &unsafe { iter.next().unwrap_unchecked() }.1;
 
         let mut message = iter.rev().take(4).rev().fold(
             String::from("Circular reference detected at: \".."),
@@ -406,7 +411,7 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
     let indentation = context.indentation;
     match elem.type_of() {
         Type::Object => {
-            let js_object = elem.as_object().unwrap();
+            let js_object = unsafe { elem.as_object().unwrap_unchecked() };
             if js_object.contains_key(PredefinedAtom::ToJSON)? {
                 return run_to_json(context, js_object);
             }
@@ -462,7 +467,7 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
             context.result.push('[');
             add_comma = false;
             value_written = false;
-            let js_array = elem.as_array().unwrap();
+            let js_array = unsafe { elem.as_array().unwrap_unchecked() };
             //only start detect circular reference at this level
             if depth > CIRCULAR_REF_DETECTION_DEPTH {
                 detect_circular_reference(
