@@ -13,6 +13,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use llrt_modules::timers::{self, poll_timers};
 use llrt_utils::bytes::ObjectBytes;
 use once_cell::sync::Lazy;
 
@@ -28,6 +29,7 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
     Module, Object, Result, Value,
 };
+use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
@@ -37,7 +39,6 @@ use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
     path::{dirname, join_path, resolve_path},
-    timers::{self, poll_timers, ExecutingTimer},
 };
 
 use crate::{
@@ -627,14 +628,19 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
-            let mut executing_timers: Option<Vec<Option<ExecutingTimer>>> = Some(Vec::new());
+            let mut deadline = Instant::now();
+
+            let mut executing_timers = Vec::new();
 
             let imported_object = loop {
                 if let Some(x) = import_promise.result::<Object>() {
                     break x?;
                 }
 
-                poll_timers(rt, &mut executing_timers, &mut false);
+                if deadline < Instant::now() {
+                    poll_timers(rt, &mut executing_timers, None, Some(&mut deadline))?;
+                }
+
                 ctx.execute_pending_job();
             };
 

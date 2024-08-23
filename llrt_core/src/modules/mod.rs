@@ -12,6 +12,5 @@ pub mod events;
 pub mod http;
 pub mod llrt;
 pub mod module;
-pub mod timers;
 pub mod url;
 pub mod util;

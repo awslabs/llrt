@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
+use llrt_modules::timers::set_timeout_interval;
 use rquickjs::{
     class::{Trace, Tracer},
     function::OnceFn,
@@ -10,10 +11,7 @@ use rquickjs::{
 };
 
 use super::{Emitter, EventEmitter, EventList};
-use crate::{
-    modules::{exceptions::DOMException, timers::set_timeout_interval},
-    utils::mc_oneshot,
-};
+use crate::{modules::exceptions::DOMException, utils::mc_oneshot};
 
 #[derive(Clone)]
 #[rquickjs::class]
@@ -168,7 +166,7 @@ impl<'js> AbortSignal<'js> {
     }
 
     #[qjs(static)]
-    pub fn timeout(ctx: Ctx<'js>, milliseconds: usize) -> Result<Class<'js, Self>> {
+    pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
         let timeout_error = get_reason_or_dom_exception(&ctx, None, "TimeoutError")?;
 
         let signal = Self::new();

@@ -22,6 +22,7 @@ all = [
   "perf-hooks",
   "process",
   "zlib",
+  "timers",
 ]
 
 buffer = ["llrt_utils/encoding"]
@@ -41,6 +42,7 @@ os = [
 path = []
 process = []
 perf-hooks = []
+timers = []
 zlib = ["flate2", "brotlic"]
 
 __bytearray-buffer = ["tokio/sync"]

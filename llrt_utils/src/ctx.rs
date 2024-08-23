@@ -20,6 +20,10 @@ pub trait CtxExtension<'js> {
     where
         F: Future<Output = Result<R>> + 'js,
         R: 'js;
+
+    fn spawn_exit_simple<F>(&self, future: F)
+    where
+        F: Future<Output = Result<()>> + 'js;
 }
 
 impl<'js> CtxExtension<'js> for Ctx<'js> {
@@ -39,31 +43,45 @@ impl<'js> CtxExtension<'js> for Ctx<'js> {
         self.spawn(async move {
             match future.await.catch(&ctx) {
                 Ok(res) => {
-                    //result here dosn't matter if receiver has dropped
+                    //result here doesn't matter if receiver has dropped
                     let _ = join_channel_tx.send(res);
                 },
-                Err(err) => {
-                    let error_handler = match ERROR_HANDLER.get() {
-                        Some(handler) => handler,
-                        None => {
-                            trace!("Future error: {:?}", err);
-                            return;
-                        },
-                    };
-                    if let CaughtError::Exception(err) = err {
-                        if err.stack().is_none() {
-                            if let Some(stack) = stack {
-                                err.set(PredefinedAtom::Stack, stack).unwrap();
-                            }
-                        }
-                        error_handler(&ctx, CaughtError::Exception(err));
-                    } else {
-                        error_handler(&ctx, err);
-                    }
-                },
+                Err(err) => handle_spawn_error(&ctx, err, stack),
             }
         });
         Ok(join_channel_rx)
+    }
+
+    /// Same as above but fire & forget and without a forced stack trace collection
+    fn spawn_exit_simple<F>(&self, future: F)
+    where
+        F: Future<Output = Result<()>> + 'js,
+    {
+        let ctx = self.clone();
+        self.spawn(async move {
+            if let Err(err) = future.await.catch(&ctx) {
+                handle_spawn_error(&ctx, err, None)
+            }
+        });
+    }
+}
+
+fn handle_spawn_error<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>, stack: Option<String>) {
+    let error_handler = if let Some(handler) = ERROR_HANDLER.get() {
+        handler
+    } else {
+        trace!("Future error: {:?}", err);
+        return;
+    };
+    if let CaughtError::Exception(err) = err {
+        if err.stack().is_none() {
+            if let Some(stack) = stack {
+                err.set(PredefinedAtom::Stack, stack).unwrap();
+            }
+        }
+        error_handler(ctx, CaughtError::Exception(err));
+    } else {
+        error_handler(ctx, err);
     }
 }
 

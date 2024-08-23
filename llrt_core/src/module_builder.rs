@@ -14,11 +14,11 @@ use crate::modules::{
     path::PathModule,
     perf_hooks::PerfHooksModule,
     process::ProcessModule,
-    timers::TimersModule,
     url::UrlModule,
     util::UtilModule,
     zlib::ZlibModule,
 };
+use llrt_modules::timers::TimersModule;
 pub use llrt_modules::ModuleInfo;
 use rquickjs::{
     loader::{BuiltinResolver, ModuleLoader, Resolver},
