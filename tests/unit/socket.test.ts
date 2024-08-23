@@ -82,7 +82,12 @@ describe("error handling", () => {
   });
 
   it("should handle client destroy", (done) => {
-    const server = net.createServer((socket) => {
+    let closedResolve: () => void;
+    const closePromise = new Promise<void>((resolve) => {
+      closedResolve = resolve;
+    });
+    const server = net.createServer(async (socket) => {
+      await closePromise;
       setTimeout(() => {
         socket.write("hello", (err) => {
           expect(err).toBeTruthy();
@@ -95,6 +100,7 @@ describe("error handling", () => {
     server.listen(() => {
       const client = net.connect((server.address() as any).port, () => {
         client.destroy();
+        client.on("close", closedResolve);
       });
     });
   });
