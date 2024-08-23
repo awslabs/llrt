@@ -103,7 +103,6 @@ pub fn set_timeout_interval<'js>(
     let mut rt_timer = RT_TIMER_STATE.lock().unwrap();
     let state = get_timer_state(&mut rt_timer, rt_ptr);
     state.timers.push(timeout);
-    let mut abort_timer_rx = None;
     let task_running = state.running;
     if task_running {
         if deadline < state.deadline {
@@ -112,17 +111,9 @@ pub fn set_timeout_interval<'js>(
         }
     } else {
         state.running = true;
-        abort_timer_rx = Some(state.notify.clone());
-    }
-    drop(rt_timer);
-
-    if !task_running {
-        create_spawn_loop(
-            rt_ptr,
-            ctx,
-            unsafe { abort_timer_rx.unwrap_unchecked() },
-            deadline,
-        )?;
+        let timer_abort = state.notify.clone();
+        drop(rt_timer);
+        create_spawn_loop(rt_ptr, ctx, timer_abort, deadline)?;
     }
 
     Ok(id)
@@ -134,7 +125,8 @@ fn get_timer_state<'a>(
 ) -> &'a mut RuntimeTimerState {
     let rt_timers = state_ref.iter_mut().find(|state| state.rt == rt);
 
-    (unsafe { rt_timers.unwrap_unchecked() }) as _
+    //save a branch
+    unsafe { rt_timers.unwrap_unchecked() }
 }
 
 fn clear_timeout_interval(ctx: Ctx<'_>, id: usize) -> Result<()> {
@@ -143,9 +135,7 @@ fn clear_timeout_interval(ctx: Ctx<'_>, id: usize) -> Result<()> {
 
     let state = get_timer_state(&mut rt_timers, rt);
     if let Some(timeout) = state.timers.iter_mut().find(|t| t.id == id) {
-        if let Some(timeout) = timeout.callback.take() {
-            timeout.restore(&ctx)?; //prevent memory leaks
-        }
+        let _ = timeout.callback.take();
         timeout.repeating = false;
         timeout.deadline = Instant::now() - Duration::from_secs(1);
         state.notify.notify_one()
