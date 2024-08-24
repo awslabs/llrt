@@ -411,17 +411,33 @@ Install generate libs and setup rust targets & toolchains
 > If these commands exit with an error that says `can't cd to zstd/lib`,
 > you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
 
-Build release for Lambda
+Build binaries for Lambda (Per bundle type and architecture desired)
 
-    make release-arm64
+    # for arm64, use
+    make llrt-lambda-arm64
+    make llrt-lambda-arm64-no-sdk
+    make llrt-lambda-arm64-full-sdk
     # or for x86-64, use
-    make release-x64
+    make llrt-lambda-x64
+    make llrt-lambda-x64-no-sdk
+    make llrt-lambda-x64-full-sdk
+
+Build binaries for Container (Per bundle type and architecture desired)
+
+    # for arm64, use
+    make llrt-container-arm64
+    make llrt-container-arm64-no-sdk
+    make llrt-container-arm64-full-sdk
+    # or for x86-64, use
+    make llrt-container-x64
+    make llrt-container-x64-no-sdk
+    make llrt-container-x64-full-sdk
 
 Optionally build for your local machine (Mac or Linux)
 
     make release
 
-You should now have a `llrt-lambda-arm64.zip` or `llrt-lambda-x64.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
+You should now have a `llrt-lambda-arm64*.zip` or `llrt-lambda-x64*.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
 ## Running Lambda emulator
 

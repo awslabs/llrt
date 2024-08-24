@@ -81,7 +81,7 @@ llrt-windows-x86_64.zip: llrt-windows-x64.zip
 llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 
 define lambda_release_template
-release-${1}${2}: llrt-lambda-${1}${2}
+release-${1}${2}: | llrt-lambda-${1}${2} llrt-container-${1}${2}
 
 llrt-lambda-${1}${2}: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}: | clean-js js
@@ -89,6 +89,9 @@ llrt-lambda-${1}${2}: | clean-js js
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf llrt-lambda-${1}${2}.zip
 	zip -j llrt-lambda-${1}${2}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+
+llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
+llrt-container-${1}${2}: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}${2}
 endef
