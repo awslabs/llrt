@@ -81,7 +81,7 @@ llrt-windows-x86_64.zip: llrt-windows-x64.zip
 llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
 
 define lambda_release_template
-release-${1}${2}: llrt-lambda-${1}${2} llrt-container-${1}${2}
+release-${1}${2}: | llrt-lambda-${1}${2} llrt-container-${1}${2}
 
 llrt-lambda-${1}${2}: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}: | clean-js js
