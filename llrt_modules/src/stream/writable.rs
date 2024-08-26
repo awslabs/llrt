@@ -127,11 +127,7 @@ where
         Ok(())
     }
 
-    fn destroy(
-        this: This<Class<'js, Self>>,
-        _ctx: Ctx<'js>,
-        error: Opt<Value<'js>>,
-    ) -> Class<'js, Self> {
+    fn destroy(this: This<Class<'js, Self>>, error: Opt<Value<'js>>) -> Class<'js, Self> {
         if !this.borrow().inner().is_finished {
             let mut borrow = this.borrow_mut();
             let inner = borrow.inner_mut();

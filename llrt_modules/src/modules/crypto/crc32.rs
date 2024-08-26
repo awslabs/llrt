@@ -23,7 +23,7 @@ impl Crc32c {
     }
 
     #[qjs(rename = "digest")]
-    fn crc32c_digest(&self, _ctx: Ctx<'_>) -> u64 {
+    fn crc32c_digest(&self) -> u64 {
         self.hasher.finish()
     }
 
@@ -56,7 +56,7 @@ impl Crc32 {
     }
 
     #[qjs(rename = "digest")]
-    fn crc32_digest(&self, _ctx: Ctx<'_>) -> u64 {
+    fn crc32_digest(&self) -> u64 {
         self.hasher.finish()
     }
 

@@ -106,11 +106,7 @@ impl<'js> IntoJs<'js> for ReadDir {
     }
 }
 
-pub async fn read_dir<'js>(
-    _ctx: Ctx<'js>,
-    mut path: String,
-    options: Opt<Object<'js>>,
-) -> Result<ReadDir> {
+pub async fn read_dir(mut path: String, options: Opt<Object<'_>>) -> Result<ReadDir> {
     let (with_file_types, skip_root_pos, mut directory_walker) =
         process_options_and_create_directory_walker(&mut path, options);
 
@@ -131,11 +127,7 @@ pub async fn read_dir<'js>(
     Ok(ReadDir { items, root: path })
 }
 
-pub fn read_dir_sync<'js>(
-    _ctx: Ctx<'js>,
-    mut path: String,
-    options: Opt<Object<'js>>,
-) -> Result<ReadDir> {
+pub fn read_dir_sync(mut path: String, options: Opt<Object<'_>>) -> Result<ReadDir> {
     let (with_file_types, skip_root_pos, mut directory_walker) =
         process_options_and_create_directory_walker(&mut path, options);
 

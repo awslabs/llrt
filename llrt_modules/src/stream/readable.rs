@@ -163,11 +163,7 @@ where
         Ok(())
     }
 
-    fn destroy(
-        this: This<Class<'js, Self>>,
-        _ctx: Ctx<'js>,
-        error: Opt<Value<'js>>,
-    ) -> Class<'js, Self> {
+    fn destroy(this: This<Class<'js, Self>>, error: Opt<Value<'js>>) -> Class<'js, Self> {
         let mut borrow = this.borrow_mut();
         let inner = borrow.inner_mut();
         inner.is_destroyed = true;

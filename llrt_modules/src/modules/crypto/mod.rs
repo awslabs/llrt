@@ -65,7 +65,7 @@ fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
     Buffer(random_bytes).into_js(&ctx)
 }
 
-fn get_random_int(_ctx: Ctx, first: i64, second: Opt<i64>) -> Result<i64> {
+fn get_random_int(first: i64, second: Opt<i64>) -> Result<i64> {
     let mut rng = ThreadRng::default();
     let random_number = match second.0 {
         Some(max) => rng.gen_range(first..max),

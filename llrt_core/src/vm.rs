@@ -563,7 +563,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     js_bootstrap.set(
         "moduleExport",
         Func::from(move |ctx, obj, prop, value| {
-            let ExportArgs(_ctx, _, _, value) = ExportArgs(ctx, obj, prop, value);
+            let ExportArgs(_, _, _, value) = ExportArgs(ctx, obj, prop, value);
             let mut exports = require_exports.lock().unwrap();
             exports.replace(value);
             Result::Ok(true)

@@ -139,14 +139,10 @@ impl<'js> Socket<'js> {
         Ok(())
     }
 
-    pub fn destroy(
-        this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        error: Opt<Value<'js>>,
-    ) -> Class<'js, Self> {
+    pub fn destroy(this: This<Class<'js, Self>>, error: Opt<Value<'js>>) -> Class<'js, Self> {
         this.borrow_mut().destroyed = true;
-        ReadableStream::destroy(This(this.clone()), ctx.clone(), Opt(None));
-        WritableStream::destroy(This(this.clone()), ctx.clone(), error);
+        ReadableStream::destroy(This(this.clone()), Opt(None));
+        WritableStream::destroy(This(this.clone()), error);
         this.0
     }
 
