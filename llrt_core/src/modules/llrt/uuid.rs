@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_modules::{crypto::SYSTEM_RANDOM, ModuleInfo};
 use llrt_utils::{
     bytes::ObjectBytes, encoding::bytes_to_hex, module::export_default, result::ResultExt,
 };
@@ -12,8 +13,6 @@ use rquickjs::{
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
-
-use crate::{modules::crypto::SYSTEM_RANDOM, ModuleInfo};
 
 pub struct LlrtUuidModule;
 

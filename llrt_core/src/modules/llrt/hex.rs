@@ -15,7 +15,7 @@ use rquickjs::{
     Ctx, Result, Value,
 };
 
-use crate::ModuleInfo;
+use crate::module_builder::ModuleInfo;
 
 use self::encoder::{bytes_from_hex, bytes_to_hex_string};
 

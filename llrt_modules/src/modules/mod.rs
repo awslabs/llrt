@@ -12,8 +12,6 @@ pub mod events;
 pub mod exceptions;
 #[cfg(feature = "fs")]
 pub mod fs;
-#[cfg(feature = "llrt")]
-pub mod llrt;
 #[cfg(feature = "navigator")]
 pub mod navigator;
 #[cfg(feature = "net")]

@@ -24,11 +24,9 @@ use rquickjs::{
     prelude::{Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
+use uuid::Uuid;
 
-use crate::{
-    modules::{buffer::Buffer, llrt::uuid::uuidv4},
-    ModuleInfo,
-};
+use crate::{modules::buffer::Buffer, ModuleInfo};
 
 use self::{
     crc32::{Crc32, Crc32c},
@@ -169,6 +167,10 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
     Ok(obj)
 }
 
+fn v4() -> String {
+    Uuid::new_v4().to_string()
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
@@ -178,7 +180,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     crypto.set("createHmac", Func::from(Hmac::new))?;
     crypto.set("randomBytes", Func::from(get_random_bytes))?;
     crypto.set("randomInt", Func::from(get_random_int))?;
-    crypto.set("randomUUID", Func::from(uuidv4))?;
+    crypto.set("randomUUID", Func::from(v4))?;
     crypto.set("randomFillSync", Func::from(random_fill_sync))?;
     crypto.set("randomFill", Func::from(random_fill))?;
     crypto.set("getRandomValues", Func::from(get_random_values))?;
@@ -240,7 +242,7 @@ impl ModuleDef for CryptoModule {
             default.set("createHmac", Func::from(Hmac::new))?;
             default.set("randomBytes", Func::from(get_random_bytes))?;
             default.set("randomInt", Func::from(get_random_int))?;
-            default.set("randomUUID", Func::from(uuidv4))?;
+            default.set("randomUUID", Func::from(v4))?;
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;
             default.set("getRandomValues", Func::from(get_random_values))?;

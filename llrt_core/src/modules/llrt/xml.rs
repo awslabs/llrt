@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, rc::Rc};
 
+use llrt_modules::ModuleInfo;
 use llrt_utils::{
     bytes::ObjectBytes, module::export_default, object::ObjectExt, result::ResultExt,
 };
@@ -18,8 +19,6 @@ use rquickjs::{
     prelude::This,
     Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
-
-use crate::ModuleInfo;
 
 const AMP: &str = "&amp;";
 const LT: &str = "&lt;";
