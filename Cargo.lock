@@ -2633,6 +2633,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "uuid-simd",
  "windows-registry",
  "windows-result",
  "windows-version",
