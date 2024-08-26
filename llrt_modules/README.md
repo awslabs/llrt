@@ -57,6 +57,7 @@ async fn main() -> anyhow::Result<()> {
 | ------------- | ------- | ------------ | --------------- |
 | buffer        | ✔︎     | ✔︎️         | `buffer`        |
 | child process | ✔︎     | ⚠️           | `child-process` |
+| crypto        | ✔︎     | ⚠️           | `crypto`        |
 | events        | ✔︎     | ⚠️           | `events`        |
 | exceptions    | ✔︎     | ⚠️           | `exceptions`    |
 | fs/promises   | ✔︎     | ⚠️           | `fs`            |

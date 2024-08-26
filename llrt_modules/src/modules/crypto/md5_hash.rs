@@ -1,11 +1,9 @@
-use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use md5::{Digest as Md5Digest, Md5 as MdHasher};
 
+use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
-
-use crate::utils::object::bytes_to_typed_array;
 
 use super::encoded_bytes;
 

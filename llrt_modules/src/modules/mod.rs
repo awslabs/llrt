@@ -4,6 +4,8 @@
 pub mod buffer;
 #[cfg(feature = "child-process")]
 pub mod child_process;
+#[cfg(feature = "crypto")]
+pub mod crypto;
 #[cfg(feature = "events")]
 pub mod events;
 #[cfg(feature = "exceptions")]

@@ -1,13 +1,11 @@
-use llrt_utils::bytes::ObjectBytes;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
 use ring::{
     digest::{self, Context as DigestContext},
     hmac::{self, Context as HmacContext},
 };
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Value};
-
-use crate::utils::object::bytes_to_typed_array;
 
 use super::encoded_bytes;
 
@@ -87,6 +85,7 @@ impl Hash {
         let algorithm = match algorithm.to_lowercase().as_str() {
             "sha1" => &digest::SHA1_FOR_LEGACY_USE_ONLY,
             "sha256" => &digest::SHA256,
+            "sha384" => &digest::SHA384,
             "sha512" => &digest::SHA512,
             _ => {
                 return Err(Exception::throw_message(

@@ -5,8 +5,6 @@
 #![allow(clippy::inherent_to_string)]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
 
-#[macro_use]
-mod macros;
 mod bytecode;
 // #[cfg(not(feature = "lambda"))]
 pub mod compiler;

@@ -80,11 +80,6 @@ brotlic = "0.8.2"
 rustls-pemfile = "2.1.2"
 url = "=2.5.1"
 
-[target.'cfg(target_os = "windows")'.dependencies]
-md-5 = { version = "0.10.6" }
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.10.6", features = ["asm"] }
-
 [build-dependencies]
 rquickjs = { version = "0.6.2", features = [
     "full-async",

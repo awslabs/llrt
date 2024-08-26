@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub use llrt_modules::{
-    buffer, child_process, exceptions, fs, navigator, net, os, path, perf_hooks, process, zlib,
+    buffer, child_process, crypto, exceptions, fs, navigator, net, os, path, perf_hooks, process,
+    zlib,
 };
 
 pub mod console;
-pub mod crypto;
 pub mod encoding;
 pub mod events;
 pub mod http;
