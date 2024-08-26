@@ -61,7 +61,7 @@ pub async fn rmfile<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>)
     Ok(())
 }
 
-pub fn rmfile_sync<'js>(_ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {
+pub fn rmfile_sync<'js>(path: String, options: Opt<Object<'js>>) -> Result<()> {
     let (recursive, force) = get_params_rm(options);
 
     let res = (|| -> Result<()> {

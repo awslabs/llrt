@@ -78,7 +78,7 @@ impl<'js> StackObject<'js> {
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> XMLParser<'js> {
     #[qjs(constructor)]
-    pub fn new(_ctx: Ctx<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+    pub fn new(options: Opt<Object<'js>>) -> Result<Self> {
         let mut tag_value_processor = None;
         let mut attribute_value_processor = None;
         let mut attribute_name_prefix = String::from("@_");

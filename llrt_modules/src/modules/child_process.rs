@@ -155,7 +155,7 @@ impl<'js> ChildProcess<'js> {
         self.pid.into_js(&ctx)
     }
 
-    fn kill(&mut self, _ctx: Ctx<'js>, signal: Opt<Value<'js>>) -> Result<bool> {
+    fn kill(&mut self, signal: Opt<Value<'js>>) -> Result<bool> {
         #[cfg(unix)]
         let signal = if let Some(signal) = signal.0 {
             if signal.is_number() {
