@@ -4,18 +4,16 @@ pub mod encoder {
     pub use llrt_utils::encoding::*;
 }
 
-use llrt_utils::{
-    bytes::{bytes_to_typed_array, ObjectBytes},
-    module::export_default,
-    result::ResultExt,
-};
+use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
     Ctx, Result, Value,
 };
 
-use crate::module_builder::ModuleInfo;
+use crate::{
+    module_builder::ModuleInfo, modules::module::export_default, utils::result::ResultExt,
+};
 
 use self::encoder::{bytes_from_hex, bytes_to_hex_string};
 

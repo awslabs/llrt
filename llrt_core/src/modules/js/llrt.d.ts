@@ -46,7 +46,7 @@ declare module "xml" {
   }
 
   export class XmlText {
-    constructor(private value: string) { }
+    constructor(private value: string) {}
     toString(): string;
   }
 
