@@ -15,7 +15,7 @@
   ],
   "devDependencies": {
     "@definitelytyped/dtslint": "^0.2.22",
-    "@definitelytyped/eslint-plugin": "^0.1,17",
+    "@definitelytyped/eslint-plugin": "^0.1.17",
     "typescript": "^5.5.3"
   },
   "scripts": {
