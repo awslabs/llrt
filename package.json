@@ -3,7 +3,7 @@
     "./example/*"
   ],
   "license": "Apache-2.0",
-  "version": "1.0.0",
+  "version": "0.2.1-beta",
   "type": "module",
   "private": true,
   "prettier": {
