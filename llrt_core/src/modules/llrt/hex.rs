@@ -20,8 +20,7 @@ use self::encoder::{bytes_from_hex, bytes_to_hex_string};
 pub struct LlrtHexModule;
 
 impl LlrtHexModule {
-    pub fn encode<'js>(ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = ObjectBytes::from(&ctx, &buffer)?;
+    pub fn encode(bytes: ObjectBytes<'_>) -> Result<String> {
         Ok(bytes_to_hex_string(bytes.as_bytes()))
     }
 

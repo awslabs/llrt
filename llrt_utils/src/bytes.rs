@@ -1,7 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-use rquickjs::{ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value};
+use rquickjs::{
+    ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoJs, Object, Result, TypedArray, Value,
+};
 
 use crate::error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED;
 
@@ -30,6 +31,12 @@ impl<'js> From<ObjectBytes<'js>> for Vec<u8> {
 impl<'a, 'js> From<&'a ObjectBytes<'js>> for &'a [u8] {
     fn from(value: &'a ObjectBytes<'js>) -> Self {
         value.as_bytes()
+    }
+}
+
+impl<'js> FromJs<'js> for ObjectBytes<'js> {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        Self::from_offset(ctx, &value, 0, None)
     }
 }
 

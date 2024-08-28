@@ -114,8 +114,7 @@ impl<'js> XMLParser<'js> {
         self.entities.insert(key.into(), value.into());
     }
 
-    pub fn parse(&self, ctx: Ctx<'js>, xml: Value<'js>) -> Result<Object<'js>> {
-        let bytes = ObjectBytes::from(&ctx, &xml)?;
+    pub fn parse(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Object<'js>> {
         let bytes = bytes.as_bytes();
         let mut reader = Reader::from_reader(bytes);
         let config = reader.config_mut();

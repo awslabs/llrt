@@ -19,9 +19,7 @@ pub struct Hmac {
 #[rquickjs::methods]
 impl Hmac {
     #[qjs(skip)]
-    pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, secret: Value<'js>) -> Result<Self> {
-        let key_value = ObjectBytes::from(&ctx, &secret)?;
-
+    pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, key_value: ObjectBytes<'js>) -> Result<Self> {
         let algorithm = match algorithm.to_lowercase().as_str() {
             "sha1" => hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
             "sha256" => hmac::HMAC_SHA256,
@@ -52,10 +50,8 @@ impl Hmac {
 
     fn update<'js>(
         this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        value: Value<'js>,
+        bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = ObjectBytes::from(&ctx, &value)?;
         let bytes = bytes.as_bytes();
         this.0.borrow_mut().context.update(bytes);
 
@@ -114,10 +110,8 @@ impl Hash {
     #[qjs(rename = "update")]
     fn hash_update<'js>(
         this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        value: Value<'js>,
+        bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = ObjectBytes::from(&ctx, &value)?;
         let bytes = bytes.as_bytes();
         this.0.borrow_mut().context.update(bytes);
         Ok(this.0)
@@ -168,17 +162,8 @@ pub struct ShaHash {
 #[rquickjs::methods]
 impl ShaHash {
     #[qjs(skip)]
-    pub fn new<'js>(
-        ctx: Ctx<'js>,
-        algorithm: ShaAlgorithm,
-        secret: Opt<Value<'js>>,
-    ) -> Result<Self> {
-        let secret = if let Some(secret) = secret.0 {
-            let bytes = ObjectBytes::from(&ctx, &secret)?;
-            Some(bytes.into_bytes())
-        } else {
-            None
-        };
+    pub fn new(algorithm: ShaAlgorithm, secret: Opt<ObjectBytes<'_>>) -> Result<Self> {
+        let secret = secret.0.map(|bytes| bytes.into_bytes());
 
         Ok(ShaHash {
             secret,
@@ -205,10 +190,8 @@ impl ShaHash {
     #[qjs(rename = "update")]
     fn sha_update<'js>(
         this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        value: Value<'js>,
+        bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = ObjectBytes::from(&ctx, &value)?;
         this.0.borrow_mut().bytes = bytes.into();
         Ok(this.0)
     }
