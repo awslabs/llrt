@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
-use rquickjs::{Ctx, Result};
+use rquickjs::{Ctx, Result, Value};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
-pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, bytes: ObjectBytes<'js>) -> Result<()> {
-    let mut file = fs::File::create(&path)
-        .await
-        .or_throw_msg(&ctx, &["Can't create file \"", &path, "\""].concat())?;
-
+pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> Result<()> {
     let write_error_message = &["Can't write file \"", &path, "\""].concat();
 
+    let mut file = fs::File::create(&path)
+        .await
+        .or_throw_msg(&ctx, write_error_message)?;
+
+    let bytes = ObjectBytes::from(&ctx, &data)?;
     file.write_all(bytes.as_bytes())
         .await
         .or_throw_msg(&ctx, write_error_message)?;
