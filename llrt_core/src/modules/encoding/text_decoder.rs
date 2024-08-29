@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, encoding::Encoder, object::ObjectExt};
-use rquickjs::{function::Opt, Ctx, Object, Result, Value};
+use rquickjs::{function::Opt, Ctx, Object, Result};
 
 use crate::utils::result::ResultExt;
 
@@ -58,8 +58,7 @@ impl<'js> TextDecoder {
         self.ignore_bom
     }
 
-    pub fn decode(&self, ctx: Ctx<'js>, buffer: Value<'js>) -> Result<String> {
-        let bytes = ObjectBytes::from(&ctx, &buffer)?;
+    pub fn decode(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<String> {
         let bytes = bytes.as_bytes();
         let start_pos = if !self.ignore_bom {
             match bytes.get(..3) {

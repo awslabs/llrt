@@ -26,7 +26,7 @@ macro_rules! define_sync_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
         pub fn $fn_name<'js>(
             ctx: Ctx<'js>,
-            value: Value<'js>,
+            value: ObjectBytes<'js>,
             options: Opt<Value<'js>>,
         ) -> Result<Value<'js>> {
             $converter(ctx.clone(), value, options, $command)
@@ -38,7 +38,7 @@ macro_rules! define_cb_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
         pub fn $fn_name<'js>(
             ctx: Ctx<'js>,
-            value: Value<'js>,
+            value: ObjectBytes<'js>,
             args: Rest<Value<'js>>,
         ) -> Result<()> {
             let mut args_iter = args.0.into_iter().rev();
@@ -79,11 +79,10 @@ enum ZlibCommand {
 
 fn zlib_converter<'js>(
     ctx: Ctx<'js>,
-    value: Value<'js>,
+    bytes: ObjectBytes<'js>,
     options: Opt<Value<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
-    let bytes = ObjectBytes::from(&ctx, &value)?;
     let src = bytes.as_bytes();
 
     let mut level = Compression::default();
@@ -132,11 +131,10 @@ enum BrotliCommand {
 
 fn brotli_converter<'js>(
     ctx: Ctx<'js>,
-    value: Value<'js>,
+    bytes: ObjectBytes<'js>,
     _options: Opt<Value<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
-    let bytes = ObjectBytes::from(&ctx, &value)?;
     let src = bytes.as_bytes();
 
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
