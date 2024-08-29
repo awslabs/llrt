@@ -282,3 +282,73 @@ describe("Buffer.byteLength", () => {
     expect(length).toEqual(11);
   });
 });
+
+describe("Buffer.subarray", () => {
+  it("should create a subarray from a buffer with the specified start and end indices", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(7, 12);
+
+    expect(subBuffer.toString()).toEqual("world");
+  });
+
+  it("should return a subarray from the start index to the end of the buffer when end index is omitted", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(7);
+
+    expect(subBuffer.toString()).toEqual("world!");
+  });
+
+  it("should return an empty buffer when the start index equals the end index", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(5, 5);
+
+    expect(subBuffer.length).toEqual(0);
+    expect(subBuffer.toString()).toEqual("");
+  });
+
+  it("should create a subarray with the same content as the original buffer when start and end indices cover the entire buffer", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(0, buffer.length);
+
+    expect(subBuffer.toString()).toEqual("Hello, world!");
+    expect(subBuffer).not.toBe(buffer); // Should be a new buffer, not the original one
+  });
+
+  it("should handle negative start and end indices", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(-6, -1);
+
+    expect(subBuffer.toString()).toEqual("world");
+  });
+
+  it("should handle out-of-bounds start and end indices", () => {
+    const buffer = Buffer.from("Hello, world!");
+
+    const subBuffer1 = buffer.subarray(-100, 5);
+    expect(subBuffer1.toString()).toEqual("Hello");
+
+    const subBuffer2 = buffer.subarray(0, 100);
+    expect(subBuffer2.toString()).toEqual("Hello, world!");
+
+    const subBuffer3 = buffer.subarray(50, 100);
+    expect(subBuffer3.length).toEqual(0);
+  });
+
+  it("should share memory with the original buffer", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(0, 5);
+
+    const lowerCaseH = "h".charCodeAt(0);
+    subBuffer[0] = lowerCaseH;
+    expect(buffer[0]).toEqual(lowerCaseH);
+    expect(subBuffer.toString()).toEqual("hello");
+  });
+
+  it("should not throw errors when start and end are out of order, but should return an empty buffer", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const subBuffer = buffer.subarray(10, 5);
+
+    expect(subBuffer.length).toEqual(0);
+    expect(subBuffer.toString()).toEqual("");
+  });
+});

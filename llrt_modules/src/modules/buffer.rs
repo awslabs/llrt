@@ -110,6 +110,36 @@ fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<
     encoder.encode_to_string(bytes, true).or_throw(&ctx)
 }
 
+fn subarray<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    start: Opt<isize>,
+    end: Opt<isize>,
+) -> Result<Value<'js>> {
+    let typed_array = TypedArray::<u8>::from_object(this.0)?;
+    let array_buffer = typed_array.arraybuffer()?;
+    let ab_length = array_buffer.len() as isize;
+    let offset = start.map_or(0, |start| {
+        if start < 0 {
+            (ab_length + start).max(0) as usize
+        } else {
+            start.min(ab_length) as usize
+        }
+    });
+
+    let end_index = end.map_or(ab_length, |end| {
+        if end < 0 {
+            (ab_length + end).max(0)
+        } else {
+            end.min(ab_length)
+        }
+    });
+
+    let length = (end_index as usize).saturating_sub(offset);
+
+    Buffer::from_array_buffer_offset_length(&ctx, array_buffer, offset, length)
+}
+
 fn alloc<'js>(
     ctx: Ctx<'js>,
     length: usize,
@@ -250,6 +280,7 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
 
     let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
+    prototype.set("subarray", Func::from(subarray))?;
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 
@@ -413,6 +444,102 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, (data,)).await;
                 assert_eq!(result, "aGVsbG8gd29ybGQ=");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_subarray() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "hello world".to_string().into_bytes();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Buffer } from 'buffer';
+
+                        export async function test(data) {
+                            let buffer = Buffer.from(data);
+                            let sub = buffer.subarray(6, 11); // "world" part
+                            return sub.toString();
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "world");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_subarray_partial() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "hello world".to_string().into_bytes();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Buffer } from 'buffer';
+
+                        export async function test(data) {
+                            let buffer = Buffer.from(data);
+                            let sub = buffer.subarray(0, 5); // "hello" part
+                            return sub.toString();
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "hello");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_subarray_out_of_bounds() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "hello world".to_string().into_bytes();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Buffer } from 'buffer';
+
+                        export async function test(data) {
+                            let buffer = Buffer.from(data);
+                            let sub = buffer.subarray(6, 20); // "world" part but goes out of bounds
+                            return sub.toString();
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, "world");
             })
         })
         .await;
