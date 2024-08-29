@@ -5,12 +5,12 @@ use rquickjs::{
     Function, Object, Result, Symbol, Value,
 };
 
-use crate::modules::console::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
-
 use super::{
     object::{CreateSymbol, ObjectExt},
     result::OptionExt,
 };
+
+pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
 
 pub trait IteratorDef<'js>
 where

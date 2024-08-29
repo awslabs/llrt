@@ -1,13 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::{env, result::Result as StdResult, sync::RwLock, time::Instant};
 
-use crate::json::parse::json_parse;
-use crate::json::stringify::{self, json_stringify};
-use crate::modules::console;
-use crate::modules::http::HTTP_CLIENT;
-use crate::utils::class::get_class_name;
-use crate::utils::result::ResultExt;
-use crate::vm::Vm;
 use bytes::Bytes;
 use chrono::Utc;
 use http_body_util::{BodyExt, Full};
@@ -18,20 +12,25 @@ use hyper::{
 };
 use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{connect::HttpConnector, Client};
+use llrt_utils::class::get_class_name;
 use once_cell::sync::Lazy;
-
-use rquickjs::function::{Rest, This};
-use rquickjs::Exception;
 use rquickjs::{
-    atom::PredefinedAtom, prelude::Func, promise::Promise, Array, CaughtError, Ctx, Function,
-    IntoJs, Object, Result, Value,
+    atom::PredefinedAtom,
+    function::{Rest, This},
+    prelude::Func,
+    promise::Promise,
+    Array, CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
 };
 
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use std::sync::RwLock;
-use std::{env, result::Result as StdResult, time::Instant};
+use crate::json::parse::json_parse;
+use crate::json::stringify::{self, json_stringify};
+use crate::modules::console;
+use crate::modules::http::HTTP_CLIENT;
+use crate::utils::result::ResultExt;
+use crate::vm::Vm;
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";

@@ -3,14 +3,13 @@
 use std::{collections::BTreeMap, rc::Rc};
 
 use hyper::HeaderMap;
+use llrt_utils::{
+    class::{CustomInspect, IteratorDef},
+    object::map_to_entries,
+};
 use rquickjs::{
     atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, IntoJs,
     Null, Object, Result, Value,
-};
-
-use crate::utils::{
-    class::{CustomInspect, IteratorDef},
-    object::map_to_entries,
 };
 
 const HEADERS_KEY_COOKIE: &str = "cookie";

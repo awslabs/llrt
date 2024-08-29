@@ -1,16 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use fxhash::{FxBuildHasher, FxHashSet};
-
-use rquickjs::function::This;
-
+use llrt_utils::object::ObjectExt;
 use rquickjs::{
     atom::PredefinedAtom,
+    function::This,
     function::{Constructor, Opt},
     Array, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
 };
-
-use super::object::ObjectExt;
 
 #[derive(Debug)]
 enum StackItem<'js> {
