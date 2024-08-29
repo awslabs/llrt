@@ -22,6 +22,29 @@ declare module "url" {
     port: string | null;
     query: string | null;
   }
+  interface URLFormatOptions {
+    /**
+     * `true` if the serialized URL string should include the username and password, `false` otherwise.
+     * @default true
+     */
+    auth?: boolean | undefined;
+    /**
+     * `true` if the serialized URL string should include the fragment, `false` otherwise.
+     * @default true
+     */
+    fragment?: boolean | undefined;
+    /**
+     * `true` if the serialized URL string should include the search query, `false` otherwise.
+     * @default true
+     */
+    search?: boolean | undefined;
+    /**
+     * `true` if Unicode characters appearing in the host component of the URL string should be encoded directly as opposed to
+     * being Punycode encoded.
+     * @default false
+     */
+    unicode?: boolean | undefined;
+  }
   /**
    * The `url.parse()` method takes a URL string, parses it, and returns a URL
    * object.
@@ -144,29 +167,74 @@ declare module "url" {
    * ```
    */
   function domainToUnicode(domain: string): string;
-  interface URLFormatOptions {
-    /**
-     * `true` if the serialized URL string should include the username and password, `false` otherwise.
-     * @default true
-     */
-    auth?: boolean | undefined;
-    /**
-     * `true` if the serialized URL string should include the fragment, `false` otherwise.
-     * @default true
-     */
-    fragment?: boolean | undefined;
-    /**
-     * `true` if the serialized URL string should include the search query, `false` otherwise.
-     * @default true
-     */
-    search?: boolean | undefined;
-    /**
-     * `true` if Unicode characters appearing in the host component of the URL string should be encoded directly as opposed to
-     * being Punycode encoded.
-     * @default false
-     */
-    unicode?: boolean | undefined;
-  }
+  /**
+   * This function ensures the correct decodings of percent-encoded characters as
+   * well as ensuring a cross-platform valid absolute path string.
+   *
+   * ```js
+   * import { fileURLToPath } from 'url';
+   *
+   * const __filename = fileURLToPath(import.meta.url);
+   *
+   * new URL('file:///C:/path/').pathname;      // Incorrect: /C:/path/
+   * fileURLToPath('file:///C:/path/');         // Correct:   C:\path\ (Windows)
+   *
+   * new URL('file://nas/foo.txt').pathname;    // Incorrect: /foo.txt
+   * fileURLToPath('file://nas/foo.txt');       // Correct:   \\nas\foo.txt (Windows)
+   *
+   * new URL('file:///你好.txt').pathname;      // Incorrect: /%E4%BD%A0%E5%A5%BD.txt
+   * fileURLToPath('file:///你好.txt');         // Correct:   /你好.txt (POSIX)
+   *
+   * new URL('file:///hello world').pathname;   // Incorrect: /hello%20world
+   * fileURLToPath('file:///hello world');      // Correct:   /hello world (POSIX)
+   * ```
+   * @param url The file URL string or URL object to convert to a path.
+   * @return The fully-resolved platform-specific Node.js file path.
+   */
+  function fileURLToPath(url: string | URL): string;
+  /**
+   * This function ensures that `path` is resolved absolutely, and that the URL
+   * control characters are correctly encoded when converting into a File URL.
+   *
+   * ```js
+   * import { pathToFileURL } from 'url';
+   *
+   * new URL('/foo#1', 'file:');           // Incorrect: file:///foo#1
+   * pathToFileURL('/foo#1');              // Correct:   file:///foo%231 (POSIX)
+   *
+   * new URL('/some/path%.c', 'file:');    // Incorrect: file:///some/path%.c
+   * pathToFileURL('/some/path%.c');       // Correct:   file:///some/path%25.c (POSIX)
+   * ```
+   * @param path The path to convert to a File URL.
+   * @return The file URL object.
+   */
+  function pathToFileURL(path: string): URL;
+  /**
+   * This utility function converts a URL object into an ordinary options object as
+   * expected by the `http.request()` and `https.request()` APIs.
+   *
+   * ```js
+   * import { urlToHttpOptions } from 'url';
+   * const myURL = new URL('https://a:b@測試?abc#foo');
+   *
+   * console.log(urlToHttpOptions(myURL));
+   * /*
+   * {
+   *   protocol: 'https:',
+   *   hostname: 'xn--g6w251d',
+   *   hash: '#foo',
+   *   search: '?abc',
+   *   pathname: '/',
+   *   path: '/?abc',
+   *   href: 'https://a:b@xn--g6w251d/?abc#foo',
+   *   auth: 'a:b'
+   * }
+   *
+   * ```
+   * @param url The `WHATWG URL` object to convert to an options object.
+   * @return Options object
+   */
+  function urlToHttpOptions(url: URL): Object;
   /**
    * Browser-compatible `URL` class, implemented by following the WHATWG URL
    * Standard. [Examples of parsed URLs](https://url.spec.whatwg.org/#example-url-parsing) may be found in the Standard itself.
