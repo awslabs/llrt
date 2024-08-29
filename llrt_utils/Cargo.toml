@@ -10,7 +10,7 @@ repository = "https://github.com/awslabs/llrt"
 default = ["all"]
 all = ["ctx", "fs", "encoding"]
 
-ctx = ["tokio/sync"]
+ctx = ["tokio/sync", "rquickjs/futures"]
 fs = ["tokio/fs"]
 encoding = ["base64-simd", "hex-simd", "phf"]
 
