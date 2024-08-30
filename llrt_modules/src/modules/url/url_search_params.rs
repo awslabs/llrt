@@ -1,13 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
-use crate::utils::class::IteratorDef;
+use llrt_utils::class::IteratorDef;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, Array, Class, Coerced, Ctx, Exception,
     FromJs, Function, IntoJs, Null, Object, Result, Symbol, Value,
 };
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
-use url::Url;
+use url_crate::Url;
 
 /// Represents `URLSearchParams` in the JavaScript context
 ///
@@ -227,9 +227,10 @@ impl<'js> URLSearchParams {
                 if !acc.is_empty() {
                     acc.push('&');
                 }
-                url::form_urlencoded::byte_serialize(key.as_bytes()).for_each(|b| acc.push_str(b));
+                url_crate::form_urlencoded::byte_serialize(key.as_bytes())
+                    .for_each(|b| acc.push_str(b));
                 acc.push('=');
-                url::form_urlencoded::byte_serialize(value.as_bytes())
+                url_crate::form_urlencoded::byte_serialize(value.as_bytes())
                     .for_each(|b| acc.push_str(b));
                 acc
             },

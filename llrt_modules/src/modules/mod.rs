@@ -26,5 +26,7 @@ pub mod perf_hooks;
 pub mod process;
 #[cfg(feature = "timers")]
 pub mod timers;
+#[cfg(feature = "url")]
+pub mod url;
 #[cfg(feature = "zlib")]
 pub mod zlib;

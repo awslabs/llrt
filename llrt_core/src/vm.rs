@@ -14,10 +14,8 @@ use std::{
 };
 
 use llrt_modules::timers::{self, poll_timers};
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
 use once_cell::sync::Lazy;
-
-pub use llrt_utils::{ctx::CtxExtension, error::ErrorExtensions};
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -47,7 +45,7 @@ use crate::{
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     number::number_to_string,
     security,
-    utils::{clone::structured_clone, io::get_js_path, object::ObjectExt},
+    utils::{clone::structured_clone, io::get_js_path},
 };
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {

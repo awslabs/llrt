@@ -1,17 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt};
 use rquickjs::{
     class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
     Result, TypedArray, Value,
 };
 
-use crate::{
-    json::parse::json_parse,
-    modules::events::abort_signal::AbortSignal,
-    utils::{class::get_class, object::ObjectExt},
-};
+use crate::{json::parse::json_parse, modules::events::abort_signal::AbortSignal};
 
 use super::{blob::Blob, headers::Headers};
 

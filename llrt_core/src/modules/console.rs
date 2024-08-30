@@ -1,39 +1,34 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::fmt::Write as FormatWrite;
 use std::{
+    fmt::Write as FormatWrite,
     io::{stderr, stdout, IsTerminal, Write},
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
-use rquickjs::function::This;
-use rquickjs::module::{Declarations, Exports, ModuleDef};
+use llrt_utils::{class::get_class_name, object::CreateSymbol};
 use rquickjs::{
     atom::PredefinedAtom,
+    function::This,
+    module::{Declarations, Exports, ModuleDef},
     object::Filter,
     prelude::{Func, Rest},
-    Ctx, Function, Object, Result, Type, Value,
+    Array, Class, Coerced, Ctx, Function, Object, Result, Symbol, Type, Value,
 };
-use rquickjs::{Array, Class, Coerced, Symbol};
 
 use crate::json::stringify::json_stringify;
 use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::number::float_to_string;
-use crate::utils::object::CreateSymbol;
-use crate::{
-    json::escape::escape_json,
-    runtime_client,
-    utils::{class::get_class_name, result::ResultExt},
-};
+use crate::{json::escape::escape_json, runtime_client, utils::result::ResultExt};
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
 
-pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
+use llrt_utils::class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
 
 const NEWLINE: char = '\n';
 const SPACING: char = ' ';

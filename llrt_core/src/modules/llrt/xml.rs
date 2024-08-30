@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, rc::Rc};
 
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use quick_xml::{
     escape::resolve_xml_entity,
     events::{BytesStart, Event},
     Reader,
 };
-
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
@@ -29,9 +28,7 @@ const NEL: &str = "&#x85;";
 const LS: &str = "&#x2028;";
 
 use crate::{
-    module_builder::ModuleInfo,
-    modules::module::export_default,
-    utils::{object::ObjectExt, result::ResultExt},
+    module_builder::ModuleInfo, modules::module::export_default, utils::result::ResultExt,
 };
 
 #[rquickjs::class]

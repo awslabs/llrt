@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::{BTreeMap, HashMap};
 
-pub use llrt_utils::bytes::*;
-pub use llrt_utils::object::*;
-use rquickjs::{
-    atom::PredefinedAtom, Array, Coerced, Ctx, FromJs, Function, IntoJs, Object, Result, Symbol,
-    Value,
-};
+use rquickjs::{Array, Coerced, Ctx, FromJs, IntoJs, Object, Result, Value};
 
 #[allow(dead_code)]
 pub fn array_to_hash_map<'js>(
@@ -57,16 +52,4 @@ where
     }
 
     Ok(array)
-}
-
-pub trait CreateSymbol<'js> {
-    fn for_description(globals: &Object<'js>, description: &'static str) -> Result<Symbol<'js>>;
-}
-
-impl<'js> CreateSymbol<'js> for Symbol<'js> {
-    fn for_description(globals: &Object<'js>, description: &'static str) -> Result<Symbol<'js>> {
-        let symbol_function: Function = globals.get(PredefinedAtom::Symbol)?;
-        let for_function: Function = symbol_function.get(PredefinedAtom::For)?;
-        for_function.call((description,))
-    }
 }

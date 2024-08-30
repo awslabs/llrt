@@ -22,8 +22,9 @@ all = [
   "path",
   "perf-hooks",
   "process",
-  "zlib",
   "timers",
+  "url",
+  "zlib",
 ]
 
 buffer = ["llrt_utils/encoding"]
@@ -45,6 +46,7 @@ path = []
 process = []
 perf-hooks = []
 timers = []
+url = ["url_crate"]
 zlib = ["flate2", "brotlic"]
 
 __bytearray-buffer = ["tokio/sync"]
@@ -78,6 +80,7 @@ uuid-simd = {version = "0.8.0", optional = true }
 rand = { version = "0.8.5", optional = true }
 crc32c = { version = "0.6.8", optional = true }
 crc32fast= { version = "1.4.2", optional = true }
+url_crate = { version = "=2.5.1", package = "url", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 md-5 = { version = "0.10.6", optional = true }

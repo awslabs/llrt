@@ -7,8 +7,6 @@ mod file;
 mod headers;
 mod request;
 mod response;
-pub mod url;
-pub mod url_search_params;
 
 use std::{env, fs::File as StdFile, io, time::Duration};
 
@@ -19,22 +17,17 @@ use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
+use llrt_modules::url::{url_class::URL, url_search_params::URLSearchParams};
+use llrt_utils::class::CustomInspectExtension;
 use once_cell::sync::Lazy;
-
+use rquickjs::{Class, Ctx, Result};
 use rustls::{crypto::ring, version, ClientConfig, RootCertStore};
 use tracing::warn;
 use webpki_roots::TLS_SERVER_ROOTS;
 
-use rquickjs::{Class, Ctx, Result};
+use crate::{environment, modules::http::headers::Headers};
 
-use crate::{
-    environment,
-    {modules::http::headers::Headers, utils::class::CustomInspectExtension},
-};
-
-use self::{
-    file::File, request::Request, response::Response, url::URL, url_search_params::URLSearchParams,
-};
+use self::{file::File, request::Request, response::Response};
 
 pub const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT_SECONDS: u64 = 15;
 
