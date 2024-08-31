@@ -83,7 +83,7 @@ declare module "buffer" {
      * // Prints: <Buffer 00 00 00 00 00>
      * ```
      *
-     * If `fill` is specified, the allocated `Buffer` will be initialized by calling `buf.fill(fill)`.
+     * If `fill` is specified, the allocated `Buffer` will be initialized by calling `Buffer.alloc(size, fill)`.
      *
      * ```js
      * import { Buffer } from 'buffer';
@@ -95,7 +95,7 @@ declare module "buffer" {
      * ```
      *
      * If both `fill` and `encoding` are specified, the allocated `Buffer` will be
-     * initialized by calling `buf.fill(fill, encoding)`.
+     * initialized by calling `Buffer.aloc(size, fill, encoding)`.
      *
      * ```js
      * import { Buffer } from 'buffer';
