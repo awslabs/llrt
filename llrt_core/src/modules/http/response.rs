@@ -225,12 +225,16 @@ struct BodyAttributes {
 impl<'js> Response<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, body: Opt<Value<'js>>, options: Opt<Object<'js>>) -> Result<Self> {
+        let mut url = String::from("");
         let mut status = 200;
         let mut headers = None;
         let mut status_text = None;
         let mut abort_receiver = None;
 
         if let Some(opt) = options.0 {
+            if let Some(url_opt) = opt.get("url")? {
+                url = url_opt;
+            }
             if let Some(status_opt) = opt.get("status")? {
                 status = status_opt;
             }
@@ -264,7 +268,7 @@ impl<'js> Response<'js> {
         Ok(Self {
             body,
             method: "GET".into(),
-            url: "".into(),
+            url,
             start: Instant::now(),
             status,
             status_text,

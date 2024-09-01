@@ -1,29 +1,28 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::{collections::HashSet, time::Instant};
+
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{header::HeaderName, Method, Request, Uri};
-
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{bytes::ObjectBytes, encoding::bytes_from_b64};
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::{Async, Func},
-    Class, Coerced, Ctx, Exception, FromJs, Function, Object, Result, Value,
+    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
 };
 use tokio::select;
-
-use std::{collections::HashSet, time::Instant};
 
 use crate::{
     environment,
     modules::events::abort_signal::AbortSignal,
-    security::{ensure_url_access, HTTP_DENY_LIST},
+    security::{ensure_url_access, HTTP_ALLOW_LIST, HTTP_DENY_LIST},
     utils::{mc_oneshot, result::ResultExt},
+    VERSION,
 };
-use crate::{security::HTTP_ALLOW_LIST, VERSION};
 
-use super::{headers::Headers, response::Response, HTTP_CLIENT};
+use super::{blob::Blob, headers::Headers, response::Response, HTTP_CLIENT};
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
@@ -61,6 +60,10 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 
             async move {
                 let options = options?;
+
+                if options.url.starts_with("data:") {
+                    return parse_data_url(&ctx, &options.url);
+                }
 
                 let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;
                 let mut uri: Uri = initial_uri.clone();
@@ -129,6 +132,51 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
         })),
     )?;
     Ok(())
+}
+
+fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &String) -> Result<Response<'js>> {
+    let url = data_url.trim_start_matches("data:");
+
+    let (mime_type, data) = url
+        .split_once(',')
+        .ok_or_else(|| Exception::throw_type(ctx, "Invalid data URL format"))?;
+
+    let (is_base64, mime_type) = if mime_type.contains("base64") {
+        (
+            true,
+            mime_type
+                .trim()
+                .trim_end_matches("base64")
+                .trim_end_matches(|c| c == ' ' || c == ';'),
+        )
+    } else {
+        (false, mime_type.trim())
+    };
+
+    let mime_type = if mime_type.starts_with(';') {
+        ["text/plain", mime_type].concat()
+    } else if mime_type.is_empty() {
+        "text/plain;charset=US-ASCII".to_string()
+    } else {
+        mime_type.to_string()
+    };
+
+    let body = if is_base64 {
+        bytes_from_b64(data.as_bytes()).map_err(|err| Exception::throw_message(ctx, &err))?
+    } else {
+        data.as_bytes().to_vec()
+    };
+
+    let blob = Blob::from_bytes(body, Some(mime_type.clone())).into_js(ctx)?;
+
+    let headers = Object::new(ctx.clone())?;
+    headers.set("content-type", mime_type)?;
+
+    let options = Object::new(ctx.clone())?;
+    options.set("url", data_url)?;
+    options.set("headers", headers)?;
+
+    Response::new(ctx.clone(), Opt(Some(blob)), Opt(Some(options)))
 }
 
 fn build_request(

@@ -158,4 +158,14 @@ describe("fetch", () => {
       expect(abortController.signal.reason).toBe("aborted");
     }
   });
+  it("should be processing data-url", async () => {
+    const s = "hello";
+    const base64 = Buffer.from(s).toString("base64");
+    const dataURIPrefix = "data:application/octet-stream;base64,";
+    const url = dataURIPrefix + base64;
+    const resp = await fetch(url);
+    const buf = await resp.arrayBuffer();
+    const str = Buffer.from(buf).toString("ascii");
+    expect(str).toEqual(s);
+  });
 });
