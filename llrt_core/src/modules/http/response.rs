@@ -341,8 +341,7 @@ impl<'js> Response<'js> {
         let headers = Headers::from_value(&ctx, self.headers().as_value().clone())?;
         let mime_type = headers
             .iter()
-            .find(|(k, _)| k == &"content-type")
-            .map(|(_, v)| v.to_string());
+            .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(Blob::from_bytes(bytes, mime_type));
         }
