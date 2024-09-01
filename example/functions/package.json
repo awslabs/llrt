@@ -10,7 +10,7 @@
     "@aws-sdk/client-dynamodb": "3.632.0",
     "@aws-sdk/client-ec2": "3.632.0",
     "@aws-sdk/client-s3": "3.633.0",
-    "aws-sdk": "2.1678.0",
+    "aws-sdk": "2.1687.0",
     "esbuild-css-modules-plugin": "3.1.2",
     "react": "18.3.1",
     "react-dom": "18.3.1"
