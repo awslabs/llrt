@@ -135,9 +135,8 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
 }
 
 fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &String) -> Result<Response<'js>> {
-    let url = data_url.trim_start_matches("data:");
-
-    let (mime_type, data) = url
+    let (mime_type, data) = data_url
+        .trim_start_matches("data:")
         .split_once(',')
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid data URL format"))?;
 
@@ -153,7 +152,7 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &String) -> Result<Response<'js
         (false, mime_type.trim())
     };
 
-    let mime_type = if mime_type.starts_with(';') {
+    let content_type = if mime_type.starts_with(';') {
         ["text/plain", mime_type].concat()
     } else if mime_type.is_empty() {
         "text/plain;charset=US-ASCII".to_string()
@@ -167,10 +166,10 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &String) -> Result<Response<'js
         data.as_bytes().to_vec()
     };
 
-    let blob = Blob::from_bytes(body, Some(mime_type.clone())).into_js(ctx)?;
+    let blob = Blob::from_bytes(body, Some(content_type.clone())).into_js(ctx)?;
 
     let headers = Object::new(ctx.clone())?;
-    headers.set("content-type", mime_type)?;
+    headers.set("content-type", content_type)?;
 
     let options = Object::new(ctx.clone())?;
     options.set("url", data_url)?;
