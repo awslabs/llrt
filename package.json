@@ -85,7 +85,7 @@
     "@aws-sdk/s3-presigned-post": "3.635.0",
     "@aws-sdk/s3-request-presigner": "3.635.0",
     "@jest/types": "29.6.3",
-    "@types/chai": "4.3.17",
+    "@types/chai": "4.3.19",
     "@types/readable-stream": "4.0.15",
     "@types/uuid": "10.0.0",
     "esbuild": "0.23.1",
