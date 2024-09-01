@@ -338,14 +338,14 @@ impl<'js> Response<'js> {
     }
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
-        let headers = Headers::from_value(&ctx, self.headers().as_value().clone())?;
-        let mime_type = headers
-            .iter()
-            .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
         if let Some(bytes) = self.take_bytes(&ctx).await? {
+            let headers = Headers::from_value(&ctx, self.headers().as_value().clone())?;
+            let mime_type = headers
+                .iter()
+                .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
             return Ok(Blob::from_bytes(bytes, mime_type));
         }
-        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
+        Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
 
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
