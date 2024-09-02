@@ -134,9 +134,8 @@ pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
     Ok(())
 }
 
-fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &String) -> Result<Response<'js>> {
-    let (mime_type, data) = data_url
-        .trim_start_matches("data:")
+fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> {
+    let (mime_type, data) = data_url["data:".len()..]
         .split_once(',')
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid data URL format"))?;
 
