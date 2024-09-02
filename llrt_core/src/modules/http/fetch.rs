@@ -139,24 +139,26 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> 
         .split_once(',')
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid data URL format"))?;
 
-    let (is_base64, mime_type) = if mime_type.contains("base64") {
-        (
-            true,
-            mime_type
-                .trim()
-                .trim_end_matches("base64")
-                .trim_end_matches(|c| c == ' ' || c == ';'),
-        )
-    } else {
-        (false, mime_type.trim())
-    };
+    let mut is_base64 = false;
+    let mut content_type = String::with_capacity(10);
+    for (i, part) in mime_type.split(";").enumerate() {
+        let part = part.trim();
+        if i == 1 || i == 2 {
+            if part == "base64" {
+                is_base64 = true;
+                break;
+            }
+            content_type.push(';');
+        }
+        content_type.push_str(part)
+    }
 
-    let content_type = if mime_type.starts_with(';') {
-        ["text/plain", mime_type].concat()
-    } else if mime_type.is_empty() {
+    let content_type = if content_type.starts_with(';') {
+        ["text/plain", &content_type].concat()
+    } else if content_type.is_empty() {
         "text/plain;charset=US-ASCII".to_string()
     } else {
-        mime_type.to_string()
+        content_type
     };
 
     let body = if is_base64 {
