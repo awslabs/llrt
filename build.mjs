@@ -702,14 +702,25 @@ async function buildSdks() {
       const sdk = SDKS_BY_SDK_PACKAGES[pkg];
       const sdkIndexFile = path.join(packagePath, "index.js");
       const value = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
-      const serviceNames = Array.isArray(value) ? value : [value];
+      const serviceNames = Array.isArray(value)
+        ? value
+        : value
+          ? [value]
+          : null;
       await fs.mkdir(packagePath, { recursive: true });
 
       let sdkContents = `export * from "${pkg}";`;
       if (serviceNames) {
+        sdkContents += "\nif(__bootstrap.addAwsSdkInitTask){\n";
         for (const serviceName of serviceNames) {
-          sdkContents += `\nif(__bootstrap.addAwsSdkInitTask){\n   __bootstrap.addAwsSdkInitTask("${serviceName}");\n}`;
+          if (!serviceName) {
+            throw new Error(
+              `Service name "${serviceName}" for ${pkg} is invalid`
+            );
+          }
+          sdkContents += `__bootstrap.addAwsSdkInitTask("${serviceName}");\n`;
         }
+        sdkContents += "}\n";
       }
       await fs.writeFile(sdkIndexFile, sdkContents);
 
