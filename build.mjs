@@ -713,6 +713,11 @@ async function buildSdks() {
       if (serviceNames) {
         sdkContents += "\nif(__bootstrap.addAwsSdkInitTask){\n";
         for (const serviceName of serviceNames) {
+          if (!serviceName) {
+            throw new Error(
+              `Service name "${serviceName}" for ${pkg} is invalid`
+            );
+          }
           sdkContents += `__bootstrap.addAwsSdkInitTask("${serviceName}");\n`;
         }
         sdkContents += "}\n";
