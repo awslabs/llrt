@@ -6,15 +6,19 @@ use std::{
     time::Instant,
 };
 
+use brotlic::DecompressorReader as BrotliDecoder;
+use flate2::read::{GzDecoder, ZlibDecoder};
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
 use llrt_utils::bytes::ObjectBytes;
+use once_cell::sync::Lazy;
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
     ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, TypedArray, Value,
 };
 use tokio::{runtime::Handle, select};
+use zstd::stream::read::Decoder as ZstdDecoder;
 
 use crate::{
     json::parse::json_parse,
@@ -23,12 +27,6 @@ use crate::{
 };
 
 use super::{blob::Blob, headers::Headers};
-
-use once_cell::sync::Lazy;
-
-use brotlic::DecompressorReader as BrotliDecoder;
-use flate2::read::{GzDecoder, ZlibDecoder};
-use zstd::stream::read::Decoder as ZstdDecoder;
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -114,14 +112,6 @@ impl<'js> Response<'js> {
         abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     ) -> Result<Self> {
         let response_headers = response.headers();
-        let mut content_type = None;
-        if let Some(content_type_header) =
-            response_headers.get(HeaderName::from_static("content-type"))
-        {
-            if let Ok(content_type_header) = content_type_header.to_str() {
-                content_type = Some(content_type_header.to_owned())
-            }
-        }
 
         let mut content_encoding = None;
         if let Some(content_encoding_header) =
@@ -137,11 +127,6 @@ impl<'js> Response<'js> {
 
         let status = response.status();
 
-        let body_attributes = BodyAttributes {
-            content_type,
-            content_encoding,
-        };
-
         Ok(Self {
             body: Some(BodyVariant::Incoming(Some(response))),
             method,
@@ -151,7 +136,7 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected,
             headers,
-            body_attributes,
+            content_encoding,
             abort_receiver,
         })
     }
@@ -171,7 +156,7 @@ impl<'js> Response<'js> {
                     body.body_mut().collect().await.or_throw(ctx)?.to_bytes()
                 };
 
-                if let Some(content_encoding) = &self.body_attributes.content_encoding {
+                if let Some(content_encoding) = &self.content_encoding {
                     let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
                     match content_encoding.as_str() {
                         "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
@@ -211,26 +196,24 @@ pub struct Response<'js> {
     status_text: Option<String>,
     redirected: bool,
     headers: Class<'js, Headers>,
-    body_attributes: BodyAttributes,
-    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
-}
-
-#[derive(Clone, Debug)]
-struct BodyAttributes {
-    content_type: Option<String>,
     content_encoding: Option<String>,
+    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Response<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, body: Opt<Value<'js>>, options: Opt<Object<'js>>) -> Result<Self> {
+        let mut url = String::from("");
         let mut status = 200;
         let mut headers = None;
         let mut status_text = None;
         let mut abort_receiver = None;
 
         if let Some(opt) = options.0 {
+            if let Some(url_opt) = opt.get("url")? {
+                url = url_opt;
+            }
             if let Some(status_opt) = opt.get("status")? {
                 status = status_opt;
             }
@@ -247,6 +230,7 @@ impl<'js> Response<'js> {
         }
 
         let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
+        let content_encoding = headers.get("content-encoding")?;
 
         let body = body.0.and_then(|body| {
             if body.is_null() || body.is_undefined() {
@@ -256,21 +240,16 @@ impl<'js> Response<'js> {
             }
         });
 
-        let body_attributes = BodyAttributes {
-            content_type: headers.get("content-type")?,
-            content_encoding: headers.get("content-encoding")?,
-        };
-
         Ok(Self {
             body,
             method: "GET".into(),
-            url: "".into(),
+            url,
             start: Instant::now(),
             status,
             status_text,
             redirected: false,
             headers,
-            body_attributes,
+            content_encoding,
             abort_receiver,
         })
     }
@@ -360,10 +339,11 @@ impl<'js> Response<'js> {
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(
-                bytes,
-                self.body_attributes.content_type.clone(),
-            ));
+            let headers = Headers::from_value(&ctx, self.headers().as_value().clone())?;
+            let mime_type = headers
+                .iter()
+                .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
+            return Ok(Blob::from_bytes(bytes, mime_type));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
@@ -388,7 +368,7 @@ impl<'js> Response<'js> {
             status_text: self.status_text.clone(),
             redirected: self.redirected,
             headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
-            body_attributes: self.body_attributes.clone(),
+            content_encoding: self.content_encoding.clone(),
             abort_receiver: self.abort_receiver.clone(),
         })
     }
@@ -404,10 +384,7 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected: false,
             headers: Class::instance(ctx.clone(), Headers::default())?,
-            body_attributes: BodyAttributes {
-                content_type: None,
-                content_encoding: None,
-            },
+            content_encoding: None,
             abort_receiver: None,
         })
     }
@@ -431,13 +408,9 @@ impl<'js> Response<'js> {
         }
 
         let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
+        let content_encoding = headers.get("content-encoding")?;
 
         let body = Some(BodyVariant::Provided(body));
-
-        let body_attributes = BodyAttributes {
-            content_type: headers.get("content-type")?,
-            content_encoding: headers.get("content-encoding")?,
-        };
 
         Ok(Self {
             body,
@@ -448,7 +421,7 @@ impl<'js> Response<'js> {
             status_text,
             redirected: false,
             headers,
-            body_attributes,
+            content_encoding,
             abort_receiver: None,
         })
     }
@@ -471,10 +444,7 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected: false,
             headers,
-            body_attributes: BodyAttributes {
-                content_type: None,
-                content_encoding: None,
-            },
+            content_encoding: None,
             abort_receiver: None,
         })
     }
