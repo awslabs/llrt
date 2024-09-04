@@ -28,6 +28,8 @@ jobs:
         with:
           toolchain: ${{ inputs.toolchain }}
       - name: Run build features
+        env:
+          RUSTFLAGS: ""
         run: |
           features=("buffer"
                     "child-process"
