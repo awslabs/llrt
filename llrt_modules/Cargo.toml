@@ -66,7 +66,7 @@ rquickjs = { version = "0.6", features = [
   "futures",
 ], default-features = false }
 ring = { version = "0.17", optional = true }
-tokio = { version = "1", features = ["rt", "io-util"] }
+tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 flate2 = { version = "1.0.30", features = [
   "zlib-ng",
@@ -76,10 +76,10 @@ uuid = { version = "1.10.0", default-features = false, features = [
   "v4",
   "fast-rng",
 ], optional = true }
-uuid-simd = {version = "0.8.0", optional = true }
+uuid-simd = { version = "0.8.0", optional = true }
 rand = { version = "0.8.5", optional = true }
 crc32c = { version = "0.6.8", optional = true }
-crc32fast= { version = "1.4.2", optional = true }
+crc32fast = { version = "1.4.2", optional = true }
 url_crate = { version = "=2.5.1", package = "url", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
