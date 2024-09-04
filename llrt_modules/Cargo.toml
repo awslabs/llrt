@@ -29,12 +29,23 @@ all = [
 
 buffer = ["llrt_utils/encoding"]
 child-process = ["events", "__stream", "libc", "itoa", "tokio/process"]
-crypto = ["crc32c", "crc32fast", "md-5", "rand", "uuid", "uuid-simd"]
+crypto = [
+  "llrt_utils/encoding",
+  "crc32c",
+  "crc32fast",
+  "md-5",
+  "rand",
+  "uuid",
+  "uuid-simd",
+  "once_cell",
+  "ring",
+  "buffer",
+]
 events = []
 exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 navigator = []
-net = ["events", "__stream", "tokio/net"]
+net = ["events", "__stream", "tokio/net", "tokio/sync"]
 os = [
   "libc",
   "windows-result",
@@ -45,7 +56,7 @@ os = [
 path = []
 process = []
 perf-hooks = []
-timers = ["tokio/time"]
+timers = ["tokio/time", "tokio/sync", "once_cell"]
 url = ["url_crate"]
 zlib = ["flate2", "brotlic"]
 
