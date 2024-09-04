@@ -47,6 +47,7 @@ jobs:
                     "url"
                     "zlib")
           for feature in "${features[@]}"; do
+            echo "Compiling feature: $feature"
             cargo build -p llrt_modules --no-default-features --features $feature
           done
       - name: Run build

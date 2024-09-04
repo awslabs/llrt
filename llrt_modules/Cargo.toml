@@ -45,7 +45,7 @@ events = []
 exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 navigator = []
-net = ["events", "__stream", "tokio/net", "tokio/sync"]
+net = ["events", "__stream", "itoa", "tokio/net", "tokio/sync"]
 os = [
   "libc",
   "windows-result",
