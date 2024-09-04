@@ -28,13 +28,13 @@ all = [
 ]
 
 buffer = ["llrt_utils/encoding"]
-child-process = ["events", "__stream", "itoa"]
+child-process = ["events", "__stream", "itoa", "tokio/process"]
 crypto = ["crc32c", "crc32fast", "md-5", "rand", "uuid", "uuid-simd"]
 events = []
 exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 navigator = []
-net = ["events", "__stream"]
+net = ["events", "__stream", "tokio/net"]
 os = [
   "libc",
   "windows-result",
@@ -45,7 +45,7 @@ os = [
 path = []
 process = []
 perf-hooks = []
-timers = []
+timers = ["tokio/time"]
 url = ["url_crate"]
 zlib = ["flate2", "brotlic"]
 
@@ -66,7 +66,7 @@ rquickjs = { version = "0.6", features = [
   "futures",
 ], default-features = false }
 ring = { version = "0.17", optional = true }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt", "io-util", "macros"] }
 tracing = "0.1"
 flate2 = { version = "1.0.30", features = [
   "zlib-ng",

@@ -26,7 +26,30 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: ${{ inputs.toolchain }} # Modules should work on stable, not just nightly
+          toolchain: ${{ inputs.toolchain }}
+      - name: Run build features
+        run: |
+          features=("buffer"
+                    "child-process"
+                    "crypto"
+                    "events"
+                    "exceptions"
+                    "fs"
+                    "navigator"
+                    "net"
+                    "os"
+                    "path"
+                    "process"
+                    "perf-hooks"
+                    "timers"
+                    "url"
+                    "zlib")
+          for feature in "${features[@]}"; do
+            cargo build -p llrt_modules --no-default-features --features $feature
+          done
+      - name: Run build
+        run: |
+          cargo build -p llrt_modules
       - name: Run tests
         run: |
           cargo test -p llrt_modules
