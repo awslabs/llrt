@@ -6,7 +6,7 @@ on:
         required: true
         type: string
     secrets:
-      registry-token:
+      CRATES_IO_TOKEN:
         required: true
 
 jobs:

@@ -89,4 +89,4 @@ jobs:
     with:
       ref: ${{ github.ref }}
     secrets:
-      registry-token: ${{ secrets.registry-token }}
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
