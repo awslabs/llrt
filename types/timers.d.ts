@@ -16,11 +16,9 @@ declare module "timers" {
      * Schedules execution of a one-time `callback` after `delay` milliseconds.
      *
      * The `callback` will likely not be invoked in precisely `delay` milliseconds.
-     * Caido makes no guarantees about the exact timing of when callbacks will fire,
+     * LLRT makes no guarantees about the exact timing of when callbacks will fire,
      * nor of their ordering. The callback will be called as close as possible to the
-     * time specified.
-     *
-     * When `delay` is less than `4`, the `delay` will be set to `4`.
+     * time specified. The precision is limited to 4ms.
      *
      * @param callback The function to call when the timer elapses.
      * @param [delay=4] The number of milliseconds to wait before calling the `callback`.
@@ -40,7 +38,10 @@ declare module "timers" {
     /**
      * Schedules repeated execution of `callback` every `delay` milliseconds.
      *
-     * When `delay` isless than `4`, the `delay` will be set to `4`.
+     * The `callback` will likely not be invoked at precisely `delay` milliseconds.
+     * LLRT makes no guarantees about the exact timing of when callbacks will fire,
+     * nor of their ordering. The callback will be called as close as possible to the
+     * time specified. The precision is limited to 4ms.
      *
      * @param callback The function to call when the timer elapses.
      * @param [delay=4] The number of milliseconds to wait before calling the `callback`.
