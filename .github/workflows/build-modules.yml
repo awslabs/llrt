@@ -28,6 +28,7 @@ jobs:
         with:
           toolchain: ${{ inputs.toolchain }}
       - name: Run build features
+        shell: bash
         env:
           RUSTFLAGS: ""
         run: |
