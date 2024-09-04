@@ -28,7 +28,7 @@ all = [
 ]
 
 buffer = ["llrt_utils/encoding"]
-child-process = ["events", "__stream", "itoa", "tokio/process"]
+child-process = ["events", "__stream", "libc", "itoa", "tokio/process"]
 crypto = ["crc32c", "crc32fast", "md-5", "rand", "uuid", "uuid-simd"]
 events = []
 exceptions = []
