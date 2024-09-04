@@ -58,7 +58,7 @@ process = []
 perf-hooks = []
 timers = ["tokio/time", "tokio/sync", "once_cell"]
 url = ["url_crate"]
-zlib = ["flate2", "brotlic"]
+zlib = ["buffer", "flate2", "brotlic"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
