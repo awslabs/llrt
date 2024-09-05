@@ -16,7 +16,7 @@ use std::io::Write;
 use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};
 
-const BUNDLE_JS_DIR: &str = "../bundle/js";
+const BUNDLE_DIR: &str = "../bundle";
 
 include!("src/bytecode.rs");
 
@@ -38,7 +38,7 @@ include!("src/compiler_common.rs");
 async fn main() -> StdResult<(), Box<dyn Error>> {
     set_nightly_cfg();
 
-    rerun_if_changed!(BUNDLE_JS_DIR);
+    rerun_if_changed!(BUNDLE_DIR);
     rerun_if_changed!("Cargo.toml");
     rerun_if_changed!("patches");
 
@@ -52,8 +52,20 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     let ctx = Context::full(&rt)?;
 
     let out_dir = env::var("OUT_DIR").unwrap();
+    let out_dir: PathBuf = out_dir.into();
+    let mut components = out_dir.components();
+    components.next_back();
+    components.next_back();
+    components.next_back();
+    // components.next_back();
+    let out_dir = components.as_path().join("llrt_bytecode");
 
-    let sdk_bytecode_path = Path::new(&out_dir).join("bytecode_cache.rs");
+    info!("outdir={:?}", &out_dir);
+
+    let _ = fs::remove_dir_all(&out_dir);
+    let _ = fs::create_dir_all(&out_dir);
+
+    let sdk_bytecode_path = out_dir.join("bytecode_cache.rs");
     let mut sdk_bytecode_file = BufWriter::new(File::create(sdk_bytecode_path)?);
 
     let mut ph_map = phf_codegen::Map::<String>::new();
@@ -63,10 +75,10 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
     fs::write("../VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
 
     ctx.with(|ctx| {
-        for dir_ent in WalkDir::new(BUNDLE_JS_DIR).into_iter().flatten() {
+        for dir_ent in WalkDir::new(BUNDLE_DIR).into_iter().flatten() {
             let path = dir_ent.path();
 
-            let path = path.strip_prefix(BUNDLE_JS_DIR)?.to_owned();
+            let path = path.strip_prefix(BUNDLE_DIR)?.to_owned();
             let path_str = path.to_string_lossy().to_string();
 
             if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js" {
@@ -78,6 +90,10 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
                 if path == PathBuf::new().join("@llrt").join("test.js") {
                     continue;
                 }
+            }
+
+            if path == PathBuf::new().join("@llrt").join("std.js") {
+                continue;
             }
 
             #[cfg(feature = "no-sdk")]
@@ -156,9 +172,9 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
         .to_string_lossy()
         .to_string();
 
-    if cfg!(feature = "uncompressed") {
-        generate_compression_dictionary(&compression_dictionary_path, &lrt_filenames)?;
-    } else {
+    generate_compression_dictionary(&compression_dictionary_path, &lrt_filenames)?;
+
+    if cfg!(not(feature = "uncompressed")) {
         total_bytes = compress_bytecode(compression_dictionary_path, lrt_filenames)?;
 
         info!(
@@ -189,8 +205,6 @@ fn set_nightly_cfg() {
 }
 
 fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::Result<usize> {
-    generate_compression_dictionary(&dictionary_path, &source_files)?;
-
     let mut total_size = 0;
     let tmp_dir = env::temp_dir();
 

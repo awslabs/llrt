@@ -84,9 +84,10 @@ define lambda_release_template
 release-${1}${2}: | llrt-lambda-${1}${2} llrt-container-${1}${2}
 
 llrt-lambda-${1}${2}: export SDK_BUNDLE_MODE = ${3}
-llrt-lambda-${1}${2}: | clean-js js
-	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
-	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+llrt-lambda-${1}${2}:
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed -vvv
+	node embed.mjs target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt_bytecode target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bytecode -r
+	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bytecode target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt_bytecode/compression.dict
 	@rm -rf llrt-lambda-${1}${2}.zip
 	zip -j llrt-lambda-${1}${2}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 

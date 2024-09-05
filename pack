@@ -4,9 +4,9 @@
 
 set -e
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -lt 2 ]; then
   echo "Error: Two file arguments are required."
-  echo "Usage: $0 input_file output_file"
+  echo "Usage: $0 input_file output_file <additional file>"
   exit 1
 fi
 
@@ -17,6 +17,13 @@ data_size=$(wc -c < "$1")
 
 srcfile="$1"
 dstfile="$2"
+additional_file="$3"
+additional_file_dict="$4"
+
+if [ ! -z "$additional_file" ] && [ ! -f "$additional_file" ]; then
+    echo "Error: Additional file $additional_file does not exist."
+    exit 1
+fi
 
 # Check if the bytes start with \x7fELF
 if [[ $(hexdump -n 4 -e '4/1 "%02x"' $srcfile) != "7f454c46" ]]; then
@@ -37,14 +44,43 @@ else
     exit 1
 fi
 
-
 # Create a temporary directory to store the parts
 temp_folder=$(mktemp -d)
 
-# Split the file into parts and compress each part using lz4
+# Split the file into parts and compress each part using zstd
 split -n ${num_parts} $srcfile ${temp_folder}/part_
 
-compressed_data=""
+
+function to_u8le() {
+    for num in "$@"; do
+        printf "%02x" $num |  xxd -r -p
+    done
+}
+
+
+function to_u32le() {
+    for num in "$@"; do
+        local le_hex=$(printf "%08x" $num | sed 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/')
+        printf "$le_hex" | xxd -r -p
+    done
+}
+
+
+function compress(){
+    local src=$1
+    local dst=$2
+    local dict=$3
+
+    local dict_args=""
+
+    if [ ! -z "$dict" ]; then
+        dict_args="-D ${dict}"
+    fi
+
+    zstd --ultra $dict_args -22 --no-check -f "$src" -o "${dst}"
+}
+
+compressed_file="${temp_folder}/compressed"
 
 input_sizes=()
 output_sizes=()
@@ -53,9 +89,10 @@ total_output_size=0
 working_dir=$(pwd)
 
 for file in ${temp_folder}/*; do
+    touch $compressed_file
     filename=$(basename $file)
     echo "Compressing $filename..."
-    (cd $(dirname $file) && zstd --ultra -22 --no-check -f "$filename" -o "${filename}.zst")
+    (cd $(dirname $file) && compress "$filename" "${filename}.zst")
     output_size=$(wc -c < "${file}")
     input_size=$(wc -c < "${file}.zst")
     input_sizes+=($input_size)
@@ -63,44 +100,48 @@ for file in ${temp_folder}/*; do
     total_input_size=$((total_input_size + input_size))
     total_output_size=$((total_output_size + output_size))
 
-    hex_data=$(hexdump -v -e '/1 " %02x"' "${file}.zst" | sed 's/ /\\\\x/g')
-
-    compressed_data="${compressed_data}${hex_data}"
-
+    cat "${file}.zst" >> $compressed_file
     rm "${file}"
 done
 
-function little_endian_hex()
-{
-    local hex_code=""
-    local number
-
-    for number in "$@"; do
-        byte=$(printf "%08x" $number | sed -r 's/(..)(..)(..)(..)/\4\3\2\1/')
-        hex_code="${hex_code}${byte}"
-    done
-
-    # Insert \x separators between bytes
-    hex_code=$(echo "$hex_code" | sed 's/../\\x&/g')
-
-    echo "$hex_code"
-}
-
-INPUT_SIZES_STR=$(little_endian_hex ${input_sizes[@]})
-OUTPUT_SIZES_STR=$(little_endian_hex ${output_sizes[@]})
-
-cat <<EOF > ${temp_folder}/data.c
-const char *data = "$(printf "\\\x%02x" $num_parts)${INPUT_SIZES_STR}${OUTPUT_SIZES_STR}$(printf "$compressed_data")";
-EOF
 
 cp "$1" "${1}.bak"
-cp llrt/src/main.c $temp_folder/
 
-echo "Compiling..."
+echo "Compiling for $target..."
 
 original_size=$(du -h $srcfile | cut -f1)
 
-zig cc -target $target -Wno-null-character -std=c99 -Wall -O3 -flto -s ${temp_folder}/main.c -o $dstfile -Ilib -Llib/${arch} -static -lzstd
+zig cc -target $target -Wno-null-character -std=c99 -Wall -O3 -flto -s llrt/src/main.c -o $dstfile -Ilib -Llib/${arch} -static -lzstd
+
+dst_size=$(wc -c < "${dstfile}")
+
+
+echo "Done. Appending compressed binary..."
+
+to_u8le $num_parts >> "${dstfile}"
+to_u32le ${input_sizes[@]} >> "${dstfile}"
+to_u32le ${output_sizes[@]} >> "${dstfile}"
+cat $compressed_file >> "${dstfile}"
+
+if [ ! -z "$additional_file" ]; then
+  echo  "Done. Appending additional data..."
+  filename=$(basename $additional_file)
+  additional_size=$(wc -c < "$additional_file")
+
+  echo "Compressing $additional_size..."
+
+  cp "$additional_file" "${temp_folder}/${filename}"
+  if [ ! -z "$additional_file_dict" ]; then
+    cp "$additional_file_dict" "${temp_folder}/${filename}.dict"
+  fi
+  (cd "${temp_folder}" && compress "${filename}" "${filename}.zst" "${filename}.dict")
+
+  cat "${temp_folder}/${filename}.zst" >> "${dstfile}"
+
+  to_u32le $additional_size >> "${dstfile}"
+fi
+
+to_u32le $dst_size >> "${dstfile}"
 
 new_size=$(du -h $dstfile | cut -f1)
 

@@ -10,7 +10,7 @@ process.env.NODE_PATH = ".";
 const TMP_DIR = `.tmp-llrt-aws-sdk`;
 const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
-const OUT_DIR = "bundle/js";
+const OUT_DIR = "bundle";
 const SHIMS = new Map();
 const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
 
@@ -662,7 +662,7 @@ async function loadShims() {
 
 async function buildLibrary() {
   const defaultLibEsBuildOption = {
-    chunkNames: "llrt-[name]-runtime-[hash]",
+    chunkNames: "lrtrt-[name]-[hash]",
     ...ES_BUILD_OPTIONS,
     splitting: false,
     keepNames: true,
@@ -741,7 +741,7 @@ async function buildSdks() {
         "fast-xml-parser": "llrt:xml",
         uuid: "llrt:uuid",
       },
-      chunkNames: "llrt-[name]-sdk-[hash]",
+      chunkNames: "lrt[hash]",
       metafile: true,
       ...ES_BUILD_OPTIONS,
     }),

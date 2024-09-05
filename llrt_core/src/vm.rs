@@ -6,15 +6,23 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    io,
+    fs::{self, File},
+    io::{self, Read, Seek},
+    mem::size_of,
+    ops::Range,
+    os::unix::fs::MetadataExt,
     path::{Component, Path, PathBuf},
     process::exit,
+    rc::Rc,
     result::Result as StdResult,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use llrt_modules::timers::{self, poll_timers};
-use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
+use llrt_utils::{
+    bytes::ObjectBytes, encoding::bytes_to_hex_string, error::ErrorExtensions, object::ObjectExt,
+};
+use memmap2::{Advice, MmapOptions};
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
 use rquickjs::{
@@ -31,12 +39,218 @@ use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
+//include!(concat!(env!("OUT_DIR"), "/../../../../bytecode_cache.rs"));
 
-use crate::modules::{
-    console,
-    crypto::SYSTEM_RANDOM,
-    path::{dirname, join_path, resolve_path},
+#[cfg(unix)]
+fn file_from_raw_fd(raw_fd: i32) -> std::io::Result<File> {
+    #[cfg(not(unix))]
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Unsupported on non-unix platforms",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::fd::FromRawFd;
+        let dup_fd = unsafe { libc::dup(raw_fd) };
+        if dup_fd == -1 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(unsafe { File::from_raw_fd(dup_fd) })
+    }
+}
+
+fn u32_from_le_byte_slice_unchecked(bytes: &[u8]) -> u32 {
+    (bytes[0] as u32)
+        | ((bytes[1] as u32) << 8)
+        | ((bytes[2] as u32) << 16)
+        | ((bytes[3] as u32) << 24)
+}
+
+fn u16_from_le_byte_slice_unchecked(bytes: &[u8]) -> u16 {
+    (bytes[0] as u16) | ((bytes[1] as u16) << 8)
+}
+
+#[derive(Default)]
+struct BytecodeCache {
+    data: Vec<u8>,
+    map: HashMap<Box<str>, Range<usize>>,
+}
+
+impl BytecodeCache {
+    pub fn new(data: Vec<u8>, start_position: usize, length: usize, package_count: usize) -> Self {
+        let mut offset = start_position;
+        let mut map = HashMap::with_capacity(package_count);
+
+        loop {
+            let name_len_start = offset;
+            let name_len_end = offset + size_of::<u16>();
+            let name_len =
+                u16_from_le_byte_slice_unchecked(&data[name_len_start..name_len_end]) as usize;
+            let bytecode_pos_start = name_len_end + name_len;
+
+            let name =
+                unsafe { std::str::from_utf8_unchecked(&data[name_len_end..bytecode_pos_start]) };
+
+            let bytecode_pos_end = bytecode_pos_start + size_of::<u32>();
+            let bytecode_pos =
+                u32_from_le_byte_slice_unchecked(&data[bytecode_pos_start..bytecode_pos_end])
+                    as usize;
+
+            let bytecode_size_start = bytecode_pos_end;
+            let bytecode_size_end = bytecode_size_start + size_of::<u32>();
+            let bytecode_size =
+                u32_from_le_byte_slice_unchecked(&data[bytecode_size_start..bytecode_size_end])
+                    as usize;
+
+            map.insert(name.into(), bytecode_pos..bytecode_pos + bytecode_size);
+
+            offset = bytecode_size_end;
+
+            if offset >= length - 1 {
+                break;
+            }
+        }
+
+        Self { data, map }
+    }
+
+    fn has(&self, name: &str) -> bool {
+        self.map.contains_key(name)
+    }
+
+    fn get(&self, name: &str) -> Option<&[u8]> {
+        self.map.get(name).map(|range| &self.data[range.clone()])
+    }
+}
+
+static EMBEDDED_BYTECODE_DATA: Lazy<RwLock<BytecodeCache>> = Lazy::new(|| {
+    let init = || {
+        let now = Instant::now();
+        trace!("Loading embedded bytecode");
+        let argv_0 = env::args().next().expect("Failed to get argv0");
+
+        let mut file = if let Ok(fd_string) = env::var("LLRT_MEM_FD") {
+            let mem_fd: i32 = fd_string.parse().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Invalid bytecode-cache fd")
+            })?;
+            trace!("Using raw memfd bytecode cache");
+            file_from_raw_fd(mem_fd)
+        } else {
+            File::open(argv_0)
+        }?;
+
+        let offset: u64 = if let Ok(offset_string) = env::var("LLRT_BYTECODE_OFFSET") {
+            offset_string.parse().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Invalid bytecode-cache offset")
+            })?
+        } else {
+            0
+        };
+
+        let size: usize = if let Ok(size_string) = env::var("LLRT_BYTECODE_SIZE") {
+            size_string.parse().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Invalid bytecode-cache size")
+            })?
+        } else {
+            file.metadata()?.size() as usize
+        };
+
+        let mmap = unsafe { MmapOptions::new().offset(offset).len(size).map(&file)? };
+        mmap.advise(Advice::Sequential).unwrap();
+
+        println!(
+            "Size + offset : {},{},{}",
+            size,
+            offset,
+            file.metadata()?.size()
+        );
+
+        let mut buf2 = Vec::new();
+
+        file.read_to_end(&mut buf2)?;
+
+        let compressed_bytes_end_index = mmap.len() - 4;
+
+        println!("End index: {}", compressed_bytes_end_index);
+
+        let uncompressed_size =
+            u32_from_le_byte_slice_unchecked(&mmap[compressed_bytes_end_index..]) as usize;
+
+        println!("Uncompressed size : {}", uncompressed_size);
+
+        let mut bytecode_bundle = Vec::with_capacity(uncompressed_size);
+        let mut decompressor = Decompressor::with_prepared_dictionary(&DECOMPRESSOR_DICT)?;
+        decompressor
+            .decompress_to_buffer(&mmap[0..compressed_bytes_end_index], &mut bytecode_bundle)?;
+
+        println!("Extraction took {:?}", now.elapsed());
+
+        drop(mmap);
+
+        let total_file_size = bytecode_bundle.len();
+
+        let signature_len = BYTECODE_EMBEDDED_SIGNATURE.len();
+        let signed_signature_len = signature_len as isize;
+
+        if &bytecode_bundle[(total_file_size as isize - signed_signature_len) as usize..]
+            != BYTECODE_EMBEDDED_SIGNATURE
+        {
+            return Ok(RwLock::new(BytecodeCache::default()));
+        }
+
+        #[repr(C)]
+        #[derive(Debug)]
+        struct EmbeddedMeta {
+            package_count: u32,
+            bytecode_pos: u32,
+            package_index_pos: u32,
+        }
+
+        let embedded_meta_size = size_of::<EmbeddedMeta>();
+        let meta_and_signature_size = embedded_meta_size + signature_len;
+
+        let meta_start = (total_file_size as isize - meta_and_signature_size as isize) as usize;
+        let meta_end = (total_file_size as isize - signature_len as isize) as usize;
+
+        let embedded_metadata: EmbeddedMeta =
+            unsafe { std::ptr::read(bytecode_bundle[meta_start..meta_end].as_ptr() as *const _) };
+
+        println!("Metadata: {:?}", embedded_metadata);
+
+        let bytecode_pos = embedded_metadata.bytecode_pos as usize;
+        let start_position = embedded_metadata.package_index_pos as usize;
+        let end_pos = total_file_size as usize - meta_and_signature_size;
+        let length = end_pos - bytecode_pos;
+
+        trace!(
+            "Loading bytecode cache of {} kB",
+            (end_pos - bytecode_pos) / 1024
+        );
+
+        let bytecode_cache = BytecodeCache::new(
+            bytecode_bundle,
+            start_position,
+            length,
+            embedded_metadata.package_count as usize,
+        );
+
+        trace!("Building cache took: {:?}", now.elapsed());
+
+        io::Result::Ok(RwLock::new(bytecode_cache))
+    };
+
+    init().unwrap()
+});
+
+use crate::{
+    bytecode::BYTECODE_EMBEDDED_SIGNATURE,
+    modules::{
+        console,
+        crypto::SYSTEM_RANDOM,
+        path::{dirname, join_path, resolve_path},
+    },
 };
 
 use crate::{
@@ -56,8 +270,10 @@ pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     Ok((uncompressed_size, rest))
 }
 
-pub(crate) static COMPRESSION_DICT: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
+pub(crate) static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(
+    env!("OUT_DIR"),
+    "/../../../llrt_bytecode/compression.dict"
+));
 
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
@@ -119,7 +335,9 @@ impl Resolver for BinaryResolver {
     fn resolve(&mut self, _ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         trace!("Try resolve \"{}\" from \"{}\"", name, base);
 
-        if BYTECODE_CACHE.contains_key(name) {
+        let cache = EMBEDDED_BYTECODE_DATA.read().unwrap();
+
+        if cache.has(name) {
             return Ok(name.to_string());
         }
 
@@ -149,11 +367,11 @@ impl Resolver for BinaryResolver {
 
         trace!("Normalized path: {}, key: {}", normalized_path, cache_key);
 
-        if BYTECODE_CACHE.contains_key(cache_key) {
+        if cache.has(cache_key) {
             return Ok(cache_key.to_string());
         }
 
-        if BYTECODE_CACHE.contains_key(base) {
+        if cache.has(base) {
             normalized_path = name;
             if Path::new(normalized_path).exists() {
                 return Ok(normalized_path.to_string());
@@ -239,7 +457,10 @@ impl Loader for BinaryLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
         trace!("Loading module: {}", name);
         let ctx = ctx.clone();
-        if let Some(bytes) = BYTECODE_CACHE.get(name) {
+
+        let cache = EMBEDDED_BYTECODE_DATA.read().unwrap();
+
+        if let Some(bytes) = cache.get(name) {
             trace!("Loading embedded module: {}", name);
 
             return load_bytecode_module(ctx, name, bytes);
@@ -410,7 +631,7 @@ impl Vm {
                     init_global(&ctx)?;
                 }
                 timers::init_timers(&ctx)?;
-                init(&ctx, module_names)?;
+                let _ = init(&ctx, module_names)?;
                 Ok(())
             })()
             .catch(&ctx)
@@ -593,8 +814,13 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             } else {
                 specifier
             };
-            let import_name = if module_names.contains(specifier.as_str())
-                || BYTECODE_CACHE.contains_key(&specifier)
+
+            let cache = EMBEDDED_BYTECODE_DATA.read().unwrap();
+
+            let specifier_ref = specifier.as_str();
+
+            let import_name = if module_names.contains(specifier_ref)
+                || cache.has(specifier_ref)
                 || specifier.starts_with('/')
             {
                 specifier
@@ -604,6 +830,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 let import_directory = dirname(abs_path);
                 join_path(vec![import_directory, specifier])
             };
+
+            drop(cache);
 
             let mut map = require_in_progress.lock().unwrap();
             if let Some(obj) = map.get(&import_name) {
@@ -663,7 +891,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         }),
     )?;
 
-    () = Module::import(ctx, "@llrt/std")?.finish()?;
+    let mut opts = EvalOptions::default();
+    opts.global = false;
+    opts.strict = false;
+    opts.promise = true;
+
+    ctx.eval_with_options(include_str!("../../bundle/@llrt/std.js"), opts)?;
 
     Ok(())
 }

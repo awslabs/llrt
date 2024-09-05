@@ -25,7 +25,6 @@ chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 quick-xml = "0.36.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
-phf = "0.11.2"
 rquickjs = { version = "0.6.2", features = [
     "full-async",
     "parallel",
@@ -78,6 +77,8 @@ flate2 = { version = "1.0.30", features = [
 ], default-features = false }
 brotlic = "0.8.2"
 rustls-pemfile = "2.1.2"
+url = "=2.5.1"
+memmap2 = "0.9.4"
 
 [build-dependencies]
 rquickjs = { version = "0.6.2", features = [

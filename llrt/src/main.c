@@ -12,13 +12,13 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <err.h>
-#include <errno.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <zstd.h>
 #include <stdarg.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <fcntl.h>
 
 #ifdef __x86_64__
 #define MEMFD_CREATE_SYSCALL_ID 319
@@ -106,7 +106,7 @@ void logError(const char *format, ...)
   }
 }
 
-static uint32_t calculateSum(uint32_t *array, uint8_t size)
+static uint32_t sumArray(uint32_t *array, uint8_t size)
 {
   uint32_t sum = 0;
   for (uint8_t i = 0; i < size; i++)
@@ -128,12 +128,17 @@ typedef struct
   uint32_t srcSize;
   uint32_t dstSize;
   uint32_t id;
+  uint32_t extraSize;
   const void *inputBuffer;
   const void *outputBuffer;
+  const void *extraSrc;
+  const void *extraDst;
 } DecompressThreadArgs;
 
 static void *decompressPartial(void *arg)
 {
+  double t0 = micro_seconds();
+
   DecompressThreadArgs *args = (DecompressThreadArgs *)arg;
   size_t srcSize = args->srcSize;
   size_t dstSize = args->dstSize;
@@ -145,18 +150,30 @@ static void *decompressPartial(void *arg)
     printf("%s!\n", ZSTD_getErrorName(dSize));
     return (void *)1;
   }
+
+  logInfo("Started thread %d\n", args->id);
+
+  if (args->id == 0)
+  {
+    memcpy(args->extraDst, args->extraSrc, args->extraSize);
+  }
+
+  double t1 = micro_seconds();
+
+  logInfo("Extraction thread %d: %10.4f ms\n", args->id, (t1 - t0) / 1000.0);
   return (void *)0;
 }
 
 extern char **environ;
 
 static void readData(
-    const char *data,
+    const void *data,
     uint8_t parts,
     uint32_t **inputSizes,
     uint32_t **outputSizes,
     uint8_t **compressedData,
-    uint32_t *uncompressedSize)
+    uint32_t *uncompressedSize,
+    uint32_t *extraDataOffset)
 {
   uint32_t metadataSize = sizeof(uint32_t) * parts;
 
@@ -166,20 +183,21 @@ static void readData(
   // Extract output sizes
   *outputSizes = (uint32_t *)&data[1 + metadataSize];
 
-  *uncompressedSize = calculateSum(*outputSizes, parts);
+  *uncompressedSize = sumArray(*outputSizes, parts);
+  uint32_t totalInputSize = sumArray(*inputSizes, parts);
 
   // Calculate the offset to the compressed data
   uint8_t dataOffset = 1 + (2 * metadataSize);
 
   *compressedData = (uint8_t *)&data[dataOffset];
+  *extraDataOffset = dataOffset + totalInputSize;
 }
 
-static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int outputFd)
+static void decompress(void *payload, uint32_t payloadSize, void **uncompressedData, uint32_t *uncompressedSize, uint32_t *extraDataOffset, int outputFd)
 {
 
-#include "data.c"
+  uint8_t parts = *((uint8_t *)payload);
 
-  uint8_t parts = data[0];
   uint32_t *inputSizes;
   uint32_t *outputSizes;
   uint32_t inputOffset = 0;
@@ -198,18 +216,23 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     logInfo("Decompressing\n");
   }
 
-  readData(data, parts, &inputSizes, &outputSizes, &compressedData, uncompressedSize);
+  readData(payload, parts, &inputSizes, &outputSizes, &compressedData, uncompressedSize, extraDataOffset);
 
-  if (ftruncate(outputFd, *uncompressedSize) == -1)
+  uint32_t extraSize = payloadSize - *extraDataOffset - sizeof(int32_t);
+
+  if (ftruncate(outputFd, *uncompressedSize + extraSize) == -1)
   {
-    err(1, "Failed to set file size");
+    err(1, "Failed to set output file size");
   }
 
-  uncompressed = mmap(NULL, *uncompressedSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
+  uncompressed = mmap(NULL, *uncompressedSize + extraSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
   if (uncompressed == MAP_FAILED || !uncompressed)
   {
     err(1, "Memory mapping failed: Unable to map %u bytes. Make sure you have enough memory available", *uncompressedSize);
   }
+
+  void *extraDst = uncompressed + *uncompressedSize;
+  void *extraSrc = payload + *extraDataOffset;
 
   DecompressThreadArgs args[parts];
   for (uint32_t i = 0; i < parts; i++)
@@ -219,8 +242,15 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
     args[i].srcSize = inputSizes[i];
     args[i].dstSize = outputSizes[i];
     args[i].id = i;
+    args[i].extraSize = 0;
     inputOffset += inputSizes[i];
     outputOffset += outputSizes[i];
+    if (i == 0)
+    {
+      args[i].extraSrc = extraSrc;
+      args[i].extraDst = extraDst;
+      args[i].extraSize = extraSize;
+    }
     if (parts > 1)
     {
       pthread_create(&threads[i], NULL, decompressPartial, (void *)&args[i]);
@@ -246,16 +276,33 @@ static void decompress(char **uncompressedData, uint32_t *uncompressedSize, int 
   *uncompressedData = uncompressed;
 }
 
+typedef struct
+{
+  void *addr;
+  size_t length;
+} UnmapThreadArgs;
+
+void *unmapThread(void *arg)
+{
+  UnmapThreadArgs *args = (UnmapThreadArgs *)arg;
+
+  if (munmap(args->addr, args->length) == -1)
+  {
+    err(1, "Failed to unmap memory");
+  }
+
+  return NULL;
+}
+
 int main(int argc, char *argv[])
 {
+  double t0 = micro_seconds();
   initLoggingFlag();
 
-  logInfo("Runtime starting\n");
+  logInfo("Extractor started\n");
 
   char *tmpAppname = strrchr(argv[0], '/');
   char *appname = tmpAppname ? ++tmpAppname : argv[0];
-
-  double t0 = micro_seconds();
 
   int outputFd = memfd_create_syscall(appname, 0);
   if (outputFd == -1)
@@ -263,22 +310,88 @@ int main(int argc, char *argv[])
     err(1, "Could not create memfd");
   }
 
-  char *uncompressedData;
-  uint32_t uncompressedSize;
+  // Open the file
+  int selfFd = open(argv[0], O_RDONLY);
+  if (selfFd == -1)
+  {
+    err(1, "Could not open self exec");
+  }
 
-  decompress(&uncompressedData, &uncompressedSize, outputFd);
+  // Get file size
+  struct stat selfStats;
+  if (fstat(selfFd, &selfStats) == -1)
+  {
+    close(selfFd);
+    err(1, "Could not get filesize");
+  }
+
+  void *selfBytes = mmap(NULL, selfStats.st_size, PROT_READ, MAP_PRIVATE, selfFd, 0);
+  if (selfBytes == MAP_FAILED || !selfBytes)
+  {
+    close(selfFd);
+    err(1, "Failed to memory map source");
+  }
+  close(selfFd);
+
+  uint32_t offset = *(uint32_t *)(selfBytes + (selfStats.st_size - sizeof(uint32_t)));
+  uint32_t payloadSize = selfStats.st_size - offset;
+
+  void *payload = selfBytes + offset;
+
+  logInfo("1 %d @ %d @ %d\n", payloadSize, offset);
+
+  void *uncompressedData;
+  uint32_t uncompressedSize;
+  uint32_t extraDataOffset;
+
+  decompress(payload, payloadSize, &uncompressedData, &uncompressedSize, &extraDataOffset, outputFd);
 
   double t1 = micro_seconds();
-  logInfo("Runtime starting\n");
   logInfo("Extraction time: %10.4f ms\n", (t1 - t0) / 1000.0);
 
-  if (munmap(uncompressedData, uncompressedSize) == -1)
+  uint32_t extraSize = payloadSize - extraDataOffset - sizeof(int32_t);
+
+  char extraSizeStr[16];
+  sprintf(extraSizeStr, "%i", extraSize);
+
+  logInfo("Extra size: %i\n", extraSize);
+
+  char extraOffsetStr[16];
+  sprintf(extraOffsetStr, "%i", uncompressedSize);
+
+  char outputFdStr[16];
+  sprintf(outputFdStr, "%i", outputFd);
+
+  pthread_t uncompressedUnmapTread;
+  UnmapThreadArgs uncompressedUnmapThreadArgs = {.addr = uncompressedData, .length = uncompressedSize};
+
+  pthread_t selfBytesUnmapThread;
+  UnmapThreadArgs selfBytesUnmapThreadArgs = {.addr = selfBytes, .length = selfStats.st_size};
+
+  if (pthread_create(&uncompressedUnmapTread, NULL, unmapThread, &uncompressedUnmapThreadArgs) != 0)
   {
-    err(1, "Failed to unmap memory");
+    return 1;
   }
+
+  if (pthread_create(&selfBytesUnmapThread, NULL, unmapThread, &selfBytesUnmapThreadArgs) != 0)
+  {
+    return 1;
+  }
+
+  // if (munmap(uncompressedData, uncompressedSize) == -1)
+  // {
+  //   err(1, "Failed to unmap memory");
+  // }
+
+  // if (munmap(selfBytes, selfStats.st_size) == -1)
+  // {
+  //   err(1, "Failed to unmap memory");
+  // }
 
   double t2 = micro_seconds();
   logInfo("Extraction + write time: %10.4f ms\n", (t2 - t0) / 1000.0);
+
+  logInfo("Runtime starting\n");
 
   char **new_argv = malloc((size_t)(argc + 1) * sizeof *new_argv);
   for (uint8_t i = 0; i < argc; ++i)
@@ -327,6 +440,12 @@ int main(int argc, char *argv[])
   setenv("_START_TIME", startTimeStr, false);
   setenv("MIMALLOC_RESERVE_OS_MEMORY", mimallocReserveMemoryMb, false);
   setenv("MIMALLOC_LIMIT_OS_ALLOC", "1", false);
+  setenv("LLRT_MEM_FD", outputFdStr, false);
+  setenv("LLRT_BYTECODE_OFFSET", extraOffsetStr, false);
+  setenv("LLRT_BYTECODE_SIZE", extraSizeStr, false);
+
+  pthread_join(uncompressedUnmapTread, NULL);
+  pthread_join(selfBytesUnmapThread, NULL);
 
   logInfo("Starting app\n");
 
