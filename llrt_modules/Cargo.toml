@@ -28,13 +28,24 @@ all = [
 ]
 
 buffer = ["llrt_utils/encoding"]
-child-process = ["events", "__stream", "itoa"]
-crypto = ["crc32c", "crc32fast", "md-5", "rand", "uuid", "uuid-simd"]
+child-process = ["events", "__stream", "libc", "itoa", "tokio/process"]
+crypto = [
+  "llrt_utils/encoding",
+  "crc32c",
+  "crc32fast",
+  "md-5",
+  "rand",
+  "uuid",
+  "uuid-simd",
+  "once_cell",
+  "ring",
+  "buffer",
+]
 events = []
 exceptions = []
 fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
 navigator = []
-net = ["events", "__stream"]
+net = ["events", "__stream", "itoa", "tokio/net", "tokio/sync"]
 os = [
   "libc",
   "windows-result",
@@ -45,9 +56,9 @@ os = [
 path = []
 process = []
 perf-hooks = []
-timers = []
+timers = ["tokio/time", "tokio/sync", "once_cell"]
 url = ["url_crate"]
-zlib = ["flate2", "brotlic"]
+zlib = ["buffer", "flate2", "brotlic"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
@@ -66,26 +77,26 @@ rquickjs = { version = "0.6", features = [
   "futures",
 ], default-features = false }
 ring = { version = "0.17", optional = true }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt", "io-util", "macros"] }
 tracing = "0.1"
-flate2 = { version = "1.0.30", features = [
+flate2 = { version = "1", features = [
   "zlib-ng",
 ], default-features = false, optional = true }
-brotlic = { version = "0.8.2", optional = true }
-uuid = { version = "1.10.0", default-features = false, features = [
+brotlic = { version = "0.8", optional = true }
+uuid = { version = "1.10", default-features = false, features = [
   "v4",
   "fast-rng",
 ], optional = true }
-uuid-simd = { version = "0.8.0", optional = true }
-rand = { version = "0.8.5", optional = true }
-crc32c = { version = "0.6.8", optional = true }
-crc32fast = { version = "1.4.2", optional = true }
-url_crate = { version = "=2.5.1", package = "url", optional = true }
+uuid-simd = { version = "0.8", optional = true }
+rand = { version = "0.8", optional = true }
+crc32c = { version = "0.6", optional = true }
+crc32fast = { version = "1.4", optional = true }
+url_crate = { version = "2.5", package = "url", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-md-5 = { version = "0.10.6", optional = true }
+md-5 = { version = "0.10", optional = true }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.10.6", features = ["asm"], optional = true }
+md-5 = { version = "0.10", features = ["asm"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", optional = true }
