@@ -5,6 +5,7 @@ use windows_version::OsVersion;
 
 static OS_RELEASE: Lazy<String> = Lazy::new(release);
 static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
+pub static EOL: &str = "\r\n";
 
 pub fn get_type() -> &'static str {
     // In theory there are more types linx MinGW but in practice this is good enough

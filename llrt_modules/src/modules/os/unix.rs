@@ -3,6 +3,7 @@ use std::ffi::CStr;
 use once_cell::sync::Lazy;
 
 static OS_INFO: Lazy<(String, String, String)> = Lazy::new(uname);
+pub static EOL: &str = "\n";
 
 pub fn get_type() -> &'static str {
     &OS_INFO.0

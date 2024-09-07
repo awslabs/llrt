@@ -10,9 +10,9 @@ use rquickjs::{
 };
 
 #[cfg(unix)]
-use self::unix::{get_release, get_type, get_version};
+use self::unix::{get_release, get_type, get_version, EOL};
 #[cfg(windows)]
-use self::windows::{get_release, get_type, get_version};
+use self::windows::{get_release, get_type, get_version, EOL};
 use crate::module_info::ModuleInfo;
 use crate::sysinfo::get_platform;
 
@@ -34,6 +34,7 @@ impl ModuleDef for OsModule {
         declare.declare("tmpdir")?;
         declare.declare("platform")?;
         declare.declare("version")?;
+        declare.declare("EOL")?;
 
         declare.declare("default")?;
 
@@ -47,6 +48,7 @@ impl ModuleDef for OsModule {
             default.set("tmpdir", Func::from(get_tmp_dir))?;
             default.set("platform", Func::from(get_platform))?;
             default.set("version", Func::from(get_version))?;
+            default.set("EOL", EOL)?;
 
             Ok(())
         })
@@ -152,6 +154,35 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
 
                 assert!(!result.is_empty()); // Format is platform dependant
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_eol() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { EOL } from 'os';
+
+                        export async function test() {
+                            return EOL
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert!(result == EOL);
             })
         })
         .await;
