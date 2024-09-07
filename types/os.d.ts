@@ -35,4 +35,11 @@ declare module "os" {
    * string.
    */
   export function tmpdir(): string;
+
+  /**
+   * The operating system-specific end-of-line marker.
+   * * `\n` on POSIX
+   * * `\r\n` on Windows
+   */
+  const EOL: string;
 }
