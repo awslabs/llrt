@@ -1,11 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+pub mod text_decoder;
+pub mod text_encoder;
 
-use rquickjs::function::Func;
 use rquickjs::{
+    function::Func,
     module::{Declarations, Exports, ModuleDef},
-    Ctx, Function, Result,
+    Class, Ctx, Function, Result,
 };
+use text_decoder::TextDecoder;
+use text_encoder::TextEncoder;
 
 use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
@@ -45,4 +49,13 @@ impl From<UtilModule> for ModuleInfo<UtilModule> {
             module: val,
         }
     }
+}
+
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    let globals = ctx.globals();
+
+    Class::<TextEncoder>::define(&globals)?;
+    Class::<TextDecoder>::define(&globals)?;
+
+    Ok(())
 }

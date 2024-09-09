@@ -67,7 +67,7 @@ impl Default for ModuleBuilder {
         Self::new()
             .with_module(CryptoModule)
             .with_global(crate::modules::crypto::init)
-            .with_global(crate::modules::encoding::init)
+            .with_global(crate::modules::util::init)
             .with_module(FsPromisesModule)
             .with_module(FsModule)
             .with_module(OsModule)

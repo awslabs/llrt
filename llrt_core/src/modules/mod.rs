@@ -6,7 +6,6 @@ pub use llrt_modules::{
 };
 
 pub mod console;
-pub mod encoding;
 pub mod events;
 pub mod http;
 pub mod llrt;
