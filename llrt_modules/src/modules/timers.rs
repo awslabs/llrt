@@ -16,7 +16,7 @@ use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    qjs, Ctx, Function, Persistent, Result,
+    qjs, Ctx, Function, Persistent, Result, Value,
 };
 use tokio::{
     select,
@@ -130,16 +130,19 @@ fn get_timer_state<'a>(
     unsafe { rt_timers.unwrap_unchecked() }
 }
 
-fn clear_timeout_interval(ctx: Ctx<'_>, id: usize) -> Result<()> {
-    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-    let mut rt_timers = RT_TIMER_STATE.lock().unwrap();
+fn clear_timeout_interval(ctx: Ctx<'_>, id: Opt<Value>) -> Result<()> {
+    if let Some(id) = id.0.and_then(|v| v.as_number()) {
+        let id = id as usize;
+        let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+        let mut rt_timers = RT_TIMER_STATE.lock().unwrap();
 
-    let state = get_timer_state(&mut rt_timers, rt);
-    if let Some(timeout) = state.timers.iter_mut().find(|t| t.id == id) {
-        let _ = timeout.callback.take();
-        timeout.repeating = false;
-        timeout.deadline = Instant::now() - Duration::from_secs(1);
-        state.notify.notify_one()
+        let state = get_timer_state(&mut rt_timers, rt);
+        if let Some(timeout) = state.timers.iter_mut().find(|t| t.id == id) {
+            let _ = timeout.callback.take();
+            timeout.repeating = false;
+            timeout.deadline = Instant::now() - Duration::from_secs(1);
+            state.notify.notify_one()
+        }
     }
 
     Ok(())
