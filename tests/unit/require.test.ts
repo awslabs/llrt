@@ -48,3 +48,9 @@ it("should be able to use node module with prefix `node:` with require", () => {
   consoleObj.error("error");
   consoleObj.trace("trace");
 });
+
+it("should require json", () => {
+  const a = _require(`${CWD}/package.json`);
+
+  expect(a.private).toEqual(true);
+});

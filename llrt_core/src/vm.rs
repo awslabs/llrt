@@ -33,10 +33,13 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
-use crate::modules::{
-    console,
-    crypto::SYSTEM_RANDOM,
-    path::{dirname, join_path, resolve_path},
+use crate::{
+    json_loader::JSONLoader,
+    modules::{
+        console,
+        crypto::SYSTEM_RANDOM,
+        path::{dirname, join_path, resolve_path},
+    },
 };
 
 use crate::{
@@ -391,6 +394,7 @@ impl Vm {
 
         let loader = LoaderContainer::new((
             module_loader,
+            JSONLoader,
             BinaryLoader,
             BuiltinLoader::default(),
             ScriptLoader::default()
@@ -604,6 +608,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 let import_directory = dirname(abs_path);
                 join_path(vec![import_directory, specifier])
             };
+
+            if import_name.ends_with(".json") {
+                let source = std::fs::read_to_string(import_name)?;
+                return json_parse(&ctx, source);
+            }
 
             let mut map = require_in_progress.lock().unwrap();
             if let Some(obj) = map.get(&import_name) {
