@@ -35,7 +35,7 @@ describe("timers", () => {
     const end = Date.now();
 
     expect(end - start >= 10).toBeTruthy();
-    expect(status).toEqual("cleared")
+    expect(status).toEqual("cleared");
   });
 
   it("should set interval", async () => {
@@ -52,7 +52,7 @@ describe("timers", () => {
     });
     const end = Date.now();
     expect(end - start >= 10).toBeTruthy();
-    expect(count).toEqual(5)
+    expect(count).toEqual(5);
   });
 
   it("should clear interval", async () => {
@@ -70,11 +70,20 @@ describe("timers", () => {
     });
     const end = Date.now();
     expect(end - start > 10).toBeTruthy();
-    expect(count).toEqual(2)
+    expect(count).toEqual(2);
+  });
+
+  it("should accept any parameter to clear timeout", () => {
+    expect(() => {
+      clearTimeout(null as any);
+      clearTimeout("" as any);
+      clearTimeout(true as any);
+      clearTimeout({});
+    }).not.toThrow();
   });
 
   it("should import timers", () => {
-    expect(timers.setTimeout).toEqual(setTimeout)
+    expect(timers.setTimeout).toEqual(setTimeout);
   });
 
   it("delay is optional", async () => {
