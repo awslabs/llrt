@@ -14,7 +14,8 @@ use rquickjs::{
 };
 use url_crate::{quirks, Url};
 
-use crate::url::url_class::{url_to_http_options, URL};
+use self::url_class::{url_to_http_options, URL};
+use self::url_search_params::URLSearchParams;
 use crate::ModuleInfo;
 
 pub fn domain_to_unicode(domain: &str) -> String {
@@ -111,6 +112,15 @@ pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> R
     }
 
     Ok(string)
+}
+
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    let globals = ctx.globals();
+
+    Class::<URLSearchParams>::define(&globals)?;
+    Class::<URL>::define(&globals)?;
+
+    Ok(())
 }
 
 pub struct UrlModule;
