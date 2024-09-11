@@ -315,4 +315,9 @@ describe("JSON Stringified", () => {
       `{"a":"123","d":{},"e":"${dateString}"}`
     );
   });
+
+  it("should stringify an exception", () => {
+    const exception = new Error("error");
+    expect(JSON.stringify(exception)).toEqual("{}");
+  });
 });

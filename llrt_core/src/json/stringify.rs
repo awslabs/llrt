@@ -420,7 +420,7 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
     let ctx = context.ctx;
     let indentation = context.indentation;
     match elem.type_of() {
-        Type::Object => {
+        Type::Object | Type::Exception => {
             let js_object = unsafe { elem.as_object().unwrap_unchecked() };
             if js_object.contains_key(PredefinedAtom::ToJSON)? {
                 return run_to_json(context, js_object);
