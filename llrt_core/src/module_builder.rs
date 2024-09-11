@@ -86,6 +86,7 @@ impl Default for ModuleBuilder {
             .with_module(ProcessModule)
             .with_global(crate::modules::process::init)
             .with_global(crate::modules::navigator::init)
+            .with_global(crate::modules::url::init)
             .with_module(UrlModule)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)

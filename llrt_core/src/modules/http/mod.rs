@@ -17,7 +17,6 @@ use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
-use llrt_modules::url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::class::CustomInspectExtension;
 use once_cell::sync::Lazy;
 use rquickjs::{Class, Ctx, Result};
@@ -111,8 +110,6 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define_with_custom_inspect(&globals)?;
-    Class::<URLSearchParams>::define(&globals)?;
-    Class::<URL>::define(&globals)?;
 
     blob::init(ctx, &globals)?;
 
