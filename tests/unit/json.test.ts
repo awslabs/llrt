@@ -185,11 +185,20 @@ describe("JSON Stringified", () => {
 
   // Test more complex JSON structure
   it("Should stringify a complex object with custom spacing and replacer", () => {
+    const date = new Date();
+    class Foo {
+      prop = 1;
+    }
     const complexData = {
       key: "value",
+      date,
       nested: {
         array: [1, 2, 3],
         obj: { a: "apple", b: "banana" },
+        foo: new Foo(),
+        arrowFn: () => {},
+        fn: function () {},
+        namedFn: function namedFn() {},
       },
     };
 
@@ -198,8 +207,11 @@ describe("JSON Stringified", () => {
 
     const jsonString = JSON.stringify(complexData, replacerFunction, 4);
 
+    console.log(jsonString);
+
     const expectedJsonString = `{
     "key": "VALUE",
+    "date": "${date.toJSON()}",
     "nested": {
         "array": [
             1,
@@ -209,6 +221,9 @@ describe("JSON Stringified", () => {
         "obj": {
             "a": "APPLE",
             "b": "BANANA"
+        },
+        "foo": {
+            "prop": 1
         }
     }
 }`;
@@ -283,5 +298,26 @@ describe("JSON Stringified", () => {
 
     const valueEnd = ["123", "123", undefined];
     expect(JSON.stringify(valueEnd)).toEqual(`["123","123",null]`);
+  });
+
+  it("should stringify and remove objects that are not valid json", () => {
+    const dateString = new Date().toJSON();
+    const data = {
+      a: "123",
+      b: undefined,
+      c: () => {
+        return "123";
+      },
+      d: RegExp("apa"),
+      e: new Date(),
+    };
+    expect(JSON.stringify(data)).toEqual(
+      `{"a":"123","d":{},"e":"${dateString}"}`
+    );
+  });
+
+  it("should stringify an exception", () => {
+    const exception = new Error("error");
+    expect(JSON.stringify(exception)).toEqual("{}");
   });
 });

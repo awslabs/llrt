@@ -128,14 +128,20 @@ fn run_to_json<'js>(
     js_object: &Object<'js>,
 ) -> Result<()> {
     let to_json = js_object.get::<_, Function>(PredefinedAtom::ToJSON)?;
-    let val = to_json.call((This(js_object.clone()),))?;
+    let val: Value = to_json.call((This(js_object.clone()),))?;
+
+    //only preserve indentation if we're returning nested data
+    let indentation = context.indentation.and_then(|indentation| {
+        matches!(val.type_of(), Type::Object | Type::Array | Type::Exception).then_some(indentation)
+    });
+
     append_value(
         &mut StringifyContext {
             ctx: context.ctx,
             result: context.result,
             value: &val,
             depth: context.depth,
-            indentation: context.indentation,
+            indentation,
             key: None,
             index: None,
             parent: Some(js_object),
@@ -215,7 +221,11 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
 
     let type_of = value.type_of();
 
-    if matches!(type_of, Type::Symbol | Type::Undefined) && context.index.is_none() {
+    if matches!(
+        type_of,
+        Type::Symbol | Type::Undefined | Type::Function | Type::Constructor
+    ) && context.index.is_none()
+    {
         return Ok(PrimitiveStatus::Ignored);
     }
 
@@ -410,7 +420,7 @@ fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
     let ctx = context.ctx;
     let indentation = context.indentation;
     match elem.type_of() {
-        Type::Object => {
+        Type::Object | Type::Exception => {
             let js_object = unsafe { elem.as_object().unwrap_unchecked() };
             if js_object.contains_key(PredefinedAtom::ToJSON)? {
                 return run_to_json(context, js_object);
