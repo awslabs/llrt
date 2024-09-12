@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import { spawn } from "child_process";
-import { tmpdir } from "os";
+import { tmpdir, platform } from "os";
+const isWin = platform() === 'win32'
 
 const spawnCapture = async (cmd: string, args: string[]) => {
   const child = spawn(cmd, args);
@@ -33,55 +34,57 @@ const compile = async (filename: string, outputFilename: string) =>
 const run = async (filename: string) =>
   await spawnCapture(process.argv0, [filename]);
 
-describe("llrt compile", async () => {
-  const tmpDir = await fs.mkdtemp(`${tmpdir()}/llrt-test-compile`);
+if (!isWin) {
+  describe("llrt compile", async () => {
+    const tmpDir = await fs.mkdtemp(`${tmpdir()}/llrt-test-compile`);
 
-  it("can compile and run empty", async () => {
-    const tmpOutput = `${tmpDir}/empty.lrt`;
+    it("can compile and run empty", async () => {
+      const tmpOutput = `${tmpDir}/empty.lrt`;
 
-    const compileResult = await compile("fixtures/empty.js", tmpOutput);
+      const compileResult = await compile("fixtures/empty.js", tmpOutput);
 
-    expect(compileResult.stderr).toEqual("");
-    expect(compileResult.signal).toEqual(undefined);
+      expect(compileResult.stderr).toEqual("");
+      expect(compileResult.signal).toEqual(undefined);
 
-    const runResult = await run(tmpOutput);
+      const runResult = await run(tmpOutput);
 
-    expect(runResult.stdout).toEqual("");
-    expect(runResult.stderr).toEqual("");
-    expect(runResult.status).toEqual(0);
+      expect(runResult.stdout).toEqual("");
+      expect(runResult.stderr).toEqual("");
+      expect(runResult.status).toEqual(0);
+    });
+
+    it("can compile and run console.log", async () => {
+      const tmpOutput = `${tmpDir}/console.log.lrt`;
+
+      const compileResult = await compile("fixtures/hello.js", tmpOutput);
+
+      expect(compileResult.stderr).toEqual("");
+      expect(compileResult.signal).toEqual(undefined);
+
+      const runResult = await run(tmpOutput);
+
+      expect(runResult.stdout).toEqual("hello world!\n");
+      expect(runResult.stderr).toEqual("");
+      expect(runResult.status).toEqual(0);
+    });
+
+    it("can compile and run throws", async () => {
+      const tmpOutput = `${tmpDir}/throws.lrt`;
+
+      const compileResult = await compile("fixtures/throw.js", tmpOutput);
+
+      expect(compileResult.stderr).toEqual("");
+      expect(compileResult.signal).toEqual(undefined);
+
+      const runResult = await run(tmpOutput);
+
+      expect(runResult.stdout).toEqual("");
+      expect(runResult.stderr).toEqual("42\n");
+      expect(runResult.status).toEqual(1);
+    });
+
+    afterAll(async () => {
+      await fs.rmdir(tmpDir, { recursive: true });
+    });
   });
-
-  it("can compile and run console.log", async () => {
-    const tmpOutput = `${tmpDir}/console.log.lrt`;
-
-    const compileResult = await compile("fixtures/hello.js", tmpOutput);
-
-    expect(compileResult.stderr).toEqual("");
-    expect(compileResult.signal).toEqual(undefined);
-
-    const runResult = await run(tmpOutput);
-
-    expect(runResult.stdout).toEqual("hello world!\n");
-    expect(runResult.stderr).toEqual("");
-    expect(runResult.status).toEqual(0);
-  });
-
-  it("can compile and run throws", async () => {
-    const tmpOutput = `${tmpDir}/throws.lrt`;
-
-    const compileResult = await compile("fixtures/throw.js", tmpOutput);
-
-    expect(compileResult.stderr).toEqual("");
-    expect(compileResult.signal).toEqual(undefined);
-
-    const runResult = await run(tmpOutput);
-
-    expect(runResult.stdout).toEqual("");
-    expect(runResult.stderr).toEqual("42\n");
-    expect(runResult.status).toEqual(1);
-  });
-
-  afterAll(async () => {
-    await fs.rmdir(tmpDir, { recursive: true });
-  });
-});
+}

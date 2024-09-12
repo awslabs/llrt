@@ -59,7 +59,7 @@ fn verify_metadata(ctx: &Ctx, mode: Opt<u32>, metadata: Metadata) -> Result<()> 
 
             // Check if the file has execute permissions
             if file_attributes & FILE_ATTRIBUTE_DIRECTORY == 0 {
-                return Err(Exception::throw_message(&ctx, "Permission denied"));
+                return Err(Exception::throw_message(ctx, "Permission denied"));
             }
         }
     }
