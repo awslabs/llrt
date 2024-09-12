@@ -2624,6 +2624,7 @@ dependencies = [
  "libc",
  "llrt_utils",
  "md-5",
+ "memchr",
  "nanoid",
  "once_cell",
  "rand",

@@ -25,9 +25,23 @@ pub const CURRENT_DIR_STR: &str = ".\\";
 pub const CURRENT_DIR_STR: &str = "./";
 
 #[cfg(windows)]
-pub const SEP_PAT: [char; 2] = ['\\', '/'];
+use memchr::memchr2;
+
+#[cfg(windows)]
+fn find_next_separator(s: &str) -> Option<usize> {
+    memchr2(b'\\', b'/', s.as_bytes())
+}
+
 #[cfg(not(windows))]
-pub const SEP_PAT: char = MAIN_SEPARATOR;
+fn find_next_separator(s: &str) -> Option<usize> {
+    s.find(std::path::MAIN_SEPARATOR)
+}
+
+// Constants kept for potential use elsewhere
+#[cfg(windows)]
+const SEP_PAT: [char; 2] = ['\\', '/'];
+#[cfg(not(windows))]
+const SEP_PAT: [char; 1] = [std::path::MAIN_SEPARATOR];
 
 pub fn dirname(path: String) -> String {
     if path.is_empty() {
@@ -187,7 +201,7 @@ where
         acc
     });
 
-    remove_trailing_slash(result)
+    result.to_string_lossy().to_string()
 }
 
 fn remove_trailing_slash(result: PathBuf) -> String {
@@ -206,21 +220,20 @@ where
 {
     let result = parts.fold(std::env::current_dir().unwrap(), |mut acc, part| {
         let part = part.as_ref();
-        if is_absolute(part.into()) {
+        if is_absolute(part.to_owned()) {
             acc = PathBuf::from(part);
         } else {
-            for sub_part in part.split(SEP_PAT) {
-                if sub_part.starts_with("..") {
-                    acc.pop();
-                } else if sub_part == "." {
-                    // skip
-                } else if sub_part.starts_with("./") {
-                    acc.push(sub_part.strip_prefix("./").unwrap_or(sub_part))
-                } else if sub_part.starts_with(".\\") {
-                    acc.push(sub_part.strip_prefix(".\\").unwrap_or(sub_part))
-                } else {
-                    acc.push(sub_part)
+            let mut start = 0;
+            while start < part.len() {
+                let end = find_next_separator(&part[start..]).map_or(part.len(), |i| i + start);
+                match &part[start..end] {
+                    ".." => {
+                        acc.pop();
+                    },
+                    "." => {},
+                    sub_part => acc.push(sub_part),
                 }
+                start = end + 1;
             }
         }
         acc
