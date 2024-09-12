@@ -132,7 +132,7 @@ fn run_to_json<'js>(
 
     //only preserve indentation if we're returning nested data
     let indentation = context.indentation.and_then(|indentation| {
-        matches!(val.type_of(), Type::Object | Type::Array).then_some(indentation)
+        matches!(val.type_of(), Type::Object | Type::Array | Type::Exception).then_some(indentation)
     });
 
     append_value(
