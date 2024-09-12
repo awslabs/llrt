@@ -161,31 +161,31 @@ where
     S: AsRef<str>,
     I: Iterator<Item = S>,
 {
-    let mut result = PathBuf::new();
     let mut empty = true;
-    for part in parts {
+    let result = parts.fold(PathBuf::new(), |mut acc, part| {
         let part = part.as_ref();
         if part.starts_with(SEP_PAT) && empty {
-            result.push(MAIN_SEPARATOR_STR);
+            acc.push(MAIN_SEPARATOR_STR);
             empty = false;
         }
         for sub_part in part.split(SEP_PAT) {
             if !sub_part.is_empty() {
                 if sub_part.starts_with("..") {
                     empty = false;
-                    result.pop();
+                    acc.pop();
                 } else {
                     let sub_part = sub_part.strip_prefix('.').unwrap_or(sub_part);
-                    result.push(sub_part);
+                    acc.push(sub_part);
                     empty = false;
                     #[cfg(windows)]
                     if sub_part.ends_with(":") {
-                        result.push(MAIN_SEPARATOR_STR);
+                        acc.push(MAIN_SEPARATOR_STR);
                     }
                 }
             }
         }
-    }
+        acc
+    });
 
     remove_trailing_slash(result)
 }
@@ -198,37 +198,38 @@ fn remove_trailing_slash(result: PathBuf) -> String {
 fn resolve(path: Rest<String>) -> String {
     resolve_path(path.iter())
 }
-pub fn resolve_path<S, I>(iter: I) -> String
+
+pub fn resolve_path<S, I>(parts: I) -> String
 where
     S: AsRef<str>,
     I: Iterator<Item = S>,
 {
-    let mut dir = std::env::current_dir().unwrap();
-    for part in iter {
+    let result = parts.fold(std::env::current_dir().unwrap(), |mut acc, part| {
         let part = part.as_ref();
         if is_absolute(part.into()) {
-            dir = PathBuf::from(part);
+            acc = PathBuf::from(part);
         } else {
             for sub_part in part.split(SEP_PAT) {
                 if sub_part.starts_with("..") {
-                    dir.pop();
+                    acc.pop();
                 } else if sub_part == "." {
                     // skip
                 } else if sub_part.starts_with("./") {
-                    dir.push(sub_part.strip_prefix("./").unwrap_or(sub_part))
+                    acc.push(sub_part.strip_prefix("./").unwrap_or(sub_part))
                 } else if sub_part.starts_with(".\\") {
-                    dir.push(sub_part.strip_prefix(".\\").unwrap_or(sub_part))
+                    acc.push(sub_part.strip_prefix(".\\").unwrap_or(sub_part))
                 } else {
-                    dir.push(sub_part)
+                    acc.push(sub_part)
                 }
             }
         }
-    }
+        acc
+    });
 
     #[cfg(windows)]
-    return remove_trailing_slash(dir).replace("\\", "/");
+    return remove_trailing_slash(result).replace("\\", "/");
     #[cfg(not(windows))]
-    return remove_trailing_slash(dir);
+    return remove_trailing_slash(result);
 }
 
 fn normalize(path: String) -> String {
