@@ -231,7 +231,7 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
 
     if matches!(type_of, Type::BigInt) {
         return Err(Exception::throw_type(
-            &context.ctx,
+            context.ctx,
             "Do not know how to serialize a BigInt",
         ));
     }
