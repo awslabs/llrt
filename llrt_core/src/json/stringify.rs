@@ -229,6 +229,13 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
         return Ok(PrimitiveStatus::Ignored);
     }
 
+    if matches!(type_of, Type::BigInt) {
+        return Err(Exception::throw_type(
+            context.ctx,
+            "Do not know how to serialize a BigInt",
+        ));
+    }
+
     if let Some(include_keys_replacer) = include_keys_replacer {
         let key = get_key_or_index(context.itoa_buffer, key, index);
         if !include_keys_replacer.contains(key) {
