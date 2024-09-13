@@ -1,4 +1,5 @@
 import * as urlModule from "url";
+const isWin = require("os").platform() === "win32"
 
 describe("URL module import", () => {
   it("global URL and imported URL are equal", () => {
@@ -822,9 +823,13 @@ describe("URL Utility Functions", () => {
   });
 
   it("converts system path to file URL with pathToFileURL", () => {
-    const url = urlModule.pathToFileURL("/path/to/file.txt");
-
-    expect(url.href).toBe("file:///path/to/file.txt"); // Platform specific path handling might differ
+    if (isWin) {
+      const url = urlModule.pathToFileURL("C:/path/to/file.txt");
+      expect(url.href).toBe("file:///C:/path/to/file.txt");
+    } else {
+      const url = urlModule.pathToFileURL("/path/to/file.txt");
+      expect(url.href).toBe("file:///path/to/file.txt"); // Platform specific path handling might differ
+    }
   });
 
   it("formats URL object into a string with format", () => {

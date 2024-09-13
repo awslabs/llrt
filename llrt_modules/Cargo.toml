@@ -94,6 +94,7 @@ crc32fast = { version = "1.4", optional = true }
 url_crate = { version = "2.5", package = "url", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+memchr = { version = "2.7.4" }
 md-5 = { version = "0.10", optional = true }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 md-5 = { version = "0.10", features = ["asm"], optional = true }

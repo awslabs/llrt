@@ -13,7 +13,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use llrt_modules::timers::{self, poll_timers};
+use llrt_modules::{
+    path::join_path,
+    timers::{self, poll_timers},
+};
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -38,7 +41,7 @@ use crate::{
     modules::{
         console,
         crypto::SYSTEM_RANDOM,
-        path::{dirname, join_path, resolve_path},
+        path::{dirname, resolve_path},
     },
 };
 
@@ -231,7 +234,7 @@ where
         if name.starts_with('/') {
             set_import_meta(&res, name)?;
         } else {
-            set_import_meta(&res, &[self.cwd.as_str(), name].join("/"))?;
+            set_import_meta(&res, &join_path([self.cwd.as_str(), name].iter()))?;
         };
 
         Ok(res)
@@ -606,7 +609,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
                 let import_directory = dirname(abs_path);
-                join_path(vec![import_directory, specifier])
+                resolve_path([import_directory, specifier].iter())
             };
 
             if import_name.ends_with(".json") {

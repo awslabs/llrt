@@ -1,9 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    path::{Component, Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
-    slice::Iter,
-};
+use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
 use llrt_utils::module::export_default;
 use rquickjs::{
@@ -23,16 +20,38 @@ const DELIMITER: char = ';';
 const DELIMITER: char = ':';
 
 #[cfg(windows)]
-pub const CURRENT_DIR_STR: &'static str = ".\\";
+pub const CURRENT_DIR_STR: &str = ".\\";
 #[cfg(not(windows))]
 pub const CURRENT_DIR_STR: &str = "./";
 
+#[cfg(windows)]
+use memchr::memchr2;
+
+#[cfg(windows)]
+fn find_next_separator(s: &str) -> Option<usize> {
+    memchr2(b'\\', b'/', s.as_bytes())
+}
+
+#[cfg(not(windows))]
+fn find_next_separator(s: &str) -> Option<usize> {
+    s.find(std::path::MAIN_SEPARATOR)
+}
+
+// Constants kept for potential use elsewhere
+#[cfg(windows)]
+const SEP_PAT: [char; 2] = ['\\', '/'];
+#[cfg(not(windows))]
+const SEP_PAT: [char; 1] = [std::path::MAIN_SEPARATOR];
+
 pub fn dirname(path: String) -> String {
+    if path.is_empty() {
+        return String::from(".");
+    }
     if path == MAIN_SEPARATOR_STR {
         return path;
     }
-    let path = path.strip_suffix(MAIN_SEPARATOR).unwrap_or(&path);
-    match path.rfind(MAIN_SEPARATOR) {
+    let path = path.strip_suffix(SEP_PAT).unwrap_or(&path);
+    match path.rfind(SEP_PAT) {
         Some(idx) => {
             let parent = &path[..idx];
             if parent.is_empty() {
@@ -47,8 +66,8 @@ pub fn dirname(path: String) -> String {
 }
 
 fn name_extname(path: &str) -> (&str, &str) {
-    let path = path.strip_suffix(MAIN_SEPARATOR).unwrap_or(path);
-    let path = match path.rfind(MAIN_SEPARATOR) {
+    let path = path.strip_suffix(SEP_PAT).unwrap_or(path);
+    let path = match path.rfind(SEP_PAT) {
         Some(idx) => &path[idx + 1..],
         None => path,
     };
@@ -62,12 +81,10 @@ fn name_extname(path: &str) -> (&str, &str) {
 }
 
 fn basename(path: String, suffix: Opt<String>) -> String {
-    if path == MAIN_SEPARATOR_STR {
-        return path;
+    if path.is_empty() || path == MAIN_SEPARATOR_STR {
+        return String::from("");
     }
-    if path.is_empty() {
-        return String::from(".");
-    }
+
     let (base, ext) = name_extname(&path);
     let name = [base, ext].concat();
     if let Some(suffix) = suffix.0 {
@@ -93,12 +110,12 @@ fn format(obj: Object) -> String {
     let mut path = String::new();
     if !dir.is_empty() {
         path.push_str(&dir);
-        if !dir.ends_with(MAIN_SEPARATOR) {
+        if !dir.ends_with(SEP_PAT) {
             path.push(MAIN_SEPARATOR);
         }
     } else if !root.is_empty() {
         path.push_str(&root);
-        if !root.ends_with(MAIN_SEPARATOR) {
+        if !root.ends_with(SEP_PAT) {
             path.push(MAIN_SEPARATOR);
         }
     }
@@ -150,61 +167,87 @@ fn parse(ctx: Ctx, path_str: String) -> Result<Object> {
 }
 
 fn join(parts: Rest<String>) -> String {
-    join_path(parts.0)
+    join_path(parts.0.iter())
 }
 
-pub fn join_path(parts: Vec<String>) -> String {
-    let mut result = PathBuf::new();
+pub fn join_path<S, I>(parts: I) -> String
+where
+    S: AsRef<str>,
+    I: Iterator<Item = S>,
+{
     let mut empty = true;
-    for part in parts.iter() {
-        if part.starts_with(MAIN_SEPARATOR) && empty {
-            result.push(MAIN_SEPARATOR_STR);
+    let result = parts.fold(PathBuf::new(), |mut acc, part| {
+        let part = part.as_ref();
+        if part.starts_with(SEP_PAT) && empty {
+            acc.push(MAIN_SEPARATOR_STR);
             empty = false;
         }
-        for sub_part in part.split(MAIN_SEPARATOR) {
-            if !sub_part.is_empty() {
-                if sub_part.starts_with("..") {
+        let mut start = 0;
+        while start < part.len() {
+            let end = find_next_separator(&part[start..]).map_or(part.len(), |i| i + start);
+            match &part[start..end] {
+                ".." => {
                     empty = false;
-                    result.pop();
-                } else {
-                    result.push(sub_part.strip_prefix('.').unwrap_or(sub_part));
+                    acc.pop();
+                },
+                "" => {},
+                sub_part => {
+                    let sub_part = sub_part.strip_prefix('.').unwrap_or(sub_part);
+                    acc.push(sub_part);
                     empty = false;
-                }
+                    #[cfg(windows)]
+                    if sub_part.ends_with(":") {
+                        acc.push(MAIN_SEPARATOR_STR);
+                    }
+                },
             }
+            start = end + 1;
         }
-    }
-    remove_trailing_slash(result)
+        acc
+    });
+
+    result.to_string_lossy().to_string()
 }
 
 fn remove_trailing_slash(result: PathBuf) -> String {
     let path = result.to_string_lossy().to_string();
-    path.strip_suffix(MAIN_SEPARATOR)
-        .unwrap_or(&path)
-        .to_string()
+    path.strip_suffix(SEP_PAT).unwrap_or(&path).to_string()
 }
 
 fn resolve(path: Rest<String>) -> String {
     resolve_path(path.iter())
 }
 
-pub fn resolve_path(iter: Iter<'_, String>) -> String {
-    let mut dir = std::env::current_dir().unwrap();
-    for part in iter {
-        let p = part.strip_prefix(CURRENT_DIR_STR).unwrap_or(part);
-        if p.starts_with(MAIN_SEPARATOR) {
-            dir = PathBuf::from(p);
+pub fn resolve_path<S, I>(parts: I) -> String
+where
+    S: AsRef<str>,
+    I: Iterator<Item = S>,
+{
+    let result = parts.fold(std::env::current_dir().unwrap(), |mut acc, part| {
+        let part = part.as_ref();
+        if is_absolute(part.to_owned()) {
+            acc = PathBuf::from(part);
         } else {
-            for sub_part in p.split(MAIN_SEPARATOR) {
-                if sub_part.starts_with("..") {
-                    dir.pop();
-                } else {
-                    dir.push(sub_part.strip_prefix('.').unwrap_or(sub_part))
+            let mut start = 0;
+            while start < part.len() {
+                let end = find_next_separator(&part[start..]).map_or(part.len(), |i| i + start);
+                match &part[start..end] {
+                    ".." => {
+                        acc.pop();
+                    },
+                    "." => {},
+                    sub_part => acc.push(sub_part),
                 }
+                start = end + 1;
             }
         }
-    }
+        acc
+    });
 
-    remove_trailing_slash(dir)
+    #[cfg(windows)]
+    return remove_trailing_slash(result).replace("\\", "/");
+    #[cfg(not(windows))]
+    return remove_trailing_slash(result);
 }
 
 fn normalize(path: String) -> String {
@@ -214,11 +257,11 @@ fn normalize(path: String) -> String {
         .map(|c| c.as_os_str().to_string_lossy().to_string())
         .collect::<Vec<_>>();
 
-    join_path(parts)
+    join_path(parts.iter())
 }
 
 pub fn is_absolute(path: String) -> bool {
-    PathBuf::from(path).is_absolute()
+    path.starts_with('/') || PathBuf::from(path).is_absolute()
 }
 
 impl ModuleDef for PathModule {

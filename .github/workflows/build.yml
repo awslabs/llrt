@@ -80,7 +80,13 @@ jobs:
         if: (inputs.arch != 'aarch64' || inputs.platform != 'linux') && inputs.platform != 'windows'
         run: |
           make test-ci 2>&1
-      - name: Run tests
+      - name: Run tests on windows
+        if: inputs.platform == 'windows'
+        shell: msys2 {0}
+        run: |
+          make test-ci 2>&1
+
+      - name: Run tests on aarch64-linux
         if: inputs.arch == 'aarch64' && inputs.platform == 'linux'
         env:
           _VIRTUAL_ENV: qemu-aarch64
