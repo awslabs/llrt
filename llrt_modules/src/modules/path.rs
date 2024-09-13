@@ -182,12 +182,16 @@ where
             acc.push(MAIN_SEPARATOR_STR);
             empty = false;
         }
-        for sub_part in part.split(SEP_PAT) {
-            if !sub_part.is_empty() {
-                if sub_part.starts_with("..") {
+        let mut start = 0;
+        while start < part.len() {
+            let end = find_next_separator(&part[start..]).map_or(part.len(), |i| i + start);
+            match &part[start..end] {
+                ".." => {
                     empty = false;
                     acc.pop();
-                } else {
+                },
+                "" => {},
+                sub_part => {
                     let sub_part = sub_part.strip_prefix('.').unwrap_or(sub_part);
                     acc.push(sub_part);
                     empty = false;
@@ -195,8 +199,9 @@ where
                     if sub_part.ends_with(":") {
                         acc.push(MAIN_SEPARATOR_STR);
                     }
-                }
+                },
             }
+            start = end + 1;
         }
         acc
     });
