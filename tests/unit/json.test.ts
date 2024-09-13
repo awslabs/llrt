@@ -320,4 +320,12 @@ describe("JSON Stringified", () => {
     const exception = new Error("error");
     expect(JSON.stringify(exception)).toEqual("{}");
   });
+
+  it("should throw an Error when stringify BigInt", () => {
+    expect(() =>
+      JSON.stringify({
+        v: 1n,
+      })
+    ).toThrow(/Do not know how to serialize a BigInt/);
+  });
 });
