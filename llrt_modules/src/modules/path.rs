@@ -213,7 +213,7 @@ where
             + from_index;
         let to_next =
             find_next_separator(&to[to_index..]).unwrap_or(to.len() - to_index) + to_index;
-        if &from[from_index..from_next] != &to[to_index..to_next] {
+        if from[from_index..from_next] != to[to_index..to_next] {
             break;
         }
         from_index = from_next + 1; // Move past the separator
