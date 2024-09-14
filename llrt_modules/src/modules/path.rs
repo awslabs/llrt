@@ -176,7 +176,7 @@ fn join(parts: Rest<String>) -> String {
 }
 
 fn relative(from: String, to: String) -> String {
-    relative_path(&from, &to)
+    relative_path(from, to)
 }
 
 pub fn join_path<S, I>(parts: I) -> String
@@ -495,7 +495,7 @@ mod tests {
                 .unwrap()
                 .join("foo/bar")
                 .to_string_lossy()
-                .replace("\\", "/")
+                .replace('\\', "/")
                 .to_string()
         );
 
