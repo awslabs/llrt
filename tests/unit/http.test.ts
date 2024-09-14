@@ -1,5 +1,6 @@
 import * as urlModule from "url";
-const isWin = require("os").platform() === "win32"
+import { platform } from "os";
+const IS_WIN = platform() === "win32";
 
 describe("URL module import", () => {
   it("global URL and imported URL are equal", () => {
@@ -823,7 +824,7 @@ describe("URL Utility Functions", () => {
   });
 
   it("converts system path to file URL with pathToFileURL", () => {
-    if (isWin) {
+    if (IS_WIN) {
       const url = urlModule.pathToFileURL("C:/path/to/file.txt");
       expect(url.href).toBe("file:///C:/path/to/file.txt");
     } else {

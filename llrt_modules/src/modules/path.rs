@@ -1,6 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
+use std::{
+    borrow::Cow,
+    path::{Component, Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+};
 
 use llrt_utils::module::export_default;
 use rquickjs::{
@@ -29,7 +32,7 @@ use memchr::memchr2;
 
 #[cfg(windows)]
 fn find_next_separator(s: &str) -> Option<usize> {
-    memchr2(b'\\', b'/', s.as_bytes())
+    memchr2(b'\\', bFORWARD_SLASH, s.as_bytes())
 }
 
 #[cfg(not(windows))]
@@ -37,9 +40,11 @@ fn find_next_separator(s: &str) -> Option<usize> {
     s.find(std::path::MAIN_SEPARATOR)
 }
 
+const FORWARD_SLASH: char = '/';
+
 // Constants kept for potential use elsewhere
 #[cfg(windows)]
-const SEP_PAT: [char; 2] = ['\\', '/'];
+const SEP_PAT: [char; 2] = ['\\', FORWARD_SLASH];
 #[cfg(not(windows))]
 const SEP_PAT: [char; 1] = [std::path::MAIN_SEPARATOR];
 
@@ -170,52 +175,16 @@ fn join(parts: Rest<String>) -> String {
     join_path(parts.0.iter())
 }
 
+fn relative(from: String, to: String) -> String {
+    relative_path(&from, &to)
+}
+
 pub fn join_path<S, I>(parts: I) -> String
 where
     S: AsRef<str>,
     I: Iterator<Item = S>,
 {
-    let mut empty = true;
-    let result = parts.fold(PathBuf::new(), |mut acc, part| {
-        let part = part.as_ref();
-        if part.starts_with(SEP_PAT) && empty {
-            acc.push(MAIN_SEPARATOR_STR);
-            empty = false;
-        }
-        let mut start = 0;
-        while start < part.len() {
-            let end = find_next_separator(&part[start..]).map_or(part.len(), |i| i + start);
-            match &part[start..end] {
-                ".." => {
-                    empty = false;
-                    acc.pop();
-                },
-                "" => {},
-                sub_part => {
-                    let sub_part = sub_part.strip_prefix('.').unwrap_or(sub_part);
-                    acc.push(sub_part);
-                    empty = false;
-                    #[cfg(windows)]
-                    if sub_part.ends_with(":") {
-                        acc.push(MAIN_SEPARATOR_STR);
-                    }
-                },
-            }
-            start = end + 1;
-        }
-        acc
-    });
-
-    result.to_string_lossy().to_string()
-}
-
-fn remove_trailing_slash(result: PathBuf) -> String {
-    let path = result.to_string_lossy().to_string();
-    path.strip_suffix(SEP_PAT).unwrap_or(&path).to_string()
-}
-
-fn resolve(path: Rest<String>) -> String {
-    resolve_path(path.iter())
+    join_resolve_path(parts, false)
 }
 
 pub fn resolve_path<S, I>(parts: I) -> String
@@ -223,45 +192,165 @@ where
     S: AsRef<str>,
     I: Iterator<Item = S>,
 {
-    let result = parts.fold(std::env::current_dir().unwrap(), |mut acc, part| {
-        let part = part.as_ref();
-        if is_absolute(part.to_owned()) {
-            acc = PathBuf::from(part);
-        } else {
-            let mut start = 0;
-            while start < part.len() {
-                let end = find_next_separator(&part[start..]).map_or(part.len(), |i| i + start);
-                match &part[start..end] {
-                    ".." => {
-                        acc.pop();
-                    },
-                    "." => {},
-                    sub_part => acc.push(sub_part),
-                }
-                start = end + 1;
-            }
-        }
-        acc
-    });
+    join_resolve_path(parts, true)
+}
 
-    #[cfg(windows)]
-    return remove_trailing_slash(result).replace("\\", "/");
-    #[cfg(not(windows))]
-    return remove_trailing_slash(result);
+pub fn relative_path<F, T>(from: F, to: T) -> String
+where
+    F: AsRef<str>,
+    T: AsRef<str>,
+{
+    let from = from.as_ref();
+    let to = to.as_ref();
+    if from == to {
+        return ".".to_string();
+    }
+    let mut from_index = 0;
+    let mut to_index = 0;
+    // skip common prefix
+    while from_index < from.len() && to_index < to.len() {
+        let from_next = find_next_separator(&from[from_index..]).unwrap_or(from.len() - from_index)
+            + from_index;
+        let to_next =
+            find_next_separator(&to[to_index..]).unwrap_or(to.len() - to_index) + to_index;
+        if &from[from_index..from_next] != &to[to_index..to_next] {
+            break;
+        }
+        from_index = from_next + 1; // Move past the separator
+        to_index = to_next + 1; // Move past the separator
+    }
+    let mut relative = String::new();
+    // add ".." for each remaining component in 'from'
+    while from_index < from.len() {
+        let from_next = find_next_separator(&from[from_index..]).unwrap_or(from.len() - from_index)
+            + from_index;
+        if !relative.is_empty() {
+            relative.push(FORWARD_SLASH);
+        }
+        relative.push_str("..");
+        from_index = from_next + 1; // Move past the separator
+    }
+    // add the remaining components from 'to'
+    while to_index < to.len() {
+        let to_next =
+            find_next_separator(&to[to_index..]).unwrap_or(to.len() - to_index) + to_index;
+        if !relative.is_empty() {
+            relative.push(FORWARD_SLASH);
+        }
+        let component = &to[to_index..to_next];
+        if component != "." {
+            relative.push_str(component);
+        }
+        to_index = to_next + 1; // Move past the separator
+    }
+    if relative.is_empty() {
+        ".".to_string()
+    } else {
+        relative
+    }
+}
+
+fn join_resolve_path<S, I>(parts: I, resolve: bool) -> String
+where
+    S: AsRef<str>,
+    I: Iterator<Item = S>,
+{
+    let mut empty = true;
+    let size = parts.size_hint().1.unwrap_or_default();
+
+    let mut result = if resolve {
+        let mut result = std::env::current_dir()
+            .expect("Unable to access working directory")
+            .to_string_lossy()
+            .to_string();
+        result.push(FORWARD_SLASH);
+        result
+    } else {
+        String::with_capacity(size * 4)
+    };
+
+    let mut resolve_cow: Cow<str>;
+    let mut resolve_path_buf: PathBuf;
+
+    let mut index_stack = Vec::with_capacity(16);
+
+    for part in parts {
+        let mut part_ref: &str = part.as_ref();
+        let mut start = 0;
+        if resolve {
+            if cfg!(not(windows)) {
+                if part_ref.starts_with(FORWARD_SLASH) {
+                    empty = false;
+                    result = FORWARD_SLASH.into();
+                    start = 1;
+                }
+            } else {
+                let path_buf = PathBuf::from(part_ref);
+                if path_buf.is_absolute() {
+                    empty = false;
+                    start = 1;
+                    let mut components = path_buf.components().peekable();
+                    result = if let Some(Component::Prefix(a)) = components.next() {
+                        a.as_os_str().to_str().unwrap().to_string()
+                    } else {
+                        FORWARD_SLASH.into()
+                    };
+                    resolve_path_buf = components.collect();
+                    resolve_cow = resolve_path_buf.to_string_lossy();
+                    part_ref = resolve_cow.as_ref();
+                }
+            }
+        } else if part_ref.starts_with(SEP_PAT) && empty {
+            empty = false;
+            result.push(FORWARD_SLASH);
+            start = 1;
+        }
+
+        while start < part_ref.len() {
+            let end = find_next_separator(&part_ref[start..]).map_or(part_ref.len(), |i| i + start);
+            match &part_ref[start..end] {
+                ".." => {
+                    empty = false;
+                    if let Some(last_index) = index_stack.pop() {
+                        result.truncate(last_index);
+                    }
+                },
+                "" | "." => {
+                    //ignore
+                },
+                sub_part => {
+                    let len = result.len();
+                    result.push_str(sub_part);
+                    result.push(FORWARD_SLASH);
+                    empty = false;
+                    #[cfg(windows)]
+                    if sub_part.ends_with(":") {
+                        result.push(FORWARD_SLASH);
+                    }
+                    index_stack.push(len);
+                },
+            }
+            start = end + 1;
+        }
+    }
+
+    if result.ends_with(FORWARD_SLASH) {
+        result.truncate(result.len() - 1);
+    }
+
+    result
+}
+
+pub fn resolve(path: Rest<String>) -> String {
+    join_resolve_path(path.iter(), true)
 }
 
 fn normalize(path: String) -> String {
-    let path = PathBuf::from(path);
-    let parts = path
-        .components()
-        .map(|c| c.as_os_str().to_string_lossy().to_string())
-        .collect::<Vec<_>>();
-
-    join_path(parts.iter())
+    join_resolve_path([path].iter(), false)
 }
 
 pub fn is_absolute(path: String) -> bool {
-    path.starts_with('/') || PathBuf::from(path).is_absolute()
+    path.starts_with(std::path::MAIN_SEPARATOR) || PathBuf::from(path).is_absolute()
 }
 
 impl ModuleDef for PathModule {
@@ -273,6 +362,7 @@ impl ModuleDef for PathModule {
         declare.declare("parse")?;
         declare.declare("join")?;
         declare.declare("resolve")?;
+        declare.declare("relative")?;
         declare.declare("normalize")?;
         declare.declare("isAbsolute")?;
         declare.declare("delimiter")?;
@@ -290,6 +380,7 @@ impl ModuleDef for PathModule {
             default.set("format", Func::from(format))?;
             default.set("parse", Func::from(parse))?;
             default.set("join", Func::from(join))?;
+            default.set("relative", Func::from(relative))?;
             default.set("resolve", Func::from(resolve))?;
             default.set("normalize", Func::from(normalize))?;
             default.set("isAbsolute", Func::from(is_absolute))?;
@@ -306,5 +397,141 @@ impl From<PathModule> for ModuleInfo<PathModule> {
             name: "path",
             module: val,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_relative() {
+        assert_eq!(relative_path("a/b/c", "b/c"), "../../../b/c");
+        assert_eq!(
+            relative_path("/data/orandea/test/aaa", "/data/orandea/impl/bbb"),
+            "../../impl/bbb"
+        );
+        assert_eq!(relative_path("/a/b/c", "/a/d"), "../../d");
+        assert_eq!(relative_path("/a/b/c", "/a/b/c/d"), "d");
+        assert_eq!(relative_path("/a/b/c", "/a/b/c"), ".");
+        assert_eq!(relative_path("a/b", "a/b/c/d"), "c/d");
+        assert_eq!(relative_path("a/b/c", "b/c"), "../../../b/c");
+    }
+
+    #[test]
+    fn test_dirname() {
+        assert_eq!(dirname("/usr/local/bin".to_string()), "/usr/local");
+        assert_eq!(dirname("/usr/local/".to_string()), "/usr");
+        assert_eq!(dirname("usr/local/bin".to_string()), "usr/local");
+        assert_eq!(dirname("/".to_string()), "/");
+        assert_eq!(dirname("".to_string()), ".");
+    }
+
+    #[test]
+    fn test_basename() {
+        assert_eq!(basename("/usr/local/bin".to_string(), Opt(None)), "bin");
+        assert_eq!(
+            basename("/usr/local/bin.txt".to_string(), Opt(None)),
+            "bin.txt"
+        );
+        assert_eq!(
+            basename(
+                "/usr/local/bin.txt".to_string(),
+                Opt(Some(".txt".to_string()))
+            ),
+            "bin"
+        );
+        assert_eq!(basename("".to_string(), Opt(None)), "");
+        assert_eq!(basename("/".to_string(), Opt(None)), "");
+    }
+
+    #[test]
+    fn test_extname() {
+        assert_eq!(extname("/usr/local/bin.txt".to_string()), ".txt");
+        assert_eq!(extname("/usr/local/bin".to_string()), "");
+        assert_eq!(extname("file.tar.gz".to_string()), ".gz");
+        assert_eq!(extname(".bashrc".to_string()), "");
+        assert_eq!(extname("".to_string()), "");
+    }
+
+    #[test]
+    fn test_join() {
+        // Standard cases
+        assert_eq!(join_path(["/usr", "local", "bin"].iter()), "/usr/local/bin");
+        assert_eq!(
+            join_path(["/usr", "/local", "bin"].iter()),
+            "/usr/local/bin"
+        );
+        assert_eq!(join_path(["usr", "local", "bin"].iter()), "usr/local/bin");
+        assert_eq!(join_path(["", "bin"].iter()), "bin");
+
+        // Complex cases
+        assert_eq!(
+            join_path(["/usr", "..", "local", "bin"].iter()),
+            "/local/bin"
+        ); // Parent dir
+        assert_eq!(join_path([".", "usr", "local"].iter()), "usr/local"); // Current dir
+        assert_eq!(join_path(["/usr", ".", "bin"].iter()), "/usr/bin"); // Current dir in middle
+        assert_eq!(join_path(["usr", "local", "bin", ".."].iter()), "usr/local"); // Ending with parent dir
+        assert_eq!(
+            join_path(["/usr", "local", "", "bin"].iter()),
+            "/usr/local/bin"
+        ); // Empty component in path
+        assert_eq!(
+            join_path(["/usr", "local", ".hidden"].iter()),
+            "/usr/local/.hidden"
+        ); // Hidden file
+    }
+
+    #[test]
+    fn test_resolve_path() {
+        // Standard cases
+        assert_eq!(resolve_path(["/foo/bar", "../baz"].iter()), "/foo/baz");
+        assert_eq!(resolve_path(["/foo/bar", "./baz"].iter()), "/foo/bar/baz");
+        assert_eq!(resolve_path(["foo/bar", "/baz"].iter()), "/baz");
+        assert_eq!(
+            resolve_path(["", "foo/bar"].iter()),
+            std::env::current_dir()
+                .unwrap()
+                .join("foo/bar")
+                .to_string_lossy()
+                .replace("\\", "/")
+                .to_string()
+        );
+
+        // Complex cases
+        assert_eq!(
+            resolve_path(["/foo", "bar", ".", "baz"].iter()),
+            "/foo/bar/baz"
+        ); // Current dir in middle
+        assert_eq!(
+            resolve_path(["/foo", "bar", "..", "baz"].iter()),
+            "/foo/baz"
+        ); // Parent dir in middle
+        assert_eq!(resolve_path(["/foo", "bar", "../..", "baz"].iter()), "/baz"); // Double parent dir
+        assert_eq!(
+            resolve_path(["/foo", "bar", ".hidden"].iter()),
+            "/foo/bar/.hidden"
+        ); // Hidden file
+        assert_eq!(resolve_path(["/foo", ".", "bar", "."].iter()), "/foo/bar"); // Multiple current dirs
+        assert_eq!(resolve_path(["/foo", "..", "..", "bar"].iter()), "/bar"); // Multiple parent dirs
+        assert_eq!(resolve_path(["/foo/bar", "/..", "baz"].iter()), "/baz"); // Parent dir with absolute path
+    }
+
+    #[test]
+    fn test_normalize() {
+        assert_eq!(normalize("/foo//bar//baz".to_string()), "/foo/bar/baz");
+        assert_eq!(normalize("/foo/./bar/../baz".to_string()), "/foo/baz");
+        assert_eq!(normalize("foo/bar/".to_string()), "foo/bar");
+        assert_eq!(normalize("./foo".to_string()), "foo");
+    }
+
+    #[test]
+    fn test_is_absolute() {
+        assert!(is_absolute("/usr/local/bin".to_string()));
+        assert!(!is_absolute("usr/local/bin".to_string()));
+        #[cfg(windows)]
+        assert!(is_absolute("C:\\Program Files".to_string())); // for Windows systems
+        assert!(!is_absolute("./local/bin".to_string()));
     }
 }

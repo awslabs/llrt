@@ -7,14 +7,14 @@ use std::{
     ffi::CStr,
     fmt::Write,
     io,
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
     process::exit,
     result::Result as StdResult,
     sync::{Arc, Mutex},
 };
 
 use llrt_modules::{
-    path::join_path,
+    path::{join_path, resolve_path},
     timers::{self, poll_timers},
 };
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
@@ -38,11 +38,7 @@ include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
 use crate::{
     json_loader::JSONLoader,
-    modules::{
-        console,
-        crypto::SYSTEM_RANDOM,
-        path::{dirname, resolve_path},
-    },
+    modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
 };
 
 use crate::{
@@ -91,27 +87,6 @@ impl BinaryResolver {
         path.with_extension("lrt")
     }
 
-    pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
-        let ends_with_slash = path.as_ref().to_str().map_or(false, |s| s.ends_with('/'));
-        let mut normalized = PathBuf::new();
-        for component in path.as_ref().components() {
-            match &component {
-                Component::ParentDir => {
-                    if !normalized.pop() {
-                        normalized.push(component);
-                    }
-                },
-                _ => {
-                    normalized.push(component);
-                },
-            }
-        }
-        if ends_with_slash {
-            normalized.push("");
-        }
-        normalized
-    }
-
     fn new() -> io::Result<Self> {
         Ok(Self {
             paths: Vec::with_capacity(10),
@@ -141,9 +116,9 @@ impl Resolver for BinaryResolver {
         };
 
         let normalized_path = base_path.join(name);
-
-        let normalized_path = BinaryResolver::normalize(normalized_path);
-        let mut normalized_path = normalized_path.to_str().unwrap();
+        let normalized_path = normalized_path.to_string_lossy().to_string();
+        let normalized_path = join_path([normalized_path].iter());
+        let mut normalized_path = normalized_path.as_str();
         let cache_path = if normalized_path.starts_with("./") {
             &normalized_path[2..]
         } else {
@@ -161,8 +136,8 @@ impl Resolver for BinaryResolver {
 
         if BYTECODE_CACHE.contains_key(base) {
             normalized_path = name;
-            if Path::new(normalized_path).exists() {
-                return Ok(normalized_path.to_string());
+            if Path::new(name).exists() {
+                return Ok(name.to_string());
             }
         }
 

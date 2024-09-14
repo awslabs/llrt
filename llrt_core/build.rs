@@ -97,12 +97,13 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
                 path.with_extension("").to_string_lossy().to_string()
             } else {
                 path.to_string_lossy().to_string()
-            };
+            }
+            .replace('\\', "/");
 
             info!("Compiling module: {}", module_name);
 
             let lrt_path = PathBuf::from(&out_dir).join(path.with_extension(BYTECODE_EXT));
-            let lrt_filename = lrt_path.to_string_lossy().to_string();
+            let lrt_filename = lrt_path.to_string_lossy().to_string().replace('\\', "/");
             lrt_filenames.push(lrt_filename.clone());
             let bytes = {
                 {
@@ -130,8 +131,8 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
             info!("Done!");
 
             ph_map.entry(
-                module_name.replace('\\', "/"),
-                &format!("include_bytes!(\"{}\")", &lrt_filename).replace('\\', "/"),
+                module_name,
+                &format!("include_bytes!(\"{}\")", &lrt_filename),
             );
         }
 

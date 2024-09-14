@@ -141,7 +141,7 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> 
 
     let mut is_base64 = false;
     let mut content_type = String::with_capacity(10);
-    for (i, part) in mime_type.split(";").enumerate() {
+    for (i, part) in mime_type.split(';').enumerate() {
         let part = part.trim();
         if i == 1 || i == 2 {
             if part == "base64" {

@@ -17,10 +17,34 @@ use rquickjs::{
 pub use crate::sysinfo::{get_arch, get_platform};
 use crate::{time, ModuleInfo, VERSION};
 
-fn cwd(ctx: Ctx<'_>) -> Result<rquickjs::String<'_>> {
-    env::current_dir()
-        .or_throw(&ctx)
-        .and_then(|path| rquickjs::String::from_str(ctx, path.to_string_lossy().as_ref()))
+#[cfg(windows)]
+fn to_slash_lossy(path_buf: PathBuf) -> String {
+    let mut buf = String::new();
+    for c in path_buf.components() {
+        match c {
+            Component::Prefix(prefix) => {
+                buf.push_str(&prefix.as_os_str().to_string_lossy());
+                continue;
+            },
+            Component::Normal(s) => buf.push_str(&s.to_string_lossy()),
+            _ => {},
+        }
+        buf.push('/');
+    }
+    buf
+}
+
+fn cwd(ctx: Ctx<'_>) -> Result<String> {
+    env::current_dir().or_throw(&ctx).map(|path| {
+        #[cfg(windows)]
+        {
+            to_slash_lossy(path)
+        }
+        #[cfg(not(windows))]
+        {
+            path.to_string_lossy().to_string()
+        }
+    })
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {

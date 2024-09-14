@@ -79,6 +79,7 @@ generate_signal_from_str_fn!(
     libc::SIGTERM
 );
 
+#[allow(unused_variables)]
 fn prepare_shell_args(
     shell: &str,
     windows_verbatim_arguments: &mut bool,
@@ -86,23 +87,36 @@ fn prepare_shell_args(
     command_args: Option<Vec<String>>,
 ) -> Vec<String> {
     let mut string_args = cmd;
+
+    #[cfg(windows)]
+    {
+        let shell_is_cmd = shell.ends_with("cmd") || shell.ends_with("cmd.exe");
+        if shell_is_cmd {
+            *windows_verbatim_arguments = true;
+            string_args.insert_str(0, "\"");
+        }
+    }
+
     if let Some(command_args) = command_args {
         string_args.push(' ');
         string_args.push_str(&command_args.join(" "));
     }
     string_args.push(' ');
 
-    if shell.ends_with("cmd") || shell.ends_with("cmd.exe") {
-        *windows_verbatim_arguments = true;
-        vec![
-            String::from("/d"),
-            String::from("/s"),
-            String::from("/c"),
-            ["\"", &string_args, "\""].concat(),
-        ]
-    } else {
-        vec![String::from("-c"), string_args]
+    #[cfg(windows)]
+    {
+        if (shell_is_cmd) {
+            string_args.push_str("\"");
+            return vec![
+                String::from("/d"),
+                String::from("/s"),
+                String::from("/c"),
+                string_args,
+            ];
+        }
     }
+
+    vec!["-c".into(), string_args]
 }
 
 #[allow(dead_code)]
