@@ -89,8 +89,10 @@ fn prepare_shell_args(
     let mut string_args = cmd;
 
     #[cfg(windows)]
+    let shell_is_cmd = shell.ends_with("cmd") || shell.ends_with("cmd.exe");
+
+    #[cfg(windows)]
     {
-        let shell_is_cmd = shell.ends_with("cmd") || shell.ends_with("cmd.exe");
         if shell_is_cmd {
             *windows_verbatim_arguments = true;
             string_args.insert_str(0, "\"");
@@ -98,14 +100,22 @@ fn prepare_shell_args(
     }
 
     if let Some(command_args) = command_args {
+        //reserve at least arg length +1
+        let total_length = command_args.iter().map(|s| s.len() + 1).sum();
+        string_args.reserve(total_length);
         string_args.push(' ');
-        string_args.push_str(&command_args.join(" "));
+
+        for arg in command_args.iter() {
+            string_args.push_str(arg);
+            string_args.push(' ');
+        }
+    } else {
+        string_args.push(' ');
     }
-    string_args.push(' ');
 
     #[cfg(windows)]
     {
-        if (shell_is_cmd) {
+        if shell_is_cmd {
             string_args.push_str("\"");
             return vec![
                 String::from("/d"),

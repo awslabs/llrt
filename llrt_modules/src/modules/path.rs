@@ -32,7 +32,7 @@ use memchr::memchr2;
 
 #[cfg(windows)]
 fn find_next_separator(s: &str) -> Option<usize> {
-    memchr2(b'\\', bFORWARD_SLASH, s.as_bytes())
+    memchr2(b'\\', b'/', s.as_bytes())
 }
 
 #[cfg(not(windows))]
@@ -41,6 +41,7 @@ fn find_next_separator(s: &str) -> Option<usize> {
 }
 
 const FORWARD_SLASH: char = '/';
+const FORWARD_SLASH_STR: &str = "/";
 
 // Constants kept for potential use elsewhere
 #[cfg(windows)]
@@ -200,20 +201,51 @@ where
     F: AsRef<str>,
     T: AsRef<str>,
 {
-    let from = from.as_ref();
-    let to = to.as_ref();
-    if from == to {
+    let from_ref = from.as_ref();
+    let to_ref = to.as_ref();
+    if from_ref == to_ref {
         return ".".to_string();
     }
+
+    let mut abs_from = None;
+
+    if !is_absolute(from_ref) {
+        abs_from = Some(
+            std::env::current_dir()
+                .expect("Unable to access working directory")
+                .to_string_lossy()
+                .to_string()
+                + FORWARD_SLASH_STR
+                + from_ref,
+        );
+    }
+
+    let mut abs_to = None;
+
+    if !is_absolute(to_ref) {
+        abs_to = Some(
+            std::env::current_dir()
+                .expect("Unable to access working directory")
+                .to_string_lossy()
+                .to_string()
+                + FORWARD_SLASH_STR
+                + to_ref,
+        );
+    }
+
+    let from_ref = abs_from.as_deref().unwrap_or(from_ref);
+    let to_ref = abs_to.as_deref().unwrap_or(to_ref);
+
     let mut from_index = 0;
     let mut to_index = 0;
     // skip common prefix
-    while from_index < from.len() && to_index < to.len() {
-        let from_next = find_next_separator(&from[from_index..]).unwrap_or(from.len() - from_index)
+    while from_index < from_ref.len() && to_index < to_ref.len() {
+        let from_next = find_next_separator(&from_ref[from_index..])
+            .unwrap_or(from_ref.len() - from_index)
             + from_index;
         let to_next =
-            find_next_separator(&to[to_index..]).unwrap_or(to.len() - to_index) + to_index;
-        if from[from_index..from_next] != to[to_index..to_next] {
+            find_next_separator(&to_ref[to_index..]).unwrap_or(to_ref.len() - to_index) + to_index;
+        if from_ref[from_index..from_next] != to_ref[to_index..to_next] {
             break;
         }
         from_index = from_next + 1; // Move past the separator
@@ -221,8 +253,9 @@ where
     }
     let mut relative = String::new();
     // add ".." for each remaining component in 'from'
-    while from_index < from.len() {
-        let from_next = find_next_separator(&from[from_index..]).unwrap_or(from.len() - from_index)
+    while from_index < from_ref.len() {
+        let from_next = find_next_separator(&from_ref[from_index..])
+            .unwrap_or(from_ref.len() - from_index)
             + from_index;
         if !relative.is_empty() {
             relative.push(FORWARD_SLASH);
@@ -231,13 +264,13 @@ where
         from_index = from_next + 1; // Move past the separator
     }
     // add the remaining components from 'to'
-    while to_index < to.len() {
+    while to_index < to_ref.len() {
         let to_next =
-            find_next_separator(&to[to_index..]).unwrap_or(to.len() - to_index) + to_index;
+            find_next_separator(&to_ref[to_index..]).unwrap_or(to_ref.len() - to_index) + to_index;
         if !relative.is_empty() {
             relative.push(FORWARD_SLASH);
         }
-        let component = &to[to_index..to_next];
+        let component = &to_ref[to_index..to_next];
         if component != "." {
             relative.push_str(component);
         }
@@ -349,8 +382,15 @@ fn normalize(path: String) -> String {
     join_resolve_path([path].iter(), false)
 }
 
-pub fn is_absolute(path: String) -> bool {
-    path.starts_with(std::path::MAIN_SEPARATOR) || PathBuf::from(path).is_absolute()
+#[cfg(windows)]
+pub fn is_absolute(path: &str) -> bool {
+    path.starts_with(std::path::MAIN_SEPARATOR)
+        || path.starts_with(FORWARD_SLASH)
+        || PathBuf::from(path).is_absolute()
+}
+
+pub fn is_absolute(path: &str) -> bool {
+    path.starts_with(std::path::MAIN_SEPARATOR)
 }
 
 impl ModuleDef for PathModule {
@@ -383,7 +423,7 @@ impl ModuleDef for PathModule {
             default.set("relative", Func::from(relative))?;
             default.set("resolve", Func::from(resolve))?;
             default.set("normalize", Func::from(normalize))?;
-            default.set("isAbsolute", Func::from(is_absolute))?;
+            default.set("isAbsolute", Func::from(|s: String| is_absolute(&s)))?;
             default.prop("delimiter", DELIMITER.to_string())?;
             default.prop("sep", MAIN_SEPARATOR.to_string())?;
             Ok(())
@@ -528,10 +568,10 @@ mod tests {
 
     #[test]
     fn test_is_absolute() {
-        assert!(is_absolute("/usr/local/bin".to_string()));
-        assert!(!is_absolute("usr/local/bin".to_string()));
+        assert!(is_absolute("/usr/local/bin"));
+        assert!(!is_absolute("usr/local/bin"));
         #[cfg(windows)]
-        assert!(is_absolute("C:\\Program Files".to_string())); // for Windows systems
-        assert!(!is_absolute("./local/bin".to_string()));
+        assert!(is_absolute("C:\\Program Files")); // for Windows systems
+        assert!(!is_absolute("./local/bin"));
     }
 }

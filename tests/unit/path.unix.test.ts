@@ -169,75 +169,51 @@ if (!IS_WIN) {
 
   describe("path.relative", () => {
     test("relative path between two absolute directories", () => {
-      const from = "/Users/test/dir1";
-      const to = "/Users/test/dir2";
-      const result = path.relative(from, to);
-
+      const result = path.relative("/Users/test/dir1", "/Users/test/dir2");
       expect(result).toBe("../dir2");
     });
 
     test("relative path between nested absolute directories", () => {
-      const from = "/Users/test/dir1/subdir1";
-      const to = "/Users/test/dir2/subdir2";
-      const result = path.relative(from, to);
-
+      const result = path.relative(
+        "/Users/test/dir1/subdir1",
+        "/Users/test/dir2/subdir2"
+      );
       expect(result).toBe("../../dir2/subdir2");
     });
 
     test("same absolute directory", () => {
-      const from = "/Users/test/dir1";
-      const to = "/Users/test/dir1";
-      const result = path.relative(from, to);
-
-      expect(result).toBe("");
+      const result = path.relative("/Users/test/dir1", "/Users/test/dir1");
+      expect(result).toBe(".");
     });
 
     test("relative path between two non-absolute directories", () => {
-      const from = "dir1/subdir1";
-      const to = "dir2/subdir2";
-      const result = path.relative(from, to);
-
+      const result = path.relative("dir1/subdir1", "dir2/subdir2");
       expect(result).toBe("../../dir2/subdir2");
     });
 
     test("relative path with one non-absolute directory", () => {
-      const from = "dir1/subdir1";
-      const to = "/Users/test/dir2/subdir2";
-      const result = path.relative(from, to);
-
-      expect(result).toBe("../../../Users/test/dir2/subdir2");
+      const result = path.relative("dir1/subdir1", "/Users/test/dir2/subdir2");
+      expect(result).toBe("../../../test/dir2/subdir2");
     });
 
     test('relative path when "to" is a non-absolute file', () => {
-      const from = "dir1";
-      const to = "dir2/file.txt";
-      const result = path.relative(from, to);
-
+      const result = path.relative("dir1", "dir2/file.txt");
       expect(result).toBe("../dir2/file.txt");
     });
 
     test('relative path when "from" is a non-absolute file', () => {
-      const from = "dir1/file.txt";
-      const to = "dir2";
-      const result = path.relative(from, to);
-
-      expect(result).toBe("../dir2");
+      const result = path.relative("dir1/file.txt", "dir2");
+      expect(result).toBe("../../dir2");
     });
 
     test('relative path when both "from" and "to" are non-absolute files', () => {
-      const from = "dir1/file1.txt";
-      const to = "dir2/file2.txt";
-      const result = path.relative(from, to);
-
-      expect(result).toBe("../dir2/file2.txt");
+      const result = path.relative("dir1/file1.txt", "dir2/file2.txt");
+      expect(result).toBe("../../dir2/file2.txt");
     });
 
     test("relative path between non-absolute and absolute paths", () => {
-      const from = "dir1";
-      const to = "/Users/test/dir2/file.txt";
-      const result = path.relative(from, to);
-
-      expect(result).toBe("../../Users/test/dir2/file.txt");
+      const result = path.relative("dir1", "/Users/test/dir2/file.txt");
+      expect(result).toBe("../../test/dir2/file.txt");
     });
   });
 }
