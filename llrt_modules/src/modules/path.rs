@@ -323,15 +323,19 @@ where
                 if path_buf.is_absolute() {
                     empty = false;
                     start = 1;
-                    let mut components = path_buf.components().peekable();
-                    result = if let Some(Component::Prefix(a)) = components.next() {
-                        a.as_os_str().to_str().unwrap().to_string()
+                    if starts_with_sep(part_ref) {
+                        result = FORWARD_SLASH.into();
                     } else {
-                        FORWARD_SLASH.into()
-                    };
-                    resolve_path_buf = components.collect();
-                    resolve_cow = resolve_path_buf.to_string_lossy();
-                    part_ref = resolve_cow.as_ref();
+                        let mut components = path_buf.components().peekable();
+                        result = if let Some(Component::Prefix(a)) = components.next() {
+                            a.as_os_str().to_str().unwrap().to_string()
+                        } else {
+                            FORWARD_SLASH.into()
+                        };
+                        resolve_path_buf = components.collect();
+                        resolve_cow = resolve_path_buf.to_string_lossy();
+                        part_ref = resolve_cow.as_ref();
+                    }
                 }
             }
         } else if part_ref.starts_with(SEP_PAT) && empty {
@@ -383,11 +387,16 @@ fn normalize(path: String) -> String {
     join_resolve_path([path].iter(), false)
 }
 
+fn starts_with_sep(path: &str) -> bool {
+    match path.as_bytes().get(0).unwrap_or(&0) {
+        b'/' | b'\\' => true,
+        _ => false,
+    }
+}
+
 #[cfg(windows)]
 pub fn is_absolute(path: &str) -> bool {
-    path.starts_with(std::path::MAIN_SEPARATOR)
-        || path.starts_with(FORWARD_SLASH)
-        || PathBuf::from(path).is_absolute()
+    starts_with_sep(path) || PathBuf::from(path).is_absolute()
 }
 
 #[cfg(not(windows))]
