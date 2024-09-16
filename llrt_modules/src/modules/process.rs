@@ -17,37 +17,10 @@ use rquickjs::{
 pub use crate::sysinfo::{get_arch, get_platform};
 use crate::{time, ModuleInfo, VERSION};
 
-#[cfg(windows)]
-fn to_slash_lossy(path_buf: std::path::PathBuf) -> String {
-    use crate::path::FORWARD_SLASH;
-    use std::path::Component;
-    let capacity = path_buf.as_os_str().len();
-    let mut buf = String::with_capacity(capacity);
-    for c in path_buf.components() {
-        match c {
-            Component::Prefix(prefix) => {
-                buf.push_str(&prefix.as_os_str().to_string_lossy());
-                continue;
-            },
-            Component::Normal(s) => buf.push_str(&s.to_string_lossy()),
-            _ => {},
-        }
-        buf.push(FORWARD_SLASH);
-    }
-    buf
-}
+use super::path::to_slash_lossy;
 
 fn cwd(ctx: Ctx<'_>) -> Result<String> {
-    env::current_dir().or_throw(&ctx).map(|path| {
-        #[cfg(windows)]
-        {
-            to_slash_lossy(path)
-        }
-        #[cfg(not(windows))]
-        {
-            path.to_string_lossy().to_string()
-        }
-    })
+    env::current_dir().or_throw(&ctx).map(to_slash_lossy)
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {

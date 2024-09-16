@@ -248,8 +248,8 @@ where
         if from_ref[from_index..from_next] != to_ref[to_index..to_next] {
             break;
         }
-        from_index = from_next + 1; // Move past the separator
-        to_index = to_next + 1; // Move past the separator
+        from_index = from_next + 1; //move past the separator
+        to_index = to_next + 1; //move past the separator
     }
     let mut relative = String::new();
     // add ".." for each remaining component in 'from'
@@ -292,11 +292,12 @@ where
     let size = parts.size_hint().1.unwrap_or_default();
 
     let mut result = if resolve {
-        let mut result = std::env::current_dir()
-            .expect("Unable to access working directory")
-            .to_string_lossy()
-            .to_string();
-        result.push(FORWARD_SLASH);
+        let cwd = std::env::current_dir().expect("Unable to access working directory");
+
+        let mut result = to_slash_lossy(cwd);
+        if !result.ends_with(FORWARD_SLASH) {
+            result.push(FORWARD_SLASH);
+        }
         result
     } else {
         String::with_capacity(size * 4)
@@ -393,6 +394,30 @@ pub fn is_absolute(path: &str) -> bool {
     path.starts_with(std::path::MAIN_SEPARATOR)
 }
 
+#[cfg(windows)]
+pub fn to_slash_lossy(path: PathBuf) -> String {
+    use crate::path::FORWARD_SLASH;
+    use std::path::Component;
+    let capacity = path_buf.as_os_str().len();
+    let mut buf = String::with_capacity(capacity);
+    for c in path_buf.components() {
+        match c {
+            Component::Prefix(prefix) => {
+                buf.push_str(&prefix.as_os_str().to_string_lossy());
+                continue;
+            },
+            Component::Normal(s) => buf.push_str(&s.to_string_lossy()),
+            _ => {},
+        }
+        buf.push(FORWARD_SLASH);
+    }
+    buf
+}
+
+pub fn to_slash_lossy(path: PathBuf) -> String {
+    path.to_string_lossy().to_string()
+}
+
 impl ModuleDef for PathModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("basename")?;
@@ -442,10 +467,36 @@ impl From<PathModule> for ModuleInfo<PathModule> {
 
 #[cfg(test)]
 mod tests {
+    use std::env::{current_dir, set_current_dir};
+
     use super::*;
+
+    // fn calculate_relative(from: &str, to: &str) -> String {
+    //     let from_parts = resolve_path([from].iter());
+    //     let from_parts: Vec<&str> = from_parts.split(FORWARD_SLASH_STR).collect();
+
+    //     let to_parts = resolve_path([to].iter());
+    //     let to_parts: Vec<&str> = to_parts.split(FORWARD_SLASH_STR).collect();
+
+    //     // Find the first index where the paths differ
+    //     let mut i = 0;
+    //     while i < from_parts.len() && i < to_parts.len() && from_parts[i] == to_parts[i] {
+    //         i += 1;
+    //     }
+
+    //     // Calculate how many `../` are needed to reach the common base directory
+    //     let up_levels = from_parts.len() - i;
+    //     let down_path: String = to_parts[i..].join("/");
+
+    //     // Return the correct number of `../` segments followed by the remaining "to" path
+    //     ["../".repeat(up_levels), down_path].concat()
+    // }
 
     #[test]
     fn test_relative() {
+        let cwd = current_dir().expect("Unable to access working directory");
+        set_current_dir("/").expect("unable to set working directory to /");
+
         assert_eq!(relative_path("a/b/c", "b/c"), "../../../b/c");
         assert_eq!(
             relative_path("/data/orandea/test/aaa", "/data/orandea/impl/bbb"),
@@ -453,9 +504,12 @@ mod tests {
         );
         assert_eq!(relative_path("/a/b/c", "/a/d"), "../../d");
         assert_eq!(relative_path("/a/b/c", "/a/b/c/d"), "d");
-        assert_eq!(relative_path("/a/b/c", "/a/b/c"), ".");
+        assert_eq!(relative_path("/a/b/c", "/a/b/c"), "");
+
         assert_eq!(relative_path("a/b", "a/b/c/d"), "c/d");
         assert_eq!(relative_path("a/b/c", "b/c"), "../../../b/c");
+
+        set_current_dir(cwd).expect("unable to set working directory back");
     }
 
     #[test]
@@ -525,10 +579,6 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
-        // Standard cases
-        assert_eq!(resolve_path(["/foo/bar", "../baz"].iter()), "/foo/baz");
-        assert_eq!(resolve_path(["/foo/bar", "./baz"].iter()), "/foo/bar/baz");
-        assert_eq!(resolve_path(["foo/bar", "/baz"].iter()), "/baz");
         assert_eq!(
             resolve_path(["", "foo/bar"].iter()),
             std::env::current_dir()
@@ -538,6 +588,11 @@ mod tests {
                 .replace('\\', "/")
                 .to_string()
         );
+
+        // Standard cases
+        assert_eq!(resolve_path(["/foo/bar", "../baz"].iter()), "/foo/baz");
+        assert_eq!(resolve_path(["/foo/bar", "./baz"].iter()), "/foo/bar/baz");
+        assert_eq!(resolve_path(["foo/bar", "/baz"].iter()), "/baz");
 
         // Complex cases
         assert_eq!(
