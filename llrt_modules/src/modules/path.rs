@@ -384,6 +384,7 @@ fn normalize(path: String) -> String {
     join_resolve_path([path].iter(), false)
 }
 
+#[allow(dead_code)] //used by windows
 fn starts_with_sep(path: &str) -> bool {
     match path.as_bytes().get(0).unwrap_or(&0) {
         b'/' | b'\\' => true,
@@ -566,15 +567,23 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
-        let prefix = std::env::current_dir()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-            .replace("\\", "/");
+        let prefix = if cfg!(windows) {
+            std::env::current_dir()
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+                .replace("\\", "/")
+        } else {
+            "".into()
+        };
 
         assert_eq!(
             resolve_path(["", "foo/bar"].iter()),
-            prefix.clone() + "/foo/bar"
+            std::env::current_dir()
+                .unwrap()
+                .join("foo/bar")
+                .to_string_lossy()
+                .to_string()
         );
 
         // Standard cases
