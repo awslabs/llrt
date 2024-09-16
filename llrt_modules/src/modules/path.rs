@@ -53,9 +53,20 @@ pub fn dirname(path: String) -> String {
     if path.is_empty() {
         return String::from(".");
     }
-    if path == MAIN_SEPARATOR_STR {
-        return path;
+
+    #[cfg(windows)]
+    {
+        if path == MAIN_SEPARATOR_STR || path == FORWARD_SLASH_STR {
+            return path;
+        }
     }
+    #[cfg(not(windows))]
+    {
+        if path == MAIN_SEPARATOR_STR {
+            return path;
+        }
+    }
+
     let path = path.strip_suffix(SEP_PAT).unwrap_or(&path);
     match path.rfind(SEP_PAT) {
         Some(idx) => {
@@ -87,18 +98,28 @@ fn name_extname(path: &str) -> (&str, &str) {
 }
 
 fn basename(path: String, suffix: Opt<String>) -> String {
-    if path.is_empty() || path == MAIN_SEPARATOR_STR {
-        return String::from("");
+    #[cfg(windows)]
+    {
+        if path.is_empty() || path == MAIN_SEPARATOR_STR || path == FORWARD_SLASH_STR {
+            return String::from("");
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if path.is_empty() || path == MAIN_SEPARATOR_STR {
+            return String::from("");
+        }
     }
 
     let (base, ext) = name_extname(&path);
-    let name = [base, ext].concat();
+    let mut name = [base, ext].concat();
     if let Some(suffix) = suffix.0 {
-        name.strip_suffix(&suffix).unwrap_or(&name)
-    } else {
-        &name
+        if let Some(location) = name.rfind(&suffix) {
+            name.truncate(location);
+            return name;
+        }
     }
-    .to_string()
+    name
 }
 
 fn extname(path: String) -> String {
@@ -322,7 +343,6 @@ where
                 let path_buf = PathBuf::from(part_ref);
                 if starts_with_sep(part_ref) || path_buf.is_absolute() {
                     empty = false;
-                    start = 1;
 
                     let mut components = path_buf.components().peekable();
                     result = if let Some(Component::Prefix(a)) = components.next() {
@@ -330,6 +350,7 @@ where
                     } else {
                         FORWARD_SLASH.into()
                     };
+                    start = result.len();
                     resolve_path_buf = components.collect();
                     resolve_cow = resolve_path_buf.to_string_lossy();
                     part_ref = resolve_cow.as_ref();
