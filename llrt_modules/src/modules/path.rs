@@ -386,10 +386,7 @@ fn normalize(path: String) -> String {
 
 #[allow(dead_code)] //used by windows
 fn starts_with_sep(path: &str) -> bool {
-    match path.as_bytes().get(0).unwrap_or(&0) {
-        b'/' | b'\\' => true,
-        _ => false,
-    }
+    matches!(path.as_bytes().first().unwrap_or(&0), b'/' | b'\\')
 }
 
 #[cfg(windows)]
@@ -568,11 +565,13 @@ mod tests {
     #[test]
     fn test_resolve_path() {
         let prefix = if cfg!(windows) {
-            std::env::current_dir()
-                .unwrap()
-                .to_string_lossy()
-                .to_string()
-                .replace("\\", "/")
+            if let Some(Component::Prefix(prefix)) =
+                std::env::current_dir().unwrap().components().next()
+            {
+                prefix.as_os_str().to_str().unwrap().to_string()
+            } else {
+                "".into()
+            }
         } else {
             "".into()
         };
@@ -584,6 +583,7 @@ mod tests {
                 .join("foo/bar")
                 .to_string_lossy()
                 .to_string()
+                .replace("\\", "/")
         );
 
         // Standard cases
