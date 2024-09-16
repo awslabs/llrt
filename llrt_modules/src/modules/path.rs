@@ -471,27 +471,6 @@ mod tests {
 
     use super::*;
 
-    // fn calculate_relative(from: &str, to: &str) -> String {
-    //     let from_parts = resolve_path([from].iter());
-    //     let from_parts: Vec<&str> = from_parts.split(FORWARD_SLASH_STR).collect();
-
-    //     let to_parts = resolve_path([to].iter());
-    //     let to_parts: Vec<&str> = to_parts.split(FORWARD_SLASH_STR).collect();
-
-    //     // Find the first index where the paths differ
-    //     let mut i = 0;
-    //     while i < from_parts.len() && i < to_parts.len() && from_parts[i] == to_parts[i] {
-    //         i += 1;
-    //     }
-
-    //     // Calculate how many `../` are needed to reach the common base directory
-    //     let up_levels = from_parts.len() - i;
-    //     let down_path: String = to_parts[i..].join("/");
-
-    //     // Return the correct number of `../` segments followed by the remaining "to" path
-    //     ["../".repeat(up_levels), down_path].concat()
-    // }
-
     #[test]
     fn test_relative() {
         let cwd = current_dir().expect("Unable to access working directory");
