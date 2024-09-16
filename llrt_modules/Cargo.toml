@@ -54,7 +54,7 @@ os = [
   "once_cell",
 ]
 path = []
-process = []
+process = ["path"]
 perf-hooks = []
 timers = ["tokio/time", "tokio/sync", "once_cell"]
 url = ["url_crate"]
