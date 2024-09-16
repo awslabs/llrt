@@ -320,7 +320,7 @@ where
                 }
             } else {
                 let path_buf = PathBuf::from(part_ref);
-                if path_buf.is_absolute() {
+                if starts_with_sep(&part_ref) || path_buf.is_absolute() {
                     empty = false;
                     start = 1;
 
@@ -564,7 +564,6 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
-        assert!(PathBuf::from("/").is_absolute());
         assert_eq!(resolve_path(["/"].iter()), "/");
 
         let prefix = if cfg!(windows) {
