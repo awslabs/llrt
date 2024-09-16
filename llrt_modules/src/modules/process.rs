@@ -20,7 +20,9 @@ use crate::{time, ModuleInfo, VERSION};
 use super::path::to_slash_lossy;
 
 fn cwd(ctx: Ctx<'_>) -> Result<String> {
-    env::current_dir().or_throw(&ctx).map(to_slash_lossy)
+    env::current_dir()
+        .or_throw(&ctx)
+        .map(|path| to_slash_lossy(&path))
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {

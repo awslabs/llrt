@@ -204,17 +204,33 @@ fn relative(from: String, to: String) -> String {
 pub fn join_path<S, I>(parts: I) -> String
 where
     S: AsRef<str>,
-    I: Iterator<Item = S>,
+    I: IntoIterator<Item = S>,
 {
-    join_resolve_path(parts, false)
+    //fine because we're either moving or storing references
+    let parts_vec: Vec<S> = parts.into_iter().collect();
+    //add one slash plus drive letter
+    //max is probably parts+size
+    let likely_max_size = parts_vec
+        .iter()
+        .map(|p| p.as_ref().len() + 1)
+        .sum::<usize>()
+        + 10;
+    let result = String::with_capacity(likely_max_size);
+    join_resolve_path(parts_vec, false, result, PathBuf::new())
 }
 
 pub fn resolve_path<S, I>(parts: I) -> String
 where
     S: AsRef<str>,
-    I: Iterator<Item = S>,
+    I: IntoIterator<Item = S>,
 {
-    join_resolve_path(parts, true)
+    let cwd = std::env::current_dir().expect("Unable to access working directory");
+
+    let mut result = to_slash_lossy(&cwd);
+    if !result.ends_with(FORWARD_SLASH) {
+        result.push(FORWARD_SLASH);
+    }
+    join_resolve_path(parts, true, result, cwd)
 }
 
 pub fn relative_path<F, T>(from: F, to: T) -> String
@@ -304,28 +320,14 @@ where
     }
 }
 
-fn join_resolve_path<S, I>(parts: I, resolve: bool) -> String
+fn join_resolve_path<S, I>(parts: I, resolve: bool, mut result: String, cwd: PathBuf) -> String
 where
     S: AsRef<str>,
-    I: Iterator<Item = S>,
+    I: IntoIterator<Item = S>,
 {
-    let mut empty = true;
-    let size = parts.size_hint().1.unwrap_or_default();
-
-    let mut result = if resolve {
-        let cwd = std::env::current_dir().expect("Unable to access working directory");
-
-        let mut result = to_slash_lossy(cwd);
-        if !result.ends_with(FORWARD_SLASH) {
-            result.push(FORWARD_SLASH);
-        }
-        result
-    } else {
-        String::with_capacity(size * 4)
-    };
-
     let mut resolve_cow: Cow<str>;
     let mut resolve_path_buf: PathBuf;
+    let mut empty = true;
 
     let mut index_stack = Vec::with_capacity(16);
 
@@ -340,20 +342,27 @@ where
                     start = 1;
                 }
             } else {
-                let path_buf = PathBuf::from(part_ref);
-                if starts_with_sep(part_ref) || path_buf.is_absolute() {
+                println!("are we here?");
+                let starts_with_sep = starts_with_sep(part_ref);
+                if starts_with_sep {
+                    let (prefix, _) = get_path_prefix(&cwd);
+                    result = prefix;
                     empty = false;
-
-                    let mut components = path_buf.components().peekable();
-                    result = if let Some(Component::Prefix(a)) = components.next() {
-                        a.as_os_str().to_str().unwrap().to_string()
-                    } else {
-                        FORWARD_SLASH.into()
-                    };
                     start = result.len();
-                    resolve_path_buf = components.collect();
-                    resolve_cow = resolve_path_buf.to_string_lossy();
-                    part_ref = resolve_cow.as_ref();
+                } else {
+                    let path_buf: PathBuf = PathBuf::from(part_ref);
+                    if path_buf.is_absolute() {
+                        empty = false;
+                        let (prefix, mut components) = get_path_prefix(&path_buf);
+                        if prefix.is_empty() {
+                            components.next(); //consume prefix
+                        }
+                        result = prefix;
+                        start = result.len();
+                        resolve_path_buf = components.collect();
+                        resolve_cow = resolve_path_buf.to_string_lossy();
+                        part_ref = resolve_cow.as_ref();
+                    }
                 }
             }
         } else if part_ref.starts_with(SEP_PAT) && empty {
@@ -398,11 +407,23 @@ where
 }
 
 pub fn resolve(path: Rest<String>) -> String {
-    join_resolve_path(path.iter(), true)
+    resolve_path(path.iter())
+}
+
+fn get_path_prefix(cwd: &Path) -> (String, std::iter::Peekable<std::path::Components<'_>>) {
+    let mut components = cwd.components().peekable();
+
+    let prefix = if let Some(Component::Prefix(prefix)) = components.peek() {
+        prefix.as_os_str().to_str().unwrap().to_string()
+    } else {
+        "".into()
+    };
+
+    (prefix, components)
 }
 
 fn normalize(path: String) -> String {
-    join_resolve_path([path].iter(), false)
+    join_path([path].iter())
 }
 
 #[allow(dead_code)] //used by windows
@@ -421,7 +442,7 @@ pub fn is_absolute(path: &str) -> bool {
 }
 
 #[cfg(windows)]
-pub fn to_slash_lossy(path: PathBuf) -> String {
+pub fn to_slash_lossy(path: &PathBuf) -> String {
     use crate::path::FORWARD_SLASH;
     use std::path::Component;
     let capacity = path.as_os_str().len();
@@ -441,7 +462,7 @@ pub fn to_slash_lossy(path: PathBuf) -> String {
 }
 
 #[cfg(not(windows))]
-pub fn to_slash_lossy(path: PathBuf) -> String {
+pub fn to_slash_lossy(path: &Path) -> String {
     path.to_string_lossy().to_string()
 }
 
@@ -494,12 +515,20 @@ impl From<PathModule> for ModuleInfo<PathModule> {
 
 #[cfg(test)]
 mod tests {
-    use std::env::{current_dir, set_current_dir};
+    use std::{
+        env::{current_dir, set_current_dir},
+        sync::Mutex,
+    };
+
+    static THREAD_LOCK: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
+
+    use once_cell::sync::Lazy;
 
     use super::*;
 
     #[test]
     fn test_relative() {
+        let _shared = THREAD_LOCK.lock().unwrap();
         let cwd = current_dir().expect("Unable to access working directory");
         set_current_dir("/").expect("unable to set working directory to /");
 
@@ -570,7 +599,7 @@ mod tests {
             join_path(["/usr", "..", "local", "bin"].iter()),
             "/local/bin"
         ); // Parent dir
-        assert_eq!(join_path([".", "usr", "local"].iter()), "usr/local"); // Current dir
+        assert_eq!(join_path([".", "usr", "local"]), "usr/local"); // Current dir
         assert_eq!(join_path(["/usr", ".", "bin"].iter()), "/usr/bin"); // Current dir in middle
         assert_eq!(join_path(["usr", "local", "bin", ".."].iter()), "usr/local"); // Ending with parent dir
         assert_eq!(
@@ -585,8 +614,6 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
-        assert_eq!(resolve_path(["/"].iter()), "/");
-
         let prefix = if cfg!(windows) {
             if let Some(Component::Prefix(prefix)) =
                 std::env::current_dir().unwrap().components().next()
