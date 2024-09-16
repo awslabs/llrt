@@ -18,8 +18,11 @@ pub use crate::sysinfo::{get_arch, get_platform};
 use crate::{time, ModuleInfo, VERSION};
 
 #[cfg(windows)]
-fn to_slash_lossy(path_buf: PathBuf) -> String {
-    let mut buf = String::new();
+fn to_slash_lossy(path_buf: std::path::PathBuf) -> String {
+    use crate::path::FORWARD_SLASH;
+    use std::path::Component;
+    let capacity = path_buf.as_os_str().len();
+    let mut buf = String::with_capacity(capacity);
     for c in path_buf.components() {
         match c {
             Component::Prefix(prefix) => {
@@ -29,7 +32,7 @@ fn to_slash_lossy(path_buf: PathBuf) -> String {
             Component::Normal(s) => buf.push_str(&s.to_string_lossy()),
             _ => {},
         }
-        buf.push('/');
+        buf.push(FORWARD_SLASH);
     }
     buf
 }

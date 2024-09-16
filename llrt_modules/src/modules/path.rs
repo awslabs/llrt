@@ -40,8 +40,8 @@ fn find_next_separator(s: &str) -> Option<usize> {
     s.find(std::path::MAIN_SEPARATOR)
 }
 
-const FORWARD_SLASH: char = '/';
-const FORWARD_SLASH_STR: &str = "/";
+pub const FORWARD_SLASH: char = '/';
+pub const FORWARD_SLASH_STR: &str = "/";
 
 // Constants kept for potential use elsewhere
 #[cfg(windows)]
@@ -204,7 +204,7 @@ where
     let from_ref = from.as_ref();
     let to_ref = to.as_ref();
     if from_ref == to_ref {
-        return ".".to_string();
+        return "".to_string();
     }
 
     let mut abs_from = None;
