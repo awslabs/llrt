@@ -564,6 +564,7 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
+        assert!(PathBuf::from("/").is_absolute());
         assert_eq!(resolve_path(["/"].iter()), "/");
 
         let prefix = if cfg!(windows) {
