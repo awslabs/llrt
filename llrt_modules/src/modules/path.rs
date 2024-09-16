@@ -390,6 +390,7 @@ pub fn is_absolute(path: &str) -> bool {
         || PathBuf::from(path).is_absolute()
 }
 
+#[cfg(not(windows))]
 pub fn is_absolute(path: &str) -> bool {
     path.starts_with(std::path::MAIN_SEPARATOR)
 }
@@ -398,9 +399,9 @@ pub fn is_absolute(path: &str) -> bool {
 pub fn to_slash_lossy(path: PathBuf) -> String {
     use crate::path::FORWARD_SLASH;
     use std::path::Component;
-    let capacity = path_buf.as_os_str().len();
+    let capacity = path.as_os_str().len();
     let mut buf = String::with_capacity(capacity);
-    for c in path_buf.components() {
+    for c in path.components() {
         match c {
             Component::Prefix(prefix) => {
                 buf.push_str(&prefix.as_os_str().to_string_lossy());
@@ -414,6 +415,7 @@ pub fn to_slash_lossy(path: PathBuf) -> String {
     buf
 }
 
+#[cfg(not(windows))]
 pub fn to_slash_lossy(path: PathBuf) -> String {
     path.to_string_lossy().to_string()
 }
