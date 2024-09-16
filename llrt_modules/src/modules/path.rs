@@ -369,7 +369,7 @@ where
         }
     }
 
-    if result.ends_with(FORWARD_SLASH) {
+    if result.len() > 1 && result.ends_with(FORWARD_SLASH) {
         result.truncate(result.len() - 1);
     }
 
@@ -564,6 +564,8 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
+        assert_eq!(resolve_path(["/"].iter()), "/");
+
         let prefix = if cfg!(windows) {
             if let Some(Component::Prefix(prefix)) =
                 std::env::current_dir().unwrap().components().next()
@@ -585,6 +587,9 @@ mod tests {
                 .to_string()
                 .replace("\\", "/")
         );
+
+        // Standard cases
+        assert_eq!(resolve_path(["/"].iter()), prefix.clone() + "/");
 
         // Standard cases
         assert_eq!(
