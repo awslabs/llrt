@@ -323,19 +323,16 @@ where
                 if path_buf.is_absolute() {
                     empty = false;
                     start = 1;
-                    if starts_with_sep(part_ref) {
-                        result = FORWARD_SLASH.into();
+
+                    let mut components = path_buf.components().peekable();
+                    result = if let Some(Component::Prefix(a)) = components.next() {
+                        a.as_os_str().to_str().unwrap().to_string()
                     } else {
-                        let mut components = path_buf.components().peekable();
-                        result = if let Some(Component::Prefix(a)) = components.next() {
-                            a.as_os_str().to_str().unwrap().to_string()
-                        } else {
-                            FORWARD_SLASH.into()
-                        };
-                        resolve_path_buf = components.collect();
-                        resolve_cow = resolve_path_buf.to_string_lossy();
-                        part_ref = resolve_cow.as_ref();
-                    }
+                        FORWARD_SLASH.into()
+                    };
+                    resolve_path_buf = components.collect();
+                    resolve_cow = resolve_path_buf.to_string_lossy();
+                    part_ref = resolve_cow.as_ref();
                 }
             }
         } else if part_ref.starts_with(SEP_PAT) && empty {
@@ -569,38 +566,57 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
+        let prefix = std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
+            .replace("\\", "/");
+
         assert_eq!(
             resolve_path(["", "foo/bar"].iter()),
-            std::env::current_dir()
-                .unwrap()
-                .join("foo/bar")
-                .to_string_lossy()
-                .replace('\\', "/")
-                .to_string()
+            prefix.clone() + "/foo/bar"
         );
 
         // Standard cases
-        assert_eq!(resolve_path(["/foo/bar", "../baz"].iter()), "/foo/baz");
-        assert_eq!(resolve_path(["/foo/bar", "./baz"].iter()), "/foo/bar/baz");
-        assert_eq!(resolve_path(["foo/bar", "/baz"].iter()), "/baz");
+        assert_eq!(
+            resolve_path(["/foo/bar", "../baz"].iter()),
+            prefix.clone() + "/foo/baz"
+        );
+        assert_eq!(
+            resolve_path(["/foo/bar", "./baz"].iter()),
+            prefix.clone() + "/foo/bar/baz"
+        );
+        assert_eq!(
+            resolve_path(["foo/bar", "/baz"].iter()),
+            prefix.clone() + "/baz"
+        );
 
         // Complex cases
         assert_eq!(
             resolve_path(["/foo", "bar", ".", "baz"].iter()),
-            "/foo/bar/baz"
+            prefix.clone() + "/foo/bar/baz"
         ); // Current dir in middle
         assert_eq!(
             resolve_path(["/foo", "bar", "..", "baz"].iter()),
-            "/foo/baz"
+            prefix.clone() + "/foo/baz"
         ); // Parent dir in middle
         assert_eq!(resolve_path(["/foo", "bar", "../..", "baz"].iter()), "/baz"); // Double parent dir
         assert_eq!(
             resolve_path(["/foo", "bar", ".hidden"].iter()),
-            "/foo/bar/.hidden"
+            prefix.clone() + "/foo/bar/.hidden"
         ); // Hidden file
-        assert_eq!(resolve_path(["/foo", ".", "bar", "."].iter()), "/foo/bar"); // Multiple current dirs
-        assert_eq!(resolve_path(["/foo", "..", "..", "bar"].iter()), "/bar"); // Multiple parent dirs
-        assert_eq!(resolve_path(["/foo/bar", "/..", "baz"].iter()), "/baz"); // Parent dir with absolute path
+        assert_eq!(
+            resolve_path(["/foo", ".", "bar", "."].iter()),
+            prefix.clone() + "/foo/bar"
+        ); // Multiple current dirs
+        assert_eq!(
+            resolve_path(["/foo", "..", "..", "bar"].iter()),
+            prefix.clone() + "/bar"
+        ); // Multiple parent dirs
+        assert_eq!(
+            resolve_path(["/foo/bar", "/..", "baz"].iter()),
+            prefix.clone() + "/baz"
+        ); // Parent dir with absolute path
     }
 
     #[test]
