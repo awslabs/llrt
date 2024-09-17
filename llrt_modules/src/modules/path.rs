@@ -347,9 +347,10 @@ where
                 if starts_with_sep {
                     let (prefix, _) = get_path_prefix(&cwd);
                     prefix_len = prefix.len();
+                    start = prefix_len;
                     result = prefix + part_ref;
+
                     empty = false;
-                    start = result.len();
                 } else {
                     let path_buf: PathBuf = PathBuf::from(part_ref);
                     if path_buf.is_absolute() {
@@ -359,8 +360,8 @@ where
                             components.next(); //consume prefix
                         }
                         prefix_len = prefix.len();
+                        start = prefix_len;
                         result = prefix;
-                        start = result.len();
                         resolve_path_buf = components.collect();
                         resolve_cow = resolve_path_buf.to_string_lossy();
                         part_ref = resolve_cow.as_ref();
@@ -612,6 +613,7 @@ mod tests {
 
     #[test]
     fn test_resolve_path() {
+        let _shared = THREAD_LOCK.lock().unwrap();
         let prefix = if cfg!(windows) {
             if let Some(Component::Prefix(prefix)) =
                 std::env::current_dir().unwrap().components().next()
