@@ -109,12 +109,11 @@ fn name_extname(path: &str) -> (&str, &str) {
 }
 
 fn strip_last_sep(path: &str) -> &str {
-    let path = if ends_with_sep(path) {
+    if ends_with_sep(path) {
         &path[..path.len() - 1]
     } else {
         path
-    };
-    path
+    }
 }
 
 fn basename(path: String, suffix: Opt<String>) -> String {
