@@ -266,6 +266,12 @@ where
     if !result.ends_with(MAIN_SEPARATOR) {
         result.push(MAIN_SEPARATOR);
     }
+    #[cfg(windows)]
+    {
+        if force_posix_sep {
+            result = result.replace(MAIN_SEPARATOR, FORWARD_SLASH_STR);
+        }
+    }
     join_resolve_path(parts, true, result, cwd, force_posix_sep)
 }
 

@@ -135,12 +135,12 @@ if (IS_WIN) {
 
   describe("path.resolve", () => {
     it("should resolve a sequence of paths and return an absolute path", () => {
-      let cwdPrefix = process.cwd().split(path.sep)[0] + path.sep;
+      let cwdPrefix = process.cwd().split(path.sep)[0];
       expect(path.resolve("/foo/bar", "./baz")).toEqual(
         `${cwdPrefix}/foo/bar/baz`
       );
       expect(path.resolve("/foo/bar", "/tmp/file/")).toEqual(
-        `${cwdPrefix}cwdPrefix/tmp/file`
+        `${cwdPrefix}/tmp/file`
       );
 
       expect(
