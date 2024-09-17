@@ -342,11 +342,10 @@ where
                     start = 1;
                 }
             } else {
-                println!("are we here?");
                 let starts_with_sep = starts_with_sep(part_ref);
                 if starts_with_sep {
                     let (prefix, _) = get_path_prefix(&cwd);
-                    result = prefix;
+                    result = prefix + part_ref;
                     empty = false;
                     start = result.len();
                 } else {
