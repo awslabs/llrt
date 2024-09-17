@@ -207,8 +207,6 @@ describe("JSON Stringified", () => {
 
     const jsonString = JSON.stringify(complexData, replacerFunction, 4);
 
-    console.log(jsonString);
-
     const expectedJsonString = `{
     "key": "VALUE",
     "date": "${date.toJSON()}",

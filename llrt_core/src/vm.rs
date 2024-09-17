@@ -14,7 +14,7 @@ use std::{
 };
 
 use llrt_modules::{
-    path::{join_path, resolve_path},
+    path::{join_path_with_separator, resolve_path},
     timers::{self, poll_timers},
 };
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
@@ -117,7 +117,7 @@ impl Resolver for BinaryResolver {
 
         let normalized_path = base_path.join(name);
         let normalized_path = normalized_path.to_string_lossy().to_string();
-        let normalized_path = join_path([normalized_path].iter());
+        let normalized_path = join_path_with_separator([normalized_path].iter(), true);
         let mut normalized_path = normalized_path.as_str();
         let cache_path = if normalized_path.starts_with("./") {
             &normalized_path[2..]
