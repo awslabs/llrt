@@ -156,12 +156,12 @@ fn format(obj: Object) -> String {
     let mut path = String::new();
     if !dir.is_empty() {
         path.push_str(&dir);
-        if ends_with_sep(&dir) {
+        if !ends_with_sep(&dir) {
             path.push(MAIN_SEPARATOR);
         }
     } else if !root.is_empty() {
         path.push_str(&root);
-        if ends_with_sep(&root) {
+        if !ends_with_sep(&root) {
             path.push(MAIN_SEPARATOR);
         }
     }
