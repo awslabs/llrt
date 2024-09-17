@@ -209,7 +209,7 @@ where
         if name.starts_with('/') {
             set_import_meta(&res, name)?;
         } else {
-            set_import_meta(&res, &join_path([self.cwd.as_str(), name].iter()))?;
+            set_import_meta(&res, &resolve_path([name]))?;
         };
 
         Ok(res)
