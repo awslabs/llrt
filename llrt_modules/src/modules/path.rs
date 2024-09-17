@@ -444,17 +444,23 @@ pub fn to_slash_lossy(path: &PathBuf) -> String {
     use crate::path::FORWARD_SLASH;
     use std::path::Component;
     let capacity = path.as_os_str().len();
+    let mut prefix_length = 0;
     let mut buf = String::with_capacity(capacity);
     for c in path.components() {
         match c {
             Component::Prefix(prefix) => {
-                buf.push_str(&prefix.as_os_str().to_string_lossy());
+                let prefix = prefix.as_os_str().to_string_lossy();
+                prefix_length = prefix.len();
+                buf.push_str(&prefix);
                 continue;
             },
             Component::Normal(s) => buf.push_str(&s.to_string_lossy()),
             _ => {},
         }
         buf.push(FORWARD_SLASH);
+    }
+    if buf.len() > prefix_length + 1 && buf.ends_with(FORWARD_SLASH) {
+        buf.truncate(buf.len() - 1);
     }
     buf
 }
