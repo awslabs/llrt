@@ -528,17 +528,6 @@ mod tests {
 
     use super::*;
 
-    fn join_parts(parts: impl IntoIterator<Item = impl AsRef<str>>) -> String {
-        let mut result = String::new();
-        for part in parts {
-            if !result.is_empty() {
-                result.push(MAIN_SEPARATOR);
-            }
-            result.push_str(part.as_ref());
-        }
-        result
-    }
-
     #[test]
     fn test_relative() {
         let _shared = THREAD_LOCK.lock().unwrap();
