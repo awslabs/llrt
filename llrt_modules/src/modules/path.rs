@@ -349,6 +349,7 @@ where
                     prefix_len = prefix.len();
                     result = prefix;
                     empty = false;
+                    result.push(FORWARD_SLASH);
                 } else {
                     let path_buf: PathBuf = PathBuf::from(part_ref);
                     if path_buf.is_absolute() {
@@ -359,6 +360,7 @@ where
                         }
                         prefix_len = prefix.len();
                         result = prefix;
+                        result.push(FORWARD_SLASH);
                         resolve_path_buf = components.collect();
                         resolve_cow = resolve_path_buf.to_string_lossy();
                         part_ref = resolve_cow.as_ref();
