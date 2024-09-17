@@ -176,20 +176,13 @@ where
     T: Loader + 'static,
 {
     loader: T,
-    cwd: String,
 }
 impl<T> LoaderContainer<T>
 where
     T: Loader + 'static,
 {
     fn new(loader: T) -> Self {
-        Self {
-            loader,
-            cwd: std::env::current_dir()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-        }
+        Self { loader }
     }
 }
 
