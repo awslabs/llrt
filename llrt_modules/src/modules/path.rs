@@ -347,7 +347,6 @@ where
                 if starts_with_sep {
                     let (prefix, _) = get_path_prefix(&cwd);
                     prefix_len = prefix.len();
-                    start = prefix_len;
                     result = prefix;
                     empty = false;
                 } else {
@@ -359,7 +358,6 @@ where
                             components.next(); //consume prefix
                         }
                         prefix_len = prefix.len();
-                        start = prefix_len;
                         result = prefix;
                         resolve_path_buf = components.collect();
                         resolve_cow = resolve_path_buf.to_string_lossy();
