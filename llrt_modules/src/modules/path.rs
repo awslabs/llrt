@@ -328,6 +328,7 @@ where
     let mut resolve_cow: Cow<str>;
     let mut resolve_path_buf: PathBuf;
     let mut empty = true;
+    let mut prefix_len = 0;
 
     let mut index_stack = Vec::with_capacity(16);
 
@@ -345,6 +346,7 @@ where
                 let starts_with_sep = starts_with_sep(part_ref);
                 if starts_with_sep {
                     let (prefix, _) = get_path_prefix(&cwd);
+                    prefix_len = prefix.len();
                     result = prefix + part_ref;
                     empty = false;
                     start = result.len();
@@ -353,9 +355,10 @@ where
                     if path_buf.is_absolute() {
                         empty = false;
                         let (prefix, mut components) = get_path_prefix(&path_buf);
-                        if prefix.is_empty() {
+                        if !prefix.is_empty() {
                             components.next(); //consume prefix
                         }
+                        prefix_len = prefix.len();
                         result = prefix;
                         start = result.len();
                         resolve_path_buf = components.collect();
@@ -387,10 +390,6 @@ where
                     result.push_str(sub_part);
                     result.push(FORWARD_SLASH);
                     empty = false;
-                    #[cfg(windows)]
-                    if sub_part.ends_with(":") {
-                        result.push(FORWARD_SLASH);
-                    }
                     index_stack.push(len);
                 },
             }
@@ -398,7 +397,7 @@ where
         }
     }
 
-    if result.len() > 1 && result.ends_with(FORWARD_SLASH) {
+    if result.len() > prefix_len + 1 && result.ends_with(FORWARD_SLASH) {
         result.truncate(result.len() - 1);
     }
 
