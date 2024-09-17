@@ -44,6 +44,18 @@ fn find_next_separator(s: &str) -> Option<usize> {
     s.find(MAIN_SEPARATOR)
 }
 
+#[cfg(windows)]
+fn find_last_sep(path: &str) -> Option<usize> {
+    memchr::memchr2_iter(b'\\', b'/', path.as_bytes())
+        .rev()
+        .next();
+}
+
+#[cfg(not(windows))]
+fn find_last_sep(path: &str) -> Option<usize> {
+    path.rfind(MAIN_SEPARATOR)
+}
+
 pub fn dirname(path: String) -> String {
     if path.is_empty() {
         return String::from(".");
@@ -62,8 +74,10 @@ pub fn dirname(path: String) -> String {
         }
     }
 
-    let path = path.strip_suffix(MAIN_SEPARATOR).unwrap_or(&path);
-    match path.rfind(MAIN_SEPARATOR) {
+    let path = strip_last_sep(&path);
+    let sep_pos = find_last_sep(path);
+
+    match sep_pos {
         Some(idx) => {
             let parent = &path[..idx];
             if parent.is_empty() {
@@ -78,18 +92,8 @@ pub fn dirname(path: String) -> String {
 }
 
 fn name_extname(path: &str) -> (&str, &str) {
-    let path = if ends_with_sep(path) {
-        &path[..path.len() - 1]
-    } else {
-        path
-    };
-
-    #[cfg(windows)]
-    let sep_pos = memchr::memchr2_iter(b'\\', b'/', path.as_bytes())
-        .rev()
-        .next();
-    #[cfg(not(windows))]
-    let sep_pos = path.rfind(MAIN_SEPARATOR);
+    let path = strip_last_sep(path);
+    let sep_pos = find_last_sep(path);
 
     let path = match sep_pos {
         Some(idx) => &path[idx + 1..],
@@ -102,6 +106,15 @@ fn name_extname(path: &str) -> (&str, &str) {
         Some(idx) => path.split_at(idx),
         None => (path, ""),
     }
+}
+
+fn strip_last_sep(path: &str) -> &str {
+    let path = if ends_with_sep(path) {
+        &path[..path.len() - 1]
+    } else {
+        path
+    };
+    path
 }
 
 fn basename(path: String, suffix: Opt<String>) -> String {
