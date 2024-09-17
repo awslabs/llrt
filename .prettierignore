@@ -1,2 +1,3 @@
 # Ignore web-platform-tests to avoid collisions!
 /tests/unit/web-platform-tests
+**/node_modules

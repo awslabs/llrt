@@ -48,7 +48,7 @@ fn find_next_separator(s: &str) -> Option<usize> {
 fn find_last_sep(path: &str) -> Option<usize> {
     memchr::memchr2_iter(b'\\', b'/', path.as_bytes())
         .rev()
-        .next();
+        .next()
 }
 
 #[cfg(not(windows))]
@@ -552,26 +552,26 @@ mod tests {
 
         assert_eq!(
             relative_path("a/b/c", "b/c"),
-            "../../../b/c".replace("/", MAIN_SEPARATOR_STR)
+            "../../../b/c".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             relative_path("/data/orandea/test/aaa", "/data/orandea/impl/bbb"),
-            "../../impl/bbb".replace("/", MAIN_SEPARATOR_STR)
+            "../../impl/bbb".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             relative_path("/a/b/c", "/a/d"),
-            "../../d".replace("/", MAIN_SEPARATOR_STR)
+            "../../d".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(relative_path("/a/b/c", "/a/b/c/d"), "d");
         assert_eq!(relative_path("/a/b/c", "/a/b/c"), "");
 
         assert_eq!(
             relative_path("a/b", "a/b/c/d"),
-            "c/d".replace("/", MAIN_SEPARATOR_STR)
+            "c/d".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             relative_path("a/b/c", "b/c"),
-            "../../../b/c".replace("/", MAIN_SEPARATOR_STR)
+            "../../../b/c".replace('/', MAIN_SEPARATOR_STR)
         );
 
         set_current_dir(cwd).expect("unable to set working directory back");
@@ -618,42 +618,42 @@ mod tests {
         // Standard cases
         assert_eq!(
             join_path(["/usr", "local", "bin"].iter()),
-            "/usr/local/bin".replace("/", MAIN_SEPARATOR_STR)
+            "/usr/local/bin".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             join_path(["/usr", "/local", "bin"].iter()),
-            "/usr/local/bin".replace("/", MAIN_SEPARATOR_STR)
+            "/usr/local/bin".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             join_path(["usr", "local", "bin"].iter()),
-            "usr/local/bin".replace("/", MAIN_SEPARATOR_STR)
+            "usr/local/bin".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(join_path(["", "bin"].iter()), "bin");
 
         // Complex cases
         assert_eq!(
             join_path(["/usr", "..", "local", "bin"].iter()),
-            "/local/bin".replace("/", MAIN_SEPARATOR_STR)
+            "/local/bin".replace('/', MAIN_SEPARATOR_STR)
         ); // Parent dir
         assert_eq!(
             join_path([".", "usr", "local"]),
-            "usr/local".replace("/", MAIN_SEPARATOR_STR)
+            "usr/local".replace('/', MAIN_SEPARATOR_STR)
         ); // Current dir
         assert_eq!(
             join_path(["/usr", ".", "bin"].iter()),
-            "/usr/bin".replace("/", MAIN_SEPARATOR_STR)
+            "/usr/bin".replace('/', MAIN_SEPARATOR_STR)
         ); // Current dir in middle
         assert_eq!(
             join_path(["usr", "local", "bin", ".."].iter()),
-            "usr/local".replace("/", MAIN_SEPARATOR_STR)
+            "usr/local".replace('/', MAIN_SEPARATOR_STR)
         ); // Ending with parent dir
         assert_eq!(
             join_path(["/usr", "local", "", "bin"].iter()),
-            "/usr/local/bin".replace("/", MAIN_SEPARATOR_STR)
+            "/usr/local/bin".replace('/', MAIN_SEPARATOR_STR)
         ); // Empty component in path
         assert_eq!(
             join_path(["/usr", "local", ".hidden"].iter()),
-            "/usr/local/.hidden".replace("/", MAIN_SEPARATOR_STR)
+            "/usr/local/.hidden".replace('/', MAIN_SEPARATOR_STR)
         ); // Hidden file
     }
 
@@ -676,7 +676,7 @@ mod tests {
             resolve_path(["", "foo/bar"].iter()),
             std::env::current_dir()
                 .unwrap()
-                .join("foo/bar".replace("/", MAIN_SEPARATOR_STR))
+                .join("foo/bar".replace('/', MAIN_SEPARATOR_STR))
                 .to_string_lossy()
                 .to_string()
         );
@@ -690,45 +690,45 @@ mod tests {
         // Standard cases
         assert_eq!(
             resolve_path(["/foo/bar", "../baz"].iter()),
-            prefix.clone() + &"/foo/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/foo/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             resolve_path(["/foo/bar", "./baz"].iter()),
-            prefix.clone() + &"/foo/bar/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/foo/bar/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             resolve_path(["foo/bar", "/baz"].iter()),
-            prefix.clone() + &"/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         );
 
         // Complex cases
         assert_eq!(
             resolve_path(["/foo", "bar", ".", "baz"].iter()),
-            prefix.clone() + &"/foo/bar/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/foo/bar/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Current dir in middle
         assert_eq!(
             resolve_path(["/foo", "bar", "..", "baz"].iter()),
-            prefix.clone() + &"/foo/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/foo/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Parent dir in middle
         assert_eq!(
             resolve_path(["/foo", "bar", "../..", "baz"].iter()),
-            prefix.clone() + &"/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Double parent dir
         assert_eq!(
             resolve_path(["/foo", "bar", ".hidden"].iter()),
-            prefix.clone() + &"/foo/bar/.hidden".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/foo/bar/.hidden".replace('/', MAIN_SEPARATOR_STR)
         ); // Hidden file
         assert_eq!(
             resolve_path(["/foo", ".", "bar", "."].iter()),
-            prefix.clone() + &"/foo/bar".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/foo/bar".replace('/', MAIN_SEPARATOR_STR)
         ); // Multiple current dirs
         assert_eq!(
             resolve_path(["/foo", "..", "..", "bar"].iter()),
-            prefix.clone() + &"/bar".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/bar".replace('/', MAIN_SEPARATOR_STR)
         ); // Multiple parent dirs
         assert_eq!(
             resolve_path(["/foo/bar", "/..", "baz"].iter()),
-            prefix.clone() + &"/baz".replace("/", MAIN_SEPARATOR_STR)
+            prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Parent dir with absolute path
     }
 
@@ -736,15 +736,15 @@ mod tests {
     fn test_normalize() {
         assert_eq!(
             normalize("/foo//bar//baz".to_string()),
-            "/foo/bar/baz".replace("/", MAIN_SEPARATOR_STR)
+            "/foo/bar/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             normalize("/foo/./bar/../baz".to_string()),
-            "/foo/baz".replace("/", MAIN_SEPARATOR_STR)
+            "/foo/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
             normalize("foo/bar/".to_string()),
-            "foo/bar".replace("/", MAIN_SEPARATOR_STR)
+            "foo/bar".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(normalize("./foo".to_string()), "foo");
     }
