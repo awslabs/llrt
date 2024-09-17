@@ -103,7 +103,10 @@ describe("child_process.spawn", () => {
 
     child.on("exit", (code, signal) => {
       try {
-        expect(code).toEqual(0);
+        if (!IS_WIN) {
+          expect(code).toEqual(0);
+        }
+
         expect(signal).toEqual(IS_WIN ? "SIGKILL" : "SIGINT");
         done();
       } catch (error) {

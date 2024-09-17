@@ -14,7 +14,7 @@ use std::{
 };
 
 use llrt_modules::{
-    path::{join_path_with_separator, resolve_path},
+    path::{join_path_with_separator, resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
 };
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
@@ -202,7 +202,7 @@ where
         if name.starts_with('/') {
             set_import_meta(&res, name)?;
         } else {
-            set_import_meta(&res, &resolve_path([name]))?;
+            set_import_meta(&res, &resolve_path_with_separator([name], true))?;
         };
 
         Ok(res)

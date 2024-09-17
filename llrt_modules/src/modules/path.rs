@@ -156,12 +156,12 @@ fn format(obj: Object) -> String {
     let mut path = String::new();
     if !dir.is_empty() {
         path.push_str(&dir);
-        if !dir.ends_with(MAIN_SEPARATOR) {
+        if ends_with_sep(&dir) {
             path.push(MAIN_SEPARATOR);
         }
     } else if !root.is_empty() {
         path.push_str(&root);
-        if !root.ends_with(MAIN_SEPARATOR) {
+        if ends_with_sep(&root) {
             path.push(MAIN_SEPARATOR);
         }
     }
@@ -251,6 +251,14 @@ where
     S: AsRef<str>,
     I: IntoIterator<Item = S>,
 {
+    resolve_path_with_separator(parts, false)
+}
+
+pub fn resolve_path_with_separator<S, I>(parts: I, force_posix_sep: bool) -> String
+where
+    S: AsRef<str>,
+    I: IntoIterator<Item = S>,
+{
     let cwd = std::env::current_dir().expect("Unable to access working directory");
 
     let mut result = cwd.to_string_lossy().to_string();
@@ -258,7 +266,7 @@ where
     if !result.ends_with(MAIN_SEPARATOR) {
         result.push(MAIN_SEPARATOR);
     }
-    join_resolve_path(parts, true, result, cwd, false)
+    join_resolve_path(parts, true, result, cwd, force_posix_sep)
 }
 
 pub fn relative_path<F, T>(from: F, to: T) -> String

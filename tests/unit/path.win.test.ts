@@ -29,7 +29,7 @@ if (IS_WIN) {
       expect(path.dirname("/foo/bar")).toEqual("/foo");
       expect(path.dirname("/foo/")).toEqual("\\");
       expect(path.dirname("/foo")).toEqual("\\");
-      expect(path.dirname("/")).toEqual(".");
+      expect(path.dirname("/")).toEqual("/");
       expect(path.dirname("baz.txt")).toEqual(".");
       expect(path.dirname("")).toEqual(".");
     });
@@ -135,15 +135,20 @@ if (IS_WIN) {
 
   describe("path.resolve", () => {
     it("should resolve a sequence of paths and return an absolute path", () => {
-      expect(path.resolve("/foo/bar", "./baz")).toEqual("/foo/bar/baz");
-      expect(path.resolve("/foo/bar", "/tmp/file/")).toEqual("/tmp/file");
+      let cwdPrefix = process.cwd().split(path.sep)[0] + path.sep;
+      expect(path.resolve("/foo/bar", "./baz")).toEqual(
+        `${cwdPrefix}/foo/bar/baz`
+      );
+      expect(path.resolve("/foo/bar", "/tmp/file/")).toEqual(
+        `${cwdPrefix}cwdPrefix/tmp/file`
+      );
 
       expect(
         path.resolve("wwwroot", "static_files/png/", "../gif/image.gif")
       ).toEqual(
-        path
-          .join(process.cwd(), "wwwroot", "static_files", "gif", "image.gif")
-          .replaceAll("\\", "/")
+        [process.cwd(), "wwwroot", "static_files", "git", "image.gif"].join(
+          path.sep
+        )
       );
     });
   });
