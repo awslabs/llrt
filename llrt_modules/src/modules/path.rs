@@ -553,7 +553,10 @@ mod tests {
         assert_eq!(relative_path("/a/b/c", "/a/b/c/d"), "d");
         assert_eq!(relative_path("/a/b/c", "/a/b/c"), "");
 
-        assert_eq!(relative_path("a/b", "a/b/c/d"), "c/d");
+        assert_eq!(
+            relative_path("a/b", "a/b/c/d"),
+            "c/d".replace("/", MAIN_SEPARATOR_STR)
+        );
         assert_eq!(
             relative_path("a/b/c", "b/c"),
             "../../../b/c".replace("/", MAIN_SEPARATOR_STR)
