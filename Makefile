@@ -1,8 +1,9 @@
 TARGET_linux_x86_64 = x86_64-unknown-linux-musl
-TARGET_windows_x64 = x86_64-pc-windows-gnu
 TARGET_linux_arm64 = aarch64-unknown-linux-musl
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
+TARGET_windows_x86_64 = x86_64-pc-windows-gnu
+TARGET_windows_arm64 = aarch64-is-not-yet-supported
 RUST_VERSION = nightly
 TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
@@ -21,7 +22,7 @@ RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
 
 ifeq ($(OS),Windows_NT)
 	DETECTED_OS := windows
-	ARCH = x64
+	ARCH = x86_64
 else
 	DETECTED_OS := $(shell uname | tr A-Z a-z)
 	ARCH = $(shell uname -m)
@@ -49,65 +50,64 @@ export CC_x86_64_unknown_linux_musl = $(CURDIR)/linker/cc-x86_64-linux-musl
 export CXX_x86_64_unknown_linux_musl = $(CURDIR)/linker/cxx-x86_64-linux-musl
 export AR_x86_64_unknown_linux_musl = $(CURDIR)/linker/ar
 
-lambda-all: libs $(RELEASE_ZIPS)
-release-all: | lambda-all llrt-windows-x64.zip llrt-linux-x64.zip llrt-linux-arm64.zip llrt-darwin-x64.zip llrt-darwin-arm64.zip
-release: llrt-$(DETECTED_OS)-$(ARCH).zip
-release-linux: | lambda-all llrt-linux-x64.zip llrt-linux-arm64.zip
-release-darwin: | llrt-darwin-x64.zip llrt-darwin-arm64.zip
-release-windows: | llrt-windows-x64.zip
+define alias_template
+release${1}: llrt-$(DETECTED_OS)-$(ARCH)${1}.zip
 
-llrt-darwin-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_darwin_x86_64) --features no-sdk
-	zip -j $@ target/$(TARGET_darwin_x86_64)/release/llrt
+llrt-linux-x86_64${1}.zip: llrt-linux-x64${1}.zip
+llrt-windows-x86_64${1}.zip: llrt-windows-x64${1}.zip
+llrt-darwin-x86_64${1}.zip: llrt-darwin-x64${1}.zip
+endef
 
-llrt-darwin-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_darwin_arm64) --features no-sdk
-	zip -j $@ target/$(TARGET_darwin_arm64)/release/llrt
+$(eval $(call alias_template,-full-sdk))
+$(eval $(call alias_template,))
+$(eval $(call alias_template,-no-sdk))
 
-llrt-linux-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_x86_64) --features no-sdk
-	zip -j $@ target/$(TARGET_linux_x86_64)/release/llrt
+define release_template
+release-for-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-linux-${1}${2}.zip
 
-llrt-windows-x64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_windows_x64) --features no-sdk
-	zip -j $@ target/$(TARGET_windows_x64)/release/llrt.exe
-
-llrt-linux-arm64.zip: | clean-js js
-	cargo $(BUILD_ARG) --target $(TARGET_linux_arm64) --features no-sdk
-	zip -j $@ target/$(TARGET_linux_arm64)/release/llrt
-
-llrt-linux-x86_64.zip: llrt-linux-x64.zip
-llrt-windows-x86_64.zip: llrt-windows-x64.zip
-llrt-darwin-x86_64.zip: llrt-darwin-x64.zip
-
-define lambda_release_template
-release-${1}${2}: | llrt-lambda-${1}${2} llrt-container-${1}${2}
-
-llrt-lambda-${1}${2}: export SDK_BUNDLE_MODE = ${3}
-llrt-lambda-${1}${2}: | clean-js js
+llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
+llrt-lambda-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	@rm -rf llrt-lambda-${1}${2}.zip
-	zip -j llrt-lambda-${1}${2}.zip target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
+	@rm -rf $$@ 
+	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
 llrt-container-${1}${2}: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
-	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt llrt-container-${1}${2}
+	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt $$@
+
+llrt-linux-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
+llrt-linux-${1}${2}.zip: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))
+	@rm -rf $$@ 
+	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
+
+llrt-darwin-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
+llrt-darwin-${1}${2}.zip: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))
+	@rm -rf $$@ 
+	zip -j $$@ target/$$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
+
+# llrt-windows-arm64* is automatically generated, but not currently supported.
+llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
+llrt-windows-${1}${2}.zip: | clean-js js
+	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
+	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt/release/llrt.exe
 endef
 
-$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target),-full-sdk,FULL)))
-$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target),,STD)))
-$(foreach target,$(RELEASE_TARGETS),$(eval $(call lambda_release_template,$(target),-no-sdk,NONE)))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-full-sdk,FULL)))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),,STD)))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-no-sdk,NONE)))
 
 build: js
 	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
 
 ifeq ($(DETECTED_OS),windows)
 stdlib:
-	rustup target add $(TARGET_windows_x64)
-	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x64)
-	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_windows_x64)
+	rustup target add $(TARGET_windows_x86_64)
+	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x86_64)
+	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_windows_x86_64)
 else
 stdlib-x64:
 	rustup target add $(TARGET_linux_x86_64)

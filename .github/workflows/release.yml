@@ -66,22 +66,32 @@ jobs:
           prerelease: contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc')
           files: |
             ./llrt-lambda-x64.zip
-            ./llrt-lambda-arm64.zip
-            ./llrt-container-x64
-            ./llrt-container-arm64
-            ./llrt-lambda-x64-full-sdk.zip
-            ./llrt-lambda-arm64-full-sdk.zip
-            ./llrt-container-x64-full-sdk
-            ./llrt-container-arm64-full-sdk
             ./llrt-lambda-x64-no-sdk.zip
+            ./llrt-lambda-x64-full-sdk.zip
+            ./llrt-lambda-arm64.zip
             ./llrt-lambda-arm64-no-sdk.zip
+            ./llrt-lambda-arm64-full-sdk.zip
+            ./llrt-container-x64
             ./llrt-container-x64-no-sdk
+            ./llrt-container-x64-full-sdk
+            ./llrt-container-arm64
             ./llrt-container-arm64-no-sdk
+            ./llrt-container-arm64-full-sdk
             ./llrt-linux-x64.zip
-            ./llrt-windows-x64.zip
+            ./llrt-linux-x64-no-sdk.zip
+            ./llrt-linux-x64-full-sdk.zip
             ./llrt-linux-arm64.zip
+            ./llrt-linux-arm64-no-sdk.zip
+            ./llrt-linux-arm64-full-sdk.zip
             ./llrt-darwin-x64.zip
+            ./llrt-darwin-x64-no-sdk.zip
+            ./llrt-darwin-x64-full-sdk.zip
             ./llrt-darwin-arm64.zip
+            ./llrt-darwin-arm64-no-sdk.zip
+            ./llrt-darwin-arm64-full-sdk.zip
+            ./llrt-windows-x64.zip
+            ./llrt-windows-x64-no-sdk.zip
+            ./llrt-windows-x64-full-sdk.zip
   publish:
     needs:
       - build
