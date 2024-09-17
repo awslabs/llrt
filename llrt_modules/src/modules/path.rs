@@ -661,7 +661,10 @@ mod tests {
             resolve_path(["/foo", "bar", "..", "baz"].iter()),
             prefix.clone() + "/foo/baz"
         ); // Parent dir in middle
-        assert_eq!(resolve_path(["/foo", "bar", "../..", "baz"].iter()), "/baz"); // Double parent dir
+        assert_eq!(
+            resolve_path(["/foo", "bar", "../..", "baz"].iter()),
+            prefix.clone() + "/baz"
+        ); // Double parent dir
         assert_eq!(
             resolve_path(["/foo", "bar", ".hidden"].iter()),
             prefix.clone() + "/foo/bar/.hidden"
