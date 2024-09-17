@@ -348,8 +348,7 @@ where
                     let (prefix, _) = get_path_prefix(&cwd);
                     prefix_len = prefix.len();
                     start = prefix_len;
-                    result = prefix + part_ref;
-
+                    result = prefix;
                     empty = false;
                 } else {
                     let path_buf: PathBuf = PathBuf::from(part_ref);
