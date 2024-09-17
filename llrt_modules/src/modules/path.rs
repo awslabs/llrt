@@ -24,6 +24,10 @@ const DELIMITER: char = ':';
 
 #[cfg(windows)]
 pub const CURRENT_DIR_STR: &str = ".\\";
+
+#[cfg(windows)]
+const FORWARD_SLASH_STR: &str = "/";
+
 #[cfg(not(windows))]
 pub const CURRENT_DIR_STR: &str = "./";
 
