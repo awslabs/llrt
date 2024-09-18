@@ -146,7 +146,7 @@ if (IS_WIN) {
       expect(
         path.resolve("wwwroot", "static_files/png/", "../gif/image.gif")
       ).toEqual(
-        [process.cwd(), "wwwroot", "static_files", "git", "image.gif"].join(
+        [process.cwd(), "wwwroot", "static_files", "gif", "image.gif"].join(
           path.sep
         )
       );
