@@ -414,13 +414,13 @@ Install generate libs and setup rust targets & toolchains
 Build binaries for Lambda (Per bundle type and architecture desired)
 
     # for arm64, use
-    make llrt-lambda-arm64
-    make llrt-lambda-arm64-no-sdk
-    make llrt-lambda-arm64-full-sdk
+    make llrt-lambda-arm64.zip
+    make llrt-lambda-arm64-no-sdk.zip
+    make llrt-lambda-arm64-full-sdk.zip
     # or for x86-64, use
-    make llrt-lambda-x64
-    make llrt-lambda-x64-no-sdk
-    make llrt-lambda-x64-full-sdk
+    make llrt-lambda-x64.zip
+    make llrt-lambda-x64-no-sdk.zip
+    make llrt-lambda-x64-full-sdk.zip
 
 Build binaries for Container (Per bundle type and architecture desired)
 
@@ -436,6 +436,8 @@ Build binaries for Container (Per bundle type and architecture desired)
 Optionally build for your local machine (Mac or Linux)
 
     make release
+    make release-no-sdk
+    make release-full-sdk
 
 You should now have a `llrt-lambda-arm64*.zip` or `llrt-lambda-x64*.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
