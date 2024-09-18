@@ -178,7 +178,7 @@ fn process_options_and_create_directory_walker(
             _ if path.starts_with(CURRENT_DIR_STR) => path.len() + 1,
             // path
             _ => {
-                if !is_absolute(path.clone()) {
+                if !is_absolute(path) {
                     path.insert_str(0, CURRENT_DIR_STR);
                 }
                 path.len() + 1

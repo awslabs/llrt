@@ -17,10 +17,10 @@ use rquickjs::{
 pub use crate::sysinfo::{get_arch, get_platform};
 use crate::{time, ModuleInfo, VERSION};
 
-fn cwd(ctx: Ctx<'_>) -> Result<rquickjs::String<'_>> {
+fn cwd(ctx: Ctx<'_>) -> Result<String> {
     env::current_dir()
         .or_throw(&ctx)
-        .and_then(|path| rquickjs::String::from_str(ctx, path.to_string_lossy().as_ref()))
+        .map(|path| path.to_string_lossy().to_string())
 }
 
 fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {

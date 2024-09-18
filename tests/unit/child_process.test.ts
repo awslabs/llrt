@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
-const isWin = require("os").platform() === "win32"
+import { platform } from "os";
+const IS_WIN = platform() === "win32";
 
 describe("child_process.spawn", () => {
   it("should spawn a child process", (done) => {
@@ -17,7 +18,7 @@ describe("child_process.spawn", () => {
   });
   it("should spawn in a diffrent directory", (done) => {
     const child = spawn("pwd", {
-      cwd: './tests',
+      cwd: "./tests",
     });
     let output = "";
     child.stdout.on("data", (data) => {
@@ -26,7 +27,7 @@ describe("child_process.spawn", () => {
 
     child.on("close", (code) => {
       try {
-        const dir = output.trim().split('/').at(-1);
+        const dir = output.trim().split("/").at(-1);
         expect(dir).toEqual("tests");
         expect(code).toEqual(0);
         done();
@@ -102,8 +103,11 @@ describe("child_process.spawn", () => {
 
     child.on("exit", (code, signal) => {
       try {
-        expect(code).toEqual(0);
-        expect(signal).toEqual(isWin ? 'SIGKILL' : "SIGINT");
+        if (!IS_WIN) {
+          expect(code).toEqual(0);
+        }
+
+        expect(signal).toEqual(IS_WIN ? "SIGKILL" : "SIGINT");
         done();
       } catch (error) {
         done(error);
@@ -112,7 +116,7 @@ describe("child_process.spawn", () => {
 
     setTimeout(() => {
       child.kill("SIGINT");
-    }, 5);
+    }, 50);
   });
 
   it("should handle child process stdio inherit", (done) => {

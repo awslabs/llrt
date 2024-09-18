@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { spawn } from "child_process";
 import { tmpdir, platform } from "os";
-const isWin = platform() === 'win32'
+const IS_WIN = platform() === "win32";
 
 const spawnCapture = async (cmd: string, args: string[]) => {
   const child = spawn(cmd, args);
@@ -34,7 +34,7 @@ const compile = async (filename: string, outputFilename: string) =>
 const run = async (filename: string) =>
   await spawnCapture(process.argv0, [filename]);
 
-if (!isWin) {
+if (!IS_WIN) {
   describe("llrt compile", async () => {
     const tmpDir = await fs.mkdtemp(`${tmpdir()}/llrt-test-compile`);
 
