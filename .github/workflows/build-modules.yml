@@ -16,7 +16,7 @@ on:
         type: string
 
 jobs:
-  build:
+  build-modules:
     runs-on: ${{ inputs.os }}
     steps:
       - name: Checkout

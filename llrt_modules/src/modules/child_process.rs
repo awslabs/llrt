@@ -95,7 +95,7 @@ fn prepare_shell_args(
     {
         if shell_is_cmd {
             *windows_verbatim_arguments = true;
-            string_args.insert_str(0, "\"");
+            string_args.insert(0, '"');
         }
     }
 
@@ -116,7 +116,7 @@ fn prepare_shell_args(
     #[cfg(windows)]
     {
         if shell_is_cmd {
-            string_args.push_str("\"");
+            string_args.push('"');
             return vec![
                 String::from("/d"),
                 String::from("/s"),

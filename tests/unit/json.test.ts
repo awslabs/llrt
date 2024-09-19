@@ -299,7 +299,8 @@ describe("JSON Stringified", () => {
   });
 
   it("should stringify and remove objects that are not valid json", () => {
-    const dateString = new Date().toJSON();
+    const now = new Date()
+    const dateString = now.toJSON();
     const data = {
       a: "123",
       b: undefined,
@@ -307,7 +308,7 @@ describe("JSON Stringified", () => {
         return "123";
       },
       d: RegExp("apa"),
-      e: new Date(),
+      e: now,
     };
     expect(JSON.stringify(data)).toEqual(
       `{"a":"123","d":{},"e":"${dateString}"}`

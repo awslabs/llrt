@@ -15,8 +15,10 @@ on:
         required: false
         type: string
       toolchain:
-        required: true
+        required: false
         type: string
+        default: "nightly"
+
 jobs:
   build:
     runs-on: ${{ inputs.os }}

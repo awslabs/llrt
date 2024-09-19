@@ -5,51 +5,16 @@ on:
       - "v*.*.*"
 
 jobs:
-  build:
-    strategy:
-      fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
-      matrix:
-        include:
-          - os: windows-latest
-            platform: windows
-            arch: x86_64
-            release: x64
-            toolchain: nightly-x86_64-pc-windows-gnu
-          - os: ubuntu-latest
-            platform: linux
-            arch: x86_64
-            release: x64
-            toolchain: nightly
-          - os: ubuntu-latest
-            platform: linux
-            arch: aarch64
-            release: arm64
-            toolchain: nightly
-          - os: macos-latest
-            platform: darwin
-            arch: x86_64
-            release: x64
-            toolchain: nightly
-          - os: macos-latest
-            platform: darwin
-            arch: aarch64
-            release: arm64
-            toolchain: nightly
+  build-artifacts:
+    uses: ./.github/workflows/build-artifacts.yml
 
-    uses: ./.github/workflows/build.yml
-    with:
-      os: ${{ matrix.os }}
-      platform: ${{ matrix.platform }}
-      arch: ${{ matrix.arch }}
-      release: ${{ matrix.release }}
-      toolchain: ${{ matrix.toolchain }}
   release:
     permissions:
       contents: write
       discussions: write
     runs-on: ubuntu-latest
     needs:
-      - build
+      - build-artifacts
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -94,7 +59,7 @@ jobs:
             ./llrt-windows-x64-full-sdk.zip
   publish:
     needs:
-      - build
+      - build-artifacts
     uses: ./.github/workflows/publish.yml
     with:
       ref: ${{ github.ref }}
