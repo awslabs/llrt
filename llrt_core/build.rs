@@ -241,11 +241,11 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
 
 fn generate_compression_dictionary(
     dictionary_path: &str,
-    source_files: &Vec<String>,
+    source_files: &[String],
 ) -> Result<(), io::Error> {
     info!("Generating compression dictionary...");
     let file_count = source_files.len();
-    let mut dictionary_filenames = source_files.clone();
+    let mut dictionary_filenames = source_files.to_owned();
     let mut dictionary_file_set: HashSet<String> = HashSet::from_iter(dictionary_filenames.clone());
     let mut cmd = Command::new("zstd");
     cmd.args([
@@ -265,7 +265,20 @@ fn generate_compression_dictionary(
         dictionary_filenames = dictionary_file_set.into_iter().collect();
     }
     cmd.args(&dictionary_filenames);
-    let mut cmd = cmd.args(source_files).spawn()?;
+
+    // To avoid cmd being too long to execute
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let short_source_files: Vec<_> = source_files
+        .iter()
+        .map(|i| {
+            Path::new(i)
+                .strip_prefix(out_dir.clone())
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        })
+        .collect();
+    let mut cmd = cmd.current_dir(out_dir).args(short_source_files).spawn()?;
     let exit_status = cmd.wait()?;
     if !exit_status.success() {
         return Err(io::Error::new(

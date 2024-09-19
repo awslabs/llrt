@@ -46,9 +46,7 @@ fn find_next_separator(s: &str) -> Option<usize> {
 
 #[cfg(windows)]
 fn find_last_sep(path: &str) -> Option<usize> {
-    memchr::memchr2_iter(b'\\', b'/', path.as_bytes())
-        .rev()
-        .next()
+    memchr::memchr2_iter(b'\\', b'/', path.as_bytes()).next_back()
 }
 
 #[cfg(not(windows))]
