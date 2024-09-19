@@ -118,7 +118,7 @@ describe("UUID Generation", () => {
     const v5 = uuidv5("hello", uuidv3.URL);
     const v6 = uuidv6();
     const v7 = uuidv7();
-    expect(version(v1)).toEqual(1);
+    expect(version(v1)).toEqual(2);
     expect(version(v3)).toEqual(3);
     expect(version(v4)).toEqual(4);
     expect(version(v5)).toEqual(5);

@@ -52,6 +52,7 @@ os = [
   "windows-registry",
   "windows-version",
   "once_cell",
+  "num_cpus",
 ]
 path = []
 process = ["path"]
@@ -93,6 +94,7 @@ rand = { version = "0.8", optional = true }
 crc32c = { version = "0.6", optional = true }
 crc32fast = { version = "1.4", optional = true }
 url_crate = { version = "2.5", package = "url", optional = true }
+num_cpus = { version = "1", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 memchr = { version = "2.7.4" }

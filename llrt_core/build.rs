@@ -62,11 +62,15 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
     fs::write("../VERSION", env!("CARGO_PKG_VERSION")).expect("Unable to write VERSION file");
 
+    #[cfg(feature = "lambda")]
+    let test_file = PathBuf::new().join("@llrt").join("test.js");
+
     ctx.with(|ctx| {
         for dir_ent in WalkDir::new(BUNDLE_JS_DIR).into_iter().flatten() {
             let path = dir_ent.path();
 
             let path = path.strip_prefix(BUNDLE_JS_DIR)?.to_owned();
+
             let path_str = path.to_string_lossy().to_string();
 
             if path_str.starts_with("__tests__") || path.extension().unwrap_or_default() != "js" {
@@ -75,7 +79,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
             #[cfg(feature = "lambda")]
             {
-                if path == PathBuf::new().join("@llrt").join("test.js") {
+                if path == &test_file {
                     continue;
                 }
             }
@@ -94,7 +98,9 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
                 .unwrap_or_else(|_| panic!("Unable to load: {}", dir_ent.path().to_string_lossy()));
 
             let module_name = if !path_str.starts_with("llrt-chunk-") {
-                path.with_extension("").to_string_lossy().to_string()
+                path.with_extension("")
+                    .to_string_lossy()
+                    .replace("@llrt/", "llrt:")
             } else {
                 path.to_string_lossy().to_string()
             }
