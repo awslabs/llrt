@@ -429,7 +429,8 @@ impl Vm {
         .await;
     }
     pub async fn run_cjs_file(&self, filename: &Path, strict: bool, global: bool) {
-        let source = std::fs::read(filename).unwrap();
+        let source = std::fs::read(filename)
+            .expect(&["No such file: ", &filename.to_string_lossy()].concat());
         self.run(source, strict, global).await;
     }
 

@@ -172,7 +172,12 @@ async fn start_cli(vm: &Vm) {
 
                 match ext {
                     ".cjs" => {
-                        return vm.run_cjs_file(filename, false, true).await;
+                        if file_exists {
+                            return vm.run_cjs_file(filename, false, true).await;
+                        } else {
+                            eprintln!("No such file: {}", arg);
+                            exit(1);
+                        }
                     },
                     ".js" | ".mjd" => {
                         if file_exists {
