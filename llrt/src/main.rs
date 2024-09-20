@@ -121,7 +121,7 @@ async fn start_cli(vm: &Vm) {
                     },
                     "-e" | "--eval" => {
                         if let Some(source) = args.get(i + 1) {
-                            vm.run(source.as_bytes(), false).await;
+                            vm.run(source.as_bytes(), false, true).await;
                         }
                         return;
                     },
@@ -169,24 +169,32 @@ async fn start_cli(vm: &Vm) {
 
                 let filename = Path::new(arg);
                 let file_exists = filename.exists();
-                if let ".js" | ".mjs" | ".cjs" = ext {
-                    if file_exists {
-                        return vm.run_file(filename).await;
-                    } else {
-                        eprintln!("No such file: {}", arg);
+
+                match ext {
+                    ".cjs" => {
+                        return vm.run_cjs_file(filename, false, true).await;
+                    },
+                    ".js" | ".mjd" => {
+                        if file_exists {
+                            return vm.run_esm_file(filename, true, false).await;
+                        } else {
+                            eprintln!("No such file: {}", arg);
+                            exit(1);
+                        }
+                    },
+                    _ => {
+                        if file_exists {
+                            return vm.run_esm_file(filename, true, false).await;
+                        }
+                        eprintln!("Unknown command: {}", arg);
+                        usage();
                         exit(1);
-                    }
+                    },
                 }
-                if file_exists {
-                    return vm.run_file(filename).await;
-                }
-                eprintln!("Unknown command: {}", arg);
-                usage();
-                exit(1);
             }
         }
     } else if let Some(filename) = get_js_path("index") {
-        vm.run_file(&filename).await;
+        vm.run_esm_file(&filename, true, false).await;
     }
 }
 
@@ -262,6 +270,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
         r#"
         import "@llrt/test"
     "#,
+        false,
         false,
     )
     .await;
