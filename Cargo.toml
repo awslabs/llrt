@@ -7,6 +7,13 @@ inherits = "release"
 strip = false
 debug = true
 
+[workspace.metadata.patch.rquickjs-core]
+version = "*"
+patches = ["llrt_core/patches/promise-poll.patch"]
+
+[patch.crates-io]
+rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
+
 [profile.release]
 strip = true
 lto = true

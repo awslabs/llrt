@@ -40,9 +40,6 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
     rerun_if_changed!(BUNDLE_JS_DIR);
     rerun_if_changed!("Cargo.toml");
-    rerun_if_changed!("patches");
-
-    cargo_patch::patch()?;
 
     let resolver = (DummyResolver,);
     let loader = (DummyLoader,);

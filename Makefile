@@ -66,32 +66,32 @@ define release_template
 release-for-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-linux-${1}${2}.zip
 
 llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
-llrt-lambda-${1}${2}.zip: | clean-js js
+llrt-lambda-${1}${2}.zip: | clean-js js patch
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
-llrt-container-${1}${2}: | clean-js js
+llrt-container-${1}${2}: | clean-js js patch
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt $$@
 
 llrt-linux-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
-llrt-linux-${1}${2}.zip: | clean-js js
+llrt-linux-${1}${2}.zip: | clean-js js patch
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 llrt-darwin-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
-llrt-darwin-${1}${2}.zip: | clean-js js
+llrt-darwin-${1}${2}.zip: | clean-js js patch
 	cargo $$(BUILD_ARG) --target $$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 # llrt-windows-arm64* is automatically generated, but not currently supported.
 llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
-llrt-windows-${1}${2}.zip: | clean-js js
+llrt-windows-${1}${2}.zip: | clean-js js patch
 	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
 	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
 endef
@@ -100,7 +100,7 @@ $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-fu
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),,STD)))
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-no-sdk,NONE)))
 
-build: js
+build: js patch
 	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
 
 ifeq ($(DETECTED_OS),windows)
@@ -108,16 +108,22 @@ stdlib:
 	rustup target add $(TARGET_windows_x86_64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x86_64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_windows_x86_64)
+	cargo $(TOOLCHAIN) install cargo-patch
+
 else
 stdlib-x64:
 	rustup target add $(TARGET_linux_x86_64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+	cargo $(TOOLCHAIN) install cargo-patch
+
 
 stdlib-arm64:
 	rustup target add $(TARGET_linux_arm64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_arm64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_arm64)
+	cargo $(TOOLCHAIN) install cargo-patch
+
 
 stdlib: | stdlib-x64 stdlib-arm64
 endif
@@ -126,6 +132,10 @@ toolchain:
 	rustup target add $(CURRENT_TARGET)
 	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) install cargo-patch
+
+patch:
+	cargo $(TOOLCHAIN) patch
 
 clean-js:
 	rm -rf ./bundle
@@ -145,7 +155,7 @@ fix:
 	cargo clippy --fix --allow-dirty
 	cargo fmt
 
-bloat: js
+bloat: js patch
 	cargo build --profile=flame --target $(CURRENT_TARGET)
 	cargo bloat --profile=flame --crates
 
@@ -164,7 +174,7 @@ run-ssr: export AWS_LAMBDA_RUNTIME_API = localhost:3000
 run-ssr: export TABLE_NAME=quickjs-table
 run-ssr: export AWS_REGION = us-east-1
 run-ssr: export _HANDLER = index.handler
-run-ssr: js
+run-ssr: js patch
 	cargo build
 	cd example/functions && yarn build && cd build && ../../../target/debug/llrt
 
@@ -173,18 +183,18 @@ flame:
 	cargo flamegraph
 
 run-cli: export RUST_LOG = llrt=trace
-run-cli: js
+run-cli: js patch
 	cargo run
 
 test: export JS_MINIFY = 0
-test: js
+test: js patch
 	cargo run -- test -d bundle/js/__tests__/unit
 test-e2e: export JS_MINIFY = 0
-test-e2e: js
+test-e2e: js patch
 	cargo run -- test -d bundle/js/__tests__/e2e
 
 test-ci: export JS_MINIFY = 0
-test-ci: clean-js | toolchain js
+test-ci: clean-js | toolchain js patch
 	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
 
@@ -218,4 +228,4 @@ deploy:
 check:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy
+.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js patch run-release build release clean flame deploy
