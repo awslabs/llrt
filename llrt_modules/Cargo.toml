@@ -59,6 +59,7 @@ perf-hooks = []
 timers = ["tokio/time", "tokio/sync", "once_cell"]
 url = ["url_crate"]
 zlib = ["buffer", "flate2", "brotlic"]
+bindgen = ["rquickjs/bindgen"]
 
 __bytearray-buffer = ["tokio/sync"]
 __stream = ["buffer", "__bytearray-buffer"]
