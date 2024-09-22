@@ -61,6 +61,7 @@ endef
 $(eval $(call alias_template,-full-sdk))
 $(eval $(call alias_template,))
 $(eval $(call alias_template,-no-sdk))
+$(eval $(call alias_template,-hola))
 
 define release_template
 release-for-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-linux-${1}${2}.zip
@@ -93,12 +94,14 @@ llrt-darwin-${1}${2}.zip: | clean-js js
 llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-windows-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
+	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
 endef
 
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-full-sdk,FULL)))
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),,STD)))
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-no-sdk,NONE)))
+$(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-hola,HOLA)))
 
 build: js
 	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)

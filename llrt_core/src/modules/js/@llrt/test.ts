@@ -418,11 +418,15 @@ const printStats = () => {
   }
 };
 
-try {
-  await findTests();
-  await runAllTests();
-  printStats();
-} catch (e) {
-  console.error(e);
-  process.exit(1);
+async function executeTests() {
+  try {
+    await findTests();
+    await runAllTests();
+    printStats();
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
+  }
 }
+
+executeTests();

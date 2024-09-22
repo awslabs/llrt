@@ -12,7 +12,7 @@ const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
 const OUT_DIR = "bundle/js";
 const SHIMS = new Map();
-const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
+const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE" or "HOLA"
 
 async function readFilesRecursive(dir, filePredicate) {
   const dirents = await fs.readdir(dir, { withFileTypes: true });
@@ -38,15 +38,17 @@ const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const AWS_JSON_SHARED_COMMAND_REGEX2 =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\((\w+)\(input,\s*context\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
-const MINIFY_JS = process.env.JS_MINIFY !== "0";
+// `HOLA` is still experimental and minify/splitting is turned off to improve tracking of bundled packages.
+// Once the remaining WebAPIs, such as Stream and SubtleCrypto, are implemented in LLRT, they will be reverted.
+const MINIFY_JS = process.env.JS_MINIFY !== "0" && SDK_BUNDLE_MODE !== "HOLA";
 const SDK_UTILS_PACKAGE = "sdk-utils";
 const ENTRYPOINTS = ["@llrt/std", "stream", "@llrt/test"];
 
 const ES_BUILD_OPTIONS = {
   splitting: MINIFY_JS,
   minify: MINIFY_JS,
-  sourcemap: true,
-  target: "es2023",
+  sourcemap: false,
+  target: SDK_BUNDLE_MODE === "HOLA" ? "es2020" : "es2023",
   outdir: OUT_DIR,
   bundle: true,
   logLevel: "info",
@@ -80,7 +82,7 @@ const ES_BUILD_OPTIONS = {
 //
 // const SDK_DATA = {
 //   // Classification
-//   "PackageName": ["ClientName", "ServiceEndpoint", fullSdkOnly],
+//   "PackageName": ["ClientName", "ServiceEndpoint", ["BundleTargets", ...]],
 // }
 //
 // The meanings of each and how to look them up are as follows.
@@ -112,99 +114,95 @@ const ES_BUILD_OPTIONS = {
 //    If multiple endpoints are required, such as `states` and `sync-states` in @aws-sdk/client-sfn,
 //    multiple endpoints can be specified by making them an array.
 //
-//   4. fullSdkOnly
+//   4. BundleTargets
 //
-//     If you want to bundle only 'full-sdk', specify `true`.
-//     Specify `false` if you want to bundle for both 'std-sdk' and 'full-sdk'.
-//
-//     The combination of SDK_BUNDLE_MODE and fullSdkOnly automatically determines whether the bundle is eligible or not.
-//     Note that if SDK_BUNDLE_MODE is 'NONE', the above values are completely ignored and any SDKs are excluded from the bundle.
+//     Specify the bundle target name as an array. The value can be “STD”, “FULL”, or “HOLA” (“NONE” is ignored).
 //
 const SDK_DATA = {
   // Analytics
-  "client-athena": ["Athena", "athena", true],
-  "client-firehose": ["Firehose", "firehose", true],
-  "client-glue": ["Glue", "glue", true],
-  "client-kinesis": ["Kinesis", "kinesis", true],
-  "client-opensearch": ["OpenSearch", "es", true],
-  "client-opensearchserverless": ["OpenSearchServerless", "aoss", true],
+  "client-athena": ["Athena", "athena", ["FULL"]],
+  "client-firehose": ["Firehose", "firehose", ["FULL"]],
+  "client-glue": ["Glue", "glue", ["FULL"]],
+  "client-kinesis": ["Kinesis", "kinesis", ["FULL"]],
+  "client-opensearch": ["OpenSearch", "es", ["FULL"]],
+  "client-opensearchserverless": ["OpenSearchServerless", "aoss", ["FULL"]],
   // ApplicationIntegration
-  "client-eventbridge": ["EventBridge", "events", false],
-  "client-scheduler": ["Scheduler", "scheduler", true],
-  "client-sfn": ["SFN", ["states", "sync-states"], false],
-  "client-sns": ["SNS", "sns", false],
-  "client-sqs": ["SQS", "sqs", false],
+  "client-eventbridge": ["EventBridge", "events", ["STD", "FULL"]],
+  "client-scheduler": ["Scheduler", "scheduler", ["FULL"]],
+  "client-sfn": ["SFN", ["states", "sync-states"], ["STD", "FULL"]],
+  "client-sns": ["SNS", "sns", ["STD", "FULL"]],
+  "client-sqs": ["SQS", "sqs", ["STD", "FULL"]],
   // Blockchain
   ...{},
   // BusinessApplications
-  "client-ses": ["SES", "email", false],
-  "client-sesv2": ["SESv2", "email", true],
+  "client-ses": ["SES", "email", ["STD", "FULL"]],
+  "client-sesv2": ["SESv2", "email", ["FULL"]],
   // CloudFinancialManagement
   ...{},
   // ComputeServices
-  "client-auto-scaling": ["AutoScaling", "autoscaling", true],
-  "client-batch": ["Batch", "batch", true],
-  "client-ec2": ["EC2", "ec2", true],
-  "client-lambda": ["Lambda", "lambda", false],
+  "client-auto-scaling": ["AutoScaling", "autoscaling", ["FULL"]],
+  "client-batch": ["Batch", "batch", ["FULL"]],
+  "client-ec2": ["EC2", "ec2", ["FULL"]],
+  "client-lambda": ["Lambda", "lambda", ["STD", "FULL"]],
   // CustomerEnablement
   ...{},
   // Containers
-  "client-ecr": ["ECR", "api.ecr", true],
-  "client-ecs": ["ECS", "ecs", true],
-  "client-eks": ["EKS", "eks", true],
-  "client-servicediscovery": ["ServiceDiscovery", "discovery", true],
+  "client-ecr": ["ECR", "api.ecr", ["FULL"]],
+  "client-ecs": ["ECS", "ecs", ["FULL"]],
+  "client-eks": ["EKS", "eks", ["FULL"]],
+  "client-servicediscovery": ["ServiceDiscovery", "discovery", ["FULL"]],
   // Databases
-  "client-dynamodb": ["DynamoDB", "dynamodb", false],
-  "client-dynamodb-streams": ["DynamoDBStreams", "streams.dynamodb", true],
-  "client-elasticache": ["ElastiCache", "elasticache", true],
-  "client-rds": ["RDS", "rds", true],
-  "client-rds-data": ["RDSData", "rds-data", true],
-  "lib-dynamodb": ["DynamoDBDocument", "dynamodb", false],
+  "client-dynamodb": ["DynamoDB", "dynamodb", ["STD", "FULL"]],
+  "client-dynamodb-streams": ["DynamoDBStreams", "streams.dynamodb", ["FULL"]],
+  "client-elasticache": ["ElastiCache", "elasticache", ["FULL"]],
+  "client-rds": ["RDS", "rds", ["FULL"]],
+  "client-rds-data": ["RDSData", "rds-data", ["FULL", "HOLA"]],
+  "lib-dynamodb": ["DynamoDBDocument", "dynamodb", ["STD", "FULL"]],
   // DeveloperTools
-  "client-xray": ["XRay", "xray", false],
+  "client-xray": ["XRay", "xray", ["STD", "FULL"]],
   // EndUserComputing
   ...{},
   // FrontendWebAndMobileServices
-  "client-amplify": ["Amplify", "amplify", true],
-  "client-appsync": ["AppSync", "appsync", true],
-  "client-location": ["Location", "geo", true],
+  "client-amplify": ["Amplify", "amplify", ["FULL"]],
+  "client-appsync": ["AppSync", "appsync", ["FULL"]],
+  "client-location": ["Location", "geo", ["FULL"]],
   // GameTech
   ...{},
   // InternetOfThings
   ...{},
   // MachineLearningAndArtificialIntelligence
-  "client-bedrock": ["Bedrock", "bedrock", true],
-  "client-bedrock-agent": ["BedrockAgent", "bedrock-agent", true],
-  "client-bedrock-runtime": ["BedrockRuntime", "bedrock-runtime", true],
+  "client-bedrock": ["Bedrock", "bedrock", ["FULL"]],
+  "client-bedrock-agent": ["BedrockAgent", "bedrock-agent", ["FULL"]],
+  "client-bedrock-runtime": ["BedrockRuntime", "bedrock-runtime", ["FULL"]],
   "client-bedrock-agent-runtime": [
     "BedrockAgentRuntime",
     "bedrock-agent-runtime",
-    true,
+    ["FULL"],
   ],
-  "client-polly": ["Polly", "polly", true],
-  "client-rekognition": ["Rekognition", "rekognition", true],
-  "client-textract": ["Textract", "textract", true],
-  "client-translate": ["Translate", "translate", true],
+  "client-polly": ["Polly", "polly", ["FULL"]],
+  "client-rekognition": ["Rekognition", "rekognition", ["FULL"]],
+  "client-textract": ["Textract", "textract", ["FULL"]],
+  "client-translate": ["Translate", "translate", ["FULL"]],
   // ManagementAndGovernance
-  "client-appconfig": ["AppConfig", "appconfig", true],
-  "client-appconfigdata": ["AppConfigData", "appconfigdata", true],
-  "client-cloudformation": ["CloudFormation", "cloudformation", true],
-  "client-cloudwatch": ["CloudWatch", "monitoring", true],
-  "client-cloudwatch-logs": ["CloudWatchLogs", "logs", false],
-  "client-cloudwatch-events": ["CloudWatchEvents", "events", false],
-  "client-service-catalog": ["ServiceCatalog", "servicecatalog", true],
-  "client-ssm": ["SSM", "ssm", false],
+  "client-appconfig": ["AppConfig", "appconfig", ["FULL"]],
+  "client-appconfigdata": ["AppConfigData", "appconfigdata", ["FULL"]],
+  "client-cloudformation": ["CloudFormation", "cloudformation", ["FULL"]],
+  "client-cloudwatch": ["CloudWatch", "monitoring", ["FULL"]],
+  "client-cloudwatch-logs": ["CloudWatchLogs", "logs", ["STD", "FULL"]],
+  "client-cloudwatch-events": ["CloudWatchEvents", "events", ["STD", "FULL"]],
+  "client-service-catalog": ["ServiceCatalog", "servicecatalog", ["FULL"]],
+  "client-ssm": ["SSM", "ssm", ["STD", "FULL"]],
   // Media
-  "client-mediaconvert": ["MediaConvert", "mediaconvert", true],
+  "client-mediaconvert": ["MediaConvert", "mediaconvert", ["FULL"]],
   // MigrationAndTransfer
   ...{},
   // NetworkingAndContentDelivery
-  "client-api-gateway": ["APIGateway", "apigateway", true],
-  "client-apigatewayv2": ["ApiGatewayV2", "apigateway", true],
+  "client-api-gateway": ["APIGateway", "apigateway", ["FULL"]],
+  "client-apigatewayv2": ["ApiGatewayV2", "apigateway", ["FULL"]],
   "client-elastic-load-balancing-v2": [
     "ElasticLoadBalancingV2",
     "elasticloadbalancing",
-    true,
+    ["FULL"],
   ],
   // QuantumTechnologies
   ...{},
@@ -213,27 +211,35 @@ const SDK_DATA = {
   // Satellite
   ...{},
   // SecurityIdentityAndCompliance
-  "client-acm": ["ACM", "acm", true],
-  "client-cognito-identity": ["CognitoIdentity", "cognito-identity", false],
+  "client-acm": ["ACM", "acm", ["FULL"]],
+  "client-cognito-identity": [
+    "CognitoIdentity",
+    "cognito-identity",
+    ["STD", "FULL"],
+  ],
   "client-cognito-identity-provider": [
     "CognitoIdentityProvider",
     "cognito-idp",
-    false,
+    ["STD", "FULL"],
   ],
-  "client-iam": ["IAM", "iam", true],
-  "client-kms": ["KMS", "kms", false],
-  "client-secrets-manager": ["SecretsManager", "secretsmanager", false],
-  "client-sso": ["SSO", "identitystore", true],
-  "client-sso-admin": ["SSOAdmin", "identitystore", true],
-  "client-sso-oidc": ["SSOOIDC", "identitystore", true],
-  "client-sts": ["STS", "sts", false],
+  "client-iam": ["IAM", "iam", ["FULL"]],
+  "client-kms": ["KMS", "kms", ["STD", "FULL"]],
+  "client-secrets-manager": [
+    "SecretsManager",
+    "secretsmanager",
+    ["STD", "FULL"],
+  ],
+  "client-sso": ["SSO", "identitystore", ["FULL"]],
+  "client-sso-admin": ["SSOAdmin", "identitystore", ["FULL"]],
+  "client-sso-oidc": ["SSOOIDC", "identitystore", ["FULL"]],
+  "client-sts": ["STS", "sts", ["STD", "FULL"]],
   // Storage
-  "client-efs": ["EFS", "elasticfilesystem", true],
-  "client-s3": ["S3", "s3", false],
-  "lib-storage": ["Upload", "s3", false],
+  "client-efs": ["EFS", "elasticfilesystem", ["FULL"]],
+  "client-s3": ["S3", "s3", ["STD", "FULL"]],
+  "lib-storage": ["Upload", "s3", ["STD", "FULL"]],
 };
 
-const ADDITIONAL_PACKAGES = [
+const COMMON_PACKAGES = [
   "@aws-sdk/core",
   "@aws-sdk/credential-providers",
   "@aws-sdk/s3-presigned-post",
@@ -278,6 +284,67 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/util-waiter",
 ];
 
+const HOLA_PACKAGES = [
+  // Drizzle ORM
+  "drizzle-orm",
+  "drizzle-orm/aws-data-api/common",
+  "drizzle-orm/aws-data-api/pg",
+  // Hono - core
+  "hono",
+  "hono/http-exception",
+  "hono/router",
+  "hono/types",
+  // Hono - adapter
+  "hono/aws-lambda",
+  // Hono - helper
+  "hono/accepts",
+  "hono/adapter",
+  "hono/cookie",
+  "hono/css",
+  "hono/dev",
+  "hono/factory",
+  "hono/html",
+  "hono/streaming",
+  // Hono - jsx
+  "hono/jsx",
+  "hono/jsx/dom",
+  // Hono - middleware
+  "hono/basic-auth",
+  "hono/bearer-auth",
+  "hono/body-limit",
+  "hono/cache",
+  "hono/combine",
+  "hono/compress",
+  "hono/cors",
+  "hono/csrf",
+  "hono/etag",
+  "hono/ip-restriction",
+  "hono/jsx-renderer",
+  "hono/jwt",
+  "hono/logger",
+  "hono/method-override",
+  "hono/powered-by",
+  "hono/pretty-json",
+  "hono/request-id",
+  "hono/secure-headers",
+  "hono/serve-static",
+  "hono/timeout",
+  "hono/timing",
+  "hono/trailing-slash",
+  // Hono - preset
+  "hono/tiny",
+  "hono/quick",
+  // Hono - router
+  "hono/router/linear-router",
+  "hono/router/pattern-router",
+  "hono/router/smart-router",
+  "hono/router/trie-router",
+  // Hono - validator
+  "hono/validator",
+  // Hono - utils
+  "hono/utils/jwt",
+];
+
 const REPLACEMENT_PACKAGES = {
   "@aws-crypto/sha1-browser": "shims/@aws-crypto/sha1-browser.js",
   "@aws-crypto/sha256-browser": "shims/@aws-crypto/sha256-browser.js",
@@ -289,11 +356,14 @@ const REPLACEMENT_PACKAGES = {
 const SERVICE_ENDPOINTS_BY_PACKAGE = {};
 const CLIENTS_BY_SDK = {};
 const SDKS_BY_SDK_PACKAGES = {};
-const SDK_PACKAGES = [...ADDITIONAL_PACKAGES];
+const SDK_PACKAGES = [
+  ...COMMON_PACKAGES,
+  ...(SDK_BUNDLE_MODE === "HOLA" ? HOLA_PACKAGES : []),
+];
 
 Object.keys(SDK_DATA).forEach((sdk) => {
-  const [clientName, serviceEndpoints, fullSdkOnly] = SDK_DATA[sdk] || [];
-  if (SDK_BUNDLE_MODE == "FULL" || (SDK_BUNDLE_MODE == "STD" && !fullSdkOnly)) {
+  const [clientName, serviceEndpoints, bundleTargets] = SDK_DATA[sdk] || [];
+  if (bundleTargets.includes(SDK_BUNDLE_MODE)) {
     const sdkPackage = `@aws-sdk/${sdk}`;
     SDK_PACKAGES.push(sdkPackage);
     SDKS_BY_SDK_PACKAGES[sdkPackage] = sdk;
@@ -738,6 +808,7 @@ async function buildSdks() {
         "@aws-sdk/util-utf8-browser": "@smithy/util-utf8",
         "@aws-sdk/util-utf8": "@smithy/util-utf8",
         "@smithy/md5-js": "crypto",
+        "node:crypto": "crypto",
         "fast-xml-parser": "llrt:xml",
         uuid: "llrt:uuid",
       },

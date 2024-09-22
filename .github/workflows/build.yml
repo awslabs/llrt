@@ -108,12 +108,14 @@ jobs:
           make release-for-aws-${{ inputs.release }}
           make release-for-aws-${{ inputs.release }}-no-sdk
           make release-for-aws-${{ inputs.release }}-full-sdk
+          make release-for-aws-${{ inputs.release }}-hola
       - name: Build Darwin binaries
         if: inputs.release && inputs.platform == 'darwin'
         run: |
           make llrt-darwin-${{ inputs.release }}.zip
           make llrt-darwin-${{ inputs.release }}-no-sdk.zip
           make llrt-darwin-${{ inputs.release }}-full-sdk.zip
+          make llrt-darwin-${{ inputs.release }}-hola.zip
       - name: Build Windows binaries
         if: inputs.release && inputs.platform == 'windows'
         shell: msys2 {0}
@@ -125,6 +127,7 @@ jobs:
           make llrt-windows-${{ inputs.release }}.zip
           make llrt-windows-${{ inputs.release }}-no-sdk.zip
           make llrt-windows-${{ inputs.release }}-full-sdk.zip
+          make llrt-windows-${{ inputs.release }}-hola.zip
       - name: Upload artifacts
         if: inputs.release
         uses: actions/upload-artifact@v4
