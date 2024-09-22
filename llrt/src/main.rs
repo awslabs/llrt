@@ -179,7 +179,7 @@ async fn start_cli(vm: &Vm) {
                             exit(1);
                         }
                     },
-                    ".js" | ".mjd" => {
+                    ".js" | ".mjs" => {
                         if file_exists {
                             return vm.run_esm_file(filename, true, false).await;
                         } else {
