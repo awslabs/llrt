@@ -214,7 +214,7 @@ LLRT supports the following three bundles by default. Bundle types and suffixes 
 | no-sdk      | \*-no-sdk   | Suitable for workloads that do not use `@aws-sdk`.                                                                                  |
 | std-sdk     | (none)      | Suitable for workloads that utilize the major `@aws-sdk`.                                                                           |
 | full-sdk    | \*-full-sdk | Suitable for workloads that utilize any `@aws-sdk`.                                                                                 |
-| hola        | \*-hola     | [hora](https://github.com/awslabs/llrt?tab=readme-ov-file#web-application-stack-hola) - New web application stack proposed by LLRT. |
+| hola        | \*-hola     | [hola](https://github.com/awslabs/llrt?tab=readme-ov-file#web-application-stack-hola) - New web application stack proposed by LLRT. |
 
 The relationship between the supported packages for each bundle type is as follows.
 
@@ -347,7 +347,7 @@ The relationship between the supported packages for each bundle type is as follo
 
 We have defined a new Web Application Stack around LLRT that is compliant with standard Web APIs (in other words, less dependent on the Node.js API), highly scalable, AWS-compatible, and has the following features.
 
-We call it the `hola` web application stack. Incidentally, hola (pronounced /ˈola/) means 'Hi' or hello' in Spanish.
+We call it the `hola` web application stack. Incidentally, hola (pronounced /ˈola/) means 'hello' in Spanish.
 
 The `hola` web application stack consists of the following components:
 
@@ -385,7 +385,7 @@ const db = drizzle(rdsClient, {
 
 const app = new Hono();
 
-app.get("/", async (c) => {
+app.get("/pg_tables", async (c) => {
   const result = await db.execute(
     sql`select tablename from pg_tables limit 10`
   );
@@ -394,6 +394,65 @@ app.get("/", async (c) => {
 
 export const handler = handle(app);
 ```
+
+The modules bundled with `Hono` and `Drizzle ORM` are as follows.
+
+| Hono                       | Drizzle ORM                     |
+| -------------------------- | ------------------------------- |
+| [core]                     | [core]                          |
+| hono                       | drizzle-orm                     |
+| hono/http-exception        | [aws-data-api]                  |
+| hono/router                | drizzle-orm/aws-data-api/common |
+| hono/types                 | drizzle-orm/aws-data-api/pg     |
+| [adapter]                  |                                 |
+| hono/aws-lambda            |                                 |
+| [helper]                   |                                 |
+| hono/accepts               |                                 |
+| hono/adapter               |                                 |
+| hono/cookie                |                                 |
+| hono/css                   |                                 |
+| hono/dev                   |                                 |
+| hono/factory               |                                 |
+| hono/html                  |                                 |
+| hono/streaming             |                                 |
+| [jsx]                      |                                 |
+| hono/jsx                   |                                 |
+| hono/jsx/dom               |                                 |
+| [middleware]               |                                 |
+| hono/basic-auth            |                                 |
+| hono/bearer-auth           |                                 |
+| hono/body-limit            |                                 |
+| hono/cache                 |                                 |
+| hono/combine               |                                 |
+| hono/compress              |                                 |
+| hono/cors                  |                                 |
+| hono/csrf                  |                                 |
+| hono/etag                  |                                 |
+| hono/ip-restriction        |                                 |
+| hono/jsx-renderer          |                                 |
+| hono/jwt                   |                                 |
+| hono/logger                |                                 |
+| hono/method-override       |                                 |
+| hono/powered-by            |                                 |
+| hono/pretty-json           |                                 |
+| hono/request-id            |                                 |
+| hono/secure-headers        |                                 |
+| hono/serve-static          |                                 |
+| hono/timeout               |                                 |
+| hono/timing                |                                 |
+| hono/trailing-slash        |                                 |
+| [preset]                   |                                 |
+| hono/tiny                  |                                 |
+| hono/quick                 |                                 |
+| [router]                   |                                 |
+| hono/router/linear-router  |                                 |
+| hono/router/pattern-router |                                 |
+| hono/router/smart-router   |                                 |
+| hono/router/trie-router    |                                 |
+| [validator]                |                                 |
+| hono/validator             |                                 |
+| [utils]                    |                                 |
+| hono/utils/jwt             |                                 |
 
 ## Running TypeScript with LLRT
 
