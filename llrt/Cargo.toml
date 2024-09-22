@@ -10,6 +10,7 @@ macro = ["llrt_core/macro"]
 lambda = ["llrt_core/lambda"]
 no-sdk = ["llrt_core/no-sdk"]
 uncompressed = ["llrt_core/uncompressed"]
+bindgen = ["llrt_core/bindgen"]
 
 [dependencies]
 llrt_core = { path = "../llrt_core" }
