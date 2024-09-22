@@ -415,7 +415,7 @@ impl Vm {
             .await;
     }
 
-    pub async fn run_file(&self, filename: &Path) {
+    pub async fn run_esm_file(&self, filename: &Path, strict: bool, global: bool) {
         self.run(
             [
                 r#"import(""#,
@@ -423,17 +423,27 @@ impl Vm {
                 r#"").catch((e) => {{console.error(e);process.exit(1)}})"#,
             ]
             .concat(),
-            false,
+            strict,
+            global,
         )
         .await;
     }
+    pub async fn run_cjs_file(&self, filename: &Path, strict: bool, global: bool) {
+        let source = std::fs::read(filename).unwrap_or_else(|_| {
+            panic!(
+                "{}",
+                ["No such file: ", &filename.to_string_lossy()].concat()
+            )
+        });
+        self.run(source, strict, global).await;
+    }
 
-    pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool) {
+    pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool, global: bool) {
         self.run_with(|ctx| {
             let mut options = EvalOptions::default();
             options.strict = strict;
             options.promise = true;
-            options.global = false;
+            options.global = global;
             let _ = ctx.eval_with_options::<Value, _>(source, options)?;
             Ok::<_, Error>(())
         })
