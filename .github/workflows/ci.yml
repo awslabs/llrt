@@ -53,7 +53,7 @@ jobs:
           - os: windows-latest
             platform: windows
             arch: x86_64
-            toolchain: stable-x86_64-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-msvc
     uses: ./.github/workflows/build-modules.yml
     with:
       os: ${{ matrix.os }}

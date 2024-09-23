@@ -29,7 +29,7 @@ use tracing::trace;
 #[cfg(not(feature = "lambda"))]
 use llrt_core::compiler::compile_file;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(feature = "snmalloc")]
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 

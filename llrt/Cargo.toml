@@ -5,12 +5,13 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro"]
+default = ["macro", "snmalloc"]
 macro = ["llrt_core/macro"]
 lambda = ["llrt_core/lambda"]
 no-sdk = ["llrt_core/no-sdk"]
 uncompressed = ["llrt_core/uncompressed"]
 bindgen = ["llrt_core/bindgen"]
+snmalloc = ["snmalloc-rs"]
 
 [dependencies]
 llrt_core = { path = "../llrt_core" }
@@ -18,9 +19,7 @@ tracing = { version = "0.1.40", features = ["log"] }
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
 tracing-core = "0.1.32"
 tokio = { version = "1", features = ["full"] }
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-snmalloc-rs = { version = "0.3.6", features = ["lto"] }
+snmalloc-rs = { version = "0.3.6", features = ["lto"], optional = true }
 
 [[bin]]
 name = "llrt"

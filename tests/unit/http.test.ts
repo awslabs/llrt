@@ -884,8 +884,10 @@ describe("File class", () => {
     expect(file.type).toBe("text/plain");
   });
 
-  it("has last modified date", () => {
+  it("has last modified date", async () => {
     const file = new File(["file content"], "example.txt");
+    // FIXME: msvc has no equivalent implementation of gettimeofday
+    await new Promise(r => setTimeout(r, 1000))
     const now = new Date();
     expect(file.lastModified).toBeLessThanOrEqual(now.getTime());
   });

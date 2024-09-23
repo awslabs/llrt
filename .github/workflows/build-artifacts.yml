@@ -11,8 +11,7 @@ jobs:
             platform: windows
             arch: x86_64
             release: x64
-            toolchain: nightly-x86_64-pc-windows-gnu
-            RUSTFLAGS: -C target-feature=+crt-static
+            toolchain: nightly-x86_64-pc-windows-msvc
           - os: ubuntu-latest
             platform: linux
             arch: x86_64

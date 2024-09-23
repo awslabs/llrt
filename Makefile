@@ -2,7 +2,7 @@ TARGET_linux_x86_64 = x86_64-unknown-linux-musl
 TARGET_linux_arm64 = aarch64-unknown-linux-musl
 TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
-TARGET_windows_x86_64 = x86_64-pc-windows-gnu
+TARGET_windows_x86_64 = x86_64-pc-windows-msvc
 TARGET_windows_arm64 = aarch64-is-not-yet-supported
 RUST_VERSION = nightly
 TOOLCHAIN = +$(RUST_VERSION)
@@ -35,7 +35,7 @@ endif
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0 AR="zig ar"
 ifeq ($(DETECTED_OS),windows)
-ZSTD_LIB_CC_x64 = CC="zig cc -target x86_64-windows-gnu $(ZSTD_LIB_CC_ARGS)"
+ZSTD_LIB_CC_x64 = CC="zig cc -target x86_64-windows-msvc $(ZSTD_LIB_CC_ARGS)"
 else
 ZSTD_LIB_CC_arm64 = CC="zig cc -target aarch64-linux-musl $(ZSTD_LIB_CC_ARGS)"
 ZSTD_LIB_CC_x64 = CC="zig cc -target x86_64-linux-musl $(ZSTD_LIB_CC_ARGS)"
