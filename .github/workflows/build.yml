@@ -105,9 +105,9 @@ jobs:
         if: inputs.release && inputs.platform == 'linux'
         run: |
           make libs-${{ inputs.release }}
-          make release-for-aws-${{ inputs.release }}
-          make release-for-aws-${{ inputs.release }}-no-sdk
-          make release-for-aws-${{ inputs.release }}-full-sdk
+          make release-aws-${{ inputs.release }}
+          make release-aws-${{ inputs.release }}-no-sdk
+          make release-aws-${{ inputs.release }}-full-sdk
       - name: Build Darwin binaries
         if: inputs.release && inputs.platform == 'darwin'
         run: |

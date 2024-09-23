@@ -63,7 +63,7 @@ $(eval $(call alias_template,))
 $(eval $(call alias_template,-no-sdk))
 
 define release_template
-release-for-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-linux-${1}${2}.zip
+release-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-linux-${1}${2}.zip
 
 llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}.zip: | clean-js js
