@@ -6,7 +6,7 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     process::exit,
     result::Result as StdResult,
@@ -31,9 +31,10 @@ use rquickjs::{
     loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
     module::Declared,
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Result, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
+    IntoJs, Module, Object, Result, Value,
 };
+use serde_json::Value as JsonValue;
 use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
@@ -590,7 +591,14 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
                 let import_directory = dirname(abs_path);
-                resolve_path([import_directory, specifier].iter())
+                let ads_specifier = if specifier.ends_with(".js") || specifier.ends_with(".cjs") {
+                    specifier
+                } else if specifier.starts_with("./") || specifier.starts_with("../") {
+                    format!("{}/{}.js", import_directory, specifier)
+                } else {
+                    get_module_path_in_node_modules(&ctx, &specifier)?
+                };
+                resolve_path([import_directory, ads_specifier].iter())
             };
 
             if import_name.ends_with(".json") {
@@ -699,4 +707,35 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     let meta: Object = module.meta()?;
     meta.prop("url", ["file://", filepath].concat())?;
     Ok(())
+}
+
+pub fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<String> {
+    let ex = Exception::throw_reference(ctx, &format!("Error resolving module '{}'", specifier));
+    let current_dir = env::current_dir()
+        .map(|path| path.display().to_string())
+        .unwrap_or_default();
+
+    let (mut scope, mut name) = match specifier.split_once('/') {
+        Some((s, n)) => (s, ["./", n].concat()),
+        None => (specifier, ".".to_string()),
+    };
+
+    let mut package_json_path = [&current_dir, "/node_modules/", scope, "/package.json"].concat();
+    if !Path::new(&package_json_path).exists() && name != "." {
+        scope = specifier;
+        name = ".".to_string();
+        package_json_path = [&current_dir, "/node_modules/", scope, "/package.json"].concat();
+    }
+
+    let package_json = fs::read_to_string(&package_json_path).unwrap_or_default();
+    let package_json: JsonValue = serde_json::from_str(&package_json).map_err(|_| ex)?;
+
+    let module_path = (package_json["exports"][name.as_str()]["require"]["default"].as_str())
+        .or_else(|| package_json["exports"][name.as_str()]["require"].as_str())
+        .or_else(|| package_json["exports"]["require"]["default"].as_str())
+        .or_else(|| package_json["exports"]["default"].as_str())
+        .or_else(|| package_json["main"].as_str())
+        .unwrap_or("./index.js");
+
+    Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
 }
