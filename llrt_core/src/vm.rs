@@ -724,7 +724,6 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<Str
         Some((s, n)) => (s, ["./", n].concat()),
         None => (specifier, ".".to_string()),
     };
-    let name = name.as_str();
 
     let mut package_json_path = [&current_dir, "/node_modules/"].concat();
     let base_path_length = package_json_path.len();
@@ -737,7 +736,7 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<Str
         package_json_path.push_str("/package.json");
         (specifier, ".")
     } else {
-        (scope, name)
+        (scope, name.as_str())
     };
 
     if fs::metadata(&package_json_path).is_err() {
