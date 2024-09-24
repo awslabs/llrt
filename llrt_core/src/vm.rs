@@ -714,10 +714,11 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<String> {
+fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<String> {
     let current_dir = env::current_dir()
-        .map(|path| path.to_string_lossy().into_owned())
-        .unwrap_or_default();
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .unwrap_or_else(|| "/".to_string());
 
     let (scope, name) = match specifier.split_once('/') {
         Some((s, n)) => (s, ["./", n].concat()),
