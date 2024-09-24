@@ -18,9 +18,11 @@ use llrt_modules::{
     timers::{self, poll_timers},
 };
 use llrt_utils::{
+    
     bytes::ObjectBytes,
     error::ErrorExtensions,
     object::{ObjectExt, Proxy},
+, result::ResultExt,
 };
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -34,7 +36,7 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
     IntoJs, Module, Object, Result, Value,
 };
-use serde_json::Value as JsonValue;
+use simd_json::{base::ValueAsScalar, prelude::ValueObjectAccess, value::OwnedValue};
 use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
@@ -591,10 +593,13 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
                 let import_directory = dirname(abs_path);
-                let ads_specifier = if specifier.ends_with(".js") || specifier.ends_with(".cjs") {
+                let ads_specifier = if specifier.ends_with(".js")
+                    || specifier.ends_with(".mjs")
+                    || specifier.ends_with(".cjs")
+                {
                     specifier
                 } else if specifier.starts_with("./") || specifier.starts_with("../") {
-                    format!("{}/{}.js", import_directory, specifier)
+                    [&import_directory, "/", &specifier].concat()
                 } else {
                     get_module_path_in_node_modules(&ctx, &specifier)?
                 };
@@ -710,32 +715,56 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
 }
 
 pub fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<String> {
-    let ex = Exception::throw_reference(ctx, &format!("Error resolving module '{}'", specifier));
     let current_dir = env::current_dir()
-        .map(|path| path.display().to_string())
+        .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_default();
 
-    let (mut scope, mut name) = match specifier.split_once('/') {
+    let (scope, name) = match specifier.split_once('/') {
         Some((s, n)) => (s, ["./", n].concat()),
         None => (specifier, ".".to_string()),
     };
+    let name = name.as_str();
 
-    let mut package_json_path = [&current_dir, "/node_modules/", scope, "/package.json"].concat();
-    if !Path::new(&package_json_path).exists() && name != "." {
-        scope = specifier;
-        name = ".".to_string();
-        package_json_path = [&current_dir, "/node_modules/", scope, "/package.json"].concat();
-    }
+    let mut package_json_path = [&current_dir, "/node_modules/"].concat();
+    let base_path_length = package_json_path.len();
+    package_json_path.push_str(scope);
+    package_json_path.push_str("/package.json");
 
-    let package_json = fs::read_to_string(&package_json_path).unwrap_or_default();
-    let package_json: JsonValue = serde_json::from_str(&package_json).map_err(|_| ex)?;
+    let (scope, name) = if name != "." && fs::metadata(&package_json_path).is_err() {
+        package_json_path.truncate(base_path_length);
+        package_json_path.push_str(specifier);
+        package_json_path.push_str("/package.json");
+        (specifier, ".")
+    } else {
+        (scope, name)
+    };
 
-    let module_path = (package_json["exports"][name.as_str()]["require"]["default"].as_str())
-        .or_else(|| package_json["exports"][name.as_str()]["require"].as_str())
-        .or_else(|| package_json["exports"]["require"]["default"].as_str())
-        .or_else(|| package_json["exports"]["default"].as_str())
-        .or_else(|| package_json["main"].as_str())
+    if fs::metadata(&package_json_path).is_err() {
+        return Err(Exception::throw_reference(
+            ctx,
+            &["Error resolving module '", specifier, "'"].concat(),
+        ));
+    };
+
+    let package_json = fs::read(&package_json_path).unwrap_or_default();
+    let package_json = simd_json::to_owned_value(&mut package_json.clone()).or_throw(ctx)?;
+
+    let module_path = get_str(&package_json, &["exports", name, "require", "default"])
+        .or_else(|| get_str(&package_json, &["exports", name, "require"]))
+        .or_else(|| get_str(&package_json, &["exports", "require", "default"]))
+        .or_else(|| get_str(&package_json, &["exports", "default"]))
+        .or_else(|| get_str(&package_json, &["main"]))
         .unwrap_or("./index.js");
 
     Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
+}
+
+fn get_str<'a>(value: &'a OwnedValue, keys: &[&str]) -> Option<&'a str> {
+    let mut current_value = Some(value);
+
+    for &key in keys {
+        current_value = current_value.and_then(|v| v.get(key));
+    }
+
+    current_value.and_then(|v| v.as_str())
 }

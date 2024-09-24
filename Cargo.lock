@@ -2652,7 +2652,6 @@ dependencies = [
  "rustls",
  "rustls-pemfile",
  "ryu",
- "serde_json",
  "simd-json",
  "tokio",
  "tracing",
