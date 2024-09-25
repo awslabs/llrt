@@ -5,6 +5,7 @@ import util from "util";
 
 it("should format strings correctly", () => {
   expect(util.format("%s:%s", "foo", "bar")).toEqual("foo:bar");
+  expect(util.format("█", "foo")).toEqual("█ foo");
   expect(util.format(1, 2, 3)).toEqual("1 2 3");
   expect(util.format("%% %s")).toEqual("%% %s");
   expect(util.format("%s:%s", "foo")).toEqual("foo:%s");
