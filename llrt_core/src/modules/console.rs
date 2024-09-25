@@ -250,7 +250,7 @@ fn format_raw<'js>(
     Ok(())
 }
 
-fn format_raw_string<'js>(result: &mut String, value: String, options: &FormatOptions<'js>) {
+fn format_raw_string(result: &mut String, value: String, options: &FormatOptions<'_>) {
     let (color_enabled_mask, not_root_mask, not_root) = get_masks(options, 0);
     format_raw_string_inner(result, value, not_root_mask, color_enabled_mask, not_root);
 }
