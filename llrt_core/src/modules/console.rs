@@ -539,68 +539,61 @@ fn format_values_internal<'js>(
         if index == 0 && size > 1 {
             if let Some(str) = arg.as_string() {
                 let str = str.to_string()?;
-                let bytes = str.as_bytes();
-                let mut i = 0;
-                let len = bytes.len();
-                let mut next_byte;
-                let mut byte;
-                while i < len {
-                    byte = bytes[i];
-                    if byte == b'%' && i + 1 < len {
-                        next_byte = bytes[i + 1];
-                        i += 1;
-                        if iter.peek().is_some() {
-                            i += 1;
+                let mut char_iter = str.chars();
+                while let Some(byte) = char_iter.next() {
+                    if byte == '%' {
+                        if let Some(next_byte) = char_iter.next() {
+                            if iter.peek().is_some() {
+                                let mut next_value = || unsafe { iter.next().unwrap_unchecked() }.1;
 
-                            let mut next_value = || unsafe { iter.next().unwrap_unchecked() }.1;
-
-                            let value = match next_byte {
-                                b's' => {
-                                    let str = next_value().get::<Coerced<String>>()?;
-                                    result.push_str(str.as_str());
-                                    continue;
-                                },
-                                b'd' => options.number_function.call((next_value(),))?,
-                                b'i' => options.parse_int.call((next_value(),))?,
-                                b'f' => options.parse_float.call((next_value(),))?,
-                                b'j' => {
-                                    result.push_str(
-                                        &json_stringify(ctx, next_value())?
-                                            .unwrap_or("undefined".into()),
-                                    );
-                                    continue;
-                                },
-                                b'O' => {
-                                    options.object_filter = default_filter;
-                                    next_value()
-                                },
-                                b'o' => next_value(),
-                                b'c' => {
-                                    // CSS is ignored
-                                    continue;
-                                },
-                                b'%' => {
-                                    result.push(byte as char);
-                                    continue;
-                                },
-                                _ => {
-                                    result.push(byte as char);
-                                    result.push(next_byte as char);
-                                    continue;
-                                },
-                            };
-                            options.color = false;
-                            format_raw(result, value, options)?;
-                            options.object_filter = current_filter;
-                            continue;
+                                let value = match next_byte {
+                                    's' => {
+                                        let str = next_value().get::<Coerced<String>>()?;
+                                        result.push_str(str.as_str());
+                                        continue;
+                                    },
+                                    'd' => options.number_function.call((next_value(),))?,
+                                    'i' => options.parse_int.call((next_value(),))?,
+                                    'f' => options.parse_float.call((next_value(),))?,
+                                    'j' => {
+                                        result.push_str(
+                                            &json_stringify(ctx, next_value())?
+                                                .unwrap_or("undefined".into()),
+                                        );
+                                        continue;
+                                    },
+                                    'O' => {
+                                        options.object_filter = default_filter;
+                                        next_value()
+                                    },
+                                    'o' => next_value(),
+                                    'c' => {
+                                        // CSS is ignored
+                                        continue;
+                                    },
+                                    '%' => {
+                                        result.push(byte as char);
+                                        continue;
+                                    },
+                                    _ => {
+                                        result.push(byte as char);
+                                        result.push(next_byte as char);
+                                        continue;
+                                    },
+                                };
+                                options.color = false;
+                                format_raw(result, value, options)?;
+                                options.object_filter = current_filter;
+                                continue;
+                            } else {
+                                result.push(byte);
+                                result.push(next_byte);
+                                continue;
+                            }
                         }
-                        result.push(byte as char);
-                        result.push(next_byte as char);
                     } else {
-                        result.push(byte as char);
+                        result.push(byte);
                     }
-
-                    i += 1;
                 }
                 continue;
             }
