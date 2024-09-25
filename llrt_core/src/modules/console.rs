@@ -572,12 +572,12 @@ fn format_values_internal<'js>(
                                         continue;
                                     },
                                     '%' => {
-                                        result.push(byte as char);
+                                        result.push(byte);
                                         continue;
                                     },
                                     _ => {
-                                        result.push(byte as char);
-                                        result.push(next_byte as char);
+                                        result.push(byte);
+                                        result.push(next_byte);
                                         continue;
                                     },
                                 };
