@@ -583,7 +583,6 @@ fn format_values_internal<'js>(
                     continue;
                 }
                 let bytes = str.as_bytes();
-                bytes.iter().position(|p| *p == b'%');
                 let mut i = 0;
                 let len = bytes.len();
                 let mut next_byte;
@@ -624,7 +623,6 @@ fn format_values_internal<'js>(
                                     continue;
                                 },
                                 b'%' => {
-                                    result.push_byte(byte);
                                     result.push_byte(byte);
                                     continue;
                                 },
