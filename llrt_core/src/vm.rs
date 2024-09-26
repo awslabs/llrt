@@ -18,11 +18,10 @@ use llrt_modules::{
     timers::{self, poll_timers},
 };
 use llrt_utils::{
-    
     bytes::ObjectBytes,
     error::ErrorExtensions,
     object::{ObjectExt, Proxy},
-, result::ResultExt,
+    result::ResultExt,
 };
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -749,17 +748,17 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<Str
     let package_json = fs::read(&package_json_path).unwrap_or_default();
     let package_json = simd_json::to_owned_value(&mut package_json.clone()).or_throw(ctx)?;
 
-    let module_path = get_str(&package_json, &["exports", name, "require", "default"])
-        .or_else(|| get_str(&package_json, &["exports", name, "require"]))
-        .or_else(|| get_str(&package_json, &["exports", "require", "default"]))
-        .or_else(|| get_str(&package_json, &["exports", "default"]))
-        .or_else(|| get_str(&package_json, &["main"]))
+    let module_path = json_as_str(&package_json, &["exports", name, "require", "default"])
+        .or_else(|| json_as_str(&package_json, &["exports", name, "require"]))
+        .or_else(|| json_as_str(&package_json, &["exports", "require", "default"]))
+        .or_else(|| json_as_str(&package_json, &["exports", "default"]))
+        .or_else(|| json_as_str(&package_json, &["main"]))
         .unwrap_or("./index.js");
 
     Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
 }
 
-fn get_str<'a>(value: &'a OwnedValue, keys: &[&str]) -> Option<&'a str> {
+fn json_as_str<'a>(value: &'a OwnedValue, keys: &[&str]) -> Option<&'a str> {
     let mut current_value = Some(value);
 
     for &key in keys {
