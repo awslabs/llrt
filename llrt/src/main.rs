@@ -170,18 +170,12 @@ async fn start_cli(vm: &Vm) {
                 let filename = Path::new(arg);
                 let file_exists = filename.exists();
 
+                let global = ext == ".cjs";
+
                 match ext {
-                    ".cjs" => {
+                    ".cjs" | ".js" | ".mjs" => {
                         if file_exists {
-                            return vm.run_cjs_file(filename, false, true).await;
-                        } else {
-                            eprintln!("No such file: {}", arg);
-                            exit(1);
-                        }
-                    },
-                    ".js" | ".mjs" => {
-                        if file_exists {
-                            return vm.run_esm_file(filename, true, false).await;
+                            return vm.run_file(filename, true, global).await;
                         } else {
                             eprintln!("No such file: {}", arg);
                             exit(1);
@@ -189,7 +183,7 @@ async fn start_cli(vm: &Vm) {
                     },
                     _ => {
                         if file_exists {
-                            return vm.run_esm_file(filename, true, false).await;
+                            return vm.run_file(filename, true, false).await;
                         }
                         eprintln!("Unknown command: {}", arg);
                         usage();
@@ -199,7 +193,7 @@ async fn start_cli(vm: &Vm) {
             }
         }
     } else if let Some(filename) = get_js_path("index") {
-        vm.run_esm_file(&filename, true, false).await;
+        vm.run_file(&filename, true, false).await;
     }
 }
 

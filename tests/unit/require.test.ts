@@ -30,6 +30,12 @@ it("should handle cjs requires", () => {
   expect(a.c).toEqual("c");
 });
 
+it("should handle cjs requires", () => {
+  const a = _require(`${CWD}/fixtures/e.cjs`);
+
+  expect(a.prop).toEqual("a");
+});
+
 it("should be able to use node module with prefix `node:` with require", () => {
   let { Console } = require("node:console");
   const consoleObj = new Console({
