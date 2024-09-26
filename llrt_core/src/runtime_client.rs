@@ -549,6 +549,7 @@ fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<Strin
         .ok_or_else(|| ["Missing or invalid header: ", header.as_str()].concat())
 }
 
+#[cfg(unix)]
 #[cfg(test)]
 mod tests {
 
