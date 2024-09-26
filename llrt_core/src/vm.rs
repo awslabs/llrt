@@ -17,7 +17,11 @@ use llrt_modules::{
     path::{join_path_with_separator, resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
 };
-use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
+use llrt_utils::{
+    bytes::ObjectBytes,
+    error::ErrorExtensions,
+    object::{ObjectExt, Proxy},
+};
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
 use rquickjs::{
@@ -415,26 +419,14 @@ impl Vm {
             .await;
     }
 
-    pub async fn run_esm_file(&self, filename: &Path, strict: bool, global: bool) {
-        self.run(
-            [
-                r#"import(""#,
-                &filename.to_string_lossy(),
-                r#"").catch((e) => {{console.error(e);process.exit(1)}})"#,
-            ]
-            .concat(),
-            strict,
-            global,
-        )
-        .await;
-    }
-    pub async fn run_cjs_file(&self, filename: &Path, strict: bool, global: bool) {
-        let source = std::fs::read(filename).unwrap_or_else(|_| {
-            panic!(
-                "{}",
-                ["No such file: ", &filename.to_string_lossy()].concat()
-            )
-        });
+    pub async fn run_file(&self, filename: &Path, strict: bool, global: bool) {
+        let source = [
+            r#"try{require(""#,
+            &filename.to_string_lossy(),
+            r#"")}catch(e){console.error(e);process.exit(1)}"#,
+        ]
+        .concat();
+
         self.run(source, strict, global).await;
     }
 
@@ -540,33 +532,44 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_exports: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
     let require_exports_ref = require_exports.clone();
     let require_exports_ref_2 = require_exports.clone();
+    let require_exports_ref_3 = require_exports.clone();
 
-    let js_bootstrap = Object::new(ctx.clone())?;
-    js_bootstrap.set(
-        "moduleExport",
-        Func::from(move |ctx, obj, prop, value| {
-            let ExportArgs(_, _, _, value) = ExportArgs(ctx, obj, prop, value);
-            let mut exports = require_exports.lock().unwrap();
-            exports.replace(value);
-            Result::Ok(true)
-        }),
-    )?;
-    js_bootstrap.set(
-        "exports",
-        Func::from(move |ctx, obj, prop, value| {
-            let ExportArgs(ctx, _, prop, value) = ExportArgs(ctx, obj, prop, value);
-            let mut exports = require_exports_ref.lock().unwrap();
-            let exports = if exports.is_some() {
-                exports.as_ref().unwrap()
-            } else {
-                exports.replace(Object::new(ctx.clone())?.into_value());
-                exports.as_ref().unwrap()
-            };
-            exports.as_object().unwrap().set(prop, value)?;
-            Result::Ok(true)
-        }),
-    )?;
-    globals.set("__bootstrap", js_bootstrap)?;
+    let module_proxy_target = Object::new(ctx.clone())?;
+    let module_proxy = Proxy::with_target(ctx.clone(), module_proxy_target.into_value())?;
+    module_proxy.setter(Func::from(move |ctx, obj, prop, value| {
+        let ExportArgs(_, _, _, value) = ExportArgs(ctx, obj, prop, value);
+        let mut exports = require_exports.lock().unwrap();
+        exports.replace(value);
+        Result::Ok(true)
+    }))?;
+
+    module_proxy.getter(Func::from(move |ctx, target, prop, receiver| {
+        let ExportArgs(_, target, _, _) = ExportArgs(ctx, target, prop, receiver);
+        let mut exports = require_exports_ref_3.lock().unwrap();
+        exports.replace(target.as_value().clone());
+        Result::Ok(target)
+    }))?;
+
+    globals.prop("module", module_proxy)?;
+
+    let exports_proxy_target = Object::new(ctx.clone())?;
+    let exports_proxy = Proxy::with_target(ctx.clone(), exports_proxy_target.into_value())?;
+    exports_proxy.setter(Func::from(move |ctx, obj, prop, value| {
+        let ExportArgs(ctx, _, prop, value) = ExportArgs(ctx, obj, prop, value);
+        let mut exports = require_exports_ref.lock().unwrap();
+        let exports = if exports.is_some() {
+            exports.as_ref().unwrap()
+        } else {
+            exports.replace(Object::new(ctx.clone())?.into_value());
+            exports.as_ref().unwrap()
+        };
+        exports.as_object().unwrap().set(prop, value)?;
+        Result::Ok(true)
+    }))?;
+
+    globals.prop("exports", exports_proxy)?;
+
+    globals.set("__bootstrap", Object::new(ctx.clone())?)?;
 
     globals.set(
         "require",

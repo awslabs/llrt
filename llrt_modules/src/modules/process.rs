@@ -3,11 +3,10 @@
 use std::env;
 use std::{collections::HashMap, sync::atomic::Ordering};
 
+use llrt_utils::object::Proxy;
 use llrt_utils::{module::export_default, result::ResultExt};
 use rquickjs::{
-    atom::PredefinedAtom,
     convert::Coerced,
-    function::Constructor,
     module::{Declarations, Exports, ModuleDef},
     object::Property,
     prelude::Func,
@@ -83,12 +82,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         }
     }
 
-    let proxy_ctor = globals.get::<_, Constructor>(PredefinedAtom::Proxy)?;
-
     let env_obj = env_map.into_js(ctx)?;
-    let env_proxy_cfg = Object::new(ctx.clone())?;
-    env_proxy_cfg.set(PredefinedAtom::Setter, Func::from(env_proxy_setter))?;
-    let env_proxy = proxy_ctor.construct::<_, Value>((env_obj, env_proxy_cfg))?;
+
+    let env_proxy = Proxy::with_target(ctx.clone(), env_obj)?;
+    env_proxy.setter(Func::from(env_proxy_setter))?;
 
     process.set("env", env_proxy)?;
     process.set("cwd", Func::from(cwd))?;
