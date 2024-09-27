@@ -35,7 +35,7 @@ use rquickjs::{
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
     IntoJs, Module, Object, Result, Value,
 };
-use simd_json::{base::ValueAsScalar, prelude::ValueObjectAccess, value::OwnedValue};
+use simd_json::BorrowedValue;
 use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
@@ -730,7 +730,7 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<Str
     package_json_path.push_str(scope);
     package_json_path.push_str("/package.json");
 
-    let (scope, name) = if name != "." && fs::metadata(&package_json_path).is_err() {
+    let (scope, name) = if name != "." && !Path::new(&package_json_path).exists() {
         package_json_path.truncate(base_path_length);
         package_json_path.push_str(specifier);
         package_json_path.push_str("/package.json");
@@ -739,32 +739,54 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<Str
         (scope, name.as_str())
     };
 
-    if fs::metadata(&package_json_path).is_err() {
+    if !Path::new(&package_json_path).exists() {
         return Err(Exception::throw_reference(
             ctx,
             &["Error resolving module '", specifier, "'"].concat(),
         ));
     };
 
-    let package_json = fs::read(&package_json_path).unwrap_or_default();
-    let package_json = simd_json::to_owned_value(&mut package_json.clone()).or_throw(ctx)?;
+    let mut package_json = fs::read(&package_json_path).unwrap_or_default();
+    let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
 
-    let module_path = json_as_str(&package_json, &["exports", name, "require", "default"])
-        .or_else(|| json_as_str(&package_json, &["exports", name, "require"]))
-        .or_else(|| json_as_str(&package_json, &["exports", "require", "default"]))
-        .or_else(|| json_as_str(&package_json, &["exports", "default"]))
-        .or_else(|| json_as_str(&package_json, &["main"]))
-        .unwrap_or("./index.js");
+    let module_path = get_module_path(&package_json, name)?;
 
     Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
 }
 
-fn json_as_str<'a>(value: &'a OwnedValue, keys: &[&str]) -> Option<&'a str> {
-    let mut current_value = Some(value);
+fn get_module_path<'a>(package_json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
+    if let BorrowedValue::Object(map) = package_json {
+        if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
+            if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
+                if let Some(BorrowedValue::Object(require)) = name.get("require") {
+                    // Check for nested structure: exports -> name -> require -> default
+                    if let Some(BorrowedValue::String(default)) = require.get("default") {
+                        return Ok(default.as_ref());
+                    }
+                }
+                // Check for nested structure: exports -> name -> require
+                if let Some(BorrowedValue::String(require)) = name.get("require") {
+                    return Ok(require.as_ref());
+                }
+            }
 
-    for &key in keys {
-        current_value = current_value.and_then(|v| v.get(key));
+            if let Some(BorrowedValue::Object(require)) = exports.get("require") {
+                // Check for nested structure: exports -> require -> default
+                if let Some(BorrowedValue::String(default)) = require.get("default") {
+                    return Ok(default.as_ref());
+                }
+            }
+
+            // Check for nested structure: exports -> default
+            if let Some(BorrowedValue::String(default)) = exports.get("default") {
+                return Ok(default.as_ref());
+            }
+        }
+
+        // Check for main field
+        if let Some(BorrowedValue::String(main)) = map.get("main") {
+            return Ok(main.as_ref());
+        }
     }
-
-    current_value.and_then(|v| v.as_str())
+    Ok("./index.js")
 }
