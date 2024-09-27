@@ -17,10 +17,11 @@ on:
       toolchain:
         required: false
         type: string
-        default: "nightly"
+        default: nightly
 
 jobs:
   build:
+    name: build-${{ inputs.platform }}-${{ inputs.arch }}
     runs-on: ${{ inputs.os }}
     steps:
       - name: Checkout
@@ -69,6 +70,9 @@ jobs:
             zstd
             patch
             unzip
+          shell: pwsh
+          run: |
+            echo "RUSTFLAGS='-C target-feature=+crt-static'" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Install JavaScript dependencies
         run: |
