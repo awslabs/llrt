@@ -70,9 +70,6 @@ jobs:
             zstd
             patch
             unzip
-          shell: pwsh
-          run: |
-            echo "RUSTFLAGS='-C target-feature=+crt-static'" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Install JavaScript dependencies
         run: |
@@ -121,6 +118,8 @@ jobs:
       - name: Build Windows binaries
         if: inputs.release && inputs.platform == 'windows'
         shell: msys2 {0}
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
         run: |
           # HACK: Add scoop/shims to PATH
           export PATH="$PATH:/c/Users/$USER/scoop/shims"
