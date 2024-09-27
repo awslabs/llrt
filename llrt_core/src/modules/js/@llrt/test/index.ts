@@ -63,6 +63,11 @@ class Color {
   static RESET = "\x1b[0m";
 }
 
+type TestFailure = {
+  error: any;
+  desc: string[];
+};
+
 class TestServer extends EventEmitter {
   private static FRAME_RATE = 15;
   private static UPDATE_INTERVAL = 1000 / TestServer.FRAME_RATE;
@@ -73,6 +78,7 @@ class TestServer extends EventEmitter {
   static ERROR_CODE_SOCKET_ERROR = 1;
   static ERROR_CODE_SOCKET_WRITE_ERROR = 2;
   static ERROR_CODE_PROCESS_ERROR = 4;
+  static ERROR_CODE_HANDLE_DATA = 8;
 
   private server: net.Server | null = null;
   private workerCount: number;
@@ -80,7 +86,7 @@ class TestServer extends EventEmitter {
   private testFiles: string[];
   private testFileNames: string[];
   private fileQueue: string[];
-  private filesFailed: Set<string>;
+  private filesFailed: Map<string, TestFailure[]>;
   private filesCompleted: Set<string>;
   private completedWorkers: number = 0;
   private workerData: Record<number, WorkerData> = {};
@@ -89,6 +95,7 @@ class TestServer extends EventEmitter {
   private totalTests: number = 0;
   private totalSuccess: number = 0;
   private totalSkipped: number = 0;
+  private totalFailed: number = 0;
   private totalOnly: number = 0;
   private lastUpdate = 0;
   private updateInterval: Timeout | null = null;
@@ -102,7 +109,7 @@ class TestServer extends EventEmitter {
     this.fileQueue = [...testFiles];
     this.testFiles = [...testFiles];
     this.testFileNames = testFiles.map((file) => path.basename(file));
-    this.filesFailed = new Set();
+    this.filesFailed = new Map();
     this.filesCompleted = new Set();
     this.workerCount = Math.min(workerCount, testFiles.length);
   }
@@ -117,8 +124,6 @@ class TestServer extends EventEmitter {
       server.listen(resolve);
     });
 
-    console.log("\x1b[?25h");
-
     this.spawnAllWorkers();
     this.updateInterval = setInterval(() => {
       this.updateProgress();
@@ -127,7 +132,13 @@ class TestServer extends EventEmitter {
 
   handleSocketConnected(socket: net.Socket) {
     socket.on("data", (data) => {
-      const response = this.handleData(socket, data);
+      let response;
+      try {
+        response = this.handleData(socket, data);
+      } catch (e) {
+        this.handleError(TestServer.ERROR_CODE_HANDLE_DATA, e);
+        return;
+      }
       socket.write(JSON.stringify(response));
     });
     socket.on("error", (error) =>
@@ -183,11 +194,15 @@ class TestServer extends EventEmitter {
     }, 5000);
   }
 
-  handleError(code: number, error: Error, details: any) {
+  handleError(code: number, error: Error, details?: any) {
     switch (code) {
+      case TestServer.ERROR_CODE_HANDLE_DATA: {
+        console.error(`Error handling data,`, error);
+        process.exit(1);
+      }
       case TestServer.ERROR_CODE_SOCKET_WRITE_ERROR:
       case TestServer.ERROR_CODE_SOCKET_ERROR: {
-        console.error(`Socket error: ${error.message}`);
+        console.error(`Socket error,`, error);
         process.exit(1);
       }
       case TestServer.ERROR_CODE_PROCESS_ERROR: {
@@ -287,8 +302,6 @@ class TestServer extends EventEmitter {
             suite.ended = ended;
             suite.started = started;
             if (workerData.success) {
-              this.filesFailed.add(workerData.currentFile!);
-            } else {
               this.filesCompleted.add(workerData.currentFile!);
             }
           }
@@ -332,7 +345,15 @@ class TestServer extends EventEmitter {
     const test = workerData.currentTest;
     workerData.success = false;
     this.results.get(workerData.currentFile!)!.success = false;
+
     if (test) {
+      const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
+      testFailures.push({
+        desc: workerData.currentPath.slice(1),
+        error,
+      });
+      this.filesFailed.set(workerData.currentFile!, testFailures);
+      this.totalFailed++;
       test.ended = ended;
       test.error = error;
       test.success = false;
@@ -413,7 +434,7 @@ class TestServer extends EventEmitter {
     const remaining = availableWidth - elapsed;
 
     message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]${progressText}`;
-    console.log(message);
+    //console.log(message);
   }
   printResults() {
     for (let file of this.testFiles) {
@@ -431,6 +452,32 @@ class TestServer extends EventEmitter {
       }
       console.log("");
     }
+    if (this.totalFailed == 0) {
+      console.log(
+        Color.GREEN_BACKGROUND(Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `))
+      );
+    } else {
+      console.log(
+        Color.RED_BACKGROUND(
+          Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
+        )
+      );
+    }
+    console.log(
+      `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests`
+    );
+    if (this.totalFailed > 0) {
+      for (let [file, testFailure] of this.filesFailed) {
+        console.log(`\n${Color.RED_BACKGROUND(` ${file} `)}`);
+        for (let failure of testFailure) {
+          console.log(
+            failure.desc.map((d) => Color.BOLD(d)).join(" > "),
+            `\n${this.formattedError(failure.error)}`
+          );
+        }
+      }
+      process.exit(1);
+    }
   }
   printSuiteResult(result: SuiteResult, depth = 0) {
     for (let test of result.tests) {
@@ -443,16 +490,7 @@ class TestServer extends EventEmitter {
         Color.DIM(TestServer.elapsed(test))
       );
       if (test.error) {
-        console.log(
-          Color.RED(
-            `${indent}\x1b[1mError ${test.error.name}:\x1b[22m ${test.error.message}\n${
-              test.error?.stack
-                ?.split("\n")
-                .map((line) => indent + line)
-                .join("\n") || ""
-            }`
-          )
-        );
+        console.log(this.formattedError(test.error));
       }
     }
     const results = result.children;
@@ -464,6 +502,17 @@ class TestServer extends EventEmitter {
       this.printSuiteResult(result, depth + 1);
     }
   }
+  private formattedError(error: Error, indent: string = ""): string {
+    return Color.RED(
+      `${indent}\x1b[1mError ${error.name}:\x1b[22m ${error.message}\n${
+        error?.stack
+          ?.split("\n")
+          .map((line) => indent + line)
+          .join("\n") || ""
+      }`
+    );
+  }
+
   static elapsed({
     started,
     ended,
