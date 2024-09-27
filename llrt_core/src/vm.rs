@@ -759,25 +759,25 @@ fn get_module_path<'a>(package_json: &'a BorrowedValue<'a>, module_name: &str) -
         if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
             if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
                 if let Some(BorrowedValue::Object(require)) = name.get("require") {
-                    // Check for nested structure: exports -> name -> require -> default
+                    // Check for exports -> name -> require -> default
                     if let Some(BorrowedValue::String(default)) = require.get("default") {
                         return Ok(default.as_ref());
                     }
                 }
-                // Check for nested structure: exports -> name -> require
+                // Check for exports -> name -> require
                 if let Some(BorrowedValue::String(require)) = name.get("require") {
                     return Ok(require.as_ref());
                 }
             }
 
             if let Some(BorrowedValue::Object(require)) = exports.get("require") {
-                // Check for nested structure: exports -> require -> default
+                // Check for exports -> require -> default
                 if let Some(BorrowedValue::String(default)) = require.get("default") {
                     return Ok(default.as_ref());
                 }
             }
 
-            // Check for nested structure: exports -> default
+            // Check for exports -> default
             if let Some(BorrowedValue::String(default)) = exports.get("default") {
                 return Ok(default.as_ref());
             }
