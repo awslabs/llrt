@@ -9,8 +9,9 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
     process::exit,
+    rc::Rc,
     result::Result as StdResult,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 use llrt_modules::{
@@ -38,8 +39,6 @@ use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
-
 use crate::{
     json_loader::JSONLoader,
     modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
@@ -53,6 +52,9 @@ use crate::{
     security,
     utils::{clone::structured_clone, io::get_js_path},
 };
+
+include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
+
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
@@ -530,7 +532,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
 
-    let require_exports: Arc<Mutex<Option<Object>>> = Arc::new(Mutex::new(None));
+    let require_exports: Rc<Mutex<Option<Object>>> = Rc::new(Mutex::new(None));
 
     globals.set(
         "require",
@@ -585,27 +587,17 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             options.promise = true;
             options.global = false;
 
-            let exports = Object::new(ctx.clone())?;
+            let exports = Object::new(ctx.clone())?.into_value();
 
-            let current_exports = require_exports.lock().unwrap().replace(exports.clone());
-
-            let globals = ctx.globals();
-
-            let module = globals.get::<_, Object>("module")?;
-            let exports_prop = Property::from(exports.clone()).configurable().enumerable();
-            module.prop("exports", exports_prop.clone())?;
-            globals.prop("exports", exports_prop)?;
+            let current_exports = require_exports.lock().unwrap().replace(exports);
 
             let import_promise = Module::import(&ctx, import_name.clone())?;
 
-            let current_exports_prop = Property::from(current_exports.clone())
-                .configurable()
-                .enumerable();
-
-            module.prop("exports", current_exports_prop.clone())?;
-            globals.prop("exports", current_exports_prop.clone())?;
-
-            *require_exports.lock().unwrap() = current_exports.clone();
+            let exports = if let Some(current_exports) = current_exports {
+                require_exports.lock().unwrap().replace(current_exports)
+            } else {
+                require_exports.lock().unwrap().take()
+            };
 
             let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
@@ -627,9 +619,16 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             require_in_progress.lock().unwrap().remove(&import_name);
 
-            for prop in exports.props::<Value, Value>() {
-                let (key, value) = prop?;
-                obj.set(key, value)?;
+            if let Some(exports) = exports {
+                if let Some(exports) = exports.as_object() {
+                    for prop in exports.props::<Value, Value>() {
+                        let (key, value) = prop?;
+                        obj.set(key, value)?;
+                    }
+                } else {
+                    //we have explicitly set it
+                    return Ok(exports);
+                }
             }
 
             for prop in imported_object.props::<String, Value>() {
