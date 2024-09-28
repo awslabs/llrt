@@ -585,8 +585,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             };
             let import_name = if module_names.contains(specifier.as_str())
                 || BYTECODE_CACHE.contains_key(&specifier)
-                || specifier.starts_with('/')
-                || specifier.chars().nth(1) == Some(':')
+                || Path::new(&specifier).is_absolute()
             {
                 specifier
             } else {
