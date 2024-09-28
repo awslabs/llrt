@@ -14,7 +14,7 @@ use std::{
 };
 
 use llrt_modules::{
-    path::{join_path_with_separator, resolve_path, resolve_path_with_separator},
+    path::{is_absolute, join_path_with_separator, resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
 };
 use llrt_utils::{
@@ -585,7 +585,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             };
             let import_name = if module_names.contains(specifier.as_str())
                 || BYTECODE_CACHE.contains_key(&specifier)
-                || Path::new(&specifier).is_absolute()
+                || is_absolute(&specifier)
             {
                 specifier
             } else {
