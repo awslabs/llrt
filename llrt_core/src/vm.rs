@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
     process::exit,
     result::Result as StdResult,
-    sync::{Arc, Mutex},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 use llrt_modules::{
@@ -18,10 +18,7 @@ use llrt_modules::{
     timers::{self, poll_timers},
 };
 use llrt_utils::{
-    bytes::ObjectBytes,
-    error::ErrorExtensions,
-    object::{ObjectExt, Proxy},
-    result::ResultExt,
+    bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt, result::ResultExt,
 };
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -31,6 +28,7 @@ use rquickjs::{
     function::Opt,
     loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
     module::Declared,
+    object::Property,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
     IntoJs, Module, Object, Result, Value,
@@ -530,48 +528,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
-    #[allow(clippy::arc_with_non_send_sync)]
-    let require_exports: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
-    let require_exports_ref = require_exports.clone();
-    let require_exports_ref_2 = require_exports.clone();
-    let require_exports_ref_3 = require_exports.clone();
-
-    let module_proxy_target = Object::new(ctx.clone())?;
-    let module_proxy = Proxy::with_target(ctx.clone(), module_proxy_target.into_value())?;
-    module_proxy.setter(Func::from(move |ctx, obj, prop, value| {
-        let ExportArgs(_, _, _, value) = ExportArgs(ctx, obj, prop, value);
-        let mut exports = require_exports.lock().unwrap();
-        exports.replace(value);
-        Result::Ok(true)
-    }))?;
-
-    module_proxy.getter(Func::from(move |ctx, target, prop, receiver| {
-        let ExportArgs(_, target, _, _) = ExportArgs(ctx, target, prop, receiver);
-        let mut exports = require_exports_ref_3.lock().unwrap();
-        exports.replace(target.as_value().clone());
-        Result::Ok(target)
-    }))?;
-
-    globals.prop("module", module_proxy)?;
-
-    let exports_proxy_target = Object::new(ctx.clone())?;
-    let exports_proxy = Proxy::with_target(ctx.clone(), exports_proxy_target.into_value())?;
-    exports_proxy.setter(Func::from(move |ctx, obj, prop, value| {
-        let ExportArgs(ctx, _, prop, value) = ExportArgs(ctx, obj, prop, value);
-        let mut exports = require_exports_ref.lock().unwrap();
-        let exports = if exports.is_some() {
-            exports.as_ref().unwrap()
-        } else {
-            exports.replace(Object::new(ctx.clone())?.into_value());
-            exports.as_ref().unwrap()
-        };
-        exports.as_object().unwrap().set(prop, value)?;
-        Result::Ok(true)
-    }))?;
-
-    globals.prop("exports", exports_proxy)?;
-
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
+
+    let require_exports: Arc<Mutex<Option<Object>>> = Arc::new(Mutex::new(None));
 
     globals.set(
         "require",
@@ -626,7 +585,27 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             options.promise = true;
             options.global = false;
 
+            let exports = Object::new(ctx.clone())?;
+
+            let current_exports = require_exports.lock().unwrap().replace(exports.clone());
+
+            let globals = ctx.globals();
+
+            let module = globals.get::<_, Object>("module")?;
+            let exports_prop = Property::from(exports.clone()).configurable().enumerable();
+            module.prop("exports", exports_prop.clone())?;
+            globals.prop("exports", exports_prop)?;
+
             let import_promise = Module::import(&ctx, import_name.clone())?;
+
+            let current_exports_prop = Property::from(current_exports.clone())
+                .configurable()
+                .enumerable();
+
+            module.prop("exports", current_exports_prop.clone())?;
+            globals.prop("exports", current_exports_prop.clone())?;
+
+            *require_exports.lock().unwrap() = current_exports.clone();
 
             let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
@@ -648,15 +627,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             require_in_progress.lock().unwrap().remove(&import_name);
 
-            if let Some(exports) = require_exports_ref_2.lock().unwrap().take() {
-                if let Some(exports) = exports.as_object() {
-                    for prop in exports.props::<Value, Value>() {
-                        let (key, value) = prop?;
-                        obj.set(key, value)?;
-                    }
-                } else {
-                    return Ok(exports);
-                }
+            for prop in exports.props::<Value, Value>() {
+                let (key, value) = prop?;
+                obj.set(key, value)?;
             }
 
             for prop in imported_object.props::<String, Value>() {
