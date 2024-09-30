@@ -9,6 +9,7 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
     process::exit,
+    rc::Rc,
     result::Result as StdResult,
     sync::{Arc, Mutex},
 };
@@ -18,10 +19,7 @@ use llrt_modules::{
     timers::{self, poll_timers},
 };
 use llrt_utils::{
-    bytes::ObjectBytes,
-    error::ErrorExtensions,
-    object::{ObjectExt, Proxy},
-    result::ResultExt,
+    bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt, result::ResultExt,
 };
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -31,6 +29,7 @@ use rquickjs::{
     function::Opt,
     loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
     module::Declared,
+    object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
     IntoJs, Module, Object, Result, Value,
@@ -39,8 +38,6 @@ use simd_json::BorrowedValue;
 use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
-
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
 use crate::{
     json_loader::JSONLoader,
@@ -55,6 +52,9 @@ use crate::{
     security,
     utils::{clone::structured_clone, io::get_js_path},
 };
+
+include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
+
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
     let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
@@ -530,55 +530,44 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
-    #[allow(clippy::arc_with_non_send_sync)]
-    let require_exports: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
-    let require_exports_ref = require_exports.clone();
-    let require_exports_ref_2 = require_exports.clone();
-    let require_exports_ref_3 = require_exports.clone();
-
-    let module_proxy_target = Object::new(ctx.clone())?;
-    let module_proxy = Proxy::with_target(ctx.clone(), module_proxy_target.into_value())?;
-    module_proxy.setter(Func::from(move |ctx, obj, prop, value| {
-        let ExportArgs(_, _, _, value) = ExportArgs(ctx, obj, prop, value);
-        let mut exports = require_exports.lock().unwrap();
-        exports.replace(value);
-        Result::Ok(true)
-    }))?;
-
-    module_proxy.getter(Func::from(move |ctx, target, prop, receiver| {
-        let ExportArgs(_, target, _, _) = ExportArgs(ctx, target, prop, receiver);
-        let mut exports = require_exports_ref_3.lock().unwrap();
-        exports.replace(target.as_value().clone());
-        Result::Ok(target)
-    }))?;
-
-    globals.prop("module", module_proxy)?;
-
-    let exports_proxy_target = Object::new(ctx.clone())?;
-    let exports_proxy = Proxy::with_target(ctx.clone(), exports_proxy_target.into_value())?;
-    exports_proxy.setter(Func::from(move |ctx, obj, prop, value| {
-        let ExportArgs(ctx, _, prop, value) = ExportArgs(ctx, obj, prop, value);
-        let mut exports = require_exports_ref.lock().unwrap();
-        let exports = if exports.is_some() {
-            exports.as_ref().unwrap()
-        } else {
-            exports.replace(Object::new(ctx.clone())?.into_value());
-            exports.as_ref().unwrap()
-        };
-        exports.as_object().unwrap().set(prop, value)?;
-        Result::Ok(true)
-    }))?;
-
-    globals.prop("exports", exports_proxy)?;
-
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
+
+    let require_exports: Rc<Mutex<Option<Value>>> = Rc::new(Mutex::new(None));
+    let require_exports2 = require_exports.clone();
+    let require_exports3 = require_exports.clone();
+    let require_exports4 = require_exports.clone();
+    let require_exports5 = require_exports.clone();
+
+    let module = Object::new(ctx.clone())?;
+
+    module.prop(
+        "exports",
+        Accessor::from(move || require_exports2.lock().unwrap().as_ref().cloned().unwrap())
+            .set(move |exports| {
+                require_exports3.lock().unwrap().replace(exports);
+            })
+            .configurable()
+            .enumerable(),
+    )?;
+
+    globals.prop("module", module)?;
+
+    globals.prop(
+        "exports",
+        Accessor::from(move || require_exports4.lock().unwrap().as_ref().cloned().unwrap())
+            .set(move |exports| {
+                require_exports5.lock().unwrap().replace(exports);
+            })
+            .enumerable()
+            .configurable(),
+    )?;
 
     globals.set(
         "require",
         Func::from(move |ctx, specifier: String| -> Result<Value> {
             struct Args<'js>(Ctx<'js>);
             let Args(ctx) = Args(ctx);
-            let specifier = if let Some(striped_specifier) = &specifier.strip_prefix("node:") {
+            let specifier = if let Some(striped_specifier) = specifier.strip_prefix("node:") {
                 striped_specifier.to_string()
             } else {
                 specifier
@@ -626,7 +615,17 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             options.promise = true;
             options.global = false;
 
+            let exports = Object::new(ctx.clone())?.into_value();
+
+            let current_exports = require_exports.lock().unwrap().replace(exports);
+
             let import_promise = Module::import(&ctx, import_name.clone())?;
+
+            let exports = if let Some(current_exports) = current_exports {
+                require_exports.lock().unwrap().replace(current_exports)
+            } else {
+                require_exports.lock().unwrap().take()
+            };
 
             let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
@@ -648,13 +647,14 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             require_in_progress.lock().unwrap().remove(&import_name);
 
-            if let Some(exports) = require_exports_ref_2.lock().unwrap().take() {
+            if let Some(exports) = exports {
                 if let Some(exports) = exports.as_object() {
                     for prop in exports.props::<Value, Value>() {
                         let (key, value) = prop?;
                         obj.set(key, value)?;
                     }
                 } else {
+                    //we have explicitly set it
                     return Ok(exports);
                 }
             }
