@@ -29,7 +29,7 @@ use rquickjs::{
     function::Opt,
     loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
     module::Declared,
-    object::Property,
+    object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
     IntoJs, Module, Object, Result, Value,
@@ -532,7 +532,35 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
 
-    let require_exports: Rc<Mutex<Option<Object>>> = Rc::new(Mutex::new(None));
+    let require_exports: Rc<Mutex<Option<Value>>> = Rc::new(Mutex::new(None));
+    let require_exports2 = require_exports.clone();
+    let require_exports3 = require_exports.clone();
+    let require_exports4 = require_exports.clone();
+    let require_exports5 = require_exports.clone();
+
+    let module = Object::new(ctx.clone())?;
+
+    module.prop(
+        "exports",
+        Accessor::from(move || require_exports2.lock().unwrap().as_ref().cloned().unwrap())
+            .set(move |exports| {
+                require_exports3.lock().unwrap().replace(exports);
+            })
+            .configurable()
+            .enumerable(),
+    )?;
+
+    globals.prop("module", module)?;
+
+    globals.prop(
+        "exports",
+        Accessor::from(move || require_exports4.lock().unwrap().as_ref().cloned().unwrap())
+            .set(move |exports| {
+                require_exports5.lock().unwrap().replace(exports);
+            })
+            .enumerable()
+            .configurable(),
+    )?;
 
     globals.set(
         "require",
