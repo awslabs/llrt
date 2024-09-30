@@ -160,7 +160,7 @@ impl Resolver for CustomResolver {
 
         if let Some(valid_path) = path {
             return Ok(valid_path.into_os_string().into_string().unwrap());
-        };
+        }
 
         // Resolve: node_modules via ESM
         if !(is_absolute(name)
@@ -169,10 +169,11 @@ impl Resolver for CustomResolver {
             || name.ends_with(".cjs")
             || name.ends_with(".json"))
         {
-            let node_modules_path = get_module_path_in_node_modules(ctx, name, true)?;
-            trace!("--> node_modules path: {}", node_modules_path);
-            return Ok(node_modules_path);
-        };
+            if let Ok(node_modules_path) = get_module_path_in_node_modules(ctx, name, true) {
+                trace!("--> node_modules path: {}", node_modules_path);
+                return Ok(node_modules_path);
+            }
+        }
 
         Err(Error::new_resolving(base, name))
     }
