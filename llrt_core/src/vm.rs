@@ -6,7 +6,7 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     process::exit,
     result::Result as StdResult,
@@ -14,13 +14,14 @@ use std::{
 };
 
 use llrt_modules::{
-    path::{join_path_with_separator, resolve_path, resolve_path_with_separator},
+    path::{is_absolute, join_path_with_separator, resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
 };
 use llrt_utils::{
     bytes::ObjectBytes,
     error::ErrorExtensions,
     object::{ObjectExt, Proxy},
+    result::ResultExt,
 };
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -31,9 +32,10 @@ use rquickjs::{
     loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
     module::Declared,
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Result, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
+    IntoJs, Module, Object, Result, Value,
 };
+use simd_json::BorrowedValue;
 use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
@@ -583,14 +585,24 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             };
             let import_name = if module_names.contains(specifier.as_str())
                 || BYTECODE_CACHE.contains_key(&specifier)
-                || specifier.starts_with('/')
+                || is_absolute(&specifier)
             {
                 specifier
             } else {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
                 let import_directory = dirname(abs_path);
-                resolve_path([import_directory, specifier].iter())
+                let ads_specifier = if specifier.ends_with(".js")
+                    || specifier.ends_with(".mjs")
+                    || specifier.ends_with(".cjs")
+                {
+                    specifier
+                } else if specifier.starts_with("./") || specifier.starts_with("../") {
+                    [&import_directory, "/", &specifier].concat()
+                } else {
+                    get_module_path_in_node_modules(&ctx, &specifier)?
+                };
+                resolve_path([import_directory, ads_specifier].iter())
             };
 
             if import_name.ends_with(".json") {
@@ -699,4 +711,81 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     let meta: Object = module.meta()?;
     meta.prop("url", ["file://", filepath].concat())?;
     Ok(())
+}
+
+fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<String> {
+    let current_dir = env::current_dir()
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .unwrap_or_else(|| "/".to_string());
+
+    let (scope, name) = match specifier.split_once('/') {
+        Some((s, n)) => (s, ["./", n].concat()),
+        None => (specifier, ".".to_string()),
+    };
+
+    let mut package_json_path = [&current_dir, "/node_modules/"].concat();
+    let base_path_length = package_json_path.len();
+    package_json_path.push_str(scope);
+    package_json_path.push_str("/package.json");
+
+    let (scope, name) = if name != "." && !Path::new(&package_json_path).exists() {
+        package_json_path.truncate(base_path_length);
+        package_json_path.push_str(specifier);
+        package_json_path.push_str("/package.json");
+        (specifier, ".")
+    } else {
+        (scope, name.as_str())
+    };
+
+    if !Path::new(&package_json_path).exists() {
+        return Err(Exception::throw_reference(
+            ctx,
+            &["Error resolving module '", specifier, "'"].concat(),
+        ));
+    };
+
+    let mut package_json = fs::read(&package_json_path).unwrap_or_default();
+    let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
+
+    let module_path = get_module_path(&package_json, name)?;
+
+    Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
+}
+
+fn get_module_path<'a>(package_json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
+    if let BorrowedValue::Object(map) = package_json {
+        if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
+            if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
+                if let Some(BorrowedValue::Object(require)) = name.get("require") {
+                    // Check for exports -> name -> require -> default
+                    if let Some(BorrowedValue::String(default)) = require.get("default") {
+                        return Ok(default.as_ref());
+                    }
+                }
+                // Check for exports -> name -> require
+                if let Some(BorrowedValue::String(require)) = name.get("require") {
+                    return Ok(require.as_ref());
+                }
+            }
+
+            if let Some(BorrowedValue::Object(require)) = exports.get("require") {
+                // Check for exports -> require -> default
+                if let Some(BorrowedValue::String(default)) = require.get("default") {
+                    return Ok(default.as_ref());
+                }
+            }
+
+            // Check for exports -> default
+            if let Some(BorrowedValue::String(default)) = exports.get("default") {
+                return Ok(default.as_ref());
+            }
+        }
+
+        // Check for main field
+        if let Some(BorrowedValue::String(main)) = map.get("main") {
+            return Ok(main.as_ref());
+        }
+    }
+    Ok("./index.js")
 }
