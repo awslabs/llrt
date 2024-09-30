@@ -39,10 +39,7 @@ use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-use crate::{
-    json_loader::JSONLoader,
-    modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
-};
+use crate::modules::{console, crypto::SYSTEM_RANDOM, path::dirname};
 
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
@@ -79,11 +76,11 @@ fn print(value: String, stdout: Opt<bool>) {
 }
 
 #[derive(Debug)]
-pub struct BinaryResolver {
+pub struct CustomResolver {
     paths: Vec<PathBuf>,
     cwd: PathBuf,
 }
-impl BinaryResolver {
+impl CustomResolver {
     pub fn add_path<P: Into<PathBuf>>(&mut self, path: P) -> &mut Self {
         self.paths.push(path.into());
         self
@@ -102,10 +99,11 @@ impl BinaryResolver {
 }
 
 #[allow(clippy::manual_strip)]
-impl Resolver for BinaryResolver {
-    fn resolve(&mut self, _ctx: &Ctx, base: &str, name: &str) -> Result<String> {
-        trace!("Try resolve \"{}\" from \"{}\"", name, base);
+impl Resolver for CustomResolver {
+    fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
+        trace!("Try resolve '{}' from {}", name, base);
 
+        // Resolve: precompiled binaries (from bytecode_cache and on filesystem)
         if BYTECODE_CACHE.contains_key(name) {
             return Ok(name.to_string());
         }
@@ -151,29 +149,32 @@ impl Resolver for BinaryResolver {
             return Ok(normalized_path.to_string());
         }
 
-        let path = self
-            .paths
-            .iter()
-            .find_map(|path| {
-                let path = path.join(normalized_path);
-                let bin_path = BinaryResolver::get_bin_path(&path);
-                if bin_path.exists() {
-                    return Some(bin_path);
-                }
-                get_js_path(path.to_str().unwrap())
-            })
-            .ok_or_else(|| Error::new_resolving(base, name))?;
+        let path = self.paths.iter().find_map(|path| {
+            let path = path.join(normalized_path);
+            let bin_path = CustomResolver::get_bin_path(&path);
+            if bin_path.exists() {
+                return Some(bin_path);
+            }
+            get_js_path(path.to_str().unwrap())
+        });
 
-        Ok(path.into_os_string().into_string().unwrap())
-    }
-}
+        if let Some(valid_path) = path {
+            return Ok(valid_path.into_os_string().into_string().unwrap());
+        };
 
-#[derive(Debug)]
-pub struct BinaryLoader;
+        // Resolve: node_modules via ESM
+        if !(is_absolute(name)
+            || name.ends_with(".js")
+            || name.ends_with(".mjs")
+            || name.ends_with(".cjs")
+            || name.ends_with(".json"))
+        {
+            let node_modules_path = get_module_path_in_node_modules(ctx, name, true)?;
+            trace!("--> node_modules path: {}", node_modules_path);
+            return Ok(node_modules_path);
+        };
 
-impl Default for BinaryLoader {
-    fn default() -> Self {
-        Self
+        Err(Error::new_resolving(base, name))
     }
 }
 
@@ -197,6 +198,20 @@ where
     T: Loader + 'static,
 {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
+        // Workaround for some characteristics of node_modules
+        // 1. If only the extension is not specified, the extension is completed.
+        // 2. If only a directory is specified, it is assumed to load index.js under the directory.
+        let name = if name.contains("node_modules") && Path::new(name).is_dir() {
+            [".js", ".mjs", ".cjs"]
+                .iter()
+                .map(|ext| [name, ext].concat())
+                .find(|path| Path::new(path).exists())
+                .unwrap_or_else(|| [name, "/index.js"].concat())
+        } else {
+            name.to_string()
+        };
+        let name = name.as_str();
+
         let res = self.loader.load(ctx, name)?;
 
         let name = if let Some(name) = name.strip_prefix("./") {
@@ -215,9 +230,23 @@ where
     }
 }
 
-impl Loader for BinaryLoader {
+#[derive(Debug)]
+pub struct CustomLoader;
+
+impl Default for CustomLoader {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl Loader for CustomLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
         trace!("Loading module: {}", name);
+        if name.ends_with(".json") {
+            let source = std::fs::read_to_string(name)?;
+            return Module::declare(ctx.clone(), name, ["export default ", &source].concat());
+        }
+
         let ctx = ctx.clone();
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
             trace!("Loading embedded module: {}", name);
@@ -342,7 +371,7 @@ impl Vm {
             .expect("Failed to initialize SystemRandom");
 
         let mut file_resolver = FileResolver::default();
-        let mut binary_resolver = BinaryResolver::new()?;
+        let mut custom_resolver = CustomResolver::new()?;
         let mut paths: Vec<&str> = Vec::with_capacity(10);
 
         paths.push(".");
@@ -361,18 +390,17 @@ impl Vm {
 
         for path in paths.iter() {
             file_resolver.add_path(*path);
-            binary_resolver.add_path(*path);
+            custom_resolver.add_path(*path);
         }
 
         let (builtin_resolver, module_loader, module_names, init_globals) =
             vm_options.module_builder.build();
 
-        let resolver = (builtin_resolver, binary_resolver, file_resolver);
+        let resolver = (builtin_resolver, custom_resolver, file_resolver);
 
         let loader = LoaderContainer::new((
             module_loader,
-            JSONLoader,
-            BinaryLoader,
+            CustomLoader,
             BuiltinLoader::default(),
             ScriptLoader::default()
                 .with_extension("mjs")
@@ -589,7 +617,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 } else if specifier.starts_with("./") || specifier.starts_with("../") {
                     [&import_directory, "/", &specifier].concat()
                 } else {
-                    get_module_path_in_node_modules(&ctx, &specifier)?
+                    get_module_path_in_node_modules(&ctx, &specifier, false)?
                 };
                 resolve_path([import_directory, ads_specifier].iter())
             };
@@ -713,7 +741,7 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     Ok(())
 }
 
-fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<String> {
+fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str, is_esm: bool) -> Result<String> {
     let current_dir = env::current_dir()
         .ok()
         .and_then(|path| path.into_os_string().into_string().ok())
@@ -748,17 +776,64 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str) -> Result<Str
     let mut package_json = fs::read(&package_json_path).unwrap_or_default();
     let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
 
-    let module_path = get_module_path(&package_json, name)?;
+    let module_path = if is_esm {
+        get_module_path_via_esm(&package_json, name)?
+    } else {
+        get_module_path_via_cjs(&package_json, name)?
+    };
 
     Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
 }
 
-fn get_module_path<'a>(package_json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
-    if let BorrowedValue::Object(map) = package_json {
+fn get_module_path_via_esm<'a>(json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
+    if let BorrowedValue::Object(map) = json {
         if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
             if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
+                // Check for exports -> name -> import -> default
+                if let Some(BorrowedValue::Object(require)) = name.get("import") {
+                    if let Some(BorrowedValue::String(default)) = require.get("default") {
+                        return Ok(default.as_ref());
+                    }
+                }
+                // Check for exports -> name -> import
+                if let Some(BorrowedValue::String(import)) = name.get("import") {
+                    return Ok(import.as_ref());
+                }
+                // Check for exports -> name -> default
+                if let Some(BorrowedValue::String(default)) = name.get("default") {
+                    return Ok(default.as_ref());
+                }
+            }
+            // Check for exports -> import -> default
+            if let Some(BorrowedValue::Object(require)) = exports.get("import") {
+                if let Some(BorrowedValue::String(default)) = require.get("default") {
+                    return Ok(default.as_ref());
+                }
+            }
+            // Check for exports -> import
+            if let Some(BorrowedValue::String(import)) = exports.get("import") {
+                return Ok(import.as_ref());
+            }
+        }
+        // Check for module field
+        if let Some(BorrowedValue::String(module)) = map.get("module") {
+            return Ok(module.as_ref());
+        }
+        // Check for main field
+        // Workaround for modules that have only “main” defined and whose entrypoint is not “index.js”
+        if let Some(BorrowedValue::String(main)) = map.get("main") {
+            return Ok(main.as_ref());
+        }
+    }
+    Ok("./index.js")
+}
+
+fn get_module_path_via_cjs<'a>(json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
+    if let BorrowedValue::Object(map) = json {
+        if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
+            if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
+                // Check for exports -> name -> require -> default
                 if let Some(BorrowedValue::Object(require)) = name.get("require") {
-                    // Check for exports -> name -> require -> default
                     if let Some(BorrowedValue::String(default)) = require.get("default") {
                         return Ok(default.as_ref());
                     }
@@ -768,20 +843,17 @@ fn get_module_path<'a>(package_json: &'a BorrowedValue<'a>, module_name: &str) -
                     return Ok(require.as_ref());
                 }
             }
-
+            // Check for exports -> require -> default
             if let Some(BorrowedValue::Object(require)) = exports.get("require") {
-                // Check for exports -> require -> default
                 if let Some(BorrowedValue::String(default)) = require.get("default") {
                     return Ok(default.as_ref());
                 }
             }
-
             // Check for exports -> default
             if let Some(BorrowedValue::String(default)) = exports.get("default") {
                 return Ok(default.as_ref());
             }
         }
-
         // Check for main field
         if let Some(BorrowedValue::String(main)) = map.get("main") {
             return Ok(main.as_ref());
