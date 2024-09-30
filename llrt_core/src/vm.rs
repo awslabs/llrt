@@ -567,7 +567,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         Func::from(move |ctx, specifier: String| -> Result<Value> {
             struct Args<'js>(Ctx<'js>);
             let Args(ctx) = Args(ctx);
-            let specifier = if let Some(striped_specifier) = &specifier.strip_prefix("node:") {
+            let specifier = if let Some(striped_specifier) = specifier.strip_prefix("node:") {
                 striped_specifier.to_string()
             } else {
                 specifier
