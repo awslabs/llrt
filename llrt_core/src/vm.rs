@@ -11,6 +11,7 @@ use std::{
     process::exit,
     rc::Rc,
     result::Result as StdResult,
+    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -66,6 +67,25 @@ pub(crate) static COMPRESSION_DICT: &[u8] =
 
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
+
+static NODE_MODULES_PATH: Lazy<String> = Lazy::new(|| {
+    let current_dir = env::current_dir()
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .unwrap_or_else(|| "/".to_string());
+    let mut base_dir = PathBuf::from_str(&current_dir).unwrap();
+
+    loop {
+        let node_modules_path = base_dir.join("node_modules");
+        if node_modules_path.exists() && node_modules_path.is_dir() {
+            return node_modules_path.to_str().unwrap().to_string();
+        }
+        if !base_dir.pop() {
+            break;
+        }
+    }
+    "/node_modules".to_string()
+});
 
 fn print(value: String, stdout: Opt<bool>) {
     if stdout.0.unwrap_or_default() {
@@ -159,7 +179,9 @@ impl Resolver for CustomResolver {
         });
 
         if let Some(valid_path) = path {
-            return Ok(valid_path.into_os_string().into_string().unwrap());
+            let valid_path = valid_path.into_os_string().into_string().unwrap();
+            trace!("Valideted path: {}", valid_path);
+            return Ok(valid_path);
         }
 
         // Resolve: node_modules via ESM
@@ -170,7 +192,7 @@ impl Resolver for CustomResolver {
             || name.ends_with(".json"))
         {
             if let Ok(node_modules_path) = get_module_path_in_node_modules(ctx, name, true) {
-                trace!("--> node_modules path: {}", node_modules_path);
+                trace!("Node modules path: {}", node_modules_path);
                 return Ok(node_modules_path);
             }
         }
@@ -729,17 +751,12 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
 }
 
 fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str, is_esm: bool) -> Result<String> {
-    let current_dir = env::current_dir()
-        .ok()
-        .and_then(|path| path.into_os_string().into_string().ok())
-        .unwrap_or_else(|| "/".to_string());
-
     let (scope, name) = match specifier.split_once('/') {
         Some((s, n)) => (s, ["./", n].concat()),
         None => (specifier, ".".to_string()),
     };
 
-    let mut package_json_path = [&current_dir, "/node_modules/"].concat();
+    let mut package_json_path = [&NODE_MODULES_PATH, "/"].concat();
     let base_path_length = package_json_path.len();
     package_json_path.push_str(scope);
     package_json_path.push_str("/package.json");
@@ -765,7 +782,7 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str, is_esm: bool)
 
     let module_path = get_module_path(&package_json, name, is_esm)?;
 
-    Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
+    Ok([&NODE_MODULES_PATH, "/", scope, "/", module_path].concat())
 }
 
 fn get_module_path<'a>(json: &'a BorrowedValue<'a>, str: &str, is_esm: bool) -> Result<&'a str> {
