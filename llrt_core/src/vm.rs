@@ -149,14 +149,6 @@ impl Resolver for CustomResolver {
             return Ok(normalized_path.to_string());
         }
 
-        if Path::new(normalized_path).is_dir() {
-            return Ok([".js", ".mjs", ".cjs"]
-                .iter()
-                .map(|ext| [normalized_path, ext].concat())
-                .find(|path| Path::new(path).exists())
-                .unwrap_or_else(|| [normalized_path, "/index.js"].concat()));
-        }
-
         let path = self.paths.iter().find_map(|path| {
             let path = path.join(normalized_path);
             let bin_path = CustomResolver::get_bin_path(&path);
@@ -789,8 +781,8 @@ fn get_module_path<'a>(json: &'a BorrowedValue<'a>, str: &str, is_esm: bool) -> 
                     }
                 }
                 // Check for exports -> name -> [import | require]
-                if let Some(BorrowedValue::String(import)) = name.get(ident) {
-                    return Ok(import.as_ref());
+                if let Some(BorrowedValue::String(ident)) = name.get(ident) {
+                    return Ok(ident.as_ref());
                 }
                 // [CJS only] Check for exports -> name -> default
                 if !is_esm {
