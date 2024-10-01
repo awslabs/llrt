@@ -101,7 +101,7 @@ impl CustomResolver {
 #[allow(clippy::manual_strip)]
 impl Resolver for CustomResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
-        trace!("Try resolve '{}' from {}", name, base);
+        trace!("Try resolve '{}' from '{}'", name, base);
 
         // Resolve: precompiled binaries (from bytecode_cache and on filesystem)
         if BYTECODE_CACHE.contains_key(name) {
@@ -145,8 +145,16 @@ impl Resolver for CustomResolver {
             }
         }
 
-        if Path::new(normalized_path).exists() {
+        if Path::new(normalized_path).is_file() {
             return Ok(normalized_path.to_string());
+        }
+
+        if Path::new(normalized_path).is_dir() {
+            return Ok([".js", ".mjs", ".cjs"]
+                .iter()
+                .map(|ext| [normalized_path, ext].concat())
+                .find(|path| Path::new(path).exists())
+                .unwrap_or_else(|| [normalized_path, "/index.js"].concat()));
         }
 
         let path = self.paths.iter().find_map(|path| {
@@ -199,20 +207,6 @@ where
     T: Loader + 'static,
 {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
-        // Workaround for some characteristics of node_modules
-        // 1. If only the extension is not specified, the extension is completed.
-        // 2. If only a directory is specified, it is assumed to load index.js under the directory.
-        let name = if name.contains("node_modules") && Path::new(name).is_dir() {
-            [".js", ".mjs", ".cjs"]
-                .iter()
-                .map(|ext| [name, ext].concat())
-                .find(|path| Path::new(path).exists())
-                .unwrap_or_else(|| [name, "/index.js"].concat())
-        } else {
-            name.to_string()
-        };
-        let name = name.as_str();
-
         let res = self.loader.load(ctx, name)?;
 
         let name = if let Some(name) = name.strip_prefix("./") {
@@ -777,85 +771,59 @@ fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str, is_esm: bool)
     let mut package_json = fs::read(&package_json_path).unwrap_or_default();
     let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
 
-    let module_path = if is_esm {
-        get_module_path_via_esm(&package_json, name)?
-    } else {
-        get_module_path_via_cjs(&package_json, name)?
-    };
+    let module_path = get_module_path(&package_json, name, is_esm)?;
 
     Ok([&current_dir, "/node_modules/", scope, "/", module_path].concat())
 }
 
-fn get_module_path_via_esm<'a>(json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
+fn get_module_path<'a>(json: &'a BorrowedValue<'a>, str: &str, is_esm: bool) -> Result<&'a str> {
+    let ident = if is_esm { "import" } else { "require" };
+
     if let BorrowedValue::Object(map) = json {
         if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
-            if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
-                // Check for exports -> name -> import -> default
-                if let Some(BorrowedValue::Object(require)) = name.get("import") {
-                    if let Some(BorrowedValue::String(default)) = require.get("default") {
+            if let Some(BorrowedValue::Object(name)) = exports.get(str) {
+                // Check for exports -> name -> [import | require] -> default
+                if let Some(BorrowedValue::Object(ident)) = name.get(ident) {
+                    if let Some(BorrowedValue::String(default)) = ident.get("default") {
                         return Ok(default.as_ref());
                     }
                 }
-                // Check for exports -> name -> import
-                if let Some(BorrowedValue::String(import)) = name.get("import") {
+                // Check for exports -> name -> [import | require]
+                if let Some(BorrowedValue::String(import)) = name.get(ident) {
                     return Ok(import.as_ref());
                 }
-                // Check for exports -> name -> default
-                if let Some(BorrowedValue::String(default)) = name.get("default") {
+                // [CJS only] Check for exports -> name -> default
+                if !is_esm {
+                    if let Some(BorrowedValue::String(default)) = name.get("default") {
+                        return Ok(default.as_ref());
+                    }
+                }
+            }
+            // Check for exports -> [import | require] -> default
+            if let Some(BorrowedValue::Object(ident)) = exports.get(ident) {
+                if let Some(BorrowedValue::String(default)) = ident.get("default") {
                     return Ok(default.as_ref());
                 }
             }
-            // Check for exports -> import -> default
-            if let Some(BorrowedValue::Object(require)) = exports.get("import") {
-                if let Some(BorrowedValue::String(default)) = require.get("default") {
+            // Check for exports -> [import | require]
+            if let Some(BorrowedValue::String(ident)) = exports.get(ident) {
+                return Ok(ident.as_ref());
+            }
+            // [CJS only] Check for exports -> default
+            if !is_esm {
+                if let Some(BorrowedValue::String(default)) = exports.get("default") {
                     return Ok(default.as_ref());
                 }
-            }
-            // Check for exports -> import
-            if let Some(BorrowedValue::String(import)) = exports.get("import") {
-                return Ok(import.as_ref());
             }
         }
-        // Check for module field
-        if let Some(BorrowedValue::String(module)) = map.get("module") {
-            return Ok(module.as_ref());
+        // [ESM only] Check for module field
+        if is_esm {
+            if let Some(BorrowedValue::String(module)) = map.get("module") {
+                return Ok(module.as_ref());
+            }
         }
         // Check for main field
         // Workaround for modules that have only “main” defined and whose entrypoint is not “index.js”
-        if let Some(BorrowedValue::String(main)) = map.get("main") {
-            return Ok(main.as_ref());
-        }
-    }
-    Ok("./index.js")
-}
-
-fn get_module_path_via_cjs<'a>(json: &'a BorrowedValue<'a>, module_name: &str) -> Result<&'a str> {
-    if let BorrowedValue::Object(map) = json {
-        if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
-            if let Some(BorrowedValue::Object(name)) = exports.get(module_name) {
-                // Check for exports -> name -> require -> default
-                if let Some(BorrowedValue::Object(require)) = name.get("require") {
-                    if let Some(BorrowedValue::String(default)) = require.get("default") {
-                        return Ok(default.as_ref());
-                    }
-                }
-                // Check for exports -> name -> require
-                if let Some(BorrowedValue::String(require)) = name.get("require") {
-                    return Ok(require.as_ref());
-                }
-            }
-            // Check for exports -> require -> default
-            if let Some(BorrowedValue::Object(require)) = exports.get("require") {
-                if let Some(BorrowedValue::String(default)) = require.get("default") {
-                    return Ok(default.as_ref());
-                }
-            }
-            // Check for exports -> default
-            if let Some(BorrowedValue::String(default)) = exports.get("default") {
-                return Ok(default.as_ref());
-            }
-        }
-        // Check for main field
         if let Some(BorrowedValue::String(main)) = map.get("main") {
             return Ok(main.as_ref());
         }
