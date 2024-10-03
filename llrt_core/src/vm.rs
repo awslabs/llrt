@@ -6,49 +6,45 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    fs, io,
+    io,
     path::{Path, PathBuf},
     process::exit,
     rc::Rc,
     result::Result as StdResult,
-    str::FromStr,
     sync::{Arc, Mutex},
 };
 
 use llrt_modules::{
-    path::{is_absolute, join_path_with_separator, resolve_path, resolve_path_with_separator},
+    path::{is_absolute, resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
 };
-use llrt_utils::{
-    bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt, result::ResultExt,
-};
+use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
     function::Opt,
-    loader::{BuiltinLoader, FileResolver, Loader, Resolver, ScriptLoader},
+    loader::{BuiltinLoader, FileResolver, Loader, ScriptLoader},
     module::Declared,
     object::Accessor,
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Exception, Function,
-    IntoJs, Module, Object, Result, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
+    Module, Object, Result, Value,
 };
-use simd_json::BorrowedValue;
 use tokio::time::Instant;
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-use crate::modules::{console, crypto::SYSTEM_RANDOM, path::dirname};
-
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
+    custom_resolver::{load_node_modules, CustomResolver},
     environment,
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
+    modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
     number::number_to_string,
     security,
-    utils::{clone::structured_clone, io::get_js_path},
+    utils::clone::structured_clone,
 };
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
@@ -68,136 +64,11 @@ pub(crate) static COMPRESSION_DICT: &[u8] =
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
 
-static NODE_MODULES_PATH: Lazy<String> = Lazy::new(|| {
-    let current_dir = env::current_dir()
-        .ok()
-        .and_then(|path| path.into_os_string().into_string().ok())
-        .unwrap_or_else(|| "/".to_string());
-    let mut base_dir = PathBuf::from_str(&current_dir).unwrap();
-
-    loop {
-        let node_modules_path = base_dir.join("node_modules");
-        if node_modules_path.exists() && node_modules_path.is_dir() {
-            return node_modules_path.to_str().unwrap().to_string();
-        }
-        if !base_dir.pop() {
-            break;
-        }
-    }
-    "/node_modules".to_string()
-});
-
 fn print(value: String, stdout: Opt<bool>) {
     if stdout.0.unwrap_or_default() {
         println!("{value}");
     } else {
         eprintln!("{value}")
-    }
-}
-
-#[derive(Debug)]
-pub struct CustomResolver {
-    paths: Vec<PathBuf>,
-    cwd: PathBuf,
-}
-impl CustomResolver {
-    pub fn add_path<P: Into<PathBuf>>(&mut self, path: P) -> &mut Self {
-        self.paths.push(path.into());
-        self
-    }
-
-    pub fn get_bin_path(path: &Path) -> PathBuf {
-        path.with_extension("lrt")
-    }
-
-    fn new() -> io::Result<Self> {
-        Ok(Self {
-            paths: Vec::with_capacity(10),
-            cwd: env::current_dir()?,
-        })
-    }
-}
-
-#[allow(clippy::manual_strip)]
-impl Resolver for CustomResolver {
-    fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
-        trace!("Try resolve '{}' from '{}'", name, base);
-
-        // Resolve: precompiled binaries (from bytecode_cache and on filesystem)
-        if BYTECODE_CACHE.contains_key(name) {
-            return Ok(name.to_string());
-        }
-
-        let base_path = Path::new(base);
-        let base_path = if base_path.is_dir() {
-            if base_path == self.cwd {
-                Path::new(".")
-            } else {
-                base_path
-            }
-        } else {
-            base_path.parent().unwrap_or(base_path)
-        };
-
-        let normalized_path = base_path.join(name);
-        let normalized_path = normalized_path.to_string_lossy().to_string();
-        let normalized_path = join_path_with_separator([normalized_path].iter(), true);
-        let mut normalized_path = normalized_path.as_str();
-        let cache_path = if normalized_path.starts_with("./") {
-            &normalized_path[2..]
-        } else {
-            normalized_path
-        };
-
-        let cache_key = Path::new(cache_path).with_extension("js");
-        let cache_key = cache_key.to_str().unwrap();
-
-        trace!("Normalized path: {}, key: {}", normalized_path, cache_key);
-
-        if BYTECODE_CACHE.contains_key(cache_key) {
-            return Ok(cache_key.to_string());
-        }
-
-        if BYTECODE_CACHE.contains_key(base) {
-            normalized_path = name;
-            if Path::new(name).exists() {
-                return Ok(name.to_string());
-            }
-        }
-
-        if Path::new(normalized_path).is_file() {
-            return Ok(normalized_path.to_string());
-        }
-
-        let path = self.paths.iter().find_map(|path| {
-            let path = path.join(normalized_path);
-            let bin_path = CustomResolver::get_bin_path(&path);
-            if bin_path.exists() {
-                return Some(bin_path);
-            }
-            get_js_path(path.to_str().unwrap())
-        });
-
-        if let Some(valid_path) = path {
-            let valid_path = valid_path.into_os_string().into_string().unwrap();
-            trace!("Valideted path: {}", valid_path);
-            return Ok(valid_path);
-        }
-
-        // Resolve: node_modules via ESM
-        if !(is_absolute(name)
-            || name.ends_with(".js")
-            || name.ends_with(".mjs")
-            || name.ends_with(".cjs")
-            || name.ends_with(".json"))
-        {
-            if let Ok(node_modules_path) = get_module_path_in_node_modules(ctx, name, true) {
-                trace!("Node modules path: {}", node_modules_path);
-                return Ok(node_modules_path);
-            }
-        }
-
-        Err(Error::new_resolving(base, name))
     }
 }
 
@@ -239,14 +110,8 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CustomLoader;
-
-impl Default for CustomLoader {
-    fn default() -> Self {
-        Self
-    }
-}
 
 impl Loader for CustomLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
@@ -626,7 +491,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 } else if specifier.starts_with("./") || specifier.starts_with("../") {
                     [&import_directory, "/", &specifier].concat()
                 } else {
-                    get_module_path_in_node_modules(&ctx, &specifier, false)?
+                    load_node_modules(&ctx, &specifier, &import_directory, false)?
                 };
                 resolve_path([import_directory, ads_specifier].iter())
             };
@@ -748,94 +613,4 @@ fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
     let meta: Object = module.meta()?;
     meta.prop("url", ["file://", filepath].concat())?;
     Ok(())
-}
-
-fn get_module_path_in_node_modules(ctx: &Ctx<'_>, specifier: &str, is_esm: bool) -> Result<String> {
-    let (scope, name) = match specifier.split_once('/') {
-        Some((s, n)) => (s, ["./", n].concat()),
-        None => (specifier, ".".to_string()),
-    };
-
-    let mut package_json_path = [&NODE_MODULES_PATH, "/"].concat();
-    let base_path_length = package_json_path.len();
-    package_json_path.push_str(scope);
-    package_json_path.push_str("/package.json");
-
-    let (scope, name) = if name != "." && !Path::new(&package_json_path).exists() {
-        package_json_path.truncate(base_path_length);
-        package_json_path.push_str(specifier);
-        package_json_path.push_str("/package.json");
-        (specifier, ".")
-    } else {
-        (scope, name.as_str())
-    };
-
-    if !Path::new(&package_json_path).exists() {
-        return Err(Exception::throw_reference(
-            ctx,
-            &["Error resolving module '", specifier, "'"].concat(),
-        ));
-    };
-
-    let mut package_json = fs::read(&package_json_path).unwrap_or_default();
-    let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
-
-    let module_path = get_module_path(&package_json, name, is_esm)?;
-
-    Ok([&NODE_MODULES_PATH, "/", scope, "/", module_path].concat())
-}
-
-fn get_module_path<'a>(json: &'a BorrowedValue<'a>, str: &str, is_esm: bool) -> Result<&'a str> {
-    let ident = if is_esm { "import" } else { "require" };
-
-    if let BorrowedValue::Object(map) = json {
-        if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
-            if let Some(BorrowedValue::Object(name)) = exports.get(str) {
-                // Check for exports -> name -> [import | require] -> default
-                if let Some(BorrowedValue::Object(ident)) = name.get(ident) {
-                    if let Some(BorrowedValue::String(default)) = ident.get("default") {
-                        return Ok(default.as_ref());
-                    }
-                }
-                // Check for exports -> name -> [import | require]
-                if let Some(BorrowedValue::String(ident)) = name.get(ident) {
-                    return Ok(ident.as_ref());
-                }
-                // [CJS only] Check for exports -> name -> default
-                if !is_esm {
-                    if let Some(BorrowedValue::String(default)) = name.get("default") {
-                        return Ok(default.as_ref());
-                    }
-                }
-            }
-            // Check for exports -> [import | require] -> default
-            if let Some(BorrowedValue::Object(ident)) = exports.get(ident) {
-                if let Some(BorrowedValue::String(default)) = ident.get("default") {
-                    return Ok(default.as_ref());
-                }
-            }
-            // Check for exports -> [import | require]
-            if let Some(BorrowedValue::String(ident)) = exports.get(ident) {
-                return Ok(ident.as_ref());
-            }
-            // [CJS only] Check for exports -> default
-            if !is_esm {
-                if let Some(BorrowedValue::String(default)) = exports.get("default") {
-                    return Ok(default.as_ref());
-                }
-            }
-        }
-        // [ESM only] Check for module field
-        if is_esm {
-            if let Some(BorrowedValue::String(module)) = map.get("module") {
-                return Ok(module.as_ref());
-            }
-        }
-        // Check for main field
-        // Workaround for modules that have only “main” defined and whose entrypoint is not “index.js”
-        if let Some(BorrowedValue::String(main)) = map.get("main") {
-            return Ok(main.as_ref());
-        }
-    }
-    Ok("./index.js")
 }
