@@ -467,7 +467,7 @@ fn get_path_prefix(cwd: &Path) -> (String, std::iter::Peekable<std::path::Compon
     (prefix, components)
 }
 
-fn normalize(path: String) -> String {
+pub fn normalize(path: String) -> String {
     join_path([path].iter())
 }
 

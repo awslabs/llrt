@@ -15,7 +15,7 @@ use std::{
 };
 
 use llrt_modules::{
-    path::{is_absolute, resolve_path, resolve_path_with_separator},
+    path::{resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
 };
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
@@ -38,7 +38,7 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
-    custom_resolver::{load_node_modules, CustomResolver},
+    custom_resolver::{require_from_module, CustomResolver},
     environment,
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
@@ -245,7 +245,7 @@ impl Vm {
             .expect("Failed to initialize SystemRandom");
 
         let mut file_resolver = FileResolver::default();
-        let mut custom_resolver = CustomResolver::new()?;
+        let custom_resolver = CustomResolver;
         let mut paths: Vec<&str> = Vec::with_capacity(10);
 
         paths.push(".");
@@ -264,7 +264,6 @@ impl Vm {
 
         for path in paths.iter() {
             file_resolver.add_path(*path);
-            custom_resolver.add_path(*path);
         }
 
         let (builtin_resolver, module_loader, module_names, init_globals) =
@@ -474,26 +473,13 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             } else {
                 specifier
             };
-            let import_name = if module_names.contains(specifier.as_str())
-                || BYTECODE_CACHE.contains_key(&specifier)
-                || is_absolute(&specifier)
-            {
+            let import_name = if module_names.contains(specifier.as_str()) {
                 specifier
             } else {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
                 let import_directory = dirname(abs_path);
-                let ads_specifier = if specifier.ends_with(".js")
-                    || specifier.ends_with(".mjs")
-                    || specifier.ends_with(".cjs")
-                {
-                    specifier
-                } else if specifier.starts_with("./") || specifier.starts_with("../") {
-                    [&import_directory, "/", &specifier].concat()
-                } else {
-                    load_node_modules(&ctx, &specifier, &import_directory, false)?
-                };
-                resolve_path([import_directory, ads_specifier].iter())
+                require_from_module(&ctx, &specifier, &import_directory, false)?
             };
 
             if import_name.ends_with(".json") {
