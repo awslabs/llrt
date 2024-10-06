@@ -32,7 +32,7 @@ impl Resolver for CustomResolver {
     }
 }
 
-// [Reference Implementation](https://nodejs.org/api/modules.html#all-together)
+// [CSJ Reference Implementation](https://nodejs.org/api/modules.html#all-together)
 // require(X) from module at path Y
 pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<String> {
     trace!("require_resolve(x, y):({}, {})", x, y);
@@ -92,7 +92,7 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
     // 4. If X begins with '#'
     if x.starts_with('#') {
         // a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
-        if let Some(path) = load_package_imports(ctx, x, &dirname_y, is_esm) {
+        if let Ok(Some(path)) = load_package_imports(ctx, x, &dirname_y, is_esm) {
             trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}\n", path);
             return Ok(path);
         }
@@ -354,7 +354,12 @@ fn node_modules_paths(start: &str) -> Vec<String> {
 }
 
 // LOAD_PACKAGE_IMPORTS(X, DIR)
-fn load_package_imports(_ctx: &Ctx<'_>, x: &str, dir: &str, _is_esm: bool) -> Option<String> {
+fn load_package_imports(
+    _ctx: &Ctx<'_>,
+    x: &str,
+    dir: &str,
+    _is_esm: bool,
+) -> Result<Option<String>> {
     trace!("|  load_package_imports(x, dir): ({}, {})", x, dir);
     // 1. Find the closest package scope SCOPE to DIR.
     // 2. If no scope was found, return.
@@ -362,7 +367,7 @@ fn load_package_imports(_ctx: &Ctx<'_>, x: &str, dir: &str, _is_esm: bool) -> Op
     // 4. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
     //   ["node", "require"]) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
     // 5. RESOLVE_ESM_MATCH(MATCH).
-    None
+    Ok(None)
 }
 
 // LOAD_PACKAGE_EXPORTS(X, DIR)
@@ -409,55 +414,51 @@ fn load_package_exports(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Resu
 }
 
 // LOAD_PACKAGE_SELF(X, DIR)
-fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, _is_esm: bool) -> Result<Option<String>> {
+fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<Option<String>> {
     trace!("|  load_package_self(x, dir): ({}, {})", x, dir);
 
+    let (scope, name) = match x.split_once('/') {
+        Some((s, n)) => (s, ["./", n].concat()),
+        None => (x, ".".to_string()),
+    };
+    let name = name.as_str();
+
     // 1. Find the closest package scope SCOPE to DIR.
-    match find_the_closest_package_scope(dir) {
+    let package_json_path = match find_the_closest_package_scope(dir) {
         // 2. If no scope was found, return.
-        None => return Ok(None),
+        None => {
+            return Ok(None);
+        },
         Some(path) => {
             // 3. If the SCOPE/package.json "exports" is null or undefined, return.
             if let Ok(None) = get_exports_field(ctx, &path) {
                 return Ok(None);
             }
             // 4. If the SCOPE/package.json "name" is not the first segment of X, return.
-            if let Some(name) = get_main_field(ctx, &path)? {
-                if name != x {
+            if let Some(val) = get_main_field(ctx, &path)? {
+                if val != scope {
                     return Ok(None);
                 }
             }
+            path
         },
-    }
+    };
     // 5. let MATCH = PACKAGE_EXPORTS_RESOLVE(pathToFileURL(SCOPE),
     //    "." + X.slice("name".length), `package.json` "exports", ["node", "require"])
     //    <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
     // 6. RESOLVE_ESM_MATCH(MATCH)
+    let mut package_json = fs::read(&package_json_path).unwrap_or_default();
+    let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
+
+    if let Ok(path) = package_exports_resolve(&package_json, name, is_esm) {
+        trace!("|  load_package_self(2.c): {}", path);
+        return Ok(Some(path.to_string()));
+    }
+
     Ok(None)
 }
 
-// RESOLVE_ESM_MATCH(MATCH)
-// 1. let RESOLVED_PATH = fileURLToPath(MATCH)
-// 2. If the file at RESOLVED_PATH exists, load RESOLVED_PATH as its extension
-//    format. STOP
-// 3. THROW "not found"
-
-// PACKAGE_EXPORTS_RESOLVE(packageURL, subpath, exports, conditions)
-// If exports is an Object with both a key starting with "." and a key not starting with ".", throw an Invalid Package Configuration error.
-// If subpath is equal to ".", then
-// Let mainExport be undefined.
-// If exports is a String or Array, or an Object containing no keys starting with ".", then
-// Set mainExport to exports.
-// Otherwise if exports is an Object containing a "." property, then
-// Set mainExport to exports["."].
-// If mainExport is not undefined, then
-// Let resolved be the result of PACKAGE_TARGET_RESOLVE( packageURL, mainExport, null, false, conditions).
-// If resolved is not null or undefined, return resolved.
-// Otherwise, if exports is an Object and all keys of exports start with ".", then
-// Assert: subpath begins with "./".
-// Let resolved be the result of PACKAGE_IMPORTS_EXPORTS_RESOLVE( subpath, exports, packageURL, false, conditions).
-// If resolved is not null or undefined, return resolved.
-// Throw a Package Path Not Exported error.
+// Implementation equivalent to PACKAGE_EXPORTS_RESOLVE including RESOLVE_ESM_MATCH
 fn package_exports_resolve<'a>(
     package_json: &'a BorrowedValue<'a>,
     modules_name: &str,
