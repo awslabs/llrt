@@ -259,7 +259,7 @@ where
 {
     let cwd = std::env::current_dir().expect("Unable to access working directory");
 
-    let mut result = cwd.to_string_lossy().to_string();
+    let mut result = cwd.clone().into_os_string().into_string().unwrap();
     //add MAIN_SEPARATOR if we're not on already MAIN_SEPARATOR
     if !result.ends_with(MAIN_SEPARATOR) {
         result.push(MAIN_SEPARATOR);

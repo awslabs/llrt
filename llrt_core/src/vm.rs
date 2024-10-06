@@ -41,7 +41,7 @@ use crate::{
     custom_resolver::{require_resolve, CustomResolver},
     environment,
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
-    modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
+    modules::{console, crypto::SYSTEM_RANDOM},
     number::number_to_string,
     security,
     utils::clone::structured_clone,
@@ -478,8 +478,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             } else {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
-                let import_directory = dirname(abs_path);
-                require_resolve(&ctx, &specifier, &import_directory, false)?
+                require_resolve(&ctx, &specifier, &abs_path, false)?
             };
 
             if import_name.ends_with(".json") {
