@@ -38,7 +38,7 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
-    custom_resolver::{require_from_module, CustomResolver},
+    custom_resolver::{require_resolve, CustomResolver},
     environment,
     json::{parse::json_parse, stringify::json_stringify_replacer_space},
     modules::{console, crypto::SYSTEM_RANDOM, path::dirname},
@@ -479,7 +479,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 let module_name = get_script_or_module_name(ctx.clone());
                 let abs_path = resolve_path([module_name].iter());
                 let import_directory = dirname(abs_path);
-                require_from_module(&ctx, &specifier, &import_directory, false)?
+                require_resolve(&ctx, &specifier, &import_directory, false)?
             };
 
             if import_name.ends_with(".json") {

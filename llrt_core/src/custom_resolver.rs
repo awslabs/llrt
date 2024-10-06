@@ -28,13 +28,14 @@ pub struct CustomResolver;
 impl Resolver for CustomResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         trace!("Try resolve '{}' from '{}'", name, base);
-        require_from_module(ctx, name, base, true)
+        require_resolve(ctx, name, base, true)
     }
 }
 
+// [Reference Implementation](https://nodejs.org/api/modules.html#all-together)
 // require(X) from module at path Y
-pub fn require_from_module(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<String> {
-    trace!("require_from_module(x, y):({}, {})", x, y);
+pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<String> {
+    trace!("require_resolve(x, y):({}, {})", x, y);
 
     // 1. If X is a core module,
     //   a. return the core module
@@ -122,7 +123,7 @@ fn maybe_detect_and_load(_ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
     //  <a href="esm.md#resolver-algorithm-specification">DETECT_MODULE_SYNTAX defined in
     //  the ESM resolver</a>,
     //  a. Load X as an ECMAScript module. STOP.
-    trace!("|  maybe_detect_and_load(1 or 2): {}", x);
+    trace!("|  maybe_detect_and_load([1|2]): {}", x);
     Ok(Some(x.to_string()))
     //3. THROW the SyntaxError from attempting to parse X as CommonJS in 1. STOP.
 }
@@ -157,7 +158,7 @@ fn load_as_file(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
                         // 1. If the "type" field is "module", load X.js as an ECMAScript module. STOP.
                         // 2. If the "type" field is "commonjs", load X.js as an CommonJS module. STOP.
                         if _type == "module" || _type == "commonjs" {
-                            trace!("|  load_as_file(2.c): {}", file);
+                            trace!("|  load_as_file(2.c.[1|2]): {}", file);
                             return Ok(Some(file.to_string()));
                         }
                     }
@@ -165,7 +166,7 @@ fn load_as_file(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
             }
             // d. MAYBE_DETECT_AND_LOAD(X.js)
             if let Ok(Some(val)) = maybe_detect_and_load(ctx, &file) {
-                trace!("|  load_as_file(2.b.1): {}", val);
+                trace!("|  load_as_file(2.d): {}", val);
                 return Ok(Some(val.to_string()));
             }
         }
