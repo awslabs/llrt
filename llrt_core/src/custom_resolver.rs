@@ -8,13 +8,11 @@ use std::{
 };
 
 use lazy_static::lazy_static;
-use llrt_modules::path::{self, is_absolute};
+use llrt_modules::path::{self, dirname, is_absolute};
 use llrt_utils::result::ResultExt;
 use rquickjs::{loader::Resolver, prelude::Rest, Ctx, Error, Result};
-use simd_json::BorrowedValue;
+use simd_json::{BorrowedValue, OwnedValue};
 use tracing::trace;
-
-use crate::modules::path::dirname;
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
@@ -43,21 +41,13 @@ pub fn require_from_module(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Res
     //   b. STOP
 
     // 1'. If X is a bytecode cache,
-    let normalized_x = path::normalize(x.to_string());
-
-    if BYTECODE_CACHE.contains_key(&normalized_x) {
-        // a. return the core module
-        // b. STOP
-        trace!(
-            "+- Resolved by phase 1 of `BYTECODE_CACHE`: {}\n",
-            normalized_x
-        );
-        return Ok(normalized_x);
-    }
-
-    if BYTECODE_CACHE.contains_key(y) && Path::new(&normalized_x).exists() {
-        trace!("+- Resolved by phase 2 of `BYTECODE_CACHE`: {}\n", x);
-        return Ok(x.to_string());
+    for check_x in [x, &path::normalize(x.to_string())].iter() {
+        if BYTECODE_CACHE.contains_key(check_x) {
+            // a. return the bytecode cache
+            // b. STOP
+            trace!("+- Resolved by `BYTECODE_CACHE`: {}\n", check_x);
+            return Ok(check_x.to_string());
+        }
     }
 
     // 2. If X begins with '/'
@@ -72,7 +62,7 @@ pub fn require_from_module(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Res
         y
     };
 
-    // Normalized path Y
+    // Normalize path Y to generate dirname(Y)
     let dirname_y = if Path::new(y).is_dir() {
         path::resolve(Rest(vec![y.to_string()]))
     } else {
@@ -99,10 +89,16 @@ pub fn require_from_module(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Res
     }
 
     // 4. If X begins with '#'
-    //     a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
+    if x.starts_with('#') {
+        // a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
+        if let Some(path) = load_package_imports(ctx, x, &dirname_y, is_esm) {
+            trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}\n", path);
+            return Ok(path);
+        }
+    }
 
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
-    if let Some(path) = load_package_self(ctx, x, &dirname_y, is_esm) {
+    if let Ok(Some(path)) = load_package_self(ctx, x, &dirname_y, is_esm) {
         trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}\n", path);
         return Ok(path);
     }
@@ -117,22 +113,7 @@ pub fn require_from_module(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Res
     Err(Error::new_resolving(y.to_string(), x.to_string()))
 }
 
-fn find_closest_package_scope(start: &str) -> Option<String> {
-    let mut current_dir = PathBuf::from(start);
-    loop {
-        let package_json_path = current_dir.join("package.json");
-        if package_json_path.exists() {
-            return package_json_path.to_str().map(|s| s.to_string());
-        }
-        if !current_dir.pop() {
-            break;
-        }
-    }
-    None
-}
-
 // MAYBE_DETECT_AND_LOAD(X)
-#[allow(dead_code)]
 fn maybe_detect_and_load(_ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
     trace!("|  maybe_detect_and_load(x): {}", x);
     // 1. If X parses as a CommonJS module, load X as a CommonJS module. STOP.
@@ -140,9 +121,10 @@ fn maybe_detect_and_load(_ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
     //  enabled, and the source code of X can be parsed as ECMAScript module using
     //  <a href="esm.md#resolver-algorithm-specification">DETECT_MODULE_SYNTAX defined in
     //  the ESM resolver</a>,
-    // a. Load X as an ECMAScript module. STOP.
+    //  a. Load X as an ECMAScript module. STOP.
+    trace!("|  maybe_detect_and_load(1 or 2): {}", x);
+    Ok(Some(x.to_string()))
     //3. THROW the SyntaxError from attempting to parse X as CommonJS in 1. STOP.
-    Err(Error::new_resolving("", x.to_string()))
 }
 
 // LOAD_AS_FILE(X)
@@ -160,34 +142,31 @@ fn load_as_file(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
         let file = [x, extension].concat();
         if Path::new(&file).is_file() {
             // a. Find the closest package scope SCOPE to X.
-            match find_closest_package_scope(x) {
+            match find_the_closest_package_scope(x) {
                 // b. If no scope was found
                 None => {
                     // 1. MAYBE_DETECT_AND_LOAD(X.js)
-                    trace!("|  load_as_file(2.b.1): {}", file);
-                    return Ok(Some(file.to_string()));
+                    if let Ok(Some(val)) = maybe_detect_and_load(ctx, &file) {
+                        trace!("|  load_as_file(2.b.1): {}", val);
+                        return Ok(Some(val.to_string()));
+                    }
                 },
-                // c. If the SCOPE/package.json contains "type" field,
                 Some(path) => {
-                    let mut package_json = fs::read(&path).unwrap_or_default();
-                    let package_json =
-                        simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
-                    if let Some(_type) = get_type_field(&package_json) {
+                    // c. If the SCOPE/package.json contains "type" field,
+                    if let Some(_type) = get_type_field(ctx, &path)? {
                         // 1. If the "type" field is "module", load X.js as an ECMAScript module. STOP.
-                        if matches!(_type, "module") {
-                            trace!("|  load_as_file(2.c.1): {}", file);
-                            return Ok(Some(file.to_string()));
-                        }
                         // 2. If the "type" field is "commonjs", load X.js as an CommonJS module. STOP.
-                        if matches!(_type, "commonjs") {
-                            trace!("|  load_as_file(2.c.2): {}", file);
+                        if _type == "module" || _type == "commonjs" {
+                            trace!("|  load_as_file(2.c): {}", file);
                             return Ok(Some(file.to_string()));
                         }
                     }
-                    // If “type” is undefined, the path must be returned here for it to work.
-                    trace!("|  load_as_file(2.c): {}", file);
-                    return Ok(Some(file));
                 },
+            }
+            // d. MAYBE_DETECT_AND_LOAD(X.js)
+            if let Ok(Some(val)) = maybe_detect_and_load(ctx, &file) {
+                trace!("|  load_as_file(2.b.1): {}", val);
+                return Ok(Some(val.to_string()));
             }
         }
     }
@@ -199,12 +178,10 @@ fn load_as_file(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
         return Ok(Some(file));
     }
 
-    // 4. If X.node is a file, load X.node as binary addon. STOP
-
-    // 4'. If X.lrt is a file, load X.lrt as JavaScript bytecode. STOP
+    // 4. If X.lrt is a file, load X.lrt as JavaScript bytecode. STOP
     let file = [x, ".lrt"].concat();
     if Path::new(&file).is_file() {
-        trace!("|  load_as_file(4'): {}", file);
+        trace!("|  load_as_file(4): {}", file);
         return Ok(Some(file));
     }
 
@@ -220,7 +197,7 @@ fn load_index(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
         let file = [x, "/index", extension].concat();
         if Path::new(&file).is_file() {
             // a. Find the closest package scope SCOPE to X.
-            match find_closest_package_scope(x) {
+            match find_the_closest_package_scope(x) {
                 //    b. If no scope was found, load X/index.js as a CommonJS module. STOP.
                 None => {
                     trace!("|  load_index(1.b): {}", file);
@@ -228,42 +205,32 @@ fn load_index(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
                 },
                 // c. If the SCOPE/package.json contains "type" field,
                 Some(path) => {
-                    let mut package_json = fs::read(&path).unwrap_or_default();
-                    let package_json =
-                        simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
-                    if let Some(_type) = get_type_field(&package_json) {
+                    if let Some(_type) = get_type_field(ctx, &path)? {
                         // 1. If the "type" field is "module", load X/index.js as an ECMAScript module. STOP.
-                        if matches!(_type, "module") {
+                        if _type == "module" {
                             trace!("|  load_index(1.c.1): {}", file);
                             return Ok(Some(file.to_string()));
                         }
-                        // 2. Else, load X/index.js as an CommonJS module. STOP.
-                        else {
-                            trace!("|  load_index(1.c.2): {}", file);
-                            return Ok(Some(file.to_string()));
-                        }
                     }
-                    // If “type” is undefined, the path must be returned here for it to work.
-                    trace!("|  load_index(1.c): {}", file);
+                    // 2. Else, load X/index.js as an CommonJS module. STOP.
+                    trace!("|  load_index(1.c.2): {}", file);
                     return Ok(Some(file));
                 },
             }
         }
     }
 
-    //2. If X/index.json is a file, parse X/index.json to a JavaScript object. STOP
+    // 2. If X/index.json is a file, parse X/index.json to a JavaScript object. STOP
     let file = [x, "/index.json"].concat();
     if Path::new(&file).is_file() {
         trace!("|  load_index(2): {}", file);
         return Ok(Some(file));
     }
 
-    //3. If X/index.node is a file, load X/index.node as binary addon. STOP
-
-    //3'. If X/index.lrt is a file, load X/index.lrt as JavaScript bytecode. STOP
+    // 3. If X/index.lrt is a file, load X/index.lrt as JavaScript bytecode. STOP
     let file = [x, "/index.lrt"].concat();
     if Path::new(&file).is_file() {
-        trace!("|  load_index(3'): {}", file);
+        trace!("|  load_index(3): {}", file);
         return Ok(Some(file));
     }
 
@@ -278,14 +245,10 @@ fn load_as_directory(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
     let file = [x, "/package.json"].concat();
     if Path::new(&file).is_file() {
         // a. Parse X/package.json, and look for "main" field.
-        let mut package_json = fs::read(&file).unwrap_or_default();
-        let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
-        let main = get_main_field(&package_json);
-
         // b. If "main" is a falsy value, GOTO 2.
-        if let Some(main) = main {
+        if let Some(main) = get_main_field(ctx, &file)? {
             // c. let M = X + (json main field)
-            let m = [x, "/", main].concat();
+            let m = [x, "/", &main].concat();
             // d. LOAD_AS_FILE(M)
             if let Ok(Some(path)) = load_as_file(ctx, &m) {
                 trace!("|  load_as_directory(1.d): {}", path);
@@ -361,7 +324,7 @@ fn node_modules_paths(start: &str) -> Vec<String> {
 
     // 4. while I >= 0,
     while i >= 0 {
-        //    a. if PARTS[I] = "node_modules" CONTINUE
+        // a. if PARTS[I] = "node_modules" CONTINUE
         if parts[i as usize] == "node_modules" {
             i -= 1;
             continue;
@@ -377,7 +340,7 @@ fn node_modules_paths(start: &str) -> Vec<String> {
             dir.to_string()
         };
         dirs.push(dir);
-        //    d. let I = I - 1
+        // d. let I = I - 1
         i -= 1;
     }
 
@@ -390,15 +353,20 @@ fn node_modules_paths(start: &str) -> Vec<String> {
 }
 
 // LOAD_PACKAGE_IMPORTS(X, DIR)
-// 1. Find the closest package scope SCOPE to DIR.
-// 2. If no scope was found, return.
-// 3. If the SCOPE/package.json "imports" is null or undefined, return.
-// 4. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
-//   ["node", "require"]) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
-// 5. RESOLVE_ESM_MATCH(MATCH).
+fn load_package_imports(_ctx: &Ctx<'_>, x: &str, dir: &str, _is_esm: bool) -> Option<String> {
+    trace!("|  load_package_imports(x, dir): ({}, {})", x, dir);
+    // 1. Find the closest package scope SCOPE to DIR.
+    // 2. If no scope was found, return.
+    // 3. If the SCOPE/package.json "imports" is null or undefined, return.
+    // 4. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
+    //   ["node", "require"]) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
+    // 5. RESOLVE_ESM_MATCH(MATCH).
+    None
+}
 
 // LOAD_PACKAGE_EXPORTS(X, DIR)
 fn load_package_exports(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<String> {
+    trace!("|  load_package_exports(x, dir): ({}, {})", x, dir);
     //1. Try to interpret X as a combination of NAME and SUBPATH where the name
     //   may have a @scope/ prefix and the subpath begins with a slash (`/`).
     let (scope, name) = match x.split_once('/') {
@@ -440,17 +408,38 @@ fn load_package_exports(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Resu
 }
 
 // LOAD_PACKAGE_SELF(X, DIR)
-fn load_package_self(_ctx: &Ctx<'_>, _x: &str, _dir: &str, _is_esm: bool) -> Option<String> {
+fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, _is_esm: bool) -> Result<Option<String>> {
+    trace!("|  load_package_self(x, dir): ({}, {})", x, dir);
+
     // 1. Find the closest package scope SCOPE to DIR.
-    // 2. If no scope was found, return.
-    // 3. If the SCOPE/package.json "exports" is null or undefined, return.
-    // 4. If the SCOPE/package.json "name" is not the first segment of X, return.
+    match find_the_closest_package_scope(dir) {
+        // 2. If no scope was found, return.
+        None => return Ok(None),
+        Some(path) => {
+            // 3. If the SCOPE/package.json "exports" is null or undefined, return.
+            if let Ok(None) = get_exports_field(ctx, &path) {
+                return Ok(None);
+            }
+            // 4. If the SCOPE/package.json "name" is not the first segment of X, return.
+            if let Some(name) = get_main_field(ctx, &path)? {
+                if name != x {
+                    return Ok(None);
+                }
+            }
+        },
+    }
     // 5. let MATCH = PACKAGE_EXPORTS_RESOLVE(pathToFileURL(SCOPE),
     //    "." + X.slice("name".length), `package.json` "exports", ["node", "require"])
     //    <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
     // 6. RESOLVE_ESM_MATCH(MATCH)
-    None
+    Ok(None)
 }
+
+// RESOLVE_ESM_MATCH(MATCH)
+// 1. let RESOLVED_PATH = fileURLToPath(MATCH)
+// 2. If the file at RESOLVED_PATH exists, load RESOLVED_PATH as its extension
+//    format. STOP
+// 3. THROW "not found"
 
 // PACKAGE_EXPORTS_RESOLVE(packageURL, subpath, exports, conditions)
 // If exports is an Object with both a key starting with "." and a key not starting with ".", throw an Invalid Package Configuration error.
@@ -527,20 +516,53 @@ fn package_exports_resolve<'a>(
     Ok("./index.js")
 }
 
-fn get_main_field<'a>(package_json: &'a BorrowedValue<'a>) -> Option<&'a str> {
-    if let BorrowedValue::Object(map) = package_json {
-        if let Some(BorrowedValue::String(str)) = map.get("main") {
-            return Some(str.as_ref());
+fn find_the_closest_package_scope(start: &str) -> Option<String> {
+    let mut current_dir = PathBuf::from(start);
+    loop {
+        let package_json_path = current_dir.join("package.json");
+        if package_json_path.exists() {
+            return package_json_path.to_str().map(|s| s.to_string());
+        }
+        if !current_dir.pop() {
+            break;
         }
     }
     None
 }
 
-fn get_type_field<'a>(package_json: &'a BorrowedValue<'a>) -> Option<&'a str> {
+fn get_main_field(ctx: &Ctx<'_>, package_json_path: &str) -> Result<Option<String>> {
+    let mut package_json = fs::read(package_json_path).unwrap_or_default();
+    let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
+
     if let BorrowedValue::Object(map) = package_json {
-        if let Some(BorrowedValue::String(str)) = map.get("type") {
-            return Some(str.as_ref());
+        if let Some(BorrowedValue::String(str)) = map.get("main") {
+            return Ok(Some(str.as_ref().to_string()));
         }
     }
-    None
+    Ok(None)
+}
+
+fn get_type_field(ctx: &Ctx<'_>, package_json_path: &str) -> Result<Option<String>> {
+    let mut package_json = fs::read(package_json_path).unwrap_or_default();
+    let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
+
+    if let BorrowedValue::Object(map) = package_json {
+        if let Some(BorrowedValue::String(str)) = map.get("type") {
+            return Ok(Some(str.as_ref().to_string()));
+        }
+    }
+    Ok(None)
+}
+
+fn get_exports_field(ctx: &Ctx<'_>, package_json_path: &str) -> Result<Option<OwnedValue>> {
+    let mut package_json_data = fs::read(package_json_path)?;
+    let package_json_value: OwnedValue =
+        simd_json::to_owned_value(package_json_data.as_mut_slice()).or_throw(ctx)?;
+
+    if let OwnedValue::Object(map) = package_json_value {
+        if let Some(exports) = map.get("exports") {
+            return Ok(Some(exports.clone()));
+        }
+    }
+    Ok(None)
 }
