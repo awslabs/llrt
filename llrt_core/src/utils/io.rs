@@ -34,10 +34,9 @@ pub fn get_js_path(path: &str) -> Option<PathBuf> {
         None
     }
 
-    if let Some(path) = check_extensions(basename) {
-        return Some(path.to_owned());
+    if filepath.is_dir() && exists {
+        let basename: &str = &([basename, "/index"].concat());
+        return check_extensions(basename);
     }
-
-    let basename: &str = &([basename, "/index"].concat());
     check_extensions(basename)
 }
