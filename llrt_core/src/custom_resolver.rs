@@ -8,7 +8,7 @@ use std::{
 };
 
 use lazy_static::lazy_static;
-use llrt_modules::path::{self, dirname, is_absolute};
+use llrt_modules::path;
 use llrt_utils::result::ResultExt;
 use rquickjs::{loader::Resolver, prelude::Rest, Ctx, Error, Result};
 use simd_json::{BorrowedValue, OwnedValue};
@@ -52,7 +52,7 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
     }
 
     // 2. If X begins with '/'
-    let y = if is_absolute(x) {
+    let y = if path::is_absolute(x) {
         // a. set Y to be the file system root
         let file_system_root = match env::consts::OS {
             "windows" => Path::new("C:\\"),
@@ -67,12 +67,12 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
     let dirname_y = if Path::new(y).is_dir() {
         path::resolve(Rest(vec![y.to_string()]))
     } else {
-        let dirname_y = dirname(y.to_string());
+        let dirname_y = path::dirname(y.to_string());
         path::resolve(Rest(vec![dirname_y]))
     };
 
     // 3. If X begins with './' or '/' or '../'
-    if x.starts_with("./") || is_absolute(x) || x.starts_with("../") {
+    if x.starts_with("./") || path::is_absolute(x) || x.starts_with("../") {
         let y_plus_x = [&dirname_y, "/", x].concat();
         let y_plus_x = y_plus_x.as_str();
         // a. LOAD_AS_FILE(Y + X)
@@ -199,7 +199,7 @@ fn load_index(ctx: &Ctx<'_>, x: &str) -> Result<Option<String>> {
         if Path::new(&file).is_file() {
             // a. Find the closest package scope SCOPE to X.
             match find_the_closest_package_scope(x) {
-                //    b. If no scope was found, load X/index.js as a CommonJS module. STOP.
+                // b. If no scope was found, load X/index.js as a CommonJS module. STOP.
                 None => {
                     trace!("|  load_index(1.b): {}", file);
                     return Ok(Some(file.to_string()));
