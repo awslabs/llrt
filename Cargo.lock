@@ -2639,7 +2639,6 @@ dependencies = [
  "hyper-util",
  "itoa",
  "jwalk",
- "lazy_static",
  "libc",
  "llrt_modules",
  "llrt_utils",
