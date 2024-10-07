@@ -16,7 +16,7 @@ use tracing::trace;
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
-static NODE_MODULES_PATHS_CACHE: Lazy<Mutex<HashMap<String, Vec<String>>>> =
+static NODE_MODULES_PATHS_CACHE: Lazy<Mutex<HashMap<String, Vec<Box<str>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Default)]
@@ -30,7 +30,7 @@ impl Resolver for CustomResolver {
     }
 }
 
-// [CSJ Reference Implementation](https://nodejs.org/api/modules.html#all-together)
+// [CJS Reference Implementation](https://nodejs.org/api/modules.html#all-together)
 // require(X) from module at path Y
 pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<String> {
     trace!("require_resolve(x, y):({}, {})", x, y);
@@ -285,7 +285,7 @@ fn load_node_modules(ctx: &Ctx<'_>, x: &str, start: &str, is_esm: bool) -> Optio
 }
 
 // NODE_MODULES_PATHS(START)
-fn node_modules_paths(start: &str) -> Vec<String> {
+fn node_modules_paths(start: &str) -> Vec<Box<str>> {
     let path = Path::new(start);
     let mut dirs = Vec::new();
     let mut current = Some(path);
@@ -295,15 +295,15 @@ fn node_modules_paths(start: &str) -> Vec<String> {
         if dir.file_name().map_or(false, |name| name != "node_modules") {
             let mut node_modules = dir.to_path_buf();
             node_modules.push("node_modules");
-            dirs.push(node_modules.to_string_lossy().to_string());
+            dirs.push(Box::from(node_modules.to_string_lossy()));
         }
         current = dir.parent();
     }
 
     // Add global folders
     if let Some(home) = home::home_dir() {
-        dirs.push(home.join(".node_modules").to_string_lossy().to_string());
-        dirs.push(home.join(".node_libraries").to_string_lossy().to_string());
+        dirs.push(Box::from(home.join(".node_modules").to_string_lossy()));
+        dirs.push(Box::from(home.join(".node_libraries").to_string_lossy()));
     }
 
     dirs
