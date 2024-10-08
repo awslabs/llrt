@@ -184,8 +184,9 @@ test-e2e: js
 	cargo run -- test -d bundle/js/__tests__/e2e
 
 test-ci: export JS_MINIFY = 0
+test-ci: export RUST_BACKTRACE = 1
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)
+	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)  -- --nocapture --show-output
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
