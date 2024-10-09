@@ -105,6 +105,7 @@ class TestServer extends EventEmitter {
   private lastUpdate = 0;
   private updateInterval: Timeout | null = null;
   private spinnerFrameIndex = 0;
+  private started = 0;
 
   constructor(
     testFiles: string[],
@@ -120,6 +121,7 @@ class TestServer extends EventEmitter {
   }
 
   public async start() {
+    this.started = performance.now();
     const server = net.createServer((socket) =>
       this.handleSocketConnected(socket)
     );
@@ -492,6 +494,7 @@ class TestServer extends EventEmitter {
     //console.log(message);
   }
   printResults() {
+    const ended = performance.now();
     for (let file of this.testFiles) {
       const suite = this.results.get(file)!;
 
@@ -507,17 +510,20 @@ class TestServer extends EventEmitter {
       }
       console.log("");
     }
+    let status = "";
     if (this.totalFailed == 0) {
-      console.log(
-        Color.GREEN_BACKGROUND(Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `))
+      status = Color.GREEN_BACKGROUND(
+        Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
       );
     } else {
-      console.log(
-        Color.RED_BACKGROUND(
-          Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
-        )
+      status = Color.RED_BACKGROUND(
+        Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
       );
     }
+    console.log(
+      status,
+      Color.DIM(TestServer.elapsed({ started: this.started, ended }))
+    );
     console.log(
       `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests`
     );
