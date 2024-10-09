@@ -90,7 +90,11 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
 
     // 3. If X begins with './' or '/' or '../'
     if x.starts_with("./") || path::is_absolute(x) || x.starts_with("../") {
-        let y_plus_x = [&dirname_y, "/", x].concat();
+        let y_plus_x = if cfg!(windows) && path::is_absolute(x) {
+            x.to_string()
+        } else {
+            [&dirname_y, "/", x].concat()
+        };
         let y_plus_x = y_plus_x.as_str();
         // a. LOAD_AS_FILE(Y + X)
         if let Ok(Some(path)) = load_as_file(ctx, y_plus_x) {
