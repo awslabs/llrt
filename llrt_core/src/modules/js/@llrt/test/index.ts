@@ -44,6 +44,7 @@ type WorkerData = {
   currentResult: SuiteResult | null;
   currentFile: string | null;
   currentPath: string[];
+  currentTimeout: number;
 };
 
 class Color {
@@ -75,7 +76,8 @@ type TestFailure = {
 class TestServer extends EventEmitter {
   private static UPDATE_FPS = 15;
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
-  private static DEFAULT_TIMEOUT_MS = 5000;
+  private static DEFAULT_TIMEOUT_MS =
+    parseInt((process.env as any).TEST_TIMEOUT) || 5000;
 
   static SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   static CHECKMARK = "\u2714";
@@ -163,6 +165,7 @@ class TestServer extends EventEmitter {
         completed: false,
         currentResult: null,
         currentFile: null,
+        currentTimeout: TestServer.DEFAULT_TIMEOUT_MS,
         lastUpdate: Date.now(),
         currentPath: [],
         connectionTimeout: null,
@@ -277,8 +280,10 @@ class TestServer extends EventEmitter {
         return { nextFile: nextFile || null };
       }
       case "start": {
-        const { desc: describe, isSuite, started } = message;
+        const { desc: describe, isSuite, started, timeout } = message;
         const workerData = this.workerData[workerId];
+
+        workerData.currentTimeout = timeout || TestServer.DEFAULT_TIMEOUT_MS;
 
         if (isSuite) {
           const result: SuiteResult = {
@@ -411,7 +416,7 @@ class TestServer extends EventEmitter {
       const workerData = this.workerData[id];
       if (
         !workerData.completed &&
-        now - workerData.lastUpdate >= TestServer.DEFAULT_TIMEOUT_MS
+        now - workerData.lastUpdate >= workerData.currentTimeout
       ) {
         this.handleTestError(
           id as any,

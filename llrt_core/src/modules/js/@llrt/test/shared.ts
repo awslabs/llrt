@@ -46,6 +46,7 @@ export type StartReqMsg = {
   desc: string;
   isSuite: boolean;
   started: number;
+  timeout?: number;
 };
 
 export type SocketResponseMap = {

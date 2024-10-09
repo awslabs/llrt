@@ -93,6 +93,7 @@ jobs:
         env:
           _VIRTUAL_ENV: qemu-aarch64
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+          TEST_TIMEOUT: 20000
         run: |
           sudo apt-get install -y \
             qemu-system-arm \

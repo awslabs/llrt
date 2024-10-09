@@ -8,12 +8,12 @@ import SocketClient from "./SocketClient";
 type Test = TestSettings & {
   desc: string;
   fn: (done?: (error?: any) => void) => Promise<void>;
-  timeout?: number;
 };
 
 type TestSettings = {
   only?: boolean;
   skip?: boolean;
+  timeout?: number;
 };
 
 type SuiteFunctionWithOptions = SuiteFunction & {
@@ -21,7 +21,11 @@ type SuiteFunctionWithOptions = SuiteFunction & {
   only?: SuiteFunction;
 };
 
-type SuiteFunction = (desc: string, fn: () => Promise<void>) => void;
+type SuiteFunction = (
+  desc: string,
+  fn: () => Promise<void>,
+  timeout?: number
+) => void;
 
 type TestSuite = TestSettings &
   TestSetup & {
@@ -121,7 +125,7 @@ class TestAgent {
     only = false,
     skip = false,
   }: TestSettings = {}): SuiteFunctionWithOptions {
-    return (desc: string, fn: () => Promise<void>) => {
+    return (desc: string, fn: () => Promise<void>, timeout?: number) => {
       this.suiteLoadPromises.push(async () => {
         let parent: TestSuite = this.currentSuites.shift() ?? this.rootSuite;
         this.currentSuite = {
@@ -131,6 +135,7 @@ class TestAgent {
           only: only || parent.only,
           skip,
           desc,
+          timeout: timeout || parent.timeout,
         };
         parent.suites!!.push(this.currentSuite);
         let beforeLength = this.suiteLoadPromises.length;
@@ -178,7 +183,7 @@ class TestAgent {
         desc,
         fn,
         only: onlyValue,
-        timeout,
+        timeout: timeout || suite.timeout,
       };
       suite.tests?.push(test);
     };
@@ -278,6 +283,7 @@ class TestAgent {
           started,
           desc: test.desc,
           isSuite: false,
+          timeout: test.timeout,
         });
 
         if (testSuite.beforeEach) {
@@ -392,11 +398,12 @@ class TestAgent {
         desc: testSuite.module,
         isSuite: true,
         started,
+        timeout: testSuite.timeout,
       });
       if (testSuite.beforeAll) {
         await this.executeAsyncOrCallbackFn(
           testSuite.beforeAll,
-          TestAgent.DEFAULT_TIMEOUT_MS
+          testSuite.timeout
         );
       }
       await this.runTests(testSuite, testSuite.tests);
@@ -408,6 +415,7 @@ class TestAgent {
           desc: suite.desc,
           isSuite: true,
           started: suiteStarted,
+          timeout: suite.timeout,
         });
         if (
           suite.skip ||
