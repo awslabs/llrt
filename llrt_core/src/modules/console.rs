@@ -13,7 +13,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::This,
     module::{Declarations, Exports, ModuleDef},
-    object::Filter,
+    object::{Accessor, Filter},
     prelude::{Func, Rest},
     Array, Class, Coerced, Ctx, Function, Object, Result, Symbol, Type, Value,
 };
@@ -169,6 +169,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("error", Func::from(log_error))?;
     console.set("warn", Func::from(log_warn))?;
     console.set("assert", Func::from(log_assert))?;
+    console.prop("__dimensions", Accessor::from(get_dimensions))?;
     console.set("__format", Func::from(|ctx, args| format(&ctx, args)))?;
 
     globals.set("console", console)?;
@@ -935,6 +936,21 @@ pub fn replace_newline_with_carriage_return(result: &mut str) {
         str_bytes[pos + index] = b'\r';
         pos += index + 1; // Move the position after the found '\n'
     }
+}
+
+fn get_dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
+    let array = Array::new(ctx.clone())?;
+    match terminal_size::terminal_size() {
+        Some((width, height)) => {
+            array.set(0, width.0)?;
+            array.set(1, height.0)?;
+        },
+        None => {
+            array.set(0, 0)?;
+            array.set(1, 0)?;
+        },
+    }
+    Ok(array)
 }
 
 #[derive(rquickjs::class::Trace)]
