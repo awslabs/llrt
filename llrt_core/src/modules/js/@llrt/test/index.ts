@@ -3,7 +3,7 @@
 import net from "net";
 import { EventEmitter } from "events";
 import os from "os";
-import { spawn } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { SocketReqMsg } from "./shared";
 
@@ -35,6 +35,9 @@ type RootSuite = TestProps & {
 };
 
 type WorkerData = {
+  completed: boolean;
+  childProc?: ChildProcess;
+  lastUpdate: number;
   success: boolean;
   connectionTimeout: Timeout | null;
   currentTest: TestResult | null;
@@ -66,11 +69,13 @@ class Color {
 type TestFailure = {
   error: any;
   desc: string[];
+  message?: string;
 };
 
 class TestServer extends EventEmitter {
-  private static FRAME_RATE = 15;
-  private static UPDATE_INTERVAL = 1000 / TestServer.FRAME_RATE;
+  private static UPDATE_FPS = 15;
+  private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
+  private static DEFAULT_TIMEOUT_MS = 5000;
 
   static SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   static CHECKMARK = "\u2714";
@@ -126,8 +131,8 @@ class TestServer extends EventEmitter {
 
     this.spawnAllWorkers();
     this.updateInterval = setInterval(() => {
-      this.updateProgress();
-    }, TestServer.UPDATE_INTERVAL);
+      this.tick();
+    }, TestServer.UPDATE_INTERVAL_MS);
   }
 
   handleSocketConnected(socket: net.Socket) {
@@ -135,7 +140,7 @@ class TestServer extends EventEmitter {
       let response;
       try {
         response = this.handleData(socket, data);
-      } catch (e) {
+      } catch (e: any) {
         this.handleError(TestServer.ERROR_CODE_HANDLE_DATA, e);
         return;
       }
@@ -153,8 +158,10 @@ class TestServer extends EventEmitter {
       this.workerData[i] = {
         currentTest: null,
         success: false,
+        completed: false,
         currentResult: null,
         currentFile: null,
+        lastUpdate: Date.now(),
         currentPath: [],
         connectionTimeout: null,
       };
@@ -163,6 +170,8 @@ class TestServer extends EventEmitter {
   }
 
   private spawnWorker(id: number) {
+    const workerData = this.workerData[id];
+    let output = Buffer.from("");
     const proc = spawn(
       process.argv0,
       ["-e", `import("llrt:test/worker").catch(console.error)`],
@@ -172,26 +181,35 @@ class TestServer extends EventEmitter {
           __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
           __LLRT_TEST_WORKER_ID: id.toString(),
         },
-        stdio: "ignore",
       }
     );
+    proc.stdout.on("data", (data) => {
+      output = data;
+    });
     proc.on("error", (error) => {
       this.handleError(TestServer.ERROR_CODE_PROCESS_ERROR, error, {
         id,
-        ended: Date.now(),
+        ended: performance.now(),
       });
     });
     proc.on("exit", (code) => {
       if (code != 0) {
-        this.handleError(TestServer.ERROR_CODE_PROCESS_ERROR, new Error(), {
-          id,
-          ended: Date.now(),
-        });
+        this.handleError(
+          TestServer.ERROR_CODE_PROCESS_ERROR,
+          new Error("Worker process exited with a non-zero exit code"),
+          {
+            id,
+            ended: performance.now(),
+            output: output.toString(),
+          }
+        );
+        this.handleWorkerCompleted(id);
       }
     });
-    this.workerData[id].connectionTimeout = setTimeout(() => {
+    workerData.connectionTimeout = setTimeout(() => {
       proc.kill();
     }, 5000);
+    workerData.childProc = proc;
   }
 
   handleError(code: number, error: Error, details?: any) {
@@ -206,8 +224,8 @@ class TestServer extends EventEmitter {
         process.exit(1);
       }
       case TestServer.ERROR_CODE_PROCESS_ERROR: {
-        const { id: workerId, ended } = details;
-        this.handleTestError(workerId, error, ended);
+        const { id: workerId, ended, output } = details;
+        this.handleTestError(workerId, error, ended, output);
         break;
       }
     }
@@ -218,6 +236,10 @@ class TestServer extends EventEmitter {
     const { type } = message;
 
     const workerId = this.workerIdBySocket.get(socket)!;
+
+    if (workerId) {
+      this.workerData[workerId].lastUpdate = Date.now();
+    }
 
     switch (type) {
       case "ready": {
@@ -322,12 +344,7 @@ class TestServer extends EventEmitter {
         break;
       }
       case "completed": {
-        this.completedWorkers++;
-        if (this.completedWorkers == this.workerCount) {
-          this.updateProgress();
-          this.printResults();
-          this.shutdown();
-        }
+        this.handleWorkerCompleted(workerId);
 
         break;
       }
@@ -336,11 +353,27 @@ class TestServer extends EventEmitter {
     }
     return null;
   }
+  private handleWorkerCompleted(workerId: number) {
+    this.workerData[workerId].completed = true;
+    this.completedWorkers++;
+
+    if (this.completedWorkers == this.workerCount) {
+      this.tick();
+      this.printResults();
+      this.shutdown();
+    }
+  }
+
   shutdown() {
     clearInterval(this.updateInterval!);
     this.server?.close();
   }
-  handleTestError(workerId: number, error: any, ended: number) {
+  handleTestError(
+    workerId: number,
+    error: any,
+    ended: number,
+    message?: string
+  ) {
     const workerData = this.workerData[workerId];
     const test = workerData.currentTest;
     workerData.success = false;
@@ -351,6 +384,7 @@ class TestServer extends EventEmitter {
       testFailures.push({
         desc: workerData.currentPath.slice(1),
         error,
+        message,
       });
       this.filesFailed.set(workerData.currentFile!, testFailures);
       this.totalFailed++;
@@ -361,14 +395,35 @@ class TestServer extends EventEmitter {
     }
   }
 
-  updateProgress() {
+  private tick() {
     const now = Date.now();
     const first = this.lastUpdate == 0;
-    if (now - this.lastUpdate > TestServer.UPDATE_INTERVAL) {
+    if (now - this.lastUpdate > TestServer.UPDATE_INTERVAL_MS) {
       this.spinnerFrameIndex =
         (this.spinnerFrameIndex + 1) % TestServer.SPINNER.length;
       this.lastUpdate = now;
     }
+
+    //check for hanged tests
+    for (let id in this.workerData) {
+      const workerData = this.workerData[id];
+      if (
+        !workerData.completed &&
+        now - workerData.lastUpdate >= TestServer.DEFAULT_TIMEOUT_MS
+      ) {
+        this.handleTestError(
+          id as any,
+          new Error("Test timed out"),
+          performance.now()
+        );
+        workerData.childProc?.kill();
+        this.handleWorkerCompleted(parseInt(id));
+      }
+      // if (workerData.currentTest) {
+      //   this.handleTestError(id as any, new Error("Test timed out"), now);
+      // }
+    }
+
     let [width, height] = (console as any).__dimensions;
     let message = "";
 
@@ -474,14 +529,17 @@ class TestServer extends EventEmitter {
             failure.desc.map((d) => Color.BOLD(d)).join(" > "),
             `\n${this.formattedError(failure.error)}`
           );
+          if (failure.message) {
+            console.log("----- LAST OUTPUT: -----\n" + failure.message);
+          }
         }
       }
       process.exit(1);
     }
   }
   printSuiteResult(result: SuiteResult, depth = 0) {
+    const indent = "  ".repeat(depth);
     for (let test of result.tests) {
-      const indent = "  ".repeat(depth);
       const icon = test.success
         ? Color.GREEN(TestServer.CHECKMARK)
         : Color.RED(TestServer.CROSS);
@@ -496,20 +554,24 @@ class TestServer extends EventEmitter {
     const results = result.children;
     for (let result of results) {
       console.log(
-        Color.BOLD(`${"  ".repeat(depth)}${result.desc}`),
+        `${indent}${Color.BOLD(result.desc)}`,
         Color.DIM(TestServer.elapsed(result))
       );
       this.printSuiteResult(result, depth + 1);
     }
   }
   private formattedError(error: Error, indent: string = ""): string {
+    let stack = error.stack || "";
+
+    if (indent && stack) {
+      stack = stack
+        .split("\n")
+        .map((line) => indent + line)
+        .join("\n");
+    }
+
     return Color.RED(
-      `${indent}\x1b[1mError ${error.name}:\x1b[22m ${error.message}\n${
-        error?.stack
-          ?.split("\n")
-          .map((line) => indent + line)
-          .join("\n") || ""
-      }`
+      `${indent}\x1b[1m${error.name}:\x1b[22m ${error.message}\n${stack}`
     );
   }
 
