@@ -79,7 +79,7 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
 
             #[cfg(feature = "lambda")]
             {
-                if path == &test_file {
+                if path == test_file {
                     continue;
                 }
             }
