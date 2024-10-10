@@ -10,7 +10,7 @@ BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
 
-TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
+TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/test/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/js/@llrt/std.js
 
 RELEASE_ARCH_NAME_x64 = x86_64
@@ -69,7 +69,7 @@ llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	@rm -rf $$@
+	@rm -rf $$@ 
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
@@ -80,20 +80,20 @@ llrt-container-${1}${2}: | clean-js js
 llrt-linux-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-linux-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))
-	@rm -rf $$@
+	@rm -rf $$@ 
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 llrt-darwin-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-darwin-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))
-	@rm -rf $$@
+	@rm -rf $$@ 
 	zip -j $$@ target/$$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 # llrt-windows-arm64* is automatically generated, but not currently supported.
 llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-windows-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
-	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
+	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt/release/llrt.exe
 endef
 
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-full-sdk,FULL)))
@@ -187,7 +187,7 @@ test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
 test-ci: export RUST_LOG = trace
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z panic-abort-tests test --target $(CURRENT_TARGET)  -- --nocapture --show-output
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET)  -- --nocapture --show-output
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h

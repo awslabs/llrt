@@ -22,6 +22,7 @@ on:
 jobs:
   build:
     runs-on: ${{ inputs.os }}
+    name: build ${{ inputs.arch }}-${{ inputs.platform }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,6 +94,7 @@ jobs:
         env:
           _VIRTUAL_ENV: qemu-aarch64
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+          TEST_TIMEOUT: 20000
         run: |
           sudo apt-get install -y \
             qemu-system-arm \

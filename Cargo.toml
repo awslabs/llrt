@@ -13,7 +13,7 @@ lto = true
 codegen-units = 1
 opt-level = 3
 panic = "abort"
+debug = true
 
 [profile.test]
-panic = "abort"
-opt-level = 3   #required for large number parsing
+opt-level = 3 #required for large number parsing

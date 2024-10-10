@@ -40,7 +40,12 @@ const AWS_JSON_SHARED_COMMAND_REGEX2 =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\((\w+)\(input,\s*context\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const MINIFY_JS = process.env.JS_MINIFY !== "0";
 const SDK_UTILS_PACKAGE = "sdk-utils";
-const ENTRYPOINTS = ["@llrt/std", "stream", "@llrt/test"];
+const ENTRYPOINTS = [
+  "@llrt/std",
+  "stream",
+  "@llrt/test/index",
+  "@llrt/test/worker",
+];
 
 const ES_BUILD_OPTIONS = {
   splitting: MINIFY_JS,

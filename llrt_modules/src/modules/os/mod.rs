@@ -25,6 +25,10 @@ fn get_tmp_dir() -> String {
     env::temp_dir().to_string_lossy().to_string()
 }
 
+fn get_available_parallelism() -> usize {
+    num_cpus::get()
+}
+
 pub struct OsModule;
 
 impl ModuleDef for OsModule {
@@ -35,6 +39,7 @@ impl ModuleDef for OsModule {
         declare.declare("platform")?;
         declare.declare("version")?;
         declare.declare("EOL")?;
+        declare.declare("availableParallelism")?;
 
         declare.declare("default")?;
 
@@ -49,6 +54,10 @@ impl ModuleDef for OsModule {
             default.set("platform", Func::from(get_platform))?;
             default.set("version", Func::from(get_version))?;
             default.set("EOL", EOL)?;
+            default.set(
+                "availableParallelism",
+                Func::from(get_available_parallelism),
+            )?;
 
             Ok(())
         })
@@ -154,6 +163,36 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
 
                 assert!(!result.is_empty()); // Format is platform dependant
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_available_parallelism() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { availableParallelism } from 'os';
+
+                        export async function test() {
+                            return availableParallelism()
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<usize, _>(&ctx, &module, ()).await;
+
+                assert!(result > 0);
             })
         })
         .await;

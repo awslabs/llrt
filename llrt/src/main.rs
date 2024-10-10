@@ -257,6 +257,8 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
         };
     }
 
+    entries.sort_unstable();
+
     trace!("Found tests in {}ms", now.elapsed().as_millis());
 
     vm.run_with(|ctx| {
@@ -267,7 +269,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
 
     vm.run(
         r#"
-        import "@llrt/test"
+        import "llrt:test/index"
     "#,
         false,
         false,
