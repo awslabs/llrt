@@ -16,8 +16,8 @@ on:
         type: string
 
 jobs:
-  build-modules:
-    name: module ${{ inputs.arch }}-${{ inputs.platform }}
+  build:
+    name: ${{ inputs.arch }}-${{ inputs.platform }}
     runs-on: ${{ inputs.os }}
     steps:
       - name: Checkout

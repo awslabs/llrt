@@ -69,7 +69,7 @@ llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
-	@rm -rf $$@
+	@rm -rf $$@ 
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
@@ -80,20 +80,20 @@ llrt-container-${1}${2}: | clean-js js
 llrt-linux-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-linux-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))
-	@rm -rf $$@
+	@rm -rf $$@ 
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 llrt-darwin-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-darwin-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))
-	@rm -rf $$@
+	@rm -rf $$@ 
 	zip -j $$@ target/$$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 # llrt-windows-arm64* is automatically generated, but not currently supported.
 llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-windows-${1}${2}.zip: | clean-js js
 	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
-	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
+	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt/release/llrt.exe
 endef
 
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-full-sdk,FULL)))
