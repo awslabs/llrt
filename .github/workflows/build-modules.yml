@@ -17,6 +17,7 @@ on:
 
 jobs:
   build-modules:
+    name: module ${{ inputs.arch }}-${{ inputs.platform }}
     runs-on: ${{ inputs.os }}
     steps:
       - name: Checkout
