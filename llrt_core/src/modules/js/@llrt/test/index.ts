@@ -420,7 +420,7 @@ class TestServer extends EventEmitter {
       ) {
         this.handleTestError(
           id as any,
-          new Error("Test timed out"),
+          new Error(`Test timed out after ${workerData.currentTimeout}ms`),
           performance.now()
         );
         workerData.childProc?.kill();
