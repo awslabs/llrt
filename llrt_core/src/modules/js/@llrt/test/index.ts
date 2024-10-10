@@ -322,6 +322,8 @@ class TestServer extends EventEmitter {
         const { isSuite, ended, started } = message;
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
+        //if we're not in a test
+        workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
@@ -384,6 +386,7 @@ class TestServer extends EventEmitter {
     const workerData = this.workerData[workerId];
     const test = workerData.currentTest;
     workerData.success = false;
+    workerData.lastUpdate = 0;
     this.results.get(workerData.currentFile!)!.success = false;
 
     if (test) {
@@ -416,6 +419,7 @@ class TestServer extends EventEmitter {
       const workerData = this.workerData[id];
       if (
         !workerData.completed &&
+        workerData.lastUpdate > 0 &&
         now - workerData.lastUpdate >= workerData.currentTimeout
       ) {
         this.handleTestError(
