@@ -603,6 +603,7 @@ mod tests {
         let vm = Vm::new().await.unwrap();
 
         async fn run_with_handler(vm: &Vm, handler: &str, runtime_api: &str) {
+            println!("Testing {}", handler);
             let mock_config = RuntimeConfig {
                 runtime_api: runtime_api.into(),
                 handler: handler.into(),
