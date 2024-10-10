@@ -100,11 +100,11 @@ async fn main() -> StdResult<(), Box<dyn Error>> {
             let module_name = if !path_str.starts_with("llrt-chunk-") {
                 path.with_extension("")
                     .to_string_lossy()
+                    .replace('\\', "/")
                     .replace("@llrt/", "llrt:")
             } else {
-                path.to_string_lossy().to_string()
-            }
-            .replace('\\', "/");
+                path.to_string_lossy().to_string().replace('\\', "/")
+            };
 
             info!("Compiling module: {}", module_name);
 
