@@ -79,6 +79,7 @@ flate2 = { version = "1.0.30", features = [
 ], default-features = false }
 brotlic = "0.8.2"
 rustls-pemfile = "2.1.2"
+home = "0.5.9"
 
 [build-dependencies]
 rquickjs = { version = "0.6.2", features = [

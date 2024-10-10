@@ -13,7 +13,7 @@ mod compiler_common;
 pub mod environment;
 pub mod json;
 // mod minimal_tracer;
-pub mod json_loader;
+mod custom_resolver;
 mod module_builder;
 pub mod modules;
 pub mod number;
