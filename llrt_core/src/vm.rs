@@ -355,10 +355,18 @@ impl Vm {
             {
                 eprintln!("{}", error_str);
             };
-            exit(1)
+            if cfg!(test) {
+                panic!("{:?}", error);
+            } else {
+                exit(1)
+            }
         } else {
-            eprintln!("{}", error_str);
-            exit(1)
+            if cfg!(test) {
+                panic!("{}", error_str);
+            } else {
+                eprintln!("{}", error_str);
+                exit(1)
+            }
         };
     }
 
