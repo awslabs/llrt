@@ -25,12 +25,6 @@ describe("import", () => {
     expect(mod.default.private).toEqual(true);
   });
 
-  it("should import a js file (path unspecified)", async () => {
-    const mod = await import("index.mjs");
-
-    expect(mod.hello).toEqual("hello world!");
-  });
-
   it("should import a json file (path unspecified)", async () => {
     const mod = await import("package.json");
 

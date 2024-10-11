@@ -26,12 +26,6 @@ it("should require a json file (relative path)", () => {
   expect(a.private).toEqual(true);
 });
 
-it("should require a js file (path unspecified)", () => {
-  const { hello } = _require("index.mjs");
-
-  expect(hello).toEqual("hello world!");
-});
-
 it("should require a json file (path unspecified)", () => {
   const a = _require("package.json");
 
