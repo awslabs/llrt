@@ -433,8 +433,8 @@ async fn post_error<'js>(
     error: &CaughtError<'js>,
     request_id: Option<&String>,
 ) -> Result<()> {
-    let mut error_stack = String::new();
-    let mut error_type = String::from("Error");
+    let mut error_stack = None;
+    let mut error_type = None;
     let error_msg = match error {
         CaughtError::Error(err) => format!("Error: {:?}", &err),
         CaughtError::Exception(ex) => {
@@ -447,11 +447,11 @@ async fn post_error<'js>(
             str.push_str(": ");
             str.push_str(&ex.message().unwrap_or_default());
 
-            error_type = error_name;
+            error_type = Some(error_name);
 
             if let Some(mut stack) = ex.stack() {
                 console::replace_newline_with_carriage_return(&mut stack);
-                error_stack = stack
+                error_stack = Some(stack);
             }
             str
         },
@@ -462,8 +462,11 @@ async fn post_error<'js>(
         },
     };
 
+    let error_type = error_type.unwrap_or_else(|| "Error".into());
+    let error_stack = error_stack.unwrap_or_default();
+
     let error_object = Object::new(ctx.clone())?;
-    error_object.set("errorType", error_type.clone())?;
+    error_object.set("errorType", &error_type)?;
     error_object.set("errorMessage", error_msg)?;
     error_object.set("stackTrace", error_stack)?;
     error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
