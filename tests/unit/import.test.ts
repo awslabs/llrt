@@ -14,19 +14,19 @@ describe("import", () => {
   });
 
   it("should import a js file (relative path)", async () => {
-    const mod = await import("../../hello.js");
+    const mod = await import("../../fixtures/hello.js");
 
     expect(mod.hello).toEqual("hello world!");
   });
 
   it("should import a json file (relative path)", async () => {
-    const mod = await import("../../package.json");
+    const mod = await import("../../fixtures/package.json");
 
     expect(mod.default.private).toEqual(true);
   });
 
   it("should import a js file (path unspecified)", async () => {
-    const mod = await import("hello.js");
+    const mod = await import("index.mjs");
 
     expect(mod.hello).toEqual("hello world!");
   });
