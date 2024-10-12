@@ -2,10 +2,34 @@ globalThis._require = require;
 
 const CWD = process.cwd();
 
-it("should require a file", () => {
+it("should require a file (absolute path)", () => {
   const { hello } = _require(`${CWD}/fixtures/hello.js`);
 
   expect(hello).toEqual("hello world!");
+});
+
+it("should require a json file (absolute path)", () => {
+  const a = _require(`${CWD}/package.json`);
+
+  expect(a.private).toEqual(true);
+});
+
+it("should require a js file (relative path)", () => {
+  const { hello } = _require("../../../../fixtures/hello.js");
+
+  expect(hello).toEqual("hello world!");
+});
+
+it("should require a json file (relative path)", () => {
+  const a = _require("../../../../fixtures/package.json");
+
+  expect(a.private).toEqual(true);
+});
+
+it("should require a json file (path unspecified)", () => {
+  const a = _require("package.json");
+
+  expect(a.private).toEqual(true);
 });
 
 it("should return same module when require multiple files", () => {
@@ -53,10 +77,4 @@ it("should be able to use node module with prefix `node:` with require", () => {
   consoleObj.warn("warn");
   consoleObj.error("error");
   consoleObj.trace("trace");
-});
-
-it("should require json", () => {
-  const a = _require(`${CWD}/package.json`);
-
-  expect(a.private).toEqual(true);
 });

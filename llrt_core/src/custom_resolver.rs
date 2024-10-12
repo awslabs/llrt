@@ -131,6 +131,12 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
         return Ok(path.to_string());
     }
 
+    // 6.5. LOAD_AS_FILE(X)
+    if let Ok(Some(path)) = load_as_file(ctx, x) {
+        trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
+        return Ok(path.to_string());
+    }
+
     // 7. THROW "not found"
     Err(Error::new_resolving(y.to_string(), x.to_string()))
 }
