@@ -146,7 +146,13 @@ pub fn bytes_to_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
     if lossy {
         Ok(String::from_utf8_lossy(bytes).to_string())
     } else {
-        String::from_utf8(bytes.to_vec()).map_err(|e| e.to_string())
+        String::from_utf8(bytes.to_vec()).map_err(|e| {
+            #[cfg(test)]
+            {
+                println!("bytes_to_string error slice: {:?}", bytes);
+            }
+            e.to_string()
+        })
     }
 }
 
