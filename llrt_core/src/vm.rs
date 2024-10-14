@@ -450,7 +450,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
     module.prop(
         "exports",
-        Accessor::from(move || require_exports2.lock().unwrap().as_ref().cloned().unwrap())
+        Accessor::from(move || require_exports2.lock().unwrap().as_ref().cloned())
             .set(move |exports| {
                 require_exports3.lock().unwrap().replace(exports);
             })
@@ -462,7 +462,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
     globals.prop(
         "exports",
-        Accessor::from(move || require_exports4.lock().unwrap().as_ref().cloned().unwrap())
+        Accessor::from(move || require_exports4.lock().unwrap().as_ref().cloned())
             .set(move |exports| {
                 require_exports5.lock().unwrap().replace(exports);
             })
