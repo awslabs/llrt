@@ -124,10 +124,10 @@ The test runner also has support for filters. Using filters is as simple as addi
 | async/await   | ✔︎     | ✔︎     |
 | Other modules | ✔︎     | ✘       |
 
-_⚠️ = partially supported in LLRT_
-_⏱ = planned partial support_
-_\* = Not native_
-_\*\* = Use fetch instead_
+_⚠️ = partially supported in LLRT_<br />
+_⏱ = planned partial support_<br />
+_\* = Not native_<br />
+_\*\* = Use fetch instead_<br />
 
 ## Using node_modules (dependencies) with LLRT
 
