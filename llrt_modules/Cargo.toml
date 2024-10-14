@@ -72,7 +72,7 @@ once_cell = { version = "1", optional = true }
 llrt_utils = { version = "0.2.2-beta", path = "../llrt_utils", default-features = false, features = [
   "ctx",
 ] }
-rquickjs = { version = "0.6", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
   "array-buffer",
   "either",
   "macro",
