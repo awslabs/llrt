@@ -27,7 +27,8 @@ quick-xml = "0.36.0"
 crc32c = { version = "0.6.8" }
 crc32fast = "1.4.2"
 phf = "0.11.2"
-rquickjs = { version = "0.6.2", features = [
+
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
     "full-async",
     "parallel",
     "rust-alloc",
@@ -89,7 +90,7 @@ md-5 = { version = "0.10.6" }
 md-5 = { version = "0.10.6", features = ["asm"] }
 
 [build-dependencies]
-rquickjs = { version = "0.6.2", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
     "full-async",
     "rust-alloc",
 ], default-features = false }

@@ -18,14 +18,10 @@ pub struct TextDecoder {
 impl<'js> TextDecoder {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, label: Opt<String>, options: Opt<Object<'js>>) -> Result<Self> {
-        let encoding = label
-            .0
-            .filter(|lbl| !lbl.is_empty())
-            .unwrap_or_else(|| String::from("utf-8"));
         let mut fatal = false;
         let mut ignore_bom = false;
 
-        let encoder = Encoder::from_str(&encoding).or_throw_range(&ctx, None)?;
+        let encoder = Encoder::from_optional_str(label.as_deref()).or_throw_range(&ctx, None)?;
 
         if let Some(options) = options.0 {
             if let Some(opt) = options.get_optional("fatal")? {

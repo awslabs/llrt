@@ -105,8 +105,8 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
 fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
     let typed_array = TypedArray::<u8>::from_object(this.0)?;
     let bytes: &[u8] = typed_array.as_ref();
-    let encoding = encoding.0.unwrap_or_else(|| String::from("utf-8"));
-    let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+
+    let encoder = Encoder::from_optional_str(encoding.as_deref()).or_throw(&ctx)?;
     encoder.encode_to_string(bytes, true).or_throw(&ctx)
 }
 

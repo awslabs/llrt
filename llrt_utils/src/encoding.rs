@@ -46,6 +46,13 @@ const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
 };
 
 impl Encoder {
+    pub fn from_optional_str(encoding: Option<&str>) -> Result<Self, String> {
+        match encoding {
+            Some(label) if !label.is_empty() => Self::from_str(label),
+            _ => Ok(Self::Utf8),
+        }
+    }
+
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(encoding: &str) -> Result<Self, String> {
         ENCODING_MAP
@@ -136,9 +143,10 @@ pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
 }
 
 pub fn bytes_to_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
-    match lossy {
-        true => Ok(String::from_utf8_lossy(bytes).to_string()),
-        false => String::from_utf8(bytes.to_vec()).map_err(|e| e.to_string()),
+    if lossy {
+        Ok(String::from_utf8_lossy(bytes).to_string())
+    } else {
+        String::from_utf8(bytes.to_vec()).map_err(|e| e.to_string())
     }
 }
 

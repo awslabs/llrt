@@ -78,20 +78,20 @@ impl<'js> XMLParser<'js> {
     pub fn new(options: Opt<Object<'js>>) -> Result<Self> {
         let mut tag_value_processor = None;
         let mut attribute_value_processor = None;
-        let mut attribute_name_prefix = String::from("@_");
+        let mut attribute_name_prefix = None;
         let mut ignore_attributes = true;
-        let mut text_node_name = String::from("#text");
+        let mut text_node_name = None;
         if let Some(options) = options.0 {
             tag_value_processor = options.get_optional("tagValueProcessor")?;
             attribute_value_processor = options.get_optional("attributeValueProcessor")?;
-            if let Some(prefix) = options.get_optional("attributeNamePrefix")? {
-                attribute_name_prefix = prefix;
+            if let Some(prefix) = options.get_optional::<_, String>("attributeNamePrefix")? {
+                attribute_name_prefix = Some(prefix.into())
             }
             if let Some(attributes_ignored) = options.get_optional("ignoreAttributes")? {
                 ignore_attributes = attributes_ignored
             }
-            if let Some(name) = options.get_optional("textNodeName")? {
-                text_node_name = name
+            if let Some(name) = options.get_optional::<_, String>("textNodeName")? {
+                text_node_name = Some(name.into())
             }
         }
 
@@ -101,9 +101,9 @@ impl<'js> XMLParser<'js> {
             tag_value_processor,
             attribute_value_processor,
             entities,
-            attribute_name_prefix: attribute_name_prefix.into(),
+            attribute_name_prefix: attribute_name_prefix.unwrap_or_else(|| "@_".into()),
             ignore_attributes,
-            text_node_name: text_node_name.into(),
+            text_node_name: text_node_name.unwrap_or_else(|| "#text".into()),
         })
     }
 

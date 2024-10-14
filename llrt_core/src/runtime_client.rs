@@ -19,7 +19,7 @@ use rquickjs::{
     function::{Rest, This},
     prelude::Func,
     promise::Promise,
-    Array, CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
+    Array, CatchResultExt, CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
 };
 
 use tracing::info;
@@ -30,7 +30,6 @@ use crate::json::stringify::{self, json_stringify};
 use crate::modules::console;
 use crate::modules::http::HTTP_CLIENT;
 use crate::utils::result::ResultExt;
-use crate::vm::Vm;
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
@@ -225,10 +224,9 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let handler = handler.as_function().unwrap();
     if let Err(err) = start_process_events(ctx, &client, handler, base_url.as_str(), &config)
         .await
-        .map_err(|e| CaughtError::from_error(ctx, e))
+        .catch(ctx)
     {
         post_error(ctx, &client, &base_url, "/init/error", &err, None).await?;
-        Vm::print_error_and_exit(ctx, err);
     }
     Ok(())
 }
@@ -344,7 +342,7 @@ async fn start_process_events<'js>(
     handler: &Function<'js>,
     base_url: &str,
     config: &RuntimeConfig,
-) -> rquickjs::Result<()> {
+) -> Result<()> {
     let mut iterations = 0;
     let next_invocation_url = [base_url, "/invocation/next"].concat();
 
@@ -368,20 +366,15 @@ async fn start_process_events<'js>(
             &promise_ctor,
         )
         .await
-        .map_err(|e| CaughtError::from_error(ctx, e))
         {
             if request_id.is_empty() {
-                Vm::print_error_and_exit(ctx, err);
+                return Err(err)?;
             }
 
+            let err = CaughtError::from_error(ctx, err);
+
             let error_path = ["/invocation/", &request_id, "/error"].concat();
-            if let Err(err) =
-                post_error(ctx, client, base_url, &error_path, &err, Some(&request_id))
-                    .await
-                    .map_err(|e| CaughtError::from_error(ctx, e))
-            {
-                Vm::print_error_and_exit(ctx, err);
-            }
+            post_error(ctx, client, base_url, &error_path, &err, Some(&request_id)).await?;
         }
         if config.iterations > 0 {
             if iterations >= config.iterations - 1 {
@@ -440,8 +433,8 @@ async fn post_error<'js>(
     error: &CaughtError<'js>,
     request_id: Option<&String>,
 ) -> Result<()> {
-    let mut error_stack = String::new();
-    let mut error_type = String::from("Error");
+    let mut error_stack = None;
+    let mut error_type = None;
     let error_msg = match error {
         CaughtError::Error(err) => format!("Error: {:?}", &err),
         CaughtError::Exception(ex) => {
@@ -454,11 +447,11 @@ async fn post_error<'js>(
             str.push_str(": ");
             str.push_str(&ex.message().unwrap_or_default());
 
-            error_type = error_name;
+            error_type = Some(error_name);
 
             if let Some(mut stack) = ex.stack() {
                 console::replace_newline_with_carriage_return(&mut stack);
-                error_stack = stack
+                error_stack = Some(stack);
             }
             str
         },
@@ -469,8 +462,11 @@ async fn post_error<'js>(
         },
     };
 
+    let error_type = error_type.unwrap_or_else(|| "Error".into());
+    let error_stack = error_stack.unwrap_or_default();
+
     let error_object = Object::new(ctx.clone())?;
-    error_object.set("errorType", error_type.clone())?;
+    error_object.set("errorType", &error_type)?;
     error_object.set("errorMessage", error_msg)?;
     error_object.set("stackTrace", error_stack)?;
     error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
