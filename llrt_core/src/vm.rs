@@ -30,7 +30,7 @@ use rquickjs::{
     object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Result, Value,
+    Module, Object, Persistent, Result, Value,
 };
 use tokio::time::Instant;
 use tracing::trace;
@@ -46,6 +46,18 @@ use crate::{
     security,
     utils::clone::structured_clone,
 };
+
+struct RequireValue(Persistent<Value<'static>>);
+
+impl RequireValue {
+    fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Self {
+        Self(Persistent::save(ctx, value))
+    }
+}
+
+unsafe impl Send for RequireValue {}
+
+type RequireCache = Arc<Mutex<HashMap<Arc<str>, RequireValue>>>;
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
@@ -203,6 +215,7 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
+    require_cache: RequireCache,
 }
 
 #[allow(dead_code)]
@@ -286,6 +299,9 @@ impl Vm {
         runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
 
+        let require_cache: RequireCache = Arc::new(Mutex::new(HashMap::new()));
+        let require_cache2 = require_cache.clone();
+
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
@@ -293,7 +309,7 @@ impl Vm {
                     init_global(&ctx)?;
                 }
                 timers::init_timers(&ctx)?;
-                init(&ctx, module_names)?;
+                init(&ctx, module_names, require_cache2)?;
                 Ok(())
             })()
             .catch(&ctx)
@@ -302,7 +318,11 @@ impl Vm {
         })
         .await?;
 
-        Ok(Vm { runtime, ctx })
+        Ok(Vm {
+            runtime,
+            ctx,
+            require_cache,
+        })
     }
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -370,6 +390,7 @@ impl Vm {
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
+        self.require_cache.lock().unwrap().clear();
         Ok(())
     }
 }
@@ -379,7 +400,11 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Valu
     json_parse(&ctx, bytes)
 }
 
-fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
+fn init(
+    ctx: &Ctx<'_>,
+    module_names: HashSet<&'static str>,
+    require_cache: RequireCache,
+) -> Result<()> {
     llrt_utils::ctx::set_spawn_error_handler(|ctx, err| {
         Vm::print_error_and_exit(ctx, err);
     });
@@ -435,7 +460,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     )?;
 
     #[allow(clippy::arc_with_non_send_sync)]
-    let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
+    let require_in_progress: Arc<Mutex<HashMap<Arc<str>, Object>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
@@ -488,32 +513,41 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 require_resolve(&ctx, &specifier, &abs_path, false)?
             };
 
+            let mut cache = require_cache.lock().unwrap();
+
+            let import_name: Arc<str> = import_name.into();
+
+            if let Some(cached_value) = cache.get(import_name.as_ref()) {
+                return cached_value.0.clone().restore(&ctx);
+            }
+
             if import_name.ends_with(".json") {
-                let source = std::fs::read_to_string(import_name)?;
-                return json_parse(&ctx, source);
+                let source = std::fs::read_to_string(import_name.as_ref())?;
+                let value = json_parse(&ctx, source)?;
+                cache.insert(import_name, RequireValue::from_value(&ctx, value.clone()));
+                return Ok(value);
             }
 
             let mut map = require_in_progress.lock().unwrap();
-            if let Some(obj) = map.get(&import_name) {
-                return Ok(obj.clone().into_value());
+            if let Some(obj) = map.get(import_name.as_ref()) {
+                let value = obj.clone().into_value();
+                cache.insert(import_name, RequireValue::from_value(&ctx, value.clone()));
+                return Ok(value);
             }
+
+            trace!("Require: {}", import_name);
 
             let obj = Object::new(ctx.clone())?;
             map.insert(import_name.clone(), obj.clone());
             drop(map);
 
-            trace!("Require: {}", import_name);
-
-            let mut options = EvalOptions::default();
-            options.strict = false;
-            options.promise = true;
-            options.global = false;
-
             let exports = Object::new(ctx.clone())?.into_value();
 
             let current_exports = require_exports.lock().unwrap().replace(exports);
 
-            let import_promise = Module::import(&ctx, import_name.clone())?;
+            drop(cache);
+
+            let import_promise = Module::import(&ctx, import_name.as_bytes().to_vec())?;
 
             let exports = if let Some(current_exports) = current_exports {
                 require_exports.lock().unwrap().replace(current_exports)
@@ -539,7 +573,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 ctx.execute_pending_job();
             };
 
-            require_in_progress.lock().unwrap().remove(&import_name);
+            let mut cache = require_cache.lock().unwrap();
+
+            require_in_progress
+                .lock()
+                .unwrap()
+                .remove(import_name.as_ref());
 
             if let Some(exports) = exports {
                 if exports.type_of() == rquickjs::Type::Object {
@@ -551,6 +590,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     }
                 } else {
                     //we have explicitly set it
+                    cache.insert(import_name, RequireValue::from_value(&ctx, exports.clone()));
                     return Ok(exports);
                 }
             }
@@ -560,7 +600,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 obj.set(key, value)?;
             }
 
-            Ok(obj.into_value())
+            let value = obj.into_value();
+
+            cache.insert(import_name, RequireValue::from_value(&ctx, value.clone()));
+
+            Ok(value)
         }),
     )?;
 
