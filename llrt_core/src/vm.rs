@@ -11,7 +11,7 @@ use std::{
     process::exit,
     rc::Rc,
     result::Result as StdResult,
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 use llrt_modules::{
@@ -30,7 +30,7 @@ use rquickjs::{
     object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Persistent, Result, Value,
+    Module, Object, Result, Value,
 };
 use tokio::time::Instant;
 use tracing::trace;
@@ -46,18 +46,6 @@ use crate::{
     security,
     utils::clone::structured_clone,
 };
-
-struct RequireValue(Persistent<Value<'static>>);
-
-impl RequireValue {
-    fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Self {
-        Self(Persistent::save(ctx, value))
-    }
-}
-
-unsafe impl Send for RequireValue {}
-
-type RequireCache = Arc<Mutex<HashMap<Arc<str>, RequireValue>>>;
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
@@ -215,7 +203,6 @@ fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::E
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
-    require_cache: RequireCache,
 }
 
 #[allow(dead_code)]
@@ -299,9 +286,6 @@ impl Vm {
         runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
 
-        let require_cache: RequireCache = Arc::new(Mutex::new(HashMap::new()));
-        let require_cache2 = require_cache.clone();
-
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
@@ -309,7 +293,7 @@ impl Vm {
                     init_global(&ctx)?;
                 }
                 timers::init_timers(&ctx)?;
-                init(&ctx, module_names, require_cache2)?;
+                init(&ctx, module_names)?;
                 Ok(())
             })()
             .catch(&ctx)
@@ -318,11 +302,7 @@ impl Vm {
         })
         .await?;
 
-        Ok(Vm {
-            runtime,
-            ctx,
-            require_cache,
-        })
+        Ok(Vm { runtime, ctx })
     }
 
     pub async fn new() -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -390,7 +370,6 @@ impl Vm {
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
-        self.require_cache.lock().unwrap().clear();
         Ok(())
     }
 }
@@ -400,11 +379,7 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Valu
     json_parse(&ctx, bytes)
 }
 
-fn init(
-    ctx: &Ctx<'_>,
-    module_names: HashSet<&'static str>,
-    require_cache: RequireCache,
-) -> Result<()> {
+fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     llrt_utils::ctx::set_spawn_error_handler(|ctx, err| {
         Vm::print_error_and_exit(ctx, err);
     });
@@ -459,9 +434,8 @@ fn init(
         }),
     )?;
 
-    #[allow(clippy::arc_with_non_send_sync)]
-    let require_in_progress: Arc<Mutex<HashMap<Arc<str>, Object>>> =
-        Arc::new(Mutex::new(HashMap::new()));
+    let require_in_progress: Rc<Mutex<HashMap<Rc<str>, Object>>> =
+        Rc::new(Mutex::new(HashMap::new()));
 
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
 
@@ -495,6 +469,9 @@ fn init(
             .configurable(),
     )?;
 
+    let require_cache: Object = Object::new(ctx.clone())?;
+    globals.set("__require_cache", require_cache)?;
+
     globals.set(
         "require",
         Func::from(move |ctx, specifier: String| -> Result<Value> {
@@ -513,25 +490,28 @@ fn init(
                 require_resolve(&ctx, &specifier, &abs_path, false)?
             };
 
-            let mut cache = require_cache.lock().unwrap();
+            let import_name: Rc<str> = import_name.into();
 
-            let import_name: Arc<str> = import_name.into();
+            let globals = ctx.globals();
+            let require_cache: Object = globals.get("__require_cache")?;
 
-            if let Some(cached_value) = cache.get(import_name.as_ref()) {
-                return cached_value.0.clone().restore(&ctx);
+            if let Some(cached_value) =
+                require_cache.get::<_, Option<Value>>(import_name.as_ref())?
+            {
+                return Ok(cached_value);
             }
 
             if import_name.ends_with(".json") {
                 let source = std::fs::read_to_string(import_name.as_ref())?;
                 let value = json_parse(&ctx, source)?;
-                cache.insert(import_name, RequireValue::from_value(&ctx, value.clone()));
+                require_cache.set(import_name.as_ref(), value.clone())?;
                 return Ok(value);
             }
 
             let mut map = require_in_progress.lock().unwrap();
             if let Some(obj) = map.get(import_name.as_ref()) {
                 let value = obj.clone().into_value();
-                cache.insert(import_name, RequireValue::from_value(&ctx, value.clone()));
+                require_cache.set(import_name.as_ref(), value.clone())?;
                 return Ok(value);
             }
 
@@ -544,8 +524,6 @@ fn init(
             let exports = Object::new(ctx.clone())?.into_value();
 
             let current_exports = require_exports.lock().unwrap().replace(exports);
-
-            drop(cache);
 
             let import_promise = Module::import(&ctx, import_name.as_bytes().to_vec())?;
 
@@ -573,8 +551,6 @@ fn init(
                 ctx.execute_pending_job();
             };
 
-            let mut cache = require_cache.lock().unwrap();
-
             require_in_progress
                 .lock()
                 .unwrap()
@@ -590,7 +566,7 @@ fn init(
                     }
                 } else {
                     //we have explicitly set it
-                    cache.insert(import_name, RequireValue::from_value(&ctx, exports.clone()));
+                    require_cache.set(import_name.as_ref(), exports.clone())?;
                     return Ok(exports);
                 }
             }
@@ -602,8 +578,7 @@ fn init(
 
             let value = obj.into_value();
 
-            cache.insert(import_name, RequireValue::from_value(&ctx, value.clone()));
-
+            require_cache.set(import_name.as_ref(), value.clone())?;
             Ok(value)
         }),
     )?;
