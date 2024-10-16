@@ -542,10 +542,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             require_in_progress.lock().unwrap().remove(&import_name);
 
             if let Some(exports) = exports {
-                if let Some(exports) = exports.as_object() {
-                    for prop in exports.props::<Value, Value>() {
-                        let (key, value) = prop?;
-                        obj.set(key, value)?;
+                if exports.type_of() == rquickjs::Type::Object {
+                    if let Some(exports) = exports.as_object() {
+                        for prop in exports.props::<Value, Value>() {
+                            let (key, value) = prop?;
+                            obj.set(key, value)?;
+                        }
                     }
                 } else {
                     //we have explicitly set it
