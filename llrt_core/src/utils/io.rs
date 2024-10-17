@@ -6,7 +6,7 @@ pub use llrt_utils::fs::DirectoryWalker;
 
 pub fn get_basename_ext_name(path: &str) -> (&str, &str) {
     let path = path.strip_prefix("./").unwrap_or(path);
-    let (basename, ext) = path.split_at(path.rfind('.').unwrap_or(path.len()));
+    let (basename, ext) = path.rsplit_once('.').unwrap_or((path, ""));
     (basename, ext)
 }
 
