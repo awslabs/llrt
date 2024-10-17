@@ -398,7 +398,9 @@ fn load_package_exports(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Resu
 
     let module_path = package_exports_resolve(&package_json, name, is_esm)?;
 
-    Ok(Box::from([dir, "/", scope, "/", module_path].concat()))
+    Ok(correct_extensions(
+        &[dir, "/", scope, "/", module_path].concat(),
+    ))
 }
 
 // LOAD_PACKAGE_SELF(X, DIR)
@@ -536,4 +538,17 @@ fn is_exports_field_exists<'a>(package_json: &'a BorrowedValue<'a>) -> bool {
         }
     }
     false
+}
+
+fn correct_extensions(x: &str) -> Box<str> {
+    if Path::new(x).is_file() {
+        return Box::from(x);
+    }
+    for extension in [".js", ".mjs", ".cjs"].iter() {
+        let file = [x, extension].concat();
+        if Path::new(&file).is_file() {
+            return Box::from(file);
+        }
+    }
+    Box::from(x)
 }
