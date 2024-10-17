@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pub mod clone;
 pub mod io;
+pub mod latch;
 pub mod mc_oneshot;
 pub mod object;
 pub mod result {

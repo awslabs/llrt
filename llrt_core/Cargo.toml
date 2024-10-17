@@ -94,7 +94,6 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13
     "full-async",
     "rust-alloc",
 ], default-features = false }
-tokio = { version = "1", features = ["full"] }
 phf_codegen = "0.11.2"
 jwalk = "0.8.1"
 nanoid = "0.4.0"

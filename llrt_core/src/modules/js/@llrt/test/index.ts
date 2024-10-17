@@ -367,6 +367,7 @@ class TestServer extends EventEmitter {
     this.completedWorkers++;
 
     if (this.completedWorkers == this.workerCount) {
+      clearInterval(this.updateInterval!);
       this.tick();
       this.printResults();
       this.shutdown();
@@ -374,7 +375,6 @@ class TestServer extends EventEmitter {
   }
 
   shutdown() {
-    clearInterval(this.updateInterval!);
     this.server?.close();
   }
   handleTestError(
@@ -384,25 +384,29 @@ class TestServer extends EventEmitter {
     message?: string
   ) {
     const workerData = this.workerData[workerId];
-    const test = workerData.currentTest;
+    const test = workerData.currentTest || {
+      desc: "",
+      success: false,
+      started: 0,
+      ended: 0,
+      error,
+    };
     workerData.success = false;
     workerData.lastUpdate = 0;
     this.results.get(workerData.currentFile!)!.success = false;
 
-    if (test) {
-      const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
-      testFailures.push({
-        desc: workerData.currentPath.slice(1),
-        error,
-        message,
-      });
-      this.filesFailed.set(workerData.currentFile!, testFailures);
-      this.totalFailed++;
-      test.ended = ended;
-      test.error = error;
-      test.success = false;
-      workerData.currentPath.pop();
-    }
+    const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
+    testFailures.push({
+      desc: workerData.currentPath.slice(1),
+      error,
+      message,
+    });
+    this.filesFailed.set(workerData.currentFile!, testFailures);
+    this.totalFailed++;
+    test.ended = ended;
+    test.error = error;
+    test.success = false;
+    workerData.currentPath.pop();
   }
 
   private tick() {
@@ -435,72 +439,75 @@ class TestServer extends EventEmitter {
       // }
     }
 
-    let [width, height] = (console as any).__dimensions;
-    let message = "";
+    if (this.completedWorkers != this.workerCount) {
+      let [width, height] = (console as any).__dimensions;
+      let message = "";
 
-    if (!first) {
-      const lineCount = this.testFiles.length + 1;
-      const overflow = lineCount - height;
-      if (overflow > 0) {
-        message = `\x1b[H\x1b[3J\x1b[J`;
-      } else {
-        //move to first position of files and clear reminder of screen
-        message = `\x1b[${lineCount}F\x1b[J`;
-      }
-    }
-
-    const spinnerFrame = TestServer.SPINNER[this.spinnerFrameIndex];
-
-    if (height < 10) {
-      height = 10;
-    }
-    if (width < 80) {
-      width = 80;
-    }
-
-    let isSuccess = false;
-    let isFailed = false;
-    let i = 0;
-    let line;
-    let desc;
-    for (let file of this.testFiles) {
-      line = "";
-      isSuccess = this.filesCompleted.has(file);
-      if (!isSuccess) {
-        isFailed = this.filesFailed.has(file);
-      }
-      line += isSuccess
-        ? Color.GREEN(TestServer.CHECKMARK)
-        : isFailed
-          ? Color.RED(TestServer.CROSS)
-          : spinnerFrame;
-      line += ` ${Color.CYAN_BOLD("Testing")} `;
-      line += this.testFileNames[i];
-      desc = this.workerDataFileInProgress.get(file)?.currentTest?.desc;
-      if (!(isSuccess || isFailed) && desc) {
-        line += " ";
-        line += Color.DIM(desc);
-      }
-      if (line.length > width) {
-        line = line.substring(0, width - 3);
-        line += "...";
-        line += Color.RESET;
+      if (!first) {
+        const lineCount = this.testFiles.length + 1;
+        const overflow = lineCount - height;
+        if (overflow > 0) {
+          message = `\x1b[H\x1b[3J\x1b[J`;
+        } else {
+          //move to first position of files and clear reminder of screen
+          message = `\x1b[${lineCount}F\x1b[J`;
+        }
       }
 
-      line += "\n";
-      message += line;
-      i++;
+      const spinnerFrame = TestServer.SPINNER[this.spinnerFrameIndex];
+
+      if (height < 10) {
+        height = 10;
+      }
+      if (width < 80) {
+        width = 80;
+      }
+
+      let isSuccess = false;
+      let isFailed = false;
+      let i = 0;
+      let line;
+      let desc;
+      for (let file of this.testFiles) {
+        line = "";
+        isSuccess = this.filesCompleted.has(file);
+        if (!isSuccess) {
+          isFailed = this.filesFailed.has(file);
+        }
+        line += isSuccess
+          ? Color.GREEN(TestServer.CHECKMARK)
+          : isFailed
+            ? Color.RED(TestServer.CROSS)
+            : spinnerFrame;
+        line += ` ${Color.CYAN_BOLD("Testing")} `;
+        line += this.testFileNames[i];
+        desc = this.workerDataFileInProgress.get(file)?.currentTest?.desc;
+        if (!(isSuccess || isFailed) && desc) {
+          line += " ";
+          line += Color.DIM(desc);
+        }
+        if (line.length > width) {
+          line = line.substring(0, width - 3);
+          line += "...";
+          line += Color.RESET;
+        }
+
+        line += "\n";
+        message += line;
+        i++;
+      }
+      const total = this.testFiles.length;
+      const progress =
+        (this.filesCompleted.size + this.filesFailed.size) / total;
+
+      const progressText = `${this.totalSuccess}/${this.totalTests}`;
+      const availableWidth = width - progressText.length - 2;
+      const elapsed = availableWidth * progress;
+      const remaining = availableWidth - elapsed;
+
+      message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]${progressText}`;
+      console.log(message);
     }
-    const total = this.testFiles.length;
-    const progress = (this.filesCompleted.size + this.filesFailed.size) / total;
-
-    const progressText = `${this.totalSuccess}/${this.totalTests}`;
-    const availableWidth = width - progressText.length - 2;
-    const elapsed = availableWidth * progress;
-    const remaining = availableWidth - elapsed;
-
-    message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]${progressText}`;
-    //console.log(message);
   }
   printResults() {
     const ended = performance.now();

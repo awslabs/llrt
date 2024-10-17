@@ -48,6 +48,8 @@ use crate::{
 };
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
+#[cfg(feature = "lambda")]
+include!(concat!(env!("OUT_DIR"), "/sdk_client_endpoints.rs"));
 
 #[inline]
 pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
@@ -123,6 +125,9 @@ impl Loader for CustomLoader {
 
         let ctx = ctx.clone();
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
+            #[cfg(feature = "lambda")]
+            init_client_connection(&ctx, name)?;
+
             trace!("Loading embedded module: {}", name);
 
             return load_bytecode_module(ctx, name, bytes);
@@ -140,6 +145,57 @@ impl Loader for CustomLoader {
         }
         Module::declare(ctx, name, bytes)
     }
+}
+
+#[cfg(feature = "lambda")]
+fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
+    use crate::{
+        modules::http::HTTP_CLIENT,
+        runtime_client::{check_client_inited, mark_client_inited},
+    };
+    use http_body_util::BodyExt;
+    use llrt_utils::result::ResultExt;
+
+    if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
+        let client_name = sdk_import.strip_prefix("client-").unwrap_or(sdk_import);
+        if let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) {
+            let endpoint = if endpoint.is_empty() {
+                client_name
+            } else {
+                endpoint
+            };
+
+            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+            let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
+
+            if !check_client_inited(rt, endpoint) {
+                let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
+
+                trace!("Started client init {}", client_name);
+                let region = env::var("AWS_REGION").unwrap();
+
+                let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
+
+                tokio::task::spawn(async move {
+                    let start = Instant::now();
+
+                    if let Ok(url) = url.parse() {
+                        if let Ok(mut res) = client.get(url).await {
+                            if let Ok(res) = res.body_mut().collect().await {
+                                let _ = res;
+
+                                mark_client_inited(rt_ptr as _);
+
+                                trace!("Client connection initialized in {:?}", start.elapsed());
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
 
 pub fn load_bytecode_module<'js>(
@@ -392,6 +448,11 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
     number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
 
+    let readable_stream_stub = ctx.eval::<Value,_>(
+            r#"class ReadableStream{constructor(){throw Error(`ReadableStream is not supported via global scope. Enable this by adding this to your code:\nimport { ReadableStream } from "stream";\nglobalThis.ReadableStream = ReadableStream;`)}};"#
+    )?;
+
+    globals.set("ReadableStream", readable_stream_stub)?;
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
     globals.set("load", Func::from(load))?;
@@ -436,8 +497,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
     let require_in_progress: Rc<Mutex<HashMap<Rc<str>, Object>>> =
         Rc::new(Mutex::new(HashMap::new()));
-
-    globals.set("__bootstrap", Object::new(ctx.clone())?)?;
 
     let require_exports: Rc<Mutex<Option<Value>>> = Rc::new(Mutex::new(None));
     let require_exports2 = require_exports.clone();
@@ -582,8 +641,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             Ok(value)
         }),
     )?;
-
-    () = Module::import(ctx, "llrt:std")?.finish()?;
 
     Ok(())
 }
