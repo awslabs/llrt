@@ -126,9 +126,7 @@ impl Loader for CustomLoader {
         let ctx = ctx.clone();
         if let Some(bytes) = BYTECODE_CACHE.get(name) {
             #[cfg(feature = "lambda")]
-            if let Some(client_name) = name.strip_prefix("@aws-sdk/client-") {
-                init_client_connection(&ctx, client_name)?;
-            }
+            init_client_connection(&ctx, name)?;
 
             trace!("Loading embedded module: {}", name);
 
@@ -150,7 +148,7 @@ impl Loader for CustomLoader {
 }
 
 #[cfg(feature = "lambda")]
-fn init_client_connection(ctx: &Ctx<'_>, client_name: &str) -> Result<()> {
+fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use crate::{
         modules::http::HTTP_CLIENT,
         runtime_client::{modify_init_latch, InitLatchAction},
@@ -158,38 +156,41 @@ fn init_client_connection(ctx: &Ctx<'_>, client_name: &str) -> Result<()> {
     use http_body_util::BodyExt;
     use llrt_utils::result::ResultExt;
 
-    if let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) {
-        let endpoint = if endpoint.is_empty() {
-            client_name
-        } else {
-            endpoint
-        };
-        let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
+    if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
+        let client_name = sdk_import.strip_prefix("client-").unwrap_or(sdk_import);
+        if let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) {
+            let endpoint = if endpoint.is_empty() {
+                client_name
+            } else {
+                endpoint
+            };
+            let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
 
-        let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) } as usize;
+            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) } as usize;
 
-        trace!("Started client init {}", client_name);
-        let region = env::var("AWS_REGION").unwrap();
+            trace!("Started client init {}", client_name);
+            let region = env::var("AWS_REGION").unwrap();
 
-        let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
+            let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
 
-        tokio::task::spawn(async move {
-            let start = Instant::now();
+            tokio::task::spawn(async move {
+                let start = Instant::now();
 
-            modify_init_latch(rt as _, InitLatchAction::Increment);
+                modify_init_latch(rt as _, InitLatchAction::Increment);
 
-            if let Ok(url) = url.parse() {
-                if let Ok(mut res) = client.get(url).await {
-                    if let Ok(res) = res.body_mut().collect().await {
-                        let _ = res;
+                if let Ok(url) = url.parse() {
+                    if let Ok(mut res) = client.get(url).await {
+                        if let Ok(res) = res.body_mut().collect().await {
+                            let _ = res;
 
-                        modify_init_latch(rt as _, InitLatchAction::Decrement);
+                            modify_init_latch(rt as _, InitLatchAction::Decrement);
 
-                        trace!("Client connection initialized in {:?}", start.elapsed());
+                            trace!("Client connection initialized in {:?}", start.elapsed());
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     Ok(())
