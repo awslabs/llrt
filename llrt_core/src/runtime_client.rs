@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{
     env,
-    ops::Deref,
     result::Result as StdResult,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Instant,
 };
 
@@ -61,12 +60,14 @@ static HEADER_COGNITO_IDENTITY: HeaderName =
 pub struct SdkClientInitState {
     rt: *mut qjs::JSRuntime,
     latch: Arc<Latch>,
+    endpoints: Vec<Box<str>>, //we're likely to have a small number of clients
 }
 impl SdkClientInitState {
     fn new(rt: *mut qjs::JSRuntime) -> Self {
         Self {
             rt,
             latch: Latch::default().into(),
+            endpoints: Vec::new(),
         }
     }
 }
@@ -74,56 +75,46 @@ impl SdkClientInitState {
 unsafe impl Sync for SdkClientInitState {}
 unsafe impl Send for SdkClientInitState {}
 
-fn get_init_latch<T>(state_ref: &T, rt: *mut qjs::JSRuntime) -> Arc<Latch>
-where
-    T: Deref<Target = [SdkClientInitState]>,
-{
-    let rt_timers = state_ref.iter().find(|state| state.rt == rt);
+fn get_sdk_client_init_state_mut<'a>(
+    guard: &'a mut RwLockWriteGuard<Vec<SdkClientInitState>>,
+    rt: *mut qjs::JSRuntime,
+) -> &'a mut SdkClientInitState {
+    let state = guard.iter_mut().find(|state| state.rt == rt);
 
-    // save a branch
-    unsafe { rt_timers.unwrap_unchecked() }.latch.clone()
+    //save a branch
+    unsafe { state.unwrap_unchecked() }
 }
 
-// fn get_writable_init_latch<'a>(
-//     state_ref: &'a mut RwLockWriteGuard<Vec<SdkClientInitState>>,
-//     rt: *mut qjs::JSRuntime,
-// ) -> &'a mut Latch {
-//     let rt_timers = state_ref.iter_mut().find(|state| state.rt == rt);
+fn get_sdk_client_init_state<'a>(
+    guard: &'a RwLockReadGuard<Vec<SdkClientInitState>>,
+    rt: *mut qjs::JSRuntime,
+) -> &'a SdkClientInitState {
+    let state = guard.iter().find(|state| state.rt == rt);
 
-//     //save a branch
-//     &mut unsafe { rt_timers.unwrap_unchecked() }.latch
-// }
-
-// fn readable_init_latch<'a>(
-//     state_ref: &'a RwLockReadGuard<Vec<SdkClientInitState>>,
-//     rt: *mut qjs::JSRuntime,
-// ) -> &'a Latch {
-//     let rt_timers = state_ref.iter().find(|state| state.rt == rt);
-
-//     //save a branch
-//     &unsafe { rt_timers.unwrap_unchecked() }.latch
-// }
+    //save a branch
+    unsafe { state.unwrap_unchecked() }
+}
 
 pub static LAMBDA_REQUEST_ID: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
 
-static LAMBDA_CLIENT_INIT_LATCH: Lazy<RwLock<Vec<SdkClientInitState>>> =
+static SDK_CONNECTION_INIT_LATCH: Lazy<RwLock<Vec<SdkClientInitState>>> =
     Lazy::new(|| RwLock::new(Vec::new()));
 
-#[derive(Debug)]
-pub enum InitLatchAction {
-    Increment,
-    Decrement,
+pub fn check_client_inited(rt: *mut qjs::JSRuntime, endpoint: &str) -> bool {
+    let mut write = SDK_CONNECTION_INIT_LATCH.write().unwrap();
+    let state = get_sdk_client_init_state_mut(&mut write, rt);
+    if state.endpoints.iter().any(|s| s.as_ref() == endpoint) {
+        return true;
+    }
+    state.endpoints.push(endpoint.into());
+    state.latch.increment();
+    false
 }
 
-pub fn modify_init_latch(rt: *mut qjs::JSRuntime, action: InitLatchAction) {
-    let latch = {
-        let state_ref = LAMBDA_CLIENT_INIT_LATCH.read().unwrap();
-        get_init_latch(&*state_ref, rt)
-    };
-    match action {
-        InitLatchAction::Increment => latch.increment(),
-        InitLatchAction::Decrement => latch.decrement(),
-    }
+pub fn mark_client_inited(rt: *mut qjs::JSRuntime) {
+    let mut write = SDK_CONNECTION_INIT_LATCH.write().unwrap();
+    let state = get_sdk_client_init_state_mut(&mut write, rt);
+    state.latch.decrement();
 }
 
 type HyperClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
@@ -246,7 +237,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
 
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
     {
-        let mut state_ref = LAMBDA_CLIENT_INIT_LATCH.write().unwrap();
+        let mut state_ref = SDK_CONNECTION_INIT_LATCH.write().unwrap();
         state_ref.push(SdkClientInitState::new(rt));
     }
 
@@ -271,8 +262,8 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     }
 
     let latch = {
-        let state_ref = LAMBDA_CLIENT_INIT_LATCH.read().unwrap();
-        get_init_latch(&*state_ref, rt)
+        let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
+        get_sdk_client_init_state(&state_ref, rt).latch.clone()
     };
     latch.wait().await;
 

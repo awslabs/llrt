@@ -151,7 +151,7 @@ impl Loader for CustomLoader {
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use crate::{
         modules::http::HTTP_CLIENT,
-        runtime_client::{modify_init_latch, InitLatchAction},
+        runtime_client::{check_client_inited, mark_client_inited},
     };
     use http_body_util::BodyExt;
     use llrt_utils::result::ResultExt;
@@ -164,32 +164,34 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
             } else {
                 endpoint
             };
-            let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
 
-            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) } as usize;
+            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+            let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
 
-            trace!("Started client init {}", client_name);
-            let region = env::var("AWS_REGION").unwrap();
+            if !check_client_inited(rt, endpoint) {
+                let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
 
-            let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
+                trace!("Started client init {}", client_name);
+                let region = env::var("AWS_REGION").unwrap();
 
-            tokio::task::spawn(async move {
-                let start = Instant::now();
+                let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
 
-                modify_init_latch(rt as _, InitLatchAction::Increment);
+                tokio::task::spawn(async move {
+                    let start = Instant::now();
 
-                if let Ok(url) = url.parse() {
-                    if let Ok(mut res) = client.get(url).await {
-                        if let Ok(res) = res.body_mut().collect().await {
-                            let _ = res;
+                    if let Ok(url) = url.parse() {
+                        if let Ok(mut res) = client.get(url).await {
+                            if let Ok(res) = res.body_mut().collect().await {
+                                let _ = res;
 
-                            modify_init_latch(rt as _, InitLatchAction::Decrement);
+                                mark_client_inited(rt_ptr as _);
 
-                            trace!("Client connection initialized in {:?}", start.elapsed());
+                                trace!("Client connection initialized in {:?}", start.elapsed());
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
     }
 
