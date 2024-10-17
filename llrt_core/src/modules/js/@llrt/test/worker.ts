@@ -2,7 +2,7 @@ import net from "net";
 import * as chai from "chai";
 import { JestChaiExpect } from "../expect/jest-expect";
 import { JestAsymmetricMatchers } from "../expect/jest-asymmetric-matchers";
-import { SocketReqMsg, SocketRes, SocketResponseMap } from "./shared";
+import { SocketReqMsg, SocketResponseMap } from "./shared";
 import SocketClient from "./SocketClient";
 
 type Test = TestSettings & {
@@ -255,11 +255,19 @@ class TestAgent {
 
     if (type == "error") {
       const errorData = messageData as MessagePayload<"error">;
-      errorData.error = {
-        message: errorData.error.message,
-        stack: errorData.error.stack,
-        name: errorData.error.name,
-      };
+
+      if (typeof errorData.error === "string") {
+        errorData.error = {
+          message: errorData.error,
+          name: "Error",
+        };
+      } else {
+        errorData.error = {
+          message: errorData.error.message,
+          stack: errorData.error.stack,
+          name: errorData.error.name,
+        };
+      }
     }
 
     const data = JSON.stringify({
@@ -307,7 +315,7 @@ class TestAgent {
         });
       } catch (error: any) {
         this.sendMessage("error", {
-          error: error,
+          error,
           started,
           ended: performance.now(),
         });
@@ -322,69 +330,82 @@ class TestAgent {
     const global: any = globalThis;
 
     while (true) {
-      const { nextFile: entry } = await this.nextTestFile();
-      if (!entry) {
-        break;
+      const started = performance.now();
+      try {
+        const { nextFile: entry } = await this.nextTestFile();
+        if (!entry) {
+          break;
+        }
+
+        const rootSuite = TestAgent.createRootSuite();
+        this.rootSuite = rootSuite;
+        this.onlyCount = 0;
+
+        this.currentSuite = this.rootSuite;
+        this.currentSuites = [];
+
+        let index = entry.lastIndexOf("/");
+        if (index !== -1) {
+          rootSuite.module = entry.substring(index + 1);
+        } else {
+          rootSuite.module = entry;
+        }
+
+        global.it = this.testFunction;
+        global.test = this.testFunction;
+        global.describe = this.describe;
+        global.expect = TestAgent.EXPECT;
+
+        global.beforeEach = (cb: MaybeAsyncFunction) => {
+          this.currentSuite.beforeEach = cb;
+        };
+
+        global.beforeAll = (cb: MaybeAsyncFunction) => {
+          this.currentSuite.beforeAll = cb;
+        };
+
+        global.afterEach = (cb: MaybeAsyncFunction) => {
+          this.currentSuite.afterEach = cb;
+        };
+
+        global.afterAll = (cb: MaybeAsyncFunction) => {
+          this.currentSuite.afterAll = cb;
+        };
+
+        await import(entry);
+
+        while (this.suiteLoadPromises.length > 0) {
+          const suitePromise = this.suiteLoadPromises.shift()!;
+          await suitePromise();
+        }
+
+        await this.sendMessage("module", {
+          skipCount: rootSuite.skipCount,
+          testCount: rootSuite.testCount,
+          onlyCount: rootSuite.onlyCount,
+        });
+
+        await this.runRootSuite();
+
+        delete global.it;
+        delete global.expect;
+        delete global.test;
+        delete global.describe;
+        delete global.beforeEach;
+        delete global.beforeAll;
+        delete global.afterEach;
+        delete global.afterAll;
+      } catch (error) {
+        try {
+          await this.sendMessage("error", {
+            error,
+            started,
+            ended: performance.now(),
+          });
+        } catch (e) {
+          process.exit(1);
+        }
       }
-
-      const rootSuite = TestAgent.createRootSuite();
-      this.rootSuite = rootSuite;
-      this.onlyCount = 0;
-
-      this.currentSuite = this.rootSuite;
-      this.currentSuites = [];
-
-      let index = entry.lastIndexOf("/");
-      if (index !== -1) {
-        rootSuite.module = entry.substring(index + 1);
-      } else {
-        rootSuite.module = entry;
-      }
-
-      global.it = this.testFunction;
-      global.test = this.testFunction;
-      global.describe = this.describe;
-      global.expect = TestAgent.EXPECT;
-
-      global.beforeEach = (cb: MaybeAsyncFunction) => {
-        this.currentSuite.beforeEach = cb;
-      };
-
-      global.beforeAll = (cb: MaybeAsyncFunction) => {
-        this.currentSuite.beforeAll = cb;
-      };
-
-      global.afterEach = (cb: MaybeAsyncFunction) => {
-        this.currentSuite.afterEach = cb;
-      };
-
-      global.afterAll = (cb: MaybeAsyncFunction) => {
-        this.currentSuite.afterAll = cb;
-      };
-
-      await import(entry);
-
-      while (this.suiteLoadPromises.length > 0) {
-        const suitePromise = this.suiteLoadPromises.shift()!;
-        await suitePromise();
-      }
-
-      await this.sendMessage("module", {
-        skipCount: rootSuite.skipCount,
-        testCount: rootSuite.testCount,
-        onlyCount: rootSuite.onlyCount,
-      });
-
-      await this.runRootSuite();
-
-      delete global.it;
-      delete global.expect;
-      delete global.test;
-      delete global.describe;
-      delete global.beforeEach;
-      delete global.beforeAll;
-      delete global.afterEach;
-      delete global.afterAll;
     }
 
     await this.complete();
