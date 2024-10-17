@@ -1,6 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{env, result::Result as StdResult, sync::RwLock, time::Instant};
+use std::{
+    env,
+    ops::Deref,
+    result::Result as StdResult,
+    sync::{Arc, RwLock},
+    time::Instant,
+};
 
 use bytes::Bytes;
 use chrono::Utc;
@@ -15,21 +21,18 @@ use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use llrt_utils::class::get_class_name;
 use once_cell::sync::Lazy;
 use rquickjs::{
-    atom::PredefinedAtom,
-    function::{Rest, This},
-    prelude::Func,
-    promise::Promise,
-    Array, CatchResultExt, CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
+    atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
+    CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
 };
 
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use crate::json::parse::json_parse;
 use crate::json::stringify::{self, json_stringify};
 use crate::modules::console;
 use crate::modules::http::HTTP_CLIENT;
 use crate::utils::result::ResultExt;
+use crate::{json::parse::json_parse, utils::latch::Latch};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
@@ -55,7 +58,73 @@ static HEADER_CLIENT_CONTEXT: HeaderName = HeaderName::from_static("lambda-runti
 static HEADER_COGNITO_IDENTITY: HeaderName =
     HeaderName::from_static("lambda-runtime-cognito-identity");
 
+pub struct SdkClientInitState {
+    rt: *mut qjs::JSRuntime,
+    latch: Arc<Latch>,
+}
+impl SdkClientInitState {
+    fn new(rt: *mut qjs::JSRuntime) -> Self {
+        Self {
+            rt,
+            latch: Latch::default().into(),
+        }
+    }
+}
+
+unsafe impl Sync for SdkClientInitState {}
+unsafe impl Send for SdkClientInitState {}
+
+fn get_init_latch<T>(state_ref: &T, rt: *mut qjs::JSRuntime) -> Arc<Latch>
+where
+    T: Deref<Target = [SdkClientInitState]>,
+{
+    let rt_timers = state_ref.iter().find(|state| state.rt == rt);
+
+    // save a branch
+    unsafe { rt_timers.unwrap_unchecked() }.latch.clone()
+}
+
+// fn get_writable_init_latch<'a>(
+//     state_ref: &'a mut RwLockWriteGuard<Vec<SdkClientInitState>>,
+//     rt: *mut qjs::JSRuntime,
+// ) -> &'a mut Latch {
+//     let rt_timers = state_ref.iter_mut().find(|state| state.rt == rt);
+
+//     //save a branch
+//     &mut unsafe { rt_timers.unwrap_unchecked() }.latch
+// }
+
+// fn readable_init_latch<'a>(
+//     state_ref: &'a RwLockReadGuard<Vec<SdkClientInitState>>,
+//     rt: *mut qjs::JSRuntime,
+// ) -> &'a Latch {
+//     let rt_timers = state_ref.iter().find(|state| state.rt == rt);
+
+//     //save a branch
+//     &unsafe { rt_timers.unwrap_unchecked() }.latch
+// }
+
 pub static LAMBDA_REQUEST_ID: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
+
+static LAMBDA_CLIENT_INIT_LATCH: Lazy<RwLock<Vec<SdkClientInitState>>> =
+    Lazy::new(|| RwLock::new(Vec::new()));
+
+#[derive(Debug)]
+pub enum InitLatchAction {
+    Increment,
+    Decrement,
+}
+
+pub fn modify_init_latch(rt: *mut qjs::JSRuntime, action: InitLatchAction) {
+    let latch = {
+        let state_ref = LAMBDA_CLIENT_INIT_LATCH.read().unwrap();
+        get_init_latch(&*state_ref, rt)
+    };
+    match action {
+        InitLatchAction::Increment => latch.increment(),
+        InitLatchAction::Decrement => latch.decrement(),
+    }
+}
 
 type HyperClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
 
@@ -175,33 +244,16 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let (module_name, handler_name) = get_module_and_handler_name(ctx, &config.handler)?;
     let task_root = get_task_root();
 
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    {
+        let mut state_ref = LAMBDA_CLIENT_INIT_LATCH.write().unwrap();
+        state_ref.push(SdkClientInitState::new(rt));
+    }
+
     //allows CJS handlers
     let require_function: Function = ctx.globals().get("require")?;
     let require_specifier: String = [task_root.as_str(), module_name].join("/");
     let js_handler_module: Object = require_function.call((require_specifier,))?;
-    let js_init = js_handler_module.get::<_, Value>("init")?;
-    let js_bootstrap: Object = ctx.globals().get("__bootstrap")?;
-    let js_init_tasks: Array = js_bootstrap.get("initTasks")?;
-
-    if js_init.is_function() {
-        let idx = js_init_tasks.len();
-        let js_call: Object = js_init.as_function().unwrap().call(())?;
-        js_init_tasks.set(idx, js_call)?;
-    }
-
-    let init_tasks_size = js_init_tasks.len();
-    #[allow(clippy::comparison_chain)]
-    if init_tasks_size == 1 {
-        let init_promise = js_init_tasks.get::<Promise>(0)?;
-        init_promise.into_future::<()>().await?;
-    } else if init_tasks_size > 1 {
-        let promise_ctor: Object = ctx.globals().get(PredefinedAtom::Promise)?;
-        let init_promise: Promise = promise_ctor
-            .get::<_, Function>("all")?
-            .call((This(promise_ctor), js_init_tasks.clone()))?;
-        () = init_promise.into_future().await?;
-    }
-
     let handler: Value = js_handler_module.get(handler_name)?;
 
     if !handler.is_function() {
@@ -217,6 +269,12 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
             .concat(),
         ));
     }
+
+    let latch = {
+        let state_ref = LAMBDA_CLIENT_INIT_LATCH.read().unwrap();
+        get_init_latch(&*state_ref, rt)
+    };
+    latch.wait().await;
 
     let client = HTTP_CLIENT.as_ref().or_throw(ctx)?.clone();
 
