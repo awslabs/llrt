@@ -1,18 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::Notify;
 
 #[derive(Default)]
 pub struct Latch {
     count: AtomicUsize,
     notify: Notify,
-    inited: AtomicBool,
 }
 
 impl Latch {
     pub fn increment(&self) {
-        self.inited.store(true, Ordering::Relaxed);
         self.count.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -24,7 +22,7 @@ impl Latch {
     }
 
     pub async fn wait(&self) {
-        if !self.inited.load(Ordering::Relaxed) || self.count.load(Ordering::Relaxed) > 0 {
+        if self.count.load(Ordering::Relaxed) > 0 {
             self.notify.notified().await;
         }
     }
