@@ -11,7 +11,7 @@ use std::{
     process::exit,
     rc::Rc,
     result::Result as StdResult,
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 use llrt_modules::{
@@ -434,9 +434,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         }),
     )?;
 
-    #[allow(clippy::arc_with_non_send_sync)]
-    let require_in_progress: Arc<Mutex<HashMap<String, Object>>> =
-        Arc::new(Mutex::new(HashMap::new()));
+    let require_in_progress: Rc<Mutex<HashMap<Rc<str>, Object>>> =
+        Rc::new(Mutex::new(HashMap::new()));
 
     globals.set("__bootstrap", Object::new(ctx.clone())?)?;
 
@@ -470,6 +469,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             .configurable(),
     )?;
 
+    let require_cache: Object = Object::new(ctx.clone())?;
+    globals.set("__require_cache", require_cache)?;
+
     globals.set(
         "require",
         Func::from(move |ctx, specifier: String| -> Result<Value> {
@@ -488,32 +490,42 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 require_resolve(&ctx, &specifier, &abs_path, false)?
             };
 
+            let import_name: Rc<str> = import_name.into();
+
+            let globals = ctx.globals();
+            let require_cache: Object = globals.get("__require_cache")?;
+
+            if let Some(cached_value) =
+                require_cache.get::<_, Option<Value>>(import_name.as_ref())?
+            {
+                return Ok(cached_value);
+            }
+
             if import_name.ends_with(".json") {
-                let source = std::fs::read_to_string(import_name)?;
-                return json_parse(&ctx, source);
+                let source = std::fs::read_to_string(import_name.as_ref())?;
+                let value = json_parse(&ctx, source)?;
+                require_cache.set(import_name.as_ref(), value.clone())?;
+                return Ok(value);
             }
 
             let mut map = require_in_progress.lock().unwrap();
-            if let Some(obj) = map.get(&import_name) {
-                return Ok(obj.clone().into_value());
+            if let Some(obj) = map.get(import_name.as_ref()) {
+                let value = obj.clone().into_value();
+                require_cache.set(import_name.as_ref(), value.clone())?;
+                return Ok(value);
             }
+
+            trace!("Require: {}", import_name);
 
             let obj = Object::new(ctx.clone())?;
             map.insert(import_name.clone(), obj.clone());
             drop(map);
 
-            trace!("Require: {}", import_name);
-
-            let mut options = EvalOptions::default();
-            options.strict = false;
-            options.promise = true;
-            options.global = false;
-
             let exports = Object::new(ctx.clone())?.into_value();
 
             let current_exports = require_exports.lock().unwrap().replace(exports);
 
-            let import_promise = Module::import(&ctx, import_name.clone())?;
+            let import_promise = Module::import(&ctx, import_name.as_bytes().to_vec())?;
 
             let exports = if let Some(current_exports) = current_exports {
                 require_exports.lock().unwrap().replace(current_exports)
@@ -539,7 +551,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 ctx.execute_pending_job();
             };
 
-            require_in_progress.lock().unwrap().remove(&import_name);
+            require_in_progress
+                .lock()
+                .unwrap()
+                .remove(import_name.as_ref());
 
             if let Some(exports) = exports {
                 if exports.type_of() == rquickjs::Type::Object {
@@ -551,6 +566,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     }
                 } else {
                     //we have explicitly set it
+                    require_cache.set(import_name.as_ref(), exports.clone())?;
                     return Ok(exports);
                 }
             }
@@ -560,7 +576,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 obj.set(key, value)?;
             }
 
-            Ok(obj.into_value())
+            let value = obj.into_value();
+
+            require_cache.set(import_name.as_ref(), value.clone())?;
+            Ok(value)
         }),
     )?;
 
