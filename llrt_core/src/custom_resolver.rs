@@ -459,6 +459,12 @@ fn package_exports_resolve<'a>(
     if let BorrowedValue::Object(map) = package_json {
         if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
             if let Some(BorrowedValue::Object(name)) = exports.get(modules_name) {
+                // Check for exports -> name -> browser -> [import | require]
+                if let Some(BorrowedValue::Object(browser)) = name.get("browser") {
+                    if let Some(BorrowedValue::String(ident)) = browser.get(ident) {
+                        return Ok(ident.as_ref());
+                    }
+                }
                 // Check for exports -> name -> [import | require] -> default
                 if let Some(BorrowedValue::Object(ident)) = name.get(ident) {
                     if let Some(BorrowedValue::String(default)) = ident.get("default") {
