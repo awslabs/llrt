@@ -180,6 +180,8 @@ test: export JS_MINIFY = 0
 test: js
 	cargo run -- test -d bundle/js/__tests__/unit
 test-e2e: export JS_MINIFY = 0
+test-e2e: export TEST_TIMEOUT = 60000
+test-e2e: export SDK_BUNDLE_MODE = STD
 test-e2e: js
 	cargo run -- test -d bundle/js/__tests__/e2e
 
