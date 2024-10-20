@@ -55,7 +55,7 @@ it("should handle cjs requires", () => {
 });
 
 it("should handle cjs requires", () => {
-  const a = _require(`${CWD}/fixtures/e.cjs`);
+  const a = _require(`${CWD}/fixtures/prop-export.cjs`);
 
   expect(a.prop).toEqual("a");
 });
@@ -85,7 +85,12 @@ it("should be able to import exported functions", () => {
 });
 
 it("should return same value for multiple require statements", () => {
-  const a = _require(`${CWD}/fixtures/e.cjs`);
-  const b = _require(`${CWD}/fixtures/e.cjs`);
+  const a = _require(`${CWD}/fixtures/prop-export.cjs`);
+  const b = _require(`${CWD}/fixtures/prop-export.cjs`);
   expect(a).toStrictEqual(b);
+});
+
+it("should return all props", () => {
+  const a = _require(`${CWD}/fixtures/define-property-export.cjs`);
+  expect(a.__esModule).toBe(true);
 });
