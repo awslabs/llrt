@@ -29,8 +29,8 @@ use rquickjs::{
     module::Declared,
     object::Accessor,
     prelude::{Func, Rest},
-    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs,
-    Module, Object, Result, Value,
+    qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Filter, Function,
+    IntoJs, Module, Object, Result, Value,
 };
 use tokio::time::Instant;
 use tracing::trace;
@@ -618,7 +618,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             if let Some(exports) = exports {
                 if exports.type_of() == rquickjs::Type::Object {
                     if let Some(exports) = exports.as_object() {
-                        for prop in exports.props::<Value, Value>() {
+                        for prop in exports
+                            .own_props::<Value, Value>(Filter::new().private().string().symbol())
+                        {
                             let (key, value) = prop?;
                             obj.set(key, value)?;
                         }
