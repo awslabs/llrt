@@ -16,7 +16,7 @@ pub struct Event {
 #[rquickjs::methods]
 impl Event {
     #[qjs(constructor)]
-    pub fn new<'js>(event_type: String, options: Opt<Value<'js>>) -> Result<Self> {
+    pub fn new(event_type: String, options: Opt<Value<'_>>) -> Result<Self> {
         let mut bubbles = false;
         let mut cancelable = false;
         let mut composed = false;
