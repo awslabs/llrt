@@ -1,26 +1,22 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::marker::PhantomData;
-
 use rquickjs::{prelude::Opt, Result, Value};
 
 use llrt_utils::object::ObjectExt;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace)]
-pub struct Event<'js> {
+pub struct Event {
     event_type: String,
     bubbles: bool,
     cancelable: bool,
     composed: bool,
-    #[qjs(skip_trace)]
-    marker: PhantomData<&'js ()>,
 }
 
 #[rquickjs::methods]
-impl<'js> Event<'js> {
+impl Event {
     #[qjs(constructor)]
-    pub fn new(event_type: String, options: Opt<Value<'js>>) -> Result<Self> {
+    pub fn new<'js>(event_type: String, options: Opt<Value<'js>>) -> Result<Self> {
         let mut bubbles = false;
         let mut cancelable = false;
         let mut composed = false;
@@ -40,7 +36,6 @@ impl<'js> Event<'js> {
             bubbles,
             cancelable,
             composed,
-            marker: PhantomData,
         })
     }
 
