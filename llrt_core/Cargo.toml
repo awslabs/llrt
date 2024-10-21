@@ -10,7 +10,7 @@ lambda = []
 no-sdk = []
 uncompressed = []
 macro = ["rquickjs/macro"]
-bindgen = ["llrt_modules/bindgen", "rquickjs/bindgen"]
+bindgen = ["rquickjs/bindgen"]
 
 [package.metadata.patch.rquickjs-core]
 version = "*"

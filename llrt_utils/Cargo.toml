@@ -13,6 +13,7 @@ all = ["ctx", "fs", "encoding"]
 ctx = ["tokio/sync", "rquickjs/futures"]
 fs = ["tokio/fs"]
 encoding = ["base64-simd", "hex-simd", "phf"]
+bytearray-buffer = []
 
 [dependencies]
 base64-simd = { version = "0.8.0", optional = true }
@@ -24,5 +25,9 @@ tokio = { version = "1", optional = true }
 tracing = "0.1"
 phf = { version = "0.11.2", features = ["macros"], optional = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rust_nightly)'] }
+[dev-dependencies]
+llrt_test = { path = "../llrt_test" }
+tokio = { version = "1", features = ["full"] }
+
+[build-dependencies]
+rustc_version = "0.4"

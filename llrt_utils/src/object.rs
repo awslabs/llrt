@@ -4,7 +4,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, IntoJsFunc},
     prelude::Func,
-    Ctx, FromJs, Function, IntoAtom, IntoJs, Object, Result, Symbol, Undefined, Value,
+    Array, Ctx, FromJs, Function, IntoAtom, IntoJs, Object, Result, Symbol, Undefined, Value,
 };
 
 pub trait ObjectExt<'js> {
@@ -83,4 +83,21 @@ impl<'js> Proxy<'js> {
         self.options.set(PredefinedAtom::Getter, getter)?;
         Ok(())
     }
+}
+
+pub fn map_to_entries<'js, K, V, M>(ctx: &Ctx<'js>, map: M) -> Result<Array<'js>>
+where
+    M: IntoIterator<Item = (K, V)>,
+    K: IntoJs<'js>,
+    V: IntoJs<'js>,
+{
+    let array = Array::new(ctx.clone())?;
+    for (idx, (key, value)) in map.into_iter().enumerate() {
+        let entry = Array::new(ctx.clone())?;
+        entry.set(0, key)?;
+        entry.set(1, value)?;
+        array.set(idx, entry)?;
+    }
+
+    Ok(array)
 }

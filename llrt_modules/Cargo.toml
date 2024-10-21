@@ -16,6 +16,7 @@ all = [
   "events",
   "exceptions",
   "fs",
+  "http",
   "navigator",
   "net",
   "os",
@@ -27,90 +28,38 @@ all = [
   "zlib",
 ]
 
-buffer = ["llrt_utils/encoding"]
-child-process = ["events", "__stream", "libc", "itoa", "tokio/process"]
-crypto = [
-  "llrt_utils/encoding",
-  "crc32c",
-  "crc32fast",
-  "md-5",
-  "rand",
-  "uuid",
-  "uuid-simd",
-  "once_cell",
-  "ring",
-  "buffer",
-]
-events = []
-exceptions = []
-fs = ["tokio/fs", "llrt_utils/fs", "ring", "buffer", "path"]
-navigator = []
-net = ["events", "__stream", "itoa", "tokio/net", "tokio/sync"]
-os = [
-  "libc",
-  "windows-result",
-  "windows-registry",
-  "windows-version",
-  "once_cell",
-  "num_cpus",
-]
-path = []
-process = ["path"]
-perf-hooks = []
-timers = ["tokio/time", "tokio/sync", "once_cell"]
-url = ["url_crate"]
-zlib = ["buffer", "flate2", "brotlic"]
-bindgen = ["rquickjs/bindgen"]
-
-__bytearray-buffer = ["tokio/sync"]
-__stream = ["buffer", "__bytearray-buffer"]
+# Modules
+buffer = ["llrt_buffer"]
+child-process = ["llrt_child_process"]
+crypto = ["llrt_crypto"]
+events = ["llrt_events"]
+exceptions = ["llrt_exceptions"]
+fs = ["llrt_fs"]
+http = ["llrt_http"]
+navigator = ["llrt_navigator"]
+net = ["llrt_net"]
+os = ["llrt_os"]
+path = ["llrt_path"]
+process = ["llrt_process"]
+perf-hooks = ["llrt_perf_hooks"]
+timers = ["llrt_timers"]
+url = ["llrt_url"]
+zlib = ["llrt_zlib"]
 
 [dependencies]
-either = "1"
-itoa = { version = "1", optional = true }
-once_cell = { version = "1", optional = true }
-llrt_utils = { version = "0.3.0-beta", path = "../llrt_utils", default-features = false, features = [
-  "ctx",
-] }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
-  "array-buffer",
-  "either",
-  "macro",
-  "futures",
-], default-features = false }
-ring = { version = "0.17", optional = true }
-tokio = { version = "1", features = ["rt", "io-util", "macros"] }
-tracing = "0.1"
-flate2 = { version = "1", features = [
-  "zlib-ng",
-], default-features = false, optional = true }
-brotlic = { version = "0.8", optional = true }
-uuid = { version = "1.10", default-features = false, features = [
-  "v4",
-  "fast-rng",
-], optional = true }
-uuid-simd = { version = "0.8", optional = true }
-rand = { version = "0.8", optional = true }
-crc32c = { version = "0.6", optional = true }
-crc32fast = { version = "1.4", optional = true }
-url_crate = { version = "2.5", package = "url", optional = true }
-num_cpus = { version = "1", optional = true }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-memchr = { version = "2.7.4" }
-md-5 = { version = "0.10", optional = true }
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.10", features = ["asm"], optional = true }
-
-[target.'cfg(unix)'.dependencies]
-libc = { version = "0.2", optional = true }
-
-[target.'cfg(windows)'.dependencies]
-windows-registry = { version = "0.2", optional = true }
-windows-result = { version = "0.2", optional = true }
-windows-version = { version = "0.1", optional = true }
-
-[dev-dependencies]
-nanoid = "0.4.0"
-rand = "0.8.5"
-tokio = { version = "1", features = ["full"] }
+llrt_buffer = { version = "0.3.0-beta", path = "../modules/llrt_buffer", optional = true }
+llrt_child_process = { version = "0.3.0-beta", path = "../modules/llrt_child_process", optional = true }
+llrt_crypto = { version = "0.3.0-beta", path = "../modules/llrt_crypto", optional = true }
+llrt_events = { version = "0.3.0-beta", path = "../modules/llrt_events", optional = true }
+llrt_exceptions = { version = "0.3.0-beta", path = "../modules/llrt_exceptions", optional = true }
+llrt_fs = { version = "0.3.0-beta", path = "../modules/llrt_fs", optional = true }
+llrt_http = { version = "0.3.0-beta", path = "../modules/llrt_http", optional = true }
+llrt_navigator = { version = "0.3.0-beta", path = "../modules/llrt_navigator", optional = true }
+llrt_net = { version = "0.3.0-beta", path = "../modules/llrt_net", optional = true }
+llrt_os = { version = "0.3.0-beta", path = "../modules/llrt_os", optional = true }
+llrt_path = { version = "0.3.0-beta", path = "../modules/llrt_path", optional = true }
+llrt_process = { version = "0.3.0-beta", path = "../modules/llrt_process", optional = true }
+llrt_perf_hooks = { version = "0.3.0-beta", path = "../modules/llrt_perf_hooks", optional = true }
+llrt_timers = { version = "0.3.0-beta", path = "../modules/llrt_timers", optional = true }
+llrt_url = { version = "0.3.0-beta", path = "../modules/llrt_url", optional = true }
+llrt_zlib = { version = "0.3.0-beta", path = "../modules/llrt_zlib", optional = true }

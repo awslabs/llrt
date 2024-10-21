@@ -11,7 +11,7 @@ pub mod compiler;
 // #[cfg(not(feature = "lambda"))]
 mod compiler_common;
 pub mod environment;
-pub mod json;
+mod http;
 // mod minimal_tracer;
 mod custom_resolver;
 mod module_builder;

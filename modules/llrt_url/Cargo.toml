@@ -1,0 +1,16 @@
+[package]
+name = "llrt_url"
+description = "LLRT Module url"
+version = "0.3.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_net"
+path = "src/lib.rs"
+
+[dev-dependencies]
+llrt_test = { path = "../../llrt_test" }
+tokio = { version = "1", features = ["full"] }

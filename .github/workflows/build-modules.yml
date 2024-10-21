@@ -33,24 +33,10 @@ jobs:
         env:
           RUSTFLAGS: ""
         run: |
-          features=("buffer"
-                    "child-process"
-                    "crypto"
-                    "events"
-                    "exceptions"
-                    "fs"
-                    "navigator"
-                    "net"
-                    "os"
-                    "path"
-                    "process"
-                    "perf-hooks"
-                    "timers"
-                    "url"
-                    "zlib")
-          for feature in "${features[@]}"; do
+          readarray crates < <(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
+          for crate in "${crates[@]}"; do
             echo "Compiling feature: $feature"
-            cargo build -p llrt_modules --no-default-features --features $feature
+            cargo build -p $crate
           done
       - name: Run build
         run: |
