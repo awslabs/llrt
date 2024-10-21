@@ -177,3 +177,25 @@ describe("EventTarget", () => {
     expect(eventsArray).toEqual(["1st", "2nd", "1st"]);
   });
 });
+
+describe("Event", () => {
+  it("globalThis should have a Event", () => {
+    const myEvent = new Event("test");
+
+    expect(myEvent.type).toEqual("test");
+    expect(myEvent.bubbles).toBeFalsy();
+    expect(myEvent.cancelable).toBeFalsy();
+    expect(myEvent.composed).toBeFalsy();
+  });
+  it("Event should have options", () => {
+    const myEvent = new Event("test", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+
+    expect(myEvent.bubbles).toBeTruthy();
+    expect(myEvent.cancelable).toBeTruthy();
+    expect(myEvent.composed).toBeTruthy();
+  });
+});

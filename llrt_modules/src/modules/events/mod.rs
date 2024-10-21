@@ -15,10 +15,11 @@ use rquickjs::{
 };
 use tracing::trace;
 
-use self::{custom_event::CustomEvent, event_target::EventTarget};
+use self::{custom_event::CustomEvent, event::Event, event_target::EventTarget};
 use crate::module_info::ModuleInfo;
 
 pub mod custom_event;
+pub mod event;
 pub mod event_target;
 
 #[derive(Clone, Debug)]
@@ -476,6 +477,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     Class::<EventTarget>::define(&globals)?;
     Class::<CustomEvent>::define(&globals)?;
+    Class::<Event>::define(&globals)?;
 
     EventTarget::add_event_target_prototype(ctx)?;
 
