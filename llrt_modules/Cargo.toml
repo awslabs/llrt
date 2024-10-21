@@ -1,7 +1,7 @@
 [package]
 name = "llrt_modules"
 description = "LLRT Modules for rquickjs"
-version = "0.2.2-beta"
+version = "0.3.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -69,7 +69,7 @@ __stream = ["buffer", "__bytearray-buffer"]
 either = "1"
 itoa = { version = "1", optional = true }
 once_cell = { version = "1", optional = true }
-llrt_utils = { version = "0.2.2-beta", path = "../llrt_utils", default-features = false, features = [
+llrt_utils = { version = "0.3.0-beta", path = "../llrt_utils", default-features = false, features = [
   "ctx",
 ] }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
