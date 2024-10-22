@@ -16,12 +16,12 @@ itoa = "1"
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
 llrt_events = { version = "0.3.0-beta", path = "../llrt_events" }
 llrt_stream = { version = "0.3.0-beta", path = "../llrt_stream" }
-llrt_utils = { version = "0.3.0-beta", path = "../../llrt_utils", default-features = false }
+llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", default-features = false }
 tokio = { version = "1", features = ["net"] }
 tracing = "0.1"
 
 [dev-dependencies]
-llrt_test = { path = "../../llrt_test" }
+llrt_test = { path = "../../libs/llrt_test" }
 rand = "0.8"
 tokio = { version = "1", features = ["full"] }

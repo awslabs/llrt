@@ -2640,6 +2640,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_build"
+version = "0.3.0-beta"
+dependencies = [
+ "rustc_version",
+]
+
+[[package]]
 name = "llrt_child_process"
 version = "0.3.0-beta"
 dependencies = [

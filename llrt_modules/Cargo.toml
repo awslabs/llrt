@@ -62,5 +62,5 @@ llrt_process = { version = "0.3.0-beta", path = "../modules/llrt_process", optio
 llrt_perf_hooks = { version = "0.3.0-beta", path = "../modules/llrt_perf_hooks", optional = true }
 llrt_timers = { version = "0.3.0-beta", path = "../modules/llrt_timers", optional = true }
 llrt_url = { version = "0.3.0-beta", path = "../modules/llrt_url", optional = true }
-llrt_utils = { version = "0.3.0-beta", path = "../llrt_utils" }
+llrt_utils = { version = "0.3.0-beta", path = "../libs/llrt_utils" }
 llrt_zlib = { version = "0.3.0-beta", path = "../modules/llrt_zlib", optional = true }

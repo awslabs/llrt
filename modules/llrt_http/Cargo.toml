@@ -32,7 +32,7 @@ hyper-util = "0.1.6"
 itoa = "1"
 llrt_abort = { version = "0.3.0-beta", path = "../llrt_abort" }
 llrt_json = { version = "0.3.0-beta", path = "../llrt_json" }
-llrt_utils = { version = "0.3.0-beta", path = "../../llrt_utils", features = [
+llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features = [
   "encoding",
 ], default-features = false }
 pin-project-lite = "0.2"
@@ -49,6 +49,6 @@ webpki-roots = "0.26.3"
 zstd = { version = "0.13.2", default-features = false }
 
 [dev-dependencies]
-llrt_test = { path = "../../llrt_test" }
+llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 wiremock = "0.6.0"

@@ -13,7 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
 llrt_events = { version = "0.3.0-beta", path = "../llrt_events" }
-llrt_utils = { version = "0.3.0-beta", path = "../../llrt_utils", features = [
+llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features = [
   "ctx",
   "bytearray-buffer",
 ], default-features = false }

@@ -15,7 +15,7 @@ path = "src/lib.rs"
 either = "1"
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
 llrt_path = { version = "0.3.0-beta", path = "../llrt_path" }
-llrt_utils = { version = "0.3.0-beta", path = "../../llrt_utils", features = [
+llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features = [
   "fs",
 ], default-features = false }
 ring = "0.17"
@@ -27,5 +27,5 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13
 tokio = { version = "1", features = ["rt", "fs", "io-util"] }
 
 [dev-dependencies]
-llrt_test = { path = "../../llrt_test" }
+llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
