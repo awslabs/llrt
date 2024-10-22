@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::{BTreeMap, HashMap};
 
-use rquickjs::{Array, Coerced, Ctx, FromJs, IntoJs, Object, Result, Value};
+use rquickjs::{Array, Coerced, Ctx, FromJs, Object, Result, Value};
 
 #[allow(dead_code)]
 pub fn array_to_hash_map<'js>(

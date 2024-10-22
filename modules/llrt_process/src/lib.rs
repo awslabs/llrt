@@ -3,11 +3,11 @@
 use std::collections::HashMap;
 use std::env;
 
+pub use llrt_utils::sysinfo::{get_arch, get_platform};
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     object::Proxy,
     result::ResultExt,
-    sysinfo::{get_arch, get_platform},
     time, VERSION,
 };
 use rquickjs::{

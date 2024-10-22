@@ -37,8 +37,6 @@ mod modules {
     #[cfg(feature = "zlib")]
     pub use llrt_zlib as zlib;
 }
-#[cfg(feature = "stream")]
-pub use llrt_stream as stream;
 pub use llrt_utils::time;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -3,7 +3,6 @@
 pub mod clone;
 pub mod io;
 pub mod latch;
-pub mod mc_oneshot;
 pub mod object;
 pub mod result {
     pub use llrt_utils::result::*;
