@@ -9,10 +9,13 @@ use std::{
 use brotlic::DecompressorReader as BrotliDecoder;
 use flate2::read::{GzDecoder, ZlibDecoder};
 use http_body_util::BodyExt;
-use hyper::{body::Incoming, header::HeaderName};
+use hyper::{
+    body::{Body, Incoming},
+    header::HeaderName,
+};
 use llrt_abort::AbortSignal;
 use llrt_json::parse::json_parse;
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{bytes::ObjectBytes, ctx::CtxExtension};
 use llrt_utils::{mc_oneshot, result::ResultExt};
 use once_cell::sync::Lazy;
 use rquickjs::{
@@ -20,10 +23,11 @@ use rquickjs::{
     function::Opt,
     ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, TypedArray, Value,
 };
-use tokio::{runtime::Handle, select};
+use tokio::select;
 use zstd::stream::read::Decoder as ZstdDecoder;
 
 use super::{blob::Blob, headers::Headers};
+use crate::incoming::{self, IncomingReceiver};
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -95,6 +99,7 @@ static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
 
 enum BodyVariant<'js> {
     Incoming(Option<hyper::Response<Incoming>>),
+    Cloned(Option<hyper::Response<IncomingReceiver>>),
     Provided(Value<'js>),
 }
 
@@ -138,34 +143,48 @@ impl<'js> Response<'js> {
         })
     }
 
+    async fn take_bytes_body<T>(&mut self, ctx: &Ctx<'js>, body: T) -> Result<Vec<u8>>
+    where
+        T: Body,
+        T::Error: std::fmt::Display,
+    {
+        let bytes = if let Some(abort_signal) = &self.abort_receiver {
+            select! {
+                err = abort_signal.recv() => return Err(ctx.throw(err)),
+                collected_body = body.collect() => collected_body.or_throw(ctx)?.to_bytes()
+            }
+        } else {
+            body.collect().await.or_throw(ctx)?.to_bytes()
+        };
+
+        if let Some(content_encoding) = &self.content_encoding {
+            let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
+            match content_encoding.as_str() {
+                "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
+                "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
+            };
+            Ok(data)
+        } else {
+            Ok(bytes.to_vec())
+        }
+    }
+
     async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
         let bytes = match &mut self.body {
             Some(BodyVariant::Incoming(incoming)) => {
-                let mut body = incoming
+                let response = incoming
                     .take()
                     .ok_or(Exception::throw_type(ctx, "Already read"))?;
-                let bytes = if let Some(abort_signal) = &self.abort_receiver {
-                    select! {
-                        err = abort_signal.recv() => return Err(ctx.throw(err)),
-                        collected_body = body.body_mut().collect() => collected_body.or_throw(ctx)?.to_bytes()
-                    }
-                } else {
-                    body.body_mut().collect().await.or_throw(ctx)?.to_bytes()
-                };
-
-                if let Some(content_encoding) = &self.content_encoding {
-                    let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
-                    match content_encoding.as_str() {
-                        "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
-                        "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                        "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                        "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                        _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
-                    };
-                    data
-                } else {
-                    bytes.to_vec()
-                }
+                self.take_bytes_body(ctx, response.into_body()).await?
+            },
+            Some(BodyVariant::Cloned(incoming)) => {
+                let body = incoming
+                    .take()
+                    .ok_or(Exception::throw_type(ctx, "Already read"))?;
+                self.take_bytes_body(ctx, body.into_body()).await?
             },
             Some(BodyVariant::Provided(provided)) => {
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
@@ -346,14 +365,24 @@ impl<'js> Response<'js> {
     }
 
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
-        let body = if self.body.is_some() {
-            let array_buffer_future = self.array_buffer(ctx.clone());
-            let array_buffer = tokio::task::block_in_place(move || {
-                Handle::current().block_on(array_buffer_future)
-            })?;
-            Some(BodyVariant::Provided(array_buffer.into_value()))
-        } else {
-            None
+        let body = match &mut self.body {
+            Some(BodyVariant::Incoming(incoming)) => match incoming.take() {
+                Some(response) => {
+                    let (head, body) = response.into_parts();
+                    let (sender, receiver) = incoming::channel(body);
+                    ctx.spawn_exit_simple(async move {
+                        sender.process().await;
+                        Ok(())
+                    });
+                    let response = hyper::Response::from_parts(head, receiver.clone());
+                    self.body = Some(BodyVariant::Cloned(Some(response.clone())));
+                    Some(BodyVariant::Cloned(Some(response)))
+                },
+                None => Some(BodyVariant::Incoming(None)),
+            },
+            Some(BodyVariant::Cloned(incoming)) => Some(BodyVariant::Cloned(incoming.clone())),
+            Some(BodyVariant::Provided(provided)) => Some(BodyVariant::Provided(provided.clone())),
+            None => None,
         };
 
         Ok(Self {

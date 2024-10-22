@@ -11,6 +11,9 @@ use rquickjs::{
 
 use super::blob::Blob;
 
+// WARN: We don't use that code since we don't have an implementation of ReadableStream.
+// We will revisit later.
+
 enum BodyVariant<'js> {
     Incoming(Option<hyper::Response<Incoming>>),
     Provided(Value<'js>),
