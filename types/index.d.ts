@@ -1,3 +1,4 @@
+/// <reference types="./abort.d.ts" />
 /// <reference types="./buffer.d.ts" />
 /// <reference types="./child_process.d.ts" />
 /// <reference types="./crypto.d.ts" />
