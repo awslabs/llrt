@@ -2665,15 +2665,10 @@ dependencies = [
 name = "llrt_core"
 version = "0.3.0-beta"
 dependencies = [
- "async-trait",
- "brotlic",
  "bytes",
  "cargo-patch",
  "chrono",
- "crc32c",
- "crc32fast",
  "criterion",
- "flate2",
  "fxhash",
  "home",
  "http-body-util",
@@ -2703,12 +2698,9 @@ dependencies = [
  "terminal_size",
  "tokio",
  "tracing",
- "tracing-core",
  "url",
  "uuid",
  "uuid-simd",
- "webpki",
- "webpki-roots",
  "wiremock",
  "zstd",
 ]
@@ -4741,16 +4733,6 @@ checksum = "77afa9a11836342370f4817622a2f0f418b134426d91a82dfb48f532d2ec13ef"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed63aea5ce73d0ff405984102c42de94fc55a6b75765d621c65262469b3c9b53"
-dependencies = [
- "ring",
- "untrusted",
 ]
 
 [[package]]
