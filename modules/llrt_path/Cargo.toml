@@ -14,5 +14,8 @@ path = "src/lib.rs"
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", default-features = false }
 
+[target.'cfg(windows)'.dependencies]
+memchr = "2.7"
+
 [dev-dependencies]
 once_cell = "1"
