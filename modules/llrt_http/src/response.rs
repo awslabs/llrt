@@ -325,14 +325,14 @@ impl<'js> Response<'js> {
         false
     }
 
-    pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
+    pub(crate) async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(String::from_utf8_lossy(&bytes).to_string());
         }
         Ok("".into())
     }
 
-    pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+    pub(crate) async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return json_parse(&ctx, bytes);
         }
@@ -364,7 +364,7 @@ impl<'js> Response<'js> {
         Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
 
-    fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
+    pub(crate) fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
         let body = match &mut self.body {
             Some(BodyVariant::Incoming(incoming)) => match incoming.take() {
                 Some(response) => {

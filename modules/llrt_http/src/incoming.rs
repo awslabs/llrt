@@ -114,6 +114,7 @@ pin_project! {
         #[pin]
         recv_fut: Option<Pin<Box<dyn Future<Output = RecvOutput>>>>,
         want_tx: watch::Sender<()>,
+        #[pin]
         data_rx: broadcast::Receiver<Result<ClonableFrame<Bytes>, Arc<hyper::Error>>>,
     }
 }
@@ -201,5 +202,63 @@ impl Body for IncomingReceiver {
 fn erase_lifetime<'a, T>(
     fut: Pin<Box<dyn Future<Output = T> + Send + 'a>>,
 ) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> {
+    // SAFETY: This is safe since data_rx is pinned
     unsafe { std::mem::transmute(fut) }
+}
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::test_async_with;
+    use rquickjs::{CatchResultExt, Class, Function, Object, Promise};
+    use wiremock::*;
+
+    use crate::*;
+
+    #[tokio::test]
+    async fn test_incoming() {
+        let mock_server = MockServer::start().await;
+        let welcome_message = "Hello, LLRT!";
+
+        Mock::given(matchers::path("some-path/"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(String::from_utf8(welcome_message.into()).unwrap()),
+            )
+            .mount(&mock_server)
+            .await;
+
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let globals = ctx.globals();
+                let run = async {
+                    let fetch: Function = globals.get("fetch")?;
+
+                    let options = Object::new(ctx.clone())?;
+                    options.set("method", "GET")?;
+
+                    let url = format!("http://{}/some-path/", mock_server.address().clone());
+
+                    let response_promise: Promise = fetch.call((url, options.clone()))?;
+                    let response: Class<Response> = response_promise.into_future().await?;
+                    let mut response = response.borrow_mut();
+                    let mut response2 = response.clone(ctx.clone()).unwrap();
+
+                    let (response_res, response2_res) =
+                        tokio::join!(response.text(ctx.clone()), response2.text(ctx.clone()));
+                    let response_text = response_res.unwrap();
+                    assert_eq!(response.status(), 200);
+                    assert_eq!(response_text, welcome_message);
+
+                    let response2_text = response2_res.unwrap();
+                    assert_eq!(response2.status(), 200);
+                    assert_eq!(response2_text, welcome_message);
+
+                    Ok(())
+                };
+                run.await.catch(&ctx).unwrap();
+            })
+        })
+        .await;
+    }
 }

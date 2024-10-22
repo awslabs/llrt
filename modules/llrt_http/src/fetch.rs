@@ -613,6 +613,7 @@ mod tests {
 
         // NOTE: A minimum redirect test pattern was created. Please add more as needed.
         test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
             Box::pin(async move {
                 let globals = ctx.globals();
                 let run = async {
