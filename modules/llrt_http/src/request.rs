@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_abort::AbortSignal;
 use llrt_json::parse::json_parse;
+use llrt_url::url_class::URL;
 use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt};
 use rquickjs::{
     class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
@@ -60,6 +61,8 @@ impl<'js> Request<'js> {
 
         if input.is_string() {
             request.url = input.get()?;
+        } else if let Ok(url) = URL::from_js(&ctx, input.clone()) {
+            request.url = url.to_string();
         } else if input.is_object() {
             assign_request(&mut request, ctx.clone(), unsafe {
                 input.as_object().unwrap_unchecked()

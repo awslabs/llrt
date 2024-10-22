@@ -2771,6 +2771,7 @@ dependencies = [
  "llrt_abort",
  "llrt_json",
  "llrt_test",
+ "llrt_url",
  "llrt_utils",
  "once_cell",
  "pin-project-lite",
