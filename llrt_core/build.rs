@@ -35,7 +35,7 @@ macro_rules! rerun_if_changed {
 include!("src/compiler_common.rs");
 
 fn main() -> StdResult<(), Box<dyn Error>> {
-    set_nightly_cfg();
+    llrt_build::set_nightly_cfg();
 
     rerun_if_changed!(BUNDLE_JS_DIR);
     rerun_if_changed!("Cargo.toml");
@@ -223,15 +223,6 @@ fn generate_bytecode_cache(out_dir: &str) -> StdResult<(), Box<dyn Error>> {
         );
     }
     Ok(())
-}
-
-// WARN: Do not modify this function without changing the other build.rs files in the other crates.
-fn set_nightly_cfg() {
-    let version_meta = rustc_version::version_meta().unwrap();
-    println!("cargo::rustc-check-cfg=cfg(rust_nightly)");
-    if version_meta.channel == rustc_version::Channel::Nightly {
-        println!("cargo:rustc-cfg=rust_nightly");
-    }
 }
 
 fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::Result<usize> {

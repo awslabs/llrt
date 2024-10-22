@@ -99,7 +99,7 @@ phf_codegen = "0.11.2"
 jwalk = "0.8.1"
 nanoid = "0.4.0"
 cargo-patch = "0.3.2"
-rustc_version = "0.4"
+llrt_build = { path = "../libs/llrt_build" }
 
 [dev-dependencies]
 wiremock = "0.6.0"

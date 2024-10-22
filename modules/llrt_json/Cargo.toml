@@ -20,8 +20,8 @@ simd-json = { version = "0.13.10", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-llrt_test = { path = "../../libs/llrt_test" }
+llrt_test = { version = "0.3.0-beta", path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-rustc_version = "0.4"
+llrt_build = { version = "0.3.0-beta", path = "../../libs/llrt_build" }

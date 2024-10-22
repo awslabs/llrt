@@ -2683,6 +2683,7 @@ dependencies = [
  "itoa",
  "jwalk",
  "libc",
+ "llrt_build",
  "llrt_json",
  "llrt_modules",
  "llrt_utils",
@@ -2695,7 +2696,6 @@ dependencies = [
  "rand",
  "ring",
  "rquickjs",
- "rustc_version",
  "rustls",
  "rustls-pemfile",
  "ryu",
@@ -2796,10 +2796,10 @@ name = "llrt_json"
 version = "0.3.0-beta"
 dependencies = [
  "itoa",
+ "llrt_build",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
- "rustc_version",
  "ryu",
  "simd-json",
  "tokio",
@@ -2945,10 +2945,10 @@ version = "0.3.0-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
+ "llrt_build",
  "llrt_test",
  "phf",
  "rquickjs",
- "rustc_version",
  "tokio",
  "tracing",
 ]
