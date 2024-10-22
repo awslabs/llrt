@@ -88,11 +88,12 @@ jobs:
             ./llrt-windows-x64.zip
             ./llrt-windows-x64-no-sdk.zip
             ./llrt-windows-x64-full-sdk.zip
-  publish:
-    needs:
-      - build
-    uses: ./.github/workflows/publish.yml
-    with:
-      ref: ${{ github.ref }}
-    secrets:
-      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+  # Publish is broken until we stabilize a version of rquickjs
+  # publish:
+  #   needs:
+  #     - build
+  #   uses: ./.github/workflows/publish.yml
+  #   with:
+  #     ref: ${{ github.ref }}
+  #   secrets:
+  #     CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
