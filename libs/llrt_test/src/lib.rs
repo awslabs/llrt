@@ -16,7 +16,7 @@ pub async fn given_file(content: &str) -> PathBuf {
     path
 }
 
-async fn given_runtime() -> (AsyncRuntime, AsyncContext) {
+pub async fn given_runtime() -> (AsyncRuntime, AsyncContext) {
     let rt = AsyncRuntime::new().unwrap();
     let ctx = AsyncContext::full(&rt).await.unwrap();
     (rt, ctx)
@@ -27,12 +27,40 @@ where
     F: for<'js> FnOnce(Ctx<'js>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'js>>
         + Send,
 {
-    let (_rt, ctx) = given_runtime().await;
+    test_async_with_opts(func, TestOptions::default()).await;
+}
+
+#[derive(Default)]
+pub struct TestOptions {
+    no_pending_jobs: bool,
+}
+
+impl TestOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn no_pending_jobs(mut self) -> Self {
+        self.no_pending_jobs = true;
+        self
+    }
+}
+
+pub async fn test_async_with_opts<F>(func: F, options: TestOptions)
+where
+    F: for<'js> FnOnce(Ctx<'js>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'js>>
+        + Send,
+{
+    let (rt, ctx) = given_runtime().await;
 
     async_with!(ctx => |ctx| {
         func(ctx).await
     })
     .await;
+
+    if options.no_pending_jobs {
+        assert!(!rt.is_job_pending().await);
+    }
 }
 
 pub async fn test_sync_with<F>(func: F)

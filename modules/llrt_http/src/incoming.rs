@@ -12,6 +12,7 @@ use hyper::{
     body::{Body, Frame, Incoming, SizeHint},
     HeaderMap,
 };
+use llrt_utils::error_messages::ERROR_MSG_BROADCAST_LAGGED;
 use pin_project_lite::pin_project;
 use tokio::sync::{broadcast, watch};
 
@@ -146,7 +147,7 @@ impl Body for IncomingReceiver {
                 Ok(Ok(frame)) => Some(Ok(Frame::from(frame))),
                 Ok(Err(err)) => Some(Err(err.into())),
                 Err(broadcast::error::RecvError::Lagged(_)) => {
-                    Some(Err("Lagged too much behind".into()))
+                    Some(Err(ERROR_MSG_BROADCAST_LAGGED.into()))
                 },
                 Err(broadcast::error::RecvError::Closed) => {
                     *this.closed = true;
@@ -167,7 +168,7 @@ impl Body for IncomingReceiver {
             Ok(Ok(frame)) => return Poll::Ready(Some(Ok(Frame::from(frame)))),
             Ok(Err(err)) => return Poll::Ready(Some(Err(err.into()))),
             Err(broadcast::error::TryRecvError::Lagged(_)) => {
-                return Poll::Ready(Some(Err("Lagged too much behind".into())))
+                return Poll::Ready(Some(Err(ERROR_MSG_BROADCAST_LAGGED.into())));
             },
             Err(broadcast::error::TryRecvError::Empty) => (),
             Err(broadcast::error::TryRecvError::Closed) => {
@@ -208,10 +209,13 @@ fn erase_lifetime<'a, T>(
 
 #[cfg(test)]
 mod tests {
-    use llrt_test::test_async_with;
-    use rquickjs::{CatchResultExt, Class, Function, Object, Promise};
+    use std::vec;
+
+    use llrt_test::{test_async_with_opts, TestOptions};
+    use rquickjs::{CatchResultExt, CaughtError, Class, Function, Object, Promise};
     use wiremock::*;
 
+    use super::*;
     use crate::*;
 
     #[tokio::test]
@@ -220,14 +224,102 @@ mod tests {
         let welcome_message = "Hello, LLRT!";
 
         Mock::given(matchers::path("some-path/"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_string(String::from_utf8(welcome_message.into()).unwrap()),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_string(welcome_message.to_string()))
             .mount(&mock_server)
             .await;
 
-        test_async_with(|ctx| {
+        test_async_with_opts(
+            |ctx| {
+                crate::init(&ctx).unwrap();
+                Box::pin(async move {
+                    let globals = ctx.globals();
+                    let run = async {
+                        let fetch: Function = globals.get("fetch")?;
+
+                        let options = Object::new(ctx.clone())?;
+                        options.set("method", "GET")?;
+
+                        let url = format!("http://{}/some-path/", mock_server.address().clone());
+
+                        let response_promise: Promise = fetch.call((url, options.clone()))?;
+                        let response: Class<Response> = response_promise.into_future().await?;
+                        let mut response = response.borrow_mut();
+                        let mut response2 = response.clone(ctx.clone()).unwrap();
+
+                        let (response_res, response2_res) =
+                            tokio::join!(response.text(ctx.clone()), response2.text(ctx.clone()));
+                        let response_text = response_res.unwrap();
+                        assert_eq!(response.status(), 200);
+                        assert_eq!(response_text, welcome_message);
+
+                        let response2_text = response2_res.unwrap();
+                        assert_eq!(response2.status(), 200);
+                        assert_eq!(response2_text, welcome_message);
+
+                        Ok(())
+                    };
+                    run.await.catch(&ctx).unwrap();
+                })
+            },
+            TestOptions::new().no_pending_jobs(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_incoming_dropped() {
+        let mock_server = MockServer::start().await;
+        let welcome_message = "Hello, LLRT!";
+
+        Mock::given(matchers::path("some-path/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(welcome_message.to_string()))
+            .mount(&mock_server)
+            .await;
+
+        test_async_with_opts(
+            |ctx| {
+                crate::init(&ctx).unwrap();
+                Box::pin(async move {
+                    let globals = ctx.globals();
+                    let run = async {
+                        let fetch: Function = globals.get("fetch")?;
+
+                        let options = Object::new(ctx.clone())?;
+                        options.set("method", "GET")?;
+
+                        let url = format!("http://{}/some-path/", mock_server.address().clone());
+
+                        // The scope ensure we drop all responses
+                        {
+                            let response_promise: Promise = fetch.call((url, options.clone()))?;
+                            let response: Class<Response> = response_promise.into_future().await?;
+                            let mut response = response.borrow_mut();
+                            let _response2 = response.clone(ctx.clone()).unwrap();
+                        }
+
+                        tokio::task::yield_now().await;
+
+                        Ok(())
+                    };
+                    run.await.catch(&ctx).unwrap();
+                })
+            },
+            TestOptions::new().no_pending_jobs(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_incoming_lagged() {
+        let mock_server = MockServer::start().await;
+        let welcome_message = vec![b'x'; 1024 * 1024 * 2];
+
+        Mock::given(matchers::path("some-path/"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(welcome_message.clone()))
+            .mount(&mock_server)
+            .await;
+
+        test_async_with_opts(|ctx| {
             crate::init(&ctx).unwrap();
             Box::pin(async move {
                 let globals = ctx.globals();
@@ -244,21 +336,19 @@ mod tests {
                     let mut response = response.borrow_mut();
                     let mut response2 = response.clone(ctx.clone()).unwrap();
 
-                    let (response_res, response2_res) =
-                        tokio::join!(response.text(ctx.clone()), response2.text(ctx.clone()));
-                    let response_text = response_res.unwrap();
+                    let response_text = response.text(ctx.clone()).await.unwrap();
                     assert_eq!(response.status(), 200);
-                    assert_eq!(response_text, welcome_message);
+                    assert_eq!(response_text.as_bytes(), welcome_message);
 
-                    let response2_text = response2_res.unwrap();
+                    let response2_err = response2.text(ctx.clone()).await.catch(&ctx).unwrap_err();
                     assert_eq!(response2.status(), 200);
-                    assert_eq!(response2_text, welcome_message);
+                    assert!(matches!(response2_err, CaughtError::Exception(e) if e.message().unwrap() == ERROR_MSG_BROADCAST_LAGGED));
 
                     Ok(())
                 };
                 run.await.catch(&ctx).unwrap();
             })
-        })
+        }, TestOptions::new().no_pending_jobs())
         .await;
     }
 }

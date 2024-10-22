@@ -374,7 +374,7 @@ impl<'js> Response<'js> {
                         sender.process().await;
                         Ok(())
                     });
-                    let response = hyper::Response::from_parts(head, receiver.clone());
+                    let response = hyper::Response::from_parts(head, receiver);
                     self.body = Some(BodyVariant::Cloned(Some(response.clone())));
                     Some(BodyVariant::Cloned(Some(response)))
                 },
