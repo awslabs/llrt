@@ -6,7 +6,7 @@ use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, Class, Coerced, Ctx, Exception, FromJs,
     IntoJs, Null, Object, Result, Value,
 };
-use url_crate::{quirks, Url};
+use url::{quirks, Url};
 
 use super::url_search_params::URLSearchParams;
 

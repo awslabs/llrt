@@ -37,7 +37,7 @@ mod modules {
     #[cfg(feature = "zlib")]
     pub use llrt_zlib as zlib;
 }
-#[cfg(feature = "__stream")]
+#[cfg(feature = "stream")]
 pub use llrt_stream as stream;
 pub use llrt_utils::time;
 

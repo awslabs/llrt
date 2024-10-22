@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 #![cfg_attr(rust_nightly, feature(array_chunks))]
+#[cfg(feature = "bytearray-buffer")]
 pub mod bytearray_buffer;
 pub mod bytes;
 pub mod class;

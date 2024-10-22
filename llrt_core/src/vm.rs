@@ -14,6 +14,7 @@ use std::{
     sync::Mutex,
 };
 
+use llrt_json::{parse::json_parse, stringify::json_stringify_replacer_space};
 use llrt_modules::{
     path::{resolve_path, resolve_path_with_separator},
     timers::{self, poll_timers},
@@ -39,8 +40,7 @@ use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 use crate::{
     bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
     custom_resolver::{require_resolve, CustomResolver},
-    environment,
-    json::{parse::json_parse, stringify::json_stringify_replacer_space},
+    environment, http,
     modules::{console, crypto::SYSTEM_RANDOM},
     number::number_to_string,
     security,
@@ -295,7 +295,8 @@ impl Vm {
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
         llrt_modules::time::init();
-        security::init();
+        http::init()?;
+        security::init()?;
 
         SYSTEM_RANDOM
             .fill(&mut [0; 8])

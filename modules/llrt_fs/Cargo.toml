@@ -22,8 +22,9 @@ ring = "0.17"
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
   "either",
   "macro",
+  "futures",
 ], default-features = false }
-tokio = { version = "1", features = ["fs"] }
+tokio = { version = "1", features = ["rt", "fs", "io-util"] }
 
 [dev-dependencies]
 llrt_test = { path = "../../llrt_test" }

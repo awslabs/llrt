@@ -19,7 +19,7 @@ use crate::modules::{
     zlib::ZlibModule,
 };
 use llrt_modules::timers::TimersModule;
-pub use llrt_modules::ModuleInfo;
+pub use llrt_utils::module::ModuleInfo;
 use rquickjs::{
     loader::{BuiltinResolver, ModuleLoader, Resolver},
     module::ModuleDef,

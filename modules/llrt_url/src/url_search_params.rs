@@ -7,7 +7,7 @@ use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, Array, Class, Coerced, Ctx, Exception,
     FromJs, Function, IntoJs, Null, Object, Result, Symbol, Value,
 };
-use url_crate::Url;
+use url::Url;
 
 /// Represents `URLSearchParams` in the JavaScript context
 ///
@@ -227,10 +227,9 @@ impl<'js> URLSearchParams {
                 if !acc.is_empty() {
                     acc.push('&');
                 }
-                url_crate::form_urlencoded::byte_serialize(key.as_bytes())
-                    .for_each(|b| acc.push_str(b));
+                url::form_urlencoded::byte_serialize(key.as_bytes()).for_each(|b| acc.push_str(b));
                 acc.push('=');
-                url_crate::form_urlencoded::byte_serialize(value.as_bytes())
+                url::form_urlencoded::byte_serialize(value.as_bytes())
                     .for_each(|b| acc.push_str(b));
                 acc
             },

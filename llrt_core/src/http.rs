@@ -1,9 +1,11 @@
+use std::{result::Result as StdResult, time::Duration};
+
 use llrt_modules::http::HttpVersion;
 use rustls::{pki_types::CertificateDer, version};
 
 use crate::environment;
 
-pub fn init() -> Result<(), Box<dyn Error>> {
+pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Some(pool_idle_timeout) = build_pool_idle_timeout() {
         llrt_modules::http::set_pool_idle_timeout(pool_idle_timeout);
     }

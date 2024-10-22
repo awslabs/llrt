@@ -8,12 +8,12 @@ repository = "https://github.com/awslabs/llrt"
 
 [features]
 default = ["all"]
-all = ["ctx", "fs", "encoding"]
+all = ["ctx", "fs", "encoding", "bytearray-buffer"]
 
 ctx = ["tokio/sync", "rquickjs/futures"]
 fs = ["tokio/fs"]
 encoding = ["base64-simd", "hex-simd", "phf"]
-bytearray-buffer = []
+bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
 base64-simd = { version = "0.8.0", optional = true }

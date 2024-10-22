@@ -13,6 +13,9 @@ path = "src/lib.rs"
 [dependencies]
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
 llrt_events = { version = "0.3.0-beta", path = "../llrt_events" }
-llrt_utils = { version = "0.3.0-beta", path = "../../llrt_utils", default-features = false }
+llrt_utils = { version = "0.3.0-beta", path = "../../llrt_utils", features = [
+  "ctx",
+  "bytearray-buffer",
+], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", default-features = false }
-tokio = { version = "1", features = [] }
+tokio = { version = "1", features = ["macros", "io-util"] }

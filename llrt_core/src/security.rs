@@ -10,7 +10,7 @@ use std::{
 
 use crate::environment::{ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY};
 
-pub fn init() -> Result<(), Box<dyn Error>> {
+pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Ok(env_value) = env::var(ENV_LLRT_NET_ALLOW) {
         if let Some(allow_list) = build_access_list(env_value) {
             llrt_modules::http::set_allow_list(build_http_access_list(&allow_list)?);

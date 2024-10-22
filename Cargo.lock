@@ -2676,6 +2676,7 @@ dependencies = [
  "itoa",
  "jwalk",
  "libc",
+ "llrt_json",
  "llrt_modules",
  "llrt_utils",
  "md-5",
@@ -2687,6 +2688,7 @@ dependencies = [
  "rand",
  "ring",
  "rquickjs",
+ "rustc_version",
  "rustls",
  "rustls-pemfile",
  "ryu",
@@ -2771,6 +2773,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "once_cell",
+ "pin-project-lite",
  "rquickjs",
  "rustls",
  "ryu",
@@ -2814,6 +2817,7 @@ dependencies = [
  "llrt_process",
  "llrt_timers",
  "llrt_url",
+ "llrt_utils",
  "llrt_zlib",
 ]
 
@@ -2922,7 +2926,10 @@ name = "llrt_url"
 version = "0.3.0-beta"
 dependencies = [
  "llrt_test",
+ "llrt_utils",
+ "rquickjs",
  "tokio",
+ "url",
 ]
 
 [[package]]

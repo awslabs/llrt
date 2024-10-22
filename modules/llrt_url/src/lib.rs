@@ -1,22 +1,25 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::inherent_to_string)]
 pub mod url_class;
 pub mod url_search_params;
 
 use std::{path::PathBuf, str::FromStr};
 
-use llrt_utils::{module::export_default, result::ResultExt};
+use llrt_utils::{
+    module::{export_default, ModuleInfo},
+    result::ResultExt,
+};
 use rquickjs::{
     function::{Constructor, Func},
     module::{Declarations, Exports, ModuleDef},
     prelude::Opt,
     Class, Coerced, Ctx, Exception, Result, Value,
 };
-use url_crate::{quirks, Url};
+use url::{quirks, Url};
 
 use self::url_class::{url_to_http_options, URL};
 use self::url_search_params::URLSearchParams;
-use crate::ModuleInfo;
 
 pub fn domain_to_unicode(domain: &str) -> String {
     quirks::domain_to_unicode(domain)
