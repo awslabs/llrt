@@ -74,6 +74,7 @@ impl Default for ModuleBuilder {
             .with_module(TimersModule)
             .with_module(EventsModule)
             .with_global(crate::modules::events::init)
+            .with_global(crate::modules::abort::init)
             .with_module(ModuleModule)
             .with_module(NetModule)
             .with_module(ConsoleModule)

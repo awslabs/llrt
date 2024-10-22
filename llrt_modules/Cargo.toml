@@ -10,6 +10,7 @@ readme = "README.md"
 [features]
 default = ["all"]
 all = [
+  "abort",
   "buffer",
   "child-process",
   "crypto",
@@ -29,6 +30,7 @@ all = [
 ]
 
 # Modules
+abort = ["llrt_abort"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
 crypto = ["llrt_crypto"]
@@ -47,6 +49,7 @@ url = ["llrt_url"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
+llrt_abort = { version = "0.3.0-beta", path = "../modules/llrt_abort", optional = true }
 llrt_buffer = { version = "0.3.0-beta", path = "../modules/llrt_buffer", optional = true }
 llrt_child_process = { version = "0.3.0-beta", path = "../modules/llrt_child_process", optional = true }
 llrt_crypto = { version = "0.3.0-beta", path = "../modules/llrt_crypto", optional = true }
