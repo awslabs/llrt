@@ -312,7 +312,7 @@ mod tests {
     #[tokio::test]
     async fn test_incoming_lagged() {
         let mock_server = MockServer::start().await;
-        let welcome_message = vec![b'x'; 1024 * 1024 * 2];
+        let welcome_message = vec![b'x'; 1024 * 1024 * 50];
 
         Mock::given(matchers::path("some-path/"))
             .respond_with(ResponseTemplate::new(200).set_body_bytes(welcome_message.clone()))
