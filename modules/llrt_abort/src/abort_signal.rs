@@ -4,7 +4,6 @@ use std::sync::{Arc, RwLock};
 
 use llrt_events::{Emitter, EventEmitter, EventList};
 use llrt_exceptions::DOMException;
-use llrt_timers::set_timeout_interval;
 use llrt_utils::mc_oneshot;
 use rquickjs::{
     class::{Trace, Tracer},
@@ -184,11 +183,19 @@ impl<'js> AbortSignal<'js> {
             }),
         )?;
 
-        set_timeout_interval(&ctx, cb, milliseconds, false)?;
-
-        // ctx.clone().spawn_exit(async move {
-        //     tokio::time::sleep(Duration::from_millis(milliseconds)).await;
-        // })?;
+        #[cfg(feature = "sleep-timers")]
+        {
+            llrt_timers::set_timeout_interval(&ctx, cb, milliseconds, true)?;
+        }
+        #[cfg(feature = "sleep-tokio")]
+        {
+            use llrt_utils::ctx::CtxExtension;
+            ctx.clone().spawn_exit_simple(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(milliseconds)).await;
+                cb.call::<_, ()>(())?;
+                Ok(())
+            });
+        }
 
         Ok(signal_instance2)
     }

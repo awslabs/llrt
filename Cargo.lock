@@ -2627,6 +2627,7 @@ dependencies = [
  "llrt_timers",
  "llrt_utils",
  "rquickjs",
+ "tokio",
 ]
 
 [[package]]
