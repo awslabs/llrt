@@ -1,0 +1,15 @@
+[package]
+name = "llrt_navigator"
+description = "LLRT Module navigator"
+version = "0.3.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_navigator"
+path = "src/lib.rs"
+
+[dependencies]
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", default-features = false }

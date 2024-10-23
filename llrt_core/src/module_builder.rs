@@ -19,7 +19,7 @@ use crate::modules::{
     zlib::ZlibModule,
 };
 use llrt_modules::timers::TimersModule;
-pub use llrt_modules::ModuleInfo;
+pub use llrt_utils::module::ModuleInfo;
 use rquickjs::{
     loader::{BuiltinResolver, ModuleLoader, Resolver},
     module::ModuleDef,
@@ -74,6 +74,7 @@ impl Default for ModuleBuilder {
             .with_module(TimersModule)
             .with_module(EventsModule)
             .with_global(crate::modules::events::init)
+            .with_global(crate::modules::abort::init)
             .with_module(ModuleModule)
             .with_module(NetModule)
             .with_module(ConsoleModule)

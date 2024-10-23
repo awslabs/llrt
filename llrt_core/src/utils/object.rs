@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::{BTreeMap, HashMap};
 
-use rquickjs::{Array, Coerced, Ctx, FromJs, IntoJs, Object, Result, Value};
+use rquickjs::{Array, Coerced, Ctx, FromJs, Object, Result, Value};
 
 #[allow(dead_code)]
 pub fn array_to_hash_map<'js>(
@@ -35,21 +35,4 @@ pub fn object_from_entries<'js>(ctx: &Ctx<'js>, array: Array<'js>) -> Result<Obj
         }
     }
     Ok(obj)
-}
-
-pub fn map_to_entries<'js, K, V, M>(ctx: &Ctx<'js>, map: M) -> Result<Array<'js>>
-where
-    M: IntoIterator<Item = (K, V)>,
-    K: IntoJs<'js>,
-    V: IntoJs<'js>,
-{
-    let array = Array::new(ctx.clone())?;
-    for (idx, (key, value)) in map.into_iter().enumerate() {
-        let entry = Array::new(ctx.clone())?;
-        entry.set(0, key)?;
-        entry.set(1, value)?;
-        array.set(idx, entry)?;
-    }
-
-    Ok(array)
 }

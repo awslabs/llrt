@@ -1,6 +1,34 @@
 [workspace]
 resolver = "2"
-members = ["llrt_core", "llrt_modules", "llrt_utils", "llrt"]
+# Patch doesn't play well with *, so we have to list individual members
+# See https://github.com/rust-lang/cargo/issues/14717
+members = [
+  "modules/llrt_abort",
+  "modules/llrt_buffer",
+  "modules/llrt_child_process",
+  "modules/llrt_crypto",
+  "modules/llrt_events",
+  "modules/llrt_exceptions",
+  "modules/llrt_fs",
+  "modules/llrt_http",
+  "modules/llrt_json",
+  "modules/llrt_navigator",
+  "modules/llrt_net",
+  "modules/llrt_os",
+  "modules/llrt_path",
+  "modules/llrt_perf_hooks",
+  "modules/llrt_process",
+  "modules/llrt_stream",
+  "modules/llrt_timers",
+  "modules/llrt_url",
+  "modules/llrt_zlib",
+  "libs/llrt_build",
+  "libs/llrt_test",
+  "libs/llrt_utils",
+  "llrt_core",
+  "llrt_modules",
+  "llrt",
+]
 
 [profile.flame]
 inherits = "release"

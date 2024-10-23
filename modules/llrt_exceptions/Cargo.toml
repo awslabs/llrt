@@ -1,0 +1,16 @@
+[package]
+name = "llrt_exceptions"
+description = "LLRT Module exception"
+version = "0.3.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_exceptions"
+path = "src/lib.rs"
+
+[dependencies]
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
+  "macro",
+], default-features = false }

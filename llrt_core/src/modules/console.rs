@@ -8,6 +8,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use fxhash::FxHashSet;
+use llrt_json::{escape::escape_json, stringify::json_stringify};
 use llrt_utils::{class::get_class_name, object::CreateSymbol};
 use rquickjs::{
     atom::PredefinedAtom,
@@ -18,11 +19,10 @@ use rquickjs::{
     Array, Class, Coerced, Ctx, Function, Object, Result, Symbol, Type, Value,
 };
 
-use crate::json::stringify::json_stringify;
 use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::number::float_to_string;
-use crate::{json::escape::escape_json, runtime_client, utils::result::ResultExt};
+use crate::{runtime_client, utils::result::ResultExt};
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
@@ -998,11 +998,10 @@ impl Console {
 
 #[cfg(test)]
 mod tests {
-
+    use llrt_json::stringify::json_stringify_replacer_space;
     use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
 
     use crate::{
-        json::stringify::json_stringify_replacer_space,
         modules::console::{write_lambda_log, LogLevel},
         test_utils::utils::with_js_runtime,
     };

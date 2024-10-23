@@ -17,21 +17,23 @@ use hyper::{
 };
 use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{connect::HttpConnector, Client};
+use llrt_json::{
+    parse::json_parse,
+    stringify::{self, json_stringify},
+};
 use llrt_utils::class::get_class_name;
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
     CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
 };
-
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use crate::json::stringify::{self, json_stringify};
 use crate::modules::console;
 use crate::modules::http::HTTP_CLIENT;
+use crate::utils::latch::Latch;
 use crate::utils::result::ResultExt;
-use crate::{json::parse::json_parse, utils::latch::Latch};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";

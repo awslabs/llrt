@@ -1,6 +1,6 @@
 # LLRT Modules
 
-LLRT Modules is a library of [rquickjs](https://github.com/DelSkayn/rquickjs) modules that can be used independantly of LLRT (**L**ow **L**atency **R**un**t**ime). They aim to bring to [quickjs](https://bellard.org/quickjs/) APIs from [Node.js](https://nodejs.org/) and [WinterCG](https://wintercg.org/).
+LLRT Modules is a library of [rquickjs](https://github.com/DelSkayn/rquickjs) modules that can be used independantly of LLRT (**L**ow **L**atency **R**un**t**ime). They aim to bring to [quickjs](https://bellard.org/quickjs/) APIs from [Node.js](https://nodejs.org/) and [WinterCG](https://wintercg.org/). You can use this meta-library, but each module is also a unique crate.
 
 LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications.
 
@@ -53,24 +53,29 @@ async fn main() -> anyhow::Result<()> {
 > [!NOTE]
 > Only a fraction of the Node.js APIs are supported. Below is a high level overview of partially supported APIs and modules.
 
-|               | Node.js | LLRT Modules | Feature         |
-| ------------- | ------- | ------------ | --------------- |
-| buffer        | ✔︎     | ✔︎️         | `buffer`        |
-| child process | ✔︎     | ⚠️           | `child-process` |
-| crypto        | ✔︎     | ⚠️           | `crypto`        |
-| events        | ✔︎     | ⚠️           | `events`        |
-| exceptions    | ✔︎     | ⚠️           | `exceptions`    |
-| fs/promises   | ✔︎     | ⚠️           | `fs`            |
-| fs            | ✔︎     | ⚠️           | `fs`            |
-| navigator     | ✔︎     | ⚠️           | `navigator`     |
-| net           | ✔︎     | ⚠️           | `net`           |
-| os            | ✔︎     | ⚠️           | `os`            |
-| path          | ✔︎     | ✔︎          | `path`          |
-| perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    |
-| process       | ✔︎     | ✔︎          | `process`       |
-| url           | ✔︎     | ⚠️           | `url`           |
-| zlib          | ✔︎     | ⚠️           | `zlib`          |
-| Other modules | ✔︎     | ✘            | N/A             |
+|               | Node.js | LLRT Modules | Feature         | Crate                |
+| ------------- | ------- | ------------ | --------------- | -------------------- |
+| abort         | ✔︎     | ✔︎️         | `abort`         | `llrt_abort`         |
+| buffer        | ✔︎     | ✔︎️         | `buffer`        | `llrt_buffer`        |
+| child process | ✔︎     | ⚠️           | `child-process` | `llrt_child_process` |
+| crypto        | ✔︎     | ⚠️           | `crypto`        | `llrt_cryto`         |
+| events        | ✔︎     | ⚠️           | `events`        | `llrt_events`        |
+| exceptions    | ✔︎     | ⚠️           | `exceptions`    | `llrt_exceptions`    |
+| fs/promises   | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |
+| fs            | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |
+| http          | ✔︎     | ⚠️           | `http`          | `llrt_http`          |
+| json          | ✔︎     | ✔︎          | N/A             | `llrt_json`          |
+| navigator     | ✔︎     | ⚠️           | `navigator`     | `llrt_navigator`     |
+| net           | ✔︎     | ⚠️           | `net`           | `llrt_net`           |
+| os            | ✔︎     | ⚠️           | `os`            | `llrt_os`            |
+| path          | ✔︎     | ✔︎          | `path`          | `llrt_path`          |
+| perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    | `llrt_perf_hooks`    |
+| stream        | ✔︎     | ⚠️           | N/A             | `llrt_stream`        |
+| timers        | ✔︎     | ✔︎          | `timers`        | `llrt_timers`        |
+| process       | ✔︎     | ✔︎          | `process`       | `llrt_process`       |
+| url           | ✔︎     | ⚠️           | `url`           | `llrt_url`           |
+| zlib          | ✔︎     | ⚠️           | `zlib`          | `llrt_zlib`          |
+| Other modules | ✔︎     | ✘            | N/A             | N/A                  |
 
 _⚠️ = partially supported_
 _⏱ = planned partial support_

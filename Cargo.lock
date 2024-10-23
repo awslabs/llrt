@@ -2619,18 +2619,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_abort"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_events",
+ "llrt_exceptions",
+ "llrt_test",
+ "llrt_timers",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_buffer"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_build"
+version = "0.3.0-beta"
+dependencies = [
+ "rustc_version",
+]
+
+[[package]]
+name = "llrt_child_process"
+version = "0.3.0-beta"
+dependencies = [
+ "itoa",
+ "libc",
+ "llrt_buffer",
+ "llrt_events",
+ "llrt_stream",
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
 name = "llrt_core"
 version = "0.3.0-beta"
 dependencies = [
- "async-trait",
- "brotlic",
  "bytes",
  "cargo-patch",
  "chrono",
- "crc32c",
- "crc32fast",
  "criterion",
- "flate2",
  "fxhash",
  "home",
  "http-body-util",
@@ -2640,6 +2680,8 @@ dependencies = [
  "itoa",
  "jwalk",
  "libc",
+ "llrt_build",
+ "llrt_json",
  "llrt_modules",
  "llrt_utils",
  "md-5",
@@ -2658,44 +2700,241 @@ dependencies = [
  "terminal_size",
  "tokio",
  "tracing",
- "tracing-core",
  "url",
  "uuid",
  "uuid-simd",
- "webpki",
+ "wiremock",
+ "zstd",
+]
+
+[[package]]
+name = "llrt_crypto"
+version = "0.3.0-beta"
+dependencies = [
+ "crc32c",
+ "crc32fast",
+ "llrt_buffer",
+ "llrt_test",
+ "llrt_utils",
+ "md-5",
+ "memchr",
+ "once_cell",
+ "rand",
+ "ring",
+ "rquickjs",
+ "tokio",
+ "uuid",
+ "uuid-simd",
+]
+
+[[package]]
+name = "llrt_events"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_utils",
+ "rquickjs",
+ "tracing",
+]
+
+[[package]]
+name = "llrt_exceptions"
+version = "0.3.0-beta"
+dependencies = [
+ "rquickjs",
+]
+
+[[package]]
+name = "llrt_fs"
+version = "0.3.0-beta"
+dependencies = [
+ "either",
+ "llrt_buffer",
+ "llrt_path",
+ "llrt_test",
+ "llrt_utils",
+ "ring",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_http"
+version = "0.3.0-beta"
+dependencies = [
+ "brotlic",
+ "bytes",
+ "either",
+ "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "itoa",
+ "llrt_abort",
+ "llrt_json",
+ "llrt_test",
+ "llrt_url",
+ "llrt_utils",
+ "once_cell",
+ "pin-project-lite",
+ "rquickjs",
+ "rustls",
+ "ryu",
+ "tokio",
+ "tracing",
  "webpki-roots",
  "wiremock",
  "zstd",
 ]
 
 [[package]]
+name = "llrt_json"
+version = "0.3.0-beta"
+dependencies = [
+ "itoa",
+ "llrt_build",
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "ryu",
+ "simd-json",
+ "tokio",
+]
+
+[[package]]
 name = "llrt_modules"
 version = "0.3.0-beta"
 dependencies = [
- "brotlic",
- "crc32c",
- "crc32fast",
- "either",
- "flate2",
- "itoa",
- "libc",
+ "llrt_abort",
+ "llrt_buffer",
+ "llrt_child_process",
+ "llrt_crypto",
+ "llrt_events",
+ "llrt_exceptions",
+ "llrt_fs",
+ "llrt_http",
+ "llrt_navigator",
+ "llrt_net",
+ "llrt_os",
+ "llrt_path",
+ "llrt_perf_hooks",
+ "llrt_process",
+ "llrt_timers",
+ "llrt_url",
  "llrt_utils",
- "md-5",
- "memchr",
- "nanoid",
- "num_cpus",
- "once_cell",
+ "llrt_zlib",
+]
+
+[[package]]
+name = "llrt_navigator"
+version = "0.3.0-beta"
+dependencies = [
+ "rquickjs",
+]
+
+[[package]]
+name = "llrt_net"
+version = "0.3.0-beta"
+dependencies = [
+ "itoa",
+ "llrt_buffer",
+ "llrt_events",
+ "llrt_stream",
+ "llrt_test",
+ "llrt_utils",
  "rand",
- "ring",
  "rquickjs",
  "tokio",
  "tracing",
- "url",
- "uuid",
- "uuid-simd",
+]
+
+[[package]]
+name = "llrt_os"
+version = "0.3.0-beta"
+dependencies = [
+ "libc",
+ "llrt_test",
+ "llrt_utils",
+ "num_cpus",
+ "once_cell",
+ "rquickjs",
+ "tokio",
  "windows-registry",
  "windows-result",
  "windows-version",
+]
+
+[[package]]
+name = "llrt_path"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_utils",
+ "memchr",
+ "once_cell",
+ "rquickjs",
+]
+
+[[package]]
+name = "llrt_perf_hooks"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_process"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_stream"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_buffer",
+ "llrt_events",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_test"
+version = "0.3.0-beta"
+dependencies = [
+ "nanoid",
+ "rand",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_timers"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_test",
+ "llrt_utils",
+ "once_cell",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_url"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+ "url",
 ]
 
 [[package]]
@@ -2704,10 +2943,25 @@ version = "0.3.0-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
+ "llrt_build",
+ "llrt_test",
  "phf",
  "rquickjs",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "llrt_zlib"
+version = "0.3.0-beta"
+dependencies = [
+ "brotlic",
+ "flate2",
+ "llrt_buffer",
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
 ]
 
 [[package]]
@@ -4485,16 +4739,6 @@ checksum = "77afa9a11836342370f4817622a2f0f418b134426d91a82dfb48f532d2ec13ef"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed63aea5ce73d0ff405984102c42de94fc55a6b75765d621c65262469b3c9b53"
-dependencies = [
- "ring",
- "untrusted",
 ]
 
 [[package]]
