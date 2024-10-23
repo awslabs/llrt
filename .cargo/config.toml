@@ -9,5 +9,5 @@ linker = "./linker/cc-x86_64-linux-musl"
 ar = "./linker/ar"
 
 [unstable]
-#build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]
-#build-std-features = ["panic_immediate_abort"]
+build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]
+build-std-features = ["panic_immediate_abort"]
