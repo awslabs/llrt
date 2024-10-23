@@ -28,19 +28,19 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ inputs.toolchain }}
-      - name: Run build features
+      - name: Run build crates
         shell: bash
         env:
           RUSTFLAGS: ""
         run: |
           readarray crates < <(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in "${crates[@]}"; do
-            echo "Compiling feature: $crate"
+            echo "Compiling crate: $crate"
             cargo build -p $crate
           done
-      - name: Run build
+      - name: Run build all
         run: |
           cargo build -p llrt_modules
-      - name: Run tests
+      - name: Run tests all
         run: |
           cargo test -p llrt_modules
