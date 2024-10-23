@@ -35,7 +35,7 @@ jobs:
         run: |
           readarray crates < <(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in "${crates[@]}"; do
-            echo "Compiling feature: $feature"
+            echo "Compiling feature: $crate"
             cargo build -p $crate
           done
       - name: Run build
