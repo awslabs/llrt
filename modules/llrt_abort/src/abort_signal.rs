@@ -187,7 +187,7 @@ impl<'js> AbortSignal<'js> {
         {
             llrt_timers::set_timeout_interval(&ctx, cb, milliseconds, true)?;
         }
-        #[cfg(feature = "sleep-tokio")]
+        #[cfg(all(not(feature = "sleep-timers"), feature = "sleep-tokio"))]
         {
             use llrt_utils::ctx::CtxExtension;
             ctx.clone().spawn_exit_simple(async move {
@@ -195,6 +195,10 @@ impl<'js> AbortSignal<'js> {
                 cb.call::<_, ()>(())?;
                 Ok(())
             });
+        }
+        #[cfg(all(not(feature = "sleep-tokio"), not(feature = "sleep-timers")))]
+        {
+            compile_error!("Either the `sleep-tokio` or `sleep-timers` feature must be enabled")
         }
 
         Ok(signal_instance2)
