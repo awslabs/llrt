@@ -72,4 +72,8 @@ impl File {
     pub async fn array_buffer<'js>(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
         self.blob.array_buffer(ctx).await
     }
+
+    pub async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        self.blob.bytes(ctx).await
+    }
 }

@@ -216,3 +216,57 @@ impl<'js> CustomInspect<'js> for Headers {
         Ok(obj)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::test_async_with;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_header() {
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let mut headers = Headers::new(ctx.clone(), Opt(None)).unwrap();
+                headers.set("Content-Type".into(), "application/json".into());
+                headers.append("set-cookie".into(), "cookie1=value1".into());
+                headers.append("set-cookie".into(), "cookie2=value2".into());
+                headers.append("Accept-Encoding".into(), "deflate".into());
+                headers.append("Accept-Encoding".into(), "gzip".into());
+
+                assert_eq!(
+                    headers
+                        .get(ctx.clone(), "Content-Type".into())
+                        .unwrap()
+                        .as_string()
+                        .unwrap()
+                        .to_string()
+                        .unwrap(),
+                    "application/json"
+                );
+                assert_eq!(
+                    headers
+                        .get(ctx.clone(), "set-cookie".into())
+                        .unwrap()
+                        .as_string()
+                        .unwrap()
+                        .to_string()
+                        .unwrap(),
+                    "cookie1=value1, cookie2=value2"
+                );
+                assert_eq!(
+                    headers
+                        .get(ctx.clone(), "Accept-Encoding".into())
+                        .unwrap()
+                        .as_string()
+                        .unwrap()
+                        .to_string()
+                        .unwrap(),
+                    "deflate, gzip"
+                );
+            })
+        })
+        .await;
+    }
+}

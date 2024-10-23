@@ -7,6 +7,7 @@ use std::{
 };
 
 use brotlic::DecompressorReader as BrotliDecoder;
+use either::Either;
 use flate2::read::{GzDecoder, ZlibDecoder};
 use http_body_util::BodyExt;
 use hyper::{
@@ -15,6 +16,7 @@ use hyper::{
 };
 use llrt_abort::AbortSignal;
 use llrt_json::parse::json_parse;
+use llrt_url::url_class::URL;
 use llrt_utils::{bytes::ObjectBytes, ctx::CtxExtension};
 use llrt_utils::{mc_oneshot, result::ResultExt};
 use once_cell::sync::Lazy;
@@ -453,11 +455,19 @@ impl<'js> Response<'js> {
     }
 
     #[qjs(static)]
-    fn redirect(ctx: Ctx<'js>, url: String, status: Opt<u16>) -> Result<Self> {
+    fn redirect(
+        ctx: Ctx<'js>,
+        url: Either<URL<'js>, Coerced<String>>,
+        status: Opt<u16>,
+    ) -> Result<Self> {
         let status = status.0.unwrap_or(302_u16);
+        let url = match url {
+            Either::Left(url) => url.to_string(),
+            Either::Right(url) => url.0,
+        };
 
         let mut header = BTreeMap::new();
-        header.insert("location".to_string(), Coerced(url.to_string()));
+        header.insert("location".to_string(), Coerced(url));
         let headers = Headers::from_map(header);
         let headers = Class::instance(ctx.clone(), headers)?;
 

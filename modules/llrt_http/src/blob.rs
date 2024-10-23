@@ -97,7 +97,7 @@ impl Blob {
         ArrayBuffer::new(ctx, self.data.to_vec())
     }
 
-    async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+    pub async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         TypedArray::new(ctx, self.data.to_vec()).map(|m| m.into_value())
     }
 
