@@ -25,3 +25,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13
   "macro",
 ], default-features = false }
 tokio = { version = "1", features = ["time"], optional = true }
+
+[dev-dependencies]
+llrt_test = { path = "../../libs/llrt_test" }
+tokio = { version = "1", features = ["full"] }

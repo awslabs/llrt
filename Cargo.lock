@@ -2624,6 +2624,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_events",
  "llrt_exceptions",
+ "llrt_test",
  "llrt_timers",
  "llrt_utils",
  "rquickjs",

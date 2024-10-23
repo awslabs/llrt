@@ -185,7 +185,7 @@ impl<'js> AbortSignal<'js> {
 
         #[cfg(feature = "sleep-timers")]
         {
-            llrt_timers::set_timeout_interval(&ctx, cb, milliseconds, true)?;
+            llrt_timers::set_timeout_interval(&ctx, cb, milliseconds, false)?;
         }
         #[cfg(all(not(feature = "sleep-timers"), feature = "sleep-tokio"))]
         {
@@ -217,4 +217,35 @@ fn get_reason_or_dom_exception<'js>(
         Class::instance(ctx.clone(), ex)?.into_value()
     };
     Ok(reason)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use llrt_test::test_async_with;
+
+    use super::*;
+
+    #[cfg(feature = "sleep-timers")]
+    #[tokio::test]
+    async fn test_abort_signal() {
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            llrt_timers::init_timers(&ctx).unwrap();
+            Box::pin(async move {
+                let signal = AbortSignal::timeout(ctx, 5).unwrap();
+
+                assert!(!signal.borrow().aborted());
+
+                tokio::time::sleep(Duration::from_millis(50)).await;
+
+                assert!(signal.borrow().aborted());
+                let reason = signal.borrow().reason().unwrap();
+                let reason = Class::<DOMException>::from_value(&reason).unwrap();
+                assert_eq!(reason.borrow().name(), "TimeoutError");
+            })
+        })
+        .await;
+    }
 }

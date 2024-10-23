@@ -37,7 +37,7 @@ impl DOMException {
     }
 
     #[qjs(get)]
-    fn name(&self) -> String {
+    pub fn name(&self) -> String {
         self.name.clone()
     }
 
