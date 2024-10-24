@@ -499,6 +499,10 @@ fn package_exports_resolve<'a>(
                 }
             }
         }
+        // Check for browser field
+        if let Some(BorrowedValue::String(browser)) = map.get("browser") {
+            return Ok(browser.as_ref());
+        }
         // [ESM only] Check for module field
         if is_esm {
             if let Some(BorrowedValue::String(module)) = map.get("module") {
@@ -506,7 +510,6 @@ fn package_exports_resolve<'a>(
             }
         }
         // Check for main field
-        // Workaround for modules that have only “main” defined and whose entrypoint is not “index.js”
         if let Some(BorrowedValue::String(main)) = map.get("main") {
             return Ok(main.as_ref());
         }
