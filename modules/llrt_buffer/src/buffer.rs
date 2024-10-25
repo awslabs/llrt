@@ -334,8 +334,8 @@ impl ModuleDef for BufferModule {
         let buf: Constructor = globals.get(stringify!(Buffer))?;
 
         let constants = Object::new(ctx.clone())?;
-        constants.set("MAX_LENGTH", usize::MAX)?;
-        constants.set("MAX_STRING_LENGTH", (1u32 << 28) - 16)?;
+        constants.set("MAX_LENGTH", u32::MAX)?; // For QuickJS
+        constants.set("MAX_STRING_LENGTH", (1 << 30) - 1)?; // For QuickJS
 
         export_default(ctx, exports, |default| {
             default.set(stringify!(Buffer), buf)?;
