@@ -334,10 +334,7 @@ impl ModuleDef for BufferModule {
         let buf: Constructor = globals.get(stringify!(Buffer))?;
 
         let constants = Object::new(ctx.clone())?;
-        #[cfg(target_pointer_width = "32")]
-        constants.set("MAX_LENGTH", (1u32 << 30) - 1);
-        #[cfg(target_pointer_width = "64")]
-        constants.set("MAX_LENGTH", (1u64 << 53) - 1)?;
+        constants.set("MAX_LENGTH", usize::MAX)?;
         constants.set("MAX_STRING_LENGTH", (1u32 << 28) - 16)?;
 
         export_default(ctx, exports, |default| {
