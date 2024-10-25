@@ -323,6 +323,7 @@ impl ModuleDef for BufferModule {
         declare.declare(stringify!(Buffer))?;
         declare.declare("atob")?;
         declare.declare("btoa")?;
+        declare.declare("constants")?;
         declare.declare("default")?;
 
         Ok(())
@@ -332,10 +333,18 @@ impl ModuleDef for BufferModule {
         let globals = ctx.globals();
         let buf: Constructor = globals.get(stringify!(Buffer))?;
 
+        let constants = Object::new(ctx.clone())?;
+        #[cfg(target_pointer_width = "32")]
+        constants.set("MAX_LENGTH", (1u32 << 30) - 1);
+        #[cfg(target_pointer_width = "64")]
+        constants.set("MAX_LENGTH", (1u64 << 53) - 1)?;
+        constants.set("MAX_STRING_LENGTH", (1u32 << 28) - 16)?;
+
         export_default(ctx, exports, |default| {
             default.set(stringify!(Buffer), buf)?;
             default.set("atob", Func::from(atob))?;
             default.set("btoa", Func::from(btoa))?;
+            default.set("constants", constants)?;
             Ok(())
         })?;
 
