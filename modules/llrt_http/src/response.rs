@@ -6,9 +6,7 @@ use std::{
     time::Instant,
 };
 
-use brotlic::DecompressorReader as BrotliDecoder;
 use either::Either;
-use flate2::read::{GzDecoder, ZlibDecoder};
 use http_body_util::BodyExt;
 use hyper::{
     body::{Body, Incoming},
@@ -26,7 +24,6 @@ use rquickjs::{
     ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, TypedArray, Value,
 };
 use tokio::select;
-use zstd::stream::read::Decoder as ZstdDecoder;
 
 use super::{blob::Blob, headers::Headers};
 use crate::incoming::{self, IncomingReceiver};
@@ -162,10 +159,10 @@ impl<'js> Response<'js> {
         if let Some(content_encoding) = &self.content_encoding {
             let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
             match content_encoding.as_str() {
-                "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
-                "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
+                "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "deflate" => llrt_compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
                 _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
             };
             Ok(data)

@@ -396,15 +396,9 @@ fn get_option<'js, V: FromJs<'js> + Sized>(
 mod tests {
     use std::io::Read;
 
-    use brotlic::CompressorReader as BrotliEncoder;
-    use flate2::{
-        read::{GzEncoder, ZlibEncoder},
-        Compression,
-    };
     use llrt_test::test_async_with;
     use rquickjs::{prelude::Promise, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
-    use zstd::stream::read::Encoder as ZstdEncoder;
 
     use super::*;
 
@@ -559,7 +553,7 @@ mod tests {
             .await;
 
         let mut data: Vec<u8> = Vec::new();
-        ZstdEncoder::new(welcome_message.as_bytes(), 3)
+        llrt_compression::zstd::encoder(welcome_message.as_bytes(), 3)
             .unwrap()
             .read_to_end(&mut data)
             .unwrap();
@@ -573,7 +567,7 @@ mod tests {
             .await;
 
         let mut data: Vec<u8> = Vec::new();
-        BrotliEncoder::new(welcome_message.as_bytes())
+        llrt_compression::brotli::encoder(welcome_message.as_bytes())
             .read_to_end(&mut data)
             .unwrap();
         Mock::given(matchers::path("content-encoding/br/"))
@@ -586,9 +580,12 @@ mod tests {
             .await;
 
         let mut data: Vec<u8> = Vec::new();
-        GzEncoder::new(welcome_message.as_bytes(), Compression::default())
-            .read_to_end(&mut data)
-            .unwrap();
+        llrt_compression::gz::encoder(
+            welcome_message.as_bytes(),
+            llrt_compression::gz::Compression::default(),
+        )
+        .read_to_end(&mut data)
+        .unwrap();
         Mock::given(matchers::path("content-encoding/gzip/"))
             .respond_with(
                 ResponseTemplate::new(200)
@@ -599,9 +596,12 @@ mod tests {
             .await;
 
         let mut data: Vec<u8> = Vec::new();
-        ZlibEncoder::new(welcome_message.as_bytes(), Compression::default())
-            .read_to_end(&mut data)
-            .unwrap();
+        llrt_compression::zlib::encoder(
+            welcome_message.as_bytes(),
+            llrt_compression::zlib::Compression::default(),
+        )
+        .read_to_end(&mut data)
+        .unwrap();
         Mock::given(matchers::path("content-encoding/deflate/"))
             .respond_with(
                 ResponseTemplate::new(200)
