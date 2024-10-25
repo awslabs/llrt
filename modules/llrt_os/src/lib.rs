@@ -4,7 +4,7 @@ use std::env;
 
 use llrt_utils::{
     module::{export_default, ModuleInfo},
-    sysinfo::get_platform,
+    sysinfo::{get_arch, get_platform},
 };
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -41,6 +41,7 @@ impl ModuleDef for OsModule {
         declare.declare("version")?;
         declare.declare("EOL")?;
         declare.declare("availableParallelism")?;
+        declare.declare("arch")?;
 
         declare.declare("default")?;
 
@@ -59,6 +60,7 @@ impl ModuleDef for OsModule {
                 "availableParallelism",
                 Func::from(get_available_parallelism),
             )?;
+            default.set("arch", Func::from(get_arch))?;
 
             Ok(())
         })
@@ -224,6 +226,36 @@ mod tests {
 
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert!(result == EOL);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_arch() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { arch } from 'os';
+
+                        export async function test() {
+                            return arch()
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+
+                assert!(!result.is_empty()); // Format is platform dependant
             })
         })
         .await;

@@ -42,4 +42,10 @@ declare module "os" {
    * * `\r\n` on Windows
    */
   const EOL: string;
+
+  /**
+   * Returns the operating system CPU architecture for which the LLRT binary was compiled.
+   * Possible values are 'arm64', 'x64'. The return value is equivalent to `process.arch`.
+   */
+  export function arch(): string;
 }
