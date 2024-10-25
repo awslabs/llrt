@@ -369,12 +369,12 @@ There are many cases where LLRT shows notable performance drawbacks compared wit
 
 Clone code and cd to directory
 
-    git clone git@github.com:awslabs/llrt.git --recursive
+    git clone git@github.com:awslabs/llrt.git
     cd llrt
 
-Install git submodules if you've not cloned the repository with `--recursive`
+Install git submodules
 
-    git submodule update --init
+    git submodule update --init --checkout
 
 Install rust
 
