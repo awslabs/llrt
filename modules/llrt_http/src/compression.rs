@@ -48,10 +48,10 @@ pub(crate) mod zlib {
 pub(crate) mod brotli {
     #[cfg(feature = "brotli-c")]
     use std::io::BufRead;
-    #[cfg(feature = "brotli-rust")]
+    #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
     use std::io::Read;
 
-    #[cfg(feature = "brotli-rust")]
+    #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
     use brotli::Decompressor as BrotliDecoder;
     #[cfg(feature = "brotli-c")]
     use brotlic::DecompressorReader as BrotliDecoder;
@@ -61,7 +61,7 @@ pub(crate) mod brotli {
         BrotliDecoder::new(r)
     }
 
-    #[cfg(feature = "brotli-rust")]
+    #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
     pub fn decoder<R: Read>(r: R) -> BrotliDecoder<R> {
         BrotliDecoder::new(r, 8_096)
     }
