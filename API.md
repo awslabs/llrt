@@ -129,6 +129,12 @@ Available globally
 
 ## os
 
+[arch](https://nodejs.org/api/os.html#osarch)
+
+[availableParallelism](https://nodejs.org/api/os.html#osavailableparallelism)
+
+[EOL](https://nodejs.org/api/os.html#oseol)
+
 [platform](https://nodejs.org/api/os.html#osplatform)
 
 [release](https://nodejs.org/api/os.html#osrelease)
@@ -136,6 +142,8 @@ Available globally
 [tmpdir](https://nodejs.org/api/os.html#osplatform)
 
 [type](https://nodejs.org/api/os.html#ostype)
+
+[version](https://nodejs.org/api/os.html#osversion)
 
 ## path
 
