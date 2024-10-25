@@ -11,10 +11,18 @@ readme = "README.md"
 name = "llrt_zlib"
 path = "src/lib.rs"
 
+[features]
+default = ["compression-c"]
+
+compression-c = ["llrt_compression/brotli-c", "llrt_compression/flate2-c"]
+compression-rust = [
+  "llrt_compression/brotli-rust",
+  "llrt_compression/flate2-rust",
+]
+
 [dependencies]
-brotlic = { version = "0.8" }
-flate2 = { version = "1", features = ["zlib-ng"], default-features = false }
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
+llrt_compression = { version = "0.3.0-beta", path = "../../libs/llrt_compression", default-features = false }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features = [
   "ctx",
 ], default-features = false }

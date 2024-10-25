@@ -1,0 +1,32 @@
+[package]
+name = "llrt_compression"
+description = "LLRT compression helpers"
+version = "0.3.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_compression"
+path = "src/lib.rs"
+
+[features]
+default = ["all-c"]
+
+all-c = ["brotli-c", "flate2-c", "zstd-c"]
+all-rust = ["brotli-rust", "flate2-rust", "zstd-rust"]
+
+brotli-c = ["brotlic"]
+brotli-rust = ["brotli"]
+
+flate2-c = ["flate2/zlib-ng"]
+flate2-rust = ["flate2/miniz_oxide"]
+
+zstd-c = ["zstd"]
+zstd-rust = ["zstd"] # No pure rust implementation exists
+
+[dependencies]
+brotlic = { version = "0.8", optional = true }
+brotli = { version = "7", optional = true }
+flate2 = { version = "1", default-features = false, optional = true }
+zstd = { version = "0.13.2", default-features = false, optional = true }

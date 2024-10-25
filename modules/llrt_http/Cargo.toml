@@ -12,23 +12,17 @@ name = "llrt_http"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "brotli-c", "flate2-c"]
+default = ["http1", "http2", "compression-c"]
 
 http1 = ["hyper/http1", "hyper-rustls/http1"]
 http2 = ["hyper/http2", "hyper-rustls/http2"]
 
-brotli-c = ["brotlic"]
-brotli-rust = ["brotli"]
-
-flate2-c = ["flate2/zlib-ng"]
-flate2-rust = ["flate2/miniz_oxide"]
+compression-c = ["llrt_compression/all-c"]
+compression-rust = ["llrt_compression/all-rust"]
 
 [dependencies]
-brotlic = { version = "0.8", optional = true }
-brotli = { version = "7", optional = true }
 bytes = "1.6.1"
 either = "1"
-flate2 = { version = "1", default-features = false }
 http-body-util = "0.1.2"
 hyper = { version = "1.4.1", features = ["client"] }
 hyper-rustls = { version = "0.27.2", default-features = false, features = [
@@ -39,6 +33,7 @@ hyper-rustls = { version = "0.27.2", default-features = false, features = [
 hyper-util = "0.1.6"
 itoa = "1"
 llrt_abort = { version = "0.3.0-beta", path = "../llrt_abort" }
+llrt_compression = { version = "0.3.0-beta", path = "../../libs/llrt_compression", default-features = false }
 llrt_json = { version = "0.3.0-beta", path = "../llrt_json" }
 llrt_url = { version = "0.3.0-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features = [
@@ -57,10 +52,9 @@ ryu = "1.0.18"
 tokio = "1"
 tracing = "0.1"
 webpki-roots = "0.26.3"
-zstd = { version = "0.13.2", default-features = false }
 
 [dev-dependencies]
-brotlic = "0.8"
+llrt_compression = { version = "0.3.0-beta", path = "../../libs/llrt_compression" }
 llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 wiremock = "0.6.0"

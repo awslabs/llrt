@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::io::Read;
 
-use brotlic::{CompressorReader as BrotliEncoder, DecompressorReader as BrotliDecoder};
-use flate2::{
-    read::{DeflateDecoder, DeflateEncoder, GzDecoder, GzEncoder, ZlibDecoder, ZlibEncoder},
-    Compression,
-};
 use llrt_buffer::Buffer;
 use llrt_utils::{
     bytes::ObjectBytes,
@@ -85,22 +80,26 @@ fn zlib_converter<'js>(
 ) -> Result<Value<'js>> {
     let src = bytes.as_bytes();
 
-    let mut level = Compression::default();
+    let mut level = llrt_compression::zlib::Compression::default();
     if let Some(options) = options.0 {
         if let Some(opt) = options.get_optional("level")? {
-            level = Compression::new(opt);
+            level = llrt_compression::zlib::Compression::new(opt);
         }
     }
 
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        ZlibCommand::Deflate => ZlibEncoder::new(src, level).read_to_end(&mut dst)?,
-        ZlibCommand::DeflateRaw => DeflateEncoder::new(src, level).read_to_end(&mut dst)?,
-        ZlibCommand::Gzip => GzEncoder::new(src, level).read_to_end(&mut dst)?,
-        ZlibCommand::Inflate => ZlibDecoder::new(src).read_to_end(&mut dst)?,
-        ZlibCommand::InflateRaw => DeflateDecoder::new(src).read_to_end(&mut dst)?,
-        ZlibCommand::Gunzip => GzDecoder::new(src).read_to_end(&mut dst)?,
+        ZlibCommand::Deflate => {
+            llrt_compression::zlib::encoder(src, level).read_to_end(&mut dst)?
+        },
+        ZlibCommand::DeflateRaw => {
+            llrt_compression::deflate::encoder(src, level).read_to_end(&mut dst)?
+        },
+        ZlibCommand::Gzip => llrt_compression::gz::encoder(src, level).read_to_end(&mut dst)?,
+        ZlibCommand::Inflate => llrt_compression::zlib::decoder(src).read_to_end(&mut dst)?,
+        ZlibCommand::InflateRaw => llrt_compression::deflate::decoder(src).read_to_end(&mut dst)?,
+        ZlibCommand::Gunzip => llrt_compression::gz::decoder(src).read_to_end(&mut dst)?,
     };
 
     Buffer(dst).into_js(&ctx)
@@ -140,8 +139,10 @@ fn brotli_converter<'js>(
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 
     let _ = match command {
-        BrotliCommand::Compress => BrotliEncoder::new(src).read_to_end(&mut dst)?,
-        BrotliCommand::Decompress => BrotliDecoder::new(src).read_to_end(&mut dst)?,
+        BrotliCommand::Compress => llrt_compression::brotli::encoder(src).read_to_end(&mut dst)?,
+        BrotliCommand::Decompress => {
+            llrt_compression::brotli::decoder(src).read_to_end(&mut dst)?
+        },
     };
 
     Buffer(dst).into_js(&ctx)

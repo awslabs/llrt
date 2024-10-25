@@ -26,10 +26,7 @@ use rquickjs::{
 use tokio::select;
 
 use super::{blob::Blob, headers::Headers};
-use crate::{
-    compression,
-    incoming::{self, IncomingReceiver},
-};
+use crate::incoming::{self, IncomingReceiver};
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -162,10 +159,10 @@ impl<'js> Response<'js> {
         if let Some(content_encoding) = &self.content_encoding {
             let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
             match content_encoding.as_str() {
-                "zstd" => compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
-                "br" => compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
-                "gzip" => compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
-                "deflate" => compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
+                "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "deflate" => llrt_compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
                 _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
             };
             Ok(data)
