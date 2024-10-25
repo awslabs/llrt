@@ -2729,6 +2729,7 @@ dependencies = [
  "llrt_build",
  "llrt_json",
  "llrt_modules",
+ "llrt_test",
  "llrt_utils",
  "md-5",
  "nanoid",

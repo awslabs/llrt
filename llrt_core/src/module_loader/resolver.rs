@@ -14,6 +14,8 @@ use rquickjs::{loader::Resolver, Ctx, Error, Result};
 use simd_json::BorrowedValue;
 use tracing::trace;
 
+use super::CJS_IMPORT_PREFIX;
+
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
 static NODE_MODULES_PATHS_CACHE: Lazy<Mutex<HashMap<String, Vec<Box<str>>>>> =
@@ -48,7 +50,14 @@ pub struct CustomResolver;
 #[allow(clippy::manual_strip)]
 impl Resolver for CustomResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
+        if name.starts_with(CJS_IMPORT_PREFIX) {
+            return Ok(name.to_string());
+        }
+
+        let base = base.trim_start_matches(CJS_IMPORT_PREFIX);
+
         trace!("Try resolve '{}' from '{}'", name, base);
+
         require_resolve(ctx, name, base, true)
     }
 }

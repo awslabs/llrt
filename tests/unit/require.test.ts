@@ -94,3 +94,12 @@ it("should return all props", () => {
   const a = _require(`${CWD}/fixtures/define-property-export.cjs`);
   expect(a.__esModule).toBe(true);
 });
+
+it("should import cjs modules using import statement", async () => {
+  const a = await import(`${CWD}/fixtures/prop-export.cjs`);
+  const b = await import(`${CWD}/fixtures/prop-export.cjs`);
+  const c = _require(`${CWD}/fixtures/prop-export.cjs`);
+  expect(a).toStrictEqual(b);
+  expect(a.default).toStrictEqual(c);
+  expect(b.default).toStrictEqual(c);
+});

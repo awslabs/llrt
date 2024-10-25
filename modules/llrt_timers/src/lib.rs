@@ -193,7 +193,7 @@ impl From<TimersModule> for ModuleInfo<TimersModule> {
     }
 }
 
-pub fn init_timers(ctx: &Ctx<'_>) -> Result<()> {
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let rt_ptr = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
     let mut rt_timers = RT_TIMER_STATE.lock().unwrap();
@@ -345,7 +345,7 @@ mod tests {
     async fn test_timers() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init_timers(&ctx).unwrap();
+                init(&ctx).unwrap();
 
                 // Assume we have a TimersModule that provides setTimeout, setImmediate, and setInterval
                 ModuleEvaluator::eval_rust::<TimersModule>(ctx.clone(), "timers")

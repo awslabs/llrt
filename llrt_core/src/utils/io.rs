@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 pub use llrt_utils::fs::DirectoryWalker;
 
 pub fn get_basename_ext_name(path: &str) -> (&str, &str) {
-    let path = path.strip_prefix("./").unwrap_or(path);
+    let path = path.trim_start_matches("./");
     let (basename, ext) = path.rsplit_once('.').unwrap_or((path, ""));
     (basename, ext)
 }

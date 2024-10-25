@@ -6,8 +6,7 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
-    io,
-    path::{Path, PathBuf},
+    path::Path,
     process::exit,
     rc::Rc,
     result::Result as StdResult,
@@ -16,18 +15,16 @@ use std::{
 
 use llrt_json::{parse::json_parse, stringify::json_stringify_replacer_space};
 use llrt_modules::{
-    path::{resolve_path, resolve_path_with_separator},
+    path::{dirname, resolve_path},
     timers::{self, poll_timers},
 };
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
-use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
     function::Opt,
-    loader::{BuiltinLoader, FileResolver, Loader, ScriptLoader},
-    module::Declared,
+    loader::{BuiltinLoader, FileResolver, ScriptLoader},
     object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Filter, Function,
@@ -35,36 +32,21 @@ use rquickjs::{
 };
 use tokio::time::Instant;
 use tracing::trace;
-use zstd::{bulk::Decompressor, dict::DecoderDictionary};
+
+pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
 use crate::{
-    bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
-    custom_resolver::{require_resolve, CustomResolver},
     environment, http,
+    module_loader::{
+        loader::{CustomLoader, LoaderContainer},
+        resolver::CustomResolver,
+        CJS_IMPORT_PREFIX,
+    },
     modules::{console, crypto::SYSTEM_RANDOM},
     number::number_to_string,
     security,
     utils::clone::structured_clone,
 };
-
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
-#[cfg(feature = "lambda")]
-include!(concat!(env!("OUT_DIR"), "/sdk_client_endpoints.rs"));
-
-#[inline]
-pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
-    let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
-    let size: &[u8; 4] = size.try_into().map_err(|_| io::ErrorKind::InvalidInput)?;
-    let uncompressed_size = u32::from_le_bytes(*size) as usize;
-    let rest = &input[4..];
-    Ok((uncompressed_size, rest))
-}
-
-pub(crate) static COMPRESSION_DICT: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
-
-static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
-    Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
 
 fn print(value: String, stdout: Opt<bool>) {
     if stdout.0.unwrap_or_default() {
@@ -72,188 +54,6 @@ fn print(value: String, stdout: Opt<bool>) {
     } else {
         eprintln!("{value}")
     }
-}
-
-struct LoaderContainer<T>
-where
-    T: Loader + 'static,
-{
-    loader: T,
-}
-impl<T> LoaderContainer<T>
-where
-    T: Loader + 'static,
-{
-    fn new(loader: T) -> Self {
-        Self { loader }
-    }
-}
-
-impl<T> Loader for LoaderContainer<T>
-where
-    T: Loader + 'static,
-{
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
-        let res = self.loader.load(ctx, name)?;
-
-        let name = if let Some(name) = name.strip_prefix("./") {
-            name
-        } else {
-            name
-        };
-
-        if name.starts_with('/') {
-            set_import_meta(&res, name)?;
-        } else {
-            set_import_meta(&res, &resolve_path_with_separator([name], true))?;
-        };
-
-        Ok(res)
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct CustomLoader;
-
-impl Loader for CustomLoader {
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js, Declared>> {
-        trace!("Loading module: {}", name);
-        if name.ends_with(".json") {
-            let source = std::fs::read_to_string(name)?;
-            return Module::declare(ctx.clone(), name, ["export default ", &source].concat());
-        }
-
-        let ctx = ctx.clone();
-        if let Some(bytes) = BYTECODE_CACHE.get(name) {
-            #[cfg(feature = "lambda")]
-            init_client_connection(&ctx, name)?;
-
-            trace!("Loading embedded module: {}", name);
-
-            return load_bytecode_module(ctx, name, bytes);
-        }
-
-        let path = PathBuf::from(name);
-        let mut bytes: &[u8] = &std::fs::read(path)?;
-
-        if name.ends_with(".lrt") {
-            trace!("Loading binary module: {}", name);
-            return load_bytecode_module(ctx, name, bytes);
-        }
-        if bytes.starts_with(b"#!") {
-            bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
-        }
-        Module::declare(ctx, name, bytes)
-    }
-}
-
-#[cfg(feature = "lambda")]
-fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
-    use crate::{
-        modules::http::HTTP_CLIENT,
-        runtime_client::{check_client_inited, mark_client_inited},
-    };
-    use http_body_util::BodyExt;
-    use llrt_utils::result::ResultExt;
-
-    if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
-        let client_name = sdk_import.strip_prefix("client-").unwrap_or(sdk_import);
-        if let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) {
-            let endpoint = if endpoint.is_empty() {
-                client_name
-            } else {
-                endpoint
-            };
-
-            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-            let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
-
-            if !check_client_inited(rt, endpoint) {
-                let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
-
-                trace!("Started client init {}", client_name);
-                let region = env::var("AWS_REGION").unwrap();
-
-                let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
-
-                tokio::task::spawn(async move {
-                    let start = Instant::now();
-
-                    if let Ok(url) = url.parse() {
-                        if let Ok(mut res) = client.get(url).await {
-                            if let Ok(res) = res.body_mut().collect().await {
-                                let _ = res;
-
-                                mark_client_inited(rt_ptr as _);
-
-                                trace!("Client connection initialized in {:?}", start.elapsed());
-                            }
-                        }
-                    }
-                });
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub fn load_bytecode_module<'js>(
-    ctx: Ctx<'js>,
-    _name: &str,
-    buf: &[u8],
-) -> Result<Module<'js, Declared>> {
-    let bytes = get_module_bytecode(buf)?;
-    unsafe { Module::load(ctx, &bytes) }
-}
-
-fn get_module_bytecode(input: &[u8]) -> Result<Vec<u8>> {
-    let (_, compressed, input) = get_bytecode_signature(input)?;
-
-    if compressed {
-        let (size, input) = uncompressed_size(input)?;
-        let mut buf = Vec::with_capacity(size);
-        let mut decompressor = Decompressor::with_prepared_dictionary(&DECOMPRESSOR_DICT)?;
-        decompressor.decompress_to_buffer(input, &mut buf)?;
-        return Ok(buf);
-    }
-
-    Ok(input.to_vec())
-}
-
-fn get_bytecode_signature(input: &[u8]) -> StdResult<(&[u8], bool, &[u8]), io::Error> {
-    let raw_signature = input
-        .get(..SIGNATURE_LENGTH)
-        .ok_or(io::Error::new::<String>(
-            io::ErrorKind::InvalidInput,
-            "Invalid bytecode signature length".into(),
-        ))?;
-
-    let (last, signature) = raw_signature.split_last().unwrap();
-
-    if signature != BYTECODE_VERSION.as_bytes() {
-        return Err(io::Error::new::<String>(
-            io::ErrorKind::InvalidInput,
-            "Invalid bytecode version".into(),
-        ));
-    }
-
-    let mut compressed = None;
-    if *last == BYTECODE_COMPRESSED {
-        compressed = Some(true)
-    } else if *last == BYTECODE_UNCOMPRESSED {
-        compressed = Some(false)
-    }
-
-    let rest = &input[SIGNATURE_LENGTH..];
-    Ok((
-        signature,
-        compressed.ok_or(io::Error::new::<String>(
-            io::ErrorKind::InvalidInput,
-            "Invalid bytecode signature".into(),
-        ))?,
-        rest,
-    ))
 }
 
 pub struct Vm {
@@ -303,7 +103,6 @@ impl Vm {
             .expect("Failed to initialize SystemRandom");
 
         let mut file_resolver = FileResolver::default();
-        let custom_resolver = CustomResolver;
         let mut paths: Vec<&str> = Vec::with_capacity(10);
 
         paths.push(".");
@@ -327,7 +126,7 @@ impl Vm {
         let (builtin_resolver, module_loader, module_names, init_globals) =
             vm_options.module_builder.build();
 
-        let resolver = (builtin_resolver, custom_resolver, file_resolver);
+        let resolver = (builtin_resolver, CustomResolver, file_resolver);
 
         let loader = LoaderContainer::new((
             module_loader,
@@ -349,7 +148,8 @@ impl Vm {
                 for init_global in init_globals {
                     init_global(&ctx)?;
                 }
-                timers::init_timers(&ctx)?;
+                timers::init(&ctx)?;
+
                 init(&ctx, module_names)?;
                 Ok(())
             })()
@@ -537,23 +337,40 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         Func::from(move |ctx, specifier: String| -> Result<Value> {
             struct Args<'js>(Ctx<'js>);
             let Args(ctx) = Args(ctx);
-            let specifier = if let Some(striped_specifier) = specifier.strip_prefix("node:") {
-                striped_specifier.to_string()
-            } else {
-                specifier
-            };
-            let import_name = if module_names.contains(specifier.as_str()) {
-                specifier
-            } else {
-                let module_name = get_script_or_module_name(ctx.clone());
-                let abs_path = resolve_path([module_name].iter());
-                require_resolve(&ctx, &specifier, &abs_path, false)?
-            };
-
-            let import_name: Rc<str> = import_name.into();
 
             let globals = ctx.globals();
             let require_cache: Object = globals.get("__require_cache")?;
+
+            let is_cjs_import = specifier.starts_with(CJS_IMPORT_PREFIX);
+
+            let import_name: Rc<str>;
+
+            let is_json = specifier.ends_with(".json");
+
+            let import_specifier = if !is_cjs_import {
+                let specifier = if !is_json {
+                    specifier.trim_start_matches("node:").to_string()
+                } else {
+                    specifier
+                };
+
+                if module_names.contains(specifier.as_str()) {
+                    import_name = specifier.as_str().into();
+                    specifier
+                } else {
+                    let module_name = get_script_or_module_name(ctx.clone());
+                    let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
+                    let abs_path = resolve_path([module_name].iter());
+                    let import_directory = dirname(abs_path);
+                    let new_specifier = resolve_path([&import_directory, &specifier].iter());
+                    import_name = new_specifier.as_str().into();
+
+                    [CJS_IMPORT_PREFIX, &new_specifier].concat()
+                }
+            } else {
+                import_name = specifier[CJS_IMPORT_PREFIX.len()..].into();
+                specifier
+            };
 
             if let Some(cached_value) =
                 require_cache.get::<_, Option<Value>>(import_name.as_ref())?
@@ -561,21 +378,14 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 return Ok(cached_value);
             }
 
-            if import_name.ends_with(".json") {
-                let source = std::fs::read_to_string(import_name.as_ref())?;
-                let value = json_parse(&ctx, source)?;
-                require_cache.set(import_name.as_ref(), value.clone())?;
-                return Ok(value);
-            }
-
             let mut map = require_in_progress.lock().unwrap();
-            if let Some(obj) = map.get(import_name.as_ref()) {
+            if let Some(obj) = map.get(&import_name) {
                 let value = obj.clone().into_value();
                 require_cache.set(import_name.as_ref(), value.clone())?;
                 return Ok(value);
             }
 
-            trace!("Require: {}", import_name);
+            trace!("Require: {}", import_specifier);
 
             let obj = Object::new(ctx.clone())?;
             map.insert(import_name.clone(), obj.clone());
@@ -585,7 +395,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let current_exports = require_exports.lock().unwrap().replace(exports);
 
-            let import_promise = Module::import(&ctx, import_name.as_bytes().to_vec())?;
+            let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
 
             let exports = if let Some(current_exports) = current_exports {
                 require_exports.lock().unwrap().replace(current_exports)
@@ -599,7 +409,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let mut executing_timers = Vec::new();
 
-            let imported_object = loop {
+            let mut imported_object = loop {
                 if let Some(x) = import_promise.result::<Object>() {
                     break x?;
                 }
@@ -610,6 +420,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
                 ctx.execute_pending_job();
             };
+
+            if is_json {
+                imported_object = imported_object.get(PredefinedAtom::Default)?;
+            }
 
             require_in_progress
                 .lock()
@@ -680,10 +494,4 @@ fn get_script_or_module_name(ctx: Ctx<'_>) -> String {
         qjs::JS_FreeCString(ctx_ptr, c_str);
         res
     }
-}
-
-fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
-    let meta: Object = module.meta()?;
-    meta.prop("url", ["file://", filepath].concat())?;
-    Ok(())
 }

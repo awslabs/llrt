@@ -6,20 +6,16 @@
 #![cfg_attr(rust_nightly, feature(portable_simd))]
 
 mod bytecode;
-// #[cfg(not(feature = "lambda"))]
 pub mod compiler;
-// #[cfg(not(feature = "lambda"))]
 mod compiler_common;
 pub mod environment;
 mod http;
-// mod minimal_tracer;
-mod custom_resolver;
 mod module_builder;
+mod module_loader;
 pub mod modules;
 pub mod number;
 pub mod runtime_client;
 mod security;
-mod test_utils;
 pub mod utils;
 pub mod vm;
 

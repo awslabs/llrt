@@ -112,7 +112,7 @@ fn strip_last_sep(path: &str) -> &str {
     }
 }
 
-fn basename(path: String, suffix: Opt<String>) -> String {
+pub fn basename(path: String, suffix: Opt<String>) -> String {
     #[cfg(windows)]
     {
         if path.is_empty() || path == MAIN_SEPARATOR_STR || path == FORWARD_SLASH_STR {

@@ -402,13 +402,14 @@ fn append_ctor_value<'js>(
 #[cfg(test)]
 mod tests {
 
+    use llrt_test::test_sync_with;
     use rquickjs::{function::Opt, Object, Value};
 
-    use crate::{test_utils::utils::with_js_runtime, utils::clone::structured_clone};
+    use crate::utils::clone::structured_clone;
 
     #[tokio::test]
     async fn clone() {
-        with_js_runtime(|ctx| {
+        test_sync_with(|ctx| {
             crate::modules::buffer::init(&ctx)?;
             let value: Object = ctx.eval(
                 r#"
@@ -455,7 +456,7 @@ a
 
     #[tokio::test]
     async fn clone_circular() {
-        with_js_runtime(|ctx| {
+        test_sync_with(|ctx| {
             let _value: Object = ctx.eval(
                 r#"
 const originalObject = { foo: { bar: "baz",arr: [1,2,3] }  };

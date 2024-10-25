@@ -94,6 +94,7 @@ llrt_build = { path = "../libs/llrt_build" }
 [dev-dependencies]
 wiremock = "0.6.0"
 criterion = "0.5.1"
+llrt_test = { path = "../libs/llrt_test" }
 
 [[bench]]
 name = "json"

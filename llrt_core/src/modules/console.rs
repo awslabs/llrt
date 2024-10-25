@@ -999,16 +999,14 @@ impl Console {
 #[cfg(test)]
 mod tests {
     use llrt_json::stringify::json_stringify_replacer_space;
+    use llrt_test::test_sync_with;
     use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
 
-    use crate::{
-        modules::console::{write_lambda_log, LogLevel},
-        test_utils::utils::with_js_runtime,
-    };
+    use crate::modules::console::{write_lambda_log, LogLevel};
 
     #[tokio::test]
     async fn json_log_format() {
-        with_js_runtime(|ctx| {
+        test_sync_with(|ctx| {
             let write_log = |args| {
                 let mut result = String::new();
 
@@ -1091,7 +1089,7 @@ mod tests {
 
     #[tokio::test]
     async fn standard_log_format() {
-        with_js_runtime(|ctx| {
+        test_sync_with(|ctx| {
             let write_log = |args| {
                 let mut result = String::new();
 
