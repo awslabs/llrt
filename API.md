@@ -11,6 +11,10 @@
 
 [concat](https://nodejs.org/api/buffer.html#static-method-bufferconcatlist-totallength)
 
+[constants.MAX_LENGTH](https://nodejs.org/api/buffer.html#bufferconstantsmax_length)
+
+[constants.MAX_STRING_LENGTH](https://nodejs.org/api/buffer.html#bufferconstantsmax_string_length)
+
 [from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
 
 Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
