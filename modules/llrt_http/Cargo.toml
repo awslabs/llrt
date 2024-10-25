@@ -12,16 +12,23 @@ name = "llrt_http"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2"]
+default = ["http1", "http2", "brotli-c", "flate2-c"]
 
 http1 = ["hyper/http1", "hyper-rustls/http1"]
 http2 = ["hyper/http2", "hyper-rustls/http2"]
 
+brotli-c = ["brotlic"]
+brotli-rust = ["brotli"]
+
+flate2-c = ["flate2/zlib-ng"]
+flate2-rust = ["flate2/miniz_oxide"]
+
 [dependencies]
-brotlic = "0.8"
+brotlic = { version = "0.8", optional = true }
+brotli = { version = "7", optional = true }
 bytes = "1.6.1"
 either = "1"
-flate2 = { version = "1", features = ["zlib-ng"], default-features = false }
+flate2 = { version = "1", default-features = false }
 http-body-util = "0.1.2"
 hyper = { version = "1.4.1", features = ["client"] }
 hyper-rustls = { version = "0.27.2", default-features = false, features = [
@@ -53,6 +60,7 @@ webpki-roots = "0.26.3"
 zstd = { version = "0.13.2", default-features = false }
 
 [dev-dependencies]
+brotlic = "0.8"
 llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 wiremock = "0.6.0"

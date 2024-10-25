@@ -6,9 +6,7 @@ use std::{
     time::Instant,
 };
 
-use brotlic::DecompressorReader as BrotliDecoder;
 use either::Either;
-use flate2::read::{GzDecoder, ZlibDecoder};
 use http_body_util::BodyExt;
 use hyper::{
     body::{Body, Incoming},
@@ -26,10 +24,12 @@ use rquickjs::{
     ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, TypedArray, Value,
 };
 use tokio::select;
-use zstd::stream::read::Decoder as ZstdDecoder;
 
 use super::{blob::Blob, headers::Headers};
-use crate::incoming::{self, IncomingReceiver};
+use crate::{
+    compression,
+    incoming::{self, IncomingReceiver},
+};
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -162,10 +162,10 @@ impl<'js> Response<'js> {
         if let Some(content_encoding) = &self.content_encoding {
             let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
             match content_encoding.as_str() {
-                "zstd" => ZstdDecoder::new(&bytes[..])?.read_to_end(&mut data)?,
-                "br" => BrotliDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                "gzip" => GzDecoder::new(&bytes[..]).read_to_end(&mut data)?,
-                "deflate" => ZlibDecoder::new(&bytes[..]).read_to_end(&mut data)?,
+                "zstd" => compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
+                "br" => compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "gzip" => compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "deflate" => compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
                 _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
             };
             Ok(data)

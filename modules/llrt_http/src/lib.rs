@@ -22,6 +22,7 @@ use self::{file::File, headers::Headers, request::Request, response::Response};
 
 mod blob;
 mod body;
+mod compression;
 mod fetch;
 mod file;
 mod headers;
