@@ -225,6 +225,8 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     };
     use http_body_util::BodyExt;
     use llrt_utils::result::ResultExt;
+    use rquickjs::qjs;
+    use std::{env, time::Instant};
 
     if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
         let client_name = sdk_import.trim_start_matches("client-");
