@@ -147,7 +147,7 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 ### ESBuild
 
 ```shell
-esbuild index.js --platform=node --target=es2023 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy
+esbuild index.js --platform=browser --target=es2023 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy
 ```
 
 ### Rollup
