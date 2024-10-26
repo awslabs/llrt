@@ -302,32 +302,19 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_exports: Rc<Mutex<Option<Value>>> = Rc::new(Mutex::new(None));
     let require_exports2 = require_exports.clone();
     let require_exports3 = require_exports.clone();
-    let require_exports4 = require_exports.clone();
-    let require_exports5 = require_exports.clone();
 
     let module = Object::new(ctx.clone())?;
 
-    module.prop(
-        "exports",
+    let exports_accessor =
         Accessor::from(move || require_exports2.lock().unwrap().as_ref().cloned())
             .set(move |exports| {
                 require_exports3.lock().unwrap().replace(exports);
             })
-            .configurable()
-            .enumerable(),
-    )?;
+            .enumerable();
 
+    globals.prop("exports", exports_accessor.clone())?;
+    module.prop("exports", exports_accessor)?;
     globals.prop("module", module)?;
-
-    globals.prop(
-        "exports",
-        Accessor::from(move || require_exports4.lock().unwrap().as_ref().cloned())
-            .set(move |exports| {
-                require_exports5.lock().unwrap().replace(exports);
-            })
-            .enumerable()
-            .configurable(),
-    )?;
 
     let require_cache: Object = Object::new(ctx.clone())?;
     globals.set("__require_cache", require_cache)?;
@@ -395,12 +382,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
 
-            let exports = if let Some(current_exports) = current_exports {
-                require_exports.lock().unwrap().replace(current_exports)
-            } else {
-                require_exports.lock().unwrap().take()
-            };
-
             let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
             let mut deadline = Instant::now();
@@ -417,6 +398,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 }
 
                 ctx.execute_pending_job();
+            };
+
+            let exports = if let Some(current_exports) = current_exports {
+                require_exports.lock().unwrap().replace(current_exports)
+            } else {
+                require_exports.lock().unwrap().take()
             };
 
             if is_json {

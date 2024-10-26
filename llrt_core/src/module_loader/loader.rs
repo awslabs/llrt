@@ -140,7 +140,7 @@ impl Loader for CustomLoader {
             let prefix = "export default JSON.parse(`";
             let sufix = "`);";
             let mut json = String::with_capacity(
-                (file.metadata()?.size() as usize) + prefix.len() + sufix.len(),
+                (file.metadata()?.len() as usize) + prefix.len() + sufix.len(),
             );
             json.push_str(prefix);
             file.read_to_string(&mut json)?;
