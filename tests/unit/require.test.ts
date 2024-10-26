@@ -103,3 +103,9 @@ it("should import cjs modules using import statement", async () => {
   expect(a.default).toStrictEqual(c);
   expect(b.default).toStrictEqual(c);
 });
+
+it("should handle inner referenced exports", () => {
+  const a = _require(`${CWD}/fixtures/referenced-exports.cjs`);
+  expect(a.cat()).toBe("str");
+  expect(a.length()).toBe(1);
+});

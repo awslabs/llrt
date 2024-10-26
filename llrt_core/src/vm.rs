@@ -6,6 +6,7 @@ use std::{
     env,
     ffi::CStr,
     fmt::Write,
+    fs,
     path::Path,
     process::exit,
     rc::Rc,
@@ -25,7 +26,6 @@ use rquickjs::{
     context::EvalOptions,
     function::Opt,
     loader::{BuiltinLoader, FileResolver, ScriptLoader},
-    object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Filter, Function,
     IntoJs, Module, Object, Result, Value,
@@ -299,23 +299,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_in_progress: Rc<Mutex<HashMap<Rc<str>, Object>>> =
         Rc::new(Mutex::new(HashMap::new()));
 
-    let require_exports: Rc<Mutex<Option<Value>>> = Rc::new(Mutex::new(None));
-    let require_exports2 = require_exports.clone();
-    let require_exports3 = require_exports.clone();
-
-    let module = Object::new(ctx.clone())?;
-
-    let exports_accessor =
-        Accessor::from(move || require_exports2.lock().unwrap().as_ref().cloned())
-            .set(move |exports| {
-                require_exports3.lock().unwrap().replace(exports);
-            })
-            .enumerable();
-
-    globals.prop("exports", exports_accessor.clone())?;
-    module.prop("exports", exports_accessor)?;
-    globals.prop("module", module)?;
-
     let require_cache: Object = Object::new(ctx.clone())?;
     globals.set("__require_cache", require_cache)?;
 
@@ -324,9 +307,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
         Func::from(move |ctx, specifier: String| -> Result<Value> {
             struct Args<'js>(Ctx<'js>);
             let Args(ctx) = Args(ctx);
-
-            let globals = ctx.globals();
-            let require_cache: Object = globals.get("__require_cache")?;
 
             let is_cjs_import = specifier.starts_with(CJS_IMPORT_PREFIX);
 
@@ -350,12 +330,19 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     let abs_path = resolve_path([module_name].iter());
                     let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?;
                     import_name = resolved_path.as_str().into();
-                    [CJS_IMPORT_PREFIX, &resolved_path].concat()
+                    if !is_cjs_import {
+                        [CJS_IMPORT_PREFIX, &resolved_path].concat()
+                    } else {
+                        resolved_path
+                    }
                 }
             } else {
                 import_name = specifier[CJS_IMPORT_PREFIX.len()..].into();
                 specifier
             };
+
+            let globals = ctx.globals();
+            let require_cache: Object = globals.get("__require_cache")?;
 
             if let Some(cached_value) =
                 require_cache.get::<_, Option<Value>>(import_name.as_ref())?
@@ -363,8 +350,15 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 return Ok(cached_value);
             }
 
-            let mut map = require_in_progress.lock().unwrap();
-            if let Some(obj) = map.get(&import_name) {
+            if is_json {
+                let json = fs::read_to_string(import_name.as_ref())?;
+                let json = json_parse(&ctx, json)?;
+                require_cache.set(import_name.as_ref(), json.clone())?;
+                return Ok(json);
+            }
+
+            let mut require_in_progress_map = require_in_progress.lock().unwrap();
+            if let Some(obj) = require_in_progress_map.get(&import_name) {
                 let value = obj.clone().into_value();
                 require_cache.set(import_name.as_ref(), value.clone())?;
                 return Ok(value);
@@ -373,12 +367,14 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             trace!("Require: {}", import_specifier);
 
             let obj = Object::new(ctx.clone())?;
-            map.insert(import_name.clone(), obj.clone());
-            drop(map);
+            require_in_progress_map.insert(import_name.clone(), obj.clone());
+            drop(require_in_progress_map);
 
-            let exports = Object::new(ctx.clone())?.into_value();
-
-            let current_exports = require_exports.lock().unwrap().replace(exports);
+            let exports_obj = Object::new(ctx.clone())?.into_value();
+            let module_obj = Object::new(ctx.clone())?;
+            module_obj.set("exports", exports_obj.clone())?;
+            globals.set("exports", exports_obj.clone())?;
+            globals.set("module", module_obj.clone())?;
 
             let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
 
@@ -388,7 +384,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let mut executing_timers = Vec::new();
 
-            let mut imported_object = loop {
+            let imported_object = loop {
                 if let Some(x) = import_promise.result::<Object>() {
                     break x?;
                 }
@@ -400,36 +396,37 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 ctx.execute_pending_job();
             };
 
-            let exports = if let Some(current_exports) = current_exports {
-                require_exports.lock().unwrap().replace(current_exports)
+            let new_exports: Value = globals.get("exports")?;
+            let mut exports_obj = if exports_obj != new_exports {
+                new_exports
             } else {
-                require_exports.lock().unwrap().take()
+                exports_obj
             };
-
-            if is_json {
-                imported_object = imported_object.get(PredefinedAtom::Default)?;
-            }
+            let new_module: Object = globals.get("module")?;
+            if let Some(exports) = new_module.get_optional("exports")? {
+                if exports != exports_obj {
+                    exports_obj = exports;
+                }
+            };
 
             require_in_progress
                 .lock()
                 .unwrap()
                 .remove(import_name.as_ref());
 
-            if let Some(exports) = exports {
-                if exports.type_of() == rquickjs::Type::Object {
-                    if let Some(exports) = exports.as_object() {
-                        for prop in exports
-                            .own_props::<Value, Value>(Filter::new().private().string().symbol())
-                        {
-                            let (key, value) = prop?;
-                            obj.set(key, value)?;
-                        }
+            if exports_obj.type_of() == rquickjs::Type::Object {
+                if let Some(exports) = exports_obj.as_object() {
+                    for prop in
+                        exports.own_props::<Value, Value>(Filter::new().private().string().symbol())
+                    {
+                        let (key, value) = prop?;
+                        obj.set(key, value)?;
                     }
-                } else {
-                    //we have explicitly set it
-                    require_cache.set(import_name.as_ref(), exports.clone())?;
-                    return Ok(exports);
                 }
+            } else {
+                //we have explicitly set it
+                require_cache.set(import_name.as_ref(), exports_obj.clone())?;
+                return Ok(exports_obj);
             }
 
             for prop in imported_object.props::<String, Value>() {

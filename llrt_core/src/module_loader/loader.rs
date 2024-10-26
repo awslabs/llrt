@@ -4,7 +4,6 @@ use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use std::{
     fs::File,
     io::{self, Read},
-    os::unix::fs::MetadataExt,
     result::Result as StdResult,
 };
 use tracing::trace;
@@ -134,22 +133,24 @@ impl Loader for CustomLoader {
         let ctx = ctx.clone();
 
         trace!("Loading module: {}", name);
-        if name.ends_with(".json") {
-            //avoids copy and additional string allocations
-            let mut file = File::open(path)?;
-            let prefix = "export default JSON.parse(`";
-            let sufix = "`);";
-            let mut json = String::with_capacity(
-                (file.metadata()?.len() as usize) + prefix.len() + sufix.len(),
-            );
-            json.push_str(prefix);
-            file.read_to_string(&mut json)?;
-            json.push_str(sufix);
-
-            return Module::declare(ctx, name, json);
-        }
 
         if !from_cjs_import {
+            //json files can never be from CJS imports as they are handled by require
+            if name.ends_with(".json") {
+                //avoids copy and additional string allocations
+                let mut file = File::open(path)?;
+                let prefix = "export default JSON.parse(`";
+                let sufix = "`);";
+                let mut json = String::with_capacity(
+                    (file.metadata()?.len() as usize) + prefix.len() + sufix.len(),
+                );
+                json.push_str(prefix);
+                file.read_to_string(&mut json)?;
+                json.push_str(sufix);
+
+                return Module::declare(ctx, name, json);
+            }
+
             if let Some(bytes) = BYTECODE_CACHE.get(name) {
                 #[cfg(feature = "lambda")]
                 init_client_connection(&ctx, name)?;
