@@ -15,7 +15,7 @@ use std::{
 
 use llrt_json::{parse::json_parse, stringify::json_stringify_replacer_space};
 use llrt_modules::{
-    path::{dirname, resolve_path},
+    path::resolve_path,
     timers::{self, poll_timers},
 };
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
@@ -39,7 +39,7 @@ use crate::{
     environment, http,
     module_loader::{
         loader::{CustomLoader, LoaderContainer},
-        resolver::CustomResolver,
+        resolver::{require_resolve, CustomResolver},
         CJS_IMPORT_PREFIX,
     },
     modules::{console, crypto::SYSTEM_RANDOM},
@@ -361,11 +361,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     let module_name = get_script_or_module_name(ctx.clone());
                     let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
                     let abs_path = resolve_path([module_name].iter());
-                    let import_directory = dirname(abs_path);
-                    let new_specifier = resolve_path([&import_directory, &specifier].iter());
-                    import_name = new_specifier.as_str().into();
-
-                    [CJS_IMPORT_PREFIX, &new_specifier].concat()
+                    let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?;
+                    import_name = resolved_path.as_str().into();
+                    [CJS_IMPORT_PREFIX, &resolved_path].concat()
                 }
             } else {
                 import_name = specifier[CJS_IMPORT_PREFIX.len()..].into();

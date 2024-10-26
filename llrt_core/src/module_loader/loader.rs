@@ -1,7 +1,12 @@
 use llrt_modules::path::resolve_path_with_separator;
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Loader, Ctx, Error, Function, Module, Object, Result, Value};
-use std::{fs, io, path::Path, result::Result as StdResult};
+use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
+use std::{
+    fs::File,
+    io::{self, Read},
+    os::unix::fs::MetadataExt,
+    result::Result as StdResult,
+};
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
@@ -118,49 +123,45 @@ impl CustomLoader {
 
 impl Loader for CustomLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
-        let mut is_cjs_path = false;
+        let mut from_cjs_import = false;
         let path = if let Some(cjs_path) = name.strip_prefix(CJS_IMPORT_PREFIX) {
-            is_cjs_path = true;
+            from_cjs_import = true;
             cjs_path
         } else {
             name
         };
 
+        let ctx = ctx.clone();
+
         trace!("Loading module: {}", name);
         if name.ends_with(".json") {
-            let file_path = Path::new(path);
+            //avoids copy and additional string allocations
+            let mut file = File::open(path)?;
+            let prefix = "export default JSON.parse(`";
+            let sufix = "`);";
+            let mut json = String::with_capacity(
+                (file.metadata()?.size() as usize) + prefix.len() + sufix.len(),
+            );
+            json.push_str(prefix);
+            file.read_to_string(&mut json)?;
+            json.push_str(sufix);
 
-            let mut path = path;
+            return Module::declare(ctx, name, json);
+        }
 
-            if !file_path.exists() {
-                path = &path[path.rfind('/').map(|p| p + 1).unwrap_or_default()..];
-                if !Path::new(path).exists() {
-                    return Err(Error::new_loading(name));
-                }
+        if !from_cjs_import {
+            if let Some(bytes) = BYTECODE_CACHE.get(name) {
+                #[cfg(feature = "lambda")]
+                init_client_connection(&ctx, name)?;
+
+                trace!("Loading embedded module: {}", name);
+
+                return Self::load_bytecode_module(ctx, bytes);
             }
 
-            let source = fs::read_to_string(path)?;
-            let value = llrt_json::parse::json_parse(ctx, source)?;
-            ctx.globals().set("__json_import", value)?;
-            return Module::declare(
-                ctx.clone(),
-                name,
-                "const value=__json_import;delete globalThis.__json_import;export default value;",
-            );
-        }
-
-        let ctx = ctx.clone();
-        if let Some(bytes) = BYTECODE_CACHE.get(name) {
-            #[cfg(feature = "lambda")]
-            init_client_connection(&ctx, name)?;
-
-            trace!("Loading embedded module: {}", name);
-
-            return Self::load_bytecode_module(ctx, bytes);
-        }
-
-        if !is_cjs_path && name.ends_with(".cjs") {
-            return Self::load_cjs_module(name, ctx);
+            if name.ends_with(".cjs") {
+                return Self::load_cjs_module(name, ctx);
+            }
         }
 
         let mut bytes: &[u8] = &std::fs::read(path)?;
@@ -169,7 +170,7 @@ impl Loader for CustomLoader {
             trace!("Loading binary module: {}", name);
             return Self::load_bytecode_module(ctx, bytes);
         }
-        if bytes.starts_with(b"#!") {
+        if !from_cjs_import && bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
 
