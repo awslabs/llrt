@@ -5,6 +5,7 @@ use std::{
     env,
     net::{Ipv4Addr, Ipv6Addr},
     sync::{Arc, Mutex},
+    thread,
 };
 
 use llrt_utils::{
@@ -47,8 +48,10 @@ fn get_available_parallelism() -> usize {
 
 fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
     let mut vec: Vec<Object> = Vec::new();
+    let mut system = SYSTEM.lock().unwrap();
 
-    let system = SYSTEM.lock().unwrap();
+    thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    system.refresh_cpu_all();
 
     for cpu in system.cpus() {
         let obj = Object::new(ctx.clone())?;
@@ -327,153 +330,76 @@ impl From<OsModule> for ModuleInfo<OsModule> {
 #[cfg(test)]
 mod tests {
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
+    use rquickjs::{Ctx, Value};
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_type() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
-                    .await
-                    .unwrap();
+    async fn run_test_return_string(
+        ctx: &Ctx<'_>,
+        name: &str,
+        is_function: bool,
+        expected_assertion: impl Fn(String),
+    ) {
+        ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+            .await
+            .unwrap();
 
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { type } from 'os';
+        let brackets = if is_function { "()" } else { "" };
+        let module = ModuleEvaluator::eval_js(
+            ctx.clone(),
+            "test",
+            &format!(
+                r#"
+                    import {{ {} }} from 'os';
 
-                        export async function test() {
-                            return type()
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
+                    export async function test() {{
+                        return {}{}
+                    }}
+                "#,
+                name, name, brackets
+            ),
+        )
+        .await
+        .unwrap();
 
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-
-                assert!(result == "Linux" || result == "Windows_NT" || result == "Darwin");
-            })
-        })
-        .await;
+        let result = call_test::<String, _>(ctx, &module, ()).await;
+        expected_assertion(result);
     }
 
-    #[tokio::test]
-    async fn test_release() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
-                    .await
-                    .unwrap();
+    async fn run_test_return_number(ctx: &Ctx<'_>, name: &str, expected_assertion: impl Fn(Value)) {
+        ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+            .await
+            .unwrap();
 
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { release } from 'os';
+        let module = ModuleEvaluator::eval_js(
+            ctx.clone(),
+            "test",
+            &format!(
+                r#"
+                    import {{ {} }} from 'os';
 
-                        export async function test() {
-                            return release()
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
+                    export async function test() {{
+                        return {}()
+                    }}
+                "#,
+                name, name
+            ),
+        )
+        .await
+        .unwrap();
 
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-
-                assert!(!result.is_empty()); // Format is platform dependant
-            })
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_version() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { version } from 'os';
-
-                        export async function test() {
-                            return version()
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-
-                assert!(!result.is_empty()); // Format is platform dependant
-            })
-        })
-        .await;
+        let result = call_test::<Value, _>(ctx, &module, ()).await;
+        expected_assertion(result);
     }
 
     #[tokio::test]
     async fn test_available_parallelism() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { availableParallelism } from 'os';
-
-                        export async function test() {
-                            return availableParallelism()
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-
-                let result = call_test::<usize, _>(&ctx, &module, ()).await;
-
-                assert!(result > 0);
-            })
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_eol() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { EOL } from 'os';
-
-                        export async function test() {
-                            return EOL
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-                assert!(result == EOL);
+                run_test_return_number(&ctx, "availableParallelism", |result| {
+                    assert!(result.is_number()); // platform dependant
+                })
+                .await;
             })
         })
         .await;
@@ -483,27 +409,197 @@ mod tests {
     async fn test_arch() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
-                    .await
-                    .unwrap();
+                run_test_return_string(&ctx, "type", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
 
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { arch } from 'os';
+    #[tokio::test]
+    async fn test_devnull() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "devNull", false, |result| {
+                    assert_eq!(result, DEV_NULL);
+                })
+                .await;
+            })
+        })
+        .await;
+    }
 
-                        export async function test() {
-                            return arch()
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
+    #[tokio::test]
+    async fn test_endianness() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "endianness", true, |result| {
+                    let endianness = if cfg!(target_endian = "little") {
+                        "LE".to_string()
+                    } else {
+                        "BE".to_string()
+                    };
+                    assert_eq!(result, endianness);
+                })
+                .await;
+            })
+        })
+        .await;
+    }
 
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
+    #[tokio::test]
+    async fn test_eol() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "EOL", false, |result| {
+                    assert_eq!(result, EOL);
+                })
+                .await;
+            })
+        })
+        .await;
+    }
 
-                assert!(!result.is_empty()); // Format is platform dependant
+    #[tokio::test]
+    async fn test_freemem() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_number(&ctx, "freemem", |result| {
+                    assert!(result.is_number()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_homedir() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "homedir", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_hostname() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "hostname", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_machine() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "machine", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_platform() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "platform", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_release() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "release", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_tmpdir() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "tmpdir", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_totalmem() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_number(&ctx, "totalmem", |result| {
+                    assert!(result.is_number()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_type() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "type", true, |result| {
+                    assert!(result == "Linux" || result == "Windows_NT" || result == "Darwin");
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_uptime() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_number(&ctx, "uptime", |result| {
+                    assert!(result.is_number()); // platform dependant
+                })
+                .await;
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_version() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                run_test_return_string(&ctx, "version", true, |result| {
+                    assert!(!result.is_empty()); // platform dependant
+                })
+                .await;
             })
         })
         .await;
