@@ -3,21 +3,21 @@
 use once_cell::sync::Lazy;
 use rquickjs::{
     prelude::{Opt, Rest},
-    Ctx, Exception, Result, Value,
+    Ctx, Exception, Value,
 };
 use windows_registry::{Value, LOCAL_MACHINE};
-use windows_result::Error;
+use windows_result::{Error, Result};
 use windows_version::OsVersion;
 
 static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
 pub static EOL: &str = "\r\n";
 pub static DEV_NULL: &str = "\\.\nul";
 
-pub fn get_priority(who: Opt<u32>) -> i32 {
+pub fn get_priority(_who: Opt<u32>) -> i32 {
     0
 }
 
-pub fn set_priority(ctx: &Ctx<'_>, args: Rest<Value>) -> Result<()> {
+pub fn set_priority(ctx: &Ctx<'_>, _args: Rest<Value>) -> rquickjs::Result<()> {
     Err(Exception::throw_syntax(
         &ctx,
         "setPriority is not implemented.",
