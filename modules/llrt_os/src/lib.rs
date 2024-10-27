@@ -18,7 +18,7 @@ use rquickjs::{
     prelude::Func,
     Ctx, Exception, Object, Result,
 };
-use sysinfo::{MemoryRefreshKind, Networks, System};
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
 
 #[cfg(unix)]
 use self::unix::{get_type, get_version, DEV_NULL, EOL};
@@ -30,7 +30,14 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
-static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| Arc::new(Mutex::new(System::new_all())));
+static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(System::new_with_specifics(
+        RefreshKind::new()
+            .with_cpu(CpuRefreshKind::new().with_cpu_usage().with_frequency())
+            .with_memory(MemoryRefreshKind::new().with_ram()),
+    )))
+});
+
 static NETWORKS: Lazy<Arc<Mutex<Networks>>> =
     Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list())));
 
