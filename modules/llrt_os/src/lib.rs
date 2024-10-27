@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     env,
     net::{Ipv4Addr, Ipv6Addr},
+    sync::{Arc, Mutex},
 };
 
 use llrt_utils::{
@@ -11,12 +12,13 @@ use llrt_utils::{
     result::ResultExt,
     sysinfo::{get_arch, get_platform},
 };
+use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
     Ctx, Exception, Object, Result,
 };
-use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
+use sysinfo::{MemoryRefreshKind, Networks, System};
 
 #[cfg(unix)]
 use self::unix::{get_type, get_version, DEV_NULL, EOL};
@@ -28,16 +30,20 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
+static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| Arc::new(Mutex::new(System::new_all())));
+static NETWORKS: Lazy<Arc<Mutex<Networks>>> =
+    Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list())));
+
 fn get_available_parallelism() -> usize {
     num_cpus::get()
 }
 
 fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
     let mut vec: Vec<Object> = Vec::new();
-    let cpus =
-        System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::everything()));
 
-    for cpu in cpus.cpus() {
+    let system = SYSTEM.lock().unwrap();
+
+    for cpu in system.cpus() {
         let obj = Object::new(ctx.clone())?;
         obj.set("model", cpu.brand())?;
         obj.set("speed", cpu.frequency())?;
@@ -68,11 +74,10 @@ fn get_endianness() -> &'static str {
 }
 
 fn get_free_mem() -> u64 {
-    let mut sys =
-        System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::everything()));
+    let mut system = SYSTEM.lock().unwrap();
 
-    sys.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
-    sys.free_memory()
+    system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+    system.free_memory()
 }
 
 fn get_home_dir(ctx: Ctx<'_>) -> Result<String> {
@@ -107,9 +112,9 @@ fn get_machine(ctx: Ctx<'_>) -> Result<String> {
 
 fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object>>> {
     let mut map: HashMap<String, Vec<Object>> = HashMap::new();
-    let networks = Networks::new_with_refreshed_list();
+    let networks = NETWORKS.lock().unwrap();
 
-    for (interface_name, network_data) in &networks {
+    for (interface_name, network_data) in networks.iter() {
         let mut ifs = Vec::new();
 
         for ip_network in network_data.ip_networks() {
@@ -231,11 +236,10 @@ fn get_tmp_dir() -> String {
 }
 
 fn get_total_mem() -> u64 {
-    let mut sys =
-        System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::everything()));
+    let mut system = SYSTEM.lock().unwrap();
 
-    sys.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
-    sys.total_memory()
+    system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+    system.total_memory()
 }
 
 fn get_uptime() -> u64 {
