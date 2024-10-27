@@ -17,7 +17,7 @@ pub fn get_priority(_who: Opt<u32>) -> i32 {
     0
 }
 
-pub fn set_priority(ctx: &Ctx<'_>, _args: Rest<rquickjs::Value>) -> rquickjs::Result<()> {
+pub fn set_priority(ctx: Ctx<'_>, _args: Rest<rquickjs::Value>) -> rquickjs::Result<()> {
     Err(Exception::throw_syntax(
         &ctx,
         "setPriority is not implemented.",
