@@ -1,11 +1,23 @@
 use once_cell::sync::Lazy;
+use rquickjs::Exception;
 use windows_registry::{Value, LOCAL_MACHINE};
-use windows_result::{Error, Result};
+use windows_result::Error;
 use windows_version::OsVersion;
 
 static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
 pub static EOL: &str = "\r\n";
 pub static DEV_NULL: &str = "\\.\nul";
+
+pub fn get_priority(who: Opt<u32>) -> i32 {
+    0
+}
+
+pub fn set_priority(ctx: &Ctx<'_>, args: Rest<Value>) -> Result<()> {
+    Err(Exception::throw_syntax(
+        &ctx,
+        "setPriority is not implemented.",
+    ))
+}
 
 pub fn get_type() -> &'static str {
     // In theory there are more types linx MinGW but in practice this is good enough

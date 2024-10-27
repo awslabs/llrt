@@ -147,6 +147,8 @@ Available globally
 
 [freemem](https://nodejs.org/api/os.html#osfreemem)
 
+[getPriority](https://nodejs.org/api/os.html#osgetprioritypid)
+
 [homedir](https://nodejs.org/api/os.html#oshomedir)
 
 [hostname](https://nodejs.org/api/os.html#oshostname)
@@ -160,6 +162,8 @@ Available globally
 [platform](https://nodejs.org/api/os.html#osplatform)
 
 [release](https://nodejs.org/api/os.html#osrelease)
+
+[setPriority](https://nodejs.org/api/os.html#ossetprioritypid-priority)
 
 [tmpdir](https://nodejs.org/api/os.html#osplatform)
 

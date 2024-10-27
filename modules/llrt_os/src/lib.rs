@@ -22,9 +22,9 @@ use rquickjs::{
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
 
 #[cfg(unix)]
-use self::unix::{get_type, get_version, DEV_NULL, EOL};
+use self::unix::{get_priority, get_type, get_version, set_priority, DEV_NULL, EOL};
 #[cfg(windows)]
-use self::windows::{get_type, get_version, DEV_NULL, EOL};
+use self::windows::{get_priority, get_type, get_version, set_priority, DEV_NULL, EOL};
 
 #[cfg(unix)]
 mod unix;
@@ -267,7 +267,7 @@ impl ModuleDef for OsModule {
         declare.declare("endianness")?;
         declare.declare("EOL")?;
         declare.declare("freemem")?;
-        // declare.declare("getPriority")?;
+        declare.declare("getPriority")?;
         declare.declare("homedir")?;
         declare.declare("hostname")?;
         declare.declare("loadavg")?;
@@ -275,13 +275,15 @@ impl ModuleDef for OsModule {
         declare.declare("networkInterfaces")?;
         declare.declare("platform")?;
         declare.declare("release")?;
-        // declare.declare("setPriority")?;
+        declare.declare("setPriority")?;
         declare.declare("tmpdir")?;
         declare.declare("totalmem")?;
         declare.declare("type")?;
         declare.declare("uptime")?;
         // declare.declare("userInfo")?;
         declare.declare("version")?;
+
+        declare.declare("constants")?;
 
         declare.declare("default")?;
 
@@ -300,6 +302,7 @@ impl ModuleDef for OsModule {
             default.set("endianness", Func::from(get_endianness))?;
             default.set("EOL", EOL)?;
             default.set("freemem", Func::from(get_free_mem))?;
+            default.set("getPriority", Func::from(get_priority))?;
             default.set("homedir", Func::from(get_home_dir))?;
             default.set("hostname", Func::from(get_host_name))?;
             default.set("loadavg", Func::from(get_load_avg))?;
@@ -307,6 +310,7 @@ impl ModuleDef for OsModule {
             default.set("networkInterfaces", Func::from(get_network_interfaces))?;
             default.set("platform", Func::from(get_platform))?;
             default.set("release", Func::from(get_release))?;
+            default.set("setPriority", Func::from(set_priority))?;
             default.set("tmpdir", Func::from(get_tmp_dir))?;
             default.set("totalmem", Func::from(get_total_mem))?;
             default.set("type", Func::from(get_type))?;

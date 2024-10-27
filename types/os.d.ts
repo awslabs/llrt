@@ -125,6 +125,12 @@ declare module "os" {
    */
   function freemem(): number;
   /**
+   * Returns the scheduling priority for the process specified by `pid`. If `pid` is
+   * not provided or is `0`, the priority of the current process is returned.
+   * @param [pid=0] The process ID to retrieve scheduling priority for.
+   */
+  function getPriority(pid?: number): number;
+  /**
    * Returns the string path of the current user's home directory.
    *
    * On POSIX, it uses the `$HOME` environment variable if defined. Otherwise it
@@ -213,16 +219,31 @@ declare module "os" {
    * the Node.js binary was compiled. The value is set at compile time.
    */
   function platform(): Platform;
+  function release(): string;
+  /**
+   * Returns the operating system's default directory for temporary files as a
+   * string.
+   */
+  /**
+   * Attempts to set the scheduling priority for the process specified by `pid`. If `pid` is not provided or is `0`, the process ID of the current process is used.
+   *
+   * The `priority` input must be an integer between `-20` (high priority) and `19` (low priority). Due to differences between Unix priority levels and Windows
+   * priority classes, `priority` is mapped to one of six priority constants in `os.constants.priority`. When retrieving a process priority level, this range
+   * mapping may cause the return value to be slightly different on Windows. To avoid
+   * confusion, set `priority` to one of the priority constants.
+   *
+   * On Windows, not currently supported on Windows.
+   *
+   * @param [pid=0] The process ID to set scheduling priority for.
+   * @param priority The scheduling priority to assign to the process.
+   */
+  function setPriority(priority: number): void;
+  function setPriority(pid: number, priority: number): void;
   /**
    * Returns the operating system release as a string.
    *
    * On POSIX systems, the operating system release is determined by calling [`uname(3)`](https://linux.die.net/man/3/uname). On Windows, `RtlGetVersion()` is used. See
    * [https://en.wikipedia.org/wiki/Uname#Examples](https://en.wikipedia.org/wiki/Uname#Examples) for more information.
-   */
-  function release(): string;
-  /**
-   * Returns the operating system's default directory for temporary files as a
-   * string.
    */
   function tmpdir(): string;
   /**
