@@ -205,7 +205,6 @@ fn get_attribute_ipv4(ctx: &Ctx<'_>, addr: &str) -> Result<(bool, u8)> {
         || addr.is_link_local()
         || addr.is_loopback()
         || addr.is_multicast()
-        || addr.is_private()
         || addr.is_unspecified();
     let scope_id = 0; // For IPv4, ScopeID is a dummy value.
 
