@@ -22,9 +22,11 @@ use rquickjs::{
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
 
 #[cfg(unix)]
-use self::unix::{get_priority, get_type, get_version, set_priority, DEV_NULL, EOL};
+use self::unix::{get_priority, get_type, get_user_info, get_version, set_priority, DEV_NULL, EOL};
 #[cfg(windows)]
-use self::windows::{get_priority, get_type, get_version, set_priority, DEV_NULL, EOL};
+use self::windows::{
+    get_priority, get_type, get_user_info, get_version, set_priority, DEV_NULL, EOL,
+};
 
 #[cfg(unix)]
 mod unix;
@@ -280,7 +282,7 @@ impl ModuleDef for OsModule {
         declare.declare("totalmem")?;
         declare.declare("type")?;
         declare.declare("uptime")?;
-        // declare.declare("userInfo")?;
+        declare.declare("userInfo")?;
         declare.declare("version")?;
 
         declare.declare("constants")?;
@@ -315,6 +317,7 @@ impl ModuleDef for OsModule {
             default.set("totalmem", Func::from(get_total_mem))?;
             default.set("type", Func::from(get_type))?;
             default.set("uptime", Func::from(get_uptime))?;
+            default.set("userInfo", Func::from(get_user_info))?;
             default.set("version", Func::from(get_version))?;
 
             Ok(())

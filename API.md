@@ -173,6 +173,8 @@ Available globally
 
 [uptime](https://nodejs.org/api/os.html#osuptime)
 
+[userInfo](https://nodejs.org/api/os.html#osuserinfooptions)
+
 [version](https://nodejs.org/api/os.html#osversion)
 
 ## path

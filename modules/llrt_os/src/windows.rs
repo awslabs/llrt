@@ -3,11 +3,13 @@
 use once_cell::sync::Lazy;
 use rquickjs::{
     prelude::{Opt, Rest},
-    Ctx, Exception,
+    Ctx, Exception, IntoJs, Null, Object,
 };
 use windows_registry::{Value, LOCAL_MACHINE};
 use windows_result::{Error, Result};
 use windows_version::OsVersion;
+
+use crate::get_home_dir;
 
 static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
 pub static EOL: &str = "\r\n";
@@ -31,6 +33,20 @@ pub fn get_type() -> &'static str {
 
 pub fn get_version() -> &'static str {
     &OS_VERSION
+}
+
+pub fn get_user_info<'js>(
+    ctx: Ctx<'js>,
+    _options: Opt<rquickjs::Value>,
+) -> rquickjs::Result<Object<'js>> {
+    let obj = Object::new(ctx.clone())?;
+
+    obj.set("uid", -1)?;
+    obj.set("gid", -1)?;
+    obj.set("username", whoami::username())?;
+    obj.set("homedir", get_home_dir(ctx.clone()))?;
+    obj.set("shell", Null.into_js(&ctx)?)?;
+    Ok(obj)
 }
 
 fn version() -> Result<String> {

@@ -31,6 +31,13 @@ declare module "os" {
     family: "IPv6";
     scopeid: number;
   }
+  interface UserInfo<T> {
+    username: T;
+    uid: number;
+    gid: number;
+    shell: T | null;
+    homedir: T;
+  }
   type NetworkInterfaceInfo =
     | NetworkInterfaceInfoIPv4
     | NetworkInterfaceInfoIPv6;
@@ -268,5 +275,19 @@ declare module "os" {
    * On POSIX systems, the operating system release is determined by calling [`uname(3)`](https://linux.die.net/man/3/uname). On Windows, `RtlGetVersion()` is used.
    * See [https://en.wikipedia.org/wiki/Uname#Examples](https://en.wikipedia.org/wiki/Uname#Examples) for more information.
    */
+  /**
+   * Returns information about the currently effective user. On POSIX platforms,
+   * this is typically a subset of the password file. The returned object includes
+   * the `username`, `uid`, `gid`, `shell`, and `homedir`. On Windows, the `uid` and `gid` fields are `-1`, and `shell` is `null`.
+   *
+   * The value of `homedir` returned by `os.userInfo()` is provided by the operating
+   * system. This differs from the result of `os.homedir()`, which queries
+   * environment variables for the home directory before falling back to the
+   * operating system response.
+   *
+   * Throws a [`SystemError`](https://nodejs.org/docs/latest-v22.x/api/errors.html#class-systemerror) if a user has no `username` or `homedir`.
+   */
+  //function userInfo(options: { encoding: "buffer" }): UserInfo<Buffer>;
+  function userInfo(options?: { encoding: BufferEncoding }): UserInfo<string>;
   function version(): string;
 }
