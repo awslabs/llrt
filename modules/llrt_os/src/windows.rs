@@ -7,6 +7,11 @@ static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
 pub static EOL: &str = "\r\n";
 pub static DEV_NULL: &str = "\\.\nul";
 
+pub fn get_type() -> &'static str {
+    // In theory there are more types linx MinGW but in practice this is good enough
+    "Windows_NT"
+}
+
 pub fn get_version() -> &'static str {
     &OS_VERSION
 }

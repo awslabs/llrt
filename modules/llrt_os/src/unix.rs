@@ -2,25 +2,29 @@ use std::ffi::CStr;
 
 use once_cell::sync::Lazy;
 
-static OS_INFO: Lazy<String> = Lazy::new(uname);
+static OS_INFO: Lazy<(String, String)> = Lazy::new(uname);
 pub static EOL: &str = "\n";
 pub static DEV_NULL: &str = "/dev/null";
 
-pub fn get_version() -> &'static str {
-    &OS_INFO
+pub fn get_type() -> &'static str {
+    &OS_INFO.0
 }
 
-fn uname() -> String {
+pub fn get_version() -> &'static str {
+    &OS_INFO.1
+}
+
+fn uname() -> (String, String) {
     let mut info = std::mem::MaybeUninit::uninit();
     // SAFETY: `info` is a valid pointer to a `libc::utsname` struct.
     let res = unsafe { libc::uname(info.as_mut_ptr()) };
     if res != 0 {
-        return String::new();
+        return (String::new(), String::new());
     }
     // SAFETY: `uname` returns 0 on success and info is initialized.
     let info = unsafe { info.assume_init() };
     // SAFETY: `info.sysname` is a valid NUL-terminated pointer.
-    let _ = unsafe {
+    let sysname = unsafe {
         CStr::from_ptr(info.sysname.as_ptr())
             .to_string_lossy()
             .into_owned()
@@ -32,9 +36,10 @@ fn uname() -> String {
             .into_owned()
     };
     // SAFETY: `info.version` is a valid NUL-terminated pointer.
-    unsafe {
+    let version = unsafe {
         CStr::from_ptr(info.version.as_ptr())
             .to_string_lossy()
             .into_owned()
-    }
+    };
+    (sysname, version)
 }

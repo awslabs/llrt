@@ -19,9 +19,9 @@ use rquickjs::{
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
 
 #[cfg(unix)]
-use self::unix::{get_version, DEV_NULL, EOL};
+use self::unix::{get_type, get_version, DEV_NULL, EOL};
 #[cfg(windows)]
-use self::windows::{get_version, DEV_NULL, EOL};
+use self::windows::{get_type, get_version, DEV_NULL, EOL};
 
 #[cfg(unix)]
 mod unix;
@@ -61,7 +61,6 @@ fn get_endianness() -> &'static str {
     {
         "LE"
     }
-
     #[cfg(target_endian = "big")]
     {
         "BE"
@@ -230,13 +229,6 @@ fn get_release(ctx: Ctx<'_>) -> Result<String> {
 
 fn get_tmp_dir() -> String {
     env::temp_dir().to_string_lossy().to_string()
-}
-
-fn get_type(ctx: Ctx<'_>) -> Result<String> {
-    match System::name() {
-        Some(val) => Ok(val),
-        None => Err(Exception::throw_reference(&ctx, "System::name")),
-    }
 }
 
 fn get_total_mem() -> u64 {
