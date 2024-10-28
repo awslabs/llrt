@@ -158,3 +158,36 @@ pub fn init(ctx: &Ctx) -> Result<()> {
 
     Ok(())
 }
+
+pub struct HttpModule;
+
+impl rquickjs::module::ModuleDef for HttpModule {
+    fn declare(declare: &rquickjs::module::Declarations) -> Result<()> {
+        declare.declare("fetch")?;
+        declare.declare(stringify!(Request))?;
+        declare.declare(stringify!(Request))?;
+        declare.declare(stringify!(Headers))?;
+        declare.declare("Blob")?;
+        declare.declare(stringify!(File))?;
+
+        Ok(())
+    }
+
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &rquickjs::module::Exports<'js>) -> Result<()> {
+        llrt_utils::module::export_default(ctx, exports, |default| {
+            fetch::init(ctx, default)?;
+
+            Class::<Request>::define(default)?;
+            Class::<Response>::define(default)?;
+            Class::<Headers>::define_with_custom_inspect(default)?;
+
+            blob::init(ctx, default)?;
+
+            Class::<File>::define(default)?;
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+}
