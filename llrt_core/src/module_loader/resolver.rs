@@ -107,12 +107,10 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
     if x_starts_with_current_dir || x_is_absolute || x.starts_with("../") {
         let y_plus_x = if x_is_absolute {
             x.to_string()
+        } else if x_starts_with_current_dir {
+            [&dirname_y, "/", &x[2..]].concat()
         } else {
-            if x_starts_with_current_dir {
-                [&dirname_y, "/", &x[2..]].concat()
-            } else {
-                [&dirname_y, "/", x].concat()
-            }
+            [&dirname_y, "/", x].concat()
         };
         let y_plus_x = y_plus_x.as_str();
         // a. LOAD_AS_FILE(Y + X)
