@@ -36,11 +36,12 @@ use tracing::trace;
 pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
 use crate::{
+    bytecode::BYTECODE_FILE_EXT,
     environment, http,
     module_loader::{
         loader::{CustomLoader, LoaderContainer},
         resolver::{require_resolve, CustomResolver},
-        CJS_IMPORT_PREFIX,
+        CJS_EXPORT_NAME, CJS_IMPORT_PREFIX,
     },
     modules::{console, crypto::SYSTEM_RANDOM},
     number::number_to_string,
@@ -315,10 +316,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             let is_json = specifier.ends_with(".json");
 
             let import_specifier = if !is_cjs_import {
-                let specifier = if !is_json {
-                    specifier.trim_start_matches("node:").to_string()
-                } else {
+                let is_bytecode = specifier.ends_with(BYTECODE_FILE_EXT);
+                let is_bytecode_or_json = is_json || is_bytecode;
+                let specifier = if is_bytecode_or_json {
                     specifier
+                } else {
+                    specifier.trim_start_matches("node:").to_string()
                 };
 
                 if module_names.contains(specifier.as_str()) {
@@ -330,10 +333,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     let abs_path = resolve_path([module_name].iter());
                     let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?;
                     import_name = resolved_path.as_str().into();
-                    if !is_cjs_import {
-                        [CJS_IMPORT_PREFIX, &resolved_path].concat()
-                    } else {
+                    if is_bytecode_or_json {
                         resolved_path
+                    } else {
+                        [CJS_IMPORT_PREFIX, &resolved_path].concat()
                     }
                 }
             } else {
@@ -370,12 +373,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             require_in_progress_map.insert(import_name.clone(), obj.clone());
             drop(require_in_progress_map);
 
-            let exports_obj = Object::new(ctx.clone())?.into_value();
-            let module_obj = Object::new(ctx.clone())?;
-            module_obj.set("exports", exports_obj.clone())?;
-            globals.set("exports", exports_obj.clone())?;
-            globals.set("module", module_obj.clone())?;
-
             let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
 
             let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
@@ -396,42 +393,35 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 ctx.execute_pending_job();
             };
 
-            let new_exports: Value = globals.get("exports")?;
-            let mut exports_obj = if exports_obj != new_exports {
-                new_exports
-            } else {
-                exports_obj
-            };
-            let new_module: Object = globals.get("module")?;
-            if let Some(exports) = new_module.get_optional("exports")? {
-                if exports != exports_obj {
-                    exports_obj = exports;
-                }
-            };
+            let exports_obj: Option<Value> = imported_object.get_optional(CJS_EXPORT_NAME)?;
 
             require_in_progress
                 .lock()
                 .unwrap()
                 .remove(import_name.as_ref());
 
-            if exports_obj.type_of() == rquickjs::Type::Object {
-                if let Some(exports) = exports_obj.as_object() {
+            if let Some(exports_obj) = exports_obj {
+                if exports_obj.type_of() == rquickjs::Type::Object {
+                    let exports = unsafe { exports_obj.as_object().unwrap_unchecked() };
+
                     for prop in
                         exports.own_props::<Value, Value>(Filter::new().private().string().symbol())
                     {
                         let (key, value) = prop?;
                         obj.set(key, value)?;
                     }
+                } else {
+                    //we have explicitly set it
+                    require_cache.set(import_name.as_ref(), exports_obj.clone())?;
+                    return Ok(exports_obj);
                 }
-            } else {
-                //we have explicitly set it
-                require_cache.set(import_name.as_ref(), exports_obj.clone())?;
-                return Ok(exports_obj);
             }
 
             for prop in imported_object.props::<String, Value>() {
                 let (key, value) = prop?;
-                obj.set(key, value)?;
+                if key != CJS_EXPORT_NAME {
+                    obj.set(key, value)?;
+                }
             }
 
             let value = obj.into_value();

@@ -14,6 +14,8 @@ use rquickjs::{loader::Resolver, Ctx, Error, Result};
 use simd_json::BorrowedValue;
 use tracing::trace;
 
+use crate::bytecode::BYTECODE_FILE_EXT;
+
 use super::CJS_IMPORT_PREFIX;
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
@@ -72,7 +74,7 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
     //   b. STOP
 
     // 1'. If X is a bytecode cache,
-    for check_x in [x, &path::normalize(x.to_string())].iter() {
+    for check_x in [x, &path::normalize(x)].iter() {
         if BYTECODE_CACHE.contains_key(check_x) {
             // a. return the bytecode cache
             // b. STOP
@@ -93,16 +95,24 @@ pub fn require_resolve(ctx: &Ctx<'_>, x: &str, y: &str, is_esm: bool) -> Result<
     let dirname_y = if Path::new(y).is_dir() {
         path::resolve_path([y].iter())
     } else {
-        let dirname_y = path::dirname(y.to_string());
+        let dirname_y = path::dirname(y);
         path::resolve_path([&dirname_y].iter())
     };
 
+    let x_is_absolute = path::is_absolute(x);
+
+    let x_starts_with_current_dir = x.starts_with("./");
+
     // 3. If X begins with './' or '/' or '../'
-    if x.starts_with("./") || path::is_absolute(x) || x.starts_with("../") {
-        let y_plus_x = if path::is_absolute(x) {
+    if x_starts_with_current_dir || x_is_absolute || x.starts_with("../") {
+        let y_plus_x = if x_is_absolute {
             x.to_string()
         } else {
-            [&dirname_y, "/", x].concat()
+            if x_starts_with_current_dir {
+                [&dirname_y, "/", &x[2..]].concat()
+            } else {
+                [&dirname_y, "/", x].concat()
+            }
         };
         let y_plus_x = y_plus_x.as_str();
         // a. LOAD_AS_FILE(Y + X)
@@ -161,7 +171,7 @@ fn load_as_file(ctx: &Ctx<'_>, x: &str) -> Result<Option<Box<str>>> {
     }
 
     // 2. If X.js is a file,
-    for extension in [".js", ".mjs", ".cjs", ".lrt"].iter() {
+    for extension in [".js", ".mjs", ".cjs", BYTECODE_FILE_EXT].iter() {
         let file = [x, extension].concat();
         if Path::new(&file).is_file() {
             // a. Find the closest package scope SCOPE to X.
@@ -210,7 +220,7 @@ fn load_index(ctx: &Ctx<'_>, x: &str) -> Result<Option<Box<str>>> {
     trace!("|  load_index(x): {}", x);
 
     // 1. If X/index.js is a file
-    for extension in [".js", ".mjs", ".cjs", ".lrt"].iter() {
+    for extension in [".js", ".mjs", ".cjs", BYTECODE_FILE_EXT].iter() {
         let file = [x, "/index", extension].concat();
         if Path::new(&file).is_file() {
             // a. Find the closest package scope SCOPE to X.

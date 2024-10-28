@@ -9,10 +9,13 @@ use std::{
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-use super::CJS_IMPORT_PREFIX;
+use super::{CJS_EXPORT_NAME, CJS_IMPORT_PREFIX};
 
 use crate::{
-    bytecode::{BYTECODE_COMPRESSED, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION, SIGNATURE_LENGTH},
+    bytecode::{
+        BYTECODE_COMPRESSED, BYTECODE_FILE_EXT, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION,
+        SIGNATURE_LENGTH,
+    },
     vm::COMPRESSION_DICT,
 };
 
@@ -134,40 +137,57 @@ impl Loader for CustomLoader {
 
         trace!("Loading module: {}", name);
 
+        //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
-            //json files can never be from CJS imports as they are handled by require
             if name.ends_with(".json") {
                 //avoids copy and additional string allocations
                 let mut file = File::open(path)?;
                 let prefix = "export default JSON.parse(`";
-                let sufix = "`);";
-                let mut json = String::with_capacity(
-                    (file.metadata()?.len() as usize) + prefix.len() + sufix.len(),
-                );
+                let suffix = "`);";
+                let mut json = String::with_capacity(prefix.len() + suffix.len());
                 json.push_str(prefix);
                 file.read_to_string(&mut json)?;
-                json.push_str(sufix);
+                json.push_str(suffix);
 
                 return Module::declare(ctx, name, json);
             }
-
-            if let Some(bytes) = BYTECODE_CACHE.get(name) {
-                #[cfg(feature = "lambda")]
-                init_client_connection(&ctx, name)?;
-
-                trace!("Loading embedded module: {}", name);
-
-                return Self::load_bytecode_module(ctx, bytes);
-            }
-
             if name.ends_with(".cjs") {
                 return Self::load_cjs_module(name, ctx);
             }
         }
 
-        let mut bytes: &[u8] = &std::fs::read(path)?;
+        if let Some(bytes) = BYTECODE_CACHE.get(name) {
+            #[cfg(feature = "lambda")]
+            init_client_connection(&ctx, name)?;
 
-        if name.ends_with(".lrt") {
+            trace!("Loading embedded module: {}", name);
+
+            return Self::load_bytecode_module(ctx, bytes);
+        }
+
+        let mut file = File::open(path)?;
+
+        let mut bytes = if from_cjs_import {
+            let prefix = b"const module={exports:{}};let exports=module.exports;";
+            let mut bytes = Vec::with_capacity(prefix.len() + 10);
+            bytes.extend_from_slice(prefix);
+            bytes
+        } else {
+            Vec::new()
+        };
+        file.read_to_end(&mut bytes)?;
+
+        if from_cjs_import {
+            bytes.extend_from_slice(
+                ["\nexport const ", CJS_EXPORT_NAME, "=module.exports;"]
+                    .concat()
+                    .as_bytes(),
+            );
+        }
+
+        let mut bytes: &[u8] = &bytes;
+
+        if name.ends_with(BYTECODE_FILE_EXT) {
             trace!("Loading binary module: {}", name);
             return Self::load_bytecode_module(ctx, bytes);
         }

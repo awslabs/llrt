@@ -4,8 +4,17 @@
 pub const BYTECODE_VERSION: &str = "lrt01";
 pub const BYTECODE_COMPRESSED: u8 = b'c';
 pub const BYTECODE_UNCOMPRESSED: u8 = b'u';
-#[allow(dead_code)]
-pub const BYTECODE_EXT: &str = "lrt";
+
+macro_rules! define_extension {
+    ($base:ident, $file:ident, $ext:expr) => {
+        #[allow(dead_code)]
+        pub const $base: &str = $ext;
+        #[allow(dead_code)]
+        pub const $file: &str = concat!(".", $ext);
+    };
+}
+
+define_extension!(BYTECODE_EXT, BYTECODE_FILE_EXT, "lrt");
 pub const SIGNATURE_LENGTH: usize = BYTECODE_VERSION.len() + 1;
 
 #[allow(dead_code)]

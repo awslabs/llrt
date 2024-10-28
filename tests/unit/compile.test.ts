@@ -39,7 +39,7 @@ if (!IS_WIN) {
     const tmpDir = await fs.mkdtemp(`${tmpdir()}/llrt-test-compile`);
 
     it("can compile and run empty", async () => {
-      const tmpOutput = `${tmpDir}/empty.lrt`;
+      const tmpOutput = `./empty.lrt`;
 
       const compileResult = await compile("fixtures/empty.js", tmpOutput);
 
