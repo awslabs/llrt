@@ -393,7 +393,10 @@ class TestServer extends EventEmitter {
     };
     workerData.success = false;
     workerData.lastUpdate = 0;
-    this.results.get(workerData.currentFile!)!.success = false;
+    const results = this.results.get(workerData.currentFile!);
+    if (results) {
+      results.success = false;
+    }
 
     const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
     testFailures.push({
