@@ -366,9 +366,13 @@ where
     S: AsRef<str>,
     I: IntoIterator<Item = S>,
 {
-    let sep = if force_posix_sep { '/' } else { MAIN_SEPARATOR };
+    let (sep, sep_str) = if force_posix_sep {
+        ('/', "/")
+    } else {
+        (MAIN_SEPARATOR, MAIN_SEPARATOR_STR)
+    };
+
     let mut resolve_cow: Cow<str>;
-    let mut resolve_path_buf: PathBuf;
     let mut empty = true;
     let mut prefix_len = 0;
 
@@ -403,8 +407,11 @@ where
                         prefix_len = prefix.len();
                         result = prefix;
                         result.push(sep);
-                        resolve_path_buf = components.collect();
-                        resolve_cow = resolve_path_buf.to_string_lossy();
+                        resolve_cow = components
+                            .map(|comp| comp.as_os_str().to_str().unwrap_or_default()) // Convert each component to &str
+                            .collect::<Vec<&str>>() // Collect into a vector of &str
+                            .join(sep_str)
+                            .into();
                         part_ref = resolve_cow.as_ref();
                     }
                 }
