@@ -3,9 +3,7 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
-    env,
-    fmt::{Display, Formatter},
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     rc::Rc,
     sync::Mutex,
@@ -186,12 +184,12 @@ pub fn require_resolve<'a>(
     Err(Error::new_resolving(y.to_string(), x.to_string()))
 }
 
-fn resolved_by_bytecode_cache<'a>(x: Cow<'a, str>) -> Result<Cow<'a, str>> {
+fn resolved_by_bytecode_cache(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
     trace!("+- Resolved by `BYTECODE_CACHE`: {}\n", x);
     Ok(x)
 }
 
-fn resolved_by_file_exists<'a>(x: Cow<'a, str>) -> Result<Cow<'a, str>> {
+fn resolved_by_file_exists(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
     trace!("+- Resolved by `FILE`: {}\n", x);
     Ok(x)
 }
@@ -401,22 +399,7 @@ fn node_modules_paths(start: &str) -> Vec<Box<str>> {
     dirs
 }
 
-// LOAD_PACKAGE_IMPORTS(X, DIR)
-fn load_package_imports<'a>(
-    _ctx: &Ctx<'_>,
-    x: &'a str,
-    dir: &'a str,
-    _is_esm: bool,
-) -> Result<Option<Cow<'a, str>>> {
-    trace!("|  load_package_imports(x, dir): ({}, {})", x, dir);
-    // 1. Find the closest package scope SCOPE to DIR.
-    // 2. If no scope was found, return.
-    // 3. If the SCOPE/package.json "imports" is null or undefined, return.
-    // 4. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
-    //   ["node", "require"]) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
-    // 5. RESOLVE_ESM_MATCH(MATCH).
-    Ok(None)
-}
+// TODO LOAD_PACKAGE_IMPORTS(X, DIR)
 
 // LOAD_PACKAGE_EXPORTS(X, DIR)
 fn load_package_exports<'a>(
