@@ -2902,6 +2902,7 @@ dependencies = [
  "llrt_utils",
  "num_cpus",
  "once_cell",
+ "parking_lot",
  "rquickjs",
  "sysinfo",
  "tokio",

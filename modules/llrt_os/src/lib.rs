@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     env,
     net::{Ipv4Addr, Ipv6Addr},
-    sync::{Arc, Mutex},
+    sync::Arc,
     thread,
 };
 
@@ -14,6 +14,7 @@ use llrt_utils::{
     sysinfo::{get_arch, get_platform},
 };
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
@@ -52,7 +53,7 @@ fn get_available_parallelism() -> usize {
 
 fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
     let mut vec: Vec<Object> = Vec::new();
-    let mut system = SYSTEM.lock().unwrap();
+    let mut system = SYSTEM.lock();
 
     thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     system.refresh_cpu_all();
@@ -88,7 +89,7 @@ fn get_endianness() -> &'static str {
 }
 
 fn get_free_mem() -> u64 {
-    let mut system = SYSTEM.lock().unwrap();
+    let mut system = SYSTEM.lock();
 
     system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
     system.free_memory()
@@ -116,7 +117,7 @@ fn get_machine(ctx: Ctx<'_>) -> Result<String> {
 
 fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object>>> {
     let mut map: HashMap<String, Vec<Object>> = HashMap::new();
-    let networks = NETWORKS.lock().unwrap();
+    let networks = NETWORKS.lock();
 
     for (interface_name, network_data) in networks.iter() {
         let mut ifs = Vec::new();
@@ -233,7 +234,7 @@ fn get_tmp_dir() -> String {
 }
 
 fn get_total_mem() -> u64 {
-    let mut system = SYSTEM.lock().unwrap();
+    let mut system = SYSTEM.lock();
 
     system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
     system.total_memory()
