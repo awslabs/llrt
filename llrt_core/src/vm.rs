@@ -309,7 +309,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             trace!("Before specifier: {}", specifier);
 
-            let import_specifier = if !is_cjs_import {
+            let import_specifier: Rc<str> = if !is_cjs_import {
                 let is_bytecode = specifier.ends_with(BYTECODE_FILE_EXT);
                 let is_bytecode_or_json = is_json || is_bytecode;
                 let specifier = if is_bytecode_or_json {
@@ -319,8 +319,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 };
 
                 if module_names.contains(specifier.as_str()) {
-                    import_name = specifier.as_str().into();
-                    specifier
+                    import_name = specifier.into();
+                    import_name.clone()
                 } else {
                     let module_name = get_script_or_module_name(ctx.clone());
                     let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
@@ -330,16 +330,16 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
                     let resolved_path =
                         require_resolve(&ctx, &specifier, &abs_path, false)?.into_owned();
-                    import_name = resolved_path.clone().into();
+                    import_name = resolved_path.into();
                     if is_bytecode_or_json {
-                        resolved_path
+                        import_name.clone()
                     } else {
-                        [CJS_IMPORT_PREFIX, &resolved_path].concat()
+                        [CJS_IMPORT_PREFIX, &import_name].concat().into()
                     }
                 }
             } else {
                 import_name = specifier[CJS_IMPORT_PREFIX.len()..].into();
-                specifier
+                specifier.into()
             };
 
             let globals = ctx.globals();
