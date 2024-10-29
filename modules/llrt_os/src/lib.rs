@@ -95,20 +95,13 @@ fn get_free_mem() -> u64 {
 }
 
 fn get_home_dir(ctx: Ctx<'_>) -> Result<String> {
-    match home::home_dir() {
-        Some(val) => Ok(val.to_string_lossy().into_owned()),
-        None => Err(Exception::throw_message(
-            &ctx,
-            "Could not determine home directory",
-        )),
-    }
+    home::home_dir()
+        .map(|val| val.to_string_lossy().into_owned())
+        .ok_or_else(|| Exception::throw_message(&ctx, "Could not determine home directory"))
 }
 
 fn get_host_name(ctx: Ctx<'_>) -> Result<String> {
-    match System::host_name() {
-        Some(val) => Ok(val),
-        None => Err(Exception::throw_reference(&ctx, "System::host_name")),
-    }
+    System::host_name().ok_or_else(|| Exception::throw_reference(&ctx, "System::host_name"))
 }
 
 fn get_load_avg() -> Vec<f64> {
@@ -118,10 +111,7 @@ fn get_load_avg() -> Vec<f64> {
 }
 
 fn get_machine(ctx: Ctx<'_>) -> Result<String> {
-    match System::cpu_arch() {
-        Some(val) => Ok(val),
-        None => Err(Exception::throw_reference(&ctx, "System::cpu_arch")),
-    }
+    System::cpu_arch().ok_or_else(|| Exception::throw_reference(&ctx, "System::cpu_arch"))
 }
 
 fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object>>> {
