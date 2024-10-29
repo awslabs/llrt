@@ -32,8 +32,17 @@ pub fn get_type() -> &'static str {
     "Windows_NT"
 }
 
+pub fn get_release() -> &'static str {
+    &OS_RELEASE
+}
+
 pub fn get_version() -> &'static str {
     &OS_VERSION
+}
+
+fn release() -> String {
+    let version = OsVersion::current();
+    format!("{}.{}.{}", version.major, version.minor, version.build)
 }
 
 pub fn get_user_info<'js>(
@@ -48,11 +57,6 @@ pub fn get_user_info<'js>(
     obj.set("homedir", get_home_dir(ctx.clone()))?;
     obj.set("shell", Null.into_js(&ctx)?)?;
     Ok(obj)
-}
-
-fn release() -> String {
-    let version = OsVersion::current();
-    format!("{}.{}.{}", version.major, version.minor, version.build)
 }
 
 fn version() -> Result<String> {
