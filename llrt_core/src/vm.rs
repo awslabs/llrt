@@ -315,6 +315,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let is_json = specifier.ends_with(".json");
 
+            trace!("Before specifier: {}", specifier);
+
             let import_specifier = if !is_cjs_import {
                 let is_bytecode = specifier.ends_with(BYTECODE_FILE_EXT);
                 let is_bytecode_or_json = is_json || is_bytecode;
@@ -330,7 +332,10 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 } else {
                     let module_name = get_script_or_module_name(ctx.clone());
                     let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
+                    trace!("module_name: {}", module_name);
                     let abs_path = resolve_path([module_name].iter());
+                    trace!("Abs path: {}", abs_path);
+
                     let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?;
                     import_name = resolved_path.as_str().into();
                     if is_bytecode_or_json {
