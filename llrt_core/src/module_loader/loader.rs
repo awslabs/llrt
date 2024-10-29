@@ -97,7 +97,7 @@ impl CustomLoader {
         let require: Function = ctx.globals().get("require")?;
         let export_object: Value = require.call((&cjs_specifier,))?;
         let mut module = String::from("const value = require(\"");
-        module.push_str(&cjs_specifier);
+        module.push_str(&name);
         module.push_str("\");export default value;");
         if let Some(obj) = export_object.as_object() {
             module.push_str("const{");

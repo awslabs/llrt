@@ -352,6 +352,12 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             let globals = ctx.globals();
             let require_cache: Object = globals.get("__require_cache")?;
 
+            println!("Require cache:::");
+            for key in require_cache.keys() {
+                let key: String = key?;
+                println!("- key: {}", key);
+            }
+
             if let Some(cached_value) =
                 require_cache.get::<_, Option<Value>>(import_name.as_ref())?
             {

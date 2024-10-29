@@ -85,8 +85,9 @@ it("should be able to import exported functions", () => {
 });
 
 it("should return same value for multiple require statements", () => {
-  const a = _require(`${CWD}/fixtures/prop-export.cjs`);
-  const b = _require(`${CWD}/fixtures/prop-export.cjs`);
+  const filename = `${CWD}/fixtures/prop-export.cjs`;
+  const a = _require(filename);
+  const b = _require(filename);
   expect(a).toStrictEqual(b);
 });
 
@@ -96,9 +97,11 @@ it("should return all props", () => {
 });
 
 it.only("should import cjs modules using import statement", async () => {
-  const a = await import(`${CWD}/fixtures/prop-export.cjs`);
-  const b = await import(`${CWD}/fixtures/prop-export.cjs`);
-  const c = _require(`${CWD}/fixtures/prop-export.cjs`);
+  const filename = `${CWD}/fixtures/prop-export.cjs`;
+  const a = await import(filename);
+  const b = await import(filename);
+  console.log("DEBUG!!!", filename);
+  const c = _require(filename);
   expect(a).toStrictEqual(b);
   expect(a.default).toStrictEqual(c);
   expect(b.default).toStrictEqual(c);
