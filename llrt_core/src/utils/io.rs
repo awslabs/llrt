@@ -1,42 +1,23 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::path::{Path, PathBuf};
 
 pub use llrt_utils::fs::DirectoryWalker;
 
-pub fn get_basename_ext_name(path: &str) -> (&str, &str) {
-    let path = path.trim_start_matches("./");
-    let (basename, ext) = path.rsplit_once('.').unwrap_or((path, ""));
-    (basename, ext)
-}
+use crate::bytecode::BYTECODE_FILE_EXT;
 
-pub static JS_EXTENSIONS: &[&str] = &[".js", ".mjs", ".cjs"];
+macro_rules! define_supported_extensions {
+    // Accepts a list of supported extensions and a single additional constant extension
+    ($constant_ext:ident, $($ext:literal),*) => {
+        // Define the array of extensions as a constant
+        pub const SUPPORTED_EXTENSIONS: &[&str] = &[$($ext),*, $constant_ext];
 
-pub fn get_js_path(path: &str) -> Option<PathBuf> {
-    let (basename, ext) = get_basename_ext_name(path);
+        pub const JS_EXTENSIONS: &[&str] = &[$($ext),*];
 
-    let filepath = Path::new(path);
-
-    let exists = filepath.exists();
-
-    if !ext.is_empty() && exists {
-        return Some(filepath.to_owned());
-    }
-
-    fn check_extensions(basename: &str) -> Option<PathBuf> {
-        for ext in JS_EXTENSIONS {
-            let path: &str = &[basename, ext].concat();
-            let path = Path::new(path);
-            if path.exists() {
-                return Some(path.to_owned());
-            }
+        // Define the function `is_supported_ext` using a match statement
+        pub fn is_supported_ext(ext: &str) -> bool {
+            matches!(ext, $($ext)|* | $constant_ext)
         }
-        None
-    }
-
-    if filepath.is_dir() && exists {
-        let basename: &str = &([basename, "/index"].concat());
-        return check_extensions(basename);
-    }
-    check_extensions(basename)
+    };
 }
+
+define_supported_extensions!(BYTECODE_FILE_EXT, ".js", ".mjs", ".cjs");

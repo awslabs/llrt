@@ -37,13 +37,13 @@ where
             let (dir, _) = self.stack.pop().unwrap();
             self.append_stack(&dir).await?;
         }
-        if let Some((dir, metadata)) = self.stack.pop() {
+        if let Some((entry, metadata)) = self.stack.pop() {
             let metadata = metadata.unwrap();
             if self.recursive && metadata.is_dir() {
-                self.append_stack(&dir).await?;
+                self.append_stack(&entry).await?;
             }
 
-            Ok(Some((dir, metadata)))
+            Ok(Some((entry, metadata)))
         } else {
             Ok(None)
         }
@@ -55,13 +55,13 @@ where
             let (dir, _) = self.stack.pop().unwrap();
             self.append_stack_sync(&dir)?;
         }
-        if let Some((dir, metadata)) = self.stack.pop() {
+        if let Some((entry, metadata)) = self.stack.pop() {
             let metadata = metadata.unwrap();
             if self.recursive && metadata.is_dir() {
-                self.append_stack_sync(&dir)?;
+                self.append_stack_sync(&entry)?;
             }
 
-            Ok(Some((dir, metadata)))
+            Ok(Some((entry, metadata)))
         } else {
             Ok(None)
         }

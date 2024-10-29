@@ -88,7 +88,7 @@ pub fn dirname<'a, P: Into<Cow<'a, str>>>(path: P) -> String {
     .to_string()
 }
 
-fn name_extname(path: &str) -> (&str, &str) {
+pub fn name_extname(path: &str) -> (&str, &str) {
     let path = strip_last_sep(path);
     let sep_pos = find_last_sep(path);
 

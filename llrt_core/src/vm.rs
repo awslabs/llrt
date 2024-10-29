@@ -7,7 +7,6 @@ use std::{
     ffi::CStr,
     fmt::Write,
     fs,
-    path::Path,
     process::exit,
     rc::Rc,
     result::Result as StdResult,
@@ -25,7 +24,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     context::EvalOptions,
     function::Opt,
-    loader::{BuiltinLoader, FileResolver, ScriptLoader},
+    loader::FileResolver,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Filter, Function,
     IntoJs, Module, Object, Result, Value,
@@ -39,7 +38,7 @@ use crate::{
     bytecode::BYTECODE_FILE_EXT,
     environment, http,
     module_loader::{
-        loader::{CustomLoader, LoaderContainer},
+        loader::CustomLoader,
         resolver::{require_resolve, CustomResolver},
         CJS_EXPORT_NAME, CJS_IMPORT_PREFIX,
     },
@@ -129,14 +128,7 @@ impl Vm {
 
         let resolver = (builtin_resolver, CustomResolver, file_resolver);
 
-        let loader = LoaderContainer::new((
-            module_loader,
-            CustomLoader,
-            BuiltinLoader::default(),
-            ScriptLoader::default()
-                .with_extension("mjs")
-                .with_extension("cjs"),
-        ));
+        let loader = (module_loader, CustomLoader);
 
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(vm_options.max_stack_size).await;
@@ -181,10 +173,10 @@ impl Vm {
             .await;
     }
 
-    pub async fn run_file(&self, filename: &Path, strict: bool, global: bool) {
+    pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
         let source = [
             r#"try{require(""#,
-            &filename.to_string_lossy(),
+            filename.as_ref(),
             r#"")}catch(e){console.error(e);process.exit(1)}"#,
         ]
         .concat();
@@ -336,8 +328,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     let abs_path = resolve_path([module_name].iter());
                     trace!("Abs path: {}", abs_path);
 
-                    let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?;
-                    import_name = resolved_path.as_str().into();
+                    let resolved_path =
+                        require_resolve(&ctx, &specifier, &abs_path, false)?.into_owned();
+                    import_name = resolved_path.clone().into();
                     if is_bytecode_or_json {
                         resolved_path
                     } else {

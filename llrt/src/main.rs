@@ -5,12 +5,14 @@ mod minimal_tracer;
 
 use llrt_core::{
     async_with,
+    bytecode::BYTECODE_EXT,
     modules::{
         console::{self, LogLevel},
+        path::name_extname,
         process::{get_arch, get_platform},
     },
     runtime_client,
-    utils::io::{get_basename_ext_name, get_js_path, DirectoryWalker, JS_EXTENSIONS},
+    utils::io::{is_supported_ext, DirectoryWalker, SUPPORTED_EXTENSIONS},
     vm::Vm,
     CatchResultExt, VERSION,
 };
@@ -165,35 +167,32 @@ async fn start_cli(vm: &Vm) {
                     _ => {},
                 }
 
-                let (_, ext) = get_basename_ext_name(arg);
+                let (_, ext) = name_extname(arg);
 
                 let filename = Path::new(arg);
                 let file_exists = filename.exists();
 
                 let global = ext == ".cjs";
 
-                match ext {
-                    ".cjs" | ".js" | ".mjs" => {
-                        if file_exists {
-                            return vm.run_file(filename, true, global).await;
-                        } else {
-                            eprintln!("No such file: {}", arg);
-                            exit(1);
-                        }
-                    },
-                    _ => {
-                        if file_exists {
-                            return vm.run_file(filename, true, false).await;
-                        }
-                        eprintln!("Unknown command: {}", arg);
-                        usage();
+                if is_supported_ext(ext) {
+                    if file_exists {
+                        return vm.run_file(arg, true, global).await;
+                    } else {
+                        eprintln!("No such file: {}", arg);
                         exit(1);
-                    },
+                    }
+                } else {
+                    if file_exists {
+                        return vm.run_file(arg, true, false).await;
+                    }
+                    eprintln!("Unknown command: {}", arg);
+                    usage();
+                    exit(1);
                 }
             }
         }
-    } else if let Some(filename) = get_js_path("index") {
-        vm.run_file(&filename, true, false).await;
+    } else {
+        vm.run_file("index", true, false).await;
     }
 }
 
@@ -238,11 +237,14 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
     });
     directory_walker.set_recursive(true);
 
-    let test_js_extensions: Vec<String> = JS_EXTENSIONS
+    let test_js_extensions: Vec<String> = SUPPORTED_EXTENSIONS
         .iter()
+        .filter(|&ext| *ext != BYTECODE_EXT)
         .map(|ext| [".test", ext].concat())
         .collect();
 
+    let pwd = env::current_dir().map_err(|e| e.to_string())?;
+    let pwd = pwd.to_string_lossy();
     while let Some((entry, _)) = directory_walker.walk().await.map_err(|e| e.to_string())? {
         if let Some(name) = entry.file_name() {
             let name = name.to_string_lossy();
@@ -251,7 +253,7 @@ async fn run_tests(vm: &Vm, args: &[std::string::String]) -> Result<(), String> 
                 if name.ends_with(ext_name)
                     && (!has_filters || filters.iter().any(|&f| name.contains(f)))
                 {
-                    entries.push(entry.to_string_lossy().to_string());
+                    entries.push([pwd.as_ref(), "/", entry.to_string_lossy().as_ref()].concat());
                 }
             }
         };

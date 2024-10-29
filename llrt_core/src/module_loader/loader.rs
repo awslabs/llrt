@@ -1,4 +1,3 @@
-use llrt_modules::path::resolve_path_with_separator;
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use std::{
@@ -94,6 +93,7 @@ impl CustomLoader {
 
     fn load_cjs_module<'js>(name: &str, ctx: Ctx<'js>) -> Result<Module<'js>> {
         let cjs_specifier = [CJS_IMPORT_PREFIX, name].concat();
+        println!("Calling with CJS specifier: {}", cjs_specifier);
         let require: Function = ctx.globals().get("require")?;
         let export_object: Value = require.call((&cjs_specifier,))?;
         let mut module = String::from("const value = require(\"");
@@ -121,10 +121,8 @@ impl CustomLoader {
         }
         Module::declare(ctx, name, module)
     }
-}
 
-impl Loader for CustomLoader {
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+    fn load_module<'js>(name: &str, ctx: &Ctx<'js>) -> Result<(Module<'js>, Option<String>)> {
         let mut from_cjs_import = false;
         let path = if let Some(cjs_path) = name.strip_prefix(CJS_IMPORT_PREFIX) {
             from_cjs_import = true;
@@ -149,10 +147,10 @@ impl Loader for CustomLoader {
                 file.read_to_string(&mut json)?;
                 json.push_str(suffix);
 
-                return Module::declare(ctx, name, json);
+                return Ok((Module::declare(ctx, name, json)?, None));
             }
             if name.ends_with(".cjs") {
-                return Self::load_cjs_module(name, ctx);
+                return Ok((Self::load_cjs_module(name, ctx)?, Some(path.into())));
             }
         }
 
@@ -162,7 +160,7 @@ impl Loader for CustomLoader {
 
             trace!("Loading embedded module: {}", name);
 
-            return Self::load_bytecode_module(ctx, bytes);
+            return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(name.into())));
         }
 
         let mut file = File::open(path)?;
@@ -189,60 +187,25 @@ impl Loader for CustomLoader {
 
         if name.ends_with(BYTECODE_FILE_EXT) {
             trace!("Loading binary module: {}", name);
-            return Self::load_bytecode_module(ctx, bytes);
+            return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(name.into())));
         }
         if !from_cjs_import && bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
 
-        Module::declare(ctx, name, bytes)
+        Ok((Module::declare(ctx, name, bytes)?, Some(path.into())))
     }
 }
 
-pub struct LoaderContainer<T>
-where
-    T: Loader + 'static,
-{
-    loader: T,
-}
-impl<T> LoaderContainer<T>
-where
-    T: Loader + 'static,
-{
-    pub fn new(loader: T) -> Self {
-        Self { loader }
-    }
-
-    fn set_import_meta(module: &Module<'_>, filepath: &str) -> Result<()> {
-        let meta: Object = module.meta()?;
-        meta.prop("url", ["file://", filepath].concat())?;
-        Ok(())
-    }
-}
-
-impl<T> Loader for LoaderContainer<T>
-where
-    T: Loader + 'static,
-{
+impl Loader for CustomLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
-        let res = self.loader.load(ctx, name)?;
+        let (module, filepath) = Self::load_module(name, ctx)?;
+        if let Some(filepath) = filepath {
+            let meta: Object = module.meta()?;
+            meta.prop("url", ["file://", filepath.as_ref()].concat())?;
+        }
 
-        let name = name
-            .trim_start_matches(CJS_IMPORT_PREFIX)
-            .trim_start_matches("./");
-
-        if name.starts_with('/') {
-            Self::set_import_meta(&res, name)?;
-        } else {
-            println!(
-                "import meta for {}: {}",
-                name,
-                resolve_path_with_separator([name], true)
-            );
-            Self::set_import_meta(&res, &resolve_path_with_separator([name], true))?;
-        };
-
-        Ok(res)
+        Ok(module)
     }
 }
 

@@ -5,7 +5,7 @@
 #![allow(clippy::inherent_to_string)]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
 
-mod bytecode;
+pub mod bytecode;
 pub mod compiler;
 mod compiler_common;
 pub mod environment;
