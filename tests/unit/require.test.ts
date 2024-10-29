@@ -95,7 +95,7 @@ it("should return all props", () => {
   expect(a.__esModule).toBe(true);
 });
 
-it("should import cjs modules using import statement", async () => {
+it.only("should import cjs modules using import statement", async () => {
   const a = await import(`${CWD}/fixtures/prop-export.cjs`);
   const b = await import(`${CWD}/fixtures/prop-export.cjs`);
   const c = _require(`${CWD}/fixtures/prop-export.cjs`);

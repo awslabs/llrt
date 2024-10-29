@@ -31,17 +31,15 @@ static FILESYSTEM_ROOT: Lazy<Box<str>> = Lazy::new(|| {
     #[cfg(windows)]
     {
         if let Some(path) = home::home_dir() {
-            let components: Vec<_> = path.components().collect();
-            if let Some(component) = components.get(0) {
-                if let std::path::Component::Prefix(prefix) = component {
-                    return prefix
-                        .as_os_str()
-                        .to_string_lossy()
-                        .into_owned()
-                        .into_boxed_str();
-                }
+            if let Some(std::path::Component::Prefix(prefix)) = path.components().next() {
+                return prefix
+                    .as_os_str()
+                    .to_string_lossy()
+                    .into_owned()
+                    .into_boxed_str();
             }
         }
+
         "C:".to_string().into_boxed_str()
     }
 });
