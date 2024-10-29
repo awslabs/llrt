@@ -189,6 +189,7 @@ class TestServer extends EventEmitter {
       }
     );
     proc.stdout.on("data", (data) => {
+      console.log(data.toString());
       output = data;
     });
     proc.on("error", (error) => {
