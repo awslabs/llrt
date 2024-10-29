@@ -227,12 +227,18 @@ where
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
         let res = self.loader.load(ctx, name)?;
 
-        let name = name.trim_start_matches("./");
+        let name = name
+            .trim_start_matches(CJS_IMPORT_PREFIX)
+            .trim_start_matches("./");
 
         if name.starts_with('/') {
             Self::set_import_meta(&res, name)?;
         } else {
-            println!("import meta: {}", resolve_path_with_separator([name], true));
+            println!(
+                "import meta for {}: {}",
+                name,
+                resolve_path_with_separator([name], true)
+            );
             Self::set_import_meta(&res, &resolve_path_with_separator([name], true))?;
         };
 
