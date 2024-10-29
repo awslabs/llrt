@@ -232,6 +232,7 @@ where
         if name.starts_with('/') {
             Self::set_import_meta(&res, name)?;
         } else {
+            println!("import meta: {}", resolve_path_with_separator([name], true));
             Self::set_import_meta(&res, &resolve_path_with_separator([name], true))?;
         };
 
