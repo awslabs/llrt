@@ -59,7 +59,10 @@ llrt_fs = { version = "0.3.0-beta", path = "../modules/llrt_fs", optional = true
 llrt_http = { version = "0.3.0-beta", path = "../modules/llrt_http", optional = true }
 llrt_navigator = { version = "0.3.0-beta", path = "../modules/llrt_navigator", optional = true }
 llrt_net = { version = "0.3.0-beta", path = "../modules/llrt_net", optional = true }
-llrt_os = { version = "0.3.0-beta", path = "../modules/llrt_os", optional = true }
+llrt_os = { version = "0.3.0-beta", path = "../modules/llrt_os", features = [
+  "network",
+  "statistics",
+], default-features = false, optional = true }
 llrt_path = { version = "0.3.0-beta", path = "../modules/llrt_path", optional = true }
 llrt_process = { version = "0.3.0-beta", path = "../modules/llrt_process", optional = true }
 llrt_perf_hooks = { version = "0.3.0-beta", path = "../modules/llrt_perf_hooks", optional = true }

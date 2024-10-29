@@ -1,26 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    collections::HashMap,
-    env,
-    net::{Ipv4Addr, Ipv6Addr},
-    sync::Arc,
-    thread,
-};
+use std::env;
 
 use llrt_utils::{
     module::{export_default, ModuleInfo},
-    result::ResultExt,
     sysinfo::{get_arch, get_platform},
 };
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    Ctx, Exception, Object, Result,
+    Ctx, Exception, Result,
 };
-use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
+use sysinfo::System;
 
 #[cfg(unix)]
 use self::unix::{
@@ -36,45 +27,18 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
-static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(System::new_with_specifics(
-        RefreshKind::new()
-            .with_cpu(CpuRefreshKind::new().with_cpu_usage().with_frequency())
-            .with_memory(MemoryRefreshKind::new().with_ram()),
-    )))
-});
+#[cfg(feature = "network")]
+use self::network::get_network_interfaces;
+#[cfg(feature = "statistics")]
+use self::statistics::{get_cpus, get_free_mem, get_total_mem};
 
-static NETWORKS: Lazy<Arc<Mutex<Networks>>> =
-    Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list())));
+#[cfg(feature = "network")]
+mod network;
+#[cfg(feature = "statistics")]
+mod statistics;
 
 fn get_available_parallelism() -> usize {
     num_cpus::get()
-}
-
-fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
-    let mut vec: Vec<Object> = Vec::new();
-    let mut system = SYSTEM.lock();
-
-    thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    system.refresh_cpu_all();
-
-    for cpu in system.cpus() {
-        let obj = Object::new(ctx.clone())?;
-        obj.set("model", cpu.brand())?;
-        obj.set("speed", cpu.frequency())?;
-
-        // The number of milliseconds spent by the CPU in each mode cannot be obtained at this time.
-        let times = Object::new(ctx.clone())?;
-        times.set("user", 0)?;
-        times.set("nice", 0)?;
-        times.set("sys", 0)?;
-        times.set("idle", 0)?;
-        times.set("irq", 0)?;
-        obj.set("times", times)?;
-
-        vec.push(obj);
-    }
-    Ok(vec)
 }
 
 fn get_endianness() -> &'static str {
@@ -86,13 +50,6 @@ fn get_endianness() -> &'static str {
     {
         "BE"
     }
-}
-
-fn get_free_mem() -> u64 {
-    let mut system = SYSTEM.lock();
-
-    system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
-    system.free_memory()
 }
 
 fn get_home_dir(ctx: Ctx<'_>) -> Result<String> {
@@ -115,129 +72,8 @@ fn get_machine(ctx: Ctx<'_>) -> Result<String> {
     System::cpu_arch().ok_or_else(|| Exception::throw_reference(&ctx, "System::cpu_arch"))
 }
 
-fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object>>> {
-    let mut map: HashMap<String, Vec<Object>> = HashMap::new();
-    let networks = NETWORKS.lock();
-
-    for (interface_name, network_data) in networks.iter() {
-        let mut ifs = Vec::new();
-
-        for ip_network in network_data.ip_networks() {
-            let addr = &ip_network.addr.to_string();
-            let is_ipv4 = addr.contains(".");
-            let (is_internal, scope_id) = if is_ipv4 {
-                get_attribute_ipv4(&ctx, addr)?
-            } else {
-                get_attribute_ipv6(&ctx, addr)?
-            };
-
-            let obj = Object::new(ctx.clone())?;
-            obj.set("address", addr)?;
-            obj.set(
-                "netmask",
-                if is_ipv4 {
-                    prefix_to_netmask_ipv4(ip_network.prefix)
-                } else {
-                    prefix_to_netmask_ipv6(ip_network.prefix)
-                }
-                .to_string(),
-            )?;
-            obj.set("family", if is_ipv4 { "IPv4" } else { "IPv6" })?;
-            obj.set("mac", network_data.mac_address().to_string())?;
-            obj.set("internal", is_internal)?;
-            obj.set("cidr", [addr, "/", &ip_network.prefix.to_string()].concat())?;
-            if !is_ipv4 {
-                obj.set("scopeid", scope_id)?;
-            }
-
-            ifs.push(obj);
-        }
-        if !ifs.is_empty() {
-            map.insert(interface_name.to_string(), ifs);
-        }
-    }
-    Ok(map)
-}
-
-fn prefix_to_netmask_ipv4(prefix: u8) -> Box<str> {
-    let mut prefix = prefix;
-
-    if prefix > 32 {
-        return Box::from("");
-    }
-
-    let mut mask = [0u8; 4];
-
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..4 {
-        if prefix >= 8 {
-            mask[i] = 255;
-            prefix -= 8;
-        } else if prefix > 0 {
-            mask[i] = 255 << (8 - prefix);
-            break;
-        }
-    }
-    Box::from(Ipv4Addr::new(mask[0], mask[1], mask[2], mask[3]).to_string())
-}
-
-fn prefix_to_netmask_ipv6(prefix: u8) -> Box<str> {
-    let mut prefix = prefix;
-
-    if prefix > 128 {
-        return Box::from("");
-    }
-
-    let mut mask = [0u16; 8];
-
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..8 {
-        if prefix >= 16 {
-            mask[i] = 0xFFFF;
-            prefix -= 16;
-        } else if prefix > 0 {
-            mask[i] = 0xFFFF << (16 - prefix);
-            break;
-        }
-    }
-    Box::from(
-        Ipv6Addr::new(
-            mask[0], mask[1], mask[2], mask[3], mask[4], mask[5], mask[6], mask[7],
-        )
-        .to_string(),
-    )
-}
-
-fn get_attribute_ipv4(ctx: &Ctx<'_>, addr: &str) -> Result<(bool, u8)> {
-    let addr = addr.parse::<Ipv4Addr>().or_throw(ctx)?;
-    let is_internal = addr.is_broadcast()
-        || addr.is_documentation()
-        || addr.is_link_local()
-        || addr.is_loopback()
-        || addr.is_multicast()
-        || addr.is_unspecified();
-    let scope_id = 0; // For IPv4, ScopeID is a dummy value.
-
-    Ok((is_internal, scope_id))
-}
-
-fn get_attribute_ipv6(ctx: &Ctx<'_>, addr: &str) -> Result<(bool, u8)> {
-    let addr = addr.parse::<Ipv6Addr>().or_throw(ctx)?;
-    let is_internal = addr.is_loopback() || addr.is_multicast() || addr.is_unspecified();
-    let scope_id = 0; // ScopeID is not supported at this time.
-
-    Ok((is_internal, scope_id))
-}
-
 fn get_tmp_dir() -> String {
     env::temp_dir().to_string_lossy().to_string()
-}
-
-fn get_total_mem() -> u64 {
-    let mut system = SYSTEM.lock();
-
-    system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
-    system.total_memory()
 }
 
 fn get_uptime() -> u64 {
@@ -250,31 +86,36 @@ impl ModuleDef for OsModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("arch")?;
         declare.declare("availableParallelism")?;
-        declare.declare("cpus")?;
         declare.declare("devNull")?;
         declare.declare("endianness")?;
         declare.declare("EOL")?;
-        declare.declare("freemem")?;
         declare.declare("getPriority")?;
         declare.declare("homedir")?;
         declare.declare("hostname")?;
         declare.declare("loadavg")?;
         declare.declare("machine")?;
-        declare.declare("networkInterfaces")?;
         declare.declare("platform")?;
         declare.declare("release")?;
         declare.declare("setPriority")?;
         declare.declare("tmpdir")?;
-        declare.declare("totalmem")?;
         declare.declare("type")?;
         declare.declare("uptime")?;
         declare.declare("userInfo")?;
         declare.declare("version")?;
 
-        declare.declare("constants")?;
+        #[cfg(feature = "network")]
+        {
+            declare.declare("networkInterfaces")?;
+        }
+
+        #[cfg(feature = "statistics")]
+        {
+            declare.declare("cpus")?;
+            declare.declare("freemem")?;
+            declare.declare("totalmem")?;
+        }
 
         declare.declare("default")?;
-
         Ok(())
     }
 
@@ -285,27 +126,34 @@ impl ModuleDef for OsModule {
                 "availableParallelism",
                 Func::from(get_available_parallelism),
             )?;
-            default.set("cpus", Func::from(get_cpus))?;
             default.set("devNull", DEV_NULL)?;
             default.set("endianness", Func::from(get_endianness))?;
             default.set("EOL", EOL)?;
-            default.set("freemem", Func::from(get_free_mem))?;
             default.set("getPriority", Func::from(get_priority))?;
             default.set("homedir", Func::from(get_home_dir))?;
             default.set("hostname", Func::from(get_host_name))?;
             default.set("loadavg", Func::from(get_load_avg))?;
             default.set("machine", Func::from(get_machine))?;
-            default.set("networkInterfaces", Func::from(get_network_interfaces))?;
             default.set("platform", Func::from(get_platform))?;
             default.set("release", Func::from(get_release))?;
             default.set("setPriority", Func::from(set_priority))?;
             default.set("tmpdir", Func::from(get_tmp_dir))?;
-            default.set("totalmem", Func::from(get_total_mem))?;
             default.set("type", Func::from(get_type))?;
             default.set("uptime", Func::from(get_uptime))?;
             default.set("userInfo", Func::from(get_user_info))?;
             default.set("version", Func::from(get_version))?;
 
+            #[cfg(feature = "network")]
+            {
+                default.set("networkInterfaces", Func::from(get_network_interfaces))?;
+            }
+
+            #[cfg(feature = "statistics")]
+            {
+                default.set("cpus", Func::from(get_cpus))?;
+                default.set("freemem", Func::from(get_free_mem))?;
+                default.set("totalmem", Func::from(get_total_mem))?;
+            }
             Ok(())
         })
     }
@@ -455,6 +303,7 @@ mod tests {
         .await;
     }
 
+    #[cfg(feature = "statistics")]
     #[tokio::test]
     async fn test_freemem() {
         test_async_with(|ctx| {
@@ -546,6 +395,7 @@ mod tests {
         .await;
     }
 
+    #[cfg(feature = "statistics")]
     #[tokio::test]
     async fn test_totalmem() {
         test_async_with(|ctx| {
