@@ -11,6 +11,7 @@ use windows_version::OsVersion;
 
 use crate::get_home_dir;
 
+static OS_RELEASE: Lazy<String> = Lazy::new(release);
 static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
 pub static EOL: &str = "\r\n";
 pub static DEV_NULL: &str = "\\.\nul";
@@ -47,6 +48,11 @@ pub fn get_user_info<'js>(
     obj.set("homedir", get_home_dir(ctx.clone()))?;
     obj.set("shell", Null.into_js(&ctx)?)?;
     Ok(obj)
+}
+
+fn release() -> String {
+    let version = OsVersion::current();
+    format!("{}.{}.{}", version.major, version.minor, version.build)
 }
 
 fn version() -> Result<String> {

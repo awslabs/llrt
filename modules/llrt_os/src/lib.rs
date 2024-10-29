@@ -22,10 +22,12 @@ use rquickjs::{
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
 
 #[cfg(unix)]
-use self::unix::{get_priority, get_type, get_user_info, get_version, set_priority, DEV_NULL, EOL};
+use self::unix::{
+    get_priority, get_release, get_type, get_user_info, get_version, set_priority, DEV_NULL, EOL,
+};
 #[cfg(windows)]
 use self::windows::{
-    get_priority, get_type, get_user_info, get_version, set_priority, DEV_NULL, EOL,
+    get_priority, get_release, get_type, get_user_info, get_version, set_priority, DEV_NULL, EOL,
 };
 
 #[cfg(unix)]
@@ -234,13 +236,6 @@ fn get_attribute_ipv6(ctx: &Ctx<'_>, addr: &str) -> Result<(bool, u8)> {
     let scope_id = 0; // ScopeID is not supported at this time.
 
     Ok((is_internal, scope_id))
-}
-
-fn get_release(ctx: Ctx<'_>) -> Result<String> {
-    match System::kernel_version() {
-        Some(val) => Ok(val),
-        None => Err(Exception::throw_reference(&ctx, "System::kernel_version")),
-    }
 }
 
 fn get_tmp_dir() -> String {
