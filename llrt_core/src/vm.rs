@@ -324,9 +324,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 } else {
                     let module_name = get_script_or_module_name(ctx.clone());
                     let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
-                    trace!("module_name: {}", module_name);
                     let abs_path = resolve_path([module_name].iter());
-                    trace!("Abs path: {}", abs_path);
 
                     let resolved_path =
                         require_resolve(&ctx, &specifier, &abs_path, false)?.into_owned();
@@ -344,12 +342,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             let globals = ctx.globals();
             let require_cache: Object = globals.get("__require_cache")?;
-
-            println!("Require cache:::");
-            for key in require_cache.keys() {
-                let key: String = key?;
-                println!("- key: {}", key);
-            }
 
             if let Some(cached_value) =
                 require_cache.get::<_, Option<Value>>(import_name.as_ref())?

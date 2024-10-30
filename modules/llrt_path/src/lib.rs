@@ -265,7 +265,6 @@ where
             result = result.replace(MAIN_SEPARATOR, FORWARD_SLASH_STR);
         }
     }
-    println!("resolve_path_with_separator result = {}", result);
     join_resolve_path(parts, true, result, cwd, force_posix_sep)
 }
 

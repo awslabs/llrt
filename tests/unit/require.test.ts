@@ -96,7 +96,7 @@ it("should return all props", () => {
   expect(a.__esModule).toBe(true);
 });
 
-it.only("should import cjs modules using import statement", async () => {
+it("should import cjs modules using import statement", async () => {
   const filename = `${CWD}/fixtures/prop-export.cjs`;
   const a = await import(filename);
   const b = await import(filename);

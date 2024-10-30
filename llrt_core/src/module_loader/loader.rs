@@ -93,7 +93,6 @@ impl CustomLoader {
 
     fn load_cjs_module<'js>(name: &str, ctx: Ctx<'js>) -> Result<Module<'js>> {
         let cjs_specifier = [CJS_IMPORT_PREFIX, name].concat();
-        println!("Calling with CJS specifier: {}", cjs_specifier);
         let require: Function = ctx.globals().get("require")?;
         let export_object: Value = require.call((&cjs_specifier,))?;
         let mut module = String::from("const value = require(\"");
