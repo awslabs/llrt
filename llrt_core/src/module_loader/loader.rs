@@ -8,7 +8,7 @@ use std::{
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-use super::{CJS_EXPORT_NAME, CJS_IMPORT_PREFIX};
+use super::CJS_IMPORT_PREFIX;
 
 use crate::{
     bytecode::{
@@ -97,12 +97,6 @@ impl CustomLoader {
         let export_object: Value = require.call((&cjs_specifier,))?;
         let mut module = String::from("const value = require(\"");
 
-        let name = if cfg!(windows) {
-            &name.replace('\\', "/")
-        } else {
-            name
-        };
-
         module.push_str(name);
         module.push_str("\");export default value;");
         if let Some(obj) = export_object.as_object() {
@@ -144,7 +138,6 @@ impl CustomLoader {
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
             if name.ends_with(".json") {
-                //avoids copy and additional string allocations
                 let mut file = File::open(path)?;
                 let prefix = "export default JSON.parse(`";
                 let suffix = "`);";
@@ -153,10 +146,11 @@ impl CustomLoader {
                 file.read_to_string(&mut json)?;
                 json.push_str(suffix);
 
-                return Ok((Module::declare(ctx, name, json)?, None));
+                return Ok((Module::declare(ctx, path, json)?, None));
             }
             if name.ends_with(".cjs") {
-                return Ok((Self::load_cjs_module(name, ctx)?, Some(path.into())));
+                let url = ["file://", path].concat();
+                return Ok((Self::load_cjs_module(name, ctx)?, Some(url)));
             }
         }
 
@@ -169,26 +163,7 @@ impl CustomLoader {
             return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(name.into())));
         }
 
-        let mut file = File::open(path)?;
-
-        let mut bytes = if from_cjs_import {
-            let prefix = b"const module={exports:{}};let exports=module.exports;";
-            let mut bytes = Vec::with_capacity(prefix.len() + 10);
-            bytes.extend_from_slice(prefix);
-            bytes
-        } else {
-            Vec::new()
-        };
-        file.read_to_end(&mut bytes)?;
-
-        if from_cjs_import {
-            bytes.extend_from_slice(
-                ["\nexport const ", CJS_EXPORT_NAME, "=module.exports;"]
-                    .concat()
-                    .as_bytes(),
-            );
-        }
-
+        let bytes = std::fs::read(path)?;
         let mut bytes: &[u8] = &bytes;
 
         if name.ends_with(BYTECODE_FILE_EXT) {
@@ -199,16 +174,17 @@ impl CustomLoader {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
 
-        Ok((Module::declare(ctx, name, bytes)?, Some(path.into())))
+        let url = ["file://", path].concat();
+        Ok((Module::declare(ctx, name, bytes)?, Some(url)))
     }
 }
 
 impl Loader for CustomLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
-        let (module, filepath) = Self::load_module(name, ctx)?;
-        if let Some(filepath) = filepath {
+        let (module, url) = Self::load_module(name, ctx)?;
+        if let Some(url) = url {
             let meta: Object = module.meta()?;
-            meta.prop("url", ["file://", filepath.as_ref()].concat())?;
+            meta.prop("url", url)?;
         }
 
         Ok(module)

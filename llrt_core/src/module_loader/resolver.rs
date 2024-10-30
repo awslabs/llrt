@@ -9,7 +9,7 @@ use std::{
     sync::Mutex,
 };
 
-use llrt_modules::path::{self, name_extname};
+use llrt_modules::path::{self, is_absolute, name_extname, resolve_path_with_separator};
 use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Result};
@@ -92,6 +92,7 @@ pub fn require_resolve<'a>(
     //fast path for when we have supported extensions
     let (_, ext_name) = name_extname(x);
     let is_supported_ext = is_supported_ext(ext_name);
+
     if is_supported_ext && Path::new(x).is_file() {
         return resolved_by_file_exists(x.into());
     }
@@ -128,7 +129,7 @@ pub fn require_resolve<'a>(
     // 3. If X begins with './' or '/' or '../'
     if x_starts_with_current_dir || x_is_absolute || x.starts_with("../") {
         let y_plus_x = if x_is_absolute {
-            x.to_string()
+            x.into()
         } else if x_starts_with_current_dir {
             [&dirname_y, "/", &x[2..]].concat()
         } else {
@@ -140,12 +141,12 @@ pub fn require_resolve<'a>(
         // a. LOAD_AS_FILE(Y + X)
         if let Ok(Some(path)) = load_as_file(ctx, y_plus_x.clone()) {
             trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
-            return Ok(path);
+            return Ok(to_abs_path(path));
         } else {
             // b. LOAD_AS_DIRECTORY(Y + X)
             if let Ok(Some(path)) = load_as_directory(ctx, y_plus_x) {
                 trace!("+- Resolved by `LOAD_AS_DIRECTORY`: {}\n", path);
-                return Ok(path);
+                return Ok(to_abs_path(path));
             }
         }
 
@@ -165,7 +166,7 @@ pub fn require_resolve<'a>(
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
     if let Ok(Some(path)) = load_package_self(ctx, x, &dirname_y, is_esm) {
         trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}\n", path);
-        return Ok(path.into());
+        return Ok(to_abs_path(path.into()));
     }
 
     // 6. LOAD_NODE_MODULES(X, dirname(Y))
@@ -177,7 +178,7 @@ pub fn require_resolve<'a>(
     // 6.5. LOAD_AS_FILE(X)
     if let Ok(Some(path)) = load_as_file(ctx, Rc::new(x.to_owned())) {
         trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
-        return Ok(path);
+        return Ok(to_abs_path(path));
     }
 
     // 7. THROW "not found"
@@ -189,9 +190,17 @@ fn resolved_by_bytecode_cache(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
     Ok(x)
 }
 
-fn resolved_by_file_exists(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    trace!("+- Resolved by `FILE`: {}\n", x);
-    Ok(x)
+fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
+    trace!("+- Resolved by `FILE`: {}\n", path);
+    Ok(to_abs_path(path))
+}
+
+fn to_abs_path(path: Cow<'_, str>) -> Cow<'_, str> {
+    if !is_absolute(&path) {
+        resolve_path_with_separator([path], true).into()
+    } else {
+        path
+    }
 }
 
 // LOAD_AS_FILE(X)

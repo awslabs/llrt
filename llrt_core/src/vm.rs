@@ -25,6 +25,7 @@ use rquickjs::{
     context::EvalOptions,
     function::Opt,
     loader::FileResolver,
+    object::Accessor,
     prelude::{Func, Rest},
     qjs, AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Filter, Function,
     IntoJs, Module, Object, Result, Value,
@@ -40,7 +41,7 @@ use crate::{
     module_loader::{
         loader::CustomLoader,
         resolver::{require_resolve, CustomResolver},
-        CJS_EXPORT_NAME, CJS_IMPORT_PREFIX,
+        CJS_IMPORT_PREFIX,
     },
     modules::{console, crypto::SYSTEM_RANDOM},
     number::number_to_string,
@@ -292,8 +293,50 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
     let require_in_progress: Rc<Mutex<HashMap<Rc<str>, Object>>> =
         Rc::new(Mutex::new(HashMap::new()));
 
+    // XXX use symbols?
+    const REQUIRE_CACHE_NAME: &str = "__require_cache";
+    const EXPORT_STORE_NAME: &str = "__export_store";
+
     let require_cache: Object = Object::new(ctx.clone())?;
-    globals.set("__require_cache", require_cache)?;
+    globals.prop(REQUIRE_CACHE_NAME, require_cache)?;
+
+    let exports_store: Object = Object::new(ctx.clone())?;
+    globals.prop(EXPORT_STORE_NAME, exports_store)?;
+
+    let exports_accessor = Accessor::new(
+        |ctx| {
+            let name = get_script_or_module_name(&ctx);
+            let name = name.trim_start_matches(CJS_IMPORT_PREFIX);
+
+            let exports_store: Object = ctx.globals().get(EXPORT_STORE_NAME)?;
+
+            if let Some(value) = exports_store.get_optional::<_, Value>(name)? {
+                Ok::<_, Error>(value.clone())
+            } else {
+                let obj = Object::new(ctx)?.into_value();
+                exports_store.set(name, obj.clone())?;
+                Ok::<_, Error>(obj)
+            }
+        },
+        |ctx, exports| {
+            struct Args<'js>(Ctx<'js>, Value<'js>);
+            let Args(ctx, exports) = Args(ctx, exports);
+            let name = get_script_or_module_name(&ctx);
+            let name = name.trim_start_matches(CJS_IMPORT_PREFIX);
+            let exports_store: Object = ctx.globals().get(EXPORT_STORE_NAME)?;
+            println!("set module name: {}", name);
+            exports_store.set(name, exports)?;
+            Ok::<_, Error>(())
+        },
+    )
+    .configurable()
+    .enumerable();
+
+    let module = Object::new(ctx.clone())?;
+    module.prop("exports", exports_accessor)?;
+
+    globals.prop("module", module)?;
+    globals.prop("exports", exports_accessor)?;
 
     globals.set(
         "require",
@@ -322,7 +365,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                     import_name = specifier.into();
                     import_name.clone()
                 } else {
-                    let module_name = get_script_or_module_name(ctx.clone());
+                    let module_name = get_script_or_module_name(&ctx);
                     let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
                     let abs_path = resolve_path([module_name].iter());
 
@@ -341,7 +384,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             };
 
             let globals = ctx.globals();
-            let require_cache: Object = globals.get("__require_cache")?;
+            let require_cache: Object = globals.get(REQUIRE_CACHE_NAME)?;
 
             if let Some(cached_value) =
                 require_cache.get::<_, Option<Value>>(import_name.as_ref())?
@@ -389,7 +432,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 ctx.execute_pending_job();
             };
 
-            let exports_obj: Option<Value> = imported_object.get_optional(CJS_EXPORT_NAME)?;
+            let exports_store: Object = globals.get(EXPORT_STORE_NAME)?;
+            let exports_obj: Option<Value> = exports_store.get_optional::<&str, _>(&import_name)?;
 
             require_in_progress
                 .lock()
@@ -415,9 +459,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
 
             for prop in imported_object.props::<String, Value>() {
                 let (key, value) = prop?;
-                if key != CJS_EXPORT_NAME {
-                    obj.set(key, value)?;
-                }
+                obj.set(key, value)?;
             }
 
             let value = obj.into_value();
@@ -448,7 +490,7 @@ fn load<'js>(ctx: Ctx<'js>, filename: String, options: Opt<Object<'js>>) -> Resu
     ctx.eval_file_with_options(filename, eval_options)
 }
 
-fn get_script_or_module_name(ctx: Ctx<'_>) -> String {
+fn get_script_or_module_name(ctx: &Ctx<'_>) -> String {
     unsafe {
         let ctx_ptr = ctx.as_raw().as_ptr();
         let atom = qjs::JS_GetScriptOrModuleName(ctx_ptr, 0);
