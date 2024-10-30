@@ -1,10 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::convert::Infallible;
 use std::{collections::HashSet, time::Instant};
 
 use bytes::Bytes;
+use http_body_util::combinators::BoxBody;
 use http_body_util::Full;
 use hyper::{header::HeaderName, Method, Request, Uri};
+use hyper_util::client::legacy::connect::Connect;
+use hyper_util::client::legacy::Client;
 use llrt_abort::AbortSignal;
 use llrt_utils::{
     bytes::ObjectBytes, encoding::bytes_from_b64, mc_oneshot, result::ResultExt, VERSION,
@@ -17,19 +21,18 @@ use rquickjs::{
 };
 use tokio::select;
 
-use super::{
-    blob::Blob, headers::Headers, response::Response, security::ensure_url_access, HTTP_CLIENT,
-};
+use super::{blob::Blob, headers::Headers, response::Response, security::ensure_url_access};
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
-pub(crate) fn init(ctx: &Ctx<'_>, globals: &Object) -> Result<()> {
-    //init eagerly
-    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
-
+pub(crate) fn init<C>(client: Client<C, BoxBody<Bytes, Infallible>>, globals: &Object) -> Result<()>
+where
+    C: Clone + Send + Sync + Connect + 'static,
+{
     globals.set(
         "fetch",
         Func::from(Async(move |ctx, resource, args| {
+            let client = client.clone();
             let start = Instant::now();
             let options = get_fetch_options(&ctx, resource, args);
 
@@ -162,7 +165,7 @@ fn build_request(
     body: Option<&BodyBytes>,
     prev_status: &u16,
     initial_uri: &Uri,
-) -> Result<Request<Full<Bytes>>> {
+) -> Result<Request<BoxBody<Bytes, Infallible>>> {
     let same_origin = is_same_origin(uri, initial_uri);
 
     let change_method = should_change_method(*prev_status, method);
@@ -200,8 +203,10 @@ fn build_request(
         req = req.header("accept", "*/*");
     }
 
-    req.body(body.map(|b| b.body.clone()).unwrap_or_default())
-        .or_throw(ctx)
+    req.body(BoxBody::new(
+        body.map(|b| b.body.clone()).unwrap_or_default(),
+    ))
+    .or_throw(ctx)
 }
 
 fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
