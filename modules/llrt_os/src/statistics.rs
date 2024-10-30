@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{sync::Arc, thread};
+use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
@@ -17,10 +17,7 @@ static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
 
 pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
     let mut vec: Vec<Object> = Vec::new();
-    let mut system = SYSTEM.lock();
-
-    thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    system.refresh_cpu_all();
+    let system = SYSTEM.lock();
 
     for cpu in system.cpus() {
         let obj = Object::new(ctx.clone())?;
