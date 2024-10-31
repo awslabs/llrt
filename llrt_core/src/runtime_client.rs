@@ -7,16 +7,14 @@ use std::{
     time::Instant,
 };
 
-use bytes::Bytes;
 use chrono::Utc;
+use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Full};
 use hyper::{
     header::{HeaderMap, CONTENT_TYPE},
     http::header::HeaderName,
     Request, StatusCode,
 };
-use hyper_rustls::HttpsConnector;
-use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use llrt_json::{
     parse::json_parse,
     stringify::{self, json_stringify},
@@ -31,7 +29,7 @@ use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
 use crate::modules::console;
-use crate::modules::http::HTTP_CLIENT;
+use crate::modules::http::{HyperClient, HTTP_CLIENT};
 use crate::utils::latch::Latch;
 use crate::utils::result::ResultExt;
 
@@ -118,8 +116,6 @@ pub fn mark_client_inited(rt: *mut qjs::JSRuntime) {
     let state = get_sdk_client_init_state_mut(&mut write, rt);
     state.latch.decrement();
 }
-
-type HyperClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
 
 #[derive(Clone)]
 struct LambdaContext<'js, 'a> {
@@ -292,7 +288,7 @@ async fn next_invocation<'js, 'a>(
         .method("GET")
         .uri(uri)
         .header(CONTENT_TYPE, "application/json")
-        .body(Full::default())
+        .body(BoxBody::new(Full::default()))
         .or_throw(ctx)?;
 
     let res = client.request(req).await.or_throw(ctx)?;
@@ -367,9 +363,9 @@ async fn invoke_response<'js>(
         .method("POST")
         .uri([base_url, "/invocation/", request_id, "/response"].concat())
         .header(CONTENT_TYPE, "application/json")
-        .body(Full::from(bytes::Bytes::from(
+        .body(BoxBody::new(Full::from(bytes::Bytes::from(
             result_json.unwrap_or_default(),
-        )))
+        ))))
         .or_throw(ctx)?;
 
     let res = client.request(req).await.or_throw(ctx)?;
@@ -541,7 +537,7 @@ async fn post_error<'js>(
         .uri(url)
         .header(CONTENT_TYPE, "application/json")
         .header(&HEADER_ERROR_TYPE, error_type)
-        .body(Full::from(bytes::Bytes::from(error_body)))
+        .body(BoxBody::new(Full::from(bytes::Bytes::from(error_body))))
         .or_throw(ctx)?;
     let res = client.request(req).await.or_throw(ctx)?;
     if res.status() != StatusCode::ACCEPTED {

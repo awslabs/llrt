@@ -119,8 +119,8 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
-type HttpsClient = Client<HttpsConnector<HttpConnector>, BoxBody<Bytes, Infallible>>;
-pub static HTTP_CLIENT: Lazy<io::Result<HttpsClient>> = Lazy::new(|| {
+pub type HyperClient = Client<HttpsConnector<HttpConnector>, BoxBody<Bytes, Infallible>>;
+pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| {
     let pool_idle_timeout = get_pool_idle_timeout();
 
     let maybe_tls_config = match &*TLS_CONFIG {
