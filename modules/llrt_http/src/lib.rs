@@ -1,15 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::convert::Infallible;
 use std::{io, sync::OnceLock, time::Duration};
 
 use bytes::Bytes;
-use http_body_util::Full;
+use http_body_util::combinators::BoxBody;
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
 use llrt_utils::class::CustomInspectExtension;
+use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{Class, Ctx, Result};
 use rustls::{
@@ -117,36 +119,37 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
-pub static HTTP_CLIENT: Lazy<io::Result<Client<HttpsConnector<HttpConnector>, Full<Bytes>>>> =
-    Lazy::new(|| {
-        let pool_idle_timeout = get_pool_idle_timeout();
+pub type HyperClient = Client<HttpsConnector<HttpConnector>, BoxBody<Bytes, Infallible>>;
+pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| {
+    let pool_idle_timeout = get_pool_idle_timeout();
 
-        let maybe_tls_config = match &*TLS_CONFIG {
-            Ok(tls_config) => io::Result::Ok(tls_config.clone()),
-            Err(e) => io::Result::Err(io::Error::new(e.kind(), e.to_string())),
-        };
+    let maybe_tls_config = match &*TLS_CONFIG {
+        Ok(tls_config) => io::Result::Ok(tls_config.clone()),
+        Err(e) => io::Result::Err(io::Error::new(e.kind(), e.to_string())),
+    };
 
-        let builder = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_tls_config(maybe_tls_config?)
-            .https_or_http();
+    let builder = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_tls_config(maybe_tls_config?)
+        .https_or_http();
 
-        let https = match get_http_version() {
-            #[cfg(feature = "http1")]
-            HttpVersion::Http1_1 => builder.enable_http1().build(),
-            #[cfg(feature = "http2")]
-            HttpVersion::Http2 => builder.enable_all_versions().build(),
-        };
+    let https = match get_http_version() {
+        #[cfg(feature = "http1")]
+        HttpVersion::Http1_1 => builder.enable_http1().build(),
+        #[cfg(feature = "http2")]
+        HttpVersion::Http2 => builder.enable_all_versions().build(),
+    };
 
-        Ok(Client::builder(TokioExecutor::new())
-            .pool_idle_timeout(pool_idle_timeout)
-            .pool_timer(TokioTimer::new())
-            .build(https))
-    });
+    Ok(Client::builder(TokioExecutor::new())
+        .pool_idle_timeout(pool_idle_timeout)
+        .pool_timer(TokioTimer::new())
+        .build(https))
+});
 
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = ctx.globals();
 
-    fetch::init(ctx, &globals)?;
+    //init eagerly
+    fetch::init(HTTP_CLIENT.as_ref().or_throw(ctx)?.clone(), &globals)?;
 
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;
