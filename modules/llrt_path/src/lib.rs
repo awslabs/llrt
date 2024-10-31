@@ -30,7 +30,7 @@ const FORWARD_SLASH_STR: &str = "/";
 pub const CURRENT_DIR_STR: &str = "./";
 
 #[cfg(windows)]
-use memchr::memchr2;
+use memchr::{memchr, memchr2, memchr2_iter};
 
 #[cfg(windows)]
 pub fn replace_backslash(path: impl Into<String>) -> String {
@@ -62,7 +62,7 @@ fn find_next_separator(s: &str) -> Option<usize> {
 
 #[cfg(windows)]
 fn find_last_sep(path: &str) -> Option<usize> {
-    memchr::memchr2_iter(b'\\', b'/', path.as_bytes()).next_back()
+    memchr2_iter(b'\\', b'/', path.as_bytes()).next_back()
 }
 
 #[cfg(not(windows))]
