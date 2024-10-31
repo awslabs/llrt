@@ -1,11 +1,31 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use once_cell::sync::Lazy;
+use rquickjs::{
+    prelude::{Opt, Rest},
+    Ctx, Exception, IntoJs, Null, Object,
+};
 use windows_registry::{Value, LOCAL_MACHINE};
 use windows_result::{Error, Result};
 use windows_version::OsVersion;
 
+use crate::get_home_dir;
+
 static OS_RELEASE: Lazy<String> = Lazy::new(release);
 static OS_VERSION: Lazy<String> = Lazy::new(|| version().unwrap_or_default());
 pub static EOL: &str = "\r\n";
+pub static DEV_NULL: &str = "\\.\nul";
+
+pub fn get_priority(_who: Opt<u32>) -> i32 {
+    0
+}
+
+pub fn set_priority(ctx: Ctx<'_>, _args: Rest<rquickjs::Value>) -> rquickjs::Result<()> {
+    Err(Exception::throw_syntax(
+        &ctx,
+        "setPriority is not implemented.",
+    ))
+}
 
 pub fn get_type() -> &'static str {
     // In theory there are more types linx MinGW but in practice this is good enough
@@ -23,6 +43,20 @@ pub fn get_version() -> &'static str {
 fn release() -> String {
     let version = OsVersion::current();
     format!("{}.{}.{}", version.major, version.minor, version.build)
+}
+
+pub fn get_user_info<'js>(
+    ctx: Ctx<'js>,
+    _options: Opt<rquickjs::Value>,
+) -> rquickjs::Result<Object<'js>> {
+    let obj = Object::new(ctx.clone())?;
+
+    obj.set("uid", -1)?;
+    obj.set("gid", -1)?;
+    obj.set("username", whoami::username())?;
+    obj.set("homedir", get_home_dir(ctx.clone()))?;
+    obj.set("shell", Null.into_js(&ctx)?)?;
+    Ok(obj)
 }
 
 fn version() -> Result<String> {

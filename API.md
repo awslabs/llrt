@@ -137,15 +137,43 @@ Available globally
 
 [availableParallelism](https://nodejs.org/api/os.html#osavailableparallelism)
 
+[cpus](https://nodejs.org/api/os.html#oscpus)
+
+[devNull](https://nodejs.org/api/os.html#osdevnull)
+
+[endianness](https://nodejs.org/api/os.html#osendianness)
+
 [EOL](https://nodejs.org/api/os.html#oseol)
+
+[freemem](https://nodejs.org/api/os.html#osfreemem)
+
+[getPriority](https://nodejs.org/api/os.html#osgetprioritypid)
+
+[homedir](https://nodejs.org/api/os.html#oshomedir)
+
+[hostname](https://nodejs.org/api/os.html#oshostname)
+
+[loadavg](https://nodejs.org/api/os.html#osloadavg)
+
+[machine](https://nodejs.org/api/os.html#osmachine)
+
+[networkInterfaces](https://nodejs.org/api/os.html#osnetworkinterfaces)
 
 [platform](https://nodejs.org/api/os.html#osplatform)
 
 [release](https://nodejs.org/api/os.html#osrelease)
 
+[setPriority](https://nodejs.org/api/os.html#ossetprioritypid-priority)
+
 [tmpdir](https://nodejs.org/api/os.html#osplatform)
 
+[totalmem](https://nodejs.org/api/os.html#ostotalmem)
+
 [type](https://nodejs.org/api/os.html#ostype)
+
+[uptime](https://nodejs.org/api/os.html#osuptime)
+
+[userInfo](https://nodejs.org/api/os.html#osuserinfooptions)
 
 [version](https://nodejs.org/api/os.html#osversion)
 
