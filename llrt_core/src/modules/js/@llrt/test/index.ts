@@ -189,6 +189,7 @@ class TestServer extends EventEmitter {
       }
     );
     proc.stdout.on("data", (data) => {
+      console.log(data.toString());
       output = data;
     });
     proc.on("error", (error) => {
@@ -393,7 +394,10 @@ class TestServer extends EventEmitter {
     };
     workerData.success = false;
     workerData.lastUpdate = 0;
-    this.results.get(workerData.currentFile!)!.success = false;
+    const results = this.results.get(workerData.currentFile!);
+    if (results) {
+      results.success = false;
+    }
 
     const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
     testFailures.push({

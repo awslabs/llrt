@@ -30,7 +30,25 @@ const FORWARD_SLASH_STR: &str = "/";
 pub const CURRENT_DIR_STR: &str = "./";
 
 #[cfg(windows)]
-use memchr::memchr2;
+use memchr::{memchr, memchr2, memchr2_iter};
+
+#[cfg(windows)]
+pub fn replace_backslash(path: impl Into<String>) -> String {
+    let mut path = path.into();
+    let bytes = unsafe { path.as_bytes_mut() };
+
+    let mut start = 0;
+    while let Some(pos) = memchr(b'\\', &bytes[start..]) {
+        bytes[start + pos] = b'/';
+        start += pos + 1;
+    }
+    path
+}
+
+#[cfg(not(windows))]
+pub fn replace_backslash(path: impl Into<String>) -> String {
+    path.into().replace('\\', "/")
+}
 
 #[cfg(windows)]
 fn find_next_separator(s: &str) -> Option<usize> {
@@ -44,7 +62,7 @@ fn find_next_separator(s: &str) -> Option<usize> {
 
 #[cfg(windows)]
 fn find_last_sep(path: &str) -> Option<usize> {
-    memchr::memchr2_iter(b'\\', b'/', path.as_bytes()).next_back()
+    memchr2_iter(b'\\', b'/', path.as_bytes()).next_back()
 }
 
 #[cfg(not(windows))]
@@ -52,7 +70,8 @@ fn find_last_sep(path: &str) -> Option<usize> {
     path.rfind(MAIN_SEPARATOR)
 }
 
-pub fn dirname(path: String) -> String {
+pub fn dirname<'a, P: Into<Cow<'a, str>>>(path: P) -> String {
+    let path = path.into();
     if path.is_empty() {
         return String::from(".");
     }
@@ -60,13 +79,13 @@ pub fn dirname(path: String) -> String {
     #[cfg(windows)]
     {
         if path == MAIN_SEPARATOR_STR || path == FORWARD_SLASH_STR {
-            return path;
+            return path.into_owned();
         }
     }
     #[cfg(not(windows))]
     {
         if path == MAIN_SEPARATOR_STR {
-            return path;
+            return path.into_owned();
         }
     }
 
@@ -87,7 +106,7 @@ pub fn dirname(path: String) -> String {
     .to_string()
 }
 
-fn name_extname(path: &str) -> (&str, &str) {
+pub fn name_extname(path: &str) -> (&str, &str) {
     let path = strip_last_sep(path);
     let sep_pos = find_last_sep(path);
 
@@ -112,7 +131,7 @@ fn strip_last_sep(path: &str) -> &str {
     }
 }
 
-fn basename(path: String, suffix: Opt<String>) -> String {
+pub fn basename(path: String, suffix: Opt<String>) -> String {
     #[cfg(windows)]
     {
         if path.is_empty() || path == MAIN_SEPARATOR_STR || path == FORWARD_SLASH_STR {
@@ -212,10 +231,6 @@ fn join(parts: Rest<String>) -> String {
     join_path(parts.0.iter())
 }
 
-fn relative(from: String, to: String) -> String {
-    relative_path(from, to)
-}
-
 pub fn join_path<S, I>(parts: I) -> String
 where
     S: AsRef<str>,
@@ -271,7 +286,7 @@ where
     join_resolve_path(parts, true, result, cwd, force_posix_sep)
 }
 
-pub fn relative_path<F, T>(from: F, to: T) -> String
+pub fn relative<F, T>(from: F, to: T) -> String
 where
     F: AsRef<str>,
     T: AsRef<str>,
@@ -369,9 +384,13 @@ where
     S: AsRef<str>,
     I: IntoIterator<Item = S>,
 {
-    let sep = if force_posix_sep { '/' } else { MAIN_SEPARATOR };
+    let (sep, sep_str) = if force_posix_sep {
+        ('/', "/")
+    } else {
+        (MAIN_SEPARATOR, MAIN_SEPARATOR_STR)
+    };
+
     let mut resolve_cow: Cow<str>;
-    let mut resolve_path_buf: PathBuf;
     let mut empty = true;
     let mut prefix_len = 0;
 
@@ -406,8 +425,11 @@ where
                         prefix_len = prefix.len();
                         result = prefix;
                         result.push(sep);
-                        resolve_path_buf = components.collect();
-                        resolve_cow = resolve_path_buf.to_string_lossy();
+                        resolve_cow = components
+                            .map(|comp| comp.as_os_str().to_str().unwrap_or_default()) // Convert each component to &str
+                            .collect::<Vec<&str>>() // Collect into a vector of &str
+                            .join(sep_str)
+                            .into();
                         part_ref = resolve_cow.as_ref();
                     }
                 }
@@ -465,7 +487,7 @@ fn get_path_prefix(cwd: &Path) -> (String, std::iter::Peekable<std::path::Compon
     (prefix, components)
 }
 
-pub fn normalize(path: String) -> String {
+pub fn normalize<P: AsRef<str>>(path: P) -> String {
     join_path([path].iter())
 }
 
@@ -515,15 +537,15 @@ impl ModuleDef for PathModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            default.set("dirname", Func::from(dirname))?;
+            default.set("dirname", Func::from(dirname::<String>))?;
             default.set("basename", Func::from(basename))?;
             default.set("extname", Func::from(extname))?;
             default.set("format", Func::from(format))?;
             default.set("parse", Func::from(parse))?;
             default.set("join", Func::from(join))?;
-            default.set("relative", Func::from(relative))?;
+            default.set("relative", Func::from(relative::<String, String>))?;
             default.set("resolve", Func::from(resolve))?;
-            default.set("normalize", Func::from(normalize))?;
+            default.set("normalize", Func::from(normalize::<String>))?;
             default.set("isAbsolute", Func::from(|s: String| is_absolute(&s)))?;
             default.prop("delimiter", DELIMITER.to_string())?;
             default.prop("sep", MAIN_SEPARATOR.to_string())?;
@@ -561,26 +583,26 @@ mod tests {
         set_current_dir("/").expect("unable to set working directory to /");
 
         assert_eq!(
-            relative_path("a/b/c", "b/c"),
+            relative("a/b/c", "b/c"),
             "../../../b/c".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            relative_path("/data/orandea/test/aaa", "/data/orandea/impl/bbb"),
+            relative("/data/orandea/test/aaa", "/data/orandea/impl/bbb"),
             "../../impl/bbb".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            relative_path("/a/b/c", "/a/d"),
+            relative("/a/b/c", "/a/d"),
             "../../d".replace('/', MAIN_SEPARATOR_STR)
         );
-        assert_eq!(relative_path("/a/b/c", "/a/b/c/d"), "d");
-        assert_eq!(relative_path("/a/b/c", "/a/b/c"), "");
+        assert_eq!(relative("/a/b/c", "/a/b/c/d"), "d");
+        assert_eq!(relative("/a/b/c", "/a/b/c"), "");
 
         assert_eq!(
-            relative_path("a/b", "a/b/c/d"),
+            relative("a/b", "a/b/c/d"),
             "c/d".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            relative_path("a/b/c", "b/c"),
+            relative("a/b/c", "b/c"),
             "../../../b/c".replace('/', MAIN_SEPARATOR_STR)
         );
 
@@ -745,18 +767,18 @@ mod tests {
     #[test]
     fn test_normalize() {
         assert_eq!(
-            normalize("/foo//bar//baz".to_string()),
+            normalize("/foo//bar//baz"),
             "/foo/bar/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            normalize("/foo/./bar/../baz".to_string()),
+            normalize("/foo/./bar/../baz"),
             "/foo/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            normalize("foo/bar/".to_string()),
+            normalize("foo/bar/"),
             "foo/bar".replace('/', MAIN_SEPARATOR_STR)
         );
-        assert_eq!(normalize("./foo".to_string()), "foo");
+        assert_eq!(normalize("./foo"), "foo");
     }
 
     #[test]
@@ -766,5 +788,12 @@ mod tests {
         #[cfg(windows)]
         assert!(is_absolute("C:\\Program Files")); // for Windows systems
         assert!(!is_absolute("./local/bin"));
+    }
+
+    #[test]
+    fn test_replace_backslash() {
+        assert_eq!(replace_backslash("C:\\Program Files"), "C:/Program Files");
+        assert_eq!(replace_backslash("/usr/local/bin"), "/usr/local/bin");
+        assert_eq!(replace_backslash("C:\\Users\\User\\"), "C:/Users/User/");
     }
 }

@@ -232,7 +232,7 @@ mod tests {
     async fn test_abort_signal() {
         test_async_with(|ctx| {
             crate::init(&ctx).unwrap();
-            llrt_timers::init_timers(&ctx).unwrap();
+            llrt_timers::init(&ctx).unwrap();
             Box::pin(async move {
                 let signal = AbortSignal::timeout(ctx, 5).unwrap();
 

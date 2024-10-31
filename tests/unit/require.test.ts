@@ -85,12 +85,29 @@ it("should be able to import exported functions", () => {
 });
 
 it("should return same value for multiple require statements", () => {
-  const a = _require(`${CWD}/fixtures/prop-export.cjs`);
-  const b = _require(`${CWD}/fixtures/prop-export.cjs`);
+  const filename = `${CWD}/fixtures/prop-export.cjs`;
+  const a = _require(filename);
+  const b = _require(filename);
   expect(a).toStrictEqual(b);
 });
 
 it("should return all props", () => {
   const a = _require(`${CWD}/fixtures/define-property-export.cjs`);
   expect(a.__esModule).toBe(true);
+});
+
+it("should import cjs modules using import statement", async () => {
+  const filename = `${CWD}/fixtures/prop-export.cjs`;
+  const a = await import(filename);
+  const b = await import(filename);
+  const c = _require(filename);
+  expect(a).toStrictEqual(b);
+  expect(a.default).toStrictEqual(c);
+  expect(b.default).toStrictEqual(c);
+});
+
+it("should handle inner referenced exports", () => {
+  const a = _require(`${CWD}/fixtures/referenced-exports.cjs`);
+  expect(a.cat()).toBe("str");
+  expect(a.length()).toBe(1);
 });

@@ -21,30 +21,32 @@ use crate::modules::{
 use llrt_modules::timers::TimersModule;
 pub use llrt_utils::module::ModuleInfo;
 use rquickjs::{
-    loader::{BuiltinResolver, ModuleLoader, Resolver},
+    loader::{ModuleLoader, Resolver},
     module::ModuleDef,
-    Ctx, Result,
+    Ctx, Error, Result,
 };
 
 #[derive(Debug, Default)]
 pub struct ModuleResolver {
-    builtin_resolver: BuiltinResolver,
+    modules: HashSet<String>,
 }
 
 impl ModuleResolver {
     #[must_use]
     pub fn with_module<P: Into<String>>(mut self, path: P) -> Self {
-        self.builtin_resolver.add_module(path.into());
+        self.modules.insert(path.into());
         self
     }
 }
 
 impl Resolver for ModuleResolver {
-    fn resolve(&mut self, ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
-        // Strip node prefix so that we support both with and without
-        let name = name.strip_prefix("node:").unwrap_or(name);
-
-        self.builtin_resolver.resolve(ctx, base, name)
+    fn resolve(&mut self, _: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
+        let name = name.trim_start_matches("node:");
+        if self.modules.contains(name) {
+            Ok(name.into())
+        } else {
+            Err(Error::new_resolving(base, name))
+        }
     }
 }
 

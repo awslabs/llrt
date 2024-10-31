@@ -45,13 +45,9 @@ pub fn file_url_to_path<'js>(ctx: Ctx<'js>, url: Value<'js>) -> Result<String> {
         url.get::<Coerced<String>>()?.to_string()
     };
 
-    let path = if let Some(path) = &url_string.strip_prefix("file://") {
-        path.to_string()
-    } else {
-        url_string
-    };
+    let path = url_string.trim_start_matches("file://");
 
-    Ok(PathBuf::from_str(&path)
+    Ok(PathBuf::from_str(path)
         .or_throw(&ctx)?
         .to_string_lossy()
         .to_string())

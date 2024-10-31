@@ -74,7 +74,7 @@ fn generate_sdk_client_endpoint_map(out_dir: &str) -> StdResult<(), Box<dyn Erro
                 let _client_name = line_iter.next();
                 let _full_sdk = line_iter.next_back();
                 let sdks_to_init = line_iter.collect::<Vec<&str>>().join(",");
-                let package_name = package_name.strip_prefix("client-").unwrap_or(package_name);
+                let package_name = package_name.trim_start_matches("client-");
                 let package_name = package_name.into();
                 if package_name == sdks_to_init {
                     ph_map.entry(package_name, r#""""#);
