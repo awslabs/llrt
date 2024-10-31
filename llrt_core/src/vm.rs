@@ -324,7 +324,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             let name = get_script_or_module_name(&ctx);
             let name = name.trim_start_matches(CJS_IMPORT_PREFIX);
             let exports_store: Object = ctx.globals().get(EXPORT_STORE_NAME)?;
-            println!("set module name: {}", name);
+            trace!("set module name: {}", name);
             exports_store.set(name, exports)?;
             Ok::<_, Error>(())
         },

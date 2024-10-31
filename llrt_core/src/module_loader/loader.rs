@@ -154,13 +154,13 @@ impl CustomLoader {
             }
         }
 
-        if let Some(bytes) = BYTECODE_CACHE.get(name) {
+        if let Some(bytes) = BYTECODE_CACHE.get(path) {
             #[cfg(feature = "lambda")]
-            init_client_connection(&ctx, name)?;
+            init_client_connection(&ctx, path)?;
 
-            trace!("Loading embedded module: {}", name);
+            trace!("Loading embedded module: {}", path);
 
-            return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(name.into())));
+            return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(path.into())));
         }
 
         let bytes = std::fs::read(path)?;
