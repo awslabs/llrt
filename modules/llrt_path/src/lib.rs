@@ -33,6 +33,24 @@ pub const CURRENT_DIR_STR: &str = "./";
 use memchr::memchr2;
 
 #[cfg(windows)]
+pub fn replace_backslash(path: impl Into<String>) -> String {
+    let mut path = path.into();
+    let bytes = unsafe { path.as_bytes_mut() };
+
+    let mut start = 0;
+    while let Some(pos) = memchr(b'\\', &bytes[start..]) {
+        bytes[start + pos] = b'/';
+        start += pos + 1;
+    }
+    path
+}
+
+#[cfg(not(windows))]
+pub fn replace_backslash(path: impl Into<String>) -> String {
+    path.into().replace('\\', "/")
+}
+
+#[cfg(windows)]
 fn find_next_separator(s: &str) -> Option<usize> {
     memchr2(b'\\', b'/', s.as_bytes())
 }
@@ -770,5 +788,12 @@ mod tests {
         #[cfg(windows)]
         assert!(is_absolute("C:\\Program Files")); // for Windows systems
         assert!(!is_absolute("./local/bin"));
+    }
+
+    #[test]
+    fn test_replace_backslash() {
+        assert_eq!(replace_backslash("C:\\Program Files"), "C:/Program Files");
+        assert_eq!(replace_backslash("/usr/local/bin"), "/usr/local/bin");
+        assert_eq!(replace_backslash("C:\\Users\\User\\"), "C:/Users/User/");
     }
 }

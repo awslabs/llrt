@@ -9,7 +9,9 @@ use std::{
     sync::Mutex,
 };
 
-use llrt_modules::path::{self, is_absolute, name_extname, resolve_path_with_separator};
+use llrt_modules::path::{
+    self, is_absolute, name_extname, replace_backslash, resolve_path_with_separator,
+};
 use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Result};
@@ -198,6 +200,8 @@ fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
 fn to_abs_path(path: Cow<'_, str>) -> Cow<'_, str> {
     if !is_absolute(&path) {
         resolve_path_with_separator([path], true).into()
+    } else if cfg!(windows) {
+        replace_backslash(path).into()
     } else {
         path
     }

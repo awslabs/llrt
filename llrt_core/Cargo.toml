@@ -94,12 +94,17 @@ llrt_build = { path = "../libs/llrt_build" }
 [dev-dependencies]
 wiremock = "0.6.0"
 criterion = "0.5.1"
+memchr = "2.5"
 llrt_test = { path = "../libs/llrt_test" }
 
-[[bench]]
-name = "json"
-harness = false
+# [[bench]]
+# name = "json"
+# harness = false
+
+# [[bench]]
+# name = "numbers"
+# harness = false
 
 [[bench]]
-name = "numbers"
+name = "slash_replacement"
 harness = false
