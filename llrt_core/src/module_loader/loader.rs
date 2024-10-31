@@ -124,7 +124,7 @@ impl CustomLoader {
 
     fn load_module<'js>(name: &str, ctx: &Ctx<'js>) -> Result<(Module<'js>, Option<String>)> {
         let mut from_cjs_import = false;
-        let path = if let Some(cjs_path) = name.strip_prefix(CJS_IMPORT_PREFIX) {
+        let name = if let Some(cjs_path) = name.strip_prefix(CJS_IMPORT_PREFIX) {
             from_cjs_import = true;
             cjs_path
         } else {
@@ -138,7 +138,7 @@ impl CustomLoader {
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
             if name.ends_with(".json") {
-                let mut file = File::open(path)?;
+                let mut file = File::open(name)?;
                 let prefix = "export default JSON.parse(`";
                 let suffix = "`);";
                 let mut json = String::with_capacity(prefix.len() + suffix.len());
@@ -146,10 +146,10 @@ impl CustomLoader {
                 file.read_to_string(&mut json)?;
                 json.push_str(suffix);
 
-                return Ok((Module::declare(ctx, path, json)?, None));
+                return Ok((Module::declare(ctx, name, json)?, None));
             }
             if name.ends_with(".cjs") {
-                let url = ["file://", path].concat();
+                let url = ["file://", name].concat();
                 return Ok((Self::load_cjs_module(name, ctx)?, Some(url)));
             }
         }
@@ -163,7 +163,7 @@ impl CustomLoader {
             return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(name.into())));
         }
 
-        let bytes = std::fs::read(path)?;
+        let bytes = std::fs::read(name)?;
         let mut bytes: &[u8] = &bytes;
 
         if name.ends_with(BYTECODE_FILE_EXT) {
@@ -174,7 +174,7 @@ impl CustomLoader {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
         }
 
-        let url = ["file://", path].concat();
+        let url = ["file://", name].concat();
         Ok((Module::declare(ctx, name, bytes)?, Some(url)))
     }
 }
