@@ -1,9 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use rquickjs::{Ctx, Object, Result};
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
@@ -17,7 +16,7 @@ static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
 
 pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
     let mut vec: Vec<Object> = Vec::new();
-    let system = SYSTEM.lock();
+    let system = SYSTEM.lock().unwrap();
 
     for cpu in system.cpus() {
         let obj = Object::new(ctx.clone())?;
@@ -39,14 +38,14 @@ pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
 }
 
 pub fn get_free_mem() -> u64 {
-    let mut system = SYSTEM.lock();
+    let mut system = SYSTEM.lock().unwrap();
 
     system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
     system.free_memory()
 }
 
 pub fn get_total_mem() -> u64 {
-    let mut system = SYSTEM.lock();
+    let mut system = SYSTEM.lock().unwrap();
 
     system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
     system.total_memory()

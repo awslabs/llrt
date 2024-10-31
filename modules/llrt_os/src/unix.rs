@@ -1,10 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{ffi::CStr, sync::Arc};
+use std::{
+    ffi::CStr,
+    sync::{Arc, Mutex},
+};
 
 use libc::{getpriority, setpriority, PRIO_PROCESS};
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use rquickjs::{
     prelude::{Opt, Rest},
     Ctx, Exception, IntoJs, Null, Object, Result, Value,
@@ -54,7 +56,7 @@ pub fn get_type() -> &'static str {
 }
 
 pub fn get_user_info<'js>(ctx: Ctx<'js>, _options: Opt<Value>) -> Result<Object<'js>> {
-    let cache = USER_CACHE.lock();
+    let cache = USER_CACHE.lock().unwrap();
 
     let obj = Object::new(ctx.clone())?;
 
