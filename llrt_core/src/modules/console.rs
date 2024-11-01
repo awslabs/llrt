@@ -1,13 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    collections::HashSet,
     fmt::Write as FormatWrite,
     io::{stderr, stdout, IsTerminal, Write},
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use chrono::{DateTime, Utc};
-use fxhash::FxHashSet;
 use llrt_json::{escape::escape_json, stringify::json_stringify};
 use llrt_utils::{class::get_class_name, object::CreateSymbol};
 use rquickjs::{
@@ -19,9 +19,9 @@ use rquickjs::{
     Array, Class, Coerced, Ctx, Function, Object, Result, Symbol, Type, Value,
 };
 
-use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::number::float_to_string;
+use crate::{module_builder::ModuleInfo, utils::hash};
 use crate::{runtime_client, utils::result::ResultExt};
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
@@ -247,7 +247,7 @@ fn format_raw<'js>(
     value: Value<'js>,
     options: &FormatOptions<'js>,
 ) -> Result<()> {
-    format_raw_inner(result, value, options, &mut FxHashSet::default(), 0)?;
+    format_raw_inner(result, value, options, &mut HashSet::default(), 0)?;
     Ok(())
 }
 
@@ -260,7 +260,7 @@ fn format_raw_inner<'js>(
     result: &mut String,
     value: Value<'js>,
     options: &FormatOptions<'js>,
-    visited: &mut FxHashSet<usize>,
+    visited: &mut HashSet<usize>,
     depth: usize,
 ) -> Result<()> {
     let value_type = value.type_of();
@@ -351,7 +351,7 @@ fn format_raw_inner<'js>(
             return Ok(());
         },
         Type::Array | Type::Object | Type::Exception => {
-            let hash = fxhash::hash(&value);
+            let hash = hash::default_hash(&value);
             if visited.contains(&hash) {
                 Color::CYAN.push(result, color_enabled_mask);
                 result.push_str(CIRCULAR);
@@ -359,6 +359,7 @@ fn format_raw_inner<'js>(
                 return Ok(());
             }
             visited.insert(hash);
+
             let obj = unsafe { value.as_object().unwrap_unchecked() };
 
             if value.is_error() {
@@ -495,7 +496,7 @@ fn write_object<'js>(
     result: &mut String,
     obj: &Object<'js>,
     options: &FormatOptions<'js>,
-    visited: &mut FxHashSet<usize>,
+    visited: &mut HashSet<usize>,
     depth: usize,
     color_enabled_mask: usize,
     is_array: bool,
