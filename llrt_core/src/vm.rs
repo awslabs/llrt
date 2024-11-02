@@ -176,15 +176,14 @@ impl Vm {
 
     pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
         let source = [
-            r#"try{require(""#,
+            r#"import(""#,
             filename.as_ref(),
-            r#"")}catch(e){console.error(e);process.exit(1)}"#,
+            r#"").catch((e) => {{console.error(e);process.exit(1)}})"#,
         ]
         .concat();
 
         self.run(source, strict, global).await;
     }
-
     pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool, global: bool) {
         self.run_with(|ctx| {
             let mut options = EvalOptions::default();

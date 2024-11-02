@@ -167,8 +167,8 @@ impl CustomLoader {
         let mut bytes: &[u8] = &bytes;
 
         if name.ends_with(BYTECODE_FILE_EXT) {
-            trace!("Loading binary module: {}", name);
-            return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(name.into())));
+            trace!("Loading binary module: {}", path);
+            return Ok((Self::load_bytecode_module(ctx, bytes)?, Some(path.into())));
         }
         if !from_cjs_import && bytes.starts_with(b"#!") {
             bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
