@@ -67,6 +67,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let process = Object::new(ctx.clone())?;
     let process_versions = Object::new(ctx.clone())?;
     process_versions.set("llrt", VERSION)?;
+    // Node.js version - We need to set up a version that meets all the conditions listed below.
+    // [Node.js package] required version : reason
+    // [cls-hooked] >= 8.0.0 : To direct to async_hooks (API currently supported in Node.js)
+    process_versions.set("node", "22.11.0")?;
 
     let hr_time = Function::new(ctx.clone(), hr_time)?;
     hr_time.set("bigint", Func::from(hr_time_big_int))?;
