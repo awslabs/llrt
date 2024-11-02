@@ -148,7 +148,7 @@ impl CustomLoader {
 
                 return Ok((Module::declare(ctx, path, json)?, None));
             }
-            if name.ends_with(".cjs") {
+            if name.ends_with(".js") || name.ends_with(".mjs") || name.ends_with(".cjs") {
                 let url = ["file://", path].concat();
                 return Ok((Self::load_cjs_module(name, ctx)?, Some(url)));
             }
