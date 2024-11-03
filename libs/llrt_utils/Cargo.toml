@@ -16,14 +16,14 @@ encoding = ["base64-simd", "hex-simd", "phf"]
 bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
-base64-simd = { version = "0.8.0", optional = true }
-hex-simd = { version = "0.8.0", optional = true }
+base64-simd = { version = "0.8", optional = true }
+hex-simd = { version = "0.8", optional = true }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
   "array-buffer",
 ], default-features = false }
 tokio = { version = "1", optional = true }
 tracing = "0.1"
-phf = { version = "0.11.2", features = ["macros"], optional = true }
+phf = { version = "0.11", features = ["macros"], optional = true }
 
 [dev-dependencies]
 llrt_test = { version = "0.3.0-beta", path = "../llrt_test" }

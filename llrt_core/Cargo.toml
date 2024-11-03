@@ -23,9 +23,9 @@ rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 llrt_json = { path = "../modules/llrt_json" }
 llrt_modules = { path = "../llrt_modules", features = ["all"] }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
-chrono = { version = "0.4.38", default-features = false, features = ["std"] }
-quick-xml = "0.36.0"
-phf = "0.11.2"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+quick-xml = "0.37"
+phf = "0.11"
 
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
   "full-async",
@@ -33,8 +33,8 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13
   "rust-alloc",
 ], default-features = false }
 tokio = { version = "1", features = ["full"] }
-tracing = { version = "0.1.40", features = ["log"] }
-uuid = { version = "1.10.0", default-features = false, features = [
+tracing = { version = "0.1", features = ["log"] }
+uuid = { version = "1", default-features = false, features = [
   "v1",
   "v3",
   "v4",
@@ -43,58 +43,57 @@ uuid = { version = "1.10.0", default-features = false, features = [
   "v7",
   "fast-rng",
 ] }
-once_cell = "1.19.0"
-zstd = { version = "0.13.2", default-features = false, features = [] }
-libc = "0.2.155"
-bytes = "1.6.1"
-uuid-simd = "0.8.0"
-simd-json = { version = "0.13.10", default-features = false, features = [
+once_cell = "1"
+zstd = { version = "0.13", default-features = false, features = [] }
+libc = "0.2"
+bytes = "1"
+uuid-simd = "0.8"
+simd-json = { version = "0.14", default-features = false, features = [
   "big-int-as-float",
 ] }
-itoa = "1.0.11"
-ryu = "1.0.18"
-fxhash = "0.2.1"
-hyper = { version = "1.4.1", features = ["client", "http1", "http2"] }
-hyper-rustls = { version = "0.27.2", default-features = false, features = [
+itoa = "1"
+ryu = "1"
+hyper = { version = "1", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.27", default-features = false, features = [
   "http2",
   "http1",
   "webpki-roots",
   "webpki-tokio",
   "ring",
 ] }
-hyper-util = "0.1.6"
-http-body-util = "0.1.2"
-rustls = { version = "0.23.11", default-features = false, features = [
+hyper-util = "0.1"
+http-body-util = "0.1"
+rustls = { version = "0.23", default-features = false, features = [
   "tls12",
   "ring",
 ] }
-ring = "0.17.8"
-rand = "0.8.5"
-rustls-pemfile = "2.1.2"
-home = "0.5.9"
+ring = "0.17"
+rand = "0.8"
+rustls-pemfile = "2"
+home = "0.5"
 url = "=2.5.1"
-terminal_size = "0.3.0"
+terminal_size = "0.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-md-5 = { version = "0.10.6" }
+md-5 = { version = "0.10" }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.10.6", features = ["asm"] }
+md-5 = { version = "0.10", features = ["asm"] }
 
 [build-dependencies]
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
   "full-async",
   "rust-alloc",
 ], default-features = false }
-phf_codegen = "0.11.2"
-jwalk = "0.8.1"
-nanoid = "0.4.0"
-cargo-patch = "0.3.2"
+phf_codegen = "0.11"
+jwalk = "0.8"
+nanoid = "0.4"
+cargo-patch = "0.3"
 llrt_build = { path = "../libs/llrt_build" }
 
 [dev-dependencies]
-wiremock = "0.6.0"
-criterion = "0.5.1"
-memchr = "2.5"
+wiremock = "0.6"
+criterion = "0.5"
+memchr = "2"
 llrt_test = { path = "../libs/llrt_test" }
 
 [[bench]]

@@ -5,8 +5,9 @@ use rquickjs::{
     prelude::{Opt, Rest},
     Ctx, Exception, IntoJs, Null, Object,
 };
-use windows_registry::{Value, LOCAL_MACHINE};
-use windows_result::{Error, Result};
+
+use windows_registry::LOCAL_MACHINE;
+use windows_result::Result;
 use windows_version::OsVersion;
 
 use crate::get_home_dir;
@@ -63,10 +64,7 @@ fn version() -> Result<String> {
     let version = OsVersion::current();
 
     let registry_key = LOCAL_MACHINE.open("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion")?;
-    let value = registry_key.get_value("ProductName")?;
-    let Value::String(mut value) = value else {
-        return Err(Error::empty());
-    };
+    let mut value = registry_key.get_string("ProductName")?;
 
     // Windows 11 shares dwMajorVersion with Windows 10
     // this workaround tries to disambiguate that by checking

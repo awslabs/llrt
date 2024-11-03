@@ -1,6 +1,7 @@
+use std::collections::HashSet;
+
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use fxhash::{FxBuildHasher, FxHashSet};
 use llrt_utils::object::ObjectExt;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -8,6 +9,8 @@ use rquickjs::{
     function::{Constructor, Opt},
     Array, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
 };
+
+use super::hash;
 
 #[derive(Debug)]
 enum StackItem<'js> {
@@ -57,8 +60,7 @@ pub fn structured_clone<'js>(
 
     if let Some(options) = options.0 {
         if let Some(transfer_array) = options.get_optional::<_, Array>("transfer")? {
-            let mut set =
-                FxHashSet::with_capacity_and_hasher(transfer_array.len(), FxBuildHasher::default());
+            let mut set = HashSet::with_capacity(transfer_array.len());
 
             for item in transfer_array.iter::<Value>() {
                 set.insert(item?);
@@ -326,7 +328,7 @@ fn check_circular(
     array_index: Option<usize>,
     index: usize,
 ) -> bool {
-    let hash = fxhash::hash(value);
+    let hash = hash::default_hash(value);
     if let Some(visited) = visited.iter().find(|v| v.0 == hash) {
         append_circular(tape, visited, object_key, parent, array_index);
         return true;
