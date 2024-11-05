@@ -67,6 +67,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let process = Object::new(ctx.clone())?;
     let process_versions = Object::new(ctx.clone())?;
     process_versions.set("llrt", VERSION)?;
+    // Node.js version - Set for compatibility with some Node.js packages (e.g. cls-hooked).
+    process_versions.set("node", "0.0.0")?;
 
     let hr_time = Function::new(ctx.clone(), hr_time)?;
     hr_time.set("bigint", Func::from(hr_time_big_int))?;
