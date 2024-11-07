@@ -3,6 +3,10 @@
 > [!NOTE]
 > The long term goal for LLRT is to become [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md). Not every API from Node.js will be supported.
 
+## assert
+
+[ok](https://nodejs.org/api/assert.html#assertokvalue-message)
+
 ## buffer
 
 [alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding)
