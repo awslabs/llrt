@@ -2627,6 +2627,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_assert"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
 name = "llrt_buffer"
 version = "0.3.0-beta"
 dependencies = [
@@ -2810,6 +2820,7 @@ name = "llrt_modules"
 version = "0.3.0-beta"
 dependencies = [
  "llrt_abort",
+ "llrt_assert",
  "llrt_buffer",
  "llrt_child_process",
  "llrt_crypto",

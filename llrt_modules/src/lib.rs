@@ -6,6 +6,8 @@ pub use self::modules::*;
 mod modules {
     #[cfg(feature = "abort")]
     pub use llrt_abort as abort;
+    #[cfg(feature = "assert")]
+    pub use llrt_assert as assert;
     #[cfg(feature = "buffer")]
     pub use llrt_buffer as buffer;
     #[cfg(feature = "child-process")]

@@ -53,6 +53,7 @@ const ES_BUILD_OPTIONS = {
   platform: "browser",
   format: "esm",
   external: [
+    "assert",
     "console",
     "node:console",
     "crypto",
