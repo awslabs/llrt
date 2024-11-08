@@ -57,9 +57,11 @@ impl ModuleDef for FsPromisesModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<Dirent>::register(ctx)?;
-        Class::<FileHandle>::register(ctx)?;
-        Class::<Stats>::register(ctx)?;
+        let globals = ctx.globals();
+
+        Class::<Dirent>::define(&globals)?;
+        Class::<FileHandle>::define(&globals)?;
+        Class::<Stats>::define(&globals)?;
 
         export_default(ctx, exports, |default| {
             export_promises(ctx, default)?;
@@ -100,9 +102,11 @@ impl ModuleDef for FsModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<Dirent>::register(ctx)?;
-        Class::<FileHandle>::register(ctx)?;
-        Class::<Stats>::register(ctx)?;
+        let globals = ctx.globals();
+
+        Class::<Dirent>::define(&globals)?;
+        Class::<FileHandle>::define(&globals)?;
+        Class::<Stats>::define(&globals)?;
 
         export_default(ctx, exports, |default| {
             let promises = Object::new(ctx.clone())?;

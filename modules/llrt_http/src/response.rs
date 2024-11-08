@@ -22,7 +22,8 @@ use once_cell::sync::Lazy;
 use rquickjs::{
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, Null, Object, Result, TypedArray, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, JsLifetime, Null, Object, Result, TypedArray,
+    Value,
 };
 use tokio::select;
 
@@ -214,6 +215,10 @@ pub struct Response<'js> {
     headers: Class<'js, Headers>,
     content_encoding: Option<String>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for Response<'js> {
+    type Changed<'to> = Response<'to>;
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]

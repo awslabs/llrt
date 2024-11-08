@@ -14,7 +14,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Property,
     prelude::This,
-    Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
+    Array, Class, Ctx, Error, Function, IntoJs, JsLifetime, Object, Result, Value,
 };
 
 const AMP: &str = "&amp;";
@@ -32,6 +32,7 @@ use crate::{
 };
 
 #[rquickjs::class]
+#[derive(rquickjs::JsLifetime)]
 struct XMLParser<'js> {
     tag_value_processor: Option<Function<'js>>,
     attribute_value_processor: Option<Function<'js>>,
@@ -339,7 +340,7 @@ impl<'js> XMLParser<'js> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, rquickjs::JsLifetime)]
 #[rquickjs::class]
 struct XmlText {
     value: Rc<str>,
@@ -365,9 +366,8 @@ impl XmlText {
     }
 }
 
-#[derive(Debug, Clone)]
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(Debug, Clone, rquickjs::class::Trace, rquickjs::JsLifetime)]
 struct XmlNode<'js> {
     #[qjs(skip_trace)]
     name: String,

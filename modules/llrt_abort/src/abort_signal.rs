@@ -9,7 +9,7 @@ use rquickjs::{
     class::{Trace, Tracer},
     function::OnceFn,
     prelude::{Opt, This},
-    Array, Class, Ctx, Error, Exception, Function, Result, Undefined, Value,
+    Array, Class, Ctx, Error, Exception, Function, JsLifetime, Result, Undefined, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,10 @@ pub struct AbortSignal<'js> {
     pub aborted: bool,
     reason: Option<Value<'js>>,
     pub sender: mc_oneshot::Sender<Value<'js>>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for AbortSignal<'js> {
+    type Changed<'to> = AbortSignal<'to>;
 }
 
 impl<'js> Trace<'js> for AbortSignal<'js> {

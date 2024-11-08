@@ -217,10 +217,6 @@ impl ModuleDef for CryptoModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<Hash>::register(ctx)?;
-        Class::<Hmac>::register(ctx)?;
-        Class::<ShaHash>::register(ctx)?;
-
         export_default(ctx, exports, |default| {
             for sha_algorithm in ShaAlgorithm::iterate() {
                 let class_name: &str = sha_algorithm.class_name();

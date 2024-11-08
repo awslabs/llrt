@@ -6,7 +6,7 @@ use llrt_json::parse::json_parse;
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
-    ArrayBuffer, Class, Ctx, Exception, IntoJs, Null, Result, TypedArray, Value,
+    ArrayBuffer, Class, Ctx, Exception, IntoJs, JsLifetime, Null, Result, TypedArray, Value,
 };
 
 use super::blob::Blob;
@@ -23,6 +23,10 @@ enum BodyVariant<'js> {
 pub struct Body<'js> {
     data: BodyVariant<'js>,
     content_type: Option<String>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for Body<'js> {
+    type Changed<'to> = Body<'to>;
 }
 
 impl<'js> Trace<'js> for Body<'js> {

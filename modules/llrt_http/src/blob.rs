@@ -22,7 +22,7 @@ const LINE_ENDING: &[u8] = b"\r\n";
 const LINE_ENDING: &[u8] = b"\n";
 
 #[rquickjs::class]
-#[derive(Trace, Clone)]
+#[derive(Trace, Clone, rquickjs::JsLifetime)]
 pub struct Blob {
     #[qjs(skip_trace)]
     data: Vec<u8>,

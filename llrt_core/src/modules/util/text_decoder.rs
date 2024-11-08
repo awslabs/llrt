@@ -7,7 +7,7 @@ use rquickjs::{function::Opt, Ctx, Object, Result};
 use crate::utils::result::ResultExt;
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct TextDecoder {
     #[qjs(skip_trace)]
     encoder: Encoder,

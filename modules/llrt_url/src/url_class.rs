@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, Class, Coerced, Ctx, Exception, FromJs,
-    IntoJs, Null, Object, Result, Value,
+    IntoJs, JsLifetime, Null, Object, Result, Value,
 };
 use url::{quirks, Url};
 
@@ -42,7 +42,7 @@ fn has_colon_delimiter(hostname: &str) -> bool {
 /// const url = new URL("https://url.spec.whatwg.org/");
 /// console.log(url.href);
 /// ```
-#[derive(Clone, Trace)]
+#[derive(Clone, Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct URL<'js> {
     // URL and URLSearchParams work together to manipulate URLs, so using a

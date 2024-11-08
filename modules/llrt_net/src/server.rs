@@ -13,7 +13,7 @@ use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::IntoJs;
 use rquickjs::{
     prelude::{Opt, Rest, This},
-    Class, Ctx, Exception, Function, Object, Result, Undefined, Value,
+    Class, Ctx, Exception, Function, JsLifetime, Object, Result, Undefined, Value,
 };
 #[cfg(unix)]
 use tokio::net::UnixListener;
@@ -28,7 +28,7 @@ use super::{get_address_parts, get_hostname, socket::Socket, Listener, NetStream
 impl_stream_events!(Server);
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Server<'js> {
     emitter: EventEmitter<'js>,
     address: Value<'js>,

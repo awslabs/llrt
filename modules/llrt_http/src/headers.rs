@@ -17,9 +17,8 @@ const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
 
 type ImmutableString = Rc<str>;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
 pub struct Headers {
     #[qjs(skip_trace)]
     headers: Vec<(ImmutableString, ImmutableString)>,

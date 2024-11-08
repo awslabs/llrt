@@ -3531,30 +3531,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2 1.0.89",
- "quote 1.0.37",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2 1.0.89",
- "quote 1.0.37",
- "version_check",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3759,7 +3735,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=9e0229ab8e1780b0c947c0c2df1f692835aa63c9#9e0229ab8e1780b0c947c0c2df1f692835aa63c9"
 dependencies = [
  "either",
  "indexmap 2.6.0",
@@ -3770,7 +3746,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=9e0229ab8e1780b0c947c0c2df1f692835aa63c9#9e0229ab8e1780b0c947c0c2df1f692835aa63c9"
 dependencies = [
  "async-lock",
  "chrono",
@@ -3785,7 +3761,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=9e0229ab8e1780b0c947c0c2df1f692835aa63c9#9e0229ab8e1780b0c947c0c2df1f692835aa63c9"
 dependencies = [
  "convert_case",
  "fnv",
@@ -3794,7 +3770,6 @@ dependencies = [
  "phf_generator",
  "phf_shared",
  "proc-macro-crate",
- "proc-macro-error",
  "proc-macro2 1.0.89",
  "quote 1.0.37",
  "rquickjs-core",
@@ -3804,7 +3779,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=9e0229ab8e1780b0c947c0c2df1f692835aa63c9#9e0229ab8e1780b0c947c0c2df1f692835aa63c9"
 dependencies = [
  "bindgen",
  "cc",
@@ -4214,16 +4189,6 @@ dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
  "unicode-xid 0.1.0",
-]
-
-[[package]]
-name = "syn"
-version = "1.0.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
-dependencies = [
- "proc-macro2 1.0.89",
- "unicode-ident",
 ]
 
 [[package]]

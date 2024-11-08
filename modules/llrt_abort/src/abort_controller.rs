@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
     prelude::{Opt, This},
-    Class, Ctx, Result, Value,
+    Class, Ctx, JsLifetime, Result, Value,
 };
 
 use super::AbortSignal;
@@ -11,6 +11,10 @@ use super::AbortSignal;
 #[derive(rquickjs::class::Trace)]
 pub struct AbortController<'js> {
     signal: Class<'js, AbortSignal<'js>>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for AbortController<'js> {
+    type Changed<'to> = AbortController<'to>;
 }
 
 #[rquickjs::methods]

@@ -17,7 +17,8 @@ use rquickjs::{
     class::{JsClass, OwnedBorrow, Trace, Tracer},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    CatchResultExt, Class, Ctx, Function, Object, Result, String as JsString, Symbol, Value,
+    CatchResultExt, Class, Ctx, Function, JsLifetime, Object, Result, String as JsString, Symbol,
+    Value,
 };
 use tracing::trace;
 
@@ -69,6 +70,10 @@ pub type Events<'js> = Arc<RwLock<EventList<'js>>>;
 #[derive(Clone)]
 pub struct EventEmitter<'js> {
     pub events: Events<'js>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for EventEmitter<'js> {
+    type Changed<'to> = EventEmitter<'to>;
 }
 
 impl<'js> Emitter<'js> for EventEmitter<'js> {
@@ -128,7 +133,7 @@ where
     }
 
     fn add_event_emitter_prototype(ctx: &Ctx<'js>) -> Result<Object<'js>> {
-        let proto = Class::<Self>::prototype(ctx.clone())
+        let proto = Class::<Self>::prototype(ctx)?
             .or_throw_msg(ctx, "Prototype for EventEmitter not found")?;
 
         let on = Function::new(ctx.clone(), Self::on)?;
@@ -159,7 +164,7 @@ where
     }
 
     fn add_event_target_prototype(ctx: &Ctx<'js>) -> Result<Object<'js>> {
-        let proto = Class::<Self>::prototype(ctx.clone())
+        let proto = Class::<Self>::prototype(ctx)?
             .or_throw_msg(ctx, "Prototype for EventTarget not found")?;
 
         let on = Function::new(ctx.clone(), Self::evt_add_event_listener)?;

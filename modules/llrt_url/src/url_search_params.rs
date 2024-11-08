@@ -20,7 +20,7 @@ use url::Url;
 /// const params = new URLSearchParams();
 /// params.set("foo", "bar");
 /// ```
-#[derive(Clone, Trace)]
+#[derive(Clone, Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct URLSearchParams {
     // URL and URLSearchParams work together to manipulate URLs, so using a
@@ -344,7 +344,7 @@ impl<'js> URLSearchParams {
     }
 }
 
-#[derive(Trace)]
+#[derive(Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct URLSearchParamsIter {
     params: URLSearchParams,

@@ -137,8 +137,6 @@ impl ModuleDef for ConsoleModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<Console>::register(ctx)?;
-
         export_default(ctx, exports, |default| {
             Class::<Console>::define(default)?;
 
@@ -954,7 +952,7 @@ fn get_dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
     Ok(array)
 }
 
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct Console {}
 
@@ -1073,14 +1071,14 @@ mod tests {
             let e1:Value = ctx.eval(r#"new ReferenceError("some reference error")"#)?;
             assert_eq!(
                 write_log([e1.clone()].into())?,
-                r#"{"time":"","level":"INFO","message":{"errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:1)",""]}}"#
+                r#"{"time":"","level":"INFO","message":{"errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:4)",""]}}"#
             );
 
              //validate many args with additional errors
             let e2:Value = ctx.eval(r#"new SyntaxError("some syntax error")"#)?;
             assert_eq!(
                 write_log(["errors logged".into_js(&ctx)?, e1, e2].into())?,
-                r#"{"time":"","level":"INFO","message":"errors logged ReferenceError: some reference error\n  at <eval> (eval_script:1:1) SyntaxError: some syntax error\n  at <eval> (eval_script:1:1)","errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:1)",""]}"#
+                r#"{"time":"","level":"INFO","message":"errors logged ReferenceError: some reference error\n  at <eval> (eval_script:1:4) SyntaxError: some syntax error\n  at <eval> (eval_script:1:4)","errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:4)",""]}"#
             );
 
             Ok(())
@@ -1152,14 +1150,14 @@ mod tests {
             let e1:Value = ctx.eval(r#"new ReferenceError("some reference error")"#)?;
             assert_eq!(
                 write_log([e1.clone()].into())?,
-                "\tn/a\tINFO\tReferenceError: some reference error\r  at <eval> (eval_script:1:1)"
+                "\tn/a\tINFO\tReferenceError: some reference error\r  at <eval> (eval_script:1:4)"
             );
 
              //validate many args with additional errors
             let e2:Value = ctx.eval(r#"new SyntaxError("some syntax error")"#)?;
             assert_eq!(
                 write_log(["errors logged".into_js(&ctx)?, e1, e2].into())?,
-                "\tn/a\tINFO\terrors logged ReferenceError: some reference error\r  at <eval> (eval_script:1:1) SyntaxError: some syntax error\r  at <eval> (eval_script:1:1)"
+                "\tn/a\tINFO\terrors logged ReferenceError: some reference error\r  at <eval> (eval_script:1:4) SyntaxError: some syntax error\r  at <eval> (eval_script:1:4)"
             );
 
             //newline replacement

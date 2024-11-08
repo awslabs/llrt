@@ -3,7 +3,7 @@
 use llrt_utils::result::ResultExt;
 use rquickjs::{function::Opt, Ctx, Exception, Object, Result, TypedArray, Value};
 
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct TextEncoder {}
 

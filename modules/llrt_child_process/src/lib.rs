@@ -130,8 +130,11 @@ fn prepare_shell_args(
     vec!["-c".into(), string_args]
 }
 
+use rquickjs::JsLifetime;
+
 #[allow(dead_code)]
 #[rquickjs::class]
+#[derive(rquickjs::JsLifetime)]
 pub struct ChildProcess<'js> {
     emitter: EventEmitter<'js>,
     args: Option<Vec<String>>,
@@ -608,10 +611,6 @@ impl ModuleDef for ChildProcessModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<ChildProcess>::register(ctx)?;
-        Class::<DefaultWritableStream>::register(ctx)?;
-        Class::<DefaultReadableStream>::register(ctx)?;
-
         ChildProcess::add_event_emitter_prototype(ctx)?;
         DefaultWritableStream::add_writable_stream_prototype(ctx)?;
         DefaultWritableStream::add_event_emitter_prototype(ctx)?;

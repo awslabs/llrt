@@ -20,7 +20,7 @@ llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features 
   "fs",
 ], default-features = false }
 ring = "0.17"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "9e0229ab8e1780b0c947c0c2df1f692835aa63c9", features = [
   "either",
   "macro",
   "futures",
