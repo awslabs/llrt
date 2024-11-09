@@ -4,21 +4,30 @@ use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    Ctx, Exception, Result, Value,
+    Ctx, Exception, Result, Type, Value,
 };
 
-fn ok(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
-    if value.as_bool().unwrap_or(false) {
-        return Ok(());
-    }
-    if value.as_number().unwrap_or(0.0) != 0.0 {
-        return Ok(());
-    }
-    if value.is_string() && !value.as_string().unwrap().to_string().unwrap().is_empty() {
-        return Ok(());
-    }
-    if value.is_array() || value.is_object() {
-        return Ok(());
+fn assert(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
+    match value.type_of() {
+        Type::Bool => {
+            if value.as_bool().unwrap() {
+                return Ok(());
+            }
+        },
+        Type::Float | Type::Int => {
+            if value.as_number().unwrap() != 0.0 {
+                return Ok(());
+            }
+        },
+        Type::String => {
+            if !value.as_string().unwrap().to_string().unwrap().is_empty() {
+                return Ok(());
+            }
+        },
+        Type::Array | Type::Object => {
+            return Ok(());
+        },
+        _ => {},
     }
 
     if let Some(obj) = message.0 {
@@ -49,7 +58,7 @@ impl ModuleDef for AssertModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            default.set("ok", Func::from(ok))?;
+            default.set("ok", Func::from(assert))?;
 
             Ok(())
         })
