@@ -31,13 +31,14 @@ fn assert(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
     }
 
     if let Some(obj) = message.0 {
-        if let Some(msg) = obj.as_string() {
-            let msg = msg.to_string().unwrap();
-            return Err(Exception::throw_message(&ctx, &msg));
-        }
-        if let Some(err) = obj.as_exception() {
-            return Err(err.clone().throw());
-        }
+        match obj.type_of() {
+            Type::String => {
+                let msg = obj.as_string().unwrap().to_string().unwrap();
+                return Err(Exception::throw_message(&ctx, &msg));
+            },
+            Type::Exception => return Err(obj.as_exception().cloned().unwrap().throw()),
+            _ => {},
+        };
     }
 
     Err(Exception::throw_message(
