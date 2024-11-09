@@ -611,14 +611,22 @@ fn is_exports_field_exists<'a>(package_json: &'a BorrowedValue<'a>) -> bool {
 }
 
 fn correct_extensions<'a>(x: String) -> Cow<'a, str> {
-    if Path::new(&x).is_file() {
-        return x.into();
+    if let Ok(metadata) = fs::metadata(&x) {
+        if metadata.is_file() {
+            return x.into();
+        }
+        if metadata.is_dir() {
+            for extension in JS_EXTENSIONS.iter() {
+                let file = [x.as_str(), "/index", extension].concat();
+                if Path::new(&file).is_file() {
+                    return file.into();
+                }
+            }
+        }
     }
 
-    let index = if Path::new(&x).is_dir() { "/index" } else { "" };
-
     for extension in JS_EXTENSIONS.iter() {
-        let file = [x.as_str(), index, extension].concat();
+        let file = [x.as_str(), extension].concat();
         if Path::new(&file).is_file() {
             return file.into();
         }
