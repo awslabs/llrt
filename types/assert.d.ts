@@ -3,6 +3,11 @@
  */
 declare module "assert" {
   /**
+   * An alias of {@link ok}.
+   * @param value The input that is checked for being truthy.
+   */
+  function assert(value: unknown, message?: string | Error): asserts value;
+  /**
    * Tests if `value` is truthy.
    *
    * If `value` is not truthy, an `AssertionError` is thrown with a `message` property set equal to the value of the `message` parameter. If the `message` parameter is `undefined`, a default

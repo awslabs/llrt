@@ -1,13 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::module::{export_default, ModuleInfo};
+use llrt_utils::module::ModuleInfo;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, Opt},
-    Ctx, Exception, Result, Type, Value,
+    prelude::Opt,
+    Ctx, Exception, Function, Result, Type, Value,
 };
 
-fn assert(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
+fn ok(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
     match value.type_of() {
         Type::Bool => {
             if value.as_bool().unwrap() {
@@ -58,11 +58,12 @@ impl ModuleDef for AssertModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        export_default(ctx, exports, |default| {
-            default.set("ok", Func::from(assert))?;
+        let ok_function = Function::new(ctx.clone(), ok)?;
+        ok_function.set("ok", ok_function.clone())?;
 
-            Ok(())
-        })
+        exports.export("ok", ok_function.clone())?;
+        exports.export("default", ok_function)?;
+        Ok(())
     }
 }
 

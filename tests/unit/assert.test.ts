@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import assert from "assert";
 
 describe("assert.ok", () => {
   it("Should be returned 'undefined' (So it's not an error)", () => {
@@ -59,5 +59,15 @@ describe("assert.ok", () => {
     } catch (err) {
       expect(err.message).toEqual("Value should be truthy");
     }
+  });
+});
+
+describe("assert", () => {
+  it("Should be returned 'undefined' (So it's not an error)", () => {
+    expect(assert(true)).toBeUndefined();
+    expect(assert(1)).toBeUndefined();
+    expect(assert("non-empty string")).toBeUndefined();
+    expect(assert([])).toBeUndefined();
+    expect(assert({})).toBeUndefined();
   });
 });
