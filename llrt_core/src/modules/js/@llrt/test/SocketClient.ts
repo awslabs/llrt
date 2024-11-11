@@ -33,8 +33,6 @@ class SocketClient extends EventEmitter {
       const errorListener = (err: Error) => reject(err);
       this.socket.on("error", errorListener);
       this.socket.connect(this.port, this.host, () => {
-        console.log(`Connected to ${this.host}:${this.port}`);
-
         this.socket.off("error", errorListener);
         this.socket.on("error", (err) => this.emit("error", err));
         resolve();
