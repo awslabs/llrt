@@ -123,7 +123,7 @@ async fn start_cli(vm: &Vm) {
                     },
                     "-e" | "--eval" => {
                         if let Some(source) = args.get(i + 1) {
-                            vm.run(source.as_bytes(), false, true).await;
+                            vm.run(source.as_bytes(), false, false).await;
                         }
                         return;
                     },
@@ -192,7 +192,12 @@ async fn start_cli(vm: &Vm) {
             }
         }
     } else {
-        vm.run_file("index", true, false).await;
+        let index = if let Ok(dir) = std::env::current_dir() {
+            [dir.to_string_lossy().as_ref(), "/index"].concat()
+        } else {
+            "index".into()
+        };
+        vm.run_file(index, true, false).await;
     }
 }
 

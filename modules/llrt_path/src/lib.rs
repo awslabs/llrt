@@ -257,7 +257,7 @@ where
     join_resolve_path(parts_vec, false, result, PathBuf::new(), force_posix_sep)
 }
 
-pub fn resolve_path<S, I>(parts: I) -> String
+pub fn resolve_path<S, I>(parts: I) -> Result<String>
 where
     S: AsRef<str>,
     I: IntoIterator<Item = S>,
@@ -265,12 +265,12 @@ where
     resolve_path_with_separator(parts, false)
 }
 
-pub fn resolve_path_with_separator<S, I>(parts: I, force_posix_sep: bool) -> String
+pub fn resolve_path_with_separator<S, I>(parts: I, force_posix_sep: bool) -> Result<String>
 where
     S: AsRef<str>,
     I: IntoIterator<Item = S>,
 {
-    let cwd = std::env::current_dir().expect("Unable to access working directory");
+    let cwd = std::env::current_dir()?;
 
     let mut result = cwd.clone().into_os_string().into_string().unwrap();
     //add MAIN_SEPARATOR if we're not on already MAIN_SEPARATOR
@@ -283,10 +283,10 @@ where
             result = result.replace(MAIN_SEPARATOR, FORWARD_SLASH_STR);
         }
     }
-    join_resolve_path(parts, true, result, cwd, force_posix_sep)
+    Ok(join_resolve_path(parts, true, result, cwd, force_posix_sep))
 }
 
-pub fn relative<F, T>(from: F, to: T) -> String
+pub fn relative<F, T>(from: F, to: T) -> Result<String>
 where
     F: AsRef<str>,
     T: AsRef<str>,
@@ -294,19 +294,14 @@ where
     let from_ref = from.as_ref();
     let to_ref = to.as_ref();
     if from_ref == to_ref {
-        return "".to_string();
+        return Ok("".into());
     }
 
     let mut abs_from = None;
 
     if !is_absolute(from_ref) {
         abs_from = Some(
-            std::env::current_dir()
-                .expect("Unable to access working directory")
-                .to_string_lossy()
-                .to_string()
-                + MAIN_SEPARATOR_STR
-                + from_ref,
+            std::env::current_dir()?.to_string_lossy().to_string() + MAIN_SEPARATOR_STR + from_ref,
         );
     }
 
@@ -314,12 +309,7 @@ where
 
     if !is_absolute(to_ref) {
         abs_to = Some(
-            std::env::current_dir()
-                .expect("Unable to access working directory")
-                .to_string_lossy()
-                .to_string()
-                + MAIN_SEPARATOR_STR
-                + to_ref,
+            std::env::current_dir()?.to_string_lossy().to_string() + MAIN_SEPARATOR_STR + to_ref,
         );
     }
 
@@ -366,11 +356,11 @@ where
         }
         to_index = to_next + 1; // Move past the separator
     }
-    if relative.is_empty() {
-        ".".to_string()
+    Ok(if relative.is_empty() {
+        ".".into()
     } else {
         relative
-    }
+    })
 }
 
 fn join_resolve_path<S, I>(
@@ -471,7 +461,7 @@ where
     result
 }
 
-pub fn resolve(path: Rest<String>) -> String {
+pub fn resolve(path: Rest<String>) -> Result<String> {
     resolve_path(path.iter())
 }
 
@@ -565,10 +555,7 @@ impl From<PathModule> for ModuleInfo<PathModule> {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        env::{current_dir, set_current_dir},
-        sync::Mutex,
-    };
+    use std::{env::set_current_dir, sync::Mutex};
 
     static THREAD_LOCK: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
 
@@ -579,30 +566,30 @@ mod tests {
     #[test]
     fn test_relative() {
         let _shared = THREAD_LOCK.lock().unwrap();
-        let cwd = current_dir().expect("Unable to access working directory");
+        let cwd = std::env::current_dir().expect("unable to get current working directory");
         set_current_dir("/").expect("unable to set working directory to /");
 
         assert_eq!(
-            relative("a/b/c", "b/c"),
+            relative("a/b/c", "b/c").unwrap(),
             "../../../b/c".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            relative("/data/orandea/test/aaa", "/data/orandea/impl/bbb"),
+            relative("/data/orandea/test/aaa", "/data/orandea/impl/bbb").unwrap(),
             "../../impl/bbb".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            relative("/a/b/c", "/a/d"),
+            relative("/a/b/c", "/a/d").unwrap(),
             "../../d".replace('/', MAIN_SEPARATOR_STR)
         );
-        assert_eq!(relative("/a/b/c", "/a/b/c/d"), "d");
-        assert_eq!(relative("/a/b/c", "/a/b/c"), "");
+        assert_eq!(relative("/a/b/c", "/a/b/c/d").unwrap(), "d");
+        assert_eq!(relative("/a/b/c", "/a/b/c").unwrap(), "");
 
         assert_eq!(
-            relative("a/b", "a/b/c/d"),
+            relative("a/b", "a/b/c/d").unwrap(),
             "c/d".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            relative("a/b/c", "b/c"),
+            relative("a/b/c", "b/c").unwrap(),
             "../../../b/c".replace('/', MAIN_SEPARATOR_STR)
         );
 
@@ -705,7 +692,7 @@ mod tests {
         };
 
         assert_eq!(
-            resolve_path(["", "foo/bar"].iter()),
+            resolve_path(["", "foo/bar"].iter()).unwrap(),
             std::env::current_dir()
                 .unwrap()
                 .join("foo/bar".replace('/', MAIN_SEPARATOR_STR))
@@ -715,51 +702,51 @@ mod tests {
 
         // Standard cases
         assert_eq!(
-            resolve_path(["/"].iter()),
+            resolve_path(["/"].iter()).unwrap(),
             prefix.clone() + MAIN_SEPARATOR_STR
         );
 
         // Standard cases
         assert_eq!(
-            resolve_path(["/foo/bar", "../baz"].iter()),
+            resolve_path(["/foo/bar", "../baz"].iter()).unwrap(),
             prefix.clone() + &"/foo/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            resolve_path(["/foo/bar", "./baz"].iter()),
+            resolve_path(["/foo/bar", "./baz"].iter()).unwrap(),
             prefix.clone() + &"/foo/bar/baz".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(
-            resolve_path(["foo/bar", "/baz"].iter()),
+            resolve_path(["foo/bar", "/baz"].iter()).unwrap(),
             prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         );
 
         // Complex cases
         assert_eq!(
-            resolve_path(["/foo", "bar", ".", "baz"].iter()),
+            resolve_path(["/foo", "bar", ".", "baz"].iter()).unwrap(),
             prefix.clone() + &"/foo/bar/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Current dir in middle
         assert_eq!(
-            resolve_path(["/foo", "bar", "..", "baz"].iter()),
+            resolve_path(["/foo", "bar", "..", "baz"].iter()).unwrap(),
             prefix.clone() + &"/foo/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Parent dir in middle
         assert_eq!(
-            resolve_path(["/foo", "bar", "../..", "baz"].iter()),
+            resolve_path(["/foo", "bar", "../..", "baz"].iter()).unwrap(),
             prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Double parent dir
         assert_eq!(
-            resolve_path(["/foo", "bar", ".hidden"].iter()),
+            resolve_path(["/foo", "bar", ".hidden"].iter()).unwrap(),
             prefix.clone() + &"/foo/bar/.hidden".replace('/', MAIN_SEPARATOR_STR)
         ); // Hidden file
         assert_eq!(
-            resolve_path(["/foo", ".", "bar", "."].iter()),
+            resolve_path(["/foo", ".", "bar", "."].iter()).unwrap(),
             prefix.clone() + &"/foo/bar".replace('/', MAIN_SEPARATOR_STR)
         ); // Multiple current dirs
         assert_eq!(
-            resolve_path(["/foo", "..", "..", "bar"].iter()),
+            resolve_path(["/foo", "..", "..", "bar"].iter()).unwrap(),
             prefix.clone() + &"/bar".replace('/', MAIN_SEPARATOR_STR)
         ); // Multiple parent dirs
         assert_eq!(
-            resolve_path(["/foo/bar", "/..", "baz"].iter()),
+            resolve_path(["/foo/bar", "/..", "baz"].iter()).unwrap(),
             prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Parent dir with absolute path
     }

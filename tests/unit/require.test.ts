@@ -1,6 +1,9 @@
 globalThis._require = require; //used to preserve require during bundling/minification
-
 const CWD = process.cwd();
+import { spawn } from "child_process";
+
+import { platform } from "os";
+const IS_WIN = platform() === "win32";
 
 it("should require a file (absolute path)", () => {
   const { hello } = _require(`${CWD}/fixtures/hello.js`);
@@ -111,3 +114,15 @@ it("should handle inner referenced exports", () => {
   expect(a.cat()).toBe("str");
   expect(a.length()).toBe(1);
 });
+
+if (!IS_WIN) {
+  it("should handle named exports from CJS imports", (cb) => {
+    spawn(process.argv0, [
+      "-e",
+      `import {cat} from "${CWD}/fixtures/referenced-exports.cjs"`,
+    ]).on("close", (code) => {
+      expect(code).toBe(0);
+      cb();
+    });
+  });
+}
