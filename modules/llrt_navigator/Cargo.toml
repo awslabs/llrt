@@ -12,4 +12,4 @@ name = "llrt_navigator"
 path = "src/lib.rs"
 
 [dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "9e0229ab8e1780b0c947c0c2df1f692835aa63c9", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "c2521712219b40bf9ba9836c082919ec855d0284", default-features = false }
