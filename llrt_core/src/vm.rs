@@ -366,7 +366,7 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 } else {
                     let module_name = get_script_or_module_name(&ctx);
                     let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
-                    let abs_path = resolve_path([module_name].iter());
+                    let abs_path = resolve_path([module_name].iter())?;
 
                     let resolved_path =
                         require_resolve(&ctx, &specifier, &abs_path, false)?.into_owned();

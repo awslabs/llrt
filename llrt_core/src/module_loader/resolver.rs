@@ -15,11 +15,11 @@ use llrt_modules::path::{
 use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Result};
-use simd_json::BorrowedValue;
+use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
 use crate::{
-    bytecode::BYTECODE_FILE_EXT,
+    module_loader::CJS_LOADER_PREFIX,
     utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS},
 };
 
@@ -108,6 +108,9 @@ pub fn require_resolve<'a>(
         return resolved_by_file_exists(x_normalized.into());
     }
 
+    let x_is_absolute = path::is_absolute(x);
+    let x_starts_with_current_dir = x.starts_with("./");
+
     // 2. If X begins with '/'
     let y = if path::is_absolute(x) {
         // a. set Y to be the file system root
@@ -118,15 +121,11 @@ pub fn require_resolve<'a>(
 
     // Normalize path Y to generate dirname(Y)
     let dirname_y = if Path::new(y).is_dir() {
-        path::resolve_path([y].iter())
+        path::resolve_path([y].iter())?
     } else {
         let dirname_y = path::dirname(y);
-        path::resolve_path([&dirname_y].iter())
+        path::resolve_path([&dirname_y].iter())?
     };
-
-    let x_is_absolute = path::is_absolute(x);
-
-    let x_starts_with_current_dir = x.starts_with("./");
 
     // 3. If X begins with './' or '/' or '../'
     if x_starts_with_current_dir || x_is_absolute || x.starts_with("../") {
@@ -143,12 +142,12 @@ pub fn require_resolve<'a>(
         // a. LOAD_AS_FILE(Y + X)
         if let Ok(Some(path)) = load_as_file(ctx, y_plus_x.clone()) {
             trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
-            return Ok(to_abs_path(path));
+            return to_abs_path(path);
         } else {
             // b. LOAD_AS_DIRECTORY(Y + X)
             if let Ok(Some(path)) = load_as_directory(ctx, y_plus_x) {
                 trace!("+- Resolved by `LOAD_AS_DIRECTORY`: {}\n", path);
-                return Ok(to_abs_path(path));
+                return to_abs_path(path);
             }
         }
 
@@ -168,7 +167,7 @@ pub fn require_resolve<'a>(
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
     if let Ok(Some(path)) = load_package_self(ctx, x, &dirname_y, is_esm) {
         trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}\n", path);
-        return Ok(to_abs_path(path.into()));
+        return to_abs_path(path.into());
     }
 
     // 6. LOAD_NODE_MODULES(X, dirname(Y))
@@ -180,7 +179,7 @@ pub fn require_resolve<'a>(
     // 6.5. LOAD_AS_FILE(X)
     if let Ok(Some(path)) = load_as_file(ctx, Rc::new(x.to_owned())) {
         trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
-        return Ok(to_abs_path(path));
+        return to_abs_path(path);
     }
 
     // 7. THROW "not found"
@@ -194,17 +193,17 @@ fn resolved_by_bytecode_cache(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
 
 fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
     trace!("+- Resolved by `FILE`: {}\n", path);
-    Ok(to_abs_path(path))
+    to_abs_path(path)
 }
 
-fn to_abs_path(path: Cow<'_, str>) -> Cow<'_, str> {
-    if !is_absolute(&path) {
-        resolve_path_with_separator([path], true).into()
+fn to_abs_path(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
+    Ok(if !is_absolute(&path) {
+        resolve_path_with_separator([path], true)?.into()
     } else if cfg!(windows) {
         replace_backslash(path).into()
     } else {
         path
-    }
+    })
 }
 
 // LOAD_AS_FILE(X)
@@ -267,7 +266,7 @@ fn load_index<'a>(ctx: &Ctx<'_>, x: Rc<String>) -> Result<Option<Cow<'a, str>>> 
     trace!("|  load_index(x): {}", x);
 
     // 1. If X/index.js is a file
-    for extension in [".js", ".mjs", ".cjs", BYTECODE_FILE_EXT].iter() {
+    for extension in SUPPORTED_EXTENSIONS.iter() {
         let file = [x.as_str(), "/index", extension].concat();
         if Path::new(&file).is_file() {
             // a. Find the closest package scope SCOPE to X.
@@ -428,10 +427,14 @@ fn load_package_exports<'a>(
 
     //2. If X does not match this pattern or DIR/NAME/package.json is not a file,
     //   return.
-    let mut package_json_path = [dir, "/"].concat();
+    let mut package_json_path = String::with_capacity(dir.len() + 64);
+    package_json_path.push_str(dir);
+    package_json_path.push('/');
     let base_path_length = package_json_path.len();
     package_json_path.push_str(scope);
     package_json_path.push_str("/package.json");
+
+    let mut sub_module = None;
 
     let (scope, name) = if name != "." && !Path::new(&package_json_path).exists() {
         package_json_path.truncate(base_path_length);
@@ -439,6 +442,22 @@ fn load_package_exports<'a>(
         package_json_path.push_str("/package.json");
         (x, ".")
     } else {
+        for ext in JS_EXTENSIONS {
+            let path = [
+                &package_json_path[0..base_path_length],
+                scope,
+                name.as_ref().trim_start_matches("."),
+                *ext,
+            ]
+            .concat();
+            if Path::new(&path).exists() {
+                if *ext == ".mjs" {
+                    //we know its an ESM module
+                    return Ok(path.into());
+                }
+                sub_module = Some(path);
+            }
+        }
         (scope, name.as_ref())
     };
 
@@ -453,6 +472,13 @@ fn load_package_exports<'a>(
     //6. RESOLVE_ESM_MATCH(MATCH)
     let mut package_json = fs::read(&package_json_path).or_throw(ctx)?;
     let package_json = simd_json::to_borrowed_value(&mut package_json).or_throw(ctx)?;
+
+    if let Some(sub_module) = sub_module {
+        if package_json.get_str("type") != Some("module") {
+            return Ok([CJS_LOADER_PREFIX, &sub_module].concat().into());
+        }
+        return Ok(sub_module.into());
+    }
 
     let module_path = package_exports_resolve(&package_json, name, is_esm)?;
 

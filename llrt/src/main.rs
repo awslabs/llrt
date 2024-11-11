@@ -192,7 +192,12 @@ async fn start_cli(vm: &Vm) {
             }
         }
     } else {
-        vm.run_file("index", true, false).await;
+        let index = if let Ok(dir) = std::env::current_dir() {
+            [dir.to_string_lossy().as_ref(), "/index"].concat()
+        } else {
+            "index".into()
+        };
+        vm.run_file(index, true, false).await;
     }
 }
 
