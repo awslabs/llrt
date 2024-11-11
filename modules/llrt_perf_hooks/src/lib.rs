@@ -43,11 +43,8 @@ unsafe impl<'js> UserData<'js> for PerfInitedUserData {
 fn new_performance(ctx: Ctx<'_>) -> Result<Object<'_>> {
     let global = ctx.globals();
 
-    //let inited = global.get::<_, Option<bool>>("__perfInit")?.is_some();
-
     let inited = ctx.userdata::<PerfInitedUserData>().is_some();
     if !inited {
-        //global.set("__perfInit", true)?;
         ctx.store_userdata(PerfInitedUserData)?;
         let performance = Object::new(ctx)?;
         performance.set("timeOrigin", get_time_origin())?;
