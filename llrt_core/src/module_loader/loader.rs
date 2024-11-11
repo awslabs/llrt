@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
+use rquickjs::{loader::Loader, Ctx, Module, Object, Result};
 use std::{
     fs::File,
     io::{self, Read},
