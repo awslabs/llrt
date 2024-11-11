@@ -123,7 +123,7 @@ async fn start_cli(vm: &Vm) {
                     },
                     "-e" | "--eval" => {
                         if let Some(source) = args.get(i + 1) {
-                            vm.run(source.as_bytes(), false, true).await;
+                            vm.run(source.as_bytes(), false, false).await;
                         }
                         return;
                     },

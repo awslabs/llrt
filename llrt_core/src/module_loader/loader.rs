@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Loader, Ctx, Module, Object, Result};
+use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use std::{
     fs::File,
     io::{self, Read},
@@ -93,9 +93,37 @@ impl CustomLoader {
 
     fn load_cjs_module<'js>(name: &str, ctx: Ctx<'js>) -> Result<Module<'js>> {
         let cjs_specifier = [CJS_IMPORT_PREFIX, name].concat();
-        let mut module = String::from("const value = require(\"");
-        module.push_str(&cjs_specifier);
-        module.push_str("\");export default value.default||value");
+        let require: Function = ctx.globals().get("require")?;
+        let export_object: Value = require.call((&cjs_specifier,))?;
+        let mut module = String::with_capacity(name.len() + 512);
+        module.push_str("const value = require(\"");
+
+        module.push_str(name);
+        module.push_str("\");export default value.default||value;");
+        if let Some(obj) = export_object.as_object() {
+            module.push_str("const{");
+            let keys: Result<Vec<String>> = obj.keys().collect();
+            let keys = keys?;
+            for p in keys.iter() {
+                if p == "default" {
+                    continue;
+                }
+                module.push_str(p);
+                module.push(',');
+            }
+            module.truncate(module.len() - 1);
+            module.push_str("}=value;");
+            module.push_str("export{");
+            for p in keys.iter() {
+                if p == "default" {
+                    continue;
+                }
+                module.push_str(p);
+                module.push(',');
+            }
+            module.truncate(module.len() - 1);
+            module.push_str("};");
+        }
         Module::declare(ctx, name, module)
     }
 
