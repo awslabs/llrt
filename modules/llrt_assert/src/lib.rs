@@ -58,7 +58,7 @@ impl ModuleDef for AssertModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        let ok_function = Function::new(ctx.clone(), ok)?;
+        let ok_function = Function::new(ctx.clone(), ok)?.with_name("ok")?;
         ok_function.set("ok", ok_function.clone())?;
 
         exports.export("ok", ok_function.clone())?;
