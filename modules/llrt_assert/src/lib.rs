@@ -24,7 +24,13 @@ fn ok(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
                 return Ok(());
             }
         },
-        Type::Array | Type::Object => {
+        Type::Array
+        | Type::BigInt
+        | Type::Constructor
+        | Type::Exception
+        | Type::Function
+        | Type::Symbol
+        | Type::Object => {
             return Ok(());
         },
         _ => {},
@@ -43,7 +49,7 @@ fn ok(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
 
     Err(Exception::throw_message(
         &ctx,
-        "The expression was evaluated to a falsy value",
+        "AssertionError: The expression was evaluated to a falsy value",
     ))
 }
 

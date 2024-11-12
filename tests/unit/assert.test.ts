@@ -2,15 +2,22 @@ import assert from "assert";
 
 describe("assert.ok", () => {
   it("Should be returned 'undefined' (So it's not an error)", () => {
-    expect(assert.ok(true)).toBeUndefined();
-    expect(assert.ok(1)).toBeUndefined();
-    expect(assert.ok("non-empty string")).toBeUndefined();
-    expect(assert.ok([])).toBeUndefined();
-    expect(assert.ok({})).toBeUndefined();
+    expect(assert.ok(true)).toBeUndefined(); //bool
+    expect(assert.ok(1)).toBeUndefined(); // numeric
+    expect(assert.ok("non-empty string")).toBeUndefined(); // string
+    expect(assert.ok([])).toBeUndefined(); // array
+    expect(assert.ok({})).toBeUndefined(); // object
+    expect(assert.ok(() => {})).toBeUndefined(); // function
+    expect(assert.ok(123n)).toBeUndefined(); // bigint
+    expect(assert.ok(Symbol())).toBeUndefined(); // symbol
+    expect(assert.ok(new Error())).toBeUndefined(); // error
+    class AssertTestClass {}
+    expect(assert.ok(AssertTestClass)).toBeUndefined(); // constructor
   });
 
   it("Should be returned exception", () => {
-    const errMsg = "The expression was evaluated to a falsy value";
+    const errMsg =
+      "AssertionError: The expression was evaluated to a falsy value";
     try {
       assert.ok(false);
     } catch (err) {
