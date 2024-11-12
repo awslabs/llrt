@@ -382,6 +382,8 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 specifier.into()
             };
 
+            trace!("After specifier: {}", import_specifier);
+
             let globals = ctx.globals();
             let require_cache: Object = globals.get(REQUIRE_CACHE_NAME)?;
 

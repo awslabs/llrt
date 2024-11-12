@@ -174,7 +174,7 @@ impl CustomLoader {
             }
             if is_cjs || normalized_name.ends_with(".cjs") {
                 let url = ["file://", path].concat();
-                return Ok((Self::load_cjs_module(normalized_name, ctx)?, Some(url)));
+                return Ok((Self::load_cjs_module(path, ctx)?, Some(url)));
             }
         }
 
