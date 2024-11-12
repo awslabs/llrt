@@ -138,13 +138,19 @@ impl CustomLoader {
             return (false, false, name, name);
         }
 
+        // If it starts with CJS_IMPORT_PREFIX, mark as from_cjs_import
         if let Some(cjs_path) = name.strip_prefix(CJS_IMPORT_PREFIX) {
-            // If it starts with CJS_IMPORT_PREFIX, mark as from_cjs_import
+            if let Some(cjs_path) = cjs_path.strip_prefix(CJS_LOADER_PREFIX) {
+                return (true, false, cjs_path, cjs_path);
+            }
             return (true, false, name, cjs_path);
         }
 
+        // If it starts with CJS_LOADER_PREFIX, mark as is_cjs
         if let Some(cjs_path) = name.strip_prefix(CJS_LOADER_PREFIX) {
-            // If it starts with CJS_LOADER_PREFIX, mark as is_cjs
+            if let Some(cjs_path) = cjs_path.strip_prefix(CJS_IMPORT_PREFIX) {
+                return (false, true, cjs_path, cjs_path);
+            }
             return (false, true, cjs_path, cjs_path);
         }
 
