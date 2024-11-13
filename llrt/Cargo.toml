@@ -20,7 +20,7 @@ tracing-core = "0.1.32"
 tokio = { version = "1", features = ["full"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-snmalloc-rs = { version = "0.3.6", features = ["lto"] }
+mimalloc = { version = "*" }
 
 [[bin]]
 name = "llrt"

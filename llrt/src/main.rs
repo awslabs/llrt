@@ -31,7 +31,10 @@ use tracing::trace;
 #[cfg(not(feature = "lambda"))]
 use llrt_core::compiler::compile_file;
 
-// #[cfg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 // #[global_allocator]
 // static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
