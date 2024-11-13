@@ -18,54 +18,29 @@ describe("assert.ok", () => {
   it("Should be returned exception", () => {
     const errMsg =
       "AssertionError: The expression was evaluated to a falsy value";
-    try {
-      assert.ok(false);
-    } catch (err) {
-      expect(err.message).toEqual(errMsg);
-    }
-    try {
-      assert.ok(0);
-    } catch (err) {
-      expect(err.message).toEqual(errMsg);
-    }
-    try {
-      assert.ok("");
-    } catch (err) {
-      expect(err.message).toEqual(errMsg);
-    }
-    try {
-      assert.ok(null);
-    } catch (err) {
-      expect(err.message).toEqual(errMsg);
-    }
+    expect(() => assert.ok(false)).toThrow(errMsg);
+    expect(() => assert.ok(0)).toThrow(errMsg);
+    expect(() => assert.ok("")).toThrow(errMsg);
+    expect(() => assert.ok(null)).toThrow(errMsg);
   });
 
   it("should be returned as original error message", () => {
-    try {
-      assert.ok(false, "Value must be true");
-    } catch (err) {
-      expect(err.message).toEqual("Value must be true");
-    }
+    const errMsg = "Error: Value must be true";
+    expect(() => assert.ok(false, errMsg)).toThrow(errMsg);
   });
 
   it("should be returned as original error", () => {
-    try {
-      assert.ok(false, Error("This is error"));
-    } catch (err) {
-      expect(err.message).toEqual("This is error");
-    }
+    const errMsg = "Error: This is error";
+    expect(() => assert.ok(false, Error(errMsg))).toThrow(errMsg);
   });
 
   it("Should be handled correctly even within functions", () => {
+    const errMsg = "Error: Value should be truthy";
     function checkValue(value) {
-      assert.ok(value, "Value should be truthy");
+      assert.ok(value, errMsg);
     }
     expect(checkValue(true)).toBeUndefined();
-    try {
-      checkValue(false);
-    } catch (err) {
-      expect(err.message).toEqual("Value should be truthy");
-    }
+    expect(() => checkValue(false)).toThrow(errMsg);
   });
 });
 
