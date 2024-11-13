@@ -663,7 +663,7 @@ mod tests {
                     });
 
                     spawn("echo", ["hello"]).stdout.on("data", (data) => {
-                        resolve(data.toString())
+                        resolve(data.toString().trim())
                     });
 
                     export default await deferred;
@@ -675,7 +675,7 @@ mod tests {
                 .get("default")
                 .unwrap();
 
-                assert_eq!(message, "hello\n");
+                assert_eq!(message, "hello");
             })
         })
         .await;
@@ -705,7 +705,7 @@ mod tests {
                     spawn("echo", ["hello"], {
                         shell: true
                     }).stdout.on("data", (data) => {
-                        resolve(data.toString())
+                        resolve(data.toString().trim())
                     });
 
                     export default await deferred;
@@ -716,7 +716,7 @@ mod tests {
                 .get("default")
                 .unwrap();
 
-                assert_eq!(message, "hello\n");
+                assert_eq!(message, "hello");
             })
         })
         .await;
