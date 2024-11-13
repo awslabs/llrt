@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::modules::{
+    assert::AssertModule,
     buffer::BufferModule,
     child_process::ChildProcessModule,
     console::ConsoleModule,
@@ -67,6 +68,7 @@ pub struct ModuleBuilder {
 impl Default for ModuleBuilder {
     fn default() -> Self {
         Self::new()
+            .with_module(AssertModule)
             .with_module(CryptoModule)
             .with_global(crate::modules::crypto::init)
             .with_global(crate::modules::util::init)

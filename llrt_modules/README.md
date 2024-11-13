@@ -56,6 +56,7 @@ async fn main() -> anyhow::Result<()> {
 |               | Node.js | LLRT Modules | Feature         | Crate                |
 | ------------- | ------- | ------------ | --------------- | -------------------- |
 | abort         | ✔︎     | ✔︎️         | `abort`         | `llrt_abort`         |
+| assert        | ✔︎     | ⚠️           | `assert`        | `llrt_assert`        |
 | buffer        | ✔︎     | ✔︎️         | `buffer`        | `llrt_buffer`        |
 | child process | ✔︎     | ⚠️           | `child-process` | `llrt_child_process` |
 | crypto        | ✔︎     | ⚠️           | `crypto`        | `llrt_cryto`         |

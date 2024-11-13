@@ -403,7 +403,6 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             let mut require_in_progress_map = require_in_progress.lock().unwrap();
             if let Some(obj) = require_in_progress_map.get(&import_name) {
                 let value = obj.clone().into_value();
-                require_cache.set(import_name.as_ref(), value.clone())?;
                 return Ok(value);
             }
 
@@ -458,7 +457,23 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 }
             }
 
-            for prop in imported_object.props::<String, Value>() {
+            let props = imported_object.props::<String, Value>();
+
+            let default_export: Option<Value> = imported_object.get(PredefinedAtom::Default)?;
+            if let Some(default_export) = default_export {
+                //if default export is object attach all named exports to
+                if let Some(default_object) = default_export.as_object() {
+                    for prop in props {
+                        let (key, value) = prop?;
+                        default_object.set(key, value)?;
+                    }
+                    let default_object = default_object.clone().into_value();
+                    require_cache.set(import_name.as_ref(), default_object.clone())?;
+                    return Ok(default_object);
+                }
+            }
+
+            for prop in props {
                 let (key, value) = prop?;
                 obj.set(key, value)?;
             }
