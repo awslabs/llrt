@@ -32,6 +32,7 @@ type SuiteResult = TestProps & {
 type RootSuite = TestProps & {
   results: SuiteResult[];
   name: string;
+  printed: boolean;
 };
 
 type WorkerData = {
@@ -78,10 +79,11 @@ class TestServer extends EventEmitter {
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
   private static DEFAULT_TIMEOUT_MS =
     parseInt((process.env as any).TEST_TIMEOUT) || 5000;
-
-  static SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  static CHECKMARK = "\u2714";
-  static CROSS = "\u2718";
+  private static DEFAULT_PROGRESS_BAR_WIDTH = 24;
+  private static SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  private static TESTING_TEXT = " Testing ";
+  private static CHECKMARK = "\u2714";
+  private static CROSS = "\u2718";
   static ERROR_CODE_SOCKET_ERROR = 1;
   static ERROR_CODE_SOCKET_WRITE_ERROR = 2;
   static ERROR_CODE_PROCESS_ERROR = 4;
@@ -161,7 +163,7 @@ class TestServer extends EventEmitter {
     for (let i = 0; i < this.workerCount; i++) {
       this.workerData[i] = {
         currentTest: null,
-        success: false,
+        success: true,
         completed: false,
         currentResult: null,
         currentFile: null,
@@ -189,7 +191,6 @@ class TestServer extends EventEmitter {
       }
     );
     proc.stdout.on("data", (data) => {
-      console.log(data.toString());
       output = data;
     });
     proc.on("error", (error) => {
@@ -272,6 +273,7 @@ class TestServer extends EventEmitter {
             success: true,
             started: 0,
             ended: 0,
+            printed: false,
           });
           workerData.currentFile = nextFile;
           this.workerDataFileInProgress.set(nextFile, workerData);
@@ -307,7 +309,7 @@ class TestServer extends EventEmitter {
         } else {
           const test: TestResult = {
             desc: describe,
-            success: false,
+            success: true,
             started,
             ended: 0,
             error: null,
@@ -444,72 +446,100 @@ class TestServer extends EventEmitter {
     }
 
     if (this.completedWorkers != this.workerCount) {
-      let [width, height] = (console as any).__dimensions;
+      let [terminalWidth] = (console as any).__dimensions;
       let message = "";
 
       if (!first) {
-        const lineCount = this.testFiles.length + 1;
-        const overflow = lineCount - height;
-        if (overflow > 0) {
-          message = `\x1b[H\x1b[3J\x1b[J`;
-        } else {
-          //move to first position of files and clear reminder of screen
-          message = `\x1b[${lineCount}F\x1b[J`;
-        }
+        //clear last line
+        message = "\x1b[F\x1b[2K";
       }
 
       const spinnerFrame = TestServer.SPINNER[this.spinnerFrameIndex];
 
-      if (height < 10) {
-        height = 10;
-      }
-      if (width < 80) {
-        width = 80;
+      if (terminalWidth > 120) {
+        terminalWidth = 120;
       }
 
-      let isSuccess = false;
-      let isFailed = false;
-      let i = 0;
-      let line;
-      let desc;
-      for (let file of this.testFiles) {
-        line = "";
-        isSuccess = this.filesCompleted.has(file);
-        if (!isSuccess) {
-          isFailed = this.filesFailed.has(file);
-        }
-        line += isSuccess
-          ? Color.GREEN(TestServer.CHECKMARK)
-          : isFailed
-            ? Color.RED(TestServer.CROSS)
-            : spinnerFrame;
-        line += ` ${Color.CYAN_BOLD("Testing")} `;
-        line += this.testFileNames[i];
-        desc = this.workerDataFileInProgress.get(file)?.currentTest?.desc;
-        if (!(isSuccess || isFailed) && desc) {
-          line += " ";
-          line += Color.DIM(desc);
-        }
-        if (line.length > width) {
-          line = line.substring(0, width - 3);
-          line += "...";
-          line += Color.RESET;
-        }
-
-        line += "\n";
-        message += line;
-        i++;
-      }
       const total = this.testFiles.length;
       const progress =
         (this.filesCompleted.size + this.filesFailed.size) / total;
 
       const progressText = `${this.totalSuccess}/${this.totalTests}`;
-      const availableWidth = width - progressText.length - 2;
-      const elapsed = availableWidth * progress;
-      const remaining = availableWidth - elapsed;
+      const progressbarWidth = Math.min(
+        TestServer.DEFAULT_PROGRESS_BAR_WIDTH,
+        terminalWidth - (2 + progressText.length + 2) //[ + ] + spinner + spacing + progress text
+      );
+      let totalProgressBarWidth = progressbarWidth;
+      if (totalProgressBarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH) {
+        totalProgressBarWidth += TestServer.TESTING_TEXT.length;
+      }
+      let isSuccess = false;
+      let isFailed = false;
+      let i = 0;
+      let suffix = "";
+      let overflow = false;
 
-      message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]${progressText}`;
+      for (let file of this.testFiles) {
+        let results = this.results.get(file);
+        isSuccess = this.filesCompleted.has(file);
+        if (!isSuccess) {
+          isFailed = this.filesFailed.has(file);
+        }
+        if (results && (isSuccess || isFailed)) {
+          if (!results.printed) {
+            results.printed = true;
+            message += isSuccess
+              ? Color.GREEN(TestServer.CHECKMARK)
+              : Color.RED(TestServer.CROSS);
+            message += " ";
+            message += results.name;
+            message += "\n";
+          }
+          i++;
+          continue;
+        }
+
+        const inProgress = this.workerDataFileInProgress.has(file);
+        const filename = this.testFileNames[i];
+
+        if (
+          inProgress &&
+          totalProgressBarWidth + suffix.length + 4 < terminalWidth
+        ) {
+          if (
+            totalProgressBarWidth + suffix.length + filename.length + 4 <
+            terminalWidth
+          ) {
+            suffix += filename;
+            suffix += ", ";
+          } else {
+            overflow = true;
+            suffix += filename.slice(
+              0,
+              terminalWidth - (totalProgressBarWidth + suffix.length + 5)
+            );
+            suffix += "...";
+          }
+        }
+
+        i++;
+      }
+
+      if (!overflow) {
+        suffix = suffix.slice(0, -2);
+      }
+      const elapsed = Math.floor(progressbarWidth * progress);
+      const remaining = progressbarWidth - elapsed;
+
+      message += spinnerFrame;
+      if (progressbarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH) {
+        message += Color.CYAN_BOLD(TestServer.TESTING_TEXT);
+      }
+      message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]`;
+      message += progressText;
+      message += ": ";
+      message += Color.DIM(suffix);
+
       console.log(message);
     }
   }
