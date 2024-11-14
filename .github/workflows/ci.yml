@@ -73,9 +73,17 @@ jobs:
             platform: linux
             arch: x86_64
             toolchain: stable
+          - os: ubuntu-latest
+            platform: linux
+            arch: aarch64
+            toolchain: stable
           - os: macos-latest
             platform: darwin
             arch: x86_64
+            toolchain: stable
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
             toolchain: stable
           - os: windows-latest
             platform: windows
