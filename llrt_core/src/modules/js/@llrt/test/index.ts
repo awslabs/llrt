@@ -159,7 +159,7 @@ class TestServer extends EventEmitter {
     );
   }
 
-  async spawnAllWorkers() {
+  spawnAllWorkers() {
     for (let i = 0; i < this.workerCount; i++) {
       this.workerData[i] = {
         currentTest: null,
