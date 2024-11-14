@@ -2632,7 +2632,7 @@ dependencies = [
  "llrt_test",
  "llrt_timers",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2642,7 +2642,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1)",
  "tokio",
 ]
 
@@ -2653,7 +2653,7 @@ dependencies = [
  "llrt_encoding",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2676,7 +2676,7 @@ dependencies = [
  "llrt_stream",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2731,7 +2731,7 @@ dependencies = [
  "phf_codegen",
  "quick-xml",
  "ring",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "rustls",
  "rustls-pemfile",
  "ryu",
@@ -2762,7 +2762,7 @@ dependencies = [
  "once_cell",
  "rand",
  "ring",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
  "uuid",
  "uuid-simd",
@@ -2783,7 +2783,7 @@ name = "llrt_events"
 version = "0.3.0-beta"
 dependencies = [
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tracing",
 ]
 
@@ -2791,7 +2791,7 @@ dependencies = [
 name = "llrt_exceptions"
 version = "0.3.0-beta"
 dependencies = [
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
 ]
 
 [[package]]
@@ -2805,7 +2805,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "ring",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2830,7 +2830,7 @@ dependencies = [
  "llrt_utils",
  "once_cell",
  "pin-project-lite",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "rustls",
  "ryu",
  "tokio",
@@ -2848,7 +2848,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "ryu",
  "simd-json",
  "tokio",
@@ -2883,7 +2883,7 @@ dependencies = [
 name = "llrt_navigator"
 version = "0.3.0-beta"
 dependencies = [
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
 ]
 
 [[package]]
@@ -2898,7 +2898,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
  "tracing",
 ]
@@ -2926,7 +2926,7 @@ dependencies = [
  "llrt_utils",
  "num_cpus",
  "once_cell",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "sysinfo",
  "tokio",
  "users",
@@ -2944,8 +2944,12 @@ dependencies = [
  "llrt_utils",
  "memchr",
  "once_cell",
+<<<<<<< HEAD
  "rand",
  "rquickjs",
+=======
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
+>>>>>>> 50bccbfb8 (Update lockfile)
 ]
 
 [[package]]
@@ -2954,7 +2958,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2964,7 +2968,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2976,7 +2980,7 @@ dependencies = [
  "llrt_context",
  "llrt_events",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2986,7 +2990,7 @@ version = "0.3.0-beta"
 dependencies = [
  "nanoid",
  "rand",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -2998,7 +3002,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "once_cell",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -3008,7 +3012,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
  "url",
 ]
@@ -3033,7 +3037,7 @@ dependencies = [
  "llrt_context",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "tokio",
 ]
 
@@ -3754,12 +3758,28 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.6.2"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+dependencies = [
+ "rquickjs-core 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1)",
+]
+
+[[package]]
+name = "rquickjs"
+version = "0.6.2"
 source = "git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284#c2521712219b40bf9ba9836c082919ec855d0284"
 dependencies = [
  "either",
  "indexmap 2.6.0",
- "rquickjs-core",
+ "rquickjs-core 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "rquickjs-macro",
+]
+
+[[package]]
+name = "rquickjs-core"
+version = "0.6.2"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+dependencies = [
+ "rquickjs-sys 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1)",
 ]
 
 [[package]]
@@ -3774,7 +3794,7 @@ dependencies = [
  "indexmap 2.6.0",
  "phf",
  "relative-path",
- "rquickjs-sys",
+ "rquickjs-sys 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
 ]
 
 [[package]]
@@ -3791,8 +3811,16 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2 1.0.89",
  "quote 1.0.37",
- "rquickjs-core",
+ "rquickjs-core 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
  "syn 2.0.86",
+]
+
+[[package]]
+name = "rquickjs-sys"
+version = "0.6.2"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
