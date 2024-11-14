@@ -456,8 +456,8 @@ class TestServer extends EventEmitter {
 
       const spinnerFrame = TestServer.SPINNER[this.spinnerFrameIndex];
 
-      if (terminalWidth > 120) {
-        terminalWidth = 120;
+      if (terminalWidth > 80) {
+        terminalWidth = 80;
       }
 
       const total = this.testFiles.length;
