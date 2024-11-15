@@ -414,33 +414,26 @@ fn node_modules_paths(start: &str) -> Vec<Box<str>> {
 // LOAD_PACKAGE_IMPORTS(X, DIR)
 fn load_package_imports(ctx: &Ctx<'_>, x: &str, dir: &str) -> Result<Option<String>> {
     trace!("|  load_package_imports(x, dir): ({}, {})", x, dir);
+
     // 1. Find the closest package scope SCOPE to DIR.
-    let mut package_json_file: Vec<u8>;
-    let package_json: BorrowedValue;
-    match find_the_closest_package_scope(dir) {
-        // 2. If no scope was found, return.
-        None => {
-            return Ok(None);
-        },
-        Some(path) => {
-            package_json_file = fs::read(path.as_ref()).or_throw(ctx)?;
-            package_json = simd_json::to_borrowed_value(&mut package_json_file).or_throw(ctx)?;
-            // 3. If the SCOPE/package.json "imports" is null or undefined, return.
-            if !is_imports_field_exists(&package_json) {
-                return Ok(None);
-            }
-            // 4. If `--experimental-require-module` is enabled
-            //   a. let CONDITIONS = ["node", "require", "module-sync"]
-            //   b. Else, let CONDITIONS = ["node", "require"]
-            // 5. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
-            //   CONDITIONS) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
-            // 6. RESOLVE_ESM_MATCH(MATCH).
-            if let Some(module_path) = package_imports_resolve(&package_json, x) {
-                trace!("|  load_package_imports(6): {}", module_path);
-                let dir = path.as_ref().trim_end_matches("package.json");
-                return Ok(Some(correct_extensions([dir, module_path].concat()).into()));
-            }
-        },
+    // 2. If no scope was found, return.
+    if let Some(path) = find_the_closest_package_scope(dir) {
+        let mut package_json_file = fs::read(path.as_ref()).or_throw(ctx)?;
+        let package_json: BorrowedValue =
+            simd_json::to_borrowed_value(&mut package_json_file).or_throw(ctx)?;
+
+        // 3. If the SCOPE/package.json "imports" is null or undefined, return.
+        // 4. If `--experimental-require-module` is enabled
+        //   a. let CONDITIONS = ["node", "require", "module-sync"]
+        //   b. Else, let CONDITIONS = ["node", "require"]
+        // 5. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
+        //   CONDITIONS) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
+        // 6. RESOLVE_ESM_MATCH(MATCH).
+        if let Some(module_path) = package_imports_resolve(&package_json, x) {
+            trace!("|  load_package_imports(6): {}", module_path);
+            let dir = path.as_ref().trim_end_matches("package.json");
+            return Ok(Some(correct_extensions([dir, module_path].concat()).into()));
+        }
     };
 
     Ok(None)
@@ -696,15 +689,6 @@ fn get_string_field<'a>(package_json: &'a BorrowedValue<'a>, str: &str) -> Optio
 fn is_exports_field_exists<'a>(package_json: &'a BorrowedValue<'a>) -> bool {
     if let BorrowedValue::Object(map) = package_json {
         if let Some(BorrowedValue::Object(_)) = map.get("exports") {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_imports_field_exists<'a>(package_json: &'a BorrowedValue<'a>) -> bool {
-    if let BorrowedValue::Object(map) = package_json {
-        if let Some(BorrowedValue::Object(_)) = map.get("imports") {
             return true;
         }
     }
