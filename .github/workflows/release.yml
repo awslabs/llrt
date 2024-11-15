@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  pull_request:
 
 jobs:
   build:
@@ -40,6 +41,7 @@ jobs:
       release: ${{ matrix.release }}
       toolchain: ${{ matrix.toolchain }}
   release:
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
       discussions: write
