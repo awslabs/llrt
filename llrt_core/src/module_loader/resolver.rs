@@ -157,11 +157,11 @@ pub fn require_resolve<'a>(
 
     // 4. If X begins with '#'
     if x.starts_with('#') {
-        // // a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
-        // if let Ok(Some(path)) = load_package_imports(ctx, x, &dirname_y, is_esm) {
-        //     trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}\n", path);
-        //     return Ok(path);
-        // }
+        // a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
+        if let Ok(Some(path)) = load_package_imports(ctx, x, &dirname_y) {
+            trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}\n", path);
+            return Ok(path.into());
+        }
     }
 
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
@@ -411,7 +411,33 @@ fn node_modules_paths(start: &str) -> Vec<Box<str>> {
     dirs
 }
 
-// TODO LOAD_PACKAGE_IMPORTS(X, DIR)
+// LOAD_PACKAGE_IMPORTS(X, DIR)
+fn load_package_imports(ctx: &Ctx<'_>, x: &str, dir: &str) -> Result<Option<String>> {
+    trace!("|  load_package_imports(x, dir): ({}, {})", x, dir);
+
+    // 1. Find the closest package scope SCOPE to DIR.
+    // 2. If no scope was found, return.
+    if let Some(path) = find_the_closest_package_scope(dir) {
+        let mut package_json_file = fs::read(path.as_ref()).or_throw(ctx)?;
+        let package_json: BorrowedValue =
+            simd_json::to_borrowed_value(&mut package_json_file).or_throw(ctx)?;
+
+        // 3. If the SCOPE/package.json "imports" is null or undefined, return.
+        // 4. If `--experimental-require-module` is enabled
+        //   a. let CONDITIONS = ["node", "require", "module-sync"]
+        //   b. Else, let CONDITIONS = ["node", "require"]
+        // 5. let MATCH = PACKAGE_IMPORTS_RESOLVE(X, pathToFileURL(SCOPE),
+        //   CONDITIONS) <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
+        // 6. RESOLVE_ESM_MATCH(MATCH).
+        if let Some(module_path) = package_imports_resolve(&package_json, x) {
+            trace!("|  load_package_imports(6): {}", module_path);
+            let dir = path.as_ref().trim_end_matches("package.json");
+            return Ok(Some(correct_extensions([dir, module_path].concat()).into()));
+        }
+    };
+
+    Ok(None)
+}
 
 // LOAD_PACKAGE_EXPORTS(X, DIR)
 fn load_package_exports<'a>(
@@ -605,6 +631,36 @@ fn package_exports_resolve<'a>(
         }
     }
     Ok("./index.js")
+}
+
+// Implementation equivalent to PACKAGE_IMPORTS_RESOLVE including RESOLVE_ESM_MATCH
+fn package_imports_resolve<'a>(
+    package_json: &'a BorrowedValue<'a>,
+    modules_name: &str,
+) -> Option<&'a str> {
+    if let BorrowedValue::Object(map) = package_json {
+        if let Some(BorrowedValue::Object(imports)) = map.get("imports") {
+            if let Some(BorrowedValue::Object(name)) = imports.get(modules_name) {
+                // Check for imports -> name -> require
+                if let Some(BorrowedValue::String(require)) = name.get("require") {
+                    return Some(require.as_ref());
+                }
+                // Check for imports -> name -> module-sync
+                if let Some(BorrowedValue::String(module_sync)) = name.get("module-sync") {
+                    return Some(module_sync.as_ref());
+                }
+                // Check for imports -> name -> default
+                if let Some(BorrowedValue::String(default)) = name.get("default") {
+                    return Some(default.as_ref());
+                }
+            }
+            // Check for imports -> name
+            if let Some(BorrowedValue::String(name)) = imports.get(modules_name) {
+                return Some(name.as_ref());
+            }
+        }
+    }
+    None
 }
 
 fn find_the_closest_package_scope(start: &str) -> Option<Box<str>> {
