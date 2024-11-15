@@ -170,7 +170,7 @@ fn benchmark(c: &mut Criterion) {
 fn replace_components(path: String) -> String {
     let length = path.len();
     let path = Path::new(&path);
-    let mut components = path.components();
+    let components = path.components();
     let mut new_path = String::with_capacity(length);
 
     for component in components {
