@@ -131,7 +131,7 @@ jobs:
         if: inputs.release
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ inputs.platform }}-${{ inputs.arch }}
+          name: llrt-${{ inputs.platform }}-${{ inputs.arch }}
           path: |
             *.zip
             llrt-container-arm64*
