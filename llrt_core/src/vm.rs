@@ -177,7 +177,7 @@ impl Vm {
     pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
         let source = [
             r#"import(""#,
-            filename.as_ref(),
+            &filename.as_ref().replace('\\', "/"),
             r#"").catch((e) => {{console.error(e);process.exit(1)}})"#,
         ]
         .concat();
@@ -465,7 +465,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
                 if let Some(default_object) = default_export.as_object() {
                     for prop in props {
                         let (key, value) = prop?;
-                        default_object.set(key, value)?;
+                        if !default_object.contains_key(&key)? {
+                            default_object.set(key, value)?;
+                        }
                     }
                     let default_object = default_object.clone().into_value();
                     require_cache.set(import_name.as_ref(), default_object.clone())?;
