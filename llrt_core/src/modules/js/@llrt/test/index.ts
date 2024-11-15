@@ -465,12 +465,18 @@ class TestServer extends EventEmitter {
         (this.filesCompleted.size + this.filesFailed.size) / total;
 
       const progressText = `${this.totalSuccess}/${this.totalTests}`;
+
       const progressbarWidth = Math.min(
         TestServer.DEFAULT_PROGRESS_BAR_WIDTH,
-        terminalWidth - (2 + progressText.length + 2) //[ + ] + spinner + spacing + progress text
+        Math.max(
+          10,
+          terminalWidth - (2 + progressText.length + 2) //[ + ] + spinner + spacing + progress text
+        )
       );
       let totalProgressBarWidth = progressbarWidth;
-      if (totalProgressBarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH) {
+      const showProgressBarDesc =
+        totalProgressBarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH;
+      if (showProgressBarDesc) {
         totalProgressBarWidth += TestServer.TESTING_TEXT.length;
       }
       let isSuccess = false;
@@ -532,7 +538,7 @@ class TestServer extends EventEmitter {
       const remaining = progressbarWidth - elapsed;
 
       message += spinnerFrame;
-      if (progressbarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH) {
+      if (showProgressBarDesc) {
         message += Color.CYAN_BOLD(TestServer.TESTING_TEXT);
       }
       message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]`;
