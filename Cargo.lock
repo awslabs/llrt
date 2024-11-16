@@ -2685,7 +2685,6 @@ dependencies = [
  "bytes",
  "cargo-patch",
  "chrono",
- "criterion",
  "home",
  "http-body-util",
  "hyper",
@@ -2697,16 +2696,15 @@ dependencies = [
  "llrt_build",
  "llrt_json",
  "llrt_modules",
+ "llrt_numbers",
  "llrt_test",
  "llrt_utils",
  "md-5",
- "memchr",
  "nanoid",
  "once_cell",
  "phf",
  "phf_codegen",
  "quick-xml",
- "rand",
  "ring",
  "rquickjs",
  "rustls",
@@ -2805,6 +2803,7 @@ dependencies = [
 name = "llrt_json"
 version = "0.3.0-beta"
 dependencies = [
+ "criterion",
  "itoa",
  "llrt_build",
  "llrt_test",
@@ -2864,6 +2863,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_numbers"
+version = "0.3.0-beta"
+dependencies = [
+ "criterion",
+ "itoa",
+ "llrt_test",
+ "llrt_utils",
+ "rand",
+ "rquickjs",
+ "ryu",
+]
+
+[[package]]
 name = "llrt_os"
 version = "0.3.0-beta"
 dependencies = [
@@ -2887,9 +2899,11 @@ dependencies = [
 name = "llrt_path"
 version = "0.3.0-beta"
 dependencies = [
+ "criterion",
  "llrt_utils",
  "memchr",
  "once_cell",
+ "rand",
  "rquickjs",
 ]
 

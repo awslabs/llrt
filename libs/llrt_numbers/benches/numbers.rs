@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use llrt_core::number::i64_to_base_n;
+use llrt_numbers::i64_to_base_n;
 use rand::Rng;
 use std::fmt::Write;
 

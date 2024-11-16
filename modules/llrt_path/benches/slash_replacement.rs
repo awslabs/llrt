@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use llrt_modules::path::replace_backslash;
+use llrt_path::replace_backslash;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::path::{Path, PathBuf};

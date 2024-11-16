@@ -65,7 +65,6 @@ async fn main() -> anyhow::Result<()> {
 | fs/promises   | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |
 | fs            | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |
 | http          | ✔︎     | ⚠️           | `http`          | `llrt_http`          |
-| json          | ✔︎     | ✔︎          | N/A             | `llrt_json`          |
 | navigator     | ✔︎     | ⚠️           | `navigator`     | `llrt_navigator`     |
 | net           | ✔︎     | ⚠️           | `net`           | `llrt_net`           |
 | os            | ✔︎     | ⚠️           | `os`            | `llrt_os`            |

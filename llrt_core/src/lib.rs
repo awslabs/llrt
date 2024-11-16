@@ -13,7 +13,6 @@ mod http;
 mod module_builder;
 mod module_loader;
 pub mod modules;
-pub mod number;
 pub mod runtime_client;
 mod security;
 pub mod utils;
