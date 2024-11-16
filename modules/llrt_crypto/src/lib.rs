@@ -6,10 +6,10 @@ mod sha_hash;
 use std::slice;
 
 use llrt_buffer::Buffer;
+use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string};
 use llrt_utils::{
     bytes::{bytes_to_typed_array, get_start_end_indexes, ObjectBytes},
     ctx::CtxExtension,
-    encoding::{bytes_to_b64_string, bytes_to_hex_string},
     error::ErrorExtensions,
     error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
     module::{export_default, ModuleInfo},

@@ -2640,6 +2640,7 @@ dependencies = [
 name = "llrt_buffer"
 version = "0.3.0-beta"
 dependencies = [
+ "llrt_encoding",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -2694,6 +2695,7 @@ dependencies = [
  "jwalk",
  "libc",
  "llrt_build",
+ "llrt_encoding",
  "llrt_json",
  "llrt_modules",
  "llrt_numbers",
@@ -2728,6 +2730,7 @@ dependencies = [
  "crc32c",
  "crc32fast",
  "llrt_buffer",
+ "llrt_encoding",
  "llrt_test",
  "llrt_utils",
  "md-5",
@@ -2739,6 +2742,16 @@ dependencies = [
  "tokio",
  "uuid",
  "uuid-simd",
+]
+
+[[package]]
+name = "llrt_encoding"
+version = "0.3.0-beta"
+dependencies = [
+ "base64-simd",
+ "hex-simd",
+ "llrt_build",
+ "phf",
 ]
 
 [[package]]
@@ -2763,6 +2776,7 @@ version = "0.3.0-beta"
 dependencies = [
  "either",
  "llrt_buffer",
+ "llrt_encoding",
  "llrt_path",
  "llrt_test",
  "llrt_utils",
@@ -2784,6 +2798,7 @@ dependencies = [
  "itoa",
  "llrt_abort",
  "llrt_compression",
+ "llrt_encoding",
  "llrt_json",
  "llrt_test",
  "llrt_url",
@@ -2974,11 +2989,8 @@ dependencies = [
 name = "llrt_utils"
 version = "0.3.0-beta"
 dependencies = [
- "base64-simd",
- "hex-simd",
  "llrt_build",
  "llrt_test",
- "phf",
  "rquickjs",
  "tokio",
  "tracing",

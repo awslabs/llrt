@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 pub mod encoder {
-    pub use llrt_utils::encoding::*;
+    pub use llrt_encoding::*;
 }
 
 use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};

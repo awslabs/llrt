@@ -15,6 +15,7 @@ path = "src/lib.rs"
 crc32c = "0.6"
 crc32fast = "1"
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
+llrt_encoding = { version = "0.3.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", features = [
   "ctx",
 ], default-features = false }
