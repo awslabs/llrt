@@ -1,23 +1,16 @@
 [package]
-name = "llrt_utils"
-description = "LLRT utilities"
+name = "llrt_context"
+description = "LLRT context helpers"
 version = "0.3.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
-[features]
-default = ["all"]
-all = ["fs", "bytearray-buffer"]
-
-fs = ["tokio/fs"]
-bytearray-buffer = ["tokio/sync"]
-
 [dependencies]
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
-  "array-buffer",
+  "futures",
 ], default-features = false }
-tokio = { version = "1", optional = true }
+tokio = { version = "1", features = ["sync"], default-features = false }
 tracing = "0.1"
 
 [dev-dependencies]

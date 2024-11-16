@@ -3,8 +3,9 @@
 use std::sync::{atomic::AtomicUsize, Arc, RwLock};
 
 use llrt_buffer::Buffer;
+use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
-use llrt_utils::{bytearray_buffer::BytearrayBuffer, ctx::CtxExtension, result::ResultExt};
+use llrt_utils::{bytearray_buffer::BytearrayBuffer, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},

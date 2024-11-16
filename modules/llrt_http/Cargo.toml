@@ -34,6 +34,7 @@ hyper-util = "0.1"
 itoa = "1"
 llrt_abort = { version = "0.3.0-beta", path = "../llrt_abort" }
 llrt_compression = { version = "0.3.0-beta", path = "../../libs/llrt_compression", default-features = false }
+llrt_context = { version = "0.3.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.3.0-beta", path = "../../libs/llrt_encoding" }
 llrt_json = { version = "0.3.0-beta", path = "../../libs/llrt_json" }
 llrt_url = { version = "0.3.0-beta", path = "../llrt_url" }

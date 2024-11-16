@@ -5,9 +5,10 @@ use std::sync::{
     Arc, RwLock,
 };
 
+use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{impl_stream_events, SteamEvents};
-use llrt_utils::{ctx::CtxExtension, object::ObjectExt, result::ResultExt};
+use llrt_utils::{object::ObjectExt, result::ResultExt};
 #[cfg(unix)]
 use rquickjs::IntoJs;
 use rquickjs::{

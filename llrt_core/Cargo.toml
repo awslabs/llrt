@@ -20,8 +20,9 @@ patches = ["patches/promise-poll.patch"]
 rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 
 [dependencies]
-llrt_json = { path = "../libs/llrt_json" }
+llrt_context = { path = "../libs/llrt_context" }
 llrt_encoding = { path = "../libs/llrt_encoding" }
+llrt_json = { path = "../libs/llrt_json" }
 llrt_modules = { path = "../llrt_modules", features = ["all"] }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }

@@ -2661,6 +2661,7 @@ dependencies = [
  "itoa",
  "libc",
  "llrt_buffer",
+ "llrt_context",
  "llrt_events",
  "llrt_stream",
  "llrt_test",
@@ -2680,6 +2681,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_context"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_build",
+ "llrt_test",
+ "rquickjs",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "llrt_core"
 version = "0.3.0-beta"
 dependencies = [
@@ -2695,6 +2707,7 @@ dependencies = [
  "jwalk",
  "libc",
  "llrt_build",
+ "llrt_context",
  "llrt_encoding",
  "llrt_json",
  "llrt_modules",
@@ -2730,6 +2743,7 @@ dependencies = [
  "crc32c",
  "crc32fast",
  "llrt_buffer",
+ "llrt_context",
  "llrt_encoding",
  "llrt_test",
  "llrt_utils",
@@ -2798,6 +2812,7 @@ dependencies = [
  "itoa",
  "llrt_abort",
  "llrt_compression",
+ "llrt_context",
  "llrt_encoding",
  "llrt_json",
  "llrt_test",
@@ -2867,6 +2882,7 @@ version = "0.3.0-beta"
 dependencies = [
  "itoa",
  "llrt_buffer",
+ "llrt_context",
  "llrt_events",
  "llrt_stream",
  "llrt_test",
@@ -2947,6 +2963,7 @@ name = "llrt_stream"
 version = "0.3.0-beta"
 dependencies = [
  "llrt_buffer",
+ "llrt_context",
  "llrt_events",
  "llrt_utils",
  "rquickjs",
@@ -2967,6 +2984,7 @@ dependencies = [
 name = "llrt_timers"
 version = "0.3.0-beta"
 dependencies = [
+ "llrt_context",
  "llrt_test",
  "llrt_utils",
  "once_cell",
@@ -3002,6 +3020,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_compression",
+ "llrt_context",
  "llrt_test",
  "llrt_utils",
  "rquickjs",

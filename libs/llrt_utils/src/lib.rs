@@ -4,8 +4,6 @@
 pub mod bytearray_buffer;
 pub mod bytes;
 pub mod class;
-#[cfg(feature = "ctx")]
-pub mod ctx;
 pub mod error;
 pub mod error_messages;
 #[cfg(feature = "fs")]

@@ -11,10 +11,8 @@ use std::{
     time::Duration,
 };
 
-use llrt_utils::{
-    ctx::CtxExtension,
-    module::{export_default, ModuleInfo},
-};
+use llrt_context::CtxExtension;
+use llrt_utils::module::{export_default, ModuleInfo};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},

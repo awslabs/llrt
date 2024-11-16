@@ -3,9 +3,9 @@
 use std::io::Read;
 
 use llrt_buffer::Buffer;
+use llrt_context::CtxExtension;
 use llrt_utils::{
     bytes::ObjectBytes,
-    ctx::CtxExtension,
     module::{export_default, ModuleInfo},
     object::ObjectExt,
     result::ResultExt,

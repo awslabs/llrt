@@ -17,13 +17,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{
     readable::{DefaultReadableStream, ReadableStream},
     writable::{DefaultWritableStream, WritableStream},
 };
 use llrt_utils::{
-    ctx::CtxExtension,
     module::{export_default, ModuleInfo},
     object::ObjectExt,
     result::ResultExt,
