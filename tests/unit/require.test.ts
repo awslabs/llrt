@@ -126,3 +126,7 @@ if (!IS_WIN) {
     });
   });
 }
+
+it("require builtin modules", () => {
+  _require("path");
+});
