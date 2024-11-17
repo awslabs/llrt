@@ -103,7 +103,6 @@ jobs:
             qemu-utils \
             qemu-user
 
-          cargo +nightly run --target=aarch64-unknown-linux-musl -r -- ./abort-ctrl-qemu.js
           make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
 
       - name: Build Linux binaries
