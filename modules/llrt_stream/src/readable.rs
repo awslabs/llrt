@@ -9,7 +9,7 @@ use llrt_utils::{bytearray_buffer::BytearrayBuffer, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
-    Class, Ctx, Error, IntoJs, Null, Result, Value,
+    Class, Ctx, Error, IntoJs, JsLifetime, Null, Result, Value,
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, BufReader},
@@ -103,6 +103,10 @@ pub struct DefaultReadableStream<'js> {
     inner: ReadableStreamInner<'js>,
 }
 
+unsafe impl<'js> JsLifetime<'js> for DefaultReadableStream<'js> {
+    type Changed<'to> = DefaultReadableStream<'to>;
+}
+
 impl<'js> DefaultReadableStream<'js> {
     fn with_emitter(ctx: Ctx<'js>, emitter: EventEmitter<'js>) -> Result<Class<'js, Self>> {
         Class::instance(
@@ -147,7 +151,7 @@ where
     fn inner(&self) -> &ReadableStreamInner<'js>;
 
     fn add_readable_stream_prototype(ctx: &Ctx<'js>) -> Result<()> {
-        let proto = Class::<Self>::prototype(ctx.clone())
+        let proto = Class::<Self>::prototype(ctx)?
             .or_throw_msg(ctx, &["Prototype for ", Self::NAME, " not found"].concat())?;
 
         proto.set("read", Func::from(Self::read))?;

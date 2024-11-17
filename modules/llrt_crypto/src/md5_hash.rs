@@ -8,7 +8,7 @@ use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 use super::encoded_bytes;
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Md5 {
     #[qjs(skip_trace)]
     hasher: MdHasher,

@@ -22,7 +22,7 @@ const DEFAULT_ENCODING: &str = "utf8";
 
 #[allow(dead_code)]
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct FileHandle {
     #[qjs(skip_trace)]
     file: Option<File>,
@@ -485,7 +485,7 @@ impl<'js> FromJs<'js> for WriteFileOptions {
 mod tests {
     use llrt_buffer as buffer;
     use llrt_test::{call_test, call_test_err, test_async_with, ModuleEvaluator};
-    use rquickjs::{CatchResultExt, CaughtError, Class};
+    use rquickjs::{CatchResultExt, CaughtError};
     use tokio::fs::OpenOptions;
 
     use super::*;
@@ -506,8 +506,6 @@ mod tests {
 
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -543,7 +541,6 @@ mod tests {
 
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
@@ -586,8 +583,6 @@ mod tests {
 
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -623,8 +618,6 @@ mod tests {
 
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -660,7 +653,6 @@ mod tests {
         test_async_with(|ctx| {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
-                Class::<FileHandle>::register(&ctx).unwrap();
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
@@ -700,7 +692,6 @@ mod tests {
         test_async_with(|ctx| {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
-                Class::<FileHandle>::register(&ctx).unwrap();
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
@@ -734,8 +725,6 @@ mod tests {
 
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -767,7 +756,6 @@ mod tests {
 
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
@@ -802,8 +790,6 @@ mod tests {
         let path_1 = path.clone();
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -838,8 +824,6 @@ mod tests {
         let path_1 = path.clone();
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -880,8 +864,6 @@ mod tests {
         let path_1 = path.clone();
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -911,8 +893,6 @@ mod tests {
         let path_1 = path.clone();
         test_async_with(|ctx| {
             Box::pin(async move {
-                Class::<FileHandle>::register(&ctx).unwrap();
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",

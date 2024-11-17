@@ -41,7 +41,7 @@ llrt_url = { version = "0.3.0-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
 pin-project-lite = "0.2"
 once_cell = "1"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
   "either",
 ], default-features = false }
 rustls = { version = "0.23", default-features = false, features = [

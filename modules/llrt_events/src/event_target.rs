@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
-use rquickjs::class::{Trace, Tracer};
+use rquickjs::{
+    class::{Trace, Tracer},
+    JsLifetime,
+};
 
 use super::{Emitter, EventList, Events};
 
@@ -10,6 +13,10 @@ use super::{Emitter, EventList, Events};
 #[derive(Clone)]
 pub struct EventTarget<'js> {
     pub events: Events<'js>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for EventTarget<'js> {
+    type Changed<'to> = EventTarget<'to>;
 }
 
 impl<'js> Emitter<'js> for EventTarget<'js> {

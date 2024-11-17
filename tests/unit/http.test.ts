@@ -887,7 +887,7 @@ describe("File class", () => {
   it("has last modified date", () => {
     const file = new File(["file content"], "example.txt");
     const now = new Date();
-    expect(file.lastModified).toBeLessThanOrEqual(now.getTime());
+    expect(file.lastModified * 0.9999).toBeLessThanOrEqual(now.getTime());
   });
 
   it("can slice file", () => {

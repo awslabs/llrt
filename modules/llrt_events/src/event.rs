@@ -5,7 +5,7 @@ use rquickjs::{prelude::Opt, Result, Value};
 use llrt_utils::object::ObjectExt;
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Event {
     event_type: String,
     bubbles: bool,

@@ -10,7 +10,7 @@ use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
 };
 
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct Dirent {
     #[qjs(skip_trace)]

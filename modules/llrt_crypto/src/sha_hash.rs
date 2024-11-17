@@ -13,7 +13,7 @@ use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Valu
 use super::encoded_bytes;
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Hmac {
     #[qjs(skip_trace)]
     context: HmacContext,
@@ -71,7 +71,7 @@ impl Clone for Hmac {
 }
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Hash {
     #[qjs(skip_trace)]
     context: DigestContext,
@@ -152,7 +152,7 @@ impl ShaAlgorithm {
 }
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct ShaHash {
     #[qjs(skip_trace)]
     secret: Option<Vec<u8>>,

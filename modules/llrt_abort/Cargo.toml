@@ -21,7 +21,7 @@ llrt_exceptions = { version = "0.3.0-beta", path = "../llrt_exceptions" }
 llrt_events = { version = "0.3.0-beta", path = "../llrt_events" }
 llrt_timers = { version = "0.3.0-beta", path = "../llrt_timers", optional = true }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
   "macro",
 ], default-features = false }
 tokio = { version = "1", features = ["time"], optional = true }

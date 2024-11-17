@@ -47,4 +47,4 @@ opt-level = 3
 panic = "abort"
 
 [profile.test]
-opt-level = 3 #required for large number parsing
+opt-level = 3

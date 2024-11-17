@@ -7,7 +7,7 @@ use rquickjs::{
 };
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct DOMException {
     message: String,
     name: String,
@@ -61,7 +61,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
     Class::<DOMException>::define(&globals)?;
 
-    let dom_ex_proto = Class::<DOMException>::prototype(ctx.clone()).unwrap();
+    let dom_ex_proto = Class::<DOMException>::prototype(ctx)?.unwrap();
     let error_ctor: Object = globals.get(PredefinedAtom::Error)?;
     let error_proto = error_ctor.get_prototype();
     dom_ex_proto.set_prototype(error_proto.as_ref())?;

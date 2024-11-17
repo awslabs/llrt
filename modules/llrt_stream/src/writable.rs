@@ -8,7 +8,7 @@ use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
-    Class, Ctx, Error, Exception, Function, Result, Value,
+    Class, Ctx, Error, Exception, Function, JsLifetime, Result, Value,
 };
 use tokio::{
     io::{AsyncWrite, AsyncWriteExt, BufWriter},
@@ -72,6 +72,10 @@ pub struct DefaultWritableStream<'js> {
     inner: WritableStreamInner<'js>,
 }
 
+unsafe impl<'js> JsLifetime<'js> for DefaultWritableStream<'js> {
+    type Changed<'to> = DefaultWritableStream<'to>;
+}
+
 impl<'js> DefaultWritableStream<'js> {
     fn with_emitter(ctx: Ctx<'js>, emitter: EventEmitter<'js>) -> Result<Class<'js, Self>> {
         Class::instance(
@@ -113,7 +117,7 @@ where
     fn inner(&self) -> &WritableStreamInner<'js>;
 
     fn add_writable_stream_prototype(ctx: &Ctx<'js>) -> Result<()> {
-        let proto = Class::<Self>::prototype(ctx.clone())
+        let proto = Class::<Self>::prototype(ctx)?
             .or_throw_msg(ctx, &["Prototype for ", Self::NAME, " not found"].concat())?;
 
         proto.set("write", Func::from(Self::write))?;

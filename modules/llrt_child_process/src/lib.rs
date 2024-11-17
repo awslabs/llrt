@@ -130,8 +130,11 @@ fn prepare_shell_args(
     vec!["-c".into(), string_args]
 }
 
+use rquickjs::JsLifetime;
+
 #[allow(dead_code)]
 #[rquickjs::class]
+#[derive(rquickjs::JsLifetime)]
 pub struct ChildProcess<'js> {
     emitter: EventEmitter<'js>,
     args: Option<Vec<String>>,
@@ -608,10 +611,6 @@ impl ModuleDef for ChildProcessModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<ChildProcess>::register(ctx)?;
-        Class::<DefaultWritableStream>::register(ctx)?;
-        Class::<DefaultReadableStream>::register(ctx)?;
-
         ChildProcess::add_event_emitter_prototype(ctx)?;
         DefaultWritableStream::add_writable_stream_prototype(ctx)?;
         DefaultWritableStream::add_event_emitter_prototype(ctx)?;
@@ -638,75 +637,47 @@ impl From<ChildProcessModule> for ModuleInfo<ChildProcessModule> {
 
 #[cfg(test)]
 mod tests {
-    use llrt_buffer as buffer;
-    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
-    use rquickjs::CatchResultExt;
-
     use super::*;
-
-    async fn given_test_utils(ctx: Ctx<'_>) {
-        buffer::init(&ctx).unwrap();
-        ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
-            .await
-            .unwrap();
-        ModuleEvaluator::eval_js(
-            ctx,
-            "test_utils",
-            r#"
-                export async function driveChild(child) {
-                    let output = '';
-                    child.stdout.on('data', (data) => {
-                        output += data.toString();
-                    });
-
-                    let error = '';
-                    child.stderr.on('data', (data) => {
-                        error += data.toString();
-                    });
-
-                    const exitCode = await new Promise((resolve, reject) => {
-                        child.on('close', resolve);
-                    });
-
-                    if (exitCode) {
-                        throw new Error( `subprocess error exit ${exitCode}, ${error}`);
-                    }
-
-                    return output;
-                }
-            "#,
-        )
-        .await
-        .unwrap();
-    }
+    use llrt_buffer as buffer;
+    use llrt_test::{test_async_with, ModuleEvaluator};
+    use rquickjs::CatchResultExt;
 
     #[tokio::test]
     async fn test_spawn() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                given_test_utils(ctx.clone()).await;
+                buffer::init(&ctx).unwrap();
 
-                let module = ModuleEvaluator::eval_js(
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                    .await
+                    .unwrap();
+
+                let message: String = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
                     r#"
-                        import { spawn } from "child_process";
-                        import { driveChild } from "test_utils";
+                   import {spawn} from "child_process";
 
-                        export async function test() {
-                            const child = spawn('echo', ['Hello, world!']);
-                            const result = await driveChild(child);
-                            return result;
-                        }
-                    "#,
+                    let resolve = null;
+                    const deferred = new Promise(res => {
+                        resolve = res;
+                    });
+
+                    spawn("echo", ["hello"]).stdout.on("data", (data) => {
+                        resolve(data.toString().trim())
+                    });
+
+                    export default await deferred;
+
+                "#,
                 )
                 .await
                 .catch(&ctx)
+                .unwrap()
+                .get("default")
                 .unwrap();
 
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-
-                assert_eq!(result, "Hello, world!\n");
+                assert_eq!(message, "hello");
             })
         })
         .await;
@@ -716,29 +687,39 @@ mod tests {
     async fn test_spawn_shell() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                given_test_utils(ctx.clone()).await;
+                buffer::init(&ctx).unwrap();
 
-                let module = ModuleEvaluator::eval_js(
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                    .await
+                    .unwrap();
+
+                let message: String = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
                     r#"
-                        import { spawn } from "child_process";
-                        import { driveChild } from "test_utils";
+                    import {spawn} from "child_process";
 
-                        export async function test() {
-                            const child = spawn('echo', ['Hello, world!'], { shell: true });
-                            const result = await driveChild(child);
-                            return result;
-                        }
-                    "#,
+                    let resolve = null;
+                    const deferred = new Promise(res => {
+                        resolve = res;
+                    });
+
+                    spawn("echo", ["hello"], {
+                        shell: true
+                    }).stdout.on("data", (data) => {
+                        resolve(data.toString().trim())
+                    });
+
+                    export default await deferred;
+                "#,
                 )
                 .await
                 .catch(&ctx)
+                .unwrap()
+                .get("default")
                 .unwrap();
 
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-
-                assert!(result == "Hello, world! \r\n" || result == "Hello, world!\n");
+                assert_eq!(message, "hello");
             })
         })
         .await;

@@ -7,7 +7,7 @@ use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{prelude::This, Class, Result};
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Crc32c {
     #[qjs(skip_trace)]
     hasher: crc32c::Crc32cHasher,
@@ -38,7 +38,7 @@ impl Crc32c {
 }
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Crc32 {
     #[qjs(skip_trace)]
     hasher: crc32fast::Hasher,

@@ -6,7 +6,7 @@ use rquickjs::{class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, R
 use super::blob::Blob;
 
 #[rquickjs::class]
-#[derive(Trace, Clone)]
+#[derive(Trace, Clone, rquickjs::JsLifetime)]
 pub struct File {
     #[qjs(skip_trace)]
     blob: Blob,

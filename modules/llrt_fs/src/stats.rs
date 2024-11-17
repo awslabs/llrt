@@ -26,7 +26,7 @@ use tokio::fs;
 // This implementation doesn't handle files created before UNIX_EPOCH.
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Stats {
     #[qjs(skip_trace)]
     metadata: Metadata,

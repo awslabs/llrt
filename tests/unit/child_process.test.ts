@@ -98,7 +98,7 @@ describe("child_process.spawn", () => {
   });
 
   it("should handle child process termination", (done) => {
-    const command = "sleep 4; echo 123";
+    const command = "sleep 999";
     const child = spawn(command, { shell: true });
 
     child.on("exit", (code, signal) => {

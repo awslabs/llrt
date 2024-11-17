@@ -14,7 +14,7 @@ use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},
-    Class, Ctx, Error, Exception, Function, Object, Result, Value,
+    Class, Ctx, Error, Exception, Function, JsLifetime, Object, Result, Value,
 };
 #[cfg(unix)]
 use tokio::net::UnixStream;
@@ -46,6 +46,10 @@ pub struct Socket<'js> {
     remote_port: Option<u16>,
     ready_state: ReadyState,
     allow_half_open: bool,
+}
+
+unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
+    type Changed<'to> = Socket<'to>;
 }
 
 impl<'js> Trace<'js> for Socket<'js> {

@@ -1,8 +1,12 @@
-use std::path::PathBuf;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use rquickjs::{
     async_with,
     function::IntoArgs,
+    loader::{BuiltinLoader, Resolver},
     markers::ParallelSend,
     module::{Evaluated, ModuleDef},
     promise::MaybePromise,
@@ -16,9 +20,28 @@ pub async fn given_file(content: &str) -> PathBuf {
     path
 }
 
+struct TestResolver;
+
+impl Resolver for TestResolver {
+    fn resolve(&mut self, _ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
+        if !name.starts_with(".") {
+            return Ok(name.into());
+        }
+        let base = Path::new(base);
+        let combined_path = base.join(name);
+        Ok(fs::canonicalize(combined_path)
+            .unwrap()
+            .to_string_lossy()
+            .to_string())
+    }
+}
+
 pub async fn given_runtime() -> (AsyncRuntime, AsyncContext) {
     let rt = AsyncRuntime::new().unwrap();
+    rt.set_loader((TestResolver,), (BuiltinLoader::default(),))
+        .await;
     let ctx = AsyncContext::full(&rt).await.unwrap();
+
     (rt, ctx)
 }
 

@@ -2533,6 +2533,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libmimalloc-sys"
+version = "0.1.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23aa6811d3bd4deb8a84dde645f943476d13b248d818edcf8ce0b2f37f036b44"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "libnghttp2-sys"
 version = "0.1.10+1.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2607,7 +2617,7 @@ version = "0.3.0-beta"
 dependencies = [
  "chrono",
  "llrt_core",
- "snmalloc-rs",
+ "mimalloc",
  "tokio",
  "tracing",
  "tracing-core",
@@ -3090,6 +3100,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mimalloc"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68914350ae34959d83f732418d51e2427a794055d0b9529f48259ac07af65633"
+dependencies = [
+ "libmimalloc-sys",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3531,30 +3550,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2 1.0.89",
- "quote 1.0.37",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2 1.0.89",
- "quote 1.0.37",
- "version_check",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3759,7 +3754,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=2627859ac65c714e35d3232fa8c59b40668cfa7e#2627859ac65c714e35d3232fa8c59b40668cfa7e"
 dependencies = [
  "either",
  "indexmap 2.6.0",
@@ -3770,7 +3765,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=2627859ac65c714e35d3232fa8c59b40668cfa7e#2627859ac65c714e35d3232fa8c59b40668cfa7e"
 dependencies = [
  "async-lock",
  "chrono",
@@ -3785,7 +3780,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=2627859ac65c714e35d3232fa8c59b40668cfa7e#2627859ac65c714e35d3232fa8c59b40668cfa7e"
 dependencies = [
  "convert_case",
  "fnv",
@@ -3794,7 +3789,6 @@ dependencies = [
  "phf_generator",
  "phf_shared",
  "proc-macro-crate",
- "proc-macro-error",
  "proc-macro2 1.0.89",
  "quote 1.0.37",
  "rquickjs-core",
@@ -3804,7 +3798,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.6.2"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1#3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=2627859ac65c714e35d3232fa8c59b40668cfa7e#2627859ac65c714e35d3232fa8c59b40668cfa7e"
 dependencies = [
  "bindgen",
  "cc",
@@ -4129,24 +4123,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
-name = "snmalloc-rs"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2504c9edd7ca7a1cfe637296dc0d263ce1e9975c4ec43f3652616ebce9d1df1c"
-dependencies = [
- "snmalloc-sys",
-]
-
-[[package]]
-name = "snmalloc-sys"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d448599db5c3263b35d67ab26a2399e74ca0265211f5f5dd4cb9f4c3ccada6a"
-dependencies = [
- "cmake",
-]
-
-[[package]]
 name = "socket2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4214,16 +4190,6 @@ dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
  "unicode-xid 0.1.0",
-]
-
-[[package]]
-name = "syn"
-version = "1.0.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
-dependencies = [
- "proc-macro2 1.0.89",
- "unicode-ident",
 ]
 
 [[package]]

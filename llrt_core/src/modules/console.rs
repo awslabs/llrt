@@ -137,8 +137,6 @@ impl ModuleDef for ConsoleModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        Class::<Console>::register(ctx)?;
-
         export_default(ctx, exports, |default| {
             Class::<Console>::define(default)?;
 
@@ -954,7 +952,7 @@ fn get_dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
     Ok(array)
 }
 
-#[derive(rquickjs::class::Trace)]
+#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
 pub struct Console {}
 

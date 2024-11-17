@@ -66,7 +66,7 @@ where
         Self::define(globals)?;
         let custom_inspect_symbol =
             Symbol::for_description(globals, CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
-        if let Some(proto) = Class::<C>::prototype(globals.ctx().clone()) {
+        if let Some(proto) = Class::<C>::prototype(globals.ctx())? {
             proto.prop(
                 custom_inspect_symbol,
                 Accessor::from(|this: This<Class<'js, C>>, ctx| this.borrow().custom_inspect(ctx)),

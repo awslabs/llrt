@@ -12,12 +12,13 @@ uncompressed = []
 macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
 
-[package.metadata.patch.rquickjs-core]
-version = "*"
-patches = ["patches/promise-poll.patch"]
+# [package.metadata.patch.rquickjs-core]
+# version = "*"
+# #patches = ["patches/promise-poll.patch"]
+# patches = ["patches/promise-poll.patch"]
 
-[patch.crates-io]
-rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
+# [patch.crates-io]
+# rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 
 [dependencies]
 llrt_context = { path = "../libs/llrt_context" }
@@ -30,7 +31,7 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 quick-xml = "0.37"
 phf = "0.11"
 
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
   "full-async",
   "parallel",
   "rust-alloc",
@@ -82,7 +83,7 @@ md-5 = { version = "0.10" }
 md-5 = { version = "0.10", features = ["asm"] }
 
 [build-dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
   "full-async",
   "rust-alloc",
 ], default-features = false }

@@ -18,7 +18,7 @@ home = "0.5"
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
 num_cpus = "1"
 once_cell = "1"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3af3f46b13eb89a2694e5e4e2e73924a20fa9dd1", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", default-features = false }
 sysinfo = { version = "0.32", features = ["system"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]
