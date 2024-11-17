@@ -10,9 +10,8 @@ use hyper::{header::HeaderName, Method, Request, Uri};
 use hyper_util::client::legacy::connect::Connect;
 use hyper_util::client::legacy::Client;
 use llrt_abort::AbortSignal;
-use llrt_utils::{
-    bytes::ObjectBytes, encoding::bytes_from_b64, mc_oneshot, result::ResultExt, VERSION,
-};
+use llrt_encoding::bytes_from_b64;
+use llrt_utils::{bytes::ObjectBytes, mc_oneshot, result::ResultExt, VERSION};
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},

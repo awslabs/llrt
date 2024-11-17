@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 itoa = "1"
 llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
+llrt_context = { version = "0.3.0-beta", path = "../../libs/llrt_context" }
 llrt_events = { version = "0.3.0-beta", path = "../llrt_events" }
 llrt_stream = { version = "0.3.0-beta", path = "../llrt_stream" }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }

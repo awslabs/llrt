@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
+use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
 use llrt_stream::{
     impl_stream_events,
@@ -9,7 +10,7 @@ use llrt_stream::{
     writable::{WritableStream, WritableStreamInner},
     SteamEvents,
 };
-use llrt_utils::{ctx::CtxExtension, object::ObjectExt, result::ResultExt};
+use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},

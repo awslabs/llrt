@@ -18,6 +18,7 @@ use llrt_modules::{
     path::resolve_path,
     timers::{self, poll_timers},
 };
+use llrt_numbers::number_to_string;
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
 use ring::rand::SecureRandom;
 use rquickjs::{
@@ -44,7 +45,6 @@ use crate::{
         CJS_IMPORT_PREFIX,
     },
     modules::{console, crypto::SYSTEM_RANDOM},
-    number::number_to_string,
     security,
     utils::clone::structured_clone,
 };
@@ -230,7 +230,7 @@ fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Valu
 }
 
 fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
-    llrt_utils::ctx::set_spawn_error_handler(|ctx, err| {
+    llrt_context::set_spawn_error_handler(|ctx, err| {
         Vm::print_error_and_exit(ctx, err);
     });
 

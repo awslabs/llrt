@@ -1,11 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_encoding::{bytes_from_b64, bytes_to_b64_string, Encoder};
 use llrt_utils::{
     bytes::{
         get_array_bytes, get_coerced_string_bytes, get_start_end_indexes, get_string_bytes,
         ObjectBytes,
     },
-    encoding::{bytes_from_b64, bytes_to_b64_string, Encoder},
     module::{export_default, ModuleInfo},
     result::ResultExt,
 };

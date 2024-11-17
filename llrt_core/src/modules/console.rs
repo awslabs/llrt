@@ -9,6 +9,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use llrt_json::{escape::escape_json, stringify::json_stringify};
+use llrt_numbers::float_to_string;
 use llrt_utils::{class::get_class_name, object::CreateSymbol};
 use rquickjs::{
     atom::PredefinedAtom,
@@ -20,7 +21,6 @@ use rquickjs::{
 };
 
 use crate::modules::module::export_default;
-use crate::number::float_to_string;
 use crate::{module_builder::ModuleInfo, utils::hash};
 use crate::{runtime_client, utils::result::ResultExt};
 

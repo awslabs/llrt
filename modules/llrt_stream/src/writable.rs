@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
+use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
-use llrt_utils::{
-    bytes::ObjectBytes, ctx::CtxExtension, error::ErrorExtensions, result::ResultExt,
-};
+use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},

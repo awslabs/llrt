@@ -13,9 +13,10 @@ use hyper::{
     header::HeaderName,
 };
 use llrt_abort::AbortSignal;
+use llrt_context::CtxExtension;
 use llrt_json::parse::json_parse;
 use llrt_url::url_class::URL;
-use llrt_utils::{bytes::ObjectBytes, ctx::CtxExtension};
+use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{mc_oneshot, result::ResultExt};
 use once_cell::sync::Lazy;
 use rquickjs::{

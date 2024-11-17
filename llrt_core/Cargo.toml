@@ -20,8 +20,11 @@ patches = ["patches/promise-poll.patch"]
 rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 
 [dependencies]
-llrt_json = { path = "../modules/llrt_json" }
+llrt_context = { path = "../libs/llrt_context" }
+llrt_encoding = { path = "../libs/llrt_encoding" }
+llrt_json = { path = "../libs/llrt_json" }
 llrt_modules = { path = "../llrt_modules", features = ["all"] }
+llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 quick-xml = "0.37"
@@ -68,7 +71,6 @@ rustls = { version = "0.23", default-features = false, features = [
   "ring",
 ] }
 ring = "0.17"
-rand = "0.8"
 rustls-pemfile = "2"
 home = "0.5"
 url = "=2.5.1"
@@ -92,18 +94,4 @@ llrt_build = { path = "../libs/llrt_build" }
 
 [dev-dependencies]
 wiremock = "0.6"
-criterion = "0.5"
-memchr = "2"
 llrt_test = { path = "../libs/llrt_test" }
-
-[[bench]]
-name = "json"
-harness = false
-
-[[bench]]
-name = "numbers"
-harness = false
-
-[[bench]]
-name = "slash_replacement"
-harness = false

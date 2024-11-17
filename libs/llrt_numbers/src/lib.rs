@@ -266,7 +266,7 @@ pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<S
 mod test {
     use rand::{thread_rng, Rng};
 
-    use crate::number::{float_to_string, i64_to_base_n};
+    use crate::{float_to_string, i64_to_base_n};
 
     #[test]
     fn test_base_conversions() {

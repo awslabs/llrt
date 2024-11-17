@@ -2640,6 +2640,7 @@ dependencies = [
 name = "llrt_buffer"
 version = "0.3.0-beta"
 dependencies = [
+ "llrt_encoding",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -2660,6 +2661,7 @@ dependencies = [
  "itoa",
  "libc",
  "llrt_buffer",
+ "llrt_context",
  "llrt_events",
  "llrt_stream",
  "llrt_test",
@@ -2679,13 +2681,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_context"
+version = "0.3.0-beta"
+dependencies = [
+ "llrt_build",
+ "llrt_test",
+ "rquickjs",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "llrt_core"
 version = "0.3.0-beta"
 dependencies = [
  "bytes",
  "cargo-patch",
  "chrono",
- "criterion",
  "home",
  "http-body-util",
  "hyper",
@@ -2695,18 +2707,19 @@ dependencies = [
  "jwalk",
  "libc",
  "llrt_build",
+ "llrt_context",
+ "llrt_encoding",
  "llrt_json",
  "llrt_modules",
+ "llrt_numbers",
  "llrt_test",
  "llrt_utils",
  "md-5",
- "memchr",
  "nanoid",
  "once_cell",
  "phf",
  "phf_codegen",
  "quick-xml",
- "rand",
  "ring",
  "rquickjs",
  "rustls",
@@ -2730,6 +2743,8 @@ dependencies = [
  "crc32c",
  "crc32fast",
  "llrt_buffer",
+ "llrt_context",
+ "llrt_encoding",
  "llrt_test",
  "llrt_utils",
  "md-5",
@@ -2741,6 +2756,16 @@ dependencies = [
  "tokio",
  "uuid",
  "uuid-simd",
+]
+
+[[package]]
+name = "llrt_encoding"
+version = "0.3.0-beta"
+dependencies = [
+ "base64-simd",
+ "hex-simd",
+ "llrt_build",
+ "phf",
 ]
 
 [[package]]
@@ -2765,6 +2790,7 @@ version = "0.3.0-beta"
 dependencies = [
  "either",
  "llrt_buffer",
+ "llrt_encoding",
  "llrt_path",
  "llrt_test",
  "llrt_utils",
@@ -2786,6 +2812,8 @@ dependencies = [
  "itoa",
  "llrt_abort",
  "llrt_compression",
+ "llrt_context",
+ "llrt_encoding",
  "llrt_json",
  "llrt_test",
  "llrt_url",
@@ -2805,6 +2833,7 @@ dependencies = [
 name = "llrt_json"
 version = "0.3.0-beta"
 dependencies = [
+ "criterion",
  "itoa",
  "llrt_build",
  "llrt_test",
@@ -2853,6 +2882,7 @@ version = "0.3.0-beta"
 dependencies = [
  "itoa",
  "llrt_buffer",
+ "llrt_context",
  "llrt_events",
  "llrt_stream",
  "llrt_test",
@@ -2861,6 +2891,19 @@ dependencies = [
  "rquickjs",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "llrt_numbers"
+version = "0.3.0-beta"
+dependencies = [
+ "criterion",
+ "itoa",
+ "llrt_test",
+ "llrt_utils",
+ "rand",
+ "rquickjs",
+ "ryu",
 ]
 
 [[package]]
@@ -2887,9 +2930,11 @@ dependencies = [
 name = "llrt_path"
 version = "0.3.0-beta"
 dependencies = [
+ "criterion",
  "llrt_utils",
  "memchr",
  "once_cell",
+ "rand",
  "rquickjs",
 ]
 
@@ -2918,6 +2963,7 @@ name = "llrt_stream"
 version = "0.3.0-beta"
 dependencies = [
  "llrt_buffer",
+ "llrt_context",
  "llrt_events",
  "llrt_utils",
  "rquickjs",
@@ -2938,6 +2984,7 @@ dependencies = [
 name = "llrt_timers"
 version = "0.3.0-beta"
 dependencies = [
+ "llrt_context",
  "llrt_test",
  "llrt_utils",
  "once_cell",
@@ -2960,11 +3007,8 @@ dependencies = [
 name = "llrt_utils"
 version = "0.3.0-beta"
 dependencies = [
- "base64-simd",
- "hex-simd",
  "llrt_build",
  "llrt_test",
- "phf",
  "rquickjs",
  "tokio",
  "tracing",
@@ -2976,6 +3020,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_compression",
+ "llrt_context",
  "llrt_test",
  "llrt_utils",
  "rquickjs",

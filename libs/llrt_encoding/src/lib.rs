@@ -1,7 +1,8 @@
-use std::borrow::Cow;
-
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![cfg_attr(rust_nightly, feature(array_chunks))]
+use std::borrow::Cow;
+
 use hex_simd::AsciiCase;
 
 #[derive(Clone)]

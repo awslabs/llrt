@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use either::Either;
 use llrt_buffer::{ArrayBufferView, Buffer};
+use llrt_encoding::Encoder;
 use llrt_utils::{
-    encoding::Encoder,
     object::ObjectExt,
     result::{OptionExt, ResultExt},
 };
