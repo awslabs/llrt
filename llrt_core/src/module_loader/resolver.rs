@@ -554,14 +554,9 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     //    "." + X.slice("name".length), `package.json` "exports", ["node", "require"])
     //    <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
     // 6. RESOLVE_ESM_MATCH(MATCH)
-    if let Ok((path, is_cjs)) = package_exports_resolve(&package_json, &name, is_esm) {
-        let prefix = if is_cjs && is_esm {
-            CJS_LOADER_PREFIX
-        } else {
-            ""
-        };
+    if let Ok((path, _)) = package_exports_resolve(&package_json, &name, is_esm) {
         trace!("|  load_package_self(2.c): {}", path);
-        return Ok(Some([prefix, path].concat()));
+        return Ok(Some(path.into()));
     }
 
     Ok(None)
