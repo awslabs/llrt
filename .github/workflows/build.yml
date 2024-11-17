@@ -60,6 +60,7 @@ jobs:
           msystem: MINGW64
           update: true
           path-type: inherit
+          release: false
           install: >-
             mingw-w64-x86_64-make
             mingw-w64-x86_64-cmake
@@ -103,6 +104,7 @@ jobs:
             qemu-user
 
           make CURRENT_TARGET=aarch64-unknown-linux-musl test-ci
+          cargo +nightly run --target=aarch64-unknown-linux-musl -r -- ./abort-ctrl-qemu.js
       - name: Build Linux binaries
         if: inputs.release && inputs.platform == 'linux'
         run: |
