@@ -2944,16 +2944,8 @@ dependencies = [
  "llrt_utils",
  "memchr",
  "once_cell",
-<<<<<<< HEAD
-<<<<<<< HEAD
  "rand",
  "rquickjs",
-=======
- "rquickjs 0.6.2 (git+https://github.com/DelSkayn/rquickjs.git?rev=c2521712219b40bf9ba9836c082919ec855d0284)",
->>>>>>> 50bccbfb8 (Update lockfile)
-=======
- "rquickjs",
->>>>>>> 0a2c3736d (Update deps)
 ]
 
 [[package]]
@@ -3027,10 +3019,6 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_build",
  "llrt_test",
-<<<<<<< HEAD
-=======
- "phf",
->>>>>>> 0a2c3736d (Update deps)
  "rquickjs",
  "tokio",
  "tracing",
