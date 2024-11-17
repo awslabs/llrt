@@ -300,6 +300,8 @@ class TestAgent {
 
         started = performance.now();
 
+        console.log("Testing: ", test.desc);
+
         await this.executeAsyncOrCallbackFn(test.fn, test.timeout);
 
         const end = performance.now();

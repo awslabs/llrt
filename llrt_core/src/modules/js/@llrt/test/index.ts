@@ -75,7 +75,7 @@ type TestFailure = {
 };
 
 class TestServer extends EventEmitter {
-  private static UPDATE_FPS = 15;
+  private static UPDATE_FPS = 1;
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
   private static DEFAULT_TIMEOUT_MS =
     parseInt((process.env as any).TEST_TIMEOUT) || 5000;
@@ -191,6 +191,7 @@ class TestServer extends EventEmitter {
       }
     );
     proc.stdout.on("data", (data) => {
+      console.log(data.toString());
       output = data;
     });
     proc.on("error", (error) => {
@@ -649,6 +650,6 @@ class TestServer extends EventEmitter {
 }
 
 const testServer = new TestServer((globalThis as any).__testEntries, {
-  workerCount: undefined,
+  workerCount: 1,
 });
 await testServer.start();
