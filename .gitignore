@@ -21,6 +21,5 @@ yarn-error.log
 llrt-container-*
 bootstrap
 
-/node_modules
-/example/functions/node_modules
-/example/infrastructure/node_modules
+node_modules
+!/fixtures/node_modules
