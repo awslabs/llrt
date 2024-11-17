@@ -130,3 +130,15 @@ if (!IS_WIN) {
 it("require builtin modules", () => {
   _require("path");
 });
+
+it("require `debug` module element", () => {
+  _require(`${CWD}/fixtures/test_modules/test-debug.js`);
+});
+
+it("require `lodash.merge` module element", () => {
+  _require(`${CWD}/fixtures/test_modules/test-lodash.merge.js`);
+});
+
+it("require `uuid` module element", () => {
+  _require(`${CWD}/fixtures/test_modules/test-uuid.js`);
+});
