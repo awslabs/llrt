@@ -510,11 +510,16 @@ fn load_package_exports<'a>(
         return Ok(sub_module.into());
     }
 
-    let module_path = package_exports_resolve(&package_json, name, is_esm)?;
+    let (module_path, is_cjs) = package_exports_resolve(&package_json, name, is_esm)?;
 
-    Ok(correct_extensions(
-        [dir, "/", scope, "/", module_path].concat(),
-    ))
+    let module_path = correct_extensions([dir, "/", scope, "/", module_path].concat());
+    let prefix = if is_cjs && is_esm {
+        CJS_LOADER_PREFIX
+    } else {
+        ""
+    };
+
+    Ok([prefix, &module_path].concat().into())
 }
 
 // LOAD_PACKAGE_SELF(X, DIR)
@@ -549,7 +554,7 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     //    "." + X.slice("name".length), `package.json` "exports", ["node", "require"])
     //    <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
     // 6. RESOLVE_ESM_MATCH(MATCH)
-    if let Ok(path) = package_exports_resolve(&package_json, &name, is_esm) {
+    if let Ok((path, _)) = package_exports_resolve(&package_json, &name, is_esm) {
         trace!("|  load_package_self(2.c): {}", path);
         return Ok(Some(path.into()));
     }
@@ -570,68 +575,71 @@ fn package_exports_resolve<'a>(
     package_json: &'a BorrowedValue<'a>,
     modules_name: &str,
     is_esm: bool,
-) -> Result<&'a str> {
+) -> Result<(&'a str, bool)> {
     let ident = if is_esm { "import" } else { "require" };
 
     if let BorrowedValue::Object(map) = package_json {
+        let is_cjs =
+            !matches!(map.get("type"), Some(BorrowedValue::String(ref _type)) if _type == "module");
+
         if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
             if let Some(BorrowedValue::Object(name)) = exports.get(modules_name) {
                 // Check for exports -> name -> browser -> [import | require]
                 if let Some(BorrowedValue::Object(browser)) = name.get("browser") {
                     if let Some(BorrowedValue::String(ident)) = browser.get(ident) {
-                        return Ok(ident.as_ref());
+                        return Ok((ident.as_ref(), is_cjs));
                     }
                 }
                 // Check for exports -> name -> [import | require] -> default
                 if let Some(BorrowedValue::Object(ident)) = name.get(ident) {
                     if let Some(BorrowedValue::String(default)) = ident.get("default") {
-                        return Ok(default.as_ref());
+                        return Ok((default.as_ref(), is_cjs));
                     }
                 }
                 // Check for exports -> name -> [import | require]
                 if let Some(BorrowedValue::String(ident)) = name.get(ident) {
-                    return Ok(ident.as_ref());
+                    return Ok((ident.as_ref(), is_cjs));
                 }
                 // [CJS only] Check for exports -> name -> default
                 if !is_esm {
                     if let Some(BorrowedValue::String(default)) = name.get("default") {
-                        return Ok(default.as_ref());
+                        return Ok((default.as_ref(), is_cjs));
                     }
                 }
             }
             // Check for exports -> [import | require] -> default
             if let Some(BorrowedValue::Object(ident)) = exports.get(ident) {
                 if let Some(BorrowedValue::String(default)) = ident.get("default") {
-                    return Ok(default.as_ref());
+                    return Ok((default.as_ref(), is_cjs));
                 }
             }
             // Check for exports -> [import | require]
             if let Some(BorrowedValue::String(ident)) = exports.get(ident) {
-                return Ok(ident.as_ref());
+                return Ok((ident.as_ref(), is_cjs));
             }
             // [CJS only] Check for exports -> default
             if !is_esm {
                 if let Some(BorrowedValue::String(default)) = exports.get("default") {
-                    return Ok(default.as_ref());
+                    return Ok((default.as_ref(), is_cjs));
                 }
             }
         }
         // Check for browser field
         if let Some(BorrowedValue::String(browser)) = map.get("browser") {
-            return Ok(browser.as_ref());
+            return Ok((browser.as_ref(), is_cjs));
         }
         // [ESM only] Check for module field
         if is_esm {
             if let Some(BorrowedValue::String(module)) = map.get("module") {
-                return Ok(module.as_ref());
+                return Ok((module.as_ref(), is_cjs));
             }
         }
         // Check for main field
         if let Some(BorrowedValue::String(main)) = map.get("main") {
-            return Ok(main.as_ref());
+            return Ok((main.as_ref(), is_cjs));
         }
     }
-    Ok("./index.js")
+    Ok(("./index.js", true))
 }
 
 // Implementation equivalent to PACKAGE_IMPORTS_RESOLVE including RESOLVE_ESM_MATCH
