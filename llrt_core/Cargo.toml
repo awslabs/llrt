@@ -12,13 +12,12 @@ uncompressed = []
 macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
 
-# [package.metadata.patch.rquickjs-core]
-# version = "*"
-# #patches = ["patches/promise-poll.patch"]
-# patches = ["patches/promise-poll.patch"]
+[package.metadata.patch.rquickjs-core]
+version = "*"
+patches = ["patches/promise-poll.patch"]
 
-# [patch.crates-io]
-# rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
+[patch.crates-io]
+rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
 
 [dependencies]
 llrt_context = { path = "../libs/llrt_context" }
