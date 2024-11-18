@@ -61,8 +61,8 @@ static FILESYSTEM_ROOT: Lazy<Box<str>> = Lazy::new(|| {
 
 #[derive(Debug, Default)]
 pub struct CustomResolver;
-
 #[allow(clippy::manual_strip)]
+#[allow(clippy::bind_instead_of_map)]
 impl Resolver for CustomResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         if name.starts_with(CJS_IMPORT_PREFIX) {
@@ -73,7 +73,19 @@ impl Resolver for CustomResolver {
 
         trace!("Try resolve '{}' from '{}'", name, base);
 
-        require_resolve(ctx, name, base, true).map(|name| name.into_owned())
+        require_resolve(ctx, name, base, true).and_then(|path| {
+            #[cfg(windows)]
+            {
+                if path.starts_with("llrt:") {
+                    return Ok(path.into_owned());
+                }
+                to_abs_path(path).map(|s| s.to_string())
+            }
+            #[cfg(not(windows))]
+            {
+                Ok(path.into_owned())
+            }
+        })
     }
 }
 
