@@ -21,7 +21,7 @@ llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-f
 once_cell = "1"
 rand = "0.8"
 ring = "0.17"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "772bdeba90c495e7ba4347fa017d87c6b0cdad81", features = [
   "macro",
 ], default-features = false }
 uuid = { version = "1", default-features = false, features = [

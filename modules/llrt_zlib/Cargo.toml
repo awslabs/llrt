@@ -25,7 +25,7 @@ llrt_buffer = { version = "0.3.0-beta", path = "../llrt_buffer" }
 llrt_compression = { version = "0.3.0-beta", path = "../../libs/llrt_compression", default-features = false }
 llrt_context = { version = "0.3.0-beta", path = "../../libs/llrt_context" }
 llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "772bdeba90c495e7ba4347fa017d87c6b0cdad81", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

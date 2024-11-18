@@ -11,6 +11,6 @@ name = "llrt_exceptions"
 path = "src/lib.rs"
 
 [dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "772bdeba90c495e7ba4347fa017d87c6b0cdad81", features = [
   "macro",
 ], default-features = false }
