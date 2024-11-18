@@ -15,11 +15,8 @@ pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
 pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
 
 pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
-    let platform =
-        env::var(environment::ENV_LLRT_PLATFORM).unwrap_or_else(|_| "browser".to_string());
-    if platform == "node" {
-        "node".to_string()
-    } else {
-        "browser".to_string()
-    }
+    env::var(environment::ENV_LLRT_PLATFORM)
+        .ok()
+        .filter(|platform| platform == "node")
+        .unwrap_or_else(|| "browser".to_string())
 });
