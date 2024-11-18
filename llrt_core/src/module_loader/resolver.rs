@@ -375,12 +375,12 @@ fn load_node_modules<'a>(
         // b. LOAD_AS_FILE(DIR/X)
         if let Ok(Some(path)) = load_as_file(ctx, dir_slash_x.clone()) {
             trace!("|  load_node_modules(2.b): {}", path);
-            return Some(to_abs_path(path).unwrap());
+            return Some(path);
         }
         // c. LOAD_AS_DIRECTORY(DIR/X)
         if let Ok(Some(path)) = load_as_directory(ctx, dir_slash_x.clone()) {
             trace!("|  load_node_modules(2.c): {}", path);
-            return Some(to_abs_path(path).unwrap());
+            return Some(path);
         }
     }
 
@@ -515,8 +515,7 @@ fn load_package_exports<'a>(
 
     let module_path = to_abs_path(correct_extensions(
         [dir, "/", scope, "/", module_path].concat(),
-    ))
-    .unwrap();
+    ))?;
 
     let prefix = if is_cjs && is_esm {
         CJS_LOADER_PREFIX
