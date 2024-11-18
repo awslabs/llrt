@@ -24,7 +24,7 @@ use crate::{
     utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS},
 };
 
-use super::CJS_IMPORT_PREFIX;
+use super::{CJS_IMPORT_PREFIX, LLRT_PLATFORM};
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
@@ -433,7 +433,8 @@ fn load_package_imports(ctx: &Ctx<'_>, x: &str, dir: &str) -> Result<Option<Stri
         if let Some(module_path) = package_imports_resolve(&package_json, x) {
             trace!("|  load_package_imports(6): {}", module_path);
             let dir = path.as_ref().trim_end_matches("package.json");
-            return Ok(Some(correct_extensions([dir, module_path].concat()).into()));
+            let module_path = to_abs_path(correct_extensions([dir, module_path].concat()))?;
+            return Ok(Some(module_path.into()));
         }
     };
 
@@ -512,7 +513,10 @@ fn load_package_exports<'a>(
 
     let (module_path, is_cjs) = package_exports_resolve(&package_json, name, is_esm)?;
 
-    let module_path = correct_extensions([dir, "/", scope, "/", module_path].concat());
+    let module_path = to_abs_path(correct_extensions(
+        [dir, "/", scope, "/", module_path].concat(),
+    ))?;
+
     let prefix = if is_cjs && is_esm {
         CJS_LOADER_PREFIX
     } else {
@@ -584,9 +588,9 @@ fn package_exports_resolve<'a>(
 
         if let Some(BorrowedValue::Object(exports)) = map.get("exports") {
             if let Some(BorrowedValue::Object(name)) = exports.get(modules_name) {
-                // Check for exports -> name -> browser -> [import | require]
-                if let Some(BorrowedValue::Object(browser)) = name.get("browser") {
-                    if let Some(BorrowedValue::String(ident)) = browser.get(ident) {
+                // Check for exports -> name -> platform(browser or node) -> [import | require]
+                if let Some(BorrowedValue::Object(platform)) = name.get(LLRT_PLATFORM.as_str()) {
+                    if let Some(BorrowedValue::String(ident)) = platform.get(ident) {
                         return Ok((ident.as_ref(), is_cjs));
                     }
                 }
@@ -624,9 +628,9 @@ fn package_exports_resolve<'a>(
                 }
             }
         }
-        // Check for browser field
-        if let Some(BorrowedValue::String(browser)) = map.get("browser") {
-            return Ok((browser.as_ref(), is_cjs));
+        // Check for platform(browser or node) field
+        if let Some(BorrowedValue::String(platform)) = map.get(LLRT_PLATFORM.as_str()) {
+            return Ok((platform.as_ref(), is_cjs));
         }
         // [ESM only] Check for module field
         if is_esm {
@@ -650,6 +654,10 @@ fn package_imports_resolve<'a>(
     if let BorrowedValue::Object(map) = package_json {
         if let Some(BorrowedValue::Object(imports)) = map.get("imports") {
             if let Some(BorrowedValue::Object(name)) = imports.get(modules_name) {
+                // Check for imports -> name -> platform(browser or node)
+                if let Some(BorrowedValue::String(platform)) = name.get(LLRT_PLATFORM.as_str()) {
+                    return Some(platform.as_ref());
+                }
                 // Check for imports -> name -> require
                 if let Some(BorrowedValue::String(require)) = name.get("require") {
                     return Some(require.as_ref());

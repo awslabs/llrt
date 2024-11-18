@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use std::{

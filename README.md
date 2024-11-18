@@ -529,6 +529,10 @@ Space-delimited list of hosts or socket paths which should be denied for network
 
 Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 15 seconds
 
+### `LLRT_PLATFORM=value`
+
+Used to explicitly specify a preferred platform for the Node.js package resolver. The default is `browser`. If `node` is specified, "node" takes precedence in the search path. If a value other than `browser` or `node` is specified, it will behave as if "browser" was specified.
+
 ### `LLRT_TLS_VERSION=value`
 
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
