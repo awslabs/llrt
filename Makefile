@@ -189,16 +189,16 @@ test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
 test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) -- --nocapture --show-output
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features run --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
