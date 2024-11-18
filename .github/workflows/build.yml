@@ -58,7 +58,7 @@ jobs:
         uses: msys2/setup-msys2@v2.24.1
         with:
           msystem: MINGW64
-          update: true
+          update: false
           path-type: inherit
           install: >-
             mingw-w64-x86_64-make
