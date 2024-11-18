@@ -375,12 +375,12 @@ fn load_node_modules<'a>(
         // b. LOAD_AS_FILE(DIR/X)
         if let Ok(Some(path)) = load_as_file(ctx, dir_slash_x.clone()) {
             trace!("|  load_node_modules(2.b): {}", path);
-            return Some(path);
+            return Some(to_abs_path(path).unwrap());
         }
         // c. LOAD_AS_DIRECTORY(DIR/X)
         if let Ok(Some(path)) = load_as_directory(ctx, dir_slash_x.clone()) {
             trace!("|  load_node_modules(2.c): {}", path);
-            return Some(path);
+            return Some(to_abs_path(path).unwrap());
         }
     }
 
@@ -433,7 +433,8 @@ fn load_package_imports(ctx: &Ctx<'_>, x: &str, dir: &str) -> Result<Option<Stri
         if let Some(module_path) = package_imports_resolve(&package_json, x) {
             trace!("|  load_package_imports(6): {}", module_path);
             let dir = path.as_ref().trim_end_matches("package.json");
-            return Ok(Some(correct_extensions([dir, module_path].concat()).into()));
+            let module_path = to_abs_path(correct_extensions([dir, module_path].concat()))?;
+            return Ok(Some(module_path.into()));
         }
     };
 
@@ -512,7 +513,11 @@ fn load_package_exports<'a>(
 
     let (module_path, is_cjs) = package_exports_resolve(&package_json, name, is_esm)?;
 
-    let module_path = correct_extensions([dir, "/", scope, "/", module_path].concat());
+    let module_path = to_abs_path(correct_extensions(
+        [dir, "/", scope, "/", module_path].concat(),
+    ))
+    .unwrap();
+
     let prefix = if is_cjs && is_esm {
         CJS_LOADER_PREFIX
     } else {
