@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 nanoid = "0.4.0"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "772bdeba90c495e7ba4347fa017d87c6b0cdad81", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "futures",
   "parallel",
   "loader",
