@@ -7,7 +7,7 @@ license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
 [dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "futures",
 ], default-features = false }
 tokio = { version = "1", features = ["sync"], default-features = false }

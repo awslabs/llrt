@@ -33,10 +33,7 @@ use llrt_core::compiler::compile_file;
 
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
-// #[global_allocator]
-// static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

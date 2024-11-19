@@ -17,7 +17,7 @@ version = "*"
 patches = ["patches/promise-poll.patch"]
 
 [patch.crates-io]
-rquickjs-core = { path = "target/patch/rquickjs-core-0.6.2" }
+rquickjs-core = { path = "target/patch/rquickjs-core-0.8.1" }
 
 [dependencies]
 llrt_context = { path = "../libs/llrt_context" }
@@ -30,7 +30,7 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 quick-xml = "0.37"
 phf = "0.11"
 
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "full-async",
   "parallel",
   "rust-alloc",
@@ -82,7 +82,7 @@ md-5 = { version = "0.10" }
 md-5 = { version = "0.10", features = ["asm"] }
 
 [build-dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "full-async",
   "rust-alloc",
 ], default-features = false }

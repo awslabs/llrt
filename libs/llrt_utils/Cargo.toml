@@ -14,7 +14,7 @@ fs = ["tokio/fs"]
 bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "array-buffer",
 ], default-features = false }
 tokio = { version = "1", optional = true }

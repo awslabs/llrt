@@ -13,7 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 itoa = "1"
 llrt_utils = { version = "0.3.0-beta", path = "../llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "2627859ac65c714e35d3232fa8c59b40668cfa7e", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", default-features = false }
 ryu = "1"
 simd-json = { version = "0.14", default-features = false, features = [
   "big-int-as-float",
