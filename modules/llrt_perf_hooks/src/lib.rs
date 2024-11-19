@@ -8,8 +8,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    runtime::UserData,
-    Ctx, Object, Result,
+    Ctx, JsLifetime, Object, Result,
 };
 
 fn get_time_origin() -> f64 {
@@ -36,8 +35,8 @@ fn to_json(ctx: Ctx<'_>) -> Result<Object<'_>> {
 
 struct PerfInitedUserData;
 
-unsafe impl<'js> UserData<'js> for PerfInitedUserData {
-    type Static = PerfInitedUserData;
+unsafe impl<'js> JsLifetime<'js> for PerfInitedUserData {
+    type Changed<'to> = PerfInitedUserData;
 }
 
 fn new_performance(ctx: Ctx<'_>) -> Result<Object<'_>> {
