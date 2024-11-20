@@ -18,32 +18,38 @@ pub enum Encoder {
 const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
     "hex" => Encoder::Hex,
     "base64" => Encoder::Base64,
+    "unicode-1-1-utf-8" => Encoder::Utf8,
+    "unicode11utf8" => Encoder::Utf8,
+    "unicode20utf8" => Encoder::Utf8,
     "utf-8" => Encoder::Utf8,
     "utf8" => Encoder::Utf8,
-    "unicode-1-1-utf8" => Encoder::Utf8,
-    "utf-16le" => Encoder::Utf16le,
-    "utf16le" => Encoder::Utf16le,
+    "x-unicode20utf8" => Encoder::Utf8,
+    "csunicode" => Encoder::Utf16le,
+    "iso-10646-ucs-2" => Encoder::Utf16le,
+    "ucs-2" => Encoder::Utf16le,
+    "unicode" => Encoder::Utf16le,
+    "unicodefeff" => Encoder::Utf16le,
     "utf-16" => Encoder::Utf16le,
-    "utf16" => Encoder::Utf16le,
+    "utf-16le" => Encoder::Utf16le,
+    "unicodefffe" => Encoder::Utf16be,
     "utf-16be" => Encoder::Utf16be,
-    "utf16be" => Encoder::Utf16be,
-    "windows-1252" => Encoder::Windows1252,
-    "ansi_x3.4-1968" => Encoder::Windows1252,
-    "ascii" => Encoder::Windows1252,
-    "cp1252" => Encoder::Windows1252,
-    "cp819" => Encoder::Windows1252,
-    "csisolatin1" => Encoder::Windows1252,
-    "ibm819" => Encoder::Windows1252,
-    "iso-8859-1" => Encoder::Windows1252,
-    "iso-ir-100" => Encoder::Windows1252,
-    "iso8859-1" => Encoder::Windows1252,
-    "iso88591" => Encoder::Windows1252,
-    "iso_8859-1" => Encoder::Windows1252,
-    "iso_8859-1:1987" => Encoder::Windows1252,
-    "l1" => Encoder::Windows1252,
-    "latin1" => Encoder::Windows1252,
-    "us-ascii" => Encoder::Windows1252,
-    "x-cp1252" => Encoder::Windows1252,
+    "ansi_x3.4-1968"=> Encoder::Windows1252,
+    "ascii"=> Encoder::Windows1252,
+    "cp1252"=> Encoder::Windows1252,
+    "cp819"=> Encoder::Windows1252,
+    "csisolatin1"=> Encoder::Windows1252,
+    "ibm819"=> Encoder::Windows1252,
+    "iso-8859-1"=> Encoder::Windows1252,
+    "iso-ir-100"=> Encoder::Windows1252,
+    "iso8859-1"=> Encoder::Windows1252,
+    "iso88591"=> Encoder::Windows1252,
+    "iso_8859-1"=> Encoder::Windows1252,
+    "iso_8859-1:1987"=> Encoder::Windows1252,
+    "l1"=> Encoder::Windows1252,
+    "latin1"=> Encoder::Windows1252,
+    "us-ascii"=> Encoder::Windows1252,
+    "windows-1252"=> Encoder::Windows1252,
+    "x-cp1252"=> Encoder::Windows1252
 };
 
 impl Encoder {
@@ -57,7 +63,7 @@ impl Encoder {
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(encoding: &str) -> Result<Self, String> {
         ENCODING_MAP
-            .get(encoding.to_ascii_lowercase().as_str())
+            .get(encoding.trim_ascii().to_ascii_lowercase().as_str())
             .cloned()
             .ok_or_else(|| ["The \"", encoding, "\" encoding is not supported"].concat())
     }
@@ -66,7 +72,7 @@ impl Encoder {
         match self {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
             Self::Base64 => Ok(bytes_to_b64_string(bytes)),
-            Self::Utf8 | Self::Windows1252 => bytes_to_string(bytes, lossy),
+            Self::Utf8 | Self::Windows1252 => bytes_to_utf8_string(bytes, lossy),
             Self::Utf16le => bytes_to_utf16_string(bytes, Endian::Little, lossy),
             Self::Utf16be => bytes_to_utf16_string(bytes, Endian::Big, lossy),
         }
@@ -143,7 +149,7 @@ pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
     hex_simd::encode_to_string(bytes, AsciiCase::Lower)
 }
 
-pub fn bytes_to_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
+pub fn bytes_to_utf8_string(bytes: &[u8], lossy: bool) -> Result<String, String> {
     if lossy {
         Ok(String::from_utf8_lossy(bytes).to_string())
     } else {
