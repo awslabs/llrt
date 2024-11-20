@@ -186,14 +186,13 @@ describe("web-platform-tests", () => {
       );
     });
 
-    // Not implemented
-    // it("should pass textdecoder-labels.any.js", (done) => {
-    //   runTest(
-    //     require("./web-platform-tests/encoding/textdecoder-labels.any.js")
-    //       .default,
-    //     done
-    //   );
-    // });
+    it("should pass textdecoder-labels.any.js", (done) => {
+      runTest(
+        require("./web-platform-tests/encoding/textdecoder-labels.any.js")
+          .default,
+        done
+      );
+    });
 
     // stream option not implemented
     // it("should pass textdecoder-streaming.any.js", (done) => {
