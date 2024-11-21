@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
-use llrt_utils::class::IteratorDef;
+use llrt_utils::{
+    class::IteratorDef,
+    primordials::{BasePrimordials, Primordial},
+};
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, Array, Class, Coerced, Ctx, Exception,
     FromJs, Function, IntoJs, Null, Object, Result, Symbol, Value,
@@ -317,9 +320,9 @@ impl<'js> URLSearchParams {
     pub fn from_object(ctx: &Ctx<'js>, object: Object<'js>) -> Result<Self> {
         let iterator = Symbol::iterator(ctx.clone());
         if object.contains_key(iterator)? {
-            let array_object: Object = ctx.globals().get(PredefinedAtom::Array)?;
-            let array_from: Function = array_object.get(PredefinedAtom::From)?;
-            let query_pairs: Array = array_from.call((object,))?;
+            let query_pairs: Array = BasePrimordials::get(ctx)?
+                .function_array_from
+                .call((object,))?;
             return Self::from_array(ctx, query_pairs);
         }
 

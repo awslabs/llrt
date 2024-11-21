@@ -1,3 +1,4 @@
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
@@ -62,9 +63,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Class::<DOMException>::define(&globals)?;
 
     let dom_ex_proto = Class::<DOMException>::prototype(ctx)?.unwrap();
-    let error_ctor: Object = globals.get(PredefinedAtom::Error)?;
-    let error_proto = error_ctor.get_prototype();
-    dom_ex_proto.set_prototype(error_proto.as_ref())?;
+    let error_prototype = &BasePrimordials::get(ctx)?.prototype_error;
+    dom_ex_proto.set_prototype(Some(error_prototype))?;
 
     Ok(())
 }

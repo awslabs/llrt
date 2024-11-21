@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
     atom::PredefinedAtom, class::JsClass, object::Accessor, prelude::This, Array, Class, Ctx,
-    Function, Object, Result, Symbol, Value,
+    Function, Object, Result, Value,
 };
 
-use super::{
-    object::{CreateSymbol, ObjectExt},
-    result::OptionExt,
-};
+use crate::primordials::{BasePrimordials, Primordial};
+
+use super::{object::ObjectExt, result::OptionExt};
 
 pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
 
@@ -64,8 +63,9 @@ where
 {
     fn define_with_custom_inspect(globals: &Object<'js>) -> Result<()> {
         Self::define(globals)?;
-        let custom_inspect_symbol =
-            Symbol::for_description(globals, CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+        let custom_inspect_symbol = BasePrimordials::get(globals.ctx())?
+            .symbol_custom_inspect
+            .clone();
         if let Some(proto) = Class::<C>::prototype(globals.ctx())? {
             proto.prop(
                 custom_inspect_symbol,
