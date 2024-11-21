@@ -14,3 +14,4 @@ path = "src/lib.rs"
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "macro",
 ], default-features = false }
+llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }

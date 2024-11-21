@@ -19,7 +19,12 @@ use llrt_modules::{
     timers::{self, poll_timers},
 };
 use llrt_numbers::number_to_string;
-use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, object::ObjectExt};
+use llrt_utils::{
+    bytes::ObjectBytes,
+    error::ErrorExtensions,
+    object::ObjectExt,
+    primordials::{BasePrimordials, Primordial},
+};
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -486,6 +491,9 @@ fn init(ctx: &Ctx<'_>, module_names: HashSet<&'static str>) -> Result<()> {
             Ok(value)
         }),
     )?;
+
+    //init base primordials
+    let _ = BasePrimordials::get(ctx)?;
 
     Ok(())
 }

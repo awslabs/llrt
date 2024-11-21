@@ -7,6 +7,7 @@ use llrt_utils::{
         ObjectBytes,
     },
     module::{export_default, ModuleInfo},
+    primordials::Primordial,
     result::ResultExt,
 };
 use rquickjs::{
@@ -14,8 +15,25 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
-    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, Object, Result, TypedArray, Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Value,
 };
+
+#[derive(JsLifetime)]
+pub struct BufferPrimordials<'js> {
+    constructor: Constructor<'js>,
+}
+
+impl<'js> Primordial<'js> for BufferPrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
+
+        Ok(Self { constructor })
+    }
+}
 
 pub struct Buffer(pub Vec<u8>);
 
@@ -38,8 +56,9 @@ impl<'js> Buffer {
     }
 
     fn from_array_buffer(ctx: &Ctx<'js>, buffer: ArrayBuffer<'js>) -> Result<Value<'js>> {
-        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
-        constructor.construct((buffer,))
+        BufferPrimordials::get(ctx)?
+            .constructor
+            .construct((buffer,))
     }
 
     fn from_array_buffer_offset_length(
@@ -48,8 +67,9 @@ impl<'js> Buffer {
         offset: usize,
         length: usize,
     ) -> Result<Value<'js>> {
-        let constructor: Constructor = ctx.globals().get(stringify!(Buffer))?;
-        constructor.construct((array_buffer, offset, length))
+        BufferPrimordials::get(ctx)?
+            .constructor
+            .construct((array_buffer, offset, length))
     }
 
     fn from_encoding(
@@ -307,6 +327,9 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
         stringify!(Buffer),
     ))?;
     set_prototype(ctx, buffer)?;
+
+    //init primordials
+    let _ = BufferPrimordials::get(ctx)?;
 
     // Conversion
     let globals = ctx.globals();

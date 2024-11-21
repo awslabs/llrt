@@ -10,7 +10,10 @@ use std::{
 use chrono::{DateTime, Utc};
 use llrt_json::{escape::escape_json, stringify::json_stringify};
 use llrt_numbers::float_to_string;
-use llrt_utils::{class::get_class_name, object::CreateSymbol};
+use llrt_utils::{
+    class::get_class_name,
+    primordials::{BasePrimordials, Primordial},
+};
 use rquickjs::{
     atom::PredefinedAtom,
     function::This,
@@ -21,14 +24,12 @@ use rquickjs::{
 };
 
 use crate::modules::module::export_default;
+use crate::runtime_client;
 use crate::{module_builder::ModuleInfo, utils::hash};
-use crate::{runtime_client, utils::result::ResultExt};
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
-
-use llrt_utils::class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
 
 const NEWLINE: char = '\n';
 const SPACING: char = ' ';
@@ -671,23 +672,18 @@ struct FormatOptions<'js> {
 }
 impl<'js> FormatOptions<'js> {
     fn new(ctx: &Ctx<'js>, color: bool, newline: bool) -> Result<Self> {
-        let globals = ctx.globals();
-        let default_obj = Object::new(ctx.clone())?;
-        let object_ctor: Object = default_obj.get(PredefinedAtom::Constructor)?;
-        let object_prototype = default_obj
-            .get_prototype()
-            .ok_or("Can't get prototype")
-            .or_throw(ctx)?;
-        let get_own_property_desc_fn: Function =
-            object_ctor.get(PredefinedAtom::GetOwnPropertyDescriptor)?;
+        let primordials = BasePrimordials::get(ctx)?;
 
-        let number_function = globals.get(PredefinedAtom::Number)?;
-        let parse_float = globals.get("parseFloat")?;
-        let parse_int = globals.get("parseInt")?;
+        let get_own_property_desc_fn = primordials.function_get_own_property_descriptor.clone();
+        let object_prototype = primordials.prototype_object.clone();
+
+        let parse_float = primordials.function_parse_float.clone();
+        let parse_int = primordials.function_parse_int.clone();
 
         let object_filter = Filter::new().private().string().symbol();
-        let custom_inspect_symbol =
-            Symbol::for_description(&globals, CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+
+        let custom_inspect_symbol = primordials.symbol_custom_inspect.clone();
+        let number_function = primordials.function_number.clone();
 
         let options = FormatOptions {
             color,
@@ -1019,7 +1015,6 @@ mod tests {
                     LogLevel::Info as usize,
                     "",
                 )?;
-
 
                 //validate json
                 ctx.json_parse(result.clone())?;

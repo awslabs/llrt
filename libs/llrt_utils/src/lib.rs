@@ -12,6 +12,7 @@ pub mod macros;
 pub mod mc_oneshot;
 pub mod module;
 pub mod object;
+pub mod primordials;
 pub mod result;
 pub mod sysinfo;
 pub mod time;
