@@ -16,6 +16,7 @@ bytearray-buffer = ["tokio/sync"]
 [dependencies]
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "array-buffer",
+  "macro",
 ], default-features = false }
 tokio = { version = "1", optional = true }
 tracing = "0.1"
