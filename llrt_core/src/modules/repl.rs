@@ -43,15 +43,23 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
 mod tests {
     use crate::modules::repl::process_input;
     use llrt_test::test_sync_with;
+    use std::io::{stdout, IsTerminal};
 
     #[tokio::test]
     async fn test_process_input() {
         test_sync_with(|ctx| {
-            let s = process_input(&ctx, "1+1");
-            assert_eq!(s, "\u{1b}[33m2\u{1b}[0m");
+            let output = process_input(&ctx, "1+1");
+            let is_tty = stdout().is_terminal();
+            let expect = if is_tty { "\u{1b}[33m2\u{1b}[0m" } else { "2" };
+            assert_eq!(output, expect);
 
-            let s = process_input(&ctx, "a");
-            assert_eq!(s, "ReferenceError: a is not defined\u{1b}[30m\n  at <eval> (eval_script:1:1)\u{1b}[0m");
+            let output = process_input(&ctx, "a");
+            let expect = if is_tty {
+                "ReferenceError: a is not defined\u{1b}[30m\n  at <eval> (eval_script:1:1)\u{1b}[0m"
+            } else {
+                "ReferenceError: a is not defined\n  at <eval> (eval_script:1:1)"
+            };
+            assert_eq!(output, expect);
             Ok(())
         })
         .await;
