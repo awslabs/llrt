@@ -49,7 +49,7 @@ use crate::{
         resolver::{require_resolve, CustomResolver},
         CJS_IMPORT_PREFIX,
     },
-    modules::{console, crypto::SYSTEM_RANDOM},
+    modules::{console, crypto::SYSTEM_RANDOM, repl::run_repl},
     security,
     utils::clone::structured_clone,
 };
@@ -189,6 +189,11 @@ impl Vm {
 
         self.run(source, strict, global).await;
     }
+
+    pub async fn run_repl(&self) {
+        run_repl(&self.ctx).await;
+    }
+
     pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool, global: bool) {
         self.run_with(|ctx| {
             let mut options = EvalOptions::default();
