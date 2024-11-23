@@ -4,6 +4,7 @@ mod crc32;
 mod md5_hash;
 mod sha_hash;
 use std::slice;
+mod subtle;
 
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
@@ -24,6 +25,10 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
+};
+use subtle::{
+    subtle_decrypt, subtle_derive_bits, subtle_digest, subtle_encrypt, subtle_generate_key,
+    subtle_sign, subtle_verify,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
@@ -184,6 +189,16 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     crypto.set("randomFillSync", Func::from(random_fill_sync))?;
     crypto.set("randomFill", Func::from(random_fill))?;
     crypto.set("getRandomValues", Func::from(get_random_values))?;
+
+    let subtle = Object::new(ctx.clone())?;
+    subtle.set("decrypt", Func::from(subtle_decrypt))?;
+    subtle.set("deriveBits", Func::from(subtle_derive_bits))?;
+    subtle.set("digest", Func::from(subtle_digest))?;
+    subtle.set("encrypt", Func::from(subtle_encrypt))?;
+    subtle.set("generateKey", Func::from(subtle_generate_key))?;
+    subtle.set("verify", Func::from(subtle_verify))?;
+    subtle.set("sign", Func::from(subtle_sign))?;
+    crypto.set("subtle", subtle)?;
 
     globals.set("crypto", crypto)?;
 
