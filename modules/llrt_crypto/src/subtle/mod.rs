@@ -171,45 +171,40 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
         .get_optional::<_, String>("name")?
         .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
 
-    if name == "HMAC" {
-        return Ok(Algorithm::Hmac);
+    match name.as_str() {
+        "HMAC" => Ok(Algorithm::Hmac),
+        "AES-GCM" => {
+            let iv = algorithm
+                .get_optional("iv")?
+                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm iv not found"))?;
+
+            Ok(Algorithm::AesGcm(iv))
+        },
+        "AES-CBC" => {
+            let iv = algorithm
+                .get_optional("iv")?
+                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm iv not found"))?;
+
+            Ok(Algorithm::AesCbc(iv))
+        },
+        "AES-CTR" => {
+            let counter = algorithm
+                .get_optional("counter")?
+                .ok_or_else(|| Exception::throw_message(ctx, "AES-CTR counter not found"))?;
+
+            let length = algorithm
+                .get_optional("length")?
+                .ok_or_else(|| Exception::throw_message(ctx, "AES-CTR length not found"))?;
+
+            Ok(Algorithm::AesCtr(counter, length))
+        },
+        "RSA-OAEP" => {
+            let label = algorithm.get_optional("label")?;
+
+            Ok(Algorithm::RsaOaep(label))
+        },
+        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
     }
-
-    if name == "AES-GCM" {
-        let iv = algorithm
-            .get_optional("iv")?
-            .ok_or_else(|| Exception::throw_message(ctx, "Algorithm iv not found"))?;
-
-        return Ok(Algorithm::AesGcm(iv));
-    }
-
-    if name == "AES-CBC" {
-        let iv = algorithm
-            .get_optional("iv")?
-            .ok_or_else(|| Exception::throw_message(ctx, "Algorithm iv not found"))?;
-
-        return Ok(Algorithm::AesCbc(iv));
-    }
-
-    if name == "AES-CTR" {
-        let counter = algorithm
-            .get_optional("counter")?
-            .ok_or_else(|| Exception::throw_message(ctx, "AES-CTR counter not found"))?;
-
-        let length = algorithm
-            .get_optional("length")?
-            .ok_or_else(|| Exception::throw_message(ctx, "AES-CTR length not found"))?;
-
-        return Ok(Algorithm::AesCtr(counter, length));
-    }
-
-    if name == "RSA-OAEP" {
-        let label = algorithm.get_optional("label")?;
-
-        return Ok(Algorithm::RsaOaep(label));
-    }
-
-    Err(Exception::throw_message(ctx, "Algorithm not supported"))
 }
 
 fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
@@ -223,44 +218,35 @@ fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
 fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
     if algorithm.is_string() {
         let algorithm_name = algorithm.as_string().unwrap().to_string()?;
-        if algorithm_name == "RSASSA-PKCS1-v1_5" {
-            return Ok(Algorithm::RsassaPkcs1v15);
-        }
 
-        if algorithm_name == "HMAC" {
-            return Ok(Algorithm::Hmac);
-        }
-
-        return Err(Exception::throw_message(ctx, "Algorithm not supported"));
+        return match algorithm_name.as_str() {
+            "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
+            "HMAC" => Ok(Algorithm::Hmac),
+            _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
+        };
     }
 
     let name = algorithm
         .get_optional::<_, String>("name")?
         .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
 
-    if name == "RSASSA-PKCS1-v1_5" {
-        return Ok(Algorithm::RsassaPkcs1v15);
+    match name.as_str() {
+        "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
+        "HMAC" => Ok(Algorithm::Hmac),
+        "RSA-PSS" => {
+            let salt_length = algorithm
+                .get_optional("saltLength")?
+                .ok_or_else(|| Exception::throw_message(ctx, "RSA-PSS saltLength not found"))?;
+
+            Ok(Algorithm::RsaPss(salt_length))
+        },
+        "ECDSA" => {
+            let sha = extract_sha_hash(ctx, algorithm)?;
+
+            Ok(Algorithm::Ecdsa(sha))
+        },
+        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
     }
-
-    if name == "HMAC" {
-        return Ok(Algorithm::Hmac);
-    }
-
-    if name == "RSA-PSS" {
-        let salt_length = algorithm
-            .get_optional("saltLength")?
-            .ok_or_else(|| Exception::throw_message(ctx, "RSA-PSS saltLength not found"))?;
-
-        return Ok(Algorithm::RsaPss(salt_length));
-    }
-
-    if name == "ECDSA" {
-        let sha = extract_sha_hash(ctx, algorithm)?;
-
-        return Ok(Algorithm::Ecdsa(sha));
-    }
-
-    Err(Exception::throw_message(ctx, "Algorithm not supported"))
 }
 
 fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAlgorithm> {
@@ -268,63 +254,62 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
         .get_optional::<_, String>("name")?
         .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
 
-    if name == "ECDH" {
-        let namedcurve = algorithm
-            .get_optional::<_, String>("namedcurve")?
-            .ok_or_else(|| {
-                Exception::throw_message(ctx, "ECDH namedCurve must be one of: P-256 or P-384")
-            })?;
+    match name.as_str() {
+        "ECDH" => {
+            let namedcurve = algorithm
+                .get_optional::<_, String>("namedcurve")?
+                .ok_or_else(|| {
+                    Exception::throw_message(ctx, "ECDH namedCurve must be one of: P-256 or P-384")
+                })?;
 
-        let curve = get_named_curve(ctx, &namedcurve)?;
+            let curve = get_named_curve(ctx, &namedcurve)?;
 
-        let public = algorithm
-            .get_optional("public")?
-            .ok_or_else(|| Exception::throw_message(ctx, "ECDH must have CryptoKey"))?;
+            let public = algorithm
+                .get_optional("public")?
+                .ok_or_else(|| Exception::throw_message(ctx, "ECDH must have CryptoKey"))?;
 
-        return Ok(DeriveAlgorithm::Edch { curve, public });
+            Ok(DeriveAlgorithm::Edch { curve, public })
+        },
+        "HKDF" => {
+            let hash = algorithm
+                .get_optional::<_, String>("hash")?
+                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have hash"))?;
+
+            let hash = get_sha(ctx, &hash)?;
+
+            let salt = algorithm
+                .get_optional("salt")?
+                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have salt"))?;
+
+            let info = algorithm
+                .get_optional("info")?
+                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have info"))?;
+
+            Ok(DeriveAlgorithm::Hkdf { hash, salt, info })
+        },
+        "PBKDF2" => {
+            let hash = algorithm
+                .get_optional::<_, String>("hash")?
+                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have hash"))?;
+
+            let hash = get_sha(ctx, &hash)?;
+
+            let salt = algorithm
+                .get_optional("salt")?
+                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have salt"))?;
+
+            let iterations = algorithm
+                .get_optional("iterations")?
+                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have iterations"))?;
+
+            Ok(DeriveAlgorithm::Pbkdf2 {
+                hash,
+                salt,
+                iterations,
+            })
+        },
+        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
     }
-
-    if name == "HKDF" {
-        let hash = algorithm
-            .get_optional::<_, String>("hash")?
-            .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have hash"))?;
-
-        let hash = get_sha(ctx, &hash)?;
-
-        let salt = algorithm
-            .get_optional("salt")?
-            .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have salt"))?;
-
-        let info = algorithm
-            .get_optional("info")?
-            .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have info"))?;
-
-        return Ok(DeriveAlgorithm::Hkdf { hash, salt, info });
-    }
-
-    if name == "PBKDF2" {
-        let hash = algorithm
-            .get_optional::<_, String>("hash")?
-            .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have hash"))?;
-
-        let hash = get_sha(ctx, &hash)?;
-
-        let salt = algorithm
-            .get_optional("salt")?
-            .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have salt"))?;
-
-        let iterations = algorithm
-            .get_optional("iterations")?
-            .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have iterations"))?;
-
-        return Ok(DeriveAlgorithm::Pbkdf2 {
-            hash,
-            salt,
-            iterations,
-        });
-    }
-
-    Err(Exception::throw_message(ctx, "Algorithm not supported"))
 }
 
 fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<KeyGenAlgorithm> {
@@ -332,54 +317,51 @@ fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Ke
         .get_optional::<_, String>("name")?
         .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
 
-    if name == "RSASSA-PKCS1-v1_5" || name == "RSA-PSS" || name == "RSA-OAEP" {
-        let modulus_length = algorithm
-            .get_optional("modulusLength")?
-            .ok_or_else(|| Exception::throw_message(ctx, "Algorithm modulusLength not found"))?;
+    match name.as_str() {
+        "RSASSA-PKCS1-v1_5" | "RSA-PSS" | "RSA-OAEP" => {
+            let modulus_length = algorithm.get_optional("modulusLength")?.ok_or_else(|| {
+                Exception::throw_message(ctx, "Algorithm modulusLength not found")
+            })?;
 
-        let public_exponent = algorithm
-            .get_optional("publicExponent")?
-            .ok_or_else(|| Exception::throw_message(ctx, "Algorithm publicExponent not found"))?;
+            let public_exponent = algorithm.get_optional("publicExponent")?.ok_or_else(|| {
+                Exception::throw_message(ctx, "Algorithm publicExponent not found")
+            })?;
 
-        return Ok(KeyGenAlgorithm::Rsa {
-            modulus_length,
-            public_exponent,
-        });
+            Ok(KeyGenAlgorithm::Rsa {
+                modulus_length,
+                public_exponent,
+            })
+        },
+        "ECDSA" | "ECDH" => {
+            let namedcurve = algorithm
+                .get_optional::<_, String>("namedCurve")?
+                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm namedCurve not found"))?;
+
+            let curve = get_named_curve(ctx, &namedcurve)?;
+
+            Ok(KeyGenAlgorithm::Ec { curve })
+        },
+        "HMAC" => {
+            let hash = extract_sha_hash(ctx, algorithm)?;
+
+            let length = algorithm.get_optional::<_, u32>("length")?;
+
+            Ok(KeyGenAlgorithm::Hmac { hash, length })
+        },
+        "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" => {
+            let length = algorithm
+                .get_optional("length")?
+                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm length not found"))?;
+
+            if length != 128 && length != 192 && length != 256 {
+                return Err(Exception::throw_message(
+                    ctx,
+                    "Algorithm length must be one of: 128, 192, or 256.",
+                ));
+            }
+
+            Ok(KeyGenAlgorithm::Aes { length })
+        },
+        _ => Err(Exception::throw_message(ctx,"Algorithm must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams"))
     }
-
-    if name == "ECDSA" || name == "ECDH" {
-        let namedcurve = algorithm
-            .get_optional::<_, String>("namedCurve")?
-            .ok_or_else(|| Exception::throw_message(ctx, "Algorithm namedCurve not found"))?;
-        let curve = get_named_curve(ctx, &namedcurve)?;
-
-        return Ok(KeyGenAlgorithm::Ec { curve });
-    }
-
-    if name == "HMAC" {
-        let hash = extract_sha_hash(ctx, algorithm)?;
-
-        let length = algorithm.get_optional::<_, u32>("length")?;
-        return Ok(KeyGenAlgorithm::Hmac { hash, length });
-    }
-
-    if name == "AES-CTR" || name == "AES-CBC" || name == "AES-GCM" || name == "AES-KW" {
-        let length = algorithm
-            .get_optional("length")?
-            .ok_or_else(|| Exception::throw_message(ctx, "Algorithm length not found"))?;
-
-        if length != 128 && length != 192 && length != 256 {
-            return Err(Exception::throw_message(
-                ctx,
-                "Algorithm length must be one of: 128, 192, or 256.",
-            ));
-        }
-
-        return Ok(KeyGenAlgorithm::Aes { length });
-    }
-
-    Err(Exception::throw_message(
-                ctx,
-        "Algorithm must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams"
-    ))
 }
