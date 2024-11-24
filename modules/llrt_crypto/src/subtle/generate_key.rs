@@ -68,7 +68,7 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
             Ok(key)
         },
         KeyGenAlgorithm::Hmac { hash, length } => {
-            let _hash = match hash {
+            let hash = match hash {
                 Sha::Sha1 => &ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
                 Sha::Sha256 => &ring::hmac::HMAC_SHA256,
                 Sha::Sha384 => &ring::hmac::HMAC_SHA384,
@@ -88,8 +88,7 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
 
                 length as usize
             } else {
-                //hash.digest_algorithm().block_len
-                ring::digest::MAX_BLOCK_LEN
+                hash.digest_algorithm().block_len()
             };
 
             let rng = ring::rand::SystemRandom::new();

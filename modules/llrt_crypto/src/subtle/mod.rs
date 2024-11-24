@@ -106,9 +106,9 @@ pub enum KeyGenAlgorithm {
     },
 }
 
-pub fn subtle_decrypt(
+pub async fn subtle_decrypt(
     ctx: Ctx<'_>,
-    algorithm: Value,
+    algorithm: Value<'_>,
     key_value: Vec<u8>,
     data: Vec<u8>,
 ) -> Result<Vec<u8>> {
@@ -116,9 +116,9 @@ pub fn subtle_decrypt(
     decrypt(&ctx, &algorithm, key_value, data)
 }
 
-pub fn subtle_derive_bits(
+pub async fn subtle_derive_bits(
     ctx: Ctx<'_>,
-    algorithm: Value,
+    algorithm: Value<'_>,
     key_value: Vec<u8>,
     length: u32,
 ) -> Result<Vec<u8>> {
@@ -126,13 +126,13 @@ pub fn subtle_derive_bits(
     derive_bits(&ctx, &derive_algorithm, key_value, length)
 }
 
-pub fn subtle_digest(ctx: Ctx<'_>, name: String, data: Vec<u8>) -> Result<Vec<u8>> {
+pub async fn subtle_digest(ctx: Ctx<'_>, name: String, data: Vec<u8>) -> Result<Vec<u8>> {
     digest(ctx, &name, data)
 }
 
-pub fn subtle_encrypt(
+pub async fn subtle_encrypt(
     ctx: Ctx<'_>,
-    algorithm: Value,
+    algorithm: Value<'_>,
     key_value: Vec<u8>,
     data: Vec<u8>,
 ) -> Result<Vec<u8>> {
@@ -140,14 +140,14 @@ pub fn subtle_encrypt(
     encrypt(&ctx, &algorithm, key_value, data)
 }
 
-pub fn subtle_generate_key(ctx: Ctx<'_>, algorithm: Value) -> Result<Vec<u8>> {
+pub async fn subtle_generate_key(ctx: Ctx<'_>, algorithm: Value<'_>) -> Result<Vec<u8>> {
     let key_gen_algorithm = extract_generate_key_algorithm(&ctx, &algorithm)?;
     generate_key(&ctx, &key_gen_algorithm)
 }
 
-pub fn subtle_sign(
+pub async fn subtle_sign(
     ctx: Ctx<'_>,
-    algorithm: Value,
+    algorithm: Value<'_>,
     key_value: Vec<u8>,
     data: Vec<u8>,
 ) -> Result<Vec<u8>> {
@@ -155,9 +155,9 @@ pub fn subtle_sign(
     sign(&ctx, &algorithm, key_value, data)
 }
 
-pub fn subtle_verify(
+pub async fn subtle_verify(
     ctx: Ctx<'_>,
-    algorithm: Value,
+    algorithm: Value<'_>,
     key_value: Vec<u8>,
     signature: Vec<u8>,
     data: Vec<u8>,
