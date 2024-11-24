@@ -15,6 +15,7 @@ use crate::modules::{
     path::PathModule,
     perf_hooks::PerfHooksModule,
     process::ProcessModule,
+    tty::TtyModule,
     url::UrlModule,
     util::UtilModule,
     zlib::ZlibModule,
@@ -101,6 +102,7 @@ impl Default for ModuleBuilder {
             .with_module(PerfHooksModule)
             .with_global(crate::modules::perf_hooks::init)
             .with_module(ZlibModule)
+            .with_module(TtyModule)
     }
 }
 

@@ -36,6 +36,8 @@ mod modules {
     pub use llrt_process as process;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
+    #[cfg(feature = "tty")]
+    pub use llrt_tty as tty;
     #[cfg(feature = "url")]
     pub use llrt_url as url;
     #[cfg(feature = "zlib")]

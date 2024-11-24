@@ -19,3 +19,4 @@
 /// <reference types="./stream.d.ts" />
 /// <reference types="./url.d.ts" />
 /// <reference types="./zlib.d.ts" />
+/// <reference types="./tty.d.ts" />

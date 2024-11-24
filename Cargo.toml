@@ -21,6 +21,7 @@ members = [
   "modules/llrt_timers",
   "modules/llrt_url",
   "modules/llrt_zlib",
+  "modules/llrt_tty",
   "libs/llrt_build",
   "libs/llrt_compression",
   "libs/llrt_context",

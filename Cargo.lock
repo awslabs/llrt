@@ -2865,6 +2865,7 @@ dependencies = [
  "llrt_perf_hooks",
  "llrt_process",
  "llrt_timers",
+ "llrt_tty",
  "llrt_url",
  "llrt_utils",
  "llrt_zlib",
@@ -2989,6 +2990,17 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "once_cell",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_tty"
+version = "0.3.0-beta"
+dependencies = [
+ "libc",
+ "llrt_test",
+ "llrt_utils",
  "rquickjs",
  "tokio",
 ]
