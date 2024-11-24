@@ -1,0 +1,21 @@
+[package]
+name = "llrt_tty"
+description = "LLRT Module tty"
+version = "0.3.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_tty"
+path = "src/lib.rs"
+
+[dependencies]
+llrt_utils = { version = "0.3.0-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", default-features = false }
+libc = "0.2"
+
+[dev-dependencies]
+llrt_test = { path = "../../libs/llrt_test" }
+tokio = { version = "1", features = ["full"] }

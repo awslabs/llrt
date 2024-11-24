@@ -28,6 +28,7 @@ all = [
   "timers",
   "url",
   "zlib",
+  "tty",
 ]
 
 # Modules
@@ -49,6 +50,7 @@ perf-hooks = ["llrt_perf_hooks"]
 timers = ["llrt_timers"]
 url = ["llrt_url"]
 zlib = ["llrt_zlib"]
+tty = ["llrt_tty"]
 
 [dependencies]
 llrt_abort = { version = "0.3.0-beta", path = "../modules/llrt_abort", optional = true }
@@ -70,3 +72,4 @@ llrt_timers = { version = "0.3.0-beta", path = "../modules/llrt_timers", optiona
 llrt_url = { version = "0.3.0-beta", path = "../modules/llrt_url", optional = true }
 llrt_utils = { version = "0.3.0-beta", path = "../libs/llrt_utils" }
 llrt_zlib = { version = "0.3.0-beta", path = "../modules/llrt_zlib", optional = true }
+llrt_tty = { version = "0.3.0-beta", path = "../modules/llrt_tty", optional = true }
