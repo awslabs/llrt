@@ -15,12 +15,12 @@ type Aes256CbcDec = cbc::Decryptor<aes::Aes256>;
 pub fn decrypt(
     ctx: &Ctx<'_>,
     algorithm: &Algorithm,
-    key_value: Vec<u8>,
+    key: Vec<u8>,
     data: Vec<u8>,
 ) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::AesGcm(iv) => {
-            let cipher = Aes256Gcm::new_from_slice(&key_value).or_throw(ctx)?;
+            let cipher = Aes256Gcm::new_from_slice(&key).or_throw(ctx)?;
             let nonce = Nonce::from_slice(iv);
 
             match cipher.decrypt(nonce, data.as_ref()) {
@@ -29,7 +29,7 @@ pub fn decrypt(
             }
         },
         Algorithm::AesCbc(iv) => {
-            match Aes256CbcDec::new(key_value.as_slice().into(), iv.as_slice().into())
+            match Aes256CbcDec::new(key.as_slice().into(), iv.as_slice().into())
                 .decrypt_padded_vec_mut::<Pkcs7>(&data)
             {
                 Ok(result) => Ok(result),
@@ -37,16 +37,16 @@ pub fn decrypt(
             }
         },
         Algorithm::AesCtr(counter, length) => match length {
-            32 => decrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, &key_value, counter, &data),
-            64 => decrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, &key_value, counter, &data),
-            128 => decrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, &key_value, counter, &data),
+            32 => decrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, &key, counter, &data),
+            64 => decrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, &key, counter, &data),
+            128 => decrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, &key, counter, &data),
             _ => Err(Exception::throw_message(
                 ctx,
                 "invalid counter length. Currently supported 32/64/128 bits",
             )),
         },
         Algorithm::RsaOaep(label) => {
-            let private_key = RsaPrivateKey::from_pkcs1_der(&key_value).or_throw(ctx)?;
+            let private_key = RsaPrivateKey::from_pkcs1_der(&key).or_throw(ctx)?;
             let padding = match label {
                 Some(buf) => {
                     Oaep::new_with_label::<Sha256, String>(String::from_utf8(buf.to_vec())?)

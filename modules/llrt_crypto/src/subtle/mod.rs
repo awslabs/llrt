@@ -20,7 +20,7 @@ use aes::{cipher::typenum::U16, Aes256};
 use aes_gcm::AesGcm;
 use hmac::Hmac;
 use llrt_utils::{bytes::get_array_bytes, object::ObjectExt};
-use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
+use rquickjs::{Array, ArrayBuffer, Ctx, Exception, Result, Value};
 use sha2::Sha256;
 
 pub type HmacSha256 = Hmac<Sha256>;
@@ -109,65 +109,69 @@ pub enum KeyGenAlgorithm {
 pub async fn subtle_decrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key_value: Value<'js>,
+    key: Value<'js>,
     data: Value<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
-    let key_value = get_array_bytes(&key_value, 0, None)?.unwrap_or_else(Vec::new);
+    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
     let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = decrypt(&ctx, &algorithm, key_value, data)?;
+    let bytes = decrypt(&ctx, &algorithm, key, data)?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_derive_bits<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key_value: Value<'js>,
+    base_key: Value<'js>,
     length: u32,
 ) -> Result<ArrayBuffer<'js>> {
     let derive_algorithm = extract_derive_algorithm(&ctx, &algorithm)?;
-    let key_value = get_array_bytes(&key_value, 0, None)?.unwrap_or_else(Vec::new);
+    let base_key = get_array_bytes(&base_key, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = derive_bits(&ctx, &derive_algorithm, key_value, length)?;
+    let bytes = derive_bits(&ctx, &derive_algorithm, base_key, length)?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_digest<'js>(
     ctx: Ctx<'js>,
-    name: Value<'js>,
+    algorithm: Value<'js>,
     data: Value<'js>,
 ) -> Result<ArrayBuffer<'js>> {
-    let name = if name.is_string() {
-        name.as_string().unwrap().to_string().unwrap()
+    let algorithm = if algorithm.is_string() {
+        algorithm.as_string().unwrap().to_string().unwrap()
     } else {
-        name.get_optional::<_, String>("name")?.ok_or_else(|| {
-            Exception::throw_message(&ctx, "Missing algorithm name should cause TypeError")
-        })?
+        algorithm
+            .get_optional::<_, String>("name")?
+            .ok_or_else(|| {
+                Exception::throw_message(&ctx, "Missing algorithm name should cause TypeError")
+            })?
     };
     let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = digest(&ctx, &name, data)?;
+    let bytes = digest(&ctx, &algorithm, data)?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_encrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key_value: Value<'js>,
+    key: Value<'js>,
     data: Value<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
-    let key_value = get_array_bytes(&key_value, 0, None)?.unwrap_or_else(Vec::new);
+    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
     let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = encrypt(&ctx, &algorithm, key_value, data)?;
+    let bytes = encrypt(&ctx, &algorithm, key, data)?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_generate_key<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
+    _extractable: bool,
+    _key_usages: Array<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let key_gen_algorithm = extract_generate_key_algorithm(&ctx, &algorithm)?;
 
@@ -178,30 +182,30 @@ pub async fn subtle_generate_key<'js>(
 pub async fn subtle_sign<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key_value: Value<'js>,
+    key: Value<'js>,
     data: Value<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
-    let key_value = get_array_bytes(&key_value, 0, None)?.unwrap_or_else(Vec::new);
+    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
     let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = sign(&ctx, &algorithm, key_value, data)?;
+    let bytes = sign(&ctx, &algorithm, key, data)?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_verify<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key_value: Value<'js>,
+    key: Value<'js>,
     signature: Value<'js>,
     data: Value<'js>,
 ) -> Result<bool> {
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
-    let key_value = get_array_bytes(&key_value, 0, None)?.unwrap_or_else(Vec::new);
+    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
     let signature = get_array_bytes(&signature, 0, None)?.unwrap_or_else(Vec::new);
     let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    verify(&ctx, &algorithm, key_value, signature, data)
+    verify(&ctx, &algorithm, key, signature, data)
 }
 
 fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
