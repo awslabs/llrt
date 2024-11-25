@@ -38,7 +38,7 @@ pub fn verify(
             let mut hasher = Sha256::new();
             hasher.update(data);
 
-            let hashed = hasher.finalize()[..].to_vec();
+            let hashed = hasher.finalize();
 
             Ok(public_key
                 .verify(Pkcs1v15Sign::new::<Sha256>(), &hashed, signature)
@@ -51,7 +51,7 @@ pub fn verify(
             let mut hasher = Sha256::new();
 
             hasher.update(data);
-            let hashed = hasher.finalize()[..].to_vec();
+            let hashed = hasher.finalize();
 
             Ok(public_key
                 .verify(
