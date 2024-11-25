@@ -14,18 +14,18 @@ use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 
 use crate::subtle::{Algorithm, HmacSha256, Sha};
 
-pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: Vec<u8>, data: Vec<u8>) -> Result<Vec<u8>> {
+pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::Hmac => {
-            let mut mac = HmacSha256::new_from_slice(&key).or_throw(ctx)?;
-            mac.update(&data);
+            let mut mac = HmacSha256::new_from_slice(key).or_throw(ctx)?;
+            mac.update(data);
 
             Ok(mac.finalize().into_bytes().to_vec())
         },
         Algorithm::RsassaPkcs1v15 => {
-            let private_key = RsaPrivateKey::from_pkcs1_der(&key).or_throw(ctx)?;
+            let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;
             let mut hasher = Sha256::new();
-            hasher.update(&data);
+            hasher.update(data);
 
             let hashed = hasher.finalize()[..].to_vec();
 
@@ -34,10 +34,10 @@ pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: Vec<u8>, data: Vec<u8>) -
                 .or_throw(ctx)?)
         },
         Algorithm::RsaPss(salt_length) => {
-            let private_key = RsaPrivateKey::from_pkcs1_der(&key).or_throw(ctx)?;
+            let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;
             let mut rng = OsRng;
             let mut hasher = Sha256::new();
-            hasher.update(&data);
+            hasher.update(data);
 
             let hashed = hasher.finalize()[..].to_vec();
 
@@ -53,18 +53,18 @@ pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: Vec<u8>, data: Vec<u8>) -
             Sha::Sha256 => {
                 let curve = &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING;
                 let rng = SystemRandom::new();
-                let key_pair = EcdsaKeyPair::from_pkcs8(curve, &key, &rng).or_throw(ctx)?;
+                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &rng).or_throw(ctx)?;
 
-                let signature = key_pair.sign(&rng, &data).or_throw(ctx)?;
+                let signature = key_pair.sign(&rng, data).or_throw(ctx)?;
 
                 Ok(signature.as_ref().to_vec())
             },
             Sha::Sha384 => {
                 let curve = &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING;
                 let rng = SystemRandom::new();
-                let key_pair = EcdsaKeyPair::from_pkcs8(curve, &key, &rng).or_throw(ctx)?;
+                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &rng).or_throw(ctx)?;
 
-                let signature = key_pair.sign(&rng, &data).or_throw(ctx)?;
+                let signature = key_pair.sign(&rng, data).or_throw(ctx)?;
 
                 Ok(signature.as_ref().to_vec())
             },

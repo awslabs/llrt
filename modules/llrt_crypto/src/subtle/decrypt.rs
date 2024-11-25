@@ -12,15 +12,10 @@ use crate::subtle::{Aes256Gcm, Algorithm};
 
 type Aes256CbcDec = cbc::Decryptor<aes::Aes256>;
 
-pub fn decrypt(
-    ctx: &Ctx<'_>,
-    algorithm: &Algorithm,
-    key: Vec<u8>,
-    data: Vec<u8>,
-) -> Result<Vec<u8>> {
+pub fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::AesGcm(iv) => {
-            let cipher = Aes256Gcm::new_from_slice(&key).or_throw(ctx)?;
+            let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
             let nonce = Nonce::from_slice(iv);
 
             match cipher.decrypt(nonce, data.as_ref()) {
@@ -29,24 +24,24 @@ pub fn decrypt(
             }
         },
         Algorithm::AesCbc(iv) => {
-            match Aes256CbcDec::new(key.as_slice().into(), iv.as_slice().into())
-                .decrypt_padded_vec_mut::<Pkcs7>(&data)
+            match Aes256CbcDec::new(key.into(), iv.as_slice().into())
+                .decrypt_padded_vec_mut::<Pkcs7>(data)
             {
                 Ok(result) => Ok(result),
                 Err(_) => Err(Exception::throw_message(ctx, "Decryption failed")),
             }
         },
         Algorithm::AesCtr(counter, length) => match length {
-            32 => decrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, &key, counter, &data),
-            64 => decrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, &key, counter, &data),
-            128 => decrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, &key, counter, &data),
+            32 => decrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, key, counter, data),
+            64 => decrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, key, counter, data),
+            128 => decrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, key, counter, data),
             _ => Err(Exception::throw_message(
                 ctx,
                 "invalid counter length. Currently supported 32/64/128 bits",
             )),
         },
         Algorithm::RsaOaep(label) => {
-            let private_key = RsaPrivateKey::from_pkcs1_der(&key).or_throw(ctx)?;
+            let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;
             let padding = match label {
                 Some(buf) => {
                     Oaep::new_with_label::<Sha256, String>(String::from_utf8(buf.to_vec())?)
@@ -55,7 +50,7 @@ pub fn decrypt(
             };
 
             private_key
-                .decrypt(padding, &data)
+                .decrypt(padding, data)
                 .map_err(|e| Exception::throw_message(ctx, e.to_string().as_str()))
         },
         _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),

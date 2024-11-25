@@ -19,7 +19,7 @@ use verify::verify;
 use aes::{cipher::typenum::U16, Aes256};
 use aes_gcm::AesGcm;
 use hmac::Hmac;
-use llrt_utils::{bytes::get_array_bytes, object::ObjectExt};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Array, ArrayBuffer, Ctx, Exception, Result, Value};
 use sha2::Sha256;
 
@@ -109,34 +109,31 @@ pub enum KeyGenAlgorithm {
 pub async fn subtle_decrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: Value<'js>,
-    data: Value<'js>,
+    key: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
-    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
-    let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = decrypt(&ctx, &algorithm, key, data)?;
+    let bytes = decrypt(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_derive_bits<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    base_key: Value<'js>,
+    base_key: ObjectBytes<'js>,
     length: u32,
 ) -> Result<ArrayBuffer<'js>> {
     let derive_algorithm = extract_derive_algorithm(&ctx, &algorithm)?;
-    let base_key = get_array_bytes(&base_key, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = derive_bits(&ctx, &derive_algorithm, base_key, length)?;
+    let bytes = derive_bits(&ctx, &derive_algorithm, base_key.as_bytes(), length)?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_digest<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    data: Value<'js>,
+    data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = if algorithm.is_string() {
         algorithm.as_string().unwrap().to_string().unwrap()
@@ -147,23 +144,20 @@ pub async fn subtle_digest<'js>(
                 Exception::throw_message(&ctx, "Missing algorithm name should cause TypeError")
             })?
     };
-    let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = digest(&ctx, &algorithm, data)?;
+    let bytes = digest(&ctx, &algorithm, data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_encrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: Value<'js>,
-    data: Value<'js>,
+    key: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
-    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
-    let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = encrypt(&ctx, &algorithm, key, data)?;
+    let bytes = encrypt(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
@@ -182,30 +176,31 @@ pub async fn subtle_generate_key<'js>(
 pub async fn subtle_sign<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: Value<'js>,
-    data: Value<'js>,
+    key: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
-    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
-    let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    let bytes = sign(&ctx, &algorithm, key, data)?;
+    let bytes = sign(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes.as_slice())
 }
 
 pub async fn subtle_verify<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: Value<'js>,
-    signature: Value<'js>,
-    data: Value<'js>,
+    key: ObjectBytes<'js>,
+    signature: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
 ) -> Result<bool> {
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
-    let key = get_array_bytes(&key, 0, None)?.unwrap_or_else(Vec::new);
-    let signature = get_array_bytes(&signature, 0, None)?.unwrap_or_else(Vec::new);
-    let data = get_array_bytes(&data, 0, None)?.unwrap_or_else(Vec::new);
 
-    verify(&ctx, &algorithm, key, signature, data)
+    verify(
+        &ctx,
+        &algorithm,
+        key.as_bytes(),
+        signature.as_bytes(),
+        data.as_bytes(),
+    )
 }
 
 fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {

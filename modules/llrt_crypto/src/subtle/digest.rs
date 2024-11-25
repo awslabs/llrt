@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256, Sha384, Sha512};
 
 use crate::subtle::{get_sha, Sha};
 
-pub fn digest(ctx: &Ctx<'_>, algorithm: &str, data: Vec<u8>) -> Result<Vec<u8>> {
+pub fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
     let sha = get_sha(ctx, algorithm)?;
 
     match sha {

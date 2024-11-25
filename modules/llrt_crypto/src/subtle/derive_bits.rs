@@ -20,13 +20,13 @@ impl hkdf::KeyType for HkdfOutput {
 pub fn derive_bits(
     ctx: &Ctx<'_>,
     algorithm: &DeriveAlgorithm,
-    base_key: Vec<u8>,
+    base_key: &[u8],
     length: u32,
 ) -> Result<Vec<u8>> {
     match algorithm {
         DeriveAlgorithm::Edch { curve, public } => match curve {
             CryptoNamedCurve::P256 => {
-                let secret_key = p256::SecretKey::from_pkcs8_der(&base_key).map_err(|_| {
+                let secret_key = p256::SecretKey::from_pkcs8_der(base_key).map_err(|_| {
                     Exception::throw_message(ctx, "Unexpected error decoding private key")
                 })?;
 
@@ -44,7 +44,7 @@ pub fn derive_bits(
                 Ok(shared_secret.raw_secret_bytes().to_vec())
             },
             CryptoNamedCurve::P384 => {
-                let secret_key = p384::SecretKey::from_pkcs8_der(&base_key).map_err(|_| {
+                let secret_key = p384::SecretKey::from_pkcs8_der(base_key).map_err(|_| {
                     Exception::throw_message(ctx, "Unexpected error decoding private key")
                 })?;
 
@@ -82,7 +82,7 @@ pub fn derive_bits(
                 hash_algorithm,
                 not_zero_iterations,
                 salt,
-                &base_key,
+                base_key,
                 &mut out,
             );
 
@@ -104,7 +104,7 @@ pub fn derive_bits(
             let boxed_slice = info.clone().into_boxed_slice();
             let info: &[&[u8]] = &[&*boxed_slice];
 
-            let prk = salt.extract(&base_key);
+            let prk = salt.extract(base_key);
             let out_length = (length / 8).try_into().or_throw(ctx)?;
 
             let okm = prk

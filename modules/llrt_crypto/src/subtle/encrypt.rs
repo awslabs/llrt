@@ -12,15 +12,10 @@ use crate::subtle::{Aes256Gcm, Algorithm};
 
 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
 
-pub fn encrypt(
-    ctx: &Ctx<'_>,
-    algorithm: &Algorithm,
-    key: Vec<u8>,
-    data: Vec<u8>,
-) -> Result<Vec<u8>> {
+pub fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::AesGcm(iv) => {
-            let cipher = Aes256Gcm::new_from_slice(&key).or_throw(ctx)?;
+            let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
             let nonce = Nonce::from_slice(iv);
 
             match cipher.encrypt(nonce, data.as_ref()) {
@@ -28,21 +23,19 @@ pub fn encrypt(
                 Err(_) => Err(Exception::throw_message(ctx, "Encryption failed")),
             }
         },
-        Algorithm::AesCbc(iv) => Ok(
-            Aes256CbcEnc::new(key.as_slice().into(), iv.as_slice().into())
-                .encrypt_padded_vec_mut::<Pkcs7>(&data),
-        ),
+        Algorithm::AesCbc(iv) => Ok(Aes256CbcEnc::new(key.into(), iv.as_slice().into())
+            .encrypt_padded_vec_mut::<Pkcs7>(data)),
         Algorithm::AesCtr(counter, length) => match length {
-            32 => encrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, &key, counter, &data),
-            64 => encrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, &key, counter, &data),
-            128 => encrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, &key, counter, &data),
+            32 => encrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, key, counter, data),
+            64 => encrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, key, counter, data),
+            128 => encrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, key, counter, data),
             _ => Err(Exception::throw_message(
                 ctx,
                 "invalid counter length. Currently supported 32/64/128 bits",
             )),
         },
         Algorithm::RsaOaep(label) => {
-            let public_key = RsaPrivateKey::from_pkcs1_der(&key)
+            let public_key = RsaPrivateKey::from_pkcs1_der(key)
                 .or_throw(ctx)?
                 .to_public_key();
             let mut rng = OsRng;
@@ -53,7 +46,7 @@ pub fn encrypt(
                 None => Oaep::new::<Sha256>(),
             };
             let encrypted = public_key
-                .encrypt(&mut rng, padding, &data)
+                .encrypt(&mut rng, padding, data)
                 .map_err(|_| Exception::throw_message(ctx, "Encryption failed"))?;
 
             Ok(encrypted)
