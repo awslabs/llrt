@@ -196,8 +196,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     subtle.set("digest", Func::from(Async(subtle_digest)))?;
     subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
     subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
-    subtle.set("verify", Func::from(Async(subtle_verify)))?;
     subtle.set("sign", Func::from(Async(subtle_sign)))?;
+    subtle.set("verify", Func::from(Async(subtle_verify)))?;
     crypto.set("subtle", subtle)?;
 
     globals.set("crypto", crypto)?;

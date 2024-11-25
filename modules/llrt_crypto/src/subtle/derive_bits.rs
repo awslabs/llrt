@@ -93,8 +93,7 @@ pub fn derive_bits(
             };
 
             let salt = hkdf::Salt::new(hash_algorithm, salt);
-            let boxed_slice = info.clone().into_boxed_slice();
-            let info: &[&[u8]] = &[&*boxed_slice];
+            let info: &[&[u8]] = &[&info[..]];
 
             let prk = salt.extract(base_key);
             let out_length = (length / 8).try_into().or_throw(ctx)?;
