@@ -30,7 +30,7 @@ pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Re
             let mut hasher = Sha256::new();
             hasher.update(data);
 
-            let hashed = hasher.finalize()[..].to_vec();
+            let hashed = hasher.finalize();
 
             Ok(private_key
                 .sign(Pkcs1v15Sign::new::<Sha256>(), &hashed)
@@ -42,7 +42,7 @@ pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Re
             let mut hasher = Sha256::new();
             hasher.update(data);
 
-            let hashed = hasher.finalize()[..].to_vec();
+            let hashed = hasher.finalize();
 
             Ok(private_key
                 .sign_with_rng(
