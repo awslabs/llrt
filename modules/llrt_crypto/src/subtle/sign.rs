@@ -3,7 +3,7 @@
 use hmac::Mac;
 use llrt_utils::result::ResultExt;
 use rand::rngs::OsRng;
-use ring::{rand::SystemRandom, signature::EcdsaKeyPair};
+use ring::signature::EcdsaKeyPair;
 use rquickjs::{Ctx, Exception, Result};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
@@ -12,7 +12,10 @@ use rsa::{
 };
 use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 
-use crate::subtle::{Algorithm, HmacSha256, Sha};
+use crate::{
+    subtle::{Algorithm, HmacSha256, Sha},
+    SYSTEM_RANDOM,
+};
 
 pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
@@ -52,19 +55,23 @@ pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Re
         Algorithm::Ecdsa(sha) => match sha {
             Sha::Sha256 => {
                 let curve = &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING;
-                let rng = SystemRandom::new();
-                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &rng).or_throw(ctx)?;
+                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &SYSTEM_RANDOM.to_owned())
+                    .or_throw(ctx)?;
 
-                let signature = key_pair.sign(&rng, data).or_throw(ctx)?;
+                let signature = key_pair
+                    .sign(&SYSTEM_RANDOM.to_owned(), data)
+                    .or_throw(ctx)?;
 
                 Ok(signature.as_ref().to_vec())
             },
             Sha::Sha384 => {
                 let curve = &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING;
-                let rng = SystemRandom::new();
-                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &rng).or_throw(ctx)?;
+                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &SYSTEM_RANDOM.to_owned())
+                    .or_throw(ctx)?;
 
-                let signature = key_pair.sign(&rng, data).or_throw(ctx)?;
+                let signature = key_pair
+                    .sign(&SYSTEM_RANDOM.to_owned(), data)
+                    .or_throw(ctx)?;
 
                 Ok(signature.as_ref().to_vec())
             },

@@ -4,15 +4,15 @@ use std::sync::OnceLock;
 
 use llrt_utils::result::ResultExt;
 use num_traits::FromPrimitive;
-use ring::{
-    rand::{SecureRandom, SystemRandom},
-    signature::EcdsaKeyPair,
-};
+use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
 use rquickjs::{Ctx, Exception, Result};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
 
-use crate::subtle::{CryptoNamedCurve, KeyGenAlgorithm, Sha};
+use crate::{
+    subtle::{CryptoNamedCurve, KeyGenAlgorithm, Sha},
+    SYSTEM_RANDOM,
+};
 
 static PUB_EXPONENT_1: OnceLock<BigUint> = OnceLock::new();
 static PUB_EXPONENT_2: OnceLock<BigUint> = OnceLock::new();
@@ -46,8 +46,8 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
                 CryptoNamedCurve::P256 => &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
                 CryptoNamedCurve::P384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
             };
-            let rng = SystemRandom::new();
-            let pkcs8 = EcdsaKeyPair::generate_pkcs8(curve, &rng).or_throw(ctx)?;
+            let pkcs8 =
+                EcdsaKeyPair::generate_pkcs8(curve, &SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
 
             Ok(pkcs8.as_ref().to_vec())
         },
@@ -59,8 +59,7 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
             }
 
             let mut key = vec![0u8; length / 8];
-            let rng = SystemRandom::new();
-            rng.fill(&mut key).or_throw(ctx)?;
+            SYSTEM_RANDOM.fill(&mut key).or_throw(ctx)?;
 
             Ok(key)
         },
@@ -88,9 +87,8 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
                 hash.digest_algorithm().block_len()
             };
 
-            let rng = ring::rand::SystemRandom::new();
             let mut key = vec![0u8; length];
-            rng.fill(&mut key).or_throw(ctx)?;
+            SYSTEM_RANDOM.fill(&mut key).or_throw(ctx)?;
 
             Ok(key)
         },

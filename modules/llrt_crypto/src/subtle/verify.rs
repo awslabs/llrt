@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use hmac::Mac;
 use llrt_utils::result::ResultExt;
-use ring::{
-    rand::SystemRandom,
-    signature::{EcdsaKeyPair, KeyPair},
-};
+use ring::signature::{EcdsaKeyPair, KeyPair};
 use rquickjs::{Ctx, Exception, Result};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
@@ -15,7 +12,10 @@ use rsa::{
     RsaPrivateKey,
 };
 
-use crate::subtle::{Algorithm, HmacSha256, Sha};
+use crate::{
+    subtle::{Algorithm, HmacSha256, Sha},
+    SYSTEM_RANDOM,
+};
 
 pub fn verify(
     ctx: &Ctx<'_>,
@@ -63,11 +63,10 @@ pub fn verify(
         },
         Algorithm::Ecdsa(sha) => match sha {
             Sha::Sha256 => {
-                let rng = SystemRandom::new();
                 let private_key = EcdsaKeyPair::from_pkcs8(
                     &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
                     key,
-                    &rng,
+                    &SYSTEM_RANDOM.to_owned(),
                 )
                 .or_throw(ctx)?;
 
@@ -80,11 +79,10 @@ pub fn verify(
                 Ok(public_key.verify(data, signature).is_ok())
             },
             Sha::Sha384 => {
-                let rng = SystemRandom::new();
                 let private_key = EcdsaKeyPair::from_pkcs8(
                     &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
                     key,
-                    &rng,
+                    &SYSTEM_RANDOM.to_owned(),
                 )
                 .or_throw(ctx)?;
 
