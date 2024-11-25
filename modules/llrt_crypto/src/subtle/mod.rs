@@ -115,7 +115,7 @@ pub async fn subtle_decrypt<'js>(
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
 
     let bytes = decrypt(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
-    ArrayBuffer::new(ctx, bytes.as_slice())
+    ArrayBuffer::new(ctx, bytes)
 }
 
 pub async fn subtle_derive_bits<'js>(
@@ -127,7 +127,7 @@ pub async fn subtle_derive_bits<'js>(
     let derive_algorithm = extract_derive_algorithm(&ctx, &algorithm)?;
 
     let bytes = derive_bits(&ctx, &derive_algorithm, base_key.as_bytes(), length)?;
-    ArrayBuffer::new(ctx, bytes.as_slice())
+    ArrayBuffer::new(ctx, bytes)
 }
 
 pub async fn subtle_digest<'js>(
@@ -146,7 +146,7 @@ pub async fn subtle_digest<'js>(
     };
 
     let bytes = digest(&ctx, &algorithm, data.as_bytes())?;
-    ArrayBuffer::new(ctx, bytes.as_slice())
+    ArrayBuffer::new(ctx, bytes)
 }
 
 pub async fn subtle_encrypt<'js>(
@@ -158,7 +158,7 @@ pub async fn subtle_encrypt<'js>(
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
 
     let bytes = encrypt(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
-    ArrayBuffer::new(ctx, bytes.as_slice())
+    ArrayBuffer::new(ctx, bytes)
 }
 
 pub async fn subtle_generate_key<'js>(
@@ -170,7 +170,7 @@ pub async fn subtle_generate_key<'js>(
     let key_gen_algorithm = extract_generate_key_algorithm(&ctx, &algorithm)?;
 
     let bytes = generate_key(&ctx, &key_gen_algorithm)?;
-    ArrayBuffer::new(ctx, bytes.as_slice())
+    ArrayBuffer::new(ctx, bytes)
 }
 
 pub async fn subtle_sign<'js>(
@@ -182,7 +182,7 @@ pub async fn subtle_sign<'js>(
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
 
     let bytes = sign(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
-    ArrayBuffer::new(ctx, bytes.as_slice())
+    ArrayBuffer::new(ctx, bytes)
 }
 
 pub async fn subtle_verify<'js>(
