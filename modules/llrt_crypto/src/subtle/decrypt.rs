@@ -34,12 +34,9 @@ pub fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) ->
         },
         Algorithm::RsaOaep(label) => {
             let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;
-            let padding = match label {
-                Some(buf) => {
-                    Oaep::new_with_label::<Sha256, String>(String::from_utf8(buf.to_vec())?)
-                },
-                None => Oaep::new::<Sha256>(),
-            };
+            let padding = label.as_ref().map_or(Oaep::new::<Sha256>(), |buf| {
+                Oaep::new_with_label::<Sha256, _>(&String::from_utf8_lossy(buf))
+            });
 
             private_key.decrypt(padding, data).or_throw(ctx)
         },
