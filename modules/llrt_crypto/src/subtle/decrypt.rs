@@ -18,19 +18,11 @@ pub fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) ->
             let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
             let nonce = Nonce::from_slice(iv);
 
-            match cipher.decrypt(nonce, data.as_ref()) {
-                Ok(result) => Ok(result),
-                Err(_) => Err(Exception::throw_message(ctx, "Decryption failed"))?,
-            }
+            cipher.decrypt(nonce, data.as_ref()).or_throw(ctx)
         },
-        Algorithm::AesCbc(iv) => {
-            match Aes256CbcDec::new(key.into(), iv.as_slice().into())
-                .decrypt_padded_vec_mut::<Pkcs7>(data)
-            {
-                Ok(result) => Ok(result),
-                Err(_) => Err(Exception::throw_message(ctx, "Decryption failed")),
-            }
-        },
+        Algorithm::AesCbc(iv) => Aes256CbcDec::new(key.into(), iv.as_slice().into())
+            .decrypt_padded_vec_mut::<Pkcs7>(data)
+            .or_throw(ctx),
         Algorithm::AesCtr(counter, length) => match length {
             32 => decrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, key, counter, data),
             64 => decrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, key, counter, data),
@@ -49,9 +41,7 @@ pub fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) ->
                 None => Oaep::new::<Sha256>(),
             };
 
-            private_key
-                .decrypt(padding, data)
-                .map_err(|e| Exception::throw_message(ctx, e.to_string().as_str()))
+            private_key.decrypt(padding, data).or_throw(ctx)
         },
         _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
     }
@@ -64,9 +54,7 @@ where
     let mut cipher = B::new(key.into(), counter.into());
 
     let mut plaintext = data.to_vec();
-    cipher
-        .try_apply_keystream(&mut plaintext)
-        .map_err(|_| Exception::throw_message(ctx, "tried to decrypt too much data"))?;
+    cipher.try_apply_keystream(&mut plaintext).or_throw(ctx)?;
 
     Ok(plaintext)
 }

@@ -26,14 +26,10 @@ pub fn derive_bits(
     match algorithm {
         DeriveAlgorithm::Edch { curve, public } => match curve {
             CryptoNamedCurve::P256 => {
-                let secret_key = p256::SecretKey::from_pkcs8_der(base_key).map_err(|_| {
-                    Exception::throw_message(ctx, "Unexpected error decoding private key")
-                })?;
+                let secret_key = p256::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
 
                 let public_key = p256::SecretKey::from_pkcs8_der(public)
-                    .map_err(|_| {
-                        Exception::throw_message(ctx, "Unexpected error decoding public key")
-                    })?
+                    .or_throw(ctx)?
                     .public_key();
 
                 let shared_secret = p256::elliptic_curve::ecdh::diffie_hellman(
@@ -44,14 +40,10 @@ pub fn derive_bits(
                 Ok(shared_secret.raw_secret_bytes().to_vec())
             },
             CryptoNamedCurve::P384 => {
-                let secret_key = p384::SecretKey::from_pkcs8_der(base_key).map_err(|_| {
-                    Exception::throw_message(ctx, "Unexpected error decoding private key")
-                })?;
+                let secret_key = p384::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
 
                 let public_key = p384::SecretKey::from_pkcs8_der(public)
-                    .map_err(|_| {
-                        Exception::throw_message(ctx, "Unexpected error decoding public key")
-                    })?
+                    .or_throw(ctx)?
                     .public_key();
 
                 let shared_secret = p384::elliptic_curve::ecdh::diffie_hellman(
@@ -109,9 +101,7 @@ pub fn derive_bits(
 
             let okm = prk
                 .expand(info, HkdfOutput((length / 8).try_into().or_throw(ctx)?))
-                .map_err(|_| {
-                    Exception::throw_message(ctx, "The length provided for HKDF is too large")
-                })?;
+                .or_throw(ctx)?;
 
             let mut out = vec![0u8; out_length];
             let _ = okm.fill(&mut out).or_throw(ctx);

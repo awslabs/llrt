@@ -18,10 +18,7 @@ pub fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) ->
             let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
             let nonce = Nonce::from_slice(iv);
 
-            match cipher.encrypt(nonce, data.as_ref()) {
-                Ok(result) => Ok(result),
-                Err(_) => Err(Exception::throw_message(ctx, "Encryption failed")),
-            }
+            cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
         },
         Algorithm::AesCbc(iv) => Ok(Aes256CbcEnc::new(key.into(), iv.as_slice().into())
             .encrypt_padded_vec_mut::<Pkcs7>(data)),
@@ -45,9 +42,7 @@ pub fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) ->
                 },
                 None => Oaep::new::<Sha256>(),
             };
-            let encrypted = public_key
-                .encrypt(&mut rng, padding, data)
-                .map_err(|_| Exception::throw_message(ctx, "Encryption failed"))?;
+            let encrypted = public_key.encrypt(&mut rng, padding, data).or_throw(ctx)?;
 
             Ok(encrypted)
         },
@@ -62,9 +57,7 @@ where
     let mut cipher = B::new(key.into(), counter.into());
 
     let mut ciphertext = data.to_vec();
-    cipher
-        .try_apply_keystream(&mut ciphertext)
-        .map_err(|_| Exception::throw_message(ctx, "tried to encrypt too much data"))?;
+    cipher.try_apply_keystream(&mut ciphertext).or_throw(ctx)?;
 
     Ok(ciphertext)
 }

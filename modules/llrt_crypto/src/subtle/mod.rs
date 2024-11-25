@@ -19,7 +19,7 @@ use verify::verify;
 use aes::{cipher::typenum::U16, Aes256};
 use aes_gcm::AesGcm;
 use hmac::Hmac;
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{Array, ArrayBuffer, Ctx, Exception, Result, Value};
 use sha2::Sha256;
 
@@ -135,8 +135,8 @@ pub async fn subtle_digest<'js>(
     algorithm: Value<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
-    let algorithm = if algorithm.is_string() {
-        algorithm.as_string().unwrap().to_string().unwrap()
+    let algorithm = if let Some(algorithm) = algorithm.as_string() {
+        algorithm.to_string().or_throw(&ctx)?
     } else {
         algorithm
             .get_optional::<_, String>("name")?

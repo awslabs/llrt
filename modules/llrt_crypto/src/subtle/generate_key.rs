@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::OnceLock;
 
+use llrt_utils::result::ResultExt;
 use num_traits::FromPrimitive;
 use ring::{
     rand::{SecureRandom, SystemRandom},
@@ -34,11 +35,9 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
 
             let private_key =
                 RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, &exponent)
-                    .map_err(|_| Exception::throw_message(ctx, "Failed to generate RSA key"))?;
+                    .or_throw(ctx)?;
 
-            let private_key = private_key
-                .to_pkcs1_der()
-                .map_err(|_| Exception::throw_message(ctx, "Failed to serialize RSA key"))?;
+            let private_key = private_key.to_pkcs1_der().or_throw(ctx)?;
 
             Ok(private_key.as_bytes().to_vec())
         },
@@ -48,8 +47,7 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
                 CryptoNamedCurve::P384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
             };
             let rng = SystemRandom::new();
-            let pkcs8 = EcdsaKeyPair::generate_pkcs8(curve, &rng)
-                .map_err(|_| Exception::throw_message(ctx, "Failed to generate EC key"))?;
+            let pkcs8 = EcdsaKeyPair::generate_pkcs8(curve, &rng).or_throw(ctx)?;
 
             Ok(pkcs8.as_ref().to_vec())
         },
@@ -62,8 +60,7 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
 
             let mut key = vec![0u8; length / 8];
             let rng = SystemRandom::new();
-            rng.fill(&mut key)
-                .map_err(|_| Exception::throw_message(ctx, "Failed to generate key"))?;
+            rng.fill(&mut key).or_throw(ctx)?;
 
             Ok(key)
         },
@@ -93,8 +90,7 @@ pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8
 
             let rng = ring::rand::SystemRandom::new();
             let mut key = vec![0u8; length];
-            rng.fill(&mut key)
-                .map_err(|_| Exception::throw_message(ctx, "Failed to generate key"))?;
+            rng.fill(&mut key).or_throw(ctx)?;
 
             Ok(key)
         },
