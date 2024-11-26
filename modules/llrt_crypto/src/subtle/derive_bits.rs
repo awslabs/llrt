@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::num::NonZeroU32;
 
-use llrt_utils::result::ResultExt;
+use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
-use rquickjs::{Ctx, Exception, Result};
+use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 
-use crate::subtle::{CryptoNamedCurve, DeriveAlgorithm, Sha};
+use crate::subtle::{extract_derive_algorithm, CryptoNamedCurve, DeriveAlgorithm, Sha};
 
 struct HkdfOutput(usize);
 
@@ -17,7 +17,19 @@ impl hkdf::KeyType for HkdfOutput {
     }
 }
 
-pub fn derive_bits(
+pub async fn subtle_derive_bits<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    base_key: ObjectBytes<'js>,
+    length: u32,
+) -> Result<ArrayBuffer<'js>> {
+    let derive_algorithm = extract_derive_algorithm(&ctx, &algorithm)?;
+
+    let bytes = derive_bits(&ctx, &derive_algorithm, base_key.as_bytes(), length)?;
+    ArrayBuffer::new(ctx, bytes)
+}
+
+fn derive_bits(
     ctx: &Ctx<'_>,
     algorithm: &DeriveAlgorithm,
     base_key: &[u8],

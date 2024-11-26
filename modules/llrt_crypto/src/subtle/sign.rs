@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use hmac::Mac;
-use llrt_utils::result::ResultExt;
+use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rand::rngs::OsRng;
 use ring::signature::EcdsaKeyPair;
-use rquickjs::{Ctx, Exception, Result};
+use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
     pss::Pss,
@@ -13,11 +13,23 @@ use rsa::{
 use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 
 use crate::{
-    subtle::{Algorithm, HmacSha256, Sha},
+    subtle::{extract_sign_verify_algorithm, Algorithm, HmacSha256, Sha},
     SYSTEM_RANDOM,
 };
 
-pub fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+pub async fn subtle_sign<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    key: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
+) -> Result<ArrayBuffer<'js>> {
+    let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
+
+    let bytes = sign(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
+    ArrayBuffer::new(ctx, bytes)
+}
+
+fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::Hmac => {
             let mut mac = HmacSha256::new_from_slice(key).or_throw(ctx)?;

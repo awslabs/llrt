@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use hmac::Mac;
-use llrt_utils::result::ResultExt;
+use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use ring::signature::{EcdsaKeyPair, KeyPair};
-use rquickjs::{Ctx, Exception, Result};
+use rquickjs::{Ctx, Exception, Result, Value};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
     pkcs1v15::Pkcs1v15Sign,
@@ -13,11 +13,29 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{Algorithm, HmacSha256, Sha},
+    subtle::{extract_sign_verify_algorithm, Algorithm, HmacSha256, Sha},
     SYSTEM_RANDOM,
 };
 
-pub fn verify(
+pub async fn subtle_verify<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    key: ObjectBytes<'js>,
+    signature: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
+) -> Result<bool> {
+    let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
+
+    verify(
+        &ctx,
+        &algorithm,
+        key.as_bytes(),
+        signature.as_bytes(),
+        data.as_bytes(),
+    )
+}
+
+fn verify(
     ctx: &Ctx<'_>,
     algorithm: &Algorithm,
     key: &[u8],

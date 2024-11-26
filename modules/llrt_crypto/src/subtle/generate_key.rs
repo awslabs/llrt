@@ -5,19 +5,31 @@ use std::sync::OnceLock;
 use llrt_utils::result::ResultExt;
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
-use rquickjs::{Ctx, Exception, Result};
+use rquickjs::{Array, ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
 
 use crate::{
-    subtle::{CryptoNamedCurve, KeyGenAlgorithm, Sha},
+    subtle::{extract_generate_key_algorithm, CryptoNamedCurve, KeyGenAlgorithm, Sha},
     SYSTEM_RANDOM,
 };
 
 static PUB_EXPONENT_1: OnceLock<BigUint> = OnceLock::new();
 static PUB_EXPONENT_2: OnceLock<BigUint> = OnceLock::new();
 
-pub fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
+pub async fn subtle_generate_key<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    _extractable: bool,
+    _key_usages: Array<'js>,
+) -> Result<ArrayBuffer<'js>> {
+    let key_gen_algorithm = extract_generate_key_algorithm(&ctx, &algorithm)?;
+
+    let bytes = generate_key(&ctx, &key_gen_algorithm)?;
+    ArrayBuffer::new(ctx, bytes)
+}
+
+fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
     match algorithm {
         KeyGenAlgorithm::Rsa {
             modulus_length,

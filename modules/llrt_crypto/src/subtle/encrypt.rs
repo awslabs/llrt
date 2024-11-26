@@ -3,16 +3,28 @@
 use aes::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
 use aes_gcm::{aead::Aead, KeyInit, Nonce};
 use ctr::{cipher::StreamCipher, Ctr128BE, Ctr32BE, Ctr64BE};
-use llrt_utils::result::ResultExt;
-use rquickjs::{Ctx, Exception, Result};
+use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
+use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{pkcs1::DecodeRsaPrivateKey, rand_core::OsRng, Oaep, RsaPrivateKey};
 use sha2::Sha256;
 
-use crate::subtle::{Aes256Gcm, Algorithm};
+use crate::subtle::{extract_algorithm_object, Aes256Gcm, Algorithm};
 
 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
 
-pub fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+pub async fn subtle_encrypt<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    key: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
+) -> Result<ArrayBuffer<'js>> {
+    let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
+
+    let bytes = encrypt(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
+    ArrayBuffer::new(ctx, bytes)
+}
+
+fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::AesGcm(iv) => {
             let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;

@@ -1,13 +1,32 @@
-use llrt_utils::result::ResultExt;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{Ctx, Result};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
+use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha384, Sha512};
 
 use crate::subtle::Sha;
 
-pub fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
+pub async fn subtle_digest<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    data: ObjectBytes<'js>,
+) -> Result<ArrayBuffer<'js>> {
+    let algorithm = if let Some(algorithm) = algorithm.as_string() {
+        algorithm.to_string().or_throw(&ctx)?
+    } else {
+        algorithm
+            .get_optional::<_, String>("name")?
+            .ok_or_else(|| {
+                Exception::throw_message(&ctx, "Missing algorithm name should cause TypeError")
+            })?
+    };
+
+    let bytes = digest(&ctx, &algorithm, data.as_bytes())?;
+    ArrayBuffer::new(ctx, bytes)
+}
+
+fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
     let sha = Sha::try_from(algorithm).or_throw(ctx)?;
 
     match sha {

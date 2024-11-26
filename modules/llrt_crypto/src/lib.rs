@@ -3,8 +3,9 @@
 mod crc32;
 mod md5_hash;
 mod sha_hash;
-use std::slice;
 mod subtle;
+
+use std::slice;
 
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
