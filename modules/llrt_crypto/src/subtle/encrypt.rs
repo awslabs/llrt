@@ -46,11 +46,11 @@ pub fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) ->
     }
 }
 
-fn encrypt_aes_ctr_gen<B>(ctx: &Ctx<'_>, key: &[u8], counter: &[u8], data: &[u8]) -> Result<Vec<u8>>
+fn encrypt_aes_ctr_gen<T>(ctx: &Ctx<'_>, key: &[u8], counter: &[u8], data: &[u8]) -> Result<Vec<u8>>
 where
-    B: KeyIvInit + StreamCipher,
+    T: KeyIvInit + StreamCipher,
 {
-    let mut cipher = B::new(key.into(), counter.into());
+    let mut cipher = T::new(key.into(), counter.into());
 
     let mut ciphertext = data.to_vec();
     cipher.try_apply_keystream(&mut ciphertext).or_throw(ctx)?;

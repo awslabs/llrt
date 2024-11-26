@@ -240,7 +240,10 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
 
             Ok(Algorithm::RsaOaep(label))
         },
-        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
+        _ => Err(Exception::throw_message(
+            ctx,
+            "Algorithm name must be HMAC | AES-GCM | AES-CBC | AES-CTR | RSA-OAEP",
+        )),
     }
 }
 
@@ -282,7 +285,10 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
 
             Ok(Algorithm::Ecdsa(sha))
         },
-        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
+        _ => Err(Exception::throw_message(
+            ctx,
+            "Algorithm name must be RSASSA-PKCS1-v1_5 | HMAC | RSA-PSS | ECDSA",
+        )),
     }
 }
 
@@ -345,7 +351,10 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
                 iterations,
             })
         },
-        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
+        _ => Err(Exception::throw_message(
+            ctx,
+            "Algorithm name must be ECDH | HKDF | PBKDF2",
+        )),
     }
 }
 
@@ -399,6 +408,9 @@ fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Ke
 
             Ok(KeyGenAlgorithm::Aes { length })
         },
-        _ => Err(Exception::throw_message(ctx,"Algorithm must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams"))
+        _ => Err(Exception::throw_message(
+            ctx,
+            "Algorithm must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams",
+        )),
     }
 }
