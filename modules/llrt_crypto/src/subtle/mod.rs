@@ -35,7 +35,7 @@ pub enum Sha {
 }
 
 impl TryFrom<&str> for Sha {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(hash: &str) -> std::result::Result<Self, Self::Error> {
         match hash.to_ascii_uppercase().as_str() {
@@ -43,7 +43,7 @@ impl TryFrom<&str> for Sha {
             "SHA-256" => Ok(Sha::Sha256),
             "SHA-384" => Ok(Sha::Sha384),
             "SHA-512" => Ok(Sha::Sha512),
-            _ => Err("hash not found"),
+            _ => Err(["'", hash, "' not available"].concat()),
         }
     }
 }
@@ -55,13 +55,13 @@ pub enum CryptoNamedCurve {
 }
 
 impl TryFrom<&str> for CryptoNamedCurve {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(curve: &str) -> std::result::Result<Self, Self::Error> {
         match curve.to_ascii_uppercase().as_str() {
             "P256" => Ok(CryptoNamedCurve::P256),
             "P384" => Ok(CryptoNamedCurve::P384),
-            _ => Err("named_curve not found"),
+            _ => Err(["'", curve, "' not available"].concat()),
         }
     }
 }
