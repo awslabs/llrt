@@ -1,13 +1,14 @@
+use llrt_utils::result::ResultExt;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{Ctx, Result};
 use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha384, Sha512};
 
-use crate::subtle::{get_sha, Sha};
+use crate::subtle::Sha;
 
 pub fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
-    let sha = get_sha(ctx, algorithm)?;
+    let sha = Sha::try_from(algorithm).or_throw(ctx)?;
 
     match sha {
         Sha::Sha1 => {

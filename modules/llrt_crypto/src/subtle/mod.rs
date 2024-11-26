@@ -34,13 +34,35 @@ pub enum Sha {
     Sha512,
 }
 
-fn get_sha(ctx: &Ctx<'_>, hash: &str) -> Result<Sha> {
-    match hash.to_ascii_uppercase().as_str() {
-        "SHA-1" => Ok(Sha::Sha1),
-        "SHA-256" => Ok(Sha::Sha256),
-        "SHA-384" => Ok(Sha::Sha384),
-        "SHA-512" => Ok(Sha::Sha512),
-        _ => Err(Exception::throw_message(ctx, "hash not found")),
+impl TryFrom<&str> for Sha {
+    type Error = &'static str;
+
+    fn try_from(hash: &str) -> std::result::Result<Self, Self::Error> {
+        match hash.to_ascii_uppercase().as_str() {
+            "SHA-1" => Ok(Sha::Sha1),
+            "SHA-256" => Ok(Sha::Sha256),
+            "SHA-384" => Ok(Sha::Sha384),
+            "SHA-512" => Ok(Sha::Sha512),
+            _ => Err("hash not found"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CryptoNamedCurve {
+    P256,
+    P384,
+}
+
+impl TryFrom<&str> for CryptoNamedCurve {
+    type Error = &'static str;
+
+    fn try_from(curve: &str) -> std::result::Result<Self, Self::Error> {
+        match curve.to_ascii_uppercase().as_str() {
+            "P256" => Ok(CryptoNamedCurve::P256),
+            "P384" => Ok(CryptoNamedCurve::P384),
+            _ => Err("named_curve not found"),
+        }
     }
 }
 
@@ -54,20 +76,6 @@ pub enum Algorithm {
     RsassaPkcs1v15,
     Ecdsa(Sha),
     RsaOaep(Option<Vec<u8>>),
-}
-
-#[derive(Debug)]
-pub enum CryptoNamedCurve {
-    P256,
-    P384,
-}
-
-fn get_named_curve(ctx: &Ctx<'_>, curve: &str) -> Result<CryptoNamedCurve> {
-    match curve.to_ascii_uppercase().as_str() {
-        "P-256" => Ok(CryptoNamedCurve::P256),
-        "P-384" => Ok(CryptoNamedCurve::P384),
-        _ => Err(Exception::throw_message(ctx, "named_curve not found")),
-    }
 }
 
 #[derive(Debug)]
@@ -252,7 +260,7 @@ fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
         .get_optional::<_, String>("hash")?
         .ok_or_else(|| Exception::throw_message(ctx, "hash not found"))?;
 
-    get_sha(ctx, &hash)
+    Sha::try_from(hash.as_str()).or_throw(ctx)
 }
 
 fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
@@ -305,7 +313,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
                     Exception::throw_message(ctx, "ECDH namedCurve must be one of: P-256 or P-384")
                 })?;
 
-            let curve = get_named_curve(ctx, &namedcurve)?;
+            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
 
             let public = algorithm
                 .get_optional("public")?
@@ -318,7 +326,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
                 .get_optional::<_, String>("hash")?
                 .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have hash"))?;
 
-            let hash = get_sha(ctx, &hash)?;
+            let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
                 .get_optional("salt")?
@@ -335,7 +343,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
                 .get_optional::<_, String>("hash")?
                 .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have hash"))?;
 
-            let hash = get_sha(ctx, &hash)?;
+            let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
                 .get_optional("salt")?
@@ -383,7 +391,7 @@ fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Ke
                 .get_optional::<_, String>("namedCurve")?
                 .ok_or_else(|| Exception::throw_message(ctx, "Algorithm namedCurve not found"))?;
 
-            let curve = get_named_curve(ctx, &namedcurve)?;
+            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
 
             Ok(KeyGenAlgorithm::Ec { curve })
         },
