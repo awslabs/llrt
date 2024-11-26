@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::num::NonZeroU32;
 
-use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 
-use crate::subtle::{extract_derive_algorithm, CryptoNamedCurve, DeriveAlgorithm, Sha};
+use crate::subtle::{CryptoNamedCurve, DeriveAlgorithm, Sha};
 
 struct HkdfOutput(usize);
 
@@ -27,6 +27,72 @@ pub async fn subtle_derive_bits<'js>(
 
     let bytes = derive_bits(&ctx, &derive_algorithm, base_key.as_bytes(), length)?;
     ArrayBuffer::new(ctx, bytes)
+}
+
+fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAlgorithm> {
+    let name = algorithm
+        .get_optional::<_, String>("name")?
+        .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
+
+    match name.as_str() {
+        "ECDH" => {
+            let namedcurve = algorithm
+                .get_optional::<_, String>("namedcurve")?
+                .ok_or_else(|| {
+                    Exception::throw_message(ctx, "ECDH namedCurve must be one of: P-256 or P-384")
+                })?;
+
+            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
+
+            let public = algorithm
+                .get_optional("public")?
+                .ok_or_else(|| Exception::throw_message(ctx, "ECDH must have CryptoKey"))?;
+
+            Ok(DeriveAlgorithm::Edch { curve, public })
+        },
+        "HKDF" => {
+            let hash = algorithm
+                .get_optional::<_, String>("hash")?
+                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have hash"))?;
+
+            let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
+
+            let salt = algorithm
+                .get_optional("salt")?
+                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have salt"))?;
+
+            let info = algorithm
+                .get_optional("info")?
+                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have info"))?;
+
+            Ok(DeriveAlgorithm::Hkdf { hash, salt, info })
+        },
+        "PBKDF2" => {
+            let hash = algorithm
+                .get_optional::<_, String>("hash")?
+                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have hash"))?;
+
+            let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
+
+            let salt = algorithm
+                .get_optional("salt")?
+                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have salt"))?;
+
+            let iterations = algorithm
+                .get_optional("iterations")?
+                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have iterations"))?;
+
+            Ok(DeriveAlgorithm::Pbkdf2 {
+                hash,
+                salt,
+                iterations,
+            })
+        },
+        _ => Err(Exception::throw_message(
+            ctx,
+            "Algorithm name must be ECDH | HKDF | PBKDF2",
+        )),
+    }
 }
 
 fn derive_bits(

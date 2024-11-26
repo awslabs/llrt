@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::OnceLock;
 
-use llrt_utils::result::ResultExt;
+use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
 use rquickjs::{Array, ArrayBuffer, Ctx, Exception, Result, Value};
@@ -10,7 +10,7 @@ use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
 
 use crate::{
-    subtle::{extract_generate_key_algorithm, CryptoNamedCurve, KeyGenAlgorithm, Sha},
+    subtle::{extract_sha_hash, CryptoNamedCurve, KeyGenAlgorithm, Sha},
     SYSTEM_RANDOM,
 };
 
@@ -27,6 +27,63 @@ pub async fn subtle_generate_key<'js>(
 
     let bytes = generate_key(&ctx, &key_gen_algorithm)?;
     ArrayBuffer::new(ctx, bytes)
+}
+
+fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<KeyGenAlgorithm> {
+    let name = algorithm
+        .get_optional::<_, String>("name")?
+        .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
+
+    match name.as_str() {
+        "RSASSA-PKCS1-v1_5" | "RSA-PSS" | "RSA-OAEP" => {
+            let modulus_length = algorithm.get_optional("modulusLength")?.ok_or_else(|| {
+                Exception::throw_message(ctx, "Algorithm modulusLength not found")
+            })?;
+
+            let public_exponent = algorithm.get_optional("publicExponent")?.ok_or_else(|| {
+                Exception::throw_message(ctx, "Algorithm publicExponent not found")
+            })?;
+
+            Ok(KeyGenAlgorithm::Rsa {
+                modulus_length,
+                public_exponent,
+            })
+        },
+        "ECDSA" | "ECDH" => {
+            let namedcurve = algorithm
+                .get_optional::<_, String>("namedCurve")?
+                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm namedCurve not found"))?;
+
+            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
+
+            Ok(KeyGenAlgorithm::Ec { curve })
+        },
+        "HMAC" => {
+            let hash = extract_sha_hash(ctx, algorithm)?;
+
+            let length = algorithm.get_optional::<_, u32>("length")?;
+
+            Ok(KeyGenAlgorithm::Hmac { hash, length })
+        },
+        "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" => {
+            let length = algorithm
+                .get_optional("length")?
+                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm length not found"))?;
+
+            if length != 128 && length != 192 && length != 256 {
+                return Err(Exception::throw_message(
+                    ctx,
+                    "Algorithm length must be one of: 128, 192, or 256.",
+                ));
+            }
+
+            Ok(KeyGenAlgorithm::Aes { length })
+        },
+        _ => Err(Exception::throw_message(
+            ctx,
+            "Algorithm must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams",
+        )),
+    }
 }
 
 fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
