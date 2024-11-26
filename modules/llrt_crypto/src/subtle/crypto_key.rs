@@ -7,7 +7,6 @@ use rquickjs::{class::Trace, Array, Ctx, JsLifetime, Object, Result};
 pub struct CryptoKey<'js> {
     type_name: String,
     extractable: bool,
-    #[qjs(skip_trace)]
     algorithm: Object<'js>,
     usages: Array<'js>,
     handle: Vec<u8>,
