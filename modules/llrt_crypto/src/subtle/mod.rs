@@ -9,6 +9,7 @@ mod generate_key;
 mod sign;
 mod verify;
 
+pub use crypto_key::CryptoKey;
 pub use decrypt::subtle_decrypt;
 pub use derive_bits::subtle_derive_bits;
 pub use digest::subtle_digest;
@@ -60,8 +61,8 @@ impl TryFrom<&str> for CryptoNamedCurve {
 
     fn try_from(curve: &str) -> std::result::Result<Self, Self::Error> {
         match curve.to_ascii_uppercase().as_str() {
-            "P256" => Ok(CryptoNamedCurve::P256),
-            "P384" => Ok(CryptoNamedCurve::P384),
+            "P-256" => Ok(CryptoNamedCurve::P256),
+            "P-384" => Ok(CryptoNamedCurve::P384),
             _ => Err(["'", curve, "' not available"].concat()),
         }
     }

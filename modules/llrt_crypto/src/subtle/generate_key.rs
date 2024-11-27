@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
-use rquickjs::{Array, Ctx, Exception, Result, Value};
+use rquickjs::{Array, Ctx, Exception, IntoJs, Object, Result, Value};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
 
@@ -24,22 +24,49 @@ pub async fn subtle_generate_key<'js>(
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
-) -> Result<CryptoKey<'js>> {
-    let key_gen_algorithm = extract_generate_key_algorithm(&ctx, &algorithm)?;
+) -> Result<Value<'js>> {
+    let (name, key_gen_algorithm) = extract_generate_key_algorithm(&ctx, &algorithm)?;
 
     let bytes = generate_key(&ctx, &key_gen_algorithm)?;
 
-    CryptoKey::new(
-        ctx,
-        "secret".to_string(), // dummy
-        extractable,
-        algorithm,
-        key_usages,
-        bytes, // dummy
-    )
+    if name.starts_with("AES") || name == "HMAC" {
+        CryptoKey::new(
+            ctx.clone(),
+            "secret".to_string(),
+            extractable,
+            algorithm,
+            key_usages, // for test
+            bytes,      // for test
+        )
+        .into_js(&ctx)
+    } else {
+        let private = CryptoKey::new(
+            ctx.clone(),
+            "private".to_string(),
+            extractable,
+            algorithm.clone(),
+            key_usages.clone(), // for test
+            bytes.clone(),      // for test
+        )?;
+        let public = CryptoKey::new(
+            ctx.clone(),
+            "public".to_string(),
+            true,
+            algorithm,
+            key_usages, // for test
+            bytes,      // for test
+        )?;
+        let obj = Object::new(ctx)?;
+        obj.set("privateKey", private)?;
+        obj.set("publicKey", public)?;
+        Ok(obj.into())
+    }
 }
 
-fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<KeyGenAlgorithm> {
+fn extract_generate_key_algorithm(
+    ctx: &Ctx<'_>,
+    algorithm: &Value,
+) -> Result<(String, KeyGenAlgorithm)> {
     let name = algorithm
         .get_optional::<_, String>("name")?
         .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
@@ -54,7 +81,7 @@ fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Ke
                 Exception::throw_message(ctx, "Algorithm publicExponent not found")
             })?;
 
-            Ok(KeyGenAlgorithm::Rsa { modulus_length, public_exponent })
+            Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
         },
         "ECDSA" | "ECDH" => {
             let named_curve = algorithm
@@ -63,14 +90,14 @@ fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Ke
 
             let curve = CryptoNamedCurve::try_from(named_curve.as_str()).or_throw(ctx)?;
 
-            Ok(KeyGenAlgorithm::Ec { curve })
+            Ok((name, KeyGenAlgorithm::Ec { curve }))
         },
         "HMAC" => {
             let hash = extract_sha_hash(ctx, algorithm)?;
 
             let length = algorithm.get_optional::<_, u32>("length")?;
 
-            Ok(KeyGenAlgorithm::Hmac { hash, length })
+            Ok((name, KeyGenAlgorithm::Hmac { hash, length }))
         },
         "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" => {
             let length = algorithm
@@ -84,7 +111,7 @@ fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Ke
                 ));
             }
 
-            Ok(KeyGenAlgorithm::Aes { length })
+            Ok((name, KeyGenAlgorithm::Aes { length }))
         },
         _ => Err(Exception::throw_message(
             ctx,

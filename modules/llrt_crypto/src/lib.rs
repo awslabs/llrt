@@ -29,7 +29,7 @@ use rquickjs::{
 };
 use subtle::{
     subtle_decrypt, subtle_derive_bits, subtle_digest, subtle_encrypt, subtle_generate_key,
-    subtle_sign, subtle_verify,
+    subtle_sign, subtle_verify, CryptoKey,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
@@ -179,6 +179,8 @@ fn uuidv4() -> String {
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
+
+    Class::<CryptoKey>::define(&globals)?;
 
     let crypto = Object::new(ctx.clone())?;
 
