@@ -125,6 +125,12 @@ class TestServer extends EventEmitter {
   }
 
   public async start() {
+    if (this.testFiles.length === 0) {
+      this.printResults();
+      this.shutdown();
+      return;
+    }
+
     this.started = performance.now();
     const server = net.createServer((socket) =>
       this.handleSocketConnected(socket)
