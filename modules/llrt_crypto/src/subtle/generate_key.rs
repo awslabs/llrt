@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
-use rquickjs::{Array, Ctx, Exception, Object, Result, Value};
+use rquickjs::{Array, Ctx, Exception, Result, Value};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
 
@@ -25,7 +25,7 @@ pub async fn subtle_generate_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<CryptoKey<'js>> {
-    let (algorithm, key_gen_algorithm) = extract_generate_key_algorithm(&ctx, &algorithm)?;
+    let key_gen_algorithm = extract_generate_key_algorithm(&ctx, &algorithm)?;
 
     let bytes = generate_key(&ctx, &key_gen_algorithm)?;
 
@@ -39,10 +39,7 @@ pub async fn subtle_generate_key<'js>(
     )
 }
 
-fn extract_generate_key_algorithm<'js>(
-    ctx: &Ctx<'js>,
-    algorithm: &Value,
-) -> Result<(Object<'js>, KeyGenAlgorithm)> {
+fn extract_generate_key_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<KeyGenAlgorithm> {
     let name = algorithm
         .get_optional::<_, String>("name")?
         .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
@@ -53,21 +50,11 @@ fn extract_generate_key_algorithm<'js>(
                 Exception::throw_message(ctx, "Algorithm modulusLength not found")
             })?;
 
-            let public_exponent: Vec<u8> = algorithm.get_optional("publicExponent")?.ok_or_else(|| {
+            let public_exponent = algorithm.get_optional("publicExponent")?.ok_or_else(|| {
                 Exception::throw_message(ctx, "Algorithm publicExponent not found")
             })?;
-            let public_exponent_1 = public_exponent.clone();
 
-            let obj = Object::new(ctx.clone())?;
-            obj.set("name", name)?;
-            obj.set("modulusLength", modulus_length)?;
-            obj.set("publicExponent", public_exponent_1)?;
-
-            Ok((obj,
-                KeyGenAlgorithm::Rsa {
-                modulus_length,
-                public_exponent,
-            }))
+            Ok(KeyGenAlgorithm::Rsa { modulus_length, public_exponent })
         },
         "ECDSA" | "ECDH" => {
             let named_curve = algorithm
@@ -76,22 +63,14 @@ fn extract_generate_key_algorithm<'js>(
 
             let curve = CryptoNamedCurve::try_from(named_curve.as_str()).or_throw(ctx)?;
 
-            let obj = Object::new(ctx.clone())?;
-            obj.set("name", name)?;
-            obj.set("namedCurve", named_curve)?;
-
-            Ok((obj, KeyGenAlgorithm::Ec { curve }))
+            Ok(KeyGenAlgorithm::Ec { curve })
         },
         "HMAC" => {
             let hash = extract_sha_hash(ctx, algorithm)?;
 
             let length = algorithm.get_optional::<_, u32>("length")?;
 
-            let obj = Object::new(ctx.clone())?;
-            obj.set("name", name)?;
-            obj.set("length", length)?;
-
-            Ok((obj, KeyGenAlgorithm::Hmac { hash, length }))
+            Ok(KeyGenAlgorithm::Hmac { hash, length })
         },
         "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" => {
             let length = algorithm
@@ -105,11 +84,7 @@ fn extract_generate_key_algorithm<'js>(
                 ));
             }
 
-            let obj = Object::new(ctx.clone())?;
-            obj.set("name", name)?;
-            obj.set("length", length)?;
-
-            Ok((obj, KeyGenAlgorithm::Aes { length }))
+            Ok(KeyGenAlgorithm::Aes { length })
         },
         _ => Err(Exception::throw_message(
             ctx,

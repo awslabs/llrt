@@ -1,13 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{class::Trace, Array, Ctx, JsLifetime, Object, Result};
+use rquickjs::{class::Trace, Array, Ctx, JsLifetime, Result, Value};
 
 #[rquickjs::class]
 #[derive(Clone, Trace, rquickjs::JsLifetime)]
 pub struct CryptoKey<'js> {
     type_name: String,
     extractable: bool,
-    algorithm: Object<'js>,
+    algorithm: Value<'js>,
     usages: Array<'js>,
     handle: Vec<u8>,
 }
@@ -19,7 +19,7 @@ impl<'js> CryptoKey<'js> {
         _ctx: Ctx<'js>,
         type_name: String,
         extractable: bool,
-        algorithm: Object<'js>,
+        algorithm: Value<'js>,
         usages: Array<'js>,
         handle: Vec<u8>,
     ) -> Result<Self> {
@@ -43,7 +43,7 @@ impl<'js> CryptoKey<'js> {
     }
 
     #[qjs(get)]
-    pub fn algorithm(&self) -> Object<'js> {
+    pub fn algorithm(&self) -> Value<'js> {
         self.algorithm.clone()
     }
 
