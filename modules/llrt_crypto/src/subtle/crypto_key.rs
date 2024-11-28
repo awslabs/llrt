@@ -62,7 +62,18 @@ pub struct CryptoKeyPair<'js> {
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> CryptoKeyPair<'js> {
-    #[qjs(constructor)]
+    #[qjs(get)]
+    pub fn private_key(&self) -> CryptoKey<'js> {
+        self.private_key.clone()
+    }
+
+    #[qjs(get)]
+    pub fn public_key(&self) -> CryptoKey<'js> {
+        self.public_key.clone()
+    }
+}
+
+impl<'js> CryptoKeyPair<'js> {
     pub fn new(
         _ctx: Ctx<'js>,
         private_key: CryptoKey<'js>,
@@ -72,15 +83,5 @@ impl<'js> CryptoKeyPair<'js> {
             private_key,
             public_key,
         })
-    }
-
-    #[qjs(get)]
-    pub fn private_key(&self) -> CryptoKey<'js> {
-        self.private_key.clone()
-    }
-
-    #[qjs(get)]
-    pub fn public_key(&self) -> CryptoKey<'js> {
-        self.public_key.clone()
     }
 }
