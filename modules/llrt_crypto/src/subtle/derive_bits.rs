@@ -32,55 +32,55 @@ pub async fn subtle_derive_bits<'js>(
 fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAlgorithm> {
     let name = algorithm
         .get_optional::<_, String>("name")?
-        .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
+        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
         "ECDH" => {
             let namedcurve = algorithm
                 .get_optional::<_, String>("namedcurve")?
                 .ok_or_else(|| {
-                    Exception::throw_message(ctx, "ECDH namedCurve must be one of: P-256 or P-384")
+                    Exception::throw_type(ctx, "algorithm 'namedcurve' property required")
                 })?;
 
             let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
 
-            let public = algorithm
-                .get_optional("public")?
-                .ok_or_else(|| Exception::throw_message(ctx, "ECDH must have CryptoKey"))?;
+            let public = algorithm.get_optional("public")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'public' property required")
+            })?;
 
             Ok(DeriveAlgorithm::Edch { curve, public })
         },
         "HKDF" => {
             let hash = algorithm
                 .get_optional::<_, String>("hash")?
-                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have hash"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
 
             let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
                 .get_optional("salt")?
-                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have salt"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?;
 
             let info = algorithm
                 .get_optional("info")?
-                .ok_or_else(|| Exception::throw_message(ctx, "HKDF must have info"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'info' property required"))?;
 
             Ok(DeriveAlgorithm::Hkdf { hash, salt, info })
         },
         "PBKDF2" => {
             let hash = algorithm
                 .get_optional::<_, String>("hash")?
-                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have hash"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
 
             let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
                 .get_optional("salt")?
-                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have salt"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?;
 
-            let iterations = algorithm
-                .get_optional("iterations")?
-                .ok_or_else(|| Exception::throw_message(ctx, "PBKDF2 must have iterations"))?;
+            let iterations = algorithm.get_optional("iterations")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'iterations' property required")
+            })?;
 
             Ok(DeriveAlgorithm::Pbkdf2 {
                 hash,
@@ -90,7 +90,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
         },
         _ => Err(Exception::throw_message(
             ctx,
-            "Algorithm name must be ECDH | HKDF | PBKDF2",
+            "Algorithm 'name' must be ECDH | HKDF | PBKDF2",
         )),
     }
 }

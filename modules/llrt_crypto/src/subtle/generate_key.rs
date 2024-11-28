@@ -66,16 +66,16 @@ fn extract_generate_key_algorithm(
 ) -> Result<(String, KeyGenAlgorithm)> {
     let name = algorithm
         .get_optional::<_, String>("name")?
-        .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
+        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
         "RSASSA-PKCS1-v1_5" | "RSA-PSS" | "RSA-OAEP" => {
             let modulus_length = algorithm.get_optional("modulusLength")?.ok_or_else(|| {
-                Exception::throw_message(ctx, "Algorithm modulusLength not found")
+                Exception::throw_type(ctx, "algorithm 'modulusLength' property required")
             })?;
 
             let public_exponent = algorithm.get_optional("publicExponent")?.ok_or_else(|| {
-                Exception::throw_message(ctx, "Algorithm publicExponent not found")
+                Exception::throw_type(ctx, "algorithm 'publicExponent' property required")
             })?;
 
             Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
@@ -83,7 +83,7 @@ fn extract_generate_key_algorithm(
         "ECDSA" | "ECDH" => {
             let named_curve = algorithm
                 .get_optional::<_, String>("namedCurve")?
-                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm namedCurve not found"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'namedCurve' property required"))?;
 
             let curve = CryptoNamedCurve::try_from(named_curve.as_str()).or_throw(ctx)?;
 
@@ -99,12 +99,12 @@ fn extract_generate_key_algorithm(
         "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" => {
             let length = algorithm
                 .get_optional("length")?
-                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm length not found"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'length' property required"))?;
 
             if length != 128 && length != 192 && length != 256 {
-                return Err(Exception::throw_message(
+                return Err(Exception::throw_type(
                     ctx,
-                    "Algorithm length must be one of: 128, 192, or 256.",
+                    "Algorithm 'length' must be one of: 128, 192, or 256",
                 ));
             }
 
@@ -112,7 +112,7 @@ fn extract_generate_key_algorithm(
         },
         _ => Err(Exception::throw_message(
             ctx,
-            "Algorithm must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams",
+            "Algorithm 'name' must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams",
         )),
     }
 }

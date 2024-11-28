@@ -17,9 +17,7 @@ pub async fn subtle_digest<'js>(
     } else {
         algorithm
             .get_optional::<_, String>("name")?
-            .ok_or_else(|| {
-                Exception::throw_message(&ctx, "Missing algorithm name should cause TypeError")
-            })?
+            .ok_or_else(|| Exception::throw_type(&ctx, "algorithm 'name' property required"))?
     };
 
     let bytes = digest(&ctx, &algorithm, data.as_bytes())?;

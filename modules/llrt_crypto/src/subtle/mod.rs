@@ -119,32 +119,32 @@ pub enum KeyGenAlgorithm {
 fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
     let name = algorithm
         .get_optional::<_, String>("name")?
-        .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
+        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
         "HMAC" => Ok(Algorithm::Hmac),
         "AES-GCM" => {
             let iv = algorithm
                 .get_optional("iv")?
-                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm iv not found"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?;
 
             Ok(Algorithm::AesGcm(iv))
         },
         "AES-CBC" => {
             let iv = algorithm
                 .get_optional("iv")?
-                .ok_or_else(|| Exception::throw_message(ctx, "Algorithm iv not found"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?;
 
             Ok(Algorithm::AesCbc(iv))
         },
         "AES-CTR" => {
-            let counter = algorithm
-                .get_optional("counter")?
-                .ok_or_else(|| Exception::throw_message(ctx, "AES-CTR counter not found"))?;
+            let counter = algorithm.get_optional("counter")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'counter' property required")
+            })?;
 
-            let length = algorithm
-                .get_optional("length")?
-                .ok_or_else(|| Exception::throw_message(ctx, "AES-CTR length not found"))?;
+            let length = algorithm.get_optional("length")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'length' property required")
+            })?;
 
             Ok(Algorithm::AesCtr(counter, length))
         },
@@ -155,7 +155,7 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
         },
         _ => Err(Exception::throw_message(
             ctx,
-            "Algorithm name must be HMAC | AES-GCM | AES-CBC | AES-CTR | RSA-OAEP",
+            "Algorithm 'name' must be HMAC | AES-GCM | AES-CBC | AES-CTR | RSA-OAEP",
         )),
     }
 }
@@ -173,15 +173,15 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
 
     let name = algorithm
         .get_optional::<_, String>("name")?
-        .ok_or_else(|| Exception::throw_message(ctx, "Algorithm name not found"))?;
+        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
         "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
         "HMAC" => Ok(Algorithm::Hmac),
         "RSA-PSS" => {
-            let salt_length = algorithm
-                .get_optional("saltLength")?
-                .ok_or_else(|| Exception::throw_message(ctx, "RSA-PSS saltLength not found"))?;
+            let salt_length = algorithm.get_optional("saltLength")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'saltLength' property required")
+            })?;
 
             Ok(Algorithm::RsaPss(salt_length))
         },
@@ -192,7 +192,7 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
         },
         _ => Err(Exception::throw_message(
             ctx,
-            "Algorithm name must be RSASSA-PKCS1-v1_5 | HMAC | RSA-PSS | ECDSA",
+            "Algorithm 'name' must be RSASSA-PKCS1-v1_5 | HMAC | RSA-PSS | ECDSA",
         )),
     }
 }
@@ -200,7 +200,7 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
 fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
     let hash = algorithm
         .get_optional::<_, String>("hash")?
-        .ok_or_else(|| Exception::throw_message(ctx, "hash not found"))?;
+        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
 
     Sha::try_from(hash.as_str()).or_throw(ctx)
 }
