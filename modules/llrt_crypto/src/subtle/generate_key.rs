@@ -1,9 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::OnceLock;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::OnceLock,
+};
 
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
+use once_cell::sync::Lazy;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
 use rquickjs::{Array, Ctx, Exception, IntoJs, Result, Value};
 use rsa::pkcs1::EncodeRsaPrivateKey;
@@ -19,6 +23,94 @@ use super::crypto_key::{CryptoKey, CryptoKeyPair};
 static PUB_EXPONENT_1: OnceLock<BigUint> = OnceLock::new();
 static PUB_EXPONENT_2: OnceLock<BigUint> = OnceLock::new();
 
+static MANDATORY_USAGES: Lazy<HashMap<&str, HashSet<String>>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    map.insert("AES-CTR", HashSet::from([]));
+    map.insert("AES-CBC", HashSet::from([]));
+    map.insert("AES-GCM", HashSet::from([]));
+    map.insert("AES-GCM", HashSet::from([]));
+    map.insert("HMAC", HashSet::from([]));
+    map.insert("RSASSA-PKCS1-v1_5", HashSet::from(["sign".to_string()]));
+    map.insert("RSA-PSS", HashSet::from(["sign".to_string()]));
+    map.insert(
+        "RSA-OAEP",
+        HashSet::from(["decrypt".to_string(), "unwrapKey".to_string()]),
+    );
+    map.insert("ECDSA", HashSet::from(["sign".to_string()]));
+    map.insert(
+        "ECDH",
+        HashSet::from(["deriveKey".to_string(), "deriveBits".to_string()]),
+    );
+
+    map
+});
+
+static SUPPORTED_USAGES: Lazy<HashMap<&str, HashSet<String>>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    map.insert(
+        "AES-CTR",
+        HashSet::from([
+            "encrypt".to_string(),
+            "decrypt".to_string(),
+            "wrapKey".to_string(),
+            "unwrapKey".to_string(),
+        ]),
+    );
+    map.insert(
+        "AES-CBC",
+        HashSet::from([
+            "encrypt".to_string(),
+            "decrypt".to_string(),
+            "wrapKey".to_string(),
+            "unwrapKey".to_string(),
+        ]),
+    );
+    map.insert(
+        "AES-GCM",
+        HashSet::from([
+            "encrypt".to_string(),
+            "decrypt".to_string(),
+            "wrapKey".to_string(),
+            "unwrapKey".to_string(),
+        ]),
+    );
+    map.insert(
+        "AES-GCM",
+        HashSet::from(["wrapKey".to_string(), "unwrapKey".to_string()]),
+    );
+    map.insert(
+        "HMAC",
+        HashSet::from(["sign".to_string(), "verify".to_string()]),
+    );
+    map.insert(
+        "RSASSA-PKCS1-v1_5",
+        HashSet::from(["sign".to_string(), "verify".to_string()]),
+    );
+    map.insert(
+        "RSA-PSS",
+        HashSet::from(["sign".to_string(), "verify".to_string()]),
+    );
+    map.insert(
+        "RSA-OAEP",
+        HashSet::from([
+            "encrypt".to_string(),
+            "decrypt".to_string(),
+            "wrapKey".to_string(),
+            "unwrapKey".to_string(),
+        ]),
+    );
+    map.insert(
+        "ECDSA",
+        HashSet::from(["sign".to_string(), "verify".to_string()]),
+    );
+    map.insert(
+        "ECDH",
+        HashSet::from(["deriveKey".to_string(), "deriveBits".to_string()]),
+    );
+
+    map
+});
+
 pub async fn subtle_generate_key<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
@@ -26,6 +118,9 @@ pub async fn subtle_generate_key<'js>(
     key_usages: Array<'js>,
 ) -> Result<Value<'js>> {
     let (name, key_gen_algorithm) = extract_generate_key_algorithm(&ctx, &algorithm)?;
+
+    let (private_usages, public_or_secret_usages) =
+        classify_and_check_usages(&ctx, &name, &key_usages)?;
 
     let bytes = generate_key(&ctx, &key_gen_algorithm)?;
 
@@ -35,8 +130,8 @@ pub async fn subtle_generate_key<'js>(
             "secret".to_string(),
             extractable,
             algorithm,
-            key_usages, // for test
-            bytes,      // for test
+            public_or_secret_usages,
+            bytes, // for test
         )
         .into_js(&ctx)
     } else {
@@ -45,16 +140,16 @@ pub async fn subtle_generate_key<'js>(
             "private".to_string(),
             extractable,
             algorithm.clone(),
-            key_usages.clone(), // for test
-            bytes.clone(),      // for test
+            private_usages,
+            bytes.clone(), // for test
         )?;
         let public_key = CryptoKey::new(
             ctx.clone(),
             "public".to_string(),
             true,
             algorithm,
-            key_usages, // for test
-            bytes,      // for test
+            public_or_secret_usages,
+            bytes, // for test
         )?;
         CryptoKeyPair::new(ctx.clone(), private_key, public_key).into_js(&ctx)
     }
@@ -115,6 +210,59 @@ fn extract_generate_key_algorithm(
             "Algorithm 'name' must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams",
         )),
     }
+}
+
+fn classify_and_check_usages<'js>(
+    ctx: &Ctx<'js>,
+    name: &str,
+    key_usages: &Array<'js>,
+) -> Result<(Array<'js>, Array<'js>)> {
+    let mut key_usages_set = HashSet::new();
+    for value in key_usages.clone().into_iter() {
+        let value = value?;
+        if let Some(string) = value.as_string() {
+            key_usages_set.insert(string.to_string()?);
+        }
+    }
+
+    let mandatory_usages = MANDATORY_USAGES.get(name).unwrap();
+    let supported_usages = SUPPORTED_USAGES.get(name).unwrap();
+
+    // private usages
+    let private_usages: HashSet<String> = key_usages_set
+        .intersection(mandatory_usages)
+        .cloned()
+        .collect();
+
+    if !mandatory_usages.is_empty() && private_usages.is_empty() {
+        return Err(Exception::throw_range(
+            ctx,
+            "A required parameter was missing or out-of-range",
+        ));
+    }
+
+    // public or secret usages
+    let unsupported_usages: HashSet<String> = key_usages_set
+        .difference(supported_usages)
+        .cloned()
+        .collect();
+
+    if !unsupported_usages.is_empty() {
+        return Err(Exception::throw_range(
+            ctx,
+            "A required parameter was missing or out-of-range",
+        ));
+    }
+
+    let public_or_secret_usages: HashSet<String> = key_usages_set
+        .difference(mandatory_usages)
+        .cloned()
+        .collect();
+
+    let private_usages = private_usages.into_js(ctx)?.into_array().unwrap();
+    let public_or_secret_usages = public_or_secret_usages.into_js(ctx)?.into_array().unwrap();
+
+    Ok((private_usages, public_or_secret_usages))
 }
 
 fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
