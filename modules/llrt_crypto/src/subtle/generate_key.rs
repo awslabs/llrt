@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
-use rquickjs::{Array, Ctx, Exception, IntoJs, Object, Result, Value};
+use rquickjs::{Array, Ctx, Exception, IntoJs, Result, Value};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
 
@@ -14,7 +14,7 @@ use crate::{
     SYSTEM_RANDOM,
 };
 
-use super::crypto_key::CryptoKey;
+use super::crypto_key::{CryptoKey, CryptoKeyPair};
 
 static PUB_EXPONENT_1: OnceLock<BigUint> = OnceLock::new();
 static PUB_EXPONENT_2: OnceLock<BigUint> = OnceLock::new();
@@ -40,7 +40,7 @@ pub async fn subtle_generate_key<'js>(
         )
         .into_js(&ctx)
     } else {
-        let private = CryptoKey::new(
+        let private_key = CryptoKey::new(
             ctx.clone(),
             "private".to_string(),
             extractable,
@@ -48,7 +48,7 @@ pub async fn subtle_generate_key<'js>(
             key_usages.clone(), // for test
             bytes.clone(),      // for test
         )?;
-        let public = CryptoKey::new(
+        let public_key = CryptoKey::new(
             ctx.clone(),
             "public".to_string(),
             true,
@@ -56,10 +56,7 @@ pub async fn subtle_generate_key<'js>(
             key_usages, // for test
             bytes,      // for test
         )?;
-        let obj = Object::new(ctx)?;
-        obj.set("privateKey", private)?;
-        obj.set("publicKey", public)?;
-        Ok(obj.into())
+        CryptoKeyPair::new(ctx.clone(), private_key, public_key).into_js(&ctx)
     }
 }
 

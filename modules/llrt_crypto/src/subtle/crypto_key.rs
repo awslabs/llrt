@@ -52,3 +52,35 @@ impl<'js> CryptoKey<'js> {
         self.usages.clone()
     }
 }
+
+#[rquickjs::class]
+#[derive(Clone, Trace, rquickjs::JsLifetime)]
+pub struct CryptoKeyPair<'js> {
+    private_key: CryptoKey<'js>,
+    public_key: CryptoKey<'js>,
+}
+
+#[rquickjs::methods(rename_all = "camelCase")]
+impl<'js> CryptoKeyPair<'js> {
+    #[qjs(constructor)]
+    pub fn new(
+        _ctx: Ctx<'js>,
+        private_key: CryptoKey<'js>,
+        public_key: CryptoKey<'js>,
+    ) -> Result<Self> {
+        Ok(Self {
+            private_key,
+            public_key,
+        })
+    }
+
+    #[qjs(get)]
+    pub fn private_key(&self) -> CryptoKey<'js> {
+        self.private_key.clone()
+    }
+
+    #[qjs(get)]
+    pub fn public_key(&self) -> CryptoKey<'js> {
+        self.public_key.clone()
+    }
+}
