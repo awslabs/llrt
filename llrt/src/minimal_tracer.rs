@@ -22,7 +22,7 @@ impl<'a> StringVisitor<'a> {
     }
 }
 
-impl<'a> Visit for StringVisitor<'a> {
+impl Visit for StringVisitor<'_> {
     fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
         if field.name() == "message" {
             write!(self.string, "{value:?} ").unwrap();

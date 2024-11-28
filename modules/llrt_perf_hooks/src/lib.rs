@@ -35,7 +35,7 @@ fn to_json(ctx: Ctx<'_>) -> Result<Object<'_>> {
 
 struct PerfInitedUserData;
 
-unsafe impl<'js> JsLifetime<'js> for PerfInitedUserData {
+unsafe impl JsLifetime<'_> for PerfInitedUserData {
     type Changed<'to> = PerfInitedUserData;
 }
 
