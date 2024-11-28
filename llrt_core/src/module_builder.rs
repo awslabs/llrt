@@ -77,6 +77,7 @@ impl Default for ModuleBuilder {
             .with_module(FsModule)
             .with_module(OsModule)
             .with_module(TimersModule)
+            .with_global(llrt_modules::timers::init)
             .with_module(EventsModule)
             .with_global(crate::modules::events::init)
             .with_global(crate::modules::abort::init)

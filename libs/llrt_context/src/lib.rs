@@ -3,9 +3,8 @@
 use std::future::Future;
 use std::sync::OnceLock;
 
-use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, CatchResultExt, CaughtError, Ctx, Object, Result,
-};
+use llrt_utils::primordials::{BasePrimordials, Primordial};
+use rquickjs::{atom::PredefinedAtom, CatchResultExt, CaughtError, Ctx, Object, Result};
 use tokio::sync::oneshot::{self, Receiver};
 use tracing::trace;
 
@@ -34,8 +33,8 @@ impl<'js> CtxExtension<'js> for Ctx<'js> {
     {
         let ctx = self.clone();
 
-        let type_error_ctor: Constructor = ctx.globals().get(PredefinedAtom::TypeError)?;
-        let type_error: Object = type_error_ctor.construct(())?;
+        let primordials = BasePrimordials::get(self)?;
+        let type_error: Object = primordials.constructor_type_error.construct(())?;
         let stack: Option<String> = type_error.get(PredefinedAtom::Stack).ok();
 
         let (join_channel_tx, join_channel_rx) = oneshot::channel();

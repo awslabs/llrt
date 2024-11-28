@@ -1,10 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    atom::PredefinedAtom,
-    function::{Constructor, IntoJsFunc},
-    prelude::Func,
-    Array, Ctx, FromJs, IntoAtom, IntoJs, Object, Result, Symbol, Undefined, Value,
+    atom::PredefinedAtom, function::IntoJsFunc, prelude::Func, Array, Ctx, FromJs, IntoAtom,
+    IntoJs, Object, Result, Symbol, Undefined, Value,
 };
 
 use crate::primordials::{BasePrimordials, Primordial};
@@ -50,9 +48,9 @@ pub struct Proxy<'js> {
 
 impl<'js> IntoJs<'js> for Proxy<'js> {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
-        let proxy_ctor = ctx.globals().get::<_, Constructor>(PredefinedAtom::Proxy)?;
-
-        proxy_ctor.construct::<_, Value>((self.target, self.options))
+        BasePrimordials::get(ctx)?
+            .constructor_proxy
+            .construct::<_, Value>((self.target, self.options))
     }
 }
 
