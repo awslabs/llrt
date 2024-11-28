@@ -1,11 +1,7 @@
 use llrt_utils::primordials::{BasePrimordials, Primordial};
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{
-    atom::PredefinedAtom,
-    function::{Constructor, Opt},
-    Class, Ctx, Object, Result,
-};
+use rquickjs::{atom::PredefinedAtom, function::Opt, Class, Ctx, Object, Result};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -19,8 +15,11 @@ pub struct DOMException {
 impl DOMException {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'_>, message: Opt<String>, name: Opt<String>) -> Result<Self> {
-        let error_ctor: Constructor = ctx.globals().get(PredefinedAtom::Error)?;
-        let new: Object = error_ctor.construct((message.clone(),))?;
+        let primordials = BasePrimordials::get(&ctx)?;
+
+        let new: Object = primordials
+            .constructor_error
+            .construct((message.clone(),))?;
 
         let message = message.0.unwrap_or(String::from(""));
         let name = name.0.unwrap_or(String::from("Error"));

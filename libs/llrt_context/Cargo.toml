@@ -10,6 +10,7 @@ repository = "https://github.com/awslabs/llrt"
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", features = [
   "futures",
 ], default-features = false }
+llrt_utils = { version = "0.3.0-beta", path = "../llrt_utils", default-features = false }
 tokio = { version = "1", features = ["sync"], default-features = false }
 tracing = "0.1"
 

@@ -265,6 +265,8 @@ class TestServer extends EventEmitter {
       case "next": {
         const nextFile = this.fileQueue.shift();
         const workerData = this.workerData[workerId];
+        //clear current path
+        workerData.currentPath.splice(0, workerData.currentPath.length);
 
         if (nextFile) {
           this.results.set(nextFile, {
@@ -326,7 +328,7 @@ class TestServer extends EventEmitter {
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
         //if we're not in a test
-        workerData.lastUpdate = 0;
+        //workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
@@ -395,7 +397,6 @@ class TestServer extends EventEmitter {
       error,
     };
     workerData.success = false;
-    workerData.lastUpdate = 0;
     const results = this.results.get(workerData.currentFile!);
     if (results) {
       results.success = false;
