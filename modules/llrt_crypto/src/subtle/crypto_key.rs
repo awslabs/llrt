@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::rc::Rc;
+
 use rquickjs::{class::Trace, Array, Ctx, JsLifetime, Result, Value};
 
 #[rquickjs::class]
@@ -9,29 +11,13 @@ pub struct CryptoKey<'js> {
     extractable: bool,
     algorithm: Value<'js>,
     usages: Array<'js>,
-    handle: Vec<u8>,
+    #[allow(dead_code)]
+    #[qjs(skip_trace)]
+    handle: Rc<[u8]>,
 }
 
 #[rquickjs::methods]
 impl<'js> CryptoKey<'js> {
-    #[qjs(constructor)]
-    pub fn new(
-        _ctx: Ctx<'js>,
-        type_name: String,
-        extractable: bool,
-        algorithm: Value<'js>,
-        usages: Array<'js>,
-        handle: Vec<u8>,
-    ) -> Result<Self> {
-        Ok(Self {
-            type_name,
-            extractable,
-            algorithm,
-            usages,
-            handle,
-        })
-    }
-
     #[qjs(get, rename = "type")]
     pub fn get_type(&self) -> &str {
         self.type_name.as_str()
@@ -50,6 +36,25 @@ impl<'js> CryptoKey<'js> {
     #[qjs(get)]
     pub fn usages(&self) -> Array<'js> {
         self.usages.clone()
+    }
+}
+
+impl<'js> CryptoKey<'js> {
+    pub fn new(
+        _ctx: Ctx<'js>,
+        type_name: String,
+        extractable: bool,
+        algorithm: Value<'js>,
+        usages: Array<'js>,
+        handle: &[u8],
+    ) -> Result<Self> {
+        Ok(Self {
+            type_name,
+            extractable,
+            algorithm,
+            usages,
+            handle: handle.into(),
+        })
     }
 }
 

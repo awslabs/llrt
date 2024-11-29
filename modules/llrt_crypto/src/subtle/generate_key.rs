@@ -70,7 +70,7 @@ pub async fn subtle_generate_key<'js>(
             extractable,
             algorithm,
             public_or_secret_usages,
-            bytes, // for test
+            &bytes, // for test
         )
         .into_js(&ctx)
     } else {
@@ -80,7 +80,7 @@ pub async fn subtle_generate_key<'js>(
             extractable,
             algorithm.clone(),
             private_usages,
-            bytes.clone(), // for test
+            &bytes, // for test
         )?;
         let public_key = CryptoKey::new(
             ctx.clone(),
@@ -88,7 +88,7 @@ pub async fn subtle_generate_key<'js>(
             true,
             algorithm,
             public_or_secret_usages,
-            bytes, // for test
+            &bytes, // for test
         )?;
         CryptoKeyPair::new(ctx.clone(), private_key, public_key).into_js(&ctx)
     }
