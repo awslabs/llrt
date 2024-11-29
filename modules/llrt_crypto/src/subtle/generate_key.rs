@@ -167,7 +167,7 @@ fn classify_and_check_usages<'js>(
         None
     }
 
-    let mut key_usages_set = HashSet::new();
+    let mut key_usages_set = HashSet::with_capacity(8);
     for value in key_usages.clone().into_iter() {
         let value = value?;
         if let Some(string) = value.as_string() {
