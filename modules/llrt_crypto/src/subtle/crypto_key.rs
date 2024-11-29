@@ -11,7 +11,6 @@ pub struct CryptoKey<'js> {
     extractable: bool,
     algorithm: Value<'js>,
     usages: Array<'js>,
-    #[allow(dead_code)]
     #[qjs(skip_trace)]
     handle: Rc<[u8]>,
 }
@@ -55,6 +54,9 @@ impl<'js> CryptoKey<'js> {
             usages,
             handle: handle.into(),
         })
+    }
+    pub fn get_handle(&self) -> &[u8] {
+        &self.handle
     }
 }
 

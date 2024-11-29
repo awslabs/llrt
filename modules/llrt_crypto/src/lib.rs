@@ -28,8 +28,8 @@ use rquickjs::{
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 use subtle::{
-    subtle_decrypt, subtle_derive_bits, subtle_digest, subtle_encrypt, subtle_generate_key,
-    subtle_sign, subtle_verify, CryptoKey,
+    subtle_decrypt, subtle_derive_bits, subtle_digest, subtle_encrypt, subtle_export_key,
+    subtle_generate_key, subtle_sign, subtle_verify, CryptoKey,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
@@ -198,6 +198,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
     subtle.set("digest", Func::from(Async(subtle_digest)))?;
     subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
+    subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
     subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
     subtle.set("sign", Func::from(Async(subtle_sign)))?;
     subtle.set("verify", Func::from(Async(subtle_verify)))?;
