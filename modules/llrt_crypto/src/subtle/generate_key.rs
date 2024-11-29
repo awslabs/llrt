@@ -1,13 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    collections::{HashMap, HashSet},
-    sync::OnceLock,
-};
+use std::{collections::HashSet, sync::OnceLock};
 
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
-use once_cell::sync::Lazy;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
 use rquickjs::{Array, Ctx, Exception, IntoJs, Result, Value};
 use rsa::pkcs1::EncodeRsaPrivateKey;
@@ -23,93 +19,36 @@ use super::crypto_key::{CryptoKey, CryptoKeyPair};
 static PUB_EXPONENT_1: OnceLock<BigUint> = OnceLock::new();
 static PUB_EXPONENT_2: OnceLock<BigUint> = OnceLock::new();
 
-static MANDATORY_USAGES: Lazy<HashMap<&str, HashSet<String>>> = Lazy::new(|| {
-    let mut map = HashMap::new();
-    map.insert("AES-CTR", HashSet::from([]));
-    map.insert("AES-CBC", HashSet::from([]));
-    map.insert("AES-GCM", HashSet::from([]));
-    map.insert("AES-GCM", HashSet::from([]));
-    map.insert("HMAC", HashSet::from([]));
-    map.insert("RSASSA-PKCS1-v1_5", HashSet::from(["sign".to_string()]));
-    map.insert("RSA-PSS", HashSet::from(["sign".to_string()]));
-    map.insert(
-        "RSA-OAEP",
-        HashSet::from(["decrypt".to_string(), "unwrapKey".to_string()]),
-    );
-    map.insert("ECDSA", HashSet::from(["sign".to_string()]));
-    map.insert(
-        "ECDH",
-        HashSet::from(["deriveKey".to_string(), "deriveBits".to_string()]),
-    );
+static SYMMETRIC_USAGES: &[&str] = &["encrypt", "decrypt", "wrapKey", "unwrapKey"];
+static SIGNATURE_USAGES: &[&str] = &["sign", "verify"];
+static EMPTY_USAGES: &[&str] = &[];
+static SIGN_USAGES: &[&str] = &["sign"];
+static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
+static ECDH_USAGES: &[&str] = &["deriveKey", "deriveBits"];
 
-    map
-});
+static SUPPORTED_USAGES_ARRAY: &[(&str, &[&str])] = &[
+    ("AES-CTR", SYMMETRIC_USAGES),
+    ("AES-CBC", SYMMETRIC_USAGES),
+    ("AES-GCM", SYMMETRIC_USAGES),
+    ("RSA-OAEP", SYMMETRIC_USAGES),
+    ("HMAC", SIGNATURE_USAGES),
+    ("RSASSA-PKCS1-v1_5", SIGNATURE_USAGES),
+    ("RSA-PSS", SIGNATURE_USAGES),
+    ("ECDSA", SIGNATURE_USAGES),
+    ("ECDH", &["deriveKey", "deriveBits"]),
+];
 
-static SUPPORTED_USAGES: Lazy<HashMap<&str, HashSet<String>>> = Lazy::new(|| {
-    let mut map = HashMap::new();
-    map.insert(
-        "AES-CTR",
-        HashSet::from([
-            "encrypt".to_string(),
-            "decrypt".to_string(),
-            "wrapKey".to_string(),
-            "unwrapKey".to_string(),
-        ]),
-    );
-    map.insert(
-        "AES-CBC",
-        HashSet::from([
-            "encrypt".to_string(),
-            "decrypt".to_string(),
-            "wrapKey".to_string(),
-            "unwrapKey".to_string(),
-        ]),
-    );
-    map.insert(
-        "AES-GCM",
-        HashSet::from([
-            "encrypt".to_string(),
-            "decrypt".to_string(),
-            "wrapKey".to_string(),
-            "unwrapKey".to_string(),
-        ]),
-    );
-    map.insert(
-        "AES-GCM",
-        HashSet::from(["wrapKey".to_string(), "unwrapKey".to_string()]),
-    );
-    map.insert(
-        "HMAC",
-        HashSet::from(["sign".to_string(), "verify".to_string()]),
-    );
-    map.insert(
-        "RSASSA-PKCS1-v1_5",
-        HashSet::from(["sign".to_string(), "verify".to_string()]),
-    );
-    map.insert(
-        "RSA-PSS",
-        HashSet::from(["sign".to_string(), "verify".to_string()]),
-    );
-    map.insert(
-        "RSA-OAEP",
-        HashSet::from([
-            "encrypt".to_string(),
-            "decrypt".to_string(),
-            "wrapKey".to_string(),
-            "unwrapKey".to_string(),
-        ]),
-    );
-    map.insert(
-        "ECDSA",
-        HashSet::from(["sign".to_string(), "verify".to_string()]),
-    );
-    map.insert(
-        "ECDH",
-        HashSet::from(["deriveKey".to_string(), "deriveBits".to_string()]),
-    );
-
-    map
-});
+static MANDATORY_USAGES_ARRAY: &[(&str, &[&str])] = &[
+    ("AES-CTR", EMPTY_USAGES),
+    ("AES-CBC", EMPTY_USAGES),
+    ("AES-GCM", EMPTY_USAGES),
+    ("HMAC", EMPTY_USAGES),
+    ("RSASSA-PKCS1-v1_5", SIGN_USAGES),
+    ("RSA-PSS", SIGN_USAGES),
+    ("ECDSA", SIGN_USAGES),
+    ("RSA-OAEP", RSA_OAEP_USAGES),
+    ("ECDH", ECDH_USAGES),
+];
 
 pub async fn subtle_generate_key<'js>(
     ctx: Ctx<'js>,
@@ -217,6 +156,17 @@ fn classify_and_check_usages<'js>(
     name: &str,
     key_usages: &Array<'js>,
 ) -> Result<(Array<'js>, Array<'js>)> {
+    fn get_usages(arr: &[(&str, &[&str])], algorithm: &str) -> Option<HashSet<String>> {
+        for (alg, usages) in arr {
+            if *alg == algorithm {
+                let usage_set: HashSet<String> =
+                    usages.iter().map(|&usage| usage.to_string()).collect();
+                return Some(usage_set);
+            }
+        }
+        None
+    }
+
     let mut key_usages_set = HashSet::new();
     for value in key_usages.clone().into_iter() {
         let value = value?;
@@ -225,12 +175,12 @@ fn classify_and_check_usages<'js>(
         }
     }
 
-    let mandatory_usages = MANDATORY_USAGES.get(name).unwrap();
-    let supported_usages = SUPPORTED_USAGES.get(name).unwrap();
+    let mandatory_usages = get_usages(MANDATORY_USAGES_ARRAY, name).unwrap();
+    let supported_usages = get_usages(SUPPORTED_USAGES_ARRAY, name).unwrap();
 
     // private usages
     let private_usages: HashSet<String> = key_usages_set
-        .intersection(mandatory_usages)
+        .intersection(&mandatory_usages)
         .cloned()
         .collect();
 
@@ -243,7 +193,7 @@ fn classify_and_check_usages<'js>(
 
     // public or secret usages
     let unsupported_usages: HashSet<String> = key_usages_set
-        .difference(supported_usages)
+        .difference(&supported_usages)
         .cloned()
         .collect();
 
@@ -255,7 +205,7 @@ fn classify_and_check_usages<'js>(
     }
 
     let public_or_secret_usages: HashSet<String> = key_usages_set
-        .difference(mandatory_usages)
+        .difference(&mandatory_usages)
         .cloned()
         .collect();
 
