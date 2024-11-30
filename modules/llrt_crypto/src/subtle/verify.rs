@@ -47,12 +47,53 @@ fn verify(
     data: &[u8],
 ) -> Result<bool> {
     match algorithm {
+        Algorithm::Ecdsa(sha) => {
+            let (fixed_string, fixed) = match sha {
+                Sha::Sha256 => (
+                    &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+                    &ring::signature::ECDSA_P256_SHA256_FIXED,
+                ),
+                Sha::Sha384 => (
+                    &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
+                    &ring::signature::ECDSA_P384_SHA384_FIXED,
+                ),
+                _ => {
+                    return Err(Exception::throw_message(
+                        ctx,
+                        "Ecdsa.hash only support Sha256 or Sha384",
+                    ))
+                },
+            };
+            let private_key =
+                EcdsaKeyPair::from_pkcs8(fixed_string, key, &SYSTEM_RANDOM.to_owned())
+                    .or_throw(ctx)?;
+            let public_key_bytes = private_key.public_key().as_ref();
+            let public_key = ring::signature::UnparsedPublicKey::new(fixed, &public_key_bytes);
+
+            Ok(public_key.verify(data, signature).is_ok())
+        },
         Algorithm::Hmac => {
             let key = HmacKey::new(ring::hmac::HMAC_SHA256, key);
             let mut hmac = HmacContext::with_key(&key);
             hmac.update(data);
 
             Ok(hmac.sign().as_ref() == signature)
+        },
+        Algorithm::RsaPss(salt_length) => {
+            let public_key = RsaPrivateKey::from_pkcs1_der(key)
+                .or_throw(ctx)?
+                .to_public_key();
+            let mut hasher = Sha256::new();
+            hasher.update(data);
+            let hashed = hasher.finalize();
+
+            Ok(public_key
+                .verify(
+                    Pss::new_with_salt::<Sha256>(*salt_length as usize),
+                    &hashed,
+                    signature,
+                )
+                .is_ok())
         },
         Algorithm::RsassaPkcs1v15 => {
             let public_key = RsaPrivateKey::from_pkcs1_der(key)
@@ -66,61 +107,6 @@ fn verify(
             Ok(public_key
                 .verify(Pkcs1v15Sign::new::<Sha256>(), &hashed, signature)
                 .is_ok())
-        },
-        Algorithm::RsaPss(salt_length) => {
-            let public_key = RsaPrivateKey::from_pkcs1_der(key)
-                .or_throw(ctx)?
-                .to_public_key();
-            let mut hasher = Sha256::new();
-
-            hasher.update(data);
-            let hashed = hasher.finalize();
-
-            Ok(public_key
-                .verify(
-                    Pss::new_with_salt::<Sha256>(*salt_length as usize),
-                    &hashed,
-                    signature,
-                )
-                .is_ok())
-        },
-        Algorithm::Ecdsa(sha) => match sha {
-            Sha::Sha256 => {
-                let private_key = EcdsaKeyPair::from_pkcs8(
-                    &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                    key,
-                    &SYSTEM_RANDOM.to_owned(),
-                )
-                .or_throw(ctx)?;
-
-                let public_key_bytes = private_key.public_key().as_ref();
-                let public_key = ring::signature::UnparsedPublicKey::new(
-                    &ring::signature::ECDSA_P256_SHA256_FIXED,
-                    &public_key_bytes,
-                );
-
-                Ok(public_key.verify(data, signature).is_ok())
-            },
-            Sha::Sha384 => {
-                let private_key = EcdsaKeyPair::from_pkcs8(
-                    &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
-                    key,
-                    &SYSTEM_RANDOM.to_owned(),
-                )
-                .or_throw(ctx)?;
-
-                let public_key_bytes = private_key.public_key().as_ref();
-                let public_key = ring::signature::UnparsedPublicKey::new(
-                    &ring::signature::ECDSA_P384_SHA384_FIXED,
-                    &public_key_bytes,
-                );
-
-                Ok(public_key.verify(data, signature).is_ok())
-            },
-            _ => Err(Exception::throw_message(
-                ctx,
-                "Ecdsa.hash only support Sha256 or Sha384",
-            )),
         },
         _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
     }

@@ -30,27 +30,27 @@ static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
 static ECDH_USAGES: &[&str] = &["deriveKey", "deriveBits"];
 
 static SUPPORTED_USAGES_ARRAY: &[(&str, &[&str])] = &[
-    ("AES-CTR", SYMMETRIC_USAGES),
     ("AES-CBC", SYMMETRIC_USAGES),
+    ("AES-CTR", SYMMETRIC_USAGES),
     ("AES-GCM", SYMMETRIC_USAGES),
-    ("RSA-OAEP", SYMMETRIC_USAGES),
-    ("HMAC", SIGNATURE_USAGES),
-    ("RSASSA-PKCS1-v1_5", SIGNATURE_USAGES),
-    ("RSA-PSS", SIGNATURE_USAGES),
+    ("ECDH", ECDH_USAGES),
     ("ECDSA", SIGNATURE_USAGES),
-    ("ECDH", &["deriveKey", "deriveBits"]),
+    ("HMAC", SIGNATURE_USAGES),
+    ("RSA-OAEP", SYMMETRIC_USAGES),
+    ("RSA-PSS", SIGNATURE_USAGES),
+    ("RSASSA-PKCS1-v1_5", SIGNATURE_USAGES),
 ];
 
 static MANDATORY_USAGES_ARRAY: &[(&str, &[&str])] = &[
-    ("AES-CTR", EMPTY_USAGES),
     ("AES-CBC", EMPTY_USAGES),
+    ("AES-CTR", EMPTY_USAGES),
     ("AES-GCM", EMPTY_USAGES),
-    ("HMAC", EMPTY_USAGES),
-    ("RSASSA-PKCS1-v1_5", SIGN_USAGES),
-    ("RSA-PSS", SIGN_USAGES),
-    ("ECDSA", SIGN_USAGES),
-    ("RSA-OAEP", RSA_OAEP_USAGES),
     ("ECDH", ECDH_USAGES),
+    ("ECDSA", SIGN_USAGES),
+    ("HMAC", EMPTY_USAGES),
+    ("RSA-OAEP", RSA_OAEP_USAGES),
+    ("RSA-PSS", SIGN_USAGES),
+    ("RSASSA-PKCS1-v1_5", SIGN_USAGES),
 ];
 
 pub async fn subtle_generate_key<'js>(
@@ -107,18 +107,21 @@ fn extract_generate_key_algorithm(
         .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
-        "RSASSA-PKCS1-v1_5" | "RSA-PSS" | "RSA-OAEP" => {
-            let modulus_length = algorithm.get_optional("modulusLength")?.ok_or_else(|| {
-                Exception::throw_type(ctx, "algorithm 'modulusLength' property required")
-            })?;
+        "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
+            let length = algorithm
+                .get_optional("length")?
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'length' property required"))?;
 
-            let public_exponent = algorithm.get_optional::<_, ObjectBytes>("publicExponent")?.ok_or_else(|| {
-                Exception::throw_type(ctx, "algorithm 'publicExponent' property required")
-            })?.into_bytes();
+            if length != 128 && length != 192 && length != 256 {
+                return Err(Exception::throw_type(
+                    ctx,
+                    "Algorithm 'length' must be one of: 128, 192, or 256",
+                ));
+            }
 
-            Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
+            Ok((name, KeyGenAlgorithm::Aes { length }))
         },
-        "ECDSA" | "ECDH" => {
+        "ECDH" | "ECDSA" => {
             let named_curve = algorithm
                 .get_optional::<_, String>("namedCurve")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'namedCurve' property required"))?;
@@ -134,19 +137,16 @@ fn extract_generate_key_algorithm(
 
             Ok((name, KeyGenAlgorithm::Hmac { hash, length }))
         },
-        "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" => {
-            let length = algorithm
-                .get_optional("length")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'length' property required"))?;
+        "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
+            let modulus_length = algorithm.get_optional("modulusLength")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'modulusLength' property required")
+            })?;
 
-            if length != 128 && length != 192 && length != 256 {
-                return Err(Exception::throw_type(
-                    ctx,
-                    "Algorithm 'length' must be one of: 128, 192, or 256",
-                ));
-            }
+            let public_exponent = algorithm.get_optional::<_, ObjectBytes>("publicExponent")?.ok_or_else(|| {
+                Exception::throw_type(ctx, "algorithm 'publicExponent' property required")
+            })?.into_bytes();
 
-            Ok((name, KeyGenAlgorithm::Aes { length }))
+            Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
         },
         _ => Err(Exception::throw_message(
             ctx,
@@ -157,27 +157,16 @@ fn extract_generate_key_algorithm(
 
 fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
     match algorithm {
-        KeyGenAlgorithm::Rsa {
-            modulus_length,
-            ref public_exponent,
-        } => {
-            let exponent = BigUint::from_bytes_be(public_exponent);
-
-            if exponent != *PUB_EXPONENT_1.get_or_init(|| BigUint::from_u64(3).unwrap())
-                && exponent != *PUB_EXPONENT_2.get_or_init(|| BigUint::from_u64(65537).unwrap())
-            {
-                return Err(Exception::throw_message(ctx, "Bad public exponent"));
+        KeyGenAlgorithm::Aes { length } => {
+            let length = *length as usize;
+            if length % 8 != 0 || length > 256 {
+                return Err(Exception::throw_message(ctx, "Invalid AES key length"));
             }
 
-            let mut rng = OsRng;
+            let mut key = vec![0u8; length / 8];
+            SYSTEM_RANDOM.fill(&mut key).or_throw(ctx)?;
 
-            let private_key =
-                RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, &exponent)
-                    .or_throw(ctx)?;
-
-            let private_key = private_key.to_pkcs1_der().or_throw(ctx)?;
-
-            Ok(private_key.as_bytes().to_vec())
+            Ok(key)
         },
         KeyGenAlgorithm::Ec { curve } => {
             let curve = match curve {
@@ -188,18 +177,6 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
                 EcdsaKeyPair::generate_pkcs8(curve, &SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
 
             Ok(pkcs8.as_ref().to_vec())
-        },
-        KeyGenAlgorithm::Aes { length } => {
-            let length = *length as usize;
-
-            if length % 8 != 0 || length > 256 {
-                return Err(Exception::throw_message(ctx, "Invalid AES key length"));
-            }
-
-            let mut key = vec![0u8; length / 8];
-            SYSTEM_RANDOM.fill(&mut key).or_throw(ctx)?;
-
-            Ok(key)
         },
         KeyGenAlgorithm::Hmac { hash, length } => {
             let hash = match hash {
@@ -215,7 +192,6 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
                 }
 
                 let length = length / 8;
-
                 if length > ring::digest::MAX_BLOCK_LEN.try_into().unwrap() {
                     return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
                 }
@@ -229,6 +205,25 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
             SYSTEM_RANDOM.fill(&mut key).or_throw(ctx)?;
 
             Ok(key)
+        },
+        KeyGenAlgorithm::Rsa {
+            modulus_length,
+            ref public_exponent,
+        } => {
+            let exponent = BigUint::from_bytes_be(public_exponent);
+            if exponent != *PUB_EXPONENT_1.get_or_init(|| BigUint::from_u64(3).unwrap())
+                && exponent != *PUB_EXPONENT_2.get_or_init(|| BigUint::from_u64(65537).unwrap())
+            {
+                return Err(Exception::throw_message(ctx, "Bad public exponent"));
+            }
+
+            let mut rng = OsRng;
+            let private_key =
+                RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, &exponent)
+                    .or_throw(ctx)?;
+            let private_key = private_key.to_pkcs1_der().or_throw(ctx)?;
+
+            Ok(private_key.as_bytes().to_vec())
         },
     }
 }

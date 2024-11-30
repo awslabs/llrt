@@ -29,12 +29,6 @@ pub async fn subtle_encrypt<'js>(
 
 fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
-        Algorithm::AesGcm(iv) => {
-            let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
-            let nonce = Nonce::from_slice(iv);
-
-            cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
-        },
         Algorithm::AesCbc(iv) => Ok(Aes256CbcEnc::new(key.into(), iv.as_slice().into())
             .encrypt_padded_vec_mut::<Pkcs7>(data)),
         Algorithm::AesCtr(counter, length) => match length {
@@ -45,6 +39,12 @@ fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Res
                 ctx,
                 "invalid counter length. Currently supported 32/64/128 bits",
             )),
+        },
+        Algorithm::AesGcm(iv) => {
+            let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
+            let nonce = Nonce::from_slice(iv);
+
+            cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
         },
         Algorithm::RsaOaep(label) => {
             let public_key = RsaPrivateKey::from_pkcs1_der(key)

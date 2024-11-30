@@ -115,11 +115,9 @@ fn derive_bits(
         DeriveAlgorithm::Edch { curve, public } => match curve {
             CryptoNamedCurve::P256 => {
                 let secret_key = p256::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
-
                 let public_key = p256::SecretKey::from_pkcs8_der(public)
                     .or_throw(ctx)?
                     .public_key();
-
                 let shared_secret = p256::elliptic_curve::ecdh::diffie_hellman(
                     secret_key.to_nonzero_scalar(),
                     public_key.as_affine(),
@@ -129,11 +127,9 @@ fn derive_bits(
             },
             CryptoNamedCurve::P384 => {
                 let secret_key = p384::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
-
                 let public_key = p384::SecretKey::from_pkcs8_der(public)
                     .or_throw(ctx)?
                     .public_key();
-
                 let shared_secret = p384::elliptic_curve::ecdh::diffie_hellman(
                     secret_key.to_nonzero_scalar(),
                     public_key.as_affine(),
@@ -141,32 +137,6 @@ fn derive_bits(
 
                 Ok(shared_secret.raw_secret_bytes().to_vec())
             },
-        },
-        DeriveAlgorithm::Pbkdf2 {
-            hash,
-            ref salt,
-            iterations,
-        } => {
-            let hash_algorithm = match hash {
-                Sha::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
-                Sha::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
-                Sha::Sha384 => pbkdf2::PBKDF2_HMAC_SHA384,
-                Sha::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
-            };
-
-            let mut out = vec![0; (length / 8).try_into().or_throw(ctx)?];
-            let not_zero_iterations = NonZeroU32::new(*iterations)
-                .ok_or_else(|| Exception::throw_message(ctx, "Iterations not zero"))?;
-
-            pbkdf2::derive(
-                hash_algorithm,
-                not_zero_iterations,
-                salt,
-                base_key,
-                &mut out,
-            );
-
-            Ok(out)
         },
         DeriveAlgorithm::Hkdf {
             hash,
@@ -179,19 +149,39 @@ fn derive_bits(
                 Sha::Sha384 => hkdf::HKDF_SHA384,
                 Sha::Sha512 => hkdf::HKDF_SHA512,
             };
-
             let salt = hkdf::Salt::new(hash_algorithm, salt);
             let info: &[&[u8]] = &[&info[..]];
-
             let prk = salt.extract(base_key);
             let out_length = (length / 8).try_into().or_throw(ctx)?;
-
             let okm = prk
                 .expand(info, HkdfOutput((length / 8).try_into().or_throw(ctx)?))
                 .or_throw(ctx)?;
-
             let mut out = vec![0u8; out_length];
             let _ = okm.fill(&mut out).or_throw(ctx);
+
+            Ok(out)
+        },
+        DeriveAlgorithm::Pbkdf2 {
+            hash,
+            ref salt,
+            iterations,
+        } => {
+            let hash_algorithm = match hash {
+                Sha::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
+                Sha::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
+                Sha::Sha384 => pbkdf2::PBKDF2_HMAC_SHA384,
+                Sha::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
+            };
+            let mut out = vec![0; (length / 8).try_into().or_throw(ctx)?];
+            let not_zero_iterations = NonZeroU32::new(*iterations)
+                .ok_or_else(|| Exception::throw_message(ctx, "Iterations not zero"))?;
+            pbkdf2::derive(
+                hash_algorithm,
+                not_zero_iterations,
+                salt,
+                base_key,
+                &mut out,
+            );
 
             Ok(out)
         },

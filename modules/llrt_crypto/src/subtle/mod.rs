@@ -71,14 +71,14 @@ impl TryFrom<&str> for CryptoNamedCurve {
 
 #[derive(Debug)]
 pub enum Algorithm {
-    Hmac,
-    AesGcm(Vec<u8>),
     AesCbc(Vec<u8>),
     AesCtr(Vec<u8>, u32),
+    AesGcm(Vec<u8>),
+    Ecdsa(Sha),
+    Hmac,
+    RsaOaep(Option<Vec<u8>>),
     RsaPss(u32),
     RsassaPkcs1v15,
-    Ecdsa(Sha),
-    RsaOaep(Option<Vec<u8>>),
 }
 
 #[derive(Debug)]
@@ -101,19 +101,19 @@ pub enum DeriveAlgorithm {
 
 #[derive(Debug)]
 pub enum KeyGenAlgorithm {
-    Rsa {
-        modulus_length: u32,
-        public_exponent: Vec<u8>,
+    Aes {
+        length: u32,
     },
     Ec {
         curve: CryptoNamedCurve,
     },
-    Aes {
-        length: u32,
-    },
     Hmac {
         hash: Sha,
         length: Option<u32>,
+    },
+    Rsa {
+        modulus_length: u32,
+        public_exponent: Vec<u8>,
     },
 }
 
@@ -123,15 +123,6 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
         .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
-        "HMAC" => Ok(Algorithm::Hmac),
-        "AES-GCM" => {
-            let iv = algorithm
-                .get_optional::<_, ObjectBytes>("iv")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
-                .into_bytes();
-
-            Ok(Algorithm::AesGcm(iv))
-        },
         "AES-CBC" => {
             let iv = algorithm
                 .get_optional::<_, ObjectBytes>("iv")?
@@ -152,6 +143,15 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
 
             Ok(Algorithm::AesCtr(counter, length))
         },
+        "AES-GCM" => {
+            let iv = algorithm
+                .get_optional::<_, ObjectBytes>("iv")?
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
+                .into_bytes();
+
+            Ok(Algorithm::AesGcm(iv))
+        },
+        "HMAC" => Ok(Algorithm::Hmac),
         "RSA-OAEP" => {
             let label = algorithm.get_optional::<_, ObjectBytes>("label")?;
             let label = label.map(|lbl| lbl.into_bytes());
@@ -160,7 +160,7 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
         },
         _ => Err(Exception::throw_message(
             ctx,
-            "Algorithm 'name' must be HMAC | AES-GCM | AES-CBC | AES-CTR | RSA-OAEP",
+            "Algorithm 'name' must be AES-CBC | AES-CTR | HMAC | AES-GCM | RSA-OAEP",
         )),
     }
 }
@@ -170,8 +170,8 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
         let algorithm_name = algorithm.as_string().unwrap().to_string()?;
 
         return match algorithm_name.as_str() {
-            "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
             "HMAC" => Ok(Algorithm::Hmac),
+            "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
             _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
         };
     }
@@ -181,7 +181,11 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
         .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
 
     match name.as_str() {
-        "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
+        "ECDSA" => {
+            let sha = extract_sha_hash(ctx, algorithm)?;
+
+            Ok(Algorithm::Ecdsa(sha))
+        },
         "HMAC" => Ok(Algorithm::Hmac),
         "RSA-PSS" => {
             let salt_length = algorithm.get_optional("saltLength")?.ok_or_else(|| {
@@ -190,11 +194,7 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
 
             Ok(Algorithm::RsaPss(salt_length))
         },
-        "ECDSA" => {
-            let sha = extract_sha_hash(ctx, algorithm)?;
-
-            Ok(Algorithm::Ecdsa(sha))
-        },
+        "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
         _ => Err(Exception::throw_message(
             ctx,
             "Algorithm 'name' must be RSASSA-PKCS1-v1_5 | HMAC | RSA-PSS | ECDSA",
