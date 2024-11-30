@@ -213,25 +213,17 @@ fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
     Sha::try_from(hash.as_str()).or_throw(ctx)
 }
 
-fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, name: &str) -> Result<()> {
-    let mut is_supported: bool = false;
-
+fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, usage: &str) -> Result<()> {
     for value in key_usages.clone().into_iter() {
-        let value = value?;
-        if let Some(string) = value.as_string() {
-            let str = string.to_string()?;
-            if str.as_str() == name {
-                is_supported = true;
-                break;
+        if let Some(key) = value?.as_string() {
+            let key = key.to_string()?;
+            if key.as_str() == usage {
+                return Ok(());
             }
         }
     }
-
-    if !is_supported {
-        return Err(Exception::throw_type(
-            ctx,
-            &["CryptoKey doesn't support '", name, "'"].concat(),
-        ));
-    }
-    Ok(())
+    Err(Exception::throw_type(
+        ctx,
+        &["CryptoKey doesn't support '", usage, "'"].concat(),
+    ))
 }
