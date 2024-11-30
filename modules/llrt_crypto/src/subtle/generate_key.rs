@@ -112,8 +112,7 @@ fn extract_generate_key_algorithm(
 
             let public_exponent = algorithm.get_optional::<_, ObjectBytes>("publicExponent")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'publicExponent' property required")
-            })?;
-            let public_exponent = public_exponent.as_bytes().to_vec();
+            })?.into_bytes();
 
             Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
         },

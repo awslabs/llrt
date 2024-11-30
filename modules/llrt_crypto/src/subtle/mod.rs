@@ -130,33 +130,34 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
         "AES-GCM" => {
             let iv = algorithm
                 .get_optional::<_, ObjectBytes>("iv")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
+                .into_bytes();
 
-            Ok(Algorithm::AesGcm(iv.as_bytes().to_vec()))
+            Ok(Algorithm::AesGcm(iv))
         },
         "AES-CBC" => {
             let iv = algorithm
                 .get_optional::<_, ObjectBytes>("iv")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
+                .into_bytes();
 
-            Ok(Algorithm::AesCbc(iv.as_bytes().to_vec()))
+            Ok(Algorithm::AesCbc(iv))
         },
         "AES-CTR" => {
             let counter = algorithm
                 .get_optional::<_, ObjectBytes>("counter")?
-                .ok_or_else(|| {
-                    Exception::throw_type(ctx, "algorithm 'counter' property required")
-                })?;
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'counter' property required"))?
+                .into_bytes();
 
             let length = algorithm.get_optional("length")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'length' property required")
             })?;
 
-            Ok(Algorithm::AesCtr(counter.as_bytes().to_vec(), length))
+            Ok(Algorithm::AesCtr(counter, length))
         },
         "RSA-OAEP" => {
             let label = algorithm.get_optional::<_, ObjectBytes>("label")?;
-            let label = label.map(|lbl| lbl.as_bytes().to_vec());
+            let label = label.map(|lbl| lbl.into_bytes());
 
             Ok(Algorithm::RsaOaep(label))
         },

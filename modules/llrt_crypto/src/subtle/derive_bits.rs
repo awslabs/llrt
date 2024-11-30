@@ -66,13 +66,13 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
 
             let salt = algorithm
                 .get_optional::<_, ObjectBytes>("salt")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?;
-            let salt = salt.as_bytes().to_vec();
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?
+                .into_bytes();
 
             let info = algorithm
                 .get_optional::<_, ObjectBytes>("info")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'info' property required"))?;
-            let info = info.as_bytes().to_vec();
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'info' property required"))?
+                .into_bytes();
 
             Ok(DeriveAlgorithm::Hkdf { hash, salt, info })
         },
@@ -85,8 +85,8 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
 
             let salt = algorithm
                 .get_optional::<_, ObjectBytes>("salt")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?;
-            let salt = salt.as_bytes().to_vec();
+                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?
+                .into_bytes();
 
             let iterations = algorithm.get_optional("iterations")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'iterations' property required")
