@@ -24,12 +24,9 @@ pub use verify::subtle_verify;
 
 use aes::{cipher::typenum::U16, Aes256};
 use aes_gcm::AesGcm;
-use hmac::Hmac;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{Array, Ctx, Exception, Result, Value};
-use sha2::Sha256;
 
-pub type HmacSha256 = Hmac<Sha256>;
 pub type Aes256Gcm = AesGcm<Aes256, U16>;
 
 #[derive(Debug)]

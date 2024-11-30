@@ -7,8 +7,10 @@ use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
 use rquickjs::{Array, Class, Ctx, Exception, IntoJs, Result, Value};
-use rsa::pkcs1::EncodeRsaPrivateKey;
-use rsa::{rand_core::OsRng, BigUint, RsaPrivateKey};
+use rsa::{
+    pkcs1::EncodeRsaPrivateKey,
+    {rand_core::OsRng, BigUint, RsaPrivateKey},
+};
 
 use crate::{
     subtle::{extract_sha_hash, CryptoNamedCurve, KeyGenAlgorithm, Sha},

@@ -1,21 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use hmac::Mac;
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rand::rngs::OsRng;
-use ring::signature::EcdsaKeyPair;
+use ring::{
+    hmac::{Context as HmacContext, Key as HmacKey},
+    signature::EcdsaKeyPair,
+};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
     pss::Pss,
     sha2::{Digest, Sha256},
+    Pkcs1v15Sign, RsaPrivateKey,
 };
-use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 
 use crate::{
-    subtle::{
-        check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha,
-    },
+    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Sha},
     SYSTEM_RANDOM,
 };
 
@@ -36,10 +36,10 @@ pub async fn subtle_sign<'js>(
 fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
         Algorithm::Hmac => {
-            let mut mac = HmacSha256::new_from_slice(key).or_throw(ctx)?;
-            mac.update(data);
-
-            Ok(mac.finalize().into_bytes().to_vec())
+            let key = HmacKey::new(ring::hmac::HMAC_SHA256, key);
+            let mut hmac = HmacContext::with_key(&key);
+            hmac.update(data);
+            Ok(hmac.sign().as_ref().to_vec())
         },
         Algorithm::RsassaPkcs1v15 => {
             let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;

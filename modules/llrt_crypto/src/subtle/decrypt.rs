@@ -5,8 +5,10 @@ use aes_gcm::{aead::Aead, KeyInit, Nonce};
 use ctr::{cipher::StreamCipher, Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
-use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
-use sha2::Sha256;
+use rsa::{
+    sha2::Sha256,
+    {pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey},
+};
 
 use crate::subtle::{check_supported_usage, extract_algorithm_object, Aes256Gcm, Algorithm};
 

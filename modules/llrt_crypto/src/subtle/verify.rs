@@ -1,8 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use hmac::Mac;
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
-use ring::signature::{EcdsaKeyPair, KeyPair};
+use ring::{
+    hmac::{Context as HmacContext, Key as HmacKey},
+    signature::{EcdsaKeyPair, KeyPair},
+};
 use rquickjs::{Ctx, Exception, Result, Value};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
@@ -13,9 +15,7 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{
-        check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha,
-    },
+    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Sha},
     SYSTEM_RANDOM,
 };
 
@@ -48,10 +48,11 @@ fn verify(
 ) -> Result<bool> {
     match algorithm {
         Algorithm::Hmac => {
-            let mut mac = HmacSha256::new_from_slice(key).or_throw(ctx)?;
-            mac.update(data);
+            let key = HmacKey::new(ring::hmac::HMAC_SHA256, key);
+            let mut hmac = HmacContext::with_key(&key);
+            hmac.update(data);
 
-            Ok(mac.verify_slice(signature).is_ok())
+            Ok(hmac.sign().as_ref() == signature)
         },
         Algorithm::RsassaPkcs1v15 => {
             let public_key = RsaPrivateKey::from_pkcs1_der(key)
