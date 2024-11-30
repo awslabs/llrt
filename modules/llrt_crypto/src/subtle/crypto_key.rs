@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::rc::Rc;
 
-use rquickjs::{class::Trace, Array, Ctx, JsLifetime, Result, Value};
+use rquickjs::{class::Trace, Array, Class, Ctx, JsLifetime, Result, Value};
 
 #[rquickjs::class]
 #[derive(Clone, Trace, rquickjs::JsLifetime)]
@@ -63,19 +63,19 @@ impl<'js> CryptoKey<'js> {
 #[rquickjs::class]
 #[derive(Clone, Trace, rquickjs::JsLifetime)]
 pub struct CryptoKeyPair<'js> {
-    private_key: CryptoKey<'js>,
-    public_key: CryptoKey<'js>,
+    private_key: Class<'js, CryptoKey<'js>>,
+    public_key: Class<'js, CryptoKey<'js>>,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> CryptoKeyPair<'js> {
     #[qjs(get)]
-    pub fn private_key(&self) -> CryptoKey<'js> {
+    pub fn private_key(&self) -> Class<'js, CryptoKey<'js>> {
         self.private_key.clone()
     }
 
     #[qjs(get)]
-    pub fn public_key(&self) -> CryptoKey<'js> {
+    pub fn public_key(&self) -> Class<'js, CryptoKey<'js>> {
         self.public_key.clone()
     }
 }
@@ -83,8 +83,8 @@ impl<'js> CryptoKeyPair<'js> {
 impl<'js> CryptoKeyPair<'js> {
     pub fn new(
         _ctx: Ctx<'js>,
-        private_key: CryptoKey<'js>,
-        public_key: CryptoKey<'js>,
+        private_key: Class<'js, CryptoKey<'js>>,
+        public_key: Class<'js, CryptoKey<'js>>,
     ) -> Result<Self> {
         Ok(Self {
             private_key,
