@@ -9,6 +9,13 @@ pub async fn subtle_export_key<'js>(
     format: String,
     key: CryptoKey<'js>,
 ) -> Result<Value<'js>> {
+    if !key.extractable() {
+        return Err(Exception::throw_type(
+            &ctx,
+            "The CryptoKey is nonextractable",
+        ));
+    };
+
     if format == "raw" {
         export_raw(&ctx, &key).into_js(&ctx)
     } else {
