@@ -58,8 +58,7 @@ pub async fn subtle_generate_key<'js>(
 ) -> Result<Value<'js>> {
     let (name, key_gen_algorithm) = extract_generate_key_algorithm(&ctx, &algorithm)?;
 
-    let (private_usages, public_or_secret_usages) =
-        classify_and_check_usages(&ctx, &name, &key_usages)?;
+    let (private_usages, public_usages) = classify_and_check_usages(&ctx, &name, &key_usages)?;
 
     let bytes = generate_key(&ctx, &key_gen_algorithm)?;
 
@@ -69,8 +68,8 @@ pub async fn subtle_generate_key<'js>(
             "secret".to_string(),
             extractable,
             algorithm,
-            public_or_secret_usages,
-            &bytes, // for test
+            public_usages.into_js(&ctx)?.into_array().unwrap(),
+            &bytes,
         )
         .into_js(&ctx)
     } else {
@@ -79,16 +78,16 @@ pub async fn subtle_generate_key<'js>(
             "private".to_string(),
             extractable,
             algorithm.clone(),
-            private_usages,
-            &bytes, // for test
+            private_usages.into_js(&ctx)?.into_array().unwrap(),
+            &bytes,
         )?;
         let public_key = CryptoKey::new(
             ctx.clone(),
             "public".to_string(),
             true,
             algorithm,
-            public_or_secret_usages,
-            &bytes, // for test
+            public_usages.into_js(&ctx)?.into_array().unwrap(),
+            &bytes,
         )?;
         CryptoKeyPair::new(ctx.clone(), private_key, public_key).into_js(&ctx)
     }
@@ -149,70 +148,6 @@ fn extract_generate_key_algorithm(
             "Algorithm 'name' must be RsaHashedKeyGenParams | EcKeyGenParams | HmacKeyGenParams | AesKeyGenParams",
         )),
     }
-}
-
-fn classify_and_check_usages<'js>(
-    ctx: &Ctx<'js>,
-    name: &str,
-    key_usages: &Array<'js>,
-) -> Result<(Array<'js>, Array<'js>)> {
-    fn get_usages(arr: &[(&str, &[&str])], algorithm: &str) -> Option<HashSet<String>> {
-        for (alg, usages) in arr {
-            if *alg == algorithm {
-                let usage_set: HashSet<String> =
-                    usages.iter().map(|&usage| usage.to_string()).collect();
-                return Some(usage_set);
-            }
-        }
-        None
-    }
-
-    let mut key_usages_set = HashSet::with_capacity(8);
-    for value in key_usages.clone().into_iter() {
-        let value = value?;
-        if let Some(string) = value.as_string() {
-            key_usages_set.insert(string.to_string()?);
-        }
-    }
-
-    let mandatory_usages = get_usages(MANDATORY_USAGES_ARRAY, name).unwrap();
-    let supported_usages = get_usages(SUPPORTED_USAGES_ARRAY, name).unwrap();
-
-    // private usages
-    let private_usages: HashSet<String> = key_usages_set
-        .intersection(&mandatory_usages)
-        .cloned()
-        .collect();
-
-    if !mandatory_usages.is_empty() && private_usages.is_empty() {
-        return Err(Exception::throw_range(
-            ctx,
-            "A required parameter was missing or out-of-range",
-        ));
-    }
-
-    // public or secret usages
-    let unsupported_usages: HashSet<String> = key_usages_set
-        .difference(&supported_usages)
-        .cloned()
-        .collect();
-
-    if !unsupported_usages.is_empty() {
-        return Err(Exception::throw_range(
-            ctx,
-            "A required parameter was missing or out-of-range",
-        ));
-    }
-
-    let public_or_secret_usages: HashSet<String> = key_usages_set
-        .difference(&mandatory_usages)
-        .cloned()
-        .collect();
-
-    let private_usages = private_usages.into_js(ctx)?.into_array().unwrap();
-    let public_or_secret_usages = public_or_secret_usages.into_js(ctx)?.into_array().unwrap();
-
-    Ok((private_usages, public_or_secret_usages))
 }
 
 fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
@@ -291,4 +226,52 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
             Ok(key)
         },
     }
+}
+
+fn classify_and_check_usages<'js>(
+    ctx: &Ctx<'js>,
+    name: &str,
+    key_usages: &Array<'js>,
+) -> Result<(Vec<String>, Vec<String>)> {
+    fn find_usages<'a>(table: &'a [(&str, &[&str])], algorithm: &str) -> Option<&'a [&'a str]> {
+        table
+            .iter()
+            .find(|(name, _)| *name == algorithm)
+            .map(|(_, usages)| *usages)
+    }
+
+    let mut key_usages_set = HashSet::with_capacity(8);
+    for value in key_usages.clone().into_iter() {
+        let value = value?;
+        if let Some(string) = value.as_string() {
+            key_usages_set.insert(string.to_string()?);
+        }
+    }
+
+    let supported_usages = find_usages(SUPPORTED_USAGES_ARRAY, name).unwrap();
+    let mandatory_usages = find_usages(MANDATORY_USAGES_ARRAY, name).unwrap();
+    let mut private_usages: Vec<String> = Vec::with_capacity(key_usages_set.len());
+    let mut public_usages: Vec<String> = Vec::with_capacity(key_usages_set.len());
+
+    for usage in key_usages_set {
+        if !supported_usages.contains(&usage.as_str()) {
+            return Err(Exception::throw_range(
+                ctx,
+                "A required parameter was missing or out-of-range",
+            ));
+        }
+        if mandatory_usages.contains(&usage.as_str()) {
+            private_usages.push(usage);
+        } else {
+            public_usages.push(usage);
+        }
+    }
+    if !mandatory_usages.is_empty() && private_usages.is_empty() {
+        return Err(Exception::throw_range(
+            ctx,
+            "A required parameter was missing or out-of-range",
+        ));
+    }
+
+    Ok((private_usages, public_usages))
 }
