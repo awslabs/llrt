@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashSet, sync::OnceLock};
 
+use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
@@ -107,9 +108,10 @@ fn extract_generate_key_algorithm(
                 Exception::throw_type(ctx, "algorithm 'modulusLength' property required")
             })?;
 
-            let public_exponent = algorithm.get_optional("publicExponent")?.ok_or_else(|| {
+            let public_exponent = algorithm.get_optional::<_, ObjectBytes>("publicExponent")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'publicExponent' property required")
             })?;
+            let public_exponent = public_exponent.as_bytes().to_vec();
 
             Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
         },
