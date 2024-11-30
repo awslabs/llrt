@@ -39,20 +39,21 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
 
     match name.as_str() {
         "ECDH" => {
-            let namedcurve = algorithm
-                .get_optional::<_, String>("namedcurve")?
-                .ok_or_else(|| {
-                    Exception::throw_type(ctx, "algorithm 'namedcurve' property required")
-                })?;
-
-            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
-
             let public = algorithm
-                .get_optional::<_, ObjectBytes>("public")?
+                .get_optional::<_, CryptoKey>("public")?
                 .ok_or_else(|| {
                     Exception::throw_type(ctx, "algorithm 'public' property required")
                 })?;
-            let public = public.as_bytes().to_vec();
+
+            let namedcurve = public
+                .algorithm()
+                .get_optional::<_, String>("namedCurve")?
+                .ok_or_else(|| {
+                    Exception::throw_type(ctx, "algorithm 'namedCurve' property required")
+                })?;
+
+            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
+            let public = public.get_handle().to_vec();
 
             Ok(DeriveAlgorithm::Edch { curve, public })
         },
