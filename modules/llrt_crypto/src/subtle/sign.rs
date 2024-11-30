@@ -13,19 +13,19 @@ use rsa::{
 use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 
 use crate::{
-    subtle::{extract_sign_verify_algorithm, Algorithm, HmacSha256, Sha},
+    subtle::{extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha},
     SYSTEM_RANDOM,
 };
 
 pub async fn subtle_sign<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: ObjectBytes<'js>,
+    key: CryptoKey<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
 
-    let bytes = sign(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
+    let bytes = sign(&ctx, &algorithm, key.get_handle(), data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes)
 }
 

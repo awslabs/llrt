@@ -10,17 +10,19 @@ use sha2::Sha256;
 
 use crate::subtle::{extract_algorithm_object, Aes256Gcm, Algorithm};
 
+use super::CryptoKey;
+
 type Aes256CbcDec = cbc::Decryptor<aes::Aes256>;
 
 pub async fn subtle_decrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: ObjectBytes<'js>,
+    key: CryptoKey<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
 
-    let bytes = decrypt(&ctx, &algorithm, key.as_bytes(), data.as_bytes())?;
+    let bytes = decrypt(&ctx, &algorithm, key.get_handle(), data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes)
 }
 

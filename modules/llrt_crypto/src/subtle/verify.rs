@@ -13,14 +13,14 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{extract_sign_verify_algorithm, Algorithm, HmacSha256, Sha},
+    subtle::{extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha},
     SYSTEM_RANDOM,
 };
 
 pub async fn subtle_verify<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    key: ObjectBytes<'js>,
+    key: CryptoKey<'js>,
     signature: ObjectBytes<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<bool> {
@@ -29,7 +29,7 @@ pub async fn subtle_verify<'js>(
     verify(
         &ctx,
         &algorithm,
-        key.as_bytes(),
+        key.get_handle(),
         signature.as_bytes(),
         data.as_bytes(),
     )
