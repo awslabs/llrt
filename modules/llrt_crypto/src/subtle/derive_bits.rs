@@ -3,7 +3,7 @@
 use std::num::NonZeroU32;
 
 use crate::CryptoKey;
-use llrt_utils::{object::ObjectExt, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
@@ -47,9 +47,12 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
 
             let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
 
-            let public = algorithm.get_optional("public")?.ok_or_else(|| {
-                Exception::throw_type(ctx, "algorithm 'public' property required")
-            })?;
+            let public = algorithm
+                .get_optional::<_, ObjectBytes>("public")?
+                .ok_or_else(|| {
+                    Exception::throw_type(ctx, "algorithm 'public' property required")
+                })?;
+            let public = public.as_bytes().to_vec();
 
             Ok(DeriveAlgorithm::Edch { curve, public })
         },
@@ -61,12 +64,14 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
             let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
-                .get_optional("salt")?
+                .get_optional::<_, ObjectBytes>("salt")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?;
+            let salt = salt.as_bytes().to_vec();
 
             let info = algorithm
-                .get_optional("info")?
+                .get_optional::<_, ObjectBytes>("info")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'info' property required"))?;
+            let info = info.as_bytes().to_vec();
 
             Ok(DeriveAlgorithm::Hkdf { hash, salt, info })
         },
@@ -78,8 +83,9 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
             let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
-                .get_optional("salt")?
+                .get_optional::<_, ObjectBytes>("salt")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'salt' property required"))?;
+            let salt = salt.as_bytes().to_vec();
 
             let iterations = algorithm.get_optional("iterations")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'iterations' property required")

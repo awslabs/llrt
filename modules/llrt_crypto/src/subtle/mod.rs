@@ -25,7 +25,7 @@ pub use verify::subtle_verify;
 use aes::{cipher::typenum::U16, Aes256};
 use aes_gcm::AesGcm;
 use hmac::Hmac;
-use llrt_utils::{object::ObjectExt, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{Array, Ctx, Exception, Result, Value};
 use sha2::Sha256;
 
@@ -129,31 +129,34 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
         "HMAC" => Ok(Algorithm::Hmac),
         "AES-GCM" => {
             let iv = algorithm
-                .get_optional("iv")?
+                .get_optional::<_, ObjectBytes>("iv")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?;
 
-            Ok(Algorithm::AesGcm(iv))
+            Ok(Algorithm::AesGcm(iv.as_bytes().to_vec()))
         },
         "AES-CBC" => {
             let iv = algorithm
-                .get_optional("iv")?
+                .get_optional::<_, ObjectBytes>("iv")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?;
 
-            Ok(Algorithm::AesCbc(iv))
+            Ok(Algorithm::AesCbc(iv.as_bytes().to_vec()))
         },
         "AES-CTR" => {
-            let counter = algorithm.get_optional("counter")?.ok_or_else(|| {
-                Exception::throw_type(ctx, "algorithm 'counter' property required")
-            })?;
+            let counter = algorithm
+                .get_optional::<_, ObjectBytes>("counter")?
+                .ok_or_else(|| {
+                    Exception::throw_type(ctx, "algorithm 'counter' property required")
+                })?;
 
             let length = algorithm.get_optional("length")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'length' property required")
             })?;
 
-            Ok(Algorithm::AesCtr(counter, length))
+            Ok(Algorithm::AesCtr(counter.as_bytes().to_vec(), length))
         },
         "RSA-OAEP" => {
-            let label = algorithm.get_optional("label")?;
+            let label = algorithm.get_optional::<_, ObjectBytes>("label")?;
+            let label = label.map(|lbl| lbl.as_bytes().to_vec());
 
             Ok(Algorithm::RsaOaep(label))
         },
