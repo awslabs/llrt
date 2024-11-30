@@ -10,7 +10,7 @@ pub async fn subtle_export_key<'js>(
     key: CryptoKey<'js>,
 ) -> Result<Value<'js>> {
     if format == "raw" {
-        export_key_of_raw(&ctx, &key).into_js(&ctx)
+        export_raw(&ctx, &key).into_js(&ctx)
     } else {
         Err(Exception::throw_type(
             &ctx,
@@ -19,6 +19,6 @@ pub async fn subtle_export_key<'js>(
     }
 }
 
-fn export_key_of_raw<'js>(ctx: &Ctx<'js>, key: &CryptoKey<'js>) -> Result<ArrayBuffer<'js>> {
+fn export_raw<'js>(ctx: &Ctx<'js>, key: &CryptoKey<'js>) -> Result<ArrayBuffer<'js>> {
     ArrayBuffer::new(ctx.clone(), key.get_handle())
 }

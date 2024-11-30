@@ -7,6 +7,7 @@ mod digest;
 mod encrypt;
 mod export_key;
 mod generate_key;
+mod import_key;
 mod sign;
 mod verify;
 
@@ -17,6 +18,7 @@ pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
+pub use import_key::subtle_import_key;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
 
@@ -208,7 +210,20 @@ fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
 }
 
 fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, name: &str) -> Result<()> {
-    if !key_usages.contains_key(name)? {
+    let mut is_supported: bool = false;
+
+    for value in key_usages.clone().into_iter() {
+        let value = value?;
+        if let Some(string) = value.as_string() {
+            let str = string.to_string()?;
+            if str.as_str() == name {
+                is_supported = true;
+                break;
+            }
+        }
+    }
+
+    if !is_supported {
         return Err(Exception::throw_type(
             ctx,
             &["CryptoKey doesn't support '", name, "'"].concat(),

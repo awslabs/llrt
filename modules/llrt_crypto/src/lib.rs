@@ -29,7 +29,7 @@ use rquickjs::{
 };
 use subtle::{
     subtle_decrypt, subtle_derive_bits, subtle_digest, subtle_encrypt, subtle_export_key,
-    subtle_generate_key, subtle_sign, subtle_verify, CryptoKey,
+    subtle_generate_key, subtle_import_key, subtle_sign, subtle_verify, CryptoKey,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
@@ -200,6 +200,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
     subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
     subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
+    subtle.set("importKey", Func::from(Async(subtle_import_key)))?;
     subtle.set("sign", Func::from(Async(subtle_sign)))?;
     subtle.set("verify", Func::from(Async(subtle_verify)))?;
     crypto.set("subtle", subtle)?;
