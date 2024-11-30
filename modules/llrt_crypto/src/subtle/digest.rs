@@ -1,9 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
+use ring::digest::Context;
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
-use sha1::Sha1;
-use sha2::{Digest, Sha256, Sha384, Sha512};
 
 use crate::subtle::Sha;
 
@@ -26,27 +25,16 @@ pub async fn subtle_digest<'js>(
 
 fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
     let sha = Sha::try_from(algorithm).or_throw(ctx)?;
+    let sha = match sha {
+        Sha::Sha1 => &ring::digest::SHA1_FOR_LEGACY_USE_ONLY,
+        Sha::Sha256 => &ring::digest::SHA256,
+        Sha::Sha384 => &ring::digest::SHA384,
+        Sha::Sha512 => &ring::digest::SHA512,
+    };
 
-    match sha {
-        Sha::Sha1 => {
-            let mut hasher = Sha1::new();
-            hasher.update(data);
-            Ok(hasher.finalize().to_vec())
-        },
-        Sha::Sha256 => {
-            let mut hasher = Sha256::new();
-            hasher.update(data);
-            Ok(hasher.finalize().to_vec())
-        },
-        Sha::Sha384 => {
-            let mut hasher = Sha384::new();
-            hasher.update(data);
-            Ok(hasher.finalize().to_vec())
-        },
-        Sha::Sha512 => {
-            let mut hasher = Sha512::new();
-            hasher.update(data);
-            Ok(hasher.finalize().to_vec())
-        },
-    }
+    let mut context = Context::new(sha);
+    context.update(data);
+    let digest = context.finish();
+
+    Ok(digest.as_ref().to_vec())
 }
