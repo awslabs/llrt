@@ -13,7 +13,9 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha},
+    subtle::{
+        check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha,
+    },
     SYSTEM_RANDOM,
 };
 
@@ -24,6 +26,8 @@ pub async fn subtle_verify<'js>(
     signature: ObjectBytes<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<bool> {
+    check_supported_usage(&ctx, &key.usages(), "verify")?;
+
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
 
     verify(

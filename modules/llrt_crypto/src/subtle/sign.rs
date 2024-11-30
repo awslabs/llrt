@@ -13,7 +13,9 @@ use rsa::{
 use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 
 use crate::{
-    subtle::{extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha},
+    subtle::{
+        check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, HmacSha256, Sha,
+    },
     SYSTEM_RANDOM,
 };
 
@@ -23,6 +25,8 @@ pub async fn subtle_sign<'js>(
     key: CryptoKey<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
+    check_supported_usage(&ctx, &key.usages(), "sign")?;
+
     let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
 
     let bytes = sign(&ctx, &algorithm, key.get_handle(), data.as_bytes())?;

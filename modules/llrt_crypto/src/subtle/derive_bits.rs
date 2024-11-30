@@ -8,7 +8,7 @@ use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 
-use crate::subtle::{CryptoNamedCurve, DeriveAlgorithm, Sha};
+use crate::subtle::{check_supported_usage, CryptoNamedCurve, DeriveAlgorithm, Sha};
 
 struct HkdfOutput(usize);
 
@@ -24,6 +24,8 @@ pub async fn subtle_derive_bits<'js>(
     base_key: CryptoKey<'js>,
     length: u32,
 ) -> Result<ArrayBuffer<'js>> {
+    check_supported_usage(&ctx, &base_key.usages(), "deriveBits")?;
+
     let derive_algorithm = extract_derive_algorithm(&ctx, &algorithm)?;
 
     let bytes = derive_bits(&ctx, &derive_algorithm, base_key.get_handle(), length)?;

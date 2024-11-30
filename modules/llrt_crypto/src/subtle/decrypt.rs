@@ -8,7 +8,7 @@ use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
 use sha2::Sha256;
 
-use crate::subtle::{extract_algorithm_object, Aes256Gcm, Algorithm};
+use crate::subtle::{check_supported_usage, extract_algorithm_object, Aes256Gcm, Algorithm};
 
 use super::CryptoKey;
 
@@ -20,6 +20,8 @@ pub async fn subtle_decrypt<'js>(
     key: CryptoKey<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
+    check_supported_usage(&ctx, &key.usages(), "decrypt")?;
+
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
 
     let bytes = decrypt(&ctx, &algorithm, key.get_handle(), data.as_bytes())?;

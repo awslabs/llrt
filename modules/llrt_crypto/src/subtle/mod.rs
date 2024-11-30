@@ -24,7 +24,7 @@ use aes::{cipher::typenum::U16, Aes256};
 use aes_gcm::AesGcm;
 use hmac::Hmac;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
-use rquickjs::{Ctx, Exception, Result, Value};
+use rquickjs::{Array, Ctx, Exception, Result, Value};
 use sha2::Sha256;
 
 pub type HmacSha256 = Hmac<Sha256>;
@@ -205,4 +205,14 @@ fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
         .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
 
     Sha::try_from(hash.as_str()).or_throw(ctx)
+}
+
+fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, name: &str) -> Result<()> {
+    if !key_usages.contains_key(name)? {
+        return Err(Exception::throw_type(
+            ctx,
+            &["CryptoKey doesn't support '", name, "'"].concat(),
+        ));
+    }
+    Ok(())
 }

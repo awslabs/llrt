@@ -8,7 +8,9 @@ use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{pkcs1::DecodeRsaPrivateKey, rand_core::OsRng, Oaep, RsaPrivateKey};
 use sha2::Sha256;
 
-use crate::subtle::{extract_algorithm_object, Aes256Gcm, Algorithm, CryptoKey};
+use crate::subtle::{
+    check_supported_usage, extract_algorithm_object, Aes256Gcm, Algorithm, CryptoKey,
+};
 
 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
 
@@ -18,6 +20,8 @@ pub async fn subtle_encrypt<'js>(
     key: CryptoKey<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
+    check_supported_usage(&ctx, &key.usages(), "encrypt")?;
+
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
 
     let bytes = encrypt(&ctx, &algorithm, key.get_handle(), data.as_bytes())?;
