@@ -28,11 +28,13 @@ static EMPTY_USAGES: &[&str] = &[];
 static SIGN_USAGES: &[&str] = &["sign"];
 static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
 static ECDH_USAGES: &[&str] = &["deriveKey", "deriveBits"];
+static AES_KW_USAGES: &[&str] = &["wrapKey", "unwrapKey"];
 
 static SUPPORTED_USAGES_ARRAY: &[(&str, &[&str])] = &[
     ("AES-CBC", SYMMETRIC_USAGES),
     ("AES-CTR", SYMMETRIC_USAGES),
     ("AES-GCM", SYMMETRIC_USAGES),
+    ("AES-KW", AES_KW_USAGES),
     ("ECDH", ECDH_USAGES),
     ("ECDSA", SIGNATURE_USAGES),
     ("HMAC", SIGNATURE_USAGES),
@@ -45,6 +47,7 @@ static MANDATORY_USAGES_ARRAY: &[(&str, &[&str])] = &[
     ("AES-CBC", EMPTY_USAGES),
     ("AES-CTR", EMPTY_USAGES),
     ("AES-GCM", EMPTY_USAGES),
+    ("AES-KW", EMPTY_USAGES),
     ("ECDH", ECDH_USAGES),
     ("ECDSA", SIGN_USAGES),
     ("HMAC", EMPTY_USAGES),
