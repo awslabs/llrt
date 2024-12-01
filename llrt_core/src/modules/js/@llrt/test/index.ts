@@ -158,11 +158,15 @@ class TestServer extends EventEmitter {
       }
       socket.write(JSON.stringify(response));
     });
-    socket.on("error", (error) =>
-      this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
-        socket,
-      })
-    );
+    socket.on("close", () => {});
+    socket.on("error", (error) => {
+      const workerId = this.workerIdBySocket.get(socket);
+      if (!workerId || !this.workerData[workerId].completed) {
+        this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
+          socket,
+        });
+      }
+    });
   }
 
   spawnAllWorkers() {
@@ -184,7 +188,8 @@ class TestServer extends EventEmitter {
 
   private spawnWorker(id: number) {
     const workerData = this.workerData[id];
-    let output = Buffer.from("");
+    let lastStdout = Buffer.from("");
+    let lastStderr = Buffer.from("");
     const proc = spawn(
       process.argv0,
       ["-e", `import("llrt:test/worker").catch(console.error)`],
@@ -196,8 +201,11 @@ class TestServer extends EventEmitter {
         },
       }
     );
+    proc.stderr.on("data", (data) => {
+      lastStderr = data;
+    });
     proc.stdout.on("data", (data) => {
-      output = data;
+      lastStdout = data;
     });
     proc.on("error", (error) => {
       this.handleError(TestServer.ERROR_CODE_PROCESS_ERROR, error, {
@@ -213,7 +221,7 @@ class TestServer extends EventEmitter {
           {
             id,
             ended: performance.now(),
-            output: output.toString(),
+            output: Buffer.concat([lastStdout, lastStderr]).toString(),
           }
         );
         this.handleWorkerCompleted(id);
