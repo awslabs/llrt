@@ -16,16 +16,21 @@ use rquickjs::{
     Value,
 };
 
+#[derive(Debug)]
+struct Shared<T> {
+    is_sent: AtomicBool,
+    value: RwLock<Option<T>>,
+    wakers: RwLock<Vec<Waker>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Sender<T: Clone> {
-    is_sent: Arc<AtomicBool>,
-    value: Arc<RwLock<Option<T>>>,
-    wakers: Arc<RwLock<Vec<Waker>>>,
+    shared: Arc<Shared<T>>,
 }
 
 impl<'js> Trace<'js> for Sender<Value<'js>> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        if let Ok(v) = self.value.as_ref().read() {
+        if let Ok(v) = self.shared.value.read() {
             if let Some(v) = v.as_ref() {
                 tracer.mark(v)
             }
@@ -35,10 +40,10 @@ impl<'js> Trace<'js> for Sender<Value<'js>> {
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) {
-        if !self.is_sent.load(Ordering::Relaxed) {
-            self.value.write().unwrap().replace(value);
-            self.is_sent.store(true, Ordering::Release);
-            if let Ok(wakers) = self.wakers.read() {
+        if !self.shared.is_sent.load(Ordering::Relaxed) {
+            self.shared.value.write().unwrap().replace(value);
+            self.shared.is_sent.store(true, Ordering::Release);
+            if let Ok(wakers) = self.shared.wakers.read() {
                 for waker in wakers.iter() {
                     waker.wake_by_ref();
                 }
@@ -48,47 +53,39 @@ impl<T: Clone> Sender<T> {
 
     pub fn subscribe(&self) -> Receiver<T> {
         Receiver {
-            is_sent: self.is_sent.clone(),
-            value: self.value.clone(),
-            wakers: self.wakers.clone(),
+            shared: Arc::clone(&self.shared),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Receiver<T: Clone> {
-    is_sent: Arc<AtomicBool>,
-    value: Arc<RwLock<Option<T>>>,
-    wakers: Arc<RwLock<Vec<Waker>>>,
+    shared: Arc<Shared<T>>,
 }
 
 impl<T: Clone> Receiver<T> {
     pub fn recv(&self) -> ReceiverWaiter<T> {
         ReceiverWaiter {
-            is_sent: self.is_sent.clone(),
-            value: self.value.clone(),
-            wakers: self.wakers.clone(),
+            shared: Arc::clone(&self.shared),
         }
     }
 }
 
 pub struct ReceiverWaiter<T: Clone> {
-    is_sent: Arc<AtomicBool>,
-    value: Arc<RwLock<Option<T>>>,
-    wakers: Arc<RwLock<Vec<Waker>>>,
+    shared: Arc<Shared<T>>,
 }
 
 impl<T: Clone> Future for ReceiverWaiter<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.is_sent.load(Ordering::Acquire) {
-            let a = self.get_mut().value.read().unwrap().clone().unwrap();
-            return Poll::Ready(a);
+        if self.shared.is_sent.load(Ordering::Acquire) {
+            let value = self.shared.value.read().unwrap().clone().unwrap();
+            return Poll::Ready(value);
         }
 
         // Register waker only if value not ready
-        if let Ok(mut wakers) = self.wakers.write() {
+        if let Ok(mut wakers) = self.shared.wakers.write() {
             wakers.push(cx.waker().clone());
         }
 
@@ -97,21 +94,17 @@ impl<T: Clone> Future for ReceiverWaiter<T> {
 }
 
 pub fn channel<T: Clone>() -> (Sender<T>, Receiver<T>) {
-    let is_sent = Arc::new(AtomicBool::new(false));
-    let value = Arc::new(RwLock::new(None));
-    let wakers = Arc::new(RwLock::new(Vec::new()));
+    let shared = Arc::new(Shared {
+        is_sent: AtomicBool::new(false),
+        value: RwLock::new(None),
+        wakers: RwLock::new(Vec::new()),
+    });
 
     (
         Sender {
-            is_sent: is_sent.clone(),
-            value: value.clone(),
-            wakers: wakers.clone(),
+            shared: Arc::clone(&shared),
         },
-        Receiver {
-            is_sent: is_sent.clone(),
-            value: value.clone(),
-            wakers: wakers.clone(),
-        },
+        Receiver { shared },
     )
 }
 
