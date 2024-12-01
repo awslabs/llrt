@@ -6,7 +6,7 @@ use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
 use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
-use rquickjs::{Array, Ctx, Exception, IntoJs, Object, Result, Value};
+use rquickjs::{object::Property, Array, Ctx, Exception, IntoJs, Object, Result, Value};
 use rsa::{
     pkcs1::EncodeRsaPrivateKey,
     {rand_core::OsRng, BigUint, RsaPrivateKey},
@@ -97,8 +97,8 @@ pub async fn subtle_generate_key<'js>(
         )?;
 
         let key_pair = Object::new(ctx.clone())?;
-        key_pair.prop("privateKey", private_key)?;
-        key_pair.prop("publicKey", public_key)?;
+        key_pair.prop("privateKey", Property::from(private_key).enumerable())?;
+        key_pair.prop("publicKey", Property::from(public_key).enumerable())?;
         key_pair.into_js(&ctx)
     }
 }
