@@ -8,7 +8,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, RwLock,
     },
-    task::{Context, Poll},
+    task::{Context, Poll, Waker},
 };
 
 use rquickjs::{
@@ -20,6 +20,7 @@ use rquickjs::{
 pub struct Sender<T: Clone> {
     is_sent: Arc<AtomicBool>,
     value: Arc<RwLock<Option<T>>>,
+    wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
 impl<'js> Trace<'js> for Sender<Value<'js>> {
@@ -36,7 +37,12 @@ impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) {
         if !self.is_sent.load(Ordering::Relaxed) {
             self.value.write().unwrap().replace(value);
-            self.is_sent.store(true, Ordering::Relaxed);
+            self.is_sent.store(true, Ordering::Release);
+            if let Ok(wakers) = self.wakers.read() {
+                for waker in wakers.iter() {
+                    waker.wake_by_ref();
+                }
+            }
         }
     }
 
@@ -44,6 +50,7 @@ impl<T: Clone> Sender<T> {
         Receiver {
             is_sent: self.is_sent.clone(),
             value: self.value.clone(),
+            wakers: self.wakers.clone(),
         }
     }
 }
@@ -52,6 +59,7 @@ impl<T: Clone> Sender<T> {
 pub struct Receiver<T: Clone> {
     is_sent: Arc<AtomicBool>,
     value: Arc<RwLock<Option<T>>>,
+    wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
 impl<T: Clone> Receiver<T> {
@@ -59,6 +67,7 @@ impl<T: Clone> Receiver<T> {
         ReceiverWaiter {
             is_sent: self.is_sent.clone(),
             value: self.value.clone(),
+            wakers: self.wakers.clone(),
         }
     }
 }
@@ -66,18 +75,22 @@ impl<T: Clone> Receiver<T> {
 pub struct ReceiverWaiter<T: Clone> {
     is_sent: Arc<AtomicBool>,
     value: Arc<RwLock<Option<T>>>,
+    wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
 impl<T: Clone> Future for ReceiverWaiter<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.is_sent.load(Ordering::Relaxed) {
+        if self.is_sent.load(Ordering::Acquire) {
             let a = self.get_mut().value.read().unwrap().clone().unwrap();
             return Poll::Ready(a);
         }
 
-        cx.waker().wake_by_ref();
+        // Register waker only if value not ready
+        if let Ok(mut wakers) = self.wakers.write() {
+            wakers.push(cx.waker().clone());
+        }
 
         Poll::Pending
     }
@@ -86,15 +99,18 @@ impl<T: Clone> Future for ReceiverWaiter<T> {
 pub fn channel<T: Clone>() -> (Sender<T>, Receiver<T>) {
     let is_sent = Arc::new(AtomicBool::new(false));
     let value = Arc::new(RwLock::new(None));
+    let wakers = Arc::new(RwLock::new(Vec::new()));
 
     (
         Sender {
             is_sent: is_sent.clone(),
             value: value.clone(),
+            wakers: wakers.clone(),
         },
         Receiver {
             is_sent: is_sent.clone(),
             value: value.clone(),
+            wakers: wakers.clone(),
         },
     )
 }
