@@ -76,6 +76,11 @@ pub fn i64_to_base_n(number: i64, radix: u8) -> String {
 
 #[inline(always)]
 fn internal_i64_to_base_n(buf: &mut [u8], number: i64, radix: u8) -> usize {
+    if number == 0 {
+        buf[BUF_SIZE - 1] = DIGITS[0];
+        return BUF_SIZE - 1;
+    }
+
     let mut n = number;
     let mut index = BUF_SIZE;
 
@@ -295,6 +300,9 @@ mod test {
         }
 
         // Test i64_to_base_n
+        let base_36 = i64_to_base_n(0, 36);
+        assert_eq!("0", base_36);
+
         let base_36 = i64_to_base_n(123456789, 36);
         assert_eq!("21i3v9", base_36);
 
