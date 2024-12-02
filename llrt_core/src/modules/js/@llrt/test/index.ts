@@ -295,6 +295,7 @@ class TestServer extends EventEmitter {
           this.workerDataFileInProgress.set(nextFile, workerData);
         } else {
           workerData.currentFile = null;
+          workerData.lastUpdate = 0;
         }
         return { nextFile: nextFile || null };
       }
