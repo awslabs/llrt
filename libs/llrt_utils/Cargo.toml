@@ -18,7 +18,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1"
   "array-buffer",
   "macro",
 ], default-features = false }
-tokio = { version = "1" }
+tokio = { version = "1", features = ["sync"] }
 tracing = "0.1"
 
 [dev-dependencies]
