@@ -403,6 +403,7 @@ class TestAgent {
             ended: performance.now(),
           });
         } catch (e) {
+          console.error("Error sending error message:", e);
           process.exit(1);
         }
       }
