@@ -349,7 +349,6 @@ where
         args: Rest<Value<'js>>,
         defer: bool,
     ) -> Result<()> {
-        trace!("Emitting: {:?}", event);
         let this2 = this.clone();
         let events = &this2.borrow().get_event_list();
         let mut events = events.write().or_throw(ctx)?;
