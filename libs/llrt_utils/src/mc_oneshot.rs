@@ -23,9 +23,16 @@ pub struct Shared<T> {
 #[derive(Clone, Debug)]
 pub struct Sender<T: Clone>(Arc<Shared<T>>);
 
+impl<T: Clone> Deref for Sender<T> {
+    type Target = Arc<Shared<T>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<'js> Trace<'js> for Sender<Value<'js>> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        if let Ok(v) = self.0.value.read() {
+        if let Ok(v) = self.value.read() {
             if let Some(v) = v.as_ref() {
                 tracer.mark(v)
             }
@@ -35,10 +42,10 @@ impl<'js> Trace<'js> for Sender<Value<'js>> {
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) {
-        if !self.0.is_sent.load(Ordering::Relaxed) {
-            self.0.value.write().unwrap().replace(value);
-            self.0.is_sent.store(true, Ordering::Release);
-            self.0.notify.notify_waiters();
+        if !self.is_sent.load(Ordering::Relaxed) {
+            self.value.write().unwrap().replace(value);
+            self.is_sent.store(true, Ordering::Release);
+            self.notify.notify_waiters();
         }
     }
 
