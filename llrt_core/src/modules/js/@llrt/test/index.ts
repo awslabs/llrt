@@ -169,6 +169,7 @@ class TestServer extends EventEmitter {
           );
         }
         if (this.shutdownPending) {
+          console.log("Shutdown from pending");
           this.shutdown();
         }
       });
@@ -422,6 +423,7 @@ class TestServer extends EventEmitter {
   }
 
   shutdown() {
+    console.log("calling shutdown");
     this.shutdownPending = false;
     this.server?.close();
   }
@@ -482,7 +484,7 @@ class TestServer extends EventEmitter {
           performance.now()
         );
         workerData.childProc?.kill();
-        this.handleWorkerCompleted(parseInt(id), false);
+        this.handleWorkerCompleted(parseInt(id), true);
       }
     }
 
