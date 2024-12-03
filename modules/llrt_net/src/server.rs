@@ -251,7 +251,7 @@ impl<'js> Server<'js> {
                 }
             }
 
-            if this.borrow().sockets.len() != 0 {
+            if this.borrow().sockets.is_empty() {
                 trace!("waiting for sockets to finish");
                 close_notify.await;
                 trace!("sockets finished");
@@ -363,7 +363,7 @@ impl<'js> Server<'js> {
                 let mut sever_borrow = this.borrow_mut();
                 sever_borrow.sockets.remove(socket_index);
 
-                if sever_borrow.sockets.len() == 0
+                if sever_borrow.sockets.is_empty()
                     && sever_borrow.should_close.load(Ordering::Relaxed)
                 {
                     trace!("sockets empty, notify close");
