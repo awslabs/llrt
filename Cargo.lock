@@ -2686,6 +2686,7 @@ version = "0.3.0-beta"
 dependencies = [
  "llrt_build",
  "llrt_test",
+ "llrt_utils",
  "rquickjs",
  "tokio",
  "tracing",
@@ -2865,6 +2866,7 @@ dependencies = [
  "llrt_perf_hooks",
  "llrt_process",
  "llrt_timers",
+ "llrt_tty",
  "llrt_url",
  "llrt_utils",
  "llrt_zlib",
@@ -2989,6 +2991,17 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "once_cell",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_tty"
+version = "0.3.0-beta"
+dependencies = [
+ "libc",
+ "llrt_test",
+ "llrt_utils",
  "rquickjs",
  "tokio",
 ]
@@ -3736,7 +3749,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.8.1"
-source = "git+https://github.com/DelSkayn/rquickjs.git#ec52f5c087b7f95842e05469c1b95b1ae86ee5c6"
+source = "git+https://github.com/DelSkayn/rquickjs.git#6d8f612636c1a6d4b4acd7a78ce30063666a1b78"
 dependencies = [
  "either",
  "indexmap 2.6.0",
@@ -3747,7 +3760,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.8.1"
-source = "git+https://github.com/DelSkayn/rquickjs.git#ec52f5c087b7f95842e05469c1b95b1ae86ee5c6"
+source = "git+https://github.com/DelSkayn/rquickjs.git#6d8f612636c1a6d4b4acd7a78ce30063666a1b78"
 dependencies = [
  "async-lock",
  "chrono",
@@ -3762,7 +3775,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.8.1"
-source = "git+https://github.com/DelSkayn/rquickjs.git#ec52f5c087b7f95842e05469c1b95b1ae86ee5c6"
+source = "git+https://github.com/DelSkayn/rquickjs.git#6d8f612636c1a6d4b4acd7a78ce30063666a1b78"
 dependencies = [
  "convert_case",
  "fnv",
@@ -3780,7 +3793,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.8.1"
-source = "git+https://github.com/DelSkayn/rquickjs.git#ec52f5c087b7f95842e05469c1b95b1ae86ee5c6"
+source = "git+https://github.com/DelSkayn/rquickjs.git#6d8f612636c1a6d4b4acd7a78ce30063666a1b78"
 dependencies = [
  "bindgen",
  "cc",
@@ -4106,18 +4119,18 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "snmalloc-rs"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2504c9edd7ca7a1cfe637296dc0d263ce1e9975c4ec43f3652616ebce9d1df1c"
+checksum = "d43ff92911d7d9705d1c0203300a3edfd00d16c8b8b0c27c56f9407a3f31e7a6"
 dependencies = [
  "snmalloc-sys",
 ]
 
 [[package]]
 name = "snmalloc-sys"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d448599db5c3263b35d67ab26a2399e74ca0265211f5f5dd4cb9f4c3ccada6a"
+checksum = "954e1f984860770475196be81a547ed1517d34fcb8a15cb87bdb37cff3353230"
 dependencies = [
  "cmake",
 ]
@@ -4261,9 +4274,9 @@ dependencies = [
 
 [[package]]
 name = "terminal_size"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f599bd7ca042cfdf8f4512b277c02ba102247820f9d9d4a9f521f496751a6ef"
+checksum = "5352447f921fda68cf61b4101566c0bdb5104eff6804d0678e5227580ab6a4e9"
 dependencies = [
  "rustix",
  "windows-sys 0.59.0",
@@ -4359,9 +4372,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.41.0"
+version = "1.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "145f3413504347a2be84393cc8a7d2fb4d863b375909ea59f2158261aa258bbb"
+checksum = "22cfb5bee7a6a52939ca9224d6ac897bb669134078daa8735560897f69de4d33"
 dependencies = [
  "backtrace",
  "bytes",
@@ -4475,9 +4488,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.32"
+version = "0.1.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
+checksum = "e672c95779cf947c5311f83787af4fa8fffd12fb27e4993211a84bdfd9610f9c"
 dependencies = [
  "once_cell",
  "valuable",

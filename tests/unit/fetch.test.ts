@@ -8,6 +8,7 @@ let url: string;
 
 beforeAll((done) => {
   server = net.createServer((socket) => {
+    socket.on("error", () => {}); //ignore errors as abort signals might cancel the socket
     socket.on("data", () => {
       socket.write(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html></html>"

@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::object::ObjectExt;
+use llrt_utils::{
+    object::ObjectExt,
+    primordials::{BasePrimordials, Primordial},
+};
 use rquickjs::{
     atom::PredefinedAtom,
     function::This,
@@ -45,17 +48,7 @@ pub fn structured_clone<'js>(
     value: Value<'js>,
     options: Opt<Object<'js>>,
 ) -> Result<Value<'js>> {
-    let globals = ctx.globals();
-    let date_ctor: Constructor = globals.get(PredefinedAtom::Date)?;
-    let map_ctor: Constructor = globals.get(PredefinedAtom::Map)?;
-    let set_ctor: Constructor = globals.get(PredefinedAtom::Set)?;
-    let reg_exp_ctor: Constructor = globals.get(PredefinedAtom::RegExp)?;
-    let error_ctor: Constructor = globals.get(PredefinedAtom::Error)?;
-    let array_ctor: Constructor = globals.get(PredefinedAtom::Array)?;
-    let array_from: Function = array_ctor.get(PredefinedAtom::From)?;
-    let array_buffer: Constructor = globals.get(PredefinedAtom::ArrayBuffer)?;
-    let is_view_fn: Function = array_buffer.get("isView")?;
-
+    let primordials = BasePrimordials::get(ctx)?;
     let mut transfer_set = None;
 
     if let Some(options) = options.0 {
@@ -104,11 +97,11 @@ pub fn structured_clone<'js>(
                         //unsafe OK since we're guaranteed to be object by the match
                         let object = unsafe { value.as_object().unwrap_unchecked() };
 
-                        if object.is_instance_of(&date_ctor) {
+                        if object.is_instance_of(&primordials.constructor_date) {
                             append_ctor_value(
                                 &mut tape,
                                 object,
-                                &date_ctor,
+                                &primordials.constructor_date,
                                 parent,
                                 object_key,
                                 array_index,
@@ -117,11 +110,11 @@ pub fn structured_clone<'js>(
                             continue;
                         }
 
-                        if object.is_instance_of(&reg_exp_ctor) {
+                        if object.is_instance_of(&primordials.constructor_regexp) {
                             append_ctor_value(
                                 &mut tape,
                                 object,
-                                &reg_exp_ctor,
+                                &primordials.constructor_regexp,
                                 parent,
                                 object_key,
                                 array_index,
@@ -130,9 +123,9 @@ pub fn structured_clone<'js>(
                             continue;
                         }
 
-                        let is_collection = if object.is_instance_of(&set_ctor) {
+                        let is_collection = if object.is_instance_of(&primordials.constructor_set) {
                             Some(ObjectType::Set)
-                        } else if object.is_instance_of(&map_ctor) {
+                        } else if object.is_instance_of(&primordials.constructor_map) {
                             Some(ObjectType::Map)
                         } else {
                             None
@@ -141,7 +134,7 @@ pub fn structured_clone<'js>(
                         if let Some(collection_type) = is_collection {
                             append_collection(
                                 &mut tape,
-                                &array_from,
+                                &primordials.function_array_from,
                                 object,
                                 parent,
                                 object_key,
@@ -155,17 +148,21 @@ pub fn structured_clone<'js>(
                             continue;
                         }
 
-                        if is_view_fn.call::<_, bool>((value.clone(),))? {
+                        if primordials
+                            .function_array_buffer_is_view
+                            .call::<_, bool>((value.clone(),))?
+                        {
                             append_buffer(&mut tape, object, parent, object_key, array_index)?;
                             index += 1;
                             continue;
                         }
 
-                        let new: Object<'_> = if object.is_instance_of(&error_ctor) {
-                            error_ctor.construct(("",))
-                        } else {
-                            Object::new(ctx.clone())
-                        }?;
+                        let new: Object<'_> =
+                            if object.is_instance_of(&primordials.constructor_error) {
+                                primordials.constructor_error.construct(("",))
+                            } else {
+                                Object::new(ctx.clone())
+                            }?;
 
                         tape.push(TapeItem {
                             parent,
@@ -256,10 +253,10 @@ pub fn structured_clone<'js>(
             TapeValue::Collection(collection_value, collection_type) => {
                 match collection_type {
                     ObjectType::Set => {
-                        collection_value.replace(set_ctor.construct((value,))?);
+                        collection_value.replace(primordials.constructor_set.construct((value,))?);
                     },
                     ObjectType::Map => {
-                        collection_value.replace(map_ctor.construct((value,))?);
+                        collection_value.replace(primordials.constructor_map.construct((value,))?);
                     },
                 };
             },

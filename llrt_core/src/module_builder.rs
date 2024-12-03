@@ -15,6 +15,7 @@ use crate::modules::{
     path::PathModule,
     perf_hooks::PerfHooksModule,
     process::ProcessModule,
+    tty::TtyModule,
     url::UrlModule,
     util::UtilModule,
     zlib::ZlibModule,
@@ -76,6 +77,7 @@ impl Default for ModuleBuilder {
             .with_module(FsModule)
             .with_module(OsModule)
             .with_module(TimersModule)
+            .with_global(llrt_modules::timers::init)
             .with_module(EventsModule)
             .with_global(crate::modules::events::init)
             .with_global(crate::modules::abort::init)
@@ -101,6 +103,7 @@ impl Default for ModuleBuilder {
             .with_module(PerfHooksModule)
             .with_global(crate::modules::perf_hooks::init)
             .with_module(ZlibModule)
+            .with_module(TtyModule)
     }
 }
 

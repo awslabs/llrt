@@ -46,9 +46,9 @@ impl<'js> EventKey<'js> {
     }
 }
 
-impl<'js> Eq for EventKey<'js> {}
+impl Eq for EventKey<'_> {}
 
-impl<'js> PartialEq for EventKey<'js> {
+impl PartialEq for EventKey<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (EventKey::Symbol(symbol1), EventKey::Symbol(symbol2)) => symbol1 == symbol2,

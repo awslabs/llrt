@@ -12,7 +12,9 @@ pub struct BasePrimordials<'js> {
     pub constructor_set: Constructor<'js>,
     pub constructor_date: Constructor<'js>,
     pub constructor_error: Constructor<'js>,
+    pub constructor_type_error: Constructor<'js>,
     pub constructor_regexp: Constructor<'js>,
+    pub constructor_proxy: Constructor<'js>,
 
     // Prototypes
     pub prototype_object: Object<'js>,
@@ -62,6 +64,8 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
         let constructor_object: Object = globals.get(PredefinedAtom::Object)?;
         let prototype_object: Object = constructor_object.get(PredefinedAtom::Prototype)?;
 
+        let constructor_proxy: Constructor = globals.get(PredefinedAtom::Proxy)?;
+
         let function_get_own_property_descriptor: Function =
             constructor_object.get(PredefinedAtom::GetOwnPropertyDescriptor)?;
 
@@ -78,6 +82,7 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
         let prototype_regexp: Object = constructor_regexp.get(PredefinedAtom::Prototype)?;
 
         let constructor_error: Constructor = globals.get(PredefinedAtom::Error)?;
+        let constructor_type_error: Constructor = ctx.globals().get(PredefinedAtom::TypeError)?;
         let prototype_error: Object = constructor_error.get(PredefinedAtom::Prototype)?;
 
         let constructor_array: Object = globals.get(PredefinedAtom::Array)?;
@@ -100,7 +105,9 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
             constructor_map,
             constructor_set,
             constructor_date,
+            constructor_proxy,
             constructor_error,
+            constructor_type_error,
             constructor_regexp,
             prototype_object,
             prototype_date,

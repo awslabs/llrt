@@ -125,6 +125,12 @@ class TestServer extends EventEmitter {
   }
 
   public async start() {
+    if (this.testFiles.length === 0) {
+      this.printResults();
+      this.shutdown();
+      return;
+    }
+
     this.started = performance.now();
     const server = net.createServer((socket) =>
       this.handleSocketConnected(socket)
@@ -152,11 +158,15 @@ class TestServer extends EventEmitter {
       }
       socket.write(JSON.stringify(response));
     });
-    socket.on("error", (error) =>
-      this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
-        socket,
-      })
-    );
+    socket.on("close", () => {});
+    socket.on("error", (error) => {
+      const workerId = this.workerIdBySocket.get(socket);
+      if (!workerId || !this.workerData[workerId].completed) {
+        this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
+          socket,
+        });
+      }
+    });
   }
 
   spawnAllWorkers() {
@@ -178,7 +188,8 @@ class TestServer extends EventEmitter {
 
   private spawnWorker(id: number) {
     const workerData = this.workerData[id];
-    let output = Buffer.from("");
+    let lastStdout = Buffer.from("");
+    let lastStderr = Buffer.from("");
     const proc = spawn(
       process.argv0,
       ["-e", `import("llrt:test/worker").catch(console.error)`],
@@ -190,8 +201,11 @@ class TestServer extends EventEmitter {
         },
       }
     );
+    proc.stderr.on("data", (data) => {
+      lastStderr = data;
+    });
     proc.stdout.on("data", (data) => {
-      output = data;
+      lastStdout = data;
     });
     proc.on("error", (error) => {
       this.handleError(TestServer.ERROR_CODE_PROCESS_ERROR, error, {
@@ -207,7 +221,7 @@ class TestServer extends EventEmitter {
           {
             id,
             ended: performance.now(),
-            output: output.toString(),
+            output: Buffer.concat([lastStdout, lastStderr]).toString(),
           }
         );
         this.handleWorkerCompleted(id);
@@ -265,6 +279,8 @@ class TestServer extends EventEmitter {
       case "next": {
         const nextFile = this.fileQueue.shift();
         const workerData = this.workerData[workerId];
+        //clear current path
+        workerData.currentPath.splice(0, workerData.currentPath.length);
 
         if (nextFile) {
           this.results.set(nextFile, {
@@ -279,6 +295,7 @@ class TestServer extends EventEmitter {
           this.workerDataFileInProgress.set(nextFile, workerData);
         } else {
           workerData.currentFile = null;
+          workerData.lastUpdate = 0;
         }
         return { nextFile: nextFile || null };
       }
@@ -326,7 +343,7 @@ class TestServer extends EventEmitter {
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
         //if we're not in a test
-        workerData.lastUpdate = 0;
+        //workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
@@ -395,7 +412,6 @@ class TestServer extends EventEmitter {
       error,
     };
     workerData.success = false;
-    workerData.lastUpdate = 0;
     const results = this.results.get(workerData.currentFile!);
     if (results) {
       results.success = false;

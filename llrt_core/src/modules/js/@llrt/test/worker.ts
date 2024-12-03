@@ -314,7 +314,7 @@ class TestAgent {
           isSuite: false,
         });
       } catch (error: any) {
-        this.sendMessage("error", {
+        await this.sendMessage("error", {
           error,
           started,
           ended: performance.now(),
@@ -403,6 +403,7 @@ class TestAgent {
             ended: performance.now(),
           });
         } catch (e) {
+          console.error("Error sending error message:", e);
           process.exit(1);
         }
       }

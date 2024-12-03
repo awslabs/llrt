@@ -128,7 +128,7 @@ struct LambdaContext<'js, 'a> {
     pub lambda_environment: &'a LambdaEnvironment,
 }
 
-impl<'js, 'a> IntoJs<'js> for LambdaContext<'js, 'a> {
+impl<'js> IntoJs<'js> for LambdaContext<'js, '_> {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let obj = Object::new(ctx.clone())?;
         obj.set("awsRequestId", self.aws_request_id)?;

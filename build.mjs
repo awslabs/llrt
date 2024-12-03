@@ -74,6 +74,7 @@ const ES_BUILD_OPTIONS = {
     "llrt:uuid",
     "llrt:xml",
     "perf_hooks",
+    "tty",
   ],
 };
 
