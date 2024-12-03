@@ -348,7 +348,7 @@ class TestServer extends EventEmitter {
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
         //if we're not in a test
-        //workerData.lastUpdate = 0;
+        workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
