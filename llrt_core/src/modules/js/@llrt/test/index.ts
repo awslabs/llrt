@@ -110,6 +110,7 @@ class TestServer extends EventEmitter {
   private updateInterval: Timeout | null = null;
   private spinnerFrameIndex = 0;
   private started = 0;
+  private shutdownPending = false;
 
   constructor(
     testFiles: string[],
@@ -157,7 +158,20 @@ class TestServer extends EventEmitter {
         this.handleError(TestServer.ERROR_CODE_HANDLE_DATA, e);
         return;
       }
-      socket.write(JSON.stringify(response));
+      socket.write(JSON.stringify(response), (err) => {
+        if (err) {
+          return this.handleError(
+            TestServer.ERROR_CODE_SOCKET_WRITE_ERROR,
+            err,
+            {
+              socket,
+            }
+          );
+        }
+        if (this.shutdownPending) {
+          this.shutdown();
+        }
+      });
     });
     socket.on("close", () => {
       const workerId = this.workerIdBySocket.get(socket);
@@ -166,7 +180,9 @@ class TestServer extends EventEmitter {
     });
     socket.on("error", (error) => {
       const workerId = this.workerIdBySocket.get(socket);
-      if (!workerId || !this.workerData[workerId].completed) {
+      const unfinished = !workerId || !this.workerData[workerId].completed;
+      console.log("socket error", { unfinished });
+      if (unfinished) {
         this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
           socket,
         });
@@ -229,7 +245,7 @@ class TestServer extends EventEmitter {
             output: Buffer.concat([lastStdout, lastStderr]).toString(),
           }
         );
-        this.handleWorkerCompleted(id);
+        this.handleWorkerCompleted(id, true);
       }
     });
     workerData.connectionTimeout = setTimeout(() => {
@@ -378,8 +394,7 @@ class TestServer extends EventEmitter {
         break;
       }
       case "completed": {
-        this.handleWorkerCompleted(workerId);
-
+        this.handleWorkerCompleted(workerId, false);
         break;
       }
       default:
@@ -387,7 +402,7 @@ class TestServer extends EventEmitter {
     }
     return null;
   }
-  private handleWorkerCompleted(workerId: number) {
+  private handleWorkerCompleted(workerId: number, shutdownOnComplete: boolean) {
     this.workerData[workerId].completed = true;
     this.completedWorkers++;
 
@@ -395,7 +410,11 @@ class TestServer extends EventEmitter {
       clearInterval(this.updateInterval!);
       this.tick();
       this.printResults();
-      this.shutdown();
+      if (shutdownOnComplete) {
+        this.shutdown();
+      } else {
+        this.shutdownPending = true;
+      }
     }
   }
 
@@ -459,11 +478,8 @@ class TestServer extends EventEmitter {
           performance.now()
         );
         workerData.childProc?.kill();
-        this.handleWorkerCompleted(parseInt(id));
+        this.handleWorkerCompleted(parseInt(id), false);
       }
-      // if (workerData.currentTest) {
-      //   this.handleTestError(id as any, new Error("Test timed out"), now);
-      // }
     }
 
     if (this.completedWorkers != this.workerCount) {
@@ -670,6 +686,6 @@ class TestServer extends EventEmitter {
 }
 
 const testServer = new TestServer((globalThis as any).__testEntries, {
-  workerCount: 2,
+  workerCount: undefined,
 });
 await testServer.start();
