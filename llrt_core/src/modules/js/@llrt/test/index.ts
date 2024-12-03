@@ -130,11 +130,11 @@ class TestServer extends EventEmitter {
       this.shutdown();
       return;
     }
-
     this.started = performance.now();
     const server = net.createServer((socket) =>
       this.handleSocketConnected(socket)
     );
+
     this.server = server;
 
     await new Promise((resolve) => {
@@ -148,6 +148,7 @@ class TestServer extends EventEmitter {
   }
 
   handleSocketConnected(socket: net.Socket) {
+    console.log("connected!");
     socket.on("data", (data) => {
       let response;
       try {
@@ -158,7 +159,11 @@ class TestServer extends EventEmitter {
       }
       socket.write(JSON.stringify(response));
     });
-    socket.on("close", () => {});
+    socket.on("close", () => {
+      const workerId = this.workerIdBySocket.get(socket);
+      const data = workerId ? this.workerData[workerId] : null;
+      console.log("closed!", workerId, data);
+    });
     socket.on("error", (error) => {
       const workerId = this.workerIdBySocket.get(socket);
       if (!workerId || !this.workerData[workerId].completed) {
@@ -343,7 +348,7 @@ class TestServer extends EventEmitter {
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
         //if we're not in a test
-        //workerData.lastUpdate = 0;
+        workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
