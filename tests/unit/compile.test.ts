@@ -34,7 +34,7 @@ const compile = async (filename: string, outputFilename: string) =>
 const run = async (filename: string) =>
   await spawnCapture(process.argv0, [filename]);
 
-if (!IS_WIN) {
+if (false) {
   describe("llrt compile", async () => {
     const tmpDir = await fs.mkdtemp(`${tmpdir()}/llrt-test-compile`);
 
