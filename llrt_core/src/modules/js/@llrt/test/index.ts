@@ -571,36 +571,36 @@ class TestServer extends EventEmitter {
     }
   }
   printResults() {
-    const ended = performance.now();
-    for (let file of this.testFiles) {
-      const suite = this.results.get(file)!;
+    // const ended = performance.now();
+    // for (let file of this.testFiles) {
+    //   const suite = this.results.get(file)!;
 
-      console.log(
-        suite.success
-          ? Color.GREEN_BACKGROUND(Color.BOLD(" PASS "))
-          : Color.RED_BACKGROUND(Color.BOLD(" FAIL ")),
-        suite.name,
-        Color.DIM(TestServer.elapsed(suite))
-      );
-      for (let result of suite.results) {
-        this.printSuiteResult(result);
-      }
-      console.log("");
-    }
-    let status = "";
-    if (this.totalFailed == 0) {
-      status = Color.GREEN_BACKGROUND(
-        Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
-      );
-    } else {
-      status = Color.RED_BACKGROUND(
-        Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
-      );
-    }
-    console.log(
-      status,
-      Color.DIM(TestServer.elapsed({ started: this.started, ended }))
-    );
+    //   console.log(
+    //     suite.success
+    //       ? Color.GREEN_BACKGROUND(Color.BOLD(" PASS "))
+    //       : Color.RED_BACKGROUND(Color.BOLD(" FAIL ")),
+    //     suite.name,
+    //     Color.DIM(TestServer.elapsed(suite))
+    //   );
+    //   for (let result of suite.results) {
+    //     this.printSuiteResult(result);
+    //   }
+    //   console.log("");
+    // }
+    // let status = "";
+    // if (this.totalFailed == 0) {
+    //   status = Color.GREEN_BACKGROUND(
+    //     Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
+    //   );
+    // } else {
+    //   status = Color.RED_BACKGROUND(
+    //     Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
+    //   );
+    // }
+    // console.log(
+    //   status,
+    //   Color.DIM(TestServer.elapsed({ started: this.started, ended }))
+    // );
     console.log(
       `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests`
     );
