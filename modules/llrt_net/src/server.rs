@@ -251,12 +251,12 @@ impl<'js> Server<'js> {
                 }
             }
 
-            if this.borrow().sockets.is_empty() {
-                trace!("waiting for sockets to finish");
+            if !this.borrow().sockets.is_empty() {
+                trace!("Waiting for sockets to finish");
                 close_notify.await;
-                trace!("sockets finished");
+                trace!("Sockets finished");
             } else {
-                trace!("no sockets to wait for, closing");
+                trace!("No sockets to wait for, closing");
             }
 
             already_running.store(false, Ordering::Relaxed);
@@ -271,6 +271,7 @@ impl<'js> Server<'js> {
     }
 
     fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, cb: Opt<Function<'js>>) -> Result<()> {
+        trace!("Closing server");
         if let Some(cb) = cb.0 {
             Self::add_event_listener_str(This(this.clone()), &ctx, "close", cb, true, true)?;
         }
@@ -366,7 +367,7 @@ impl<'js> Server<'js> {
                 if sever_borrow.sockets.is_empty()
                     && sever_borrow.should_close.load(Ordering::Relaxed)
                 {
-                    trace!("sockets empty, notify close");
+                    trace!("Sockets empty, notify close");
                     notify_close.notify_one();
                 }
             }

@@ -348,7 +348,7 @@ class TestServer extends EventEmitter {
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
         //if we're not in a test
-        workerData.lastUpdate = 0;
+        //workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
@@ -394,7 +394,7 @@ class TestServer extends EventEmitter {
     if (this.completedWorkers == this.workerCount) {
       clearInterval(this.updateInterval!);
       this.tick();
-      //this.printResults();
+      this.printResults();
       this.shutdown();
     }
   }
@@ -670,6 +670,6 @@ class TestServer extends EventEmitter {
 }
 
 const testServer = new TestServer((globalThis as any).__testEntries, {
-  workerCount: undefined,
+  workerCount: 2,
 });
 await testServer.start();
