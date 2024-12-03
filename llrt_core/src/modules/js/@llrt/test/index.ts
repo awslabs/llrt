@@ -223,9 +223,11 @@ class TestServer extends EventEmitter {
       }
     );
     proc.stderr.on("data", (data) => {
+      console.log(data.toString());
       lastStderr = data;
     });
     proc.stdout.on("data", (data) => {
+      console.log(data.toString());
       lastStdout = data;
     });
     proc.on("error", (error) => {
