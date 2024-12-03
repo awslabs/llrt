@@ -212,16 +212,17 @@ class TestServer extends EventEmitter {
     const workerData = this.workerData[id];
     let lastStdout = Buffer.from("");
     let lastStderr = Buffer.from("");
+    let env: any = {
+      ...process.env,
+      __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
+      __LLRT_TEST_WORKER_ID: id.toString(),
+      LLRT_LOG: "",
+    };
     const proc = spawn(
       process.argv0,
       ["-e", `import("llrt:test/worker").catch(console.error)`],
       {
-        env: {
-          ...process.env,
-          __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
-          __LLRT_TEST_WORKER_ID: id.toString(),
-          __LLRT_LOG: "",
-        },
+        env,
       }
     );
     proc.stderr.on("data", (data) => {
@@ -239,6 +240,7 @@ class TestServer extends EventEmitter {
       });
     });
     proc.on("exit", (code) => {
+      console.log("worker exit:", id);
       if (code != 0) {
         this.handleError(
           TestServer.ERROR_CODE_PROCESS_ERROR,
