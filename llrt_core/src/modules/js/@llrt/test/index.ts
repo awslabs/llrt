@@ -394,7 +394,7 @@ class TestServer extends EventEmitter {
     if (this.completedWorkers == this.workerCount) {
       clearInterval(this.updateInterval!);
       this.tick();
-      this.printResults();
+      //this.printResults();
       this.shutdown();
     }
   }
