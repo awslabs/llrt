@@ -5,7 +5,7 @@ pub struct ReuseList<T> {
     items: Vec<Option<T>>,
     slots: Vec<usize>,
     last_slot_idx: usize,
-    size: usize,
+    len: usize,
     slot_size: usize,
 }
 
@@ -23,13 +23,18 @@ impl<T> ReuseList<T> {
         Self::with_capacity(0)
     }
 
+    //is empty
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     //create a with capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             items: Vec::with_capacity(capacity),
             slots: Vec::with_capacity(capacity >> 2),
             last_slot_idx: 0,
-            size: 0,
+            len: 0,
             slot_size: 0,
         }
     }
@@ -45,13 +50,13 @@ impl<T> ReuseList<T> {
                     self.last_slot_idx -= 1;
                 }
 
-                self.size += 1;
+                self.len += 1;
                 return slot - 1;
             }
         }
         //no valid empty slots, append to end
         self.items.push(Some(item));
-        self.size += 1;
+        self.len += 1;
         self.items.len() - 1
     }
 
@@ -69,7 +74,7 @@ impl<T> ReuseList<T> {
                 self.last_slot_idx += 1;
                 self.slot_size += 1;
             }
-            self.size -= 1;
+            self.len -= 1;
         }
         item
     }
@@ -95,7 +100,7 @@ impl<T> ReuseList<T> {
     }
 
     pub fn len(&self) -> usize {
-        self.size
+        self.len
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
@@ -111,12 +116,12 @@ impl<T> ReuseList<T> {
         self.items.clear();
         self.slots.clear();
         self.last_slot_idx = 0;
-        self.size = 0;
+        self.len = 0;
         self.slot_size = 0;
     }
 
     pub fn optimize(&mut self) {
-        let mut new_items = Vec::with_capacity(self.size);
+        let mut new_items = Vec::with_capacity(self.len);
 
         for item in self.items.iter_mut() {
             let a = item.take();
