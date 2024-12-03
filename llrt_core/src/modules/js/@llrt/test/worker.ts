@@ -241,8 +241,11 @@ class TestAgent {
   }
 
   private async complete() {
+    console.log("BEFORE worker complete");
     await this.sendMessage("completed");
+    console.log("AFTER worker complete");
     await this.client.close();
+    console.log("AFTER worker close");
   }
 
   private async sendMessage<T extends SocketReqMsg["type"]>(

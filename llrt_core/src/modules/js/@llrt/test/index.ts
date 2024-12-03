@@ -219,6 +219,7 @@ class TestServer extends EventEmitter {
           ...process.env,
           __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
           __LLRT_TEST_WORKER_ID: id.toString(),
+          __LLRT_LOG: "",
         },
       }
     );
@@ -421,6 +422,7 @@ class TestServer extends EventEmitter {
   }
 
   shutdown() {
+    this.shutdownPending = false;
     this.server?.close();
   }
   handleTestError(
