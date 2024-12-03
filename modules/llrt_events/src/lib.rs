@@ -100,17 +100,18 @@ impl<'js> EventEmitter<'js> {
 }
 
 pub trait EmitError<'js> {
-    fn emit_error<C>(self, ctx: &Ctx<'js>, this: Class<'js, C>) -> Result<bool>
+    fn emit_error<C>(self, id: &'static str, ctx: &Ctx<'js>, this: Class<'js, C>) -> Result<bool>
     where
         C: Emitter<'js>;
 }
 
 impl<'js, T> EmitError<'js> for Result<T> {
-    fn emit_error<C>(self, ctx: &Ctx<'js>, this: Class<'js, C>) -> Result<bool>
+    fn emit_error<C>(self, id: &'static str, ctx: &Ctx<'js>, this: Class<'js, C>) -> Result<bool>
     where
         C: Emitter<'js>,
     {
         if let Err(err) = self.catch(ctx) {
+            trace!(id, "Error caught in: {}", id);
             if this.borrow().has_listener_str("error") {
                 let error_value = err.into_value(ctx)?;
                 C::emit_str(This(this), ctx, "error", vec![error_value], false)?;

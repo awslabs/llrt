@@ -220,7 +220,7 @@ impl<'js> Server<'js> {
                 Ok(listener) => listener,
                 Err(e) => {
                     already_running.store(false, Ordering::Relaxed);
-                    Err::<(), _>(e).emit_error(&ctx2, this.clone())?;
+                    Err::<(), _>(e).emit_error("listen", &ctx2, this.clone())?;
                     return Ok(()); // Don't stop the VM if failed to bind
                 },
             };
@@ -243,7 +243,7 @@ impl<'js> Server<'js> {
                             socket,
                             notify.clone(),
                             allow_half_open,
-                        ).emit_error(&ctx3, this2)?;
+                        ).emit_error("handle_socket_connection",&ctx3, this2)?;
                     },
                     _ = close_rx.recv() => {
                         break;

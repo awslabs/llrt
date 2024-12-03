@@ -361,7 +361,7 @@ where
             }
             .await;
 
-            let had_error = read_function.emit_error(&ctx2, this.clone())?;
+            let had_error = read_function.emit_error("readable",&ctx2, this.clone())?;
 
             if emit_close {
                 Self::emit_close(this,&ctx2,had_error)?;

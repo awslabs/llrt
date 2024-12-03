@@ -322,7 +322,9 @@ impl<'js> ChildProcess<'js> {
                         Ok::<_, Error>(())
                     };
 
-                    spawn_proc.await.emit_error(&ctx2, instance4)?;
+                    spawn_proc
+                        .await
+                        .emit_error("child_process", &ctx2, instance4)?;
 
                     Ok(())
                 })?;
