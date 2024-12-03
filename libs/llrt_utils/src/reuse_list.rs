@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+#[derive(Default, Clone)]
 pub struct ReuseList<T> {
     items: Vec<Option<T>>,
     slots: Vec<usize>,
@@ -19,13 +20,7 @@ impl<T: Debug> Debug for ReuseList<T> {
 
 impl<T> ReuseList<T> {
     pub fn new() -> Self {
-        Self {
-            items: Vec::new(),
-            slots: Vec::new(),
-            last_slot_idx: 0,
-            size: 0,
-            slot_size: 0,
-        }
+        Self::with_capacity(0)
     }
 
     //create a with capacity
