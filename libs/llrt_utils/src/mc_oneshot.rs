@@ -32,7 +32,7 @@ impl<T: Clone> Deref for Sender<T> {
 
 impl<'js> Trace<'js> for Sender<Value<'js>> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        if let Ok(v) = self.0.value.read() {
+        if let Ok(v) = self.value.read() {
             if let Some(v) = v.as_ref() {
                 tracer.mark(v)
             }
