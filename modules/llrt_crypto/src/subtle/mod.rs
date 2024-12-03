@@ -30,40 +30,40 @@ use rquickjs::{Array, Ctx, Exception, Result, Value};
 pub type Aes256Gcm = AesGcm<Aes256, U16>;
 
 #[derive(Debug)]
-pub enum Sha {
+pub enum Hash {
     Sha1,
     Sha256,
     Sha384,
     Sha512,
 }
 
-impl TryFrom<&str> for Sha {
+impl TryFrom<&str> for Hash {
     type Error = String;
 
     fn try_from(hash: &str) -> std::result::Result<Self, Self::Error> {
         match hash.to_ascii_uppercase().as_str() {
-            "SHA-1" => Ok(Sha::Sha1),
-            "SHA-256" => Ok(Sha::Sha256),
-            "SHA-384" => Ok(Sha::Sha384),
-            "SHA-512" => Ok(Sha::Sha512),
+            "SHA-1" => Ok(Hash::Sha1),
+            "SHA-256" => Ok(Hash::Sha256),
+            "SHA-384" => Ok(Hash::Sha384),
+            "SHA-512" => Ok(Hash::Sha512),
             _ => Err(["'", hash, "' not available"].concat()),
         }
     }
 }
 
 #[derive(Debug)]
-pub enum CryptoNamedCurve {
+pub enum EllipticCurve {
     P256,
     P384,
 }
 
-impl TryFrom<&str> for CryptoNamedCurve {
+impl TryFrom<&str> for EllipticCurve {
     type Error = String;
 
     fn try_from(curve: &str) -> std::result::Result<Self, Self::Error> {
         match curve.to_ascii_uppercase().as_str() {
-            "P-256" => Ok(CryptoNamedCurve::P256),
-            "P-384" => Ok(CryptoNamedCurve::P384),
+            "P-256" => Ok(EllipticCurve::P256),
+            "P-384" => Ok(EllipticCurve::P384),
             _ => Err(["'", curve, "' not available"].concat()),
         }
     }
@@ -71,29 +71,29 @@ impl TryFrom<&str> for CryptoNamedCurve {
 
 #[derive(Debug)]
 pub enum Algorithm {
-    AesCbc(Vec<u8>),
-    AesCtr(Vec<u8>, u32),
-    AesGcm(Vec<u8>),
-    Ecdsa(Sha),
+    AesCbc { iv: Vec<u8> },
+    AesCtr { counter: Vec<u8>, length: u32 },
+    AesGcm { iv: Vec<u8> },
+    Ecdsa { hash: Hash },
     Hmac,
-    RsaOaep(Option<Vec<u8>>),
-    RsaPss(u32),
+    RsaOaep { label: Option<Vec<u8>> },
+    RsaPss { salt_length: u32 },
     RsassaPkcs1v15,
 }
 
 #[derive(Debug)]
 pub enum DeriveAlgorithm {
     Edch {
-        curve: CryptoNamedCurve,
+        curve: EllipticCurve,
         public: Vec<u8>,
     },
     Hkdf {
-        hash: Sha,
+        hash: Hash,
         salt: Vec<u8>,
         info: Vec<u8>,
     },
     Pbkdf2 {
-        hash: Sha,
+        hash: Hash,
         salt: Vec<u8>,
         iterations: u32,
     },
@@ -105,10 +105,10 @@ pub enum KeyGenAlgorithm {
         length: u32,
     },
     Ec {
-        curve: CryptoNamedCurve,
+        curve: EllipticCurve,
     },
     Hmac {
-        hash: Sha,
+        hash: Hash,
         length: Option<u32>,
     },
     Rsa {
@@ -129,7 +129,7 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
                 .into_bytes();
 
-            Ok(Algorithm::AesCbc(iv))
+            Ok(Algorithm::AesCbc { iv })
         },
         "AES-CTR" => {
             let counter = algorithm
@@ -141,7 +141,7 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
                 Exception::throw_type(ctx, "algorithm 'length' property required")
             })?;
 
-            Ok(Algorithm::AesCtr(counter, length))
+            Ok(Algorithm::AesCtr { counter, length })
         },
         "AES-GCM" => {
             let iv = algorithm
@@ -149,14 +149,14 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
                 .into_bytes();
 
-            Ok(Algorithm::AesGcm(iv))
+            Ok(Algorithm::AesGcm { iv })
         },
         "HMAC" => Ok(Algorithm::Hmac),
         "RSA-OAEP" => {
             let label = algorithm.get_optional::<_, ObjectBytes>("label")?;
             let label = label.map(|lbl| lbl.into_bytes());
 
-            Ok(Algorithm::RsaOaep(label))
+            Ok(Algorithm::RsaOaep { label })
         },
         _ => Err(Exception::throw_message(
             ctx,
@@ -182,9 +182,9 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
 
     match name.as_str() {
         "ECDSA" => {
-            let sha = extract_sha_hash(ctx, algorithm)?;
+            let hash = extract_sha_hash(ctx, algorithm)?;
 
-            Ok(Algorithm::Ecdsa(sha))
+            Ok(Algorithm::Ecdsa { hash })
         },
         "HMAC" => Ok(Algorithm::Hmac),
         "RSA-PSS" => {
@@ -192,7 +192,7 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
                 Exception::throw_type(ctx, "algorithm 'saltLength' property required")
             })?;
 
-            Ok(Algorithm::RsaPss(salt_length))
+            Ok(Algorithm::RsaPss { salt_length })
         },
         "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
         _ => Err(Exception::throw_message(
@@ -202,12 +202,12 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
     }
 }
 
-fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Sha> {
+fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Hash> {
     let hash = algorithm
         .get_optional::<_, String>("hash")?
         .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
 
-    Sha::try_from(hash.as_str()).or_throw(ctx)
+    Hash::try_from(hash.as_str()).or_throw(ctx)
 }
 
 fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, usage: &str) -> Result<()> {

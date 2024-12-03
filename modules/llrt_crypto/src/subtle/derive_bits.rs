@@ -8,7 +8,7 @@ use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 
-use crate::subtle::{check_supported_usage, CryptoNamedCurve, DeriveAlgorithm, Sha};
+use crate::subtle::{check_supported_usage, DeriveAlgorithm, EllipticCurve, Hash};
 
 struct HkdfOutput(usize);
 
@@ -52,7 +52,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
                     Exception::throw_type(ctx, "algorithm 'namedCurve' property required")
                 })?;
 
-            let curve = CryptoNamedCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
+            let curve = EllipticCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
             let public = public.get_handle().to_vec();
 
             Ok(DeriveAlgorithm::Edch { curve, public })
@@ -61,8 +61,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
             let hash = algorithm
                 .get_optional::<_, String>("hash")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
-
-            let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
+            let hash = Hash::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
                 .get_optional::<_, ObjectBytes>("salt")?
@@ -80,8 +79,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
             let hash = algorithm
                 .get_optional::<_, String>("hash")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
-
-            let hash = Sha::try_from(hash.as_str()).or_throw(ctx)?;
+            let hash = Hash::try_from(hash.as_str()).or_throw(ctx)?;
 
             let salt = algorithm
                 .get_optional::<_, ObjectBytes>("salt")?
@@ -113,7 +111,7 @@ fn derive_bits(
 ) -> Result<Vec<u8>> {
     match algorithm {
         DeriveAlgorithm::Edch { curve, public } => match curve {
-            CryptoNamedCurve::P256 => {
+            EllipticCurve::P256 => {
                 let secret_key = p256::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
                 let public_key = p256::SecretKey::from_pkcs8_der(public)
                     .or_throw(ctx)?
@@ -125,7 +123,7 @@ fn derive_bits(
 
                 Ok(shared_secret.raw_secret_bytes().to_vec())
             },
-            CryptoNamedCurve::P384 => {
+            EllipticCurve::P384 => {
                 let secret_key = p384::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
                 let public_key = p384::SecretKey::from_pkcs8_der(public)
                     .or_throw(ctx)?
@@ -144,10 +142,10 @@ fn derive_bits(
             info,
         } => {
             let hash_algorithm = match hash {
-                Sha::Sha1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
-                Sha::Sha256 => hkdf::HKDF_SHA256,
-                Sha::Sha384 => hkdf::HKDF_SHA384,
-                Sha::Sha512 => hkdf::HKDF_SHA512,
+                Hash::Sha1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
+                Hash::Sha256 => hkdf::HKDF_SHA256,
+                Hash::Sha384 => hkdf::HKDF_SHA384,
+                Hash::Sha512 => hkdf::HKDF_SHA512,
             };
             let salt = hkdf::Salt::new(hash_algorithm, salt);
             let info: &[&[u8]] = &[&info[..]];
@@ -167,10 +165,10 @@ fn derive_bits(
             iterations,
         } => {
             let hash_algorithm = match hash {
-                Sha::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
-                Sha::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
-                Sha::Sha384 => pbkdf2::PBKDF2_HMAC_SHA384,
-                Sha::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
+                Hash::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
+                Hash::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
+                Hash::Sha384 => pbkdf2::PBKDF2_HMAC_SHA384,
+                Hash::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
             };
             let mut out = vec![0; (length / 8).try_into().or_throw(ctx)?];
             let not_zero_iterations = NonZeroU32::new(*iterations)

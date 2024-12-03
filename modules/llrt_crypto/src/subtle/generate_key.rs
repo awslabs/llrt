@@ -13,7 +13,7 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{extract_sha_hash, CryptoNamedCurve, KeyGenAlgorithm, Sha},
+    subtle::{extract_sha_hash, EllipticCurve, Hash, KeyGenAlgorithm},
     SYSTEM_RANDOM,
 };
 
@@ -131,7 +131,7 @@ fn extract_generate_key_algorithm(
                 .get_optional::<_, String>("namedCurve")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'namedCurve' property required"))?;
 
-            let curve = CryptoNamedCurve::try_from(named_curve.as_str()).or_throw(ctx)?;
+            let curve = EllipticCurve::try_from(named_curve.as_str()).or_throw(ctx)?;
 
             Ok((name, KeyGenAlgorithm::Ec { curve }))
         },
@@ -175,8 +175,8 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
         },
         KeyGenAlgorithm::Ec { curve } => {
             let curve = match curve {
-                CryptoNamedCurve::P256 => &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                CryptoNamedCurve::P384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
+                EllipticCurve::P256 => &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+                EllipticCurve::P384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
             };
             let pkcs8 =
                 EcdsaKeyPair::generate_pkcs8(curve, &SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
@@ -185,10 +185,10 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
         },
         KeyGenAlgorithm::Hmac { hash, length } => {
             let hash = match hash {
-                Sha::Sha1 => &ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-                Sha::Sha256 => &ring::hmac::HMAC_SHA256,
-                Sha::Sha384 => &ring::hmac::HMAC_SHA384,
-                Sha::Sha512 => &ring::hmac::HMAC_SHA512,
+                Hash::Sha1 => &ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
+                Hash::Sha256 => &ring::hmac::HMAC_SHA256,
+                Hash::Sha384 => &ring::hmac::HMAC_SHA384,
+                Hash::Sha512 => &ring::hmac::HMAC_SHA512,
             };
 
             let length = if let Some(length) = length {

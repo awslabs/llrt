@@ -4,7 +4,7 @@ use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use ring::digest::Context;
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 
-use crate::subtle::Sha;
+use crate::subtle::Hash;
 
 pub async fn subtle_digest<'js>(
     ctx: Ctx<'js>,
@@ -24,12 +24,12 @@ pub async fn subtle_digest<'js>(
 }
 
 fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
-    let sha = Sha::try_from(algorithm).or_throw(ctx)?;
+    let sha = Hash::try_from(algorithm).or_throw(ctx)?;
     let sha = match sha {
-        Sha::Sha1 => &ring::digest::SHA1_FOR_LEGACY_USE_ONLY,
-        Sha::Sha256 => &ring::digest::SHA256,
-        Sha::Sha384 => &ring::digest::SHA384,
-        Sha::Sha512 => &ring::digest::SHA512,
+        Hash::Sha1 => &ring::digest::SHA1_FOR_LEGACY_USE_ONLY,
+        Hash::Sha256 => &ring::digest::SHA256,
+        Hash::Sha384 => &ring::digest::SHA384,
+        Hash::Sha512 => &ring::digest::SHA512,
     };
 
     let mut context = Context::new(sha);

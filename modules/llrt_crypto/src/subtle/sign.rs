@@ -15,7 +15,7 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Sha},
+    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Hash},
     SYSTEM_RANDOM,
 };
 
@@ -35,10 +35,10 @@ pub async fn subtle_sign<'js>(
 
 fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
-        Algorithm::Ecdsa(sha) => {
-            let curve = match sha {
-                Sha::Sha256 => &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                Sha::Sha384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
+        Algorithm::Ecdsa { hash } => {
+            let hash = match hash {
+                Hash::Sha256 => &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+                Hash::Sha384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
                 _ => {
                     return Err(Exception::throw_message(
                         ctx,
@@ -47,7 +47,7 @@ fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result
                 },
             };
             let key_pair =
-                EcdsaKeyPair::from_pkcs8(curve, key, &SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
+                EcdsaKeyPair::from_pkcs8(hash, key, &SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
             let signature = key_pair
                 .sign(&SYSTEM_RANDOM.to_owned(), data)
                 .or_throw(ctx)?;
@@ -61,7 +61,7 @@ fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result
 
             Ok(hmac.sign().as_ref().to_vec())
         },
-        Algorithm::RsaPss(salt_length) => {
+        Algorithm::RsaPss { salt_length } => {
             let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;
             let mut rng = OsRng;
             let mut hasher = Sha256::new();

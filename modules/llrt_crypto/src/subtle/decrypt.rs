@@ -32,10 +32,10 @@ pub async fn subtle_decrypt<'js>(
 
 fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
-        Algorithm::AesCbc(iv) => Aes256CbcDec::new(key.into(), iv.as_slice().into())
+        Algorithm::AesCbc { iv } => Aes256CbcDec::new(key.into(), iv.as_slice().into())
             .decrypt_padded_vec_mut::<Pkcs7>(data)
             .or_throw(ctx),
-        Algorithm::AesCtr(counter, length) => match length {
+        Algorithm::AesCtr { counter, length } => match length {
             32 => decrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, key, counter, data),
             64 => decrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, key, counter, data),
             128 => decrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, key, counter, data),
@@ -44,13 +44,13 @@ fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Res
                 "invalid counter length. Currently supported 32/64/128 bits",
             )),
         },
-        Algorithm::AesGcm(iv) => {
+        Algorithm::AesGcm { iv } => {
             let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
             let nonce = Nonce::from_slice(iv);
 
             cipher.decrypt(nonce, data.as_ref()).or_throw(ctx)
         },
-        Algorithm::RsaOaep(label) => {
+        Algorithm::RsaOaep { label } => {
             let private_key = RsaPrivateKey::from_pkcs1_der(key).or_throw(ctx)?;
             let padding = label.as_ref().map_or(Oaep::new::<Sha256>(), |buf| {
                 Oaep::new_with_label::<Sha256, _>(&String::from_utf8_lossy(buf))

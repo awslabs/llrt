@@ -15,7 +15,7 @@ use rsa::{
 };
 
 use crate::{
-    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Sha},
+    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Hash},
     SYSTEM_RANDOM,
 };
 
@@ -47,13 +47,13 @@ fn verify(
     data: &[u8],
 ) -> Result<bool> {
     match algorithm {
-        Algorithm::Ecdsa(sha) => {
-            let (fixed_string, fixed) = match sha {
-                Sha::Sha256 => (
+        Algorithm::Ecdsa { hash } => {
+            let (fixed_signing, fixed) = match hash {
+                Hash::Sha256 => (
                     &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
                     &ring::signature::ECDSA_P256_SHA256_FIXED,
                 ),
-                Sha::Sha384 => (
+                Hash::Sha384 => (
                     &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
                     &ring::signature::ECDSA_P384_SHA384_FIXED,
                 ),
@@ -65,7 +65,7 @@ fn verify(
                 },
             };
             let private_key =
-                EcdsaKeyPair::from_pkcs8(fixed_string, key, &SYSTEM_RANDOM.to_owned())
+                EcdsaKeyPair::from_pkcs8(fixed_signing, key, &SYSTEM_RANDOM.to_owned())
                     .or_throw(ctx)?;
             let public_key_bytes = private_key.public_key().as_ref();
             let public_key = ring::signature::UnparsedPublicKey::new(fixed, &public_key_bytes);
@@ -79,7 +79,7 @@ fn verify(
 
             Ok(hmac.sign().as_ref() == signature)
         },
-        Algorithm::RsaPss(salt_length) => {
+        Algorithm::RsaPss { salt_length } => {
             let public_key = RsaPrivateKey::from_pkcs1_der(key)
                 .or_throw(ctx)?
                 .to_public_key();
