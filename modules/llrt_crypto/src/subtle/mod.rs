@@ -22,12 +22,14 @@ pub use import_key::subtle_import_key;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
 
-use aes::{cipher::typenum::U16, Aes256};
+use aes::{cipher::typenum::U12, Aes128, Aes192, Aes256};
 use aes_gcm::AesGcm;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{Array, Ctx, Exception, Result, Value};
 
-pub type Aes256Gcm = AesGcm<Aes256, U16>;
+pub type Aes128Gcm = AesGcm<Aes128, U12>;
+pub type Aes192Gcm = AesGcm<Aes192, U12>;
+pub type Aes256Gcm = AesGcm<Aes256, U12>;
 
 #[derive(Debug)]
 pub enum Hash {

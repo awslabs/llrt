@@ -1,17 +1,27 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use aes::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
+use aes::cipher::{block_padding::Pkcs7, typenum::U12, KeyIvInit};
 use aes_gcm::{aead::Aead, KeyInit, Nonce};
-use ctr::{cipher::StreamCipher, Ctr128BE, Ctr32BE, Ctr64BE};
-use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
+use ctr::{
+    cipher::{BlockEncryptMut, StreamCipher},
+    Ctr128BE, Ctr32BE, Ctr64BE,
+};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{pkcs1::DecodeRsaPrivateKey, rand_core::OsRng, sha2::Sha256, Oaep, RsaPrivateKey};
 
 use crate::subtle::{
-    check_supported_usage, extract_algorithm_object, Aes256Gcm, Algorithm, CryptoKey,
+    check_supported_usage, extract_algorithm_object, Aes128Gcm, Aes192Gcm, Aes256Gcm, Algorithm,
+    CryptoKey,
 };
 
+type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
+type Aes192CbcEnc = cbc::Encryptor<aes::Aes192>;
 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
+
+type Aes32CtrEnc = Ctr32BE<aes::Aes256>;
+type Aes64CtrEnc = Ctr64BE<aes::Aes256>;
+type Aes128CtrEnc = Ctr128BE<aes::Aes256>;
 
 pub async fn subtle_encrypt<'js>(
     ctx: Ctx<'js>,
@@ -23,31 +33,63 @@ pub async fn subtle_encrypt<'js>(
 
     let algorithm = extract_algorithm_object(&ctx, &algorithm)?;
 
-    let bytes = encrypt(&ctx, &algorithm, key.get_handle(), data.as_bytes())?;
+    let bytes = encrypt(&ctx, &algorithm, &key, data.as_bytes())?;
     ArrayBuffer::new(ctx, bytes)
 }
 
-fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &CryptoKey, data: &[u8]) -> Result<Vec<u8>> {
     match algorithm {
-        Algorithm::AesCbc { iv } => Ok(Aes256CbcEnc::new(key.into(), iv.as_slice().into())
-            .encrypt_padded_vec_mut::<Pkcs7>(data)),
+        Algorithm::AesCbc { iv } => {
+            let length = key.algorithm().get_optional("length")?.unwrap_or(0);
+            match length {
+                128 => encrypt_aes_cbc_gen::<Aes128CbcEnc>(ctx, key.get_handle(), iv, data),
+                192 => encrypt_aes_cbc_gen::<Aes192CbcEnc>(ctx, key.get_handle(), iv, data),
+                256 => encrypt_aes_cbc_gen::<Aes256CbcEnc>(ctx, key.get_handle(), iv, data),
+                _ => Err(Exception::throw_message(
+                    ctx,
+                    "invalid length. Currently supported 128/192/256 bits",
+                )),
+            }
+        },
         Algorithm::AesCtr { counter, length } => match length {
-            32 => encrypt_aes_ctr_gen::<Ctr32BE<aes::Aes256>>(ctx, key, counter, data),
-            64 => encrypt_aes_ctr_gen::<Ctr64BE<aes::Aes256>>(ctx, key, counter, data),
-            128 => encrypt_aes_ctr_gen::<Ctr128BE<aes::Aes256>>(ctx, key, counter, data),
+            32 => encrypt_aes_ctr_gen::<Aes32CtrEnc>(ctx, key.get_handle(), counter, data),
+            64 => encrypt_aes_ctr_gen::<Aes64CtrEnc>(ctx, key.get_handle(), counter, data),
+            128 => encrypt_aes_ctr_gen::<Aes128CtrEnc>(ctx, key.get_handle(), counter, data),
             _ => Err(Exception::throw_message(
                 ctx,
                 "invalid counter length. Currently supported 32/64/128 bits",
             )),
         },
         Algorithm::AesGcm { iv } => {
-            let cipher = Aes256Gcm::new_from_slice(key).or_throw(ctx)?;
-            let nonce = Nonce::from_slice(iv);
-
-            cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
+            if iv.len() != 12 {
+                return Err(Exception::throw_message(
+                    ctx,
+                    "invalid length of iv. Currently supported 12 bytes",
+                ));
+            }
+            let nonce = Nonce::<U12>::from_slice(iv);
+            let length = key.algorithm().get_optional("length")?.unwrap_or(0);
+            match length {
+                128 => {
+                    let cipher = Aes128Gcm::new_from_slice(key.get_handle()).or_throw(ctx)?;
+                    cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
+                },
+                192 => {
+                    let cipher = Aes192Gcm::new_from_slice(key.get_handle()).or_throw(ctx)?;
+                    cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
+                },
+                256 => {
+                    let cipher = Aes256Gcm::new_from_slice(key.get_handle()).or_throw(ctx)?;
+                    cipher.encrypt(nonce, data.as_ref()).or_throw(ctx)
+                },
+                _ => Err(Exception::throw_message(
+                    ctx,
+                    "invalid length. Currently supported 128/192/256 bits",
+                )),
+            }
         },
         Algorithm::RsaOaep { label } => {
-            let public_key = RsaPrivateKey::from_pkcs1_der(key)
+            let public_key = RsaPrivateKey::from_pkcs1_der(key.get_handle())
                 .or_throw(ctx)?
                 .to_public_key();
             let padding = label.as_ref().map_or(Oaep::new::<Sha256>(), |buf| {
@@ -59,6 +101,13 @@ fn encrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Res
         },
         _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
     }
+}
+
+fn encrypt_aes_cbc_gen<T>(_ctx: &Ctx<'_>, key: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>>
+where
+    T: KeyIvInit + BlockEncryptMut,
+{
+    Ok(T::new(key.into(), iv.into()).encrypt_padded_vec_mut::<Pkcs7>(data))
 }
 
 fn encrypt_aes_ctr_gen<T>(ctx: &Ctx<'_>, key: &[u8], counter: &[u8], data: &[u8]) -> Result<Vec<u8>>
