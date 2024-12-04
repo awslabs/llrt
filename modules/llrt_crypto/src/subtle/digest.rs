@@ -24,15 +24,15 @@ pub async fn subtle_digest<'js>(
 }
 
 fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
-    let sha = Hash::try_from(algorithm).or_throw(ctx)?;
-    let sha = match sha {
+    let hash = Hash::try_from(algorithm).or_throw(ctx)?;
+    let hash = match hash {
         Hash::Sha1 => &ring::digest::SHA1_FOR_LEGACY_USE_ONLY,
         Hash::Sha256 => &ring::digest::SHA256,
         Hash::Sha384 => &ring::digest::SHA384,
         Hash::Sha512 => &ring::digest::SHA512,
     };
 
-    let mut context = Context::new(sha);
+    let mut context = Context::new(hash);
     context.update(data);
     let digest = context.finish();
 

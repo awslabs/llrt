@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::num::NonZeroU32;
 
-use crate::CryptoKey;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 
-use crate::subtle::{check_supported_usage, DeriveAlgorithm, EllipticCurve, Hash};
+use crate::subtle::{
+    check_supported_usage, extract_sha_hash, CryptoKey, DeriveAlgorithm, EllipticCurve, Hash,
+};
 
 struct HkdfOutput(usize);
 
@@ -51,17 +52,13 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
                 .ok_or_else(|| {
                     Exception::throw_type(ctx, "algorithm 'namedCurve' property required")
                 })?;
-
             let curve = EllipticCurve::try_from(namedcurve.as_str()).or_throw(ctx)?;
             let public = public.get_handle().to_vec();
 
             Ok(DeriveAlgorithm::Edch { curve, public })
         },
         "HKDF" => {
-            let hash = algorithm
-                .get_optional::<_, String>("hash")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
-            let hash = Hash::try_from(hash.as_str()).or_throw(ctx)?;
+            let hash = extract_sha_hash(ctx, algorithm)?;
 
             let salt = algorithm
                 .get_optional::<_, ObjectBytes>("salt")?
@@ -76,10 +73,7 @@ fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAl
             Ok(DeriveAlgorithm::Hkdf { hash, salt, info })
         },
         "PBKDF2" => {
-            let hash = algorithm
-                .get_optional::<_, String>("hash")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
-            let hash = Hash::try_from(hash.as_str()).or_throw(ctx)?;
+            let hash = extract_sha_hash(ctx, algorithm)?;
 
             let salt = algorithm
                 .get_optional::<_, ObjectBytes>("salt")?

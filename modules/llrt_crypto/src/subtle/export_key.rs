@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{ArrayBuffer, Ctx, Exception, IntoJs, Result, Value};
 
-use super::crypto_key::CryptoKey;
+use crate::subtle::CryptoKey;
 
 pub async fn subtle_export_key<'js>(
     ctx: Ctx<'js>,

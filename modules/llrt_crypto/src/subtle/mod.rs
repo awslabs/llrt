@@ -131,6 +131,13 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
                 .into_bytes();
 
+            if iv.len() != 16 {
+                return Err(Exception::throw_message(
+                    ctx,
+                    "invalid length of iv. Currently supported 16 bytes",
+                ));
+            }
+
             Ok(Algorithm::AesCbc { iv })
         },
         "AES-CTR" => {
@@ -139,9 +146,16 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'counter' property required"))?
                 .into_bytes();
 
-            let length = algorithm.get_optional("length")?.ok_or_else(|| {
+            let length = algorithm.get_optional::<_, u32>("length")?.ok_or_else(|| {
                 Exception::throw_type(ctx, "algorithm 'length' property required")
             })?;
+
+            if ![32, 64, 128].contains(&length) {
+                return Err(Exception::throw_message(
+                    ctx,
+                    "invalid counter length. Currently supported 32/64/128 bits",
+                ));
+            }
 
             Ok(Algorithm::AesCtr { counter, length })
         },
@@ -150,6 +164,13 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
                 .get_optional::<_, ObjectBytes>("iv")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
                 .into_bytes();
+
+            if iv.len() != 12 {
+                return Err(Exception::throw_type(
+                    ctx,
+                    "invalid length of iv. Currently supported 12 bytes",
+                ));
+            }
 
             Ok(Algorithm::AesGcm { iv })
         },

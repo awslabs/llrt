@@ -1,5 +1,8 @@
+const decoder = new TextDecoder();
 const encoder = new TextEncoder();
-const encodedData = encoder.encode("This is test message.");
+const testMessage = "This is test message.";
+const encodedData = encoder.encode(testMessage);
+const extractable = false;
 
 describe("SubtleCrypto digest", () => {
   it("should calculate correctly SHA-1/256/384/512 digest", async () => {
@@ -51,8 +54,6 @@ describe("SubtleCrypto digest", () => {
 });
 
 describe("SubtleCrypto generateKey/sign/verify", () => {
-  const extractable = false;
-
   it("should be processing AES-CBC/AES-CTR/AES-GCM/AES-KW algorithm", async () => {
     const parameters = [
       {
@@ -319,3 +320,261 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
   //   }
   // });
 });
+
+describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+  it("should be processing AES-CBC algorithm", async () => {
+    const parameters = [
+      {
+        name: "AES-CBC",
+        length: 128,
+        iv: crypto.getRandomValues(new Uint8Array(16)),
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+      {
+        name: "AES-CBC",
+        length: 192,
+        iv: crypto.getRandomValues(new Uint8Array(16)),
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+      {
+        name: "AES-CBC",
+        length: 256,
+        iv: crypto.getRandomValues(new Uint8Array(16)),
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+    ];
+
+    for (const t of parameters) {
+      const algorithm = { name: t.name, length: t.length };
+
+      const key = await crypto.subtle.generateKey(
+        algorithm,
+        extractable,
+        t.usages
+      );
+
+      expect(key.algorithm.name).toEqual(algorithm.name);
+      expect(key.algorithm.length).toEqual(algorithm.length);
+      expect(key.extractable).toEqual(extractable);
+
+      if (t.usages.includes("encrypt")) {
+        const encryptedData = await crypto.subtle.encrypt(
+          {
+            name: t.name,
+            iv: t.iv,
+          },
+          key,
+          encodedData
+        );
+        const decryptedData = await crypto.subtle.decrypt(
+          {
+            name: t.name,
+            iv: t.iv,
+          },
+          key,
+          encryptedData
+        );
+
+        const result = decoder.decode(decryptedData);
+        expect(result).toEqual(testMessage);
+      }
+    }
+  });
+});
+
+describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+  it("should be processing AES-CTR algorithm", async () => {
+    const parameters = [
+      {
+        name: "AES-CTR",
+        length: 256,
+        counter: crypto.getRandomValues(new Uint8Array(16)),
+        counterLength: 128,
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+      {
+        name: "AES-CTR",
+        length: 256,
+        counter: crypto.getRandomValues(new Uint8Array(16)),
+        counterLength: 128,
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+      {
+        name: "AES-CTR",
+        length: 256,
+        counter: crypto.getRandomValues(new Uint8Array(16)),
+        counterLength: 128,
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+    ];
+
+    for (const t of parameters) {
+      const algorithm = { name: t.name, length: t.length };
+
+      const key = await crypto.subtle.generateKey(
+        algorithm,
+        extractable,
+        t.usages
+      );
+
+      expect(key.algorithm.name).toEqual(algorithm.name);
+      expect(key.algorithm.length).toEqual(algorithm.length);
+      expect(key.extractable).toEqual(extractable);
+
+      if (t.usages.includes("encrypt")) {
+        const encryptedData = await crypto.subtle.encrypt(
+          {
+            name: t.name,
+            counter: t.counter,
+            length: t.counterLength,
+          },
+          key,
+          encodedData
+        );
+        const decryptedData = await crypto.subtle.decrypt(
+          {
+            name: t.name,
+            counter: t.counter,
+            length: t.counterLength,
+          },
+          key,
+          encryptedData
+        );
+
+        const result = decoder.decode(decryptedData);
+        expect(result).toEqual(testMessage);
+      }
+    }
+  });
+});
+
+describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+  it("should be processing AES-GCM algorithm", async () => {
+    const parameters = [
+      {
+        name: "AES-GCM",
+        length: 128,
+        iv: crypto.getRandomValues(new Uint8Array(12)),
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+      {
+        name: "AES-GCM",
+        length: 192,
+        iv: crypto.getRandomValues(new Uint8Array(12)),
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+      {
+        name: "AES-GCM",
+        length: 256,
+        iv: crypto.getRandomValues(new Uint8Array(12)),
+        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+      },
+    ];
+
+    for (const t of parameters) {
+      const algorithm = { name: t.name, length: t.length };
+
+      const key = await crypto.subtle.generateKey(
+        algorithm,
+        extractable,
+        t.usages
+      );
+
+      expect(key.algorithm.name).toEqual(algorithm.name);
+      expect(key.algorithm.length).toEqual(algorithm.length);
+      expect(key.extractable).toEqual(extractable);
+
+      if (t.usages.includes("encrypt")) {
+        const encryptedData = await crypto.subtle.encrypt(
+          {
+            name: t.name,
+            iv: t.iv,
+          },
+          key,
+          encodedData
+        );
+        const decryptedData = await crypto.subtle.decrypt(
+          {
+            name: t.name,
+            iv: t.iv,
+          },
+          key,
+          encryptedData
+        );
+
+        const result = decoder.decode(decryptedData);
+        expect(result).toEqual(testMessage);
+      }
+    }
+  });
+});
+
+// Caveat: The current RSA implementation is too slow to complete the test within the time limit.
+// describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+//   it("should be processing RSA-OAEP algorithm", async () => {
+//     const parameters = [
+//       {
+//         name: "RSA-OAEP",
+//         modulusLength: 2048,
+//         publicExponent: new Uint8Array([1, 0, 1]),
+//         hash: "SHA-1",
+//         usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+//       },
+//       {
+//         name: "RSA-OAEP",
+//         modulusLength: 2048,
+//         publicExponent: new Uint8Array([1, 0, 1]),
+//         hash: "SHA-256",
+//         usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+//       },
+//       {
+//         name: "RSA-OAEP",
+//         modulusLength: 2048,
+//         publicExponent: new Uint8Array([1, 0, 1]),
+//         hash: "SHA-384",
+//         usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+//       },
+//       {
+//         name: "RSA-OAEP",
+//         modulusLength: 2048,
+//         publicExponent: new Uint8Array([1, 0, 1]),
+//         hash: "SHA-512",
+//         usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+//       },
+//     ];
+
+//     for (const t of parameters) {
+//       const algorithm = { name: t.name, modulusLength: t.modulusLength, publicExponent: t.publicExponent, hash: t.hash };
+
+//       const key = await crypto.subtle.generateKey(
+//         algorithm,
+//         extractable,
+//         t.usages
+//       );
+
+//       expect(key.algorithm.name).toEqual(algorithm.name);
+//       expect(key.algorithm.length).toEqual(algorithm.length);
+//       expect(key.extractable).toEqual(extractable);
+
+//       if (t.usages.includes("encrypt")) {
+//         const encryptedData = await crypto.subtle.encrypt(
+//           {
+//             name: t.name,
+//           },
+//           key,
+//           encodedData
+//         );
+//         const decryptedData = await crypto.subtle.decrypt(
+//           {
+//             name: t.name,
+//           },
+//           key,
+//           encryptedData
+//         );
+
+//         const result = decoder.decode(decryptedData);
+//         expect(result).toEqual(testMessage);
+//       }
+//     }
+//   });
+// });

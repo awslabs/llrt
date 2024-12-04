@@ -3,7 +3,7 @@
 use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{Array, Ctx, Exception, Result, Value};
 
-use super::crypto_key::CryptoKey;
+use crate::subtle::CryptoKey;
 
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,

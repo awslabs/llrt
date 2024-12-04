@@ -114,10 +114,10 @@ fn extract_generate_key_algorithm(
     match name.as_str() {
         "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
             let length = algorithm
-                .get_optional("length")?
+                .get_optional::<_,u32>("length")?
                 .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'length' property required"))?;
 
-            if length != 128 && length != 192 && length != 256 {
+            if ![128, 192 ,256].contains(&length) {
                 return Err(Exception::throw_type(
                     ctx,
                     "Algorithm 'length' must be one of: 128, 192, or 256",
@@ -151,7 +151,7 @@ fn extract_generate_key_algorithm(
                 Exception::throw_type(ctx, "algorithm 'publicExponent' property required")
             })?.into_bytes();
 
-            Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent }))
+            Ok((name, KeyGenAlgorithm::Rsa { modulus_length, public_exponent}))
         },
         _ => Err(Exception::throw_message(
             ctx,

@@ -12,9 +12,8 @@ use rsa::{
 
 use crate::subtle::{
     check_supported_usage, extract_algorithm_object, Aes128Gcm, Aes192Gcm, Aes256Gcm, Algorithm,
+    CryptoKey,
 };
-
-use super::CryptoKey;
 
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 type Aes192CbcDec = cbc::Decryptor<aes::Aes192>;
@@ -46,28 +45,16 @@ fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &CryptoKey, data: &[u8]) -
                 128 => decrypt_aes_cbc_gen::<Aes128CbcDec>(ctx, key.get_handle(), iv, data),
                 192 => decrypt_aes_cbc_gen::<Aes192CbcDec>(ctx, key.get_handle(), iv, data),
                 256 => decrypt_aes_cbc_gen::<Aes256CbcDec>(ctx, key.get_handle(), iv, data),
-                _ => Err(Exception::throw_message(
-                    ctx,
-                    "invalid length. Currently supported 128/192/256 bits",
-                )),
+                _ => unreachable!(), // 'length' has already been sanitized.
             }
         },
         Algorithm::AesCtr { counter, length } => match length {
             32 => decrypt_aes_ctr_gen::<Aes32CtrDec>(ctx, key.get_handle(), counter, data),
             64 => decrypt_aes_ctr_gen::<Aes64CtrDec>(ctx, key.get_handle(), counter, data),
             128 => decrypt_aes_ctr_gen::<Aes128CtrDec>(ctx, key.get_handle(), counter, data),
-            _ => Err(Exception::throw_message(
-                ctx,
-                "invalid counter length. Currently supported 32/64/128 bits",
-            )),
+            _ => unreachable!(), // 'length' has already been sanitized.
         },
         Algorithm::AesGcm { iv } => {
-            if iv.len() != 12 {
-                return Err(Exception::throw_message(
-                    ctx,
-                    "invalid length of iv. Currently supported 12 bytes",
-                ));
-            }
             let nonce = Nonce::<U12>::from_slice(iv);
             let length = key.algorithm().get_optional("length")?.unwrap_or(0);
             match length {
@@ -83,10 +70,7 @@ fn decrypt(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &CryptoKey, data: &[u8]) -
                     let cipher = Aes256Gcm::new_from_slice(key.get_handle()).or_throw(ctx)?;
                     cipher.decrypt(nonce, data.as_ref()).or_throw(ctx)
                 },
-                _ => Err(Exception::throw_message(
-                    ctx,
-                    "invalid length. Currently supported 128/192/256 bits",
-                )),
+                _ => unreachable!(), // 'length' has already been sanitized.
             }
         },
         Algorithm::RsaOaep { label } => {
