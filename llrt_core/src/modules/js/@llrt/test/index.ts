@@ -76,7 +76,7 @@ type TestFailure = {
   message?: string;
 };
 
-class TestServer extends EventEmitter {
+class TestServer {
   private static UPDATE_FPS = 15;
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
   private static DEFAULT_TIMEOUT_MS =
@@ -118,7 +118,6 @@ class TestServer extends EventEmitter {
     testFiles: string[],
     { workerCount = os.availableParallelism() }: TestOptions = {}
   ) {
-    super();
     this.fileQueue = [...testFiles];
     this.testFiles = [...testFiles];
     this.testFileNames = testFiles.map((file) => path.basename(file));
@@ -429,7 +428,9 @@ class TestServer extends EventEmitter {
   shutdown() {
     console.log("calling shutdown");
     this.shutdownPending = false;
-    this.server?.close();
+    this.server?.close(() => {
+      console.log("SERVER CLOSED!");
+    });
   }
   handleTestError(
     workerId: number,
