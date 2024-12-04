@@ -144,9 +144,9 @@ class TestServer {
     });
 
     this.spawnAllWorkers();
-    this.updateInterval = setInterval(() => {
-      this.tick();
-    }, TestServer.UPDATE_INTERVAL_MS);
+    // this.updateInterval = setInterval(() => {
+    //   this.tick();
+    // }, TestServer.UPDATE_INTERVAL_MS);
   }
 
   handleSocketConnected(socket: net.Socket) {
@@ -255,9 +255,9 @@ class TestServer {
         this.handleWorkerCompleted(id, true);
       }
     });
-    workerData.connectionTimeout = setTimeout(() => {
-      proc.kill();
-    }, 5000);
+    // workerData.connectionTimeout = setTimeout(() => {
+    //   proc.kill();
+    // }, 5000);
     workerData.childProc = proc;
   }
 
