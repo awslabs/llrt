@@ -7,6 +7,8 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { SocketReqMsg } from "./shared";
 
+console.log("_______________________________________________");
+
 type TestOptions = {
   workerCount?: number;
 };
@@ -216,7 +218,6 @@ class TestServer extends EventEmitter {
       ...process.env,
       __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
       __LLRT_TEST_WORKER_ID: id.toString(),
-      LLRT_LOG: "",
     };
     delete env.LLRT_LOG;
     const proc = spawn(
