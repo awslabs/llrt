@@ -24,12 +24,23 @@ pub use verify::subtle_verify;
 
 use aes::{cipher::typenum::U12, Aes128, Aes192, Aes256};
 use aes_gcm::AesGcm;
+use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{Array, Ctx, Exception, Result, Value};
 
-pub type Aes128Gcm = AesGcm<Aes128, U12>;
-pub type Aes192Gcm = AesGcm<Aes192, U12>;
-pub type Aes256Gcm = AesGcm<Aes256, U12>;
+type Aes128Ctr32 = Ctr32BE<aes::Aes128>;
+type Aes128Ctr64 = Ctr64BE<aes::Aes128>;
+type Aes128Ctr128 = Ctr128BE<aes::Aes128>;
+type Aes192Ctr32 = Ctr32BE<aes::Aes192>;
+type Aes192Ctr64 = Ctr64BE<aes::Aes192>;
+type Aes192Ctr128 = Ctr128BE<aes::Aes192>;
+type Aes256Ctr32 = Ctr32BE<aes::Aes256>;
+type Aes256Ctr64 = Ctr64BE<aes::Aes256>;
+type Aes256Ctr128 = Ctr128BE<aes::Aes256>;
+
+type Aes128Gcm = AesGcm<Aes128, U12>;
+type Aes192Gcm = AesGcm<Aes192, U12>;
+type Aes256Gcm = AesGcm<Aes256, U12>;
 
 #[derive(Debug)]
 pub enum Hash {
