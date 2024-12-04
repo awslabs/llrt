@@ -696,6 +696,6 @@ class TestServer extends EventEmitter {
 }
 
 const testServer = new TestServer((globalThis as any).__testEntries, {
-  workerCount: undefined,
+  workerCount: 4,
 });
 await testServer.start();
