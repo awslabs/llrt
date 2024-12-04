@@ -516,3 +516,4 @@ if (isNaN(workerId) || isNaN(serverPort)) {
 
 const agent = new TestAgent(workerId, serverPort);
 await agent.start();
+console.log("DONE!", workerId);
