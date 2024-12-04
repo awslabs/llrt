@@ -5,7 +5,10 @@ use std::{collections::HashSet, sync::OnceLock};
 use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use num_traits::FromPrimitive;
-use ring::{rand::SecureRandom, signature::EcdsaKeyPair};
+use ring::{
+    rand::SecureRandom,
+    signature::{EcdsaKeyPair, Ed25519KeyPair},
+};
 use rquickjs::{object::Property, Array, Ctx, Exception, IntoJs, Object, Result, Value};
 use rsa::{
     pkcs1::EncodeRsaPrivateKey,
@@ -37,6 +40,7 @@ static SUPPORTED_USAGES_ARRAY: &[(&str, &[&str])] = &[
     ("AES-KW", AES_KW_USAGES),
     ("ECDH", ECDH_USAGES),
     ("ECDSA", SIGNATURE_USAGES),
+    ("Ed25519", SIGNATURE_USAGES),
     ("HMAC", SIGNATURE_USAGES),
     ("RSA-OAEP", SYMMETRIC_USAGES),
     ("RSA-PSS", SIGNATURE_USAGES),
@@ -50,6 +54,7 @@ static MANDATORY_USAGES_ARRAY: &[(&str, &[&str])] = &[
     ("AES-KW", EMPTY_USAGES),
     ("ECDH", ECDH_USAGES),
     ("ECDSA", SIGN_USAGES),
+    ("Ed25519", SIGN_USAGES),
     ("HMAC", EMPTY_USAGES),
     ("RSA-OAEP", RSA_OAEP_USAGES),
     ("RSA-PSS", SIGN_USAGES),
@@ -135,6 +140,9 @@ fn extract_generate_key_algorithm(
 
             Ok((name, KeyGenAlgorithm::Ec { curve }))
         },
+        "Ed25519" => {
+            Ok((name, KeyGenAlgorithm::Ed25519))
+        },
         "HMAC" => {
             let hash = extract_sha_hash(ctx, algorithm)?;
 
@@ -180,6 +188,11 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
             };
             let pkcs8 =
                 EcdsaKeyPair::generate_pkcs8(curve, &SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
+
+            Ok(pkcs8.as_ref().to_vec())
+        },
+        KeyGenAlgorithm::Ed25519 => {
+            let pkcs8 = Ed25519KeyPair::generate_pkcs8(&SYSTEM_RANDOM.to_owned()).or_throw(ctx)?;
 
             Ok(pkcs8.as_ref().to_vec())
         },

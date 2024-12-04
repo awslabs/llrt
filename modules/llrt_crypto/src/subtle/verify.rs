@@ -3,7 +3,7 @@
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use ring::{
     hmac::{Context as HmacContext, Key as HmacKey},
-    signature::{EcdsaKeyPair, KeyPair},
+    signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair},
 };
 use rquickjs::{Ctx, Exception, Result, Value};
 use rsa::{
@@ -69,6 +69,16 @@ fn verify(
                     .or_throw(ctx)?;
             let public_key_bytes = private_key.public_key().as_ref();
             let public_key = ring::signature::UnparsedPublicKey::new(fixed, &public_key_bytes);
+
+            Ok(public_key.verify(data, signature).is_ok())
+        },
+        Algorithm::Ed25519 => {
+            let private_key = Ed25519KeyPair::from_pkcs8(key).or_throw(ctx)?;
+            let public_key_bytes = private_key.public_key().as_ref();
+            let public_key = ring::signature::UnparsedPublicKey::new(
+                &ring::signature::ED25519,
+                public_key_bytes,
+            );
 
             Ok(public_key.verify(data, signature).is_ok())
         },

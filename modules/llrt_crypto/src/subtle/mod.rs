@@ -88,6 +88,7 @@ pub enum Algorithm {
     AesCtr { counter: Vec<u8>, length: u32 },
     AesGcm { iv: Vec<u8> },
     Ecdsa { hash: Hash },
+    Ed25519,
     Hmac,
     RsaOaep { label: Option<Vec<u8>> },
     RsaPss { salt_length: u32 },
@@ -120,6 +121,7 @@ pub enum KeyGenAlgorithm {
     Ec {
         curve: EllipticCurve,
     },
+    Ed25519,
     Hmac {
         hash: Hash,
         length: Option<u32>,
@@ -204,6 +206,7 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
         let algorithm_name = algorithm.as_string().unwrap().to_string()?;
 
         return match algorithm_name.as_str() {
+            "Ed25519" => Ok(Algorithm::Ed25519),
             "HMAC" => Ok(Algorithm::Hmac),
             "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
             _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
@@ -220,6 +223,7 @@ fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Alg
 
             Ok(Algorithm::Ecdsa { hash })
         },
+        "Ed25519" => Ok(Algorithm::Ed25519),
         "HMAC" => Ok(Algorithm::Hmac),
         "RSA-PSS" => {
             let salt_length = algorithm.get_optional("saltLength")?.ok_or_else(|| {

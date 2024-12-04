@@ -669,6 +669,7 @@ declare module "crypto" {
        * - `'RSA-OAEP'`
        * - `'ECDSA'`
        * - `'ECDH'`
+       * - `'Ed25519'`
        * The `<CryptoKey>` (secret key) generating algorithms supported include:
        *
        * - `'HMAC'`
@@ -736,6 +737,7 @@ declare module "crypto" {
        * - `'RSASSA-PKCS1-v1_5'`
        * - `'RSA-PSS'`
        * - `'ECDSA'`
+       * - `'Ed25519'`
        * - `'HMAC'`
        */
       sign(
@@ -806,6 +808,7 @@ declare module "crypto" {
        * - `'RSASSA-PKCS1-v1_5'`
        * - `'RSA-PSS'`
        * - `'ECDSA'`
+       * - `'Ed25519'`
        * - `'HMAC'`
        */
       verify(

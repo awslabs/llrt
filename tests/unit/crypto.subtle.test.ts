@@ -211,6 +211,51 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
     }
   });
 
+  it("should be processing Ed25519 algorithm", async () => {
+    const parameters = [
+      {
+        name: "Ed25519",
+        usages: ["sign", "verify"],
+      },
+    ];
+
+    for (const t of parameters) {
+      const algorithm = { name: t.name };
+
+      const { privateKey, publicKey } = await crypto.subtle.generateKey(
+        algorithm,
+        extractable,
+        t.usages
+      );
+
+      expect(privateKey.algorithm.name).toEqual(algorithm.name);
+      expect(privateKey.extractable).toEqual(extractable);
+
+      expect(publicKey.algorithm.name).toEqual(algorithm.name);
+      expect(publicKey.extractable).toEqual(true);
+
+      if (t.usages.includes("sign")) {
+        const signature = await crypto.subtle.sign(
+          {
+            name: t.name,
+          },
+          privateKey,
+          encodedData
+        );
+        const isValid = await crypto.subtle.verify(
+          {
+            name: t.name,
+          },
+          publicKey,
+          signature,
+          encodedData
+        );
+
+        expect(isValid).toBeTruthy();
+      }
+    }
+  });
+
   // Caveat: The current RSA implementation is too slow to complete the test within the time limit.
   // it("should be processing RSA-PSS/RSA-OAEP/RSASSA-PKCS1-v1_5 algorithm", async () => {
   //   const parameters = [

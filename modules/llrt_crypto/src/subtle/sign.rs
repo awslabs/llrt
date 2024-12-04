@@ -4,7 +4,7 @@ use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rand::rngs::OsRng;
 use ring::{
     hmac::{Context as HmacContext, Key as HmacKey},
-    signature::EcdsaKeyPair,
+    signature::{EcdsaKeyPair, Ed25519KeyPair},
 };
 use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
 use rsa::{
@@ -51,6 +51,12 @@ fn sign(ctx: &Ctx<'_>, algorithm: &Algorithm, key: &[u8], data: &[u8]) -> Result
             let signature = key_pair
                 .sign(&SYSTEM_RANDOM.to_owned(), data)
                 .or_throw(ctx)?;
+
+            Ok(signature.as_ref().to_vec())
+        },
+        Algorithm::Ed25519 => {
+            let key_pair = Ed25519KeyPair::from_pkcs8(key).or_throw(ctx)?;
+            let signature = key_pair.sign(data);
 
             Ok(signature.as_ref().to_vec())
         },
