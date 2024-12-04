@@ -218,6 +218,7 @@ class TestServer extends EventEmitter {
       __LLRT_TEST_WORKER_ID: id.toString(),
       LLRT_LOG: "",
     };
+    delete env.LLRT_LOG;
     const proc = spawn(
       process.argv0,
       ["-e", `import("llrt:test/worker").catch(console.error)`],
