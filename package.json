@@ -98,7 +98,7 @@
     "readable-stream": "4.5.2",
     "stream-browserify": "3.0.0",
     "ts-node": "10.9.2",
-    "typescript": "5.6.3",
+    "typescript": "5.7.2",
     "vitest": "2.1.4"
   },
   "packageManager": "yarn@1.22.22"
