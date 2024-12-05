@@ -185,21 +185,10 @@ test-e2e: export SDK_BUNDLE_MODE = STD
 test-e2e: js
 	cargo run -- test -d bundle/js/__tests__/e2e
 
-test-ci: export LLRT_LOG = trace
-test-ci: export TEST_TIMEOUT = 60000
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
 test-ci: clean-js | toolchain js
-#cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) -- --nocapture --show-output
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) -- --nocapture --show-output
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h

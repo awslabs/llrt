@@ -76,7 +76,7 @@ type TestFailure = {
 };
 
 class TestServer {
-  private static UPDATE_FPS = 1;
+  private static UPDATE_FPS = 15;
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
   private static DEFAULT_TIMEOUT_MS =
     parseInt((process.env as any).TEST_TIMEOUT) || 5000;

@@ -234,7 +234,6 @@ impl<'js> Server<'js> {
 
             Self::emit_str(This(this.clone()), &ctx2, "listening", vec![], false)?;
 
-            //create a tokio sync notify
             let notify = Arc::new(Notify::new());
             let close_notify = notify.notified();
 
