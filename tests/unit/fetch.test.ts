@@ -6,6 +6,8 @@ const IS_WINDOWS = platform() === "win32";
 let server: net.Server;
 let url: string;
 
+const { LLRT_LOG, ...TEST_ENV } = process.env;
+
 beforeAll((done) => {
   server = net.createServer((socket) => {
     socket.on("error", () => {}); //ignore errors as abort signals might cancel the socket
@@ -89,6 +91,7 @@ describe("fetch", () => {
       {
         env: {
           LLRT_NET_DENY: "amazon.com",
+          ...TEST_ENV,
         },
       }
     );
@@ -120,6 +123,7 @@ describe("fetch", () => {
       {
         env: {
           LLRT_NET_ALLOW: url.toString(),
+          ...TEST_ENV,
         },
       }
     );
