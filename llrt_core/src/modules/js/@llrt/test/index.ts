@@ -586,78 +586,72 @@ class TestServer {
       console.log(message);
     }
   }
-  printResults() {
+  private printResults() {
     const ended = performance.now();
+    let output = "";
     for (let file of this.testFiles) {
       const suite = this.results.get(file)!;
 
-      console.log(
+      output += `${
         suite.success
           ? Color.GREEN_BACKGROUND(Color.BOLD(" PASS "))
-          : Color.RED_BACKGROUND(Color.BOLD(" FAIL ")),
-        suite.name,
-        Color.DIM(TestServer.elapsed(suite))
-      );
+          : Color.RED_BACKGROUND(Color.BOLD(" FAIL "))
+      } ${suite.name} ${Color.DIM(TestServer.elapsed(suite))}\n`;
+
       for (let result of suite.results) {
-        this.printSuiteResult(result);
+        output += this.printSuiteResult(result);
       }
-      console.log("");
+      output += "\n";
     }
-    let status = "";
+
     if (this.totalFailed == 0) {
-      status = Color.GREEN_BACKGROUND(
+      output += Color.GREEN_BACKGROUND(
         Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
       );
     } else {
-      status = Color.RED_BACKGROUND(
+      output += Color.RED_BACKGROUND(
         Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
       );
     }
-    console.log(
-      status,
-      Color.DIM(TestServer.elapsed({ started: this.started, ended }))
-    );
-    console.log(
-      `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests`
-    );
+    output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
+    output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
+
     if (this.totalFailed > 0) {
       for (let [file, testFailure] of this.filesFailed) {
-        console.log(`\n${Color.RED_BACKGROUND(` ${file} `)}`);
+        output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
         for (let failure of testFailure) {
-          console.log(
-            failure.desc.map((d) => Color.BOLD(d)).join(" > "),
-            `\n${this.formattedError(failure.error)}`
-          );
+          output +=
+            failure.desc.map((d) => Color.BOLD(d)).join(" > ") +
+            `\n${this.formattedError(failure.error)}\n`;
           if (failure.message) {
-            console.log("----- LAST OUTPUT: -----\n" + failure.message);
+            output += "----- LAST OUTPUT: -----\n" + failure.message + "\n";
           }
         }
       }
+      console.log(output);
       process.exit(1);
     }
+    console.log(output);
   }
-  printSuiteResult(result: SuiteResult, depth = 0) {
+
+  private printSuiteResult(result: SuiteResult, depth = 0): string {
+    let output = "";
     const indent = "  ".repeat(depth);
     for (let test of result.tests) {
       const icon = test.success
         ? Color.GREEN(TestServer.CHECKMARK)
         : Color.RED(TestServer.CROSS);
-      console.log(
-        `${indent}${icon} ${test.desc}`,
-        Color.DIM(TestServer.elapsed(test))
-      );
+      output += `${indent}${icon} ${test.desc} ${Color.DIM(TestServer.elapsed(test))}\n`;
       if (test.error) {
-        console.log(this.formattedError(test.error));
+        output += this.formattedError(test.error) + "\n";
       }
     }
     const results = result.children;
     for (let result of results) {
-      console.log(
-        `${indent}${Color.BOLD(result.desc)}`,
-        Color.DIM(TestServer.elapsed(result))
-      );
-      this.printSuiteResult(result, depth + 1);
+      output += `${indent}${Color.BOLD(result.desc)} ${Color.DIM(TestServer.elapsed(result))}\n`;
+      output += this.printSuiteResult(result, depth + 1);
     }
+    return output;
   }
   private formattedError(error: Error, indent: string = ""): string {
     let stack = error.stack || "";

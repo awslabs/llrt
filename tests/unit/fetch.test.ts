@@ -77,10 +77,10 @@ describe("fetch", () => {
     await Promise.all(new Array(10).fill(0).map(() => fetch(url)));
   });
 
-  it.skip("is not allowed to fetch", (done) => {
-    let deniedUrl = new URL("https://www.amazon.com");
+  it("is not allowed to fetch", (done) => {
+    const deniedUrl = new URL("https://www.amazon.com");
 
-    let proc = spawn(
+    const proc = spawn(
       process.argv[0],
       [
         "-e",
@@ -108,10 +108,10 @@ describe("fetch", () => {
     proc.on("error", done);
   });
 
-  it.skip("is only allowed to fetch", (done) => {
-    let deniedUrl = new URL("https://www.amazon.com");
+  it("is only allowed to fetch", (done) => {
+    const deniedUrl = new URL("https://www.amazon.com");
 
-    let proc = spawn(
+    const proc = spawn(
       process.argv[0],
       [
         "-e",
