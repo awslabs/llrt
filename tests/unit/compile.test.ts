@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { spawn } from "child_process";
 import { tmpdir, platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 const spawnCapture = async (cmd: string, args: string[]) => {
   const child = spawn(cmd, args);

@@ -1,13 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import net from "net";
-import { EventEmitter } from "events";
 import os from "os";
 import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { SocketReqMsg } from "./shared";
-
-console.log("_______________________________________________");
+import { platform } from "os";
+const IS_WINDOWS = platform() === "win32";
 
 type TestOptions = {
   workerCount?: number;
@@ -77,7 +76,7 @@ type TestFailure = {
 };
 
 class TestServer {
-  private static UPDATE_FPS = 15;
+  private static UPDATE_FPS = 1;
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
   private static DEFAULT_TIMEOUT_MS =
     parseInt((process.env as any).TEST_TIMEOUT) || 5000;
@@ -144,13 +143,12 @@ class TestServer {
     });
 
     this.spawnAllWorkers();
-    // this.updateInterval = setInterval(() => {
-    //   this.tick();
-    // }, TestServer.UPDATE_INTERVAL_MS);
+    this.updateInterval = setInterval(() => {
+      this.tick();
+    }, TestServer.UPDATE_INTERVAL_MS);
   }
 
   handleSocketConnected(socket: net.Socket) {
-    console.log("connected!");
     socket.on("data", (data) => {
       let response;
       try {
@@ -170,21 +168,13 @@ class TestServer {
           );
         }
         if (this.shutdownPending) {
-          console.log("Shutdown from pending");
           this.shutdown();
         }
       });
     });
-    socket.on("close", () => {
-      const workerId = this.workerIdBySocket.get(socket);
-      const data = workerId ? this.workerData[workerId] : null;
-      console.log("closed!", workerId, data);
-    });
     socket.on("error", (error) => {
       const workerId = this.workerIdBySocket.get(socket);
-      const unfinished = !workerId || !this.workerData[workerId].completed;
-      console.log("socket error", { unfinished });
-      if (unfinished) {
+      if (!workerId || !this.workerData[workerId].completed) {
         this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
           socket,
         });
@@ -227,11 +217,9 @@ class TestServer {
       }
     );
     proc.stderr.on("data", (data) => {
-      console.log(data.toString());
       lastStderr = data;
     });
     proc.stdout.on("data", (data) => {
-      console.log(data.toString());
       lastStdout = data;
     });
     proc.on("error", (error) => {
@@ -241,7 +229,6 @@ class TestServer {
       });
     });
     proc.on("exit", (code) => {
-      console.log("worker exit:", id);
       if (code != 0) {
         this.handleError(
           TestServer.ERROR_CODE_PROCESS_ERROR,
@@ -255,9 +242,9 @@ class TestServer {
         this.handleWorkerCompleted(id, true);
       }
     });
-    // workerData.connectionTimeout = setTimeout(() => {
-    //   proc.kill();
-    // }, 5000);
+    workerData.connectionTimeout = setTimeout(() => {
+      proc.kill();
+    }, 5000);
     workerData.childProc = proc;
   }
 
@@ -426,10 +413,12 @@ class TestServer {
   }
 
   shutdown() {
-    console.log("calling shutdown");
     this.shutdownPending = false;
     this.server?.close(() => {
-      console.log("SERVER CLOSED!");
+      //XXX force exit on windows
+      if (IS_WINDOWS) {
+        process.exit(0);
+      }
     });
   }
   handleTestError(
@@ -598,36 +587,36 @@ class TestServer {
     }
   }
   printResults() {
-    // const ended = performance.now();
-    // for (let file of this.testFiles) {
-    //   const suite = this.results.get(file)!;
+    const ended = performance.now();
+    for (let file of this.testFiles) {
+      const suite = this.results.get(file)!;
 
-    //   console.log(
-    //     suite.success
-    //       ? Color.GREEN_BACKGROUND(Color.BOLD(" PASS "))
-    //       : Color.RED_BACKGROUND(Color.BOLD(" FAIL ")),
-    //     suite.name,
-    //     Color.DIM(TestServer.elapsed(suite))
-    //   );
-    //   for (let result of suite.results) {
-    //     this.printSuiteResult(result);
-    //   }
-    //   console.log("");
-    // }
-    // let status = "";
-    // if (this.totalFailed == 0) {
-    //   status = Color.GREEN_BACKGROUND(
-    //     Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
-    //   );
-    // } else {
-    //   status = Color.RED_BACKGROUND(
-    //     Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
-    //   );
-    // }
-    // console.log(
-    //   status,
-    //   Color.DIM(TestServer.elapsed({ started: this.started, ended }))
-    // );
+      console.log(
+        suite.success
+          ? Color.GREEN_BACKGROUND(Color.BOLD(" PASS "))
+          : Color.RED_BACKGROUND(Color.BOLD(" FAIL ")),
+        suite.name,
+        Color.DIM(TestServer.elapsed(suite))
+      );
+      for (let result of suite.results) {
+        this.printSuiteResult(result);
+      }
+      console.log("");
+    }
+    let status = "";
+    if (this.totalFailed == 0) {
+      status = Color.GREEN_BACKGROUND(
+        Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
+      );
+    } else {
+      status = Color.RED_BACKGROUND(
+        Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
+      );
+    }
+    console.log(
+      status,
+      Color.DIM(TestServer.elapsed({ started: this.started, ended }))
+    );
     console.log(
       `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests`
     );
@@ -697,6 +686,6 @@ class TestServer {
 }
 
 const testServer = new TestServer((globalThis as any).__testEntries, {
-  workerCount: 4,
+  workerCount: undefined,
 });
 await testServer.start();

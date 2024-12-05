@@ -1,6 +1,6 @@
 import path from "path";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 //path.relative depends on cwd if any argument is relative
 function calculateRelativeDepth(from: string, to: string) {
@@ -25,7 +25,7 @@ function calculateRelativeDepth(from: string, to: string) {
   return `${"../".repeat(upLevels)}${downPath}`;
 }
 
-if (!IS_WIN) {
+if (!IS_WINDOWS) {
   describe("path.basename", () => {
     it("should return the last portion of a path", () => {
       expect(path.basename("/foo/bar/baz.txt")).toEqual("baz.txt");

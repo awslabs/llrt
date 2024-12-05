@@ -245,11 +245,8 @@ class TestAgent {
   }
 
   private async complete() {
-    console.log("BEFORE worker complete:", this.workerId);
     await this.sendMessage("completed");
-    console.log("AFTER worker complete", this.workerId);
     await this.client.close();
-    console.log("AFTER worker close", this.workerId);
   }
 
   private async sendMessage<T extends SocketReqMsg["type"]>(
@@ -516,5 +513,4 @@ if (isNaN(workerId) || isNaN(serverPort)) {
 
 const agent = new TestAgent(workerId, serverPort);
 await agent.start();
-console.log("DONE!", workerId);
 process.exit(0); //force exit if socket hangs

@@ -3,7 +3,7 @@ const CWD = process.cwd();
 import { spawn } from "child_process";
 
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 it("should require a file (absolute path)", () => {
   const { hello } = _require(`${CWD}/fixtures/hello.js`);
@@ -115,7 +115,7 @@ it("should handle inner referenced exports", () => {
   expect(a.length()).toBe(1);
 });
 
-if (!IS_WIN) {
+if (!IS_WINDOWS) {
   it("should handle named exports from CJS imports", (cb) => {
     spawn(process.argv0, [
       "-e",

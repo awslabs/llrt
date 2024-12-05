@@ -1,7 +1,7 @@
 import net from "net";
 import { spawn } from "child_process";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 let server: net.Server;
 let url: string;
@@ -19,7 +19,7 @@ beforeAll((done) => {
 
   server.listen(() => {
     const { address, port } = server.address()! as any as net.AddressInfo;
-    url = `http://${IS_WIN ? "localhost" : address}:${port}`;
+    url = `http://${IS_WINDOWS ? "localhost" : address}:${port}`;
     done();
   });
 });

@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 describe("child_process.spawn", () => {
   it("should spawn a child process", (done) => {
@@ -103,11 +103,11 @@ describe("child_process.spawn", () => {
 
     child.on("exit", (code, signal) => {
       try {
-        if (!IS_WIN) {
+        if (!IS_WINDOWS) {
           expect(code).toEqual(0);
         }
 
-        expect(signal).toEqual(IS_WIN ? "SIGKILL" : "SIGINT");
+        expect(signal).toEqual(IS_WINDOWS ? "SIGKILL" : "SIGINT");
         done();
       } catch (error) {
         done(error);
