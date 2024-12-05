@@ -1665,7 +1665,6 @@ dependencies = [
  "llrt_utils",
  "md-5",
  "memchr",
- "num-traits",
  "once_cell",
  "p256",
  "p384",

@@ -33,11 +33,10 @@ uuid-simd = "0.8"
 aes = "0.8"
 aes-gcm = "0.10"
 cbc = { version = "0.1", features = ["std"] }
-num-traits = "0.2"
+ctr = "0.9"
 rsa = { version = "0.9", features = ["std", "sha2"], default-features = false }
 p256 = { version = "0.13", features = ["ecdh"] }
 p384 = "0.13"
-ctr = "0.9"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 memchr = "2"

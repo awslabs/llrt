@@ -1,10 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashSet, sync::OnceLock};
+use std::collections::HashSet;
 
 use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{object::ObjectExt, result::ResultExt};
-use num_traits::FromPrimitive;
 use ring::{
     rand::SecureRandom,
     signature::{EcdsaKeyPair, Ed25519KeyPair},
@@ -17,13 +16,8 @@ use rsa::{
 
 use crate::{
     subtle::{extract_sha_hash, EllipticCurve, Hash, KeyGenAlgorithm},
-    SYSTEM_RANDOM,
+    CryptoKey, SYSTEM_RANDOM,
 };
-
-use super::crypto_key::CryptoKey;
-
-static PUB_EXPONENT_1: OnceLock<BigUint> = OnceLock::new();
-static PUB_EXPONENT_2: OnceLock<BigUint> = OnceLock::new();
 
 static SYMMETRIC_USAGES: &[&str] = &["encrypt", "decrypt", "wrapKey", "unwrapKey"];
 static SIGNATURE_USAGES: &[&str] = &["sign", "verify"];
@@ -228,17 +222,29 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
             modulus_length,
             ref public_exponent,
         } => {
-            let exponent = BigUint::from_bytes_be(public_exponent);
-            if exponent != *PUB_EXPONENT_1.get_or_init(|| BigUint::from_u64(3).unwrap())
-                && exponent != *PUB_EXPONENT_2.get_or_init(|| BigUint::from_u64(65537).unwrap())
+            #[allow(clippy::if_same_then_else)]
+            let exponent: u64 = if public_exponent == &[0x01, 0x00, 0x01] {
+                65537 // fast pass
+            } else if public_exponent == &[0x03] {
+                3 // fast pass
+            } else if public_exponent.ends_with(&[0x03])
+                && public_exponent
+                    .iter()
+                    .take(public_exponent.len() - 1)
+                    .all(|&byte| byte == 0)
             {
+                3
+            } else {
                 return Err(Exception::throw_message(ctx, "Bad public exponent"));
-            }
+            };
 
             let mut rng = OsRng;
-            let private_key =
-                RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, &exponent)
-                    .or_throw(ctx)?;
+            let private_key = RsaPrivateKey::new_with_exp(
+                &mut rng,
+                *modulus_length as usize,
+                &BigUint::from(exponent),
+            )
+            .or_throw(ctx)?;
             let private_key = private_key.to_pkcs1_der().or_throw(ctx)?;
 
             Ok(private_key.as_bytes().to_vec())
