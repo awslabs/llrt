@@ -1,11 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import net from "net";
-import { EventEmitter } from "events";
 import os from "os";
 import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { SocketReqMsg } from "./shared";
+import { platform } from "os";
+const IS_WINDOWS = platform() === "win32";
 
 type TestOptions = {
   workerCount?: number;
@@ -74,7 +75,7 @@ type TestFailure = {
   message?: string;
 };
 
-class TestServer extends EventEmitter {
+class TestServer {
   private static UPDATE_FPS = 15;
   private static UPDATE_INTERVAL_MS = 1000 / TestServer.UPDATE_FPS;
   private static DEFAULT_TIMEOUT_MS =
@@ -110,12 +111,12 @@ class TestServer extends EventEmitter {
   private updateInterval: Timeout | null = null;
   private spinnerFrameIndex = 0;
   private started = 0;
+  private shutdownPending = false;
 
   constructor(
     testFiles: string[],
     { workerCount = os.availableParallelism() }: TestOptions = {}
   ) {
-    super();
     this.fileQueue = [...testFiles];
     this.testFiles = [...testFiles];
     this.testFileNames = testFiles.map((file) => path.basename(file));
@@ -130,11 +131,11 @@ class TestServer extends EventEmitter {
       this.shutdown();
       return;
     }
-
     this.started = performance.now();
     const server = net.createServer((socket) =>
       this.handleSocketConnected(socket)
     );
+
     this.server = server;
 
     await new Promise((resolve) => {
@@ -156,9 +157,21 @@ class TestServer extends EventEmitter {
         this.handleError(TestServer.ERROR_CODE_HANDLE_DATA, e);
         return;
       }
-      socket.write(JSON.stringify(response));
+      socket.write(JSON.stringify(response), (err) => {
+        if (err) {
+          return this.handleError(
+            TestServer.ERROR_CODE_SOCKET_WRITE_ERROR,
+            err,
+            {
+              socket,
+            }
+          );
+        }
+        if (this.shutdownPending) {
+          this.shutdown();
+        }
+      });
     });
-    socket.on("close", () => {});
     socket.on("error", (error) => {
       const workerId = this.workerIdBySocket.get(socket);
       if (!workerId || !this.workerData[workerId].completed) {
@@ -190,15 +203,17 @@ class TestServer extends EventEmitter {
     const workerData = this.workerData[id];
     let lastStdout = Buffer.from("");
     let lastStderr = Buffer.from("");
+    let env: any = {
+      ...process.env,
+      __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
+      __LLRT_TEST_WORKER_ID: id.toString(),
+    };
+    delete env.LLRT_LOG;
     const proc = spawn(
       process.argv0,
       ["-e", `import("llrt:test/worker").catch(console.error)`],
       {
-        env: {
-          ...process.env,
-          __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
-          __LLRT_TEST_WORKER_ID: id.toString(),
-        },
+        env,
       }
     );
     proc.stderr.on("data", (data) => {
@@ -224,7 +239,7 @@ class TestServer extends EventEmitter {
             output: Buffer.concat([lastStdout, lastStderr]).toString(),
           }
         );
-        this.handleWorkerCompleted(id);
+        this.handleWorkerCompleted(id, true);
       }
     });
     workerData.connectionTimeout = setTimeout(() => {
@@ -343,7 +358,7 @@ class TestServer extends EventEmitter {
         const workerData = this.workerData[workerId]!;
         const currentResult = workerData.currentResult!;
         //if we're not in a test
-        //workerData.lastUpdate = 0;
+        workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
@@ -373,8 +388,7 @@ class TestServer extends EventEmitter {
         break;
       }
       case "completed": {
-        this.handleWorkerCompleted(workerId);
-
+        this.handleWorkerCompleted(workerId, false);
         break;
       }
       default:
@@ -382,7 +396,7 @@ class TestServer extends EventEmitter {
     }
     return null;
   }
-  private handleWorkerCompleted(workerId: number) {
+  private handleWorkerCompleted(workerId: number, shutdownOnComplete: boolean) {
     this.workerData[workerId].completed = true;
     this.completedWorkers++;
 
@@ -390,12 +404,22 @@ class TestServer extends EventEmitter {
       clearInterval(this.updateInterval!);
       this.tick();
       this.printResults();
-      this.shutdown();
+      if (shutdownOnComplete) {
+        this.shutdown();
+      } else {
+        this.shutdownPending = true;
+      }
     }
   }
 
   shutdown() {
-    this.server?.close();
+    this.shutdownPending = false;
+    this.server?.close(() => {
+      //XXX force exit on windows
+      if (IS_WINDOWS) {
+        process.exit(0);
+      }
+    });
   }
   handleTestError(
     workerId: number,
@@ -454,11 +478,8 @@ class TestServer extends EventEmitter {
           performance.now()
         );
         workerData.childProc?.kill();
-        this.handleWorkerCompleted(parseInt(id));
+        this.handleWorkerCompleted(parseInt(id), true);
       }
-      // if (workerData.currentTest) {
-      //   this.handleTestError(id as any, new Error("Test timed out"), now);
-      // }
     }
 
     if (this.completedWorkers != this.workerCount) {
@@ -565,78 +586,72 @@ class TestServer extends EventEmitter {
       console.log(message);
     }
   }
-  printResults() {
+  private printResults() {
     const ended = performance.now();
+    let output = "";
     for (let file of this.testFiles) {
       const suite = this.results.get(file)!;
 
-      console.log(
+      output += `${
         suite.success
           ? Color.GREEN_BACKGROUND(Color.BOLD(" PASS "))
-          : Color.RED_BACKGROUND(Color.BOLD(" FAIL ")),
-        suite.name,
-        Color.DIM(TestServer.elapsed(suite))
-      );
+          : Color.RED_BACKGROUND(Color.BOLD(" FAIL "))
+      } ${suite.name} ${Color.DIM(TestServer.elapsed(suite))}\n`;
+
       for (let result of suite.results) {
-        this.printSuiteResult(result);
+        output += this.printSuiteResult(result);
       }
-      console.log("");
+      output += "\n";
     }
-    let status = "";
+
     if (this.totalFailed == 0) {
-      status = Color.GREEN_BACKGROUND(
+      output += Color.GREEN_BACKGROUND(
         Color.BOLD(` ${TestServer.CHECKMARK} ALL PASS `)
       );
     } else {
-      status = Color.RED_BACKGROUND(
+      output += Color.RED_BACKGROUND(
         Color.BOLD(` ${TestServer.CHECKMARK} TESTS FAILED `)
       );
     }
-    console.log(
-      status,
-      Color.DIM(TestServer.elapsed({ started: this.started, ended }))
-    );
-    console.log(
-      `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests`
-    );
+    output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
+    output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
+
     if (this.totalFailed > 0) {
       for (let [file, testFailure] of this.filesFailed) {
-        console.log(`\n${Color.RED_BACKGROUND(` ${file} `)}`);
+        output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
         for (let failure of testFailure) {
-          console.log(
-            failure.desc.map((d) => Color.BOLD(d)).join(" > "),
-            `\n${this.formattedError(failure.error)}`
-          );
+          output +=
+            failure.desc.map((d) => Color.BOLD(d)).join(" > ") +
+            `\n${this.formattedError(failure.error)}\n`;
           if (failure.message) {
-            console.log("----- LAST OUTPUT: -----\n" + failure.message);
+            output += "----- LAST OUTPUT: -----\n" + failure.message + "\n";
           }
         }
       }
+      console.log(output);
       process.exit(1);
     }
+    console.log(output);
   }
-  printSuiteResult(result: SuiteResult, depth = 0) {
+
+  private printSuiteResult(result: SuiteResult, depth = 0): string {
+    let output = "";
     const indent = "  ".repeat(depth);
     for (let test of result.tests) {
       const icon = test.success
         ? Color.GREEN(TestServer.CHECKMARK)
         : Color.RED(TestServer.CROSS);
-      console.log(
-        `${indent}${icon} ${test.desc}`,
-        Color.DIM(TestServer.elapsed(test))
-      );
+      output += `${indent}${icon} ${test.desc} ${Color.DIM(TestServer.elapsed(test))}\n`;
       if (test.error) {
-        console.log(this.formattedError(test.error));
+        output += this.formattedError(test.error) + "\n";
       }
     }
     const results = result.children;
     for (let result of results) {
-      console.log(
-        `${indent}${Color.BOLD(result.desc)}`,
-        Color.DIM(TestServer.elapsed(result))
-      );
-      this.printSuiteResult(result, depth + 1);
+      output += `${indent}${Color.BOLD(result.desc)} ${Color.DIM(TestServer.elapsed(result))}\n`;
+      output += this.printSuiteResult(result, depth + 1);
     }
+    return output;
   }
   private formattedError(error: Error, indent: string = ""): string {
     let stack = error.stack || "";

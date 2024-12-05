@@ -82,8 +82,10 @@ class SocketClient extends EventEmitter {
     }
   }
 
-  public close(): void {
-    this.socket.end();
+  async close(): Promise<void> {
+    return new Promise((resolve) => {
+      this.socket.end(resolve);
+    });
   }
 }
 

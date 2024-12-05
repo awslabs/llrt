@@ -1,6 +1,6 @@
 import * as urlModule from "url";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 describe("URL module import", () => {
   it("global URL and imported URL are equal", () => {
@@ -824,7 +824,7 @@ describe("URL Utility Functions", () => {
   });
 
   it("converts system path to file URL with pathToFileURL", () => {
-    if (IS_WIN) {
+    if (IS_WINDOWS) {
       const url = urlModule.pathToFileURL("C:/path/to/file.txt");
       expect(url.href).toBe("file:///C:/path/to/file.txt");
     } else {

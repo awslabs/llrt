@@ -1,17 +1,18 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, Ordering},
     Arc, RwLock,
 };
 
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{impl_stream_events, SteamEvents};
-use llrt_utils::{object::ObjectExt, result::ResultExt};
+use llrt_utils::{object::ObjectExt, result::ResultExt, reuse_list::ReuseList};
 #[cfg(unix)]
 use rquickjs::IntoJs;
 use rquickjs::{
+    class::Trace,
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, Function, JsLifetime, Object, Result, Undefined, Value,
 };
@@ -20,24 +21,40 @@ use tokio::net::UnixListener;
 use tokio::{
     net::TcpListener,
     select,
-    sync::broadcast::{self, Sender},
+    sync::{
+        broadcast::{self, Sender},
+        Notify,
+    },
 };
+use tracing::trace;
 
 use super::{get_address_parts, get_hostname, socket::Socket, Listener, NetStream};
 
 impl_stream_events!(Server);
 
 #[rquickjs::class]
-#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Server<'js> {
     emitter: EventEmitter<'js>,
     address: Value<'js>,
-    #[qjs(skip_trace)]
     close_tx: Sender<()>,
-    #[qjs(skip_trace)]
     allow_half_open: bool,
-    #[qjs(skip_trace)]
     already_listen: Arc<AtomicBool>,
+    sockets: ReuseList<Class<'js, Socket<'js>>>,
+    should_close: Arc<AtomicBool>,
+}
+
+impl<'js> Trace<'js> for Server<'js> {
+    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+        self.emitter.trace(tracer);
+        self.address.trace(tracer);
+        for socket_ref in self.sockets.iter() {
+            socket_ref.trace(tracer);
+        }
+    }
+}
+
+unsafe impl<'js> JsLifetime<'js> for Server<'js> {
+    type Changed<'to> = Server<'to>;
 }
 
 impl<'js> Emitter<'js> for Server<'js> {
@@ -78,6 +95,8 @@ impl<'js> Server<'js> {
                 close_tx,
                 allow_half_open,
                 already_listen: Arc::new(AtomicBool::new(false)),
+                sockets: ReuseList::with_capacity(8),
+                should_close: Arc::new(AtomicBool::new(false)),
             },
         )?;
 
@@ -99,6 +118,13 @@ impl<'js> Server<'js> {
         self.address.clone()
     }
 
+    pub fn get_connections(&self, cb: Opt<Function<'js>>) -> Result<()> {
+        if let Some(cb) = cb.0 {
+            cb.call::<_, ()>((Undefined, self.sockets.len()))?;
+        }
+        Ok(())
+    }
+
     #[allow(unused_assignments)]
     ///TODO add backlog support
     pub fn listen(
@@ -118,6 +144,7 @@ impl<'js> Server<'js> {
         let mut close_rx = borrow.close_tx.subscribe();
         let allow_half_open = borrow.allow_half_open;
         let already_running = borrow.already_listen.clone();
+        let should_close = borrow.should_close.clone();
         drop(borrow);
 
         if already_running.load(Ordering::Relaxed) {
@@ -190,8 +217,6 @@ impl<'js> Server<'js> {
 
         let ctx2 = ctx.clone();
 
-        let active_connections = Arc::new(AtomicUsize::new(0));
-
         if port.is_none() && path.is_none() {
             port = Some(0)
         }
@@ -202,12 +227,15 @@ impl<'js> Server<'js> {
                 Ok(listener) => listener,
                 Err(e) => {
                     already_running.store(false, Ordering::Relaxed);
-                    Err::<(), _>(e).emit_error(&ctx2, this.clone())?;
+                    Err::<(), _>(e).emit_error("listen", &ctx2, this.clone())?;
                     return Ok(()); // Don't stop the VM if failed to bind
                 },
             };
 
             Self::emit_str(This(this.clone()), &ctx2, "listening", vec![], false)?;
+
+            let notify = Arc::new(Notify::new());
+            let close_notify = notify.notified();
 
             loop {
                 let ctx3 = ctx2.clone();
@@ -219,9 +247,9 @@ impl<'js> Server<'js> {
                             this2.clone(),
                             ctx3.clone(),
                             socket,
-                            active_connections.clone(),
-                            allow_half_open
-                        ).emit_error(&ctx3, this2)?;
+                            notify.clone(),
+                            allow_half_open,
+                        ).emit_error("handle_socket_connection",&ctx3, this2)?;
                     },
                     _ = close_rx.recv() => {
                         break;
@@ -229,8 +257,18 @@ impl<'js> Server<'js> {
                 }
             }
 
-            Self::emit_str(this, &ctx2, "close", vec![], false)?;
+            if !this.borrow().sockets.is_empty() {
+                trace!("Waiting for sockets to finish");
+                close_notify.await;
+                trace!("Sockets finished");
+            } else {
+                trace!("No sockets to wait for, closing");
+            }
+
             already_running.store(false, Ordering::Relaxed);
+            should_close.store(false, Ordering::Relaxed);
+
+            Self::emit_str(this, &ctx2, "close", vec![], false)?;
 
             Ok(())
         })?;
@@ -239,10 +277,13 @@ impl<'js> Server<'js> {
     }
 
     fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, cb: Opt<Function<'js>>) -> Result<()> {
+        trace!("Closing server");
         if let Some(cb) = cb.0 {
             Self::add_event_listener_str(This(this.clone()), &ctx, "close", cb, true, true)?;
         }
-        let _ = this.borrow().close_tx.send(());
+        let borrow = this.borrow_mut();
+        borrow.should_close.store(true, Ordering::Relaxed);
+        let _ = borrow.close_tx.send(());
         Ok(())
     }
 }
@@ -298,16 +339,20 @@ impl<'js> Server<'js> {
         this: Class<'js, Self>,
         ctx: Ctx<'js>,
         stream_result: Result<NetStream>,
-        active_connections: Arc<AtomicUsize>,
+        notify_close: Arc<Notify>,
         allow_half_open: bool,
     ) -> Result<()> {
         let net_stream = stream_result.or_throw(&ctx)?;
 
-        active_connections.fetch_add(1, Ordering::Relaxed);
-
         ctx.clone().spawn_exit(async move {
             let socket_instance = Socket::new(ctx.clone(), allow_half_open)?;
-            let socket_instance2 = socket_instance.clone().as_value().clone();
+            let socket_index;
+            {
+                let mut sever_borrow = this.borrow_mut();
+                socket_index = sever_borrow.sockets.append(socket_instance.clone());
+            }
+
+            let socket_instance2 = socket_instance.clone().into_value();
             Self::emit_str(
                 This(this.clone()),
                 &ctx,
@@ -321,8 +366,18 @@ impl<'js> Server<'js> {
                 .await?;
 
             Socket::emit_close(socket_instance, &ctx, had_error)?;
+            {
+                let mut sever_borrow = this.borrow_mut();
+                sever_borrow.sockets.remove(socket_index);
 
-            active_connections.fetch_sub(1, Ordering::Relaxed);
+                if sever_borrow.sockets.is_empty()
+                    && sever_borrow.should_close.load(Ordering::Relaxed)
+                {
+                    trace!("Sockets empty, notify close");
+                    notify_close.notify_one();
+                }
+            }
+
             Ok(())
         })?;
 

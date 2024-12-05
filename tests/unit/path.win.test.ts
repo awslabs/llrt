@@ -1,8 +1,8 @@
 import path from "path";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
-if (IS_WIN) {
+if (IS_WINDOWS) {
   describe("path.basename", () => {
     it("should return the last portion of a path", () => {
       expect(path.basename("C:/foo/bar/baz.txt")).toEqual("baz.txt");

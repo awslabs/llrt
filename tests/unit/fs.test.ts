@@ -4,7 +4,7 @@ import * as namedFsImport from "fs";
 import path from "path";
 import os from "os";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 describe("readdir", () => {
   it("should read a directory", async () => {
@@ -17,7 +17,7 @@ describe("readdir", () => {
     expect(dir).toEqual([
       {
         name: "config.toml",
-        parentPath: IS_WIN ? ".\\.cargo" : "./.cargo",
+        parentPath: IS_WINDOWS ? ".\\.cargo" : "./.cargo",
       },
     ]);
     expect(dir[0].isFile()).toBeTruthy();
@@ -38,7 +38,7 @@ describe("readdir", () => {
     const compare = (a: string, b: string) => (a >= b ? 1 : -1);
     expect(dir.sort(compare)).toEqual(
       [
-        IS_WIN ? "recursive\\readdir.js" : "recursive/readdir.js",
+        IS_WINDOWS ? "recursive\\readdir.js" : "recursive/readdir.js",
         "recursive",
         "readdir.js",
       ].sort(compare)
@@ -57,7 +57,7 @@ describe("readdirSync", () => {
     expect(dir).toEqual([
       {
         name: "config.toml",
-        parentPath: IS_WIN ? ".\\.cargo" : "./.cargo",
+        parentPath: IS_WINDOWS ? ".\\.cargo" : "./.cargo",
       },
     ]);
     expect(dir[0].isFile()).toBeTruthy();
@@ -81,7 +81,7 @@ describe("readdirSync", () => {
       a >= b ? 1 : -1;
     expect(dir.sort(compare)).toEqual(
       [
-        IS_WIN ? "recursive\\readdir.js" : "recursive/readdir.js",
+        IS_WINDOWS ? "recursive\\readdir.js" : "recursive/readdir.js",
         "recursive",
         "readdir.js",
       ].sort(compare)
@@ -229,7 +229,7 @@ describe("mkdirSync", () => {
 
     //non recursive should reject
     expect(() => defaultFsImport.mkdirSync(dirPath)).toThrow(
-      IS_WIN ? /Can\'t create dir/ : /[fF]ile.*exists/
+      IS_WINDOWS ? /Can\'t create dir/ : /[fF]ile.*exists/
     );
 
     defaultFsImport.mkdirSync(dirPath, { recursive: true });
@@ -301,7 +301,7 @@ describe("rm", () => {
     const filePath = path.join(tmpDir, "test");
 
     await expect(fs.rm(filePath, {})).rejects.toThrow(
-      IS_WIN ? /\(os error 2\)/ : /[Nn]o such file or directory/
+      IS_WINDOWS ? /\(os error 2\)/ : /[Nn]o such file or directory/
     );
   });
   it("should not throw an error if file does not exists and force is used", async () => {
@@ -345,7 +345,7 @@ describe("rmSync", () => {
     const filePath = path.join(tmpDir, "test");
 
     expect(() => defaultFsImport.rmSync(filePath, {})).toThrow(
-      IS_WIN ? /\(os error 2\)/ : /[Nn]o such file or directory/
+      IS_WINDOWS ? /\(os error 2\)/ : /[Nn]o such file or directory/
     );
   });
   it("should not throw an error if file does not exists and force is used with rm synchronously", async () => {

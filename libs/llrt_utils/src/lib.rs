@@ -14,6 +14,7 @@ pub mod module;
 pub mod object;
 pub mod primordials;
 pub mod result;
+pub mod reuse_list;
 pub mod sysinfo;
 pub mod time;
 

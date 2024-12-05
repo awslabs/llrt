@@ -305,7 +305,7 @@ impl<'js> Socket<'js> {
             }
             .await;
 
-            connect.emit_error(&ctx2, this3)?;
+            connect.emit_error("connect", &ctx2, this3)?;
             Ok(())
         })?;
 

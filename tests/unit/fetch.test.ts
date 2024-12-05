@@ -1,10 +1,12 @@
 import net from "net";
 import { spawn } from "child_process";
 import { platform } from "os";
-const IS_WIN = platform() === "win32";
+const IS_WINDOWS = platform() === "win32";
 
 let server: net.Server;
 let url: string;
+
+const { LLRT_LOG, ...TEST_ENV } = process.env;
 
 beforeAll((done) => {
   server = net.createServer((socket) => {
@@ -19,7 +21,7 @@ beforeAll((done) => {
 
   server.listen(() => {
     const { address, port } = server.address()! as any as net.AddressInfo;
-    url = `http://${IS_WIN ? "localhost" : address}:${port}`;
+    url = `http://${IS_WINDOWS ? "localhost" : address}:${port}`;
     done();
   });
 });
@@ -78,9 +80,9 @@ describe("fetch", () => {
   });
 
   it("is not allowed to fetch", (done) => {
-    let deniedUrl = new URL("https://www.amazon.com");
+    const deniedUrl = new URL("https://www.amazon.com");
 
-    let proc = spawn(
+    const proc = spawn(
       process.argv[0],
       [
         "-e",
@@ -89,6 +91,7 @@ describe("fetch", () => {
       {
         env: {
           LLRT_NET_DENY: "amazon.com",
+          ...TEST_ENV,
         },
       }
     );
@@ -109,9 +112,9 @@ describe("fetch", () => {
   });
 
   it("is only allowed to fetch", (done) => {
-    let deniedUrl = new URL("https://www.amazon.com");
+    const deniedUrl = new URL("https://www.amazon.com");
 
-    let proc = spawn(
+    const proc = spawn(
       process.argv[0],
       [
         "-e",
@@ -120,6 +123,7 @@ describe("fetch", () => {
       {
         env: {
           LLRT_NET_ALLOW: url.toString(),
+          ...TEST_ENV,
         },
       }
     );

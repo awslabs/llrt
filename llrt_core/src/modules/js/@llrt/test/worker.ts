@@ -109,6 +109,10 @@ class TestAgent {
     this.workerId = workerId;
     this.client = new SocketClient("localhost", serverPort);
 
+    this.client.on("error", (err) => {
+      console.error("Worker Client Socket Error:", workerId, err);
+    });
+
     const testFunction = this.createTestFunction();
     testFunction.only = this.createTestFunction({ only: true });
     testFunction.skip = this.createTestFunction({ skip: true });
@@ -509,3 +513,4 @@ if (isNaN(workerId) || isNaN(serverPort)) {
 
 const agent = new TestAgent(workerId, serverPort);
 await agent.start();
+process.exit(0); //force exit if socket hangs
