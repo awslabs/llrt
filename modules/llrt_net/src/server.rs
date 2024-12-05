@@ -118,6 +118,13 @@ impl<'js> Server<'js> {
         self.address.clone()
     }
 
+    pub fn get_connections(&self, cb: Opt<Function<'js>>) -> Result<()> {
+        if let Some(cb) = cb.0 {
+            cb.call::<_, ()>((Undefined, self.sockets.len()))?;
+        }
+        Ok(())
+    }
+
     #[allow(unused_assignments)]
     ///TODO add backlog support
     pub fn listen(
