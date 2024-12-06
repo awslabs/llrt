@@ -12,13 +12,6 @@ uncompressed = []
 macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
 
-[package.metadata.patch.rquickjs-core]
-version = "*"
-patches = ["patches/promise-poll.patch"]
-
-[patch.crates-io]
-rquickjs-core = { path = "target/patch/rquickjs-core-0.8.1" }
-
 [dependencies]
 llrt_context = { path = "../libs/llrt_context" }
 llrt_encoding = { path = "../libs/llrt_encoding" }
@@ -89,7 +82,6 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1"
 phf_codegen = "0.11"
 jwalk = "0.8"
 nanoid = "0.4"
-cargo-patch = "0.3"
 llrt_build = { path = "../libs/llrt_build" }
 
 [dev-dependencies]
