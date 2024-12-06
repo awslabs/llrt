@@ -202,10 +202,8 @@ fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorith
 }
 
 fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
-    if algorithm.is_string() {
-        let algorithm_name = algorithm.as_string().unwrap().to_string()?;
-
-        return match algorithm_name.as_str() {
+    if let Some(algorithm) = algorithm.as_string() {
+        return match algorithm.to_string()?.as_str() {
             "Ed25519" => Ok(Algorithm::Ed25519),
             "HMAC" => Ok(Algorithm::Hmac),
             "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
@@ -245,16 +243,14 @@ fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Hash> {
         .get_optional::<_, String>("hash")?
         .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
 
-    Hash::try_from(hash.as_str()).or_throw(ctx)
+    Hash::try_from(hash.as_ref()).or_throw(ctx)
 }
 
 fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, usage: &str) -> Result<()> {
-    for value in key_usages.clone().into_iter() {
-        if let Some(key) = value?.as_string() {
-            let key = key.to_string()?;
-            if key.as_str() == usage {
-                return Ok(());
-            }
+    for key in key_usages.iter::<String>() {
+        let key = key?;
+        if key == usage {
+            return Ok(());
         }
     }
     Err(Exception::throw_type(
