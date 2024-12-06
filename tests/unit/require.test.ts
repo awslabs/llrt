@@ -142,3 +142,23 @@ it("require `lodash.merge` module element", () => {
 it("require `uuid` module element", () => {
   _require(`${CWD}/fixtures/test_modules/test-uuid.js`);
 });
+
+//create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
+it("should handle blocking requires", (done) => {
+  const proc = spawn(process.argv0, [`${CWD}/fixtures/require.mjs`]);
+  let stdout = "";
+  proc.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+  proc.on("close", (code) => {
+    try {
+      expect(code).toBe(0);
+      expect(stdout).toBe(
+        ["1", "2", "3", "4", "5", "hello world!", "6", ""].join("\n")
+      );
+      done();
+    } catch (e) {
+      done(e);
+    }
+  });
+});
