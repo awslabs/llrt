@@ -52,6 +52,26 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 
+## crypto.subtle
+
+[subtle.decrypt](https://nodejs.org/api/webcrypto.html#subtledecryptalgorithm-key-data)
+
+[subtle.deriveBits](https://nodejs.org/api/webcrypto.html#subtlederivebitsalgorithm-basekey-length)
+
+[subtle.digest](https://nodejs.org/api/webcrypto.html#subtledigestalgorithm-data)
+
+[subtle.encrypt](https://nodejs.org/api/webcrypto.html#subtleencryptalgorithm-key-data)
+
+[subtle.exportKey](hthttps://nodejs.org/api/webcrypto.html#subtleexportkeyformat-key)
+
+[subtle.generateKey](https://nodejs.org/api/webcrypto.html#subtlegeneratekeyalgorithm-extractable-keyusages)
+
+[subtle.importKey](https://nodejs.org/api/webcrypto.html#subtleimportkeyformat-keydata-algorithm-extractable-keyusages)
+
+[subtle.sign](https://nodejs.org/api/webcrypto.html#subtlesignalgorithm-key-data)
+
+[subtle.verify](hthttps://nodejs.org/api/webcrypto.html#subtleverifyalgorithm-key-signature-datah)
+
 ## events
 
 [EventEmitter](https://nodejs.org/api/events.html#class-eventemitter)
