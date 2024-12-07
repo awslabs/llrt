@@ -665,3 +665,568 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
 //     }
 //   });
 // });
+
+describe("SubtleCrypto deriveBits/deriveKey", () => {
+  it("should be processing ECDH algorithm", async () => {
+    const generatedParams = [
+      {
+        name: "ECDH",
+        namedCurve: "P-256",
+      }, {
+        name: "ECDH",
+        namedCurve: "P-384",
+      },
+    ];
+    const derivedParams = [
+      {
+        name: "AES-CBC",
+        length: 128,
+      }, {
+        name: "AES-CBC",
+        length: 192,
+      }, {
+        name: "AES-CBC",
+        length: 256,
+      }, {
+        name: "AES-CTR",
+        length: 128,
+      }, {
+        name: "AES-CTR",
+        length: 192,
+      }, {
+        name: "AES-CTR",
+        length: 256,
+      }, {
+        name: "AES-GCM",
+        length: 128,
+      }, {
+        name: "AES-GCM",
+        length: 192,
+      }, {
+        name: "AES-GCM",
+        length: 256,
+      }, {
+        name: "AES-KW",
+        length: 128,
+      }, {
+        name: "AES-KW",
+        length: 192,
+      }, {
+        name: "AES-KW",
+        length: 256,
+      }, {
+        name: "HMAC",
+        hash: "SHA-1",
+      }, {
+        name: "HMAC",
+        hash: "SHA-256",
+      }, {
+        name: "HMAC",
+        hash: "SHA-384",
+      }, {
+        name: "HMAC",
+        hash: "SHA-512",
+      },
+    ];
+
+    // 1. Generate Alice's key pair
+    const aliceKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true, // whether the key is extractable (i.e. can be used in exportKey)
+      ["deriveKey", "deriveBits"] // can be any combination of "deriveKey" and "deriveBits"
+    );
+
+    // 2. Generate Bob's key pair
+    const bobKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true,
+      ["deriveKey", "deriveBits"]
+    );
+
+    // 3. Export Bob's public key to share with Alice
+    const bobPublicKey = await crypto.subtle.exportKey(
+      "raw",
+      bobKeyPair.publicKey
+    );
+
+    // 3.5. Alice imports Bob's public key
+    const bobImportKey = await crypto.subtle.importKey(
+      "raw",
+      bobPublicKey,
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true,
+      []
+    );
+
+    for (const generated of generatedParams) {
+      for (const derived of derivedParams) {
+        // 4. Alice derives a shared key using Bob's public key
+        const aliceDerivedKey = await crypto.subtle.deriveKey(
+          {
+            name: "ECDH",
+            public: bobImportKey,
+          },
+          aliceKeyPair.privateKey,
+          derived,
+          true, // The derived key is extractable
+          ["encrypt", "decrypt"] // You can specify operations that the derived key will be used for
+        );
+
+        // 5. Export Alice's public key to share with Bob
+        const alicePublicKey = await crypto.subtle.exportKey(
+          "raw",
+          aliceKeyPair.publicKey
+        );
+
+        // 6. Bob derives a shared key using Alice's public key
+        const aliceImportKey = await crypto.subtle.importKey(
+          "raw",
+          alicePublicKey,
+          {
+            name: "ECDH",
+            namedCurve: "P-256"
+          },
+          true,
+          []
+        );
+
+        const bobDerivedKey = await crypto.subtle.deriveKey(
+          {
+            name: "ECDH",
+            public: aliceImportKey,
+          },
+          bobKeyPair.privateKey,
+          derived,
+          true, // The derived key is extractable
+          ["encrypt", "decrypt"] // You can specify operations that the derived key will be used for
+        );
+
+        // To verify if both Alice and Bob have the same derived key, you can compare them
+        const aliceKeyBuffer = new Uint8Array(
+          await crypto.subtle.exportKey("raw", aliceDerivedKey)
+        );
+        const bobKeyBuffer = new Uint8Array(
+          await crypto.subtle.exportKey("raw", bobDerivedKey)
+        );
+
+        // Compare the raw key buffers to check if the derived keys are equal
+        expect(aliceKeyBuffer).toEqual(bobKeyBuffer);
+      }
+    }
+  });
+
+  it("should be processing HKDF algorithm", async () => {
+    const hkdfSalt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
+    const hkdfInfo = new TextEncoder().encode("HKDF info"); // Info parameter, can be any label string
+
+    const generatedParams = [
+      {
+        name: "HKDF",
+        salt: hkdfSalt,
+        info: hkdfInfo,
+        hash: "SHA-1"
+      }, {
+        name: "HKDF",
+        salt: hkdfSalt,
+        info: hkdfInfo,
+        hash: "SHA-256"
+      }, {
+        name: "HKDF",
+        salt: hkdfSalt,
+        info: hkdfInfo,
+        hash: "SHA-384"
+      }, {
+        name: "HKDF",
+        salt: hkdfSalt,
+        info: hkdfInfo,
+        hash: "SHA-512"
+      },
+    ];
+    const derivedParams = [
+      {
+        name: "AES-CBC",
+        length: 128,
+      }, {
+        name: "AES-CBC",
+        length: 192,
+      }, {
+        name: "AES-CBC",
+        length: 256,
+      }, {
+        name: "AES-CTR",
+        length: 128,
+      }, {
+        name: "AES-CTR",
+        length: 192,
+      }, {
+        name: "AES-CTR",
+        length: 256,
+      }, {
+        name: "AES-GCM",
+        length: 128,
+      }, {
+        name: "AES-GCM",
+        length: 192,
+      }, {
+        name: "AES-GCM",
+        length: 256,
+      }, {
+        name: "AES-KW",
+        length: 128,
+      }, {
+        name: "AES-KW",
+        length: 192,
+      }, {
+        name: "AES-KW",
+        length: 256,
+      }, {
+        name: "HMAC",
+        hash: "SHA-1",
+      }, {
+        name: "HMAC",
+        hash: "SHA-256",
+      }, {
+        name: "HMAC",
+        hash: "SHA-384",
+      }, {
+        name: "HMAC",
+        hash: "SHA-512",
+      },
+    ];
+
+    // 1. Generate Alice's key pair
+    const aliceKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true, // whether the key is extractable (i.e. can be used in exportKey)
+      ["deriveKey", "deriveBits"] // can be any combination of "deriveKey" and "deriveBits"
+    );
+
+    // 2. Generate Bob's key pair
+    const bobKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true,
+      ["deriveKey", "deriveBits"]
+    );
+
+    // 3. Export Bob's public key to share with Alice
+    const bobPublicKey = await crypto.subtle.exportKey(
+      "raw",
+      bobKeyPair.publicKey
+    );
+
+    // 3.5. Alice imports Bob's public key
+    const bobImportKey = await crypto.subtle.importKey(
+      "raw",
+      bobPublicKey,
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true,
+      []
+    );
+
+    for (const generated of generatedParams) {
+      for (const derived of derivedParams) {
+        // 4. Alice derives a shared secret using Bob's public key
+        const aliceSharedSecret = await crypto.subtle.deriveBits(
+          {
+            name: "ECDH",
+            public: bobImportKey
+          },
+          aliceKeyPair.privateKey,
+          256 // number of bits to derive
+        );
+
+        // 5. Convert Alice's derived secret to a key using HKDF
+        const aliceDerivedKey = await crypto.subtle.importKey(
+          "raw",
+          aliceSharedSecret,
+          "HKDF",
+          false,
+          ["deriveKey"]
+        );
+
+        const aliceDerivedlKey = await crypto.subtle.deriveKey(
+          generated,
+          aliceDerivedKey,
+          derived,
+          true,
+          ["encrypt", "decrypt"]
+        );
+
+        // 6. Export Alice's public key to share with Bob
+        const alicePublicKey = await crypto.subtle.exportKey(
+          "raw",
+          aliceKeyPair.publicKey
+        );
+
+        // 7. Bob derives a shared secret using Alice's public key
+        const aliceImportKey = await crypto.subtle.importKey(
+          "raw",
+          alicePublicKey,
+          {
+            name: "ECDH",
+            namedCurve: "P-256"
+          },
+          true,
+          []
+        );
+
+        const bobSharedSecret = await crypto.subtle.deriveBits(
+          {
+            name: "ECDH",
+            public: aliceImportKey
+          },
+          bobKeyPair.privateKey,
+          256
+        );
+
+        // 8. Convert Bob's derived secret to a key using HKDF
+        const bobDerivedKey = await crypto.subtle.importKey(
+          "raw",
+          bobSharedSecret,
+          "HKDF",
+          false,
+          ["deriveKey"]
+        );
+
+        const bobDerivedlKey = await crypto.subtle.deriveKey(
+          generated,
+          bobDerivedKey,
+          derived,
+          true,
+          ["encrypt", "decrypt"]
+        );
+        console.log("8. Bob derives the final key using HKDF : complete");
+
+        // 9. Verify if both derived keys are the same
+        const aliceKeyBuffer = new Uint8Array(await crypto.subtle.exportKey("raw", aliceDerivedlKey));
+        const bobKeyBuffer = new Uint8Array(await crypto.subtle.exportKey("raw", bobDerivedlKey));
+
+        // Compare the raw key buffers to check if the derived keys are equal
+        expect(aliceKeyBuffer).toEqual(bobKeyBuffer);
+      }
+    }
+  });
+
+  it("should be processing PBKDF2 algorithm", async () => {
+    const pbkdf2Salt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
+    const pbkdf2Iterations = 50000; // Number of iterations for PBKDF2
+
+    // We skip some tests because they run slowly in CI.
+    const generatedParams = [
+      {
+        //   name: "PBKDF2",
+        //   salt: pbkdf2Salt,
+        //   iterations: pbkdf2Iterations,
+        //   hash: "SHA-1"
+        // }, {
+        name: "PBKDF2",
+        salt: pbkdf2Salt,
+        iterations: pbkdf2Iterations,
+        hash: "SHA-256"
+        // }, {
+        //   name: "PBKDF2",
+        //   salt: pbkdf2Salt,
+        //   iterations: pbkdf2Iterations,
+        //   hash: "SHA-384"
+        // }, {
+        // name: "PBKDF2",
+        // salt: pbkdf2Salt,
+        // iterations: pbkdf2Iterations,
+        // hash: "SHA-512"
+      },
+    ];
+    const derivedParams = [
+      {
+        name: "AES-CBC",
+        length: 128,
+      }, {
+        //   name: "AES-CBC",
+        //   length: 192,
+        // }, {
+        // name: "AES-CBC",
+        // length: 256,
+        // }, {
+        name: "AES-CTR",
+        length: 128,
+      }, {
+        //   name: "AES-CTR",
+        //   length: 192,
+        // }, {
+        // name: "AES-CTR",
+        // length: 256,
+        // }, {
+        name: "AES-GCM",
+        length: 128,
+      }, {
+        //   name: "AES-GCM",
+        //   length: 192,
+        // }, {
+        //   name: "AES-GCM",
+        //   length: 256,
+        // }, {
+        name: "AES-KW",
+        length: 128,
+      }, {
+        //   name: "AES-KW",
+        //   length: 192,
+        // }, {
+        //   name: "AES-KW",
+        //   length: 256,
+        // }, {
+        name: "HMAC",
+        hash: "SHA-1",
+        // }, {
+        //   name: "HMAC",
+        //   hash: "SHA-256",
+        // }, {
+        //   name: "HMAC",
+        //   hash: "SHA-384",
+        // }, {
+        // name: "HMAC",
+        // hash: "SHA-512",
+      },
+    ];
+
+    // 1. Generate Alice's key pair
+    const aliceKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true, // whether the key is extractable (i.e. can be used in exportKey)
+      ["deriveKey", "deriveBits"] // can be any combination of "deriveKey" and "deriveBits"
+    );
+
+    // 2. Generate Bob's key pair
+    const bobKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true,
+      ["deriveKey", "deriveBits"]
+    );
+
+    // 3. Export Bob's public key to share with Alice
+    const bobPublicKey = await crypto.subtle.exportKey(
+      "raw",
+      bobKeyPair.publicKey
+    );
+
+    // 3.5. Alice imports Bob's public key
+    const bobImportKey = await crypto.subtle.importKey(
+      "raw",
+      bobPublicKey,
+      {
+        name: "ECDH",
+        namedCurve: "P-256"
+      },
+      true,
+      []
+    );
+
+    for (const generated of generatedParams) {
+      for (const derived of derivedParams) {
+        // 4. Alice derives a shared secret using Bob's public key
+        const aliceSharedSecret = await crypto.subtle.deriveBits(
+          {
+            name: "ECDH",
+            public: bobImportKey
+          },
+          aliceKeyPair.privateKey,
+          256 // number of bits to derive
+        );
+
+        // 5. Convert Alice's derived secret to a key using PBKDF2
+        const pbkdf2Salt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
+        const pbkdf2Iterations = 10; // Number of iterations for PBKDF2
+
+        // Use PBKDF2 to generate a derived key from Alice's shared secret
+        const aliceFinalKey = await crypto.subtle.importKey(
+          "raw",
+          aliceSharedSecret,
+          "PBKDF2",
+          false,
+          ["deriveKey"]
+        );
+
+        const aliceDerivedKey = await crypto.subtle.deriveKey(
+          generated,
+          aliceFinalKey,
+          derived,
+          true,
+          ["encrypt", "decrypt"]
+        );
+
+        // 6. Export Alice's public key to share with Bob
+        const alicePublicKey = await crypto.subtle.exportKey(
+          "raw",
+          aliceKeyPair.publicKey
+        );
+
+        // 7. Bob derives a shared secret using Alice's public key
+        const aliceImportKey = await crypto.subtle.importKey(
+          "raw",
+          alicePublicKey,
+          {
+            name: "ECDH",
+            namedCurve: "P-256"
+          },
+          true,
+          []
+        );
+
+        const bobSharedSecret = await crypto.subtle.deriveBits(
+          {
+            name: "ECDH",
+            public: aliceImportKey
+          },
+          bobKeyPair.privateKey,
+          256
+        );
+
+        // 8. Convert Bob's derived secret to a key using PBKDF2
+        const bobFinalKey = await crypto.subtle.importKey(
+          "raw",
+          bobSharedSecret,
+          "PBKDF2",
+          false,
+          ["deriveKey"]
+        );
+
+        const bobDerivedKey = await crypto.subtle.deriveKey(
+          generated,
+          bobFinalKey,
+          derived,
+          true,
+          ["encrypt", "decrypt"]
+        );
+
+        // 9. Verify if both derived keys are the same
+        const aliceKeyBuffer = new Uint8Array(await crypto.subtle.exportKey("raw", aliceDerivedKey));
+        const bobKeyBuffer = new Uint8Array(await crypto.subtle.exportKey("raw", bobDerivedKey));
+
+        // Compare the raw key buffers to check if the derived keys are equal
+        expect(aliceKeyBuffer).toEqual(bobKeyBuffer);
+      }
+    }
+  });
+});
