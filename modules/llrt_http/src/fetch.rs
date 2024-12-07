@@ -6,6 +6,7 @@ use std::{collections::HashSet, time::Instant};
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use http_body_util::Full;
+use hyper::body::Body;
 use hyper::{header::HeaderName, Method, Request, Uri};
 use hyper_util::client::legacy::connect::Connect;
 use hyper_util::client::legacy::Client;
@@ -202,10 +203,14 @@ fn build_request(
         req = req.header("accept", "*/*");
     }
 
-    req.body(BoxBody::new(
-        body.map(|b| b.body.clone()).unwrap_or_default(),
-    ))
-    .or_throw(ctx)
+    let body_unwrap = body.map(|b| b.body.clone()).unwrap_or_default();
+
+    if !detected_headers.contains("content-length") {
+        let body_len = body_unwrap.size_hint().exact().unwrap_or_default();
+        req = req.header("content-length", body_len.to_string());
+    }
+
+    req.body(BoxBody::new(body_unwrap)).or_throw(ctx)
 }
 
 fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
