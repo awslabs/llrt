@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 mod crypto_key;
 mod decrypt;
-mod derive_bits;
+mod derive;
 mod digest;
 mod encrypt;
 mod export_key;
@@ -13,7 +13,7 @@ mod verify;
 
 pub use crypto_key::CryptoKey;
 pub use decrypt::subtle_decrypt;
-pub use derive_bits::subtle_derive_bits;
+pub use derive::{subtle_derive_bits, subtle_derive_key};
 pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;

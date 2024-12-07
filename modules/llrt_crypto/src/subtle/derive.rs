@@ -5,11 +5,14 @@ use std::num::NonZeroU32;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
-use rquickjs::{ArrayBuffer, Ctx, Exception, Result, Value};
+use rquickjs::{Array, ArrayBuffer, Ctx, Exception, Result, Value};
 
 use crate::subtle::{
-    check_supported_usage, extract_sha_hash, CryptoKey, DeriveAlgorithm, EllipticCurve, Hash,
+    check_supported_usage, extract_sha_hash, generate_key::extract_generate_key_algorithm,
+    CryptoKey, DeriveAlgorithm, EllipticCurve, Hash,
 };
+
+use super::generate_key::get_hash_length;
 
 struct HkdfOutput(usize);
 
@@ -31,6 +34,57 @@ pub async fn subtle_derive_bits<'js>(
 
     let bytes = derive_bits(&ctx, &derive_algorithm, base_key.get_handle(), length)?;
     ArrayBuffer::new(ctx, bytes)
+}
+
+pub async fn subtle_derive_key<'js>(
+    ctx: Ctx<'js>,
+    algorithm: Value<'js>,
+    base_key: CryptoKey<'js>,
+    derived_key_algorithm: Value<'js>,
+    extractable: bool,
+    key_usages: Array<'js>,
+) -> Result<CryptoKey<'js>> {
+    let derive_algorithm = extract_derive_algorithm(&ctx, &algorithm)?;
+    let (name, _) = extract_generate_key_algorithm(&ctx, &derived_key_algorithm)?;
+
+    let length = if name.starts_with("AES") {
+        let length = derived_key_algorithm
+            .get_optional::<_, usize>("length")?
+            .ok_or_else(|| Exception::throw_type(&ctx, "algorithm 'length' property required"))?;
+
+        if ![128, 192, 256].contains(&length) {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Algorithm 'length' must be one of: 128, 192, or 256",
+            ));
+        };
+        length
+    } else if name == "HMAC" {
+        let hash = extract_sha_hash(&ctx, &derived_key_algorithm)?;
+        let length = derived_key_algorithm.get_optional::<_, u32>("length")?;
+        get_hash_length(&ctx, &hash, &length)?
+    } else {
+        return Err(Exception::throw_type(
+            &ctx,
+            "Algorithm 'name' must be HmacKeyGenParams | AesKeyGenParams",
+        ));
+    };
+
+    let bytes = derive_bits(
+        &ctx,
+        &derive_algorithm,
+        base_key.get_handle(),
+        length as u32,
+    )?;
+
+    CryptoKey::new(
+        ctx,
+        "secret".to_string(),
+        extractable,
+        derived_key_algorithm,
+        key_usages,
+        &bytes,
+    )
 }
 
 fn extract_derive_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<DeriveAlgorithm> {

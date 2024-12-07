@@ -102,7 +102,7 @@ pub async fn subtle_generate_key<'js>(
     }
 }
 
-fn extract_generate_key_algorithm(
+pub fn extract_generate_key_algorithm(
     ctx: &Ctx<'_>,
     algorithm: &Value,
 ) -> Result<(String, KeyGenAlgorithm)> {
@@ -191,27 +191,7 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyGenAlgorithm) -> Result<Vec<u8>> {
             Ok(pkcs8.as_ref().to_vec())
         },
         KeyGenAlgorithm::Hmac { hash, length } => {
-            let hash = match hash {
-                Hash::Sha1 => &ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-                Hash::Sha256 => &ring::hmac::HMAC_SHA256,
-                Hash::Sha384 => &ring::hmac::HMAC_SHA384,
-                Hash::Sha512 => &ring::hmac::HMAC_SHA512,
-            };
-
-            let length = if let Some(length) = length {
-                if length % 8 != 0 {
-                    return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
-                }
-
-                let length = length / 8;
-                if length > ring::digest::MAX_BLOCK_LEN.try_into().unwrap() {
-                    return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
-                }
-
-                length as usize
-            } else {
-                hash.digest_algorithm().block_len()
-            };
+            let length = get_hash_length(ctx, hash, length)?;
 
             let mut key = vec![0u8; length];
             SYSTEM_RANDOM.fill(&mut key).or_throw(ctx)?;
@@ -297,4 +277,30 @@ fn classify_and_check_usages<'js>(
     }
 
     Ok((private_usages, public_usages))
+}
+
+pub fn get_hash_length(ctx: &Ctx, hash: &Hash, length: &Option<u32>) -> Result<usize> {
+    let hash = match hash {
+        Hash::Sha1 => &ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
+        Hash::Sha256 => &ring::hmac::HMAC_SHA256,
+        Hash::Sha384 => &ring::hmac::HMAC_SHA384,
+        Hash::Sha512 => &ring::hmac::HMAC_SHA512,
+    };
+
+    let length = if let Some(length) = length {
+        if length % 8 != 0 {
+            return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
+        }
+
+        let length = length / 8;
+        if length > ring::digest::MAX_BLOCK_LEN.try_into().unwrap() {
+            return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
+        }
+
+        length as usize
+    } else {
+        hash.digest_algorithm().block_len()
+    };
+
+    Ok(length)
 }
