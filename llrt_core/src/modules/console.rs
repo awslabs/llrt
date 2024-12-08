@@ -779,8 +779,8 @@ fn write_lambda_log<'js>(
 ) -> Result<bool> {
     let mut is_newline = true;
 
-    if is_json_log_format && max_log_level < level.clone() as usize {
-        //do not log if we don't meet the log level
+    //do not log if we don't meet the log level
+    if is_json_log_format && (level.clone() as usize) < max_log_level {
         return Ok(false);
     }
     result.reserve(64);
