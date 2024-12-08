@@ -21,7 +21,7 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
             if json_length < 128 {
                 error_msg.reserve(json_length);
                 error_msg.push('\"');
-                error_msg.push_str(&std::string::String::from_utf8_lossy(&mut json));
+                error_msg.push_str(&std::string::String::from_utf8_lossy(&json));
                 error_msg.push_str("\" ");
             }
 
