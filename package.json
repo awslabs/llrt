@@ -78,6 +78,7 @@
     "@aws-sdk/client-sts": "3.682.0",
     "@aws-sdk/client-textract": "3.682.0",
     "@aws-sdk/client-translate": "3.682.0",
+    "@aws-sdk/client-verifiedpermissions": "3.682.0",
     "@aws-sdk/client-xray": "3.682.0",
     "@aws-sdk/credential-providers": "3.682.0",
     "@aws-sdk/lib-dynamodb": "3.682.0",

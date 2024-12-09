@@ -322,6 +322,7 @@ The relationship between the supported packages for each bundle type is as follo
 | @aws-sdk/client-sso-admin                 |        |         | ✔︎      |
 | @aws-sdk/client-sso-oidc                  |        |         | ✔︎      |
 | @aws-sdk/client-sts                       |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-verifiedpermissions       |        |         | ✔︎      |
 
 | Storage             | no-sdk | std-sdk | full-sdk |
 | ------------------- | ------ | ------- | -------- |
