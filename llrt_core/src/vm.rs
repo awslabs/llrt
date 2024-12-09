@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult};
 
-use llrt_json::{parse::json_parse, stringify::json_stringify_replacer_space};
+use llrt_json::{parse::json_parse_string, stringify::json_stringify_replacer_space};
 use llrt_numbers::number_to_string;
 use llrt_utils::{
-    bytes::ObjectBytes,
     error::ErrorExtensions,
     object::ObjectExt,
     primordials::{BasePrimordials, Primordial},
@@ -208,11 +207,6 @@ impl Vm {
         self.runtime.idle().await;
         Ok(())
     }
-}
-
-fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Value<'js>> {
-    let bytes = bytes.as_bytes();
-    json_parse(&ctx, bytes)
 }
 
 fn init(ctx: &Ctx<'_>) -> Result<()> {

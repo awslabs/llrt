@@ -9,10 +9,10 @@ pub mod stringify;
 #[cfg(test)]
 mod tests {
     use llrt_test::test_sync_with;
-    use rquickjs::{Array, CatchResultExt, IntoJs, Null, Object, Undefined, Value};
+    use rquickjs::{prelude::Func, Array, CatchResultExt, IntoJs, Null, Object, Undefined, Value};
 
     use crate::{
-        parse::json_parse,
+        parse::{json_parse, json_parse_string},
         stringify::{json_stringify, json_stringify_replacer_space},
     };
 
@@ -38,6 +38,27 @@ mod tests {
                 let new_json = json_stringify_replacer_space(&ctx, value.clone(),None,Some("  ".into()))?.unwrap();
                 let builtin_json = ctx.json_stringify_replacer_space(value,Null,"  ".to_string())?.unwrap().to_string()?;
                 assert_eq!(new_json, builtin_json);
+            }
+
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn json_parse_non_string() {
+        test_sync_with(|ctx| {
+            ctx.globals().set("parse", Func::from(json_parse_string))?;
+
+            let result = ctx.eval::<(), _>("parse({})").catch(&ctx);
+
+            if let Err(err) = result {
+                assert_eq!(
+                   err.to_string(),
+                   "Error: \"[object Object]\" not valid JSON at index 1 ('o')\n    at <eval> (eval_script:1:1)\n"
+               );
+            } else {
+                panic!("expected error")
             }
 
             Ok(())
