@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{
     bytes::{bytes_to_typed_array, ObjectBytes},
-    iterable_enum,
+    iterable_enum, str_enum,
 };
 use ring::{
     digest::{self, Context as DigestContext},
@@ -121,7 +121,16 @@ impl Hash {
     }
 }
 
-iterable_enum!(pub, ShaAlgorithm, SHA1, SHA256, SHA384, SHA512);
+#[derive(Debug, Clone)]
+pub enum ShaAlgorithm {
+    SHA1,
+    SHA256,
+    SHA384,
+    SHA512,
+}
+
+iterable_enum!(ShaAlgorithm, SHA1, SHA256, SHA384, SHA512);
+str_enum!(ShaAlgorithm, SHA1 => "SHA-1", SHA256 => "SHA-256", SHA384 => "SHA-384", SHA512 => "SHA-512");
 
 impl ShaAlgorithm {
     pub fn class_name(&self) -> &'static str {
@@ -141,7 +150,7 @@ impl ShaAlgorithm {
         }
     }
 
-    fn digest_algorithm(&self) -> &'static digest::Algorithm {
+    pub fn digest_algorithm(&self) -> &'static digest::Algorithm {
         match self {
             ShaAlgorithm::SHA1 => &digest::SHA1_FOR_LEGACY_USE_ONLY,
             ShaAlgorithm::SHA256 => &digest::SHA256,

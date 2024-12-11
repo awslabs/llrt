@@ -3,9 +3,9 @@
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use ring::{
     hmac::{Context as HmacContext, Key as HmacKey},
-    signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair},
+    signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, UnparsedPublicKey},
 };
-use rquickjs::{Ctx, Exception, Result, Value};
+use rquickjs::{Class, Ctx, Exception, Result};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
     pkcs1v15::Pkcs1v15Sign,
@@ -14,26 +14,24 @@ use rsa::{
     RsaPrivateKey,
 };
 
-use crate::{
-    subtle::{check_supported_usage, extract_sign_verify_algorithm, Algorithm, CryptoKey, Hash},
-    SYSTEM_RANDOM,
-};
+use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey, SYSTEM_RANDOM};
+
+use super::sign_algorithm::SigningAlgorithm;
 
 pub async fn subtle_verify<'js>(
     ctx: Ctx<'js>,
-    algorithm: Value<'js>,
-    key: CryptoKey<'js>,
+    algorithm: SigningAlgorithm,
+    key: Class<'js, CryptoKey>,
     signature: ObjectBytes<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<bool> {
-    check_supported_usage(&ctx, &key.usages(), "verify")?;
-
-    let algorithm = extract_sign_verify_algorithm(&ctx, &algorithm)?;
+    let key = key.borrow();
+    key.check_validity("verify").or_throw(&ctx)?;
 
     verify(
         &ctx,
         &algorithm,
-        key.get_handle(),
+        &key.handle,
         signature.as_bytes(),
         data.as_bytes(),
     )
@@ -41,19 +39,19 @@ pub async fn subtle_verify<'js>(
 
 fn verify(
     ctx: &Ctx<'_>,
-    algorithm: &Algorithm,
+    algorithm: &SigningAlgorithm,
     key: &[u8],
     signature: &[u8],
     data: &[u8],
 ) -> Result<bool> {
-    match algorithm {
-        Algorithm::Ecdsa { hash } => {
+    Ok(match algorithm {
+        SigningAlgorithm::Ecdsa { hash } => {
             let (fixed_signing, fixed) = match hash {
-                Hash::Sha256 => (
+                ShaAlgorithm::SHA256 => (
                     &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
                     &ring::signature::ECDSA_P256_SHA256_FIXED,
                 ),
-                Hash::Sha384 => (
+                ShaAlgorithm::SHA384 => (
                     &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
                     &ring::signature::ECDSA_P384_SHA384_FIXED,
                 ),
@@ -64,32 +62,30 @@ fn verify(
                     ))
                 },
             };
-            let private_key =
-                EcdsaKeyPair::from_pkcs8(fixed_signing, key, &SYSTEM_RANDOM.to_owned())
-                    .or_throw(ctx)?;
-            let public_key_bytes = private_key.public_key().as_ref();
-            let public_key = ring::signature::UnparsedPublicKey::new(fixed, &public_key_bytes);
 
-            Ok(public_key.verify(data, signature).is_ok())
+            let rng = &(*SYSTEM_RANDOM);
+
+            let private_key = EcdsaKeyPair::from_pkcs8(fixed_signing, key, rng).or_throw(ctx)?;
+            let public_key_bytes = private_key.public_key().as_ref();
+            let public_key = UnparsedPublicKey::new(fixed, &public_key_bytes);
+
+            public_key.verify(data, signature).is_ok()
         },
-        Algorithm::Ed25519 => {
+        SigningAlgorithm::Ed25519 => {
             let private_key = Ed25519KeyPair::from_pkcs8(key).or_throw(ctx)?;
             let public_key_bytes = private_key.public_key().as_ref();
-            let public_key = ring::signature::UnparsedPublicKey::new(
-                &ring::signature::ED25519,
-                public_key_bytes,
-            );
+            let public_key = UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
 
-            Ok(public_key.verify(data, signature).is_ok())
+            public_key.verify(data, signature).is_ok()
         },
-        Algorithm::Hmac => {
+        SigningAlgorithm::Hmac => {
             let key = HmacKey::new(ring::hmac::HMAC_SHA256, key);
             let mut hmac = HmacContext::with_key(&key);
             hmac.update(data);
 
-            Ok(hmac.sign().as_ref() == signature)
+            hmac.sign().as_ref() == signature
         },
-        Algorithm::RsaPss { salt_length } => {
+        SigningAlgorithm::RsaPss { salt_length } => {
             let public_key = RsaPrivateKey::from_pkcs1_der(key)
                 .or_throw(ctx)?
                 .to_public_key();
@@ -97,15 +93,15 @@ fn verify(
             hasher.update(data);
             let hashed = hasher.finalize();
 
-            Ok(public_key
+            public_key
                 .verify(
                     Pss::new_with_salt::<Sha256>(*salt_length as usize),
                     &hashed,
                     signature,
                 )
-                .is_ok())
+                .is_ok()
         },
-        Algorithm::RsassaPkcs1v15 => {
+        SigningAlgorithm::RsassaPkcs1v15 => {
             let public_key = RsaPrivateKey::from_pkcs1_der(key)
                 .or_throw(ctx)?
                 .to_public_key();
@@ -114,10 +110,9 @@ fn verify(
 
             let hashed = hasher.finalize();
 
-            Ok(public_key
+            public_key
                 .verify(Pkcs1v15Sign::new::<Sha256>(), &hashed, signature)
-                .is_ok())
+                .is_ok()
         },
-        _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
-    }
+    })
 }

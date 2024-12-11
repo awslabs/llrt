@@ -2,31 +2,53 @@
 // SPDX-License-Identifier: Apache-2.0
 mod crypto_key;
 mod decrypt;
-mod derive_bits;
+mod derive;
+mod derive_algorithm;
 mod digest;
 mod encrypt;
+mod encryption_algorithm;
 mod export_key;
 mod generate_key;
 mod import_key;
+mod key_algorithm;
 mod sign;
+mod sign_algorithm;
 mod verify;
 
 pub use crypto_key::CryptoKey;
 pub use decrypt::subtle_decrypt;
-pub use derive_bits::subtle_derive_bits;
+pub use derive::subtle_derive_bits;
+pub use derive::subtle_derive_key;
 pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
 pub use import_key::subtle_import_key;
+use llrt_utils::object::ObjectExt;
+use ring::signature;
+use rquickjs::Object;
+use rquickjs::Value;
+use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
 
-use aes::{cipher::typenum::U12, Aes128, Aes192, Aes256};
-use aes_gcm::AesGcm;
+use aes::{
+    cipher::{
+        consts::{U13, U14, U15, U16},
+        typenum::U12,
+        InvalidLength,
+    },
+    Aes128, Aes192, Aes256,
+};
+use aes_gcm::{
+    aead::{Aead, Payload},
+    AesGcm, KeyInit,
+};
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use rquickjs::{Array, Ctx, Exception, Result, Value};
+use llrt_utils::{result::ResultExt, str_enum};
+use rquickjs::{Ctx, Exception, Result};
+
+use crate::sha_hash::ShaAlgorithm;
 
 type Aes128Ctr32 = Ctr32BE<aes::Aes128>;
 type Aes128Ctr64 = Ctr64BE<aes::Aes128>;
@@ -38,223 +60,183 @@ type Aes256Ctr32 = Ctr32BE<aes::Aes256>;
 type Aes256Ctr64 = Ctr64BE<aes::Aes256>;
 type Aes256Ctr128 = Ctr128BE<aes::Aes256>;
 
-type Aes128Gcm = AesGcm<Aes128, U12>;
-type Aes192Gcm = AesGcm<Aes192, U12>;
-type Aes256Gcm = AesGcm<Aes256, U12>;
-
-#[derive(Debug)]
-pub enum Hash {
-    Sha1,
-    Sha256,
-    Sha384,
-    Sha512,
+pub enum AesGcmVariant {
+    Aes128Gcm96(AesGcm<Aes128, U12, U12>),
+    Aes192Gcm96(AesGcm<Aes192, U12, U12>),
+    Aes256Gcm96(AesGcm<Aes256, U12, U12>),
+    Aes128Gcm104(AesGcm<Aes128, U12, U13>),
+    Aes192Gcm104(AesGcm<Aes192, U12, U13>),
+    Aes256Gcm104(AesGcm<Aes256, U12, U13>),
+    Aes128Gcm112(AesGcm<Aes128, U12, U14>),
+    Aes192Gcm112(AesGcm<Aes192, U12, U14>),
+    Aes256Gcm112(AesGcm<Aes256, U12, U14>),
+    Aes128Gcm120(AesGcm<Aes128, U12, U15>),
+    Aes192Gcm120(AesGcm<Aes192, U12, U15>),
+    Aes256Gcm120(AesGcm<Aes256, U12, U15>),
+    Aes128Gcm128(AesGcm<Aes128, U12, U16>),
+    Aes192Gcm128(AesGcm<Aes192, U12, U16>),
+    Aes256Gcm128(AesGcm<Aes256, U12, U16>),
 }
 
-impl TryFrom<&str> for Hash {
-    type Error = String;
+impl AesGcmVariant {
+    pub fn new(
+        key_len: u16,
+        tag_length: u8,
+        key: &[u8],
+    ) -> std::result::Result<Self, InvalidLength> {
+        let variant = match (key_len, tag_length) {
+            (128, 96) => Self::Aes128Gcm96(AesGcm::new_from_slice(key)?),
+            (192, 96) => Self::Aes192Gcm96(AesGcm::new_from_slice(key)?),
+            (256, 96) => Self::Aes256Gcm96(AesGcm::new_from_slice(key)?),
+            (128, 104) => Self::Aes128Gcm104(AesGcm::new_from_slice(key)?),
+            (192, 104) => Self::Aes192Gcm104(AesGcm::new_from_slice(key)?),
+            (256, 104) => Self::Aes256Gcm104(AesGcm::new_from_slice(key)?),
+            (128, 112) => Self::Aes128Gcm112(AesGcm::new_from_slice(key)?),
+            (192, 112) => Self::Aes192Gcm112(AesGcm::new_from_slice(key)?),
+            (256, 112) => Self::Aes256Gcm112(AesGcm::new_from_slice(key)?),
+            (128, 120) => Self::Aes128Gcm120(AesGcm::new_from_slice(key)?),
+            (192, 120) => Self::Aes192Gcm120(AesGcm::new_from_slice(key)?),
+            (256, 120) => Self::Aes256Gcm120(AesGcm::new_from_slice(key)?),
+            (128, 128) => Self::Aes128Gcm128(AesGcm::new_from_slice(key)?),
+            (192, 128) => Self::Aes192Gcm128(AesGcm::new_from_slice(key)?),
+            (256, 128) => Self::Aes256Gcm128(AesGcm::new_from_slice(key)?),
+            _ => return Err(InvalidLength),
+        };
 
-    fn try_from(hash: &str) -> std::result::Result<Self, Self::Error> {
-        match hash.to_ascii_uppercase().as_str() {
-            "SHA-1" => Ok(Hash::Sha1),
-            "SHA-256" => Ok(Hash::Sha256),
-            "SHA-384" => Ok(Hash::Sha384),
-            "SHA-512" => Ok(Hash::Sha512),
-            _ => Err(["'", hash, "' not available"].concat()),
+        Ok(variant)
+    }
+
+    pub fn encrypt(
+        &self,
+        nonce: &[u8],
+        msg: &[u8],
+        aad: Option<&[u8]>,
+    ) -> std::result::Result<Vec<u8>, aes_gcm::Error> {
+        let plaintext: Payload = Payload {
+            msg,
+            aad: aad.unwrap_or_default(),
+        };
+        match self {
+            Self::Aes128Gcm96(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes192Gcm96(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes256Gcm96(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes128Gcm104(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes192Gcm104(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes256Gcm104(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes128Gcm112(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes192Gcm112(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes256Gcm112(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes128Gcm120(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes192Gcm120(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes256Gcm120(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes128Gcm128(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes192Gcm128(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes256Gcm128(v) => v.encrypt(nonce.into(), plaintext),
+        }
+    }
+
+    pub fn decrypt(
+        &self,
+        nonce: &[u8],
+        msg: &[u8],
+        aad: Option<&[u8]>,
+    ) -> std::result::Result<Vec<u8>, aes_gcm::Error> {
+        let ciphertext: Payload = Payload {
+            msg,
+            aad: aad.unwrap_or_default(),
+        };
+        match self {
+            Self::Aes128Gcm96(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes192Gcm96(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes256Gcm96(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes128Gcm104(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes192Gcm104(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes256Gcm104(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes128Gcm112(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes192Gcm112(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes256Gcm112(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes128Gcm120(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes192Gcm120(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes256Gcm120(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes128Gcm128(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes192Gcm128(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes256Gcm128(v) => v.decrypt(nonce.into(), ciphertext),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EllipticCurve {
     P256,
     P384,
 }
 
-impl TryFrom<&str> for EllipticCurve {
-    type Error = String;
-
-    fn try_from(curve: &str) -> std::result::Result<Self, Self::Error> {
-        match curve.to_ascii_uppercase().as_str() {
-            "P-256" => Ok(EllipticCurve::P256),
-            "P-384" => Ok(EllipticCurve::P384),
-            _ => Err(["'", curve, "' not available"].concat()),
+impl EllipticCurve {
+    fn as_signing_algorithm<'a>(&self) -> &'a signature::EcdsaSigningAlgorithm {
+        match self {
+            EllipticCurve::P256 => &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+            EllipticCurve::P384 => &signature::ECDSA_P384_SHA384_FIXED_SIGNING,
         }
     }
 }
 
-#[derive(Debug)]
-pub enum Algorithm {
-    AesCbc { iv: Vec<u8> },
-    AesCtr { counter: Vec<u8>, length: u32 },
-    AesGcm { iv: Vec<u8> },
-    Ecdsa { hash: Hash },
-    Ed25519,
-    Hmac,
-    RsaOaep { label: Option<Vec<u8>> },
-    RsaPss { salt_length: u32 },
-    RsassaPkcs1v15,
-}
+str_enum!(EllipticCurve,P256 => "P-256",P384 => "P-384");
 
-#[derive(Debug)]
-pub enum DeriveAlgorithm {
-    Edch {
-        curve: EllipticCurve,
-        public: Vec<u8>,
-    },
-    Hkdf {
-        hash: Hash,
-        salt: Vec<u8>,
-        info: Vec<u8>,
-    },
-    Pbkdf2 {
-        hash: Hash,
-        salt: Vec<u8>,
-        iterations: u32,
-    },
-}
-
-#[derive(Debug)]
-pub enum KeyGenAlgorithm {
-    Aes {
-        length: u32,
-    },
-    Ec {
-        curve: EllipticCurve,
-    },
-    Ed25519,
-    Hmac {
-        hash: Hash,
-        length: Option<u32>,
-    },
-    Rsa {
-        modulus_length: u32,
-        public_exponent: Vec<u8>,
-    },
-}
-
-fn extract_algorithm_object(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
-    let name = algorithm
-        .get_optional::<_, String>("name")?
-        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
-
-    match name.as_str() {
-        "AES-CBC" => {
-            let iv = algorithm
-                .get_optional::<_, ObjectBytes>("iv")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
-                .into_bytes();
-
-            if iv.len() != 16 {
-                return Err(Exception::throw_message(
-                    ctx,
-                    "invalid length of iv. Currently supported 16 bytes",
-                ));
-            }
-
-            Ok(Algorithm::AesCbc { iv })
+pub fn rsa_private_key(
+    ctx: &Ctx<'_>,
+    handle: &[u8],
+    label: &Option<Box<[u8]>>,
+    hash: &ShaAlgorithm,
+) -> Result<(RsaPrivateKey, Oaep)> {
+    let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
+    let mut padding = match hash {
+        ShaAlgorithm::SHA1 => {
+            return Err(Exception::throw_message(
+                ctx,
+                "SHA-1 is not supported for RSA-OAEP",
+            ));
         },
-        "AES-CTR" => {
-            let counter = algorithm
-                .get_optional::<_, ObjectBytes>("counter")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'counter' property required"))?
-                .into_bytes();
-
-            let length = algorithm.get_optional::<_, u32>("length")?.ok_or_else(|| {
-                Exception::throw_type(ctx, "algorithm 'length' property required")
-            })?;
-
-            if ![32, 64, 128].contains(&length) {
-                return Err(Exception::throw_message(
-                    ctx,
-                    "invalid counter length. Currently supported 32/64/128 bits",
-                ));
-            }
-
-            Ok(Algorithm::AesCtr { counter, length })
-        },
-        "AES-GCM" => {
-            let iv = algorithm
-                .get_optional::<_, ObjectBytes>("iv")?
-                .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'iv' property required"))?
-                .into_bytes();
-
-            if iv.len() != 12 {
-                return Err(Exception::throw_type(
-                    ctx,
-                    "invalid length of iv. Currently supported 12 bytes",
-                ));
-            }
-
-            Ok(Algorithm::AesGcm { iv })
-        },
-        "HMAC" => Ok(Algorithm::Hmac),
-        "RSA-OAEP" => {
-            let label = algorithm.get_optional::<_, ObjectBytes>("label")?;
-            let label = label.map(|lbl| lbl.into_bytes());
-
-            Ok(Algorithm::RsaOaep { label })
-        },
-        _ => Err(Exception::throw_message(
-            ctx,
-            "Algorithm 'name' must be AES-CBC | AES-CTR | HMAC | AES-GCM | RSA-OAEP",
-        )),
-    }
-}
-
-fn extract_sign_verify_algorithm(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Algorithm> {
-    if let Some(algorithm) = algorithm.as_string() {
-        return match algorithm.to_string()?.as_str() {
-            "Ed25519" => Ok(Algorithm::Ed25519),
-            "HMAC" => Ok(Algorithm::Hmac),
-            "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
-            _ => Err(Exception::throw_message(ctx, "Algorithm not supported")),
-        };
-    }
-
-    let name = algorithm
-        .get_optional::<_, String>("name")?
-        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'name' property required"))?;
-
-    match name.as_str() {
-        "ECDSA" => {
-            let hash = extract_sha_hash(ctx, algorithm)?;
-
-            Ok(Algorithm::Ecdsa { hash })
-        },
-        "Ed25519" => Ok(Algorithm::Ed25519),
-        "HMAC" => Ok(Algorithm::Hmac),
-        "RSA-PSS" => {
-            let salt_length = algorithm.get_optional("saltLength")?.ok_or_else(|| {
-                Exception::throw_type(ctx, "algorithm 'saltLength' property required")
-            })?;
-
-            Ok(Algorithm::RsaPss { salt_length })
-        },
-        "RSASSA-PKCS1-v1_5" => Ok(Algorithm::RsassaPkcs1v15),
-        _ => Err(Exception::throw_message(
-            ctx,
-            "Algorithm 'name' must be RSASSA-PKCS1-v1_5 | HMAC | RSA-PSS | ECDSA",
-        )),
-    }
-}
-
-fn extract_sha_hash(ctx: &Ctx<'_>, algorithm: &Value) -> Result<Hash> {
-    let hash = algorithm
-        .get_optional::<_, String>("hash")?
-        .ok_or_else(|| Exception::throw_type(ctx, "algorithm 'hash' property required"))?;
-
-    Hash::try_from(hash.as_ref()).or_throw(ctx)
-}
-
-fn check_supported_usage(ctx: &Ctx<'_>, key_usages: &Array, usage: &str) -> Result<()> {
-    for key in key_usages.iter::<String>() {
-        let key = key?;
-        if key == usage {
-            return Ok(());
+        ShaAlgorithm::SHA256 => Oaep::new::<rsa::sha2::Sha256>(),
+        ShaAlgorithm::SHA384 => Oaep::new::<rsa::sha2::Sha384>(),
+        ShaAlgorithm::SHA512 => Oaep::new::<rsa::sha2::Sha512>(),
+    };
+    if let Some(label) = label {
+        if !label.is_empty() {
+            padding.label = Some(String::from_utf8_lossy(label).to_string());
         }
     }
-    Err(Exception::throw_type(
+
+    Ok((private_key, padding))
+}
+
+pub fn to_name_and_maybe_object<'js, 'a>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+) -> Result<(String, std::result::Result<Object<'js>, &'a str>)> {
+    let obj;
+    let name = if let Some(string) = value.as_string() {
+        obj = Err("Not an object");
+        string.to_string()?
+    } else if let Some(object) = value.into_object() {
+        let name = object.get_required("name", "algorithm")?;
+        obj = Ok(object);
+        name
+    } else {
+        return Err(Exception::throw_message(
+            ctx,
+            "algorithm must be a string or an object",
+        ));
+    };
+    Ok((name, obj))
+}
+
+pub fn algorithm_missmatch_error(ctx: &Ctx<'_>) -> Result<Vec<u8>> {
+    Err(Exception::throw_message(
         ctx,
-        &["CryptoKey doesn't support '", usage, "'"].concat(),
+        "key.algorithm does not match that of operation",
     ))
+}
+
+pub fn algorithm_not_supported_error<T>(ctx: &Ctx<'_>) -> Result<T> {
+    Err(Exception::throw_message(ctx, "Algorithm not supported"))
 }

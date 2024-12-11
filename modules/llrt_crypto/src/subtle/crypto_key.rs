@@ -2,24 +2,57 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::rc::Rc;
 
-use rquickjs::{class::Trace, Array, Ctx, JsLifetime, Result, Value};
+use rquickjs::{
+    class::{Trace, Tracer},
+    Ctx, Result, Value,
+};
+
+use super::key_algorithm::KeyAlgorithm;
 
 #[rquickjs::class]
-#[derive(Clone, Trace, rquickjs::JsLifetime)]
-pub struct CryptoKey<'js> {
-    type_name: String,
-    extractable: bool,
-    algorithm: Value<'js>,
-    usages: Array<'js>,
-    #[qjs(skip_trace)]
-    handle: Rc<[u8]>,
+#[derive(rquickjs::JsLifetime)]
+pub struct CryptoKey {
+    type_name: &'static str,
+    pub extractable: bool,
+    pub algorithm: KeyAlgorithm,
+    pub name: Box<str>,
+    usages: Vec<String>,
+    pub handle: Rc<[u8]>,
+}
+
+impl CryptoKey {
+    pub fn new<N, H>(
+        type_name: &'static str,
+        name: N,
+        extractable: bool,
+        algorithm: KeyAlgorithm,
+        usages: Vec<String>,
+        handle: H,
+    ) -> Self
+    where
+        N: Into<Box<str>>,
+        H: Into<Rc<[u8]>>,
+    {
+        Self {
+            type_name,
+            extractable,
+            algorithm,
+            name: name.into(),
+            usages,
+            handle: handle.into(),
+        }
+    }
+}
+
+impl<'js> Trace<'js> for CryptoKey {
+    fn trace<'a>(&self, _: Tracer<'a, 'js>) {}
 }
 
 #[rquickjs::methods]
-impl<'js> CryptoKey<'js> {
+impl CryptoKey {
     #[qjs(get, rename = "type")]
     pub fn get_type(&self) -> &str {
-        self.type_name.as_str()
+        self.type_name
     }
 
     #[qjs(get)]
@@ -28,34 +61,25 @@ impl<'js> CryptoKey<'js> {
     }
 
     #[qjs(get)]
-    pub fn algorithm(&self) -> Value<'js> {
-        self.algorithm.clone()
+    pub fn algorithm<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        self.algorithm
+            .as_object(&ctx, self.name.as_ref())
+            .map(|a| a.into_value())
     }
 
     #[qjs(get)]
-    pub fn usages(&self) -> Array<'js> {
-        self.usages.clone()
+    pub fn usages(&self) -> Vec<String> {
+        self.usages.iter().map(|u| u.to_string()).collect()
     }
 }
 
-impl<'js> CryptoKey<'js> {
-    pub fn new(
-        _ctx: Ctx<'js>,
-        type_name: String,
-        extractable: bool,
-        algorithm: Value<'js>,
-        usages: Array<'js>,
-        handle: &[u8],
-    ) -> Result<Self> {
-        Ok(Self {
-            type_name,
-            extractable,
-            algorithm,
-            usages,
-            handle: handle.into(),
-        })
-    }
-    pub fn get_handle(&self) -> &[u8] {
-        &self.handle
+impl CryptoKey {
+    pub fn check_validity(&self, usage: &str) -> std::result::Result<(), String> {
+        for key in self.usages.iter() {
+            if key == usage {
+                return Ok(());
+            }
+        }
+        Err(["CryptoKey doesn't support '", usage, "'"].concat())
     }
 }
