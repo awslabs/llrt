@@ -15,18 +15,6 @@ static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
 static ECDH_USAGES: &[&str] = &["deriveKey", "deriveBits"];
 static AES_KW_USAGES: &[&str] = &["wrapKey", "unwrapKey"];
 
-// fn find_usages<'a>(ctx: &Ctx<'_>, algorithm: &str) -> Result<&'a [&'a str]> {
-//     if let Some(res) = table
-//         .iter()
-//         .find(|(name, _)| *name == algorithm)
-//         .map(|(_, usages)| *usages)
-//     {
-//         return Ok(res);
-//     };
-
-//     algorithm_not_supported_error(ctx)
-// }
-
 #[derive(Debug, Clone)]
 pub enum KeyDerivation {
     Hkdf {
