@@ -80,6 +80,13 @@ impl CryptoKey {
                 return Ok(());
             }
         }
-        Err(["CryptoKey doesn't support '", usage, "'"].concat())
+        Err([
+            "CryptoKey with '",
+            self.name.as_ref(),
+            "', doesn't support '",
+            usage,
+            "'",
+        ]
+        .concat())
     }
 }

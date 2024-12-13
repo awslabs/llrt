@@ -15,7 +15,7 @@ use crate::{sha_hash::ShaAlgorithm, CryptoKey, SYSTEM_RANDOM};
 
 use super::{
     algorithm_not_supported_error,
-    key_algorithm::{classify_and_check_usages, KeyAlgorithm, KeyAlgorithmMode},
+    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages},
 };
 
 pub async fn subtle_generate_key<'js>(
@@ -24,9 +24,13 @@ pub async fn subtle_generate_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Value<'js>> {
-    let (key_algorithm, name) = KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Generate, algorithm)?;
+    let KeyAlgorithmWithUsages {
+        name,
+        algorithm: key_algorithm,
+        private_usages,
+        public_usages,
+    } = KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Generate, algorithm, key_usages)?;
 
-    let (private_usages, public_usages) = classify_and_check_usages(&ctx, &name, &key_usages)?;
     let bytes = generate_key(&ctx, &key_algorithm)?;
 
     if matches!(

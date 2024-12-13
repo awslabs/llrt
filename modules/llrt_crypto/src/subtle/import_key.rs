@@ -5,7 +5,7 @@ use rquickjs::{Array, Class, Ctx, Exception, Result, Value};
 
 use crate::subtle::CryptoKey;
 
-use super::key_algorithm::{classify_and_check_usages, KeyAlgorithm, KeyAlgorithmMode};
+use super::key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages};
 
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
@@ -37,9 +37,12 @@ pub async fn subtle_import_key<'js>(
         }
     }
 
-    let (key_algorithm, name) = KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Import, algorithm)?;
-
-    let (_, public_usages) = classify_and_check_usages(&ctx, &name, &key_usages)?;
+    let KeyAlgorithmWithUsages {
+        name,
+        algorithm: key_algorithm,
+        public_usages,
+        ..
+    } = KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Import, algorithm, key_usages)?;
 
     Class::instance(
         ctx,

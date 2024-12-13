@@ -1,7 +1,7 @@
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{atom::PredefinedAtom, Array, Ctx, Exception, Object, Result, TypedArray, Value};
 
-use std::{collections::HashSet, rc::Rc};
+use std::rc::Rc;
 
 use crate::sha_hash::ShaAlgorithm;
 
@@ -15,93 +15,17 @@ static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
 static ECDH_USAGES: &[&str] = &["deriveKey", "deriveBits"];
 static AES_KW_USAGES: &[&str] = &["wrapKey", "unwrapKey"];
 
-static SUPPORTED_USAGES_ARRAY: &[(&str, &[&str])] = &[
-    ("AES-CBC", SYMMETRIC_USAGES),
-    ("AES-CTR", SYMMETRIC_USAGES),
-    ("AES-GCM", SYMMETRIC_USAGES),
-    ("AES-KW", AES_KW_USAGES),
-    ("ECDH", ECDH_USAGES),
-    ("ECDSA", SIGNATURE_USAGES),
-    ("Ed25519", SIGNATURE_USAGES),
-    ("HMAC", SIGNATURE_USAGES),
-    ("RSA-OAEP", SYMMETRIC_USAGES),
-    ("RSA-PSS", SIGNATURE_USAGES),
-    ("RSASSA-PKCS1-v1_5", SIGNATURE_USAGES),
-    ("PBKDF2", ECDH_USAGES),
-    ("HKDF", ECDH_USAGES),
-];
+// fn find_usages<'a>(ctx: &Ctx<'_>, algorithm: &str) -> Result<&'a [&'a str]> {
+//     if let Some(res) = table
+//         .iter()
+//         .find(|(name, _)| *name == algorithm)
+//         .map(|(_, usages)| *usages)
+//     {
+//         return Ok(res);
+//     };
 
-static MANDATORY_USAGES_ARRAY: &[(&str, &[&str])] = &[
-    ("AES-CBC", EMPTY_USAGES),
-    ("AES-CTR", EMPTY_USAGES),
-    ("AES-GCM", EMPTY_USAGES),
-    ("AES-KW", EMPTY_USAGES),
-    ("ECDH", ECDH_USAGES),
-    ("ECDSA", SIGN_USAGES),
-    ("Ed25519", SIGN_USAGES),
-    ("HMAC", EMPTY_USAGES),
-    ("RSA-OAEP", RSA_OAEP_USAGES),
-    ("RSA-PSS", SIGN_USAGES),
-    ("RSASSA-PKCS1-v1_5", SIGN_USAGES),
-    ("PBKDF2", EMPTY_USAGES),
-    ("HKDF", EMPTY_USAGES),
-];
-
-fn find_usages<'a>(
-    ctx: &Ctx<'_>,
-    table: &'a [(&str, &[&str])],
-    algorithm: &str,
-) -> Result<&'a [&'a str]> {
-    if let Some(res) = table
-        .iter()
-        .find(|(name, _)| *name == algorithm)
-        .map(|(_, usages)| *usages)
-    {
-        return Ok(res);
-    };
-
-    algorithm_not_supported_error(ctx)
-}
-
-pub fn classify_and_check_usages<'js>(
-    ctx: &Ctx<'js>,
-    name: &str,
-    key_usages: &Array<'js>,
-) -> Result<(Vec<String>, Vec<String>)> {
-    let mut key_usages_set = HashSet::with_capacity(8);
-    for value in key_usages.clone().into_iter() {
-        if let Some(string) = value?.as_string() {
-            key_usages_set.insert(string.to_string()?);
-        }
-    }
-
-    let supported_usages = find_usages(ctx, SUPPORTED_USAGES_ARRAY, name)?;
-    let mandatory_usages = find_usages(ctx, MANDATORY_USAGES_ARRAY, name)?;
-    let mut private_usages: Vec<String> = Vec::with_capacity(key_usages_set.len());
-    let mut public_usages: Vec<String> = Vec::with_capacity(key_usages_set.len());
-
-    for usage in key_usages_set {
-        if !supported_usages.contains(&usage.as_str()) {
-            return Err(Exception::throw_range(
-                ctx,
-                &["'", &usage, "' is not supported for ", name].concat(),
-            ));
-        }
-        if mandatory_usages.contains(&usage.as_str()) {
-            private_usages.push(usage);
-        } else {
-            public_usages.push(usage);
-        }
-    }
-    if !mandatory_usages.is_empty() && private_usages.is_empty() {
-        return Err(Exception::throw_range(
-            ctx,
-            &[name, " is missing some mandatory usages"].concat(),
-        ));
-    }
-
-    Ok((private_usages, public_usages))
-}
+//     algorithm_not_supported_error(ctx)
+// }
 
 #[derive(Debug, Clone)]
 pub enum KeyDerivation {
@@ -182,18 +106,76 @@ pub enum KeyAlgorithmMode {
     Derive,
 }
 
+pub struct KeyAlgorithmWithUsages {
+    pub name: String,
+    pub algorithm: KeyAlgorithm,
+    pub public_usages: Vec<String>,
+    pub private_usages: Vec<String>,
+}
+
 impl KeyAlgorithm {
     pub fn from_js<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode,
         value: Value<'js>,
-    ) -> Result<(Self, String)> {
+        usages: Array<'js>,
+    ) -> Result<KeyAlgorithmWithUsages> {
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
-
-        let algorithm = match name.as_str() {
-            "Ed25519" => KeyAlgorithm::Ed25519,
-            "X25519" => KeyAlgorithm::X25519,
+        let mut public_usages = vec![];
+        let mut private_usages = vec![];
+        let name_ref = name.as_str();
+        let mut is_symmetric = false;
+        let algorithm = match name_ref {
+            "Ed25519" => {
+                if !matches!(mode, KeyAlgorithmMode::Import) {
+                    Self::classify_and_check_signature_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                }
+                KeyAlgorithm::Ed25519
+            },
+            "X25519" => {
+                if !matches!(mode, KeyAlgorithmMode::Import) {
+                    Self::classify_and_check_symmetric_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                }
+                KeyAlgorithm::X25519
+            },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
+                is_symmetric = true;
+                if name_ref == "AES-KW" {
+                    Self::classify_and_check_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        AES_KW_USAGES,
+                        EMPTY_USAGES,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                } else {
+                    Self::classify_and_check_symmetric_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                }
+
                 let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
 
                 if !matches!(length, 128 | 192 | 256) {
@@ -209,18 +191,87 @@ impl KeyAlgorithm {
                 let obj = obj.or_throw(ctx)?;
                 let curive: String = obj.get_required("namedCurve", "algorithm")?;
                 let curve = EllipticCurve::try_from(curive.as_str()).or_throw(ctx)?;
+                if !matches!(mode, KeyAlgorithmMode::Import) {
+                    match name_ref {
+                        "ECDH" => match mode {
+                            KeyAlgorithmMode::Generate => Self::classify_and_check_usages(
+                                ctx,
+                                name_ref,
+                                &usages,
+                                ECDH_USAGES,
+                                EMPTY_USAGES,
+                                is_symmetric,
+                                &mut private_usages,
+                                &mut public_usages,
+                            )?,
+                            KeyAlgorithmMode::Derive => Self::classify_and_check_symmetric_usages(
+                                ctx,
+                                name_ref,
+                                &usages,
+                                is_symmetric,
+                                &mut private_usages,
+                                &mut public_usages,
+                            )?,
+                            _ => unreachable!(),
+                        },
+                        "ECDSA" => Self::classify_and_check_signature_usages(
+                            ctx,
+                            name_ref,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?,
+                        _ => unreachable!(),
+                    }
+                }
                 KeyAlgorithm::Ec { curve }
             },
 
             "HMAC" => {
+                is_symmetric = true;
+                Self::classify_and_check_usages(
+                    ctx,
+                    name_ref,
+                    &usages,
+                    SIGNATURE_USAGES,
+                    EMPTY_USAGES,
+                    is_symmetric,
+                    &mut private_usages,
+                    &mut public_usages,
+                )?;
+
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
-
                 let length = obj.get_optional("length")?.unwrap_or_default();
 
                 KeyAlgorithm::Hmac { hash, length }
             },
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
+                if !matches!(mode, KeyAlgorithmMode::Import) {
+                    if name == "RSA-PSS" {
+                        Self::classify_and_check_usages(
+                            ctx,
+                            name_ref,
+                            &usages,
+                            SYMMETRIC_USAGES,
+                            RSA_OAEP_USAGES,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                    } else {
+                        Self::classify_and_check_signature_usages(
+                            ctx,
+                            name_ref,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                    }
+                }
+
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
 
@@ -232,6 +283,7 @@ impl KeyAlgorithm {
                     .ok_or_else(|| Exception::throw_message(ctx, "array buffer has been detached"))?
                     .into();
                 let public_exponent = Rc::new(public_exponent);
+
                 KeyAlgorithm::Rsa {
                     modulus_length,
                     public_exponent,
@@ -241,6 +293,15 @@ impl KeyAlgorithm {
             "HKDF" => match mode {
                 KeyAlgorithmMode::Import => KeyAlgorithm::HkdfImport,
                 KeyAlgorithmMode::Derive => {
+                    Self::classify_and_check_symmetric_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+
                     let obj = obj.or_throw(ctx)?;
                     KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?)
                 },
@@ -252,6 +313,15 @@ impl KeyAlgorithm {
             "PBKDF2" => match mode {
                 KeyAlgorithmMode::Import => KeyAlgorithm::Pbkdf2Import,
                 KeyAlgorithmMode::Derive => {
+                    Self::classify_and_check_symmetric_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+
                     let obj = obj.or_throw(ctx)?;
                     KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?)
                 },
@@ -261,7 +331,21 @@ impl KeyAlgorithm {
             },
             _ => return algorithm_not_supported_error(ctx),
         };
-        Ok((algorithm, name))
+
+        //some import key algorithms allows for unchecked usages, let's just classify
+        if public_usages.is_empty() && private_usages.is_empty() {
+            for usage in usages.iter() {
+                let usage = usage?;
+                classify_usage(usage, is_symmetric, &mut private_usages, &mut public_usages);
+            }
+        }
+
+        Ok(KeyAlgorithmWithUsages {
+            name,
+            algorithm,
+            public_usages,
+            private_usages,
+        })
     }
 
     pub fn as_object<'js, T: AsRef<str>>(&self, ctx: &Ctx<'js>, name: T) -> Result<Object<'js>> {
@@ -316,6 +400,116 @@ impl KeyAlgorithm {
             _ => {},
         };
         Ok(obj)
+    }
+
+    fn classify_and_check_signature_usages<'js>(
+        ctx: &Ctx<'js>,
+        name: &str,
+        usages: &Array<'js>,
+        is_symmetric: bool,
+        private_usages: &mut Vec<String>,
+        public_usages: &mut Vec<String>,
+    ) -> Result<()> {
+        Self::classify_and_check_usages(
+            ctx,
+            name,
+            usages,
+            SIGNATURE_USAGES,
+            SIGN_USAGES,
+            is_symmetric,
+            private_usages,
+            public_usages,
+        )
+    }
+
+    fn classify_and_check_symmetric_usages<'js>(
+        ctx: &Ctx<'js>,
+        name: &str,
+        usages: &Array<'js>,
+        is_symmetric: bool,
+        private_usages: &mut Vec<String>,
+        public_usages: &mut Vec<String>,
+    ) -> Result<()> {
+        Self::classify_and_check_usages(
+            ctx,
+            name,
+            usages,
+            SYMMETRIC_USAGES,
+            EMPTY_USAGES,
+            is_symmetric,
+            private_usages,
+            public_usages,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn classify_and_check_usages<'js>(
+        ctx: &Ctx<'js>,
+        name: &str,
+        key_usages: &Array<'js>,
+        allowed_usages: &[&str],
+        required_usages: &[&str],
+        is_symmetric: bool,
+        private_usages: &mut Vec<String>,
+        public_usages: &mut Vec<String>,
+    ) -> Result<()> {
+        let usages_len = key_usages.len();
+
+        let mut generated_public_usages = Vec::with_capacity(usages_len);
+        let mut generated_private_usages = Vec::with_capacity(usages_len);
+        let mut has_any_required_usages = required_usages.is_empty();
+        for usage in key_usages.iter::<String>() {
+            let value = usage?;
+            if !allowed_usages.contains(&value.as_str()) {
+                return Err(Exception::throw_range(
+                    ctx,
+                    &["'", &value, "' is not supported for ", name].concat(),
+                ));
+            }
+
+            if !has_any_required_usages {
+                has_any_required_usages = required_usages.contains(&value.as_str());
+            }
+
+            classify_usage(
+                value,
+                is_symmetric,
+                &mut generated_private_usages,
+                &mut generated_public_usages,
+            );
+        }
+
+        if !has_any_required_usages {
+            return Err(Exception::throw_range(
+                ctx,
+                &[name, " is missing some required usages"].concat(),
+            ));
+        }
+
+        *public_usages = generated_public_usages;
+        *private_usages = generated_private_usages;
+
+        Ok(())
+    }
+}
+
+fn classify_usage(
+    value: String,
+    is_symmetric: bool,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) {
+    if is_symmetric {
+        public_usages.push(value);
+        return;
+    }
+    match value.as_str() {
+        "sign" | "decrypt" | "unwrapKey" | "deriveKey" | "deriveBits" => {
+            private_usages.push(value);
+        },
+        _ => {
+            public_usages.push(value);
+        },
     }
 }
 

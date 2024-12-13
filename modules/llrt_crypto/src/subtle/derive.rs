@@ -10,7 +10,7 @@ use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
 use super::{
     algorithm_not_supported_error,
     derive_algorithm::DeriveAlgorithm,
-    key_algorithm::{classify_and_check_usages, KeyAlgorithm, KeyAlgorithmMode, KeyDerivation},
+    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation},
 };
 
 use crate::{
@@ -46,7 +46,7 @@ fn derive_bits(
     length: u32,
 ) -> Result<Vec<u8>> {
     Ok(match algorithm {
-        DeriveAlgorithm::Edch { curve, public } => match curve {
+        DeriveAlgorithm::Ecdh { curve, public } => match curve {
             EllipticCurve::P256 => {
                 let secret_key = p256::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
                 let public_key = p256::SecretKey::from_pkcs8_der(public)
@@ -127,8 +127,18 @@ pub async fn subtle_derive_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey>> {
-    let (derived_key_algorithm, name) =
-        KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Derive, derived_key_algorithm)?;
+    let KeyAlgorithmWithUsages {
+        algorithm: derived_key_algorithm,
+        name,
+        public_usages,
+        ..
+    } = KeyAlgorithm::from_js(
+        &ctx,
+        KeyAlgorithmMode::Derive,
+        derived_key_algorithm,
+        key_usages,
+    )?;
+
     let length: u16 = match &derived_key_algorithm {
         KeyAlgorithm::Aes { length } => *length,
         KeyAlgorithm::Hmac { length, .. } => *length,
@@ -137,8 +147,6 @@ pub async fn subtle_derive_key<'js>(
             return algorithm_not_supported_error(&ctx);
         },
     };
-
-    let (_, public_usages) = classify_and_check_usages(&ctx, &name, &key_usages)?;
 
     let handle = &base_key.borrow().handle;
 

@@ -180,7 +180,7 @@ impl EllipticCurve {
     }
 }
 
-str_enum!(EllipticCurve,P256 => "P-256",P384 => "P-384");
+str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384");
 
 pub fn rsa_private_key(
     ctx: &Ctx<'_>,

@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{
     bytes::{bytes_to_typed_array, ObjectBytes},
-    iterable_enum, str_enum,
+    iterable_enum,
+    result::ResultExt,
 };
 use ring::{
     digest::{self, Context as DigestContext},
     hmac::{self, Context as HmacContext},
 };
-use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Value};
+use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
 use super::encoded_bytes;
 
@@ -23,18 +24,8 @@ pub struct Hmac {
 impl Hmac {
     #[qjs(skip)]
     pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, key_value: ObjectBytes<'js>) -> Result<Self> {
-        let algorithm = match algorithm.to_lowercase().as_str() {
-            "sha1" => hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-            "sha256" => hmac::HMAC_SHA256,
-            "sha384" => hmac::HMAC_SHA384,
-            "sha512" => hmac::HMAC_SHA512,
-            _ => {
-                return Err(Exception::throw_message(
-                    &ctx,
-                    &["Algorithm \"", &algorithm, "\" not supported"].concat(),
-                ))
-            },
-        };
+        let algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
+        let algorithm = *algorithm.hmac_algorithm();
 
         Ok(Self {
             context: HmacContext::with_key(&hmac::Key::new(algorithm, key_value.as_bytes())),
@@ -81,18 +72,8 @@ pub struct Hash {
 impl Hash {
     #[qjs(skip)]
     pub fn new(ctx: Ctx<'_>, algorithm: String) -> Result<Self> {
-        let algorithm = match algorithm.to_lowercase().as_str() {
-            "sha1" => &digest::SHA1_FOR_LEGACY_USE_ONLY,
-            "sha256" => &digest::SHA256,
-            "sha384" => &digest::SHA384,
-            "sha512" => &digest::SHA512,
-            _ => {
-                return Err(Exception::throw_message(
-                    &ctx,
-                    &["Algorithm \"", &algorithm, "\" not supported"].concat(),
-                ))
-            },
-        };
+        let algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
+        let algorithm = algorithm.digest_algorithm();
 
         Ok(Self {
             context: DigestContext::new(algorithm),
@@ -130,7 +111,6 @@ pub enum ShaAlgorithm {
 }
 
 iterable_enum!(ShaAlgorithm, SHA1, SHA256, SHA384, SHA512);
-str_enum!(ShaAlgorithm, SHA1 => "SHA-1", SHA256 => "SHA-256", SHA384 => "SHA-384", SHA512 => "SHA-512");
 
 impl ShaAlgorithm {
     pub fn class_name(&self) -> &'static str {
@@ -157,6 +137,38 @@ impl ShaAlgorithm {
             ShaAlgorithm::SHA384 => &digest::SHA384,
             ShaAlgorithm::SHA512 => &digest::SHA512,
         }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ShaAlgorithm::SHA1 => "SHA-1",
+            ShaAlgorithm::SHA256 => "SHA-256",
+            ShaAlgorithm::SHA384 => "SHA-384",
+            ShaAlgorithm::SHA512 => "SHA-512",
+        }
+    }
+}
+
+impl TryFrom<&str> for ShaAlgorithm {
+    type Error = String;
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        Ok(match s.to_ascii_uppercase().as_str() {
+            "SHA1" => ShaAlgorithm::SHA1,
+            "SHA-1" => ShaAlgorithm::SHA1,
+            "SHA256" => ShaAlgorithm::SHA256,
+            "SHA-256" => ShaAlgorithm::SHA256,
+            "SHA384" => ShaAlgorithm::SHA384,
+            "SHA-384" => ShaAlgorithm::SHA384,
+            "SHA512" => ShaAlgorithm::SHA512,
+            "SHA-512" => ShaAlgorithm::SHA512,
+            _ => return Err(["'", s, "' not available"].concat()),
+        })
+    }
+}
+
+impl AsRef<str> for ShaAlgorithm {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 

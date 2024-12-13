@@ -10,7 +10,7 @@ use super::{
 
 #[derive(Debug)]
 pub enum DeriveAlgorithm {
-    Edch {
+    Ecdh {
         curve: EllipticCurve,
         public: Rc<[u8]>,
     },
@@ -24,7 +24,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
         let name: String = obj.get_required("name", "algorithm")?;
 
         Ok(match name.as_str() {
-            "ECDH" => {
+            "ECDH" | "X25519" => {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
                 let curve = if let KeyAlgorithm::Ec { curve } = &public_key.algorithm {
@@ -36,7 +36,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
                     ));
                 };
 
-                DeriveAlgorithm::Edch {
+                DeriveAlgorithm::Ecdh {
                     curve,
                     public: public_key.handle.clone(),
                 }
@@ -46,7 +46,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
             _ => {
                 return Err(Exception::throw_message(
                     ctx,
-                    "Algorithm 'name' must be ECDH | HKDF | PBKDF2",
+                    "Algorithm 'name' must be X25519 | ECDH | HKDF | PBKDF2",
                 ))
             },
         })

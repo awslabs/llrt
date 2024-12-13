@@ -16,16 +16,6 @@ pub enum SigningAlgorithm {
     Hmac,
 }
 
-// impl<T: SignatureScheme> From<&ShaAlgorithm> for T {
-//     fn from(value: &ShaAlgorithm) -> Self {
-//         match value {
-
-//             ShaAlgorithm::Sha256 => T::new_with_prefix(rsa::pkcs1v15::SigningKey::<T>::new_sha256()),
-//             ShaAlgorithm::Sha384 => T::new_with_prefix(rsa::pkcs1v15::SigningKey::<T>::new_sha384()),
-//             ShaAlgorithm::Sha512 => T::new_with_prefix(rsa::pkcs1v15::SigningKey::<T>::new_sha512()),
-//         }
-// }
-
 impl<'js> FromJs<'js> for SigningAlgorithm {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
