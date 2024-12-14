@@ -28,7 +28,7 @@
         "AWS_SECRET_ACCESS_KEY": "",
         "AWS_SESSION_TOKEN": ""
       },
-      "args": [],
+      "args": ["index.mjs"],
       "cwd": "${workspaceFolder}"
     },
     {

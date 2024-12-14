@@ -21,6 +21,8 @@ tokio = { version = "1", features = ["full"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 snmalloc-rs = { version = "0.3.7", features = ["lto"] }
+# FIXME remove when https://github.com/rust-lang/cc-rs/issues/1278 is resolved
+cc = "=1.1.31"
 
 [[bin]]
 name = "llrt"

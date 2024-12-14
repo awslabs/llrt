@@ -3,6 +3,8 @@
 mod crc32;
 mod md5_hash;
 mod sha_hash;
+mod subtle;
+
 use std::slice;
 
 use llrt_buffer::Buffer;
@@ -22,8 +24,12 @@ use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, Rest},
+    prelude::{Async, Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
+};
+use subtle::{
+    subtle_decrypt, subtle_derive_bits, subtle_derive_key, subtle_digest, subtle_encrypt,
+    subtle_export_key, subtle_generate_key, subtle_sign, subtle_verify, CryptoKey,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
@@ -174,6 +180,8 @@ fn uuidv4() -> String {
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
+    Class::<CryptoKey>::define(&globals)?;
+
     let crypto = Object::new(ctx.clone())?;
 
     crypto.set("createHash", Func::from(Hash::new))?;
@@ -184,6 +192,19 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     crypto.set("randomFillSync", Func::from(random_fill_sync))?;
     crypto.set("randomFill", Func::from(random_fill))?;
     crypto.set("getRandomValues", Func::from(get_random_values))?;
+
+    let subtle = Object::new(ctx.clone())?;
+    subtle.set("decrypt", Func::from(Async(subtle_decrypt)))?;
+    subtle.set("deriveKey", Func::from(Async(subtle_derive_key)))?;
+    subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
+    subtle.set("digest", Func::from(Async(subtle_digest)))?;
+    subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
+    subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
+    subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
+    // subtle.set("importKey", Func::from(Async(subtle_import_key)))?;
+    subtle.set("sign", Func::from(Async(subtle_sign)))?;
+    subtle.set("verify", Func::from(Async(subtle_verify)))?;
+    crypto.set("subtle", subtle)?;
 
     globals.set("crypto", crypto)?;
 
@@ -206,7 +227,7 @@ impl ModuleDef for CryptoModule {
         declare.declare("randomFill")?;
         declare.declare("getRandomValues")?;
 
-        for sha_algorithm in ShaAlgorithm::iterate() {
+        for sha_algorithm in ShaAlgorithm::iter() {
             let class_name = sha_algorithm.class_name();
             declare.declare(class_name)?;
         }
@@ -218,12 +239,12 @@ impl ModuleDef for CryptoModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            for sha_algorithm in ShaAlgorithm::iterate() {
+            for sha_algorithm in ShaAlgorithm::iter() {
                 let class_name: &str = sha_algorithm.class_name();
                 let algo = sha_algorithm;
 
                 let ctor = Constructor::new_class::<ShaHash, _, _>(ctx.clone(), move |secret| {
-                    ShaHash::new(algo, secret)
+                    ShaHash::new(algo.clone(), secret)
                 })?;
 
                 default.set(class_name, ctor)?;

@@ -1,14 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    atom::PredefinedAtom, function::IntoJsFunc, prelude::Func, Array, Ctx, FromJs, IntoAtom,
-    IntoJs, Object, Result, Symbol, Undefined, Value,
+    atom::PredefinedAtom, function::IntoJsFunc, prelude::Func, Array, Ctx, Error, Exception,
+    FromJs, IntoAtom, IntoJs, Object, Result, Symbol, Undefined, Value,
 };
 
 use crate::primordials::{BasePrimordials, Primordial};
 
 pub trait ObjectExt<'js> {
     fn get_optional<K: IntoAtom<'js> + Clone, V: FromJs<'js>>(&self, k: K) -> Result<Option<V>>;
+    fn get_required<K: AsRef<str>, V: FromJs<'js>>(
+        &self,
+        k: K,
+        object_name: &'static str,
+    ) -> Result<V>;
+    fn into_object_or_throw(self, ctx: &Ctx<'js>, object_name: &'static str)
+        -> Result<Object<'js>>;
 }
 
 impl<'js> ObjectExt<'js> for Object<'js> {
@@ -17,6 +24,24 @@ impl<'js> ObjectExt<'js> for Object<'js> {
         k: K,
     ) -> Result<Option<V>> {
         self.get::<K, Option<V>>(k)
+    }
+
+    fn get_required<K: AsRef<str>, V: FromJs<'js>>(
+        &self,
+        k: K,
+        object_name: &'static str,
+    ) -> Result<V> {
+        let k = k.as_ref();
+        self.get::<&str, Option<V>>(k)?.ok_or_else(|| {
+            Exception::throw_type(
+                self.ctx(),
+                &[object_name, " '", k, "' property required"].concat(),
+            )
+        })
+    }
+
+    fn into_object_or_throw(self, _: &Ctx<'js>, _: &'static str) -> Result<Object<'js>> {
+        Ok(self)
     }
 }
 
@@ -27,6 +52,29 @@ impl<'js> ObjectExt<'js> for Value<'js> {
         }
         Ok(None)
     }
+
+    fn get_required<K: AsRef<str>, V: FromJs<'js>>(
+        &self,
+        k: K,
+        object_name: &'static str,
+    ) -> Result<V> {
+        self.as_object()
+            .ok_or_else(|| not_a_object_error(self.ctx(), object_name))?
+            .get_required(k, object_name)
+    }
+
+    fn into_object_or_throw(
+        self,
+        ctx: &Ctx<'js>,
+        object_name: &'static str,
+    ) -> Result<Object<'js>> {
+        self.into_object()
+            .ok_or_else(|| not_a_object_error(ctx, object_name))
+    }
+}
+
+pub fn not_a_object_error(ctx: &Ctx<'_>, object_name: &str) -> Error {
+    Exception::throw_type(ctx, &[object_name, " is not an object"].concat())
 }
 
 pub trait CreateSymbol<'js> {
