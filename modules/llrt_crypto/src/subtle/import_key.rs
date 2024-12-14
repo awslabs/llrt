@@ -7,6 +7,7 @@ use crate::subtle::CryptoKey;
 
 use super::key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages};
 
+#[allow(dead_code)]
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
     format: String,

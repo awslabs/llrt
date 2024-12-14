@@ -23,7 +23,6 @@ pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
-pub use import_key::subtle_import_key;
 use llrt_utils::object::ObjectExt;
 use ring::signature;
 use rquickjs::Object;
