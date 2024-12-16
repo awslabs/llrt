@@ -318,6 +318,11 @@ describe("Request class", () => {
     expect((await request.blob()).size).toEqual(blob.size);
     expect((await request.blob()).type).toEqual("text/plain");
   });
+
+  it("should ignore request options which are not an object", async () => {
+    const request = new Request("http://localhost", undefined);
+    expect(request instanceof Request).toBeTruthy();
+  });
 });
 
 describe("Response class", () => {

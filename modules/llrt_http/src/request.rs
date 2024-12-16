@@ -51,7 +51,7 @@ impl<'js> Trace<'js> for Request<'js> {
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Request<'js> {
     #[qjs(constructor)]
-    pub fn new(ctx: Ctx<'js>, input: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+    pub fn new(ctx: Ctx<'js>, input: Value<'js>, options: Opt<Value<'js>>) -> Result<Self> {
         let mut request = Self {
             url: String::from(""),
             method: "GET".to_string(),
@@ -70,7 +70,9 @@ impl<'js> Request<'js> {
             })?;
         }
         if let Some(options) = options.0 {
-            assign_request(&mut request, ctx.clone(), &options)?;
+            if let Some(obj) = options.as_object() {
+                assign_request(&mut request, ctx.clone(), obj)?;
+            }
         }
         if request.headers.is_none() {
             let headers = Class::instance(ctx, Headers::default())?;
