@@ -429,9 +429,7 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
       }
     }
   });
-});
 
-describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
   it("should be processing AES-CTR algorithm", async () => {
     const parameters = [
       {
@@ -539,9 +537,7 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
       }
     }
   });
-});
 
-describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
   it("should be processing AES-GCM algorithm", async () => {
     const parameters = [
       {
@@ -602,10 +598,8 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
       }
     }
   });
-});
 
-// Caveat: The current RSA implementation is too slow to complete the test within the time limit.
-describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+  // Caveat: The current RSA implementation is too slow to complete the test within the time limit.
   it.skip("should be processing RSA-OAEP algorithm", async () => {
     const parameters = [
       {
@@ -728,34 +722,6 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         name: "AES-GCM",
         length: 256,
       },
-      // {
-      //   name: "AES-KW",
-      //   length: 128,
-      // },
-      // {
-      //   name: "AES-KW",
-      //   length: 192,
-      // },
-      // {
-      //   name: "AES-KW",
-      //   length: 256,
-      // },
-      // {
-      //   name: "HMAC",
-      //   hash: "SHA-1",
-      // },
-      // {
-      //   name: "HMAC",
-      //   hash: "SHA-256",
-      // },
-      // {
-      //   name: "HMAC",
-      //   hash: "SHA-384",
-      // },
-      // {
-      //   name: "HMAC",
-      //   hash: "SHA-512",
-      // },
     ];
 
     // 1. Generate Alice's key pair
@@ -922,34 +888,6 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         name: "AES-GCM",
         length: 256,
       },
-      {
-        name: "AES-KW",
-        length: 128,
-      },
-      {
-        name: "AES-KW",
-        length: 192,
-      },
-      {
-        name: "AES-KW",
-        length: 256,
-      },
-      {
-        name: "HMAC",
-        hash: "SHA-1",
-      },
-      {
-        name: "HMAC",
-        hash: "SHA-256",
-      },
-      {
-        name: "HMAC",
-        hash: "SHA-384",
-      },
-      {
-        name: "HMAC",
-        hash: "SHA-512",
-      },
     ];
 
     // 1. Generate Alice's key pair
@@ -973,22 +911,22 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
     );
 
     // 3. Export Bob's public key to share with Alice
-    const bobPublicKey = await crypto.subtle.exportKey(
-      "raw",
-      bobKeyPair.publicKey
-    );
+    // const bobPublicKey = await crypto.subtle.exportKey(
+    //   "raw",
+    //   bobKeyPair.publicKey
+    // );
 
     // 3.5. Alice imports Bob's public key
-    const bobImportKey = await crypto.subtle.importKey(
-      "raw",
-      bobPublicKey,
-      {
-        name: "ECDH",
-        namedCurve: "P-256",
-      },
-      true,
-      []
-    );
+    // const bobImportKey = await crypto.subtle.importKey(
+    //   "raw",
+    //   bobPublicKey,
+    //   {
+    //     name: "ECDH",
+    //     namedCurve: "P-256",
+    //   },
+    //   true,
+    //   []
+    // );
 
     for (const generated of generatedParams) {
       for (const derived of derivedParams) {
@@ -996,7 +934,8 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         const aliceSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
-            public: bobImportKey,
+            // public: bobImportKey,
+            public: bobKeyPair.publicKey,
           },
           aliceKeyPair.privateKey,
           256 // number of bits to derive
@@ -1020,27 +959,28 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         );
 
         // 6. Export Alice's public key to share with Bob
-        const alicePublicKey = await crypto.subtle.exportKey(
-          "raw",
-          aliceKeyPair.publicKey
-        );
+        // const alicePublicKey = await crypto.subtle.exportKey(
+        //   "raw",
+        //   aliceKeyPair.publicKey
+        // );
 
         // 7. Bob derives a shared secret using Alice's public key
-        const aliceImportKey = await crypto.subtle.importKey(
-          "raw",
-          alicePublicKey,
-          {
-            name: "ECDH",
-            namedCurve: "P-256",
-          },
-          true,
-          []
-        );
+        // const aliceImportKey = await crypto.subtle.importKey(
+        //   "raw",
+        //   alicePublicKey,
+        //   {
+        //     name: "ECDH",
+        //     namedCurve: "P-256",
+        //   },
+        //   true,
+        //   []
+        // );
 
         const bobSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
-            public: aliceImportKey,
+            // public: aliceImportKey,
+            public: aliceKeyPair.publicKey,
           },
           bobKeyPair.privateKey,
           256
@@ -1062,7 +1002,6 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
           true,
           ["encrypt", "decrypt"]
         );
-        console.log("8. Bob derives the final key using HKDF : complete");
 
         // 9. Verify if both derived keys are the same
         const aliceKeyBuffer = new Uint8Array(
@@ -1089,21 +1028,24 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         //   salt: pbkdf2Salt,
         //   iterations: pbkdf2Iterations,
         //   hash: "SHA-1"
-        // }, {
+        // },
+        // {
         name: "PBKDF2",
         salt: pbkdf2Salt,
         iterations: pbkdf2Iterations,
         hash: "SHA-256",
-        // }, {
+        // },
+        // {
         //   name: "PBKDF2",
         //   salt: pbkdf2Salt,
         //   iterations: pbkdf2Iterations,
         //   hash: "SHA-384"
-        // }, {
-        // name: "PBKDF2",
-        // salt: pbkdf2Salt,
-        // iterations: pbkdf2Iterations,
-        // hash: "SHA-512"
+        // },
+        // {
+        //   name: "PBKDF2",
+        //   salt: pbkdf2Salt,
+        //   iterations: pbkdf2Iterations,
+        //   hash: "SHA-512"
       },
     ];
     const derivedParams = [
@@ -1114,51 +1056,26 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
       {
         //   name: "AES-CBC",
         //   length: 192,
-        // }, {
-        // name: "AES-CBC",
-        // length: 256,
-        // }, {
+        // },
+        // {
+        //   name: "AES-CBC",
+        //   length: 256,
+        // },
+        // {
         name: "AES-CTR",
         length: 128,
       },
       {
         //   name: "AES-CTR",
         //   length: 192,
-        // }, {
-        // name: "AES-CTR",
-        // length: 256,
-        // }, {
+        // },
+        // {
+        //   name: "AES-CTR",
+        //   length: 256,
+        // },
+        // {
         name: "AES-GCM",
         length: 128,
-      },
-      {
-        //   name: "AES-GCM",
-        //   length: 192,
-        // }, {
-        //   name: "AES-GCM",
-        //   length: 256,
-        // }, {
-        name: "AES-KW",
-        length: 128,
-      },
-      {
-        //   name: "AES-KW",
-        //   length: 192,
-        // }, {
-        //   name: "AES-KW",
-        //   length: 256,
-        // }, {
-        name: "HMAC",
-        hash: "SHA-1",
-        // }, {
-        //   name: "HMAC",
-        //   hash: "SHA-256",
-        // }, {
-        //   name: "HMAC",
-        //   hash: "SHA-384",
-        // }, {
-        // name: "HMAC",
-        // hash: "SHA-512",
       },
     ];
 
@@ -1183,22 +1100,22 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
     );
 
     // 3. Export Bob's public key to share with Alice
-    const bobPublicKey = await crypto.subtle.exportKey(
-      "raw",
-      bobKeyPair.publicKey
-    );
+    // const bobPublicKey = await crypto.subtle.exportKey(
+    //   "raw",
+    //   bobKeyPair.publicKey
+    // );
 
     // 3.5. Alice imports Bob's public key
-    const bobImportKey = await crypto.subtle.importKey(
-      "raw",
-      bobPublicKey,
-      {
-        name: "ECDH",
-        namedCurve: "P-256",
-      },
-      true,
-      []
-    );
+    // const bobImportKey = await crypto.subtle.importKey(
+    //   "raw",
+    //   bobPublicKey,
+    //   {
+    //     name: "ECDH",
+    //     namedCurve: "P-256",
+    //   },
+    //   true,
+    //   []
+    // );
 
     for (const generated of generatedParams) {
       for (const derived of derivedParams) {
@@ -1206,7 +1123,8 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         const aliceSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
-            public: bobImportKey,
+            // public: bobImportKey,
+            public: bobKeyPair.publicKey,
           },
           aliceKeyPair.privateKey,
           256 // number of bits to derive
@@ -1230,27 +1148,28 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         );
 
         // 6. Export Alice's public key to share with Bob
-        const alicePublicKey = await crypto.subtle.exportKey(
-          "raw",
-          aliceKeyPair.publicKey
-        );
+        // const alicePublicKey = await crypto.subtle.exportKey(
+        //   "raw",
+        //   aliceKeyPair.publicKey
+        // );
 
         // 7. Bob derives a shared secret using Alice's public key
-        const aliceImportKey = await crypto.subtle.importKey(
-          "raw",
-          alicePublicKey,
-          {
-            name: "ECDH",
-            namedCurve: "P-256",
-          },
-          true,
-          []
-        );
+        // const aliceImportKey = await crypto.subtle.importKey(
+        //   "raw",
+        //   alicePublicKey,
+        //   {
+        //     name: "ECDH",
+        //     namedCurve: "P-256",
+        //   },
+        //   true,
+        //   []
+        // );
 
         const bobSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
-            public: aliceImportKey,
+            // public: aliceImportKey,
+            public: aliceKeyPair.publicKey,
           },
           bobKeyPair.privateKey,
           256
