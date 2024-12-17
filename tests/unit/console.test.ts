@@ -126,6 +126,8 @@ it("should log complex object", () => {
     3: {},
     [3.14]: 1,
     4: [1, 2, 3],
+    5: Promise.reject(1),
+    6: Promise.resolve(1),
     abc: 123,
   };
 
@@ -138,9 +140,15 @@ it("should log complex object", () => {
     `
 {
   '1': Symbol(foo),
-  '2': Promise {},
+  '2': Promise { <pending> },
   '3': {},
   '4': [ 1, 2, 3 ],
+  '5': Promise {
+    <rejected> 1
+  },
+  '6': Promise {
+    1
+  },
   a: 1,
   b: \'foo\',
   c: {

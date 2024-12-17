@@ -12,6 +12,7 @@ use llrt_json::{escape::escape_json, stringify::json_stringify};
 use llrt_numbers::float_to_string;
 use llrt_utils::{
     class::get_class_name,
+    error::ErrorExtensions,
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
@@ -20,7 +21,8 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::{Accessor, Filter},
     prelude::{Func, Rest},
-    Array, Class, Coerced, Ctx, Function, Object, Result, Symbol, Type, Value,
+    promise::PromiseState,
+    Array, Class, Coerced, Ctx, Error, Function, Object, Result, Symbol, Type, Value,
 };
 
 use crate::modules::module::export_default;
@@ -346,7 +348,36 @@ fn format_raw_inner<'js>(
             result.push(']');
         },
         Type::Promise => {
-            result.push_str("Promise {}");
+            let promise = unsafe { value.as_promise().unwrap_unchecked() };
+            let state = promise.state();
+            result.push_str("Promise {");
+            let is_pending = matches!(state, PromiseState::Pending);
+            let apply_indentation = bitmask(depth < 2 && !is_pending);
+            write_sep(result, false, apply_indentation > 0, options.newline);
+            push_indentation(result, apply_indentation & (depth + 1));
+            match state {
+                PromiseState::Pending => {
+                    Color::CYAN.push(result, color_enabled_mask);
+                    result.push_str("<pending>");
+                    Color::reset(result, color_enabled_mask);
+                },
+                PromiseState::Resolved => {
+                    let value: Value = unsafe { promise.result().unwrap_unchecked() }?;
+                    format_raw_inner(result, value, options, visited, depth + 1)?;
+                },
+                PromiseState::Rejected => {
+                    let value: Error =
+                        unsafe { promise.result::<Value>().unwrap_unchecked() }.unwrap_err();
+                    let value = value.into_value(promise.ctx())?;
+                    Color::RED.push(result, color_enabled_mask);
+                    result.push_str("<rejected> ");
+                    Color::reset(result, color_enabled_mask);
+                    format_raw_inner(result, value, options, visited, depth + 1)?;
+                },
+            }
+            write_sep(result, false, apply_indentation > 0, options.newline);
+            push_indentation(result, apply_indentation & (depth));
+            result.push('}');
             return Ok(());
         },
         Type::Array | Type::Object | Type::Exception => {
@@ -417,6 +448,8 @@ fn format_raw_inner<'js>(
                 if let Some(class_name) = class_name {
                     result.push_str(&class_name);
                     result.push(SPACING);
+
+                    //TODO fix when quickjs-ng exposes these types
                     is_typed_array = matches!(
                         class_name.as_str(),
                         "Int8Array"
