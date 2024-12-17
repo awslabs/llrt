@@ -352,3 +352,34 @@ describe("Buffer.subarray", () => {
     expect(subBuffer.toString()).toEqual("");
   });
 });
+
+describe("Buffer.isBuffer", () => {
+  it("should return true when the object being tested is an instance of Buffer", () => {
+    const buffer = Buffer.from("Hello, world!");
+
+    expect(Buffer.isBuffer(buffer)).toEqual(true);
+  });
+
+  it("should return false when the object being tested is not an instance of Buffer", () => {
+    expect(Buffer.isBuffer(false)).toEqual(false);
+    expect(Buffer.isBuffer(undefined)).toEqual(false);
+    expect(Buffer.isBuffer(null)).toEqual(false);
+    expect(Buffer.isBuffer("Buffer")).toEqual(false);
+    expect(Buffer.isBuffer(Buffer)).toEqual(false);
+  });
+});
+
+describe("Buffer.isEncoding", () => {
+  it("should return true when input is a valid encoding name", () => {
+    expect(Buffer.isEncoding("utf8")).toEqual(true);
+    expect(Buffer.isEncoding("hex")).toEqual(true);
+    expect(Buffer.isEncoding("base64")).toEqual(true);
+  });
+
+  it("should return false when input is not a valid encoding name", () => {
+    expect(Buffer.isEncoding(false as unknown as string)).toEqual(false);
+    expect(Buffer.isEncoding(undefined as unknown as string)).toEqual(false);
+    expect(Buffer.isEncoding(null as unknown as string)).toEqual(false);
+    expect(Buffer.isEncoding("utf8/8")).toEqual(false);
+  });
+});
