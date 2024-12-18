@@ -120,6 +120,24 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     ))
 }
 
+fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
+    if let Some(object) = value.as_object() {
+        let constructor = BufferPrimordials::get(&ctx)?;
+        return Ok(object.is_instance_of(&constructor.constructor));
+    }
+
+    Ok(false)
+}
+
+fn is_encoding(value: Value) -> Result<bool> {
+    if let Some(js_string) = value.as_string() {
+        let std_string = js_string.to_string()?;
+        return Ok(Encoder::from_str(std_string.as_str()).is_ok());
+    }
+
+    Ok(false)
+}
+
 fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
     let typed_array = TypedArray::<u8>::from_object(this.0)?;
     let bytes: &[u8] = typed_array.as_ref();
@@ -295,6 +313,8 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     let _ = &constructor.set(stringify!(alloc), Func::from(alloc))?;
     let _ = &constructor.set(stringify!(concat), Func::from(concat))?;
     let _ = &constructor.set("byteLength", Func::from(byte_length))?;
+    let _ = &constructor.set("isBuffer", Func::from(is_buffer))?;
+    let _ = &constructor.set("isEncoding", Func::from(is_encoding))?;
 
     let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
