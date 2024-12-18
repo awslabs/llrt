@@ -68,8 +68,8 @@ fn get_load_avg() -> Vec<f64> {
     vec![load_avg.one, load_avg.five, load_avg.fifteen]
 }
 
-fn get_machine(ctx: Ctx<'_>) -> Result<String> {
-    System::cpu_arch().ok_or_else(|| Exception::throw_reference(&ctx, "System::cpu_arch"))
+fn get_machine() -> String {
+    System::cpu_arch()
 }
 
 fn get_tmp_dir() -> String {
