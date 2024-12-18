@@ -68,8 +68,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-pub const VERSION_STRING: &'static str =
-    concat!("LLRT v", VERSION, " (", PLATFORM, ", ", ARCH, ")");
+pub const VERSION_STRING: &str = concat!("LLRT v", VERSION, " (", PLATFORM, ", ", ARCH, ")");
 
 fn print_version() {
     println!("{VERSION_STRING}");

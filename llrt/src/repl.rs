@@ -1,7 +1,7 @@
 use std::{
     collections::VecDeque,
     env, fs,
-    io::{stdout, IsTerminal, Read},
+    io::{stdout, IsTerminal},
     path::{Path, PathBuf},
 };
 
@@ -14,7 +14,7 @@ use crossterm::{
 };
 use llrt_core::{
     async_with, atom::PredefinedAtom, context::EvalOptions, function::Rest, modules::console,
-    AsyncContext, CatchResultExt, Ctx, Error, Object, Promise, Value,
+    AsyncContext, CatchResultExt, Ctx, Error, Object, Promise,
 };
 use llrt_utils::{error::ErrorExtensions, result::ResultExt};
 
