@@ -2,20 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod minimal_tracer;
+#[cfg(not(feature = "lambda"))]
+mod repl;
 
+use constcat::concat;
 use llrt_core::{
     async_with,
     bytecode::BYTECODE_EXT,
     modules::{
         console::{self, LogLevel},
         path::name_extname,
-        process::{get_arch, get_platform},
     },
     runtime_client,
     utils::io::{is_supported_ext, DirectoryWalker, SUPPORTED_EXTENSIONS},
     vm::Vm,
     CatchResultExt, VERSION,
 };
+use llrt_utils::sysinfo::{ARCH, PLATFORM};
 use minimal_tracer::MinimalTracer;
 use std::{
     env,
@@ -65,8 +68,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
+pub const VERSION_STRING: &'static str =
+    concat!("LLRT v", VERSION, " (", PLATFORM, ", ", ARCH, ")");
+
 fn print_version() {
-    println!("LLRT ({} {}) {}", get_platform(), get_arch(), VERSION);
+    println!("{VERSION_STRING}");
 }
 
 fn usage() {
@@ -192,7 +198,16 @@ async fn start_cli(vm: &Vm) {
             }
         }
     } else {
-        vm.run_repl().await;
+        #[cfg(not(feature = "lambda"))]
+        {
+            repl::run_repl(&vm.ctx).await;
+        }
+
+        #[cfg(feature = "lambda")]
+        {
+            eprintln!("REPL not supported in \"lambda\" version.");
+            exit(1);
+        }
     }
 }
 

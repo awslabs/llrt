@@ -20,4 +20,4 @@ pub mod vm;
 
 pub use llrt_modules::VERSION;
 
-pub use rquickjs::{async_with, AsyncContext, CatchResultExt, Module, Value};
+pub use rquickjs::*;

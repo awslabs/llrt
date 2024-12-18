@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{CatchResultExt, CaughtError, Ctx, Error, Result, String as JsString, Value};
+use rquickjs::{CatchResultExt, CaughtError, Ctx, Error, IntoJs, Result, Value};
 
 pub trait ErrorExtensions<'js> {
     fn into_value(self, ctx: &Ctx<'js>) -> Result<Value<'js>>;
@@ -15,9 +15,7 @@ impl<'js> ErrorExtensions<'js> for Error {
 impl<'js> ErrorExtensions<'js> for CaughtError<'js> {
     fn into_value(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         Ok(match self {
-            CaughtError::Error(err) => {
-                JsString::from_str(ctx.clone(), &err.to_string())?.into_value()
-            },
+            CaughtError::Error(err) => err.to_string().into_js(ctx)?,
             CaughtError::Exception(ex) => ex.into_value(),
             CaughtError::Value(val) => val,
         })

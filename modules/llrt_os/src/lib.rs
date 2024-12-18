@@ -4,7 +4,7 @@ use std::env;
 
 use llrt_utils::{
     module::{export_default, ModuleInfo},
-    sysinfo::{get_arch, get_platform},
+    sysinfo::{ARCH, PLATFORM},
 };
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -121,7 +121,7 @@ impl ModuleDef for OsModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            default.set("arch", Func::from(get_arch))?;
+            default.set("arch", Func::from(|| ARCH))?;
             default.set(
                 "availableParallelism",
                 Func::from(get_available_parallelism),
@@ -134,7 +134,7 @@ impl ModuleDef for OsModule {
             default.set("hostname", Func::from(get_host_name))?;
             default.set("loadavg", Func::from(get_load_avg))?;
             default.set("machine", Func::from(get_machine))?;
-            default.set("platform", Func::from(get_platform))?;
+            default.set("platform", Func::from(|| PLATFORM))?;
             default.set("release", Func::from(get_release))?;
             default.set("setPriority", Func::from(set_priority))?;
             default.set("tmpdir", Func::from(get_tmp_dir))?;
