@@ -15,8 +15,8 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, This},
-    Array, ArrayBuffer, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result,
-    TypedArray, Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Value,
 };
 
 #[derive(JsLifetime)]
@@ -121,9 +121,9 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
 }
 
 fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
-    let class: Function = ctx.globals().get(stringify!(Buffer))?;
     if let Some(object) = value.as_object() {
-        return Ok(object.is_instance_of(class));
+        let constructor = BufferPrimordials::get(&ctx)?;
+        return Ok(object.is_instance_of(&constructor.constructor));
     }
 
     Ok(false)
@@ -131,9 +131,8 @@ fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
 
 fn is_encoding(value: Value) -> Result<bool> {
     if let Some(js_string) = value.as_string() {
-        if let Ok(std_string) = js_string.to_string() {
-            return Ok(Encoder::from_str(std_string.as_str()).is_ok());
-        }
+        let std_string = js_string.to_string()?;
+        return Ok(Encoder::from_str(std_string.as_str()).is_ok());
     }
 
     Ok(false)
