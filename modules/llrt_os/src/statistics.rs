@@ -8,9 +8,9 @@ use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
     Arc::new(Mutex::new(System::new_with_specifics(
-        RefreshKind::new()
-            .with_cpu(CpuRefreshKind::new().with_cpu_usage().with_frequency())
-            .with_memory(MemoryRefreshKind::new().with_ram()),
+        RefreshKind::nothing()
+            .with_cpu(CpuRefreshKind::nothing().with_cpu_usage().with_frequency())
+            .with_memory(MemoryRefreshKind::nothing().with_ram()),
     )))
 });
 
@@ -40,13 +40,13 @@ pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
 pub fn get_free_mem() -> u64 {
     let mut system = SYSTEM.lock().unwrap();
 
-    system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+    system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
     system.free_memory()
 }
 
 pub fn get_total_mem() -> u64 {
     let mut system = SYSTEM.lock().unwrap();
 
-    system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+    system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
     system.total_memory()
 }
