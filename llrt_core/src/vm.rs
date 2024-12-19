@@ -25,7 +25,7 @@ pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/c
 use crate::{
     environment, http,
     module_loader::{loader::CustomLoader, require, resolver::CustomResolver},
-    modules::{console, crypto::SYSTEM_RANDOM, repl::run_repl},
+    modules::{console, crypto::SYSTEM_RANDOM},
     security,
     utils::clone::structured_clone,
 };
@@ -163,10 +163,6 @@ impl Vm {
         .concat();
 
         self.run(source, strict, global).await;
-    }
-
-    pub async fn run_repl(&self) {
-        run_repl(&self.ctx).await;
     }
 
     pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool, global: bool) {

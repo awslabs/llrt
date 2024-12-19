@@ -1,22 +1,13 @@
-use std::env;
+#[cfg(target_os = "macos")]
+pub const PLATFORM: &str = "darwin";
+#[cfg(target_os = "windows")]
+pub const PLATFORM: &str = "win32";
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub const PLATFORM: &str = std::env::consts::OS;
 
-pub fn get_platform() -> &'static str {
-    let platform = env::consts::OS;
-    match platform {
-        "macos" => "darwin",
-        "windows" => "win32",
-        _ => platform,
-    }
-}
-
-pub fn get_arch() -> &'static str {
-    let arch = env::consts::ARCH;
-
-    match arch {
-        "x86_64" | "x86" => return "x64",
-        "aarch64" => return "arm64",
-        _ => (),
-    }
-
-    arch
-}
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub const ARCH: &str = "x64";
+#[cfg(target_arch = "aarch64")]
+pub const ARCH: &str = "arm64";
+#[cfg(not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))]
+pub const ARCH: &str = std::env::consts::ARCH;

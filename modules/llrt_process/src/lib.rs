@@ -3,11 +3,12 @@
 use std::collections::HashMap;
 use std::env;
 
-pub use llrt_utils::sysinfo::{get_arch, get_platform};
+pub use llrt_utils::sysinfo;
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     object::Proxy,
     result::ResultExt,
+    sysinfo::{ARCH, PLATFORM},
     time, VERSION,
 };
 use rquickjs::{
@@ -96,8 +97,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("argv0", args.clone().first().cloned().unwrap_or_default())?;
     process.set("id", std::process::id())?;
     process.set("argv", args)?;
-    process.set("platform", get_platform())?;
-    process.set("arch", get_arch())?;
+    process.set("platform", PLATFORM)?;
+    process.set("arch", ARCH)?;
     process.set("hrtime", hr_time)?;
     process.set("release", release)?;
     process.set("version", VERSION)?;
