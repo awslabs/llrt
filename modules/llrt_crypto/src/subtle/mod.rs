@@ -23,19 +23,16 @@ pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
-use llrt_utils::object::ObjectExt;
-use ring::signature;
-use rquickjs::Object;
-use rquickjs::Value;
-use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
 
 use aes::{
     cipher::{
+        block_padding::{Pkcs7, UnpadError},
         consts::{U13, U14, U15, U16},
         typenum::U12,
-        InvalidLength,
+        BlockDecryptMut, BlockEncryptMut, InvalidLength, KeyIvInit, StreamCipher,
+        StreamCipherError,
     },
     Aes128, Aes192, Aes256,
 };
@@ -44,20 +41,134 @@ use aes_gcm::{
     AesGcm, KeyInit,
 };
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
-use llrt_utils::{result::ResultExt, str_enum};
-use rquickjs::{Ctx, Exception, Result};
+use llrt_utils::{object::ObjectExt, result::ResultExt, str_enum};
+use ring::signature;
+use rquickjs::{Ctx, Exception, Object, Result, Value};
+use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
 
 use crate::sha_hash::ShaAlgorithm;
 
-type Aes128Ctr32 = Ctr32BE<aes::Aes128>;
-type Aes128Ctr64 = Ctr64BE<aes::Aes128>;
-type Aes128Ctr128 = Ctr128BE<aes::Aes128>;
-type Aes192Ctr32 = Ctr32BE<aes::Aes192>;
-type Aes192Ctr64 = Ctr64BE<aes::Aes192>;
-type Aes192Ctr128 = Ctr128BE<aes::Aes192>;
-type Aes256Ctr32 = Ctr32BE<aes::Aes256>;
-type Aes256Ctr64 = Ctr64BE<aes::Aes256>;
-type Aes256Ctr128 = Ctr128BE<aes::Aes256>;
+pub enum AesCbcEncVariant {
+    Aes128(cbc::Encryptor<aes::Aes128>),
+    Aes192(cbc::Encryptor<aes::Aes192>),
+    Aes256(cbc::Encryptor<aes::Aes256>),
+}
+
+impl AesCbcEncVariant {
+    pub fn new(key_len: u16, key: &[u8], iv: &[u8]) -> std::result::Result<Self, InvalidLength> {
+        let variant: AesCbcEncVariant = match key_len {
+            128 => Self::Aes128(cbc::Encryptor::new_from_slices(key, iv)?),
+            192 => Self::Aes192(cbc::Encryptor::new_from_slices(key, iv)?),
+            256 => Self::Aes256(cbc::Encryptor::new_from_slices(key, iv)?),
+            _ => return Err(InvalidLength),
+        };
+
+        Ok(variant)
+    }
+
+    pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
+        match self {
+            Self::Aes128(v) => v.clone().encrypt_padded_vec_mut::<Pkcs7>(data),
+            Self::Aes192(v) => v.clone().encrypt_padded_vec_mut::<Pkcs7>(data),
+            Self::Aes256(v) => v.clone().encrypt_padded_vec_mut::<Pkcs7>(data),
+        }
+    }
+}
+
+pub enum AesCbcDecVariant {
+    Aes128(cbc::Decryptor<aes::Aes128>),
+    Aes192(cbc::Decryptor<aes::Aes192>),
+    Aes256(cbc::Decryptor<aes::Aes256>),
+}
+
+impl AesCbcDecVariant {
+    pub fn new(key_len: u16, key: &[u8], iv: &[u8]) -> std::result::Result<Self, InvalidLength> {
+        let variant: AesCbcDecVariant = match key_len {
+            128 => Self::Aes128(cbc::Decryptor::new_from_slices(key, iv)?),
+            192 => Self::Aes192(cbc::Decryptor::new_from_slices(key, iv)?),
+            256 => Self::Aes256(cbc::Decryptor::new_from_slices(key, iv)?),
+            _ => return Err(InvalidLength),
+        };
+
+        Ok(variant)
+    }
+
+    pub fn decrypt(&self, data: &[u8]) -> std::result::Result<Vec<u8>, UnpadError> {
+        Ok(match self {
+            Self::Aes128(v) => v.clone().decrypt_padded_vec_mut::<Pkcs7>(data)?,
+            Self::Aes192(v) => v.clone().decrypt_padded_vec_mut::<Pkcs7>(data)?,
+            Self::Aes256(v) => v.clone().decrypt_padded_vec_mut::<Pkcs7>(data)?,
+        })
+    }
+}
+
+pub enum AesCtrVariant {
+    Aes128Ctr32(Ctr32BE<aes::Aes128>),
+    Aes128Ctr64(Ctr64BE<aes::Aes128>),
+    Aes128Ctr128(Ctr128BE<aes::Aes128>),
+    Aes192Ctr32(Ctr32BE<aes::Aes192>),
+    Aes192Ctr64(Ctr64BE<aes::Aes192>),
+    Aes192Ctr128(Ctr128BE<aes::Aes192>),
+    Aes256Ctr32(Ctr32BE<aes::Aes256>),
+    Aes256Ctr64(Ctr64BE<aes::Aes256>),
+    Aes256Ctr128(Ctr128BE<aes::Aes256>),
+}
+
+impl AesCtrVariant {
+    pub fn new(
+        key_len: u16,
+        encryption_length: u32,
+        key: &[u8],
+        counter: &[u8],
+    ) -> std::result::Result<Self, InvalidLength> {
+        let variant: AesCtrVariant = match (key_len, encryption_length) {
+            (128, 32) => Self::Aes128Ctr32(Ctr32BE::new_from_slices(key, counter)?),
+            (128, 64) => Self::Aes128Ctr64(Ctr64BE::new_from_slices(key, counter)?),
+            (128, 128) => Self::Aes128Ctr128(Ctr128BE::new_from_slices(key, counter)?),
+            (192, 32) => Self::Aes192Ctr32(Ctr32BE::new_from_slices(key, counter)?),
+            (192, 64) => Self::Aes192Ctr64(Ctr64BE::new_from_slices(key, counter)?),
+            (192, 128) => Self::Aes192Ctr128(Ctr128BE::new_from_slices(key, counter)?),
+            (256, 32) => Self::Aes256Ctr32(Ctr32BE::new_from_slices(key, counter)?),
+            (256, 64) => Self::Aes256Ctr64(Ctr64BE::new_from_slices(key, counter)?),
+            (256, 128) => Self::Aes256Ctr128(Ctr128BE::new_from_slices(key, counter)?),
+            _ => return Err(InvalidLength),
+        };
+
+        Ok(variant)
+    }
+
+    pub fn encrypt(&mut self, data: &[u8]) -> std::result::Result<Vec<u8>, StreamCipherError> {
+        let mut ciphertext = data.to_vec();
+        match self {
+            Self::Aes128Ctr32(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes128Ctr64(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes128Ctr128(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes192Ctr32(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes192Ctr64(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes192Ctr128(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes256Ctr32(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes256Ctr64(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes256Ctr128(v) => v.try_apply_keystream(&mut ciphertext)?,
+        }
+        Ok(ciphertext)
+    }
+
+    pub fn decrypt(&mut self, data: &[u8]) -> std::result::Result<Vec<u8>, StreamCipherError> {
+        let mut ciphertext = data.to_vec();
+        match self {
+            Self::Aes128Ctr32(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes128Ctr64(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes128Ctr128(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes192Ctr32(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes192Ctr64(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes192Ctr128(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes256Ctr32(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes256Ctr64(v) => v.try_apply_keystream(&mut ciphertext)?,
+            Self::Aes256Ctr128(v) => v.try_apply_keystream(&mut ciphertext)?,
+        }
+        Ok(ciphertext)
+    }
+}
 
 pub enum AesGcmVariant {
     Aes128Gcm96(AesGcm<Aes128, U12, U12>),
