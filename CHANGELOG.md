@@ -1,15 +1,16 @@
-- Upgrade to latest version of QuickJS
-- Support of require/importing JSON files
-- Better CJS compatibility
-- Basic Windows support
-- Initial support for Node.js module resolution
-- Improved multi-process test runner
-- AWS SDK clients connection are now inited in background threads and in parallel
-- `Event` class
-- Updated dependencies
-- Multiple bug fixes
+- Switch engine to [QuickJS Next Generation](https://github.com/quickjs-ng/quickjs)
+- Increased WinterCG compat
+- Basic support for Subtle Crypto/Webcrypto APIs
+- Improved package.json resolution and CJS compatibility
+- Basic assert module
+- Completely refactored test runner with multi-process support
+- Performance improvements
+- Basic REPL
+- More Buffer APIs
+- Upgraded dependencies
+- Bugfixes
 
 A huge thanks to [all contributors](https://github.com/awslabs/llrt/graphs/contributors)!
 
 Full list of changes:
-https://github.com/awslabs/llrt/compare/v0.2.2-beta...v0.3.0-beta
+https://github.com/awslabs/llrt/compare/v0.3.0-beta...v0.4.0-beta
