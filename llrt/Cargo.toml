@@ -1,6 +1,6 @@
 [package]
 name = "llrt"
-version = "0.3.0-beta"
+version = "0.4.0-beta"
 edition = "2021"
 license-file = "LICENSE"
 
@@ -29,7 +29,7 @@ cc = "=1.1.31"
 
 
 [dev-dependencies]
-llrt_test = { version = "0.3.0-beta", path = "../libs/llrt_test" }
+llrt_test = { version = "0.4.0-beta", path = "../libs/llrt_test" }
 
 [[bin]]
 name = "llrt"
