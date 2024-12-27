@@ -237,7 +237,7 @@ impl KeyAlgorithm {
             },
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
                 if !matches!(mode, KeyAlgorithmMode::Import) {
-                    if name == "RSA-PSS" {
+                    if name == "RSA-OAEP" {
                         Self::classify_and_check_usages(
                             ctx,
                             name_ref,
