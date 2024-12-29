@@ -71,7 +71,6 @@ pub enum KeyAlgorithm {
     Ec {
         curve: EllipticCurve,
     },
-    X25519,
     Ed25519,
     Hmac {
         hash: ShaAlgorithm,
@@ -82,6 +81,7 @@ pub enum KeyAlgorithm {
         public_exponent: Rc<Box<[u8]>>,
         hash: ShaAlgorithm,
     },
+    X25519,
     Derive(KeyDerivation),
     HkdfImport,
     Pbkdf2Import,
@@ -114,32 +114,6 @@ impl KeyAlgorithm {
         let name_ref = name.as_str();
         let mut is_symmetric = false;
         let algorithm = match name_ref {
-            "Ed25519" => {
-                if !matches!(mode, KeyAlgorithmMode::Import) {
-                    Self::classify_and_check_signature_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                }
-                KeyAlgorithm::Ed25519
-            },
-            "X25519" => {
-                if !matches!(mode, KeyAlgorithmMode::Import) {
-                    Self::classify_and_check_symmetric_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                }
-                KeyAlgorithm::X25519
-            },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
                 is_symmetric = true;
                 if name_ref == "AES-KW" {
@@ -215,7 +189,19 @@ impl KeyAlgorithm {
                 }
                 KeyAlgorithm::Ec { curve }
             },
-
+            "Ed25519" => {
+                if !matches!(mode, KeyAlgorithmMode::Import) {
+                    Self::classify_and_check_signature_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                }
+                KeyAlgorithm::Ed25519
+            },
             "HMAC" => {
                 is_symmetric = true;
                 Self::classify_and_check_usages(
@@ -237,7 +223,7 @@ impl KeyAlgorithm {
             },
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
                 if !matches!(mode, KeyAlgorithmMode::Import) {
-                    if name == "RSA-PSS" {
+                    if name == "RSA-OAEP" {
                         Self::classify_and_check_usages(
                             ctx,
                             name_ref,
@@ -278,6 +264,19 @@ impl KeyAlgorithm {
                     hash,
                 }
             },
+            "X25519" => {
+                if !matches!(mode, KeyAlgorithmMode::Import) {
+                    Self::classify_and_check_symmetric_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                }
+                KeyAlgorithm::X25519
+            },
             "HKDF" => match mode {
                 KeyAlgorithmMode::Import => KeyAlgorithm::HkdfImport,
                 KeyAlgorithmMode::Derive => {
@@ -297,7 +296,6 @@ impl KeyAlgorithm {
                     return algorithm_not_supported_error(ctx);
                 },
             },
-
             "PBKDF2" => match mode {
                 KeyAlgorithmMode::Import => KeyAlgorithm::Pbkdf2Import,
                 KeyAlgorithmMode::Derive => {

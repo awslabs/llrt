@@ -62,7 +62,7 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [subtle.encrypt](https://nodejs.org/api/webcrypto.html#subtleencryptalgorithm-key-data)
 
-[subtle.exportKey](hthttps://nodejs.org/api/webcrypto.html#subtleexportkeyformat-key)
+[subtle.exportKey](https://nodejs.org/api/webcrypto.html#subtleexportkeyformat-key)
 
 [subtle.generateKey](https://nodejs.org/api/webcrypto.html#subtlegeneratekeyalgorithm-extractable-keyusages)
 
@@ -70,7 +70,7 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [subtle.sign](https://nodejs.org/api/webcrypto.html#subtlesignalgorithm-key-data)
 
-[subtle.verify](hthttps://nodejs.org/api/webcrypto.html#subtleverifyalgorithm-key-signature-datah)
+[subtle.verify](https://nodejs.org/api/webcrypto.html#subtleverifyalgorithm-key-signature-datah)
 
 ## events
 
