@@ -3,7 +3,8 @@ use std::{cell::Cell, rc::Rc};
 use llrt_utils::module::{export_default, ModuleInfo};
 use queueing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
 use readable::{
-    ReadableByteStreamController, ReadableStream, ReadableStreamBYOBRequest, ReadableStreamClass,
+    ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader,
+    ReadableStreamBYOBRequest, ReadableStreamClass, ReadableStreamDefaultController,
     ReadableStreamDefaultReader,
 };
 use rquickjs::{
@@ -46,18 +47,22 @@ impl<'js> FromJs<'js> for ReadableWritablePair<'js> {
 
 pub struct StreamWebModule;
 
+// https://nodejs.org/api/webstreams.html
 impl ModuleDef for StreamWebModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(ReadableStream))?;
-        declare.declare(stringify!(ByteLengthQueuingStrategy))?;
-        declare.declare(stringify!(CountQueuingStrategy))?;
         declare.declare(stringify!(ReadableStreamDefaultReader))?;
+        declare.declare(stringify!(ReadableStreamBYOBReader))?;
+        declare.declare(stringify!(ReadableStreamDefaultController))?;
         declare.declare(stringify!(ReadableByteStreamController))?;
         declare.declare(stringify!(ReadableStreamBYOBRequest))?;
 
         declare.declare(stringify!(WritableStream))?;
         declare.declare(stringify!(WritableStreamDefaultWriter))?;
         declare.declare(stringify!(WritableStreamDefaultController))?;
+
+        declare.declare(stringify!(ByteLengthQueuingStrategy))?;
+        declare.declare(stringify!(CountQueuingStrategy))?;
 
         declare.declare("default")?;
         Ok(())
@@ -66,15 +71,18 @@ impl ModuleDef for StreamWebModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             Class::<ReadableStream>::define(default)?;
-            Class::<ByteLengthQueuingStrategy>::define(default)?;
-            Class::<CountQueuingStrategy>::define(default)?;
             Class::<ReadableStreamDefaultReader>::define(default)?;
+            Class::<ReadableStreamBYOBReader>::define(default)?;
+            Class::<ReadableStreamDefaultController>::define(default)?;
             Class::<ReadableByteStreamController>::define(default)?;
             Class::<ReadableStreamBYOBRequest>::define(default)?;
 
             Class::<WritableStream>::define(default)?;
             Class::<WritableStreamDefaultWriter>::define(default)?;
             Class::<WritableStreamDefaultController>::define(default)?;
+
+            Class::<ByteLengthQueuingStrategy>::define(default)?;
+            Class::<CountQueuingStrategy>::define(default)?;
 
             Ok(())
         })?;
@@ -90,6 +98,25 @@ impl From<StreamWebModule> for ModuleInfo<StreamWebModule> {
             module: val,
         }
     }
+}
+
+pub fn init(ctx: &Ctx) -> Result<()> {
+    let globals = &ctx.globals();
+
+    // https://min-common-api.proposal.wintercg.org/#api-index
+    Class::<ByteLengthQueuingStrategy>::define(globals)?;
+    Class::<CountQueuingStrategy>::define(globals)?;
+
+    Class::<ReadableByteStreamController>::define(globals)?;
+    Class::<ReadableStream>::define(globals)?;
+    Class::<ReadableStreamBYOBReader>::define(globals)?;
+    Class::<ReadableStreamBYOBRequest>::define(globals)?;
+    Class::<ReadableStreamDefaultReader>::define(globals)?;
+
+    Class::<WritableStream>::define(globals)?;
+    Class::<WritableStreamDefaultController>::define(globals)?;
+
+    Ok(())
 }
 
 /// Helper type for treating an undefined value as None, but not null

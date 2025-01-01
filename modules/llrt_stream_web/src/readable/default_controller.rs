@@ -24,7 +24,7 @@ use crate::{class_from_owned_borrow_mut, is_non_negative_number, upon_promise, V
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
-pub(super) struct ReadableStreamDefaultController<'js> {
+pub(crate) struct ReadableStreamDefaultController<'js> {
     cancel_algorithm: Option<CancelAlgorithm<'js>>,
     close_requested: bool,
     pull_again: bool,

@@ -97,6 +97,7 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::url::init)
             .with_module(UrlModule)
             .with_module(StreamWebModule)
+            .with_global(crate::modules::stream_web::init)
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
             .with_module(LlrtHexModule)

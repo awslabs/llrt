@@ -2,15 +2,6 @@ import idlharness from "./web-platform-tests/resources/idlharness.js";
 import testharness from "./web-platform-tests/resources/testharness.js";
 import subsetTests from "./web-platform-tests/common/subset-tests.js";
 import encodings from "./web-platform-tests/encoding/resources/encodings.js";
-import {
-  ReadableStream,
-  ByteLengthQueuingStrategy,
-  CountQueuingStrategy,
-  ReadableStreamDefaultReader,
-  ReadableByteStreamController,
-  ReadableStreamBYOBRequest,
-  WritableStream,
-} from "stream/web";
 
 const runTest = (test, done) => {
   //
@@ -55,15 +46,6 @@ const runTest = (test, done) => {
     explicit_done: true,
     debug: process.env.DEBUG !== undefined,
   });
-
-  globalThis.ReadableStream = ReadableStream;
-  globalThis.ByteLengthQueuingStrategy = ByteLengthQueuingStrategy;
-  globalThis.CountQueuingStrategy = CountQueuingStrategy;
-  globalThis.ReadableStreamDefaultReader = ReadableStreamDefaultReader;
-  globalThis.ReadableByteStreamController = ReadableByteStreamController;
-  globalThis.ReadableStreamBYOBRequest = ReadableStreamBYOBRequest;
-
-  globalThis.WritableStream = WritableStream;
 
   globalThis.gc = globalThis.__gc;
 

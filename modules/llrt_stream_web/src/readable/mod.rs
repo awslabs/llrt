@@ -41,6 +41,7 @@ mod tee;
 
 pub(crate) use byob_reader::ReadableStreamBYOBReader;
 pub(crate) use byte_controller::{ReadableByteStreamController, ReadableStreamBYOBRequest};
+pub(crate) use default_controller::ReadableStreamDefaultController;
 pub(crate) use default_reader::ReadableStreamDefaultReader;
 
 use crate::readable::byob_reader::ReadableStreamBYOBReaderOwned;
@@ -48,8 +49,7 @@ use crate::readable::byte_controller::{
     ReadableByteStreamControllerClass, ReadableByteStreamControllerOwned,
 };
 use crate::readable::default_controller::{
-    ReadableStreamDefaultController, ReadableStreamDefaultControllerClass,
-    ReadableStreamDefaultControllerOwned,
+    ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
 };
 use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
 
