@@ -9,7 +9,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.716.0",
     "@aws-sdk/client-ec2": "3.716.0",
-    "@aws-sdk/client-s3": "3.716.0",
+    "@aws-sdk/client-s3": "3.717.0",
     "aws-sdk": "2.1692.0",
     "esbuild-css-modules-plugin": "3.1.2",
     "react": "19.0.0",
