@@ -32,8 +32,7 @@ pub struct WritableStream<'js> {
     in_flight_write_request: Option<ResolveablePromise<'js>>,
     in_flight_close_request: Option<ResolveablePromise<'js>>,
     pending_abort_request: Option<PendingAbortRequest<'js>>,
-    pub(crate) state: WritableStreamState,
-    pub(crate) stored_error: Option<Value<'js>>,
+    pub(crate) state: WritableStreamState<'js>,
     writer: Option<WritableStreamDefaultWriterClass<'js>>,
     write_requests: VecDeque<ResolveablePromise<'js>>,
 }
@@ -71,7 +70,6 @@ impl<'js> WritableStream<'js> {
                 // Set stream.[[state]] to "writable".
                 state: WritableStreamState::Writable,
                 // Set stream.[[storedError]], stream.[[writer]], stream.[[controller]], stream.[[inFlightWriteRequest]], stream.[[closeRequest]], stream.[[inFlightCloseRequest]], and stream.[[pendingAbortRequest]] to undefined.
-                stored_error: None,
                 writer: None,
                 controller: None,
                 in_flight_write_request: None,
@@ -203,7 +201,7 @@ impl<'js> WritableStream<'js> {
         // If stream.[[state]] is "closed" or "errored", return a promise resolved with undefined.
         if matches!(
             objects.stream.state,
-            WritableStreamState::Closed | WritableStreamState::Errored
+            WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             return Ok((
                 promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))?,
@@ -221,12 +219,10 @@ impl<'js> WritableStream<'js> {
         }
 
         // Let state be stream.[[state]].
-        let state = objects.stream.state;
-
         // If state is "closed" or "errored", return a promise resolved with undefined.
         if matches!(
-            state,
-            WritableStreamState::Closed | WritableStreamState::Errored
+            objects.stream.state,
+            WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             return Ok((
                 promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))?,
@@ -242,11 +238,11 @@ impl<'js> WritableStream<'js> {
             },
         }
 
-        let was_already_erroring = match state {
+        let was_already_erroring = match objects.stream.state {
             // If state is "erroring",
             // Set wasAlreadyErroring to true.
             // Set reason to undefined.
-            WritableStreamState::Erroring => {
+            WritableStreamState::Erroring(_) => {
                 reason = None;
                 true
             },
@@ -279,12 +275,10 @@ impl<'js> WritableStream<'js> {
         mut objects: WritableStreamObjects<'js, W>,
     ) -> Result<(Promise<'js>, WritableStreamObjects<'js, W>)> {
         // Let state be stream.[[state]].
-        let state = objects.stream.state;
-
         // If state is "closed" or "errored", return a promise rejected with a TypeError exception.
         if matches!(
-            state,
-            WritableStreamState::Closed | WritableStreamState::Errored
+            objects.stream.state,
+            WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             let e: Value = ctx.eval(
                 r#"new TypeError("The stream is not in the writable state and cannot be closed")"#,
@@ -301,7 +295,9 @@ impl<'js> WritableStream<'js> {
         // If writer is not undefined, and stream.[[backpressure]] is true, and state is "writable", resolve writer.[[readyPromise]] with undefined.
         objects = objects.with_writer(
             |objects| {
-                if objects.stream.backpressure && matches!(state, WritableStreamState::Writable) {
+                if objects.stream.backpressure
+                    && matches!(objects.stream.state, WritableStreamState::Writable)
+                {
                     let () = objects
                         .writer
                         .ready_promise
@@ -329,16 +325,18 @@ impl<'js> WritableStream<'js> {
         reason: Value<'js>,
     ) -> Result<WritableStreamObjects<'js, W>> {
         // Set stream.[[state]] to "erroring".
-        objects.stream.state = WritableStreamState::Erroring;
         // Set stream.[[storedError]] to reason.
-        objects.stream.stored_error = Some(reason.clone());
+        objects.stream.state = WritableStreamState::Erroring(reason.clone());
 
         // If writer is not undefined, perform ! WritableStreamDefaultWriterEnsureReadyPromiseRejected(writer, reason).
         objects = objects.with_writer(
             |mut objects| {
                 objects
                     .writer
-                    .writable_stream_default_writer_ensure_ready_promise_rejected(&ctx, reason)?;
+                    .writable_stream_default_writer_ensure_ready_promise_rejected(
+                        &ctx,
+                        reason.clone(),
+                    )?;
                 Ok(objects)
             },
             Ok,
@@ -350,7 +348,7 @@ impl<'js> WritableStream<'js> {
             .writable_stream_has_operation_marked_in_flight()
             && objects.controller.started
         {
-            objects = Self::writable_stream_finish_erroring(ctx, objects)?;
+            objects = Self::writable_stream_finish_erroring(ctx, objects, reason)?;
         }
 
         Ok(objects)
@@ -359,19 +357,14 @@ impl<'js> WritableStream<'js> {
     fn writable_stream_finish_erroring<W: WritableStreamWriter<'js>>(
         ctx: Ctx<'js>,
         mut objects: WritableStreamObjects<'js, W>,
+        // Let storedError be stream.[[storedError]].
+        stored_error: Value<'js>,
     ) -> Result<WritableStreamObjects<'js, W>> {
         // Set stream.[[state]] to "errored".
-        objects.stream.state = WritableStreamState::Errored;
+        objects.stream.state = WritableStreamState::Errored(stored_error.clone());
 
         // Perform ! stream.[[controller]].[[ErrorSteps]]().
         objects.controller.error_steps();
-
-        // Let storedError be stream.[[storedError]].
-        let stored_error = objects
-            .stream
-            .stored_error
-            .clone()
-            .expect("stream in error state without stored error");
 
         // For each writeRequest of stream.[[writeRequests]]:
         for write_request in &mut objects.stream.write_requests {
@@ -458,7 +451,7 @@ impl<'js> WritableStream<'js> {
         // If stream.[[closeRequest]] is not undefined,
         if let Some(ref close_request) = objects.stream.close_request {
             // Reject stream.[[closeRequest]] with stream.[[storedError]].
-            let () = close_request.reject(objects.stream.stored_error.clone())?;
+            let () = close_request.reject(objects.stream.stored_error())?;
             // Set stream.[[closeRequest]] to undefined.
             objects.stream.close_request = None;
         }
@@ -470,7 +463,7 @@ impl<'js> WritableStream<'js> {
                 let () = objects
                     .writer
                     .closed_promise
-                    .reject(objects.stream.stored_error.clone())?;
+                    .reject(objects.stream.stored_error())?;
 
                 // Set writer.[[closedPromise]].[[PromiseIsHandled]] to true.
                 objects.writer.closed_promise.set_is_handled()?;
@@ -571,15 +564,16 @@ impl<'js> WritableStream<'js> {
         error: Value<'js>,
     ) -> Result<WritableStreamObjects<'js, W>> {
         // Let state be stream.[[state]].
-        match objects.stream.state {
+        match &objects.stream.state {
             // If state is "writable",
             WritableStreamState::Writable => {
                 // Perform ! WritableStreamStartErroring(stream, error).
                 Self::writable_stream_start_erroring(ctx, objects, error)
             },
-            WritableStreamState::Erroring => {
+            WritableStreamState::Erroring(ref stored_error) => {
+                let stored_error = stored_error.clone();
                 // Perform ! WritableStreamFinishErroring(stream).
-                Self::writable_stream_finish_erroring(ctx, objects)
+                Self::writable_stream_finish_erroring(ctx, objects, stored_error)
             },
             other => panic!("WritableStreamDealWithRejection must be called in state 'writable' or 'erroring', found {other:?}"),
         }
@@ -612,9 +606,9 @@ impl<'js> WritableStream<'js> {
 
         // Let state be stream.[[state]].
         // If state is "erroring",
-        if let WritableStreamState::Erroring = objects.stream.state {
+        if let WritableStreamState::Erroring(_) = objects.stream.state {
             // Set stream.[[storedError]] to undefined.
-            objects.stream.stored_error = None;
+            // (implicitly covered by change to Closed below)
 
             // If stream.[[pendingAbortRequest]] is not undefined,
             if let Some(pending_abort_request) = objects.stream.pending_abort_request.take() {
@@ -626,6 +620,7 @@ impl<'js> WritableStream<'js> {
             }
         }
 
+        // Set stream.[[state]] to "closed".
         objects.stream.state = WritableStreamState::Closed;
 
         // If writer is not undefined, resolve writer.[[closedPromise]] with undefined.
@@ -679,14 +674,22 @@ impl<'js> WritableStream<'js> {
     fn writer_mut(&mut self) -> Option<WritableStreamDefaultWriterOwned<'js>> {
         self.writer.clone().map(OwnedBorrowMut::from_class)
     }
+
+    pub(crate) fn stored_error(&self) -> Option<Value<'js>> {
+        match self.state {
+            WritableStreamState::Erroring(ref stored_error)
+            | WritableStreamState::Errored(ref stored_error) => Some(stored_error.clone()),
+            _ => None,
+        }
+    }
 }
 
-#[derive(Debug, Trace, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum WritableStreamState {
+#[derive(Debug, Trace, Clone, JsLifetime)]
+pub(crate) enum WritableStreamState<'js> {
     Writable,
     Closed,
-    Erroring,
-    Errored,
+    Erroring(Value<'js>),
+    Errored(Value<'js>),
 }
 
 #[derive(JsLifetime, Trace)]

@@ -241,15 +241,9 @@ impl<'js> ReadableStreamGenericReader<'js> {
                 ResolveablePromise::resolved_with(ctx, Ok(Value::new_undefined(ctx.clone())))?
             },
             // Otherwise,
-            ReadableStreamState::Errored => {
+            ReadableStreamState::Errored(ref stored_error) => {
                 // Set reader.[[closedPromise]] to a promise rejected with stream.[[storedError]].
-                let promise = ResolveablePromise::rejected_with(
-                    ctx,
-                    stream
-                        .stored_error
-                        .clone()
-                        .expect("ReadableStream in errored state without a stored error"),
-                )?;
+                let promise = ResolveablePromise::rejected_with(ctx, stored_error.clone())?;
 
                 // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.
                 promise.set_is_handled()?;

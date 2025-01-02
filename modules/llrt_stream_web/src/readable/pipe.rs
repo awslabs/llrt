@@ -38,11 +38,14 @@ impl<'js> ReadableStream<'js> {
         prevent_cancel: bool,
         signal: Option<Class<'js, AbortSignal<'js>>>,
     ) -> Result<Promise<'js>> {
-        let source_stored_error = source.stored_error.clone();
-        let source_closed = source.state == ReadableStreamState::Closed;
-        let dest_stored_error = dest.stored_error.clone();
+        let (source_stored_error, source_closed) = match source.state {
+            ReadableStreamState::Errored(ref stored_error) => (Some(stored_error.clone()), false),
+            ReadableStreamState::Closed => (None, true),
+            _ => (None, false),
+        };
+        let dest_stored_error = dest.stored_error();
         let dest_closing = dest.writable_stream_close_queued_or_in_flight()
-            || dest.state == WritableStreamState::Closed;
+            || matches!(dest.state, WritableStreamState::Closed);
 
         let source_controller = source.controller.clone();
 
@@ -114,7 +117,7 @@ impl<'js> ReadableStream<'js> {
                         actions.push(Box::new(move |ctx| {
                             let dest_objects = WritableStreamObjects::from_class(dest_objects);
 
-                            if dest_objects.stream.state == WritableStreamState::Writable {
+                            if matches!(dest_objects.stream.state, WritableStreamState::Writable) {
                                 // If dest.[[state]] is "writable", return ! WritableStreamAbort(dest, error).
                                 let (promise, _) = WritableStream::writable_stream_abort(
                                     ctx,
@@ -136,7 +139,7 @@ impl<'js> ReadableStream<'js> {
                         actions.push(Box::new(move |ctx| {
                             let source_objects = ReadableStreamObjects::from_class(source_objects);
 
-                            if source_objects.stream.state == ReadableStreamState::Readable {
+                            if let ReadableStreamState::Readable = source_objects.stream.state {
                                 // If source.[[state]] is "readable", return ! ReadableStreamCancel(source, error).
                                 let (promise, _) = ReadableStream::readable_stream_cancel(
                                     ctx,
@@ -566,7 +569,7 @@ impl<'js> PipeTo<'js> {
 
         let writable = {
             let dest_stream = OwnedBorrow::from_class(self.dest_objects.stream.clone());
-            dest_stream.state == WritableStreamState::Writable
+            matches!(dest_stream.state, WritableStreamState::Writable)
                 && !dest_stream.writable_stream_close_queued_or_in_flight()
         };
 
@@ -590,7 +593,7 @@ impl<'js> PipeTo<'js> {
 
         let writable = {
             let dest_stream = OwnedBorrow::from_class(self.dest_objects.stream.clone());
-            dest_stream.state == WritableStreamState::Writable
+            matches!(dest_stream.state, WritableStreamState::Writable)
                 && !dest_stream.writable_stream_close_queued_or_in_flight()
         };
 

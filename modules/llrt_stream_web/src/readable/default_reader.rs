@@ -73,12 +73,8 @@ impl<'js> ReadableStreamDefaultReader<'js> {
                 read_request.close_steps_typed(ctx, objects)?;
             },
             // Otherwise, if stream.[[state]] is "errored", perform readRequest’s error steps given stream.[[storedError]].
-            ReadableStreamState::Errored => {
-                let stored_error = objects
-                    .stream
-                    .stored_error
-                    .clone()
-                    .expect("stream in error state without stored error");
+            ReadableStreamState::Errored(ref stored_error) => {
+                let stored_error = stored_error.clone();
                 read_request.error_steps_typed(objects, stored_error)?;
             },
             // Otherwise,

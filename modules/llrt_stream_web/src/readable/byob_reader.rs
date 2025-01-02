@@ -162,13 +162,8 @@ impl<'js> ReadableStreamBYOBReader<'js> {
         objects.stream.disturbed = true;
 
         // If stream.[[state]] is "errored", perform readIntoRequest’s error steps given stream.[[storedError]].
-        if let ReadableStreamState::Errored = objects.stream.state {
-            let stored_error = objects
-                .stream
-                .stored_error
-                .clone()
-                .expect("stream in error state without stored error")
-                .clone();
+        if let ReadableStreamState::Errored(ref stored_error) = objects.stream.state {
+            let stored_error = stored_error.clone();
             read_into_request.error_steps(objects, stored_error)
         } else {
             // Otherwise, perform ! ReadableByteStreamControllerPullInto(stream.[[controller]], view, min, readIntoRequest).

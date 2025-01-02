@@ -261,9 +261,9 @@ impl<'js> ReadableStreamDefaultController<'js> {
         e: Value<'js>,
     ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
         // If stream.[[state]] is not "readable", return.
-        if objects.stream.state != ReadableStreamState::Readable {
+        if !matches!(objects.stream.state, ReadableStreamState::Readable) {
             return Ok(objects);
-        }
+        };
 
         // Perform ! ResetQueue(controller).
         objects.controller.reset_queue();
@@ -347,12 +347,11 @@ impl<'js> ReadableStreamDefaultController<'js> {
         stream: &ReadableStream<'js>,
     ) -> bool {
         // Let state be controller.[[stream]].[[state]].
-        // If controller.[[closeRequested]] is false and state is "readable", return true.
-        if !self.close_requested && stream.state == ReadableStreamState::Readable {
-            true
-        } else {
+        match stream.state {
+            // If controller.[[closeRequested]] is false and state is "readable", return true.
+            ReadableStreamState::Readable if !self.close_requested => true,
             // Otherwise, return false.
-            false
+            _ => false,
         }
     }
 
@@ -363,7 +362,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         // Let state be controller.[[stream]].[[state]].
         match stream.state {
             // If state is "errored", return null.
-            ReadableStreamState::Errored => Null(None),
+            ReadableStreamState::Errored(_) => Null(None),
             // If state is "closed", return 0.
             ReadableStreamState::Closed => Null(Some(0.0)),
             // Return controller.[[strategyHWM]] − controller.[[queueTotalSize]].

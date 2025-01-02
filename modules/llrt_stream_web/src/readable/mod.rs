@@ -58,19 +58,18 @@ use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
 pub(crate) struct ReadableStream<'js> {
     controller: ReadableStreamControllerClass<'js>,
     disturbed: bool,
-    state: ReadableStreamState,
+    state: ReadableStreamState<'js>,
     reader: Option<ReadableStreamReaderClass<'js>>,
-    stored_error: Option<Value<'js>>,
 }
 
 pub(crate) type ReadableStreamClass<'js> = Class<'js, ReadableStream<'js>>;
 pub(crate) type ReadableStreamOwned<'js> = OwnedBorrowMut<'js, ReadableStream<'js>>;
 
-#[derive(Debug, Trace, Clone, Copy, PartialEq, Eq)]
-enum ReadableStreamState {
+#[derive(Debug, Trace, Clone, JsLifetime)]
+enum ReadableStreamState<'js> {
     Readable,
     Closed,
-    Errored,
+    Errored(Value<'js>),
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
@@ -99,7 +98,6 @@ impl<'js> ReadableStream<'js> {
                 state: ReadableStreamState::Readable,
                 // Set stream.[[reader]] and stream.[[storedError]] to undefined.
                 reader: None,
-                stored_error: None,
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
                 controller: ReadableStreamControllerClass::Uninitialised,
@@ -435,9 +433,8 @@ impl<'js> ReadableStream<'js> {
         e: Value<'js>,
     ) -> Result<ReadableStreamObjects<'js, C, R>> {
         // Set stream.[[state]] to "errored".
-        objects.stream.state = ReadableStreamState::Errored;
         // Set stream.[[storedError]] to e.
-        objects.stream.stored_error = Some(e.clone());
+        objects.stream.state = ReadableStreamState::Errored(e.clone());
 
         objects = objects.with_reader(
             // If reader implements ReadableStreamDefaultReader,
@@ -623,17 +620,9 @@ impl<'js> ReadableStream<'js> {
                 objects,
             )),
             // If stream.[[state]] is "errored", return a promise rejected with stream.[[storedError]].
-            ReadableStreamState::Errored => Ok((
-                promise_rejected_with(
-                    &ctx,
-                    objects
-                        .stream
-                        .stored_error
-                        .clone()
-                        .expect("ReadableStream in errored state without a stored error"),
-                )?,
-                objects,
-            )),
+            ReadableStreamState::Errored(ref stored_error) => {
+                Ok((promise_rejected_with(&ctx, stored_error.clone())?, objects))
+            },
             ReadableStreamState::Readable => {
                 // Perform ! ReadableStreamClose(stream).
                 objects = ReadableStream::readable_stream_close(ctx.clone(), objects)?;
@@ -707,7 +696,6 @@ impl<'js> ReadableStream<'js> {
                 state: ReadableStreamState::Readable,
                 // Set stream.[[reader]] and stream.[[storedError]] to undefined.
                 reader: None,
-                stored_error: None,
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
                 controller: ReadableStreamControllerClass::Uninitialised,
@@ -749,7 +737,6 @@ impl<'js> ReadableStream<'js> {
                 state: ReadableStreamState::Readable,
                 // Set stream.[[reader]] and stream.[[storedError]] to undefined.
                 reader: None,
-                stored_error: None,
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
                 controller: ReadableStreamControllerClass::Uninitialised,

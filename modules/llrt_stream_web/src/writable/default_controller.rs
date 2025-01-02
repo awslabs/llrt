@@ -341,7 +341,7 @@ impl<'js> WritableStreamDefaultController<'js> {
 
         // If ! WritableStreamCloseQueuedOrInFlight(stream) is false and stream.[[state]] is "writable",
         if !objects.stream.writable_stream_close_queued_or_in_flight()
-            && objects.stream.state == WritableStreamState::Writable
+            && matches!(objects.stream.state, WritableStreamState::Writable)
         {
             // Let backpressure be ! WritableStreamDefaultControllerGetBackpressure(controller).
             let backpressure = objects
@@ -377,10 +377,11 @@ impl<'js> WritableStreamDefaultController<'js> {
         // Let state be stream.[[state]].
 
         // If state is "erroring",
-        if let WritableStreamState::Erroring = objects.stream.state {
+        if let WritableStreamState::Erroring(ref stored_error) = objects.stream.state {
+            let stored_error = stored_error.clone();
             // Perform ! WritableStreamFinishErroring(stream).
             // Return.
-            return WritableStream::writable_stream_finish_erroring(ctx, objects);
+            return WritableStream::writable_stream_finish_erroring(ctx, objects, stored_error);
         }
 
         let value = match objects.controller.queue.front() {
@@ -477,14 +478,14 @@ impl<'js> WritableStreamDefaultController<'js> {
                             .writable_stream_finish_in_flight_write(ctx.clone())?;
 
                         // Let state be stream.[[state]].
-                        let state = objects.stream.state;
+                        let state = &objects.stream.state;
 
                         // Perform ! DequeueValue(controller).
                         objects.controller.dequeue_value();
 
                         // If ! WritableStreamCloseQueuedOrInFlight(stream) is false and state is "writable",
                         if !objects.stream.writable_stream_close_queued_or_in_flight()
-                            && state == WritableStreamState::Writable
+                            && matches!(state, WritableStreamState::Writable)
                         {
                             // Let backpressure be ! WritableStreamDefaultControllerGetBackpressure(controller).
                             let backpressure = objects
@@ -712,7 +713,7 @@ impl<'js> WritableStreamDefaultController<'js> {
         let stream = OwnedBorrowMut::from_class(controller.stream.clone());
 
         // If state is not "writable", return.
-        if stream.state != WritableStreamState::Writable {
+        if !matches!(stream.state, WritableStreamState::Writable) {
             return Ok(());
         }
 

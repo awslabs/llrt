@@ -339,9 +339,9 @@ impl<'js> ReadableByteStreamController<'js> {
         e: Value<'js>,
     ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
         // If stream.[[state]] is not "readable", return.
-        if objects.stream.state != ReadableStreamState::Readable {
+        if !matches!(objects.stream.state, ReadableStreamState::Readable) {
             return Ok(objects);
-        }
+        };
 
         // Perform ! ReadableByteStreamControllerClearPendingPullIntos(controller).
         objects
@@ -433,7 +433,7 @@ impl<'js> ReadableByteStreamController<'js> {
         // Let state be controller.[[stream]].[[state]].
         match stream.state {
             // If state is "errored", return null.
-            ReadableStreamState::Errored => Null(None),
+            ReadableStreamState::Errored(_) => Null(None),
             // If state is "closed", return 0.
             ReadableStreamState::Closed => Null(Some(0.0)),
             // Return controller.[[strategyHWM]] − controller.[[queueTotalSize]].
@@ -455,7 +455,7 @@ impl<'js> ReadableByteStreamController<'js> {
     ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
         // If controller.[[closeRequested]] is true or stream.[[state]] is not "readable", return.
         if objects.controller.close_requested
-            || objects.stream.state != ReadableStreamState::Readable
+            || !matches!(objects.stream.state, ReadableStreamState::Readable)
         {
             return Ok(objects);
         }
@@ -499,10 +499,10 @@ impl<'js> ReadableByteStreamController<'js> {
     ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
         // If controller.[[closeRequested]] is true or stream.[[state]] is not "readable", return.
         if objects.controller.close_requested
-            || objects.stream.state != ReadableStreamState::Readable
+            || !matches!(objects.stream.state, ReadableStreamState::Readable)
         {
             return Ok(objects);
-        }
+        };
 
         // Let buffer be chunk.[[ViewedArrayBuffer]].
         // Let byteOffset be chunk.[[ByteOffset]].
@@ -948,7 +948,7 @@ impl<'js> ReadableByteStreamController<'js> {
         // Let done be false.
         let mut done = false;
         // If stream.[[state]] is "closed",
-        if let ReadableStreamState::Closed = objects.stream.state {
+        if matches!(objects.stream.state, ReadableStreamState::Closed) {
             // Set done to true.
             done = true
         }
@@ -1104,7 +1104,7 @@ impl<'js> ReadableByteStreamController<'js> {
         }
 
         // If stream.[[state]] is "closed",
-        if let ReadableStreamState::Closed = objects.stream.state {
+        if matches!(objects.stream.state, ReadableStreamState::Closed) {
             // Let emptyView be ! Construct(ctor, « pullIntoDescriptor’s buffer, pullIntoDescriptor’s byte offset, 0 »).
             let empty_view: Value<'js> = ctor.construct((
                 pull_into_descriptor.buffer,
@@ -1582,12 +1582,12 @@ impl<'js> ReadableByteStreamController<'js> {
 
         let mut stream = OwnedBorrowMut::from_class(controller.stream.clone());
 
-        if stream.state != ReadableStreamState::Readable {
+        if !matches!(stream.state, ReadableStreamState::Readable) {
             return Err(Exception::throw_type(
                 &ctx,
                 "close() called when stream is not readable",
             ));
-        }
+        };
 
         let reader = stream.reader_mut();
 
@@ -1634,12 +1634,12 @@ impl<'js> ReadableByteStreamController<'js> {
         let mut stream = OwnedBorrowMut::from_class(this.stream.clone());
 
         // If this.[[stream]].[[state]] is not "readable", throw a TypeError exception.
-        if stream.state != ReadableStreamState::Readable {
+        if !matches!(stream.state, ReadableStreamState::Readable) {
             return Err(Exception::throw_type(
                 &ctx,
                 "The stream is not in the readable state and cannot be enqueued to",
             ));
-        }
+        };
 
         let reader = stream.reader_mut();
 
