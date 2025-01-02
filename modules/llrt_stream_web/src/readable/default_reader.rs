@@ -163,12 +163,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             return promise_rejected_with(&ctx, e);
         };
 
-        let controller = ReadableStreamControllerOwned::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("ReadableStreamDefaultReader read called without controller"),
-        );
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
 
         // Let promise be a new promise.
         let promise = ResolveablePromise::new(&ctx)?;
@@ -277,12 +272,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             Some(stream) => OwnedBorrowMut::from_class(stream),
         };
 
-        let controller = ReadableStreamControllerOwned::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("ReadableStreamDefaultReader releaseLock called without controller"),
-        );
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
 
         let objects = ReadableStreamObjects {
             stream,
@@ -315,12 +305,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             Some(stream) => OwnedBorrowMut::from_class(stream),
         };
 
-        let controller = ReadableStreamControllerOwned::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("ReadableStreamDefaultReader cancel called without controller"),
-        );
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
 
         let objects = ReadableStreamObjects {
             stream,

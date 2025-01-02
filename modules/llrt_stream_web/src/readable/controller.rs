@@ -60,6 +60,7 @@ pub(super) trait ReadableStreamController<'js>: Sized {
 pub(super) enum ReadableStreamControllerClass<'js> {
     ReadableStreamDefaultController(ReadableStreamDefaultControllerClass<'js>),
     ReadableStreamByteController(ReadableByteStreamControllerClass<'js>),
+    Uninitialised, // Only for use when initialising a Stream - should never be present later on
 }
 
 impl<'js> IntoJs<'js> for ReadableStreamControllerClass<'js> {
@@ -67,6 +68,9 @@ impl<'js> IntoJs<'js> for ReadableStreamControllerClass<'js> {
         match self {
             Self::ReadableStreamDefaultController(c) => c.into_js(ctx),
             Self::ReadableStreamByteController(c) => c.into_js(ctx),
+            Self::Uninitialised => {
+                panic!("Tried to convert an uninitialised controller class to JS")
+            },
         }
     }
 }
@@ -125,6 +129,9 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamControllerOwned<'js> {
                 ReadableStreamControllerOwned::ReadableStreamByteController(
                     OwnedBorrowMut::from_class(class),
                 )
+            },
+            ReadableStreamControllerClass::Uninitialised => {
+                panic!("Tried to borrow an uninitialised controller class")
             },
         }
     }

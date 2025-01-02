@@ -134,10 +134,8 @@ impl<'js> ReadableStreamDefaultController<'js> {
         let controller_class = Class::instance(ctx.clone(), controller)?;
 
         // Set stream.[[controller]] to controller.
-        stream.controller = Some(
-            ReadableStreamControllerClass::ReadableStreamDefaultController(
-                controller_class.clone(),
-            ),
+        stream.controller = ReadableStreamControllerClass::ReadableStreamDefaultController(
+            controller_class.clone(),
         );
 
         let controller = OwnedBorrowMut::from_class(controller_class);

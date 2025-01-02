@@ -161,9 +161,8 @@ impl<'js> ReadableByteStreamController<'js> {
         let controller_class = Class::instance(ctx.clone(), controller)?;
 
         // Set stream.[[controller]] to controller.
-        stream.controller = Some(ReadableStreamControllerClass::ReadableStreamByteController(
-            controller_class.clone(),
-        ));
+        stream.controller =
+            ReadableStreamControllerClass::ReadableStreamByteController(controller_class.clone());
 
         let controller = OwnedBorrowMut::from_class(controller_class);
 

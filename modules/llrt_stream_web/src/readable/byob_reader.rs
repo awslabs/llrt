@@ -81,7 +81,7 @@ impl<'js> ReadableStreamBYOBReader<'js> {
 
         // If stream.[[controller]] does not implement ReadableByteStreamController, throw a TypeError exception.
         match stream.controller {
-            Some(ReadableStreamControllerClass::ReadableStreamByteController(_)) => {},
+            ReadableStreamControllerClass::ReadableStreamByteController(_) => {},
             _ => {
                 return Err(Exception::throw_type(
                     &ctx,
@@ -383,11 +383,10 @@ impl<'js> ReadableStreamBYOBReader<'js> {
                 .expect("ReadableStreamBYOBReader read called without stream"),
         );
 
-        let controller = stream
-            .controller
-            .clone()
-            .and_then(ReadableByteStreamControllerOwned::<'js>::try_from_erased_class)
-            .expect("releaseLock called on byob reader without byte controller");
+        let controller = ReadableByteStreamControllerOwned::<'js>::try_from_erased_class(
+            stream.controller.clone(),
+        )
+        .expect("releaseLock called on byob reader without byte controller");
 
         let objects = ReadableStreamObjects {
             stream,
@@ -419,11 +418,10 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             Some(stream) => OwnedBorrowMut::from_class(stream),
         };
 
-        let controller = stream
-            .controller
-            .clone()
-            .and_then(ReadableByteStreamControllerOwned::<'js>::try_from_erased_class)
-            .expect("releaseLock called on byob reader without byte controller");
+        let controller = ReadableByteStreamControllerOwned::<'js>::try_from_erased_class(
+            stream.controller.clone(),
+        )
+        .expect("releaseLock called on byob reader without byte controller");
 
         let objects = ReadableStreamObjects {
             stream,
@@ -457,11 +455,10 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             Some(stream) => OwnedBorrowMut::from_class(stream),
         };
 
-        let controller = stream
-            .controller
-            .clone()
-            .and_then(ReadableByteStreamControllerOwned::<'js>::try_from_erased_class)
-            .expect("releaseLock called on byob reader without byte controller");
+        let controller = ReadableByteStreamControllerOwned::<'js>::try_from_erased_class(
+            stream.controller.clone(),
+        )
+        .expect("releaseLock called on byob reader without byte controller");
 
         let objects = ReadableStreamObjects {
             stream,

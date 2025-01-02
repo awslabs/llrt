@@ -44,10 +44,7 @@ impl<'js> ReadableStream<'js> {
         let dest_closing = dest.writable_stream_close_queued_or_in_flight()
             || dest.state == WritableStreamState::Closed;
 
-        let source_controller = source
-            .controller
-            .clone()
-            .expect("pipeTo called on readable stream without controller");
+        let source_controller = source.controller.clone();
 
         let dest_controller = dest
             .controller

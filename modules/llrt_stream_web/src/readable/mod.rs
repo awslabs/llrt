@@ -56,7 +56,7 @@ use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
 pub(crate) struct ReadableStream<'js> {
-    controller: Option<ReadableStreamControllerClass<'js>>,
+    controller: ReadableStreamControllerClass<'js>,
     disturbed: bool,
     state: ReadableStreamState,
     reader: Option<ReadableStreamReaderClass<'js>>,
@@ -102,7 +102,7 @@ impl<'js> ReadableStream<'js> {
                 stored_error: None,
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
-                controller: None,
+                controller: ReadableStreamControllerClass::Uninitialised,
             },
         )?;
         let stream = OwnedBorrowMut::from_class(stream_class.clone());
@@ -186,12 +186,7 @@ impl<'js> ReadableStream<'js> {
                 ctx.eval(r#"new TypeError("Cannot cancel a stream that already has a reader")"#)?;
             return promise_rejected_with(&ctx, e);
         }
-        let controller = ReadableStreamControllerOwned::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("Cancel called on stream without a controller"),
-        );
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
         let reader = stream.reader_mut();
 
         let objects = ReadableStreamObjects {
@@ -388,12 +383,7 @@ impl<'js> ReadableStream<'js> {
         ctx: Ctx<'js>,
         stream: This<OwnedBorrowMut<'js, Self>>,
     ) -> Result<List<(Class<'js, Self>, Class<'js, Self>)>> {
-        let controller = ReadableStreamControllerOwned::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("ReadableStream tee caleld without controller"),
-        );
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
         // Return ? ReadableStreamTee(this, false).
         Ok(List(Self::readable_stream_tee(
             ctx,
@@ -431,10 +421,7 @@ impl<'js> ReadableStream<'js> {
             Some(arg) => matches!(arg.get_optional("preventCancel")?, Some(true)),
         };
 
-        let controller = stream
-            .controller
-            .clone()
-            .expect("ReadableStream iterator values called without controller");
+        let controller = stream.controller.clone();
         let stream = stream.into_inner();
 
         ReadableStreamAsyncIterator::new(ctx, stream, controller, reader, prevent_cancel)
@@ -723,7 +710,7 @@ impl<'js> ReadableStream<'js> {
                 stored_error: None,
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
-                controller: None,
+                controller: ReadableStreamControllerClass::Uninitialised,
             },
         )?;
 
@@ -765,7 +752,7 @@ impl<'js> ReadableStream<'js> {
                 stored_error: None,
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
-                controller: None,
+                controller: ReadableStreamControllerClass::Uninitialised,
             },
         )?;
 

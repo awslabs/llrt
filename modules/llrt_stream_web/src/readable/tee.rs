@@ -734,9 +734,9 @@ impl<'js> ReadableStream<'js> {
 
                     let branch_2 = OwnedBorrowMut::from_class(branch_2.get().cloned().expect("ReadableByteStream tee pull1 algorithm called without branch2 being initialised"));
                     let branch_2_controller = match branch_2.controller {
-                        Some(ReadableStreamControllerClass::ReadableStreamByteController(
-                            ref c,
-                        )) => OwnedBorrowMut::from_class(c.clone()),
+                        ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
+                            OwnedBorrowMut::from_class(c.clone())
+                        },
                         _ => {
                             panic!("ReadableByteStream tee pull1 algorithm called without branch2 having a byte controller")
                         },
@@ -786,9 +786,9 @@ impl<'js> ReadableStream<'js> {
                     let branch_2 = OwnedBorrowMut::from_class(branch_2.get().cloned().expect("ReadableByteStream tee pull2 algorithm called without branch2 being initialised"));
                     let branch_1 = OwnedBorrowMut::from_class(branch_1.get().cloned().expect("ReadableByteStream tee pull2 algorithm called without branch1 being initialised"));
                     let branch_1_controller = match branch_1.controller {
-                        Some(ReadableStreamControllerClass::ReadableStreamByteController(
-                            ref c,
-                        )) => OwnedBorrowMut::from_class(c.clone()),
+                        ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
+                            OwnedBorrowMut::from_class(c.clone())
+                        },
                         _ => {
                             panic!("ReadableByteStream tee pull2 algorithm called without branch1 having a byte controller")
                         },
