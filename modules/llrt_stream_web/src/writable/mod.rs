@@ -16,7 +16,7 @@ use writer::{UndefinedWriter, WritableStreamWriter};
 use super::{
     promise_rejected_with, promise_resolved_with, upon_promise, Null, ObjectExt, Undefined,
 };
-use crate::{queueing_strategy::QueuingStrategy, ResolveablePromise};
+use crate::{new_type_error, queueing_strategy::QueuingStrategy, ResolveablePromise};
 
 mod default_controller;
 mod default_writer;
@@ -112,8 +112,7 @@ impl<'js> WritableStream<'js> {
     ) -> Result<Promise<'js>> {
         if stream.is_writable_stream_locked() {
             // If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value =
-                ctx.eval(r#"new TypeError("Cannot abort a stream that already has a writer")"#)?;
+            let e: Value = new_type_error(&ctx, "Cannot abort a stream that already has a writer")?;
             return promise_rejected_with(&ctx, e);
         }
 
@@ -139,15 +138,13 @@ impl<'js> WritableStream<'js> {
     fn close(ctx: Ctx<'js>, stream: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         if stream.is_writable_stream_locked() {
             // If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value =
-                ctx.eval(r#"new TypeError("Cannot close a stream that already has a writer")"#)?;
+            let e: Value = new_type_error(&ctx, "Cannot close a stream that already has a writer")?;
             return promise_rejected_with(&ctx, e);
         }
 
         if Self::writable_stream_close_queued_or_in_flight(&stream.0) {
             // If ! WritableStreamCloseQueuedOrInFlight(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value =
-                ctx.eval(r#"new TypeError("Cannot close an already-closing stream")"#)?;
+            let e: Value = new_type_error(&ctx, "Cannot close an already-closing stream")?;
             return promise_rejected_with(&ctx, e);
         }
 
@@ -280,8 +277,9 @@ impl<'js> WritableStream<'js> {
             objects.stream.state,
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
-            let e: Value = ctx.eval(
-                r#"new TypeError("The stream is not in the writable state and cannot be closed")"#,
+            let e: Value = new_type_error(
+                &ctx,
+                "The stream is not in the writable state and cannot be closed",
             )?;
             return Ok((promise_rejected_with(&ctx, e)?, objects));
         }

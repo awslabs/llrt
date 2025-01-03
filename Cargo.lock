@@ -1933,8 +1933,10 @@ name = "llrt_stream_web"
 version = "0.4.0-beta"
 dependencies = [
  "llrt_abort",
+ "llrt_test",
  "llrt_utils",
  "rquickjs",
+ "tokio",
 ]
 
 [[package]]

@@ -10,7 +10,7 @@ use super::{
     writer::WritableStreamWriter, ResolveablePromise, WritableStream, WritableStreamOwned,
     WritableStreamState,
 };
-use crate::{promise_rejected_with, promise_resolved_with, Null};
+use crate::{new_type_error, promise_rejected_with, promise_resolved_with, Null};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
@@ -78,7 +78,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         match writer.0.stream {
             None => {
                 let e: Value =
-                    ctx.eval(r#"new TypeError("Cannot abort a stream using a released writer")"#)?;
+                    new_type_error(&ctx, "Cannot abort a stream using a released writer")?;
 
                 promise_rejected_with(&ctx, e)
             },
@@ -108,7 +108,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         match writer.0.stream {
             None => {
                 let e: Value =
-                    ctx.eval(r#"new TypeError("Cannot close a stream using a released writer")"#)?;
+                    new_type_error(&ctx, "Cannot close a stream using a released writer")?;
 
                 promise_rejected_with(&ctx, e)
             },
@@ -116,8 +116,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
                 let stream = OwnedBorrowMut::from_class(stream.clone());
                 // If ! WritableStreamCloseQueuedOrInFlight(stream) is true, return a promise rejected with a TypeError exception.
                 if stream.writable_stream_close_queued_or_in_flight() {
-                    let e: Value =
-                        ctx.eval(r#"new TypeError("Cannot close an already-closing stream")"#)?;
+                    let e: Value = new_type_error(&ctx, "Cannot close an already-closing stream")?;
 
                     return promise_rejected_with(&ctx, e);
                 }
@@ -178,7 +177,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         match writer.0.stream {
             None => {
                 let e: Value =
-                    ctx.eval(r#"new TypeError("Cannot write a stream using a released writer")"#)?;
+                    new_type_error(&ctx, "Cannot write a stream using a released writer")?;
 
                 promise_rejected_with(&ctx, e)
             },
@@ -398,8 +397,10 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         mut objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
     ) -> Result<()> {
         // Let releasedError be a new TypeError.
-        let released_error: Value =
-            ctx.eval(r#"new TypeError("Writer was released and can no longer be used to monitor the stream's closedness")"#)?;
+        let released_error: Value = new_type_error(
+            ctx,
+            "Writer was released and can no longer be used to monitor the stream's closedness",
+        )?;
 
         // Perform ! WritableStreamDefaultWriterEnsureReadyPromiseRejected(writer, releasedError).
         objects
@@ -440,7 +441,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         // If stream is not equal to writer.[[stream]], return a promise rejected with a TypeError exception.
         if objects.writer.stream != Some(stream_class) {
             let e: Value =
-                ctx.eval(r#"new TypeError("Cannot write to a stream using a released writer")"#)?;
+                new_type_error(&ctx, "Cannot write to a stream using a released writer")?;
 
             return promise_rejected_with(&ctx, e);
         }
@@ -455,8 +456,9 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         if objects.stream.writable_stream_close_queued_or_in_flight()
             || matches!(objects.stream.state, WritableStreamState::Closed)
         {
-            let e: Value = ctx.eval(
-                r#"new TypeError("The stream is closing or closed and cannot be written to")"#,
+            let e: Value = new_type_error(
+                &ctx,
+                "The stream is closing or closed and cannot be written to",
             )?;
 
             return promise_rejected_with(&ctx, e);

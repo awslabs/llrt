@@ -6,7 +6,11 @@ use controller::{
 };
 use iterator::{IteratorKind, IteratorRecord, ReadableStreamAsyncIterator};
 use llrt_abort::AbortSignal;
-use llrt_utils::{error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED, result::ResultExt};
+use llrt_utils::{
+    error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
+    primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
+};
 use objects::{ReadableStreamClassObjects, ReadableStreamObjects};
 use reader::{
     ReadableStreamReader, ReadableStreamReaderClass, ReadableStreamReaderOwned, UndefinedReader,
@@ -14,7 +18,6 @@ use reader::{
 use rquickjs::{
     atom::PredefinedAtom,
     class::{OwnedBorrowMut, Trace, Tracer},
-    function::Constructor,
     prelude::{List, MutFn, OnceFn, Opt, This},
     ArrayBuffer, Class, Ctx, Error, Exception, FromJs, Function, IntoJs, JsLifetime, Object,
     Promise, Result, Type, Value,
@@ -44,7 +47,6 @@ pub(crate) use byte_controller::{ReadableByteStreamController, ReadableStreamBYO
 pub(crate) use default_controller::ReadableStreamDefaultController;
 pub(crate) use default_reader::ReadableStreamDefaultReader;
 
-use crate::readable::byob_reader::ReadableStreamBYOBReaderOwned;
 use crate::readable::byte_controller::{
     ReadableByteStreamControllerClass, ReadableByteStreamControllerOwned,
 };
@@ -52,6 +54,7 @@ use crate::readable::default_controller::{
     ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
 };
 use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
+use crate::{new_type_error, readable::byob_reader::ReadableStreamBYOBReaderOwned};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
@@ -181,7 +184,7 @@ impl<'js> ReadableStream<'js> {
         // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
         if stream.is_readable_stream_locked() {
             let e: Value =
-                ctx.eval(r#"new TypeError("Cannot cancel a stream that already has a reader")"#)?;
+                new_type_error(&ctx, "Cannot cancel a stream that already has a reader")?;
             return promise_rejected_with(&ctx, e);
         }
         let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
@@ -307,14 +310,17 @@ impl<'js> ReadableStream<'js> {
         options: Opt<Value<'js>>,
     ) -> Result<Promise<'js>> {
         let Ok(stream) = ReadableStreamClass::<'js>::from_value(&stream.0) else {
-            let e: Value =
-                ctx.eval(r#"new TypeError("'pipeTo' called on an object that is not a valid instance of ReadableStream.")"#)?;
+            let e: Value = new_type_error(
+                &ctx,
+                "'pipeTo' called on an object that is not a valid instance of ReadableStream.",
+            )?;
             return promise_rejected_with(&ctx, e);
         };
 
         let Ok(destination) = Class::<WritableStream<'js>>::from_value(&destination) else {
-            let e: Value = ctx.eval(
-                r#"new TypeError("Failed to execute 'pipeTo' on 'ReadableStream': parameter 1")"#,
+            let e: Value = new_type_error(
+                &ctx,
+                "Failed to execute 'pipeTo' on 'ReadableStream': parameter 1",
             )?;
             return promise_rejected_with(&ctx, e);
         };
@@ -338,15 +344,19 @@ impl<'js> ReadableStream<'js> {
 
         // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
         if stream.is_readable_stream_locked() {
-            let e: Value =
-                ctx.eval(r#"new TypeError("ReadableStream.prototype.pipeTo cannot be used on a locked ReadableStream")"#)?;
+            let e: Value = new_type_error(
+                &ctx,
+                "ReadableStream.prototype.pipeTo cannot be used on a locked ReadableStream",
+            )?;
             return promise_rejected_with(&ctx, e);
         }
 
         // If ! IsWritableStreamLocked(destination) is true, return a promise rejected with a TypeError exception.
         if destination.is_writable_stream_locked() {
-            let e: Value =
-                ctx.eval(r#"new TypeError("ReadableStream.prototype.pipeTo cannot be used on a locked WritableStream")"#)?;
+            let e: Value = new_type_error(
+                &ctx,
+                "ReadableStream.prototype.pipeTo cannot be used on a locked WritableStream",
+            )?;
             return promise_rejected_with(&ctx, e);
         }
 
@@ -357,7 +367,7 @@ impl<'js> ReadableStream<'js> {
             Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
                 Ok(signal) => Some(signal),
                 Err(_) => {
-                    let e: Value = ctx.eval(r#"new TypeError("Invalid signal argument")"#)?;
+                    let e: Value = new_type_error(&ctx, "Invalid signal argument")?;
                     return promise_rejected_with(&ctx, e);
                 },
             },
@@ -801,9 +811,7 @@ impl<'js> ReadableStream<'js> {
                     let iter_result = match iter_result.into_object() {
                         // If Type(iterResult) is not Object, throw a TypeError.
                         None => {
-                            let e: Value = ctx
-                                .eval(r#"new TypeError("The promise returned by the iterator.next() method must fulfill with an object")"#)?;
-                            return Err(ctx.throw(e));
+                            return Err(Exception::throw_type(&ctx, "The promise returned by the iterator.next() method must fulfill with an object"));
                         }
                         Some(iter_result) => iter_result,
                     };
@@ -884,9 +892,7 @@ impl<'js> ReadableStream<'js> {
                         move |iter_result: Value<'js>| {
                             // If Type(iterResult) is not Object, throw a TypeError.
                             if !iter_result.is_object() {
-                                let e: Value = ctx
-                                    .eval(r#"new TypeError("The promise returned by the iterator.next() method must fulfill with an object")"#)?;
-                                return Err(ctx.throw(e));
+                                return Err(Exception::throw_type(&ctx, "The promise returned by the iterator.next() method must fulfill with an object"));
                             }
                             // Return undefined.
                             Ok(Value::new_undefined(ctx))
@@ -1064,9 +1070,8 @@ impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
                     }
 
                     // call the Boolean constructor to determine falsiness
-                    let bool_object: Object<'js> = ctx
-                        .globals()
-                        .get::<_, Constructor<'js>>(PredefinedAtom::Boolean)?
+                    let bool_object: Object<'js> = BasePrimordials::get(ctx)?
+                        .constructor_bool
                         .construct((value,))?;
 
                     bool_object

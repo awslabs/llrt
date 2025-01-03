@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{
+    bytes::ObjectBytes,
+    primordials::{BasePrimordials, Primordial},
+};
 use rquickjs::{
     atom::PredefinedAtom,
     class::{JsClass, OwnedBorrowMut, Trace, Tracer},
@@ -19,9 +22,9 @@ use super::{
     reader::{ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned},
     ObjectExt, ReadableStreamOwned, ReadableStreamReadResult, ReadableStreamState,
 };
-use crate::readable::byte_controller::ReadableByteStreamControllerOwned;
-use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
 use crate::{downgrade_owned_borrow_mut, ResolveablePromise};
+use crate::{new_range_error, readable::default_reader::ReadableStreamDefaultReaderOwned};
+use crate::{new_type_error, readable::byte_controller::ReadableByteStreamControllerOwned};
 
 #[derive(Trace)]
 #[rquickjs::class]
@@ -135,7 +138,7 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             })?;
 
         // Let e be a new TypeError exception.
-        let e: Value = ctx.eval(r#"new TypeError("Reader was released")"#)?;
+        let e: Value = new_type_error(ctx, "Reader was released")?;
         // Perform ! ReadableStreamBYOBReaderErrorReadIntoRequests(reader, e).
         Self::readable_stream_byob_reader_error_read_into_requests(objects, e)
     }
@@ -228,26 +231,25 @@ impl<'js> ReadableStreamBYOBReader<'js> {
 
         // If view.[[ByteLength]] is 0, return a promise rejected with a TypeError exception.
         if byte_length == 0 {
-            let e: Value = ctx.eval(r#"new TypeError("view must have non-zero byteLength")"#)?;
+            let e: Value = new_type_error(&ctx, "view must have non-zero byteLength")?;
             return promise_rejected_with(&ctx, e);
         }
 
         // If view.[[ViewedArrayBuffer]].[[ArrayBufferByteLength]] is 0, return a promise rejected with a TypeError exception.
         if buffer.is_empty() {
-            let e: Value =
-                ctx.eval(r#"new TypeError("view's buffer must have non-zero byteLength")"#)?;
+            let e: Value = new_type_error(&ctx, "view's buffer must have non-zero byteLength")?;
             return promise_rejected_with(&ctx, e);
         }
 
         // If ! IsDetachedBuffer(view.[[ViewedArrayBuffer]]) is true, return a promise rejected with a TypeError exception.
         if buffer.as_bytes().is_none() {
-            let e: Value = ctx.eval(r#"new TypeError("view's buffer has been detached")"#)?;
+            let e: Value = new_type_error(&ctx, "view's buffer has been detached")?;
             return promise_rejected_with(&ctx, e);
         }
 
         // If options["min"] is 0, return a promise rejected with a TypeError exception.
         if options.min == 0 {
-            let e: Value = ctx.eval(r#"new TypeError("options.min must be greater than 0")"#)?;
+            let e: Value = new_type_error(&ctx, "options.min must be greater than 0")?;
             return promise_rejected_with(&ctx, e);
         }
 
@@ -268,8 +270,9 @@ impl<'js> ReadableStreamBYOBReader<'js> {
         if let Some(typed_array_len) = typed_array_len {
             // If options["min"] > view.[[ArrayLength]], return a promise rejected with a RangeError exception.
             if options.min > typed_array_len as u64 {
-                let e: Value = ctx.eval(
-                    r#"new RangeError("options.min must be less than or equal to views length")"#,
+                let e: Value = new_range_error(
+                    &ctx,
+                    "options.min must be less than or equal to views length",
                 )?;
                 return promise_rejected_with(&ctx, e);
             }
@@ -277,8 +280,9 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             // Otherwise (i.e., it is a DataView),
             // If options["min"] > view.[[ByteLength]], return a promise rejected with a RangeError exception.
             if options.min > byte_length as u64 {
-                let e: Value = ctx.eval(
-                    r#"new RangeError("options.min must be less than or equal to views byteLength")"#,
+                let e: Value = new_range_error(
+                    &ctx,
+                    "options.min must be less than or equal to views byteLength",
                 )?;
                 return promise_rejected_with(&ctx, e);
             }
@@ -286,8 +290,7 @@ impl<'js> ReadableStreamBYOBReader<'js> {
 
         // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
         if reader.generic.stream.is_none() {
-            let e: Value =
-                ctx.eval(r#"new TypeError("Cannot read a stream using a released reader")"#)?;
+            let e: Value = new_type_error(&ctx, "Cannot read a stream using a released reader")?;
             return promise_rejected_with(&ctx, e);
         }
 
@@ -444,7 +447,7 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
             None => {
                 let e: Value =
-                    ctx.eval(r#"new TypeError("Cannot cancel a stream using a released reader")"#)?;
+                    new_type_error(&ctx, "Cannot cancel a stream using a released reader")?;
                 return promise_rejected_with(&ctx, e);
             },
             Some(stream) => OwnedBorrowMut::from_class(stream),
@@ -555,10 +558,8 @@ pub(super) struct ViewBytes<'js>(ObjectBytes<'js>);
 
 impl<'js> ViewBytes<'js> {
     pub(super) fn from_object(ctx: &Ctx<'js>, object: &Object<'js>) -> Result<Self> {
-        let ab = ctx
-            .globals()
-            .get::<_, Object>(rquickjs::atom::PredefinedAtom::ArrayBuffer)?;
-        if ab
+        if BasePrimordials::get(ctx)?
+            .constructor_arraybuffer
             .get::<_, Function>("isView")?
             .call::<_, bool>((object.clone(),))?
         {

@@ -4,12 +4,11 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 use rquickjs::{
-    atom::PredefinedAtom,
     class::{OwnedBorrowMut, Trace},
-    function::Constructor,
     prelude::{List, OnceFn},
-    ArrayBuffer, Class, Ctx, Error, FromJs, Function, IntoJs, Promise, Result, Value,
+    ArrayBuffer, Class, Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
 use super::{
@@ -395,9 +394,8 @@ impl<'js> ReadableStream<'js> {
                                     // If canceled2 is false and cloneForBranch2 is true,
                                     let chunk_2 = if this.reason_2.get().is_none() && this.clone_for_branch_2 {
                                         // Let cloneResult be StructuredClone(chunk2).
-                                        let clone_result: Result<Value<'_>> = ctx
-                                            .globals()
-                                            .get::<_, Function>("structuredClone")?
+                                        let clone_result: Result<Value<'_>> = TeePrimordials::get(&ctx)?
+                                            .structured_clone
                                             .call((chunk_2,));
                                         match clone_result {
                                             // If cloneResult is an abrupt completion,
@@ -1967,6 +1965,23 @@ fn clone_as_uint8_array<'js>(ctx: Ctx<'js>, chunk: ViewBytes<'js>) -> Result<Vie
 
     // Let array be ! Construct(%Uint8Array%, « buffer »).
     // Return array.
-    let ctor: Constructor = ctx.globals().get(PredefinedAtom::Uint8Array)?;
-    ctor.construct((buffer,))
+    BasePrimordials::get(&ctx)?
+        .constructor_uint8array
+        .construct((buffer,))
+}
+
+#[derive(JsLifetime)]
+struct TeePrimordials<'js> {
+    structured_clone: Function<'js>,
+}
+
+impl<'js> Primordial<'js> for TeePrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            structured_clone: ctx.globals().get("structuredClone")?,
+        })
+    }
 }

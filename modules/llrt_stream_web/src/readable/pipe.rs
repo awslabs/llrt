@@ -5,10 +5,9 @@ use std::{
 };
 
 use llrt_abort::AbortSignal;
+use llrt_utils::primordials::Primordial;
 use rquickjs::{
-    atom::PredefinedAtom,
     class::{OwnedBorrow, Trace},
-    function::Constructor,
     prelude::{OnceFn, This},
     Class, Ctx, Function, Promise, Result, Value,
 };
@@ -20,12 +19,12 @@ use super::{
     ReadableStreamReadRequest, ReadableStreamState, WritableStreamDefaultWriter,
 };
 use crate::{
-    promise_resolved_with, upon_promise,
+    new_type_error, promise_resolved_with, upon_promise,
     writable::{
         WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriterOwned,
         WritableStreamObjects, WritableStreamOwned, WritableStreamState,
     },
-    ResolveablePromise, Undefined,
+    PromisePrimordials, ResolveablePromise, Undefined,
 };
 
 impl<'js> ReadableStream<'js> {
@@ -159,17 +158,16 @@ impl<'js> ReadableStream<'js> {
                     pipe_to.shutdown_with_action(
                         ctx,
                         |ctx| {
-                            let promise: Constructor<'js> =
-                                ctx.globals().get(PredefinedAtom::Promise)?;
-                            let promise_all: Function<'js> = promise.get("all")?;
+                            let primordials = PromisePrimordials::get(&ctx)?;
 
                             let promises: Vec<Promise<'js>> = actions
                                 .into_iter()
                                 .map(|action| action(ctx.clone()))
                                 .collect::<Result<Vec<_>>>()?;
 
-                            let all_promises: Promise<'js> =
-                                promise_all.call((This(promise), promises))?;
+                            let all_promises: Promise<'js> = primordials
+                                .promise_all
+                                .call((This(primordials.promise_constructor.clone()), promises))?;
 
                             Ok(all_promises)
                         },
@@ -295,7 +293,10 @@ impl<'js> ReadableStream<'js> {
 
         // Closing must be propagated backward
         if dest_closing {
-            let dest_closed: Value<'js> = ctx.eval(r#"new TypeError('the destination writable stream closed before all data could be piped to it')"#)?;
+            let dest_closed: Value<'js> = new_type_error(
+                &ctx,
+                "the destination writable stream closed before all data could be piped to it",
+            )?;
 
             if !prevent_cancel {
                 pipe_to.shutdown_with_action(

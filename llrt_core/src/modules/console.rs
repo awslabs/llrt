@@ -4,6 +4,7 @@ use std::{
     collections::HashSet,
     fmt::Write as FormatWrite,
     io::{stderr, stdout, IsTerminal, Write},
+    ops::Deref,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
@@ -716,7 +717,7 @@ impl<'js> FormatOptions<'js> {
         let object_filter = Filter::new().private().string().symbol();
 
         let custom_inspect_symbol = primordials.symbol_custom_inspect.clone();
-        let number_function = primordials.function_number.clone();
+        let number_function = primordials.constructor_number.deref().clone();
 
         let options = FormatOptions {
             color,

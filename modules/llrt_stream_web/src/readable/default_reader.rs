@@ -16,7 +16,7 @@ use super::{
     ReadableStreamOwned, ReadableStreamReadRequest, ReadableStreamReadResult, ReadableStreamReader,
     ReadableStreamState,
 };
-use crate::{downgrade_owned_borrow_mut, ResolveablePromise};
+use crate::{downgrade_owned_borrow_mut, new_type_error, ResolveablePromise};
 
 #[derive(Trace)]
 #[rquickjs::class]
@@ -133,7 +133,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             })?;
 
         // Let e be a new TypeError exception.
-        let e: Value = ctx.eval(r#"new TypeError("Reader was released")"#)?;
+        let e: Value = new_type_error(ctx, "Reader was released")?;
 
         // Perform ! ReadableStreamDefaultReaderErrorReadRequests(reader, e).
         Self::readable_stream_default_reader_error_read_requests(objects, e)
@@ -155,7 +155,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
         } else {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
             let e: Value =
-                ctx.eval(r#"new TypeError("Cannot read from a stream using a released reader")"#)?;
+                new_type_error(&ctx, "Cannot read from a stream using a released reader")?;
             return promise_rejected_with(&ctx, e);
         };
 
@@ -295,7 +295,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
             None => {
                 let e: Value =
-                    ctx.eval(r#"new TypeError("Cannot cancel a stream using a released reader")"#)?;
+                    new_type_error(&ctx, "Cannot cancel a stream using a released reader")?;
                 return promise_rejected_with(&ctx, e);
             },
             Some(stream) => OwnedBorrowMut::from_class(stream),

@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use llrt_abort::{AbortController, AbortSignal};
+use llrt_utils::{object::CreateSymbol, primordials::Primordial};
 use rquickjs::{
     class::{JsClass, OwnedBorrowMut, Trace},
     function::Constructor,
@@ -33,7 +34,6 @@ pub(crate) struct WritableStreamDefaultController<'js> {
     pub(super) abort_controller: Class<'js, AbortController<'js>>,
     stream: WritableStreamClass<'js>,
     write_algorithm: Option<WriteAlgorithm<'js>>,
-    close_sentinel: Symbol<'js>,
 }
 
 pub(crate) type WritableStreamDefaultControllerClass<'js> =
@@ -116,10 +116,7 @@ impl<'js> WritableStreamDefaultController<'js> {
         // TODO: needed?
         let (stream_class, mut stream) = class_from_owned_borrow_mut(stream);
 
-        let close_sentinel = ctx.eval("Symbol('close sentinel')")?;
         let controller = Self {
-            close_sentinel,
-
             // Set controller.[[stream]] to stream.
             stream: stream_class,
 
@@ -207,11 +204,13 @@ impl<'js> WritableStreamDefaultController<'js> {
         ctx: Ctx<'js>,
         mut objects: WritableStreamObjects<'js, W>,
     ) -> Result<WritableStreamObjects<'js, W>> {
-        let close_sentinel = objects.controller.close_sentinel.clone().into_value();
         // Perform ! EnqueueValueWithSize(controller, close sentinel, 0).
         objects.controller.enqueue_value_with_size(
             &ctx,
-            close_sentinel,
+            WritableStreamDefaultControllerPrimordials::get(&ctx)?
+                .close_sentinel
+                .as_value()
+                .clone(),
             Value::new_number(ctx.clone(), 0.0),
         )?;
 
@@ -393,7 +392,9 @@ impl<'js> WritableStreamDefaultController<'js> {
             Some(value) => value.clone(),
         };
 
-        if value.value.as_symbol() == Some(&objects.controller.close_sentinel) {
+        if value.value.as_symbol()
+            == Some(&WritableStreamDefaultControllerPrimordials::get(&ctx)?.close_sentinel)
+        {
             // If value is the close sentinel, perform ! WritableStreamDefaultControllerProcessClose(controller).
             Self::writable_stream_default_controller_process_close(ctx, objects)
         } else {
@@ -832,5 +833,21 @@ impl<'js> AbortAlgorithm<'js> {
                 f.call::<_, Value>((This(underlying_sink.clone()), reason)),
             ),
         }
+    }
+}
+
+#[derive(JsLifetime)]
+struct WritableStreamDefaultControllerPrimordials<'js> {
+    close_sentinel: Symbol<'js>,
+}
+
+impl<'js> Primordial<'js> for WritableStreamDefaultControllerPrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            close_sentinel: Symbol::for_description(ctx, "close sentinel")?,
+        })
     }
 }

@@ -1,6 +1,9 @@
 use std::{cell::Cell, rc::Rc};
 
-use llrt_utils::module::{export_default, ModuleInfo};
+use llrt_utils::{
+    module::{export_default, ModuleInfo},
+    primordials::{BasePrimordials, Primordial},
+};
 use queueing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
 use readable::{
     ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader,
@@ -221,25 +224,50 @@ impl<'js> ObjectExt<'js> for Value<'js> {
 }
 
 fn promise_rejected_with<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Promise<'js>> {
-    let promise: Constructor<'js> = ctx.globals().get(PredefinedAtom::Promise)?;
-    let promise_reject: Function<'js> = promise.get("reject")?;
-
-    promise_reject.call((This(promise), value))
+    let primordials = PromisePrimordials::get(ctx)?;
+    primordials
+        .promise_reject
+        .call((This(primordials.promise_constructor.clone()), value))
 }
 
 fn promise_resolved_with<'js>(ctx: &Ctx<'js>, value: Result<Value<'js>>) -> Result<Promise<'js>> {
-    let promise: Constructor<'js> = ctx.globals().get(PredefinedAtom::Promise)?;
+    let primordials = PromisePrimordials::get(ctx)?;
 
     match value {
-        Ok(value) => {
-            let promise_resolve: Function<'js> = promise.get("resolve")?;
-            promise_resolve.call((This(promise.clone()), value))
-        },
-        Err(Error::Exception) => {
-            let promise_reject: Function<'js> = promise.get("reject")?;
-            promise_reject.call((This(promise.clone()), ctx.catch()))
-        },
+        Ok(value) => primordials
+            .promise_resolve
+            .call((This(primordials.promise_constructor.clone()), value)),
+        Err(Error::Exception) => primordials
+            .promise_reject
+            .call((This(primordials.promise_constructor.clone()), ctx.catch())),
         Err(err) => Err(err),
+    }
+}
+
+#[derive(JsLifetime)]
+struct PromisePrimordials<'js> {
+    promise_constructor: Constructor<'js>,
+    promise_resolve: Function<'js>,
+    promise_reject: Function<'js>,
+    promise_all: Function<'js>,
+}
+
+impl<'js> Primordial<'js> for PromisePrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let promise_constructor: Constructor<'js> = ctx.globals().get(PredefinedAtom::Promise)?;
+        let promise_resolve: Function<'js> = promise_constructor.get("resolve")?;
+        let promise_reject: Function<'js> = promise_constructor.get("reject")?;
+        let promise_all: Function<'js> = promise_constructor.get("all")?;
+
+        Ok(Self {
+            promise_constructor,
+            promise_resolve,
+            promise_reject,
+            promise_all,
+        })
     }
 }
 
@@ -361,4 +389,16 @@ impl<'js> Trace<'js> for ResolveablePromise<'js> {
         self.resolve.trace(tracer);
         self.reject.trace(tracer);
     }
+}
+
+fn new_type_error<'js>(ctx: &Ctx<'js>, message: &str) -> Result<Value<'js>> {
+    let constructor_type_error = BasePrimordials::get(ctx)?.constructor_type_error.clone();
+
+    constructor_type_error.call((message,))
+}
+
+fn new_range_error<'js>(ctx: &Ctx<'js>, message: &str) -> Result<Value<'js>> {
+    let constructor_type_error = BasePrimordials::get(ctx)?.constructor_range_error.clone();
+
+    constructor_type_error.call((message,))
 }

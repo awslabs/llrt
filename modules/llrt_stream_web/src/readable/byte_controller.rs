@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
 
-use llrt_utils::result::ResultExt;
+use llrt_utils::{
+    primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
+};
 use rquickjs::{
-    atom::PredefinedAtom,
     class::{OwnedBorrow, OwnedBorrowMut, Trace},
     function::Constructor,
     methods,
@@ -27,7 +29,7 @@ use super::{
     ReadableStreamClass, ReadableStreamOwned, ReadableStreamReadRequest, ReadableStreamState,
     StartAlgorithm, Undefined, UnderlyingSource,
 };
-use crate::{class_from_owned_borrow_mut, upon_promise};
+use crate::{class_from_owned_borrow_mut, new_type_error, upon_promise};
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
@@ -399,12 +401,13 @@ impl<'js> ReadableByteStreamController<'js> {
             let first_descriptor = &controller.pending_pull_intos[0];
 
             // Let view be ! Construct(%Uint8Array%, « firstDescriptor’s buffer, firstDescriptor’s byte offset + firstDescriptor’s bytes filled, firstDescriptor’s byte length − firstDescriptor’s bytes filled »).
-            let ctor: Constructor = ctx.globals().get(PredefinedAtom::Uint8Array)?;
-            let view: ViewBytes = ctor.construct((
-                first_descriptor.buffer.clone(),
-                first_descriptor.byte_offset + first_descriptor.bytes_filled,
-                first_descriptor.byte_length - first_descriptor.bytes_filled,
-            ))?;
+            let view: ViewBytes = BasePrimordials::get(&ctx)?
+                .constructor_uint8array
+                .construct((
+                    first_descriptor.buffer.clone(),
+                    first_descriptor.byte_offset + first_descriptor.bytes_filled,
+                    first_descriptor.byte_length - first_descriptor.bytes_filled,
+                ))?;
 
             let (controller_class, mut controller) = class_from_owned_borrow_mut(controller);
 
@@ -474,8 +477,9 @@ impl<'js> ReadableByteStreamController<'js> {
             // If the remainder after dividing firstPendingPullInto’s bytes filled by firstPendingPullInto’s element size is not 0,
             if first_pending_pull_into.bytes_filled % first_pending_pull_into.element_size != 0 {
                 // Let e be a new TypeError exception.
-                let e: Value = ctx.eval(
-                    r#"new TypeError("Insufficient bytes to fill elements in the given buffer")"#,
+                let e: Value = new_type_error(
+                    &ctx,
+                    "Insufficient bytes to fill elements in the given buffer",
                 )?;
                 Self::readable_byte_stream_controller_error(objects, e.clone())?;
                 return Err(ctx.throw(e));
@@ -580,9 +584,9 @@ impl<'js> ReadableByteStreamController<'js> {
                     }
 
                     // Let transferredView be ! Construct(%Uint8Array%, « transferredBuffer, byteOffset, byteLength »).
-                    let ctor: Constructor = ctx.globals().get(PredefinedAtom::Uint8Array)?;
-                    let transferred_view: ViewBytes =
-                        ctor.construct((transferred_buffer.clone(), byte_offset, byte_length))?;
+                    let transferred_view: ViewBytes = BasePrimordials::get(ctx)?
+                        .constructor_uint8array
+                        .construct((transferred_buffer.clone(), byte_offset, byte_length))?;
 
                     // Perform ! ReadableStreamFulfillReadRequest(stream, transferredView, false).
                     objects = ReadableStream::readable_stream_fulfill_read_request(
@@ -829,9 +833,9 @@ impl<'js> ReadableByteStreamController<'js> {
         objects = Self::readable_byte_stream_controller_handle_queue_drain(ctx.clone(), objects)?;
 
         // Let view be ! Construct(%Uint8Array%, « entry’s buffer, entry’s byte offset, entry’s byte length »).
-        let ctor: Constructor = ctx.globals().get(PredefinedAtom::Uint8Array)?;
-        let view: TypedArray<u8> =
-            ctor.construct((entry.buffer, entry.byte_offset, entry.byte_length))?;
+        let view: TypedArray<u8> = BasePrimordials::get(ctx)?
+            .constructor_uint8array
+            .construct((entry.buffer, entry.byte_offset, entry.byte_length))?;
 
         // Perform readRequest’s chunk steps, given view.
         read_request.chunk_steps_typed(objects, view.into_value())
@@ -1148,8 +1152,9 @@ impl<'js> ReadableByteStreamController<'js> {
             // If controller.[[closeRequested]] is true,
             if objects.controller.close_requested {
                 // Let e be a TypeError exception.
-                let e: Value = ctx.eval(
-                    r#"new TypeError("Insufficient bytes to fill elements in the given buffer")"#,
+                let e: Value = new_type_error(
+                    ctx,
+                    "Insufficient bytes to fill elements in the given buffer",
                 )?;
 
                 // Perform ! ReadableByteStreamControllerError(controller, e).
@@ -1738,8 +1743,10 @@ impl<'js> ReadableStreamController<'js> for ReadableByteStreamControllerOwned<'j
         // If autoAllocateChunkSize is not undefined,
         if let Some(auto_allocate_chunk_size) = auto_allocate_chunk_size {
             // Let buffer be Construct(%ArrayBuffer%, « autoAllocateChunkSize »).
-            let ctor: Constructor = ctx.globals().get(PredefinedAtom::ArrayBuffer)?;
-            let buffer: ArrayBuffer = match ctor.construct((auto_allocate_chunk_size,)) {
+            let buffer: ArrayBuffer = match BasePrimordials::get(ctx)?
+                .constructor_arraybuffer
+                .construct((auto_allocate_chunk_size,))
+            {
                 // If buffer is an abrupt completion,
                 Err(Error::Exception) => {
                     // Perform readRequest’s error steps, given buffer.[[Value]].
@@ -1758,7 +1765,7 @@ impl<'js> ReadableStreamController<'js> for ReadableByteStreamControllerOwned<'j
                 bytes_filled: 0,
                 minimum_fill: 1,
                 element_size: 1,
-                view_constructor: ctx.globals().get(PredefinedAtom::Uint8Array)?,
+                view_constructor: BasePrimordials::get(ctx)?.constructor_uint8array.clone(),
                 reader_type: PullIntoDescriptorReaderType::Default,
             };
 

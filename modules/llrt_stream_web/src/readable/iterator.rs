@@ -3,14 +3,18 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use llrt_utils::{
+    object::CreateSymbol,
+    primordials::{BasePrimordials, Primordial},
+};
 use rquickjs::{
     atom::PredefinedAtom,
     class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace},
     function::Constructor,
     methods,
     prelude::{OnceFn, Opt, This},
-    Class, Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Object, Promise, Result, Symbol, Type,
-    Value,
+    Class, Ctx, Error, Exception, FromJs, Function, IntoAtom, IntoJs, JsLifetime, Object, Promise,
+    Result, Symbol, Type, Value,
 };
 
 use super::{
@@ -31,7 +35,6 @@ use crate::{
 };
 
 pub(super) enum IteratorKind {
-    // Sync,
     Async,
 }
 
@@ -51,25 +54,16 @@ impl<'js> IteratorRecord<'js> {
             // If kind is async, then
             IteratorKind::Async => {
                 // Let method be ? GetMethod(obj, %Symbol.asyncIterator%).
-                let method: Option<Function<'js>> = ctx
-                    .eval::<Function<'js>, _>(
-                        "(obj) => obj == null ? undefined : obj[Symbol.asyncIterator]",
-                    )?
-                    .call((obj.clone(),))?;
+                let method = get_method(ctx, obj.clone(), Symbol::async_iterator(ctx.clone()))?;
                 // If method is undefined, then
                 if method.is_none() {
                     // Let syncMethod be ? GetMethod(obj, %Symbol.iterator%).
-                    let sync_method: Option<Function<'js>> = ctx
-                        .eval::<Function<'js>, _>(
-                            "(obj) => obj == null ? undefined : obj[Symbol.iterator]",
-                        )?
-                        .call((obj.clone(),))?;
+                    let sync_method = get_method(ctx, obj.clone(), Symbol::iterator(ctx.clone()))?;
+
                     // If syncMethod is undefined, throw a TypeError exception.
                     let sync_method = match sync_method {
                         None => {
-                            let e: Value =
-                                ctx.eval(r#"new TypeError("Object is not an iterator")"#)?;
-                            return Err(ctx.throw(e));
+                            return Err(Exception::throw_type(ctx, "Object is not an iterator"));
                         },
                         Some(sync_method) => sync_method,
                     };
@@ -83,19 +77,11 @@ impl<'js> IteratorRecord<'js> {
 
                 method
             },
-            // IteratorKind::Sync => ctx
-            //     .eval::<Function<'js>, _>(
-            //         "(obj) => obj == null ? undefined : obj[Symbol.iterator]",
-            //     )?
-            //     .call((obj.clone(),))?,
         };
 
         // If method is undefined, throw a TypeError exception.
         match method {
-            None => {
-                let e: Value = ctx.eval(r#"new TypeError("Object is not an iterator")"#)?;
-                Err(ctx.throw(e))
-            },
+            None => Err(Exception::throw_type(ctx, "Object is not an iterator")),
             Some(method) => {
                 // Return ? GetIteratorFromMethod(obj, method).
                 Self::get_iterator_from_method(ctx, &obj, method)
@@ -113,9 +99,10 @@ impl<'js> IteratorRecord<'js> {
         let iterator = match iterator.into_object() {
             Some(iterator) => iterator,
             None => {
-                let e: Value =
-                    ctx.eval(r#"new TypeError("The iterator method must return an object")"#)?;
-                return Err(ctx.throw(e));
+                return Err(Exception::throw_type(
+                    ctx,
+                    "The iterator method must return an object",
+                ));
             },
         };
         // Let nextMethod be ? Get(iterator, "next").
@@ -138,15 +125,10 @@ impl<'js> IteratorRecord<'js> {
                 move || iterator.clone()
             }),
         )?;
-        let async_iterator: Object<'js> = ctx
-            .eval::<Function<'js>, _>(
-                r#"
-            (syncIterable) => (async function* () {
-              return yield* syncIterable;
-            })()
-        "#,
-            )?
-            .call((sync_iterable,))?;
+
+        let primordials = AsyncIteratorPrimordials::get(ctx)?;
+        let async_iterator: Object<'js> =
+            primordials.sync_to_async_iterator.call((sync_iterable,))?;
 
         let next_method = async_iterator.get(PredefinedAtom::Next)?;
 
@@ -194,9 +176,10 @@ impl<'js> IteratorRecord<'js> {
             None => {
                 // Set iteratorRecord.[[Done]] to true.
                 self.done = true;
-                let e: Value = ctx
-                    .eval(r#"new TypeError("The iterator.next() method must return an object")"#)?;
-                return Err(ctx.throw(e));
+                return Err(Exception::throw_type(
+                    ctx,
+                    "The iterator.next() method must return an object",
+                ));
             },
             Some(result) => result,
         };
@@ -232,7 +215,6 @@ pub(super) struct ReadableStreamAsyncIterator<'js> {
     controller: ReadableStreamControllerClass<'js>,
     reader: ReadableStreamDefaultReaderClass<'js>,
     prevent_cancel: bool,
-    eoi_symbol: Symbol<'js>,
     #[qjs(skip_trace)]
     is_finished: Rc<AtomicBool>,
     #[qjs(skip_trace)]
@@ -247,7 +229,6 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
         reader: ReadableStreamDefaultReaderClass<'js>,
         prevent_cancel: bool,
     ) -> Result<Class<'js, Self>> {
-        let eoi_symbol = ctx.eval("Symbol('async iterator end of iteration')")?;
         Class::instance(
             ctx,
             Self {
@@ -255,7 +236,6 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 controller,
                 reader,
                 prevent_cancel,
-                eoi_symbol,
                 is_finished: Rc::new(AtomicBool::new(false)),
                 ongoing_promise: None,
             },
@@ -269,14 +249,8 @@ impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
     fn prototype(ctx: &Ctx<'js>) -> Result<Option<Object<'js>>> {
         use rquickjs::class::impl_::MethodImplementor;
         let proto = rquickjs::Object::new(ctx.clone())?;
-        let async_iterator_prototype: Object<'js> = ctx.eval(
-            r#"
-            Object.getPrototypeOf(
-              Object.getPrototypeOf(Object.getPrototypeOf((async function* () {})())),
-            )
-            "#,
-        )?;
-        proto.set_prototype(Some(&async_iterator_prototype))?;
+        let primordial = AsyncIteratorPrimordials::get(ctx)?;
+        proto.set_prototype(Some(&primordial.async_iterator_prototype))?;
         let implementor = rquickjs::class::impl_::MethodImpl::<Self>::new();
         implementor.implement(&proto)?;
         let next_fn: Function<'js> = proto.get("next")?;
@@ -340,7 +314,9 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                     match result {
                         Ok(next) => {
                             iterator.ongoing_promise = None;
-                            if next.as_symbol() == Some(&iterator.eoi_symbol) {
+                            if next.as_symbol()
+                                == Some(&AsyncIteratorPrimordials::get(&ctx)?.end_of_iteration)
+                            {
                                 iterator.is_finished.store(true, Ordering::Relaxed);
                                 Ok(ReadableStreamReadResult {
                                     value: None,
@@ -459,7 +435,6 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
         #[derive(Trace)]
         struct ReadRequest<'js> {
             promise: ResolveablePromise<'js>,
-            eoi_symbol: Symbol<'js>,
         }
 
         impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
@@ -504,7 +479,8 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 )?;
 
                 // Resolve promise with end of iteration.
-                self.promise.resolve(self.eoi_symbol.clone())?;
+                self.promise
+                    .resolve(AsyncIteratorPrimordials::get(ctx)?.end_of_iteration.clone())?;
                 Ok(objects)
             }
 
@@ -543,7 +519,6 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
             objects,
             ReadRequest {
                 promise: promise.clone(),
-                eoi_symbol: iterator.eoi_symbol.clone(),
             },
         )?;
 
@@ -586,5 +561,152 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
 
         // Return a promise resolved with undefined.
         promise_resolved_with(&ctx.clone(), Ok(Value::new_undefined(ctx)))
+    }
+}
+
+#[derive(JsLifetime)]
+struct AsyncIteratorPrimordials<'js> {
+    end_of_iteration: Symbol<'js>,
+    sync_to_async_iterator: Function<'js>,
+    async_iterator_prototype: Object<'js>,
+}
+
+impl<'js> Primordial<'js> for AsyncIteratorPrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let sync_to_async_iterator = ctx.eval::<Function<'js>, _>(
+            r#"
+            (syncIterable) => (async function* () {
+              return yield* syncIterable;
+            })()
+        "#,
+        )?;
+
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator
+        // ```js
+        // const AsyncIteratorPrototype = Object.getPrototypeOf(
+        //   Object.getPrototypeOf(Object.getPrototypeOf((async function* () {})())),
+        // );
+        // ```
+        let async_iterator_prototype = ctx
+            .eval::<Object<'js>, _>("(async function* () {})()")?
+            .get_prototype()
+            .as_ref()
+            .and_then(Object::get_prototype)
+            .as_ref()
+            .and_then(Object::get_prototype)
+            .expect("async iterator prototype not found");
+
+        Ok(Self {
+            end_of_iteration: Symbol::for_description(ctx, "async iterator end of iteration")?,
+            sync_to_async_iterator,
+            async_iterator_prototype,
+        })
+    }
+}
+
+// https://tc39.es/ecma262/multipage/abstract-operations.html#sec-getmethod
+fn get_method<'js>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+    property: impl IntoAtom<'js>,
+) -> Result<Option<Function<'js>>> {
+    // 1. Let func be ? GetV(V, P).
+    let func = get_v(ctx, value, property)?;
+
+    // 2. If func is either undefined or null, return undefined.
+    if func.is_undefined() || func.is_null() {
+        return Ok(None);
+    }
+
+    match func.into_function() {
+        // 3. If IsCallable(func) is false, throw a TypeError exception.
+        None => Err(Exception::throw_type(ctx, "not a function")),
+        // 4. Return func.
+        Some(func) => Ok(Some(func)),
+    }
+}
+
+// https://tc39.es/ecma262/multipage/abstract-operations.html#sec-getv
+fn get_v<'js>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+    property: impl IntoAtom<'js>,
+) -> Result<Value<'js>> {
+    // 1. Let O be ? ToObject(V).
+    let o: Object<'js> = to_object(ctx, value)?;
+
+    // 2. Return ? O.[[Get]](P, V).
+    o.get(property)
+}
+
+// https://tc39.es/ecma262/multipage/abstract-operations.html#sec-toobject
+fn to_object<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Object<'js>> {
+    let base_primordials = BasePrimordials::get(ctx)?;
+
+    match value.type_of() {
+        // Return a new Boolean object whose [[BooleanData]] internal slot is set to argument
+        Type::Bool => base_primordials.constructor_bool.construct((value,))?,
+        // Return a new Number object whose [[NumberData]] internal slot is set to argument
+        Type::Int | Type::Float => base_primordials.constructor_number.construct((value,))?,
+        // Return a new String object whose [[StringData]] internal slot is set to argument
+        Type::String => base_primordials.constructor_string.construct((value,))?,
+        // Return a new Symbol object whose [[SymbolData]] internal slot is set to argument
+        // `new Symbol` is invalid but we can use `Object(symbol)
+        Type::Symbol => base_primordials.constructor_object.call((value,))?,
+        // Return a new BigInt object whose [[BigIntData]] internal slot is set to argument
+        // `new BigInt` is invalid but we can use `Object(bigInt)
+        Type::BigInt => base_primordials.constructor_object.call((value,))?,
+        // Return argument
+        typ if typ.interpretable_as(Type::Object) => Ok(value.into_object().unwrap()),
+        // Throw a TypeError exception.
+        typ => Err(Exception::throw_type(
+            ctx,
+            &format!("{typ} cannot be converted to an object"),
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use llrt_test::test_sync_with;
+    use rquickjs::BigInt;
+
+    #[tokio::test]
+    async fn test_to_object() {
+        test_sync_with(|ctx| {
+            let good_values: [Value; 7] = [
+                Value::new_bool(ctx.clone(), false),
+                Value::new_int(ctx.clone(), 123),
+                Value::new_float(ctx.clone(), 1.5),
+                rquickjs::String::from_str(ctx.clone(), "abc")?.into_value(),
+                Symbol::for_description(&ctx, "def")?.into_value(),
+                BigInt::from_i64(ctx.clone(), 123456)?.into_value(),
+                Object::new(ctx.clone())?.into_value(),
+            ];
+
+            for value in good_values {
+                to_object(&ctx, value)?;
+            }
+
+            let bad_values: [Value; 3] = [
+                Value::new_uninitialized(ctx.clone()),
+                Value::new_undefined(ctx.clone()),
+                Value::new_null(ctx.clone()),
+            ];
+
+            for value in bad_values {
+                let ty = value.type_of();
+                if to_object(&ctx, value).is_ok() {
+                    panic!("Values of type {ty} should not be convertible to object")
+                }
+            }
+
+            Ok(())
+        })
+        .await;
     }
 }

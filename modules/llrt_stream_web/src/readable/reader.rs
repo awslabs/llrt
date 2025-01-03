@@ -11,7 +11,7 @@ use super::{
     ReadableStream, ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamDefaultReader,
     ReadableStreamOwned, ReadableStreamState,
 };
-use crate::ResolveablePromise;
+use crate::{new_type_error, ResolveablePromise};
 
 pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
     type Class: Clone + Trace<'js>;
@@ -269,11 +269,17 @@ impl<'js> ReadableStreamGenericReader<'js> {
 
         // If stream.[[state]] is "readable", reject reader.[[closedPromise]] with a TypeError exception.
         if let ReadableStreamState::Readable = stream.state {
-            let e: Value = ctx.eval(r#"new TypeError("Reader was released and can no longer be used to monitor the stream's closedness")"#)?;
+            let e: Value = new_type_error(
+                ctx,
+                "Reader was released and can no longer be used to monitor the stream's closedness",
+            )?;
             self.closed_promise.reject(e)?;
         } else {
             // Otherwise, set reader.[[closedPromise]] to a promise rejected with a TypeError exception.
-            let e: Value = ctx.eval(r#"new TypeError("Reader was released and can no longer be used to monitor the stream's closedness")"#)?;
+            let e: Value = new_type_error(
+                ctx,
+                "Reader was released and can no longer be used to monitor the stream's closedness",
+            )?;
             self.closed_promise = ResolveablePromise::rejected_with(ctx, e)?;
         }
 
