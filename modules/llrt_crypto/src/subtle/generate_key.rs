@@ -15,6 +15,7 @@ use crate::{sha_hash::ShaAlgorithm, CryptoKey, SYSTEM_RANDOM};
 
 use super::{
     algorithm_not_supported_error,
+    crypto_key::KeyKind,
     key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages},
 };
 
@@ -40,7 +41,7 @@ pub async fn subtle_generate_key<'js>(
         return Ok(Class::instance(
             ctx,
             CryptoKey::new(
-                "secret",
+                KeyKind::Secret,
                 name,
                 extractable,
                 key_algorithm,
@@ -55,9 +56,9 @@ pub async fn subtle_generate_key<'js>(
     let private_key = Class::instance(
         ctx.clone(),
         CryptoKey::new(
-            "private",
+            KeyKind::Private,
             name.clone(),
-            false,
+            extractable,
             key_algorithm.clone(),
             private_usages,
             bytes.clone(),
@@ -67,7 +68,7 @@ pub async fn subtle_generate_key<'js>(
     let public_key = Class::instance(
         ctx.clone(),
         CryptoKey::new(
-            "public",
+            KeyKind::Public,
             name,
             extractable,
             key_algorithm,
@@ -95,11 +96,10 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<Vec<u8>> {
 
             key
         },
-        KeyAlgorithm::Ec { curve } => {
+        KeyAlgorithm::Ec { curve, .. } => {
             let rng = &(*SYSTEM_RANDOM);
             let curve = curve.as_signing_algorithm();
             let pkcs8 = EcdsaKeyPair::generate_pkcs8(curve, rng).or_throw(ctx)?;
-
             pkcs8.as_ref().to_vec()
         },
         KeyAlgorithm::Ed25519 => {
@@ -115,7 +115,18 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<Vec<u8>> {
 
             key
         },
-        // KeyAlgorithm::X25519 => {}, //TODO
+        KeyAlgorithm::X25519 => {
+            let secret_key = x25519_dalek::StaticSecret::random();
+            let public_key = x25519_dalek::PublicKey::from(&secret_key);
+
+            let secret_key_bytes = secret_key.as_bytes();
+            let public_key_bytes = public_key.as_bytes();
+
+            let mut merged = Vec::with_capacity(secret_key_bytes.len() + public_key_bytes.len());
+            merged.extend_from_slice(secret_key_bytes);
+            merged.extend_from_slice(public_key_bytes);
+            merged
+        },
         KeyAlgorithm::Rsa {
             modulus_length,
             public_exponent,
@@ -135,12 +146,9 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<Vec<u8>> {
             };
 
             let mut rng = OsRng;
-            let private_key = RsaPrivateKey::new_with_exp(
-                &mut rng,
-                *modulus_length as usize,
-                &BigUint::from(exponent),
-            )
-            .or_throw(ctx)?;
+            let exp = BigUint::from(exponent);
+            let private_key = RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, &exp)
+                .or_throw(ctx)?;
             let pkcs = private_key.to_pkcs1_der().or_throw(ctx)?;
             pkcs.as_bytes().to_vec()
         },

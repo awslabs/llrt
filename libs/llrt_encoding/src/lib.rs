@@ -159,6 +159,10 @@ pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
     base64_simd::STANDARD.encode_to_string(bytes)
 }
 
+pub fn bytes_to_b64_url_safe_string(bytes: &[u8]) -> String {
+    base64_simd::URL_SAFE_NO_PAD.encode_to_string(bytes)
+}
+
 pub fn bytes_to_b64(bytes: &[u8]) -> Vec<u8> {
     base64_simd::STANDARD.encode_type(bytes)
 }

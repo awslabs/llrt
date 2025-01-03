@@ -5,14 +5,16 @@ use std::rc::Rc;
 
 use crate::sha_hash::ShaAlgorithm;
 
-use super::{algorithm_not_supported_error, to_name_and_maybe_object, EllipticCurve};
+use super::{
+    algorithm_not_supported_error, crypto_key::KeyKind, to_name_and_maybe_object, EllipticCurve,
+};
 
 static SYMMETRIC_USAGES: &[&str] = &["encrypt", "decrypt", "wrapKey", "unwrapKey"];
 static SIGNATURE_USAGES: &[&str] = &["sign", "verify"];
 static EMPTY_USAGES: &[&str] = &[];
 static SIGN_USAGES: &[&str] = &["sign"];
 static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
-static ECDH_USAGES: &[&str] = &["deriveKey", "deriveBits"];
+static ECDH_X25519_USAGES: &[&str] = &["deriveKey", "deriveBits"];
 static AES_KW_USAGES: &[&str] = &["wrapKey", "unwrapKey"];
 
 #[derive(Debug, Clone)]
@@ -64,13 +66,24 @@ impl KeyDerivation {
 }
 
 #[derive(Debug, Clone)]
+pub enum EcAlgorithm {
+    Ecdh,
+    Ecdsa,
+}
+
+#[derive(Debug, Clone)]
 pub enum KeyAlgorithm {
     Aes {
         length: u16,
     },
     Ec {
         curve: EllipticCurve,
+        algorithm: EcAlgorithm,
     },
+    AesKw {
+        length: u16,
+    },
+    X25519,
     Ed25519,
     Hmac {
         hash: ShaAlgorithm,
@@ -81,15 +94,28 @@ pub enum KeyAlgorithm {
         public_exponent: Rc<Box<[u8]>>,
         hash: ShaAlgorithm,
     },
-    X25519,
     Derive(KeyDerivation),
     HkdfImport,
     Pbkdf2Import,
 }
 
 #[derive(PartialEq)]
-pub enum KeyAlgorithmMode {
-    Import,
+pub enum KeyFormat<'js> {
+    Jwk(Object<'js>),
+    Raw(ObjectBytes<'js>),
+    Spki(ObjectBytes<'js>),
+    Pkcs8(ObjectBytes<'js>),
+}
+
+impl KeyFormat<'_> {}
+
+#[derive(PartialEq)]
+pub enum KeyAlgorithmMode<'a, 'js> {
+    Import {
+        format: KeyFormat<'js>,
+        kind: &'a mut KeyKind,
+        data: &'a mut Vec<u8>,
+    },
     Generate,
     Derive,
 }
@@ -114,6 +140,60 @@ impl KeyAlgorithm {
         let name_ref = name.as_str();
         let mut is_symmetric = false;
         let algorithm = match name_ref {
+            "Ed25519" => {
+                // if let KeyAlgorithmMode::Import { format, data, kind } = mode {
+                //     match format {
+                //         KeyFormat::Raw => {
+                //             if data.len() != 32 {
+                //                 return Err(Exception::throw_type(
+                //                     ctx,
+                //                     "Ed25519 raw key must be 32 bytes",
+                //                 ));
+                //             }
+                //             *kind = KeyKind::Secret;
+                //         },
+                //         KeyFormat::Pkcs8 => {
+                //             // PKCS8 format is for private keys
+                //             *kind = KeyKind::Private;
+                //         },
+                //         KeyFormat::Jwk => {
+                //             // JWK format can be either public or private
+                //             // kind will be set based on JWK fields
+                //             *kind = if data.contains(&b"d"[0]) {
+                //                 KeyKind::Private
+                //             } else {
+                //                 KeyKind::Public
+                //             };
+                //         },
+                //         KeyFormat::Spki => {
+                //             // SPKI format is for public keys
+                //             *kind = KeyKind::Public;
+                //         },
+                //     }
+                // }
+                Self::classify_and_check_signature_usages(
+                    ctx,
+                    name_ref,
+                    &usages,
+                    is_symmetric,
+                    &mut private_usages,
+                    &mut public_usages,
+                )?;
+                KeyAlgorithm::Ed25519
+            },
+            "X25519" => {
+                if !matches!(mode, KeyAlgorithmMode::Import { .. }) {
+                    Self::classify_and_check_ecdh_x25519_usages(
+                        ctx,
+                        name_ref,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?
+                }
+                KeyAlgorithm::X25519
+            },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
                 is_symmetric = true;
                 if name_ref == "AES-KW" {
@@ -138,7 +218,11 @@ impl KeyAlgorithm {
                     )?;
                 }
 
-                let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
+                let length = if let KeyAlgorithmMode::Import { data, .. } = mode {
+                    data.len() as u16
+                } else {
+                    obj.or_throw(ctx)?.get_required("length", "algorithm")?
+                };
 
                 if !matches!(length, 128 | 192 | 256) {
                     return Err(Exception::throw_type(
@@ -153,19 +237,20 @@ impl KeyAlgorithm {
                 let obj = obj.or_throw(ctx)?;
                 let curive: String = obj.get_required("namedCurve", "algorithm")?;
                 let curve = EllipticCurve::try_from(curive.as_str()).or_throw(ctx)?;
-                if !matches!(mode, KeyAlgorithmMode::Import) {
+                let mut algorithm = EcAlgorithm::Ecdh;
+                if !matches!(mode, KeyAlgorithmMode::Import { .. }) {
                     match name_ref {
                         "ECDH" => match mode {
-                            KeyAlgorithmMode::Generate => Self::classify_and_check_usages(
-                                ctx,
-                                name_ref,
-                                &usages,
-                                ECDH_USAGES,
-                                EMPTY_USAGES,
-                                is_symmetric,
-                                &mut private_usages,
-                                &mut public_usages,
-                            )?,
+                            KeyAlgorithmMode::Generate => {
+                                Self::classify_and_check_ecdh_x25519_usages(
+                                    ctx,
+                                    name_ref,
+                                    &usages,
+                                    is_symmetric,
+                                    &mut private_usages,
+                                    &mut public_usages,
+                                )?
+                            },
                             KeyAlgorithmMode::Derive => Self::classify_and_check_symmetric_usages(
                                 ctx,
                                 name_ref,
@@ -176,32 +261,23 @@ impl KeyAlgorithm {
                             )?,
                             _ => unreachable!(),
                         },
-                        "ECDSA" => Self::classify_and_check_signature_usages(
-                            ctx,
-                            name_ref,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?,
+                        "ECDSA" => {
+                            algorithm = EcAlgorithm::Ecdsa;
+                            Self::classify_and_check_signature_usages(
+                                ctx,
+                                name_ref,
+                                &usages,
+                                is_symmetric,
+                                &mut private_usages,
+                                &mut public_usages,
+                            )?
+                        },
                         _ => unreachable!(),
                     }
                 }
-                KeyAlgorithm::Ec { curve }
+                KeyAlgorithm::Ec { curve, algorithm }
             },
-            "Ed25519" => {
-                if !matches!(mode, KeyAlgorithmMode::Import) {
-                    Self::classify_and_check_signature_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                }
-                KeyAlgorithm::Ed25519
-            },
+
             "HMAC" => {
                 is_symmetric = true;
                 Self::classify_and_check_usages(
@@ -217,12 +293,19 @@ impl KeyAlgorithm {
 
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
-                let length = obj.get_optional("length")?.unwrap_or_default();
+
+                let mut length = obj.get_optional("length")?.unwrap_or_default();
+
+                if length == 0 {
+                    if let KeyAlgorithmMode::Import { data, .. } = mode {
+                        length = data.len() as u16
+                    }
+                }
 
                 KeyAlgorithm::Hmac { hash, length }
             },
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
-                if !matches!(mode, KeyAlgorithmMode::Import) {
+                if !matches!(mode, KeyAlgorithmMode::Import { .. }) {
                     if name == "RSA-OAEP" {
                         Self::classify_and_check_usages(
                             ctx,
@@ -264,21 +347,8 @@ impl KeyAlgorithm {
                     hash,
                 }
             },
-            "X25519" => {
-                if !matches!(mode, KeyAlgorithmMode::Import) {
-                    Self::classify_and_check_symmetric_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                }
-                KeyAlgorithm::X25519
-            },
             "HKDF" => match mode {
-                KeyAlgorithmMode::Import => KeyAlgorithm::HkdfImport,
+                KeyAlgorithmMode::Import { .. } => KeyAlgorithm::HkdfImport,
                 KeyAlgorithmMode::Derive => {
                     Self::classify_and_check_symmetric_usages(
                         ctx,
@@ -296,8 +366,9 @@ impl KeyAlgorithm {
                     return algorithm_not_supported_error(ctx);
                 },
             },
+
             "PBKDF2" => match mode {
-                KeyAlgorithmMode::Import => KeyAlgorithm::Pbkdf2Import,
+                KeyAlgorithmMode::Import { .. } => KeyAlgorithm::Pbkdf2Import,
                 KeyAlgorithmMode::Derive => {
                     Self::classify_and_check_symmetric_usages(
                         ctx,
@@ -341,7 +412,7 @@ impl KeyAlgorithm {
             KeyAlgorithm::Aes { length } => {
                 obj.set(PredefinedAtom::Length, length)?;
             },
-            KeyAlgorithm::Ec { curve } => {
+            KeyAlgorithm::Ec { curve, .. } => {
                 obj.set("namedCurve", curve.as_str())?;
             },
 
@@ -402,6 +473,26 @@ impl KeyAlgorithm {
             usages,
             SIGNATURE_USAGES,
             SIGN_USAGES,
+            is_symmetric,
+            private_usages,
+            public_usages,
+        )
+    }
+
+    fn classify_and_check_ecdh_x25519_usages<'js>(
+        ctx: &Ctx<'js>,
+        name: &str,
+        usages: &Array<'js>,
+        is_symmetric: bool,
+        private_usages: &mut Vec<String>,
+        public_usages: &mut Vec<String>,
+    ) -> Result<()> {
+        Self::classify_and_check_usages(
+            ctx,
+            name,
+            usages,
+            ECDH_X25519_USAGES,
+            EMPTY_USAGES,
             is_symmetric,
             private_usages,
             public_usages,
