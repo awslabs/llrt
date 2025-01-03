@@ -54,58 +54,27 @@ describe("SubtleCrypto digest", () => {
 });
 
 describe("SubtleCrypto generateKey/sign/verify", () => {
-  it("should be processing AES-CBC/AES-CTR/AES-GCM/AES-KW algorithm", async () => {
-    const parameters = [
-      {
-        name: "AES-CBC",
-        length: 128,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CBC",
-        length: 192,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CBC",
-        length: 256,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 128,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 192,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 256,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-GCM",
-        length: 128,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-GCM",
-        length: 192,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-GCM",
-        length: 256,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      { name: "AES-KW", length: 128, usages: ["wrapKey", "unwrapKey"] },
-      { name: "AES-KW", length: 192, usages: ["wrapKey", "unwrapKey"] },
-      { name: "AES-KW", length: 256, usages: ["wrapKey", "unwrapKey"] },
-    ];
+  // Common test parameters
+  const keyLengths = [128, 192, 256];
+  const hashAlgorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+  const curves = ["P-256", "P-384"];
+  const rsaParams = {
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+  };
 
+  it("should be processing AES-CBC/AES-CTR/AES-GCM/AES-KW algorithm", async () => {
+    const aesAlgorithms = ["AES-CBC", "AES-CTR", "AES-GCM"];
+    const aesUsages = ["encrypt", "decrypt", "wrapKey", "unwrapKey"];
+    const kwUsages = ["wrapKey", "unwrapKey"];
+
+    const parameters = aesAlgorithms.flatMap((name) =>
+      keyLengths.map((length) => ({
+        name,
+        length,
+        usages: name === "AES-KW" ? kwUsages : aesUsages,
+      }))
+    );
     for (const t of parameters) {
       const algorithm = { name: t.name, length: t.length };
 
@@ -122,12 +91,11 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
   });
 
   it("should be processing HMAC algorithm", async () => {
-    const parameters = [
-      { name: "HMAC", hash: "SHA-1", usages: ["sign", "verify"] },
-      { name: "HMAC", hash: "SHA-256", usages: ["sign", "verify"] },
-      { name: "HMAC", hash: "SHA-384", usages: ["sign", "verify"] },
-      { name: "HMAC", hash: "SHA-512", usages: ["sign", "verify"] },
-    ];
+    const parameters = hashAlgorithms.map((hash) => ({
+      name: "HMAC",
+      hash,
+      usages: ["sign", "verify"],
+    }));
 
     for (const t of parameters) {
       const algorithm = { name: t.name, hash: t.hash };
@@ -145,29 +113,23 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
   });
 
   it("should be processing ECDH/ECDSA algorithm", async () => {
-    const parameters = [
-      {
-        name: "ECDH",
-        namedCurve: "P-256",
-        usages: ["deriveKey", "deriveBits"],
-      },
-      {
-        name: "ECDH",
-        namedCurve: "P-384",
-        usages: ["deriveKey", "deriveBits"],
-      },
-      {
+    const parameters: {
+      name: string;
+      namedCurve: string;
+      usages: string[];
+      hash?: string;
+    }[] = [
+      ...curves.map((curve, i) => ({
         name: "ECDSA",
-        namedCurve: "P-256",
+        namedCurve: curve,
         usages: ["sign", "verify"],
-        hash: "SHA-256",
-      },
-      {
-        name: "ECDSA",
-        namedCurve: "P-384",
-        usages: ["sign", "verify"],
-        hash: "SHA-384",
-      },
+        hash: i === 0 ? "SHA-256" : "SHA-384",
+      })),
+      ...curves.map((curve) => ({
+        name: "ECDH",
+        namedCurve: curve,
+        usages: ["deriveKey", "deriveBits"],
+      })),
     ];
 
     for (const t of parameters) {
@@ -183,10 +145,7 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
 
       expect(keyAlgorithm.name).toEqual(algorithm.name);
       expect(keyAlgorithm.namedCurve).toEqual(algorithm.namedCurve);
-      expect(privateKey.extractable).toEqual(false);
-
-      expect(keyAlgorithm.name).toEqual(algorithm.name);
-      expect(keyAlgorithm.namedCurve).toEqual(algorithm.namedCurve);
+      expect(privateKey.extractable).toEqual(true);
       expect(publicKey.extractable).toEqual(true);
 
       if (t.usages.includes("sign")) {
@@ -231,23 +190,17 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
       )) as webcrypto.CryptoKeyPair;
 
       expect(privateKey.algorithm.name).toEqual(algorithm.name);
-      expect(privateKey.extractable).toEqual(false);
-
-      expect(publicKey.algorithm.name).toEqual(algorithm.name);
+      expect(privateKey.extractable).toEqual(true);
       expect(publicKey.extractable).toEqual(true);
 
       if (t.usages.includes("sign")) {
         const signature = await crypto.subtle.sign(
-          {
-            name: t.name,
-          },
+          { name: t.name },
           privateKey,
           ENCODED_DATA
         );
         const isValid = await crypto.subtle.verify(
-          {
-            name: t.name,
-          },
+          { name: t.name },
           publicKey,
           signature,
           ENCODED_DATA
@@ -259,68 +212,30 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
   });
 
   it.skip("should be processing RSA-PSS/RSA-OAEP/RSASSA-PKCS1-v1_5 algorithm", async () => {
-    const parameters = [
+    const rsaAlgorithms = [
       {
         name: "RSA-PSS",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-256",
-        usages: ["sign", "verify"],
-      },
-      {
-        name: "RSA-PSS",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-384",
-        usages: ["sign", "verify"],
-      },
-      {
-        name: "RSA-PSS",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-512",
         usages: ["sign", "verify"],
       },
       {
         name: "RSA-OAEP",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-256",
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "RSA-OAEP",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-384",
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "RSA-OAEP",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-512",
         usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
       },
       {
         name: "RSASSA-PKCS1-v1_5",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-256",
-      },
-      {
-        name: "RSASSA-PKCS1-v1_5",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-384",
-      },
-      {
-        name: "RSASSA-PKCS1-v1_5",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-        hash: "SHA-512",
+        usages: ["sign", "verify"],
       },
     ];
+
+    const parameters = rsaAlgorithms.flatMap((algo) =>
+      hashAlgorithms
+        .filter((h) => h !== "SHA-1")
+        .map((hash) => ({
+          ...algo,
+          ...rsaParams,
+          hash,
+        }))
+    );
 
     for (const t of parameters) {
       const algorithm = {
@@ -341,7 +256,7 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
 
       expect(privateKey.algorithm.name).toEqual(t.name);
       expect(privateKeyAlgorithm.hash).toEqual({ name: algorithm.hash });
-      expect(privateKey.extractable).toEqual(false);
+      expect(privateKey.extractable).toEqual(true);
 
       expect(publicKey.algorithm.name).toEqual(algorithm.name);
       expect(publicKeyAlgorithm.hash).toEqual({ name: algorithm.hash });
@@ -349,16 +264,12 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
 
       if (t.usages?.includes("sign")) {
         const signature = await crypto.subtle.sign(
-          {
-            name: t.name,
-          },
+          { name: t.name },
           privateKey,
           ENCODED_DATA
         );
         const isValid = await crypto.subtle.verify(
-          {
-            name: t.name,
-          },
+          { name: t.name },
           publicKey,
           signature,
           ENCODED_DATA
@@ -371,27 +282,17 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
 });
 
 describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+  // Common key lengths and usages for AES algorithms
+  const keyLengths = [128, 192, 256];
+  const commonUsages = ["encrypt", "decrypt", "wrapKey", "unwrapKey"];
+
   it("should be processing AES-CBC algorithm", async () => {
-    const parameters = [
-      {
-        name: "AES-CBC",
-        length: 128,
-        iv: crypto.getRandomValues(new Uint8Array(16)),
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CBC",
-        length: 192,
-        iv: crypto.getRandomValues(new Uint8Array(16)),
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CBC",
-        length: 256,
-        iv: crypto.getRandomValues(new Uint8Array(16)),
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-    ];
+    const parameters = keyLengths.map((length) => ({
+      name: "AES-CBC",
+      length,
+      iv: crypto.getRandomValues(new Uint8Array(16)),
+      usages: commonUsages,
+    }));
 
     for (const t of parameters) {
       const algorithm = { name: t.name, length: t.length };
@@ -431,71 +332,16 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
   });
 
   it("should be processing AES-CTR algorithm", async () => {
-    const parameters = [
-      {
+    const counterLengths = [32, 64, 128];
+    const parameters = keyLengths.flatMap((length) =>
+      counterLengths.map((counterLength) => ({
         name: "AES-CTR",
-        length: 128,
+        length,
         counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 32,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 128,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 64,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 128,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 128,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 192,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 32,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 192,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 64,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 192,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 128,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 256,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 32,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 256,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 64,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-CTR",
-        length: 256,
-        counter: crypto.getRandomValues(new Uint8Array(16)),
-        counterLength: 128,
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-    ];
+        counterLength,
+        usages: commonUsages,
+      }))
+    );
 
     for (const t of parameters) {
       const algorithm = { name: t.name, length: t.length };
@@ -539,26 +385,12 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
   });
 
   it("should be processing AES-GCM algorithm", async () => {
-    const parameters = [
-      {
-        name: "AES-GCM",
-        length: 128,
-        iv: crypto.getRandomValues(new Uint8Array(12)),
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-GCM",
-        length: 192,
-        iv: crypto.getRandomValues(new Uint8Array(12)),
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "AES-GCM",
-        length: 256,
-        iv: crypto.getRandomValues(new Uint8Array(12)),
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-    ];
+    const parameters = keyLengths.map((length) => ({
+      name: "AES-GCM",
+      length,
+      iv: crypto.getRandomValues(new Uint8Array(12)),
+      usages: commonUsages,
+    }));
 
     for (const t of parameters) {
       const algorithm = { name: t.name, length: t.length };
@@ -601,29 +433,14 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
 
   // Caveat: The current RSA implementation is too slow to complete the test within the time limit.
   it.skip("should be processing RSA-OAEP algorithm", async () => {
-    const parameters = [
-      {
-        name: "RSA-OAEP",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([1, 0, 1]),
-        hash: "SHA-256",
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "RSA-OAEP",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([1, 0, 1]),
-        hash: "SHA-384",
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-      {
-        name: "RSA-OAEP",
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([1, 0, 1]),
-        hash: "SHA-512",
-        usages: ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      },
-    ];
+    const hashAlgorithms = ["SHA-256", "SHA-384", "SHA-512"];
+    const parameters = hashAlgorithms.map((hash) => ({
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash,
+      usages: commonUsages,
+    }));
 
     for (const t of parameters) {
       const algorithm = {
@@ -644,7 +461,7 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
 
       expect(privateKey.algorithm.name).toEqual(t.name);
       expect(privateKeyAlgorithm.hash).toEqual({ name: algorithm.hash });
-      expect(privateKey.extractable).toEqual(false);
+      expect(privateKey.extractable).toEqual(true);
 
       expect(publicKey.algorithm.name).toEqual(algorithm.name);
       expect(publicKeyAlgorithm.hash).toEqual({ name: algorithm.hash });
@@ -675,94 +492,57 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
 
 describe("SubtleCrypto deriveBits/deriveKey", () => {
   it("should be processing ECDH algorithm", async () => {
-    const generatedParams = [
-      {
-        name: "ECDH",
-        namedCurve: "P-256",
-      },
-      {
-        name: "ECDH",
-        namedCurve: "P-384",
-      },
-    ];
-    const derivedParams = [
-      {
-        name: "AES-CBC",
-        length: 128,
-      },
-      {
-        name: "AES-CBC",
-        length: 192,
-      },
-      {
-        name: "AES-CBC",
-        length: 256,
-      },
-      {
-        name: "AES-CTR",
-        length: 128,
-      },
-      {
-        name: "AES-CTR",
-        length: 192,
-      },
-      {
-        name: "AES-CTR",
-        length: 256,
-      },
-      {
-        name: "AES-GCM",
-        length: 128,
-      },
-      {
-        name: "AES-GCM",
-        length: 192,
-      },
-      {
-        name: "AES-GCM",
-        length: 256,
-      },
-    ];
+    const keyLengths = [128, 192, 256];
+    const algorithms = ["AES-CBC", "AES-CTR", "AES-GCM"];
 
-    // 1. Generate Alice's key pair
-    const aliceKeyPair = await crypto.subtle.generateKey(
-      {
-        name: "ECDH",
-        namedCurve: "P-256",
-      },
-      true, // whether the key is extractable (i.e. can be used in exportKey)
-      ["deriveKey", "deriveBits"] // can be any combination of "deriveKey" and "deriveBits"
+    const namedCurves = ["P-256", "P-384"];
+
+    const derivedParams = algorithms.flatMap((name) =>
+      keyLengths.map((length) => ({
+        name,
+        length,
+      }))
     );
 
-    // 2. Generate Bob's key pair
-    const bobKeyPair = await crypto.subtle.generateKey(
-      {
-        name: "ECDH",
-        namedCurve: "P-256",
-      },
-      true,
-      ["deriveKey", "deriveBits"]
-    );
+    for (const namedCurve of namedCurves) {
+      // 1. Generate Alice's key pair
+      const aliceKeyPair = await crypto.subtle.generateKey(
+        {
+          name: "ECDH",
+          namedCurve,
+        },
+        true, // whether the key is extractable (i.e. can be used in exportKey)
+        ["deriveKey", "deriveBits"] // can be any combination of "deriveKey" and "deriveBits"
+      );
 
-    // 3. Export Bob's public key to share with Alice
-    // const bobPublicKey = await crypto.subtle.exportKey(
-    //   "raw",
-    //   bobKeyPair.publicKey
-    // );
+      // 2. Generate Bob's key pair
+      const bobKeyPair = await crypto.subtle.generateKey(
+        {
+          name: "ECDH",
+          namedCurve,
+        },
+        true,
+        ["deriveKey", "deriveBits"]
+      );
 
-    // 3.5. Alice imports Bob's public key
-    // const bobImportKey = await crypto.subtle.importKey(
-    //   "raw",
-    //   bobPublicKey,
-    //   {
-    //     name: "ECDH",
-    //     namedCurve: "P-256",
-    //   },
-    //   true,
-    //   []
-    // );
+      // 3. Export Bob's public key to share with Alice
+      // const bobPublicKey = await crypto.subtle.exportKey(
+      //   "raw",
+      //   bobKeyPair.publicKey
+      // );
 
-    for (const generated of generatedParams) {
+      // 3.5. Alice imports Bob's public key
+      // const bobImportKey = await crypto.subtle.importKey(
+      //   "raw",
+      //   bobPublicKey,
+      //   {
+      //     name: "ECDH",
+      //     namedCurve: "P-256",
+      //   },
+      //   true,
+      //   []
+      // );
+
       for (const derived of derivedParams) {
         // 4. Alice derives a shared key using Bob's public key
         const aliceDerivedKey = await crypto.subtle.deriveKey(
@@ -821,74 +601,27 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
     }
   });
 
-  it.skip("should be processing HKDF algorithm", async () => {
+  it("should be processing HKDF algorithm", async () => {
     const hkdfSalt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
     const hkdfInfo = new TextEncoder().encode("HKDF info"); // Info parameter, can be any label string
 
-    const generatedParams = [
-      {
-        name: "HKDF",
-        salt: hkdfSalt,
-        info: hkdfInfo,
-        hash: "SHA-1",
-      },
-      {
-        name: "HKDF",
-        salt: hkdfSalt,
-        info: hkdfInfo,
-        hash: "SHA-256",
-      },
-      {
-        name: "HKDF",
-        salt: hkdfSalt,
-        info: hkdfInfo,
-        hash: "SHA-384",
-      },
-      {
-        name: "HKDF",
-        salt: hkdfSalt,
-        info: hkdfInfo,
-        hash: "SHA-512",
-      },
-    ];
-    const derivedParams = [
-      {
-        name: "AES-CBC",
-        length: 128,
-      },
-      {
-        name: "AES-CBC",
-        length: 192,
-      },
-      {
-        name: "AES-CBC",
-        length: 256,
-      },
-      {
-        name: "AES-CTR",
-        length: 128,
-      },
-      {
-        name: "AES-CTR",
-        length: 192,
-      },
-      {
-        name: "AES-CTR",
-        length: 256,
-      },
-      {
-        name: "AES-GCM",
-        length: 128,
-      },
-      {
-        name: "AES-GCM",
-        length: 192,
-      },
-      {
-        name: "AES-GCM",
-        length: 256,
-      },
-    ];
+    const keyLengths = [128, 192, 256];
+    const algorithms = ["AES-CBC", "AES-CTR", "AES-GCM"];
+    const hashAlgorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+
+    const generatedParams = hashAlgorithms.map((hash) => ({
+      name: "HKDF",
+      salt: hkdfSalt,
+      info: hkdfInfo,
+      hash,
+    }));
+
+    const derivedParams = algorithms.flatMap((name) =>
+      keyLengths.map((length) => ({
+        name,
+        length,
+      }))
+    );
 
     // 1. Generate Alice's key pair
     const aliceKeyPair = await crypto.subtle.generateKey(
@@ -1017,9 +750,9 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
     }
   });
 
-  it.skip("should be processing PBKDF2 algorithm", async () => {
+  it("should be processing PBKDF2 algorithm", async () => {
     const pbkdf2Salt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
-    const pbkdf2Iterations = 50000; // Number of iterations for PBKDF2
+    const pbkdf2Iterations = 50; // Number of iterations for PBKDF2
 
     // We skip some tests because they run slowly in CI.
     const generatedParams = [

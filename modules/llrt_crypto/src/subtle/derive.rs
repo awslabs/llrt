@@ -9,6 +9,7 @@ use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
 
 use super::{
     algorithm_not_supported_error,
+    crypto_key::KeyKind,
     derive_algorithm::DeriveAlgorithm,
     key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation},
 };
@@ -139,7 +140,7 @@ pub async fn subtle_derive_key<'js>(
         key_usages,
     )?;
 
-    let length: u16 = match &derived_key_algorithm {
+    let length = match &derived_key_algorithm {
         KeyAlgorithm::Aes { length } => *length,
         KeyAlgorithm::Hmac { length, .. } => *length,
         KeyAlgorithm::Derive { .. } => 0,
@@ -153,7 +154,7 @@ pub async fn subtle_derive_key<'js>(
     let bytes = derive_bits(&ctx, &algorithm, handle, length as u32)?;
 
     let key = CryptoKey::new(
-        "secret",
+        KeyKind::Secret,
         name,
         extractable,
         derived_key_algorithm,

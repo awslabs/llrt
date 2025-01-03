@@ -27,7 +27,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
             "ECDH" | "X25519" => {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
-                let curve = if let KeyAlgorithm::Ec { curve } = &public_key.algorithm {
+                let curve = if let KeyAlgorithm::Ec { curve, .. } = &public_key.algorithm {
                     curve.clone()
                 } else {
                     return Err(Exception::throw_message(

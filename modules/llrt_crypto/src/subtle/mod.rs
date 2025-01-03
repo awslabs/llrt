@@ -23,6 +23,7 @@ pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
+use rsa::pkcs1::DecodeRsaPrivateKey;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
 
@@ -44,7 +45,7 @@ use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{object::ObjectExt, result::ResultExt, str_enum};
 use ring::signature;
 use rquickjs::{Ctx, Exception, Object, Result, Value};
-use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
+use rsa::{Oaep, RsaPrivateKey};
 
 use crate::sha_hash::ShaAlgorithm;
 
