@@ -18,6 +18,7 @@ members = [
   "modules/llrt_perf_hooks",
   "modules/llrt_process",
   "modules/llrt_stream",
+  "modules/llrt_stream_web",
   "modules/llrt_timers",
   "modules/llrt_url",
   "modules/llrt_zlib",
