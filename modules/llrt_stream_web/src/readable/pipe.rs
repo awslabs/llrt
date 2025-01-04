@@ -5,7 +5,6 @@ use std::{
 };
 
 use llrt_abort::AbortSignal;
-use llrt_utils::primordials::Primordial;
 use rquickjs::{
     class::{OwnedBorrow, Trace},
     prelude::{OnceFn, This},
@@ -19,7 +18,7 @@ use super::{
     ReadableStreamReadRequest, ReadableStreamState, WritableStreamDefaultWriter,
 };
 use crate::{
-    new_type_error, promise_resolved_with, upon_promise,
+    promise_resolved_with, upon_promise,
     writable::{
         WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriterOwned,
         WritableStreamObjects, WritableStreamOwned, WritableStreamState,
@@ -69,6 +68,15 @@ impl<'js> ReadableStream<'js> {
         // Set source.[[disturbed]] to true.
         source.disturbed = true;
 
+        let current_write = Rc::new(RefCell::new(promise_resolved_with(
+            &ctx,
+            &source.promise_primordials,
+            Ok(Value::new_undefined(ctx.clone())),
+        )?));
+
+        let promise_primordials = source.promise_primordials.clone();
+        let constructor_type_error = source.constructor_type_error.clone();
+
         let mut pipe_to = PipeTo {
             source_objects: ReadableStreamClassObjects {
                 stream: source.into_inner(),
@@ -80,16 +88,14 @@ impl<'js> ReadableStream<'js> {
                 controller: dest_controller,
                 writer,
             },
-            current_write: Rc::new(RefCell::new(promise_resolved_with(
-                &ctx,
-                Ok(Value::new_undefined(ctx.clone())),
-            )?)),
+            current_write,
             // Let shuttingDown be false.
             shutting_down: Rc::new(AtomicBool::new(false)),
             signal,
             abort_callback: None,
             // Let promise be a new promise.
             promise: ResolveablePromise::new(&ctx)?,
+            promise_primordials: promise_primordials.clone(),
         };
 
         // If signal is not undefined,
@@ -126,7 +132,11 @@ impl<'js> ReadableStream<'js> {
                                 Ok(promise)
                             } else {
                                 // Otherwise, return a promise resolved with undefined.
-                                promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))
+                                promise_resolved_with(
+                                    &ctx,
+                                    &dest_objects.stream.promise_primordials,
+                                    Ok(Value::new_undefined(ctx.clone())),
+                                )
                             }
                         }));
                     }
@@ -149,7 +159,11 @@ impl<'js> ReadableStream<'js> {
                                 Ok(promise)
                             } else {
                                 // Otherwise, return a promise resolved with undefined.
-                                promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))
+                                promise_resolved_with(
+                                    &ctx,
+                                    &source_objects.stream.promise_primordials,
+                                    Ok(Value::new_undefined(ctx.clone())),
+                                )
                             }
                         }));
                     }
@@ -157,17 +171,17 @@ impl<'js> ReadableStream<'js> {
                     // Shutdown with an action consisting of getting a promise to wait for all of the actions in actions, and with error.
                     pipe_to.shutdown_with_action(
                         ctx,
-                        |ctx| {
-                            let primordials = PromisePrimordials::get(&ctx)?;
-
+                        move |ctx| {
                             let promises: Vec<Promise<'js>> = actions
                                 .into_iter()
                                 .map(|action| action(ctx.clone()))
                                 .collect::<Result<Vec<_>>>()?;
 
-                            let all_promises: Promise<'js> = primordials
-                                .promise_all
-                                .call((This(primordials.promise_constructor.clone()), promises))?;
+                            let all_promises: Promise<'js> =
+                                promise_primordials.promise_all.call((
+                                    This(promise_primordials.promise_constructor.clone()),
+                                    promises,
+                                ))?;
 
                             Ok(all_promises)
                         },
@@ -293,10 +307,9 @@ impl<'js> ReadableStream<'js> {
 
         // Closing must be propagated backward
         if dest_closing {
-            let dest_closed: Value<'js> = new_type_error(
-                &ctx,
+            let dest_closed: Value<'js> = constructor_type_error.call((
                 "the destination writable stream closed before all data could be piped to it",
-            )?;
+            ))?;
 
             if !prevent_cancel {
                 pipe_to.shutdown_with_action(
@@ -345,6 +358,8 @@ struct PipeTo<'js> {
     signal: Option<Class<'js, AbortSignal<'js>>>,
     abort_callback: Option<Function<'js>>,
     promise: ResolveablePromise<'js>,
+
+    promise_primordials: PromisePrimordials<'js>,
 }
 
 impl<'js> PipeTo<'js> {
@@ -380,7 +395,11 @@ impl<'js> PipeTo<'js> {
 
     fn pipe_step(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         if self.shutting_down.load(Ordering::Relaxed) {
-            return promise_resolved_with(&ctx, Ok(Value::new_bool(ctx.clone(), true)));
+            return promise_resolved_with(
+                &ctx,
+                &self.promise_primordials,
+                Ok(Value::new_bool(ctx.clone(), true)),
+            );
         }
 
         let writer_ready = self
@@ -645,8 +664,8 @@ impl<'js> PipeTo<'js> {
         let source_objects = ReadableStreamObjects::from_class(self.source_objects.clone());
         let dest_objects = WritableStreamObjects::from_class(self.dest_objects.clone());
 
-        WritableStreamDefaultWriter::writable_stream_default_writer_release(&ctx, dest_objects)?;
-        ReadableStreamDefaultReader::readable_stream_default_reader_release(&ctx, source_objects)?;
+        WritableStreamDefaultWriter::writable_stream_default_writer_release(dest_objects)?;
+        ReadableStreamDefaultReader::readable_stream_default_reader_release(source_objects)?;
 
         if let (Some(signal), Some(abort_callback)) = (&self.signal, &self.abort_callback) {
             AbortSignal::remove_on_abort(

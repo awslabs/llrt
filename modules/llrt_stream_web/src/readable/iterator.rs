@@ -9,7 +9,7 @@ use llrt_utils::{
 };
 use rquickjs::{
     atom::PredefinedAtom,
-    class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace},
+    class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     methods,
     prelude::{OnceFn, Opt, This},
@@ -26,12 +26,15 @@ use super::{
     ReadableStreamClass, ReadableStreamClassObjects, ReadableStreamDefaultReader,
     ReadableStreamObjects, ReadableStreamReadResult,
 };
-use crate::readable::default_reader::{
-    ReadableStreamDefaultReaderClass, ReadableStreamDefaultReaderOwned,
-};
 use crate::{
     class_from_owned_borrow_mut, readable::ReadableStreamReadRequest, upon_promise,
     ResolveablePromise,
+};
+use crate::{
+    readable::default_reader::{
+        ReadableStreamDefaultReaderClass, ReadableStreamDefaultReaderOwned,
+    },
+    PromisePrimordials,
 };
 
 pub(super) enum IteratorKind {
@@ -42,6 +45,8 @@ pub(super) struct IteratorRecord<'js> {
     pub(super) iterator: Object<'js>,
     next_method: Function<'js>,
     done: bool,
+
+    sync_to_async_iterator: Function<'js>,
 }
 
 impl<'js> IteratorRecord<'js> {
@@ -67,6 +72,7 @@ impl<'js> IteratorRecord<'js> {
                         },
                         Some(sync_method) => sync_method,
                     };
+
                     // Let syncIteratorRecord be ? GetIteratorFromMethod(obj, syncMethod).
                     let sync_iterator_record =
                         Self::get_iterator_from_method(ctx, &obj, sync_method)?;
@@ -113,6 +119,9 @@ impl<'js> IteratorRecord<'js> {
             iterator,
             next_method,
             done: false,
+            sync_to_async_iterator: IteratorPrimordials::get(ctx)?
+                .sync_to_async_iterator
+                .clone(),
         })
     }
 
@@ -126,9 +135,7 @@ impl<'js> IteratorRecord<'js> {
             }),
         )?;
 
-        let primordials = AsyncIteratorPrimordials::get(ctx)?;
-        let async_iterator: Object<'js> =
-            primordials.sync_to_async_iterator.call((sync_iterable,))?;
+        let async_iterator: Object<'js> = self.sync_to_async_iterator.call((sync_iterable,))?;
 
         let next_method = async_iterator.get(PredefinedAtom::Next)?;
 
@@ -136,6 +143,7 @@ impl<'js> IteratorRecord<'js> {
             iterator: async_iterator,
             next_method,
             done: false,
+            sync_to_async_iterator: self.sync_to_async_iterator,
         })
     }
 
@@ -209,7 +217,7 @@ impl<'js> IteratorRecord<'js> {
     }
 }
 
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime)]
 pub(super) struct ReadableStreamAsyncIterator<'js> {
     stream: ReadableStreamClass<'js>,
     controller: ReadableStreamControllerClass<'js>,
@@ -217,8 +225,24 @@ pub(super) struct ReadableStreamAsyncIterator<'js> {
     prevent_cancel: bool,
     #[qjs(skip_trace)]
     is_finished: Rc<AtomicBool>,
-    #[qjs(skip_trace)]
     ongoing_promise: Option<Promise<'js>>,
+
+    #[qjs(skip_trace)]
+    promise_primordials: PromisePrimordials<'js>,
+    end_of_iteration: Symbol<'js>,
+}
+
+impl<'js> Trace<'js> for ReadableStreamAsyncIterator<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        Trace::<'js>::trace(&self.stream, tracer);
+        Trace::<'js>::trace(&self.controller, tracer);
+        Trace::<'js>::trace(&self.reader, tracer);
+        Trace::<'js>::trace(&self.prevent_cancel, tracer);
+        if let Some(ongoing_promise) = &self.ongoing_promise {
+            ongoing_promise.trace(tracer);
+        }
+        Trace::<'js>::trace(&self.end_of_iteration, tracer);
+    }
 }
 
 impl<'js> ReadableStreamAsyncIterator<'js> {
@@ -227,8 +251,11 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
         stream: ReadableStreamClass<'js>,
         controller: ReadableStreamControllerClass<'js>,
         reader: ReadableStreamDefaultReaderClass<'js>,
+        promise_primordials: PromisePrimordials<'js>,
         prevent_cancel: bool,
     ) -> Result<Class<'js, Self>> {
+        let end_of_iteration = IteratorPrimordials::get(&ctx)?.end_of_iteration.clone();
+
         Class::instance(
             ctx,
             Self {
@@ -238,6 +265,8 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 prevent_cancel,
                 is_finished: Rc::new(AtomicBool::new(false)),
                 ongoing_promise: None,
+                promise_primordials,
+                end_of_iteration,
             },
         )
     }
@@ -249,7 +278,7 @@ impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
     fn prototype(ctx: &Ctx<'js>) -> Result<Option<Object<'js>>> {
         use rquickjs::class::impl_::MethodImplementor;
         let proto = rquickjs::Object::new(ctx.clone())?;
-        let primordial = AsyncIteratorPrimordials::get(ctx)?;
+        let primordial = IteratorPrimordials::get(ctx)?;
         proto.set_prototype(Some(&primordial.async_iterator_prototype))?;
         let implementor = rquickjs::class::impl_::MethodImpl::<Self>::new();
         implementor.implement(&proto)?;
@@ -296,6 +325,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
             if is_finished.load(Ordering::Relaxed) {
                 return promise_resolved_with(
                     &ctx,
+                    &iterator.promise_primordials,
                     Ok(ReadableStreamReadResult {
                         value: None,
                         done: true,
@@ -314,9 +344,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                     match result {
                         Ok(next) => {
                             iterator.ongoing_promise = None;
-                            if next.as_symbol()
-                                == Some(&AsyncIteratorPrimordials::get(&ctx)?.end_of_iteration)
-                            {
+                            if next.as_symbol() == Some(&iterator.end_of_iteration) {
                                 iterator.is_finished.store(true, Ordering::Relaxed);
                                 Ok(ReadableStreamReadResult {
                                     value: None,
@@ -372,6 +400,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 if is_finished.swap(true, Ordering::Relaxed) {
                     return promise_resolved_with(
                         &ctx,
+                        &iterator.promise_primordials,
                         Ok(ReadableStreamReadResult {
                             value: Some(value),
                             done: true,
@@ -435,6 +464,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
         #[derive(Trace)]
         struct ReadRequest<'js> {
             promise: ResolveablePromise<'js>,
+            end_of_iteration: Symbol<'js>,
         }
 
         impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
@@ -460,7 +490,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
 
             fn close_steps(
                 &self,
-                ctx: &Ctx<'js>,
+                _ctx: &Ctx<'js>,
                 mut objects: ReadableStreamObjects<
                     'js,
                     ReadableStreamControllerOwned<'js>,
@@ -474,13 +504,11 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 >,
             > {
                 // Perform ! ReadableStreamDefaultReaderRelease(reader).
-                objects = ReadableStreamDefaultReader::readable_stream_default_reader_release(
-                    ctx, objects,
-                )?;
+                objects =
+                    ReadableStreamDefaultReader::readable_stream_default_reader_release(objects)?;
 
                 // Resolve promise with end of iteration.
-                self.promise
-                    .resolve(AsyncIteratorPrimordials::get(ctx)?.end_of_iteration.clone())?;
+                self.promise.resolve(self.end_of_iteration.clone())?;
                 Ok(objects)
             }
 
@@ -500,10 +528,8 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 >,
             > {
                 // Perform ! ReadableStreamDefaultReaderRelease(reader).
-                objects = ReadableStreamDefaultReader::readable_stream_default_reader_release(
-                    reason.ctx(),
-                    objects,
-                )?;
+                objects =
+                    ReadableStreamDefaultReader::readable_stream_default_reader_release(objects)?;
 
                 // Reject promise with e.
                 self.promise.reject(reason)?;
@@ -519,6 +545,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
             objects,
             ReadRequest {
                 promise: promise.clone(),
+                end_of_iteration: iterator.end_of_iteration.clone(),
             },
         )?;
 
@@ -550,28 +577,32 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                 )?;
 
             // Perform ! ReadableStreamDefaultReaderRelease(reader).
-            ReadableStreamDefaultReader::readable_stream_default_reader_release(&ctx, objects)?;
+            ReadableStreamDefaultReader::readable_stream_default_reader_release(objects)?;
 
             // Return result.
             return Ok(result);
         }
 
         // Perform ! ReadableStreamDefaultReaderRelease(reader).
-        ReadableStreamDefaultReader::readable_stream_default_reader_release(&ctx, objects)?;
+        ReadableStreamDefaultReader::readable_stream_default_reader_release(objects)?;
 
         // Return a promise resolved with undefined.
-        promise_resolved_with(&ctx.clone(), Ok(Value::new_undefined(ctx)))
+        promise_resolved_with(
+            &ctx.clone(),
+            &iterator.promise_primordials,
+            Ok(Value::new_undefined(ctx)),
+        )
     }
 }
 
-#[derive(JsLifetime)]
-struct AsyncIteratorPrimordials<'js> {
+#[derive(Clone, JsLifetime, Trace)]
+struct IteratorPrimordials<'js> {
     end_of_iteration: Symbol<'js>,
     sync_to_async_iterator: Function<'js>,
     async_iterator_prototype: Object<'js>,
 }
 
-impl<'js> Primordial<'js> for AsyncIteratorPrimordials<'js> {
+impl<'js> Primordial<'js> for IteratorPrimordials<'js> {
     fn new(ctx: &Ctx<'js>) -> Result<Self>
     where
         Self: Sized,

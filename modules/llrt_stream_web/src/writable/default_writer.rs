@@ -10,7 +10,7 @@ use super::{
     writer::WritableStreamWriter, ResolveablePromise, WritableStream, WritableStreamOwned,
     WritableStreamState,
 };
-use crate::{new_type_error, promise_rejected_with, promise_resolved_with, Null};
+use crate::{promise_rejected_with, promise_resolved_with, Null, PromisePrimordials};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
@@ -18,6 +18,11 @@ pub(crate) struct WritableStreamDefaultWriter<'js> {
     pub(crate) ready_promise: ResolveablePromise<'js>,
     pub(crate) closed_promise: ResolveablePromise<'js>,
     stream: Option<Class<'js, WritableStream<'js>>>,
+
+    #[qjs(skip_trace)]
+    constructor_type_error: Constructor<'js>,
+    #[qjs(skip_trace)]
+    promise_primordials: PromisePrimordials<'js>,
 }
 
 pub(crate) type WritableStreamDefaultWriterClass<'js> =
@@ -77,10 +82,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         match writer.0.stream {
             None => {
-                let e: Value =
-                    new_type_error(&ctx, "Cannot abort a stream using a released writer")?;
+                let e: Value = writer
+                    .constructor_type_error
+                    .call(("Cannot abort a stream using a released writer",))?;
 
-                promise_rejected_with(&ctx, e)
+                promise_rejected_with(&writer.promise_primordials, e)
             },
             Some(ref stream) => {
                 let stream = OwnedBorrowMut::from_class(stream.clone());
@@ -107,18 +113,21 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         match writer.0.stream {
             None => {
-                let e: Value =
-                    new_type_error(&ctx, "Cannot close a stream using a released writer")?;
+                let e: Value = writer
+                    .constructor_type_error
+                    .call(("Cannot close a stream using a released writer",))?;
 
-                promise_rejected_with(&ctx, e)
+                promise_rejected_with(&writer.promise_primordials, e)
             },
             Some(ref stream) => {
                 let stream = OwnedBorrowMut::from_class(stream.clone());
                 // If ! WritableStreamCloseQueuedOrInFlight(stream) is true, return a promise rejected with a TypeError exception.
                 if stream.writable_stream_close_queued_or_in_flight() {
-                    let e: Value = new_type_error(&ctx, "Cannot close an already-closing stream")?;
+                    let e: Value = writer
+                        .constructor_type_error
+                        .call(("Cannot close an already-closing stream",))?;
 
-                    return promise_rejected_with(&ctx, e);
+                    return promise_rejected_with(&stream.promise_primordials, e);
                 }
 
                 let controller = OwnedBorrowMut::from_class(
@@ -140,7 +149,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         }
     }
 
-    fn release_lock(ctx: Ctx<'js>, writer: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
+    fn release_lock(writer: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         match writer.0.stream {
             // If stream is undefined, return.
@@ -156,14 +165,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
                 );
 
                 // Perform ! WritableStreamDefaultWriterRelease(this).
-                Self::writable_stream_default_writer_release(
-                    &ctx,
-                    WritableStreamObjects {
-                        stream,
-                        controller,
-                        writer: writer.0,
-                    },
-                )
+                Self::writable_stream_default_writer_release(WritableStreamObjects {
+                    stream,
+                    controller,
+                    writer: writer.0,
+                })
             },
         }
     }
@@ -176,10 +182,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         match writer.0.stream {
             None => {
-                let e: Value =
-                    new_type_error(&ctx, "Cannot write a stream using a released writer")?;
+                let e: Value = writer
+                    .constructor_type_error
+                    .call(("Cannot write a stream using a released writer",))?;
 
-                promise_rejected_with(&ctx, e)
+                promise_rejected_with(&writer.promise_primordials, e)
             },
             Some(ref stream) => {
                 let stream = OwnedBorrowMut::from_class(stream.clone());
@@ -227,40 +234,54 @@ impl<'js> WritableStreamDefaultWriter<'js> {
             ));
         }
 
+        let promise_primordials = stream.promise_primordials.clone();
+        let constructor_type_error = stream.constructor_type_error.clone();
         let stream_class = stream.into_inner();
         stream = OwnedBorrowMut::from_class(stream_class.clone());
 
         let (ready_promise, closed_promise) = match stream.state {
             WritableStreamState::Writable => {
-                let ready_promise = if !stream.writable_stream_close_queued_or_in_flight()
-                    && stream.backpressure
-                {
-                    // If ! WritableStreamCloseQueuedOrInFlight(stream) is false and stream.[[backpressure]] is true, set writer.[[readyPromise]] to a new promise.
-                    ResolveablePromise::new(ctx)?
-                } else {
-                    // Otherwise, set writer.[[readyPromise]] to a promise resolved with undefined.
-                    ResolveablePromise::resolved_with(ctx, Ok(Value::new_undefined(ctx.clone())))?
-                };
+                let ready_promise =
+                    if !stream.writable_stream_close_queued_or_in_flight() && stream.backpressure {
+                        // If ! WritableStreamCloseQueuedOrInFlight(stream) is false and stream.[[backpressure]] is true, set writer.[[readyPromise]] to a new promise.
+                        ResolveablePromise::new(ctx)?
+                    } else {
+                        // Otherwise, set writer.[[readyPromise]] to a promise resolved with undefined.
+                        ResolveablePromise::resolved_with(
+                            ctx,
+                            &stream.promise_primordials,
+                            Ok(Value::new_undefined(ctx.clone())),
+                        )?
+                    };
 
                 // Set writer.[[closedPromise]] to a new promise.
                 (ready_promise, ResolveablePromise::new(ctx)?)
             },
             WritableStreamState::Erroring(ref stored_error) => {
-                let ready_promise = ResolveablePromise::rejected_with(ctx, stored_error.clone())?;
+                let ready_promise = ResolveablePromise::rejected_with(
+                    &stream.promise_primordials,
+                    stored_error.clone(),
+                )?;
                 ready_promise.set_is_handled()?;
                 // Set writer.[[closedPromise]] to a new promise.
                 (ready_promise, ResolveablePromise::new(ctx)?)
             },
             WritableStreamState::Closed => {
-                let promise =
-                    ResolveablePromise::resolved_with(ctx, Ok(Value::new_undefined(ctx.clone())))?;
+                let promise = ResolveablePromise::resolved_with(
+                    ctx,
+                    &stream.promise_primordials,
+                    Ok(Value::new_undefined(ctx.clone())),
+                )?;
                 // Set writer.[[readyPromise]] to a promise resolved with undefined.
                 // Set writer.[[closedPromise]] to a promise resolved with undefined.
                 (promise.clone(), promise)
             },
             // Let storedError be stream.[[storedError]].
             WritableStreamState::Errored(ref stored_error) => {
-                let promise = ResolveablePromise::rejected_with(ctx, stored_error.clone())?;
+                let promise = ResolveablePromise::rejected_with(
+                    &stream.promise_primordials,
+                    stored_error.clone(),
+                )?;
                 promise.set_is_handled()?;
                 // Set writer.[[readyPromise]] to a promise rejected with storedError.
                 // Set writer.[[readyPromise]].[[PromiseIsHandled]] to true.
@@ -275,6 +296,8 @@ impl<'js> WritableStreamDefaultWriter<'js> {
             closed_promise,
             // Set writer.[[stream]] to stream.
             stream: Some(stream_class),
+            promise_primordials,
+            constructor_type_error,
         };
 
         let writer = Class::instance(ctx.clone(), writer)?;
@@ -286,7 +309,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
 
     pub(super) fn writable_stream_default_writer_ensure_ready_promise_rejected(
         &mut self,
-        ctx: &Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
         error: Value<'js>,
     ) -> Result<()> {
         if self.ready_promise.is_pending() {
@@ -294,7 +317,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
             self.ready_promise.reject(error)?;
         } else {
             // Otherwise, set writer.[[readyPromise]] to a promise rejected with error.
-            self.ready_promise = ResolveablePromise::rejected_with(ctx, error)?;
+            self.ready_promise = ResolveablePromise::rejected_with(promise_primordials, error)?;
         }
 
         // Set writer.[[readyPromise]].[[PromiseIsHandled]] to true.
@@ -304,7 +327,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
 
     pub(super) fn writable_stream_default_writer_ensure_closed_promise_rejected(
         &mut self,
-        ctx: &Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
         error: Value<'js>,
     ) -> Result<()> {
         if self.closed_promise.is_pending() {
@@ -312,7 +335,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
             self.closed_promise.reject(error)?;
         } else {
             // Otherwise, set writer.[[closedPromise]] to a promise rejected with error.
-            self.closed_promise = ResolveablePromise::rejected_with(ctx, error)?;
+            self.closed_promise = ResolveablePromise::rejected_with(promise_primordials, error)?;
         }
 
         // Set writer.[[closedPromise]].[[PromiseIsHandled]] to true.
@@ -380,12 +403,19 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         if objects.stream.writable_stream_close_queued_or_in_flight()
             || matches!(objects.stream.state, WritableStreamState::Closed)
         {
-            return promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())));
+            return promise_resolved_with(
+                &ctx,
+                &objects.stream.promise_primordials,
+                Ok(Value::new_undefined(ctx.clone())),
+            );
         }
 
         // If state is "errored", return a promise rejected with stream.[[storedError]].
         if let WritableStreamState::Errored(ref stored_error) = objects.stream.state {
-            return promise_rejected_with(&ctx, stored_error.clone());
+            return promise_rejected_with(
+                &objects.stream.promise_primordials,
+                stored_error.clone(),
+            );
         }
 
         // Return ! WritableStreamDefaultWriterClose(writer).
@@ -393,26 +423,27 @@ impl<'js> WritableStreamDefaultWriter<'js> {
     }
 
     pub(crate) fn writable_stream_default_writer_release(
-        ctx: &Ctx<'js>,
         mut objects: WritableStreamObjects<'js, OwnedBorrowMut<'js, Self>>,
     ) -> Result<()> {
         // Let releasedError be a new TypeError.
-        let released_error: Value = new_type_error(
-            ctx,
+        let released_error: Value = objects.stream.constructor_type_error.call((
             "Writer was released and can no longer be used to monitor the stream's closedness",
-        )?;
+        ))?;
 
         // Perform ! WritableStreamDefaultWriterEnsureReadyPromiseRejected(writer, releasedError).
         objects
             .writer
             .writable_stream_default_writer_ensure_ready_promise_rejected(
-                ctx,
+                &objects.stream.promise_primordials,
                 released_error.clone(),
             )?;
         // Perform ! WritableStreamDefaultWriterEnsureClosedPromiseRejected(writer, releasedError).
         objects
             .writer
-            .writable_stream_default_writer_ensure_closed_promise_rejected(ctx, released_error)?;
+            .writable_stream_default_writer_ensure_closed_promise_rejected(
+                &objects.stream.promise_primordials,
+                released_error,
+            )?;
 
         // Set stream.[[writer]] to undefined.
         objects.stream.writer = None;
@@ -440,33 +471,41 @@ impl<'js> WritableStreamDefaultWriter<'js> {
 
         // If stream is not equal to writer.[[stream]], return a promise rejected with a TypeError exception.
         if objects.writer.stream != Some(stream_class) {
-            let e: Value =
-                new_type_error(&ctx, "Cannot write to a stream using a released writer")?;
+            let e: Value = objects
+                .stream
+                .constructor_type_error
+                .call(("Cannot write to a stream using a released writer",))?;
 
-            return promise_rejected_with(&ctx, e);
+            return promise_rejected_with(&objects.stream.promise_primordials, e);
         }
 
         // Let state be stream.[[state]].
         // If state is "errored", return a promise rejected with stream.[[storedError]].
         if let WritableStreamState::Errored(ref stored_error) = objects.stream.state {
-            return promise_rejected_with(&ctx, stored_error.clone());
+            return promise_rejected_with(
+                &objects.stream.promise_primordials,
+                stored_error.clone(),
+            );
         }
 
         // If ! WritableStreamCloseQueuedOrInFlight(stream) is true or state is "closed", return a promise rejected with a TypeError exception indicating that the stream is closing or closed.
         if objects.stream.writable_stream_close_queued_or_in_flight()
             || matches!(objects.stream.state, WritableStreamState::Closed)
         {
-            let e: Value = new_type_error(
-                &ctx,
-                "The stream is closing or closed and cannot be written to",
-            )?;
+            let e: Value = objects
+                .stream
+                .constructor_type_error
+                .call(("The stream is closing or closed and cannot be written to",))?;
 
-            return promise_rejected_with(&ctx, e);
+            return promise_rejected_with(&objects.stream.promise_primordials, e);
         }
 
         // If state is "erroring", return a promise rejected with stream.[[storedError]].
         if let WritableStreamState::Erroring(ref stored_error) = objects.stream.state {
-            return promise_rejected_with(&ctx, stored_error.clone());
+            return promise_rejected_with(
+                &objects.stream.promise_primordials,
+                stored_error.clone(),
+            );
         }
 
         // Let promise be ! WritableStreamAddWriteRequest(stream).

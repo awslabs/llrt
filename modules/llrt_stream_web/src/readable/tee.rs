@@ -4,11 +4,12 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use llrt_utils::primordials::{BasePrimordials, Primordial};
+use llrt_utils::primordials::Primordial;
 use rquickjs::{
     class::{OwnedBorrowMut, Trace},
+    function::Constructor,
     prelude::{List, OnceFn},
-    ArrayBuffer, Class, Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
+    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
 use super::{
@@ -267,7 +268,7 @@ impl<'js> ReadableStream<'js> {
     #[allow(clippy::too_many_arguments)]
     fn readable_stream_default_pull_algorithm(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<
+        mut objects: ReadableStreamObjects<
             'js,
             ReadableStreamDefaultControllerOwned<'js>,
             ReadableStreamDefaultReaderOwned<'js>,
@@ -303,7 +304,11 @@ impl<'js> ReadableStream<'js> {
             read_again.store(true, Ordering::Relaxed);
 
             // Return a promise resolved with undefined.
-            return promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())));
+            return promise_resolved_with(
+                &ctx,
+                &objects.stream.promise_primordials,
+                Ok(Value::new_undefined(ctx.clone())),
+            );
         }
 
         // Set reading to true.
@@ -335,6 +340,8 @@ impl<'js> ReadableStream<'js> {
                 >,
             >,
             cancel_promise: ResolveablePromise<'js>,
+
+            structured_clone: Function<'js>,
         }
 
         impl<'js> Trace<'js> for ReadRequest<'js> {
@@ -394,8 +401,7 @@ impl<'js> ReadableStream<'js> {
                                     // If canceled2 is false and cloneForBranch2 is true,
                                     let chunk_2 = if this.reason_2.get().is_none() && this.clone_for_branch_2 {
                                         // Let cloneResult be StructuredClone(chunk2).
-                                        let clone_result: Result<Value<'_>> = TeePrimordials::get(&ctx)?
-                                            .structured_clone
+                                        let clone_result: Result<Value<'_>> = this.structured_clone
                                             .call((chunk_2,));
                                         match clone_result {
                                             // If cloneResult is an abrupt completion,
@@ -580,7 +586,7 @@ impl<'js> ReadableStream<'js> {
         }
 
         // Perform ! ReadableStreamDefaultReaderRead(reader, readRequest).
-        ReadableStreamDefaultReader::readable_stream_default_reader_read(
+        objects = ReadableStreamDefaultReader::readable_stream_default_reader_read(
             &ctx,
             objects,
             ReadRequest {
@@ -592,11 +598,16 @@ impl<'js> ReadableStream<'js> {
                 branch_1,
                 branch_2,
                 cancel_promise,
+                structured_clone: TeePrimordials::get(&ctx)?.structured_clone.clone(),
             },
         )?;
 
         // Return a promise resolved with undefined.
-        promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))
+        promise_resolved_with(
+            &ctx,
+            &objects.stream.promise_primordials,
+            Ok(Value::new_undefined(ctx.clone())),
+        )
     }
 
     // Let cancel1Algorithm be the following steps, taking a reason argument:
@@ -1011,7 +1022,8 @@ impl<'js> ReadableStream<'js> {
             UndefinedReader,
         >,
         cancel_promise: ResolveablePromise<'js>,
-    ) -> Result<()> {
+    ) -> Result<ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, UndefinedReader>>
+    {
         let objects_class_1 = objects_1.into_inner();
         let objects_class_2 = objects_2.into_inner();
 
@@ -1023,7 +1035,6 @@ impl<'js> ReadableStream<'js> {
 
                 // Perform ! ReadableStreamBYOBReaderRelease(reader).
                 objects = ReadableStreamBYOBReader::readable_stream_byob_reader_release(
-                    &ctx,
                     objects.set_reader(byob_reader),
                 )?
                 .clear_reader();
@@ -1111,8 +1122,10 @@ impl<'js> ReadableStream<'js> {
                 let this = self.clone();
 
                 objects.with_assert_byte_controller(|objects| {
+                    let constructor_uint8array = objects.controller.constructor_uint8array.clone();
+                    let function_array_buffer_is_view = objects.controller.function_array_buffer_is_view.clone();
+                    let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, &chunk)?;
                     let objects_class = objects.into_inner();
-                    let chunk = ViewBytes::from_js(&ctx, chunk)?;
                     // Queue a microtask to perform the following steps:
                     let f = {
                         let ctx = ctx.clone();
@@ -1130,7 +1143,7 @@ impl<'js> ReadableStream<'js> {
                             // If canceled1 is false and canceled2 is false,
                             if this.reason_1.get().is_none() && this.reason_2.get().is_none() {
                                 // Let cloneResult be CloneAsUint8Array(chunk).
-                                match clone_as_uint8_array(ctx.clone(), chunk) {
+                                match clone_as_uint8_array(ctx.clone(), &constructor_uint8array, &function_array_buffer_is_view, chunk) {
                                     // If cloneResult is an abrupt completion,
                                     Err(Error::Exception) => {
                                         let err = ctx.catch();
@@ -1332,24 +1345,27 @@ impl<'js> ReadableStream<'js> {
         }
 
         // Perform ! ReadableStreamDefaultReaderRead(reader, readRequest).
-        ReadableStreamDefaultReader::readable_stream_default_reader_read(
-            &ctx,
-            ReadableStreamObjects {
-                stream: objects.stream,
-                controller: objects.controller,
-                reader: OwnedBorrowMut::from_class(current_reader),
-            },
-            ReadRequest {
-                reader,
-                reading,
-                read_again_for_branch_1,
-                read_again_for_branch_2,
-                reason_1,
-                reason_2,
-                objects_class_1,
-                objects_class_2,
-                cancel_promise,
-            },
+        Ok(
+            ReadableStreamDefaultReader::readable_stream_default_reader_read(
+                &ctx,
+                ReadableStreamObjects {
+                    stream: objects.stream,
+                    controller: objects.controller,
+                    reader: OwnedBorrowMut::from_class(current_reader),
+                },
+                ReadRequest {
+                    reader,
+                    reading,
+                    read_again_for_branch_1,
+                    read_again_for_branch_2,
+                    reason_1,
+                    reason_2,
+                    objects_class_1,
+                    objects_class_2,
+                    cancel_promise,
+                },
+            )?
+            .clear_reader(),
         )
     }
 
@@ -1380,7 +1396,8 @@ impl<'js> ReadableStream<'js> {
         cancel_promise: ResolveablePromise<'js>,
         view: ViewBytes<'js>,
         for_branch_2: bool,
-    ) -> Result<()> {
+    ) -> Result<ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, UndefinedReader>>
+    {
         let objects_1 = objects_1.into_inner();
         let objects_2 = objects_2.into_inner();
 
@@ -1392,7 +1409,6 @@ impl<'js> ReadableStream<'js> {
 
                 // Perform ! ReadableStreamDefaultReaderRelease(reader).
                 objects = ReadableStreamDefaultReader::readable_stream_default_reader_release(
-                    &ctx,
                     objects.set_reader(default_reader),
                 )?
                 .clear_reader();
@@ -1501,9 +1517,13 @@ impl<'js> ReadableStream<'js> {
             > {
                 let ctx = chunk.ctx().clone();
 
+                let constructor_uint8array = objects.controller.constructor_uint8array.clone();
+                let function_array_buffer_is_view =
+                    objects.controller.function_array_buffer_is_view.clone();
+                let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, &chunk)?;
+
                 let objects_class = objects.into_inner();
 
-                let chunk = ViewBytes::from_js(&ctx, chunk)?;
                 // Queue a microtask to perform the following steps:
                 let f = {
                     let ctx = ctx.clone();
@@ -1526,7 +1546,12 @@ impl<'js> ReadableStream<'js> {
                         // If otherCanceled is false,
                         if !other_canceled {
                             // Let cloneResult be CloneAsUint8Array(chunk).
-                            match clone_as_uint8_array(ctx.clone(), chunk.clone()) {
+                            match clone_as_uint8_array(
+                                ctx.clone(),
+                                &constructor_uint8array,
+                                &function_array_buffer_is_view,
+                                chunk.clone(),
+                            ) {
                                 // If cloneResult is an abrupt completion,
                                 Err(Error::Exception) => {
                                     let err = ctx.catch();
@@ -1701,7 +1726,11 @@ impl<'js> ReadableStream<'js> {
 
                 // If chunk is not undefined,
                 if !chunk.is_undefined() {
-                    let chunk = ViewBytes::from_js(&ctx, chunk)?;
+                    let chunk = ViewBytes::from_value(
+                        &ctx,
+                        &objects.controller.function_array_buffer_is_view,
+                        &chunk,
+                    )?;
 
                     // If byobCanceled is false, perform ! ReadableByteStreamControllerRespondWithNewView(byobBranch.[[controller]], chunk).
                     if !byob_canceled {
@@ -1757,7 +1786,7 @@ impl<'js> ReadableStream<'js> {
         }
 
         // Perform ! ReadableStreamBYOBReaderRead(reader, view, 1, readIntoRequest).
-        ReadableStreamBYOBReader::readable_stream_byob_reader_read(
+        Ok(ReadableStreamBYOBReader::readable_stream_byob_reader_read(
             &ctx,
             objects.set_reader(OwnedBorrowMut::from_class(current_reader)),
             view,
@@ -1776,16 +1805,15 @@ impl<'js> ReadableStream<'js> {
                 cancel_promise,
                 for_branch_2,
             },
-        )?;
-
-        Ok(())
+        )?
+        .clear_reader())
     }
 
     // Let pull1Algorithm be the following steps:
     #[allow(clippy::too_many_arguments)]
     fn readable_byte_stream_pull_1_algorithm(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<
+        mut objects: ReadableStreamObjects<
             'js,
             ReadableByteStreamControllerOwned<'js>,
             UndefinedReader,
@@ -1813,7 +1841,11 @@ impl<'js> ReadableStream<'js> {
             // Set readAgainForBranch1 to true.
             read_again_for_branch_1.store(true, Ordering::Relaxed);
             // Return a promise resolved with undefined.
-            return promise_resolved_with(&ctx.clone(), Ok(Value::new_undefined(ctx)));
+            return promise_resolved_with(
+                &ctx.clone(),
+                &objects.stream.promise_primordials,
+                Ok(Value::new_undefined(ctx)),
+            );
         }
         // Set reading to true.
 
@@ -1826,7 +1858,7 @@ impl<'js> ReadableStream<'js> {
         objects_1.controller = branch_1_controller;
 
         // If byobRequest is null, perform pullWithDefaultReader.
-        match byob_request.0 {
+        objects = match byob_request.0 {
             None => Self::readable_byte_stream_pull_with_default_reader(
                 ctx.clone(),
                 objects,
@@ -1861,17 +1893,21 @@ impl<'js> ReadableStream<'js> {
                     false,
                 )?
             },
-        }
+        };
 
         // Return a promise resolved with undefined.
-        return promise_resolved_with(&ctx.clone(), Ok(Value::new_undefined(ctx)));
+        return promise_resolved_with(
+            &ctx.clone(),
+            &objects.stream.promise_primordials,
+            Ok(Value::new_undefined(ctx)),
+        );
     }
 
     // Let pull2Algorithm be the following steps:
     #[allow(clippy::too_many_arguments)]
     fn readable_byte_stream_pull_2_algorithm(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<
+        mut objects: ReadableStreamObjects<
             'js,
             ReadableByteStreamControllerOwned<'js>,
             UndefinedReader,
@@ -1899,7 +1935,11 @@ impl<'js> ReadableStream<'js> {
             // Set readAgainForBranch2 to true.
             read_again_for_branch_2.store(true, Ordering::Relaxed);
             // Return a promise resolved with undefined.
-            return promise_resolved_with(&ctx.clone(), Ok(Value::new_undefined(ctx)));
+            return promise_resolved_with(
+                &ctx.clone(),
+                &objects.stream.promise_primordials,
+                Ok(Value::new_undefined(ctx)),
+            );
         }
         // Set reading to true.
 
@@ -1912,7 +1952,7 @@ impl<'js> ReadableStream<'js> {
         objects_2.controller = branch_2_controller;
 
         // If byobRequest is null, perform pullWithDefaultReader.
-        match byob_request.0 {
+        objects = match byob_request.0 {
             None => Self::readable_byte_stream_pull_with_default_reader(
                 ctx.clone(),
                 objects,
@@ -1944,14 +1984,23 @@ impl<'js> ReadableStream<'js> {
                 ),
                 true,
             )?,
-        }
+        };
 
         // Return a promise resolved with undefined.
-        return promise_resolved_with(&ctx.clone(), Ok(Value::new_undefined(ctx)));
+        return promise_resolved_with(
+            &ctx.clone(),
+            &objects.stream.promise_primordials,
+            Ok(Value::new_undefined(ctx)),
+        );
     }
 }
 
-fn clone_as_uint8_array<'js>(ctx: Ctx<'js>, chunk: ViewBytes<'js>) -> Result<ViewBytes<'js>> {
+fn clone_as_uint8_array<'js>(
+    ctx: Ctx<'js>,
+    constructor_uint8array: &Constructor<'js>,
+    function_array_buffer_is_view: &Function<'js>,
+    chunk: ViewBytes<'js>,
+) -> Result<ViewBytes<'js>> {
     let (buffer, byte_length, byte_offset) = chunk.get_array_buffer()?;
 
     // Let buffer be ? CloneArrayBuffer(O.[[ViewedArrayBuffer]], O.[[ByteOffset]], O.[[ByteLength]], %ArrayBuffer%).
@@ -1965,9 +2014,11 @@ fn clone_as_uint8_array<'js>(ctx: Ctx<'js>, chunk: ViewBytes<'js>) -> Result<Vie
 
     // Let array be ! Construct(%Uint8Array%, « buffer »).
     // Return array.
-    BasePrimordials::get(&ctx)?
-        .constructor_uint8array
-        .construct((buffer,))
+    ViewBytes::from_value(
+        &ctx,
+        function_array_buffer_is_view,
+        &constructor_uint8array.construct((buffer,))?,
+    )
 }
 
 #[derive(JsLifetime)]

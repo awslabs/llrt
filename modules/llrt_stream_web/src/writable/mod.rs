@@ -5,9 +5,11 @@ use default_controller::WritableStreamDefaultControllerClass;
 use default_writer::WritableStreamDefaultWriterClass;
 pub(crate) use default_writer::{WritableStreamDefaultWriter, WritableStreamDefaultWriterOwned};
 use llrt_abort::AbortController;
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 pub(crate) use objects::{WritableStreamClassObjects, WritableStreamObjects};
 use rquickjs::{
     class::{OwnedBorrowMut, Trace},
+    function::Constructor,
     prelude::{Opt, This},
     Class, Ctx, Exception, Function, JsLifetime, Object, Promise, Result, Value,
 };
@@ -16,7 +18,7 @@ use writer::{UndefinedWriter, WritableStreamWriter};
 use super::{
     promise_rejected_with, promise_resolved_with, upon_promise, Null, ObjectExt, Undefined,
 };
-use crate::{new_type_error, queueing_strategy::QueuingStrategy, ResolveablePromise};
+use crate::{queueing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise};
 
 mod default_controller;
 mod default_writer;
@@ -35,6 +37,11 @@ pub struct WritableStream<'js> {
     pub(crate) state: WritableStreamState<'js>,
     writer: Option<WritableStreamDefaultWriterClass<'js>>,
     write_requests: VecDeque<ResolveablePromise<'js>>,
+
+    #[qjs(skip_trace)]
+    constructor_type_error: Constructor<'js>,
+    #[qjs(skip_trace)]
+    pub(super) promise_primordials: PromisePrimordials<'js>,
 }
 
 pub(crate) type WritableStreamClass<'js> = Class<'js, WritableStream<'js>>;
@@ -80,6 +87,8 @@ impl<'js> WritableStream<'js> {
                 write_requests: VecDeque::new(),
                 // Set stream.[[backpressure]] to false.
                 backpressure: false,
+                constructor_type_error: BasePrimordials::get(&ctx)?.constructor_type_error.clone(),
+                promise_primordials: PromisePrimordials::get(&ctx)?.clone(),
             },
         )?;
         let stream = OwnedBorrowMut::from_class(stream_class.clone());
@@ -112,8 +121,10 @@ impl<'js> WritableStream<'js> {
     ) -> Result<Promise<'js>> {
         if stream.is_writable_stream_locked() {
             // If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value = new_type_error(&ctx, "Cannot abort a stream that already has a writer")?;
-            return promise_rejected_with(&ctx, e);
+            let e: Value = stream
+                .constructor_type_error
+                .call(("Cannot abort a stream that already has a writer",))?;
+            return promise_rejected_with(&stream.promise_primordials, e);
         }
 
         let controller = OwnedBorrowMut::from_class(
@@ -138,14 +149,18 @@ impl<'js> WritableStream<'js> {
     fn close(ctx: Ctx<'js>, stream: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         if stream.is_writable_stream_locked() {
             // If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value = new_type_error(&ctx, "Cannot close a stream that already has a writer")?;
-            return promise_rejected_with(&ctx, e);
+            let e: Value = stream
+                .constructor_type_error
+                .call(("Cannot close a stream that already has a writer",))?;
+            return promise_rejected_with(&stream.promise_primordials, e);
         }
 
         if Self::writable_stream_close_queued_or_in_flight(&stream.0) {
             // If ! WritableStreamCloseQueuedOrInFlight(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value = new_type_error(&ctx, "Cannot close an already-closing stream")?;
-            return promise_rejected_with(&ctx, e);
+            let e: Value = stream
+                .constructor_type_error
+                .call(("Cannot close an already-closing stream",))?;
+            return promise_rejected_with(&stream.promise_primordials, e);
         }
 
         let controller = OwnedBorrowMut::from_class(
@@ -201,7 +216,11 @@ impl<'js> WritableStream<'js> {
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             return Ok((
-                promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))?,
+                promise_resolved_with(
+                    &ctx,
+                    &objects.stream.promise_primordials,
+                    Ok(Value::new_undefined(ctx.clone())),
+                )?,
                 objects,
             ));
         }
@@ -222,7 +241,11 @@ impl<'js> WritableStream<'js> {
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             return Ok((
-                promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))?,
+                promise_resolved_with(
+                    &ctx,
+                    &objects.stream.promise_primordials,
+                    Ok(Value::new_undefined(ctx.clone())),
+                )?,
                 objects,
             ));
         }
@@ -277,11 +300,14 @@ impl<'js> WritableStream<'js> {
             objects.stream.state,
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
-            let e: Value = new_type_error(
-                &ctx,
-                "The stream is not in the writable state and cannot be closed",
-            )?;
-            return Ok((promise_rejected_with(&ctx, e)?, objects));
+            let e: Value = objects
+                .stream
+                .constructor_type_error
+                .call(("The stream is not in the writable state and cannot be closed",))?;
+            return Ok((
+                promise_rejected_with(&objects.stream.promise_primordials, e)?,
+                objects,
+            ));
         }
 
         // Let promise be a new promise.
@@ -332,7 +358,7 @@ impl<'js> WritableStream<'js> {
                 objects
                     .writer
                     .writable_stream_default_writer_ensure_ready_promise_rejected(
-                        &ctx,
+                        &objects.stream.promise_primordials,
                         reason.clone(),
                     )?;
                 Ok(objects)

@@ -18,6 +18,7 @@ use reader::{
 use rquickjs::{
     atom::PredefinedAtom,
     class::{OwnedBorrowMut, Trace, Tracer},
+    function::Constructor,
     prelude::{List, MutFn, OnceFn, Opt, This},
     ArrayBuffer, Class, Ctx, Error, Exception, FromJs, Function, IntoJs, JsLifetime, Object,
     Promise, Result, Type, Value,
@@ -47,14 +48,17 @@ pub(crate) use byte_controller::{ReadableByteStreamController, ReadableStreamBYO
 pub(crate) use default_controller::ReadableStreamDefaultController;
 pub(crate) use default_reader::ReadableStreamDefaultReader;
 
-use crate::readable::byte_controller::{
-    ReadableByteStreamControllerClass, ReadableByteStreamControllerOwned,
-};
+use crate::readable::byob_reader::ReadableStreamBYOBReaderOwned;
 use crate::readable::default_controller::{
     ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
 };
 use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
-use crate::{new_type_error, readable::byob_reader::ReadableStreamBYOBReaderOwned};
+use crate::{
+    readable::byte_controller::{
+        ReadableByteStreamControllerClass, ReadableByteStreamControllerOwned,
+    },
+    PromisePrimordials,
+};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
@@ -63,6 +67,15 @@ pub(crate) struct ReadableStream<'js> {
     disturbed: bool,
     state: ReadableStreamState<'js>,
     reader: Option<ReadableStreamReaderClass<'js>>,
+
+    #[qjs(skip_trace)]
+    promise_primordials: PromisePrimordials<'js>,
+    #[qjs(skip_trace)]
+    constructor_type_error: Constructor<'js>,
+    #[qjs(skip_trace)]
+    constructor_range_error: Constructor<'js>,
+    #[qjs(skip_trace)]
+    function_array_buffer_is_view: Function<'js>,
 }
 
 pub(crate) type ReadableStreamClass<'js> = Class<'js, ReadableStream<'js>>;
@@ -94,6 +107,9 @@ impl<'js> ReadableStream<'js> {
             Null(Some(Undefined(Some(ref obj)))) => UnderlyingSource::from_object(obj.clone())?,
         };
 
+        let promise_primordials = PromisePrimordials::get(&ctx)?.clone();
+        let base_primordials = BasePrimordials::get(&ctx)?;
+
         let stream_class = Class::instance(
             ctx.clone(),
             Self {
@@ -104,8 +120,15 @@ impl<'js> ReadableStream<'js> {
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
                 controller: ReadableStreamControllerClass::Uninitialised,
+                constructor_type_error: base_primordials.constructor_type_error.clone(),
+                constructor_range_error: base_primordials.constructor_range_error.clone(),
+                function_array_buffer_is_view: base_primordials
+                    .function_array_buffer_is_view
+                    .clone(),
+                promise_primordials,
             },
         )?;
+        drop(base_primordials);
         let stream = OwnedBorrowMut::from_class(stream_class.clone());
         let queuing_strategy = queuing_strategy.0.and_then(|qs| qs.0);
 
@@ -183,9 +206,10 @@ impl<'js> ReadableStream<'js> {
     ) -> Result<Promise<'js>> {
         // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
         if stream.is_readable_stream_locked() {
-            let e: Value =
-                new_type_error(&ctx, "Cannot cancel a stream that already has a reader")?;
-            return promise_rejected_with(&ctx, e);
+            let e: Value = stream
+                .constructor_type_error
+                .call(("Cannot cancel a stream that already has a reader",))?;
+            return promise_rejected_with(&stream.promise_primordials, e);
         }
         let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
         let reader = stream.reader_mut();
@@ -310,19 +334,17 @@ impl<'js> ReadableStream<'js> {
         options: Opt<Value<'js>>,
     ) -> Result<Promise<'js>> {
         let Ok(stream) = ReadableStreamClass::<'js>::from_value(&stream.0) else {
-            let e: Value = new_type_error(
-                &ctx,
+            let e: Value = BasePrimordials::get(&ctx)?.constructor_type_error.call((
                 "'pipeTo' called on an object that is not a valid instance of ReadableStream.",
-            )?;
-            return promise_rejected_with(&ctx, e);
+            ))?;
+            return promise_rejected_with(&*PromisePrimordials::get(&ctx)?, e);
         };
 
         let Ok(destination) = Class::<WritableStream<'js>>::from_value(&destination) else {
-            let e: Value = new_type_error(
-                &ctx,
-                "Failed to execute 'pipeTo' on 'ReadableStream': parameter 1",
-            )?;
-            return promise_rejected_with(&ctx, e);
+            let e: Value = BasePrimordials::get(&ctx)?
+                .constructor_type_error
+                .call(("Failed to execute 'pipeTo' on 'ReadableStream': parameter 1",))?;
+            return promise_rejected_with(&*PromisePrimordials::get(&ctx)?, e);
         };
 
         let options = match options.0 {
@@ -330,7 +352,10 @@ impl<'js> ReadableStream<'js> {
                 Some(match StreamPipeOptions::from_js(&ctx, options) {
                     Ok(options) => options,
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&ctx, ctx.catch());
+                        return promise_rejected_with(
+                            &*PromisePrimordials::get(&ctx)?,
+                            ctx.catch(),
+                        );
                     },
                     Err(err) => return Err(err),
                 })
@@ -344,20 +369,18 @@ impl<'js> ReadableStream<'js> {
 
         // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
         if stream.is_readable_stream_locked() {
-            let e: Value = new_type_error(
-                &ctx,
+            let e: Value = stream.constructor_type_error.call((
                 "ReadableStream.prototype.pipeTo cannot be used on a locked ReadableStream",
-            )?;
-            return promise_rejected_with(&ctx, e);
+            ))?;
+            return promise_rejected_with(&stream.promise_primordials, e);
         }
 
         // If ! IsWritableStreamLocked(destination) is true, return a promise rejected with a TypeError exception.
         if destination.is_writable_stream_locked() {
-            let e: Value = new_type_error(
-                &ctx,
+            let e: Value = stream.constructor_type_error.call((
                 "ReadableStream.prototype.pipeTo cannot be used on a locked WritableStream",
-            )?;
-            return promise_rejected_with(&ctx, e);
+            ))?;
+            return promise_rejected_with(&stream.promise_primordials, e);
         }
 
         // Let signal be options["signal"] if it exists, or undefined otherwise.
@@ -367,8 +390,10 @@ impl<'js> ReadableStream<'js> {
             Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
                 Ok(signal) => Some(signal),
                 Err(_) => {
-                    let e: Value = new_type_error(&ctx, "Invalid signal argument")?;
-                    return promise_rejected_with(&ctx, e);
+                    let e: Value = stream
+                        .constructor_type_error
+                        .call(("Invalid signal argument",))?;
+                    return promise_rejected_with(&stream.promise_primordials, e);
                 },
             },
             None => None,
@@ -429,10 +454,19 @@ impl<'js> ReadableStream<'js> {
             Some(arg) => matches!(arg.get_optional("preventCancel")?, Some(true)),
         };
 
+        let promise_primordials = stream.promise_primordials.clone();
+
         let controller = stream.controller.clone();
         let stream = stream.into_inner();
 
-        ReadableStreamAsyncIterator::new(ctx, stream, controller, reader, prevent_cancel)
+        ReadableStreamAsyncIterator::new(
+            ctx,
+            stream,
+            controller,
+            reader,
+            promise_primordials,
+            prevent_cancel,
+        )
     }
 }
 
@@ -626,13 +660,18 @@ impl<'js> ReadableStream<'js> {
         match objects.stream.state {
             // If stream.[[state]] is "closed", return a promise resolved with undefined.
             ReadableStreamState::Closed => Ok((
-                promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())))?,
+                promise_resolved_with(
+                    &ctx,
+                    &objects.stream.promise_primordials,
+                    Ok(Value::new_undefined(ctx.clone())),
+                )?,
                 objects,
             )),
             // If stream.[[state]] is "errored", return a promise rejected with stream.[[storedError]].
-            ReadableStreamState::Errored(ref stored_error) => {
-                Ok((promise_rejected_with(&ctx, stored_error.clone())?, objects))
-            },
+            ReadableStreamState::Errored(ref stored_error) => Ok((
+                promise_rejected_with(&objects.stream.promise_primordials, stored_error.clone())?,
+                objects,
+            )),
             ReadableStreamState::Readable => {
                 // Perform ! ReadableStreamClose(stream).
                 objects = ReadableStream::readable_stream_close(ctx.clone(), objects)?;
@@ -696,7 +735,7 @@ impl<'js> ReadableStream<'js> {
         // If sizeAlgorithm was not passed, set it to an algorithm that returns 1.
         let size_algorithm = size_algorithm.unwrap_or(SizeAlgorithm::AlwaysOne);
 
-        // Assert: ! IsNonNegativeNumber(highWaterMark) is true.
+        let base_primordials = BasePrimordials::get(&ctx)?;
 
         // Let stream be a new ReadableStream.
         let stream_class = Class::instance(
@@ -709,8 +748,15 @@ impl<'js> ReadableStream<'js> {
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
                 controller: ReadableStreamControllerClass::Uninitialised,
+                promise_primordials: PromisePrimordials::get(&ctx)?.clone(),
+                constructor_range_error: base_primordials.constructor_range_error.clone(),
+                constructor_type_error: base_primordials.constructor_type_error.clone(),
+                function_array_buffer_is_view: base_primordials
+                    .function_array_buffer_is_view
+                    .clone(),
             },
         )?;
+        drop(base_primordials);
 
         // Perform ? SetUpReadableStreamDefaultController(stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark, sizeAlgorithm).
         let controller_class =
@@ -739,6 +785,8 @@ impl<'js> ReadableStream<'js> {
         pull_algorithm: PullAlgorithm<'js>,
         cancel_algorithm: CancelAlgorithm<'js>,
     ) -> Result<(Class<'js, Self>, ReadableByteStreamControllerClass<'js>)> {
+        let base_primordials = BasePrimordials::get(&ctx)?;
+
         // Let stream be a new ReadableStream.
         let stream_class = Class::instance(
             ctx.clone(),
@@ -750,8 +798,15 @@ impl<'js> ReadableStream<'js> {
                 // Set stream.[[disturbed]] to false.
                 disturbed: false,
                 controller: ReadableStreamControllerClass::Uninitialised,
+                promise_primordials: PromisePrimordials::get(&ctx)?.clone(),
+                constructor_type_error: base_primordials.constructor_type_error.clone(),
+                constructor_range_error: base_primordials.constructor_range_error.clone(),
+                function_array_buffer_is_view: base_primordials
+                    .function_array_buffer_is_view
+                    .clone(),
             },
         )?;
+        drop(base_primordials);
 
         // Perform ? SetUpReadableStreamDefaultController(stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark, sizeAlgorithm).
         let controller_class =
@@ -783,21 +838,28 @@ impl<'js> ReadableStream<'js> {
         // Let startAlgorithm be an algorithm that returns undefined.
         let start_algorithm = StartAlgorithm::ReturnUndefined;
 
+        let promise_primordials = PromisePrimordials::get(ctx)?.clone();
+
         // Let pullAlgorithm be the following steps:
         let pull_algorithm = {
             let ctx = ctx.clone();
             let stream = stream.clone();
+            let promise_primordials = promise_primordials.clone();
             move |controller: ReadableStreamDefaultControllerClass<'js>| {
                 // Let nextResult be IteratorNext(iteratorRecord).
                 let next_result: Result<Object<'js>> = iterator_record.iterator_next(&ctx, None);
                 let next_promise = match next_result {
                     // If nextResult is an abrupt completion, return a promise rejected with nextResult.[[Value]].
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&ctx, ctx.catch());
+                        return promise_rejected_with(&promise_primordials, ctx.catch());
                     },
                     Err(err) => return Err(err),
                     // Let nextPromise be a promise resolved with nextResult.[[Value]].
-                    Ok(next_result) => promise_resolved_with(&ctx, Ok(next_result.into_inner()))?,
+                    Ok(next_result) => promise_resolved_with(
+                        &ctx,
+                        &promise_primordials,
+                        Ok(next_result.into_inner()),
+                    )?,
                 };
 
                 // Return the result of reacting to nextPromise with the following fulfillment steps, given iterResult:
@@ -849,6 +911,7 @@ impl<'js> ReadableStream<'js> {
         // Let cancelAlgorithm be the following steps, given reason:
         let cancel_algorithm = {
             let ctx = ctx.clone();
+            let promise_primordials = promise_primordials.clone();
             move |reason: Value<'js>| {
                 // Let iterator be iteratorRecord.[[Iterator]].
 
@@ -856,12 +919,16 @@ impl<'js> ReadableStream<'js> {
                 let return_method: Function<'js> = match iterator.get(PredefinedAtom::Return) {
                     // If returnMethod is an abrupt completion, return a promise rejected with returnMethod.[[Value]].
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&ctx, ctx.catch());
+                        return promise_rejected_with(&promise_primordials, ctx.catch());
                     },
                     Err(err) => return Err(err),
                     Ok(None) => {
                         // If returnMethod.[[Value]] is undefined, return a promise resolved with undefined.
-                        return promise_resolved_with(&ctx, Ok(Value::new_undefined(ctx.clone())));
+                        return promise_resolved_with(
+                            &ctx,
+                            &promise_primordials,
+                            Ok(Value::new_undefined(ctx.clone())),
+                        );
                     },
                     Ok(Some(return_method)) => return_method,
                 };
@@ -873,14 +940,15 @@ impl<'js> ReadableStream<'js> {
                 let return_result = match return_result {
                     // If returnResult is an abrupt completion, return a promise rejected with returnResult.[[Value]].
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&ctx, ctx.catch());
+                        return promise_rejected_with(&promise_primordials, ctx.catch());
                     },
                     Err(err) => return Err(err),
                     Ok(return_result) => return_result,
                 };
 
                 // Let returnPromise be a promise resolved with returnResult.[[Value]].
-                let return_promise = promise_resolved_with(&ctx, Ok(return_result))?;
+                let return_promise =
+                    promise_resolved_with(&ctx, &promise_primordials, Ok(return_result))?;
 
                 // Return the result of reacting to returnPromise with the following fulfillment steps, given iterResult:
                 return_promise.then()?.call((
@@ -1162,11 +1230,13 @@ impl<'js> PullAlgorithm<'js> {
     fn call(
         &self,
         ctx: Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
         controller: ReadableStreamControllerClass<'js>,
     ) -> Result<Promise<'js>> {
         match self {
             PullAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
                 &ctx,
+                promise_primordials,
                 Ok(Value::new_undefined(ctx.clone())),
             )?),
             PullAlgorithm::Function {
@@ -1174,6 +1244,7 @@ impl<'js> PullAlgorithm<'js> {
                 underlying_source,
             } => promise_resolved_with(
                 &ctx,
+                promise_primordials,
                 f.call::<_, Value>((This(underlying_source.clone()), controller)),
             ),
         }
@@ -1190,10 +1261,16 @@ enum CancelAlgorithm<'js> {
 }
 
 impl<'js> CancelAlgorithm<'js> {
-    fn call(&self, ctx: Ctx<'js>, reason: Value<'js>) -> Result<Promise<'js>> {
+    fn call(
+        &self,
+        ctx: Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
+        reason: Value<'js>,
+    ) -> Result<Promise<'js>> {
         match self {
             CancelAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
                 &ctx,
+                promise_primordials,
                 Ok(Value::new_undefined(ctx.clone())),
             )?),
             CancelAlgorithm::Function {
@@ -1201,7 +1278,7 @@ impl<'js> CancelAlgorithm<'js> {
                 underlying_source,
             } => {
                 let result: Result<Value> = f.call((This(underlying_source.clone()), reason));
-                let promise = promise_resolved_with(&ctx, result);
+                let promise = promise_resolved_with(&ctx, promise_primordials, result);
                 promise
             },
         }

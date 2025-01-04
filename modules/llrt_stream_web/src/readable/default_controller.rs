@@ -146,13 +146,14 @@ impl<'js> ReadableStreamDefaultController<'js> {
             controller,
         }
         .refresh_reader();
+        let promise_primordials = objects.stream.promise_primordials.clone();
 
         // Let startResult be the result of performing startAlgorithm. (This might throw an exception.)
         let (start_result, objects_class) =
             Self::start_algorithm(ctx.clone(), objects, start_algorithm)?;
 
         // Let startPromise be a promise resolved with startResult.
-        let start_promise = promise_resolved_with(&ctx, Ok(start_result))?;
+        let start_promise = promise_resolved_with(&ctx, &promise_primordials, Ok(start_result))?;
 
         let _ = upon_promise::<Value<'js>, _>(ctx.clone(), start_promise, {
             let objects_class = objects_class.clone();
@@ -544,11 +545,13 @@ impl<'js> ReadableStreamDefaultController<'js> {
             .pull_algorithm
             .clone()
             .expect("pull algorithm used after ReadableStreamDefaultControllerClearAlgorithms");
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
         Ok((
             pull_algorithm.call(
                 ctx,
+                &promise_primordials,
                 ReadableStreamControllerClass::ReadableStreamDefaultController(
                     objects_class.controller.clone(),
                 ),
@@ -587,9 +590,13 @@ impl<'js> ReadableStreamDefaultController<'js> {
             objects.controller.cancel_algorithm.clone().expect(
                 "cancel algorithm used after ReadableStreamDefaultControllerClearAlgorithms",
             );
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
-        Ok((cancel_algorithm.call(ctx, reason)?, objects_class))
+        Ok((
+            cancel_algorithm.call(ctx, &promise_primordials, reason)?,
+            objects_class,
+        ))
     }
 }
 

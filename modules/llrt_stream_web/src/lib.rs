@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 use llrt_utils::{
     module::{export_default, ModuleInfo},
-    primordials::{BasePrimordials, Primordial},
+    primordials::Primordial,
 };
 use queueing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
 use readable::{
@@ -223,16 +223,20 @@ impl<'js> ObjectExt<'js> for Value<'js> {
     }
 }
 
-fn promise_rejected_with<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Promise<'js>> {
-    let primordials = PromisePrimordials::get(ctx)?;
+fn promise_rejected_with<'js>(
+    primordials: &PromisePrimordials<'js>,
+    value: Value<'js>,
+) -> Result<Promise<'js>> {
     primordials
         .promise_reject
         .call((This(primordials.promise_constructor.clone()), value))
 }
 
-fn promise_resolved_with<'js>(ctx: &Ctx<'js>, value: Result<Value<'js>>) -> Result<Promise<'js>> {
-    let primordials = PromisePrimordials::get(ctx)?;
-
+fn promise_resolved_with<'js>(
+    ctx: &Ctx<'js>,
+    primordials: &PromisePrimordials<'js>,
+    value: Result<Value<'js>>,
+) -> Result<Promise<'js>> {
     match value {
         Ok(value) => primordials
             .promise_resolve
@@ -244,7 +248,7 @@ fn promise_resolved_with<'js>(ctx: &Ctx<'js>, value: Result<Value<'js>>) -> Resu
     }
 }
 
-#[derive(JsLifetime)]
+#[derive(JsLifetime, Clone)]
 struct PromisePrimordials<'js> {
     promise_constructor: Constructor<'js>,
     promise_resolve: Function<'js>,
@@ -330,8 +334,8 @@ struct ValueWithSize<'js> {
 #[derive(Debug, JsLifetime, Clone)]
 struct ResolveablePromise<'js> {
     promise: Promise<'js>,
-    resolve: Function<'js>,
-    reject: Function<'js>,
+    resolve: Option<Function<'js>>,
+    reject: Option<Function<'js>>,
 }
 
 impl<'js> ResolveablePromise<'js> {
@@ -339,34 +343,42 @@ impl<'js> ResolveablePromise<'js> {
         let (promise, resolve, reject) = Promise::new(ctx)?;
         Ok(Self {
             promise,
-            resolve,
-            reject,
+            resolve: Some(resolve),
+            reject: Some(reject),
         })
     }
 
-    fn resolved_with(ctx: &Ctx<'js>, value: Result<Value<'js>>) -> Result<Self> {
+    fn resolved_with(
+        ctx: &Ctx<'js>,
+        primordials: &PromisePrimordials<'js>,
+        value: Result<Value<'js>>,
+    ) -> Result<Self> {
         Ok(Self {
-            promise: promise_resolved_with(ctx, value)?,
-            resolve: Function::new(ctx.clone(), || {})?,
-            reject: Function::new(ctx.clone(), || {})?,
+            promise: promise_resolved_with(ctx, primordials, value)?,
+            resolve: None,
+            reject: None,
         })
     }
 
-    fn rejected_with(ctx: &Ctx<'js>, error: Value<'js>) -> Result<Self> {
+    fn rejected_with(primordials: &PromisePrimordials<'js>, error: Value<'js>) -> Result<Self> {
         Ok(Self {
-            promise: promise_rejected_with(ctx, error)?,
-            resolve: Function::new(ctx.clone(), || {})?,
-            reject: Function::new(ctx.clone(), || {})?,
+            promise: promise_rejected_with(primordials, error)?,
+            resolve: None,
+            reject: None,
         })
     }
 
     fn resolve(&self, value: impl IntoArg<'js>) -> Result<()> {
-        let () = self.resolve.call((value,))?;
+        if let Some(resolve) = &self.resolve {
+            let () = resolve.call((value,))?;
+        }
         Ok(())
     }
 
     fn reject(&self, value: impl IntoArg<'js>) -> Result<()> {
-        let () = self.reject.call((value,))?;
+        if let Some(reject) = &self.reject {
+            let () = reject.call((value,))?;
+        }
         Ok(())
     }
 
@@ -389,16 +401,4 @@ impl<'js> Trace<'js> for ResolveablePromise<'js> {
         self.resolve.trace(tracer);
         self.reject.trace(tracer);
     }
-}
-
-fn new_type_error<'js>(ctx: &Ctx<'js>, message: &str) -> Result<Value<'js>> {
-    let constructor_type_error = BasePrimordials::get(ctx)?.constructor_type_error.clone();
-
-    constructor_type_error.call((message,))
-}
-
-fn new_range_error<'js>(ctx: &Ctx<'js>, message: &str) -> Result<Value<'js>> {
-    let constructor_type_error = BasePrimordials::get(ctx)?.constructor_range_error.clone();
-
-    constructor_type_error.call((message,))
 }

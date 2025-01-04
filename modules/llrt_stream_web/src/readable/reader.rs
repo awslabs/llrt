@@ -1,6 +1,7 @@
 use rquickjs::{
     class::{OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
-    Ctx, Error, FromJs, IntoJs, JsLifetime, Promise, Result, Value,
+    function::Constructor,
+    Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
 use super::{
@@ -11,7 +12,7 @@ use super::{
     ReadableStream, ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamDefaultReader,
     ReadableStreamOwned, ReadableStreamState,
 };
-use crate::{new_type_error, ResolveablePromise};
+use crate::{PromisePrimordials, ResolveablePromise};
 
 pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
     type Class: Clone + Trace<'js>;
@@ -222,6 +223,15 @@ impl<'js> From<ReadableStreamBYOBReaderOwned<'js>> for ReadableStreamReaderOwned
 pub struct ReadableStreamGenericReader<'js> {
     pub(super) closed_promise: ResolveablePromise<'js>,
     pub(super) stream: Option<ReadableStreamClass<'js>>,
+
+    #[qjs(skip_trace)]
+    pub(super) promise_primordials: PromisePrimordials<'js>,
+    #[qjs(skip_trace)]
+    pub(super) constructor_type_error: Constructor<'js>,
+    #[qjs(skip_trace)]
+    pub(super) constructor_range_error: Constructor<'js>,
+    #[qjs(skip_trace)]
+    pub(super) function_array_buffer_is_view: Function<'js>,
 }
 
 impl<'js> ReadableStreamGenericReader<'js> {
@@ -238,12 +248,19 @@ impl<'js> ReadableStreamGenericReader<'js> {
             // Otherwise, if stream.[[state]] is "closed",
             ReadableStreamState::Closed => {
                 // Set reader.[[closedPromise]] to a promise resolved with undefined.
-                ResolveablePromise::resolved_with(ctx, Ok(Value::new_undefined(ctx.clone())))?
+                ResolveablePromise::resolved_with(
+                    ctx,
+                    &stream.promise_primordials,
+                    Ok(Value::new_undefined(ctx.clone())),
+                )?
             },
             // Otherwise,
             ReadableStreamState::Errored(ref stored_error) => {
                 // Set reader.[[closedPromise]] to a promise rejected with stream.[[storedError]].
-                let promise = ResolveablePromise::rejected_with(ctx, stored_error.clone())?;
+                let promise = ResolveablePromise::rejected_with(
+                    &stream.promise_primordials,
+                    stored_error.clone(),
+                )?;
 
                 // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.
                 promise.set_is_handled()?;
@@ -251,16 +268,26 @@ impl<'js> ReadableStreamGenericReader<'js> {
                 promise
             },
         };
+
+        let promise_primordials = stream.promise_primordials.clone();
+        let constructor_type_error = stream.constructor_type_error.clone();
+        let constructor_range_error = stream.constructor_range_error.clone();
+        let function_array_buffer_is_view = stream.function_array_buffer_is_view.clone();
+
         Ok(Self {
             // Set reader.[[stream]] to stream.
             stream: Some(stream.into_inner()),
             closed_promise,
+            promise_primordials,
+            constructor_type_error,
+            constructor_range_error,
+            function_array_buffer_is_view,
         })
     }
 
     pub(super) fn readable_stream_reader_generic_release(
         &mut self,
-        ctx: &Ctx<'js>,
+
         stream: &mut ReadableStream<'js>,
         controller_release_steps: impl FnOnce(),
     ) -> Result<()> {
@@ -269,18 +296,17 @@ impl<'js> ReadableStreamGenericReader<'js> {
 
         // If stream.[[state]] is "readable", reject reader.[[closedPromise]] with a TypeError exception.
         if let ReadableStreamState::Readable = stream.state {
-            let e: Value = new_type_error(
-                ctx,
+            let e: Value = stream.constructor_type_error.call((
                 "Reader was released and can no longer be used to monitor the stream's closedness",
-            )?;
+            ))?;
             self.closed_promise.reject(e)?;
         } else {
             // Otherwise, set reader.[[closedPromise]] to a promise rejected with a TypeError exception.
-            let e: Value = new_type_error(
-                ctx,
+            let e: Value = stream.constructor_type_error.call((
                 "Reader was released and can no longer be used to monitor the stream's closedness",
-            )?;
-            self.closed_promise = ResolveablePromise::rejected_with(ctx, e)?;
+            ))?;
+            self.closed_promise =
+                ResolveablePromise::rejected_with(&stream.promise_primordials, e)?;
         }
 
         // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.

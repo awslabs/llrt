@@ -9,13 +9,12 @@ use rquickjs::{
     function::Constructor,
     methods,
     prelude::{Opt, This},
-    ArrayBuffer, Class, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Promise, Result,
-    TypedArray, Value,
+    ArrayBuffer, Class, Ctx, Error, Exception, Function, IntoJs, JsLifetime, Object, Promise,
+    Result, TypedArray, Value,
 };
 
 use super::{
-    byob_reader::ReadableStreamBYOBReaderOwned,
-    byob_reader::{ReadableStreamReadIntoRequest, ViewBytes},
+    byob_reader::{ReadableStreamBYOBReaderOwned, ReadableStreamReadIntoRequest, ViewBytes},
     controller::{
         ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
     },
@@ -29,7 +28,7 @@ use super::{
     ReadableStreamClass, ReadableStreamOwned, ReadableStreamReadRequest, ReadableStreamState,
     StartAlgorithm, Undefined, UnderlyingSource,
 };
-use crate::{class_from_owned_borrow_mut, new_type_error, upon_promise};
+use crate::{class_from_owned_borrow_mut, upon_promise};
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
@@ -48,6 +47,13 @@ pub(crate) struct ReadableByteStreamController<'js> {
     started: bool,
     strategy_hwm: f64,
     stream: ReadableStreamClass<'js>,
+
+    #[qjs(skip_trace)]
+    pub(super) constructor_uint8array: Constructor<'js>,
+    #[qjs(skip_trace)]
+    constructor_array_buffer: Constructor<'js>,
+    #[qjs(skip_trace)]
+    pub(super) function_array_buffer_is_view: Function<'js>,
 }
 
 pub(crate) type ReadableByteStreamControllerClass<'js> =
@@ -128,6 +134,13 @@ impl<'js> ReadableByteStreamController<'js> {
     ) -> Result<Class<'js, Self>> {
         let (stream_class, mut stream) = class_from_owned_borrow_mut(stream);
 
+        let BasePrimordials {
+            constructor_array_buffer,
+            constructor_uint8array,
+            function_array_buffer_is_view,
+            ..
+        } = &*BasePrimordials::get(&ctx)?;
+
         let controller = Self {
             // Set controller.[[stream]] to stream.
             stream: stream_class,
@@ -158,6 +171,10 @@ impl<'js> ReadableByteStreamController<'js> {
             auto_allocate_chunk_size,
 
             pending_pull_intos: VecDeque::new(),
+
+            constructor_array_buffer: constructor_array_buffer.clone(),
+            constructor_uint8array: constructor_uint8array.clone(),
+            function_array_buffer_is_view: function_array_buffer_is_view.clone(),
         };
 
         let controller_class = Class::instance(ctx.clone(), controller)?;
@@ -174,12 +191,14 @@ impl<'js> ReadableByteStreamController<'js> {
             stream,
         };
 
+        let promise_primordials = objects.stream.promise_primordials.clone();
+
         // Let startResult be the result of performing startAlgorithm.
         let (start_result, objects_class) =
             Self::start_algorithm(ctx.clone(), objects, start_algorithm)?;
 
         // Let startPromise be a promise resolved with startResult.
-        let start_promise = promise_resolved_with(&ctx, Ok(start_result))?;
+        let start_promise = promise_resolved_with(&ctx, &promise_primordials, Ok(start_result))?;
 
         let _ = upon_promise::<Value<'js>, _>(ctx.clone(), start_promise, {
             let objects_class = objects_class.clone();
@@ -401,13 +420,15 @@ impl<'js> ReadableByteStreamController<'js> {
             let first_descriptor = &controller.pending_pull_intos[0];
 
             // Let view be ! Construct(%Uint8Array%, « firstDescriptor’s buffer, firstDescriptor’s byte offset + firstDescriptor’s bytes filled, firstDescriptor’s byte length − firstDescriptor’s bytes filled »).
-            let view: ViewBytes = BasePrimordials::get(&ctx)?
-                .constructor_uint8array
-                .construct((
+            let view = ViewBytes::from_value(
+                &ctx,
+                &controller.function_array_buffer_is_view,
+                &controller.constructor_uint8array.construct((
                     first_descriptor.buffer.clone(),
                     first_descriptor.byte_offset + first_descriptor.bytes_filled,
                     first_descriptor.byte_length - first_descriptor.bytes_filled,
-                ))?;
+                ))?,
+            )?;
 
             let (controller_class, mut controller) = class_from_owned_borrow_mut(controller);
 
@@ -477,10 +498,10 @@ impl<'js> ReadableByteStreamController<'js> {
             // If the remainder after dividing firstPendingPullInto’s bytes filled by firstPendingPullInto’s element size is not 0,
             if first_pending_pull_into.bytes_filled % first_pending_pull_into.element_size != 0 {
                 // Let e be a new TypeError exception.
-                let e: Value = new_type_error(
-                    &ctx,
-                    "Insufficient bytes to fill elements in the given buffer",
-                )?;
+                let e: Value = objects
+                    .stream
+                    .constructor_type_error
+                    .call(("Insufficient bytes to fill elements in the given buffer",))?;
                 Self::readable_byte_stream_controller_error(objects, e.clone())?;
                 return Err(ctx.throw(e));
             }
@@ -584,9 +605,15 @@ impl<'js> ReadableByteStreamController<'js> {
                     }
 
                     // Let transferredView be ! Construct(%Uint8Array%, « transferredBuffer, byteOffset, byteLength »).
-                    let transferred_view: ViewBytes = BasePrimordials::get(ctx)?
-                        .constructor_uint8array
-                        .construct((transferred_buffer.clone(), byte_offset, byte_length))?;
+                    let transferred_view = ViewBytes::from_value(
+                        ctx,
+                        &objects.controller.function_array_buffer_is_view,
+                        &objects.controller.constructor_uint8array.construct((
+                            transferred_buffer.clone(),
+                            byte_offset,
+                            byte_length,
+                        ))?,
+                    );
 
                     // Perform ! ReadableStreamFulfillReadRequest(stream, transferredView, false).
                     objects = ReadableStream::readable_stream_fulfill_read_request(
@@ -833,9 +860,11 @@ impl<'js> ReadableByteStreamController<'js> {
         objects = Self::readable_byte_stream_controller_handle_queue_drain(ctx.clone(), objects)?;
 
         // Let view be ! Construct(%Uint8Array%, « entry’s buffer, entry’s byte offset, entry’s byte length »).
-        let view: TypedArray<u8> = BasePrimordials::get(ctx)?
-            .constructor_uint8array
-            .construct((entry.buffer, entry.byte_offset, entry.byte_length))?;
+        let view: TypedArray<u8> = objects.controller.constructor_uint8array.construct((
+            entry.buffer,
+            entry.byte_offset,
+            entry.byte_length,
+        ))?;
 
         // Perform readRequest’s chunk steps, given view.
         read_request.chunk_steps_typed(objects, view.into_value())
@@ -962,6 +991,7 @@ impl<'js> ReadableByteStreamController<'js> {
         // Let filledView be ! ReadableByteStreamControllerConvertPullIntoDescriptor(pullIntoDescriptor).
         let filled_view = Self::readable_byte_stream_controller_convert_pull_into_descriptor(
             ctx.clone(),
+            &objects.stream.function_array_buffer_is_view,
             pull_into_descriptor,
         )?;
 
@@ -1011,6 +1041,7 @@ impl<'js> ReadableByteStreamController<'js> {
 
     fn readable_byte_stream_controller_convert_pull_into_descriptor(
         ctx: Ctx<'js>,
+        function_array_buffer_is_view: &Function<'js>,
         pull_into_descriptor: PullIntoDescriptor<'js>,
     ) -> Result<ViewBytes<'js>> {
         let PullIntoDescriptor {
@@ -1030,7 +1061,7 @@ impl<'js> ReadableByteStreamController<'js> {
             byte_offset,
             bytes_filled / element_size,
         ))?;
-        ViewBytes::from_object(&ctx, &view)
+        ViewBytes::from_object(&ctx, function_array_buffer_is_view, &view)
     }
 
     pub(super) fn readable_byte_stream_controller_pull_into(
@@ -1152,10 +1183,10 @@ impl<'js> ReadableByteStreamController<'js> {
             // If controller.[[closeRequested]] is true,
             if objects.controller.close_requested {
                 // Let e be a TypeError exception.
-                let e: Value = new_type_error(
-                    ctx,
-                    "Insufficient bytes to fill elements in the given buffer",
-                )?;
+                let e: Value = objects
+                    .stream
+                    .constructor_type_error
+                    .call(("Insufficient bytes to fill elements in the given buffer",))?;
 
                 // Perform ! ReadableByteStreamControllerError(controller, e).
                 objects = Self::readable_byte_stream_controller_error(objects, e.clone())?;
@@ -1522,11 +1553,13 @@ impl<'js> ReadableByteStreamController<'js> {
             .pull_algorithm
             .clone()
             .expect("pull algorithm used after ReadableStreamDefaultControllerClearAlgorithms");
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
         Ok((
             pull_algorithm.call(
                 ctx,
+                &promise_primordials,
                 ReadableStreamControllerClass::ReadableStreamByteController(
                     objects_class.controller.clone(),
                 ),
@@ -1547,9 +1580,13 @@ impl<'js> ReadableByteStreamController<'js> {
             objects.controller.cancel_algorithm.clone().expect(
                 "cancel algorithm used after ReadableStreamDefaultControllerClearAlgorithms",
             );
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
-        Ok((cancel_algorithm.call(ctx, reason)?, objects_class))
+        Ok((
+            cancel_algorithm.call(ctx, &promise_primordials, reason)?,
+            objects_class,
+        ))
     }
 }
 
@@ -1611,8 +1648,10 @@ impl<'js> ReadableByteStreamController<'js> {
     fn enqueue(
         this: This<OwnedBorrowMut<'js, Self>>,
         ctx: Ctx<'js>,
-        chunk: ViewBytes<'js>,
+        chunk: Value<'js>,
     ) -> Result<()> {
+        let chunk = ViewBytes::from_value(&ctx, &this.function_array_buffer_is_view, &chunk)?;
+
         let (array_buffer, byte_length, _) = chunk.get_array_buffer()?;
 
         // If chunk.[[ByteLength]] is 0, throw a TypeError exception.
@@ -1743,8 +1782,9 @@ impl<'js> ReadableStreamController<'js> for ReadableByteStreamControllerOwned<'j
         // If autoAllocateChunkSize is not undefined,
         if let Some(auto_allocate_chunk_size) = auto_allocate_chunk_size {
             // Let buffer be Construct(%ArrayBuffer%, « autoAllocateChunkSize »).
-            let buffer: ArrayBuffer = match BasePrimordials::get(ctx)?
-                .constructor_arraybuffer
+            let buffer: ArrayBuffer = match objects
+                .controller
+                .constructor_array_buffer
                 .construct((auto_allocate_chunk_size,))
             {
                 // If buffer is an abrupt completion,
@@ -1765,7 +1805,7 @@ impl<'js> ReadableStreamController<'js> for ReadableByteStreamControllerOwned<'j
                 bytes_filled: 0,
                 minimum_fill: 1,
                 element_size: 1,
-                view_constructor: BasePrimordials::get(ctx)?.constructor_uint8array.clone(),
+                view_constructor: objects.controller.constructor_uint8array.clone(),
                 reader_type: PullIntoDescriptorReaderType::Default,
             };
 
@@ -1911,8 +1951,10 @@ impl<'js> ReadableStreamBYOBRequest<'js> {
         };
         drop(byob_request);
 
+        let controller = OwnedBorrowMut::from_class(controller);
+
         let view = view.0.unwrap_or_else(|| Value::new_undefined(ctx.clone()));
-        let view = ViewBytes::from_js(&ctx, view)?;
+        let view = ViewBytes::from_value(&ctx, &controller.function_array_buffer_is_view, &view)?;
 
         let (buffer, _, _) = view.get_array_buffer()?;
 
@@ -1924,7 +1966,6 @@ impl<'js> ReadableStreamBYOBRequest<'js> {
             ));
         }
 
-        let controller = OwnedBorrowMut::from_class(controller);
         let mut stream = OwnedBorrowMut::from_class(controller.stream.clone());
 
         let reader = stream.reader_mut();

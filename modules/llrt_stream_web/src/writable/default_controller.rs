@@ -18,7 +18,8 @@ use super::{
 };
 use crate::{
     class_from_owned_borrow_mut, is_non_negative_number, promise_resolved_with,
-    queueing_strategy::SizeAlgorithm, upon_promise, Null, Undefined, ValueWithSize,
+    queueing_strategy::SizeAlgorithm, upon_promise, Null, PromisePrimordials, Undefined,
+    ValueWithSize,
 };
 
 #[rquickjs::class]
@@ -34,6 +35,8 @@ pub(crate) struct WritableStreamDefaultController<'js> {
     pub(super) abort_controller: Class<'js, AbortController<'js>>,
     stream: WritableStreamClass<'js>,
     write_algorithm: Option<WriteAlgorithm<'js>>,
+
+    primordials: WritableStreamDefaultControllerPrimordials<'js>,
 }
 
 pub(crate) type WritableStreamDefaultControllerClass<'js> =
@@ -141,6 +144,8 @@ impl<'js> WritableStreamDefaultController<'js> {
             close_algorithm: Some(close_algorithm),
             // Set controller.[[abortAlgorithm]] to abortAlgorithm.
             abort_algorithm: Some(abort_algorithm),
+
+            primordials: WritableStreamDefaultControllerPrimordials::get(&ctx)?.clone(),
         };
 
         let controller_class = Class::instance(ctx.clone(), controller)?;
@@ -162,13 +167,14 @@ impl<'js> WritableStreamDefaultController<'js> {
             },
             backpressure,
         )?;
+        let promise_primordials = objects.stream.promise_primordials.clone();
 
         // Let startResult be the result of performing startAlgorithm. (This may throw an exception.)
         let (start_result, objects_class) =
             Self::start_algorithm(ctx.clone(), objects, start_algorithm)?;
 
         // Let startPromise be a promise resolved with startResult.
-        let start_promise = promise_resolved_with(&ctx, Ok(start_result))?;
+        let start_promise = promise_resolved_with(&ctx, &promise_primordials, Ok(start_result))?;
 
         let _ = upon_promise::<Value<'js>, _>(ctx.clone(), start_promise, {
             move |ctx, result| {
@@ -204,13 +210,17 @@ impl<'js> WritableStreamDefaultController<'js> {
         ctx: Ctx<'js>,
         mut objects: WritableStreamObjects<'js, W>,
     ) -> Result<WritableStreamObjects<'js, W>> {
+        let close_sentinel = objects
+            .controller
+            .primordials
+            .close_sentinel
+            .as_value()
+            .clone();
+
         // Perform ! EnqueueValueWithSize(controller, close sentinel, 0).
         objects.controller.enqueue_value_with_size(
             &ctx,
-            WritableStreamDefaultControllerPrimordials::get(&ctx)?
-                .close_sentinel
-                .as_value()
-                .clone(),
+            close_sentinel,
             Value::new_number(ctx.clone(), 0.0),
         )?;
 
@@ -392,9 +402,7 @@ impl<'js> WritableStreamDefaultController<'js> {
             Some(value) => value.clone(),
         };
 
-        if value.value.as_symbol()
-            == Some(&WritableStreamDefaultControllerPrimordials::get(&ctx)?.close_sentinel)
-        {
+        if value.value.as_symbol() == Some(&objects.controller.primordials.close_sentinel) {
             // If value is the close sentinel, perform ! WritableStreamDefaultControllerProcessClose(controller).
             Self::writable_stream_default_controller_process_close(ctx, objects)
         } else {
@@ -648,10 +656,16 @@ impl<'js> WritableStreamDefaultController<'js> {
             objects.controller.write_algorithm.clone().expect(
                 "write algorithm used after WritableStreamDefaultControllerClearAlgorithms",
             );
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
         Ok((
-            write_algorithm.call(ctx, objects_class.controller.clone().clone(), chunk)?,
+            write_algorithm.call(
+                ctx,
+                &promise_primordials,
+                objects_class.controller.clone().clone(),
+                chunk,
+            )?,
             objects_class,
         ))
     }
@@ -664,9 +678,13 @@ impl<'js> WritableStreamDefaultController<'js> {
             objects.controller.close_algorithm.clone().expect(
                 "close algorithm used after WritableStreamDefaultControllerClearAlgorithms",
             );
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
-        Ok((close_algorithm.call(ctx)?, objects_class))
+        Ok((
+            close_algorithm.call(ctx, &promise_primordials)?,
+            objects_class,
+        ))
     }
 
     fn abort_algorithm<W: WritableStreamWriter<'js>>(
@@ -678,9 +696,13 @@ impl<'js> WritableStreamDefaultController<'js> {
             objects.controller.abort_algorithm.clone().expect(
                 "abort algorithm used after WritableStreamDefaultControllerClearAlgorithms",
             );
+        let promise_primordials = objects.stream.promise_primordials.clone();
         let objects_class = objects.into_inner();
 
-        Ok((abort_algorithm.call(ctx, reason)?, objects_class))
+        Ok((
+            abort_algorithm.call(ctx, &promise_primordials, reason)?,
+            objects_class,
+        ))
     }
 }
 
@@ -773,16 +795,19 @@ impl<'js> WriteAlgorithm<'js> {
     fn call(
         &self,
         ctx: &Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
         controller: WritableStreamDefaultControllerClass<'js>,
         chunk: Value<'js>,
     ) -> Result<Promise<'js>> {
         match self {
             WriteAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
                 ctx,
+                promise_primordials,
                 Ok(Value::new_undefined(ctx.clone())),
             )?),
             WriteAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
+                promise_primordials,
                 f.call::<_, Value>((This(underlying_sink.clone()), chunk, controller)),
             ),
         }
@@ -799,15 +824,22 @@ enum CloseAlgorithm<'js> {
 }
 
 impl<'js> CloseAlgorithm<'js> {
-    fn call(&self, ctx: &Ctx<'js>) -> Result<Promise<'js>> {
+    fn call(
+        &self,
+        ctx: &Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
+    ) -> Result<Promise<'js>> {
         match self {
             CloseAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
                 ctx,
+                promise_primordials,
                 Ok(Value::new_undefined(ctx.clone())),
             )?),
-            CloseAlgorithm::Function { f, underlying_sink } => {
-                promise_resolved_with(ctx, f.call::<_, Value>((This(underlying_sink.clone()),)))
-            },
+            CloseAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
+                ctx,
+                promise_primordials,
+                f.call::<_, Value>((This(underlying_sink.clone()),)),
+            ),
         }
     }
 }
@@ -822,21 +854,28 @@ enum AbortAlgorithm<'js> {
 }
 
 impl<'js> AbortAlgorithm<'js> {
-    fn call(&self, ctx: &Ctx<'js>, reason: Value<'js>) -> Result<Promise<'js>> {
+    fn call(
+        &self,
+        ctx: &Ctx<'js>,
+        promise_primordials: &PromisePrimordials<'js>,
+        reason: Value<'js>,
+    ) -> Result<Promise<'js>> {
         match self {
             AbortAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
                 ctx,
+                promise_primordials,
                 Ok(Value::new_undefined(ctx.clone())),
             )?),
             AbortAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
+                promise_primordials,
                 f.call::<_, Value>((This(underlying_sink.clone()), reason)),
             ),
         }
     }
 }
 
-#[derive(JsLifetime)]
+#[derive(Trace, Clone, JsLifetime)]
 struct WritableStreamDefaultControllerPrimordials<'js> {
     close_sentinel: Symbol<'js>,
 }
