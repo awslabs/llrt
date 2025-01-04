@@ -1106,7 +1106,7 @@ impl<'js> ReadableStream<'js> {
                 let this = self.clone();
 
                 objects.with_assert_byte_controller(|objects| {
-                    let constructor_uint8array = objects.controller.constructor_uint8array.clone();
+                    let constructor_uint8array = objects.controller.array_constructor_primordials.constructor_uint8array.clone();
                     let function_array_buffer_is_view = objects.controller.function_array_buffer_is_view.clone();
                     let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, &chunk)?;
                     let objects_class = objects.into_inner();
@@ -1501,7 +1501,11 @@ impl<'js> ReadableStream<'js> {
             > {
                 let ctx = chunk.ctx().clone();
 
-                let constructor_uint8array = objects.controller.constructor_uint8array.clone();
+                let constructor_uint8array = objects
+                    .controller
+                    .array_constructor_primordials
+                    .constructor_uint8array
+                    .clone();
                 let function_array_buffer_is_view =
                     objects.controller.function_array_buffer_is_view.clone();
                 let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, &chunk)?;

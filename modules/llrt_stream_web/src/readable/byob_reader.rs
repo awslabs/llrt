@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::{bytes::ObjectBytes, primordials::Primordial};
 use rquickjs::{
     atom::PredefinedAtom,
     class::{JsClass, OwnedBorrowMut, Trace, Tracer},
@@ -635,20 +635,59 @@ impl<'js> ViewBytes<'js> {
             },
         }
     }
+}
 
-    pub(super) fn atom(&self) -> PredefinedAtom {
-        match self.0 {
-            ObjectBytes::U8Array(_) => PredefinedAtom::Uint8Array,
-            ObjectBytes::I8Array(_) => PredefinedAtom::Int8Array,
-            ObjectBytes::U16Array(_) => PredefinedAtom::Uint16Array,
-            ObjectBytes::I16Array(_) => PredefinedAtom::Int16Array,
-            ObjectBytes::U32Array(_) => PredefinedAtom::Uint32Array,
-            ObjectBytes::I32Array(_) => PredefinedAtom::Int32Array,
-            ObjectBytes::U64Array(_) => PredefinedAtom::BigUint64Array,
-            ObjectBytes::I64Array(_) => PredefinedAtom::BigInt64Array,
-            ObjectBytes::F32Array(_) => PredefinedAtom::Float32Array,
-            ObjectBytes::F64Array(_) => PredefinedAtom::Float64Array,
-            ObjectBytes::DataView(_) => PredefinedAtom::DataView,
+#[derive(Clone, JsLifetime)]
+pub(super) struct ArrayConstructorPrimordials<'js> {
+    pub(super) constructor_uint8array: Constructor<'js>,
+    constructor_int8array: Constructor<'js>,
+    constructor_uint16array: Constructor<'js>,
+    constructor_int16array: Constructor<'js>,
+    constructor_uint32array: Constructor<'js>,
+    constructor_int32array: Constructor<'js>,
+    constructor_uint64array: Constructor<'js>,
+    constructor_int64array: Constructor<'js>,
+    constructor_f32array: Constructor<'js>,
+    constructor_f64array: Constructor<'js>,
+    constructor_data_view: Constructor<'js>,
+}
+
+impl<'js> Primordial<'js> for ArrayConstructorPrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let globals = ctx.globals();
+        Ok(Self {
+            constructor_uint8array: globals.get(PredefinedAtom::Uint8Array)?,
+            constructor_int8array: globals.get(PredefinedAtom::Int8Array)?,
+            constructor_uint16array: globals.get(PredefinedAtom::Uint16Array)?,
+            constructor_int16array: globals.get(PredefinedAtom::Int16Array)?,
+            constructor_uint32array: globals.get(PredefinedAtom::Uint32Array)?,
+            constructor_int32array: globals.get(PredefinedAtom::Int32Array)?,
+            constructor_uint64array: globals.get(PredefinedAtom::BigUint64Array)?,
+            constructor_int64array: globals.get(PredefinedAtom::BigInt64Array)?,
+            constructor_f32array: globals.get(PredefinedAtom::Float32Array)?,
+            constructor_f64array: globals.get(PredefinedAtom::Float64Array)?,
+            constructor_data_view: globals.get(PredefinedAtom::DataView)?,
+        })
+    }
+}
+
+impl<'js> ArrayConstructorPrimordials<'js> {
+    pub(super) fn for_view_bytes(&self, v: &ViewBytes<'js>) -> Constructor<'js> {
+        match v.0 {
+            ObjectBytes::U8Array(_) => self.constructor_uint8array.clone(),
+            ObjectBytes::I8Array(_) => self.constructor_int8array.clone(),
+            ObjectBytes::U16Array(_) => self.constructor_uint16array.clone(),
+            ObjectBytes::I16Array(_) => self.constructor_int16array.clone(),
+            ObjectBytes::U32Array(_) => self.constructor_uint32array.clone(),
+            ObjectBytes::I32Array(_) => self.constructor_int32array.clone(),
+            ObjectBytes::U64Array(_) => self.constructor_uint64array.clone(),
+            ObjectBytes::I64Array(_) => self.constructor_int64array.clone(),
+            ObjectBytes::F32Array(_) => self.constructor_f32array.clone(),
+            ObjectBytes::F64Array(_) => self.constructor_f64array.clone(),
+            ObjectBytes::DataView(_) => self.constructor_data_view.clone(),
             ObjectBytes::Vec(_) => {
                 panic!("invariant broken; ViewBytes may not contain ObjectBytes::Vec")
             },
