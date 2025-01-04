@@ -44,7 +44,7 @@ pub(super) enum IteratorKind {
 pub(super) struct IteratorRecord<'js> {
     pub(super) iterator: Object<'js>,
     next_method: Function<'js>,
-    done: bool,
+    done: AtomicBool,
 
     sync_to_async_iterator: Function<'js>,
 }
@@ -118,7 +118,7 @@ impl<'js> IteratorRecord<'js> {
         Ok(Self {
             iterator,
             next_method,
-            done: false,
+            done: AtomicBool::new(false),
             sync_to_async_iterator: IteratorPrimordials::get(ctx)?
                 .sync_to_async_iterator
                 .clone(),
@@ -142,13 +142,13 @@ impl<'js> IteratorRecord<'js> {
         Ok(Self {
             iterator: async_iterator,
             next_method,
-            done: false,
+            done: AtomicBool::new(false),
             sync_to_async_iterator: self.sync_to_async_iterator,
         })
     }
 
     pub(super) fn iterator_next(
-        &mut self,
+        &self,
         ctx: &Ctx<'js>,
         value: Option<Value<'js>>,
     ) -> Result<Object<'js>> {
@@ -170,7 +170,7 @@ impl<'js> IteratorRecord<'js> {
             // If result is a throw completion, then
             Err(Error::Exception) => {
                 // Set iteratorRecord.[[Done]] to true.
-                self.done = true;
+                self.done.store(true, Ordering::Relaxed);
                 // Return ? result.
                 return Err(Error::Exception);
             },
@@ -183,7 +183,7 @@ impl<'js> IteratorRecord<'js> {
             // If result is not an Object, then
             None => {
                 // Set iteratorRecord.[[Done]] to true.
-                self.done = true;
+                self.done.store(true, Ordering::Relaxed);
                 return Err(Exception::throw_type(
                     ctx,
                     "The iterator.next() method must return an object",

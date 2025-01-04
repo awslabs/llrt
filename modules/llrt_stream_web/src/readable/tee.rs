@@ -22,7 +22,7 @@ use super::{
     default_reader::ReadableStreamDefaultReaderOwned,
     promise_resolved_with,
     reader::UndefinedReader,
-    CancelAlgorithm, Null, PullAlgorithm, ReadableByteStreamController, ReadableStream,
+    CancelAlgorithm, PullAlgorithm, ReadableByteStreamController, ReadableStream,
     ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamClassObjects,
     ReadableStreamControllerClass, ReadableStreamControllerOwned, ReadableStreamDefaultReader,
     ReadableStreamObjects, ReadableStreamReadRequest, ReadableStreamReader,
@@ -115,79 +115,64 @@ impl<'js> ReadableStream<'js> {
 
         let objects_class = objects.into_inner().set_reader(reader);
 
-        let pull_algorithm = PullAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                let objects_class = objects_class.clone();
-                let reason_1 = reason_1.clone();
-                let reason_2 = reason_2.clone();
-                let branch_1 = branch_1.clone();
-                let branch_2 = branch_2.clone();
-                let cancel_promise = cancel_promise.clone();
-                move |ctx: Ctx<'js>,
-                      branch_controller: ReadableStreamDefaultControllerOwned<'js>| {
-                    let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                    drop(branch_controller);
-                    Self::readable_stream_default_pull_algorithm(
-                        ctx,
-                        objects,
-                        clone_for_branch_2,
-                        reading.clone(),
-                        read_again.clone(),
-                        reason_1.clone(),
-                        reason_2.clone(),
-                        branch_1.clone(),
-                        branch_2.clone(),
-                        cancel_promise.clone(),
-                    )
-                }
-            })?,
-            underlying_source: Null(None),
-        };
-        let cancel_algorithm_1 = CancelAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                OnceFn::new({
-                    let objects_class = objects_class.clone();
-                    let reason_1 = reason_1.clone();
-                    let reason_2 = reason_2.clone();
-                    let cancel_promise = cancel_promise.clone();
-                    move |reason: Value<'js>| {
-                        let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                        Self::readable_stream_cancel_1_algorithm(
-                            reason.ctx().clone(),
-                            objects,
-                            reason_1,
-                            reason_2,
-                            cancel_promise,
-                            reason,
-                        )
-                    }
-                })
-            })?,
-            underlying_source: Null(None),
-        };
+        let pull_algorithm = PullAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let branch_1 = branch_1.clone();
+            let branch_2 = branch_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |ctx: Ctx<'js>, _| {
+                let objects = ReadableStreamObjects::from_class(objects_class.clone());
+                Self::readable_stream_default_pull_algorithm(
+                    ctx,
+                    objects,
+                    clone_for_branch_2,
+                    reading.clone(),
+                    read_again.clone(),
+                    reason_1.clone(),
+                    reason_2.clone(),
+                    branch_1.clone(),
+                    branch_2.clone(),
+                    cancel_promise.clone(),
+                )
+            }
+        });
+        let cancel_algorithm_1 = CancelAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |reason: Value<'js>| {
+                let objects = ReadableStreamObjects::from_class(objects_class.clone());
+                Self::readable_stream_cancel_1_algorithm(
+                    reason.ctx().clone(),
+                    objects,
+                    reason_1,
+                    reason_2,
+                    cancel_promise,
+                    reason,
+                )
+            }
+        });
 
-        let cancel_algorithm_2 = CancelAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                OnceFn::new({
-                    let objects_class = objects_class.clone();
-                    let reason_1 = reason_1.clone();
-                    let reason_2 = reason_2.clone();
-                    let cancel_promise = cancel_promise.clone();
-                    move |reason: Value<'js>| {
-                        let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                        Self::readable_stream_cancel_2_algorithm(
-                            reason.ctx().clone(),
-                            objects,
-                            reason_1,
-                            reason_2,
-                            cancel_promise,
-                            reason,
-                        )
-                    }
-                })
-            })?,
-            underlying_source: Null(None),
-        };
+        let cancel_algorithm_2 = CancelAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |reason: Value<'js>| {
+                let objects = ReadableStreamObjects::from_class(objects_class.clone());
+                Self::readable_stream_cancel_2_algorithm(
+                    reason.ctx().clone(),
+                    objects,
+                    reason_1,
+                    reason_2,
+                    cancel_promise,
+                    reason,
+                )
+            }
+        });
 
         // Set branch1 to ! CreateReadableStream(startAlgorithm, pullAlgorithm, cancel1Algorithm).
         let branch_1 = {
@@ -726,32 +711,38 @@ impl<'js> ReadableStream<'js> {
         let objects_class = objects.into_inner();
 
         // Let pull1Algorithm be the following steps:
-        let pull_1_algorithm = PullAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                let objects_class = objects_class.clone();
-                let reader = reader.clone();
-                let reading = reading.clone();
-                let read_again_for_branch_1 = read_again_for_branch_1.clone();
-                let read_again_for_branch_2 = read_again_for_branch_2.clone();
-                let reason_1 = reason_1.clone();
-                let reason_2 = reason_2.clone();
-                let branch_1 = branch_1.clone();
-                let branch_2 = branch_2.clone();
-                let cancel_promise = cancel_promise.clone();
-                move |ctx: Ctx<'js>, branch_1_controller: ReadableByteStreamControllerOwned<'js>| {
-                    let objects = ReadableStreamObjects::from_class(objects_class.clone());
+        let pull_1_algorithm = PullAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reader = reader.clone();
+            let reading = reading.clone();
+            let read_again_for_branch_1 = read_again_for_branch_1.clone();
+            let read_again_for_branch_2 = read_again_for_branch_2.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let branch_1 = branch_1.clone();
+            let branch_2 = branch_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |ctx, branch_1_controller| {
+                let objects = ReadableStreamObjects::from_class(objects_class.clone());
 
-                    let branch_2 = OwnedBorrowMut::from_class(branch_2.get().cloned().expect("ReadableByteStream tee pull1 algorithm called without branch2 being initialised"));
-                    let branch_2_controller = match branch_2.controller {
-                        ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
-                            OwnedBorrowMut::from_class(c.clone())
-                        },
-                        _ => {
-                            panic!("ReadableByteStream tee pull1 algorithm called without branch2 having a byte controller")
-                        },
-                    };
+                let branch_1_controller = OwnedBorrowMut::from_class(match branch_1_controller {
+                    ReadableStreamControllerClass::ReadableStreamByteController(c) => c,
+                    _ => panic!(
+                        "ReadableByteStream tee pull1 algorithm called without branch1 having a byte controller"
+                    ),
+                });
 
-                    Self::readable_byte_stream_pull_1_algorithm(
+                let branch_2 = OwnedBorrowMut::from_class(branch_2.get().cloned().expect("ReadableByteStream tee pull1 algorithm called without branch2 being initialised"));
+                let branch_2_controller = match branch_2.controller {
+                    ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
+                        OwnedBorrowMut::from_class(c.clone())
+                    },
+                    _ => {
+                        panic!("ReadableByteStream tee pull1 algorithm called without branch2 having a byte controller")
+                    },
+                };
+
+                Self::readable_byte_stream_pull_1_algorithm(
                         ctx,
                         objects,
                         reader.clone(),
@@ -772,113 +763,106 @@ impl<'js> ReadableStream<'js> {
                         },
                         cancel_promise.clone(),
                     )
-                }
-            })?,
-            underlying_source: Null(None),
-        };
+            }
+        });
 
         // Let pull2Algorithm be the following steps:
-        let pull_2_algorithm = PullAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                let objects_class = objects_class.clone();
-                let reader = reader.clone();
-                let reading = reading.clone();
-                let read_again_for_branch_1 = read_again_for_branch_1.clone();
-                let read_again_for_branch_2 = read_again_for_branch_2.clone();
-                let reason_1 = reason_1.clone();
-                let reason_2 = reason_2.clone();
-                let branch_1 = branch_1.clone();
-                let branch_2 = branch_2.clone();
-                let cancel_promise = cancel_promise.clone();
-                move |ctx: Ctx<'js>, branch_2_controller: ReadableByteStreamControllerOwned<'js>| {
-                    let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                    let branch_2 = OwnedBorrowMut::from_class(branch_2.get().cloned().expect("ReadableByteStream tee pull2 algorithm called without branch2 being initialised"));
-                    let branch_1 = OwnedBorrowMut::from_class(branch_1.get().cloned().expect("ReadableByteStream tee pull2 algorithm called without branch1 being initialised"));
-                    let branch_1_controller = match branch_1.controller {
-                        ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
-                            OwnedBorrowMut::from_class(c.clone())
-                        },
-                        _ => {
-                            panic!("ReadableByteStream tee pull2 algorithm called without branch1 having a byte controller")
-                        },
-                    };
-                    Self::readable_byte_stream_pull_2_algorithm(
-                        ctx,
-                        objects,
-                        reader.clone(),
-                        reading.clone(),
-                        read_again_for_branch_1.clone(),
-                        read_again_for_branch_2.clone(),
-                        reason_1.clone(),
-                        reason_2.clone(),
-                        ReadableStreamObjects {
-                            stream: branch_1,
-                            controller: branch_1_controller,
-                            reader: UndefinedReader,
-                        },
-                        ReadableStreamObjects {
-                            stream: branch_2,
-                            controller: branch_2_controller,
-                            reader: UndefinedReader,
-                        },
-                        cancel_promise.clone(),
-                    )
-                }
-            })?,
-            underlying_source: Null(None),
-        };
+        let pull_2_algorithm = PullAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reader = reader.clone();
+            let reading = reading.clone();
+            let read_again_for_branch_1 = read_again_for_branch_1.clone();
+            let read_again_for_branch_2 = read_again_for_branch_2.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let branch_1 = branch_1.clone();
+            let branch_2 = branch_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |ctx, branch_2_controller| {
+                let objects = ReadableStreamObjects::from_class(objects_class.clone());
 
-        let cancel_algorithm_1 = CancelAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                OnceFn::new({
-                    let objects_class = objects_class.clone();
-                    let reader = reader.clone();
-                    let reason_1 = reason_1.clone();
-                    let reason_2 = reason_2.clone();
-                    let cancel_promise = cancel_promise.clone();
-                    move |reason: Value<'js>| {
-                        let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
-                        let objects =
-                            ReadableStreamObjects::from_class(objects_class).set_reader(reader);
-                        Self::readable_stream_cancel_1_algorithm(
-                            reason.ctx().clone(),
-                            objects,
-                            reason_1,
-                            reason_2,
-                            cancel_promise,
-                            reason,
-                        )
-                    }
-                })
-            })?,
-            underlying_source: Null(None),
-        };
+                let branch_2 = OwnedBorrowMut::from_class(branch_2.get().cloned().expect("ReadableByteStream tee pull2 algorithm called without branch2 being initialised"));
+                let branch_2_controller = match branch_2_controller {
+                    ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
+                        OwnedBorrowMut::from_class(c.clone())
+                    },
+                    _ => {
+                        panic!("ReadableByteStream tee pull2 algorithm called without branch2 having a byte controller")
+                    },
+                };
 
-        let cancel_algorithm_2 = CancelAlgorithm::Function {
-            f: Function::new(ctx.clone(), {
-                OnceFn::new({
-                    let objects_class = objects_class.clone();
-                    let reader = reader.clone();
-                    let reason_1 = reason_1.clone();
-                    let reason_2 = reason_2.clone();
-                    let cancel_promise = cancel_promise.clone();
-                    move |reason: Value<'js>| {
-                        let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
-                        let objects =
-                            ReadableStreamObjects::from_class(objects_class).set_reader(reader);
-                        Self::readable_stream_cancel_2_algorithm(
-                            reason.ctx().clone(),
-                            objects,
-                            reason_1,
-                            reason_2,
-                            cancel_promise,
-                            reason,
-                        )
-                    }
-                })
-            })?,
-            underlying_source: Null(None),
-        };
+                let branch_1 = OwnedBorrowMut::from_class(branch_1.get().cloned().expect("ReadableByteStream tee pull2 algorithm called without branch1 being initialised"));
+                let branch_1_controller = match branch_1.controller {
+                    ReadableStreamControllerClass::ReadableStreamByteController(ref c) => {
+                        OwnedBorrowMut::from_class(c.clone())
+                    },
+                    _ => {
+                        panic!("ReadableByteStream tee pull2 algorithm called without branch1 having a byte controller")
+                    },
+                };
+                Self::readable_byte_stream_pull_2_algorithm(
+                    ctx,
+                    objects,
+                    reader.clone(),
+                    reading.clone(),
+                    read_again_for_branch_1.clone(),
+                    read_again_for_branch_2.clone(),
+                    reason_1.clone(),
+                    reason_2.clone(),
+                    ReadableStreamObjects {
+                        stream: branch_1,
+                        controller: branch_1_controller,
+                        reader: UndefinedReader,
+                    },
+                    ReadableStreamObjects {
+                        stream: branch_2,
+                        controller: branch_2_controller,
+                        reader: UndefinedReader,
+                    },
+                    cancel_promise.clone(),
+                )
+            }
+        });
+
+        let cancel_algorithm_1 = CancelAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reader = reader.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |reason: Value<'js>| {
+                let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
+                let objects = ReadableStreamObjects::from_class(objects_class).set_reader(reader);
+                Self::readable_stream_cancel_1_algorithm(
+                    reason.ctx().clone(),
+                    objects,
+                    reason_1,
+                    reason_2,
+                    cancel_promise,
+                    reason,
+                )
+            }
+        });
+
+        let cancel_algorithm_2 = CancelAlgorithm::from_fn({
+            let objects_class = objects_class.clone();
+            let reader = reader.clone();
+            let reason_1 = reason_1.clone();
+            let reason_2 = reason_2.clone();
+            let cancel_promise = cancel_promise.clone();
+            move |reason: Value<'js>| {
+                let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
+                let objects = ReadableStreamObjects::from_class(objects_class).set_reader(reader);
+                Self::readable_stream_cancel_2_algorithm(
+                    reason.ctx().clone(),
+                    objects,
+                    reason_1,
+                    reason_2,
+                    cancel_promise,
+                    reason,
+                )
+            }
+        });
 
         // Let startAlgorithm be an algorithm that returns undefined.
         let start_algorithm = StartAlgorithm::ReturnUndefined;

@@ -1,6 +1,7 @@
 use rquickjs::{
-    class::Trace, methods, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result,
-    Value,
+    class::{JsCell, JsClass, Readable, Trace},
+    function::{Constructor, Params},
+    methods, Class, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result, Value,
 };
 
 use super::ObjectExt;
@@ -9,7 +10,7 @@ pub(super) struct QueuingStrategy<'js> {
     // unrestricted double highWaterMark;
     high_water_mark: Option<Value<'js>>,
     // callback QueuingStrategySize = unrestricted double (any chunk);
-    pub(super) size: Option<Function<'js>>,
+    pub(super) size: Option<SizeFunction<'js>>,
 }
 
 impl<'js> FromJs<'js> for QueuingStrategy<'js> {
@@ -73,15 +74,37 @@ impl<'js> QueuingStrategy<'js> {
 #[derive(JsLifetime, Trace, Clone)]
 pub(super) enum SizeAlgorithm<'js> {
     AlwaysOne,
-    SizeFunction(Function<'js>),
+    SizeFunction(SizeFunction<'js>),
 }
 
 impl<'js> SizeAlgorithm<'js> {
     pub(super) fn call(&self, ctx: Ctx<'js>, chunk: Value<'js>) -> Result<Value<'js>> {
         match self {
-            Self::AlwaysOne => Ok(Value::new_number(ctx, 1.0)),
-            Self::SizeFunction(ref f) => f.call((chunk.clone(),)),
+            Self::AlwaysOne
+            | Self::SizeFunction(SizeFunction::Native(NativeSizeFunction::Count)) => {
+                Ok(Value::new_number(ctx, 1.0))
+            },
+            Self::SizeFunction(SizeFunction::Js(ref f)) => f.call((chunk.clone(),)),
+            Self::SizeFunction(SizeFunction::Native(NativeSizeFunction::ByteLength)) => {
+                byte_length_queueing_strategy_size_function(&ctx, &chunk)
+            },
         }
+    }
+}
+
+#[derive(JsLifetime, Trace, Clone)]
+pub(super) enum SizeFunction<'js> {
+    Js(Function<'js>),
+    Native(NativeSizeFunction),
+}
+
+impl<'js> FromJs<'js> for SizeFunction<'js> {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        if let Ok(nsf) = Class::<NativeSizeFunction>::from_value(&value) {
+            return Ok(SizeFunction::Native(*nsf.borrow()));
+        }
+
+        Ok(SizeFunction::Js(Function::from_js(ctx, value)?))
     }
 }
 
@@ -89,7 +112,7 @@ impl<'js> SizeAlgorithm<'js> {
 #[rquickjs::class]
 pub(crate) struct CountQueuingStrategy<'js> {
     high_water_mark: f64,
-    size: Function<'js>,
+    size: Class<'js, NativeSizeFunction>,
 }
 
 #[methods(rename_all = "camelCase")]
@@ -99,12 +122,12 @@ impl<'js> CountQueuingStrategy<'js> {
         // Set this.[[highWaterMark]] to init["highWaterMark"].
         Ok(Self {
             high_water_mark: init.high_water_mark,
-            size: Function::new(ctx, count_queueing_strategy_size_function)?,
+            size: Class::instance(ctx, NativeSizeFunction::Count)?,
         })
     }
 
     #[qjs(get)]
-    fn size(&self) -> Function<'js> {
+    fn size(&self) -> Class<'js, NativeSizeFunction> {
         self.size.clone()
     }
 
@@ -112,11 +135,6 @@ impl<'js> CountQueuingStrategy<'js> {
     fn high_water_mark(&self) -> f64 {
         self.high_water_mark
     }
-}
-
-fn count_queueing_strategy_size_function() -> f64 {
-    // Return 1.
-    1.0
 }
 
 struct QueueingStrategyInit {
@@ -142,7 +160,7 @@ impl<'js> FromJs<'js> for QueueingStrategyInit {
 #[rquickjs::class]
 pub(crate) struct ByteLengthQueuingStrategy<'js> {
     high_water_mark: f64,
-    size: Function<'js>,
+    size: Class<'js, NativeSizeFunction>,
 }
 
 #[methods(rename_all = "camelCase")]
@@ -152,12 +170,12 @@ impl<'js> ByteLengthQueuingStrategy<'js> {
         // Set this.[[highWaterMark]] to init["highWaterMark"].
         Ok(Self {
             high_water_mark: init.high_water_mark,
-            size: Function::new(ctx, byte_length_queueing_strategy_size_function)?,
+            size: Class::instance(ctx, NativeSizeFunction::ByteLength)?,
         })
     }
 
     #[qjs(get)]
-    fn size(&self) -> Function<'js> {
+    fn size(&self) -> Class<'js, NativeSizeFunction> {
         self.size.clone()
     }
 
@@ -167,6 +185,54 @@ impl<'js> ByteLengthQueuingStrategy<'js> {
     }
 }
 
-fn byte_length_queueing_strategy_size_function(chunk: Object<'_>) -> Result<f64> {
-    chunk.get("byteLength")
+#[derive(JsLifetime, Trace, Clone, Copy)]
+pub(super) enum NativeSizeFunction {
+    ByteLength,
+    Count,
+}
+
+impl<'js> JsClass<'js> for NativeSizeFunction {
+    const NAME: &'static str = "NativeSizeFunction";
+
+    type Mutable = Readable;
+
+    const CALLABLE: bool = true;
+
+    fn prototype(ctx: &Ctx<'js>) -> Result<Option<Object<'js>>> {
+        Ok(Some(Function::prototype(ctx.clone())))
+    }
+
+    fn constructor(_ctx: &Ctx<'js>) -> Result<Option<Constructor<'js>>> {
+        Ok(None)
+    }
+
+    fn call<'a>(this: &JsCell<'js, Self>, params: Params<'a, 'js>) -> Result<Value<'js>> {
+        match &*this.borrow() {
+            NativeSizeFunction::Count => Ok(Value::new_int(params.ctx().clone(), 1)),
+            NativeSizeFunction::ByteLength => {
+                let Some(chunk) = params.arg(0) else {
+                    return Err(Exception::throw_type(
+                        params.ctx(),
+                        "ByteLengthQueuingStrategy expects an argument 'chunk'",
+                    ));
+                };
+
+                byte_length_queueing_strategy_size_function(params.ctx(), &chunk)
+            },
+        }
+    }
+}
+
+fn byte_length_queueing_strategy_size_function<'js>(
+    ctx: &Ctx<'js>,
+    chunk: &Value<'js>,
+) -> Result<Value<'js>> {
+    if let Some(chunk) = chunk.as_object() {
+        chunk.get("byteLength")
+    } else {
+        Err(Exception::throw_type(
+            ctx,
+            "ByteLengthQueuingStrategy argument 'chunk' must be an object",
+        ))
+    }
 }

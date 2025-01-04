@@ -1,4 +1,4 @@
-use std::{cell::OnceCell, rc::Rc};
+use std::{cell::OnceCell, panic, rc::Rc};
 
 use byob_reader::{ReadableStreamReadIntoRequest, ViewBytes};
 use controller::{
@@ -19,7 +19,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
-    prelude::{List, MutFn, OnceFn, Opt, This},
+    prelude::{List, OnceFn, Opt, This},
     ArrayBuffer, Class, Ctx, Error, Exception, FromJs, Function, IntoJs, JsLifetime, Object,
     Promise, Result, Type, Value,
 };
@@ -49,9 +49,7 @@ pub(crate) use default_controller::ReadableStreamDefaultController;
 pub(crate) use default_reader::ReadableStreamDefaultReader;
 
 use crate::readable::byob_reader::ReadableStreamBYOBReaderOwned;
-use crate::readable::default_controller::{
-    ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
-};
+use crate::readable::default_controller::ReadableStreamDefaultControllerOwned;
 use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
 use crate::{
     readable::byte_controller::{
@@ -831,7 +829,7 @@ impl<'js> ReadableStream<'js> {
         let stream: Rc<OnceCell<Class<'js, Self>>> = Rc::new(OnceCell::new());
 
         // Let iteratorRecord be ? GetIterator(asyncIterable, async).
-        let mut iterator_record =
+        let iterator_record =
             IteratorRecord::get_iterator(ctx, async_iterable, IteratorKind::Async)?;
         let iterator = iterator_record.iterator.clone();
 
@@ -842,10 +840,9 @@ impl<'js> ReadableStream<'js> {
 
         // Let pullAlgorithm be the following steps:
         let pull_algorithm = {
-            let ctx = ctx.clone();
             let stream = stream.clone();
             let promise_primordials = promise_primordials.clone();
-            move |controller: ReadableStreamDefaultControllerClass<'js>| {
+            move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
                 // Let nextResult be IteratorNext(iteratorRecord).
                 let next_result: Result<Object<'js>> = iterator_record.iterator_next(&ctx, None);
                 let next_promise = match next_result {
@@ -882,7 +879,10 @@ impl<'js> ReadableStream<'js> {
                     let done = IteratorRecord::iterator_complete(&iter_result)?;
 
                     let stream = OwnedBorrowMut::from_class(stream.get().cloned().expect("ReadableStreamFromIterable pull steps called with uninitialised stream"));
-                    let controller = OwnedBorrowMut::from_class(controller);
+                    let controller = match controller {
+                        ReadableStreamControllerClass::ReadableStreamDefaultController(c) => OwnedBorrowMut::from_class(c),
+                        _ => panic!("ReadableStreamFromIterable pull steps called without default controller")
+                    };
 
                     let objects = ReadableStreamObjects {
                         stream,
@@ -974,14 +974,8 @@ impl<'js> ReadableStream<'js> {
         let objects_class = ReadableStream::create_readable_stream(
             ctx.clone(),
             start_algorithm,
-            PullAlgorithm::Function {
-                f: Function::new(ctx.clone(), MutFn::new(pull_algorithm))?,
-                underlying_source: Null(None),
-            },
-            CancelAlgorithm::Function {
-                f: Function::new(ctx.clone(), OnceFn::new(cancel_algorithm))?,
-                underlying_source: Null(None),
-            },
+            PullAlgorithm::from_fn(pull_algorithm),
+            CancelAlgorithm::from_fn(cancel_algorithm),
             Some(0.0),
             None,
         )?;
@@ -1217,16 +1211,30 @@ impl<'js> StartAlgorithm<'js> {
     }
 }
 
-#[derive(JsLifetime, Trace, Clone)]
+#[derive(Trace, Clone)]
 enum PullAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_source: Null<Undefined<Object<'js>>>,
     },
+    RustFunction(#[qjs(skip_trace)] Rc<PullRustFunction<'js>>),
 }
 
+unsafe impl<'js> JsLifetime<'js> for PullAlgorithm<'js> {
+    type Changed<'to> = PullAlgorithm<'to>;
+}
+
+type PullRustFunction<'js> =
+    Box<dyn Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js>;
+
 impl<'js> PullAlgorithm<'js> {
+    fn from_fn(
+        f: impl Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js,
+    ) -> Self {
+        Self::RustFunction(Rc::new(Box::new(f)))
+    }
+
     fn call(
         &self,
         ctx: Ctx<'js>,
@@ -1247,20 +1255,32 @@ impl<'js> PullAlgorithm<'js> {
                 promise_primordials,
                 f.call::<_, Value>((This(underlying_source.clone()), controller)),
             ),
+            PullAlgorithm::RustFunction(f) => f(ctx, controller),
         }
     }
 }
 
-#[derive(JsLifetime, Trace, Clone)]
+#[derive(Clone, Trace)]
 enum CancelAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_source: Null<Undefined<Object<'js>>>,
     },
+    RustFunction(#[qjs(skip_trace)] Rc<OnceFn<CancelRustFunction<'js>>>),
 }
 
+unsafe impl<'js> JsLifetime<'js> for CancelAlgorithm<'js> {
+    type Changed<'to> = CancelAlgorithm<'to>;
+}
+
+type CancelRustFunction<'js> = Box<dyn FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js>;
+
 impl<'js> CancelAlgorithm<'js> {
+    fn from_fn(f: impl FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js) -> Self {
+        Self::RustFunction(Rc::new(OnceFn::new(Box::new(f))))
+    }
+
     fn call(
         &self,
         ctx: Ctx<'js>,
@@ -1280,6 +1300,9 @@ impl<'js> CancelAlgorithm<'js> {
                 let result: Result<Value> = f.call((This(underlying_source.clone()), reason));
                 let promise = promise_resolved_with(&ctx, promise_primordials, result);
                 promise
+            },
+            CancelAlgorithm::RustFunction(f) => {
+                f.take().expect("cancel algorithm must only be called once")(reason)
             },
         }
     }
