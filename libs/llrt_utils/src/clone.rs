@@ -2,17 +2,17 @@ use std::collections::HashSet;
 
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{
-    object::ObjectExt,
-    primordials::{BasePrimordials, Primordial},
-};
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt, This},
     Array, ArrayBuffer, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
 };
 
-use super::hash;
+use super::{
+    hash,
+    object::ObjectExt,
+    primordials::{BasePrimordials, Primordial},
+};
 
 #[derive(Debug)]
 enum StackItem<'js> {
@@ -409,7 +409,7 @@ mod tests {
     use llrt_test::test_sync_with;
     use rquickjs::{function::Opt, Object, Value};
 
-    use crate::utils::clone::structured_clone;
+    use super::structured_clone;
 
     #[tokio::test]
     async fn clone() {

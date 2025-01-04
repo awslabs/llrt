@@ -14,6 +14,7 @@ use llrt_numbers::float_to_string;
 use llrt_utils::{
     class::get_class_name,
     error::ErrorExtensions,
+    hash,
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
@@ -26,9 +27,9 @@ use rquickjs::{
     Array, Class, Coerced, Ctx, Error, Function, Object, Result, Symbol, Type, Value,
 };
 
+use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::runtime_client;
-use crate::{module_builder::ModuleInfo, utils::hash};
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);

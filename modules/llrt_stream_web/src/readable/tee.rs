@@ -4,12 +4,12 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use llrt_utils::primordials::Primordial;
+use llrt_utils::clone::structured_clone;
 use rquickjs::{
     class::{OwnedBorrowMut, Trace},
     function::Constructor,
-    prelude::{List, OnceFn},
-    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, JsLifetime, Promise, Result, Value,
+    prelude::{List, OnceFn, Opt},
+    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, Promise, Result, Value,
 };
 
 use super::{
@@ -325,8 +325,6 @@ impl<'js> ReadableStream<'js> {
                 >,
             >,
             cancel_promise: ResolveablePromise<'js>,
-
-            structured_clone: Function<'js>,
         }
 
         impl<'js> Trace<'js> for ReadRequest<'js> {
@@ -386,8 +384,7 @@ impl<'js> ReadableStream<'js> {
                                     // If canceled2 is false and cloneForBranch2 is true,
                                     let chunk_2 = if this.reason_2.get().is_none() && this.clone_for_branch_2 {
                                         // Let cloneResult be StructuredClone(chunk2).
-                                        let clone_result: Result<Value<'_>> = this.structured_clone
-                                            .call((chunk_2,));
+                                        let clone_result: Result<Value<'_>> = structured_clone(&ctx, chunk_2, Opt(None));
                                         match clone_result {
                                             // If cloneResult is an abrupt completion,
                                             Err(Error::Exception) => {
@@ -583,7 +580,6 @@ impl<'js> ReadableStream<'js> {
                 branch_1,
                 branch_2,
                 cancel_promise,
-                structured_clone: TeePrimordials::get(&ctx)?.structured_clone.clone(),
             },
         )?;
 
@@ -2008,20 +2004,4 @@ fn clone_as_uint8_array<'js>(
         function_array_buffer_is_view,
         Some(&constructor_uint8array.construct((buffer,))?),
     )
-}
-
-#[derive(JsLifetime)]
-struct TeePrimordials<'js> {
-    structured_clone: Function<'js>,
-}
-
-impl<'js> Primordial<'js> for TeePrimordials<'js> {
-    fn new(ctx: &Ctx<'js>) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        Ok(Self {
-            structured_clone: ctx.globals().get("structuredClone")?,
-        })
-    }
 }

@@ -5,6 +5,7 @@ use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult}
 use llrt_json::{parse::json_parse_string, stringify::json_stringify_replacer_space};
 use llrt_numbers::number_to_string;
 use llrt_utils::{
+    clone::structured_clone,
     error::ErrorExtensions,
     object::ObjectExt,
     primordials::{BasePrimordials, Primordial},
@@ -27,7 +28,6 @@ use crate::{
     module_loader::{loader::CustomLoader, require, resolver::CustomResolver},
     modules::{console, crypto::SYSTEM_RANDOM},
     security,
-    utils::clone::structured_clone,
 };
 
 fn print(value: String, stdout: Opt<bool>) {
