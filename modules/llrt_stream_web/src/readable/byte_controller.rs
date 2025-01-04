@@ -426,14 +426,16 @@ impl<'js> ReadableByteStreamController<'js> {
             let view = ViewBytes::from_value(
                 &ctx,
                 &controller.function_array_buffer_is_view,
-                &controller
-                    .array_constructor_primordials
-                    .constructor_uint8array
-                    .construct((
-                        first_descriptor.buffer.clone(),
-                        first_descriptor.byte_offset + first_descriptor.bytes_filled,
-                        first_descriptor.byte_length - first_descriptor.bytes_filled,
-                    ))?,
+                Some(
+                    &controller
+                        .array_constructor_primordials
+                        .constructor_uint8array
+                        .construct((
+                            first_descriptor.buffer.clone(),
+                            first_descriptor.byte_offset + first_descriptor.bytes_filled,
+                            first_descriptor.byte_length - first_descriptor.bytes_filled,
+                        ))?,
+                ),
             )?;
 
             let (controller_class, mut controller) = class_from_owned_borrow_mut(controller);
@@ -614,11 +616,17 @@ impl<'js> ReadableByteStreamController<'js> {
                     let transferred_view = ViewBytes::from_value(
                         ctx,
                         &objects.controller.function_array_buffer_is_view,
-                        &objects
-                            .controller
-                            .array_constructor_primordials
-                            .constructor_uint8array
-                            .construct((transferred_buffer.clone(), byte_offset, byte_length))?,
+                        Some(
+                            &objects
+                                .controller
+                                .array_constructor_primordials
+                                .constructor_uint8array
+                                .construct((
+                                    transferred_buffer.clone(),
+                                    byte_offset,
+                                    byte_length,
+                                ))?,
+                        ),
                     );
 
                     // Perform ! ReadableStreamFulfillReadRequest(stream, transferredView, false).
@@ -1660,7 +1668,7 @@ impl<'js> ReadableByteStreamController<'js> {
         ctx: Ctx<'js>,
         chunk: Value<'js>,
     ) -> Result<()> {
-        let chunk = ViewBytes::from_value(&ctx, &this.function_array_buffer_is_view, &chunk)?;
+        let chunk = ViewBytes::from_value(&ctx, &this.function_array_buffer_is_view, Some(&chunk))?;
 
         let (array_buffer, byte_length, _) = chunk.get_array_buffer()?;
 
@@ -1967,8 +1975,11 @@ impl<'js> ReadableStreamBYOBRequest<'js> {
 
         let controller = OwnedBorrowMut::from_class(controller);
 
-        let view = view.0.unwrap_or_else(|| Value::new_undefined(ctx.clone()));
-        let view = ViewBytes::from_value(&ctx, &controller.function_array_buffer_is_view, &view)?;
+        let view = ViewBytes::from_value(
+            &ctx,
+            &controller.function_array_buffer_is_view,
+            view.0.as_ref(),
+        )?;
 
         let (buffer, _, _) = view.get_array_buffer()?;
 

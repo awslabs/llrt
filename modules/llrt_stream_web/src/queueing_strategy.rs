@@ -4,7 +4,7 @@ use rquickjs::{
     methods, Class, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result, Value,
 };
 
-use super::ObjectExt;
+use super::ValueOrUndefined;
 
 pub(super) struct QueuingStrategy<'js> {
     // unrestricted double highWaterMark;
@@ -20,8 +20,8 @@ impl<'js> FromJs<'js> for QueuingStrategy<'js> {
             .as_object()
             .ok_or(Error::new_from_js(ty_name, "Object"))?;
 
-        let high_water_mark = obj.get_optional::<_, Value>("highWaterMark")?;
-        let size = obj.get_optional::<_, _>("size")?;
+        let high_water_mark = obj.get_value_or_undefined::<_, Value>("highWaterMark")?;
+        let size = obj.get_value_or_undefined::<_, _>("size")?;
 
         Ok(Self {
             high_water_mark,
@@ -149,7 +149,7 @@ impl<'js> FromJs<'js> for QueueingStrategyInit {
             .ok_or(Error::new_from_js(ty_name, "Object"))?;
 
         let high_water_mark = obj
-            .get_optional("highWaterMark")?
+            .get_value_or_undefined("highWaterMark")?
             .ok_or(Error::new_from_js(ty_name, "QueueingStrategyInit"))?;
 
         Ok(Self { high_water_mark })

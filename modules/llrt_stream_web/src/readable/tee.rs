@@ -1108,7 +1108,7 @@ impl<'js> ReadableStream<'js> {
                 objects.with_assert_byte_controller(|objects| {
                     let constructor_uint8array = objects.controller.array_constructor_primordials.constructor_uint8array.clone();
                     let function_array_buffer_is_view = objects.controller.function_array_buffer_is_view.clone();
-                    let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, &chunk)?;
+                    let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, Some(&chunk))?;
                     let objects_class = objects.into_inner();
                     // Queue a microtask to perform the following steps:
                     let f = {
@@ -1508,7 +1508,8 @@ impl<'js> ReadableStream<'js> {
                     .clone();
                 let function_array_buffer_is_view =
                     objects.controller.function_array_buffer_is_view.clone();
-                let chunk = ViewBytes::from_value(&ctx, &function_array_buffer_is_view, &chunk)?;
+                let chunk =
+                    ViewBytes::from_value(&ctx, &function_array_buffer_is_view, Some(&chunk))?;
 
                 let objects_class = objects.into_inner();
 
@@ -1717,7 +1718,7 @@ impl<'js> ReadableStream<'js> {
                     let chunk = ViewBytes::from_value(
                         &ctx,
                         &objects.controller.function_array_buffer_is_view,
-                        &chunk,
+                        Some(&chunk),
                     )?;
 
                     // If byobCanceled is false, perform ! ReadableByteStreamControllerRespondWithNewView(byobBranch.[[controller]], chunk).
@@ -2005,7 +2006,7 @@ fn clone_as_uint8_array<'js>(
     ViewBytes::from_value(
         &ctx,
         function_array_buffer_is_view,
-        &constructor_uint8array.construct((buffer,))?,
+        Some(&constructor_uint8array.construct((buffer,))?),
     )
 }
 

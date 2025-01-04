@@ -17,7 +17,7 @@ use super::{
     objects::ReadableStreamObjects,
     promise_rejected_with,
     reader::{ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned},
-    ObjectExt, ReadableStreamOwned, ReadableStreamReadResult, ReadableStreamState,
+    ReadableStreamOwned, ReadableStreamReadResult, ReadableStreamState, ValueOrUndefined,
 };
 use crate::readable::byte_controller::ReadableByteStreamControllerOwned;
 use crate::readable::default_reader::ReadableStreamDefaultReaderOwned;
@@ -212,16 +212,17 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             },
         };
 
-        let view = view.0.unwrap_or_else(|| Value::new_undefined(ctx.clone()));
-        let view =
-            match ViewBytes::from_value(&ctx, &reader.generic.function_array_buffer_is_view, &view)
-            {
-                Ok(view) => view,
-                Err(Error::Exception) => {
-                    return promise_rejected_with(&reader.generic.promise_primordials, ctx.catch());
-                },
-                Err(err) => return Err(err),
-            };
+        let view = match ViewBytes::from_value(
+            &ctx,
+            &reader.generic.function_array_buffer_is_view,
+            view.0.as_ref(),
+        ) {
+            Ok(view) => view,
+            Err(Error::Exception) => {
+                return promise_rejected_with(&reader.generic.promise_primordials, ctx.catch());
+            },
+            Err(err) => return Err(err),
+        };
 
         let (buffer, byte_length) = match view.get_array_buffer() {
             Ok((buffer, byte_length, _)) => (buffer, byte_length),
@@ -505,7 +506,7 @@ impl<'js> FromJs<'js> for ReadableStreamBYOBReaderReadOptions {
             .as_object()
             .ok_or(Error::new_from_js(ty_name, "Object"))?;
 
-        let min = obj.get_optional::<_, f64>("min")?.unwrap_or(1.0);
+        let min = obj.get_value_or_undefined::<_, f64>("min")?.unwrap_or(1.0);
         if min < u64::MIN as f64 || min > u64::MAX as f64 {
             return Err(Exception::throw_type(
                 ctx,
@@ -597,9 +598,9 @@ impl<'js> ViewBytes<'js> {
     pub(super) fn from_value(
         ctx: &Ctx<'js>,
         function_array_buffer_is_view: &Function<'js>,
-        value: &Value<'js>,
+        value: Option<&Value<'js>>,
     ) -> Result<Self> {
-        match value.as_object() {
+        match value.and_then(Value::as_object) {
             None => {
                 Err(Exception::throw_type(
                     ctx,

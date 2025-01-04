@@ -16,7 +16,7 @@ use rquickjs::{
 use writer::{UndefinedWriter, WritableStreamWriter};
 
 use super::{
-    promise_rejected_with, promise_resolved_with, upon_promise, Null, ObjectExt, Undefined,
+    promise_rejected_with, promise_resolved_with, upon_promise, Null, Undefined, ValueOrUndefined,
 };
 use crate::{queueing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise};
 
@@ -738,11 +738,11 @@ struct UnderlyingSink<'js> {
 
 impl<'js> UnderlyingSink<'js> {
     fn from_object(obj: Object<'js>) -> Result<Self> {
-        let start = obj.get_optional::<_, _>("start")?;
-        let write = obj.get_optional::<_, _>("write")?;
-        let close = obj.get_optional::<_, _>("close")?;
-        let abort = obj.get_optional::<_, _>("abort")?;
-        let r#type = obj.get_optional::<_, _>("type")?;
+        let start = obj.get_value_or_undefined::<_, _>("start")?;
+        let write = obj.get_value_or_undefined::<_, _>("write")?;
+        let close = obj.get_value_or_undefined::<_, _>("close")?;
+        let abort = obj.get_value_or_undefined::<_, _>("abort")?;
+        let r#type = obj.get_value_or_undefined::<_, _>("type")?;
 
         Ok(Self {
             start,

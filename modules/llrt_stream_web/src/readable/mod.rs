@@ -29,7 +29,7 @@ use super::{
     queueing_strategy::{QueuingStrategy, SizeAlgorithm},
     writable::WritableStream,
     writable::WritableStreamDefaultWriter,
-    Null, ObjectExt, ReadableWritablePair, Undefined,
+    Null, ReadableWritablePair, Undefined, ValueOrUndefined,
 };
 
 mod byob_reader;
@@ -449,7 +449,7 @@ impl<'js> ReadableStream<'js> {
         // Let preventCancel be args[0]["preventCancel"].
         let prevent_cancel = match arg.0 {
             None => false,
-            Some(arg) => matches!(arg.get_optional("preventCancel")?, Some(true)),
+            Some(arg) => matches!(arg.get_value_or_undefined("preventCancel")?, Some(true)),
         };
 
         let promise_primordials = stream.promise_primordials.clone();
@@ -1005,11 +1005,12 @@ struct UnderlyingSource<'js> {
 
 impl<'js> UnderlyingSource<'js> {
     fn from_object(obj: Object<'js>) -> Result<Self> {
-        let start = obj.get_optional::<_, _>("start")?;
-        let pull = obj.get_optional::<_, _>("pull")?;
-        let cancel = obj.get_optional::<_, _>("cancel")?;
-        let r#type = obj.get_optional::<_, _>("type")?;
-        let auto_allocate_chunk_size = obj.get_optional::<_, _>("autoAllocateChunkSize")?;
+        let start = obj.get_value_or_undefined::<_, _>("start")?;
+        let pull = obj.get_value_or_undefined::<_, _>("pull")?;
+        let cancel = obj.get_value_or_undefined::<_, _>("cancel")?;
+        let r#type = obj.get_value_or_undefined::<_, _>("type")?;
+        let auto_allocate_chunk_size =
+            obj.get_value_or_undefined::<_, _>("autoAllocateChunkSize")?;
 
         Ok(Self {
             start,
@@ -1033,12 +1034,12 @@ impl<'js> FromJs<'js> for ReadableStreamType {
             Type::String => value.into_string().unwrap(),
             Type::Object => {
                 if let Some(to_string) = value
-                    .get_optional::<_, Value>("toString")?
+                    .get_value_or_undefined::<_, Value>("toString")?
                     .and_then(|s| s.into_function())
                 {
                     to_string.call(())?
                 } else if let Some(value_of) = value
-                    .get_optional::<_, Value>("valueOf")?
+                    .get_value_or_undefined::<_, Value>("valueOf")?
                     .and_then(|s| s.into_function())
                 {
                     value_of.call(())?
@@ -1067,7 +1068,7 @@ impl<'js> FromJs<'js> for ReadableStreamGetReaderOptions {
             .as_object()
             .ok_or(Error::new_from_js(ty_name, "Object"))?;
 
-        let mode = obj.get_optional::<_, ReadableStreamReaderMode>("mode")?;
+        let mode = obj.get_value_or_undefined::<_, ReadableStreamReaderMode>("mode")?;
 
         Ok(Self { mode })
     }
@@ -1085,12 +1086,12 @@ impl<'js> FromJs<'js> for ReadableStreamReaderMode {
             Type::String => value.into_string().unwrap(),
             Type::Object => {
                 if let Some(to_string) = value
-                    .get_optional::<_, Value>("toString")?
+                    .get_value_or_undefined::<_, Value>("toString")?
                     .and_then(|s| s.into_function())
                 {
                     to_string.call(())?
                 } else if let Some(value_of) = value
-                    .get_optional::<_, Value>("valueOf")?
+                    .get_value_or_undefined::<_, Value>("valueOf")?
                     .and_then(|s| s.into_function())
                 {
                     value_of.call(())?
@@ -1124,7 +1125,7 @@ impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
             .ok_or(Error::new_from_js(ty_name, "Object"))?;
 
         let get_bool = |key| {
-            obj.get_optional::<_, Value<'js>>(key)?
+            obj.get_value_or_undefined::<_, Value<'js>>(key)?
                 .filter(|value| !value.is_undefined() && !value.is_null())
                 .map(|value| {
                     if let Some(bool) = value.as_bool() {
@@ -1147,7 +1148,7 @@ impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
         let prevent_close = get_bool("preventClose")?;
         let prevent_cancel = get_bool("preventCancel")?;
 
-        let signal = obj.get_optional::<_, Value<'js>>("signal")?;
+        let signal = obj.get_value_or_undefined::<_, Value<'js>>("signal")?;
 
         Ok(Self {
             prevent_close,

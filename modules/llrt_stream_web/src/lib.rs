@@ -200,12 +200,15 @@ fn class_from_owned_borrow_mut<'js, T: JsClass<'js>>(
 
 // the trait used elsewhere in this repo accepts null values as 'None', which causes many web platform tests to fail as they
 // like to check that undefined is accepted and null isn't.
-pub trait ObjectExt<'js> {
-    fn get_optional<K: IntoAtom<'js> + Clone, V: FromJs<'js>>(&self, k: K) -> Result<Option<V>>;
+trait ValueOrUndefined<'js> {
+    fn get_value_or_undefined<K: IntoAtom<'js> + Clone, V: FromJs<'js>>(
+        &self,
+        k: K,
+    ) -> Result<Option<V>>;
 }
 
-impl<'js> ObjectExt<'js> for Object<'js> {
-    fn get_optional<K: IntoAtom<'js> + Clone, V: FromJs<'js> + Sized>(
+impl<'js> ValueOrUndefined<'js> for Object<'js> {
+    fn get_value_or_undefined<K: IntoAtom<'js> + Clone, V: FromJs<'js> + Sized>(
         &self,
         k: K,
     ) -> Result<Option<V>> {
@@ -214,10 +217,13 @@ impl<'js> ObjectExt<'js> for Object<'js> {
     }
 }
 
-impl<'js> ObjectExt<'js> for Value<'js> {
-    fn get_optional<K: IntoAtom<'js> + Clone, V: FromJs<'js>>(&self, k: K) -> Result<Option<V>> {
+impl<'js> ValueOrUndefined<'js> for Value<'js> {
+    fn get_value_or_undefined<K: IntoAtom<'js> + Clone, V: FromJs<'js>>(
+        &self,
+        k: K,
+    ) -> Result<Option<V>> {
         if let Some(obj) = self.as_object() {
-            return obj.get_optional(k);
+            return obj.get_value_or_undefined(k);
         }
         Ok(None)
     }
