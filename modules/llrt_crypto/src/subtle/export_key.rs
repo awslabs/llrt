@@ -3,7 +3,7 @@
 
 use der::{
     asn1::{self, BitString},
-    Encode, SecretDocument,
+    Decode, Encode, SecretDocument,
 };
 use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_utils::result::ResultExt;
@@ -16,10 +16,16 @@ use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
 use rsa::{pkcs1::DecodeRsaPrivateKey, RsaPrivateKey};
 use spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfo};
 
-use crate::{subtle::CryptoKey, SYSTEM_RANDOM};
+use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey, SYSTEM_RANDOM};
+
+pub fn algorithm_export_error<T>(ctx: &Ctx<'_>, algorithm: &str, format: &str) -> Result<T> {
+    Err(Exception::throw_message(
+        ctx,
+        &["Export of ", algorithm, " as ", format, " is not supported"].concat(),
+    ))
+}
 
 use super::{
-    algorithm_not_supported_error,
     crypto_key::KeyKind,
     key_algorithm::{EcAlgorithm, KeyAlgorithm},
     EllipticCurve,
@@ -52,7 +58,7 @@ pub async fn subtle_export_key<'js>(
 }
 
 fn export_raw<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
-    if matches!(key.kind, KeyKind::Private) {
+    if key.kind == KeyKind::Private {
         return Err(Exception::throw_type(
             &ctx,
             "Private Crypto keys can't be exported as raw format",
@@ -76,7 +82,7 @@ fn export_raw<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             let key_pair = ring::signature::RsaKeyPair::from_pkcs8(handle).or_throw(&ctx)?;
             key_pair.public_key().as_ref().into()
         },
-        _ => return algorithm_not_supported_error(&ctx),
+        _ => return algorithm_export_error(&ctx, &key.name, "raw"),
     };
 
     Ok(ArrayBuffer::new(ctx, bytes)?.into_object())
@@ -85,7 +91,7 @@ fn export_raw<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
 fn export_pkcs8<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
     let handle = key.handle.as_ref();
 
-    if !matches!(key.kind, KeyKind::Private) {
+    if key.kind != KeyKind::Private {
         return Err(Exception::throw_type(
             &ctx,
             "Public or Secret Crypto keys can't be exported as pkcs8 format",
@@ -104,7 +110,7 @@ fn export_pkcs8<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         .to_der()
         .or_throw(&ctx)?,
         KeyAlgorithm::Rsa { .. } => rsa_der_pkcs1_to_pkcs8(&ctx, handle)?.as_bytes().to_vec(),
-        _ => return algorithm_not_supported_error(&ctx),
+        _ => return algorithm_export_error(&ctx, &key.name, "pkcs8"),
     };
 
     Ok(ArrayBuffer::new(ctx, bytes)?.into_object())
@@ -116,7 +122,7 @@ fn rsa_der_pkcs1_to_pkcs8(ctx: &Ctx, handle: &[u8]) -> Result<SecretDocument> {
 }
 
 fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
-    if !matches!(key.kind, KeyKind::Public) {
+    if key.kind == KeyKind::Public {
         return Err(Exception::throw_type(
             &ctx,
             "Private or Secret Crypto keys can't be exported as spki format",
@@ -202,28 +208,38 @@ fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
 
             key_info.to_der().unwrap()
         },
-        _ => return algorithm_not_supported_error(&ctx),
+        _ => return algorithm_export_error(&ctx, &key.name, "spki"),
     };
 
     Ok(ArrayBuffer::new(ctx, bytes)?.into_object())
 }
 
 fn export_jwk<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
-    let _name = key.name.as_ref();
+    let name = key.name.as_ref();
     let handle = key.handle.as_ref();
     let obj = Object::new(ctx.clone())?;
     obj.set("key_ops", key.usages())?;
     obj.set("ext", true)?;
     match &key.algorithm {
-        KeyAlgorithm::Aes { .. } => {
+        KeyAlgorithm::Aes { length } => {
+            let prefix = match length {
+                128 => "A128",
+                192 => "A192",
+                256 => "A256",
+                _ => unreachable!(),
+            };
+            let suffix = &name[("AES-".len())..];
+            let alg = [prefix, suffix].concat();
+
             let k = bytes_to_b64_url_safe_string(handle);
             obj.set("kty", "oct")?;
             obj.set("k", k)?;
+            obj.set("alg", alg)?
         },
         KeyAlgorithm::Hmac { hash, .. } => {
             let k = bytes_to_b64_url_safe_string(handle);
             obj.set("kty", "oct")?;
-            obj.set("alg", format!("HS{}", hash.as_str()))?;
+            obj.set("alg", ["HS", &hash.as_str()[4..]].concat())?;
             obj.set("k", k)?;
         },
         KeyAlgorithm::Ec { curve, .. } => {
@@ -236,7 +252,7 @@ fn export_jwk<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             obj.set("x", bytes_to_b64_url_safe_string(x))?;
             obj.set("y", bytes_to_b64_url_safe_string(y))?;
 
-            if matches!(key.kind, KeyKind::Private) {
+            if key.kind == KeyKind::Private {
                 let d = key_data.private_key(handle);
 
                 obj.set("d", bytes_to_b64_url_safe_string(d))?;
@@ -245,26 +261,85 @@ fn export_jwk<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::Ed25519 => {
             let key_pair = Ed25519KeyPair::from_pkcs8(handle).or_throw(&ctx)?;
             let pub_key = key_pair.public_key().as_ref();
-            let x = bytes_to_b64_url_safe_string(pub_key);
-            obj.set("kty", "OKP")?;
-            obj.set("crv", "Ed25519")?;
-            obj.set("x", x)?;
+            if key.kind == KeyKind::Private {
+                let pki = PrivateKeyInfo::try_from(handle).or_throw(&ctx)?;
+                set_okp_jwk_props(name, &obj, Some(pki.private_key), pub_key)?;
+            } else {
+                set_okp_jwk_props(name, &obj, None, pub_key)?;
+            }
         },
-        KeyAlgorithm::Rsa { .. } => {
-            let pkcs8 = rsa_der_pkcs1_to_pkcs8(&ctx, handle)?;
+        KeyAlgorithm::Rsa { hash, .. } => {
+            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(handle).or_throw(&ctx)?;
 
-            let pkcs8 = pkcs8.as_bytes();
-            let key_pair = ring::signature::RsaKeyPair::from_pkcs8(pkcs8).or_throw(&ctx)?;
-            let pub_key = key_pair.public_key().as_ref();
-            let n = bytes_to_b64_url_safe_string(pub_key);
+            let n = bytes_to_b64_url_safe_string(private_key.modulus.as_bytes());
+            let e = bytes_to_b64_url_safe_string(private_key.public_exponent.as_bytes());
+            let d = bytes_to_b64_url_safe_string(private_key.private_exponent.as_bytes());
+            let p = bytes_to_b64_url_safe_string(private_key.prime1.as_bytes());
+            let q = bytes_to_b64_url_safe_string(private_key.prime2.as_bytes());
+            let dp = bytes_to_b64_url_safe_string(private_key.exponent1.as_bytes());
+            let dq = bytes_to_b64_url_safe_string(private_key.exponent2.as_bytes());
+            let qi = bytes_to_b64_url_safe_string(private_key.coefficient.as_bytes());
+
+            let alg_suffix = match hash {
+                ShaAlgorithm::SHA1 => "1",
+                ShaAlgorithm::SHA256 => "256",
+                ShaAlgorithm::SHA384 => "384",
+                ShaAlgorithm::SHA512 => "512",
+            };
+
+            let alg_prefix = match name {
+                "RSASSA-PKCS1-v1_5" => "RS",
+                "RSA-PSS" => "PS",
+                "RSA-OAEP" => "RSA-OAEP-",
+                _ => unreachable!(),
+            };
+
+            let alg = [alg_prefix, alg_suffix].concat();
+
             obj.set("kty", "RSA")?;
             obj.set("n", n)?;
-            obj.set("e", "AQAB")?; // Default RSA public exponent (65537)
+            obj.set("e", e)?;
+            obj.set("alg", alg)?;
+            if key.kind == KeyKind::Private {
+                obj.set("d", d)?;
+                obj.set("p", p)?;
+                obj.set("q", q)?;
+                obj.set("dp", dp)?;
+                obj.set("dq", dq)?;
+                obj.set("qi", qi)?;
+            }
         },
-        _ => return algorithm_not_supported_error(&ctx),
+        KeyAlgorithm::X25519 => {
+            let public_key = &handle[32..];
+            let private_key = if key.kind == KeyKind::Private {
+                Some(&handle[0..32])
+            } else {
+                None
+            };
+            set_okp_jwk_props(name, &obj, private_key, public_key)?;
+        },
+        //cant be exported
+        _ => return algorithm_export_error(&ctx, &key.name, "jwk"),
     };
 
     Ok(obj)
+}
+
+fn set_okp_jwk_props(
+    crv: &str,
+    obj: &Object<'_>,
+    private_key: Option<&[u8]>,
+    public_key: &[u8],
+) -> Result<()> {
+    let x = bytes_to_b64_url_safe_string(public_key);
+    obj.set("kty", "OKP")?;
+    obj.set("crv", crv)?;
+    obj.set("x", x)?;
+    if let Some(private_key) = private_key {
+        let d = bytes_to_b64_url_safe_string(private_key);
+        obj.set("d", d)?;
+    }
+    Ok(())
 }
 
 struct EcKeyData {

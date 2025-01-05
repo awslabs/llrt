@@ -80,9 +80,6 @@ pub enum KeyAlgorithm {
         curve: EllipticCurve,
         algorithm: EcAlgorithm,
     },
-    AesKw {
-        length: u16,
-    },
     X25519,
     Ed25519,
     Hmac {

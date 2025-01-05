@@ -87,8 +87,15 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<Vec<u8>> {
     Ok(match algorithm {
         KeyAlgorithm::Aes { length } => {
             let length = *length as usize;
-            if length % 8 != 0 || length > 256 {
-                return Err(Exception::throw_message(ctx, "Invalid AES key length"));
+
+            match length {
+                128 | 192 | 256 => (),
+                _ => {
+                    return Err(Exception::throw_message(
+                        ctx,
+                        "AES key length must be 128, 192, or 256 bits",
+                    ))
+                },
             }
 
             let mut key = vec![0u8; length / 8];

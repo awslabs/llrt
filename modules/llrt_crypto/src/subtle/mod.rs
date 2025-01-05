@@ -23,6 +23,7 @@ pub use digest::subtle_digest;
 pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
+pub use import_key::subtle_import_key;
 use rsa::pkcs1::DecodeRsaPrivateKey;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
