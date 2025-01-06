@@ -1,5 +1,5 @@
 use rquickjs::{
-    class::{OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
+    class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
@@ -237,7 +237,7 @@ pub struct ReadableStreamGenericReader<'js> {
 impl<'js> ReadableStreamGenericReader<'js> {
     pub(super) fn readable_stream_reader_generic_initialize(
         ctx: &Ctx<'js>,
-        stream: OwnedBorrow<'js, ReadableStream<'js>>,
+        stream: OwnedBorrowMut<'js, ReadableStream<'js>>,
     ) -> Result<Self> {
         let closed_promise = match stream.state {
             // If stream.[[state]] is "readable",
@@ -248,11 +248,7 @@ impl<'js> ReadableStreamGenericReader<'js> {
             // Otherwise, if stream.[[state]] is "closed",
             ReadableStreamState::Closed => {
                 // Set reader.[[closedPromise]] to a promise resolved with undefined.
-                ResolveablePromise::resolved_with(
-                    ctx,
-                    &stream.promise_primordials,
-                    Ok(Value::new_undefined(ctx.clone())),
-                )?
+                ResolveablePromise::resolved_with_undefined(&stream.promise_primordials)
             },
             // Otherwise,
             ReadableStreamState::Errored(ref stored_error) => {

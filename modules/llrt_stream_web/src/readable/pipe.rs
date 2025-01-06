@@ -18,12 +18,14 @@ use super::{
     ReadableStreamReadRequest, ReadableStreamState, WritableStreamDefaultWriter,
 };
 use crate::{
-    promise_resolved_with, upon_promise,
+    promise_resolved_with,
+    readable::objects::ReadableStreamDefaultReaderObjects,
+    upon_promise, upon_promise_fulfilment,
     writable::{
         WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriterOwned,
         WritableStreamObjects, WritableStreamOwned, WritableStreamState,
     },
-    PromisePrimordials, ResolveablePromise, Undefined,
+    PromisePrimordials, ResolveablePromise, Undefined, UnwrapOrUndefined,
 };
 
 impl<'js> ReadableStream<'js> {
@@ -68,11 +70,12 @@ impl<'js> ReadableStream<'js> {
         // Set source.[[disturbed]] to true.
         source.disturbed = true;
 
-        let current_write = Rc::new(RefCell::new(promise_resolved_with(
-            &ctx,
-            &source.promise_primordials,
-            Ok(Value::new_undefined(ctx.clone())),
-        )?));
+        let current_write = Rc::new(RefCell::new(
+            source
+                .promise_primordials
+                .promise_resolved_with_undefined
+                .clone(),
+        ));
 
         let promise_primordials = source.promise_primordials.clone();
         let constructor_type_error = source.constructor_type_error.clone();
@@ -106,10 +109,7 @@ impl<'js> ReadableStream<'js> {
                 let pipe_to = pipe_to.clone();
                 move |ctx: Ctx<'js>| -> Result<()> {
                     // Let error be signal’s abort reason.
-                    let error = signal
-                        .borrow()
-                        .reason()
-                        .unwrap_or(Value::new_undefined(ctx.clone()));
+                    let error = signal.borrow().reason().unwrap_or_undefined(&ctx);
 
                     // Let actions be an empty ordered set.
                     let mut actions =
@@ -132,11 +132,11 @@ impl<'js> ReadableStream<'js> {
                                 Ok(promise)
                             } else {
                                 // Otherwise, return a promise resolved with undefined.
-                                promise_resolved_with(
-                                    &ctx,
-                                    &dest_objects.stream.promise_primordials,
-                                    Ok(Value::new_undefined(ctx.clone())),
-                                )
+                                Ok(dest_objects
+                                    .stream
+                                    .promise_primordials
+                                    .promise_resolved_with_undefined
+                                    .clone())
                             }
                         }));
                     }
@@ -159,11 +159,11 @@ impl<'js> ReadableStream<'js> {
                                 Ok(promise)
                             } else {
                                 // Otherwise, return a promise resolved with undefined.
-                                promise_resolved_with(
-                                    &ctx,
-                                    &source_objects.stream.promise_primordials,
-                                    Ok(Value::new_undefined(ctx.clone())),
-                                )
+                                Ok(source_objects
+                                    .stream
+                                    .promise_primordials
+                                    .promise_resolved_with_undefined
+                                    .clone())
                             }
                         }));
                     }
@@ -376,7 +376,7 @@ impl<'js> PipeTo<'js> {
 
     fn next(&self, ctx: Ctx<'js>, done: bool, loop_promise: ResolveablePromise<'js>) -> Result<()> {
         if done {
-            loop_promise.resolve(Value::new_undefined(ctx))?;
+            loop_promise.resolve_undefined()?
         } else {
             let pipe_step_promise = self.pipe_step(ctx.clone())?;
             upon_promise(ctx, pipe_step_promise, {
@@ -410,124 +410,98 @@ impl<'js> PipeTo<'js> {
             .promise
             .clone();
 
-        writer_ready.then()?.call((
-            This(writer_ready.clone()),
-            Function::new(
-                ctx.clone(),
-                OnceFn::new({
-                    let current_write = self.current_write.clone();
-                    let source_objects = self.source_objects.clone();
-                    let dest_objects = self.dest_objects.clone();
-                    move |ctx: Ctx<'js>| -> Result<Promise<'js>> {
-                        let read_promise = ResolveablePromise::new(&ctx)?;
+        upon_promise_fulfilment(ctx, writer_ready, {
+            let current_write = self.current_write.clone();
+            let source_objects = self.source_objects.clone();
+            let dest_objects = self.dest_objects.clone();
+            move |ctx: Ctx<'js>, ()| -> Result<Promise<'js>> {
+                let read_promise = ResolveablePromise::new(&ctx)?;
 
-                        struct ReadRequest<'js> {
-                            dest_objects:
-                                WritableStreamClassObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
-                            current_write: Rc<RefCell<Promise<'js>>>,
-                            read_promise: ResolveablePromise<'js>,
-                        }
+                struct ReadRequest<'js> {
+                    dest_objects:
+                        WritableStreamClassObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
+                    current_write: Rc<RefCell<Promise<'js>>>,
+                    read_promise: ResolveablePromise<'js>,
+                }
 
-                        impl<'js> Trace<'js> for ReadRequest<'js> {
-                            fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
-                                self.current_write.as_ref().borrow().trace(tracer);
-                                self.read_promise.trace(tracer);
-                            }
-                        }
-
-                        impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
-                            fn chunk_steps(
-                                &self,
-                                objects: ReadableStreamObjects<
-                                    'js,
-                                    ReadableStreamControllerOwned<'js>,
-                                    ReadableStreamDefaultReaderOwned<'js>,
-                                >,
-                                chunk: Value<'js>,
-                            ) -> Result<
-                                ReadableStreamObjects<
-                                    'js,
-                                    ReadableStreamControllerOwned<'js>,
-                                    ReadableStreamDefaultReaderOwned<'js>,
-                                >,
-                            > {
-                                let ctx = chunk.ctx().clone();
-
-                                // calling write can trigger user code; ensure we don't hold locks
-                                let objects = objects.into_inner();
-
-                                let dest_objects = WritableStreamObjects::from_class(self.dest_objects.clone());
-                                let write_promise = WritableStreamDefaultWriter::writable_stream_default_writer_write(ctx.clone(), dest_objects, chunk)?;
-
-                                let write_promise: Promise<'js> = write_promise.then()?.call((
-                                    This(write_promise.clone()),
-                                    Value::new_undefined(ctx.clone()),
-                                    Function::new(ctx.clone(), || {}),
-                                ))?;
-
-                                self.current_write.replace(write_promise);
-                                self.read_promise.resolve(Value::new_bool(ctx.clone(), false))?;
-
-                                Ok(ReadableStreamObjects::from_class(objects))
-                            }
-
-                            fn close_steps(
-                                &self,
-                                ctx: &Ctx<'js>,
-                                objects: ReadableStreamObjects<
-                                    'js,
-                                    ReadableStreamControllerOwned<'js>,
-                                    ReadableStreamDefaultReaderOwned<'js>,
-                                >,
-                            ) -> Result<
-                                ReadableStreamObjects<
-                                    'js,
-                                    ReadableStreamControllerOwned<'js>,
-                                    ReadableStreamDefaultReaderOwned<'js>,
-                                >,
-                            > {
-                                self.read_promise
-                                    .resolve(Value::new_bool(ctx.clone(), true))?;
-
-                                Ok(objects)
-                            }
-
-                            fn error_steps(
-                                &self,
-                                objects: ReadableStreamObjects<
-                                    'js,
-                                    ReadableStreamControllerOwned<'js>,
-                                    ReadableStreamDefaultReaderOwned<'js>,
-                                >,
-                                reason: Value<'js>,
-                            ) -> Result<
-                                ReadableStreamObjects<
-                                    'js,
-                                    ReadableStreamControllerOwned<'js>,
-                                    ReadableStreamDefaultReaderOwned<'js>,
-                                >,
-                            > {
-                                self.read_promise.reject(reason)?;
-
-                                Ok(objects)
-                            }
-                        }
-
-                        let objects = ReadableStreamObjects::from_class(source_objects);
-
-                        let promise = read_promise.promise.clone();
-
-                        ReadableStreamDefaultReader::readable_stream_default_reader_read(
-                            &ctx,
-                            objects,
-                            ReadRequest { current_write, read_promise, dest_objects },
-                        )?;
-
-                        Ok(promise)
+                impl<'js> Trace<'js> for ReadRequest<'js> {
+                    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+                        self.current_write.as_ref().borrow().trace(tracer);
+                        self.read_promise.trace(tracer);
                     }
-                }),
-            ),
-        ))
+                }
+
+                impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
+                    fn chunk_steps(
+                        &self,
+                        objects: ReadableStreamDefaultReaderObjects<'js>,
+                        chunk: Value<'js>,
+                    ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+                        let ctx = chunk.ctx().clone();
+
+                        // calling write can trigger user code; ensure we don't hold locks
+                        let objects = objects.into_inner();
+
+                        let dest_objects =
+                            WritableStreamObjects::from_class(self.dest_objects.clone());
+                        let write_promise =
+                            WritableStreamDefaultWriter::writable_stream_default_writer_write(
+                                ctx.clone(),
+                                dest_objects,
+                                chunk,
+                            )?;
+
+                        let write_promise: Promise<'js> = write_promise.catch()?.call((
+                            This(write_promise.clone()),
+                            Function::new(ctx.clone(), || {}),
+                        ))?;
+
+                        self.current_write.replace(write_promise);
+                        self.read_promise
+                            .resolve(Value::new_bool(ctx.clone(), false))?;
+
+                        Ok(ReadableStreamObjects::from_class(objects))
+                    }
+
+                    fn close_steps(
+                        &self,
+                        ctx: &Ctx<'js>,
+                        objects: ReadableStreamDefaultReaderObjects<'js>,
+                    ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+                        self.read_promise
+                            .resolve(Value::new_bool(ctx.clone(), true))?;
+
+                        Ok(objects)
+                    }
+
+                    fn error_steps(
+                        &self,
+                        objects: ReadableStreamDefaultReaderObjects<'js>,
+                        reason: Value<'js>,
+                    ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+                        self.read_promise.reject(reason)?;
+
+                        Ok(objects)
+                    }
+                }
+
+                let objects = ReadableStreamObjects::from_class(source_objects);
+
+                let promise = read_promise.promise.clone();
+
+                ReadableStreamDefaultReader::readable_stream_default_reader_read(
+                    &ctx,
+                    objects,
+                    ReadRequest {
+                        current_write,
+                        read_promise,
+                        dest_objects,
+                    },
+                )?;
+
+                Ok(promise)
+            }
+        })
     }
 
     fn is_or_becomes_errored(
@@ -539,9 +513,8 @@ impl<'js> PipeTo<'js> {
         if let Some(stored_error) = stored_error {
             action(ctx, stored_error)
         } else {
-            promise.then()?.call((
+            promise.catch()?.call((
                 This(promise.clone()),
-                Value::new_undefined(ctx.clone()),
                 Function::new(ctx.clone(), OnceFn::new(action)),
             ))
         }
@@ -554,14 +527,11 @@ impl<'js> PipeTo<'js> {
         action: impl FnOnce(Ctx<'js>) -> Result<()> + 'js,
     ) -> Result<()> {
         if already_closed {
-            action(ctx)
+            action(ctx)?;
         } else {
-            promise.then()?.call((
-                This(promise.clone()),
-                Function::new(ctx.clone(), OnceFn::new(action)),
-                Value::new_undefined(ctx.clone()),
-            ))
+            upon_promise_fulfilment(ctx, promise, |ctx, ()| action(ctx))?;
         }
+        Ok(())
     }
 
     fn shutdown_with_action(
@@ -596,13 +566,11 @@ impl<'js> PipeTo<'js> {
         if writable {
             let wait_promise =
                 Self::wait_for_writes_to_finish(ctx.clone(), self.current_write.clone())?;
-            wait_promise.then()?.call((
-                This(wait_promise.clone()),
-                Function::new(ctx, OnceFn::new(|ctx: Ctx<'js>| do_the_rest(ctx))),
-            ))
+            upon_promise_fulfilment(ctx, wait_promise, |ctx: Ctx<'js>, ()| do_the_rest(ctx))?;
         } else {
-            do_the_rest(ctx)
+            do_the_rest(ctx)?
         }
+        Ok(())
     }
 
     fn shutdown(&self, ctx: Ctx<'js>, error: Option<Value<'js>>) -> Result<()> {
@@ -621,16 +589,13 @@ impl<'js> PipeTo<'js> {
             let wait_promise =
                 Self::wait_for_writes_to_finish(ctx.clone(), self.current_write.clone())?;
             let pipe_to = self.clone();
-            wait_promise.then()?.call((
-                This(wait_promise.clone()),
-                Function::new(
-                    ctx,
-                    OnceFn::new(move |ctx: Ctx<'js>| pipe_to.finalize(ctx, error)),
-                ),
-            ))
+            upon_promise_fulfilment(ctx, wait_promise, move |ctx, ()| {
+                pipe_to.finalize(ctx, error)
+            })?;
         } else {
-            self.finalize(ctx, error)
+            self.finalize(ctx, error)?;
         }
+        Ok(())
     }
 
     fn wait_for_writes_to_finish(
@@ -639,25 +604,20 @@ impl<'js> PipeTo<'js> {
     ) -> Result<Promise<'js>> {
         let old_current_write: Promise<'js> = current_write.as_ref().borrow().clone();
 
-        old_current_write.then()?.call((
-            This(old_current_write.clone()),
-            Function::new(
-                ctx.clone(),
-                OnceFn::new({
-                    move |ctx: Ctx<'js>| -> Result<Undefined<Promise<'js>>> {
-                        if !old_current_write.eq(&current_write.as_ref().borrow()) {
-                            Ok(Undefined(Some(Self::wait_for_writes_to_finish(
-                                ctx,
-                                current_write,
-                            )?)))
-                        } else {
-                            Ok(Undefined(None))
-                        }
-                    }
-                }),
-            ),
-            Value::new_undefined(ctx),
-        ))
+        upon_promise_fulfilment(
+            ctx,
+            old_current_write.clone(),
+            move |ctx: Ctx<'js>, ()| -> Result<Undefined<Promise<'js>>> {
+                if !old_current_write.eq(&current_write.as_ref().borrow()) {
+                    Ok(Undefined(Some(Self::wait_for_writes_to_finish(
+                        ctx,
+                        current_write,
+                    )?)))
+                } else {
+                    Ok(Undefined(None))
+                }
+            },
+        )
     }
 
     fn finalize(&self, ctx: Ctx<'js>, error: Option<Value<'js>>) -> Result<()> {
@@ -678,7 +638,7 @@ impl<'js> PipeTo<'js> {
         if let Some(error) = error {
             self.promise.reject(error)
         } else {
-            self.promise.resolve(Value::new_undefined(ctx))
+            self.promise.resolve_undefined()
         }
     }
 }

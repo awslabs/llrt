@@ -1,10 +1,8 @@
-use std::{cell::Cell, rc::Rc};
-
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     primordials::Primordial,
 };
-use queueing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
+use queueing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy, SizeValue};
 use readable::{
     ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader,
     ReadableStreamBYOBRequest, ReadableStreamClass, ReadableStreamDefaultController,
@@ -12,14 +10,16 @@ use readable::{
 };
 use rquickjs::{
     atom::PredefinedAtom,
-    class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
+    class::{JsClass, OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     module::{Declarations, Exports, ModuleDef},
     prelude::{IntoArg, OnceFn, This},
     promise::PromiseState,
-    Class, Ctx, Error, FromJs, Function, IntoAtom, IntoJs, JsLifetime, Object, Promise, Result,
-    Type, Value,
+    Class, Ctx, Error, Exception, FromJs, Function, IntoAtom, IntoJs, JsLifetime, Object, Promise,
+    Result, Type, Value,
 };
+use std::collections::VecDeque;
+use std::{cell::Cell, rc::Rc};
 use writable::{
     WritableStream, WritableStreamClass, WritableStreamDefaultController,
     WritableStreamDefaultWriter,
@@ -35,7 +35,7 @@ struct ReadableWritablePair<'js> {
 }
 
 impl<'js> FromJs<'js> for ReadableWritablePair<'js> {
-    fn from_js(_ctx: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> Result<Self> {
+    fn from_js(_ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let ty_name = value.type_name();
         let obj = value
             .as_object()
@@ -184,12 +184,6 @@ impl<'js, T: IntoJs<'js>> IntoJs<'js> for Undefined<T> {
     }
 }
 
-fn downgrade_owned_borrow_mut<'js, T: JsClass<'js>>(
-    borrow: OwnedBorrowMut<'js, T>,
-) -> OwnedBorrow<'js, T> {
-    OwnedBorrow::from_class(borrow.into_inner())
-}
-
 fn class_from_owned_borrow_mut<'js, T: JsClass<'js>>(
     borrow: OwnedBorrowMut<'js, T>,
 ) -> (Class<'js, T>, OwnedBorrowMut<'js, T>) {
@@ -229,6 +223,16 @@ impl<'js> ValueOrUndefined<'js> for Value<'js> {
     }
 }
 
+trait UnwrapOrUndefined<'js> {
+    fn unwrap_or_undefined(self, ctx: &Ctx<'js>) -> Value<'js>;
+}
+
+impl<'js> UnwrapOrUndefined<'js> for Option<Value<'js>> {
+    fn unwrap_or_undefined(self, ctx: &Ctx<'js>) -> Value<'js> {
+        self.unwrap_or_else(|| Value::new_undefined(ctx.clone()))
+    }
+}
+
 fn promise_rejected_with<'js>(
     primordials: &PromisePrimordials<'js>,
     value: Value<'js>,
@@ -260,6 +264,7 @@ struct PromisePrimordials<'js> {
     promise_resolve: Function<'js>,
     promise_reject: Function<'js>,
     promise_all: Function<'js>,
+    promise_resolved_with_undefined: Promise<'js>,
 }
 
 impl<'js> Primordial<'js> for PromisePrimordials<'js> {
@@ -272,11 +277,17 @@ impl<'js> Primordial<'js> for PromisePrimordials<'js> {
         let promise_reject: Function<'js> = promise_constructor.get("reject")?;
         let promise_all: Function<'js> = promise_constructor.get("all")?;
 
+        let promise_resolved_with_undefined = promise_resolve.call((
+            This(promise_constructor.clone()),
+            Value::new_undefined(ctx.clone()),
+        ))?;
+
         Ok(Self {
             promise_constructor,
             promise_resolve,
             promise_reject,
             promise_all,
+            promise_resolved_with_undefined,
         })
     }
 }
@@ -314,7 +325,18 @@ fn upon_promise<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
     ))
 }
 
-fn is_non_negative_number(value: Value<'_>) -> Option<f64> {
+fn upon_promise_fulfilment<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
+    ctx: Ctx<'js>,
+    promise: Promise<'js>,
+    then: impl FnOnce(Ctx<'js>, Input) -> Result<Output> + 'js,
+) -> Result<Promise<'js>> {
+    promise.then()?.call((
+        This(promise.clone()),
+        Function::new(ctx.clone(), OnceFn::new(then)),
+    ))
+}
+
+fn is_non_negative_number(value: SizeValue<'_>) -> Option<f64> {
     // If Type(v) is not Number, return false.
     let number = value.as_number()?;
     // If v is NaN, return false.
@@ -354,16 +376,12 @@ impl<'js> ResolveablePromise<'js> {
         })
     }
 
-    fn resolved_with(
-        ctx: &Ctx<'js>,
-        primordials: &PromisePrimordials<'js>,
-        value: Result<Value<'js>>,
-    ) -> Result<Self> {
-        Ok(Self {
-            promise: promise_resolved_with(ctx, primordials, value)?,
+    fn resolved_with_undefined(primordials: &PromisePrimordials<'js>) -> Self {
+        Self {
+            promise: primordials.promise_resolved_with_undefined.clone(),
             resolve: None,
             reject: None,
-        })
+        }
     }
 
     fn rejected_with(primordials: &PromisePrimordials<'js>, error: Value<'js>) -> Result<Self> {
@@ -381,6 +399,13 @@ impl<'js> ResolveablePromise<'js> {
         Ok(())
     }
 
+    fn resolve_undefined(&self) -> Result<()> {
+        if let Some(resolve) = &self.resolve {
+            let () = resolve.call((rquickjs::Undefined,))?;
+        }
+        Ok(())
+    }
+
     fn reject(&self, value: impl IntoArg<'js>) -> Result<()> {
         if let Some(reject) = &self.reject {
             let () = reject.call((value,))?;
@@ -393,9 +418,8 @@ impl<'js> ResolveablePromise<'js> {
     }
 
     fn set_is_handled(&self) -> Result<()> {
-        self.promise.then()?.call((
+        self.promise.catch()?.call((
             This(self.promise.clone()),
-            Value::new_undefined(self.promise.ctx().clone()),
             Function::new(self.promise.ctx().clone(), || {}),
         ))
     }
@@ -406,5 +430,70 @@ impl<'js> Trace<'js> for ResolveablePromise<'js> {
         self.promise.trace(tracer);
         self.resolve.trace(tracer);
         self.reject.trace(tracer);
+    }
+}
+
+#[derive(JsLifetime, Trace)]
+struct Container<'js> {
+    queue: VecDeque<ValueWithSize<'js>>,
+    queue_total_size: f64,
+}
+
+impl<'js> Container<'js> {
+    fn new() -> Self {
+        Self {
+            queue: VecDeque::new(),
+            queue_total_size: 0.0,
+        }
+    }
+
+    fn enqueue_value_with_size(
+        &mut self,
+        ctx: &Ctx<'js>,
+        value: Value<'js>,
+        size: SizeValue<'js>,
+    ) -> Result<()> {
+        let size = match is_non_negative_number(size) {
+            None => {
+                // If ! IsNonNegativeNumber(size) is false, throw a RangeError exception.
+                return Err(Exception::throw_range(
+                    ctx,
+                    "Size must be a finite, non-NaN, non-negative number.",
+                ));
+            },
+            Some(size) => size,
+        };
+
+        // If size is +∞, throw a RangeError exception.
+        if size.is_infinite() {
+            return Err(Exception::throw_range(
+                ctx,
+                "Size must be a finite, non-NaN, non-negative number.",
+            ));
+        };
+
+        // Append a new value-with-size with value value and size size to container.[[queue]].
+        self.queue.push_back(ValueWithSize { value, size });
+
+        // Set container.[[queueTotalSize]] to container.[[queueTotalSize]] + size.
+        self.queue_total_size += size;
+
+        Ok(())
+    }
+
+    fn dequeue_value(&mut self) -> Value<'js> {
+        // Let valueWithSize be container.[[queue]][0].
+        // Remove valueWithSize from container.[[queue]].
+        let value_with_size = self
+            .queue
+            .pop_front()
+            .expect("DequeueValue called with empty queue");
+        // Set container.[[queueTotalSize]] to container.[[queueTotalSize]] − valueWithSize’s size.
+        self.queue_total_size -= value_with_size.size;
+        // If container.[[queueTotalSize]] < 0, set container.[[queueTotalSize]] to 0. (This can occur due to rounding errors.)
+        if self.queue_total_size < 0.0 {
+            self.queue_total_size = 0.0
+        }
+        value_with_size.value
     }
 }

@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use llrt_abort::{AbortController, AbortSignal};
 use llrt_utils::{object::CreateSymbol, primordials::Primordial};
 use rquickjs::{
@@ -17,9 +15,9 @@ use super::{
     UnderlyingSink, WritableStream, WritableStreamClass, WritableStreamOwned, WritableStreamState,
 };
 use crate::{
-    class_from_owned_borrow_mut, is_non_negative_number, promise_resolved_with,
-    queueing_strategy::SizeAlgorithm, upon_promise, Null, PromisePrimordials, Undefined,
-    ValueWithSize,
+    class_from_owned_borrow_mut, promise_resolved_with,
+    queueing_strategy::{SizeAlgorithm, SizeValue},
+    upon_promise, Container, Null, PromisePrimordials, Undefined, UnwrapOrUndefined,
 };
 
 #[rquickjs::class]
@@ -27,13 +25,12 @@ use crate::{
 pub(crate) struct WritableStreamDefaultController<'js> {
     abort_algorithm: Option<AbortAlgorithm<'js>>,
     close_algorithm: Option<CloseAlgorithm<'js>>,
-    queue: VecDeque<ValueWithSize<'js>>,
-    queue_total_size: f64,
+    container: Container<'js>,
     pub(super) started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
     pub(super) abort_controller: Class<'js, AbortController<'js>>,
-    stream: WritableStreamClass<'js>,
+    pub(super) stream: WritableStreamClass<'js>,
     write_algorithm: Option<WriteAlgorithm<'js>>,
 
     primordials: WritableStreamDefaultControllerPrimordials<'js>,
@@ -124,8 +121,7 @@ impl<'js> WritableStreamDefaultController<'js> {
             stream: stream_class,
 
             // Perform ! ResetQueue(controller).
-            queue: VecDeque::new(),
-            queue_total_size: 0.0,
+            container: Container::new(),
 
             // Set controller.[[abortController]] to a new AbortController.
             abort_controller: Class::instance(ctx.clone(), AbortController::new(ctx.clone())?)?,
@@ -153,18 +149,16 @@ impl<'js> WritableStreamDefaultController<'js> {
         // Set stream.[[controller]] to controller.
         stream.controller = Some(controller_class.clone());
 
-        let controller = OwnedBorrowMut::from_class(controller_class);
+        let objects = WritableStreamObjects::from_stream(stream);
 
         // Let backpressure be ! WritableStreamDefaultControllerGetBackpressure(controller).
-        let backpressure = controller.writable_stream_default_controller_get_backpressure();
+        let backpressure = objects
+            .controller
+            .writable_stream_default_controller_get_backpressure();
         // Perform ! WritableStreamUpdateBackpressure(stream, backpressure).
         let objects = WritableStream::writable_stream_update_backpressure(
             ctx.clone(),
-            WritableStreamObjects {
-                stream,
-                controller,
-                writer: UndefinedWriter,
-            },
+            objects,
             backpressure,
         )?;
         let promise_primordials = objects.stream.promise_primordials.clone();
@@ -218,10 +212,10 @@ impl<'js> WritableStreamDefaultController<'js> {
             .clone();
 
         // Perform ! EnqueueValueWithSize(controller, close sentinel, 0).
-        objects.controller.enqueue_value_with_size(
+        objects.controller.container.enqueue_value_with_size(
             &ctx,
             close_sentinel,
-            Value::new_number(ctx.clone(), 0.0),
+            SizeValue::Native(0.0),
         )?;
 
         // Perform ! WritableStreamDefaultControllerAdvanceQueueIfNeeded(controller).
@@ -231,7 +225,7 @@ impl<'js> WritableStreamDefaultController<'js> {
     }
 
     pub(super) fn writable_stream_default_controller_get_desired_size(&self) -> f64 {
-        self.strategy_hwm - self.queue_total_size
+        self.strategy_hwm - self.container.queue_total_size
     }
 
     pub fn writable_stream_default_controller_get_backpressure(&self) -> bool {
@@ -246,7 +240,7 @@ impl<'js> WritableStreamDefaultController<'js> {
         mut objects: WritableStreamObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
         chunk: Value<'js>,
     ) -> Result<(
-        Value<'js>,
+        SizeValue<'js>,
         WritableStreamObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
     )> {
         let (return_value, objects_class) =
@@ -272,7 +266,7 @@ impl<'js> WritableStreamDefaultController<'js> {
                 )?;
 
                 // Return 1.
-                Ok((Value::new_number(ctx, 1.0), objects))
+                Ok((SizeValue::Native(1.0), objects))
             },
             Err(err) => Err(err),
         }
@@ -327,11 +321,12 @@ impl<'js> WritableStreamDefaultController<'js> {
         // Let stream be controller.[[stream]].
         mut objects: WritableStreamObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
         chunk: Value<'js>,
-        chunk_size: Value<'js>,
+        chunk_size: SizeValue<'js>,
     ) -> Result<WritableStreamObjects<'js, WritableStreamDefaultWriterOwned<'js>>> {
         // Let enqueueResult be EnqueueValueWithSize(controller, chunk, chunkSize).
         let enqueue_result = objects
             .controller
+            .container
             .enqueue_value_with_size(&ctx, chunk, chunk_size);
 
         match enqueue_result {
@@ -393,7 +388,7 @@ impl<'js> WritableStreamDefaultController<'js> {
             return WritableStream::writable_stream_finish_erroring(ctx, objects, stored_error);
         }
 
-        let value = match objects.controller.queue.front() {
+        let value = match objects.controller.container.queue.front() {
             // If controller.[[queue]] is empty, return.
             None => {
                 return Ok(objects);
@@ -422,7 +417,7 @@ impl<'js> WritableStreamDefaultController<'js> {
             .writable_stream_mark_close_request_in_flight();
 
         // Perform ! DequeueValue(controller).
-        objects.controller.dequeue_value();
+        objects.controller.container.dequeue_value();
 
         // Assert: controller.[[queue]] is empty.
 
@@ -442,7 +437,7 @@ impl<'js> WritableStreamDefaultController<'js> {
                 // Upon fulfillment of sinkClosePromise,
                 Ok(_) => {
                     // Perform ! WritableStreamFinishInFlightClose(stream).
-                    WritableStream::writable_stream_finish_in_flight_close(ctx, objects)?;
+                    WritableStream::writable_stream_finish_in_flight_close(objects)?;
                 },
                 // Upon rejection of sinkClosePromise with reason reason,
                 Err(reason) => {
@@ -482,15 +477,13 @@ impl<'js> WritableStreamDefaultController<'js> {
                     Ok(_) => {
                         // Upon fulfillment of sinkWritePromise,
                         // Perform ! WritableStreamFinishInFlightWrite(stream).
-                        objects
-                            .stream
-                            .writable_stream_finish_in_flight_write(ctx.clone())?;
+                        objects.stream.writable_stream_finish_in_flight_write()?;
 
                         // Let state be stream.[[state]].
                         let state = &objects.stream.state;
 
                         // Perform ! DequeueValue(controller).
-                        objects.controller.dequeue_value();
+                        objects.controller.container.dequeue_value();
 
                         // If ! WritableStreamCloseQueuedOrInFlight(stream) is false and state is "writable",
                         if !objects.stream.writable_stream_close_queued_or_in_flight()
@@ -534,56 +527,6 @@ impl<'js> WritableStreamDefaultController<'js> {
         Ok(WritableStreamObjects::from_class(objects_class))
     }
 
-    fn enqueue_value_with_size(
-        &mut self,
-        ctx: &Ctx<'js>,
-        value: Value<'js>,
-        size: Value<'js>,
-    ) -> Result<()> {
-        let size = match is_non_negative_number(size) {
-            None => {
-                // If ! IsNonNegativeNumber(size) is false, throw a RangeError exception.
-                return Err(Exception::throw_range(
-                    ctx,
-                    "Size must be a finite, non-NaN, non-negative number.",
-                ));
-            },
-            Some(size) => size,
-        };
-
-        // If size is +∞, throw a RangeError exception.
-        if size.is_infinite() {
-            return Err(Exception::throw_range(
-                ctx,
-                "Size must be a finite, non-NaN, non-negative number.",
-            ));
-        };
-
-        // Append a new value-with-size with value value and size size to container.[[queue]].
-        self.queue.push_back(ValueWithSize { value, size });
-
-        // Set container.[[queueTotalSize]] to container.[[queueTotalSize]] + size.
-        self.queue_total_size += size;
-
-        Ok(())
-    }
-
-    fn dequeue_value(&mut self) -> Value<'js> {
-        // Let valueWithSize be container.[[queue]][0].
-        // Remove valueWithSize from container.[[queue]].
-        let value_with_size = self
-            .queue
-            .pop_front()
-            .expect("DequeueValue called with empty queue");
-        // Set container.[[queueTotalSize]] to container.[[queueTotalSize]] − valueWithSize’s size.
-        self.queue_total_size -= value_with_size.size;
-        // If container.[[queueTotalSize]] < 0, set container.[[queueTotalSize]] to 0. (This can occur due to rounding errors.)
-        if self.queue_total_size < 0.0 {
-            self.queue_total_size = 0.0
-        }
-        value_with_size.value
-    }
-
     pub(super) fn error_steps(&mut self) {
         // Perform ! ResetQueue(this).
         self.reset_queue()
@@ -591,9 +534,9 @@ impl<'js> WritableStreamDefaultController<'js> {
 
     fn reset_queue(&mut self) {
         // Set container.[[queue]] to a new empty list.
-        self.queue.clear();
+        self.container.queue.clear();
         // Set container.[[queueTotalSize]] to 0.
-        self.queue_total_size = 0.0;
+        self.container.queue_total_size = 0.0;
     }
 
     pub(super) fn abort_steps<W: WritableStreamWriter<'js>>(
@@ -620,7 +563,7 @@ impl<'js> WritableStreamDefaultController<'js> {
         objects: WritableStreamObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
         chunk: Value<'js>,
     ) -> (
-        Result<Value<'js>>,
+        Result<SizeValue<'js>>,
         WritableStreamClassObjects<'js, WritableStreamDefaultWriterOwned<'js>>,
     ) {
         let strategy_size_algorithm = objects
@@ -732,26 +675,19 @@ impl<'js> WritableStreamDefaultController<'js> {
         controller: This<OwnedBorrowMut<'js, Self>>,
         e: Opt<Value<'js>>,
     ) -> Result<()> {
-        // Let state be this.[[stream]].[[state]].
-        let stream = OwnedBorrowMut::from_class(controller.stream.clone());
+        let objects = WritableStreamObjects::from_controller(controller.0);
 
+        // Let state be this.[[stream]].[[state]].
         // If state is not "writable", return.
-        if !matches!(stream.state, WritableStreamState::Writable) {
+        if !matches!(objects.stream.state, WritableStreamState::Writable) {
             return Ok(());
         }
-
-        let objects = WritableStreamObjects {
-            stream,
-            controller: controller.0,
-            writer: UndefinedWriter,
-        }
-        .refresh_writer();
 
         // Perform ! WritableStreamDefaultControllerError(this, e).
         Self::writable_stream_default_controller_error(
             ctx.clone(),
-            objects,
-            e.0.unwrap_or(Value::new_undefined(ctx.clone())),
+            objects.refresh_writer(),
+            e.0.unwrap_or_undefined(&ctx),
         )?;
 
         Ok(())
@@ -800,11 +736,9 @@ impl<'js> WriteAlgorithm<'js> {
         chunk: Value<'js>,
     ) -> Result<Promise<'js>> {
         match self {
-            WriteAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
-                ctx,
-                promise_primordials,
-                Ok(Value::new_undefined(ctx.clone())),
-            )?),
+            WriteAlgorithm::ReturnPromiseUndefined => {
+                Ok(promise_primordials.promise_resolved_with_undefined.clone())
+            },
             WriteAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
                 promise_primordials,
@@ -830,11 +764,9 @@ impl<'js> CloseAlgorithm<'js> {
         promise_primordials: &PromisePrimordials<'js>,
     ) -> Result<Promise<'js>> {
         match self {
-            CloseAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
-                ctx,
-                promise_primordials,
-                Ok(Value::new_undefined(ctx.clone())),
-            )?),
+            CloseAlgorithm::ReturnPromiseUndefined => {
+                Ok(promise_primordials.promise_resolved_with_undefined.clone())
+            },
             CloseAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
                 promise_primordials,
@@ -861,11 +793,9 @@ impl<'js> AbortAlgorithm<'js> {
         reason: Value<'js>,
     ) -> Result<Promise<'js>> {
         match self {
-            AbortAlgorithm::ReturnPromiseUndefined => Ok(promise_resolved_with(
-                ctx,
-                promise_primordials,
-                Ok(Value::new_undefined(ctx.clone())),
-            )?),
+            AbortAlgorithm::ReturnPromiseUndefined => {
+                Ok(promise_primordials.promise_resolved_with_undefined.clone())
+            },
             AbortAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
                 promise_primordials,

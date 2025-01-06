@@ -108,3 +108,54 @@ impl<'js, W: WritableStreamWriter<'js>> WritableStreamObjects<'js, W> {
         }
     }
 }
+
+impl<'js> WritableStreamObjects<'js, UndefinedWriter> {
+    pub(super) fn from_stream(stream: WritableStreamOwned<'js>) -> Self {
+        let controller = OwnedBorrowMut::from_class(
+            stream
+                .controller
+                .clone()
+                .expect("WritableStream must have controller"),
+        );
+
+        WritableStreamObjects {
+            stream,
+            controller,
+            writer: UndefinedWriter,
+        }
+    }
+
+    pub(super) fn from_controller(controller: WritableStreamDefaultControllerOwned<'js>) -> Self {
+        let stream = OwnedBorrowMut::from_class(controller.stream.clone());
+
+        WritableStreamObjects {
+            stream,
+            controller,
+            writer: UndefinedWriter,
+        }
+    }
+}
+
+impl<'js> WritableStreamObjects<'js, WritableStreamDefaultWriterOwned<'js>> {
+    pub(super) fn from_writer(writer: WritableStreamDefaultWriterOwned<'js>) -> Self {
+        let stream = OwnedBorrowMut::from_class(
+            writer
+                .stream
+                .clone()
+                .expect("WritableStreamDefaultWriter must have a stream"),
+        );
+
+        let controller = OwnedBorrowMut::from_class(
+            stream
+                .controller
+                .clone()
+                .expect("WritableStreamDefaultWriter stream must have a controller"),
+        );
+
+        WritableStreamObjects {
+            stream,
+            controller,
+            writer,
+        }
+    }
+}

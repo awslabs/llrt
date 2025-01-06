@@ -13,22 +13,23 @@ use rquickjs::{
 };
 
 use super::{
-    byob_reader::ReadableStreamReadIntoRequest,
-    byob_reader::{ReadableStreamBYOBReaderOwned, ViewBytes},
+    byob_reader::{ReadableStreamReadIntoRequest, ViewBytes},
     byte_controller::ReadableByteStreamControllerOwned,
     controller::ReadableStreamController,
-    default_controller::ReadableStreamDefaultController,
-    default_controller::ReadableStreamDefaultControllerOwned,
+    default_controller::{ReadableStreamDefaultController, ReadableStreamDefaultControllerOwned},
     default_reader::ReadableStreamDefaultReaderOwned,
-    promise_resolved_with,
+    objects::{ReadableByteStreamObjects, ReadableStreamDefaultControllerObjects},
     reader::UndefinedReader,
     CancelAlgorithm, PullAlgorithm, ReadableByteStreamController, ReadableStream,
     ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamClassObjects,
-    ReadableStreamControllerClass, ReadableStreamControllerOwned, ReadableStreamDefaultReader,
-    ReadableStreamObjects, ReadableStreamReadRequest, ReadableStreamReader,
-    ReadableStreamReaderClass, ReadableStreamReaderOwned, StartAlgorithm,
+    ReadableStreamControllerClass, ReadableStreamDefaultReader, ReadableStreamObjects,
+    ReadableStreamReadRequest, ReadableStreamReader, ReadableStreamReaderClass,
+    ReadableStreamReaderOwned, StartAlgorithm,
 };
-use crate::{upon_promise, ResolveablePromise};
+use crate::{
+    readable::objects::{ReadableStreamBYOBObjects, ReadableStreamDefaultReaderObjects},
+    upon_promise, ResolveablePromise,
+};
 
 type ReadableStreamPair<'js> = (ReadableStreamClass<'js>, ReadableStreamClass<'js>);
 
@@ -57,19 +58,11 @@ impl<'js> ReadableStream<'js> {
 
     fn readable_stream_default_tee(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
-            'js,
-            ReadableStreamDefaultControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects: ReadableStreamDefaultControllerObjects<'js, UndefinedReader>,
         clone_for_branch_2: bool,
     ) -> Result<(
         ReadableStreamPair<'js>,
-        ReadableStreamObjects<
-            'js,
-            ReadableStreamDefaultControllerOwned<'js>,
-            ReadableStreamDefaultReaderOwned<'js>,
-        >,
+        ReadableStreamDefaultControllerObjects<'js, ReadableStreamDefaultReaderOwned<'js>>,
     )> {
         // Let reader be ? AcquireReadableStreamDefaultReader(stream).
         let (stream, reader) = ReadableStreamReaderClass::acquire_readable_stream_default_reader(
@@ -214,7 +207,7 @@ impl<'js> ReadableStream<'js> {
             {
                 let branch_1 = branch_1.clone();
                 let branch_2 = branch_2.clone();
-                move |ctx, result| match result {
+                move |_, result| match result {
                     Ok(()) => Ok(()),
                     // Upon rejection of reader.[[closedPromise]] with reason r,
                     Err(reason) => {
@@ -234,7 +227,7 @@ impl<'js> ReadableStream<'js> {
                         )?;
                         // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
                         if reason_1.get().is_none() || reason_2.get().is_none() {
-                            let () = cancel_promise.resolve(Value::new_undefined(ctx))?;
+                            cancel_promise.resolve_undefined()?;
                         }
 
                         Ok(())
@@ -253,9 +246,8 @@ impl<'js> ReadableStream<'js> {
     #[allow(clippy::too_many_arguments)]
     fn readable_stream_default_pull_algorithm(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
+        mut objects: ReadableStreamDefaultControllerObjects<
             'js,
-            ReadableStreamDefaultControllerOwned<'js>,
             ReadableStreamDefaultReaderOwned<'js>,
         >,
         clone_for_branch_2: bool,
@@ -289,11 +281,11 @@ impl<'js> ReadableStream<'js> {
             read_again.store(true, Ordering::Relaxed);
 
             // Return a promise resolved with undefined.
-            return promise_resolved_with(
-                &ctx,
-                &objects.stream.promise_primordials,
-                Ok(Value::new_undefined(ctx.clone())),
-            );
+            return Ok(objects
+                .stream
+                .promise_primordials
+                .promise_resolved_with_undefined
+                .clone());
         }
 
         // Set reading to true.
@@ -349,19 +341,9 @@ impl<'js> ReadableStream<'js> {
         impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
             fn chunk_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
+                objects: ReadableStreamDefaultReaderObjects<'js>,
                 chunk: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 let ctx = chunk.ctx().clone();
                 let this = self.clone();
 
@@ -494,18 +476,8 @@ impl<'js> ReadableStream<'js> {
             fn close_steps(
                 &self,
                 ctx: &Ctx<'js>,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            > {
+                objects: ReadableStreamDefaultReaderObjects<'js>,
+            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
                 self.reading.store(false, Ordering::Relaxed);
                 // If canceled1 is false, perform ! ReadableStreamDefaultControllerClose(branch1.[[controller]]).
@@ -540,27 +512,16 @@ impl<'js> ReadableStream<'js> {
                 }
                 // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
                 if self.reason_1.get().is_none() || self.reason_2.get().is_none() {
-                    self.cancel_promise
-                        .resolve(Value::new_undefined(ctx.clone()))?
+                    self.cancel_promise.resolve_undefined()?
                 }
                 Ok(objects)
             }
 
             fn error_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
+                objects: ReadableStreamDefaultReaderObjects<'js>,
                 _: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
                 self.reading.store(false, Ordering::Relaxed);
                 Ok(objects)
@@ -584,11 +545,11 @@ impl<'js> ReadableStream<'js> {
         )?;
 
         // Return a promise resolved with undefined.
-        promise_resolved_with(
-            &ctx,
-            &objects.stream.promise_primordials,
-            Ok(Value::new_undefined(ctx.clone())),
-        )
+        Ok(objects
+            .stream
+            .promise_primordials
+            .promise_resolved_with_undefined
+            .clone())
     }
 
     // Let cancel1Algorithm be the following steps, taking a reason argument:
@@ -668,14 +629,10 @@ impl<'js> ReadableStream<'js> {
 
     fn readable_byte_stream_tee(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects: ReadableByteStreamObjects<'js, UndefinedReader>,
     ) -> Result<(
         ReadableStreamPair<'js>,
-        ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, UndefinedReader>,
+        ReadableByteStreamObjects<'js, UndefinedReader>,
     )> {
         // Let reader be ? AcquireReadableStreamDefaultReader(stream).
         let (stream, reader) = ReadableStreamReaderClass::acquire_readable_stream_default_reader(
@@ -747,16 +704,8 @@ impl<'js> ReadableStream<'js> {
                         read_again_for_branch_2.clone(),
                         reason_1.clone(),
                         reason_2.clone(),
-                        ReadableStreamObjects {
-                           stream: OwnedBorrowMut::from_class(branch_1.get().cloned().expect("ReadableByteStream tee pull1 algorithm called without branch1 being initialised")),
-                           controller: branch_1_controller,
-                           reader: UndefinedReader,
-                        },
-                        ReadableStreamObjects {
-                           stream: branch_2,
-                           controller: branch_2_controller,
-                           reader: UndefinedReader,
-                        },
+                        ReadableStreamObjects::new_byte(OwnedBorrowMut::from_class(branch_1.get().cloned().expect("ReadableByteStream tee pull1 algorithm called without branch1 being initialised")), branch_1_controller) ,
+                        ReadableStreamObjects::new_byte(branch_2, branch_2_controller),
                         cancel_promise.clone(),
                     )
             }
@@ -805,16 +754,8 @@ impl<'js> ReadableStream<'js> {
                     read_again_for_branch_2.clone(),
                     reason_1.clone(),
                     reason_2.clone(),
-                    ReadableStreamObjects {
-                        stream: branch_1,
-                        controller: branch_1_controller,
-                        reader: UndefinedReader,
-                    },
-                    ReadableStreamObjects {
-                        stream: branch_2,
-                        controller: branch_2_controller,
-                        reader: UndefinedReader,
-                    },
+                    ReadableStreamObjects::new_byte(branch_1, branch_1_controller),
+                    ReadableStreamObjects::new_byte(branch_2, branch_2_controller),
                     cancel_promise.clone(),
                 )
             }
@@ -939,7 +880,7 @@ impl<'js> ReadableStream<'js> {
         upon_promise(
             ctx,
             this_reader.closed_promise(),
-            move |ctx, result| match result {
+            move |_, result| match result {
                 Err(r) => {
                     // If thisReader is not reader, return.
                     if !reader.borrow().eq(&this_reader) {
@@ -966,7 +907,7 @@ impl<'js> ReadableStream<'js> {
 
                     // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
                     if reason_1.get().is_none() || reason_2.get().is_none() {
-                        let () = cancel_promise.resolve(Value::new_undefined(ctx))?;
+                        cancel_promise.resolve_undefined()?;
                     }
                     Ok(())
                 },
@@ -980,30 +921,17 @@ impl<'js> ReadableStream<'js> {
     #[allow(clippy::too_many_arguments)]
     fn readable_byte_stream_pull_with_default_reader(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects: ReadableByteStreamObjects<'js, UndefinedReader>,
         reader: Rc<RefCell<ReadableStreamReaderClass<'js>>>,
         reading: Rc<AtomicBool>,
         read_again_for_branch_1: Rc<AtomicBool>,
         read_again_for_branch_2: Rc<AtomicBool>,
         reason_1: Rc<OnceCell<Value<'js>>>,
         reason_2: Rc<OnceCell<Value<'js>>>,
-        objects_1: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
-        objects_2: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        objects_1: ReadableByteStreamObjects<'js, UndefinedReader>,
+        objects_2: ReadableByteStreamObjects<'js, UndefinedReader>,
         cancel_promise: ResolveablePromise<'js>,
-    ) -> Result<ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, UndefinedReader>>
-    {
+    ) -> Result<ReadableByteStreamObjects<'js, UndefinedReader>> {
         let objects_class_1 = objects_1.into_inner();
         let objects_class_2 = objects_2.into_inner();
 
@@ -1085,19 +1013,9 @@ impl<'js> ReadableStream<'js> {
         impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
             fn chunk_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
+                objects: ReadableStreamDefaultReaderObjects<'js>,
                 chunk: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 let ctx = chunk.ctx().clone();
                 let this = self.clone();
 
@@ -1238,18 +1156,8 @@ impl<'js> ReadableStream<'js> {
             fn close_steps(
                 &self,
                 ctx: &Ctx<'js>,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            > {
+                objects: ReadableStreamDefaultReaderObjects<'js>,
+            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
                 self.reading.store(false, Ordering::Relaxed);
 
@@ -1297,27 +1205,16 @@ impl<'js> ReadableStream<'js> {
 
                 // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
                 if self.reason_1.get().is_none() || self.reason_2.get().is_none() {
-                    self.cancel_promise
-                        .resolve(Value::new_undefined(ctx.clone()))?
+                    self.cancel_promise.resolve_undefined()?
                 }
                 Ok(objects)
             }
 
             fn error_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
+                objects: ReadableStreamDefaultReaderObjects<'js>,
                 _: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableStreamControllerOwned<'js>,
-                    ReadableStreamDefaultReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
                 self.reading.store(false, Ordering::Relaxed);
                 Ok(objects)
@@ -1328,11 +1225,7 @@ impl<'js> ReadableStream<'js> {
         Ok(
             ReadableStreamDefaultReader::readable_stream_default_reader_read(
                 &ctx,
-                ReadableStreamObjects {
-                    stream: objects.stream,
-                    controller: objects.controller,
-                    reader: OwnedBorrowMut::from_class(current_reader),
-                },
+                objects.set_reader(OwnedBorrowMut::from_class(current_reader)),
                 ReadRequest {
                     reader,
                     reading,
@@ -1352,32 +1245,19 @@ impl<'js> ReadableStream<'js> {
     #[allow(clippy::too_many_arguments)]
     fn readable_byte_stream_pull_with_byob_reader(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects: ReadableByteStreamObjects<'js, UndefinedReader>,
         reader: Rc<RefCell<ReadableStreamReaderClass<'js>>>,
         reading: Rc<AtomicBool>,
         read_again_for_branch_1: Rc<AtomicBool>,
         read_again_for_branch_2: Rc<AtomicBool>,
         reason_1: Rc<OnceCell<Value<'js>>>,
         reason_2: Rc<OnceCell<Value<'js>>>,
-        objects_1: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
-        objects_2: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        objects_1: ReadableByteStreamObjects<'js, UndefinedReader>,
+        objects_2: ReadableByteStreamObjects<'js, UndefinedReader>,
         cancel_promise: ResolveablePromise<'js>,
         view: ViewBytes<'js>,
         for_branch_2: bool,
-    ) -> Result<ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, UndefinedReader>>
-    {
+    ) -> Result<ReadableByteStreamObjects<'js, UndefinedReader>> {
         let objects_1 = objects_1.into_inner();
         let objects_2 = objects_2.into_inner();
 
@@ -1482,19 +1362,9 @@ impl<'js> ReadableStream<'js> {
         impl<'js> ReadableStreamReadIntoRequest<'js> for ReadIntoRequest<'js> {
             fn chunk_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableByteStreamControllerOwned<'js>,
-                    ReadableStreamBYOBReaderOwned<'js>,
-                >,
+                objects: ReadableStreamBYOBObjects<'js>,
                 chunk: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableByteStreamControllerOwned<'js>,
-                    ReadableStreamBYOBReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamBYOBObjects<'js>> {
                 let ctx = chunk.ctx().clone();
 
                 let constructor_uint8array = objects
@@ -1660,19 +1530,9 @@ impl<'js> ReadableStream<'js> {
 
             fn close_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableByteStreamControllerOwned<'js>,
-                    ReadableStreamBYOBReaderOwned<'js>,
-                >,
+                objects: ReadableStreamBYOBObjects<'js>,
                 chunk: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableByteStreamControllerOwned<'js>,
-                    ReadableStreamBYOBReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamBYOBObjects<'js>> {
                 let ctx = chunk.ctx().clone();
 
                 // Set reading to false.
@@ -1742,8 +1602,7 @@ impl<'js> ReadableStream<'js> {
 
                 // If byobCanceled is false or otherCanceled is false, resolve cancelPromise with undefined.
                 if !byob_canceled || !other_canceled {
-                    self.cancel_promise
-                        .resolve(Value::new_undefined(ctx.clone()))?
+                    self.cancel_promise.resolve_undefined()?
                 }
 
                 Ok(objects)
@@ -1751,19 +1610,9 @@ impl<'js> ReadableStream<'js> {
 
             fn error_steps(
                 &self,
-                objects: ReadableStreamObjects<
-                    'js,
-                    ReadableByteStreamControllerOwned<'js>,
-                    ReadableStreamBYOBReaderOwned<'js>,
-                >,
+                objects: ReadableStreamBYOBObjects<'js>,
                 _: Value<'js>,
-            ) -> Result<
-                ReadableStreamObjects<
-                    'js,
-                    ReadableByteStreamControllerOwned<'js>,
-                    ReadableStreamBYOBReaderOwned<'js>,
-                >,
-            > {
+            ) -> Result<ReadableStreamBYOBObjects<'js>> {
                 // Set reading to false.
                 self.reading.store(false, Ordering::Relaxed);
                 Ok(objects)
@@ -1798,27 +1647,15 @@ impl<'js> ReadableStream<'js> {
     #[allow(clippy::too_many_arguments)]
     fn readable_byte_stream_pull_1_algorithm(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects: ReadableByteStreamObjects<'js, UndefinedReader>,
         reader: Rc<RefCell<ReadableStreamReaderClass<'js>>>,
         reading: Rc<AtomicBool>,
         read_again_for_branch_1: Rc<AtomicBool>,
         read_again_for_branch_2: Rc<AtomicBool>,
         reason_1: Rc<OnceCell<Value<'js>>>,
         reason_2: Rc<OnceCell<Value<'js>>>,
-        mut objects_1: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
-        objects_2: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects_1: ReadableByteStreamObjects<'js, UndefinedReader>,
+        objects_2: ReadableByteStreamObjects<'js, UndefinedReader>,
         cancel_promise: ResolveablePromise<'js>,
     ) -> Result<Promise<'js>> {
         // If reading is true,
@@ -1826,11 +1663,11 @@ impl<'js> ReadableStream<'js> {
             // Set readAgainForBranch1 to true.
             read_again_for_branch_1.store(true, Ordering::Relaxed);
             // Return a promise resolved with undefined.
-            return promise_resolved_with(
-                &ctx.clone(),
-                &objects.stream.promise_primordials,
-                Ok(Value::new_undefined(ctx)),
-            );
+            return Ok(objects
+                .stream
+                .promise_primordials
+                .promise_resolved_with_undefined
+                .clone());
         }
         // Set reading to true.
 
@@ -1881,38 +1718,26 @@ impl<'js> ReadableStream<'js> {
         };
 
         // Return a promise resolved with undefined.
-        return promise_resolved_with(
-            &ctx.clone(),
-            &objects.stream.promise_primordials,
-            Ok(Value::new_undefined(ctx)),
-        );
+        Ok(objects
+            .stream
+            .promise_primordials
+            .promise_resolved_with_undefined
+            .clone())
     }
 
     // Let pull2Algorithm be the following steps:
     #[allow(clippy::too_many_arguments)]
     fn readable_byte_stream_pull_2_algorithm(
         ctx: Ctx<'js>,
-        mut objects: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        mut objects: ReadableByteStreamObjects<'js, UndefinedReader>,
         reader: Rc<RefCell<ReadableStreamReaderClass<'js>>>,
         reading: Rc<AtomicBool>,
         read_again_for_branch_1: Rc<AtomicBool>,
         read_again_for_branch_2: Rc<AtomicBool>,
         reason_1: Rc<OnceCell<Value<'js>>>,
         reason_2: Rc<OnceCell<Value<'js>>>,
-        objects_1: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
-        mut objects_2: ReadableStreamObjects<
-            'js,
-            ReadableByteStreamControllerOwned<'js>,
-            UndefinedReader,
-        >,
+        objects_1: ReadableByteStreamObjects<'js, UndefinedReader>,
+        mut objects_2: ReadableByteStreamObjects<'js, UndefinedReader>,
         cancel_promise: ResolveablePromise<'js>,
     ) -> Result<Promise<'js>> {
         // If reading is true,
@@ -1920,11 +1745,11 @@ impl<'js> ReadableStream<'js> {
             // Set readAgainForBranch2 to true.
             read_again_for_branch_2.store(true, Ordering::Relaxed);
             // Return a promise resolved with undefined.
-            return promise_resolved_with(
-                &ctx.clone(),
-                &objects.stream.promise_primordials,
-                Ok(Value::new_undefined(ctx)),
-            );
+            return Ok(objects
+                .stream
+                .promise_primordials
+                .promise_resolved_with_undefined
+                .clone());
         }
         // Set reading to true.
 
@@ -1972,11 +1797,11 @@ impl<'js> ReadableStream<'js> {
         };
 
         // Return a promise resolved with undefined.
-        return promise_resolved_with(
-            &ctx.clone(),
-            &objects.stream.promise_primordials,
-            Ok(Value::new_undefined(ctx)),
-        );
+        Ok(objects
+            .stream
+            .promise_primordials
+            .promise_resolved_with_undefined
+            .clone())
     }
 }
 

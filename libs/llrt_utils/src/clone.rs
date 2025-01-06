@@ -414,7 +414,6 @@ mod tests {
     #[tokio::test]
     async fn clone() {
         test_sync_with(|ctx| {
-            crate::modules::buffer::init(&ctx)?;
             let value: Object = ctx.eval(
                 r#"
 const a = {

@@ -13,12 +13,12 @@ use rquickjs::{
     prelude::{Opt, This},
     Class, Ctx, Exception, Function, JsLifetime, Object, Promise, Result, Value,
 };
-use writer::{UndefinedWriter, WritableStreamWriter};
+use writer::WritableStreamWriter;
 
-use super::{
-    promise_rejected_with, promise_resolved_with, upon_promise, Null, Undefined, ValueOrUndefined,
+use super::{promise_rejected_with, upon_promise, Null, Undefined, ValueOrUndefined};
+use crate::{
+    queueing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
 };
-use crate::{queueing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise};
 
 mod default_controller;
 mod default_writer;
@@ -127,18 +127,7 @@ impl<'js> WritableStream<'js> {
             return promise_rejected_with(&stream.promise_primordials, e);
         }
 
-        let controller = OwnedBorrowMut::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("Abort called on stream without a controller"),
-        );
-
-        let objects = WritableStreamObjects {
-            stream: stream.0,
-            controller,
-            writer: UndefinedWriter,
-        };
+        let objects = WritableStreamObjects::from_stream(stream.0);
 
         // Return ! WritableStreamAbort(this, reason).
         let (promise, _) = Self::writable_stream_abort(ctx.clone(), objects, reason.0)?;
@@ -163,18 +152,7 @@ impl<'js> WritableStream<'js> {
             return promise_rejected_with(&stream.promise_primordials, e);
         }
 
-        let controller = OwnedBorrowMut::from_class(
-            stream
-                .controller
-                .clone()
-                .expect("Abort called on stream without a controller"),
-        );
-
-        let objects = WritableStreamObjects {
-            stream: stream.0,
-            controller,
-            writer: UndefinedWriter,
-        };
+        let objects = WritableStreamObjects::from_stream(stream.0);
 
         // Return ! WritableStreamClose(this).
         let (promise, _) = Self::writable_stream_close(ctx.clone(), objects)?;
@@ -216,11 +194,11 @@ impl<'js> WritableStream<'js> {
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             return Ok((
-                promise_resolved_with(
-                    &ctx,
-                    &objects.stream.promise_primordials,
-                    Ok(Value::new_undefined(ctx.clone())),
-                )?,
+                objects
+                    .stream
+                    .promise_primordials
+                    .promise_resolved_with_undefined
+                    .clone(),
                 objects,
             ));
         }
@@ -241,11 +219,11 @@ impl<'js> WritableStream<'js> {
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
             return Ok((
-                promise_resolved_with(
-                    &ctx,
-                    &objects.stream.promise_primordials,
-                    Ok(Value::new_undefined(ctx.clone())),
-                )?,
+                objects
+                    .stream
+                    .promise_primordials
+                    .promise_resolved_with_undefined
+                    .clone(),
                 objects,
             ));
         }
@@ -273,7 +251,7 @@ impl<'js> WritableStream<'js> {
         // Let promise be a new promise.
         let promise = ResolveablePromise::new(&ctx)?;
 
-        let reason = reason.unwrap_or(Value::new_undefined(ctx.clone()));
+        let reason = reason.unwrap_or_undefined(&ctx);
 
         // Set stream.[[pendingAbortRequest]] to a new pending abort request whose promise is promise, reason is reason, and was already erroring is wasAlreadyErroring.
         objects.stream.pending_abort_request = Some(PendingAbortRequest {
@@ -322,10 +300,7 @@ impl<'js> WritableStream<'js> {
                 if objects.stream.backpressure
                     && matches!(objects.stream.state, WritableStreamState::Writable)
                 {
-                    let () = objects
-                        .writer
-                        .ready_promise
-                        .resolve(Value::new_undefined(ctx.clone()))?;
+                    let () = objects.writer.ready_promise.resolve_undefined()?;
                 }
                 Ok(objects)
             },
@@ -435,16 +410,14 @@ impl<'js> WritableStream<'js> {
         // Upon fulfillment of promise,
         let _ = upon_promise::<Value<'js>, _>(ctx.clone(), promise, {
             let objects_class = objects_class.clone();
-            move |ctx, result| {
+            move |_, result| {
                 let objects =
                     WritableStreamObjects::from_class_no_writer(objects_class).refresh_writer();
                 match result {
                     // Upon fulfillment of promise,
                     Ok(_) => {
                         // Resolve abortRequest’s promise with undefined.
-                        let () = abort_request
-                            .promise
-                            .resolve(Value::new_undefined(ctx.clone()))?;
+                        let () = abort_request.promise.resolve_undefined()?;
                         // Perform ! WritableStreamRejectCloseAndClosedPromiseIfNeeded(stream).
                         WritableStream::writable_stream_reject_close_and_closed_promise_if_needed(
                             objects,
@@ -603,17 +576,16 @@ impl<'js> WritableStream<'js> {
         }
     }
 
-    fn writable_stream_finish_in_flight_write(&mut self, ctx: Ctx<'js>) -> Result<()> {
+    fn writable_stream_finish_in_flight_write(&mut self) -> Result<()> {
         // Resolve stream.[[inFlightWriteRequest]] with undefined.
         // Set stream.[[inFlightWriteRequest]] to undefined.
         self.in_flight_write_request
             .take()
             .expect("writable_stream_finish_in_flight_write called without in flight write request")
-            .resolve(Value::new_undefined(ctx))
+            .resolve_undefined()
     }
 
     fn writable_stream_finish_in_flight_close<W: WritableStreamWriter<'js>>(
-        ctx: Ctx<'js>,
         // Let writer be stream.[[writer]].
         mut objects: WritableStreamObjects<'js, W>,
     ) -> Result<WritableStreamObjects<'js, W>> {
@@ -626,7 +598,7 @@ impl<'js> WritableStream<'js> {
             .in_flight_close_request
             .take()
             .expect("writable_stream_finish_in_flight_close called without in flight close request")
-            .resolve(Value::new_undefined(ctx.clone()))?;
+            .resolve_undefined()?;
 
         // Let state be stream.[[state]].
         // If state is "erroring",
@@ -638,9 +610,7 @@ impl<'js> WritableStream<'js> {
             if let Some(pending_abort_request) = objects.stream.pending_abort_request.take() {
                 // Resolve stream.[[pendingAbortRequest]]'s promise with undefined.
                 // Set stream.[[pendingAbortRequest]] to undefined.
-                pending_abort_request
-                    .promise
-                    .resolve(Value::new_undefined(ctx.clone()))?;
+                pending_abort_request.promise.resolve_undefined()?;
             }
         }
 
@@ -650,10 +620,7 @@ impl<'js> WritableStream<'js> {
         // If writer is not undefined, resolve writer.[[closedPromise]] with undefined.
         objects.with_writer(
             |objects| {
-                objects
-                    .writer
-                    .closed_promise
-                    .resolve(Value::new_undefined(ctx.clone()))?;
+                objects.writer.closed_promise.resolve_undefined()?;
 
                 Ok(objects)
             },
@@ -677,10 +644,7 @@ impl<'js> WritableStream<'js> {
                     } else {
                         // Otherwise,
                         // Resolve writer.[[readyPromise]] with undefined.
-                        objects
-                            .writer
-                            .ready_promise
-                            .resolve(Value::new_undefined(ctx))?;
+                        objects.writer.ready_promise.resolve_undefined()?
                     }
                 }
 

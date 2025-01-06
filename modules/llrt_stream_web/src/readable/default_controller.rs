@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use rquickjs::{
     class::{OwnedBorrow, OwnedBorrowMut, Trace},
     methods,
@@ -12,15 +10,21 @@ use super::{
     controller::{
         ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
     },
-    default_reader::{ReadableStreamDefaultReaderOrUndefined, ReadableStreamDefaultReaderOwned},
-    objects::{ReadableStreamClassObjects, ReadableStreamObjects},
+    default_reader::ReadableStreamDefaultReaderOrUndefined,
+    objects::{
+        ReadableStreamClassObjects, ReadableStreamDefaultControllerObjects,
+        ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+    },
     promise_resolved_with,
-    reader::{ReadableStreamReader, UndefinedReader},
+    reader::ReadableStreamReader,
     CancelAlgorithm, Null, PullAlgorithm, ReadableStream, ReadableStreamClass, ReadableStreamOwned,
     ReadableStreamReadRequest, ReadableStreamState, SizeAlgorithm, StartAlgorithm, Undefined,
     UnderlyingSource,
 };
-use crate::{class_from_owned_borrow_mut, is_non_negative_number, upon_promise, ValueWithSize};
+use crate::{
+    class_from_owned_borrow_mut, queueing_strategy::SizeValue, upon_promise, Container,
+    UnwrapOrUndefined,
+};
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
@@ -30,12 +34,11 @@ pub(crate) struct ReadableStreamDefaultController<'js> {
     pull_again: bool,
     pull_algorithm: Option<PullAlgorithm<'js>>,
     pulling: bool,
-    queue: VecDeque<ValueWithSize<'js>>,
-    queue_total_size: f64,
+    container: Container<'js>,
     started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
-    stream: ReadableStreamClass<'js>,
+    pub(super) stream: ReadableStreamClass<'js>,
 }
 
 pub(super) type ReadableStreamDefaultControllerClass<'js> =
@@ -112,8 +115,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
             stream: stream_class.clone(),
 
             // Perform ! ResetQueue(controller).
-            queue: VecDeque::new(),
-            queue_total_size: 0.0,
+            container: Container::new(),
 
             // Set controller.[[started]], controller.[[closeRequested]], controller.[[pullAgain]], and controller.[[pulling]] to false.
             started: false,
@@ -138,14 +140,11 @@ impl<'js> ReadableStreamDefaultController<'js> {
             controller_class.clone(),
         );
 
-        let controller = OwnedBorrowMut::from_class(controller_class);
-
-        let objects = ReadableStreamObjects {
-            reader: UndefinedReader,
+        let objects = ReadableStreamObjects::new_default(
             stream,
-            controller,
-        }
-        .refresh_reader();
+            OwnedBorrowMut::from_class(controller_class),
+        );
+
         let promise_primordials = objects.stream.promise_primordials.clone();
 
         // Let startResult be the result of performing startAlgorithm. (This might throw an exception.)
@@ -184,17 +183,17 @@ impl<'js> ReadableStreamDefaultController<'js> {
 
     fn reset_queue(&mut self) {
         // Set container.[[queue]] to a new empty list.
-        self.queue.clear();
+        self.container.queue.clear();
         // Set container.[[queueTotalSize]] to 0.
-        self.queue_total_size = 0.0;
+        self.container.queue_total_size = 0.0;
     }
 
     fn readable_stream_default_controller_call_pull_if_needed<
         R: ReadableStreamDefaultReaderOrUndefined<'js>,
     >(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
-    ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
+        objects: ReadableStreamDefaultControllerObjects<'js, R>,
+    ) -> Result<ReadableStreamDefaultControllerObjects<'js, R>> {
         // Let shouldPull be ! ReadableStreamDefaultControllerShouldCallPull(controller).
 
         let (should_pull, mut objects) =
@@ -258,9 +257,9 @@ impl<'js> ReadableStreamDefaultController<'js> {
 
     pub(super) fn readable_stream_default_controller_error<R: ReadableStreamReader<'js>>(
         // Let stream be controller.[[stream]].
-        mut objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
+        mut objects: ReadableStreamDefaultControllerObjects<'js, R>,
         e: Value<'js>,
-    ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
+    ) -> Result<ReadableStreamDefaultControllerObjects<'js, R>> {
         // If stream.[[state]] is not "readable", return.
         if !matches!(objects.stream.state, ReadableStreamState::Readable) {
             return Ok(objects);
@@ -281,11 +280,8 @@ impl<'js> ReadableStreamDefaultController<'js> {
     fn readable_stream_default_controller_should_call_pull<
         R: ReadableStreamDefaultReaderOrUndefined<'js>,
     >(
-        mut objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
-    ) -> (
-        bool,
-        ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
-    ) {
+        mut objects: ReadableStreamDefaultControllerObjects<'js, R>,
+    ) -> (bool, ReadableStreamDefaultControllerObjects<'js, R>) {
         // Let stream be controller.[[stream]].
         // If ! ReadableStreamDefaultControllerCanCloseOrEnqueue(controller) is false, return false.
         if !objects
@@ -367,15 +363,17 @@ impl<'js> ReadableStreamDefaultController<'js> {
             // If state is "closed", return 0.
             ReadableStreamState::Closed => Null(Some(0.0)),
             // Return controller.[[strategyHWM]] − controller.[[queueTotalSize]].
-            ReadableStreamState::Readable => Null(Some(self.strategy_hwm - self.queue_total_size)),
+            ReadableStreamState::Readable => {
+                Null(Some(self.strategy_hwm - self.container.queue_total_size))
+            },
         }
     }
 
     pub(super) fn readable_stream_default_controller_close<R: ReadableStreamReader<'js>>(
         ctx: Ctx<'js>,
         // Let stream be controller.[[stream]].
-        mut objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
-    ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
+        mut objects: ReadableStreamDefaultControllerObjects<'js, R>,
+    ) -> Result<ReadableStreamDefaultControllerObjects<'js, R>> {
         // If ! ReadableStreamDefaultControllerCanCloseOrEnqueue(controller) is false, return.
         if !objects
             .controller
@@ -388,7 +386,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         objects.controller.close_requested = true;
 
         // If controller.[[queue]] is empty,
-        if objects.controller.queue.is_empty() {
+        if objects.controller.container.queue.is_empty() {
             // Perform ! ReadableStreamDefaultControllerClearAlgorithms(controller).
             objects
                 .controller
@@ -405,9 +403,9 @@ impl<'js> ReadableStreamDefaultController<'js> {
     >(
         ctx: Ctx<'js>,
         // Let stream be controller.[[stream]].
-        mut objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
+        mut objects: ReadableStreamDefaultControllerObjects<'js, R>,
         chunk: Value<'js>,
-    ) -> Result<ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>> {
+    ) -> Result<ReadableStreamDefaultControllerObjects<'js, R>> {
         // If ! ReadableStreamDefaultControllerCanCloseOrEnqueue(controller) is false, return.
         if !objects
             .controller
@@ -456,6 +454,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
                     // Let enqueueResult be EnqueueValueWithSize(controller, chunk, chunkSize).
                     let enqueue_result = objects
                         .controller
+                        .container
                         .enqueue_value_with_size(&ctx, chunk, chunk_size);
 
                     match enqueue_result {
@@ -478,43 +477,9 @@ impl<'js> ReadableStreamDefaultController<'js> {
         Self::readable_stream_default_controller_call_pull_if_needed(ctx, objects)
     }
 
-    fn enqueue_value_with_size(
-        &mut self,
-        ctx: &Ctx<'js>,
-        value: Value<'js>,
-        size: Value<'js>,
-    ) -> Result<()> {
-        let size = match is_non_negative_number(size) {
-            None => {
-                // If ! IsNonNegativeNumber(size) is false, throw a RangeError exception.
-                return Err(Exception::throw_range(
-                    ctx,
-                    "Size must be a finite, non-NaN, non-negative number.",
-                ));
-            },
-            Some(size) => size,
-        };
-
-        // If size is +∞, throw a RangeError exception.
-        if size.is_infinite() {
-            return Err(Exception::throw_range(
-                ctx,
-                "Size must be a finite, non-NaN, non-negative number.",
-            ));
-        };
-
-        // Append a new value-with-size with value value and size size to container.[[queue]].
-        self.queue.push_back(ValueWithSize { value, size });
-
-        // Set container.[[queueTotalSize]] to container.[[queueTotalSize]] + size.
-        self.queue_total_size += size;
-
-        Ok(())
-    }
-
     fn start_algorithm<R: ReadableStreamReader<'js>>(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
+        objects: ReadableStreamDefaultControllerObjects<'js, R>,
         start_algorithm: StartAlgorithm<'js>,
     ) -> Result<(
         Value<'js>,
@@ -535,7 +500,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
 
     fn pull_algorithm<R: ReadableStreamReader<'js>>(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
+        objects: ReadableStreamDefaultControllerObjects<'js, R>,
     ) -> Result<(
         Promise<'js>,
         ReadableStreamClassObjects<'js, OwnedBorrowMut<'js, Self>, R>,
@@ -562,10 +527,10 @@ impl<'js> ReadableStreamDefaultController<'js> {
 
     fn strategy_size_algorithm<R: ReadableStreamReader<'js>>(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
+        objects: ReadableStreamDefaultControllerObjects<'js, R>,
         chunk: Value<'js>,
     ) -> (
-        Result<Value<'js>>,
+        Result<SizeValue<'js>>,
         ReadableStreamClassObjects<'js, OwnedBorrowMut<'js, Self>, R>,
     ) {
         let strategy_size_algorithm = objects
@@ -580,7 +545,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
 
     pub(super) fn cancel_algorithm<R: ReadableStreamReader<'js>>(
         ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<'js, OwnedBorrowMut<'js, Self>, R>,
+        objects: ReadableStreamDefaultControllerObjects<'js, R>,
         reason: Value<'js>,
     ) -> Result<(
         Promise<'js>,
@@ -621,21 +586,18 @@ impl<'js> ReadableStreamDefaultController<'js> {
 
     // undefined close();
     fn close(ctx: Ctx<'js>, controller: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
-        let mut stream = OwnedBorrowMut::from_class(controller.stream.clone());
+        let objects = ReadableStreamObjects::from_default_controller(controller.0);
 
         // If ! ReadableStreamDefaultControllerCanCloseOrEnqueue(this) is false, throw a TypeError exception.
-        if !controller.readable_stream_default_controller_can_close_or_enqueue(&stream) {
+        if !objects
+            .controller
+            .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
+        {
             return Err(Exception::throw_type(
                 &ctx,
                 "The stream is not in a state that permits close",
             ));
         }
-
-        let objects = ReadableStreamObjects {
-            reader: stream.reader_mut(),
-            stream,
-            controller: controller.0,
-        };
 
         // Perform ! ReadableStreamDefaultControllerClose(this).
         Self::readable_stream_default_controller_close(ctx, objects)?;
@@ -648,12 +610,12 @@ impl<'js> ReadableStreamDefaultController<'js> {
         controller: This<OwnedBorrowMut<'js, Self>>,
         chunk: Opt<Value<'js>>,
     ) -> Result<()> {
-        let mut stream = OwnedBorrowMut::from_class(controller.stream.clone());
+        let objects = ReadableStreamObjects::from_default_controller(controller.0);
 
         // If ! ReadableStreamDefaultControllerCanCloseOrEnqueue(this) is false, throw a TypeError exception.
-        if !controller
-            .0
-            .readable_stream_default_controller_can_close_or_enqueue(&stream)
+        if !objects
+            .controller
+            .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
         {
             return Err(Exception::throw_type(
                 &ctx,
@@ -661,21 +623,13 @@ impl<'js> ReadableStreamDefaultController<'js> {
             ));
         }
 
-        let reader = stream.reader_mut();
-
-        let objects = ReadableStreamObjects {
-            stream,
-            controller: controller.0,
-            reader,
-        };
-
         objects.with_reader(
             |objects| {
                 // Perform ? ReadableStreamDefaultControllerEnqueue(this, chunk).
                 Self::readable_stream_default_controller_enqueue(
                     ctx.clone(),
                     objects,
-                    chunk.0.clone().unwrap_or(Value::new_undefined(ctx.clone())),
+                    chunk.0.clone().unwrap_or_undefined(&ctx),
                 )
             },
             |_| panic!("Default controller must not have byob reader"),
@@ -684,7 +638,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
                 Self::readable_stream_default_controller_enqueue(
                     ctx.clone(),
                     objects,
-                    chunk.0.clone().unwrap_or(Value::new_undefined(ctx.clone())),
+                    chunk.0.clone().unwrap_or_undefined(&ctx),
                 )
             },
         )?;
@@ -698,20 +652,10 @@ impl<'js> ReadableStreamDefaultController<'js> {
         controller: This<OwnedBorrowMut<'js, Self>>,
         e: Opt<Value<'js>>,
     ) -> Result<()> {
-        let mut stream = OwnedBorrowMut::from_class(controller.stream.clone());
-        let reader = stream.reader_mut();
-
-        let objects = ReadableStreamObjects {
-            stream,
-            controller: controller.0,
-            reader,
-        };
+        let objects = ReadableStreamObjects::from_default_controller(controller.0);
 
         // Perform ! ReadableStreamDefaultControllerError(this, e).
-        Self::readable_stream_default_controller_error(
-            objects,
-            e.0.unwrap_or(Value::new_undefined(ctx.clone())),
-        )?;
+        Self::readable_stream_default_controller_error(objects, e.0.unwrap_or_undefined(&ctx))?;
         Ok(())
     }
 }
@@ -756,15 +700,15 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamDefaultControllerOwned
 
     fn pull_steps(
         ctx: &Ctx<'js>,
-        mut objects: ReadableStreamObjects<'js, Self, ReadableStreamDefaultReaderOwned<'js>>,
+        mut objects: ReadableStreamDefaultReaderObjects<'js, Self>,
         read_request: impl ReadableStreamReadRequest<'js> + 'js,
-    ) -> Result<ReadableStreamObjects<'js, Self, ReadableStreamDefaultReaderOwned<'js>>> {
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js, Self>> {
         // If this.[[queue]] is not empty,
-        if !objects.controller.queue.is_empty() {
+        if !objects.controller.container.queue.is_empty() {
             // Let chunk be ! DequeueValue(this).
-            let chunk = dequeue_value(&mut objects.controller);
+            let chunk = objects.controller.container.dequeue_value();
             // If this.[[closeRequested]] is true and this.[[queue]] is empty,
-            if objects.controller.close_requested && objects.controller.queue.is_empty() {
+            if objects.controller.close_requested && objects.controller.container.queue.is_empty() {
                 // Perform ! ReadableStreamDefaultControllerClearAlgorithms(this).
                 objects
                     .controller
@@ -820,20 +764,4 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamDefaultControllerOwned
     }
 
     fn release_steps(&mut self) {}
-}
-
-fn dequeue_value<'js>(container: &mut ReadableStreamDefaultController<'js>) -> Value<'js> {
-    // Let valueWithSize be container.[[queue]][0].
-    // Remove valueWithSize from container.[[queue]].
-    let value_with_size = container
-        .queue
-        .pop_front()
-        .expect("DequeueValue called with empty queue");
-    // Set container.[[queueTotalSize]] to container.[[queueTotalSize]] − valueWithSize’s size.
-    container.queue_total_size -= value_with_size.size;
-    // If container.[[queueTotalSize]] < 0, set container.[[queueTotalSize]] to 0. (This can occur due to rounding errors.)
-    if container.queue_total_size < 0.0 {
-        container.queue_total_size = 0.0
-    }
-    value_with_size.value
 }

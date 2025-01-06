@@ -78,17 +78,42 @@ pub(super) enum SizeAlgorithm<'js> {
 }
 
 impl<'js> SizeAlgorithm<'js> {
-    pub(super) fn call(&self, ctx: Ctx<'js>, chunk: Value<'js>) -> Result<Value<'js>> {
+    pub(super) fn call(&self, ctx: Ctx<'js>, chunk: Value<'js>) -> Result<SizeValue<'js>> {
         match self {
             Self::AlwaysOne
             | Self::SizeFunction(SizeFunction::Native(NativeSizeFunction::Count)) => {
-                Ok(Value::new_number(ctx, 1.0))
+                Ok(SizeValue::Native(1.0))
             },
             Self::SizeFunction(SizeFunction::Js(ref f)) => f.call((chunk.clone(),)),
             Self::SizeFunction(SizeFunction::Native(NativeSizeFunction::ByteLength)) => {
-                byte_length_queueing_strategy_size_function(&ctx, &chunk)
+                let size = byte_length_queueing_strategy_size_function(&ctx, &chunk)?;
+                SizeValue::from_js(&ctx, size)
             },
         }
+    }
+}
+
+pub(super) enum SizeValue<'js> {
+    Value(Value<'js>),
+    Native(f64),
+}
+
+impl SizeValue<'_> {
+    pub(super) fn as_number(&self) -> Option<f64> {
+        match self {
+            Self::Value(value) => value.as_number(),
+            Self::Native(size) => Some(*size),
+        }
+    }
+}
+
+impl<'js> FromJs<'js> for SizeValue<'js> {
+    fn from_js(_: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        if let Some(size) = value.as_number() {
+            return Ok(Self::Native(size));
+        }
+
+        Ok(Self::Value(value))
     }
 }
 
@@ -194,9 +219,9 @@ pub(super) enum NativeSizeFunction {
 impl<'js> JsClass<'js> for NativeSizeFunction {
     const NAME: &'static str = "NativeSizeFunction";
 
-    type Mutable = Readable;
-
     const CALLABLE: bool = true;
+
+    type Mutable = Readable;
 
     fn prototype(ctx: &Ctx<'js>) -> Result<Option<Object<'js>>> {
         Ok(Some(Function::prototype(ctx.clone())))

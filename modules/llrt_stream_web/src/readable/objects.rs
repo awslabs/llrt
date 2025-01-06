@@ -6,11 +6,13 @@ use rquickjs::{
 use super::{
     byob_reader::ReadableStreamBYOBReaderOwned,
     byte_controller::ReadableByteStreamControllerOwned,
-    controller::ReadableStreamController,
+    controller::{
+        ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
+    },
     default_controller::ReadableStreamDefaultControllerOwned,
     default_reader::{ReadableStreamDefaultReaderOrUndefined, ReadableStreamDefaultReaderOwned},
     reader::{ReadableStreamReader, ReadableStreamReaderOwned, UndefinedReader},
-    ReadableStreamClass, ReadableStreamOwned,
+    ReadableStream, ReadableStreamClass, ReadableStreamOwned,
 };
 
 pub(super) struct ReadableStreamObjects<'js, C, R> {
@@ -18,6 +20,18 @@ pub(super) struct ReadableStreamObjects<'js, C, R> {
     pub(super) controller: C,
     pub(super) reader: R,
 }
+
+pub(super) type ReadableStreamDefaultControllerObjects<'js, R> =
+    ReadableStreamObjects<'js, ReadableStreamDefaultControllerOwned<'js>, R>;
+pub(super) type ReadableStreamDefaultReaderObjects<'js, C = ReadableStreamControllerOwned<'js>> =
+    ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>;
+pub(super) type ReadableByteStreamObjects<'js, R> =
+    ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, R>;
+pub(super) type ReadableStreamBYOBObjects<'js> = ReadableStreamObjects<
+    'js,
+    ReadableByteStreamControllerOwned<'js>,
+    ReadableStreamBYOBReaderOwned<'js>,
+>;
 
 pub(super) struct ReadableStreamClassObjects<
     'js,
@@ -73,10 +87,8 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
     pub(super) fn with_assert_default_controller(
         mut self,
         f: impl FnOnce(
-            ReadableStreamObjects<'js, ReadableStreamDefaultControllerOwned<'js>, R>,
-        ) -> Result<
-            ReadableStreamObjects<'js, ReadableStreamDefaultControllerOwned<'js>, R>,
-        >,
+            ReadableStreamDefaultControllerObjects<'js, R>,
+        ) -> Result<ReadableStreamDefaultControllerObjects<'js, R>>,
     ) -> Result<Self> {
         ((), self) = self.with_controller(
             (),
@@ -88,10 +100,7 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
 
     pub(super) fn with_assert_byte_controller(
         mut self,
-        f: impl FnOnce(
-            ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, R>,
-        )
-            -> Result<ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, R>>,
+        f: impl FnOnce(ReadableByteStreamObjects<'js, R>) -> Result<ReadableByteStreamObjects<'js, R>>,
     ) -> Result<Self> {
         ((), self) = self.with_controller(
             (),
@@ -106,18 +115,12 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
         ctx: Ctx,
         default: impl FnOnce(
             Ctx,
-            ReadableStreamObjects<'js, ReadableStreamDefaultControllerOwned<'js>, R>,
-        ) -> Result<(
-            O,
-            ReadableStreamObjects<'js, ReadableStreamDefaultControllerOwned<'js>, R>,
-        )>,
+            ReadableStreamDefaultControllerObjects<'js, R>,
+        ) -> Result<(O, ReadableStreamDefaultControllerObjects<'js, R>)>,
         byte: impl FnOnce(
             Ctx,
-            ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, R>,
-        ) -> Result<(
-            O,
-            ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, R>,
-        )>,
+            ReadableByteStreamObjects<'js, R>,
+        ) -> Result<(O, ReadableByteStreamObjects<'js, R>)>,
     ) -> Result<(O, Self)> {
         let ((out, stream, reader), controller) = self.controller.with_controller(
             (ctx, self.stream, self.reader),
@@ -159,19 +162,7 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
 
     pub(super) fn with_assert_byob_reader(
         self,
-        f: impl FnOnce(
-            ReadableStreamObjects<
-                'js,
-                ReadableByteStreamControllerOwned<'js>,
-                ReadableStreamBYOBReaderOwned<'js>,
-            >,
-        ) -> Result<
-            ReadableStreamObjects<
-                'js,
-                ReadableByteStreamControllerOwned<'js>,
-                ReadableStreamBYOBReaderOwned<'js>,
-            >,
-        >,
+        f: impl FnOnce(ReadableStreamBYOBObjects<'js>) -> Result<ReadableStreamBYOBObjects<'js>>,
     ) -> Result<Self> {
         self.with_reader(
             |_| panic!("expected byob reader, found default reader"),
@@ -183,9 +174,8 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
     pub(super) fn with_assert_default_reader(
         self,
         f: impl FnOnce(
-            ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>,
-        )
-            -> Result<ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>>,
+            ReadableStreamDefaultReaderObjects<'js, C>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>>,
     ) -> Result<Self> {
         self.with_reader(
             f,
@@ -197,23 +187,9 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
     pub(super) fn with_reader(
         mut self,
         default: impl FnOnce(
-            ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>,
-        ) -> Result<
-            ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>,
-        >,
-        byob: impl FnOnce(
-            ReadableStreamObjects<
-                'js,
-                ReadableByteStreamControllerOwned<'js>,
-                ReadableStreamBYOBReaderOwned<'js>,
-            >,
-        ) -> Result<
-            ReadableStreamObjects<
-                'js,
-                ReadableByteStreamControllerOwned<'js>,
-                ReadableStreamBYOBReaderOwned<'js>,
-            >,
-        >,
+            ReadableStreamDefaultReaderObjects<'js, C>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>>,
+        byob: impl FnOnce(ReadableStreamBYOBObjects<'js>) -> Result<ReadableStreamBYOBObjects<'js>>,
         none: impl FnOnce(
             ReadableStreamObjects<'js, C, UndefinedReader>,
         ) -> Result<ReadableStreamObjects<'js, C, UndefinedReader>>,
@@ -296,16 +272,36 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>>
     }
 }
 
-impl<'js, R: ReadableStreamReader<'js>>
-    ReadableStreamObjects<'js, ReadableStreamDefaultControllerOwned<'js>, R>
+impl<'js>
+    ReadableStreamDefaultControllerObjects<'js, Option<ReadableStreamDefaultReaderOwned<'js>>>
 {
+    pub(super) fn from_default_controller(
+        controller: ReadableStreamDefaultControllerOwned<'js>,
+    ) -> Self {
+        Self::new_default(
+            OwnedBorrowMut::from_class(controller.stream.clone()),
+            controller,
+        )
+    }
+
+    pub(super) fn new_default(
+        stream: ReadableStreamOwned<'js>,
+        controller: ReadableStreamDefaultControllerOwned<'js>,
+    ) -> Self {
+        ReadableStreamObjects {
+            stream,
+            controller,
+            reader: UndefinedReader,
+        }
+        .refresh_reader()
+    }
+}
+
+impl<'js, R: ReadableStreamReader<'js>> ReadableStreamDefaultControllerObjects<'js, R> {
     pub(super) fn refresh_reader(
         mut self,
-    ) -> ReadableStreamObjects<
-        'js,
-        ReadableStreamDefaultControllerOwned<'js>,
-        Option<ReadableStreamDefaultReaderOwned<'js>>,
-    > {
+    ) -> ReadableStreamDefaultControllerObjects<'js, Option<ReadableStreamDefaultReaderOwned<'js>>>
+    {
         drop(self.reader);
         let reader = self.stream.reader_mut();
         ReadableStreamObjects {
@@ -317,18 +313,29 @@ impl<'js, R: ReadableStreamReader<'js>>
     }
 }
 
-impl<'js, R: ReadableStreamReader<'js>>
-    ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, R>
-{
-    pub(super) fn refresh_reader(
-        mut self,
-    ) -> ReadableStreamObjects<
-        'js,
-        ReadableByteStreamControllerOwned<'js>,
-        Option<ReadableStreamReaderOwned<'js>>,
-    > {
-        drop(self.reader);
-        let reader = self.stream.reader_mut();
+impl<'js> ReadableByteStreamObjects<'js, UndefinedReader> {
+    pub(super) fn from_byte_controller(controller: ReadableByteStreamControllerOwned<'js>) -> Self {
+        Self::new_byte(
+            OwnedBorrowMut::from_class(controller.stream.clone()),
+            controller,
+        )
+    }
+
+    pub(super) fn new_byte(
+        stream: ReadableStreamOwned<'js>,
+        controller: ReadableByteStreamControllerOwned<'js>,
+    ) -> Self {
+        ReadableStreamObjects {
+            stream,
+            controller,
+            reader: UndefinedReader,
+        }
+    }
+
+    pub(super) fn set_reader<RNext: ReadableStreamReader<'js>>(
+        self,
+        reader: RNext,
+    ) -> ReadableByteStreamObjects<'js, RNext> {
         ReadableStreamObjects {
             stream: self.stream,
             controller: self.controller,
@@ -337,11 +344,33 @@ impl<'js, R: ReadableStreamReader<'js>>
     }
 }
 
-impl<'js> ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, UndefinedReader> {
-    pub(super) fn set_reader<RNext: ReadableStreamReader<'js>>(
-        self,
-        reader: RNext,
-    ) -> ReadableStreamObjects<'js, ReadableByteStreamControllerOwned<'js>, RNext> {
+impl<'js> ReadableStreamBYOBObjects<'js> {
+    pub(super) fn from_byob_reader(reader: ReadableStreamBYOBReaderOwned<'js>) -> Self {
+        let stream = OwnedBorrowMut::from_class(
+            reader
+                .generic
+                .stream
+                .clone()
+                .expect("ReadableStreamBYOBReader must have a stream"),
+        );
+        let controller = match &stream.controller {
+            ReadableStreamControllerClass::ReadableStreamByteController(c) => c.clone(),
+            _ => panic!("ReadableStreamBYOBReader stream must have byte controller"),
+        };
+        Self {
+            stream,
+            controller: OwnedBorrowMut::from_class(controller),
+            reader,
+        }
+    }
+}
+
+impl<'js, R: ReadableStreamReader<'js>> ReadableByteStreamObjects<'js, R> {
+    pub(super) fn refresh_reader(
+        mut self,
+    ) -> ReadableByteStreamObjects<'js, Option<ReadableStreamReaderOwned<'js>>> {
+        drop(self.reader);
+        let reader = self.stream.reader_mut();
         ReadableStreamObjects {
             stream: self.stream,
             controller: self.controller,
@@ -356,10 +385,8 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamDefaultReaderOrUnde
     pub(super) fn with_some_reader(
         self,
         default: impl FnOnce(
-            ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>,
-        ) -> Result<
-            ReadableStreamObjects<'js, C, ReadableStreamDefaultReaderOwned<'js>>,
-        >,
+            ReadableStreamDefaultReaderObjects<'js, C>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>>,
         none: impl FnOnce(
             ReadableStreamObjects<'js, C, UndefinedReader>,
         ) -> Result<ReadableStreamObjects<'js, C, UndefinedReader>>,
@@ -369,5 +396,61 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamDefaultReaderOrUnde
             |_| panic!("byob reader cannot implement DefaultReaderOrUndefined"),
             none,
         )
+    }
+}
+
+impl<'js> ReadableStreamObjects<'js, ReadableStreamControllerOwned<'js>, UndefinedReader> {
+    pub(super) fn from_stream(stream: ReadableStreamOwned<'js>) -> Self {
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
+        Self::new(stream, controller)
+    }
+
+    fn new(
+        stream: OwnedBorrowMut<'js, ReadableStream<'js>>,
+        controller: ReadableStreamControllerOwned<'js>,
+    ) -> Self {
+        ReadableStreamObjects {
+            stream,
+            controller,
+            reader: UndefinedReader,
+        }
+    }
+}
+
+impl<'js, R: ReadableStreamReader<'js>>
+    ReadableStreamObjects<'js, ReadableStreamControllerOwned<'js>, R>
+{
+    pub(super) fn refresh_reader(
+        mut self,
+    ) -> ReadableStreamObjects<
+        'js,
+        ReadableStreamControllerOwned<'js>,
+        Option<ReadableStreamReaderOwned<'js>>,
+    > {
+        drop(self.reader);
+        let reader = self.stream.reader_mut();
+        ReadableStreamObjects {
+            stream: self.stream,
+            controller: self.controller,
+            reader,
+        }
+    }
+}
+
+impl<'js> ReadableStreamDefaultReaderObjects<'js> {
+    pub(super) fn from_default_reader(reader: ReadableStreamDefaultReaderOwned<'js>) -> Self {
+        let stream = OwnedBorrowMut::from_class(
+            reader
+                .generic
+                .stream
+                .clone()
+                .expect("ReadableStreamDefaultReader must have a stream"),
+        );
+        let controller = ReadableStreamControllerOwned::from_class(stream.controller.clone());
+        Self {
+            stream,
+            controller,
+            reader,
+        }
     }
 }

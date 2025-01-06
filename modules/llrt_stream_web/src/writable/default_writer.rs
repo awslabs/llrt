@@ -10,14 +10,14 @@ use super::{
     writer::WritableStreamWriter, ResolveablePromise, WritableStream, WritableStreamOwned,
     WritableStreamState,
 };
-use crate::{promise_rejected_with, promise_resolved_with, Null, PromisePrimordials};
+use crate::{promise_rejected_with, Null, PromisePrimordials, UnwrapOrUndefined};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
 pub(crate) struct WritableStreamDefaultWriter<'js> {
     pub(crate) ready_promise: ResolveablePromise<'js>,
     pub(crate) closed_promise: ResolveablePromise<'js>,
-    stream: Option<Class<'js, WritableStream<'js>>>,
+    pub(super) stream: Option<Class<'js, WritableStream<'js>>>,
 
     #[qjs(skip_trace)]
     constructor_type_error: Constructor<'js>,
@@ -61,7 +61,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
             )),
             Some(ref stream) => {
                 // Return ! WritableStreamDefaultWriterGetDesiredSize(this).
-                Self::writable_stream_default_writer_get_desired_size(OwnedBorrow::from_class(
+                Self::writable_stream_default_writer_get_desired_size(&OwnedBorrowMut::from_class(
                     stream.clone(),
                 ))
             },
@@ -80,97 +80,55 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         reason: Opt<Value<'js>>,
     ) -> Result<Promise<'js>> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
-        match writer.0.stream {
-            None => {
-                let e: Value = writer
-                    .constructor_type_error
-                    .call(("Cannot abort a stream using a released writer",))?;
+        if writer.0.stream.is_none() {
+            let e: Value = writer
+                .constructor_type_error
+                .call(("Cannot abort a stream using a released writer",))?;
 
-                promise_rejected_with(&writer.promise_primordials, e)
-            },
-            Some(ref stream) => {
-                let stream = OwnedBorrowMut::from_class(stream.clone());
-                let controller = OwnedBorrowMut::from_class(
-                    stream
-                        .controller
-                        .clone()
-                        .expect("Abort called on a writable stream that has no controller"),
-                );
+            promise_rejected_with(&writer.promise_primordials, e)
+        } else {
+            let objects = WritableStreamObjects::from_writer(writer.0);
 
-                let objects = WritableStreamObjects {
-                    stream,
-                    controller,
-                    writer: writer.0,
-                };
-
-                // Return ! WritableStreamDefaultWriterAbort(this, reason).
-                Self::writable_stream_default_writer_abort(ctx.clone(), objects, reason.0)
-            },
+            // Return ! WritableStreamDefaultWriterAbort(this, reason).
+            Self::writable_stream_default_writer_abort(ctx.clone(), objects, reason.0)
         }
     }
 
     fn close(ctx: Ctx<'js>, writer: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
-        match writer.0.stream {
-            None => {
-                let e: Value = writer
+        if writer.0.stream.is_none() {
+            let e: Value = writer
+                .constructor_type_error
+                .call(("Cannot close a stream using a released writer",))?;
+
+            promise_rejected_with(&writer.promise_primordials, e)
+        } else {
+            let objects = WritableStreamObjects::from_writer(writer.0);
+
+            // If ! WritableStreamCloseQueuedOrInFlight(stream) is true, return a promise rejected with a TypeError exception.
+            if objects.stream.writable_stream_close_queued_or_in_flight() {
+                let e: Value = objects
+                    .writer
                     .constructor_type_error
-                    .call(("Cannot close a stream using a released writer",))?;
+                    .call(("Cannot close an already-closing stream",))?;
 
-                promise_rejected_with(&writer.promise_primordials, e)
-            },
-            Some(ref stream) => {
-                let stream = OwnedBorrowMut::from_class(stream.clone());
-                // If ! WritableStreamCloseQueuedOrInFlight(stream) is true, return a promise rejected with a TypeError exception.
-                if stream.writable_stream_close_queued_or_in_flight() {
-                    let e: Value = writer
-                        .constructor_type_error
-                        .call(("Cannot close an already-closing stream",))?;
+                return promise_rejected_with(&objects.stream.promise_primordials, e);
+            }
 
-                    return promise_rejected_with(&stream.promise_primordials, e);
-                }
-
-                let controller = OwnedBorrowMut::from_class(
-                    stream
-                        .controller
-                        .clone()
-                        .expect("Close called on a writable stream that has no controller"),
-                );
-
-                let objects = WritableStreamObjects {
-                    stream,
-                    controller,
-                    writer: writer.0,
-                };
-
-                // Return ! WritableStreamDefaultWriterClose(this).
-                Self::writable_stream_default_writer_close(ctx, objects)
-            },
+            // Return ! WritableStreamDefaultWriterClose(this).
+            Self::writable_stream_default_writer_close(ctx, objects)
         }
     }
 
     fn release_lock(writer: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
-        // If this.[[stream]] is undefined, throw a TypeError exception.
-        match writer.0.stream {
-            // If stream is undefined, return.
-            None => Ok(()),
-            Some(ref stream) => {
-                let stream = OwnedBorrowMut::from_class(stream.clone());
+        // If stream is undefined, return.
+        if writer.0.stream.is_none() {
+            Ok(())
+        } else {
+            let objects = WritableStreamObjects::from_writer(writer.0);
 
-                let controller = OwnedBorrowMut::from_class(
-                    stream
-                        .controller
-                        .clone()
-                        .expect("releaseLock called on a writable stream that has no controller"),
-                );
-
-                // Perform ! WritableStreamDefaultWriterRelease(this).
-                Self::writable_stream_default_writer_release(WritableStreamObjects {
-                    stream,
-                    controller,
-                    writer: writer.0,
-                })
-            },
+            // Perform ! WritableStreamDefaultWriterRelease(this).
+            Self::writable_stream_default_writer_release(objects)
         }
     }
 
@@ -180,36 +138,21 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         chunk: Opt<Value<'js>>,
     ) -> Result<Promise<'js>> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
-        match writer.0.stream {
-            None => {
-                let e: Value = writer
-                    .constructor_type_error
-                    .call(("Cannot write a stream using a released writer",))?;
+        if writer.0.stream.is_none() {
+            let e: Value = writer
+                .constructor_type_error
+                .call(("Cannot write a stream using a released writer",))?;
 
-                promise_rejected_with(&writer.promise_primordials, e)
-            },
-            Some(ref stream) => {
-                let stream = OwnedBorrowMut::from_class(stream.clone());
-                let controller = OwnedBorrowMut::from_class(
-                    stream
-                        .controller
-                        .clone()
-                        .expect("Write called on a writable stream that has no controller"),
-                );
+            promise_rejected_with(&writer.promise_primordials, e)
+        } else {
+            let objects = WritableStreamObjects::from_writer(writer.0);
 
-                let objects = WritableStreamObjects {
-                    stream,
-                    controller,
-                    writer: writer.0,
-                };
-
-                // Return ! WritableStreamDefaultWriterWrite(this, chunk).
-                Self::writable_stream_default_writer_write(
-                    ctx.clone(),
-                    objects,
-                    chunk.0.unwrap_or(Value::new_undefined(ctx)),
-                )
-            },
+            // Return ! WritableStreamDefaultWriterWrite(this, chunk).
+            Self::writable_stream_default_writer_write(
+                ctx.clone(),
+                objects,
+                chunk.0.unwrap_or_undefined(&ctx),
+            )
         }
     }
 }
@@ -247,11 +190,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
                         ResolveablePromise::new(ctx)?
                     } else {
                         // Otherwise, set writer.[[readyPromise]] to a promise resolved with undefined.
-                        ResolveablePromise::resolved_with(
-                            ctx,
-                            &stream.promise_primordials,
-                            Ok(Value::new_undefined(ctx.clone())),
-                        )?
+                        ResolveablePromise::resolved_with_undefined(&stream.promise_primordials)
                     };
 
                 // Set writer.[[closedPromise]] to a new promise.
@@ -267,11 +206,8 @@ impl<'js> WritableStreamDefaultWriter<'js> {
                 (ready_promise, ResolveablePromise::new(ctx)?)
             },
             WritableStreamState::Closed => {
-                let promise = ResolveablePromise::resolved_with(
-                    ctx,
-                    &stream.promise_primordials,
-                    Ok(Value::new_undefined(ctx.clone())),
-                )?;
+                let promise =
+                    ResolveablePromise::resolved_with_undefined(&stream.promise_primordials);
                 // Set writer.[[readyPromise]] to a promise resolved with undefined.
                 // Set writer.[[closedPromise]] to a promise resolved with undefined.
                 (promise.clone(), promise)
@@ -345,7 +281,7 @@ impl<'js> WritableStreamDefaultWriter<'js> {
 
     pub(super) fn writable_stream_default_writer_get_desired_size(
         // Let stream be writer.[[stream]].
-        stream: OwnedBorrow<'js, WritableStream<'js>>,
+        stream: &WritableStream<'js>,
     ) -> Result<Null<f64>> {
         // Let state be stream.[[state]].
         // If state is "errored" or "erroring", return null.
@@ -403,11 +339,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         if objects.stream.writable_stream_close_queued_or_in_flight()
             || matches!(objects.stream.state, WritableStreamState::Closed)
         {
-            return promise_resolved_with(
-                &ctx,
-                &objects.stream.promise_primordials,
-                Ok(Value::new_undefined(ctx.clone())),
-            );
+            return Ok(objects
+                .stream
+                .promise_primordials
+                .promise_resolved_with_undefined
+                .clone());
         }
 
         // If state is "errored", return a promise rejected with stream.[[storedError]].

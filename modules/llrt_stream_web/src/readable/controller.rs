@@ -8,8 +8,7 @@ use super::{
     default_controller::{
         ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
     },
-    default_reader::ReadableStreamDefaultReaderOwned,
-    objects::ReadableStreamObjects,
+    objects::{ReadableStreamDefaultReaderObjects, ReadableStreamObjects},
     reader::ReadableStreamReader,
     ReadableStreamReadRequest,
 };
@@ -35,17 +34,12 @@ pub(super) trait ReadableStreamController<'js>: Sized {
 
     fn into_erased(self) -> ReadableStreamControllerOwned<'js>;
     fn try_from_erased(erased: ReadableStreamControllerOwned<'js>) -> Option<Self>;
-    fn try_from_erased_class(
-        erased_class: <ReadableStreamControllerOwned<'js> as ReadableStreamController<'js>>::Class,
-    ) -> Option<Self> {
-        Self::try_from_erased(ReadableStreamController::from_class(erased_class))
-    }
 
     fn pull_steps(
         ctx: &Ctx<'js>,
-        objects: ReadableStreamObjects<'js, Self, ReadableStreamDefaultReaderOwned<'js>>,
+        objects: ReadableStreamDefaultReaderObjects<'js, Self>,
         read_request: impl ReadableStreamReadRequest<'js> + 'js,
-    ) -> Result<ReadableStreamObjects<'js, Self, ReadableStreamDefaultReaderOwned<'js>>>;
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js, Self>>;
 
     fn cancel_steps<R: ReadableStreamReader<'js>>(
         ctx: &Ctx<'js>,
@@ -146,9 +140,9 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamControllerOwned<'js> {
 
     fn pull_steps(
         ctx: &Ctx<'js>,
-        objects: ReadableStreamObjects<'js, Self, ReadableStreamDefaultReaderOwned<'js>>,
+        objects: ReadableStreamDefaultReaderObjects<'js, Self>,
         read_request: impl ReadableStreamReadRequest<'js> + 'js,
-    ) -> Result<ReadableStreamObjects<'js, Self, ReadableStreamDefaultReaderOwned<'js>>> {
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js, Self>> {
         objects
             .with_controller(
                 read_request,
