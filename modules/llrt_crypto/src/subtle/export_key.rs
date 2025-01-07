@@ -98,7 +98,7 @@ fn export_pkcs8<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 oid: const_oid::db::rfc8410::ID_X_25519,
                 parameters: None,
             },
-            &handle[0..32], //private key lengths
+            handle,
         )
         .to_der()
         .or_throw(&ctx)?,
