@@ -29,7 +29,7 @@ use rquickjs::{
 
 use super::{
     promise_rejected_with, promise_resolved_with,
-    queueing_strategy::{QueuingStrategy, SizeAlgorithm},
+    queuing_strategy::{QueuingStrategy, SizeAlgorithm},
     writable::WritableStream,
     writable::WritableStreamDefaultWriter,
     Null, ReadableWritablePair, Undefined, ValueOrUndefined,

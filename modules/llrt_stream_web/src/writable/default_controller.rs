@@ -16,7 +16,7 @@ use super::{
 };
 use crate::{
     class_from_owned_borrow_mut, promise_resolved_with,
-    queueing_strategy::{SizeAlgorithm, SizeValue},
+    queuing_strategy::{SizeAlgorithm, SizeValue},
     upon_promise, Container, Null, PromisePrimordials, Undefined, UnwrapOrUndefined,
 };
 

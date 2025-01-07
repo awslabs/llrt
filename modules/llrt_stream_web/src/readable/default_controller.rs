@@ -22,7 +22,7 @@ use super::{
     UnderlyingSource,
 };
 use crate::{
-    class_from_owned_borrow_mut, queueing_strategy::SizeValue, upon_promise, Container,
+    class_from_owned_borrow_mut, queuing_strategy::SizeValue, upon_promise, Container,
     UnwrapOrUndefined,
 };
 

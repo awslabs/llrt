@@ -2,7 +2,7 @@ use llrt_utils::{
     module::{export_default, ModuleInfo},
     primordials::Primordial,
 };
-use queueing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy, SizeValue};
+use queuing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy, SizeValue};
 use readable::{
     ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader,
     ReadableStreamBYOBRequest, ReadableStreamClass, ReadableStreamDefaultController,
@@ -25,7 +25,7 @@ use writable::{
     WritableStreamDefaultWriter,
 };
 
-mod queueing_strategy;
+mod queuing_strategy;
 mod readable;
 mod writable;
 

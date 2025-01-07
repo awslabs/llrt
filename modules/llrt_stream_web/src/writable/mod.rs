@@ -17,7 +17,7 @@ use writer::WritableStreamWriter;
 
 use super::{promise_rejected_with, upon_promise, Null, Undefined, ValueOrUndefined};
 use crate::{
-    queueing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
+    queuing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
 };
 
 mod default_controller;
