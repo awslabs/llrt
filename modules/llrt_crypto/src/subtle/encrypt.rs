@@ -7,7 +7,7 @@ use rquickjs::{ArrayBuffer, Class, Ctx, Result};
 use rsa::rand_core::OsRng;
 
 use super::{
-    algorithm_missmatch_error, encryption_algorithm::EncryptionAlgorithm,
+    algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm,
     key_algorithm::KeyAlgorithm, rsa_private_key, AesCbcEncVariant, AesCtrVariant, AesGcmVariant,
     CryptoKey,
 };
@@ -38,7 +38,7 @@ fn encrypt(
                 let variant = AesCbcEncVariant::new(length, handle, iv).or_throw(ctx)?;
                 Ok(variant.encrypt(data))
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
         EncryptionAlgorithm::AesCtr { counter, length } => {
@@ -48,7 +48,7 @@ fn encrypt(
                     .or_throw(ctx)?;
                 variant.encrypt(data).or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
         EncryptionAlgorithm::AesGcm {
@@ -64,7 +64,7 @@ fn encrypt(
                     .encrypt(nonce, data, additional_data.as_deref())
                     .or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
         EncryptionAlgorithm::RsaOaep { label } => {
@@ -75,7 +75,7 @@ fn encrypt(
 
                 public_key.encrypt(&mut rng, padding, data).or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
     }

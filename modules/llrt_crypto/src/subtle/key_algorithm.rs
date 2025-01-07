@@ -138,36 +138,13 @@ impl KeyAlgorithm {
         let mut is_symmetric = false;
         let algorithm = match name_ref {
             "Ed25519" => {
-                // if let KeyAlgorithmMode::Import { format, data, kind } = mode {
-                //     match format {
-                //         KeyFormat::Raw => {
-                //             if data.len() != 32 {
-                //                 return Err(Exception::throw_type(
-                //                     ctx,
-                //                     "Ed25519 raw key must be 32 bytes",
-                //                 ));
-                //             }
-                //             *kind = KeyKind::Secret;
-                //         },
-                //         KeyFormat::Pkcs8 => {
-                //             // PKCS8 format is for private keys
-                //             *kind = KeyKind::Private;
-                //         },
-                //         KeyFormat::Jwk => {
-                //             // JWK format can be either public or private
-                //             // kind will be set based on JWK fields
-                //             *kind = if data.contains(&b"d"[0]) {
-                //                 KeyKind::Private
-                //             } else {
-                //                 KeyKind::Public
-                //             };
-                //         },
-                //         KeyFormat::Spki => {
-                //             // SPKI format is for public keys
-                //             *kind = KeyKind::Public;
-                //         },
-                //     }
-                // }
+                if let KeyAlgorithmMode::Import {
+                    format: _format,
+                    kind: _kind,
+                    data: _data,
+                } = mode
+                {}
+
                 Self::classify_and_check_signature_usages(
                     ctx,
                     name_ref,

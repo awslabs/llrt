@@ -43,9 +43,9 @@ pub async fn subtle_import_key<'js>(
     } = KeyAlgorithm::from_js(
         &ctx,
         KeyAlgorithmMode::Import {
-            format,
             kind: &mut kind,
             data: &mut data,
+            format,
         },
         algorithm,
         key_usages,

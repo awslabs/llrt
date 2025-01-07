@@ -5,18 +5,20 @@ use der::{
     asn1::{self, BitString},
     Decode, Encode, SecretDocument,
 };
+use elliptic_curve::{
+    sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint},
+    AffinePoint, CurveArithmetic, FieldBytesSize,
+};
 use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_utils::result::ResultExt;
-use p256::elliptic_curve;
-use pkcs8::{AssociatedOid, PrivateKeyInfo};
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, RsaKeyPair};
+use pkcs8::{AssociatedOid, DecodePrivateKey, PrivateKeyInfo};
 
 use pkcs8::EncodePrivateKey;
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
 use rsa::{pkcs1::DecodeRsaPrivateKey, RsaPrivateKey};
 use spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfo};
 
-use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey, SYSTEM_RANDOM};
+use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey};
 
 pub fn algorithm_export_error<T>(ctx: &Ctx<'_>, algorithm: &str, format: &str) -> Result<T> {
     Err(Exception::throw_message(
@@ -64,28 +66,19 @@ fn export_raw<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             "Private Crypto keys can't be exported as raw format",
         ));
     };
-    let handle = key.handle.as_ref();
-    let bytes: Vec<u8> = match &key.algorithm {
-        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } => handle.into(),
-        KeyAlgorithm::Ec { curve, .. } => {
-            let alg = curve.as_signing_algorithm();
-            let rng = &(*SYSTEM_RANDOM);
-            let key_pair = EcdsaKeyPair::from_pkcs8(alg, &key.handle, rng).or_throw(&ctx)?;
-            key_pair.public_key().as_ref().into()
-        },
-        KeyAlgorithm::X25519 => handle[32..].into(), //public key last 32 bytes
-        KeyAlgorithm::Ed25519 => {
-            let key_pair = Ed25519KeyPair::from_pkcs8(handle).or_throw(&ctx)?;
-            key_pair.public_key().as_ref().into()
-        },
-        KeyAlgorithm::Rsa { .. } => {
-            let key_pair = ring::signature::RsaKeyPair::from_pkcs8(handle).or_throw(&ctx)?;
-            key_pair.public_key().as_ref().into()
-        },
-        _ => return algorithm_export_error(&ctx, &key.name, "raw"),
-    };
+    if !matches!(
+        key.algorithm,
+        KeyAlgorithm::Aes { .. }
+            | KeyAlgorithm::Ec { .. }
+            | KeyAlgorithm::Hmac { .. }
+            | KeyAlgorithm::Rsa { .. }
+            | KeyAlgorithm::Ed25519
+            | KeyAlgorithm::X25519
+    ) {
+        return algorithm_export_error(&ctx, &key.name, "raw");
+    }
 
-    Ok(ArrayBuffer::new(ctx, bytes)?.into_object())
+    Ok(ArrayBuffer::new(ctx, key.handle.as_ref())?.into_object())
 }
 
 fn export_pkcs8<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
@@ -122,34 +115,27 @@ fn rsa_der_pkcs1_to_pkcs8(ctx: &Ctx, handle: &[u8]) -> Result<SecretDocument> {
 }
 
 fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
-    if key.kind == KeyKind::Public {
+    if key.kind != KeyKind::Public {
         return Err(Exception::throw_type(
             &ctx,
             "Private or Secret Crypto keys can't be exported as spki format",
         ));
     }
 
-    let handle = key.handle.as_ref();
+    let public_key_bytes = key.handle.as_ref();
     let bytes: Vec<u8> = match &key.algorithm {
         KeyAlgorithm::X25519 => {
-            let public_key = &handle[32..]; //public key last 32 bytes
-
             let key_info = spki::SubjectPublicKeyInfo {
                 algorithm: spki::AlgorithmIdentifierRef {
                     oid: const_oid::db::rfc8410::ID_X_25519,
                     parameters: None,
                 },
-                subject_public_key: BitString::from_bytes(public_key).unwrap(),
+                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
             };
 
             key_info.to_der().unwrap()
         },
         KeyAlgorithm::Ec { curve, algorithm } => {
-            let alg = curve.as_signing_algorithm();
-            let rng = &(*SYSTEM_RANDOM);
-            let key_pair = EcdsaKeyPair::from_pkcs8(alg, &key.handle, rng).or_throw(&ctx)?;
-            let public_key_bytes = key_pair.public_key().as_ref().to_vec();
-
             let alg_id = match curve {
                 EllipticCurve::P256 => AlgorithmIdentifierOwned {
                     oid: elliptic_curve::ALGORITHM_OID,
@@ -158,6 +144,10 @@ fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 EllipticCurve::P384 => AlgorithmIdentifierOwned {
                     oid: elliptic_curve::ALGORITHM_OID,
                     parameters: Some((&p384::NistP384::OID).into()),
+                },
+                EllipticCurve::P521 => AlgorithmIdentifierOwned {
+                    oid: elliptic_curve::ALGORITHM_OID,
+                    parameters: Some((&p521::NistP521::OID).into()),
                 },
             };
 
@@ -173,37 +163,30 @@ fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             let key_info = SubjectPublicKeyInfo {
                 algorithm: alg_id,
 
-                subject_public_key: BitString::from_bytes(&public_key_bytes).unwrap(),
+                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
             };
 
             key_info.to_der().unwrap()
         },
         KeyAlgorithm::Ed25519 => {
-            let key_pair = Ed25519KeyPair::from_pkcs8(handle).or_throw(&ctx)?;
-
             let key_info = spki::SubjectPublicKeyInfo {
                 algorithm: spki::AlgorithmIdentifierOwned {
                     oid: const_oid::db::rfc8410::ID_ED_25519,
                     parameters: None,
                 },
-                subject_public_key: BitString::from_bytes(key_pair.public_key().as_ref()).unwrap(),
+                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
             };
             key_info.to_der().unwrap()
         },
 
         KeyAlgorithm::Rsa { .. } => {
-            let pkcs8 = rsa_der_pkcs1_to_pkcs8(&ctx, handle)?;
-            let pkcs8 = pkcs8.as_bytes();
-            let key_pair = RsaKeyPair::from_pkcs8(pkcs8).or_throw(&ctx)?;
-            let public_key = key_pair.public().as_ref();
-
             //unwrap ok, key is always valid after this stage
             let key_info = spki::SubjectPublicKeyInfo {
                 algorithm: spki::AlgorithmIdentifier {
                     oid: const_oid::db::rfc5912::RSA_ENCRYPTION,
                     parameters: Some(asn1::AnyRef::from(asn1::Null)),
                 },
-                subject_public_key: BitString::from_bytes(public_key).unwrap(),
+                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
             };
 
             key_info.to_der().unwrap()
@@ -243,42 +226,115 @@ fn export_jwk<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             obj.set("k", k)?;
         },
         KeyAlgorithm::Ec { curve, .. } => {
-            let key_data = EcKeyData::new(&ctx, curve, handle)?;
+            fn set_public_key_coords<C>(
+                obj: &Object<'_>,
+                public_key: elliptic_curve::PublicKey<C>,
+            ) -> Result<()>
+            where
+                C: CurveArithmetic,
+                AffinePoint<C>: FromEncodedPoint<C> + ToEncodedPoint<C>,
+                FieldBytesSize<C>: ModulusSize,
+            {
+                let p = public_key.to_encoded_point(false);
+                let x = p.x().unwrap().as_slice();
+                let y = p.y().unwrap().as_slice();
+                obj.set("x", bytes_to_b64_url_safe_string(x))?;
+                obj.set("y", bytes_to_b64_url_safe_string(y))?;
+                Ok(())
+            }
 
-            let (x, y) = key_data.coordinates();
+            fn set_private_key_props<C>(
+                obj: &Object<'_>,
+                private_key: elliptic_curve::SecretKey<C>,
+            ) -> Result<()>
+            where
+                C: elliptic_curve::Curve + elliptic_curve::CurveArithmetic,
+                AffinePoint<C>: FromEncodedPoint<C> + ToEncodedPoint<C>,
+                FieldBytesSize<C>: ModulusSize,
+            {
+                let public_key = private_key.public_key();
+                set_public_key_coords(obj, public_key)?;
+                obj.set(
+                    "d",
+                    bytes_to_b64_url_safe_string(private_key.to_bytes().as_slice()),
+                )?;
+                Ok(())
+            }
+
+            match key.kind {
+                KeyKind::Public => match curve {
+                    EllipticCurve::P256 => {
+                        let public_key = p256::PublicKey::from_sec1_bytes(handle).or_throw(&ctx)?;
+                        set_public_key_coords(&obj, public_key)?;
+                    },
+                    EllipticCurve::P384 => {
+                        let public_key = p384::PublicKey::from_sec1_bytes(handle).or_throw(&ctx)?;
+                        set_public_key_coords(&obj, public_key)?;
+                    },
+                    EllipticCurve::P521 => {
+                        let public_key = p521::PublicKey::from_sec1_bytes(handle).or_throw(&ctx)?;
+                        set_public_key_coords(&obj, public_key)?;
+                    },
+                },
+                KeyKind::Private => match curve {
+                    EllipticCurve::P256 => {
+                        let private_key = p256::SecretKey::from_pkcs8_der(handle).or_throw(&ctx)?;
+                        set_private_key_props(&obj, private_key)?;
+                    },
+                    EllipticCurve::P384 => {
+                        let private_key = p384::SecretKey::from_pkcs8_der(handle).or_throw(&ctx)?;
+                        set_private_key_props(&obj, private_key)?;
+                    },
+                    EllipticCurve::P521 => {
+                        let private_key = p521::SecretKey::from_pkcs8_der(handle).or_throw(&ctx)?;
+                        set_private_key_props(&obj, private_key)?;
+                    },
+                },
+                _ => unreachable!(),
+            }
 
             obj.set("kty", "EC")?;
             obj.set("crv", curve.as_str())?;
-            obj.set("x", bytes_to_b64_url_safe_string(x))?;
-            obj.set("y", bytes_to_b64_url_safe_string(y))?;
-
-            if key.kind == KeyKind::Private {
-                let d = key_data.private_key(handle);
-
-                obj.set("d", bytes_to_b64_url_safe_string(d))?;
-            }
         },
         KeyAlgorithm::Ed25519 => {
-            let key_pair = Ed25519KeyPair::from_pkcs8(handle).or_throw(&ctx)?;
-            let pub_key = key_pair.public_key().as_ref();
             if key.kind == KeyKind::Private {
                 let pki = PrivateKeyInfo::try_from(handle).or_throw(&ctx)?;
+                let pub_key = pki.public_key.as_ref().unwrap();
                 set_okp_jwk_props(name, &obj, Some(pki.private_key), pub_key)?;
             } else {
-                set_okp_jwk_props(name, &obj, None, pub_key)?;
+                set_okp_jwk_props(name, &obj, None, handle)?;
             }
         },
         KeyAlgorithm::Rsa { hash, .. } => {
-            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(handle).or_throw(&ctx)?;
-
-            let n = bytes_to_b64_url_safe_string(private_key.modulus.as_bytes());
-            let e = bytes_to_b64_url_safe_string(private_key.public_exponent.as_bytes());
-            let d = bytes_to_b64_url_safe_string(private_key.private_exponent.as_bytes());
-            let p = bytes_to_b64_url_safe_string(private_key.prime1.as_bytes());
-            let q = bytes_to_b64_url_safe_string(private_key.prime2.as_bytes());
-            let dp = bytes_to_b64_url_safe_string(private_key.exponent1.as_bytes());
-            let dq = bytes_to_b64_url_safe_string(private_key.exponent2.as_bytes());
-            let qi = bytes_to_b64_url_safe_string(private_key.coefficient.as_bytes());
+            let (n, e) = match key.kind {
+                KeyKind::Public => {
+                    let public_key = rsa::pkcs1::RsaPublicKey::from_der(handle).or_throw(&ctx)?;
+                    let n = bytes_to_b64_url_safe_string(public_key.modulus.as_bytes());
+                    let e = bytes_to_b64_url_safe_string(public_key.public_exponent.as_bytes());
+                    (n, e)
+                },
+                KeyKind::Private => {
+                    let private_key = rsa::pkcs1::RsaPrivateKey::from_der(handle).or_throw(&ctx)?;
+                    let n = bytes_to_b64_url_safe_string(private_key.modulus.as_bytes());
+                    let e = bytes_to_b64_url_safe_string(private_key.public_exponent.as_bytes());
+                    let d = bytes_to_b64_url_safe_string(private_key.private_exponent.as_bytes());
+                    let p = bytes_to_b64_url_safe_string(private_key.prime1.as_bytes());
+                    let q = bytes_to_b64_url_safe_string(private_key.prime2.as_bytes());
+                    let dp = bytes_to_b64_url_safe_string(private_key.exponent1.as_bytes());
+                    let dq = bytes_to_b64_url_safe_string(private_key.exponent2.as_bytes());
+                    let qi = bytes_to_b64_url_safe_string(private_key.coefficient.as_bytes());
+                    obj.set("d", d)?;
+                    obj.set("p", p)?;
+                    obj.set("q", q)?;
+                    obj.set("dp", dp)?;
+                    obj.set("dq", dq)?;
+                    obj.set("qi", qi)?;
+                    (n, e)
+                },
+                _ => {
+                    unreachable!()
+                },
+            };
 
             let alg_suffix = match hash {
                 ShaAlgorithm::SHA1 => "1",
@@ -300,23 +356,19 @@ fn export_jwk<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             obj.set("n", n)?;
             obj.set("e", e)?;
             obj.set("alg", alg)?;
-            if key.kind == KeyKind::Private {
-                obj.set("d", d)?;
-                obj.set("p", p)?;
-                obj.set("q", q)?;
-                obj.set("dp", dp)?;
-                obj.set("dq", dq)?;
-                obj.set("qi", qi)?;
-            }
         },
-        KeyAlgorithm::X25519 => {
-            let public_key = &handle[32..];
-            let private_key = if key.kind == KeyKind::Private {
-                Some(&handle[0..32])
-            } else {
-                None
-            };
-            set_okp_jwk_props(name, &obj, private_key, public_key)?;
+        KeyAlgorithm::X25519 => match key.kind {
+            KeyKind::Private => {
+                let array: [u8; 32] = handle.try_into().or_throw(&ctx)?;
+                let secret = x25519_dalek::StaticSecret::from(array);
+                let public_key = x25519_dalek::PublicKey::from(&secret);
+                set_okp_jwk_props(name, &obj, Some(secret.as_bytes()), public_key.as_bytes())?;
+            },
+            KeyKind::Public => {
+                let public_key = handle;
+                set_okp_jwk_props(name, &obj, None, public_key)?;
+            },
+            _ => unreachable!(),
         },
         //cant be exported
         _ => return algorithm_export_error(&ctx, &key.name, "jwk"),
@@ -340,45 +392,4 @@ fn set_okp_jwk_props(
         obj.set("d", d)?;
     }
     Ok(())
-}
-
-struct EcKeyData {
-    key_pair: EcdsaKeyPair,
-    byte_length: usize,
-}
-
-impl EcKeyData {
-    fn new(ctx: &Ctx, curve: &EllipticCurve, handle: &[u8]) -> Result<Self> {
-        let alg = curve.as_signing_algorithm();
-        let rng = &(*SYSTEM_RANDOM);
-        let key_pair = EcdsaKeyPair::from_pkcs8(alg, handle, rng).or_throw(ctx)?;
-
-        let byte_length = match curve {
-            EllipticCurve::P256 => 32,
-            EllipticCurve::P384 => 48,
-        };
-
-        Ok(Self {
-            key_pair,
-            byte_length,
-        })
-    }
-
-    fn private_key<'a>(&self, pkcs8: &'a [u8]) -> &'a [u8] {
-        let start_key = 36;
-        let end_key = start_key + self.byte_length;
-        &pkcs8[start_key..end_key]
-    }
-
-    fn coordinates(&self) -> (&[u8], &[u8]) {
-        let pub_key = self.key_pair.public_key().as_ref();
-
-        let start_x = 1;
-        let end_x = start_x + self.byte_length;
-        let start_y = end_x;
-        let end_y = start_y + self.byte_length;
-        let x = &pub_key[start_x..end_x];
-        let y = &pub_key[start_y..end_y];
-        (x, y)
-    }
 }

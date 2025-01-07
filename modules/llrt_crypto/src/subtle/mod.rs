@@ -44,7 +44,6 @@ use aes_gcm::{
 };
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{object::ObjectExt, result::ResultExt, str_enum};
-use ring::signature;
 use rquickjs::{Ctx, Exception, Object, Result, Value};
 use rsa::{Oaep, RsaPrivateKey};
 
@@ -277,22 +276,14 @@ impl AesGcmVariant {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EllipticCurve {
     P256,
     P384,
+    P521,
 }
 
-impl EllipticCurve {
-    fn as_signing_algorithm<'a>(&self) -> &'a signature::EcdsaSigningAlgorithm {
-        match self {
-            EllipticCurve::P256 => &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-            EllipticCurve::P384 => &signature::ECDSA_P384_SHA384_FIXED_SIGNING,
-        }
-    }
-}
-
-str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384");
+str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384", P521 => "P-521");
 
 pub fn rsa_private_key(
     ctx: &Ctx<'_>,
@@ -342,10 +333,10 @@ pub fn to_name_and_maybe_object<'js, 'a>(
     Ok((name, obj))
 }
 
-pub fn algorithm_missmatch_error(ctx: &Ctx<'_>) -> Result<Vec<u8>> {
+pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>) -> Result<T> {
     Err(Exception::throw_message(
         ctx,
-        "key.algorithm does not match that of operation",
+        "algorithm does not match that of operation",
     ))
 }
 

@@ -6,7 +6,7 @@ use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rquickjs::{ArrayBuffer, Class, Ctx, Result};
 
 use super::{
-    algorithm_missmatch_error, encryption_algorithm::EncryptionAlgorithm,
+    algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm,
     key_algorithm::KeyAlgorithm, rsa_private_key, AesCbcDecVariant, AesCtrVariant, AesGcmVariant,
     CryptoKey,
 };
@@ -36,7 +36,7 @@ fn decrypt(
                 let variant = AesCbcDecVariant::new(length, handle, iv).or_throw(ctx)?;
                 variant.decrypt(data).or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
         EncryptionAlgorithm::AesCtr { counter, length } => {
@@ -46,7 +46,7 @@ fn decrypt(
                     .or_throw(ctx)?;
                 variant.decrypt(data).or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
         EncryptionAlgorithm::AesGcm {
@@ -62,7 +62,7 @@ fn decrypt(
                     .decrypt(nonce, data, additional_data.as_deref())
                     .or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
         EncryptionAlgorithm::RsaOaep { label } => {
@@ -71,7 +71,7 @@ fn decrypt(
 
                 private_key.decrypt(padding, data).or_throw(ctx)
             } else {
-                algorithm_missmatch_error(ctx)
+                algorithm_mismatch_error(ctx)
             }
         },
     }

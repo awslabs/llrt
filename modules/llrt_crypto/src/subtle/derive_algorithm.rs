@@ -4,15 +4,19 @@ use llrt_utils::object::ObjectExt;
 use rquickjs::{Class, Ctx, Exception, FromJs, Result, Value};
 
 use super::{
+    algorithm_mismatch_error,
     key_algorithm::{KeyAlgorithm, KeyDerivation},
     CryptoKey, EllipticCurve,
 };
 
 #[derive(Debug)]
 pub enum DeriveAlgorithm {
+    X25519 {
+        public_key: Rc<[u8]>,
+    },
     Ecdh {
         curve: EllipticCurve,
-        public: Rc<[u8]>,
+        public_key: Rc<[u8]>,
     },
     Derive(KeyDerivation),
 }
@@ -24,21 +28,29 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
         let name: String = obj.get_required("name", "algorithm")?;
 
         Ok(match name.as_str() {
-            "ECDH" | "X25519" => {
+            "X25519" => {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
-                let curve = if let KeyAlgorithm::Ec { curve, .. } = &public_key.algorithm {
-                    curve.clone()
-                } else {
-                    return Err(Exception::throw_message(
-                        ctx,
-                        "public key must be ECDSA or ECDH key",
-                    ));
-                };
 
-                DeriveAlgorithm::Ecdh {
-                    curve,
-                    public: public_key.handle.clone(),
+                if !matches!(public_key.algorithm, KeyAlgorithm::X25519) {
+                    return algorithm_mismatch_error(ctx);
+                }
+
+                DeriveAlgorithm::X25519 {
+                    public_key: public_key.handle.clone(),
+                }
+            },
+            "ECDH" => {
+                let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
+                let public_key = public_key.borrow();
+
+                if let KeyAlgorithm::Ec { curve, .. } = &public_key.algorithm {
+                    DeriveAlgorithm::Ecdh {
+                        curve: curve.clone(),
+                        public_key: public_key.handle.clone(),
+                    }
+                } else {
+                    return algorithm_mismatch_error(ctx);
                 }
             },
             "HKDF" => DeriveAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),

@@ -35,8 +35,10 @@ aes-gcm = "0.10"
 cbc = { version = "0.1", features = ["std"] }
 ctr = "0.9"
 rsa = { version = "0.9", features = ["std", "sha2"], default-features = false }
-p256 = { version = "0.13", features = ["ecdh"] }
+p256 = "0.13"
 p384 = "0.13"
+p521 = "0.13"
+elliptic-curve = "0.13"
 x25519-dalek = { version = "2", features = [
   "static_secrets",
   "zeroize",
