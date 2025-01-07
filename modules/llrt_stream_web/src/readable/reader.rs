@@ -4,6 +4,8 @@ use rquickjs::{
     Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
+use crate::utils::promise::{PromisePrimordials, ResolveablePromise};
+
 use super::{
     byob_reader::{ReadableStreamBYOBReaderClass, ReadableStreamBYOBReaderOwned},
     controller::ReadableStreamController,
@@ -12,7 +14,6 @@ use super::{
     ReadableStream, ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamDefaultReader,
     ReadableStreamOwned, ReadableStreamState,
 };
-use crate::{PromisePrimordials, ResolveablePromise};
 
 pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
     type Class: Clone + Trace<'js>;

@@ -19,9 +19,13 @@ use super::{
     UnderlyingSink, WritableStream, WritableStreamClass, WritableStreamOwned, WritableStreamState,
 };
 use crate::{
-    class_from_owned_borrow_mut, promise_resolved_with,
     queuing_strategy::{SizeAlgorithm, SizeValue},
-    upon_promise, Container, PromisePrimordials, UnwrapOrUndefined,
+    utils::{
+        class_from_owned_borrow_mut,
+        promise::{promise_resolved_with, upon_promise, PromisePrimordials},
+        queue::QueueWithSizes,
+        UnwrapOrUndefined,
+    },
 };
 
 #[rquickjs::class]
@@ -29,7 +33,7 @@ use crate::{
 pub(crate) struct WritableStreamDefaultController<'js> {
     abort_algorithm: Option<AbortAlgorithm<'js>>,
     close_algorithm: Option<CloseAlgorithm<'js>>,
-    container: Container<'js>,
+    container: QueueWithSizes<'js>,
     pub(super) started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
@@ -125,7 +129,7 @@ impl<'js> WritableStreamDefaultController<'js> {
             stream: stream_class,
 
             // Perform ! ResetQueue(controller).
-            container: Container::new(),
+            container: QueueWithSizes::new(),
 
             // Set controller.[[abortController]] to a new AbortController.
             abort_controller: Class::instance(ctx.clone(), AbortController::new(ctx.clone())?)?,

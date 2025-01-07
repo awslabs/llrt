@@ -18,9 +18,12 @@ use rquickjs::{
 };
 use writer::WritableStreamWriter;
 
-use super::{promise_rejected_with, upon_promise, ValueOrUndefined};
 use crate::{
-    queuing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
+    queuing_strategy::QueuingStrategy,
+    utils::{
+        promise::{promise_rejected_with, upon_promise, PromisePrimordials, ResolveablePromise},
+        UnwrapOrUndefined, ValueOrUndefined,
+    },
 };
 
 mod default_controller;

@@ -29,11 +29,9 @@ use rquickjs::{
 };
 
 use super::{
-    promise_rejected_with, promise_resolved_with,
     queuing_strategy::{QueuingStrategy, SizeAlgorithm},
     writable::WritableStream,
     writable::WritableStreamDefaultWriter,
-    ReadableWritablePair, ValueOrUndefined,
 };
 
 mod byob_reader;
@@ -57,7 +55,14 @@ use crate::{
         byte_controller::ReadableByteStreamControllerClass,
         default_controller::ReadableStreamDefaultControllerOwned,
     },
-    upon_promise_fulfilment, PromisePrimordials, UnwrapOrUndefined,
+    readable_writable_pair::ReadableWritablePair,
+    utils::{
+        promise::{
+            promise_rejected_with, promise_resolved_with, upon_promise_fulfilment,
+            PromisePrimordials,
+        },
+        UnwrapOrUndefined, ValueOrUndefined,
+    },
 };
 
 #[rquickjs::class]

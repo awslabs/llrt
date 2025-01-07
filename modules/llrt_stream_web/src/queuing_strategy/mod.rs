@@ -4,10 +4,10 @@ use rquickjs::{
     Class, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result, Value,
 };
 
-use super::ValueOrUndefined;
-
 pub(crate) use byte_length::ByteLengthQueuingStrategy;
 pub(crate) use count::CountQueuingStrategy;
+
+use crate::utils::ValueOrUndefined;
 
 mod byte_length;
 mod count;

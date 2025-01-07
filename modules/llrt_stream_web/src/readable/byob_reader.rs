@@ -15,13 +15,15 @@ use super::{
     byte_controller::ReadableByteStreamController,
     controller::{ReadableStreamController, ReadableStreamControllerClass},
     objects::{ReadableStreamBYOBObjects, ReadableStreamObjects},
-    promise_rejected_with,
     reader::{ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned},
-    ReadableStreamOwned, ReadableStreamReadResult, ReadableStreamState, ValueOrUndefined,
+    ReadableStreamOwned, ReadableStreamReadResult, ReadableStreamState,
 };
 use crate::{
-    readable::default_reader::ReadableStreamDefaultReaderOwned, ResolveablePromise,
-    UnwrapOrUndefined,
+    readable::default_reader::ReadableStreamDefaultReaderOwned,
+    utils::{
+        promise::{promise_rejected_with, ResolveablePromise},
+        UnwrapOrUndefined, ValueOrUndefined,
+    },
 };
 
 #[derive(Trace)]

@@ -16,15 +16,19 @@ use super::{
         ReadableStreamClassObjects, ReadableStreamDefaultControllerObjects,
         ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
     },
-    promise_resolved_with,
     reader::ReadableStreamReader,
     CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamClass, ReadableStreamOwned,
     ReadableStreamReadRequest, ReadableStreamState, SizeAlgorithm, StartAlgorithm,
     UnderlyingSource,
 };
 use crate::{
-    class_from_owned_borrow_mut, queuing_strategy::SizeValue, upon_promise, Container,
-    UnwrapOrUndefined,
+    queuing_strategy::SizeValue,
+    utils::{
+        class_from_owned_borrow_mut,
+        promise::{promise_resolved_with, upon_promise},
+        queue::QueueWithSizes,
+        UnwrapOrUndefined,
+    },
 };
 
 #[derive(JsLifetime, Trace)]
@@ -35,7 +39,7 @@ pub(crate) struct ReadableStreamDefaultController<'js> {
     pull_again: bool,
     pull_algorithm: Option<PullAlgorithm<'js>>,
     pulling: bool,
-    container: Container<'js>,
+    container: QueueWithSizes<'js>,
     started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
@@ -116,7 +120,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
             stream: stream_class.clone(),
 
             // Perform ! ResetQueue(controller).
-            container: Container::new(),
+            container: QueueWithSizes::new(),
 
             // Set controller.[[started]], controller.[[closeRequested]], controller.[[pullAgain]], and controller.[[pulling]] to false.
             started: false,
@@ -180,13 +184,6 @@ impl<'js> ReadableStreamDefaultController<'js> {
         })?;
 
         Ok(objects_class.controller)
-    }
-
-    fn reset_queue(&mut self) {
-        // Set container.[[queue]] to a new empty list.
-        self.container.queue.clear();
-        // Set container.[[queueTotalSize]] to 0.
-        self.container.queue_total_size = 0.0;
     }
 
     fn readable_stream_default_controller_call_pull_if_needed<
@@ -267,7 +264,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         };
 
         // Perform ! ResetQueue(controller).
-        objects.controller.reset_queue();
+        objects.controller.container.reset_queue();
 
         // Perform ! ReadableStreamDefaultControllerClearAlgorithms(controller).
         objects
@@ -748,7 +745,7 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamDefaultControllerOwned
         reason: Value<'js>,
     ) -> Result<(Promise<'js>, ReadableStreamObjects<'js, Self, R>)> {
         // Perform ! ResetQueue(this).
-        objects.controller.reset_queue();
+        objects.controller.container.reset_queue();
 
         // Let result be the result of performing this.[[cancelAlgorithm]], passing reason.
         let (result, objects_class) =

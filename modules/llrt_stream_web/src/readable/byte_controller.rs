@@ -25,13 +25,16 @@ use super::{
         ReadableByteStreamObjects, ReadableStreamBYOBObjects, ReadableStreamClassObjects,
         ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
     },
-    promise_resolved_with,
     reader::ReadableStreamReader,
     transfer_array_buffer, CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamClass,
     ReadableStreamOwned, ReadableStreamReadRequest, ReadableStreamState, StartAlgorithm,
     UnderlyingSource,
 };
-use crate::{class_from_owned_borrow_mut, upon_promise, UnwrapOrUndefined};
+use crate::utils::{
+    class_from_owned_borrow_mut,
+    promise::{promise_resolved_with, upon_promise},
+    UnwrapOrUndefined,
+};
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]

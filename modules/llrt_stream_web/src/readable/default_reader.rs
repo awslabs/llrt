@@ -9,15 +9,16 @@ use rquickjs::{
     Class, Ctx, Exception, Promise, Result, Value,
 };
 
+use crate::utils::promise::{promise_rejected_with, ResolveablePromise};
+use crate::utils::UnwrapOrUndefined;
+
 use super::controller::ReadableStreamController;
 use super::objects::ReadableStreamDefaultReaderObjects;
 use super::reader::{ReadableStreamGenericReader, ReadableStreamReaderOwned, UndefinedReader};
 use super::{
-    byob_reader::ReadableStreamBYOBReaderOwned, promise_rejected_with, ReadableStreamObjects,
-    ReadableStreamOwned, ReadableStreamReadRequest, ReadableStreamReadResult, ReadableStreamReader,
-    ReadableStreamState,
+    byob_reader::ReadableStreamBYOBReaderOwned, ReadableStreamObjects, ReadableStreamOwned,
+    ReadableStreamReadRequest, ReadableStreamReadResult, ReadableStreamReader, ReadableStreamState,
 };
-use crate::{ResolveablePromise, UnwrapOrUndefined};
 
 #[derive(Trace)]
 #[rquickjs::class]

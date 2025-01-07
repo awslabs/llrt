@@ -6,12 +6,15 @@ use rquickjs::{
     Class, Ctx, Exception, JsLifetime, Promise, Result, Value,
 };
 
+use crate::utils::{
+    promise::{promise_rejected_with, PromisePrimordials, ResolveablePromise},
+    UnwrapOrUndefined,
+};
+
 use super::{
     default_controller::WritableStreamDefaultController, objects::WritableStreamObjects,
-    writer::WritableStreamWriter, ResolveablePromise, WritableStream, WritableStreamOwned,
-    WritableStreamState,
+    writer::WritableStreamWriter, WritableStream, WritableStreamOwned, WritableStreamState,
 };
-use crate::{promise_rejected_with, PromisePrimordials, UnwrapOrUndefined};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]

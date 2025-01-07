@@ -18,16 +18,24 @@ use rquickjs::{
 };
 
 use super::{
-    controller::ReadableStreamControllerOwned, promise_resolved_with,
-    reader::ReadableStreamGenericReader, ReadableStreamClassObjects, ReadableStreamDefaultReader,
-    ReadableStreamObjects, ReadableStreamReadResult,
+    controller::ReadableStreamControllerOwned, reader::ReadableStreamGenericReader,
+    ReadableStreamClassObjects, ReadableStreamDefaultReader, ReadableStreamObjects,
+    ReadableStreamReadResult,
 };
 use crate::{
-    class_from_owned_borrow_mut,
-    readable::{objects::ReadableStreamDefaultReaderObjects, ReadableStreamReadRequest},
-    upon_promise, upon_promise_fulfilment, ResolveablePromise, UnwrapOrUndefined,
+    readable::default_reader::ReadableStreamDefaultReaderOwned,
+    utils::{
+        class_from_owned_borrow_mut,
+        promise::{promise_resolved_with, PromisePrimordials},
+    },
 };
-use crate::{readable::default_reader::ReadableStreamDefaultReaderOwned, PromisePrimordials};
+use crate::{
+    readable::{objects::ReadableStreamDefaultReaderObjects, ReadableStreamReadRequest},
+    utils::{
+        promise::{upon_promise, upon_promise_fulfilment, ResolveablePromise},
+        UnwrapOrUndefined,
+    },
+};
 
 pub(super) enum IteratorKind {
     Async,

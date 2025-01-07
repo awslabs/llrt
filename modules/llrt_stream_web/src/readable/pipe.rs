@@ -19,14 +19,18 @@ use super::{
     ReadableStreamReadRequest, ReadableStreamState, WritableStreamDefaultWriter,
 };
 use crate::{
-    promise_resolved_with,
     readable::objects::ReadableStreamDefaultReaderObjects,
-    upon_promise, upon_promise_fulfilment,
+    utils::{
+        promise::{
+            promise_resolved_with, upon_promise, upon_promise_fulfilment, PromisePrimordials,
+            ResolveablePromise,
+        },
+        UnwrapOrUndefined,
+    },
     writable::{
         WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriterOwned,
         WritableStreamObjects, WritableStreamOwned, WritableStreamState,
     },
-    PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
 };
 
 impl<'js> ReadableStream<'js> {

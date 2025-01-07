@@ -28,7 +28,7 @@ use super::{
 };
 use crate::{
     readable::objects::{ReadableStreamBYOBObjects, ReadableStreamDefaultReaderObjects},
-    upon_promise, ResolveablePromise,
+    utils::promise::{upon_promise, ResolveablePromise},
 };
 
 type ReadableStreamPair<'js> = (ReadableStreamClass<'js>, ReadableStreamClass<'js>);
