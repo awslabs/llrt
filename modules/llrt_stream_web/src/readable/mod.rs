@@ -8,6 +8,7 @@ use iterator::{IteratorKind, IteratorRecord, ReadableStreamAsyncIterator};
 use llrt_abort::AbortSignal;
 use llrt_utils::{
     error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
+    option::{Null, Undefined},
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
@@ -32,7 +33,7 @@ use super::{
     queuing_strategy::{QueuingStrategy, SizeAlgorithm},
     writable::WritableStream,
     writable::WritableStreamDefaultWriter,
-    Null, ReadableWritablePair, Undefined, ValueOrUndefined,
+    ReadableWritablePair, ValueOrUndefined,
 };
 
 mod byob_reader;

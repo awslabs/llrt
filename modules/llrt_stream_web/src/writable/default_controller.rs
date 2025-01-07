@@ -1,5 +1,9 @@
 use llrt_abort::{AbortController, AbortSignal};
-use llrt_utils::{object::CreateSymbol, primordials::Primordial};
+use llrt_utils::{
+    object::CreateSymbol,
+    option::{Null, Undefined},
+    primordials::Primordial,
+};
 use rquickjs::{
     class::{JsClass, OwnedBorrowMut, Trace},
     function::Constructor,
@@ -17,7 +21,7 @@ use super::{
 use crate::{
     class_from_owned_borrow_mut, promise_resolved_with,
     queuing_strategy::{SizeAlgorithm, SizeValue},
-    upon_promise, Container, Null, PromisePrimordials, Undefined, UnwrapOrUndefined,
+    upon_promise, Container, PromisePrimordials, UnwrapOrUndefined,
 };
 
 #[rquickjs::class]

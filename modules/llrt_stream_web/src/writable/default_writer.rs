@@ -1,3 +1,4 @@
+use llrt_utils::option::Null;
 use rquickjs::{
     class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace},
     function::Constructor,
@@ -10,7 +11,7 @@ use super::{
     writer::WritableStreamWriter, ResolveablePromise, WritableStream, WritableStreamOwned,
     WritableStreamState,
 };
-use crate::{promise_rejected_with, Null, PromisePrimordials, UnwrapOrUndefined};
+use crate::{promise_rejected_with, PromisePrimordials, UnwrapOrUndefined};
 
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]

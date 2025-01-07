@@ -5,6 +5,7 @@ use std::{
 };
 
 use llrt_abort::AbortSignal;
+use llrt_utils::option::Undefined;
 use rquickjs::{
     class::{OwnedBorrow, Trace},
     prelude::{OnceFn, This},
@@ -25,7 +26,7 @@ use crate::{
         WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriterOwned,
         WritableStreamObjects, WritableStreamOwned, WritableStreamState,
     },
-    PromisePrimordials, ResolveablePromise, Undefined, UnwrapOrUndefined,
+    PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
 };
 
 impl<'js> ReadableStream<'js> {

@@ -5,7 +5,10 @@ use default_controller::WritableStreamDefaultControllerClass;
 use default_writer::WritableStreamDefaultWriterClass;
 pub(crate) use default_writer::{WritableStreamDefaultWriter, WritableStreamDefaultWriterOwned};
 use llrt_abort::AbortController;
-use llrt_utils::primordials::{BasePrimordials, Primordial};
+use llrt_utils::{
+    option::{Null, Undefined},
+    primordials::{BasePrimordials, Primordial},
+};
 pub(crate) use objects::{WritableStreamClassObjects, WritableStreamObjects};
 use rquickjs::{
     class::{OwnedBorrowMut, Trace},
@@ -15,7 +18,7 @@ use rquickjs::{
 };
 use writer::WritableStreamWriter;
 
-use super::{promise_rejected_with, upon_promise, Null, Undefined, ValueOrUndefined};
+use super::{promise_rejected_with, upon_promise, ValueOrUndefined};
 use crate::{
     queuing_strategy::QueuingStrategy, PromisePrimordials, ResolveablePromise, UnwrapOrUndefined,
 };
