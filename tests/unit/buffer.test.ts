@@ -81,12 +81,32 @@ describe("Buffer.from", () => {
   it("should create a buffer from a string with base64 encoding", () => {
     const input = "SGVsbG8sIHdvcmxkIQ==";
     const buffer = Buffer.from(input, "base64");
-
     expect(buffer.toString()).toEqual("Hello, world!");
 
     const input2 = "SGVsbG8sIHdvcmxkIQ";
     const buffer2 = Buffer.from(input2, "base64");
     expect(buffer2.toString()).toEqual("Hello, world!");
+  });
+
+  it("should create a buffer from a string with base64 encoding that contains / or +", () => {
+    const input = "PD8+MTIz";
+    const buffer = Buffer.from(input, "base64");
+    expect(buffer.toString()).toEqual("<?>123");
+
+    const input3 = "PD8/PjEyMw==";
+    const buffer3 = Buffer.from(input3, "base64");
+    expect(buffer3.toString()).toEqual("<??>123");
+  });
+
+  // https://en.wikipedia.org/wiki/Base64#URL_applications
+  it("should create a buffer from a string with URL safe base64 encoding that contains _ or -", () => {
+    const input = "PD8-MTIz";
+    const buffer = Buffer.from(input, "base64");
+    expect(buffer.toString()).toEqual("<?>123");
+
+    const input3 = "PD8_PjEyMw";
+    const buffer3 = Buffer.from(input3, "base64");
+    expect(buffer3.toString()).toEqual("<??>123");
   });
 
   it("should create a buffer from a string with hex encoding", () => {

@@ -138,7 +138,16 @@ pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
 }
 
 pub fn bytes_from_b64(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    base64_simd::forgiving_decode_to_vec(bytes).map_err(|e| e.to_string())
+    let standard_b64_bytes: Vec<u8> = bytes
+        .iter()
+        .map(|b| match b {
+            b'-' => b'+',
+            b'_' => b'/',
+            _ => *b,
+        })
+        .collect();
+
+    base64_simd::forgiving_decode_to_vec(&standard_b64_bytes).map_err(|e| e.to_string())
 }
 
 pub fn bytes_to_b64(bytes: &[u8]) -> Vec<u8> {
