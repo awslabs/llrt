@@ -108,10 +108,14 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     Class::<ReadableStream>::define(globals)?;
     Class::<ReadableStreamBYOBReader>::define(globals)?;
     Class::<ReadableStreamBYOBRequest>::define(globals)?;
+    Class::<ReadableStreamDefaultController>::define(globals)?;
     Class::<ReadableStreamDefaultReader>::define(globals)?;
 
     Class::<WritableStream>::define(globals)?;
     Class::<WritableStreamDefaultController>::define(globals)?;
+
+    // This is exposed globally by Node even though its not in the min-common-api
+    Class::<WritableStreamDefaultWriter>::define(globals)?;
 
     Ok(())
 }
