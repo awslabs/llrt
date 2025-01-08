@@ -7,14 +7,18 @@ use rquickjs::{
 };
 
 use crate::utils::{
-    promise::{promise_rejected_with, PromisePrimordials, ResolveablePromise},
+    promise::{
+        promise_rejected_with, promise_rejected_with_constructor, PromisePrimordials,
+        ResolveablePromise,
+    },
     UnwrapOrUndefined,
 };
 
 use super::{
-    default_controller::WritableStreamDefaultController, objects::WritableStreamObjects,
-    writer::WritableStreamWriter, WritableStream, WritableStreamOwned, WritableStreamState,
-    __impl_class_WritableStream_::promise_rejected_with_constructor,
+    default_controller::WritableStreamDefaultController,
+    objects::WritableStreamObjects,
+    stream::{WritableStream, WritableStreamOwned, WritableStreamState},
+    writer::WritableStreamWriter,
 };
 
 #[rquickjs::class]

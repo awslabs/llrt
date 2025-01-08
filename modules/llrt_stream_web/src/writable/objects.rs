@@ -1,12 +1,12 @@
 use rquickjs::{class::OwnedBorrowMut, Class, Result};
 
-use super::{
+use crate::writable::{
     default_controller::{
         WritableStreamDefaultControllerClass, WritableStreamDefaultControllerOwned,
     },
     default_writer::WritableStreamDefaultWriterOwned,
+    stream::{WritableStream, WritableStreamOwned},
     writer::{UndefinedWriter, WritableStreamWriter},
-    WritableStream, WritableStreamOwned,
 };
 
 pub(crate) struct WritableStreamObjects<'js, W> {

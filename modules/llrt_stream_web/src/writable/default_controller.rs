@@ -12,12 +12,6 @@ use rquickjs::{
     Class, Ctx, Error, Exception, Function, JsLifetime, Object, Promise, Result, Symbol, Value,
 };
 
-use super::{
-    default_writer::WritableStreamDefaultWriterOwned,
-    objects::{WritableStreamClassObjects, WritableStreamObjects},
-    writer::{UndefinedWriter, WritableStreamWriter},
-    UnderlyingSink, WritableStream, WritableStreamClass, WritableStreamOwned, WritableStreamState,
-};
 use crate::{
     queuing_strategy::{SizeAlgorithm, SizeValue},
     utils::{
@@ -25,6 +19,15 @@ use crate::{
         promise::{promise_resolved_with, upon_promise, PromisePrimordials},
         queue::QueueWithSizes,
         UnwrapOrUndefined,
+    },
+    writable::{
+        default_writer::WritableStreamDefaultWriterOwned,
+        objects::{WritableStreamClassObjects, WritableStreamObjects},
+        stream::{
+            sink::UnderlyingSink, WritableStream, WritableStreamClass, WritableStreamOwned,
+            WritableStreamState,
+        },
+        writer::{UndefinedWriter, WritableStreamWriter},
     },
 };
 
