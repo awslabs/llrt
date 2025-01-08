@@ -1740,6 +1740,7 @@ dependencies = [
  "crc32fast",
  "ctr",
  "der",
+ "ecdsa",
  "elliptic-curve",
  "llrt_buffer",
  "llrt_context",

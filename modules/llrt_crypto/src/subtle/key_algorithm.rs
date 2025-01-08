@@ -1,5 +1,9 @@
+use der::Encode;
+use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
+use pkcs8::PrivateKeyInfo;
 use rquickjs::{atom::PredefinedAtom, Array, Ctx, Exception, Object, Result, TypedArray, Value};
+use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
 use std::rc::Rc;
 
@@ -127,7 +131,7 @@ pub struct KeyAlgorithmWithUsages {
 impl KeyAlgorithm {
     pub fn from_js<'js>(
         ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode,
+        mode: KeyAlgorithmMode<'_, 'js>,
         value: Value<'js>,
         usages: Array<'js>,
     ) -> Result<KeyAlgorithmWithUsages> {
@@ -138,12 +142,9 @@ impl KeyAlgorithm {
         let mut is_symmetric = false;
         let algorithm = match name_ref {
             "Ed25519" => {
-                if let KeyAlgorithmMode::Import {
-                    format: _format,
-                    kind: _kind,
-                    data: _data,
-                } = mode
-                {}
+                if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+                    import_ed25519(ctx, format, kind, data)?;
+                }
 
                 Self::classify_and_check_signature_usages(
                     ctx,
@@ -156,16 +157,18 @@ impl KeyAlgorithm {
                 KeyAlgorithm::Ed25519
             },
             "X25519" => {
-                if !matches!(mode, KeyAlgorithmMode::Import { .. }) {
-                    Self::classify_and_check_ecdh_x25519_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?
+                if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+                    import_x25519(ctx, format, kind, data)?;
                 }
+
+                Self::classify_and_check_ecdh_x25519_usages(
+                    ctx,
+                    name_ref,
+                    &usages,
+                    is_symmetric,
+                    &mut private_usages,
+                    &mut public_usages,
+                )?;
                 KeyAlgorithm::X25519
             },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
@@ -542,6 +545,114 @@ impl KeyAlgorithm {
 
         Ok(())
     }
+}
+
+fn import_crv_key<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+    oid: ObjectIdentifier,
+    name: &str,
+) -> Result<()> {
+    let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
+        if other_oid != oid {
+            return Err(Exception::throw_type(
+                ctx,
+                &["Only ", name, " keys are supported"].concat(),
+            ));
+        }
+        Ok(())
+    };
+
+    match format {
+        KeyFormat::Jwk(object) => {
+            let crv: String = object.get_required("crv", "keyData")?;
+            if crv != name {
+                return Err(Exception::throw_type(
+                    ctx,
+                    &["Only ", name, " keys are supported"].concat(),
+                ));
+            }
+            let x: String = object.get_required("x", "keyData")?;
+            let public_key = bytes_from_b64_url_safe(x.as_bytes()).or_throw(ctx)?;
+
+            if let Some(d) = object.get_optional::<_, String>("d")? {
+                let private_key = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
+
+                let pk_info = PrivateKeyInfo::new(
+                    AlgorithmIdentifier {
+                        oid,
+                        parameters: None,
+                    },
+                    &private_key,
+                );
+
+                *data = pk_info.to_der().or_throw(ctx)?;
+                *kind = KeyKind::Private;
+            } else {
+                *data = public_key;
+                *kind = KeyKind::Public;
+            }
+        },
+        KeyFormat::Raw(object_bytes) => {
+            let bytes = object_bytes.into_bytes();
+            if bytes.len() != 32 {
+                return Err(Exception::throw_type(
+                    ctx,
+                    &[name, " keys must be 32 bytes long"].concat(),
+                ));
+            }
+            *data = bytes;
+            *kind = KeyKind::Public;
+        },
+        KeyFormat::Spki(object_bytes) => {
+            let spki =
+                spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            validate_oid(spki.algorithm.oid)?;
+            *data = spki.subject_public_key.raw_bytes().into();
+            *kind = KeyKind::Public;
+        },
+        KeyFormat::Pkcs8(object_bytes) => {
+            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            validate_oid(pkcs8.algorithm.oid)?;
+            *data = object_bytes.into_bytes();
+            *kind = KeyKind::Private;
+        },
+    };
+    Ok(())
+}
+
+fn import_ed25519<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+) -> Result<()> {
+    import_crv_key(
+        ctx,
+        format,
+        kind,
+        data,
+        const_oid::db::rfc8410::ID_ED_25519,
+        "Ed25519",
+    )
+}
+
+fn import_x25519<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+) -> Result<()> {
+    import_crv_key(
+        ctx,
+        format,
+        kind,
+        data,
+        const_oid::db::rfc8410::ID_X_25519,
+        "X25519",
+    )
 }
 
 fn classify_usage(

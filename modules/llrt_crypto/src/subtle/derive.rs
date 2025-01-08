@@ -91,8 +91,12 @@ fn derive_bits(
                         },
                     });
                 }
+                return Err(Exception::throw_message(
+                    ctx,
+                    "ECDH curve must be same as baseKey",
+                ));
             }
-            return algorithm_mismatch_error(ctx);
+            return algorithm_mismatch_error(ctx, "ECDH");
         },
         DeriveAlgorithm::X25519 { public_key } => {
             if let KeyAlgorithm::X25519 { .. } = base_key.algorithm {
@@ -103,7 +107,7 @@ fn derive_bits(
                 let shared_secret = secret_key.diffie_hellman(&public_key);
                 return Ok(shared_secret.as_bytes().to_vec());
             }
-            return algorithm_mismatch_error(ctx);
+            return algorithm_mismatch_error(ctx, "X25519");
         },
         DeriveAlgorithm::Derive(KeyDerivation::Hkdf { hash, salt, info }) => {
             let hash_algorithm = match hash {

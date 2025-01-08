@@ -24,6 +24,8 @@ pub use encrypt::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
 pub use import_key::subtle_import_key;
+use key_algorithm::KeyAlgorithm;
+use ring::digest::Digest;
 use rsa::pkcs1::DecodeRsaPrivateKey;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
@@ -285,7 +287,33 @@ pub enum EllipticCurve {
 
 str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384", P521 => "P-521");
 
-pub fn rsa_private_key(
+pub fn rsa_private_key<'a>(
+    ctx: &Ctx<'_>,
+    key: &'a CryptoKey,
+    data: &'a [u8],
+    algorithm_name: &str,
+) -> Result<(RsaPrivateKey, &'a ShaAlgorithm, Digest)> {
+    let hash = match &key.algorithm {
+        KeyAlgorithm::Rsa { hash, .. } => hash,
+        _ => return algorithm_mismatch_error(ctx, algorithm_name),
+    };
+    if !matches!(
+        hash,
+        ShaAlgorithm::SHA256 | ShaAlgorithm::SHA384 | ShaAlgorithm::SHA512
+    ) {
+        return Err(Exception::throw_message(
+            ctx,
+            "Only Sha-256, Sha-384 or Sha-512 is supported for RSA",
+        ));
+    }
+    let private_key = RsaPrivateKey::from_pkcs1_der(&key.handle).or_throw(ctx)?;
+
+    let digest = ring::digest::digest(hash.digest_algorithm(), data);
+
+    Ok((private_key, hash, digest))
+}
+
+pub fn rsa_oaep_private_key(
     ctx: &Ctx<'_>,
     handle: &[u8],
     label: &Option<Box<[u8]>>,
@@ -333,10 +361,10 @@ pub fn to_name_and_maybe_object<'js, 'a>(
     Ok((name, obj))
 }
 
-pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>) -> Result<T> {
+pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>, expected_algorithm: &str) -> Result<T> {
     Err(Exception::throw_message(
         ctx,
-        "algorithm does not match that of operation",
+        &["Key algorithm must be ", expected_algorithm].concat(),
     ))
 }
 

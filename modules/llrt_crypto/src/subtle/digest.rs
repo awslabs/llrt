@@ -17,17 +17,16 @@ pub async fn subtle_digest<'js>(
         algorithm.get_required::<_, String>("name", "algorithm")?
     };
 
-    let bytes = digest(&ctx, &algorithm, data.as_bytes())?;
+    let sha_algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
+    let bytes = digest(&sha_algorithm, data.as_bytes());
     ArrayBuffer::new(ctx, bytes)
 }
 
-fn digest(ctx: &Ctx<'_>, algorithm: &str, data: &[u8]) -> Result<Vec<u8>> {
-    let hash = ShaAlgorithm::try_from(algorithm).or_throw(ctx)?;
-
-    let hash = hash.digest_algorithm();
+pub fn digest(sha_algorithm: &ShaAlgorithm, data: &[u8]) -> Vec<u8> {
+    let hash = sha_algorithm.digest_algorithm();
     let mut context = Context::new(hash);
     context.update(data);
     let digest = context.finish();
 
-    Ok(digest.as_ref().to_vec())
+    digest.as_ref().to_vec()
 }

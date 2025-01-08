@@ -33,7 +33,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
                 let public_key = public_key.borrow();
 
                 if !matches!(public_key.algorithm, KeyAlgorithm::X25519) {
-                    return algorithm_mismatch_error(ctx);
+                    return algorithm_mismatch_error(ctx, &name);
                 }
 
                 DeriveAlgorithm::X25519 {
@@ -50,7 +50,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
                         public_key: public_key.handle.clone(),
                     }
                 } else {
-                    return algorithm_mismatch_error(ctx);
+                    return algorithm_mismatch_error(ctx, &name);
                 }
             },
             "HKDF" => DeriveAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),

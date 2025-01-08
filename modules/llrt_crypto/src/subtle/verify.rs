@@ -1,22 +1,27 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use ecdsa::signature::hazmat::PrehashVerifier;
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use ring::{
     hmac::{Context as HmacContext, Key as HmacKey},
-    signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, UnparsedPublicKey},
+    signature::UnparsedPublicKey,
 };
-use rquickjs::{Class, Ctx, Exception, Result};
+use rquickjs::{Class, Ctx, Result};
 use rsa::{
-    pkcs1::DecodeRsaPrivateKey,
     pkcs1v15::Pkcs1v15Sign,
     pss::Pss,
-    sha2::{Digest, Sha256},
-    RsaPrivateKey,
+    sha2::{Sha256, Sha384, Sha512},
 };
 
-use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey, SYSTEM_RANDOM};
+use crate::{
+    sha_hash::ShaAlgorithm,
+    subtle::{digest, CryptoKey},
+};
 
-use super::sign_algorithm::SigningAlgorithm;
+use super::{
+    algorithm_mismatch_error, key_algorithm::KeyAlgorithm, rsa_private_key,
+    sign_algorithm::SigningAlgorithm, EllipticCurve,
+};
 
 pub async fn subtle_verify<'js>(
     ctx: Ctx<'js>,
@@ -31,7 +36,7 @@ pub async fn subtle_verify<'js>(
     verify(
         &ctx,
         &algorithm,
-        &key.handle,
+        &key,
         signature.as_bytes(),
         data.as_bytes(),
     )
@@ -40,79 +45,127 @@ pub async fn subtle_verify<'js>(
 fn verify(
     ctx: &Ctx<'_>,
     algorithm: &SigningAlgorithm,
-    key: &[u8],
+    key: &CryptoKey,
     signature: &[u8],
     data: &[u8],
 ) -> Result<bool> {
+    let handle = key.handle.as_ref();
     Ok(match algorithm {
         SigningAlgorithm::Ecdsa { hash } => {
-            let (fixed_signing, fixed) = match hash {
-                ShaAlgorithm::SHA256 => (
-                    &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                    &ring::signature::ECDSA_P256_SHA256_FIXED,
-                ),
-                ShaAlgorithm::SHA384 => (
-                    &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
-                    &ring::signature::ECDSA_P384_SHA384_FIXED,
-                ),
-                _ => {
-                    return Err(Exception::throw_message(
-                        ctx,
-                        "Ecdsa.hash only support Sha256 or Sha384",
-                    ))
-                },
+            let curve = match &key.algorithm {
+                KeyAlgorithm::Ec { curve, .. } => curve,
+                _ => return algorithm_mismatch_error(ctx, "ECDSA"),
             };
 
-            let rng = &(*SYSTEM_RANDOM);
+            let hash = digest::digest(hash, data);
 
-            let private_key = EcdsaKeyPair::from_pkcs8(fixed_signing, key, rng).or_throw(ctx)?;
-            let public_key_bytes = private_key.public_key().as_ref();
-            let public_key = UnparsedPublicKey::new(fixed, &public_key_bytes);
-
-            public_key.verify(data, signature).is_ok()
+            match curve {
+                EllipticCurve::P256 => {
+                    let verifying_key =
+                        p256::ecdsa::VerifyingKey::from_sec1_bytes(handle).or_throw(ctx)?;
+                    let signature = p256::ecdsa::Signature::from_slice(signature).or_throw(ctx)?;
+                    verifying_key.verify_prehash(&hash, &signature).is_ok()
+                },
+                EllipticCurve::P384 => {
+                    let verifying_key =
+                        p384::ecdsa::VerifyingKey::from_sec1_bytes(handle).or_throw(ctx)?;
+                    let signature = p384::ecdsa::Signature::from_slice(signature).or_throw(ctx)?;
+                    verifying_key.verify_prehash(&hash, &signature).is_ok()
+                },
+                EllipticCurve::P521 => {
+                    let verifying_key =
+                        p521::ecdsa::VerifyingKey::from_sec1_bytes(handle).or_throw(ctx)?;
+                    let signature = p521::ecdsa::Signature::from_slice(signature).or_throw(ctx)?;
+                    verifying_key.verify_prehash(&hash, &signature).is_ok()
+                },
+            }
         },
         SigningAlgorithm::Ed25519 => {
-            let private_key = Ed25519KeyPair::from_pkcs8(key).or_throw(ctx)?;
-            let public_key_bytes = private_key.public_key().as_ref();
-            let public_key = UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
+            if !matches!(&key.algorithm, KeyAlgorithm::Ed25519) {
+                return algorithm_mismatch_error(ctx, "Ed25519");
+            }
 
+            let public_key = UnparsedPublicKey::new(&ring::signature::ED25519, handle);
             public_key.verify(data, signature).is_ok()
         },
         SigningAlgorithm::Hmac => {
-            let key = HmacKey::new(ring::hmac::HMAC_SHA256, key);
+            let hash = match &key.algorithm {
+                KeyAlgorithm::Hmac { hash, .. } => hash,
+                _ => return algorithm_mismatch_error(ctx, "HMAC"),
+            };
+
+            let key = HmacKey::new(*hash.hmac_algorithm(), handle);
             let mut hmac = HmacContext::with_key(&key);
             hmac.update(data);
-
             hmac.sign().as_ref() == signature
         },
-        SigningAlgorithm::RsaPss { salt_length } => {
-            let public_key = RsaPrivateKey::from_pkcs1_der(key)
-                .or_throw(ctx)?
-                .to_public_key();
-            let mut hasher = Sha256::new();
-            hasher.update(data);
-            let hashed = hasher.finalize();
-
-            public_key
-                .verify(
-                    Pss::new_with_salt::<Sha256>(*salt_length as usize),
-                    &hashed,
-                    signature,
-                )
-                .is_ok()
-        },
-        SigningAlgorithm::RsassaPkcs1v15 => {
-            let public_key = RsaPrivateKey::from_pkcs1_der(key)
-                .or_throw(ctx)?
-                .to_public_key();
-            let mut hasher = Sha256::new();
-            hasher.update(data);
-
-            let hashed = hasher.finalize();
-
-            public_key
-                .verify(Pkcs1v15Sign::new::<Sha256>(), &hashed, signature)
-                .is_ok()
-        },
+        SigningAlgorithm::RsaPss { salt_length } => rsa_verify(
+            ctx,
+            key,
+            "RSA-PSS",
+            data,
+            |hash, digest, public_key| match hash {
+                ShaAlgorithm::SHA256 => public_key
+                    .verify(
+                        Pss::new_with_salt::<Sha256>(*salt_length as usize),
+                        digest,
+                        signature,
+                    )
+                    .is_ok(),
+                ShaAlgorithm::SHA384 => public_key
+                    .verify(
+                        Pss::new_with_salt::<Sha384>(*salt_length as usize),
+                        digest,
+                        signature,
+                    )
+                    .is_ok(),
+                ShaAlgorithm::SHA512 => public_key
+                    .verify(
+                        Pss::new_with_salt::<Sha512>(*salt_length as usize),
+                        digest,
+                        signature,
+                    )
+                    .is_ok(),
+                _ => unreachable!(),
+            },
+        )?,
+        SigningAlgorithm::RsassaPkcs1v15 => rsa_verify(
+            ctx,
+            key,
+            "RSASSA-PKCS1-v1_5",
+            data,
+            |hash, digest, public_key| match hash {
+                ShaAlgorithm::SHA256 => public_key
+                    .verify(Pkcs1v15Sign::new::<Sha256>(), digest, signature)
+                    .is_ok(),
+                ShaAlgorithm::SHA384 => public_key
+                    .verify(Pkcs1v15Sign::new::<Sha384>(), digest, signature)
+                    .is_ok(),
+                ShaAlgorithm::SHA512 => public_key
+                    .verify(Pkcs1v15Sign::new::<Sha512>(), digest, signature)
+                    .is_ok(),
+                _ => unreachable!(),
+            },
+        )?,
     })
+}
+
+// Helper function for RSA verification
+fn rsa_verify<F>(
+    ctx: &Ctx<'_>,
+    key: &CryptoKey,
+    algorithm_name: &str,
+    data: &[u8],
+    verify_fn: F,
+) -> Result<bool>
+where
+    F: FnOnce(&ShaAlgorithm, &[u8], &rsa::RsaPublicKey) -> bool,
+{
+    let (private_key, hash, digest) = rsa_private_key(ctx, key, data, algorithm_name)?;
+
+    let public_key = private_key.to_public_key();
+
+    let result = verify_fn(hash, digest.as_ref(), &public_key);
+
+    Ok(result)
 }

@@ -8,8 +8,8 @@ use rsa::rand_core::OsRng;
 
 use super::{
     algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm,
-    key_algorithm::KeyAlgorithm, rsa_private_key, AesCbcEncVariant, AesCtrVariant, AesGcmVariant,
-    CryptoKey,
+    key_algorithm::KeyAlgorithm, rsa_oaep_private_key, AesCbcEncVariant, AesCtrVariant,
+    AesGcmVariant, CryptoKey,
 };
 
 pub async fn subtle_encrypt<'js>(
@@ -38,7 +38,7 @@ fn encrypt(
                 let variant = AesCbcEncVariant::new(length, handle, iv).or_throw(ctx)?;
                 Ok(variant.encrypt(data))
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "AES-CBC")
             }
         },
         EncryptionAlgorithm::AesCtr { counter, length } => {
@@ -48,7 +48,7 @@ fn encrypt(
                     .or_throw(ctx)?;
                 variant.encrypt(data).or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "AES-CTR")
             }
         },
         EncryptionAlgorithm::AesGcm {
@@ -64,18 +64,18 @@ fn encrypt(
                     .encrypt(nonce, data, additional_data.as_deref())
                     .or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "AES-GCM")
             }
         },
         EncryptionAlgorithm::RsaOaep { label } => {
             if let KeyAlgorithm::Rsa { hash, .. } = &key.algorithm {
-                let (private_key, padding) = rsa_private_key(ctx, handle, label, hash)?;
+                let (private_key, padding) = rsa_oaep_private_key(ctx, handle, label, hash)?;
                 let public_key = private_key.to_public_key();
                 let mut rng = OsRng;
 
                 public_key.encrypt(&mut rng, padding, data).or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "RSA-OAEP")
             }
         },
     }

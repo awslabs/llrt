@@ -7,8 +7,8 @@ use rquickjs::{ArrayBuffer, Class, Ctx, Result};
 
 use super::{
     algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm,
-    key_algorithm::KeyAlgorithm, rsa_private_key, AesCbcDecVariant, AesCtrVariant, AesGcmVariant,
-    CryptoKey,
+    key_algorithm::KeyAlgorithm, rsa_oaep_private_key, AesCbcDecVariant, AesCtrVariant,
+    AesGcmVariant, CryptoKey,
 };
 
 pub async fn subtle_decrypt<'js>(
@@ -36,7 +36,7 @@ fn decrypt(
                 let variant = AesCbcDecVariant::new(length, handle, iv).or_throw(ctx)?;
                 variant.decrypt(data).or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "AES-CBC")
             }
         },
         EncryptionAlgorithm::AesCtr { counter, length } => {
@@ -46,7 +46,7 @@ fn decrypt(
                     .or_throw(ctx)?;
                 variant.decrypt(data).or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "AES-CTR")
             }
         },
         EncryptionAlgorithm::AesGcm {
@@ -62,16 +62,16 @@ fn decrypt(
                     .decrypt(nonce, data, additional_data.as_deref())
                     .or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "AES-GCM")
             }
         },
         EncryptionAlgorithm::RsaOaep { label } => {
             if let KeyAlgorithm::Rsa { hash, .. } = &key.algorithm {
-                let (private_key, padding) = rsa_private_key(ctx, handle, label, hash)?;
+                let (private_key, padding) = rsa_oaep_private_key(ctx, handle, label, hash)?;
 
                 private_key.decrypt(padding, data).or_throw(ctx)
             } else {
-                algorithm_mismatch_error(ctx)
+                algorithm_mismatch_error(ctx, "RSA-OAEP")
             }
         },
     }

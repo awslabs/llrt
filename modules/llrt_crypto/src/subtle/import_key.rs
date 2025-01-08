@@ -39,7 +39,7 @@ pub async fn subtle_import_key<'js>(
         name,
         algorithm: key_algorithm,
         public_usages,
-        ..
+        private_usages,
     } = KeyAlgorithm::from_js(
         &ctx,
         KeyAlgorithmMode::Import {
@@ -51,8 +51,13 @@ pub async fn subtle_import_key<'js>(
         key_usages,
     )?;
 
+    let usages = match kind {
+        KeyKind::Public | KeyKind::Secret => public_usages,
+        KeyKind::Private => private_usages,
+    };
+
     Class::instance(
         ctx,
-        CryptoKey::new(kind, name, extractable, key_algorithm, public_usages, data),
+        CryptoKey::new(kind, name, extractable, key_algorithm, usages, data),
     )
 }
