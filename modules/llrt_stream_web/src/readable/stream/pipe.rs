@@ -9,27 +9,33 @@ use llrt_utils::option::Undefined;
 use rquickjs::{
     class::{OwnedBorrow, Trace},
     prelude::{OnceFn, This},
-    Class, Ctx, Function, Promise, Result, Value,
+    Class, Coerced, Ctx, Error, FromJs, Function, Promise, Result, Value,
 };
 
-use super::{
-    default_reader::ReadableStreamDefaultReaderOwned, objects::ReadableStreamClassObjects,
-    objects::ReadableStreamObjects, reader::ReadableStreamReaderClass, ReadableStream,
-    ReadableStreamControllerOwned, ReadableStreamDefaultReader, ReadableStreamOwned,
-    ReadableStreamReadRequest, ReadableStreamState, WritableStreamDefaultWriter,
-};
 use crate::{
-    readable::objects::ReadableStreamDefaultReaderObjects,
+    readable::{
+        controller::ReadableStreamControllerOwned,
+        default_reader::{
+            ReadableStreamDefaultReader, ReadableStreamDefaultReaderOwned,
+            ReadableStreamReadRequest,
+        },
+        objects::{
+            ReadableStreamClassObjects, ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+        },
+        reader::ReadableStreamReaderClass,
+        stream::{ReadableStream, ReadableStreamOwned, ReadableStreamState},
+    },
     utils::{
         promise::{
             promise_resolved_with, upon_promise, upon_promise_fulfilment, PromisePrimordials,
             ResolveablePromise,
         },
-        UnwrapOrUndefined,
+        UnwrapOrUndefined, ValueOrUndefined,
     },
     writable::{
-        WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriterOwned,
-        WritableStreamObjects, WritableStreamOwned, WritableStreamState,
+        WritableStream, WritableStreamClassObjects, WritableStreamDefaultWriter,
+        WritableStreamDefaultWriterOwned, WritableStreamObjects, WritableStreamOwned,
+        WritableStreamState,
     },
 };
 
@@ -645,5 +651,43 @@ impl<'js> PipeTo<'js> {
         } else {
             self.promise.resolve_undefined()
         }
+    }
+}
+
+#[derive(Default)]
+pub struct StreamPipeOptions<'js> {
+    pub prevent_close: bool,
+    pub prevent_abort: bool,
+    pub prevent_cancel: bool,
+    pub signal: Option<Value<'js>>,
+}
+
+impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
+    fn from_js(_: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        let ty_name = value.type_name();
+        let obj = value
+            .as_object()
+            .ok_or(Error::new_from_js(ty_name, "Object"))?;
+
+        let get_bool = |key| {
+            Result::Ok(
+                obj.get_value_or_undefined::<_, Coerced<bool>>(key)?
+                    .map(|b| b.0)
+                    .unwrap_or(false),
+            ) // missing is treated as false
+        };
+
+        let prevent_abort = get_bool("preventAbort")?;
+        let prevent_close = get_bool("preventClose")?;
+        let prevent_cancel = get_bool("preventCancel")?;
+
+        let signal = obj.get_value_or_undefined::<_, Value<'js>>("signal")?;
+
+        Ok(Self {
+            prevent_close,
+            prevent_abort,
+            prevent_cancel,
+            signal,
+        })
     }
 }

@@ -12,7 +12,7 @@ use super::{
     default_controller::ReadableStreamDefaultControllerOwned,
     default_reader::{ReadableStreamDefaultReaderOrUndefined, ReadableStreamDefaultReaderOwned},
     reader::{ReadableStreamReader, ReadableStreamReaderOwned, UndefinedReader},
-    ReadableStream, ReadableStreamClass, ReadableStreamOwned,
+    stream::{ReadableStream, ReadableStreamClass, ReadableStreamOwned},
 };
 
 pub(super) struct ReadableStreamObjects<'js, C, R> {

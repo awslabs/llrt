@@ -6,23 +6,25 @@ use rquickjs::{
     Class, Ctx, Error, Exception, JsLifetime, Object, Promise, Result, Value,
 };
 
-use super::{
-    byte_controller::ReadableByteStreamControllerOwned,
-    controller::{
-        ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
-    },
-    default_reader::ReadableStreamDefaultReaderOrUndefined,
-    objects::{
-        ReadableStreamClassObjects, ReadableStreamDefaultControllerObjects,
-        ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
-    },
-    reader::ReadableStreamReader,
-    CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamClass, ReadableStreamOwned,
-    ReadableStreamReadRequest, ReadableStreamState, SizeAlgorithm, StartAlgorithm,
-    UnderlyingSource,
-};
 use crate::{
-    queuing_strategy::SizeValue,
+    queuing_strategy::{SizeAlgorithm, SizeValue},
+    readable::{
+        byte_controller::ReadableByteStreamControllerOwned,
+        controller::{
+            ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
+        },
+        default_reader::{ReadableStreamDefaultReaderOrUndefined, ReadableStreamReadRequest},
+        objects::{
+            ReadableStreamClassObjects, ReadableStreamDefaultControllerObjects,
+            ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+        },
+        reader::ReadableStreamReader,
+        stream::{
+            algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm},
+            source::UnderlyingSource,
+            ReadableStream, ReadableStreamClass, ReadableStreamOwned, ReadableStreamState,
+        },
+    },
     utils::{
         class_from_owned_borrow_mut,
         promise::{promise_resolved_with, upon_promise},

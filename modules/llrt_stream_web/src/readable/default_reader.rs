@@ -1,23 +1,30 @@
 use std::collections::VecDeque;
 
+use rquickjs::class::Tracer;
 use rquickjs::prelude::This;
-use rquickjs::JsLifetime;
 use rquickjs::{
     class::{OwnedBorrowMut, Trace},
     methods,
     prelude::Opt,
     Class, Ctx, Exception, Promise, Result, Value,
 };
+use rquickjs::{IntoJs, JsLifetime, Object};
 
-use crate::utils::promise::{promise_rejected_with_constructor, ResolveablePromise};
-use crate::utils::UnwrapOrUndefined;
-
-use super::controller::ReadableStreamController;
-use super::objects::ReadableStreamDefaultReaderObjects;
-use super::reader::{ReadableStreamGenericReader, ReadableStreamReaderOwned, UndefinedReader};
-use super::{
-    byob_reader::ReadableStreamBYOBReaderOwned, ReadableStreamObjects, ReadableStreamOwned,
-    ReadableStreamReadRequest, ReadableStreamReadResult, ReadableStreamReader, ReadableStreamState,
+use crate::{
+    readable::{
+        byob_reader::ReadableStreamBYOBReaderOwned,
+        controller::ReadableStreamController,
+        objects::{ReadableStreamDefaultReaderObjects, ReadableStreamObjects},
+        reader::{
+            ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned,
+            UndefinedReader,
+        },
+        stream::{ReadableStreamOwned, ReadableStreamState},
+    },
+    utils::{
+        promise::{promise_rejected_with_constructor, ResolveablePromise},
+        UnwrapOrUndefined,
+    },
 };
 
 #[derive(Trace)]
@@ -313,3 +320,141 @@ impl<'js> ReadableStreamDefaultReaderOrUndefined<'js>
 }
 
 impl ReadableStreamDefaultReaderOrUndefined<'_> for UndefinedReader {}
+
+pub(super) trait ReadableStreamReadRequest<'js>: Trace<'js> {
+    fn chunk_steps_typed<C: ReadableStreamController<'js>>(
+        &self,
+        objects: ReadableStreamDefaultReaderObjects<'js, C>,
+        chunk: Value<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>>
+    where
+        Self: Sized,
+    {
+        let mut erased = ReadableStreamObjects {
+            stream: objects.stream,
+            controller: objects.controller.into_erased(),
+            reader: objects.reader,
+        };
+
+        erased = self.chunk_steps(erased, chunk)?;
+
+        Ok(ReadableStreamObjects {
+            stream: erased.stream,
+            controller: C::try_from_erased(erased.controller)
+                .expect("chunk steps must not change type of controller"),
+            reader: erased.reader,
+        })
+    }
+
+    fn chunk_steps(
+        &self,
+        objects: ReadableStreamDefaultReaderObjects<'js>,
+        chunk: Value<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js>>;
+
+    fn close_steps_typed<C: ReadableStreamController<'js>>(
+        &self,
+        ctx: &Ctx<'js>,
+        objects: ReadableStreamDefaultReaderObjects<'js, C>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>>
+    where
+        Self: Sized,
+    {
+        let mut erased = ReadableStreamObjects {
+            stream: objects.stream,
+            controller: objects.controller.into_erased(),
+            reader: objects.reader,
+        };
+
+        erased = self.close_steps(ctx, erased)?;
+
+        Ok(ReadableStreamObjects {
+            stream: erased.stream,
+            controller: C::try_from_erased(erased.controller)
+                .expect("close steps must not change type of controller"),
+            reader: erased.reader,
+        })
+    }
+
+    fn close_steps(
+        &self,
+        ctx: &Ctx<'js>,
+        objects: ReadableStreamDefaultReaderObjects<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js>>;
+
+    fn error_steps_typed<C: ReadableStreamController<'js>>(
+        &self,
+        objects: ReadableStreamDefaultReaderObjects<'js, C>,
+        reason: Value<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>>
+    where
+        Self: Sized,
+    {
+        let mut erased = ReadableStreamObjects {
+            stream: objects.stream,
+            controller: objects.controller.into_erased(),
+            reader: objects.reader,
+        };
+
+        erased = self.error_steps(erased, reason)?;
+
+        Ok(ReadableStreamObjects {
+            stream: erased.stream,
+            controller: C::try_from_erased(erased.controller)
+                .expect("error steps must not change type of controller"),
+            reader: erased.reader,
+        })
+    }
+
+    fn error_steps(
+        &self,
+        objects: ReadableStreamDefaultReaderObjects<'js>,
+        reason: Value<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js>>;
+}
+
+impl<'js> Trace<'js> for Box<dyn ReadableStreamReadRequest<'js> + 'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.as_ref().trace(tracer);
+    }
+}
+
+impl<'js> ReadableStreamReadRequest<'js> for Box<dyn ReadableStreamReadRequest<'js> + 'js> {
+    fn chunk_steps(
+        &self,
+        objects: ReadableStreamDefaultReaderObjects<'js>,
+        chunk: Value<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+        self.as_ref().chunk_steps(objects, chunk)
+    }
+
+    fn close_steps(
+        &self,
+        ctx: &Ctx<'js>,
+        objects: ReadableStreamDefaultReaderObjects<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+        self.as_ref().close_steps(ctx, objects)
+    }
+
+    fn error_steps(
+        &self,
+        objects: ReadableStreamDefaultReaderObjects<'js>,
+        reason: Value<'js>,
+    ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+        self.as_ref().error_steps(objects, reason)
+    }
+}
+
+pub(super) struct ReadableStreamReadResult<'js> {
+    pub(super) value: Option<Value<'js>>,
+    pub(super) done: bool,
+}
+
+impl<'js> IntoJs<'js> for ReadableStreamReadResult<'js> {
+    fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        obj.set("value", self.value)?;
+        obj.set("done", self.done)?;
+        Ok(obj.into_value())
+    }
+}

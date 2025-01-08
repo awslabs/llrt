@@ -17,21 +17,21 @@ use rquickjs::{
     Promise, Result, Symbol, Type, Value,
 };
 
-use super::{
-    controller::ReadableStreamControllerOwned, reader::ReadableStreamGenericReader,
-    ReadableStreamClassObjects, ReadableStreamDefaultReader, ReadableStreamObjects,
-    ReadableStreamReadResult,
-};
 use crate::{
-    readable::default_reader::ReadableStreamDefaultReaderOwned,
+    readable::{
+        controller::ReadableStreamControllerOwned,
+        default_reader::{
+            ReadableStreamDefaultReader, ReadableStreamDefaultReaderOwned,
+            ReadableStreamReadRequest, ReadableStreamReadResult,
+        },
+        objects::{
+            ReadableStreamClassObjects, ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+        },
+        reader::ReadableStreamGenericReader,
+    },
     utils::{
         class_from_owned_borrow_mut,
         promise::{promise_resolved_with, PromisePrimordials},
-    },
-};
-use crate::{
-    readable::{objects::ReadableStreamDefaultReaderObjects, ReadableStreamReadRequest},
-    utils::{
         promise::{upon_promise, upon_promise_fulfilment, ResolveablePromise},
         UnwrapOrUndefined,
     },

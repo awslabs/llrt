@@ -8,9 +8,9 @@ use super::{
     default_controller::{
         ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
     },
+    default_reader::ReadableStreamReadRequest,
     objects::{ReadableStreamDefaultReaderObjects, ReadableStreamObjects},
     reader::ReadableStreamReader,
-    ReadableStreamReadRequest,
 };
 
 pub(super) trait ReadableStreamController<'js>: Sized {
@@ -51,7 +51,7 @@ pub(super) trait ReadableStreamController<'js>: Sized {
 }
 
 #[derive(JsLifetime, Trace, Clone)]
-pub(super) enum ReadableStreamControllerClass<'js> {
+pub enum ReadableStreamControllerClass<'js> {
     ReadableStreamDefaultController(ReadableStreamDefaultControllerClass<'js>),
     ReadableStreamByteController(ReadableByteStreamControllerClass<'js>),
     Uninitialised, // Only for use when initialising a Stream - should never be present later on

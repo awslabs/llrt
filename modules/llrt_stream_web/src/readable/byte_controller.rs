@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use llrt_utils::{
+    error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
     option::{Null, Undefined},
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
@@ -14,26 +15,30 @@ use rquickjs::{
     Result, TypedArray, Value,
 };
 
-use super::{
-    byob_reader::{ArrayConstructorPrimordials, ReadableStreamReadIntoRequest, ViewBytes},
-    controller::{
-        ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
+use crate::{
+    readable::{
+        byob_reader::{ArrayConstructorPrimordials, ReadableStreamReadIntoRequest, ViewBytes},
+        controller::{
+            ReadableStreamController, ReadableStreamControllerClass, ReadableStreamControllerOwned,
+        },
+        default_controller::ReadableStreamDefaultControllerOwned,
+        default_reader::ReadableStreamReadRequest,
+        objects::{
+            ReadableByteStreamObjects, ReadableStreamBYOBObjects, ReadableStreamClassObjects,
+            ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+        },
+        reader::ReadableStreamReader,
+        stream::{
+            algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm},
+            source::UnderlyingSource,
+            ReadableStream, ReadableStreamClass, ReadableStreamOwned, ReadableStreamState,
+        },
     },
-    copy_data_block_bytes,
-    default_controller::ReadableStreamDefaultControllerOwned,
-    objects::{
-        ReadableByteStreamObjects, ReadableStreamBYOBObjects, ReadableStreamClassObjects,
-        ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+    utils::{
+        class_from_owned_borrow_mut,
+        promise::{promise_resolved_with, upon_promise},
+        UnwrapOrUndefined,
     },
-    reader::ReadableStreamReader,
-    transfer_array_buffer, CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamClass,
-    ReadableStreamOwned, ReadableStreamReadRequest, ReadableStreamState, StartAlgorithm,
-    UnderlyingSource,
-};
-use crate::utils::{
-    class_from_owned_borrow_mut,
-    promise::{promise_resolved_with, upon_promise},
-    UnwrapOrUndefined,
 };
 
 #[derive(JsLifetime, Trace)]
@@ -1990,4 +1995,32 @@ impl<'js> Trace<'js> for ReadableByteStreamQueueEntry<'js> {
         self.byte_offset.trace(tracer);
         self.byte_length.trace(tracer)
     }
+}
+
+fn transfer_array_buffer(buffer: ArrayBuffer<'_>) -> Result<ArrayBuffer<'_>> {
+    buffer.get::<_, Function>("transfer")?.call((This(buffer),))
+}
+
+fn copy_data_block_bytes(
+    ctx: &Ctx<'_>,
+    to_block: &ArrayBuffer,
+    to_index: usize,
+    from_block: &ArrayBuffer,
+    from_index: usize,
+    count: usize,
+) -> Result<()> {
+    let to_raw = to_block
+        .as_raw()
+        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+        .or_throw(ctx)?;
+    let to_slice = unsafe { std::slice::from_raw_parts_mut(to_raw.ptr.as_ptr(), to_raw.len) };
+    let from_raw = from_block
+        .as_raw()
+        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+        .or_throw(ctx)?;
+    let from_slice = unsafe { std::slice::from_raw_parts(from_raw.ptr.as_ptr(), from_raw.len) };
+
+    to_slice[to_index..to_index + count]
+        .copy_from_slice(&from_slice[from_index..from_index + count]);
+    Ok(())
 }

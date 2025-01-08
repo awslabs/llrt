@@ -11,15 +11,15 @@ use rquickjs::{
     Promise, Result, Value,
 };
 
-use super::{
-    byte_controller::ReadableByteStreamController,
-    controller::{ReadableStreamController, ReadableStreamControllerClass},
-    objects::{ReadableStreamBYOBObjects, ReadableStreamObjects},
-    reader::{ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned},
-    ReadableStreamOwned, ReadableStreamReadResult, ReadableStreamState,
-};
 use crate::{
-    readable::default_reader::ReadableStreamDefaultReaderOwned,
+    readable::{
+        byte_controller::ReadableByteStreamController,
+        controller::{ReadableStreamController, ReadableStreamControllerClass},
+        default_reader::{ReadableStreamDefaultReaderOwned, ReadableStreamReadResult},
+        objects::{ReadableStreamBYOBObjects, ReadableStreamObjects},
+        reader::{ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned},
+        stream::{ReadableStreamOwned, ReadableStreamState},
+    },
     utils::{
         promise::{promise_rejected_with_constructor, with_promise_result, ResolveablePromise},
         UnwrapOrUndefined, ValueOrUndefined,

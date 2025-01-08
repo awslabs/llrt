@@ -4,15 +4,19 @@ use rquickjs::{
     Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
-use crate::utils::promise::{PromisePrimordials, ResolveablePromise};
-
-use super::{
-    byob_reader::{ReadableStreamBYOBReaderClass, ReadableStreamBYOBReaderOwned},
-    controller::ReadableStreamController,
-    default_reader::{ReadableStreamDefaultReaderClass, ReadableStreamDefaultReaderOwned},
-    objects::ReadableStreamObjects,
-    ReadableStream, ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamDefaultReader,
-    ReadableStreamOwned, ReadableStreamState,
+use crate::{
+    readable::{
+        byob_reader::ReadableStreamBYOBReader,
+        byob_reader::{ReadableStreamBYOBReaderClass, ReadableStreamBYOBReaderOwned},
+        controller::ReadableStreamController,
+        default_reader::{
+            ReadableStreamDefaultReader, ReadableStreamDefaultReaderClass,
+            ReadableStreamDefaultReaderOwned,
+        },
+        objects::ReadableStreamObjects,
+        stream::{ReadableStream, ReadableStreamClass, ReadableStreamOwned, ReadableStreamState},
+    },
+    utils::promise::{PromisePrimordials, ResolveablePromise},
 };
 
 pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
@@ -41,7 +45,7 @@ pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
 
 // typedef (ReadableStreamDefaultController or ReadableByteStreamController) ReadableStreamController;
 #[derive(JsLifetime, Clone, PartialEq, Eq)]
-pub(super) enum ReadableStreamReaderClass<'js> {
+pub enum ReadableStreamReaderClass<'js> {
     ReadableStreamDefaultReader(ReadableStreamDefaultReaderClass<'js>),
     ReadableStreamBYOBReader(ReadableStreamBYOBReaderClass<'js>),
 }

@@ -12,22 +12,32 @@ use rquickjs::{
     ArrayBuffer, Class, Ctx, Error, Function, IntoJs, Promise, Result, Value,
 };
 
-use super::{
-    byob_reader::{ReadableStreamReadIntoRequest, ViewBytes},
-    byte_controller::ReadableByteStreamControllerOwned,
-    controller::ReadableStreamController,
-    default_controller::{ReadableStreamDefaultController, ReadableStreamDefaultControllerOwned},
-    default_reader::ReadableStreamDefaultReaderOwned,
-    objects::{ReadableByteStreamObjects, ReadableStreamDefaultControllerObjects},
-    reader::UndefinedReader,
-    CancelAlgorithm, PullAlgorithm, ReadableByteStreamController, ReadableStream,
-    ReadableStreamBYOBReader, ReadableStreamClass, ReadableStreamClassObjects,
-    ReadableStreamControllerClass, ReadableStreamDefaultReader, ReadableStreamObjects,
-    ReadableStreamReadRequest, ReadableStreamReader, ReadableStreamReaderClass,
-    ReadableStreamReaderOwned, StartAlgorithm,
-};
 use crate::{
-    readable::objects::{ReadableStreamBYOBObjects, ReadableStreamDefaultReaderObjects},
+    readable::{
+        byob_reader::{ReadableStreamBYOBReader, ReadableStreamReadIntoRequest, ViewBytes},
+        byte_controller::{ReadableByteStreamController, ReadableByteStreamControllerOwned},
+        controller::{ReadableStreamController, ReadableStreamControllerClass},
+        default_controller::{
+            ReadableStreamDefaultController, ReadableStreamDefaultControllerOwned,
+        },
+        default_reader::{
+            ReadableStreamDefaultReader, ReadableStreamDefaultReaderOwned,
+            ReadableStreamReadRequest,
+        },
+        objects::{ReadableByteStreamObjects, ReadableStreamDefaultControllerObjects},
+        objects::{
+            ReadableStreamBYOBObjects, ReadableStreamClassObjects,
+            ReadableStreamDefaultReaderObjects, ReadableStreamObjects,
+        },
+        reader::{
+            ReadableStreamReader, ReadableStreamReaderClass, ReadableStreamReaderOwned,
+            UndefinedReader,
+        },
+        stream::{
+            algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm},
+            ReadableStream, ReadableStreamClass,
+        },
+    },
     utils::promise::{upon_promise, ResolveablePromise},
 };
 
