@@ -195,11 +195,11 @@ impl KeyAlgorithm {
                     )?;
                 }
 
-                let length = if let KeyAlgorithmMode::Import { data, .. } = mode {
-                    data.len() as u16
+                let length = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
+                    import_aes(ctx, format, kind, data, name_ref)?
                 } else {
                     obj.or_throw(ctx)?.get_required("length", "algorithm")?
-                };
+                } as u16;
 
                 if !matches!(length, 128 | 192 | 256) {
                     return Err(Exception::throw_type(
@@ -545,6 +545,49 @@ impl KeyAlgorithm {
 
         Ok(())
     }
+}
+
+fn import_aes<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+    algorithm_name: &str,
+) -> Result<usize> {
+    *kind = KeyKind::Secret;
+    match format {
+        KeyFormat::Jwk(object) => {
+            let kty: String = object.get_required("kty", "keyData")?;
+            if kty == "oct" {
+                let k: String = object.get_required("k", "keyData")?;
+                let alg: String = object.get_required("alg", "keyData")?;
+
+                //extract AES-{suffix}
+                let (_, name_suffix) = algorithm_name.split_once("-").unwrap_or_default();
+                let aes_variant = &alg[3..];
+
+                if aes_variant != name_suffix {
+                    return Err(Exception::throw_type(
+                        ctx,
+                        &["Imported key is not a AES-", name_suffix, " key"].concat(),
+                    ));
+                }
+
+                *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
+                return Ok(data.len());
+            }
+        },
+        KeyFormat::Raw(object_bytes) => {
+            let bytes = object_bytes.into_bytes();
+            if bytes.len() != 32 {
+                return Err(Exception::throw_type(ctx, "AES keys must be 32 bytes long"));
+            }
+            *data = bytes;
+            return Ok(data.len());
+        },
+        _ => {},
+    }
+    Err(Exception::throw_type(ctx, "Only AES keys are supported"))
 }
 
 fn import_crv_key<'js>(
