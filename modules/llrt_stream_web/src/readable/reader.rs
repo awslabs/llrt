@@ -293,17 +293,17 @@ impl<'js> ReadableStreamGenericReader<'js> {
 
         // If stream.[[state]] is "readable", reject reader.[[closedPromise]] with a TypeError exception.
         if let ReadableStreamState::Readable = stream.state {
-            let e: Value = stream.constructor_type_error.call((
+            self.closed_promise.reject_with_constructor(
+                &stream.constructor_type_error,
                 "Reader was released and can no longer be used to monitor the stream's closedness",
-            ))?;
-            self.closed_promise.reject(e)?;
+            )?;
         } else {
             // Otherwise, set reader.[[closedPromise]] to a promise rejected with a TypeError exception.
-            let e: Value = stream.constructor_type_error.call((
+            self.closed_promise = ResolveablePromise::rejected_with_constructor(
+                &stream.promise_primordials,
+                &stream.constructor_type_error,
                 "Reader was released and can no longer be used to monitor the stream's closedness",
-            ))?;
-            self.closed_promise =
-                ResolveablePromise::rejected_with(&stream.promise_primordials, e)?;
+            )?;
         }
 
         // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.

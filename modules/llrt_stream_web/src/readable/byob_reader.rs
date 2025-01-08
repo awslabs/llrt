@@ -21,7 +21,7 @@ use super::{
 use crate::{
     readable::default_reader::ReadableStreamDefaultReaderOwned,
     utils::{
-        promise::{promise_rejected_with, ResolveablePromise},
+        promise::{promise_rejected_with_constructor, with_promise_result, ResolveablePromise},
         UnwrapOrUndefined, ValueOrUndefined,
     },
 };
@@ -172,182 +172,165 @@ impl<'js> ReadableStreamBYOBReader<'js> {
         view: Opt<Value<'js>>,
         options: Opt<Value<'js>>,
     ) -> Result<Promise<'js>> {
-        let options = match options.0 {
-            None => ReadableStreamBYOBReaderReadOptions { min: 1 },
-            Some(value) => match ReadableStreamBYOBReaderReadOptions::from_js(&ctx, value) {
-                Ok(value) => value,
-                Err(Error::Exception) => {
-                    return promise_rejected_with(&reader.generic.promise_primordials, ctx.catch());
+        with_promise_result(&ctx, || {
+            let options = match options.0 {
+                None => ReadableStreamBYOBReaderReadOptions { min: 1 },
+                Some(value) => ReadableStreamBYOBReaderReadOptions::from_js(&ctx, value)?,
+            };
+
+            let view = ViewBytes::from_value(
+                &ctx,
+                &reader.generic.function_array_buffer_is_view,
+                view.0.as_ref(),
+            )?;
+
+            let (buffer, byte_length, _) = view.get_array_buffer()?;
+
+            // If view.[[ByteLength]] is 0, return a promise rejected with a TypeError exception.
+            if byte_length == 0 {
+                return promise_rejected_with_constructor(
+                    &reader.generic.constructor_type_error,
+                    &reader.generic.promise_primordials,
+                    "view must have non-zero byteLength",
+                );
+            }
+
+            // If view.[[ViewedArrayBuffer]].[[ArrayBufferByteLength]] is 0, return a promise rejected with a TypeError exception.
+            if buffer.is_empty() {
+                return promise_rejected_with_constructor(
+                    &reader.generic.constructor_type_error,
+                    &reader.generic.promise_primordials,
+                    "view's buffer must have non-zero byteLength",
+                );
+            }
+
+            // If ! IsDetachedBuffer(view.[[ViewedArrayBuffer]]) is true, return a promise rejected with a TypeError exception.
+            if buffer.as_bytes().is_none() {
+                return promise_rejected_with_constructor(
+                    &reader.generic.constructor_type_error,
+                    &reader.generic.promise_primordials,
+                    "view's buffer has been detached",
+                );
+            }
+
+            // If options["min"] is 0, return a promise rejected with a TypeError exception.
+            if options.min == 0 {
+                return promise_rejected_with_constructor(
+                    &reader.generic.constructor_type_error,
+                    &reader.generic.promise_primordials,
+                    "options.min must be greater than 0",
+                );
+            }
+
+            // If view has a [[TypedArrayName]] internal slot,
+            let typed_array_len = match &view.0 {
+                ObjectBytes::U8Array(a) => Some(a.len()),
+                ObjectBytes::I8Array(a) => Some(a.len()),
+                ObjectBytes::U16Array(a) => Some(a.len()),
+                ObjectBytes::I16Array(a) => Some(a.len()),
+                ObjectBytes::U32Array(a) => Some(a.len()),
+                ObjectBytes::I32Array(a) => Some(a.len()),
+                ObjectBytes::U64Array(a) => Some(a.len()),
+                ObjectBytes::I64Array(a) => Some(a.len()),
+                ObjectBytes::F32Array(a) => Some(a.len()),
+                ObjectBytes::F64Array(a) => Some(a.len()),
+                _ => None,
+            };
+            if let Some(typed_array_len) = typed_array_len {
+                // If options["min"] > view.[[ArrayLength]], return a promise rejected with a RangeError exception.
+                if options.min > typed_array_len as u64 {
+                    return promise_rejected_with_constructor(
+                        &reader.generic.constructor_range_error,
+                        &reader.generic.promise_primordials,
+                        "options.min must be less than or equal to views length",
+                    );
+                }
+            } else {
+                // Otherwise (i.e., it is a DataView),
+                // If options["min"] > view.[[ByteLength]], return a promise rejected with a RangeError exception.
+                if options.min > byte_length as u64 {
+                    return promise_rejected_with_constructor(
+                        &reader.generic.constructor_range_error,
+                        &reader.generic.promise_primordials,
+                        "options.min must be less than or equal to views byteLength",
+                    );
+                }
+            }
+
+            // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
+            if reader.generic.stream.is_none() {
+                return promise_rejected_with_constructor(
+                    &reader.generic.constructor_type_error,
+                    &reader.generic.promise_primordials,
+                    "Cannot read a stream using a released reader",
+                );
+            }
+
+            // Let promise be a new promise.
+            let promise = ResolveablePromise::new(&ctx)?;
+            // Let readIntoRequest be a new read-into request with the following items:
+            #[derive(Trace)]
+            struct ReadIntoRequest<'js> {
+                promise: ResolveablePromise<'js>,
+            }
+
+            impl<'js> ReadableStreamReadIntoRequest<'js> for ReadIntoRequest<'js> {
+                // chunk steps, given chunk
+                // Resolve promise with «[ "value" → chunk, "done" → false ]».
+                fn chunk_steps(
+                    &self,
+                    objects: ReadableStreamBYOBObjects<'js>,
+                    chunk: Value<'js>,
+                ) -> Result<ReadableStreamBYOBObjects<'js>> {
+                    self.promise.resolve(ReadableStreamReadResult {
+                        value: Some(chunk),
+                        done: false,
+                    })?;
+                    Ok(objects)
+                }
+
+                // close steps, given chunk
+                // Resolve promise with «[ "value" → chunk, "done" → true ]».
+                fn close_steps(
+                    &self,
+                    objects: ReadableStreamBYOBObjects<'js>,
+                    chunk: Value<'js>,
+                ) -> Result<ReadableStreamBYOBObjects<'js>> {
+                    self.promise.resolve(ReadableStreamReadResult {
+                        value: Some(chunk),
+                        done: true,
+                    })?;
+                    Ok(objects)
+                }
+
+                // error steps, given e
+                // Reject promise with e.
+                fn error_steps(
+                    &self,
+                    objects: ReadableStreamBYOBObjects<'js>,
+                    reason: Value<'js>,
+                ) -> Result<ReadableStreamBYOBObjects<'js>> {
+                    self.promise.reject(reason)?;
+                    Ok(objects)
+                }
+            }
+
+            let objects = ReadableStreamObjects::from_byob_reader(reader.0);
+
+            // Perform ! ReadableStreamBYOBReaderRead(this, view, options["min"], readIntoRequest).
+            Self::readable_stream_byob_reader_read(
+                &ctx,
+                objects,
+                view,
+                options.min,
+                ReadIntoRequest {
+                    promise: promise.clone(),
                 },
-                Err(err) => return Err(err),
-            },
-        };
+            )?;
 
-        let view = match ViewBytes::from_value(
-            &ctx,
-            &reader.generic.function_array_buffer_is_view,
-            view.0.as_ref(),
-        ) {
-            Ok(view) => view,
-            Err(Error::Exception) => {
-                return promise_rejected_with(&reader.generic.promise_primordials, ctx.catch());
-            },
-            Err(err) => return Err(err),
-        };
-
-        let (buffer, byte_length) = match view.get_array_buffer() {
-            Ok((buffer, byte_length, _)) => (buffer, byte_length),
-            // this can happen if its detached
-            Err(Error::Exception) => {
-                return promise_rejected_with(&reader.generic.promise_primordials, ctx.catch())
-            },
-            Err(err) => return Err(err),
-        };
-
-        // If view.[[ByteLength]] is 0, return a promise rejected with a TypeError exception.
-        if byte_length == 0 {
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("view must have non-zero byteLength",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
-        }
-
-        // If view.[[ViewedArrayBuffer]].[[ArrayBufferByteLength]] is 0, return a promise rejected with a TypeError exception.
-        if buffer.is_empty() {
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("view's buffer must have non-zero byteLength",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
-        }
-
-        // If ! IsDetachedBuffer(view.[[ViewedArrayBuffer]]) is true, return a promise rejected with a TypeError exception.
-        if buffer.as_bytes().is_none() {
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("view's buffer has been detached",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
-        }
-
-        // If options["min"] is 0, return a promise rejected with a TypeError exception.
-        if options.min == 0 {
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("options.min must be greater than 0",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
-        }
-
-        // If view has a [[TypedArrayName]] internal slot,
-        let typed_array_len = match &view.0 {
-            ObjectBytes::U8Array(a) => Some(a.len()),
-            ObjectBytes::I8Array(a) => Some(a.len()),
-            ObjectBytes::U16Array(a) => Some(a.len()),
-            ObjectBytes::I16Array(a) => Some(a.len()),
-            ObjectBytes::U32Array(a) => Some(a.len()),
-            ObjectBytes::I32Array(a) => Some(a.len()),
-            ObjectBytes::U64Array(a) => Some(a.len()),
-            ObjectBytes::I64Array(a) => Some(a.len()),
-            ObjectBytes::F32Array(a) => Some(a.len()),
-            ObjectBytes::F64Array(a) => Some(a.len()),
-            _ => None,
-        };
-        if let Some(typed_array_len) = typed_array_len {
-            // If options["min"] > view.[[ArrayLength]], return a promise rejected with a RangeError exception.
-            if options.min > typed_array_len as u64 {
-                let e: Value = reader
-                    .generic
-                    .constructor_range_error
-                    .call(("options.min must be less than or equal to views length",))?;
-                return promise_rejected_with(&reader.generic.promise_primordials, e);
-            }
-        } else {
-            // Otherwise (i.e., it is a DataView),
-            // If options["min"] > view.[[ByteLength]], return a promise rejected with a RangeError exception.
-            if options.min > byte_length as u64 {
-                let e: Value = reader
-                    .generic
-                    .constructor_range_error
-                    .call(("options.min must be less than or equal to views byteLength",))?;
-                return promise_rejected_with(&reader.generic.promise_primordials, e);
-            }
-        }
-
-        // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
-        if reader.generic.stream.is_none() {
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("Cannot read a stream using a released reader",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
-        }
-
-        // Let promise be a new promise.
-        let promise = ResolveablePromise::new(&ctx)?;
-        // Let readIntoRequest be a new read-into request with the following items:
-        #[derive(Trace)]
-        struct ReadIntoRequest<'js> {
-            promise: ResolveablePromise<'js>,
-        }
-
-        impl<'js> ReadableStreamReadIntoRequest<'js> for ReadIntoRequest<'js> {
-            // chunk steps, given chunk
-            // Resolve promise with «[ "value" → chunk, "done" → false ]».
-            fn chunk_steps(
-                &self,
-                objects: ReadableStreamBYOBObjects<'js>,
-                chunk: Value<'js>,
-            ) -> Result<ReadableStreamBYOBObjects<'js>> {
-                self.promise.resolve(ReadableStreamReadResult {
-                    value: Some(chunk),
-                    done: false,
-                })?;
-                Ok(objects)
-            }
-
-            // close steps, given chunk
-            // Resolve promise with «[ "value" → chunk, "done" → true ]».
-            fn close_steps(
-                &self,
-                objects: ReadableStreamBYOBObjects<'js>,
-                chunk: Value<'js>,
-            ) -> Result<ReadableStreamBYOBObjects<'js>> {
-                self.promise.resolve(ReadableStreamReadResult {
-                    value: Some(chunk),
-                    done: true,
-                })?;
-                Ok(objects)
-            }
-
-            // error steps, given e
-            // Reject promise with e.
-            fn error_steps(
-                &self,
-                objects: ReadableStreamBYOBObjects<'js>,
-                reason: Value<'js>,
-            ) -> Result<ReadableStreamBYOBObjects<'js>> {
-                self.promise.reject(reason)?;
-                Ok(objects)
-            }
-        }
-
-        let objects = ReadableStreamObjects::from_byob_reader(reader.0);
-
-        // Perform ! ReadableStreamBYOBReaderRead(this, view, options["min"], readIntoRequest).
-        Self::readable_stream_byob_reader_read(
-            &ctx,
-            objects,
-            view,
-            options.min,
-            ReadIntoRequest {
-                promise: promise.clone(),
-            },
-        )?;
-
-        // Return promise.
-        Ok(promise.promise)
+            // Return promise.
+            Ok(promise.promise)
+        })
     }
 
     fn release_lock(reader: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
@@ -376,11 +359,11 @@ impl<'js> ReadableStreamBYOBReader<'js> {
     ) -> Result<Promise<'js>> {
         if reader.generic.stream.is_none() {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("Cannot cancel a stream using a released reader",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &reader.generic.constructor_type_error,
+                &reader.generic.promise_primordials,
+                "Cannot cancel a stream using a released reader",
+            );
         }
 
         let objects = ReadableStreamObjects::from_byob_reader(reader.0);

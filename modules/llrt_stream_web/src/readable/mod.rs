@@ -8,7 +8,7 @@ use iterator::{IteratorKind, IteratorRecord, ReadableStreamAsyncIterator};
 use llrt_abort::AbortSignal;
 use llrt_utils::{
     error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
-    option::{Null, Undefined},
+    option::{Null, NullableOpt, Undefined},
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
@@ -24,13 +24,12 @@ use rquickjs::{
     class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     prelude::{List, OnceFn, Opt, This},
-    ArrayBuffer, Class, Ctx, Error, Exception, FromJs, Function, IntoJs, JsLifetime, Object,
-    Promise, Result, Type, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Error, Exception, FromJs, Function, IntoJs, JsLifetime,
+    Object, Promise, Result, Value,
 };
 
 use super::{
     queuing_strategy::{QueuingStrategy, SizeAlgorithm},
-    writable::WritableStream,
     writable::WritableStreamDefaultWriter,
 };
 
@@ -58,11 +57,13 @@ use crate::{
     readable_writable_pair::ReadableWritablePair,
     utils::{
         promise::{
-            promise_rejected_with, promise_resolved_with, upon_promise_fulfilment,
+            promise_rejected_catch, promise_rejected_with, promise_rejected_with_constructor,
+            promise_resolved_with, upon_promise_fulfilment, with_promise_result,
             PromisePrimordials,
         },
         UnwrapOrUndefined, ValueOrUndefined,
     },
+    writable::WritableStreamOwned,
 };
 
 #[rquickjs::class]
@@ -211,10 +212,11 @@ impl<'js> ReadableStream<'js> {
     ) -> Result<Promise<'js>> {
         // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
         if stream.is_readable_stream_locked() {
-            let e: Value = stream
-                .constructor_type_error
-                .call(("Cannot cancel a stream that already has a reader",))?;
-            return promise_rejected_with(&stream.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &stream.constructor_type_error,
+                &stream.promise_primordials,
+                "Cannot cancel a stream that already has a reader",
+            );
         }
 
         let objects = ReadableStreamObjects::from_stream(stream.0).refresh_reader();
@@ -260,7 +262,7 @@ impl<'js> ReadableStream<'js> {
         ctx: Ctx<'js>,
         stream: This<OwnedBorrowMut<'js, Self>>,
         transform: ReadableWritablePair<'js>,
-        options: Opt<Value<'js>>,
+        options: NullableOpt<StreamPipeOptions<'js>>,
     ) -> Result<ReadableStreamClass<'js>> {
         // If ! IsReadableStreamLocked(this) is true, throw a TypeError exception.
         if stream.is_readable_stream_locked() {
@@ -269,12 +271,6 @@ impl<'js> ReadableStream<'js> {
                 "ReadableStream.prototype.pipeThrough cannot be used on a locked ReadableStream",
             ));
         }
-
-        let options = match options.0 {
-            Some(options) if !options.is_null() => Some(StreamPipeOptions::from_js(&ctx, options)?),
-            Some(_null) => None,
-            None => None,
-        };
 
         let readable_class = transform.readable.clone();
         let writable = OwnedBorrowMut::from_class(transform.writable);
@@ -288,8 +284,7 @@ impl<'js> ReadableStream<'js> {
         }
 
         // Let signal be options["signal"] if it exists, or undefined otherwise.
-        let options = options.unwrap_or_default();
-
+        let options = options.0.unwrap_or_default();
         let signal = match options.signal {
             Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
                 Ok(signal) => Some(signal),
@@ -325,84 +320,70 @@ impl<'js> ReadableStream<'js> {
         ctx: Ctx<'js>,
         stream: This<Value<'js>>,
         destination: Value<'js>,
-        options: Opt<Value<'js>>,
+        options: NullableOpt<Value<'js>>,
     ) -> Result<Promise<'js>> {
-        let Ok(stream) = ReadableStreamClass::<'js>::from_value(&stream.0) else {
-            let e: Value = BasePrimordials::get(&ctx)?.constructor_type_error.call((
-                "'pipeTo' called on an object that is not a valid instance of ReadableStream.",
-            ))?;
-            return promise_rejected_with(&*PromisePrimordials::get(&ctx)?, e);
-        };
+        with_promise_result(&ctx, || {
+            let stream =
+                ReadableStreamOwned::from_class(Class::from_value(&stream.0).or_throw_type(
+                    &ctx,
+                    "'pipeTo' called on an object that is not a valid instance of ReadableStream.",
+                )?);
 
-        let Ok(destination) = Class::<WritableStream<'js>>::from_value(&destination) else {
-            let e: Value = BasePrimordials::get(&ctx)?
-                .constructor_type_error
-                .call(("Failed to execute 'pipeTo' on 'ReadableStream': parameter 1",))?;
-            return promise_rejected_with(&*PromisePrimordials::get(&ctx)?, e);
-        };
+            let options = match options.0 {
+                Some(options) => Some(StreamPipeOptions::from_js(&ctx, options)?),
+                None => None,
+            };
 
-        let options = match options.0 {
-            Some(options) if !options.is_null() => {
-                Some(match StreamPipeOptions::from_js(&ctx, options) {
-                    Ok(options) => options,
-                    Err(Error::Exception) => {
-                        return promise_rejected_with(
-                            &*PromisePrimordials::get(&ctx)?,
-                            ctx.catch(),
+            // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
+            if stream.is_readable_stream_locked() {
+                return promise_rejected_with_constructor(
+                    &stream.constructor_type_error,
+                    &stream.promise_primordials,
+                    "ReadableStream.prototype.pipeTo cannot be used on a locked ReadableStream",
+                );
+            }
+
+            let destination = WritableStreamOwned::from_class(
+                Class::from_value(&destination).or_throw_type(&ctx,"'pipeTo' instructed to pipe to an object that is not a valid instance of WritableStream.")?,
+            );
+
+            // If ! IsWritableStreamLocked(destination) is true, return a promise rejected with a TypeError exception.
+            if destination.is_writable_stream_locked() {
+                return promise_rejected_with_constructor(
+                    &stream.constructor_type_error,
+                    &stream.promise_primordials,
+                    "ReadableStream.prototype.pipeTo cannot be used on a locked WritableStream",
+                );
+            }
+
+            // Let signal be options["signal"] if it exists, or undefined otherwise.
+            let options = options.unwrap_or_default();
+
+            let signal = match options.signal {
+                Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
+                    Ok(signal) => Some(signal),
+                    Err(_) => {
+                        return promise_rejected_with_constructor(
+                            &stream.constructor_type_error,
+                            &stream.promise_primordials,
+                            "Invalid signal argument",
                         );
                     },
-                    Err(err) => return Err(err),
-                })
-            },
-            Some(_null) => None,
-            None => None,
-        };
-
-        let stream = OwnedBorrowMut::from_class(stream);
-        let destination = OwnedBorrowMut::from_class(destination);
-
-        // If ! IsReadableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-        if stream.is_readable_stream_locked() {
-            let e: Value = stream.constructor_type_error.call((
-                "ReadableStream.prototype.pipeTo cannot be used on a locked ReadableStream",
-            ))?;
-            return promise_rejected_with(&stream.promise_primordials, e);
-        }
-
-        // If ! IsWritableStreamLocked(destination) is true, return a promise rejected with a TypeError exception.
-        if destination.is_writable_stream_locked() {
-            let e: Value = stream.constructor_type_error.call((
-                "ReadableStream.prototype.pipeTo cannot be used on a locked WritableStream",
-            ))?;
-            return promise_rejected_with(&stream.promise_primordials, e);
-        }
-
-        // Let signal be options["signal"] if it exists, or undefined otherwise.
-        let options = options.unwrap_or_default();
-
-        let signal = match options.signal {
-            Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
-                Ok(signal) => Some(signal),
-                Err(_) => {
-                    let e: Value = stream
-                        .constructor_type_error
-                        .call(("Invalid signal argument",))?;
-                    return promise_rejected_with(&stream.promise_primordials, e);
                 },
-            },
-            None => None,
-        };
+                None => None,
+            };
 
-        // Return ! ReadableStreamPipeTo(this, destination, options["preventClose"], options["preventAbort"], options["preventCancel"], signal).
-        Self::readable_stream_pipe_to(
-            ctx,
-            stream,
-            destination,
-            options.prevent_close,
-            options.prevent_abort,
-            options.prevent_cancel,
-            signal,
-        )
+            // Return ! ReadableStreamPipeTo(this, destination, options["preventClose"], options["preventAbort"], options["preventCancel"], signal).
+            Self::readable_stream_pipe_to(
+                ctx.clone(),
+                stream,
+                destination,
+                options.prevent_close,
+                options.prevent_abort,
+                options.prevent_cancel,
+                signal,
+            )
+        })
     }
 
     // sequence<ReadableStream> tee();
@@ -820,7 +801,7 @@ impl<'js> ReadableStream<'js> {
                 let next_promise = match next_result {
                     // If nextResult is an abrupt completion, return a promise rejected with nextResult.[[Value]].
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&promise_primordials, ctx.catch());
+                        return promise_rejected_catch(&ctx, &promise_primordials);
                     },
                     Err(err) => return Err(err),
                     // Let nextPromise be a promise resolved with nextResult.[[Value]].
@@ -883,7 +864,7 @@ impl<'js> ReadableStream<'js> {
                 let return_method: Function<'js> = match iterator.get(PredefinedAtom::Return) {
                     // If returnMethod is an abrupt completion, return a promise rejected with returnMethod.[[Value]].
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&promise_primordials, ctx.catch());
+                        return promise_rejected_catch(&ctx, &promise_primordials);
                     },
                     Err(err) => return Err(err),
                     Ok(None) => {
@@ -900,7 +881,7 @@ impl<'js> ReadableStream<'js> {
                 let return_result = match return_result {
                     // If returnResult is an abrupt completion, return a promise rejected with returnResult.[[Value]].
                     Err(Error::Exception) => {
-                        return promise_rejected_with(&promise_primordials, ctx.catch());
+                        return promise_rejected_catch(&ctx, &promise_primordials);
                     },
                     Err(err) => return Err(err),
                     Ok(return_result) => return_result,
@@ -982,34 +963,11 @@ enum ReadableStreamType {
     Bytes,
 }
 
-fn value_as_string(value: Value<'_>) -> Result<String> {
-    match value.type_of() {
-        Type::String => Ok(value.into_string().unwrap()),
-        Type::Object => {
-            if let Some(to_string) = value
-                .get_value_or_undefined::<_, Value>("toString")?
-                .and_then(|s| s.into_function())
-            {
-                to_string.call(())?
-            } else if let Some(value_of) = value
-                .get_value_or_undefined::<_, Value>("valueOf")?
-                .and_then(|s| s.into_function())
-            {
-                value_of.call(())?
-            } else {
-                return Err(Error::new_from_js("Object", "String"));
-            }
-        },
-        typ => return Err(Error::new_from_js(typ.as_str(), "String")),
-    }?
-    .to_string()
-}
-
 impl<'js> FromJs<'js> for ReadableStreamType {
-    fn from_js(_ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let typ = value.type_of();
 
-        match value_as_string(value)?.as_str() {
+        match Coerced::<String>::from_js(ctx, value)?.as_str() {
             "bytes" => Ok(Self::Bytes),
             _ => Err(Error::new_from_js(typ.as_str(), "ReadableStreamType")),
         }
@@ -1039,10 +997,10 @@ enum ReadableStreamReaderMode {
 }
 
 impl<'js> FromJs<'js> for ReadableStreamReaderMode {
-    fn from_js(_ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let typ = value.type_of();
 
-        match value_as_string(value)?.as_str() {
+        match Coerced::<String>::from_js(ctx, value)?.as_str() {
             "byob" => Ok(Self::Byob),
             _ => Err(Error::new_from_js(typ.as_str(), "ReadableStreamReaderMode")),
         }
@@ -1058,30 +1016,18 @@ struct StreamPipeOptions<'js> {
 }
 
 impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
-    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    fn from_js(_: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let ty_name = value.type_name();
         let obj = value
             .as_object()
             .ok_or(Error::new_from_js(ty_name, "Object"))?;
 
         let get_bool = |key| {
-            obj.get_value_or_undefined::<_, Value<'js>>(key)?
-                .filter(|value| !value.is_undefined() && !value.is_null())
-                .map(|value| {
-                    if let Some(bool) = value.as_bool() {
-                        return Ok(bool);
-                    }
-
-                    // call the Boolean constructor to determine falsiness
-                    let bool_object: Object<'js> = BasePrimordials::get(ctx)?
-                        .constructor_bool
-                        .construct((value,))?;
-
-                    bool_object
-                        .get::<_, Function<'js>>("valueOf")?
-                        .call((This(bool_object),))
-                })
-                .unwrap_or(Ok(false)) // undefined or null or missing all treated as false
+            Result::Ok(
+                obj.get_value_or_undefined::<_, Coerced<bool>>(key)?
+                    .map(|b| b.0)
+                    .unwrap_or(false),
+            ) // missing is treated as false
         };
 
         let prevent_abort = get_bool("preventAbort")?;

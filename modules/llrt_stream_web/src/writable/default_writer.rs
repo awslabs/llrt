@@ -14,6 +14,7 @@ use crate::utils::{
 use super::{
     default_controller::WritableStreamDefaultController, objects::WritableStreamObjects,
     writer::WritableStreamWriter, WritableStream, WritableStreamOwned, WritableStreamState,
+    __impl_class_WritableStream_::promise_rejected_with_constructor,
 };
 
 #[rquickjs::class]
@@ -85,11 +86,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
     ) -> Result<Promise<'js>> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         if writer.0.stream.is_none() {
-            let e: Value = writer
-                .constructor_type_error
-                .call(("Cannot abort a stream using a released writer",))?;
-
-            promise_rejected_with(&writer.promise_primordials, e)
+            promise_rejected_with_constructor(
+                &writer.constructor_type_error,
+                &writer.promise_primordials,
+                "Cannot abort a stream using a released writer",
+            )
         } else {
             let objects = WritableStreamObjects::from_writer(writer.0);
 
@@ -101,22 +102,21 @@ impl<'js> WritableStreamDefaultWriter<'js> {
     fn close(ctx: Ctx<'js>, writer: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         if writer.0.stream.is_none() {
-            let e: Value = writer
-                .constructor_type_error
-                .call(("Cannot close a stream using a released writer",))?;
-
-            promise_rejected_with(&writer.promise_primordials, e)
+            promise_rejected_with_constructor(
+                &writer.constructor_type_error,
+                &writer.promise_primordials,
+                "Cannot close a stream using a released writer",
+            )
         } else {
             let objects = WritableStreamObjects::from_writer(writer.0);
 
             // If ! WritableStreamCloseQueuedOrInFlight(stream) is true, return a promise rejected with a TypeError exception.
             if objects.stream.writable_stream_close_queued_or_in_flight() {
-                let e: Value = objects
-                    .writer
-                    .constructor_type_error
-                    .call(("Cannot close an already-closing stream",))?;
-
-                return promise_rejected_with(&objects.stream.promise_primordials, e);
+                return promise_rejected_with_constructor(
+                    &objects.writer.constructor_type_error,
+                    &objects.writer.promise_primordials,
+                    "Cannot close an already-closing",
+                );
             }
 
             // Return ! WritableStreamDefaultWriterClose(this).
@@ -143,11 +143,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
     ) -> Result<Promise<'js>> {
         // If this.[[stream]] is undefined, throw a TypeError exception.
         if writer.0.stream.is_none() {
-            let e: Value = writer
-                .constructor_type_error
-                .call(("Cannot write a stream using a released writer",))?;
-
-            promise_rejected_with(&writer.promise_primordials, e)
+            promise_rejected_with_constructor(
+                &writer.constructor_type_error,
+                &writer.promise_primordials,
+                "Cannot write a stream using a released writer",
+            )
         } else {
             let objects = WritableStreamObjects::from_writer(writer.0);
 
@@ -411,12 +411,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
 
         // If stream is not equal to writer.[[stream]], return a promise rejected with a TypeError exception.
         if objects.writer.stream != Some(stream_class) {
-            let e: Value = objects
-                .stream
-                .constructor_type_error
-                .call(("Cannot write to a stream using a released writer",))?;
-
-            return promise_rejected_with(&objects.stream.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &objects.stream.constructor_type_error,
+                &objects.stream.promise_primordials,
+                "Cannot write to a stream using a released writer",
+            );
         }
 
         // Let state be stream.[[state]].
@@ -432,12 +431,11 @@ impl<'js> WritableStreamDefaultWriter<'js> {
         if objects.stream.writable_stream_close_queued_or_in_flight()
             || matches!(objects.stream.state, WritableStreamState::Closed)
         {
-            let e: Value = objects
-                .stream
-                .constructor_type_error
-                .call(("The stream is closing or closed and cannot be written to",))?;
-
-            return promise_rejected_with(&objects.stream.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &objects.stream.constructor_type_error,
+                &objects.stream.promise_primordials,
+                "The stream is closing or closed and cannot be written to",
+            );
         }
 
         // If state is "erroring", return a promise rejected with stream.[[storedError]].

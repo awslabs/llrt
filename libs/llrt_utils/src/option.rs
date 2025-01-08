@@ -1,5 +1,6 @@
 use rquickjs::{
     class::{Trace, Tracer},
+    function::{FromParam, ParamRequirement, ParamsAccessor},
     Ctx, FromJs, IntoJs, JsLifetime, Result, Type, Value,
 };
 
@@ -73,5 +74,28 @@ unsafe impl<'js, T: JsLifetime<'js>> JsLifetime<'js> for Null<T> {
 impl<'js, T: Trace<'js>> Trace<'js> for Null<T> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.0.trace(tracer)
+    }
+}
+
+/// Helper type for accepting no value, or null, but considering undefined as a value
+pub struct NullableOpt<T>(pub Option<T>);
+
+impl<'js, T: FromJs<'js>> FromParam<'js> for NullableOpt<T> {
+    fn param_requirement() -> ParamRequirement {
+        ParamRequirement::optional()
+    }
+
+    fn from_param<'a>(params: &mut ParamsAccessor<'a, 'js>) -> Result<Self> {
+        if !params.is_empty() {
+            let arg = params.arg();
+            if arg.is_null() {
+                Ok(NullableOpt(None))
+            } else {
+                let ctx = params.ctx().clone();
+                Ok(NullableOpt(Some(T::from_js(&ctx, arg)?)))
+            }
+        } else {
+            Ok(NullableOpt(None))
+        }
     }
 }

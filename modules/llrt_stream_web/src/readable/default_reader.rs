@@ -9,7 +9,7 @@ use rquickjs::{
     Class, Ctx, Exception, Promise, Result, Value,
 };
 
-use crate::utils::promise::{promise_rejected_with, ResolveablePromise};
+use crate::utils::promise::{promise_rejected_with_constructor, ResolveablePromise};
 use crate::utils::UnwrapOrUndefined;
 
 use super::controller::ReadableStreamController;
@@ -150,11 +150,11 @@ impl<'js> ReadableStreamDefaultReader<'js> {
     fn read(ctx: Ctx<'js>, reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         if reader.generic.stream.is_none() {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("Cannot read from a stream using a released reader",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &reader.generic.constructor_type_error,
+                &reader.generic.promise_primordials,
+                "Cannot read from a stream using a released reader",
+            );
         }
 
         let objects = ReadableStreamObjects::from_default_reader(reader.0);
@@ -246,11 +246,11 @@ impl<'js> ReadableStreamDefaultReader<'js> {
     ) -> Result<Promise<'js>> {
         if reader.generic.stream.is_none() {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
-            let e: Value = reader
-                .generic
-                .constructor_type_error
-                .call(("Cannot cancel a stream using a released reader",))?;
-            return promise_rejected_with(&reader.generic.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &reader.generic.constructor_type_error,
+                &reader.generic.promise_primordials,
+                "Cannot cancel a stream using a released reader",
+            );
         };
 
         let objects = ReadableStreamObjects::from_default_reader(reader.0);

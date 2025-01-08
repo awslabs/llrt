@@ -19,6 +19,22 @@ pub fn promise_rejected_with<'js>(
         .call((This(primordials.promise_constructor.clone()), value))
 }
 
+pub fn promise_rejected_catch<'js>(
+    ctx: &Ctx<'js>,
+    promise_primordials: &PromisePrimordials<'js>,
+) -> Result<Promise<'js>> {
+    promise_rejected_with(promise_primordials, ctx.catch())
+}
+
+pub fn promise_rejected_with_constructor<'js, T: From<Error>>(
+    constructor: &Constructor<'js>,
+    promise_primordials: &PromisePrimordials<'js>,
+    msg: &str,
+) -> std::result::Result<Promise<'js>, T> {
+    let e: Value = constructor.call((msg,))?;
+    Ok(promise_rejected_with(promise_primordials, e)?)
+}
+
 pub fn promise_resolved_with<'js>(
     ctx: &Ctx<'js>,
     primordials: &PromisePrimordials<'js>,
@@ -146,6 +162,22 @@ impl<'js> ResolveablePromise<'js> {
         })
     }
 
+    pub fn rejected_with_constructor(
+        primordials: &PromisePrimordials<'js>,
+        constructor: &Constructor<'js>,
+        msg: &str,
+    ) -> Result<Self> {
+        Ok(Self {
+            promise: promise_rejected_with_constructor::<rquickjs::Error>(
+                constructor,
+                primordials,
+                msg,
+            )?,
+            resolve: None,
+            reject: None,
+        })
+    }
+
     pub fn resolve(&self, value: impl IntoArg<'js>) -> Result<()> {
         if let Some(resolve) = &self.resolve {
             let () = resolve.call((value,))?;
@@ -167,6 +199,14 @@ impl<'js> ResolveablePromise<'js> {
         Ok(())
     }
 
+    pub fn reject_with_constructor(&self, constructor: &Constructor<'js>, msg: &str) -> Result<()> {
+        if let Some(reject) = &self.reject {
+            let e: Value = constructor.call((msg,))?;
+            let () = reject.call((e,))?;
+        }
+        Ok(())
+    }
+
     pub fn is_pending(&self) -> bool {
         self.promise.state() == PromiseState::Pending
     }
@@ -184,5 +224,16 @@ impl<'js> Trace<'js> for ResolveablePromise<'js> {
         self.promise.trace(tracer);
         self.resolve.trace(tracer);
         self.reject.trace(tracer);
+    }
+}
+
+pub fn with_promise_result<'js>(
+    ctx: &Ctx<'js>,
+    f: impl FnOnce() -> Result<Promise<'js>>,
+) -> Result<Promise<'js>> {
+    match f() {
+        Ok(value) => Ok(value),
+        Err(Error::Exception) => promise_rejected_catch(ctx, &*PromisePrimordials::get(ctx)?),
+        Err(err) => Err(err),
     }
 }

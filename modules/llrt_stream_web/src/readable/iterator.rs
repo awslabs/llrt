@@ -13,8 +13,8 @@ use rquickjs::{
     function::Constructor,
     methods,
     prelude::{Opt, This},
-    Class, Ctx, Error, Exception, FromJs, Function, IntoAtom, IntoJs, JsLifetime, Object, Promise,
-    Result, Symbol, Type, Value,
+    Class, Coerced, Ctx, Error, Exception, FromJs, Function, IntoAtom, IntoJs, JsLifetime, Object,
+    Promise, Result, Symbol, Type, Value,
 };
 
 use super::{
@@ -196,20 +196,8 @@ impl<'js> IteratorRecord<'js> {
     }
 
     pub(super) fn iterator_complete(iterator_result: &Object<'js>) -> Result<bool> {
-        let done: Value<'js> = iterator_result.get(PredefinedAtom::Done)?;
-        Ok(match done.type_of() {
-            Type::Bool => done.as_bool().unwrap(),
-            Type::Undefined => false,
-            Type::Null => false,
-            Type::Float => match done.as_float().unwrap() {
-                0.0 => false,
-                val if val.is_nan() => false,
-                _ => true,
-            },
-            Type::Int => !matches!(done.as_int().unwrap(), 0),
-            Type::String => !matches!(done.as_string().unwrap().to_string().as_deref(), Ok("")),
-            _ => true,
-        })
+        let done: Coerced<bool> = iterator_result.get(PredefinedAtom::Done)?;
+        Ok(done.0)
     }
 
     pub(super) fn iterator_value(iterator_result: &Object<'js>) -> Result<Value<'js>> {

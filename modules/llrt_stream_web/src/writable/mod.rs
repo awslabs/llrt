@@ -21,7 +21,9 @@ use writer::WritableStreamWriter;
 use crate::{
     queuing_strategy::QueuingStrategy,
     utils::{
-        promise::{promise_rejected_with, upon_promise, PromisePrimordials, ResolveablePromise},
+        promise::{
+            promise_rejected_with_constructor, upon_promise, PromisePrimordials, ResolveablePromise,
+        },
         UnwrapOrUndefined, ValueOrUndefined,
     },
 };
@@ -127,10 +129,11 @@ impl<'js> WritableStream<'js> {
     ) -> Result<Promise<'js>> {
         if stream.is_writable_stream_locked() {
             // If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value = stream
-                .constructor_type_error
-                .call(("Cannot abort a stream that already has a writer",))?;
-            return promise_rejected_with(&stream.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &stream.constructor_type_error,
+                &stream.promise_primordials,
+                "Cannot abort a stream that already has a writer",
+            );
         }
 
         let objects = WritableStreamObjects::from_stream(stream.0);
@@ -144,18 +147,20 @@ impl<'js> WritableStream<'js> {
     fn close(ctx: Ctx<'js>, stream: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         if stream.is_writable_stream_locked() {
             // If ! IsWritableStreamLocked(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value = stream
-                .constructor_type_error
-                .call(("Cannot close a stream that already has a writer",))?;
-            return promise_rejected_with(&stream.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &stream.constructor_type_error,
+                &stream.promise_primordials,
+                "Cannot close a stream that already has a writer",
+            );
         }
 
         if Self::writable_stream_close_queued_or_in_flight(&stream.0) {
             // If ! WritableStreamCloseQueuedOrInFlight(this) is true, return a promise rejected with a TypeError exception.
-            let e: Value = stream
-                .constructor_type_error
-                .call(("Cannot close an already-closing stream",))?;
-            return promise_rejected_with(&stream.promise_primordials, e);
+            return promise_rejected_with_constructor(
+                &stream.constructor_type_error,
+                &stream.promise_primordials,
+                "Cannot close an already-closing stream",
+            );
         }
 
         let objects = WritableStreamObjects::from_stream(stream.0);
@@ -284,12 +289,12 @@ impl<'js> WritableStream<'js> {
             objects.stream.state,
             WritableStreamState::Closed | WritableStreamState::Errored(_)
         ) {
-            let e: Value = objects
-                .stream
-                .constructor_type_error
-                .call(("The stream is not in the writable state and cannot be closed",))?;
             return Ok((
-                promise_rejected_with(&objects.stream.promise_primordials, e)?,
+                promise_rejected_with_constructor::<rquickjs::Error>(
+                    &objects.stream.constructor_type_error,
+                    &objects.stream.promise_primordials,
+                    "The stream is not in the writable state and cannot be closed",
+                )?,
                 objects,
             ));
         }
