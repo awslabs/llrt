@@ -3,7 +3,7 @@ use rquickjs::{
     Result,
 };
 
-use super::{
+use crate::readable::{
     byob_reader::ReadableStreamBYOBReaderOwned,
     byte_controller::ReadableByteStreamControllerOwned,
     controller::{

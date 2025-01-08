@@ -6,19 +6,20 @@ use rquickjs::{
     Class, Ctx, Exception, JsLifetime, Promise, Result, Value,
 };
 
-use crate::utils::{
-    promise::{
-        promise_rejected_with, promise_rejected_with_constructor, PromisePrimordials,
-        ResolveablePromise,
+use crate::{
+    utils::{
+        promise::{
+            promise_rejected_with, promise_rejected_with_constructor, PromisePrimordials,
+            ResolveablePromise,
+        },
+        UnwrapOrUndefined,
     },
-    UnwrapOrUndefined,
-};
-
-use super::{
-    default_controller::WritableStreamDefaultController,
-    objects::WritableStreamObjects,
-    stream::{WritableStream, WritableStreamOwned, WritableStreamState},
-    writer::WritableStreamWriter,
+    writable::{
+        default_controller::WritableStreamDefaultController,
+        objects::WritableStreamObjects,
+        stream::{WritableStream, WritableStreamOwned, WritableStreamState},
+        writer::WritableStreamWriter,
+    },
 };
 
 #[rquickjs::class]

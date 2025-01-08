@@ -1,6 +1,6 @@
 use rquickjs::{class::Trace, Result};
 
-use super::default_writer::WritableStreamDefaultWriterOwned;
+use crate::writable::default_writer::WritableStreamDefaultWriterOwned;
 
 pub(crate) trait WritableStreamWriter<'js>: Sized + 'js {
     type Class: Clone + Trace<'js>;

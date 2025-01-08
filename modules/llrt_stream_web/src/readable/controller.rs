@@ -3,7 +3,7 @@ use rquickjs::{
     Ctx, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
-use super::{
+use crate::readable::{
     byte_controller::{ReadableByteStreamControllerClass, ReadableByteStreamControllerOwned},
     default_controller::{
         ReadableStreamDefaultControllerClass, ReadableStreamDefaultControllerOwned,
