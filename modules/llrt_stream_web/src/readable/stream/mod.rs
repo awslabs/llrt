@@ -36,7 +36,6 @@ use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
 use pipe::StreamPipeOptions;
 use source::UnderlyingSource;
 
-use llrt_abort::AbortSignal;
 use llrt_utils::{
     option::{Null, NullableOpt, Undefined},
     primordials::{BasePrimordials, Primordial},
@@ -275,15 +274,6 @@ impl<'js> ReadableStream<'js> {
 
         // Let signal be options["signal"] if it exists, or undefined otherwise.
         let options = options.0.unwrap_or_default();
-        let signal = match options.signal {
-            Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
-                Ok(signal) => Some(signal),
-                Err(_) => {
-                    return Err(Exception::throw_type(&ctx, "Invalid signal argument"));
-                },
-            },
-            None => None,
-        };
 
         // Let promise be ! ReadableStreamPipeTo(this, transform["writable"], options["preventClose"], options["preventAbort"], options["preventCancel"], signal).
         let promise = ReadableStream::readable_stream_pipe_to(
@@ -293,7 +283,7 @@ impl<'js> ReadableStream<'js> {
             options.prevent_close,
             options.prevent_abort,
             options.prevent_cancel,
-            signal,
+            options.signal,
         )?;
 
         // Set promise.[[PromiseIsHandled]] to true.
@@ -349,20 +339,6 @@ impl<'js> ReadableStream<'js> {
             // Let signal be options["signal"] if it exists, or undefined otherwise.
             let options = options.unwrap_or_default();
 
-            let signal = match options.signal {
-                Some(signal) => match Class::<'js, AbortSignal>::from_js(&ctx, signal) {
-                    Ok(signal) => Some(signal),
-                    Err(_) => {
-                        return promise_rejected_with_constructor(
-                            &stream.constructor_type_error,
-                            &stream.promise_primordials,
-                            "Invalid signal argument",
-                        );
-                    },
-                },
-                None => None,
-            };
-
             // Return ! ReadableStreamPipeTo(this, destination, options["preventClose"], options["preventAbort"], options["preventCancel"], signal).
             Self::readable_stream_pipe_to(
                 ctx.clone(),
@@ -371,7 +347,7 @@ impl<'js> ReadableStream<'js> {
                 options.prevent_close,
                 options.prevent_abort,
                 options.prevent_cancel,
-                signal,
+                options.signal,
             )
         })
     }

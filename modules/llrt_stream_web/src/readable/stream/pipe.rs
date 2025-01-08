@@ -5,7 +5,7 @@ use std::{
 };
 
 use llrt_abort::AbortSignal;
-use llrt_utils::option::Undefined;
+use llrt_utils::{option::Undefined, result::ResultExt};
 use rquickjs::{
     class::{OwnedBorrow, Trace},
     prelude::{OnceFn, This},
@@ -659,11 +659,11 @@ pub struct StreamPipeOptions<'js> {
     pub prevent_close: bool,
     pub prevent_abort: bool,
     pub prevent_cancel: bool,
-    pub signal: Option<Value<'js>>,
+    pub signal: Option<Class<'js, AbortSignal<'js>>>,
 }
 
 impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
-    fn from_js(_: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let ty_name = value.type_name();
         let obj = value
             .as_object()
@@ -681,7 +681,13 @@ impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
         let prevent_close = get_bool("preventClose")?;
         let prevent_cancel = get_bool("preventCancel")?;
 
-        let signal = obj.get_value_or_undefined::<_, Value<'js>>("signal")?;
+        let signal = match obj.get_value_or_undefined::<_, Value<'js>>("signal")? {
+            Some(signal) => Some(
+                Class::<AbortSignal>::from_js(ctx, signal)
+                    .or_throw_type(ctx, "Invalid signal argument")?,
+            ),
+            None => None,
+        };
 
         Ok(Self {
             prevent_close,
