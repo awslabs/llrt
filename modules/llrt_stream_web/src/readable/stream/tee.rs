@@ -286,9 +286,9 @@ impl<'js> ReadableStream<'js> {
         cancel_promise: ResolveablePromise<'js>,
     ) -> Result<Promise<'js>> {
         // If reading is true,
-        if reading.load(Ordering::Relaxed) {
+        if reading.load(Ordering::Acquire) {
             // Set readAgain to true.
-            read_again.store(true, Ordering::Relaxed);
+            read_again.store(true, Ordering::Release);
 
             // Return a promise resolved with undefined.
             return Ok(objects
@@ -299,7 +299,7 @@ impl<'js> ReadableStream<'js> {
         }
 
         // Set reading to true.
-        reading.store(true, Ordering::Relaxed);
+        reading.store(true, Ordering::Release);
 
         #[derive(Clone)]
         struct ReadRequest<'js> {
@@ -367,7 +367,7 @@ impl<'js> ReadableStream<'js> {
                                 let objects_class = objects_class.clone();
                                 move || -> Result<()> {
                                     // Set readAgain to false.
-                                    this.read_again.store(false, Ordering::Relaxed);
+                                    this.read_again.store(false, Ordering::Release);
 
                                     // Let chunk1 and chunk2 be chunk.
                                     let chunk_1 = chunk.clone();
@@ -451,10 +451,10 @@ impl<'js> ReadableStream<'js> {
                                     }
 
                                     // Set reading to false.
-                                    this.reading.store(false, Ordering::Relaxed);
+                                    this.reading.store(false, Ordering::Release);
 
                                     // If readAgain is true, perform pullAlgorithm.
-                                    if this.read_again.load(Ordering::Relaxed) {
+                                    if this.read_again.load(Ordering::Acquire) {
                                         let objects = ReadableStreamObjects::from_class(objects_class);
 
                                         ReadableStream::readable_stream_default_pull_algorithm(
@@ -489,7 +489,7 @@ impl<'js> ReadableStream<'js> {
                 objects: ReadableStreamDefaultReaderObjects<'js>,
             ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
-                self.reading.store(false, Ordering::Relaxed);
+                self.reading.store(false, Ordering::Release);
                 // If canceled1 is false, perform ! ReadableStreamDefaultControllerClose(branch1.[[controller]]).
                 if self.reason_1.get().is_none() {
                     let objects = ReadableStreamObjects::from_class(
@@ -533,7 +533,7 @@ impl<'js> ReadableStream<'js> {
                 _: Value<'js>,
             ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
-                self.reading.store(false, Ordering::Relaxed);
+                self.reading.store(false, Ordering::Release);
                 Ok(objects)
             }
         }
@@ -1040,9 +1040,9 @@ impl<'js> ReadableStream<'js> {
                         let objects_class = objects_class.clone();
                         move || -> Result<()> {
                             // Set readAgainForBranch1 to false.
-                            this.read_again_for_branch_1.store(false, Ordering::Relaxed);
+                            this.read_again_for_branch_1.store(false, Ordering::Release);
                             // Set readAgainForBranch2 to false.
-                            this.read_again_for_branch_2.store(false, Ordering::Relaxed);
+                            this.read_again_for_branch_2.store(false, Ordering::Release);
 
                             // Let chunk1 and chunk2 be chunk.
                             let chunk_1 = chunk.clone();
@@ -1112,7 +1112,7 @@ impl<'js> ReadableStream<'js> {
                             }
 
                             // Set reading to false.
-                            this.reading.store(false, Ordering::Relaxed);
+                            this.reading.store(false, Ordering::Release);
 
                             let objects_1 = ReadableStreamObjects::from_class(this.objects_class_1);
                             let objects_2 = ReadableStreamObjects::from_class(this.objects_class_2);
@@ -1120,7 +1120,7 @@ impl<'js> ReadableStream<'js> {
                             let objects = ReadableStreamObjects::from_class_no_reader(objects_class);
 
                             // If readAgainForBranch1 is true, perform pull1Algorithm.
-                            if this.read_again_for_branch_1.load(Ordering::Relaxed) {
+                            if this.read_again_for_branch_1.load(Ordering::Acquire) {
                                 ReadableStream::readable_byte_stream_pull_1_algorithm(
                                     ctx.clone(),
                                     objects,
@@ -1134,7 +1134,7 @@ impl<'js> ReadableStream<'js> {
                                     objects_2,
                                     this.cancel_promise,
                                 )?;
-                            } else if this.read_again_for_branch_2.load(Ordering::Relaxed) {
+                            } else if this.read_again_for_branch_2.load(Ordering::Acquire) {
                                 // Otherwise, if readAgainForBranch2 is true, perform pull2Algorithm.
                                 ReadableStream::readable_byte_stream_pull_2_algorithm(
                                     ctx.clone(),
@@ -1169,7 +1169,7 @@ impl<'js> ReadableStream<'js> {
                 objects: ReadableStreamDefaultReaderObjects<'js>,
             ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
-                self.reading.store(false, Ordering::Relaxed);
+                self.reading.store(false, Ordering::Release);
 
                 let mut objects_1 =
                     ReadableStreamObjects::from_class_no_reader(self.objects_class_1.clone())
@@ -1226,7 +1226,7 @@ impl<'js> ReadableStream<'js> {
                 _: Value<'js>,
             ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
                 // Set reading to false.
-                self.reading.store(false, Ordering::Relaxed);
+                self.reading.store(false, Ordering::Release);
                 Ok(objects)
             }
         }
@@ -1396,9 +1396,9 @@ impl<'js> ReadableStream<'js> {
                     let this = self.clone();
                     move || -> Result<()> {
                         // Set readAgainForBranch1 to false.
-                        this.read_again_for_branch_1.store(false, Ordering::Relaxed);
+                        this.read_again_for_branch_1.store(false, Ordering::Release);
                         // Set readAgainForBranch2 to false.
-                        this.read_again_for_branch_2.store(false, Ordering::Relaxed);
+                        this.read_again_for_branch_2.store(false, Ordering::Release);
 
                         // Let byobCanceled be canceled2 if forBranch2 is true, and canceled1 otherwise.
                         // Let otherCanceled be canceled2 if forBranch2 is false, and canceled1 otherwise.
@@ -1493,10 +1493,10 @@ impl<'js> ReadableStream<'js> {
                         let objects_2 = ReadableStreamObjects::from_class(this.objects_2.clone());
 
                         // Set reading to false.
-                        this.reading.store(false, Ordering::Relaxed);
+                        this.reading.store(false, Ordering::Release);
 
                         // If readAgainForBranch1 is true, perform pull1Algorithm.
-                        if this.read_again_for_branch_1.load(Ordering::Relaxed) {
+                        if this.read_again_for_branch_1.load(Ordering::Acquire) {
                             ReadableStream::readable_byte_stream_pull_1_algorithm(
                                 ctx.clone(),
                                 ReadableStreamObjects::from_class(objects_class).clear_reader(),
@@ -1510,7 +1510,7 @@ impl<'js> ReadableStream<'js> {
                                 objects_2,
                                 this.cancel_promise.clone(),
                             )?;
-                        } else if this.read_again_for_branch_2.load(Ordering::Relaxed) {
+                        } else if this.read_again_for_branch_2.load(Ordering::Acquire) {
                             // Otherwise, if readAgainForBranch2 is true, perform pull2Algorithm.
                             ReadableStream::readable_byte_stream_pull_2_algorithm(
                                 ctx.clone(),
@@ -1546,7 +1546,7 @@ impl<'js> ReadableStream<'js> {
                 let ctx = chunk.ctx().clone();
 
                 // Set reading to false.
-                self.reading.store(false, Ordering::Relaxed);
+                self.reading.store(false, Ordering::Release);
 
                 // Let byobCanceled be canceled2 if forBranch2 is true, and canceled1 otherwise.
                 // Let otherCanceled be canceled2 if forBranch2 is false, and canceled1 otherwise.
@@ -1624,7 +1624,7 @@ impl<'js> ReadableStream<'js> {
                 _: Value<'js>,
             ) -> Result<ReadableStreamBYOBObjects<'js>> {
                 // Set reading to false.
-                self.reading.store(false, Ordering::Relaxed);
+                self.reading.store(false, Ordering::Release);
                 Ok(objects)
             }
         }
@@ -1669,9 +1669,9 @@ impl<'js> ReadableStream<'js> {
         cancel_promise: ResolveablePromise<'js>,
     ) -> Result<Promise<'js>> {
         // If reading is true,
-        if reading.swap(true, Ordering::Relaxed) {
+        if reading.swap(true, Ordering::AcqRel) {
             // Set readAgainForBranch1 to true.
-            read_again_for_branch_1.store(true, Ordering::Relaxed);
+            read_again_for_branch_1.store(true, Ordering::Release);
             // Return a promise resolved with undefined.
             return Ok(objects
                 .stream
@@ -1751,9 +1751,9 @@ impl<'js> ReadableStream<'js> {
         cancel_promise: ResolveablePromise<'js>,
     ) -> Result<Promise<'js>> {
         // If reading is true,
-        if reading.swap(true, Ordering::Relaxed) {
+        if reading.swap(true, Ordering::AcqRel) {
             // Set readAgainForBranch2 to true.
-            read_again_for_branch_2.store(true, Ordering::Relaxed);
+            read_again_for_branch_2.store(true, Ordering::Release);
             // Return a promise resolved with undefined.
             return Ok(objects
                 .stream

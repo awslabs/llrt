@@ -170,7 +170,7 @@ impl<'js> IteratorRecord<'js> {
             // If result is a throw completion, then
             Err(Error::Exception) => {
                 // Set iteratorRecord.[[Done]] to true.
-                self.done.store(true, Ordering::Relaxed);
+                self.done.store(true, Ordering::Release);
                 // Return ? result.
                 return Err(Error::Exception);
             },
@@ -183,7 +183,7 @@ impl<'js> IteratorRecord<'js> {
             // If result is not an Object, then
             None => {
                 // Set iteratorRecord.[[Done]] to true.
-                self.done.store(true, Ordering::Relaxed);
+                self.done.store(true, Ordering::Release);
                 return Err(Exception::throw_type(
                     ctx,
                     "The iterator.next() method must return an object",
@@ -311,7 +311,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
         let is_finished = iterator.is_finished.clone();
 
         let next_steps = move |ctx: Ctx<'js>, iterator: &Self, iterator_class: Class<'js, Self>| {
-            if is_finished.load(Ordering::Relaxed) {
+            if is_finished.load(Ordering::Acquire) {
                 return promise_resolved_with(
                     &ctx,
                     &iterator.promise_primordials,
@@ -334,7 +334,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                         Ok(next) => {
                             iterator.ongoing_promise = None;
                             if next.as_symbol() == Some(&iterator.end_of_iteration) {
-                                iterator.is_finished.store(true, Ordering::Relaxed);
+                                iterator.is_finished.store(true, Ordering::Release);
                                 Ok(ReadableStreamReadResult {
                                     value: None,
                                     done: true,
@@ -348,7 +348,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                         },
                         Err(reason) => {
                             iterator.ongoing_promise = None;
-                            iterator.is_finished.store(true, Ordering::Relaxed);
+                            iterator.is_finished.store(true, Ordering::Release);
                             Err(ctx.throw(reason))
                         },
                     }
@@ -386,7 +386,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
         let return_steps = {
             let value = value.clone();
             move |ctx: Ctx<'js>, iterator: &Self| {
-                if is_finished.swap(true, Ordering::Relaxed) {
+                if is_finished.swap(true, Ordering::AcqRel) {
                     return promise_resolved_with(
                         &ctx,
                         &iterator.promise_primordials,

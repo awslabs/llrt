@@ -405,7 +405,7 @@ impl<'js> PipeTo<'js> {
     }
 
     fn pipe_step(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
-        if self.shutting_down.load(Ordering::Relaxed) {
+        if self.shutting_down.load(Ordering::Acquire) {
             return promise_resolved_with(
                 &ctx,
                 &self.promise_primordials,
@@ -551,7 +551,7 @@ impl<'js> PipeTo<'js> {
         action: impl FnOnce(Ctx<'js>) -> Result<Promise<'js>> + 'js,
         original_error: Option<Value<'js>>,
     ) -> Result<()> {
-        if self.shutting_down.swap(true, Ordering::Relaxed) {
+        if self.shutting_down.swap(true, Ordering::AcqRel) {
             // already shutting down
             return Ok(());
         }
@@ -585,7 +585,7 @@ impl<'js> PipeTo<'js> {
     }
 
     fn shutdown(&self, ctx: Ctx<'js>, error: Option<Value<'js>>) -> Result<()> {
-        if self.shutting_down.swap(true, Ordering::Relaxed) {
+        if self.shutting_down.swap(true, Ordering::AcqRel) {
             // already shutting down
             return Ok(());
         }
