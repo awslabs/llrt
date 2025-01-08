@@ -43,6 +43,7 @@ pub(super) struct ReadableStreamClassObjects<
     pub(super) reader: R::Class,
 }
 
+// derive(Clone) isn't clever enough to figure out that C and R don't need to implement Clone, but only C::Class and R::Class.
 impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>> Clone
     for ReadableStreamClassObjects<'js, C, R>
 {
@@ -55,6 +56,7 @@ impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>> Clone
     }
 }
 
+// derive(Trace) isn't clever enough to figure out that C and R don't need to implement Trace, but only C::Class and R::Class.
 impl<'js, C: ReadableStreamController<'js>, R: ReadableStreamReader<'js>> Trace<'js>
     for ReadableStreamClassObjects<'js, C, R>
 {

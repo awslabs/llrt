@@ -272,6 +272,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
     }
 }
 
+// Custom JsClass implementation needed until prototype, function names and function lengths can be influenced in the class derivation macro
 impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
     const NAME: &'static str = "ReadableStreamAsyncIterator";
     type Mutable = rquickjs::class::Writable;

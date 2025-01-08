@@ -472,39 +472,39 @@ impl<'js> ReadableStream<'js> {
         objects = objects.with_reader(
             // If reader implements ReadableStreamDefaultReader,
             |mut objects| {
-            // Reject reader.[[closedPromise]] with e.
-            objects.reader
-                .generic
-                .closed_promise
-                .reject(e.clone())?;
+                // Reject reader.[[closedPromise]] with e.
+                objects.reader
+                    .generic
+                    .closed_promise
+                    .reject(e.clone())?;
 
-            // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.
-            objects.reader.generic.closed_promise.set_is_handled()?;
+                // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.
+                objects.reader.generic.closed_promise.set_is_handled()?;
 
-            // Perform ! ReadableStreamDefaultReaderErrorReadRequests(reader, e).
-            objects = ReadableStreamDefaultReader::readable_stream_default_reader_error_read_requests(
+                // Perform ! ReadableStreamDefaultReaderErrorReadRequests(reader, e).
+                objects = ReadableStreamDefaultReader::readable_stream_default_reader_error_read_requests(
+                        objects, e.clone(),
+                )?;
+                Ok(objects)
+        },
+            // Otherwise,
+            |mut objects| {
+                // Reject reader.[[closedPromise]] with e.
+                objects.reader
+                    .generic
+                    .closed_promise
+                    .reject(e.clone())?;
+
+                // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.
+                objects.reader.generic.closed_promise.set_is_handled()?;
+
+                // Perform ! ReadableStreamBYOBReaderErrorReadIntoRequests(reader, e).
+                objects = ReadableStreamBYOBReader::readable_stream_byob_reader_error_read_into_requests(
                     objects, e.clone(),
-            )?;
-            Ok(objects)
-        },
-        // Otherwise,
-        |mut objects| {
-            // Reject reader.[[closedPromise]] with e.
-            objects.reader
-                .generic
-                .closed_promise
-                .reject(e.clone())?;
+                )?;
 
-            // Set reader.[[closedPromise]].[[PromiseIsHandled]] to true.
-            objects.reader.generic.closed_promise.set_is_handled()?;
-
-            // Perform ! ReadableStreamBYOBReaderErrorReadIntoRequests(reader, e).
-            objects = ReadableStreamBYOBReader::readable_stream_byob_reader_error_read_into_requests(
-                objects, e.clone(),
-            )?;
-
-            Ok(objects)
-        },
+                Ok(objects)
+            },
         // If reader is undefined, return.
         Ok)?;
 
