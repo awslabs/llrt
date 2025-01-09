@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import App from "./react/App";
-import ReactDOMServer from "react-dom/server";
+import ReactDOMServer from "react-dom/server.edge";
 
 import React from "react";
 import API from "./api";
