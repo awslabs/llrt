@@ -89,8 +89,8 @@ impl Encoder {
 
     pub fn decode<'a, T: Into<Cow<'a, [u8]>>>(&self, bytes: T) -> Result<Vec<u8>, String> {
         match self {
-            Self::Hex => bytes_from_hex(&bytes.into()),
-            Self::Base64 => bytes_from_b64(&bytes.into()),
+            Self::Hex => bytes_from_hex(bytes),
+            Self::Base64 => bytes_from_b64(bytes),
             Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => {
                 Ok(bytes.into().into())
             },
@@ -99,8 +99,8 @@ impl Encoder {
 
     pub fn decode_from_string(&self, string: String) -> Result<Vec<u8>, String> {
         match self {
-            Self::Hex => bytes_from_hex(string.as_bytes()),
-            Self::Base64 => bytes_from_b64(string.as_bytes()),
+            Self::Hex => bytes_from_hex(string.into_bytes()),
+            Self::Base64 => bytes_from_b64(string.into_bytes()),
             Self::Utf8 | Self::Windows1252 => Ok(string.into_bytes()),
             Self::Utf16le => Ok(string
                 .encode_utf16()
@@ -129,25 +129,34 @@ pub fn bytes_to_hex(bytes: &[u8]) -> Vec<u8> {
     hex_simd::encode_type(bytes, AsciiCase::Lower)
 }
 
-pub fn bytes_from_hex(hex_bytes: &[u8]) -> Result<Vec<u8>, String> {
-    hex_simd::decode_to_vec(hex_bytes).map_err(|err| err.to_string())
+pub fn bytes_from_hex<'a, T: Into<Cow<'a, [u8]>>>(hex_bytes: T) -> Result<Vec<u8>, String> {
+    hex_simd::decode_to_vec(hex_bytes.into()).map_err(|err| err.to_string())
+}
+
+pub fn bytes_from_b64<'a, T: Into<Cow<'a, [u8]>>>(base64_bytes: T) -> Result<Vec<u8>, String> {
+    let bytes: Cow<'a, [u8]> = base64_bytes.into();
+
+    //need to collect since memchr2_iter is borrowing bytes. This is fine since we're unlikely to contain url safe base64
+    let url_safe_byte_positions: Vec<usize> = memchr::memchr2_iter(b'-', b'_', &bytes).collect();
+
+    if url_safe_byte_positions.is_empty() {
+        return base64_simd::forgiving_decode_to_vec(&bytes).map_err(|e| e.to_string());
+    }
+
+    //doesn't allocate for already owned data
+    let mut bytes = bytes.into_owned();
+    for pos in url_safe_byte_positions {
+        bytes[pos] = match bytes[pos] {
+            b'-' => b'+',
+            b'_' => b'/',
+            _ => unreachable!(),
+        };
+    }
+    return base64_simd::forgiving_decode_to_vec(&bytes).map_err(|e| e.to_string());
 }
 
 pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
     base64_simd::STANDARD.encode_to_string(bytes)
-}
-
-pub fn bytes_from_b64(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let standard_b64_bytes: Vec<u8> = bytes
-        .iter()
-        .map(|b| match b {
-            b'-' => b'+',
-            b'_' => b'/',
-            _ => *b,
-        })
-        .collect();
-
-    base64_simd::forgiving_decode_to_vec(&standard_b64_bytes).map_err(|e| e.to_string())
 }
 
 pub fn bytes_to_b64(bytes: &[u8]) -> Vec<u8> {

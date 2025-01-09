@@ -79,7 +79,7 @@ impl<'js> Buffer {
     ) -> Result<Value<'js>> {
         if let Some(encoding) = encoding {
             let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
-            bytes = encoder.decode(&bytes).or_throw(ctx)?;
+            bytes = encoder.decode(bytes).or_throw(ctx)?;
         }
         Buffer(bytes).into_js(ctx)
     }
@@ -284,7 +284,7 @@ fn from<'js>(
                 == Some(stringify!(Buffer))
                 || encoding.is_some()
             {
-                let bytes = bytes.to_vec();
+                let bytes = bytes.into();
                 return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
             } else {
                 let (array_buffer, _, source_offset) = ab_bytes.get_array_buffer()?.unwrap(); //we know it's an array buffer
@@ -328,6 +328,7 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
 }
 
 pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::String<'_>> {
+    //fine to pass a slice here since we won't copy if not base64
     let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
     // SAFETY: QuickJS will replace invalid characters with U+FFFD
     let str = unsafe { String::from_utf8_unchecked(vec) };

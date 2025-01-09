@@ -10,6 +10,7 @@ repository = "https://github.com/awslabs/llrt"
 base64-simd = "0.8"
 hex-simd = "0.8"
 phf = { version = "0.11", features = ["macros"] }
+memchr = "2"
 
 [build-dependencies]
 llrt_build = { version = "0.4.0-beta", path = "../llrt_build" }
