@@ -152,7 +152,7 @@ pub fn bytes_from_b64<'a, T: Into<Cow<'a, [u8]>>>(base64_bytes: T) -> Result<Vec
             _ => unreachable!(),
         };
     }
-    return base64_simd::forgiving_decode_to_vec(&bytes).map_err(|e| e.to_string());
+    base64_simd::forgiving_decode_to_vec(&bytes).map_err(|e| e.to_string())
 }
 
 pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
