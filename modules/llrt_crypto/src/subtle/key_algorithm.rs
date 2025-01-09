@@ -1,6 +1,9 @@
+use der::asn1::UintRef;
+use der::Decode;
 use der::Encode;
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
+use pkcs8::EncodePrivateKey;
 use pkcs8::PrivateKeyInfo;
 use rquickjs::{atom::PredefinedAtom, Array, Ctx, Exception, Object, Result, TypedArray, Value};
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
@@ -9,6 +12,7 @@ use std::rc::Rc;
 
 use crate::sha_hash::ShaAlgorithm;
 
+use super::algorithm_mismatch_error;
 use super::{
     algorithm_not_supported_error, crypto_key::KeyKind, to_name_and_maybe_object, EllipticCurve,
 };
@@ -18,7 +22,7 @@ static SIGNATURE_USAGES: &[&str] = &["sign", "verify"];
 static EMPTY_USAGES: &[&str] = &[];
 static SIGN_USAGES: &[&str] = &["sign"];
 static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
-static ECDH_X25519_USAGES: &[&str] = &["deriveKey", "deriveBits"];
+static DERIVE_USAGES: &[&str] = &["deriveKey", "deriveBits"];
 static AES_KW_USAGES: &[&str] = &["wrapKey", "unwrapKey"];
 
 #[derive(Debug, Clone)]
@@ -138,17 +142,24 @@ impl KeyAlgorithm {
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
         let mut public_usages = vec![];
         let mut private_usages = vec![];
-        let name_ref = name.as_str();
+        let algorithm_name = name.as_str();
         let mut is_symmetric = false;
-        let algorithm = match name_ref {
+        let algorithm = match algorithm_name {
             "Ed25519" => {
                 if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-                    import_ed25519(ctx, format, kind, data)?;
+                    import_okp_key(
+                        ctx,
+                        format,
+                        kind,
+                        data,
+                        const_oid::db::rfc8410::ID_ED_25519,
+                        algorithm_name,
+                    )?;
                 }
 
                 Self::classify_and_check_signature_usages(
                     ctx,
-                    name_ref,
+                    algorithm_name,
                     &usages,
                     is_symmetric,
                     &mut private_usages,
@@ -158,12 +169,19 @@ impl KeyAlgorithm {
             },
             "X25519" => {
                 if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-                    import_x25519(ctx, format, kind, data)?;
+                    import_okp_key(
+                        ctx,
+                        format,
+                        kind,
+                        data,
+                        const_oid::db::rfc8410::ID_X_25519,
+                        algorithm_name,
+                    )?;
                 }
 
-                Self::classify_and_check_ecdh_x25519_usages(
+                Self::classify_and_check_derive_usages(
                     ctx,
-                    name_ref,
+                    algorithm_name,
                     &usages,
                     is_symmetric,
                     &mut private_usages,
@@ -173,10 +191,10 @@ impl KeyAlgorithm {
             },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
                 is_symmetric = true;
-                if name_ref == "AES-KW" {
+                if algorithm_name == "AES-KW" {
                     Self::classify_and_check_usages(
                         ctx,
-                        name_ref,
+                        algorithm_name,
                         &usages,
                         AES_KW_USAGES,
                         EMPTY_USAGES,
@@ -187,7 +205,7 @@ impl KeyAlgorithm {
                 } else {
                     Self::classify_and_check_symmetric_usages(
                         ctx,
-                        name_ref,
+                        algorithm_name,
                         &usages,
                         is_symmetric,
                         &mut private_usages,
@@ -196,70 +214,67 @@ impl KeyAlgorithm {
                 }
 
                 let length = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-                    import_aes(ctx, format, kind, data, name_ref)?
+                    import_symmetric_key(ctx, format, kind, data, algorithm_name, None)?
                 } else {
                     obj.or_throw(ctx)?.get_required("length", "algorithm")?
                 } as u16;
 
+                //eprintln!("Length: {}", length);
+
                 if !matches!(length, 128 | 192 | 256) {
-                    return Err(Exception::throw_type(
+                    return Err(Exception::throw_message(
                         ctx,
-                        "Algorithm 'length' must be one of: 128, 192, or 256",
+                        &format!(
+                            "Algorithm 'length' must be one of: 128, 192, or 256 = {}",
+                            length
+                        ),
                     ));
                 }
 
                 KeyAlgorithm::Aes { length }
             },
-            "ECDH" | "ECDSA" => {
-                let obj = obj.or_throw(ctx)?;
-                let curive: String = obj.get_required("namedCurve", "algorithm")?;
-                let curve = EllipticCurve::try_from(curive.as_str()).or_throw(ctx)?;
-                let mut algorithm = EcAlgorithm::Ecdh;
-                if !matches!(mode, KeyAlgorithmMode::Import { .. }) {
-                    match name_ref {
-                        "ECDH" => match mode {
-                            KeyAlgorithmMode::Generate => {
-                                Self::classify_and_check_ecdh_x25519_usages(
-                                    ctx,
-                                    name_ref,
-                                    &usages,
-                                    is_symmetric,
-                                    &mut private_usages,
-                                    &mut public_usages,
-                                )?
-                            },
-                            KeyAlgorithmMode::Derive => Self::classify_and_check_symmetric_usages(
-                                ctx,
-                                name_ref,
-                                &usages,
-                                is_symmetric,
-                                &mut private_usages,
-                                &mut public_usages,
-                            )?,
-                            _ => unreachable!(),
-                        },
-                        "ECDSA" => {
-                            algorithm = EcAlgorithm::Ecdsa;
-                            Self::classify_and_check_signature_usages(
-                                ctx,
-                                name_ref,
-                                &usages,
-                                is_symmetric,
-                                &mut private_usages,
-                                &mut public_usages,
-                            )?
-                        },
-                        _ => unreachable!(),
-                    }
+            "ECDH" => {
+                match &mode {
+                    KeyAlgorithmMode::Generate => {
+                        Self::classify_and_check_derive_usages(
+                            ctx,
+                            algorithm_name,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                    },
+                    KeyAlgorithmMode::Derive => {
+                        Self::classify_and_check_symmetric_usages(
+                            ctx,
+                            algorithm_name,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                    },
+                    _ => {},
                 }
-                KeyAlgorithm::Ec { curve, algorithm }
+                Self::from_ec(ctx, mode, obj, algorithm_name, EcAlgorithm::Ecdh)?
             },
-
+            "ECDSA" => {
+                Self::classify_and_check_signature_usages(
+                    ctx,
+                    algorithm_name,
+                    &usages,
+                    is_symmetric,
+                    &mut private_usages,
+                    &mut public_usages,
+                )?;
+                Self::from_ec(ctx, mode, obj, algorithm_name, EcAlgorithm::Ecdsa)?
+            },
             "HMAC" => {
                 is_symmetric = true;
                 Self::classify_and_check_usages(
                     ctx,
-                    name_ref,
+                    algorithm_name,
                     &usages,
                     SIGNATURE_USAGES,
                     EMPTY_USAGES,
@@ -273,49 +288,59 @@ impl KeyAlgorithm {
 
                 let mut length = obj.get_optional("length")?.unwrap_or_default();
 
-                if length == 0 {
-                    if let KeyAlgorithmMode::Import { data, .. } = mode {
-                        length = data.len() as u16
+                if let KeyAlgorithmMode::Import { data, format, kind } = mode {
+                    let data_length =
+                        import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(&hash))?;
+                    if length == 0 {
+                        length = data_length as u16
                     }
                 }
 
                 KeyAlgorithm::Hmac { hash, length }
             },
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
-                if !matches!(mode, KeyAlgorithmMode::Import { .. }) {
-                    if name == "RSA-OAEP" {
-                        Self::classify_and_check_usages(
-                            ctx,
-                            name_ref,
-                            &usages,
-                            SYMMETRIC_USAGES,
-                            RSA_OAEP_USAGES,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
-                    } else {
-                        Self::classify_and_check_signature_usages(
-                            ctx,
-                            name_ref,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
-                    }
+                if name == "RSA-OAEP" {
+                    Self::classify_and_check_usages(
+                        ctx,
+                        algorithm_name,
+                        &usages,
+                        SYMMETRIC_USAGES,
+                        RSA_OAEP_USAGES,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
+                } else {
+                    Self::classify_and_check_signature_usages(
+                        ctx,
+                        algorithm_name,
+                        &usages,
+                        is_symmetric,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?;
                 }
 
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
 
-                let modulus_length = obj.get_required("modulusLength", "algorithm")?;
-                let public_exponent: TypedArray<u8> =
-                    obj.get_required("publicExponent", "algorithm")?;
-                let public_exponent: Box<[u8]> = public_exponent
-                    .as_bytes()
-                    .ok_or_else(|| Exception::throw_message(ctx, "array buffer has been detached"))?
-                    .into();
+                let (modulus_length, public_exponent) =
+                    if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+                        import_rsa_key(ctx, format, kind, data, algorithm_name, &hash)?
+                    } else {
+                        let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+                        let public_exponent: TypedArray<u8> =
+                            obj.get_required("publicExponent", "algorithm")?;
+                        let public_exponent = public_exponent
+                            .as_bytes()
+                            .ok_or_else(|| {
+                                Exception::throw_message(ctx, "Array buffer has been detached")
+                            })?
+                            .to_owned()
+                            .into_boxed_slice();
+                        (modulus_length, public_exponent)
+                    };
+
                 let public_exponent = Rc::new(public_exponent);
 
                 KeyAlgorithm::Rsa {
@@ -324,44 +349,70 @@ impl KeyAlgorithm {
                     hash,
                 }
             },
-            "HKDF" => match mode {
-                KeyAlgorithmMode::Import { .. } => KeyAlgorithm::HkdfImport,
-                KeyAlgorithmMode::Derive => {
-                    Self::classify_and_check_symmetric_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-
-                    let obj = obj.or_throw(ctx)?;
-                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?)
-                },
-                _ => {
-                    return algorithm_not_supported_error(ctx);
-                },
+            "HKDF" => {
+                is_symmetric = true;
+                match mode {
+                    KeyAlgorithmMode::Import { format, kind, data } => {
+                        Self::classify_and_check_derive_usages(
+                            ctx,
+                            algorithm_name,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                        import_derive_key(ctx, format, kind, data, algorithm_name)?;
+                        KeyAlgorithm::HkdfImport
+                    },
+                    KeyAlgorithmMode::Derive => {
+                        Self::classify_and_check_symmetric_usages(
+                            ctx,
+                            algorithm_name,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                        let obj = obj.or_throw(ctx)?;
+                        KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?)
+                    },
+                    _ => {
+                        return algorithm_not_supported_error(ctx);
+                    },
+                }
             },
 
-            "PBKDF2" => match mode {
-                KeyAlgorithmMode::Import { .. } => KeyAlgorithm::Pbkdf2Import,
-                KeyAlgorithmMode::Derive => {
-                    Self::classify_and_check_symmetric_usages(
-                        ctx,
-                        name_ref,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-
-                    let obj = obj.or_throw(ctx)?;
-                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?)
-                },
-                _ => {
-                    return algorithm_not_supported_error(ctx);
-                },
+            "PBKDF2" => {
+                is_symmetric = true;
+                match mode {
+                    KeyAlgorithmMode::Import { format, kind, data } => {
+                        Self::classify_and_check_derive_usages(
+                            ctx,
+                            algorithm_name,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                        import_derive_key(ctx, format, kind, data, algorithm_name)?;
+                        KeyAlgorithm::Pbkdf2Import
+                    },
+                    KeyAlgorithmMode::Derive => {
+                        Self::classify_and_check_symmetric_usages(
+                            ctx,
+                            algorithm_name,
+                            &usages,
+                            is_symmetric,
+                            &mut private_usages,
+                            &mut public_usages,
+                        )?;
+                        let obj = obj.or_throw(ctx)?;
+                        KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?)
+                    },
+                    _ => {
+                        return algorithm_not_supported_error(ctx);
+                    },
+                }
             },
             _ => return algorithm_not_supported_error(ctx),
         };
@@ -456,7 +507,7 @@ impl KeyAlgorithm {
         )
     }
 
-    fn classify_and_check_ecdh_x25519_usages<'js>(
+    fn classify_and_check_derive_usages<'js>(
         ctx: &Ctx<'js>,
         name: &str,
         usages: &Array<'js>,
@@ -468,7 +519,7 @@ impl KeyAlgorithm {
             ctx,
             name,
             usages,
-            ECDH_X25519_USAGES,
+            DERIVE_USAGES,
             EMPTY_USAGES,
             is_symmetric,
             private_usages,
@@ -545,16 +596,207 @@ impl KeyAlgorithm {
 
         Ok(())
     }
+
+    fn from_ec<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        algorithm_name: &str,
+        algorithm: EcAlgorithm,
+    ) -> Result<KeyAlgorithm> {
+        let obj = obj.or_throw(ctx)?;
+        let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
+        let curve = EllipticCurve::try_from(curve_name.as_str()).or_throw(ctx)?;
+
+        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+            import_ec_key(ctx, format, kind, data, algorithm_name, &curve, &curve_name)?;
+        }
+        Ok(KeyAlgorithm::Ec { curve, algorithm })
+    }
 }
 
-fn import_aes<'js>(
+fn import_derive_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormat<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
+) -> Result<()> {
+    if let KeyFormat::Raw(object_bytes) = format {
+        *data = object_bytes.into_bytes();
+        *kind = KeyKind::Secret;
+    } else {
+        return Err(Exception::throw_message(
+            ctx,
+            &[algorithm_name, " only supports 'raw' import format"].concat(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn import_rsa_key<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+    algorithm_name: &str,
+    hash: &ShaAlgorithm,
+) -> Result<(u32, Box<[u8]>)> {
+    let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
+        if other_oid != const_oid::db::rfc5912::RSA_ENCRYPTION {
+            return algorithm_mismatch_error(ctx, algorithm_name);
+        }
+        Ok(())
+    };
+
+    fn public_key_info(
+        ctx: &Ctx<'_>,
+        kind: &mut KeyKind,
+        data: &mut Vec<u8>,
+        public_key: rsa::pkcs1::RsaPublicKey<'_>,
+    ) -> Result<(usize, Vec<u8>)> {
+        *data = public_key.to_der().or_throw(ctx)?;
+        *kind = KeyKind::Public;
+        let modulus_length = public_key.modulus.as_bytes().len() * 8;
+        let public_exponent = public_key.public_exponent.as_bytes().to_vec();
+        Ok((modulus_length, public_exponent))
+    }
+
+    macro_rules! uint_ref_from_b64 {
+        ($name:ident,$ctx:expr,$bytes:expr) => {
+            let bytes = bytes_from_b64_url_safe($bytes).or_throw($ctx)?;
+            let $name = UintRef::new(&bytes).or_throw($ctx)?;
+        };
+    }
+
+    let (modulus_length, public_exponent) = match format {
+        KeyFormat::Jwk(object) => {
+            let kty: String = object.get_required("kty", "keyData")?;
+            let alg: String = object.get_required("alg", "keyData")?;
+            if kty != "RSA" {
+                return algorithm_mismatch_error(ctx, algorithm_name);
+            }
+            let prefix = &alg[..2];
+            let numeric_hash_str = match prefix {
+                "RS" => {
+                    if algorithm_name == "RSA-OAEP" {
+                        if !alg.starts_with(algorithm_name) {
+                            return algorithm_mismatch_error(ctx, algorithm_name);
+                        }
+                        &alg["RSA-OAEP-".len()..]
+                    } else if algorithm_name != "RSASSA-PKCS1-v1_5" {
+                        return algorithm_mismatch_error(ctx, algorithm_name);
+                    } else {
+                        &alg["RS".len()..]
+                    }
+                },
+                "PS" => {
+                    if algorithm_name != "RSA-PSS" {
+                        return algorithm_mismatch_error(ctx, algorithm_name);
+                    }
+                    &alg["PS".len()..]
+                },
+                _ => return algorithm_mismatch_error(ctx, algorithm_name),
+            };
+            if numeric_hash_str != hash.as_numeric_str() {
+                return hash_mismatch_error(ctx, hash);
+            }
+
+            let n: String = object.get_required("n", "keyData")?;
+            let e: String = object.get_required("e", "keyData")?;
+
+            uint_ref_from_b64!(modulus, ctx, n.as_bytes());
+            uint_ref_from_b64!(public_exponent, ctx, e.as_bytes());
+
+            if let Some(d) = object.get_optional::<_, String>("d")? {
+                let p: String = object.get_required("p", "keyData")?;
+                let q: String = object.get_required("q", "keyData")?;
+                let dp: String = object.get_required("dp", "keyData")?;
+                let dq: String = object.get_required("dq", "keyData")?;
+                let qi: String = object.get_required("qi", "keyData")?;
+
+                uint_ref_from_b64!(private_exponent, ctx, d.as_bytes());
+                uint_ref_from_b64!(prime1, ctx, p.as_bytes());
+                uint_ref_from_b64!(prime2, ctx, q.as_bytes());
+                uint_ref_from_b64!(exponent1, ctx, dp.as_bytes());
+                uint_ref_from_b64!(exponent2, ctx, dq.as_bytes());
+                uint_ref_from_b64!(coefficient, ctx, qi.as_bytes());
+
+                let modulus_length = modulus.as_bytes().len() * 8;
+
+                let private_key = rsa::pkcs1::RsaPrivateKey {
+                    modulus,
+                    public_exponent,
+                    private_exponent,
+                    prime1,
+                    prime2,
+                    exponent1,
+                    exponent2,
+                    coefficient,
+                    other_prime_infos: None,
+                };
+
+                *data = private_key.to_der().or_throw(ctx)?;
+                *kind = KeyKind::Private;
+                (modulus_length, public_exponent.as_bytes().to_vec())
+            } else {
+                let public_key = rsa::pkcs1::RsaPublicKey {
+                    modulus,
+                    public_exponent,
+                };
+                public_key_info(ctx, kind, data, public_key)?
+            }
+        },
+        KeyFormat::Raw(object_bytes) => {
+            let public_key =
+                rsa::pkcs1::RsaPublicKey::from_der(object_bytes.as_bytes()).or_throw(ctx)?;
+            public_key_info(ctx, kind, data, public_key)?
+        },
+        KeyFormat::Pkcs8(object_bytes) => {
+            let pk_info = PrivateKeyInfo::from_der(object_bytes.as_bytes()).or_throw(ctx)?;
+            let object_identifier = pk_info.algorithm.oid;
+            validate_oid(object_identifier)?;
+
+            let private_key =
+                rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key).or_throw(ctx)?;
+
+            let public_exponent = private_key.public_exponent.as_bytes().to_vec();
+            let modulus_length = private_key.modulus.as_bytes().len() * 8;
+            *data = pk_info.private_key.to_vec();
+            *kind = KeyKind::Private;
+
+            (modulus_length, public_exponent)
+        },
+        KeyFormat::Spki(object_bytes) => {
+            let pk_info =
+                spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+
+            let object_identifier = pk_info.algorithm.oid;
+            validate_oid(object_identifier)?;
+
+            let public_key =
+                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                    .or_throw(ctx)?;
+
+            public_key_info(ctx, kind, data, public_key)?
+        },
+    };
+
+    let public_exponent = public_exponent.into_boxed_slice();
+    Ok((modulus_length as u32, public_exponent))
+}
+
+fn import_symmetric_key<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+    algorithm_name: &str,
+    hash: Option<&ShaAlgorithm>,
 ) -> Result<usize> {
     *kind = KeyKind::Secret;
+
     match format {
         KeyFormat::Jwk(object) => {
             let kty: String = object.get_required("kty", "keyData")?;
@@ -562,48 +804,190 @@ fn import_aes<'js>(
                 let k: String = object.get_required("k", "keyData")?;
                 let alg: String = object.get_required("alg", "keyData")?;
 
-                //extract AES-{suffix}
-                let (_, name_suffix) = algorithm_name.split_once("-").unwrap_or_default();
-                let aes_variant = &alg[3..];
+                let prefix = &alg[..1];
 
-                if aes_variant != name_suffix {
-                    return Err(Exception::throw_type(
-                        ctx,
-                        &["Imported key is not a AES-", name_suffix, " key"].concat(),
-                    ));
+                match (prefix, hash) {
+                    //HMAC - HS256, HS512 etc
+                    ("H", Some(hash)) => {
+                        if &alg[2..] != hash.as_numeric_str() {
+                            return hash_mismatch_error(ctx, hash);
+                        }
+                    },
+                    //AES - A256KW, A256GCM, A256CRT, A512CBC etc
+                    ("A", None) => {
+                        //extract AES-{suffix}
+                        let (_, name_suffix) = algorithm_name.split_once("-").unwrap_or_default();
+                        let aes_variant = &alg[4..];
+
+                        if aes_variant != name_suffix {
+                            return algorithm_mismatch_error(ctx, algorithm_name);
+                        }
+                    },
+                    _ => return algorithm_mismatch_error(ctx, algorithm_name),
                 }
 
                 *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
-                return Ok(data.len());
+                return Ok(data.len() * 8);
+            }
+        },
+        KeyFormat::Raw(object_bytes) => {
+            let bytes = object_bytes.into_bytes();
+
+            *data = bytes;
+            return Ok(data.len() * 8);
+        },
+        _ => {},
+    }
+    algorithm_mismatch_error(ctx, algorithm_name)
+}
+
+fn import_ec_key<'js>(
+    ctx: &Ctx<'js>,
+    format: KeyFormat<'js>,
+    kind: &mut KeyKind,
+    data: &mut Vec<u8>,
+    algorithm_name: &str,
+    curve: &EllipticCurve,
+    curve_name: &str,
+) -> Result<()> {
+    let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
+        if other_oid != elliptic_curve::ALGORITHM_OID {
+            return algorithm_mismatch_error(ctx, algorithm_name);
+        }
+        Ok(())
+    };
+
+    fn decode_to_curve<C: elliptic_curve::Curve>(
+        ctx: &Ctx<'_>,
+        value: &str,
+    ) -> Result<elliptic_curve::FieldBytes<C>> {
+        let value_bytes = value.as_bytes();
+
+        let mut field_bytes = elliptic_curve::FieldBytes::<C>::default();
+        let mut bytes = bytes_from_b64_url_safe(value_bytes).or_throw(ctx)?;
+        if bytes.len() < field_bytes.len() {
+            bytes.resize(field_bytes.len() - bytes.len(), 0);
+        }
+
+        field_bytes.copy_from_slice(&bytes);
+
+        Ok(field_bytes)
+    }
+
+    fn decode_jwk_to_ec_point_bytes(
+        ctx: &Ctx<'_>,
+        curve: &EllipticCurve,
+        x: &str,
+        y: &str,
+    ) -> Result<Vec<u8>> {
+        let point_bytes = match curve {
+            EllipticCurve::P256 => {
+                let x = decode_to_curve::<p256::NistP256>(ctx, x)?;
+                let y = decode_to_curve::<p256::NistP256>(ctx, y)?;
+
+                p256::EncodedPoint::from_affine_coordinates(&x, &y, false).to_bytes()
+            },
+            EllipticCurve::P384 => {
+                let x = decode_to_curve::<p384::NistP384>(ctx, x)?;
+                let y = decode_to_curve::<p384::NistP384>(ctx, y)?;
+
+                p384::EncodedPoint::from_affine_coordinates(&x, &y, false).to_bytes()
+            },
+            EllipticCurve::P521 => {
+                let x = decode_to_curve::<p521::NistP521>(ctx, x)?;
+                let y = decode_to_curve::<p521::NistP521>(ctx, y)?;
+
+                p521::EncodedPoint::from_affine_coordinates(&x, &y, false).to_bytes()
+            },
+        };
+
+        Ok(point_bytes.to_vec())
+    }
+
+    match format {
+        KeyFormat::Jwk(object) => {
+            let kty: String = object.get_required("kty", "keyData")?;
+            if kty != "EC" {
+                return algorithm_mismatch_error(ctx, algorithm_name);
+            }
+
+            let jwk_crv: String = object.get_required("crv", "keyData")?;
+            if curve_name != jwk_crv {
+                return Err(Exception::throw_type(
+                    ctx,
+                    &["Key is using a ", curve_name].concat(),
+                ));
+            }
+
+            if let Some(d) = object.get_optional::<_, String>("d")? {
+                let private_key = match curve {
+                    EllipticCurve::P256 => {
+                        let d = decode_to_curve::<p256::NistP256>(ctx, &d)?;
+                        let key = p256::SecretKey::from_bytes(&d).or_throw(ctx)?;
+                        key.to_pkcs8_der().or_throw(ctx)?
+                    },
+                    EllipticCurve::P384 => {
+                        let d = decode_to_curve::<p384::NistP384>(ctx, &d)?;
+                        let key = p384::SecretKey::from_bytes(&d).or_throw(ctx)?;
+                        key.to_pkcs8_der().or_throw(ctx)?
+                    },
+                    EllipticCurve::P521 => {
+                        let d = decode_to_curve::<p521::NistP521>(ctx, &d)?;
+                        let key = p521::SecretKey::from_bytes(&d).or_throw(ctx)?;
+                        key.to_pkcs8_der().or_throw(ctx)?
+                    },
+                };
+
+                *data = private_key.as_bytes().to_vec();
+                *kind = KeyKind::Private;
+            } else {
+                *kind = KeyKind::Public;
+                let x: String = object.get_required("x", "keyData")?;
+                let y: String = object.get_required("y", "keyData")?;
+
+                let point_bytes = decode_jwk_to_ec_point_bytes(ctx, curve, &x, &y)?;
+                *data = point_bytes;
             }
         },
         KeyFormat::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes();
             if bytes.len() != 32 {
-                return Err(Exception::throw_type(ctx, "AES keys must be 32 bytes long"));
+                return Err(Exception::throw_type(
+                    ctx,
+                    &[algorithm_name, " keys must be 32 bytes long"].concat(),
+                ));
             }
             *data = bytes;
-            return Ok(data.len());
+            *kind = KeyKind::Public;
         },
-        _ => {},
-    }
-    Err(Exception::throw_type(ctx, "Only AES keys are supported"))
+        KeyFormat::Spki(object_bytes) => {
+            let spki =
+                spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            validate_oid(spki.algorithm.oid)?;
+            *data = spki.subject_public_key.raw_bytes().into();
+            *kind = KeyKind::Public;
+        },
+        KeyFormat::Pkcs8(object_bytes) => {
+            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            validate_oid(pkcs8.algorithm.oid)?;
+            *data = object_bytes.into_bytes();
+            *kind = KeyKind::Private;
+        },
+    };
+    Ok(())
 }
 
-fn import_crv_key<'js>(
+fn import_okp_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormat<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     oid: ObjectIdentifier,
-    name: &str,
+    algorithm_name: &str,
 ) -> Result<()> {
     let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
         if other_oid != oid {
-            return Err(Exception::throw_type(
-                ctx,
-                &["Only ", name, " keys are supported"].concat(),
-            ));
+            return algorithm_mismatch_error(ctx, algorithm_name);
         }
         Ok(())
     };
@@ -611,11 +995,8 @@ fn import_crv_key<'js>(
     match format {
         KeyFormat::Jwk(object) => {
             let crv: String = object.get_required("crv", "keyData")?;
-            if crv != name {
-                return Err(Exception::throw_type(
-                    ctx,
-                    &["Only ", name, " keys are supported"].concat(),
-                ));
+            if crv != algorithm_name {
+                return algorithm_mismatch_error(ctx, algorithm_name);
             }
             let x: String = object.get_required("x", "keyData")?;
             let public_key = bytes_from_b64_url_safe(x.as_bytes()).or_throw(ctx)?;
@@ -643,7 +1024,7 @@ fn import_crv_key<'js>(
             if bytes.len() != 32 {
                 return Err(Exception::throw_type(
                     ctx,
-                    &[name, " keys must be 32 bytes long"].concat(),
+                    &[algorithm_name, " keys must be 32 bytes long"].concat(),
                 ));
             }
             *data = bytes;
@@ -664,38 +1045,6 @@ fn import_crv_key<'js>(
         },
     };
     Ok(())
-}
-
-fn import_ed25519<'js>(
-    ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
-    kind: &mut KeyKind,
-    data: &mut Vec<u8>,
-) -> Result<()> {
-    import_crv_key(
-        ctx,
-        format,
-        kind,
-        data,
-        const_oid::db::rfc8410::ID_ED_25519,
-        "Ed25519",
-    )
-}
-
-fn import_x25519<'js>(
-    ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
-    kind: &mut KeyKind,
-    data: &mut Vec<u8>,
-) -> Result<()> {
-    import_crv_key(
-        ctx,
-        format,
-        kind,
-        data,
-        const_oid::db::rfc8410::ID_X_25519,
-        "X25519",
-    )
 }
 
 fn classify_usage(
@@ -737,4 +1086,11 @@ fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &ShaAlgorithm) -> Result<Object
     let hash_obj = Object::new(ctx.clone())?;
     hash_obj.set(PredefinedAtom::Name, hash.as_str())?;
     Ok(hash_obj)
+}
+
+pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &ShaAlgorithm) -> Result<T> {
+    Err(Exception::throw_message(
+        ctx,
+        &["Algorithm hash expected to be ", hash.as_str()].concat(),
+    ))
 }

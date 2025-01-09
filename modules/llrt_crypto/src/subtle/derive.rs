@@ -11,7 +11,9 @@ use super::{
     algorithm_mismatch_error, algorithm_not_supported_error,
     crypto_key::KeyKind,
     derive_algorithm::DeriveAlgorithm,
-    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation},
+    key_algorithm::{
+        EcAlgorithm, KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation,
+    },
 };
 
 use crate::{
@@ -46,14 +48,17 @@ fn derive_bits(
     base_key: &CryptoKey,
     length: u32,
 ) -> Result<Vec<u8>> {
-    Ok(match algorithm {
+    let bits = match algorithm {
         DeriveAlgorithm::Ecdh { curve, public_key } => {
             if let KeyAlgorithm::Ec {
                 curve: base_key_curve,
-                ..
+                algorithm,
             } = &base_key.algorithm
             {
-                if curve == base_key_curve && base_key.kind == KeyKind::Private {
+                if curve == base_key_curve
+                    && base_key.kind == KeyKind::Private
+                    && matches!(algorithm, EcAlgorithm::Ecdh)
+                {
                     let handle = &base_key.handle;
                     return Ok(match curve {
                         EllipticCurve::P256 => {
@@ -99,17 +104,21 @@ fn derive_bits(
             return algorithm_mismatch_error(ctx, "ECDH");
         },
         DeriveAlgorithm::X25519 { public_key } => {
-            if let KeyAlgorithm::X25519 { .. } = base_key.algorithm {
-                let private_array: [u8; 32] = base_key.handle.as_ref().try_into().or_throw(ctx)?;
-                let public_array: [u8; 32] = public_key.as_ref().try_into().or_throw(ctx)?;
-                let secret_key = x25519_dalek::StaticSecret::from(private_array);
-                let public_key = x25519_dalek::PublicKey::from(public_array);
-                let shared_secret = secret_key.diffie_hellman(&public_key);
-                return Ok(shared_secret.as_bytes().to_vec());
+            if !matches!(base_key.algorithm, KeyAlgorithm::X25519 { .. }) {
+                return algorithm_mismatch_error(ctx, "X25519");
             }
-            return algorithm_mismatch_error(ctx, "X25519");
+
+            let private_array: [u8; 32] = base_key.handle.as_ref().try_into().or_throw(ctx)?;
+            let public_array: [u8; 32] = public_key.as_ref().try_into().or_throw(ctx)?;
+            let secret_key = x25519_dalek::StaticSecret::from(private_array);
+            let public_key = x25519_dalek::PublicKey::from(public_array);
+            let shared_secret = secret_key.diffie_hellman(&public_key);
+            shared_secret.as_bytes().to_vec()
         },
         DeriveAlgorithm::Derive(KeyDerivation::Hkdf { hash, salt, info }) => {
+            if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport { .. }) {
+                return algorithm_mismatch_error(ctx, "HKDF");
+            }
             let hash_algorithm = match hash {
                 ShaAlgorithm::SHA1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
                 ShaAlgorithm::SHA256 => hkdf::HKDF_SHA256,
@@ -133,6 +142,9 @@ fn derive_bits(
             salt,
             iterations,
         }) => {
+            if !matches!(base_key.algorithm, KeyAlgorithm::Pbkdf2Import { .. }) {
+                return algorithm_mismatch_error(ctx, "PBKDF2");
+            }
             let hash_algorithm = match hash {
                 ShaAlgorithm::SHA1 => pbkdf2::PBKDF2_HMAC_SHA1,
                 ShaAlgorithm::SHA256 => pbkdf2::PBKDF2_HMAC_SHA256,
@@ -153,7 +165,8 @@ fn derive_bits(
 
             out
         },
-    })
+    };
+    Ok(bits)
 }
 
 pub async fn subtle_derive_key<'js>(

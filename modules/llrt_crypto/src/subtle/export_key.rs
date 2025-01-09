@@ -18,7 +18,7 @@ use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
 use rsa::{pkcs1::DecodeRsaPrivateKey, RsaPrivateKey};
 use spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfo};
 
-use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey};
+use crate::subtle::CryptoKey;
 
 pub fn algorithm_export_error<T>(ctx: &Ctx<'_>, algorithm: &str, format: &str) -> Result<T> {
     Err(Exception::throw_message(
@@ -136,21 +136,14 @@ fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             key_info.to_der().unwrap()
         },
         KeyAlgorithm::Ec { curve, algorithm } => {
-            let alg_id = match curve {
-                EllipticCurve::P256 => AlgorithmIdentifierOwned {
-                    oid: elliptic_curve::ALGORITHM_OID,
-                    parameters: Some((&p256::NistP256::OID).into()),
-                },
-                EllipticCurve::P384 => AlgorithmIdentifierOwned {
-                    oid: elliptic_curve::ALGORITHM_OID,
-                    parameters: Some((&p384::NistP384::OID).into()),
-                },
-                EllipticCurve::P521 => AlgorithmIdentifierOwned {
-                    oid: elliptic_curve::ALGORITHM_OID,
-                    parameters: Some((&p521::NistP521::OID).into()),
-                },
+            let alg_id = AlgorithmIdentifierOwned {
+                oid: elliptic_curve::ALGORITHM_OID,
+                parameters: Some(match curve {
+                    EllipticCurve::P256 => (&p256::NistP256::OID).into(),
+                    EllipticCurve::P384 => (&p384::NistP384::OID).into(),
+                    EllipticCurve::P521 => (&p521::NistP521::OID).into(),
+                }),
             };
-
             let alg_id = match algorithm {
                 EcAlgorithm::Ecdh { .. } => AlgorithmIdentifier {
                     oid: const_oid::db::rfc5912::ID_EC_PUBLIC_KEY,
@@ -162,7 +155,6 @@ fn export_spki<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             //unwrap ok, key is always valid after this stage
             let key_info = SubjectPublicKeyInfo {
                 algorithm: alg_id,
-
                 subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
             };
 
@@ -336,12 +328,7 @@ fn export_jwk<'js>(ctx: Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 },
             };
 
-            let alg_suffix = match hash {
-                ShaAlgorithm::SHA1 => "1",
-                ShaAlgorithm::SHA256 => "256",
-                ShaAlgorithm::SHA384 => "384",
-                ShaAlgorithm::SHA512 => "512",
-            };
+            let alg_suffix = hash.as_numeric_str();
 
             let alg_prefix = match name {
                 "RSASSA-PKCS1-v1_5" => "RS",
