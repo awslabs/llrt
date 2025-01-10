@@ -355,9 +355,9 @@ impl<'js> ChildProcess<'js> {
     }
 }
 
-async fn wait_for_process<'js>(
+async fn wait_for_process(
     mut child: Child,
-    ctx: &Ctx<'js>,
+    ctx: &Ctx<'_>,
     mut kill_signal_rx: Receiver<Option<i32>>,
     exit_code: &mut Option<i32>,
     exit_signal: &mut Option<i32>,
