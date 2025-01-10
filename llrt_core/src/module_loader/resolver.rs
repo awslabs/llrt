@@ -395,7 +395,7 @@ fn node_modules_paths(start: &str) -> Vec<Box<str>> {
 
     // Iterate through parent directories
     while let Some(dir) = current {
-        if dir.file_name().map_or(false, |name| name != "node_modules") {
+        if dir.file_name().is_some_and(|name| name != "node_modules") {
             let mut node_modules = dir.to_path_buf();
             node_modules.push("node_modules");
             dirs.push(Box::from(node_modules.to_string_lossy()));

@@ -86,7 +86,7 @@ enum Listener {
 }
 
 impl Listener {
-    async fn accept<'js>(&self, ctx: &Ctx<'js>) -> Result<NetStream> {
+    async fn accept(&self, ctx: &Ctx<'_>) -> Result<NetStream> {
         match self {
             Listener::Tcp(tcp) => tcp
                 .accept()
@@ -119,8 +119,8 @@ fn get_address_parts(
     ))
 }
 
-async fn rw_join<'js>(
-    ctx: &Ctx<'js>,
+async fn rw_join(
+    ctx: &Ctx<'_>,
     readable_done: Receiver<bool>,
     writable_done: Receiver<bool>,
 ) -> Result<bool> {
