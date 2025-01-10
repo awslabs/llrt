@@ -38,8 +38,8 @@ where
             async move {
                 let options = options?;
 
-                if options.url.starts_with("data:") {
-                    return parse_data_url(&ctx, &options.url);
+                if let Some(data_url) = options.url.strip_prefix("data:") {
+                    return parse_data_url(&ctx, data_url);
                 }
 
                 let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;
@@ -112,7 +112,7 @@ where
 }
 
 fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> {
-    let (mime_type, data) = data_url["data:".len()..]
+    let (mime_type, data) = data_url
         .split_once(',')
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid data URL format"))?;
 
@@ -139,9 +139,9 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> 
     };
 
     let body = if is_base64 {
-        bytes_from_b64(data.as_bytes()).map_err(|err| Exception::throw_message(ctx, &err))?
+        bytes_from_b64(data.as_bytes()).or_throw(ctx)?
     } else {
-        data.as_bytes().to_vec()
+        data.as_bytes().into()
     };
 
     let blob = Blob::from_bytes(body, Some(content_type.clone())).into_js(ctx)?;

@@ -1720,6 +1720,7 @@ dependencies = [
  "base64-simd",
  "hex-simd",
  "llrt_build",
+ "memchr",
  "phf",
 ]
 
