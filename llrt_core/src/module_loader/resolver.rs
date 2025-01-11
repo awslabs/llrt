@@ -433,7 +433,7 @@ fn load_package_imports(ctx: &Ctx<'_>, x: &str, dir: &str) -> Result<Option<Stri
         if let Some(module_path) = package_imports_resolve(&package_json, x) {
             trace!("|  load_package_imports(6): {}", module_path);
             let dir = path.as_ref().trim_end_matches("package.json");
-            let module_path = correct_extensions([dir, module_path].concat());
+            let module_path = to_abs_path(correct_extensions([dir, module_path].concat()))?;
             return Ok(Some(module_path.into()));
         }
     };
@@ -562,7 +562,7 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     if let Ok((path, _)) = package_exports_resolve(&package_json, &name, is_esm) {
         trace!("|  load_package_self(2.c): {}", path);
         let dir = package_json_path.trim_end_matches("package.json");
-        let module_path = to_abs_path(correct_extensions([dir, path].concat()))?;
+        let module_path = correct_extensions([dir, path].concat());
         return Ok(Some(module_path.into()));
     }
 
