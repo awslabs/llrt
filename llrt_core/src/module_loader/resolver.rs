@@ -534,7 +534,7 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     // 1. Find the closest package scope SCOPE to DIR.
     let mut package_json_file: Vec<u8>;
     let package_json: BorrowedValue;
-    match find_the_closest_package_scope(dir) {
+    let package_json_path: Box<str> = match find_the_closest_package_scope(dir) {
         // 2. If no scope was found, return.
         None => {
             return Ok(None);
@@ -552,6 +552,7 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
                     return Ok(None);
                 }
             }
+            path
         },
     };
     // 5. let MATCH = PACKAGE_EXPORTS_RESOLVE(pathToFileURL(SCOPE),
@@ -560,7 +561,9 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     // 6. RESOLVE_ESM_MATCH(MATCH)
     if let Ok((path, _)) = package_exports_resolve(&package_json, &name, is_esm) {
         trace!("|  load_package_self(2.c): {}", path);
-        return Ok(Some(path.into()));
+        let dir = package_json_path.trim_end_matches("package.json");
+        let module_path = to_abs_path(correct_extensions([dir, path].concat()))?;
+        return Ok(Some(module_path.into()));
     }
 
     Ok(None)

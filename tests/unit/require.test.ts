@@ -143,6 +143,10 @@ it("require `uuid` module element", () => {
   _require(`${CWD}/fixtures/test_modules/test-uuid.js`);
 });
 
+it("require `react-dom` module element", () => {
+  _require(`${CWD}/fixtures/test_modules/test-react-dom.js`);
+});
+
 //create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
 it("should handle blocking requires", (done) => {
   const proc = spawn(process.argv0, [`${CWD}/fixtures/require.mjs`]);
