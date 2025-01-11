@@ -433,7 +433,7 @@ fn load_package_imports(ctx: &Ctx<'_>, x: &str, dir: &str) -> Result<Option<Stri
         if let Some(module_path) = package_imports_resolve(&package_json, x) {
             trace!("|  load_package_imports(6): {}", module_path);
             let dir = path.as_ref().trim_end_matches("package.json");
-            let module_path = to_abs_path(correct_extensions([dir, module_path].concat()))?;
+            let module_path = correct_extensions([dir, module_path].concat());
             return Ok(Some(module_path.into()));
         }
     };
