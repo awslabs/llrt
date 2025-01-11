@@ -194,7 +194,7 @@ fn resolved_by_bytecode_cache(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
 
 fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
     trace!("+- Resolved by `FILE`: {}\n", path);
-    Ok(path)
+    to_abs_path(path)
 }
 
 fn to_abs_path(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
