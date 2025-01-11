@@ -168,7 +168,7 @@ pub fn require_resolve<'a>(
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
     if let Ok(Some(path)) = load_package_self(ctx, x, &dirname_y, is_esm) {
         trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}\n", path);
-        return to_abs_path(path.into());
+        return Ok(path.into());
     }
 
     // 6. LOAD_NODE_MODULES(X, dirname(Y))
