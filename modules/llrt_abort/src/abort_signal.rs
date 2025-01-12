@@ -3,7 +3,7 @@
 use std::sync::{Arc, RwLock};
 
 use llrt_events::{Emitter, EventEmitter, EventList};
-use llrt_exceptions::DOMException;
+use llrt_exceptions::{DOMException, DOMExceptionName};
 use llrt_utils::mc_oneshot;
 use rquickjs::{
     class::{Trace, Tracer},
@@ -160,7 +160,11 @@ impl<'js> AbortSignal<'js> {
     pub fn send_aborted(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<()> {
         let mut borrow = this.borrow_mut();
         borrow.aborted = true;
-        let reason = get_reason_or_dom_exception(&ctx, borrow.reason.as_ref(), "AbortError")?;
+        let reason = get_reason_or_dom_exception(
+            &ctx,
+            borrow.reason.as_ref(),
+            DOMExceptionName::AbortError,
+        )?;
         borrow.reason = Some(reason.clone());
         borrow.sender.send(reason);
         drop(borrow);
@@ -179,7 +183,8 @@ impl<'js> AbortSignal<'js> {
 
     #[qjs(static)]
     pub fn timeout(ctx: Ctx<'js>, milliseconds: u64) -> Result<Class<'js, Self>> {
-        let timeout_error = get_reason_or_dom_exception(&ctx, None, "TimeoutError")?;
+        let timeout_error =
+            get_reason_or_dom_exception(&ctx, None, DOMExceptionName::TimeoutError)?;
 
         let signal = Self::new();
         let signal_instance = Class::instance(ctx.clone(), signal)?;
@@ -221,12 +226,12 @@ impl<'js> AbortSignal<'js> {
 fn get_reason_or_dom_exception<'js>(
     ctx: &Ctx<'js>,
     reason: Option<&Value<'js>>,
-    name: &str,
+    name: DOMExceptionName,
 ) -> Result<Value<'js>> {
     let reason = if let Some(reason) = reason {
         reason.clone()
     } else {
-        let ex = DOMException::new(ctx.clone(), Opt(None), Opt(Some(name.into())))?;
+        let ex = DOMException::new_with_name(ctx, name, String::new())?;
         Class::instance(ctx.clone(), ex)?.into_value()
     };
     Ok(reason)

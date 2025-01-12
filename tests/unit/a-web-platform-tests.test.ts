@@ -809,4 +809,42 @@ describe("web-platform-tests", () => {
       // });
     });
   });
+
+  describe("webidl", () => {
+    describe("ecmascript-binding", () => {
+      describe("es-exceptions", () => {
+        it("should pass DOMException-constants.any.js tests", (done) => {
+          runTest(
+            require("./web-platform-tests/webidl/ecmascript-binding/es-exceptions/DOMException-constants.any.js")
+              .default,
+            done
+          );
+        });
+
+        it("should pass DOMException-constructor-and-prototype.any.js tests", (done) => {
+          runTest(
+            require("./web-platform-tests/webidl/ecmascript-binding/es-exceptions/DOMException-constructor-and-prototype.any.js")
+              .default,
+            done
+          );
+        });
+
+        it("should pass DOMException-constructor-behavior.any.js tests", (done) => {
+          runTest(
+            require("./web-platform-tests/webidl/ecmascript-binding/es-exceptions/DOMException-constructor-behavior.any.js")
+              .default,
+            done
+          );
+        });
+
+        it("should pass DOMException-custom-bindings.any.js tests", (done) => {
+          runTest(
+            require("./web-platform-tests/webidl/ecmascript-binding/es-exceptions/DOMException-custom-bindings.any.js")
+              .default,
+            done
+          );
+        });
+      });
+    });
+  });
 });
