@@ -1015,14 +1015,6 @@ describe("SubtileCrypto wrap/unwrap", () => {
           );
 
           // Unwrap the key
-          console.log("00000");
-          console.log({
-            wrappingAlg,
-            keyToWrap,
-            keyToTest,
-            wrappingKey,
-            exported: await crypto.subtle.exportKey("jwk", wrappingKey),
-          });
           const unwrappedKey = await crypto.subtle.unwrapKey(
             "jwk",
             wrappedKey,

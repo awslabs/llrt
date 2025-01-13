@@ -80,11 +80,6 @@ impl KeyUsage {
         }
         let allowed_usages = private_usages_mask + public_usages_mask;
 
-        println!(
-            "ALGO = {}, priv={:#b},pub={:#b}",
-            name, private_usages_mask, public_usages_mask
-        );
-
         let mut generated_public_usages = Vec::with_capacity(4);
         let mut generated_private_usages = Vec::with_capacity(4);
 
@@ -94,7 +89,6 @@ impl KeyUsage {
         for usage in key_usages.iter::<String>() {
             has_any_usages = true;
             let value = usage?;
-            println!("USAGE = {}", value.as_str());
             let usage = KeyUsage::try_from(value.as_str()).or_throw(ctx)?;
             let usage = usage.mask();
             if allowed_usages & usage != usage {
