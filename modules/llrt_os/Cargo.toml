@@ -27,7 +27,7 @@ users = { version = "0.11", features = ["cache"], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 whoami = { version = "1", default-features = false }
-windows-registry = "0.3"
+windows-registry = "0.4"
 windows-result = "0.2"
 windows-version = "0.1"
 
