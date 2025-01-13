@@ -670,7 +670,7 @@ fn import_derive_key<'js>(
     Ok(())
 }
 
-fn import_rsa_key<'a, 'js>(
+fn import_rsa_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
     kind: &mut KeyKind,
