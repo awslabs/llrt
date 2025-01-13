@@ -5,6 +5,7 @@ use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult}
 use llrt_json::{parse::json_parse_string, stringify::json_stringify_replacer_space};
 use llrt_numbers::number_to_string;
 use llrt_utils::{
+    clone::structured_clone,
     error::ErrorExtensions,
     object::ObjectExt,
     primordials::{BasePrimordials, Primordial},
@@ -27,7 +28,6 @@ use crate::{
     module_loader::{loader::CustomLoader, require, resolver::CustomResolver},
     modules::{console, crypto::SYSTEM_RANDOM},
     security,
-    utils::clone::structured_clone,
 };
 
 fn print(value: String, stdout: Opt<bool>) {
@@ -218,11 +218,6 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
     let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
     number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
 
-    let readable_stream_stub = ctx.eval::<Value,_>(
-            r#"class ReadableStream{constructor(){throw Error(`ReadableStream is not supported via global scope. Enable this by adding this to your code:\nimport { ReadableStream } from "stream";\nglobalThis.ReadableStream = ReadableStream;`)}};"#
-    )?;
-
-    globals.set("ReadableStream", readable_stream_stub)?;
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
     globals.set("load", Func::from(load))?;

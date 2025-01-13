@@ -4,6 +4,7 @@ use std::{
     collections::HashSet,
     fmt::Write as FormatWrite,
     io::{stderr, stdout, IsTerminal, Write},
+    ops::Deref,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
@@ -13,6 +14,7 @@ use llrt_numbers::float_to_string;
 use llrt_utils::{
     class::get_class_name,
     error::ErrorExtensions,
+    hash,
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
@@ -25,9 +27,9 @@ use rquickjs::{
     Array, Class, Coerced, Ctx, Error, Function, Object, Result, Symbol, Type, Value,
 };
 
+use crate::module_builder::ModuleInfo;
 use crate::modules::module::export_default;
 use crate::runtime_client;
-use crate::{module_builder::ModuleInfo, utils::hash};
 
 pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
@@ -716,7 +718,7 @@ impl<'js> FormatOptions<'js> {
         let object_filter = Filter::new().private().string().symbol();
 
         let custom_inspect_symbol = primordials.symbol_custom_inspect.clone();
-        let number_function = primordials.function_number.clone();
+        let number_function = primordials.constructor_number.deref().clone();
 
         let options = FormatOptions {
             color,

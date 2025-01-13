@@ -2,18 +2,17 @@ use std::collections::HashSet;
 
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{
+use rquickjs::{
+    atom::PredefinedAtom,
+    function::{Constructor, Opt, This},
+    Array, ArrayBuffer, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
+};
+
+use super::{
+    hash,
     object::ObjectExt,
     primordials::{BasePrimordials, Primordial},
 };
-use rquickjs::{
-    atom::PredefinedAtom,
-    function::This,
-    function::{Constructor, Opt},
-    Array, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
-};
-
-use super::hash;
 
 #[derive(Debug)]
 enum StackItem<'js> {
@@ -343,11 +342,17 @@ fn append_transfer_value<'js>(
     object_key: Option<String>,
     array_index: Option<usize>,
 ) -> Result<()> {
+    let value = if let Some(ab) = ArrayBuffer::from_value(value.clone()) {
+        ab.get::<_, Function>("transfer")?.call((This(ab),))?
+    } else {
+        value.clone()
+    };
+
     tape.push(TapeItem {
         parent,
         object_key,
         array_index,
-        value: TapeValue::Value(value.clone()),
+        value: TapeValue::Value(value),
     });
     Ok(())
 }
@@ -404,12 +409,11 @@ mod tests {
     use llrt_test::test_sync_with;
     use rquickjs::{function::Opt, Object, Value};
 
-    use crate::utils::clone::structured_clone;
+    use super::structured_clone;
 
     #[tokio::test]
     async fn clone() {
         test_sync_with(|ctx| {
-            crate::modules::buffer::init(&ctx)?;
             let value: Object = ctx.eval(
                 r#"
 const a = {

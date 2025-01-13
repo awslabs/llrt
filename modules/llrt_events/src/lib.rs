@@ -194,6 +194,16 @@ where
         }
     }
 
+    fn remove_event_listener_str(
+        this: This<Class<'js, Self>>,
+        ctx: &Ctx<'js>,
+        event: &str,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        let event = to_event(ctx, event)?;
+        Self::remove_event_listener(this, ctx.clone(), event, listener)
+    }
+
     fn remove_event_listener(
         this: This<Class<'js, Self>>,
         ctx: Ctx<'js>,
