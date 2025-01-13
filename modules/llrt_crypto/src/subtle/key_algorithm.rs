@@ -615,6 +615,7 @@ impl KeyAlgorithm {
         Ok(obj)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn from_ec<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
