@@ -68,12 +68,16 @@ impl KeyUsage {
             KeyUsageAlgorithm::Sign => "SIGN",
         };
 
+        let is_derive = matches!(key_usage_algorithm, KeyUsageAlgorithm::Derive);
+
         let (mut private_usages_mask, mut public_usages_mask) = key_usage_algorithm.masks();
-        match kind {
-            Some(KeyKind::Private) => public_usages_mask = 0,
-            Some(KeyKind::Secret) | Some(KeyKind::Public) => private_usages_mask = 0,
-            None => {},
-        };
+        if !is_derive {
+            match kind {
+                Some(KeyKind::Private) => public_usages_mask = 0,
+                Some(KeyKind::Secret) | Some(KeyKind::Public) => private_usages_mask = 0,
+                None => {},
+            };
+        }
         let allowed_usages = private_usages_mask + public_usages_mask;
 
         println!(
@@ -90,6 +94,7 @@ impl KeyUsage {
         for usage in key_usages.iter::<String>() {
             has_any_usages = true;
             let value = usage?;
+            println!("USAGE = {}", value.as_str());
             let usage = KeyUsage::try_from(value.as_str()).or_throw(ctx)?;
             let usage = usage.mask();
             if allowed_usages & usage != usage {
@@ -124,20 +129,20 @@ impl KeyUsage {
             ));
         }
 
-        let valid_usage = match kind {
-            Some(KeyKind::Secret) | Some(KeyKind::Public) => {
-                private_usages_empty && !public_usages.is_empty()
-            },
-            Some(KeyKind::Private) => !private_usages_empty && public_usages.is_empty(),
-            None => true,
-        };
-
-        if !valid_usage {
-            return Err(Exception::throw_message(ctx, "Invalid key usage"));
-        }
-
-        if matches!(key_usage_algorithm, KeyUsageAlgorithm::Derive) {
+        if is_derive {
             *private_usages = public_usages.to_vec();
+        } else {
+            let valid_usage = match kind {
+                Some(KeyKind::Secret) | Some(KeyKind::Public) => {
+                    private_usages_empty && !public_usages.is_empty()
+                },
+                Some(KeyKind::Private) => !private_usages_empty && public_usages.is_empty(),
+                None => true,
+            };
+
+            if !valid_usage {
+                return Err(Exception::throw_message(ctx, "Invalid key usage"));
+            }
         }
 
         Ok(())

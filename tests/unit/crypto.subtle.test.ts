@@ -909,7 +909,7 @@ describe("SubtileCrypto import/export", () => {
   }, 30000);
 });
 
-describe.only("SubtileCrypto wrap/unwrap", () => {
+describe("SubtileCrypto wrap/unwrap", () => {
   it("should wrap and unwrap keys for all supported algorithms", async () => {
     // Test parameters
     const HASH_ALGORITHMS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
@@ -1002,8 +1002,9 @@ describe.only("SubtileCrypto wrap/unwrap", () => {
         const keysToTest = originalKey.publicKey
           ? [originalKey.publicKey, originalKey.privateKey]
           : [originalKey];
+        const usages = keysToTest.map((key) => key.usages);
 
-        for (const keyToTest of keysToTest) {
+        for (const [i, keyToTest] of keysToTest.entries()) {
           const wrappedKey = await crypto.subtle.wrapKey(
             "jwk",
             keyToTest,
@@ -1014,6 +1015,14 @@ describe.only("SubtileCrypto wrap/unwrap", () => {
           );
 
           // Unwrap the key
+          console.log("00000");
+          console.log({
+            wrappingAlg,
+            keyToWrap,
+            keyToTest,
+            wrappingKey,
+            exported: await crypto.subtle.exportKey("jwk", wrappingKey),
+          });
           const unwrappedKey = await crypto.subtle.unwrapKey(
             "jwk",
             wrappedKey,
@@ -1023,23 +1032,20 @@ describe.only("SubtileCrypto wrap/unwrap", () => {
             wrappingAlg.wrapParams,
             keyToWrap.generateParams,
             true,
-            keyToWrap.usages as webcrypto.KeyUsage[]
+            usages[i]
           );
 
           // Export both keys to compare
           const originalExported = await crypto.subtle.exportKey(
-            "raw",
+            "jwk",
             keyToTest
           );
           const unwrappedExported = await crypto.subtle.exportKey(
-            "raw",
+            "jwk",
             unwrappedKey
           );
 
-          // Compare the exported keys
-          const originalBuffer = new Uint8Array(originalExported);
-          const unwrappedBuffer = new Uint8Array(unwrappedExported);
-          expect(unwrappedBuffer).toEqual(originalBuffer);
+          expect(originalExported).toEqual(unwrappedExported);
         }
       }
     }
