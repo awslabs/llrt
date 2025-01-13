@@ -1,11 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod crypto_key;
-mod decrypt;
 mod derive;
 mod derive_algorithm;
 mod digest;
-mod encrypt;
+mod encryption;
 mod encryption_algorithm;
 mod export_key;
 mod generate_key;
@@ -14,17 +13,24 @@ mod key_algorithm;
 mod sign;
 mod sign_algorithm;
 mod verify;
+mod wrapping;
 
 pub use crypto_key::CryptoKey;
-pub use decrypt::subtle_decrypt;
 pub use derive::subtle_derive_bits;
 pub use derive::subtle_derive_key;
 pub use digest::subtle_digest;
-pub use encrypt::subtle_encrypt;
+pub use encryption::subtle_decrypt;
+pub use encryption::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
+pub use import_key::subtle_import_key;
+use key_algorithm::KeyAlgorithm;
+use ring::digest::Digest;
+use rsa::pkcs1::DecodeRsaPrivateKey;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
+pub use wrapping::subtle_unwrap_key;
+pub use wrapping::subtle_wrap_key;
 
 use aes::{
     cipher::{
@@ -42,9 +48,8 @@ use aes_gcm::{
 };
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{object::ObjectExt, result::ResultExt, str_enum};
-use ring::signature;
 use rquickjs::{Ctx, Exception, Object, Result, Value};
-use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
+use rsa::RsaPrivateKey;
 
 use crate::sha_hash::ShaAlgorithm;
 
@@ -275,48 +280,52 @@ impl AesGcmVariant {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EllipticCurve {
     P256,
     P384,
+    P521,
 }
 
-impl EllipticCurve {
-    fn as_signing_algorithm<'a>(&self) -> &'a signature::EcdsaSigningAlgorithm {
-        match self {
-            EllipticCurve::P256 => &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-            EllipticCurve::P384 => &signature::ECDSA_P384_SHA384_FIXED_SIGNING,
-        }
-    }
+str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384", P521 => "P-521");
+
+pub enum EncryptionMode {
+    Encryption,
+    Wrapping(u8), //padding byte
 }
 
-str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384");
-
-pub fn rsa_private_key(
+pub fn rsa_private_key<'a>(
     ctx: &Ctx<'_>,
-    handle: &[u8],
-    label: &Option<Box<[u8]>>,
-    hash: &ShaAlgorithm,
-) -> Result<(RsaPrivateKey, Oaep)> {
-    let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
-    let mut padding = match hash {
-        ShaAlgorithm::SHA1 => {
-            return Err(Exception::throw_message(
-                ctx,
-                "SHA-1 is not supported for RSA-OAEP",
-            ));
-        },
-        ShaAlgorithm::SHA256 => Oaep::new::<rsa::sha2::Sha256>(),
-        ShaAlgorithm::SHA384 => Oaep::new::<rsa::sha2::Sha384>(),
-        ShaAlgorithm::SHA512 => Oaep::new::<rsa::sha2::Sha512>(),
+    key: &'a CryptoKey,
+    data: &'a [u8],
+    algorithm_name: &str,
+) -> Result<(RsaPrivateKey, &'a ShaAlgorithm, Digest)> {
+    let hash = match &key.algorithm {
+        KeyAlgorithm::Rsa { hash, .. } => hash,
+        _ => return algorithm_mismatch_error(ctx, algorithm_name),
     };
-    if let Some(label) = label {
-        if !label.is_empty() {
-            padding.label = Some(String::from_utf8_lossy(label).to_string());
-        }
+    if !matches!(
+        hash,
+        ShaAlgorithm::SHA256 | ShaAlgorithm::SHA384 | ShaAlgorithm::SHA512
+    ) {
+        return Err(Exception::throw_message(
+            ctx,
+            "Only Sha-256, Sha-384 or Sha-512 is supported for RSA",
+        ));
     }
+    let private_key = RsaPrivateKey::from_pkcs1_der(&key.handle).or_throw(ctx)?;
 
-    Ok((private_key, padding))
+    let digest = ring::digest::digest(hash.digest_algorithm(), data);
+
+    Ok((private_key, hash, digest))
+}
+
+pub fn extract_aes_length(ctx: &Ctx<'_>, key: &CryptoKey, expected_algorithm: &str) -> Result<u16> {
+    let length = match key.algorithm {
+        KeyAlgorithm::Aes { length } => length,
+        _ => return algorithm_mismatch_error(ctx, expected_algorithm),
+    };
+    Ok(length)
 }
 
 pub fn to_name_and_maybe_object<'js, 'a>(
@@ -340,10 +349,10 @@ pub fn to_name_and_maybe_object<'js, 'a>(
     Ok((name, obj))
 }
 
-pub fn algorithm_missmatch_error(ctx: &Ctx<'_>) -> Result<Vec<u8>> {
+pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>, expected_algorithm: &str) -> Result<T> {
     Err(Exception::throw_message(
         ctx,
-        "key.algorithm does not match that of operation",
+        &["Key algorithm must be ", expected_algorithm].concat(),
     ))
 }
 

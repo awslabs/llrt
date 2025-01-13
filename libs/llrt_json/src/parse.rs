@@ -32,7 +32,7 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
                 error_msg.push(char);
                 error_msg.push_str("')");
             }
-            return Err(Exception::throw_syntax(ctx, &error_msg));
+            return Err(Exception::throw_message(ctx, &error_msg));
         },
     };
     let tape = tape.0;

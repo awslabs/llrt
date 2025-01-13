@@ -147,6 +147,15 @@ impl ShaAlgorithm {
             ShaAlgorithm::SHA512 => "SHA-512",
         }
     }
+
+    pub fn as_numeric_str(&self) -> &'static str {
+        match self {
+            ShaAlgorithm::SHA1 => "1",
+            ShaAlgorithm::SHA256 => "256",
+            ShaAlgorithm::SHA384 => "384",
+            ShaAlgorithm::SHA512 => "512",
+        }
+    }
 }
 
 impl TryFrom<&str> for ShaAlgorithm {

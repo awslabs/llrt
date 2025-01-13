@@ -20,6 +20,7 @@ pub enum EncryptionAlgorithm {
     RsaOaep {
         label: Option<Box<[u8]>>,
     },
+    AesKw,
 }
 
 impl<'js> FromJs<'js> for EncryptionAlgorithm {
@@ -101,6 +102,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                     .map(|bytes| bytes.into_bytes().into_boxed_slice());
                 Ok(EncryptionAlgorithm::RsaOaep { label })
             },
+            "AES-KW" => Ok(EncryptionAlgorithm::AesKw),
             _ => algorithm_not_supported_error(ctx),
         }
     }

@@ -6,7 +6,7 @@ use rquickjs::{
 
 use crate::error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ObjectBytes<'js> {
     U8Array(TypedArray<'js, u8>),
     I8Array(TypedArray<'js, i8>),

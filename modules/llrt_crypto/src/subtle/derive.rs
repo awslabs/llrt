@@ -8,9 +8,12 @@ use ring::{hkdf, pbkdf2};
 use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
 
 use super::{
-    algorithm_not_supported_error,
+    algorithm_mismatch_error, algorithm_not_supported_error,
+    crypto_key::KeyKind,
     derive_algorithm::DeriveAlgorithm,
-    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation},
+    key_algorithm::{
+        EcAlgorithm, KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation,
+    },
 };
 
 use crate::{
@@ -35,44 +38,87 @@ pub async fn subtle_derive_bits<'js>(
     let base_key = base_key.borrow();
     base_key.check_validity("deriveBits").or_throw(&ctx)?;
 
-    let bytes = derive_bits(&ctx, &algorithm, &base_key.handle, length)?;
+    let bytes = derive_bits(&ctx, &algorithm, &base_key, length)?;
     ArrayBuffer::new(ctx, bytes)
 }
 
 fn derive_bits(
     ctx: &Ctx<'_>,
     algorithm: &DeriveAlgorithm,
-    base_key: &[u8],
+    base_key: &CryptoKey,
     length: u32,
 ) -> Result<Vec<u8>> {
-    Ok(match algorithm {
-        DeriveAlgorithm::Ecdh { curve, public } => match curve {
-            EllipticCurve::P256 => {
-                let secret_key = p256::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
-                let public_key = p256::SecretKey::from_pkcs8_der(public)
-                    .or_throw(ctx)?
-                    .public_key();
-                let shared_secret = p256::elliptic_curve::ecdh::diffie_hellman(
-                    secret_key.to_nonzero_scalar(),
-                    public_key.as_affine(),
-                );
+    let bits = match algorithm {
+        DeriveAlgorithm::Ecdh { curve, public_key } => {
+            if let KeyAlgorithm::Ec {
+                curve: base_key_curve,
+                algorithm,
+            } = &base_key.algorithm
+            {
+                if curve == base_key_curve
+                    && base_key.kind == KeyKind::Private
+                    && matches!(algorithm, EcAlgorithm::Ecdh)
+                {
+                    let handle = &base_key.handle;
+                    return Ok(match curve {
+                        EllipticCurve::P256 => {
+                            let secret_key =
+                                p256::SecretKey::from_pkcs8_der(handle).or_throw(ctx)?;
+                            let public_key =
+                                p256::PublicKey::from_sec1_bytes(public_key).or_throw(ctx)?;
+                            let shared_secret = p256::elliptic_curve::ecdh::diffie_hellman(
+                                secret_key.to_nonzero_scalar(),
+                                public_key.as_affine(),
+                            );
+                            shared_secret.raw_secret_bytes().to_vec()
+                        },
+                        EllipticCurve::P384 => {
+                            let secret_key =
+                                p384::SecretKey::from_pkcs8_der(handle).or_throw(ctx)?;
+                            let public_key =
+                                p384::PublicKey::from_sec1_bytes(public_key).or_throw(ctx)?;
+                            let shared_secret = p384::elliptic_curve::ecdh::diffie_hellman(
+                                secret_key.to_nonzero_scalar(),
+                                public_key.as_affine(),
+                            );
+                            shared_secret.raw_secret_bytes().to_vec()
+                        },
+                        EllipticCurve::P521 => {
+                            let secret_key =
+                                p521::SecretKey::from_pkcs8_der(handle).or_throw(ctx)?;
+                            let public_key =
+                                p521::PublicKey::from_sec1_bytes(public_key).or_throw(ctx)?;
+                            let shared_secret = p521::elliptic_curve::ecdh::diffie_hellman(
+                                secret_key.to_nonzero_scalar(),
+                                public_key.as_affine(),
+                            );
+                            shared_secret.raw_secret_bytes().to_vec()
+                        },
+                    });
+                }
+                return Err(Exception::throw_message(
+                    ctx,
+                    "ECDH curve must be same as baseKey",
+                ));
+            }
+            return algorithm_mismatch_error(ctx, "ECDH");
+        },
+        DeriveAlgorithm::X25519 { public_key } => {
+            if !matches!(base_key.algorithm, KeyAlgorithm::X25519 { .. }) {
+                return algorithm_mismatch_error(ctx, "X25519");
+            }
 
-                shared_secret.raw_secret_bytes().to_vec()
-            },
-            EllipticCurve::P384 => {
-                let secret_key = p384::SecretKey::from_pkcs8_der(base_key).or_throw(ctx)?;
-                let public_key = p384::SecretKey::from_pkcs8_der(public)
-                    .or_throw(ctx)?
-                    .public_key();
-                let shared_secret = p384::elliptic_curve::ecdh::diffie_hellman(
-                    secret_key.to_nonzero_scalar(),
-                    public_key.as_affine(),
-                );
-
-                shared_secret.raw_secret_bytes().to_vec()
-            },
+            let private_array: [u8; 32] = base_key.handle.as_ref().try_into().or_throw(ctx)?;
+            let public_array: [u8; 32] = public_key.as_ref().try_into().or_throw(ctx)?;
+            let secret_key = x25519_dalek::StaticSecret::from(private_array);
+            let public_key = x25519_dalek::PublicKey::from(public_array);
+            let shared_secret = secret_key.diffie_hellman(&public_key);
+            shared_secret.as_bytes().to_vec()
         },
         DeriveAlgorithm::Derive(KeyDerivation::Hkdf { hash, salt, info }) => {
+            if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport { .. }) {
+                return algorithm_mismatch_error(ctx, "HKDF");
+            }
             let hash_algorithm = match hash {
                 ShaAlgorithm::SHA1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
                 ShaAlgorithm::SHA256 => hkdf::HKDF_SHA256,
@@ -81,7 +127,7 @@ fn derive_bits(
             };
             let salt = hkdf::Salt::new(hash_algorithm, salt);
             let info: &[&[u8]] = &[&info[..]];
-            let prk = salt.extract(base_key);
+            let prk = salt.extract(&base_key.handle);
             let out_length = (length / 8).try_into().or_throw(ctx)?;
             let okm = prk
                 .expand(info, HkdfOutput((length / 8).try_into().or_throw(ctx)?))
@@ -96,6 +142,9 @@ fn derive_bits(
             salt,
             iterations,
         }) => {
+            if !matches!(base_key.algorithm, KeyAlgorithm::Pbkdf2Import { .. }) {
+                return algorithm_mismatch_error(ctx, "PBKDF2");
+            }
             let hash_algorithm = match hash {
                 ShaAlgorithm::SHA1 => pbkdf2::PBKDF2_HMAC_SHA1,
                 ShaAlgorithm::SHA256 => pbkdf2::PBKDF2_HMAC_SHA256,
@@ -110,13 +159,14 @@ fn derive_bits(
                 hash_algorithm,
                 not_zero_iterations,
                 salt,
-                base_key,
+                &base_key.handle,
                 &mut out,
             );
 
             out
         },
-    })
+    };
+    Ok(bits)
 }
 
 pub async fn subtle_derive_key<'js>(
@@ -139,7 +189,7 @@ pub async fn subtle_derive_key<'js>(
         key_usages,
     )?;
 
-    let length: u16 = match &derived_key_algorithm {
+    let length = match &derived_key_algorithm {
         KeyAlgorithm::Aes { length } => *length,
         KeyAlgorithm::Hmac { length, .. } => *length,
         KeyAlgorithm::Derive { .. } => 0,
@@ -148,12 +198,12 @@ pub async fn subtle_derive_key<'js>(
         },
     };
 
-    let handle = &base_key.borrow().handle;
+    let base_key = &base_key.borrow();
 
-    let bytes = derive_bits(&ctx, &algorithm, handle, length as u32)?;
+    let bytes = derive_bits(&ctx, &algorithm, base_key, length as u32)?;
 
     let key = CryptoKey::new(
-        "secret",
+        KeyKind::Secret,
         name,
         extractable,
         derived_key_algorithm,
