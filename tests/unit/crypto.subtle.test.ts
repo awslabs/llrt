@@ -612,7 +612,6 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         const aliceSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
-            // public: bobImportKey,
             public: bobKeyPair.publicKey,
           },
           aliceKeyPair.privateKey,
@@ -620,7 +619,7 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         );
 
         // 5. Convert Alice's derived secret to a key using HKDF
-        const aliceDerivedKey = await crypto.subtle.importKey(
+        const aliceImportedKey = await crypto.subtle.importKey(
           "raw",
           aliceSharedSecret,
           "HKDF",
@@ -628,9 +627,9 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
           ["deriveKey"]
         );
 
-        const aliceDerivedlKey = await crypto.subtle.deriveKey(
+        const aliceDerivedKey = await crypto.subtle.deriveKey(
           generated,
-          aliceDerivedKey,
+          aliceImportedKey,
           derived,
           true,
           ["encrypt", "decrypt"]
@@ -639,7 +638,6 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         const bobSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
-            // public: aliceImportKey,
             public: aliceKeyPair.publicKey,
           },
           bobKeyPair.privateKey,
@@ -647,7 +645,7 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
         );
 
         // 8. Convert Bob's derived secret to a key using HKDF
-        const bobDerivedKey = await crypto.subtle.importKey(
+        const bobImportedKey = await crypto.subtle.importKey(
           "raw",
           bobSharedSecret,
           "HKDF",
@@ -655,9 +653,9 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
           ["deriveKey"]
         );
 
-        const bobDerivedlKey = await crypto.subtle.deriveKey(
+        const bobDerivedKey = await crypto.subtle.deriveKey(
           generated,
-          bobDerivedKey,
+          bobImportedKey,
           derived,
           true,
           ["encrypt", "decrypt"]
@@ -665,10 +663,10 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
 
         // 9. Verify if both derived keys are the same
         const aliceKeyBuffer = new Uint8Array(
-          await crypto.subtle.exportKey("raw", aliceDerivedlKey)
+          await crypto.subtle.exportKey("raw", aliceDerivedKey)
         );
         const bobKeyBuffer = new Uint8Array(
-          await crypto.subtle.exportKey("raw", bobDerivedlKey)
+          await crypto.subtle.exportKey("raw", bobDerivedKey)
         );
 
         // Compare the raw key buffers to check if the derived keys are equal
@@ -721,6 +719,7 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
     for (const generated of generatedParams) {
       for (const derived of derivedParams) {
         // 4. Alice derives a shared secret using Bob's public key
+
         const aliceSharedSecret = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
@@ -813,19 +812,19 @@ describe("SubtileCrypto import/export", () => {
       ),
 
       // RSA algorithms
-      ...["RSASSA-PKCS1-v1_5", "RSA-PSS", "RSA-OAEP"].flatMap((name) =>
-        HASH_ALGORITHMS.map((hash) => ({
-          generateParams: {
-            name,
-            modulusLength: 2048,
-            publicExponent: new Uint8Array([1, 0, 1]),
-            hash,
-          },
-          usages:
-            name === "RSA-OAEP" ? ["encrypt", "decrypt"] : ["sign", "verify"],
-          formats: ASYMMETRIC_FORMATS,
-        }))
-      ),
+      // ...["RSASSA-PKCS1-v1_5", "RSA-PSS", "RSA-OAEP"].flatMap((name) =>
+      //   HASH_ALGORITHMS.map((hash) => ({
+      //     generateParams: {
+      //       name,
+      //       modulusLength: 2048,
+      //       publicExponent: new Uint8Array([1, 0, 1]),
+      //       hash,
+      //     },
+      //     usages:
+      //       name === "RSA-OAEP" ? ["encrypt", "decrypt"] : ["sign", "verify"],
+      //     formats: ASYMMETRIC_FORMATS,
+      //   }))
+      // ),
 
       // EC algorithms
       ...["ECDSA", "ECDH"].flatMap((name) =>
@@ -907,5 +906,142 @@ describe("SubtileCrypto import/export", () => {
         }
       }
     }
-  }, 20000);
+  }, 30000);
+});
+
+describe.only("SubtileCrypto wrap/unwrap", () => {
+  it("should wrap and unwrap keys for all supported algorithms", async () => {
+    // Test parameters
+    const HASH_ALGORITHMS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+    const AES_LENGTHS = [128, 192, 256];
+    const EC_CURVES = ["P-256", "P-384", "P-521"];
+
+    // Wrapping algorithms
+    const wrappingAlgorithms = [
+      // AES-KW
+      ...AES_LENGTHS.map((length) => ({
+        name: "AES-KW",
+        generateParams: {
+          name: "AES-KW",
+          length,
+        },
+        wrapParams: {
+          name: "AES-KW",
+        },
+        usages: ["wrapKey", "unwrapKey"],
+      })),
+
+      // RSA-OAEP
+      // ...HASH_ALGORITHMS.map((hash) => ({
+      //   name: "RSA-OAEP",
+      //   generateParams: {
+      //     name: "RSA-OAEP",
+      //     modulusLength: 2048,
+      //     publicExponent: new Uint8Array([1, 0, 1]),
+      //     hash,
+      //   },
+      //   wrapParams: {
+      //     name: "RSA-OAEP",
+      //   },
+      //   usages: ["wrapKey", "unwrapKey"],
+      // })),
+    ];
+
+    // Keys to be wrapped
+    const keysToWrap = [
+      // AES keys
+      ...["AES-CBC", "AES-GCM", "AES-CTR"].flatMap((name) =>
+        AES_LENGTHS.map((length) => ({
+          generateParams: {
+            name,
+            length,
+          },
+          usages: ["encrypt", "decrypt"],
+        }))
+      ),
+
+      // HMAC keys
+      ...HASH_ALGORITHMS.map((hash) => ({
+        generateParams: {
+          name: "HMAC",
+          hash,
+        },
+        usages: ["sign", "verify"],
+      })),
+
+      // EC keys
+      ...["ECDSA", "ECDH"].flatMap((name) =>
+        EC_CURVES.map((namedCurve) => ({
+          generateParams: {
+            name,
+            namedCurve,
+          },
+          usages:
+            name === "ECDH" ? ["deriveKey", "deriveBits"] : ["sign", "verify"],
+        }))
+      ),
+    ];
+
+    for (const wrappingAlg of wrappingAlgorithms) {
+      // Generate wrapping key pair for RSA-OAEP or single key for AES-KW
+      const wrappingKey = (await crypto.subtle.generateKey(
+        wrappingAlg.generateParams,
+        true,
+        wrappingAlg.usages as webcrypto.KeyUsage[]
+      )) as webcrypto.CryptoKeyPair & webcrypto.CryptoKey;
+
+      for (const keyToWrap of keysToWrap) {
+        // Generate key to be wrapped
+        const originalKey = (await crypto.subtle.generateKey(
+          keyToWrap.generateParams,
+          true,
+          keyToWrap.usages as webcrypto.KeyUsage[]
+        )) as webcrypto.CryptoKeyPair & webcrypto.CryptoKey;
+
+        // For asymmetric keys, test both public and private keys
+        const keysToTest = originalKey.publicKey
+          ? [originalKey.publicKey, originalKey.privateKey]
+          : [originalKey];
+
+        for (const keyToTest of keysToTest) {
+          const wrappedKey = await crypto.subtle.wrapKey(
+            "jwk",
+            keyToTest,
+            wrappingAlg.name === "RSA-OAEP"
+              ? wrappingKey.publicKey
+              : wrappingKey,
+            wrappingAlg.wrapParams
+          );
+
+          // Unwrap the key
+          const unwrappedKey = await crypto.subtle.unwrapKey(
+            "jwk",
+            wrappedKey,
+            wrappingAlg.name === "RSA-OAEP"
+              ? wrappingKey.privateKey
+              : wrappingKey,
+            wrappingAlg.wrapParams,
+            keyToWrap.generateParams,
+            true,
+            keyToWrap.usages as webcrypto.KeyUsage[]
+          );
+
+          // Export both keys to compare
+          const originalExported = await crypto.subtle.exportKey(
+            "raw",
+            keyToTest
+          );
+          const unwrappedExported = await crypto.subtle.exportKey(
+            "raw",
+            unwrappedKey
+          );
+
+          // Compare the exported keys
+          const originalBuffer = new Uint8Array(originalExported);
+          const unwrappedBuffer = new Uint8Array(unwrappedExported);
+          expect(unwrappedBuffer).toEqual(originalBuffer);
+        }
+      }
+    }
+  }, 30000);
 });

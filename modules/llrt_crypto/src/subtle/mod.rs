@@ -1,11 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod crypto_key;
-mod decrypt;
 mod derive;
 mod derive_algorithm;
 mod digest;
-mod encrypt;
+mod encryption;
 mod encryption_algorithm;
 mod export_key;
 mod generate_key;
@@ -14,13 +13,14 @@ mod key_algorithm;
 mod sign;
 mod sign_algorithm;
 mod verify;
+mod wrapping;
 
 pub use crypto_key::CryptoKey;
-pub use decrypt::subtle_decrypt;
 pub use derive::subtle_derive_bits;
 pub use derive::subtle_derive_key;
 pub use digest::subtle_digest;
-pub use encrypt::subtle_encrypt;
+pub use encryption::subtle_decrypt;
+pub use encryption::subtle_encrypt;
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
 pub use import_key::subtle_import_key;
@@ -29,6 +29,8 @@ use ring::digest::Digest;
 use rsa::pkcs1::DecodeRsaPrivateKey;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
+pub use wrapping::subtle_unwrap_key;
+pub use wrapping::subtle_wrap_key;
 
 use aes::{
     cipher::{
@@ -47,7 +49,7 @@ use aes_gcm::{
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{object::ObjectExt, result::ResultExt, str_enum};
 use rquickjs::{Ctx, Exception, Object, Result, Value};
-use rsa::{Oaep, RsaPrivateKey};
+use rsa::RsaPrivateKey;
 
 use crate::sha_hash::ShaAlgorithm;
 
@@ -287,6 +289,11 @@ pub enum EllipticCurve {
 
 str_enum!(EllipticCurve,P256 => "P-256", P384 => "P-384", P521 => "P-521");
 
+pub enum EncryptionMode {
+    Encryption,
+    Wrapping(u8), //padding byte
+}
+
 pub fn rsa_private_key<'a>(
     ctx: &Ctx<'_>,
     key: &'a CryptoKey,
@@ -313,31 +320,12 @@ pub fn rsa_private_key<'a>(
     Ok((private_key, hash, digest))
 }
 
-pub fn rsa_oaep_private_key(
-    ctx: &Ctx<'_>,
-    handle: &[u8],
-    label: &Option<Box<[u8]>>,
-    hash: &ShaAlgorithm,
-) -> Result<(RsaPrivateKey, Oaep)> {
-    let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
-    let mut padding = match hash {
-        ShaAlgorithm::SHA1 => {
-            return Err(Exception::throw_message(
-                ctx,
-                "SHA-1 is not supported for RSA-OAEP",
-            ));
-        },
-        ShaAlgorithm::SHA256 => Oaep::new::<rsa::sha2::Sha256>(),
-        ShaAlgorithm::SHA384 => Oaep::new::<rsa::sha2::Sha384>(),
-        ShaAlgorithm::SHA512 => Oaep::new::<rsa::sha2::Sha512>(),
+pub fn extract_aes_length(ctx: &Ctx<'_>, key: &CryptoKey, expected_algorithm: &str) -> Result<u16> {
+    let length = match key.algorithm {
+        KeyAlgorithm::Aes { length } => length,
+        _ => return algorithm_mismatch_error(ctx, expected_algorithm),
     };
-    if let Some(label) = label {
-        if !label.is_empty() {
-            padding.label = Some(String::from_utf8_lossy(label).to_string());
-        }
-    }
-
-    Ok((private_key, padding))
+    Ok(length)
 }
 
 pub fn to_name_and_maybe_object<'js, 'a>(

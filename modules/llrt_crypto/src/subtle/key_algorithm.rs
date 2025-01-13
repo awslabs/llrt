@@ -2,9 +2,11 @@ use der::asn1::UintRef;
 use der::Decode;
 use der::Encode;
 use llrt_encoding::bytes_from_b64_url_safe;
+use llrt_utils::str_enum;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use pkcs8::EncodePrivateKey;
 use pkcs8::PrivateKeyInfo;
+use rquickjs::FromJs;
 use rquickjs::{atom::PredefinedAtom, Array, Ctx, Exception, Object, Result, TypedArray, Value};
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
@@ -17,13 +19,167 @@ use super::{
     algorithm_not_supported_error, crypto_key::KeyKind, to_name_and_maybe_object, EllipticCurve,
 };
 
-static SYMMETRIC_USAGES: &[&str] = &["encrypt", "decrypt", "wrapKey", "unwrapKey"];
-static SIGNATURE_USAGES: &[&str] = &["sign", "verify"];
-static EMPTY_USAGES: &[&str] = &[];
-static SIGN_USAGES: &[&str] = &["sign"];
-static RSA_OAEP_USAGES: &[&str] = &["decrypt", "unwrapKey"];
-static DERIVE_USAGES: &[&str] = &["deriveKey", "deriveBits"];
-static AES_KW_USAGES: &[&str] = &["wrapKey", "unwrapKey"];
+#[derive(Clone, Copy, PartialEq)]
+pub enum KeyUsage {
+    //7 values, can be max 255 (u8) 0b11111111
+    Encrypt,
+    Decrypt,
+    WrapKey,
+    UnwrapKey,
+    Sign,
+    Verify,
+    DeriveKey,
+    DeriveBits,
+}
+
+impl TryFrom<&str> for KeyUsage {
+    type Error = String;
+
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        Ok(match s {
+            "encrypt" => KeyUsage::Encrypt,
+            "decrypt" => KeyUsage::Decrypt,
+            "wrapKey" => KeyUsage::WrapKey,
+            "unwrapKey" => KeyUsage::UnwrapKey,
+            "sign" => KeyUsage::Sign,
+            "verify" => KeyUsage::Verify,
+            "deriveKey" => KeyUsage::DeriveKey,
+            "deriveBits" => KeyUsage::DeriveBits,
+            _ => return Err(["Invalid key usage: ", s].concat()),
+        })
+    }
+}
+
+impl KeyUsage {
+    fn classify_and_check_usages<'js>(
+        ctx: &Ctx<'js>,
+        key_usage_algorithm: KeyUsageAlgorithm,
+        key_usages: &Array<'js>,
+        private_usages: &mut Vec<String>,
+        public_usages: &mut Vec<String>,
+        kind: Option<&KeyKind>,
+    ) -> Result<()> {
+        let name = match key_usage_algorithm {
+            KeyUsageAlgorithm::AesKw => "AWS_KW",
+            KeyUsageAlgorithm::Symmetric => "SYM",
+            KeyUsageAlgorithm::Hmac => "HMAC",
+            KeyUsageAlgorithm::Derive => "DERIVE",
+            KeyUsageAlgorithm::RsaOaep => "RSA_OAEP",
+            KeyUsageAlgorithm::Sign => "SIGN",
+        };
+
+        let (mut private_usages_mask, mut public_usages_mask) = key_usage_algorithm.masks();
+        match kind {
+            Some(KeyKind::Private) => public_usages_mask = 0,
+            Some(KeyKind::Secret) | Some(KeyKind::Public) => private_usages_mask = 0,
+            None => {},
+        };
+        let allowed_usages = private_usages_mask + public_usages_mask;
+
+        println!(
+            "ALGO = {}, priv={:#b},pub={:#b}",
+            name, private_usages_mask, public_usages_mask
+        );
+
+        let mut generated_public_usages = Vec::with_capacity(4);
+        let mut generated_private_usages = Vec::with_capacity(4);
+
+        let mut has_any_usages = false;
+        let mut private_usages_empty = true;
+
+        for usage in key_usages.iter::<String>() {
+            has_any_usages = true;
+            let value = usage?;
+            let usage = KeyUsage::try_from(value.as_str()).or_throw(ctx)?;
+            let usage = usage.mask();
+            if allowed_usages & usage != usage {
+                return Err(Exception::throw_message(
+                    ctx,
+                    &["Invalid key usage '", &value, "'"].concat(),
+                ));
+            }
+            if private_usages_mask > 0 {
+                if private_usages_mask & usage == usage {
+                    private_usages_empty = false;
+                    generated_private_usages.push(value);
+                } else {
+                    generated_public_usages.push(value);
+                }
+            } else {
+                generated_public_usages.push(value);
+            }
+        }
+
+        *private_usages = generated_private_usages;
+        *public_usages = generated_public_usages;
+
+        if !has_any_usages {
+            return Err(Exception::throw_message(ctx, "Key usages empty"));
+        }
+
+        if private_usages_mask > 0 && private_usages_empty {
+            return Err(Exception::throw_message(
+                ctx,
+                "No required private key usages provided",
+            ));
+        }
+
+        let valid_usage = match kind {
+            Some(KeyKind::Secret) | Some(KeyKind::Public) => {
+                private_usages_empty && !public_usages.is_empty()
+            },
+            Some(KeyKind::Private) => !private_usages_empty && public_usages.is_empty(),
+            None => true,
+        };
+
+        if !valid_usage {
+            return Err(Exception::throw_message(ctx, "Invalid key usage"));
+        }
+
+        if matches!(key_usage_algorithm, KeyUsageAlgorithm::Derive) {
+            *private_usages = public_usages.to_vec();
+        }
+
+        Ok(())
+    }
+
+    const fn mask(self) -> u16 {
+        1 << self as u16
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy)]
+pub enum KeyUsageAlgorithm {
+    //single mask algorithms (symmetric)
+    AesKw = KeyUsage::WrapKey.mask() | KeyUsage::UnwrapKey.mask(),
+    //all non-KW AES
+    Symmetric = (KeyUsage::Encrypt.mask())
+        | (KeyUsage::Decrypt.mask())
+        | (KeyUsage::WrapKey.mask())
+        | (KeyUsage::UnwrapKey.mask()),
+
+    Hmac = (KeyUsage::Sign.mask()) | (KeyUsage::Verify.mask()),
+
+    //two mask algorithms (asymmetric) - use high bits as for private, low bits for public
+    //HKDF, PBKDF2, X25519
+    Derive = KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask(),
+
+    RsaOaep = ((KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask()) << 8) //private
+        | KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask(), //public
+
+    //ECDSA, ED25519, all non-OEAP RSA
+    Sign = (KeyUsage::Sign.mask() << 8) //private
+        | KeyUsage::Verify.mask(), //public
+}
+impl KeyUsageAlgorithm {
+    fn masks(&self) -> (u16, u16) {
+        let value = *self as u16;
+        let private_mask = value >> 8;
+        let public_mask = value & 0xFF;
+        (private_mask, public_mask)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum KeyDerivation {
@@ -104,20 +260,44 @@ pub enum KeyAlgorithm {
     Pbkdf2Import,
 }
 
-#[derive(PartialEq)]
-pub enum KeyFormat<'js> {
+pub enum KeyFormat {
+    Jwk,
+    Raw,
+    Spki,
+    Pkcs8,
+}
+
+str_enum!(KeyFormat, Jwk => "jwk", Raw => "raw", Spki => "spki", Pkcs8 => "pkcs8");
+
+impl<'js> FromJs<'js> for KeyFormat {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+        if let Some(string) = value.as_string() {
+            let string = string.to_string()?;
+            match string.as_str() {
+                "jwk" => return Ok(KeyFormat::Jwk),
+                "raw" => return Ok(KeyFormat::Raw),
+                "spki" => return Ok(KeyFormat::Spki),
+                "pkcs8" => return Ok(KeyFormat::Pkcs8),
+                _ => {},
+            };
+        }
+        Err(Exception::throw_message(
+            ctx,
+            "Key import/export format must be 'jwk','raw','spki' or 'pkcs8'",
+        ))
+    }
+}
+
+pub enum KeyFormatData<'js> {
     Jwk(Object<'js>),
     Raw(ObjectBytes<'js>),
     Spki(ObjectBytes<'js>),
     Pkcs8(ObjectBytes<'js>),
 }
 
-impl KeyFormat<'_> {}
-
-#[derive(PartialEq)]
 pub enum KeyAlgorithmMode<'a, 'js> {
     Import {
-        format: KeyFormat<'js>,
+        format: KeyFormatData<'js>,
         kind: &'a mut KeyKind,
         data: &'a mut Vec<u8>,
     },
@@ -143,10 +323,9 @@ impl KeyAlgorithm {
         let mut public_usages = vec![];
         let mut private_usages = vec![];
         let algorithm_name = name.as_str();
-        let mut is_symmetric = false;
         let algorithm = match algorithm_name {
             "Ed25519" => {
-                if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+                let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
                     import_okp_key(
                         ctx,
                         format,
@@ -155,20 +334,23 @@ impl KeyAlgorithm {
                         const_oid::db::rfc8410::ID_ED_25519,
                         algorithm_name,
                     )?;
-                }
+                    Some(kind)
+                } else {
+                    None
+                };
 
-                Self::classify_and_check_signature_usages(
+                KeyUsage::classify_and_check_usages(
                     ctx,
-                    algorithm_name,
+                    KeyUsageAlgorithm::Sign,
                     &usages,
-                    is_symmetric,
                     &mut private_usages,
                     &mut public_usages,
+                    key_kind.as_deref(),
                 )?;
                 KeyAlgorithm::Ed25519
             },
             "X25519" => {
-                if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+                let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
                     import_okp_key(
                         ctx,
                         format,
@@ -177,49 +359,30 @@ impl KeyAlgorithm {
                         const_oid::db::rfc8410::ID_X_25519,
                         algorithm_name,
                     )?;
-                }
+                    Some(kind)
+                } else {
+                    None
+                };
 
-                Self::classify_and_check_derive_usages(
+                KeyUsage::classify_and_check_usages(
                     ctx,
-                    algorithm_name,
+                    KeyUsageAlgorithm::Derive,
                     &usages,
-                    is_symmetric,
                     &mut private_usages,
                     &mut public_usages,
+                    key_kind.as_deref(),
                 )?;
                 KeyAlgorithm::X25519
             },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
-                is_symmetric = true;
-                if algorithm_name == "AES-KW" {
-                    Self::classify_and_check_usages(
-                        ctx,
-                        algorithm_name,
-                        &usages,
-                        AES_KW_USAGES,
-                        EMPTY_USAGES,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                } else {
-                    Self::classify_and_check_symmetric_usages(
-                        ctx,
-                        algorithm_name,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                }
-
+                let mut key_kind = None;
                 let length = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-                    import_symmetric_key(ctx, format, kind, data, algorithm_name, None)?
+                    let l = import_symmetric_key(ctx, format, kind, data, algorithm_name, None)?;
+                    key_kind = Some(kind);
+                    l
                 } else {
                     obj.or_throw(ctx)?.get_required("length", "algorithm")?
                 } as u16;
-
-                //eprintln!("Length: {}", length);
 
                 if !matches!(length, 128 | 192 | 256) {
                     return Err(Exception::throw_message(
@@ -231,102 +394,81 @@ impl KeyAlgorithm {
                     ));
                 }
 
-                KeyAlgorithm::Aes { length }
-            },
-            "ECDH" => {
-                match &mode {
-                    KeyAlgorithmMode::Generate => {
-                        Self::classify_and_check_derive_usages(
-                            ctx,
-                            algorithm_name,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
-                    },
-                    KeyAlgorithmMode::Derive => {
-                        Self::classify_and_check_symmetric_usages(
-                            ctx,
-                            algorithm_name,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
-                    },
-                    _ => {},
-                }
-                Self::from_ec(ctx, mode, obj, algorithm_name, EcAlgorithm::Ecdh)?
-            },
-            "ECDSA" => {
-                Self::classify_and_check_signature_usages(
+                KeyUsage::classify_and_check_usages(
                     ctx,
-                    algorithm_name,
+                    if name == "AES-KW" {
+                        KeyUsageAlgorithm::AesKw
+                    } else {
+                        KeyUsageAlgorithm::Symmetric
+                    },
                     &usages,
-                    is_symmetric,
                     &mut private_usages,
                     &mut public_usages,
-                )?;
-                Self::from_ec(ctx, mode, obj, algorithm_name, EcAlgorithm::Ecdsa)?
-            },
-            "HMAC" => {
-                is_symmetric = true;
-                Self::classify_and_check_usages(
-                    ctx,
-                    algorithm_name,
-                    &usages,
-                    SIGNATURE_USAGES,
-                    EMPTY_USAGES,
-                    is_symmetric,
-                    &mut private_usages,
-                    &mut public_usages,
+                    key_kind.as_deref(),
                 )?;
 
+                KeyAlgorithm::Aes { length }
+            },
+            "ECDH" => Self::from_ec(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                EcAlgorithm::Ecdh,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+                KeyUsageAlgorithm::Derive,
+            )?,
+
+            "ECDSA" => Self::from_ec(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                EcAlgorithm::Ecdsa,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+                KeyUsageAlgorithm::Sign,
+            )?,
+            "HMAC" => {
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
 
                 let mut length = obj.get_optional("length")?.unwrap_or_default();
 
-                if let KeyAlgorithmMode::Import { data, format, kind } = mode {
+                let key_kind = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
                     let data_length =
                         import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(&hash))?;
                     if length == 0 {
                         length = data_length as u16
                     }
-                }
+                    Some(kind)
+                } else {
+                    None
+                };
+
+                KeyUsage::classify_and_check_usages(
+                    ctx,
+                    KeyUsageAlgorithm::Hmac,
+                    &usages,
+                    &mut private_usages,
+                    &mut public_usages,
+                    key_kind.as_deref(),
+                )?;
 
                 KeyAlgorithm::Hmac { hash, length }
             },
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
-                if name == "RSA-OAEP" {
-                    Self::classify_and_check_usages(
-                        ctx,
-                        algorithm_name,
-                        &usages,
-                        SYMMETRIC_USAGES,
-                        RSA_OAEP_USAGES,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                } else {
-                    Self::classify_and_check_signature_usages(
-                        ctx,
-                        algorithm_name,
-                        &usages,
-                        is_symmetric,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?;
-                }
-
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
 
-                let (modulus_length, public_exponent) =
+                let (modulus_length, public_exponent, key_kind) =
                     if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-                        import_rsa_key(ctx, format, kind, data, algorithm_name, &hash)?
+                        let (mod_length, exp) =
+                            import_rsa_key(ctx, format, kind, data, algorithm_name, &hash)?;
+                        (mod_length, exp, Some(kind))
                     } else {
                         let modulus_length = obj.get_required("modulusLength", "algorithm")?;
                         let public_exponent: TypedArray<u8> =
@@ -338,8 +480,21 @@ impl KeyAlgorithm {
                             })?
                             .to_owned()
                             .into_boxed_slice();
-                        (modulus_length, public_exponent)
+                        (modulus_length, public_exponent, None)
                     };
+
+                KeyUsage::classify_and_check_usages(
+                    ctx,
+                    if name == "RSA-OAEP" {
+                        KeyUsageAlgorithm::RsaOaep
+                    } else {
+                        KeyUsageAlgorithm::Sign
+                    },
+                    &usages,
+                    &mut private_usages,
+                    &mut public_usages,
+                    key_kind.as_deref(),
+                )?;
 
                 let public_exponent = Rc::new(public_exponent);
 
@@ -350,80 +505,63 @@ impl KeyAlgorithm {
                 }
             },
             "HKDF" => {
-                is_symmetric = true;
-                match mode {
+                let (algorithm, key_kind) = match mode {
                     KeyAlgorithmMode::Import { format, kind, data } => {
-                        Self::classify_and_check_derive_usages(
-                            ctx,
-                            algorithm_name,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
                         import_derive_key(ctx, format, kind, data, algorithm_name)?;
-                        KeyAlgorithm::HkdfImport
+
+                        (KeyAlgorithm::HkdfImport, Some(kind))
                     },
                     KeyAlgorithmMode::Derive => {
-                        Self::classify_and_check_symmetric_usages(
-                            ctx,
-                            algorithm_name,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
                         let obj = obj.or_throw(ctx)?;
-                        KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?)
+                        (
+                            KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
+                            None,
+                        )
                     },
                     _ => {
                         return algorithm_not_supported_error(ctx);
                     },
-                }
+                };
+                KeyUsage::classify_and_check_usages(
+                    ctx,
+                    KeyUsageAlgorithm::Derive,
+                    &usages,
+                    &mut private_usages,
+                    &mut public_usages,
+                    key_kind.as_deref(),
+                )?;
+                algorithm
             },
 
             "PBKDF2" => {
-                is_symmetric = true;
-                match mode {
+                let (algorithm, key_kind) = match mode {
                     KeyAlgorithmMode::Import { format, kind, data } => {
-                        Self::classify_and_check_derive_usages(
-                            ctx,
-                            algorithm_name,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
                         import_derive_key(ctx, format, kind, data, algorithm_name)?;
-                        KeyAlgorithm::Pbkdf2Import
+                        (KeyAlgorithm::Pbkdf2Import, Some(kind))
                     },
                     KeyAlgorithmMode::Derive => {
-                        Self::classify_and_check_symmetric_usages(
-                            ctx,
-                            algorithm_name,
-                            &usages,
-                            is_symmetric,
-                            &mut private_usages,
-                            &mut public_usages,
-                        )?;
                         let obj = obj.or_throw(ctx)?;
-                        KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?)
+                        (
+                            KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
+                            None,
+                        )
                     },
                     _ => {
                         return algorithm_not_supported_error(ctx);
                     },
-                }
+                };
+                KeyUsage::classify_and_check_usages(
+                    ctx,
+                    KeyUsageAlgorithm::Derive,
+                    &usages,
+                    &mut private_usages,
+                    &mut public_usages,
+                    key_kind.as_deref(),
+                )?;
+                algorithm
             },
             _ => return algorithm_not_supported_error(ctx),
         };
-
-        //some import key algorithms allows for unchecked usages, let's just classify
-        if public_usages.is_empty() && private_usages.is_empty() {
-            for usage in usages.iter() {
-                let usage = usage?;
-                classify_usage(usage, is_symmetric, &mut private_usages, &mut public_usages);
-            }
-        }
 
         Ok(KeyAlgorithmWithUsages {
             name,
@@ -487,142 +625,49 @@ impl KeyAlgorithm {
         Ok(obj)
     }
 
-    fn classify_and_check_signature_usages<'js>(
-        ctx: &Ctx<'js>,
-        name: &str,
-        usages: &Array<'js>,
-        is_symmetric: bool,
-        private_usages: &mut Vec<String>,
-        public_usages: &mut Vec<String>,
-    ) -> Result<()> {
-        Self::classify_and_check_usages(
-            ctx,
-            name,
-            usages,
-            SIGNATURE_USAGES,
-            SIGN_USAGES,
-            is_symmetric,
-            private_usages,
-            public_usages,
-        )
-    }
-
-    fn classify_and_check_derive_usages<'js>(
-        ctx: &Ctx<'js>,
-        name: &str,
-        usages: &Array<'js>,
-        is_symmetric: bool,
-        private_usages: &mut Vec<String>,
-        public_usages: &mut Vec<String>,
-    ) -> Result<()> {
-        Self::classify_and_check_usages(
-            ctx,
-            name,
-            usages,
-            DERIVE_USAGES,
-            EMPTY_USAGES,
-            is_symmetric,
-            private_usages,
-            public_usages,
-        )
-    }
-
-    fn classify_and_check_symmetric_usages<'js>(
-        ctx: &Ctx<'js>,
-        name: &str,
-        usages: &Array<'js>,
-        is_symmetric: bool,
-        private_usages: &mut Vec<String>,
-        public_usages: &mut Vec<String>,
-    ) -> Result<()> {
-        Self::classify_and_check_usages(
-            ctx,
-            name,
-            usages,
-            SYMMETRIC_USAGES,
-            EMPTY_USAGES,
-            is_symmetric,
-            private_usages,
-            public_usages,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn classify_and_check_usages<'js>(
-        ctx: &Ctx<'js>,
-        name: &str,
-        key_usages: &Array<'js>,
-        allowed_usages: &[&str],
-        required_usages: &[&str],
-        is_symmetric: bool,
-        private_usages: &mut Vec<String>,
-        public_usages: &mut Vec<String>,
-    ) -> Result<()> {
-        let usages_len = key_usages.len();
-
-        let mut generated_public_usages = Vec::with_capacity(usages_len);
-        let mut generated_private_usages = Vec::with_capacity(usages_len);
-        let mut has_any_required_usages = required_usages.is_empty();
-        for usage in key_usages.iter::<String>() {
-            let value = usage?;
-            if !allowed_usages.contains(&value.as_str()) {
-                return Err(Exception::throw_range(
-                    ctx,
-                    &["'", &value, "' is not supported for ", name].concat(),
-                ));
-            }
-
-            if !has_any_required_usages {
-                has_any_required_usages = required_usages.contains(&value.as_str());
-            }
-
-            classify_usage(
-                value,
-                is_symmetric,
-                &mut generated_private_usages,
-                &mut generated_public_usages,
-            );
-        }
-
-        if !has_any_required_usages {
-            return Err(Exception::throw_range(
-                ctx,
-                &[name, " is missing some required usages"].concat(),
-            ));
-        }
-
-        *public_usages = generated_public_usages;
-        *private_usages = generated_private_usages;
-
-        Ok(())
-    }
-
     fn from_ec<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
         obj: std::result::Result<Object<'js>, &str>,
         algorithm_name: &str,
         algorithm: EcAlgorithm,
+        key_usages: &Array<'js>,
+        private_usages: &mut Vec<String>,
+        public_usages: &mut Vec<String>,
+        key_usage_algorithm: KeyUsageAlgorithm,
     ) -> Result<KeyAlgorithm> {
         let obj = obj.or_throw(ctx)?;
         let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
         let curve = EllipticCurve::try_from(curve_name.as_str()).or_throw(ctx)?;
 
-        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+        let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
             import_ec_key(ctx, format, kind, data, algorithm_name, &curve, &curve_name)?;
-        }
+            Some(kind)
+        } else {
+            None
+        };
+
+        KeyUsage::classify_and_check_usages(
+            ctx,
+            key_usage_algorithm,
+            key_usages,
+            private_usages,
+            public_usages,
+            key_kind.as_deref(),
+        )?;
+
         Ok(KeyAlgorithm::Ec { curve, algorithm })
     }
 }
 
 fn import_derive_key<'js>(
     ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
+    format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
 ) -> Result<()> {
-    if let KeyFormat::Raw(object_bytes) = format {
+    if let KeyFormatData::Raw(object_bytes) = format {
         *data = object_bytes.into_bytes();
         *kind = KeyKind::Secret;
     } else {
@@ -635,9 +680,9 @@ fn import_derive_key<'js>(
     Ok(())
 }
 
-fn import_rsa_key<'js>(
+fn import_rsa_key<'a, 'js>(
     ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
+    format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
@@ -671,7 +716,7 @@ fn import_rsa_key<'js>(
     }
 
     let (modulus_length, public_exponent) = match format {
-        KeyFormat::Jwk(object) => {
+        KeyFormatData::Jwk(object) => {
             let kty: String = object.get_required("kty", "keyData")?;
             let alg: String = object.get_required("alg", "keyData")?;
             if kty != "RSA" {
@@ -748,12 +793,12 @@ fn import_rsa_key<'js>(
                 public_key_info(ctx, kind, data, public_key)?
             }
         },
-        KeyFormat::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) => {
             let public_key =
                 rsa::pkcs1::RsaPublicKey::from_der(object_bytes.as_bytes()).or_throw(ctx)?;
             public_key_info(ctx, kind, data, public_key)?
         },
-        KeyFormat::Pkcs8(object_bytes) => {
+        KeyFormatData::Pkcs8(object_bytes) => {
             let pk_info = PrivateKeyInfo::from_der(object_bytes.as_bytes()).or_throw(ctx)?;
             let object_identifier = pk_info.algorithm.oid;
             validate_oid(object_identifier)?;
@@ -768,7 +813,7 @@ fn import_rsa_key<'js>(
 
             (modulus_length, public_exponent)
         },
-        KeyFormat::Spki(object_bytes) => {
+        KeyFormatData::Spki(object_bytes) => {
             let pk_info =
                 spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
 
@@ -789,7 +834,7 @@ fn import_rsa_key<'js>(
 
 fn import_symmetric_key<'js>(
     ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
+    format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
@@ -798,7 +843,7 @@ fn import_symmetric_key<'js>(
     *kind = KeyKind::Secret;
 
     match format {
-        KeyFormat::Jwk(object) => {
+        KeyFormatData::Jwk(object) => {
             let kty: String = object.get_required("kty", "keyData")?;
             if kty == "oct" {
                 let k: String = object.get_required("k", "keyData")?;
@@ -830,7 +875,7 @@ fn import_symmetric_key<'js>(
                 return Ok(data.len() * 8);
             }
         },
-        KeyFormat::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes();
 
             *data = bytes;
@@ -843,7 +888,7 @@ fn import_symmetric_key<'js>(
 
 fn import_ec_key<'js>(
     ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
+    format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
@@ -905,7 +950,7 @@ fn import_ec_key<'js>(
     }
 
     match format {
-        KeyFormat::Jwk(object) => {
+        KeyFormatData::Jwk(object) => {
             let kty: String = object.get_required("kty", "keyData")?;
             if kty != "EC" {
                 return algorithm_mismatch_error(ctx, algorithm_name);
@@ -949,7 +994,7 @@ fn import_ec_key<'js>(
                 *data = point_bytes;
             }
         },
-        KeyFormat::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes();
             if bytes.len() != 32 {
                 return Err(Exception::throw_type(
@@ -960,14 +1005,14 @@ fn import_ec_key<'js>(
             *data = bytes;
             *kind = KeyKind::Public;
         },
-        KeyFormat::Spki(object_bytes) => {
+        KeyFormatData::Spki(object_bytes) => {
             let spki =
                 spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
             validate_oid(spki.algorithm.oid)?;
             *data = spki.subject_public_key.raw_bytes().into();
             *kind = KeyKind::Public;
         },
-        KeyFormat::Pkcs8(object_bytes) => {
+        KeyFormatData::Pkcs8(object_bytes) => {
             let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
             *data = object_bytes.into_bytes();
@@ -979,7 +1024,7 @@ fn import_ec_key<'js>(
 
 fn import_okp_key<'js>(
     ctx: &Ctx<'js>,
-    format: KeyFormat<'js>,
+    format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     oid: ObjectIdentifier,
@@ -993,7 +1038,7 @@ fn import_okp_key<'js>(
     };
 
     match format {
-        KeyFormat::Jwk(object) => {
+        KeyFormatData::Jwk(object) => {
             let crv: String = object.get_required("crv", "keyData")?;
             if crv != algorithm_name {
                 return algorithm_mismatch_error(ctx, algorithm_name);
@@ -1019,7 +1064,7 @@ fn import_okp_key<'js>(
                 *kind = KeyKind::Public;
             }
         },
-        KeyFormat::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes();
             if bytes.len() != 32 {
                 return Err(Exception::throw_type(
@@ -1030,14 +1075,14 @@ fn import_okp_key<'js>(
             *data = bytes;
             *kind = KeyKind::Public;
         },
-        KeyFormat::Spki(object_bytes) => {
+        KeyFormatData::Spki(object_bytes) => {
             let spki =
                 spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
             validate_oid(spki.algorithm.oid)?;
             *data = spki.subject_public_key.raw_bytes().into();
             *kind = KeyKind::Public;
         },
-        KeyFormat::Pkcs8(object_bytes) => {
+        KeyFormatData::Pkcs8(object_bytes) => {
             let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
             *data = object_bytes.into_bytes();
@@ -1045,26 +1090,6 @@ fn import_okp_key<'js>(
         },
     };
     Ok(())
-}
-
-fn classify_usage(
-    value: String,
-    is_symmetric: bool,
-    private_usages: &mut Vec<String>,
-    public_usages: &mut Vec<String>,
-) {
-    if is_symmetric {
-        public_usages.push(value);
-        return;
-    }
-    match value.as_str() {
-        "sign" | "decrypt" | "unwrapKey" | "deriveKey" | "deriveBits" => {
-            private_usages.push(value);
-        },
-        _ => {
-            public_usages.push(value);
-        },
-    }
 }
 
 pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<ShaAlgorithm> {

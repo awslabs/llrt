@@ -45,7 +45,7 @@ macro_rules! str_enum {
         impl TryFrom<&str> for $name {
             type Error = String;
             fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
-                match s.to_ascii_uppercase().as_str() {
+                match s {
                     $($str => Ok($name::$variant),)*
                     _ => Err(["'", s, "' not available"].concat())
                 }

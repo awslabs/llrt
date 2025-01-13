@@ -1,37 +1,43 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
-use rquickjs::{Array, Class, Ctx, Exception, FromJs, Result, Value};
+use rquickjs::{Array, Class, Ctx, FromJs, Result, Value};
 
 use crate::subtle::CryptoKey;
 
 use super::{
     crypto_key::KeyKind,
-    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormat},
+    key_algorithm::{
+        KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormat, KeyFormatData,
+    },
 };
 
 #[allow(dead_code)]
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
-    format: String,
+    format: KeyFormat,
     key_data: Value<'js>,
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey>> {
-    let format: KeyFormat = match format.as_str() {
-        "raw" => KeyFormat::Raw(ObjectBytes::from_js(&ctx, key_data)?),
-        "pkcs8" => KeyFormat::Pkcs8(ObjectBytes::from_js(&ctx, key_data)?),
-        "spki" => KeyFormat::Spki(ObjectBytes::from_js(&ctx, key_data)?),
-        "jwk" => KeyFormat::Jwk(key_data.into_object_or_throw(&ctx, "keyData")?),
-        _ => {
-            return Err(Exception::throw_type(
-                &ctx,
-                &["Invalid format: ", &format].concat(),
-            ))
-        },
+    let format = match format {
+        KeyFormat::Raw => KeyFormatData::Raw(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::Pkcs8 => KeyFormatData::Pkcs8(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::Spki => KeyFormatData::Spki(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::Jwk => KeyFormatData::Jwk(key_data.into_object_or_throw(&ctx, "keyData")?),
     };
 
+    import_key(ctx, format, algorithm, extractable, key_usages)
+}
+
+pub fn import_key<'js>(
+    ctx: Ctx<'js>,
+    format: KeyFormatData<'js>,
+    algorithm: Value<'js>,
+    extractable: bool,
+    key_usages: Array<'js>,
+) -> Result<Class<'js, CryptoKey>> {
     let mut kind = KeyKind::Public;
     let mut data = Vec::new();
 
