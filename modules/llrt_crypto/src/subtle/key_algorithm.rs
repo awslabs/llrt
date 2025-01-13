@@ -59,15 +59,6 @@ impl KeyUsage {
         public_usages: &mut Vec<String>,
         kind: Option<&KeyKind>,
     ) -> Result<()> {
-        let name = match key_usage_algorithm {
-            KeyUsageAlgorithm::AesKw => "AWS_KW",
-            KeyUsageAlgorithm::Symmetric => "SYM",
-            KeyUsageAlgorithm::Hmac => "HMAC",
-            KeyUsageAlgorithm::Derive => "DERIVE",
-            KeyUsageAlgorithm::RsaOaep => "RSA_OAEP",
-            KeyUsageAlgorithm::Sign => "SIGN",
-        };
-
         let is_derive = matches!(key_usage_algorithm, KeyUsageAlgorithm::Derive);
 
         let (mut private_usages_mask, mut public_usages_mask) = key_usage_algorithm.masks();
