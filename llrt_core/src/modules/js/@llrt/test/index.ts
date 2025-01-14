@@ -7,6 +7,7 @@ import path from "path";
 import { SocketReqMsg } from "./shared";
 import { platform } from "os";
 const IS_WINDOWS = platform() === "win32";
+import CircularBuffer from "./CircularBuffer";
 
 type TestOptions = {
   workerCount?: number;
@@ -37,6 +38,8 @@ type RootSuite = TestProps & {
 };
 
 type WorkerData = {
+  stdOutBuffer: CircularBuffer;
+  stdErrBuffer: CircularBuffer;
   completed: boolean;
   childProc?: ChildProcess;
   lastUpdate: number;
@@ -72,7 +75,8 @@ class Color {
 type TestFailure = {
   error: any;
   desc: string[];
-  message?: string;
+  stdErr: string;
+  stdOut: string;
 };
 
 class TestServer {
@@ -194,6 +198,8 @@ class TestServer {
         lastUpdate: Date.now(),
         currentPath: [],
         connectionTimeout: null,
+        stdOutBuffer: new CircularBuffer(1024, 64),
+        stdErrBuffer: new CircularBuffer(1024, 64),
       };
       this.spawnWorker(i);
     }
@@ -201,8 +207,9 @@ class TestServer {
 
   private spawnWorker(id: number) {
     const workerData = this.workerData[id];
-    let lastStdout = Buffer.from("");
-    let lastStderr = Buffer.from("");
+    const stdOutBuffer = workerData.stdOutBuffer;
+    const stdErrBuffer = workerData.stdErrBuffer;
+
     let env: any = {
       ...process.env,
       __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
@@ -217,10 +224,10 @@ class TestServer {
       }
     );
     proc.stderr.on("data", (data) => {
-      lastStderr = data;
+      stdErrBuffer.append(data);
     });
     proc.stdout.on("data", (data) => {
-      lastStdout = data;
+      stdOutBuffer.append(data);
     });
     proc.on("error", (error) => {
       this.handleError(TestServer.ERROR_CODE_PROCESS_ERROR, error, {
@@ -236,7 +243,6 @@ class TestServer {
           {
             id,
             ended: performance.now(),
-            output: Buffer.concat([lastStdout, lastStderr]).toString(),
           }
         );
         this.handleWorkerCompleted(id, true);
@@ -260,8 +266,8 @@ class TestServer {
         process.exit(1);
       }
       case TestServer.ERROR_CODE_PROCESS_ERROR: {
-        const { id: workerId, ended, output } = details;
-        this.handleTestError(workerId, error, ended, output);
+        const { id: workerId, ended } = details;
+        this.handleTestError(workerId, error, ended);
         break;
       }
     }
@@ -294,8 +300,11 @@ class TestServer {
       case "next": {
         const nextFile = this.fileQueue.shift();
         const workerData = this.workerData[workerId];
+        workerData.stdErrBuffer.clear();
+        workerData.stdOutBuffer.clear();
         //clear current path
-        workerData.currentPath.splice(0, workerData.currentPath.length);
+
+        workerData.currentPath.length = 0;
 
         if (nextFile) {
           this.results.set(nextFile, {
@@ -421,12 +430,7 @@ class TestServer {
       }
     });
   }
-  handleTestError(
-    workerId: number,
-    error: any,
-    ended: number,
-    message?: string
-  ) {
+  handleTestError(workerId: number, error: any, ended: number) {
     const workerData = this.workerData[workerId];
     const test = workerData.currentTest || {
       desc: "",
@@ -440,13 +444,15 @@ class TestServer {
     if (results) {
       results.success = false;
     }
-
     const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
     testFailures.push({
       desc: workerData.currentPath.slice(1),
       error,
-      message,
+      stdErr: workerData.stdErrBuffer.getContent().toString(),
+      stdOut: workerData.stdOutBuffer.getContent().toString(),
     });
+    workerData.stdErrBuffer.clear();
+    workerData.stdOutBuffer.clear();
     this.filesFailed.set(workerData.currentFile!, testFailures);
     this.totalFailed++;
     test.ended = ended;
@@ -619,12 +625,16 @@ class TestServer {
     if (this.totalFailed > 0) {
       for (let [file, testFailure] of this.filesFailed) {
         output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
+
         for (let failure of testFailure) {
           output +=
             failure.desc.map((d) => Color.BOLD(d)).join(" > ") +
             `\n${this.formattedError(failure.error)}\n`;
-          if (failure.message) {
-            output += "----- LAST OUTPUT: -----\n" + failure.message + "\n";
+          if (failure.stdOut) {
+            output += "----- LAST STDOUT: -----\n" + failure.stdOut + "\n";
+          }
+          if (failure.stdErr) {
+            output += "----- LAST STDERR: -----\n" + failure.stdErr + "\n";
           }
         }
       }

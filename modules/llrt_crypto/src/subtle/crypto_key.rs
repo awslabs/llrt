@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::rc::Rc;
 
+use llrt_utils::str_enum;
 use rquickjs::{
     class::{Trace, Tracer},
     Ctx, Result, Value,
@@ -9,20 +10,29 @@ use rquickjs::{
 
 use super::key_algorithm::KeyAlgorithm;
 
+#[derive(PartialEq)]
+pub enum KeyKind {
+    Secret,
+    Private,
+    Public,
+}
+
+str_enum!(KeyKind,Secret => "secret", Private => "private", Public => "public");
+
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime)]
 pub struct CryptoKey {
-    type_name: &'static str,
+    pub kind: KeyKind,
     pub extractable: bool,
     pub algorithm: KeyAlgorithm,
     pub name: Box<str>,
-    usages: Vec<String>,
+    pub usages: Vec<String>,
     pub handle: Rc<[u8]>,
 }
 
 impl CryptoKey {
     pub fn new<N, H>(
-        type_name: &'static str,
+        kind: KeyKind,
         name: N,
         extractable: bool,
         algorithm: KeyAlgorithm,
@@ -34,7 +44,7 @@ impl CryptoKey {
         H: Into<Rc<[u8]>>,
     {
         Self {
-            type_name,
+            kind,
             extractable,
             algorithm,
             name: name.into(),
@@ -52,7 +62,7 @@ impl<'js> Trace<'js> for CryptoKey {
 impl CryptoKey {
     #[qjs(get, rename = "type")]
     pub fn get_type(&self) -> &str {
-        self.type_name
+        self.kind.as_str()
     }
 
     #[qjs(get)]
@@ -69,7 +79,7 @@ impl CryptoKey {
 
     #[qjs(get)]
     pub fn usages(&self) -> Vec<String> {
-        self.usages.iter().map(|u| u.to_string()).collect()
+        self.usages.clone()
     }
 }
 

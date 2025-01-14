@@ -29,7 +29,8 @@ use rquickjs::{
 };
 use subtle::{
     subtle_decrypt, subtle_derive_bits, subtle_derive_key, subtle_digest, subtle_encrypt,
-    subtle_export_key, subtle_generate_key, subtle_sign, subtle_verify, CryptoKey,
+    subtle_export_key, subtle_generate_key, subtle_import_key, subtle_sign, subtle_unwrap_key,
+    subtle_verify, subtle_wrap_key, CryptoKey,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;
@@ -201,9 +202,11 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
     subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
     subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
-    // subtle.set("importKey", Func::from(Async(subtle_import_key)))?;
+    subtle.set("importKey", Func::from(Async(subtle_import_key)))?;
     subtle.set("sign", Func::from(Async(subtle_sign)))?;
     subtle.set("verify", Func::from(Async(subtle_verify)))?;
+    subtle.set("wrapKey", Func::from(Async(subtle_wrap_key)))?;
+    subtle.set("unwrapKey", Func::from(Async(subtle_unwrap_key)))?;
     crypto.set("subtle", subtle)?;
 
     globals.set("crypto", crypto)?;
@@ -231,7 +234,7 @@ impl ModuleDef for CryptoModule {
             let class_name = sha_algorithm.class_name();
             declare.declare(class_name)?;
         }
-
+        declare.declare("crypto")?;
         declare.declare("default")?;
 
         Ok(())
@@ -250,6 +253,8 @@ impl ModuleDef for CryptoModule {
                 default.set(class_name, ctor)?;
             }
 
+            let crypto: Object = ctx.globals().get("crypto")?;
+
             Class::<Md5>::define(default)?;
             Class::<Crc32>::define(default)?;
             Class::<Crc32c>::define(default)?;
@@ -262,6 +267,7 @@ impl ModuleDef for CryptoModule {
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;
             default.set("getRandomValues", Func::from(get_random_values))?;
+            default.set("crypto", crypto)?;
             Ok(())
         })?;
 

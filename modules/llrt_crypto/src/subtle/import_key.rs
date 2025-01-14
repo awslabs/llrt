@@ -1,59 +1,69 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
-use rquickjs::{Array, Class, Ctx, Exception, Result, Value};
+use rquickjs::{Array, Class, Ctx, FromJs, Result, Value};
 
 use crate::subtle::CryptoKey;
 
-use super::key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages};
+use super::{
+    crypto_key::KeyKind,
+    key_algorithm::{
+        KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormat, KeyFormatData,
+    },
+};
 
 #[allow(dead_code)]
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
-    format: String,
-    key_data: ObjectBytes<'js>,
+    format: KeyFormat,
+    key_data: Value<'js>,
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey>> {
-    if format != "raw" {
-        return Err(Exception::throw_type(
-            &ctx,
-            &["Format '", &format, "' is not implemented"].concat(),
-        ));
+    let format = match format {
+        KeyFormat::Raw => KeyFormatData::Raw(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::Pkcs8 => KeyFormatData::Pkcs8(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::Spki => KeyFormatData::Spki(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::Jwk => KeyFormatData::Jwk(key_data.into_object_or_throw(&ctx, "keyData")?),
     };
 
-    let data = key_data.into_bytes();
+    import_key(ctx, format, algorithm, extractable, key_usages)
+}
 
-    if let Some(obj) = algorithm.as_object() {
-        let name: String = obj.get_required("name", "algorithm")?;
-        if name.starts_with("AES") || name == "HMAC" {
-            obj.set("length", data.len())?;
-        }
-        if name.starts_with("RSA") {
-            return Err(Exception::throw_type(
-                &ctx,
-                "RSA keys are not supported for import yet",
-            ));
-        }
-    }
+pub fn import_key<'js>(
+    ctx: Ctx<'js>,
+    format: KeyFormatData<'js>,
+    algorithm: Value<'js>,
+    extractable: bool,
+    key_usages: Array<'js>,
+) -> Result<Class<'js, CryptoKey>> {
+    let mut kind = KeyKind::Public;
+    let mut data = Vec::new();
 
     let KeyAlgorithmWithUsages {
         name,
         algorithm: key_algorithm,
         public_usages,
-        ..
-    } = KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Import, algorithm, key_usages)?;
+        private_usages,
+    } = KeyAlgorithm::from_js(
+        &ctx,
+        KeyAlgorithmMode::Import {
+            kind: &mut kind,
+            data: &mut data,
+            format,
+        },
+        algorithm,
+        key_usages,
+    )?;
+
+    let usages = match kind {
+        KeyKind::Public | KeyKind::Secret => public_usages,
+        KeyKind::Private => private_usages,
+    };
 
     Class::instance(
         ctx,
-        CryptoKey::new(
-            "secret",
-            name,
-            extractable,
-            key_algorithm,
-            public_usages,
-            data,
-        ),
+        CryptoKey::new(kind, name, extractable, key_algorithm, usages, data),
     )
 }

@@ -436,6 +436,12 @@ class TestAgent {
       const stack = [...testSuite.suites];
       while (stack.length > 0) {
         const suite = stack.shift()!;
+        if (
+          suite.skip ||
+          (this.onlyCount > 0 && !suite.only && !suite.containsOnly)
+        ) {
+          continue;
+        }
         const suiteStarted = performance.now();
         await this.sendMessage("start", {
           desc: suite.desc,
@@ -443,12 +449,6 @@ class TestAgent {
           started: suiteStarted,
           timeout: suite.timeout,
         });
-        if (
-          suite.skip ||
-          (this.onlyCount > 0 && !suite.only && !suite.containsOnly)
-        ) {
-          continue;
-        }
 
         try {
           if (suite.beforeAll) {
