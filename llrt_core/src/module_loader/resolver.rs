@@ -503,10 +503,11 @@ fn load_package_exports<'a>(
 
     if let Some(sub_module) = sub_module {
         if package_json.get_str("type") != Some("module") {
+            let sub_module = to_abs_path(sub_module.into())?;
             if is_esm {
                 return Ok([CJS_LOADER_PREFIX, &sub_module].concat().into());
             }
-            return Ok(sub_module.into());
+            return Ok(sub_module);
         }
         return Ok(sub_module.into());
     }
