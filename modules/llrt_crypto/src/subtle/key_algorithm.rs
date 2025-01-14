@@ -59,23 +59,20 @@ impl KeyUsage {
         public_usages: &mut Vec<String>,
         kind: Option<&KeyKind>,
     ) -> Result<()> {
-        let is_derive = matches!(key_usage_algorithm, KeyUsageAlgorithm::Derive);
-
         let (mut private_usages_mask, mut public_usages_mask) = key_usage_algorithm.masks();
-        if !is_derive {
-            match kind {
-                Some(KeyKind::Private) => public_usages_mask = 0,
-                Some(KeyKind::Secret) | Some(KeyKind::Public) => private_usages_mask = 0,
-                None => {},
-            };
-        }
-        let allowed_usages = private_usages_mask + public_usages_mask;
+
+        match kind {
+            Some(KeyKind::Private) => public_usages_mask = 0,
+            Some(KeyKind::Secret) | Some(KeyKind::Public) => private_usages_mask = 0,
+            None => {},
+        };
+
+        let allowed_usages = private_usages_mask | public_usages_mask;
 
         let mut generated_public_usages = Vec::with_capacity(4);
         let mut generated_private_usages = Vec::with_capacity(4);
 
         let mut has_any_usages = false;
-        let mut private_usages_empty = true;
 
         for usage in key_usages.iter::<String>() {
             has_any_usages = true;
@@ -88,14 +85,13 @@ impl KeyUsage {
                     &["Invalid key usage '", &value, "'"].concat(),
                 ));
             }
-            if private_usages_mask > 0 {
-                if private_usages_mask & usage == usage {
-                    private_usages_empty = false;
-                    generated_private_usages.push(value);
-                } else {
-                    generated_public_usages.push(value);
-                }
-            } else {
+
+            if private_usages_mask == public_usages_mask {
+                generated_private_usages.push(value.clone());
+                generated_public_usages.push(value);
+            } else if private_usages_mask & usage == usage {
+                generated_private_usages.push(value);
+            } else if public_usages_mask & usage == usage {
                 generated_public_usages.push(value);
             }
         }
@@ -107,21 +103,19 @@ impl KeyUsage {
             return Err(Exception::throw_message(ctx, "Key usages empty"));
         }
 
-        if private_usages_mask > 0 && private_usages_empty {
+        if private_usages_mask > 0 && private_usages.is_empty() {
             return Err(Exception::throw_message(
                 ctx,
                 "No required private key usages provided",
             ));
         }
 
-        if is_derive {
-            *private_usages = public_usages.to_vec();
-        } else {
+        if private_usages != public_usages {
             let valid_usage = match kind {
                 Some(KeyKind::Secret) | Some(KeyKind::Public) => {
-                    private_usages_empty && !public_usages.is_empty()
+                    private_usages.is_empty() && !public_usages.is_empty()
                 },
-                Some(KeyKind::Private) => !private_usages_empty && public_usages.is_empty(),
+                Some(KeyKind::Private) => !private_usages.is_empty() && public_usages.is_empty(),
                 None => true,
             };
 
@@ -153,7 +147,9 @@ pub enum KeyUsageAlgorithm {
 
     //two mask algorithms (asymmetric) - use high bits as for private, low bits for public
     //HKDF, PBKDF2, X25519
-    Derive = KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask(),
+    Derive = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 8)
+        | KeyUsage::DeriveKey.mask()
+        | KeyUsage::DeriveBits.mask(),
 
     RsaOaep = ((KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask()) << 8) //private
         | KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask(), //public
