@@ -398,7 +398,7 @@ Install dependencies
     sudo apt -y install make zstd
     sudo snap install zig --classic --beta
 
-    # Windows WSL2
+    # Windows WSL2 (systemd has to be enabled first! https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)
     sudo apt -y install cmake g++ gcc make zip zstd
     sudo snap install zig --classic --beta
 
