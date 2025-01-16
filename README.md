@@ -375,22 +375,22 @@ There are many cases where LLRT shows notable performance drawbacks compared wit
 
 ## Building from source
 
-Clone code and cd to directory
-
+1. Clone code and cd to directory
+```
     git clone git@github.com:awslabs/llrt.git
     cd llrt
-
-Install git submodules
-
+```
+2. Install git submodules
+```
     git submodule update --init --checkout
-
-Install rust
-
+```
+3. Install rust
+```
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
     source "$HOME/.cargo/env"
-
-Install dependencies
-
+```
+4. Install dependencies
+```
     # MacOS
     brew install zig make cmake zstd node corepack
 
@@ -398,29 +398,31 @@ Install dependencies
     sudo apt -y install make zstd
     sudo snap install zig --classic --beta
 
-    # Windows WSL2 (systemd has to be enabled first! https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)
+    # Windows WSL2 (requires systemd to be enabled*)
     sudo apt -y install cmake g++ gcc make zip zstd
     sudo snap install zig --classic --beta
 
     # Windows WSL2 (If Node.js is not yet installed)
     sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
     nvm install --lts
+```
+_* See [Microsoft Devblogs](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)_
 
-Install Node.js packages
-
+5. Install Node.js packages
+```
     corepack enable
     yarn
-
-Install generate libs and setup rust targets & toolchains
-
+```
+6. Install generate libs and setup rust targets & toolchains
+```
     make stdlib && make libs
-
+```
 > [!NOTE]
 > If these commands exit with an error that says `can't cd to zstd/lib`,
 > you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
 
-Build binaries for Lambda (Per bundle type and architecture desired)
-
+7. Build binaries for Lambda (Per bundle type and architecture desired)
+```
     # for arm64, use
     make llrt-lambda-arm64.zip
     make llrt-lambda-arm64-no-sdk.zip
@@ -429,9 +431,9 @@ Build binaries for Lambda (Per bundle type and architecture desired)
     make llrt-lambda-x64.zip
     make llrt-lambda-x64-no-sdk.zip
     make llrt-lambda-x64-full-sdk.zip
-
-Build binaries for Container (Per bundle type and architecture desired)
-
+```
+8. Build binaries for Container (Per bundle type and architecture desired)
+```
     # for arm64, use
     make llrt-container-arm64
     make llrt-container-arm64-no-sdk
@@ -440,13 +442,13 @@ Build binaries for Container (Per bundle type and architecture desired)
     make llrt-container-x64
     make llrt-container-x64-no-sdk
     make llrt-container-x64-full-sdk
-
-Optionally build for your local machine (Mac or Linux)
-
+```
+9. Optionally build for your local machine (Mac or Linux)
+```
     make release
     make release-no-sdk
     make release-full-sdk
-
+```
 You should now have a `llrt-lambda-arm64*.zip` or `llrt-lambda-x64*.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
 ## Running Lambda emulator
