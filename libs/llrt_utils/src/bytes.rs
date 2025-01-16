@@ -1,7 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom,
+    class::{Trace, Tracer},
+    function::Constructor,
+    ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Value,
 };
 
 use crate::error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED;
@@ -20,6 +24,52 @@ pub enum ObjectBytes<'js> {
     F64Array(TypedArray<'js, f64>),
     DataView(ArrayBuffer<'js>),
     Vec(Vec<u8>),
+}
+
+// Requires manual implementation because rquickjs hasn't implemented JsLifetime for f32 or f64
+unsafe impl<'js> JsLifetime<'js> for ObjectBytes<'js> {
+    type Changed<'to> = ObjectBytes<'to>;
+}
+
+impl<'js> Trace<'js> for ObjectBytes<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        match self {
+            ObjectBytes::U8Array(a) => a.trace(tracer),
+            ObjectBytes::I8Array(a) => a.trace(tracer),
+            ObjectBytes::U16Array(a) => a.trace(tracer),
+            ObjectBytes::I16Array(a) => a.trace(tracer),
+            ObjectBytes::U32Array(a) => a.trace(tracer),
+            ObjectBytes::I32Array(a) => a.trace(tracer),
+            ObjectBytes::U64Array(a) => a.trace(tracer),
+            ObjectBytes::I64Array(a) => a.trace(tracer),
+            ObjectBytes::F32Array(a) => a.trace(tracer),
+            ObjectBytes::F64Array(a) => a.trace(tracer),
+            ObjectBytes::DataView(d) => d.trace(tracer),
+            ObjectBytes::Vec(v) => v.trace(tracer),
+        }
+    }
+}
+
+impl<'js> IntoJs<'js> for ObjectBytes<'js> {
+    fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        match self {
+            ObjectBytes::U8Array(a) => a.into_js(ctx),
+            ObjectBytes::I8Array(a) => a.into_js(ctx),
+            ObjectBytes::U16Array(a) => a.into_js(ctx),
+            ObjectBytes::I16Array(a) => a.into_js(ctx),
+            ObjectBytes::U32Array(a) => a.into_js(ctx),
+            ObjectBytes::I32Array(a) => a.into_js(ctx),
+            ObjectBytes::U64Array(a) => a.into_js(ctx),
+            ObjectBytes::I64Array(a) => a.into_js(ctx),
+            ObjectBytes::F32Array(a) => a.into_js(ctx),
+            ObjectBytes::F64Array(a) => a.into_js(ctx),
+            ObjectBytes::DataView(d) => {
+                let ctor: Constructor = ctx.globals().get(PredefinedAtom::DataView)?;
+                ctor.construct((d,))
+            },
+            ObjectBytes::Vec(v) => v.into_js(ctx),
+        }
+    }
 }
 
 impl<'js> From<ObjectBytes<'js>> for Vec<u8> {

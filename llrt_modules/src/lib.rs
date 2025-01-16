@@ -34,6 +34,8 @@ mod modules {
     pub use llrt_perf_hooks as perf_hooks;
     #[cfg(feature = "process")]
     pub use llrt_process as process;
+    #[cfg(feature = "stream-web")]
+    pub use llrt_stream_web as stream_web;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
     #[cfg(feature = "tty")]

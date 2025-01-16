@@ -4,14 +4,17 @@
 pub mod bytearray_buffer;
 pub mod bytes;
 pub mod class;
+pub mod clone;
 pub mod error;
 pub mod error_messages;
 #[cfg(feature = "fs")]
 pub mod fs;
+pub mod hash;
 pub mod macros;
 pub mod mc_oneshot;
 pub mod module;
 pub mod object;
+pub mod option;
 pub mod primordials;
 pub mod result;
 pub mod reuse_list;
