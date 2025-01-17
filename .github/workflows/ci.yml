@@ -45,7 +45,7 @@ jobs:
             platform: linux
             arch: x86_64
             toolchain: nightly
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
             toolchain: nightly
@@ -73,7 +73,7 @@ jobs:
             platform: linux
             arch: x86_64
             toolchain: stable
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
             toolchain: stable
