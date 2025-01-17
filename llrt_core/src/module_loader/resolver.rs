@@ -451,7 +451,8 @@ fn load_package_exports<'a>(
     trace!("|  load_package_exports(x, dir): ({}, {})", x, dir);
     //1. Try to interpret X as a combination of NAME and SUBPATH where the name
     //   may have a @scope/ prefix and the subpath begins with a slash (`/`).
-    let (name, scope) = get_name_and_scope(x);
+    let mut n = 1;
+    let (mut name, mut scope, mut is_last) = get_name_and_scope(x, n);
 
     //2. If X does not match this pattern or DIR/NAME/package.json is not a file,
     //   return.
@@ -459,8 +460,23 @@ fn load_package_exports<'a>(
     package_json_path.push_str(dir);
     package_json_path.push('/');
     let base_path_length = package_json_path.len();
-    package_json_path.push_str(scope);
-    package_json_path.push_str("/package.json");
+
+    loop {
+        trace!(
+            "|  split name and scope(name, scope): ({}, {})",
+            name,
+            scope
+        );
+        package_json_path.push_str(scope);
+        package_json_path.push_str("/package.json");
+
+        if Path::new(&package_json_path).exists() || is_last {
+            break;
+        }
+        n += 1;
+        (name, scope, is_last) = get_name_and_scope(x, n);
+        package_json_path.truncate(base_path_length);
+    }
 
     let mut sub_module = None;
 
@@ -530,7 +546,8 @@ fn load_package_exports<'a>(
 // LOAD_PACKAGE_SELF(X, DIR)
 fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<Option<String>> {
     trace!("|  load_package_self(x, dir): ({}, {})", x, dir);
-    let (name, scope) = get_name_and_scope(x);
+    let mut n = 1;
+    let (mut name, mut scope, mut is_last) = get_name_and_scope(x, n);
 
     // 1. Find the closest package scope SCOPE to DIR.
     let mut package_json_file: Vec<u8>;
@@ -544,16 +561,26 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
             package_json_file = fs::read(path.as_ref()).or_throw(ctx)?;
             package_json = simd_json::to_borrowed_value(&mut package_json_file).or_throw(ctx)?;
             // 3. If the SCOPE/package.json "exports" is null or undefined, return.
-            if !is_exports_field_exists(&package_json) {
-                return Ok(None);
-            }
-            // 4. If the SCOPE/package.json "name" is not the first segment of X, return.
-            if let Some(name) = get_string_field(&package_json, "name") {
-                if name != scope {
+            loop {
+                trace!(
+                    "|  split name and scope(name, scope): ({}, {})",
+                    name,
+                    scope
+                );
+                // 4. If the SCOPE/package.json "name" is not the first segment of X, return.
+                if is_exports_field_exists(&package_json) {
+                    if let Some(name) = get_string_field(&package_json, "name") {
+                        if name == scope {
+                            break path;
+                        }
+                    }
+                }
+                if is_last {
                     return Ok(None);
                 }
+                n += 1;
+                (name, scope, is_last) = get_name_and_scope(x, n);
             }
-            path
         },
     };
     // 5. let MATCH = PACKAGE_EXPORTS_RESOLVE(pathToFileURL(SCOPE),
@@ -570,12 +597,23 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     Ok(None)
 }
 
-fn get_name_and_scope(x: &str) -> (Cow<'_, str>, &str) {
-    if let Some((s, n)) = x.split_once('/') {
-        (Cow::Owned(["./", n].concat()), s)
+fn get_name_and_scope(x: &str, n: usize) -> (Cow<'_, str>, &str, bool) {
+    if let Some(pos) = find_nth_from_end(x, '/', n) {
+        (Cow::Owned(["./", &x[pos + 1..]].concat()), &x[..pos], false)
     } else {
-        (Cow::Borrowed("."), x)
+        (Cow::Borrowed("."), x, true)
     }
+}
+
+fn find_nth_from_end(s: &str, c: char, n: usize) -> Option<usize> {
+    let mut pos = s.len();
+    for _ in 0..n {
+        match s[..pos].rfind(c) {
+            Some(i) => pos = i,
+            None => return None,
+        }
+    }
+    Some(pos)
 }
 
 // Implementation equivalent to PACKAGE_EXPORTS_RESOLVE including RESOLVE_ESM_MATCH

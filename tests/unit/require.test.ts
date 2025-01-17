@@ -147,6 +147,12 @@ it("require `react-dom` module element", () => {
   _require(`${CWD}/fixtures/test_modules/test-react-dom.js`);
 });
 
+it("require `@aws-lambda-powertools` module element", () => {
+  _require(
+    `${CWD}/fixtures/test_modules/test-aws-lambda-powertools-jmespath.js`
+  );
+});
+
 //create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
 it("should handle blocking requires", (done) => {
   const proc = spawn(process.argv0, [`${CWD}/fixtures/require.mjs`]);
