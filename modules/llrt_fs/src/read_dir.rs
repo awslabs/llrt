@@ -7,7 +7,7 @@ use std::{
     path::{PathBuf, MAIN_SEPARATOR_STR},
 };
 
-use llrt_path::CURRENT_DIR_STR;
+use llrt_path::{ends_with_sep, CURRENT_DIR_STR};
 use llrt_utils::fs::DirectoryWalker;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
@@ -172,7 +172,7 @@ fn process_options_and_create_directory_walker(
             .unwrap_or_default();
     };
 
-    if path.ends_with(MAIN_SEPARATOR_STR) {
+    if ends_with_sep(&path) {
         path.pop();
     }
 

@@ -487,12 +487,12 @@ fn starts_with_sep(path: &str) -> bool {
 }
 
 #[cfg(windows)]
-fn ends_with_sep(path: &str) -> bool {
+pub fn ends_with_sep(path: &str) -> bool {
     matches!(path.as_bytes().last().unwrap_or(&0), b'/' | b'\\')
 }
 
 #[cfg(not(windows))]
-fn ends_with_sep(path: &str) -> bool {
+pub fn ends_with_sep(path: &str) -> bool {
     path.ends_with(MAIN_SEPARATOR)
 }
 
