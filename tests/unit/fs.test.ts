@@ -17,7 +17,18 @@ describe("readdir", () => {
     expect(dir).toEqual([
       {
         name: "config.toml",
-        parentPath: IS_WINDOWS ? ".\\.cargo" : "./.cargo",
+        parentPath: ".cargo",
+      },
+    ]);
+    expect(dir[0].isFile()).toBeTruthy();
+  });
+
+  it("should read a directory with types", async () => {
+    const dir = await fs.readdir(".cargo/", { withFileTypes: true });
+    expect(dir).toEqual([
+      {
+        name: "config.toml",
+        parentPath: ".cargo",
       },
     ]);
     expect(dir[0].isFile()).toBeTruthy();
@@ -57,7 +68,7 @@ describe("readdirSync", () => {
     expect(dir).toEqual([
       {
         name: "config.toml",
-        parentPath: IS_WINDOWS ? ".\\.cargo" : "./.cargo",
+        parentPath: ".cargo",
       },
     ]);
     expect(dir[0].isFile()).toBeTruthy();
