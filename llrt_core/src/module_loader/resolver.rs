@@ -598,22 +598,11 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
 }
 
 fn get_name_and_scope(x: &str, n: usize) -> (Cow<'_, str>, &str, bool) {
-    if let Some(pos) = find_nth_from_end(x, '/', n) {
+    if let Some(pos) = (0..n).try_fold(x.len(), |p, _| x[..p].rfind('/')) {
         (Cow::Owned(["./", &x[pos + 1..]].concat()), &x[..pos], false)
     } else {
         (Cow::Borrowed("."), x, true)
     }
-}
-
-fn find_nth_from_end(s: &str, c: char, n: usize) -> Option<usize> {
-    let mut pos = s.len();
-    for _ in 0..n {
-        match s[..pos].rfind(c) {
-            Some(i) => pos = i,
-            None => return None,
-        }
-    }
-    Some(pos)
 }
 
 // Implementation equivalent to PACKAGE_EXPORTS_RESOLVE including RESOLVE_ESM_MATCH
