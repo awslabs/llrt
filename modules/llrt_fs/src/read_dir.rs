@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
-use std::{
-    fs::Metadata,
-    path::{PathBuf, MAIN_SEPARATOR_STR},
-};
+use std::{fs::Metadata, path::PathBuf};
 
 use llrt_path::{ends_with_sep, CURRENT_DIR_STR};
 use llrt_utils::fs::DirectoryWalker;
@@ -172,7 +169,7 @@ fn process_options_and_create_directory_walker(
             .unwrap_or_default();
     };
 
-    if ends_with_sep(&path) {
+    if ends_with_sep(path) {
         path.pop();
     }
 
