@@ -4,7 +4,7 @@
 use std::os::unix::fs::FileTypeExt;
 use std::{fs::Metadata, path::PathBuf};
 
-use llrt_path::{is_absolute, CURRENT_DIR_STR};
+use llrt_path::{ends_with_sep, CURRENT_DIR_STR};
 use llrt_utils::fs::DirectoryWalker;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Class, Ctx, IntoJs, Object, Result, Value,
@@ -169,19 +169,16 @@ fn process_options_and_create_directory_walker(
             .unwrap_or_default();
     };
 
+    if ends_with_sep(path) {
+        path.pop();
+    }
+
     let skip_root_pos = {
         match path.as_str() {
             // . | ./
-            "." | CURRENT_DIR_STR => CURRENT_DIR_STR.len(),
-            // ./path
-            _ if path.starts_with(CURRENT_DIR_STR) => path.len() + 1,
+            "." | CURRENT_DIR_STR => path.len(),
             // path
-            _ => {
-                if !is_absolute(path) {
-                    path.insert_str(0, CURRENT_DIR_STR);
-                }
-                path.len() + 1
-            },
+            _ => path.len() + 1,
         }
     };
 
