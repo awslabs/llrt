@@ -628,7 +628,7 @@ fn load_package_exports<'a>(
                 path = Some(current_path);
             }
         }
-        (scope, name.as_ref())
+        (scope, name)
     };
 
     //3. Parse DIR/NAME/package.json, and look for "exports" field.
