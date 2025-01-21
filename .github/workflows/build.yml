@@ -80,7 +80,7 @@ jobs:
         with:
           toolchain: ${{ inputs.toolchain }}
       - name: Run tests
-        if: inputs.platform == 'linux'
+        if: inputs.platform != 'windows'
         run: |
           make test-ci 2>&1
       - name: Run tests on windows
