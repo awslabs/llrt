@@ -717,11 +717,11 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     Ok(None)
 }
 
-fn get_name_and_scope(x: &str, n: usize) -> (Cow<'_, str>, &str, bool) {
+fn get_name_and_scope(x: &str, n: usize) -> (&str, &str, bool) {
     if let Some(pos) = (0..n).try_fold(x.len(), |p, _| x[..p].rfind('/')) {
-        (Cow::Owned([&x[pos + 1..]].concat()), &x[..pos], false)
+        (&x[pos + 1..], &x[..pos], false)
     } else {
-        (Cow::Borrowed("."), x, true)
+        (".", x, true)
     }
 }
 
