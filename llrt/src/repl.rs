@@ -238,7 +238,7 @@ mod tests {
             Box::pin(async move {
                 let output = process_input(&ctx, "throw new Error('err')", false).await;
 
-                assert_eq!(output, "Error: err\n  at <eval> (eval_script:1:6)");
+                assert_eq!(output, "Error: err\n  at <eval> (eval_script:1:10)");
 
                 let output = process_input(&ctx, "Promise.reject(1)", false).await;
 
