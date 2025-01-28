@@ -7,7 +7,7 @@ const transformToWebStream = () => {
 };
 
 async function transformToByteArray() {
-  return await this.typedArray();
+  return await this.bytes();
 }
 
 async function transformToString(encoding) {
