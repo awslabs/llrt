@@ -3,7 +3,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     io::Read,
-    sync::{Mutex, MutexGuard},
+    sync::RwLock,
     time::Instant,
 };
 
@@ -108,7 +108,7 @@ enum BodyVariant<'js> {
 
 #[rquickjs::class]
 pub struct Response<'js> {
-    body: Mutex<BodyVariant<'js>>,
+    body: RwLock<BodyVariant<'js>>,
     content_encoding: Option<String>,
     method: String,
     url: String,
@@ -147,7 +147,7 @@ impl<'js> Response<'js> {
         let status = response.status();
 
         Ok(Self {
-            body: Mutex::new(BodyVariant::Incoming(Some(response))),
+            body: RwLock::new(BodyVariant::Incoming(Some(response))),
             content_encoding,
             method,
             url,
@@ -189,34 +189,33 @@ impl<'js> Response<'js> {
         }
     }
 
-    fn get_body(&self, ctx: &Ctx<'js>) -> Result<MutexGuard<'_, BodyVariant<'js>>> {
-        let inner = self
-            .body
-            .try_lock()
-            .map_err(|_| Exception::throw_message(ctx, "Response already read"))?;
-        Ok(inner)
-    }
-
+    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
+    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        let mut body = self.get_body(ctx)?;
-        let body = &mut *body;
+        let mut body_guard = self.body.write().unwrap();
+        let body = &mut *body_guard;
         let bytes = match body {
             BodyVariant::Incoming(ref mut incoming) => {
                 let response = incoming
                     .take()
                     .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+
                 self.take_bytes_body(ctx, response.into_body()).await?
             },
             BodyVariant::Cloned(ref mut incoming) => {
-                let body = incoming
+                let response = incoming
                     .take()
                     .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                self.take_bytes_body(ctx, body.into_body()).await?
+                drop(body_guard);
+
+                self.take_bytes_body(ctx, response.into_body()).await?
             },
             BodyVariant::Provided(provided) => {
                 let provided = provided
                     .take()
                     .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     let blob = blob.borrow();
                     blob.get_bytes()
@@ -280,7 +279,7 @@ impl<'js> Response<'js> {
             .unwrap_or_else(|| BodyVariant::Empty);
 
         Ok(Self {
-            body: Mutex::new(body),
+            body: RwLock::new(body),
             method: "GET".into(),
             url,
             start: Instant::now(),
@@ -341,17 +340,15 @@ impl<'js> Response<'js> {
     }
 
     #[qjs(get)]
-    fn body_used(&self, ctx: Ctx<'js>) -> bool {
-        if let Ok(body) = self.get_body(&ctx) {
-            let body = &*body;
-            return match body {
-                BodyVariant::Incoming(response) => response.is_none(),
-                BodyVariant::Cloned(response) => response.is_none(),
-                BodyVariant::Provided(value) => value.is_none(),
-                BodyVariant::Empty => false,
-            };
+    fn body_used(&self) -> bool {
+        let body = self.body.read().unwrap();
+        let body = &*body;
+        match body {
+            BodyVariant::Incoming(response) => response.is_none(),
+            BodyVariant::Cloned(response) => response.is_none(),
+            BodyVariant::Provided(value) => value.is_none(),
+            BodyVariant::Empty => false,
         }
-        true
     }
 
     pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
@@ -395,7 +392,7 @@ impl<'js> Response<'js> {
 
     pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
         //not async so should not block
-        let mut body = self.get_body(&ctx)?;
+        let mut body = self.body.write().unwrap();
         let body_mutex = &mut *body;
         let body = match body_mutex {
             BodyVariant::Incoming(incoming) => {
@@ -421,7 +418,7 @@ impl<'js> Response<'js> {
         };
 
         Ok(Self {
-            body: Mutex::new(body),
+            body: RwLock::new(body),
             method: self.method.clone(),
             url: self.url.clone(),
             start: self.start,
@@ -437,7 +434,7 @@ impl<'js> Response<'js> {
     #[qjs(static)]
     fn error(ctx: Ctx<'js>) -> Result<Self> {
         Ok(Self {
-            body: Mutex::new(BodyVariant::Empty),
+            body: RwLock::new(BodyVariant::Empty),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -474,7 +471,7 @@ impl<'js> Response<'js> {
         let body = BodyVariant::Provided(Some(body));
 
         Ok(Self {
-            body: Mutex::new(body),
+            body: RwLock::new(body),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -505,7 +502,7 @@ impl<'js> Response<'js> {
         let headers = Class::instance(ctx.clone(), headers)?;
 
         Ok(Self {
-            body: Mutex::new(BodyVariant::Empty),
+            body: RwLock::new(BodyVariant::Empty),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -522,7 +519,7 @@ impl<'js> Response<'js> {
 impl<'js> Trace<'js> for Response<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.headers.trace(tracer);
-        let body = self.body.lock().unwrap();
+        let body = self.body.read().unwrap();
         let body = &*body;
         if let BodyVariant::Provided(Some(body)) = body {
             body.trace(tracer);
