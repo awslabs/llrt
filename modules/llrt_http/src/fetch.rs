@@ -81,6 +81,7 @@ where
                     let res = match res {
                         Ok(res) => res,
                         Err(err) => {
+                            //FIXME: Hyper does not currently the error kinds
                             let error =
                                 &format!("{:?}", err)["hyper_util::client::legacy::Error(".len()..];
                             let max_retry_count = if error.starts_with("SendRequest") {
