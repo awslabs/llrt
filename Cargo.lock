@@ -1844,6 +1844,7 @@ dependencies = [
  "rustls",
  "ryu",
  "tokio",
+ "tower-service",
  "tracing",
  "webpki-roots",
  "wiremock",

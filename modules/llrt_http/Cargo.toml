@@ -52,6 +52,7 @@ ryu = "1"
 tokio = "1"
 tracing = "0.1"
 webpki-roots = "0.26"
+tower-service = "0.3.3"
 
 [dev-dependencies]
 llrt_compression = { version = "0.4.0-beta", path = "../../libs/llrt_compression" }
