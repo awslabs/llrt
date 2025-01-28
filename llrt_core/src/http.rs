@@ -1,4 +1,4 @@
-use std::{env, fs::File, io, result::Result as StdResult, time::Duration};
+use std::{env, fs::File, io, result::Result as StdResult};
 
 use llrt_modules::http::HttpVersion;
 use rustls::{pki_types::CertificateDer, version, SupportedProtocolVersion};
@@ -8,7 +8,7 @@ use crate::environment;
 
 pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Some(pool_idle_timeout) = build_pool_idle_timeout() {
-        llrt_modules::http::set_pool_idle_timeout(pool_idle_timeout);
+        llrt_modules::http::set_pool_idle_timeout_seconds(pool_idle_timeout);
     }
 
     if let Some(extra_ca_certs) = buid_extra_ca_certs()? {
@@ -22,7 +22,7 @@ pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     Ok(())
 }
 
-fn build_pool_idle_timeout() -> Option<Duration> {
+fn build_pool_idle_timeout() -> Option<u64> {
     let Ok(env_value) = env::var(environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT) else {
         return None;
     };
@@ -36,7 +36,7 @@ fn build_pool_idle_timeout() -> Option<Duration> {
             environment::ENV_LLRT_NET_POOL_IDLE_TIMEOUT
         )
     }
-    Some(Duration::from_secs(pool_idle_timeout))
+    Some(pool_idle_timeout)
 }
 
 fn buid_extra_ca_certs() -> StdResult<Option<Vec<CertificateDer<'static>>>, io::Error> {
@@ -64,7 +64,7 @@ fn build_tls_versions() -> Vec<&'static SupportedProtocolVersion> {
 
 fn build_http_version() -> HttpVersion {
     match env::var(environment::ENV_LLRT_HTTP_VERSION).as_deref() {
-        Ok("1.1") => HttpVersion::Http1_1,
-        _ => HttpVersion::Http2,
+        Ok("2") => HttpVersion::Http2,
+        _ => HttpVersion::Http1_1,
     }
 }
