@@ -74,6 +74,8 @@ impl CachedDnsResolver {
     }
 }
 
+const DNS_PERMITS: usize = 5;
+
 impl Service<Name> for CachedDnsResolver {
     type Response = GaiAddrs;
     type Error = io::Error;
@@ -98,7 +100,7 @@ impl Service<Name> for CachedDnsResolver {
                         .entry(name.clone())
                         .or_insert_with(|| {
                             Arc::new(CacheLock {
-                                semaphore: Arc::new(Semaphore::new(5)),
+                                semaphore: Arc::new(Semaphore::new(DNS_PERMITS)),
                                 entry: None,
                             })
                         })
@@ -135,7 +137,7 @@ impl Service<Name> for CachedDnsResolver {
                     write.insert(
                         name,
                         Arc::new(CacheLock {
-                            semaphore: Arc::new(Semaphore::new(5)),
+                            semaphore: Arc::new(Semaphore::new(DNS_PERMITS)),
                             entry: Some(CacheEntry {
                                 timestamp: Instant::now(),
                                 gai_addrs: gai_addrs.clone(),
