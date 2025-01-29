@@ -243,8 +243,8 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
-                        let response2 = response.clone(ctx.clone()).unwrap();
+                        let mut response = response.borrow_mut();
+                        let mut response2 = response.clone(ctx.clone()).unwrap();
 
                         let (response_res, response2_res) =
                             tokio::join!(response.text(ctx.clone()), response2.text(ctx.clone()));
@@ -293,7 +293,7 @@ mod tests {
                         {
                             let response_promise: Promise = fetch.call((url, options.clone()))?;
                             let response: Class<Response> = response_promise.into_future().await?;
-                            let response = response.borrow_mut();
+                            let mut response = response.borrow_mut();
                             let _response2 = response.clone(ctx.clone()).unwrap();
                         }
 
@@ -333,8 +333,8 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response2 = response.clone(ctx.clone()).unwrap();
+                    let mut response = response.borrow_mut();
+                    let mut response2 = response.clone(ctx.clone()).unwrap();
 
                     let response_text = response.text(ctx.clone()).await.unwrap();
                     assert_eq!(response.status(), 200);

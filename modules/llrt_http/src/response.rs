@@ -3,7 +3,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
     io::Read,
-    sync::RwLock,
     time::Instant,
 };
 
@@ -102,22 +101,7 @@ static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
 enum BodyVariant<'js> {
     Incoming(Option<hyper::Response<Incoming>>),
     Cloned(Option<hyper::Response<IncomingReceiver>>),
-    Provided(Option<Value<'js>>),
-    Empty,
-}
-
-#[rquickjs::class]
-pub struct Response<'js> {
-    body: RwLock<BodyVariant<'js>>,
-    content_encoding: Option<String>,
-    method: String,
-    url: String,
-    start: Instant,
-    status: u16,
-    status_text: Option<String>,
-    redirected: bool,
-    headers: Class<'js, Headers>,
-    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+    Provided(Value<'js>),
 }
 
 impl<'js> Response<'js> {
@@ -147,8 +131,7 @@ impl<'js> Response<'js> {
         let status = response.status();
 
         Ok(Self {
-            body: RwLock::new(BodyVariant::Incoming(Some(response))),
-            content_encoding,
+            body: Some(BodyVariant::Incoming(Some(response))),
             method,
             url,
             start,
@@ -156,16 +139,17 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected,
             headers,
+            content_encoding,
             abort_receiver,
         })
     }
 
-    async fn take_bytes_body<T>(&self, ctx: &Ctx<'js>, body: T) -> Result<Vec<u8>>
+    async fn take_bytes_body<T>(&mut self, ctx: &Ctx<'js>, body: T) -> Result<Vec<u8>>
     where
         T: Body,
         T::Error: std::fmt::Display,
     {
-        let bytes = if let Some(abort_signal) = self.abort_receiver.as_ref() {
+        let bytes = if let Some(abort_signal) = &self.abort_receiver {
             select! {
                 err = abort_signal.recv() => return Err(ctx.throw(err)),
                 collected_body = body.collect() => collected_body.or_throw(ctx)?.to_bytes()
@@ -174,9 +158,9 @@ impl<'js> Response<'js> {
             body.collect().await.or_throw(ctx)?.to_bytes()
         };
 
-        if let Some(content_encoding) = self.content_encoding.as_deref() {
+        if let Some(content_encoding) = &self.content_encoding {
             let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
-            match content_encoding {
+            match content_encoding.as_str() {
                 "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
                 "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
                 "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
@@ -189,46 +173,48 @@ impl<'js> Response<'js> {
         }
     }
 
-    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
-    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
-    async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        let mut body_guard = self.body.write().unwrap();
-        let body = &mut *body_guard;
-        let bytes = match body {
-            BodyVariant::Incoming(ref mut incoming) => {
+    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
+        let bytes = match &mut self.body {
+            Some(BodyVariant::Incoming(incoming)) => {
                 let response = incoming
                     .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-
+                    .ok_or(Exception::throw_type(ctx, "Already read"))?;
                 self.take_bytes_body(ctx, response.into_body()).await?
             },
-            BodyVariant::Cloned(ref mut incoming) => {
-                let response = incoming
+            Some(BodyVariant::Cloned(incoming)) => {
+                let body = incoming
                     .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-
-                self.take_bytes_body(ctx, response.into_body()).await?
+                    .ok_or(Exception::throw_type(ctx, "Already read"))?;
+                self.take_bytes_body(ctx, body.into_body()).await?
             },
-            BodyVariant::Provided(provided) => {
-                let provided = provided
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
+            Some(BodyVariant::Provided(provided)) => {
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    let bytes = ObjectBytes::from(ctx, &provided)?;
+                    let bytes = ObjectBytes::from(ctx, provided)?;
                     bytes.as_bytes().to_vec()
                 }
             },
-            BodyVariant::Empty => return Ok(None),
+            None => return Ok(None),
         };
 
         Ok(Some(bytes))
     }
+}
+
+#[rquickjs::class]
+pub struct Response<'js> {
+    body: Option<BodyVariant<'js>>,
+    method: String,
+    url: String,
+    start: Instant,
+    status: u16,
+    status_text: Option<String>,
+    redirected: bool,
+    headers: Class<'js, Headers>,
+    content_encoding: Option<String>,
+    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Response<'js> {
@@ -267,19 +253,16 @@ impl<'js> Response<'js> {
         let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
         let content_encoding = headers.get("content-encoding")?;
 
-        let body = body
-            .0
-            .and_then(|body| {
-                if body.is_null() || body.is_undefined() {
-                    None
-                } else {
-                    Some(BodyVariant::Provided(Some(body)))
-                }
-            })
-            .unwrap_or_else(|| BodyVariant::Empty);
+        let body = body.0.and_then(|body| {
+            if body.is_null() || body.is_undefined() {
+                None
+            } else {
+                Some(BodyVariant::Provided(body))
+            }
+        });
 
         Ok(Self {
-            body: RwLock::new(body),
+            body,
             method: "GET".into(),
             url,
             start: Instant::now(),
@@ -341,45 +324,41 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        let body = self.body.read().unwrap();
-        let body = &*body;
-        match body {
-            BodyVariant::Incoming(response) => response.is_none(),
-            BodyVariant::Cloned(response) => response.is_none(),
-            BodyVariant::Provided(value) => value.is_none(),
-            BodyVariant::Empty => false,
+        if let Some(BodyVariant::Incoming(body)) = &self.body {
+            return body.is_none();
         }
+        false
     }
 
-    pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
+    pub(crate) async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(String::from_utf8_lossy(&bytes).to_string());
         }
         Ok("".into())
     }
 
-    pub(crate) async fn json(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+    pub(crate) async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return json_parse(&ctx, bytes);
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
 
-    async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return ArrayBuffer::new(ctx, bytes);
         }
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
-    async fn bytes(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+    async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return TypedArray::new(ctx, bytes).map(|m| m.into_value());
         }
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
 
-    async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
+    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             let headers = Headers::from_value(&ctx, self.headers().as_value().clone())?;
             let mime_type = headers
@@ -390,35 +369,29 @@ impl<'js> Response<'js> {
         Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }
 
-    pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
-        //not async so should not block
-        let mut body = self.body.write().unwrap();
-        let body_mutex = &mut *body;
-        let body = match body_mutex {
-            BodyVariant::Incoming(incoming) => {
-                if let Some(response) = incoming.take() {
-                    let (head, incoming_response) = response.into_parts();
-                    let (sender, receiver) = incoming::channel(incoming_response);
-                    let response = hyper::Response::from_parts(head, receiver);
-
-                    *body_mutex = BodyVariant::Cloned(Some(response.clone()));
-
+    pub(crate) fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
+        let body = match &mut self.body {
+            Some(BodyVariant::Incoming(incoming)) => match incoming.take() {
+                Some(response) => {
+                    let (head, body) = response.into_parts();
+                    let (sender, receiver) = incoming::channel(body);
                     ctx.spawn_exit_simple(async move {
                         sender.process().await;
                         Ok(())
                     });
-                    BodyVariant::Cloned(Some(response))
-                } else {
-                    BodyVariant::Incoming(None)
-                }
+                    let response = hyper::Response::from_parts(head, receiver);
+                    self.body = Some(BodyVariant::Cloned(Some(response.clone())));
+                    Some(BodyVariant::Cloned(Some(response)))
+                },
+                None => Some(BodyVariant::Incoming(None)),
             },
-            BodyVariant::Cloned(incoming) => BodyVariant::Cloned(incoming.clone()),
-            BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
-            BodyVariant::Empty => BodyVariant::Empty,
+            Some(BodyVariant::Cloned(incoming)) => Some(BodyVariant::Cloned(incoming.clone())),
+            Some(BodyVariant::Provided(provided)) => Some(BodyVariant::Provided(provided.clone())),
+            None => None,
         };
 
         Ok(Self {
-            body: RwLock::new(body),
+            body,
             method: self.method.clone(),
             url: self.url.clone(),
             start: self.start,
@@ -434,7 +407,7 @@ impl<'js> Response<'js> {
     #[qjs(static)]
     fn error(ctx: Ctx<'js>) -> Result<Self> {
         Ok(Self {
-            body: RwLock::new(BodyVariant::Empty),
+            body: None,
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -468,10 +441,10 @@ impl<'js> Response<'js> {
         let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
         let content_encoding = headers.get("content-encoding")?;
 
-        let body = BodyVariant::Provided(Some(body));
+        let body = Some(BodyVariant::Provided(body));
 
         Ok(Self {
-            body: RwLock::new(body),
+            body,
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -502,7 +475,7 @@ impl<'js> Response<'js> {
         let headers = Class::instance(ctx.clone(), headers)?;
 
         Ok(Self {
-            body: RwLock::new(BodyVariant::Empty),
+            body: None,
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -519,9 +492,7 @@ impl<'js> Response<'js> {
 impl<'js> Trace<'js> for Response<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.headers.trace(tracer);
-        let body = self.body.read().unwrap();
-        let body = &*body;
-        if let BodyVariant::Provided(Some(body)) = body {
+        if let Some(BodyVariant::Provided(body)) = &self.body {
             body.trace(tracer);
         }
     }
