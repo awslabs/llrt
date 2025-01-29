@@ -1,11 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::convert::Infallible;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::{io, sync::OnceLock, time::Duration};
 
 use bytes::Bytes;
-use cached_dns_resolver::CachedDnsResolver;
 use http_body_util::combinators::BoxBody;
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
@@ -26,7 +24,6 @@ use self::{file::File, headers::Headers, request::Request, response::Response};
 
 mod blob;
 mod body;
-mod cached_dns_resolver;
 mod fetch;
 mod file;
 mod headers;
@@ -35,14 +32,18 @@ mod request;
 mod response;
 mod security;
 
-static CONNECTION_POOL_IDLE_TIMEOUT: AtomicU64 = AtomicU64::new(15);
+const DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 
-pub fn set_pool_idle_timeout_seconds(seconds: u64) {
-    CONNECTION_POOL_IDLE_TIMEOUT.store(seconds, Ordering::Relaxed);
+static CONNECTION_POOL_IDLE_TIMEOUT: OnceLock<Duration> = OnceLock::new();
+
+pub fn set_pool_idle_timeout(timeout: Duration) {
+    _ = CONNECTION_POOL_IDLE_TIMEOUT.set(timeout);
 }
 
 fn get_pool_idle_timeout() -> Duration {
-    Duration::from_secs(CONNECTION_POOL_IDLE_TIMEOUT.load(Ordering::Relaxed))
+    *CONNECTION_POOL_IDLE_TIMEOUT
+        .get()
+        .unwrap_or(&DEFAULT_CONNECTION_POOL_IDLE_TIMEOUT)
 }
 
 static EXTRA_CA_CERTS: OnceLock<Vec<CertificateDer<'static>>> = OnceLock::new();
@@ -52,12 +53,7 @@ pub fn set_extra_ca_certs(certs: Vec<CertificateDer<'static>>) {
 }
 
 fn get_extra_ca_certs() -> Option<Vec<CertificateDer<'static>>> {
-    let certs = EXTRA_CA_CERTS.get_or_init(Vec::new).clone();
-    if certs.is_empty() {
-        None
-    } else {
-        Some(certs)
-    }
+    EXTRA_CA_CERTS.get().cloned()
 }
 
 static TLS_VERSIONS: OnceLock<Vec<&'static SupportedProtocolVersion>> = OnceLock::new();
@@ -67,12 +63,7 @@ pub fn set_tls_versions(versions: Vec<&'static SupportedProtocolVersion>) {
 }
 
 fn get_tls_versions() -> Option<Vec<&'static SupportedProtocolVersion>> {
-    let versions = TLS_VERSIONS.get_or_init(Vec::new).clone();
-    if versions.is_empty() {
-        None
-    } else {
-        Some(versions)
-    }
+    TLS_VERSIONS.get().cloned()
 }
 
 static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
@@ -88,19 +79,20 @@ static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
 
     let builder = ClientConfig::builder_with_provider(ring::default_provider().into());
 
-    let client_config = match get_tls_versions() {
+    Ok(match get_tls_versions() {
         Some(versions) => builder.with_protocol_versions(&versions),
         None => builder.with_safe_default_protocol_versions(),
     }
     .expect("TLS configuration failed")
     .with_root_certificates(root_certificates)
-    .with_no_client_auth();
-    Ok(client_config)
+    .with_no_client_auth())
 });
 
 #[derive(Debug, Clone, Copy)]
 pub enum HttpVersion {
+    #[cfg(feature = "http1")]
     Http1_1,
+    #[cfg(feature = "http2")]
     Http2,
 }
 
@@ -111,12 +103,8 @@ pub fn set_http_version(version: HttpVersion) {
 }
 
 fn get_http_version() -> HttpVersion {
-    *HTTP_VERSION.get_or_init(|| {
-        #[cfg(any(feature = "http2", feature = "http1"))]
-        {
-            HttpVersion::Http1_1
-        }
-        #[cfg(all(not(feature = "http1"), feature = "http2"))]
+    HTTP_VERSION.get().cloned().unwrap_or({
+        #[cfg(feature = "http2")]
         {
             HttpVersion::Http2
         }
@@ -131,8 +119,7 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
-pub type HyperClient =
-    Client<HttpsConnector<HttpConnector<CachedDnsResolver>>, BoxBody<Bytes, Infallible>>;
+pub type HyperClient = Client<HttpsConnector<HttpConnector>, BoxBody<Bytes, Infallible>>;
 pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| {
     let pool_idle_timeout = get_pool_idle_timeout();
 
@@ -145,15 +132,11 @@ pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| {
         .with_tls_config(maybe_tls_config?)
         .https_or_http();
 
-    let mut cache_dns_connector = CachedDnsResolver::new().into_http_connector();
-    cache_dns_connector.enforce_http(false);
-
     let https = match get_http_version() {
+        #[cfg(feature = "http1")]
+        HttpVersion::Http1_1 => builder.enable_http1().build(),
         #[cfg(feature = "http2")]
-        HttpVersion::Http2 => builder
-            .enable_all_versions()
-            .wrap_connector(cache_dns_connector),
-        _ => builder.enable_http1().wrap_connector(cache_dns_connector),
+        HttpVersion::Http2 => builder.enable_all_versions().build(),
     };
 
     Ok(Client::builder(TokioExecutor::new())

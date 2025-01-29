@@ -158,7 +158,7 @@ impl Vm {
         let source = [
             r#"import(""#,
             &filename.as_ref().replace('\\', "/"),
-            r#"").catch((e) => {console.error(e);process.exit(1)})"#,
+            r#"").catch((e) => {{console.error(e);process.exit(1)}})"#,
         ]
         .concat();
 
