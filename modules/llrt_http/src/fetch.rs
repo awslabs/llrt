@@ -58,7 +58,6 @@ where
 
                 let mut redirect_count = 0;
                 let mut response_status = 0;
-                let mut retry_count = 0;
                 let res = loop {
                     let req = build_request(
                         &ctx,
@@ -72,39 +71,13 @@ where
 
                     let res = if let Some(abort_receiver) = &abort_receiver {
                         select! {
-                            res = client.request(req) => res,
+                            res = client.request(req) => res.or_throw(&ctx)?,
                             reason = abort_receiver.recv() => return Err(ctx.throw(reason))
                         }
                     } else {
-                        client.request(req).await
-                    };
-                    let res = match res {
-                        Ok(res) => res,
-                        Err(err) => {
-                            //FIXME: Hyper does not currently the error kinds
-                            let error =
-                                &format!("{:?}", err)["hyper_util::client::legacy::Error(".len()..];
-                            let max_retry_count = if error.starts_with("SendRequest") {
-                                2
-                            } else if error.starts_with("Connect") {
-                                if error.contains("dns error") {
-                                    0
-                                } else {
-                                    2
-                                }
-                            } else {
-                                0
-                            };
-
-                            if retry_count <= max_retry_count {
-                                retry_count += 1;
-                                continue;
-                            }
-                            return Err(err).or_throw(&ctx)?;
-                        },
+                        client.request(req).await.or_throw(&ctx)?
                     };
 
-                    retry_count = 0;
                     match res.headers().get(HeaderName::from_static("location")) {
                         Some(location_headers) => {
                             if let Ok(location_str) = location_headers.to_str() {
