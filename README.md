@@ -376,20 +376,27 @@ There are many cases where LLRT shows notable performance drawbacks compared wit
 ## Building from source
 
 1. Clone code and cd to directory
+
 ```
 git clone git@github.com:awslabs/llrt.git
 cd llrt
 ```
+
 2. Install git submodules
+
 ```
 git submodule update --init --checkout
 ```
+
 3. Install rust
+
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 source "$HOME/.cargo/env"
 ```
+
 4. Install dependencies
+
 ```
 # MacOS
 brew install zig make cmake zstd node corepack
@@ -406,22 +413,28 @@ sudo snap install zig --classic --beta
 sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 nvm install --lts
 ```
-_* See [Microsoft Devblogs](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)_
+
+_\* See [Microsoft Devblogs](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)_
 
 5. Install Node.js packages
+
 ```
 corepack enable
 yarn
 ```
+
 6. Install generate libs and setup rust targets & toolchains
+
 ```
 make stdlib && make libs
 ```
+
 > [!NOTE]
 > If these commands exit with an error that says `can't cd to zstd/lib`,
 > you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
 
 7. Build binaries for Lambda (Per bundle type and architecture desired)
+
 ```
 # for arm64, use
 make llrt-lambda-arm64.zip
@@ -432,7 +445,9 @@ make llrt-lambda-x64.zip
 make llrt-lambda-x64-no-sdk.zip
 make llrt-lambda-x64-full-sdk.zip
 ```
+
 8. Build binaries for Container (Per bundle type and architecture desired)
+
 ```
 # for arm64, use
 make llrt-container-arm64
@@ -443,12 +458,15 @@ make llrt-container-x64
 make llrt-container-x64-no-sdk
 make llrt-container-x64-full-sdk
 ```
+
 9. Optionally build for your local machine (Mac or Linux)
+
 ```
 make release
 make release-no-sdk
 make release-full-sdk
 ```
+
 You should now have a `llrt-lambda-arm64*.zip` or `llrt-lambda-x64*.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
 ## Running Lambda emulator
@@ -500,7 +518,7 @@ Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 
 ### `LLRT_HTTP_VERSION=value`
 
-Restrict HTTP requests to use a specific version. By default HTTP 1.1 and 2 are enabled. Set this variable to `1.1` to only use HTTP 1.1
+Extends the HTTP request version. By default, only HTTP/1.1 is enabled. Specifying '2' will enable HTTP/1.1 and HTTP/2.
 
 ### `LLRT_LOG=[target][=][level][,...]`
 
