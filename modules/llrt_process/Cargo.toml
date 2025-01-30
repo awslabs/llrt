@@ -17,3 +17,6 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1"
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

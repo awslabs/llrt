@@ -1974,6 +1974,7 @@ dependencies = [
 name = "llrt_process"
 version = "0.4.0-beta"
 dependencies = [
+ "libc",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
