@@ -19,7 +19,7 @@ jobs:
             platform: linux
             arch: x86_64
             release: x64
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
             release: arm64
@@ -59,6 +59,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: ./CHANGELOG.md
+          preserve_order: true
           prerelease: contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc')
           files: |
             ./llrt-lambda-x64.zip
@@ -88,12 +89,11 @@ jobs:
             ./llrt-windows-x64.zip
             ./llrt-windows-x64-no-sdk.zip
             ./llrt-windows-x64-full-sdk.zip
-  # Publish is broken until we stabilize a version of rquickjs
-  # publish:
-  #   needs:
-  #     - build
-  #   uses: ./.github/workflows/publish.yml
-  #   with:
-  #     ref: ${{ github.ref }}
-  #   secrets:
-  #     CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+  publish:
+    needs:
+      - build
+    uses: ./.github/workflows/publish.yml
+    with:
+      ref: ${{ github.ref }}
+    secrets:
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
