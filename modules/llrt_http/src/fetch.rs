@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::convert::Infallible;
+use std::sync::Arc;
 use std::{collections::HashSet, time::Instant};
 
 use bytes::Bytes;
@@ -19,6 +20,7 @@ use rquickjs::{
     Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
 };
 use tokio::select;
+use tokio::sync::Semaphore;
 
 use super::{blob::Blob, headers::Headers, response::Response, security::ensure_url_access};
 
@@ -28,14 +30,18 @@ pub(crate) fn init<C>(client: Client<C, BoxBody<Bytes, Infallible>>, globals: &O
 where
     C: Clone + Send + Sync + Connect + 'static,
 {
+    let connections = Arc::new(Semaphore::new(500));
+
     globals.set(
         "fetch",
         Func::from(Async(move |ctx, resource, args| {
             let client = client.clone();
+            let connections = connections.clone();
             let start = Instant::now();
             let options = get_fetch_options(&ctx, resource, args);
 
             async move {
+                let lock = connections.acquire().await;
                 let options = options?;
 
                 if let Some(data_url) = options.url.strip_prefix("data:") {
@@ -95,6 +101,8 @@ where
 
                     response_status = res.status().as_u16();
                 };
+
+                drop(lock);
 
                 Response::from_incoming(
                     ctx,
@@ -201,7 +209,6 @@ fn build_request(
     if !detected_headers.contains("accept") {
         req = req.header("accept", "*/*");
     }
-
     req.body(BoxBody::new(
         body.map(|b| b.body.clone()).unwrap_or_default(),
     ))
@@ -640,7 +647,7 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let mut response = response.borrow_mut();
+                    let response = response.borrow_mut();
                     let response_text = response.text(ctx.clone()).await?;
 
                     assert_eq!(response.status(), 200);
@@ -704,7 +711,7 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let mut response = response.borrow_mut();
+                    let response = response.borrow_mut();
                     let response_text = response.text(ctx.clone()).await?;
 
                     assert_eq!(response_text, welcome_message);
@@ -717,7 +724,7 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let mut response = response.borrow_mut();
+                    let response = response.borrow_mut();
                     let response_text = response.text(ctx.clone()).await?;
 
                     assert_eq!(response_text, welcome_message);
@@ -730,7 +737,7 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let mut response = response.borrow_mut();
+                    let response = response.borrow_mut();
                     let response_text = response.text(ctx.clone()).await?;
 
                     assert_eq!(response_text, welcome_message);
@@ -743,7 +750,7 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let mut response = response.borrow_mut();
+                    let response = response.borrow_mut();
                     let response_text = response.text(ctx.clone()).await?;
 
                     assert_eq!(response_text, welcome_message);
