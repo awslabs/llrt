@@ -9,7 +9,7 @@ use std::{io, vec};
 use hyper_util::client::legacy::connect::dns::Name;
 use hyper_util::client::legacy::connect::HttpConnector;
 use quick_cache::sync::Cache;
-use std::io::{ErrorKind, Result};
+use std::io::Result;
 use tokio::sync::Semaphore;
 use tower_service::Service;
 
@@ -34,13 +34,13 @@ struct CacheEntry {
 
 #[derive(Clone)]
 struct CacheConcurrencyGuard {
-    semaphore: Option<Arc<Semaphore>>,
+    semaphore: Arc<Semaphore>,
     entry: Option<CacheEntry>,
 }
 impl CacheConcurrencyGuard {
     fn new(permits: u8) -> Self {
         Self {
-            semaphore: Some(Arc::new(Semaphore::new(permits as usize))),
+            semaphore: Arc::new(Semaphore::new(permits as usize)),
             entry: None,
         }
     }
@@ -82,10 +82,9 @@ impl Service<Name> for CachedDnsResolver {
                 }
             };
 
-            let binding = guard
-                .semaphore
-                .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing semaphore"))?;
-            let lock = binding.acquire().await.unwrap();
+            let semaphore = guard.semaphore;
+            let semaphore2 = semaphore.clone();
+            let lock = semaphore2.acquire().await.unwrap();
 
             if let Some(item) = cache.get(&name).and_then(|guard| guard.entry) {
                 return Ok(item.addrs);
@@ -104,7 +103,7 @@ impl Service<Name> for CachedDnsResolver {
             cache.insert(
                 name,
                 CacheConcurrencyGuard {
-                    semaphore: None,
+                    semaphore,
                     entry: Some(entry),
                 },
             );
