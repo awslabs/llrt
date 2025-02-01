@@ -3,7 +3,7 @@
 use llrt_abort::AbortSignal;
 use llrt_json::parse::json_parse;
 use llrt_url::url_class::URL;
-use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt};
+use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, JsLifetime,
     Null, Object, Result, TypedArray, Value,
@@ -133,7 +133,7 @@ impl<'js> Request<'js> {
 
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let bytes = bytes.as_bytes();
+            let bytes = bytes.as_bytes(&ctx)?;
             return Ok(String::from_utf8_lossy(bytes).to_string());
         }
         Ok("".into())
@@ -141,21 +141,23 @@ impl<'js> Request<'js> {
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, bytes.as_bytes());
+            return json_parse(&ctx, bytes.as_bytes(&ctx)?);
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
 
     async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+        let ctx2 = ctx.clone();
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return ArrayBuffer::new(ctx, bytes.as_bytes());
+            return ArrayBuffer::new(ctx, bytes.as_bytes(&ctx2)?);
         }
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
     async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let ctx2 = ctx.clone();
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return TypedArray::new(ctx, bytes.as_bytes()).map(|m| m.into_value());
+            return TypedArray::new(ctx, bytes.as_bytes(&ctx2)?).map(|m| m.into_value());
         }
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
@@ -166,7 +168,10 @@ impl<'js> Request<'js> {
             let mime_type = headers
                 .iter()
                 .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
-            return Ok(Blob::from_bytes(bytes.into(), mime_type));
+            return Ok(Blob::from_bytes(
+                bytes.try_into().or_throw(&ctx)?,
+                mime_type,
+            ));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), None))
     }

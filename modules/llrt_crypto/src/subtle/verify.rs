@@ -37,8 +37,8 @@ pub async fn subtle_verify<'js>(
         &ctx,
         &algorithm,
         &key,
-        signature.as_bytes(),
-        data.as_bytes(),
+        signature.as_bytes(&ctx)?,
+        data.as_bytes(&ctx)?,
     )
 }
 

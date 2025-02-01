@@ -193,7 +193,7 @@ impl<'js> Response<'js> {
                     blob.get_bytes()
                 } else {
                     let bytes = ObjectBytes::from(ctx, provided)?;
-                    bytes.as_bytes().to_vec()
+                    bytes.as_bytes(ctx)?.to_vec()
                 }
             },
             None => return Ok(None),

@@ -166,7 +166,7 @@ impl<'js> Body<'js> {
                     blob.get_bytes()
                 } else {
                     let bytes = ObjectBytes::from(ctx, provided)?;
-                    bytes.into()
+                    bytes.try_into().or_throw(ctx)?
                 }
             },
         };

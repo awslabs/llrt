@@ -8,7 +8,7 @@ use rquickjs::{
     Value,
 };
 
-use crate::error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED;
+use crate::{error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED, result::ResultExt};
 
 #[derive(Clone, PartialEq)]
 pub enum ObjectBytes<'js> {
@@ -72,15 +72,17 @@ impl<'js> IntoJs<'js> for ObjectBytes<'js> {
     }
 }
 
-impl<'js> From<ObjectBytes<'js>> for Vec<u8> {
-    fn from(value: ObjectBytes<'js>) -> Self {
-        value.into_bytes()
+impl<'js> TryFrom<ObjectBytes<'js>> for Vec<u8> {
+    type Error = String;
+    fn try_from(value: ObjectBytes<'js>) -> std::result::Result<Self, Self::Error> {
+        value.into_bytes_inner()
     }
 }
 
-impl<'a, 'js> From<&'a ObjectBytes<'js>> for &'a [u8] {
-    fn from(value: &'a ObjectBytes<'js>) -> Self {
-        value.as_bytes()
+impl<'a, 'js> TryFrom<&'a ObjectBytes<'js>> for &'a [u8] {
+    type Error = String;
+    fn try_from(value: &'a ObjectBytes<'js>) -> std::result::Result<Self, Self::Error> {
+        value.as_bytes_inner()
     }
 }
 
@@ -127,46 +129,37 @@ impl<'js> ObjectBytes<'js> {
     ))
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            ObjectBytes::U8Array(array) => array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED),
-            ObjectBytes::I8Array(array) => array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED),
-            ObjectBytes::U16Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::I16Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::U32Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::I32Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::U64Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::I64Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::F32Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::F64Array(array) => {
-                array.as_bytes().expect(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            },
-            ObjectBytes::DataView(array_buffer) => array_buffer
-                .as_bytes()
-                .expect(ERROR_MSG_ARRAY_BUFFER_DETACHED),
-            ObjectBytes::Vec(bytes) => bytes.as_ref(),
-        }
+    pub fn as_bytes(&self, ctx: &Ctx<'js>) -> Result<&[u8]> {
+        self.as_bytes_inner().or_throw(ctx)
     }
 
-    pub fn into_bytes(self) -> Vec<u8> {
-        if let ObjectBytes::Vec(bytes) = self {
-            return bytes;
+    fn as_bytes_inner(&self) -> std::result::Result<&[u8], String> {
+        match self {
+            ObjectBytes::U8Array(array) => array.as_bytes(),
+            ObjectBytes::I8Array(array) => array.as_bytes(),
+            ObjectBytes::U16Array(array) => array.as_bytes(),
+            ObjectBytes::I16Array(array) => array.as_bytes(),
+            ObjectBytes::U32Array(array) => array.as_bytes(),
+            ObjectBytes::I32Array(array) => array.as_bytes(),
+            ObjectBytes::U64Array(array) => array.as_bytes(),
+            ObjectBytes::I64Array(array) => array.as_bytes(),
+            ObjectBytes::F32Array(array) => array.as_bytes(),
+            ObjectBytes::F64Array(array) => array.as_bytes(),
+            ObjectBytes::DataView(array_buffer) => array_buffer.as_bytes(),
+            ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
         }
-        self.as_bytes().to_vec()
+        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.to_string())
+    }
+
+    pub fn into_bytes(self, ctx: &Ctx<'js>) -> Result<Vec<u8>> {
+        self.into_bytes_inner().or_throw(ctx)
+    }
+
+    fn into_bytes_inner(self) -> std::result::Result<Vec<u8>, String> {
+        if let ObjectBytes::Vec(bytes) = self {
+            return Ok(bytes);
+        }
+        Ok(self.as_bytes_inner()?.to_vec())
     }
 
     pub fn from_array_buffer(obj: &Object<'js>) -> Result<Option<ObjectBytes<'js>>> {

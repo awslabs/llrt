@@ -187,12 +187,12 @@ impl KeyDerivation {
 
         let salt = obj
             .get_required::<_, ObjectBytes>("salt", "algorithm")?
-            .into_bytes()
+            .into_bytes(ctx)?
             .into_boxed_slice();
 
         let info = obj
             .get_required::<_, ObjectBytes>("info", "algorithm")?
-            .into_bytes()
+            .into_bytes(ctx)?
             .into_boxed_slice();
 
         Ok(KeyDerivation::Hkdf { hash, salt, info })
@@ -203,7 +203,7 @@ impl KeyDerivation {
 
         let salt = obj
             .get_required::<_, ObjectBytes>("salt", "algorithm")?
-            .into_bytes()
+            .into_bytes(ctx)?
             .into_boxed_slice();
 
         let iterations = obj.get_required("iterations", "algorithm")?;
@@ -655,7 +655,7 @@ fn import_derive_key<'js>(
     algorithm_name: &str,
 ) -> Result<()> {
     if let KeyFormatData::Raw(object_bytes) = format {
-        *data = object_bytes.into_bytes();
+        *data = object_bytes.into_bytes(ctx)?;
         *kind = KeyKind::Secret;
     } else {
         return Err(Exception::throw_message(
@@ -782,11 +782,11 @@ fn import_rsa_key<'js>(
         },
         KeyFormatData::Raw(object_bytes) => {
             let public_key =
-                rsa::pkcs1::RsaPublicKey::from_der(object_bytes.as_bytes()).or_throw(ctx)?;
+                rsa::pkcs1::RsaPublicKey::from_der(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             public_key_info(ctx, kind, data, public_key)?
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pk_info = PrivateKeyInfo::from_der(object_bytes.as_bytes()).or_throw(ctx)?;
+            let pk_info = PrivateKeyInfo::from_der(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             let object_identifier = pk_info.algorithm.oid;
             validate_oid(object_identifier)?;
 
@@ -801,8 +801,8 @@ fn import_rsa_key<'js>(
             (modulus_length, public_exponent)
         },
         KeyFormatData::Spki(object_bytes) => {
-            let pk_info =
-                spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            let pk_info = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
 
             let object_identifier = pk_info.algorithm.oid;
             validate_oid(object_identifier)?;
@@ -863,7 +863,7 @@ fn import_symmetric_key<'js>(
             }
         },
         KeyFormatData::Raw(object_bytes) => {
-            let bytes = object_bytes.into_bytes();
+            let bytes = object_bytes.into_bytes(ctx)?;
 
             *data = bytes;
             return Ok(data.len() * 8);
@@ -982,7 +982,7 @@ fn import_ec_key<'js>(
             }
         },
         KeyFormatData::Raw(object_bytes) => {
-            let bytes = object_bytes.into_bytes();
+            let bytes = object_bytes.into_bytes(ctx)?;
             if bytes.len() != 32 {
                 return Err(Exception::throw_type(
                     ctx,
@@ -993,16 +993,16 @@ fn import_ec_key<'js>(
             *kind = KeyKind::Public;
         },
         KeyFormatData::Spki(object_bytes) => {
-            let spki =
-                spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            let spki = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
             validate_oid(spki.algorithm.oid)?;
             *data = spki.subject_public_key.raw_bytes().into();
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            *data = object_bytes.into_bytes();
+            *data = object_bytes.into_bytes(ctx)?;
             *kind = KeyKind::Private;
         },
     };
@@ -1052,7 +1052,7 @@ fn import_okp_key<'js>(
             }
         },
         KeyFormatData::Raw(object_bytes) => {
-            let bytes = object_bytes.into_bytes();
+            let bytes = object_bytes.into_bytes(ctx)?;
             if bytes.len() != 32 {
                 return Err(Exception::throw_type(
                     ctx,
@@ -1063,16 +1063,16 @@ fn import_okp_key<'js>(
             *kind = KeyKind::Public;
         },
         KeyFormatData::Spki(object_bytes) => {
-            let spki =
-                spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            let spki = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
             validate_oid(spki.algorithm.oid)?;
             *data = spki.subject_public_key.raw_bytes().into();
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes()).or_throw(ctx)?;
+            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            *data = object_bytes.into_bytes();
+            *data = object_bytes.into_bytes(ctx)?;
             *kind = KeyKind::Private;
         },
     };

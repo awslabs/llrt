@@ -29,7 +29,7 @@ pub async fn subtle_sign<'js>(
     let key = key.borrow();
     key.check_validity("sign").or_throw(&ctx)?;
 
-    let bytes = sign(&ctx, &algorithm, &key, data.as_bytes())?;
+    let bytes = sign(&ctx, &algorithm, &key, data.as_bytes(&ctx)?)?;
     ArrayBuffer::new(ctx, bytes)
 }
 

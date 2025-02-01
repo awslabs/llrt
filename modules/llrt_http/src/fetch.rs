@@ -255,11 +255,11 @@ struct BodyBytes<'js> {
     body: Full<Bytes>,
 }
 impl<'js> BodyBytes<'js> {
-    fn new(object_bytes: ObjectBytes<'js>) -> Self {
+    fn new(ctx: Ctx<'js>, object_bytes: ObjectBytes<'js>) -> Result<Self> {
         //this is safe since we hold on to ObjectBytes
-        let raw_bytes: &'static [u8] = unsafe { std::mem::transmute(object_bytes.as_bytes()) };
+        let raw_bytes: &'static [u8] = unsafe { std::mem::transmute(object_bytes.as_bytes(&ctx)?) };
         let body = Full::from(Bytes::from_static(raw_bytes));
-        Self { object_bytes, body }
+        Ok(Self { object_bytes, body })
     }
 }
 
@@ -326,7 +326,7 @@ fn get_fetch_options<'js>(
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
             let bytes = ObjectBytes::from(ctx, &body_opt)?;
-            body = Some(BodyBytes::new(bytes));
+            body = Some(BodyBytes::new(ctx.clone(), bytes)?);
         }
 
         if let Some(url_opt) =
