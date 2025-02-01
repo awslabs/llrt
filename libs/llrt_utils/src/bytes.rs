@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::rc::Rc;
+
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
@@ -73,14 +75,14 @@ impl<'js> IntoJs<'js> for ObjectBytes<'js> {
 }
 
 impl<'js> TryFrom<ObjectBytes<'js>> for Vec<u8> {
-    type Error = String;
+    type Error = Rc<str>;
     fn try_from(value: ObjectBytes<'js>) -> std::result::Result<Self, Self::Error> {
         value.into_bytes_inner()
     }
 }
 
 impl<'a, 'js> TryFrom<&'a ObjectBytes<'js>> for &'a [u8] {
-    type Error = String;
+    type Error = Rc<str>;
     fn try_from(value: &'a ObjectBytes<'js>) -> std::result::Result<Self, Self::Error> {
         value.as_bytes_inner()
     }
@@ -133,7 +135,7 @@ impl<'js> ObjectBytes<'js> {
         self.as_bytes_inner().or_throw(ctx)
     }
 
-    fn as_bytes_inner(&self) -> std::result::Result<&[u8], String> {
+    fn as_bytes_inner(&self) -> std::result::Result<&[u8], Rc<str>> {
         match self {
             ObjectBytes::U8Array(array) => array.as_bytes(),
             ObjectBytes::I8Array(array) => array.as_bytes(),
@@ -148,14 +150,14 @@ impl<'js> ObjectBytes<'js> {
             ObjectBytes::DataView(array_buffer) => array_buffer.as_bytes(),
             ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
         }
-        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.to_string())
+        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.into())
     }
 
     pub fn into_bytes(self, ctx: &Ctx<'js>) -> Result<Vec<u8>> {
         self.into_bytes_inner().or_throw(ctx)
     }
 
-    fn into_bytes_inner(self) -> std::result::Result<Vec<u8>, String> {
+    fn into_bytes_inner(self) -> std::result::Result<Vec<u8>, Rc<str>> {
         if let ObjectBytes::Vec(bytes) = self {
             return Ok(bytes);
         }
