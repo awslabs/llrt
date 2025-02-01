@@ -79,7 +79,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 let additional_data = obj
                     .get_optional::<_, ObjectBytes>("additionalData")?
                     .map(|v| v.into_bytes(ctx))
-                    .and_then(|res| res.ok())
+                    .transpose()?
                     .map(|vec| vec.into_boxed_slice());
 
                 let tag_length = obj.get_optional::<_, u8>("tagLength")?.unwrap_or(128);
@@ -102,7 +102,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 let label = obj
                     .get_optional::<_, ObjectBytes>("label")?
                     .map(|bytes| bytes.into_bytes(ctx))
-                    .and_then(|res| res.ok())
+                    .transpose()?
                     .map(|vec| vec.into_boxed_slice());
 
                 Ok(EncryptionAlgorithm::RsaOaep { label })

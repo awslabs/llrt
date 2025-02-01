@@ -202,10 +202,7 @@ impl ShaHash {
         algorithm: ShaAlgorithm,
         secret: Opt<ObjectBytes<'js>>,
     ) -> Result<Self> {
-        let secret = secret
-            .0
-            .map(|bytes| bytes.into_bytes(ctx))
-            .and_then(|res| res.ok());
+        let secret = secret.0.map(|bytes| bytes.into_bytes(ctx)).transpose()?;
 
         Ok(ShaHash {
             secret,
