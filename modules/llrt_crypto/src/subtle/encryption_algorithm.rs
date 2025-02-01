@@ -99,10 +99,6 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 })
             },
             "RSA-OAEP" => {
-                // let label = obj
-                //     .get_optional::<_, ObjectBytes>("label")?
-                //     .map(|bytes| bytes.into_bytes(&ctx)?.into_boxed_slice());
-
                 let label = obj
                     .get_optional::<_, ObjectBytes>("label")?
                     .map(|bytes| bytes.into_bytes(ctx))
