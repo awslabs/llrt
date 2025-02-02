@@ -6,7 +6,7 @@ use rquickjs::{Array, Ctx, Exception, IntoJs, Null, Object, Result, Undefined, V
 use simd_json::{Node, StaticNode};
 
 pub fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Value<'js>> {
-    let bytes = bytes.as_bytes();
+    let bytes = bytes.as_bytes(&ctx)?;
     json_parse(&ctx, bytes)
 }
 

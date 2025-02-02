@@ -246,9 +246,12 @@ impl ModuleDef for CryptoModule {
                 let class_name: &str = sha_algorithm.class_name();
                 let algo = sha_algorithm;
 
-                let ctor = Constructor::new_class::<ShaHash, _, _>(ctx.clone(), move |secret| {
-                    ShaHash::new(algo.clone(), secret)
-                })?;
+                let ctor =
+                    Constructor::new_class::<ShaHash, _, _>(ctx.clone(), move |ctx, secret| {
+                        struct Args<'js>(Ctx<'js>, Opt<ObjectBytes<'js>>);
+                        let Args(ctx, secret) = Args(ctx, secret);
+                        ShaHash::new(ctx, algo.clone(), secret)
+                    })?;
 
                 default.set(class_name, ctor)?;
             }

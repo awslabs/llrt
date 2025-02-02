@@ -113,7 +113,7 @@ impl<'js> XMLParser<'js> {
     }
 
     pub fn parse(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Object<'js>> {
-        let bytes = bytes.as_bytes();
+        let bytes = bytes.as_bytes(&ctx)?;
         let mut reader = Reader::from_reader(bytes);
         let config = reader.config_mut();
         config.trim_text(true);

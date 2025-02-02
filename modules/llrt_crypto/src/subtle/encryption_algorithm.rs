@@ -33,7 +33,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
             "AES-CBC" => {
                 let iv = obj
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
-                    .into_bytes()
+                    .into_bytes(ctx)?
                     .into_boxed_slice();
 
                 if iv.len() != 16 {
@@ -48,7 +48,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
             "AES-CTR" => {
                 let counter = obj
                     .get_required::<_, ObjectBytes>("counter", "algorithm")?
-                    .into_bytes()
+                    .into_bytes(ctx)?
                     .into_boxed_slice();
 
                 let length = obj.get_required::<_, u32>("length", "algorithm")?;
@@ -65,7 +65,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
             "AES-GCM" => {
                 let iv = obj
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
-                    .into_bytes()
+                    .into_bytes(ctx)?
                     .into_boxed_slice();
 
                 //FIXME only 12? 96 maybe recommended?
@@ -78,7 +78,9 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
 
                 let additional_data = obj
                     .get_optional::<_, ObjectBytes>("additionalData")?
-                    .map(|v| v.into_bytes().into_boxed_slice());
+                    .map(|v| v.into_bytes(ctx))
+                    .transpose()?
+                    .map(|vec| vec.into_boxed_slice());
 
                 let tag_length = obj.get_optional::<_, u8>("tagLength")?.unwrap_or(128);
 
@@ -99,7 +101,10 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
             "RSA-OAEP" => {
                 let label = obj
                     .get_optional::<_, ObjectBytes>("label")?
-                    .map(|bytes| bytes.into_bytes().into_boxed_slice());
+                    .map(|bytes| bytes.into_bytes(ctx))
+                    .transpose()?
+                    .map(|vec| vec.into_boxed_slice());
+
                 Ok(EncryptionAlgorithm::RsaOaep { label })
             },
             "AES-KW" => Ok(EncryptionAlgorithm::AesKw),

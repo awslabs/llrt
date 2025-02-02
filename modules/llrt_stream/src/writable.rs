@@ -232,6 +232,7 @@ where
 
         ctx.spawn_exit(async move {
             let ctx3 = ctx2.clone();
+            let ctx4 = ctx2.clone();
             let this2 = this.clone();
             let write_function = async move {
                 let mut writer = BufWriter::new(writable);
@@ -243,7 +244,7 @@ where
                                  match command {
                                     Some(WriteCommand::Write(value, cb, flush)) => {
                                         let bytes = ObjectBytes::from(&ctx3, &value)?;
-                                        let data = bytes.as_bytes();
+                                        let data = bytes.as_bytes(&ctx4)?;
                                         let result = async {
                                             writer.write_all(data).await?;
                                             if flush {

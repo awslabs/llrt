@@ -28,7 +28,7 @@ impl Hmac {
         let algorithm = *algorithm.hmac_algorithm();
 
         Ok(Self {
-            context: HmacContext::with_key(&hmac::Key::new(algorithm, key_value.as_bytes())),
+            context: HmacContext::with_key(&hmac::Key::new(algorithm, key_value.as_bytes(&ctx)?)),
         })
     }
 
@@ -44,9 +44,10 @@ impl Hmac {
 
     fn update<'js>(
         this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = bytes.as_bytes();
+        let bytes = bytes.as_bytes(&ctx)?;
         this.0.borrow_mut().context.update(bytes);
 
         Ok(this.0)
@@ -94,9 +95,10 @@ impl Hash {
     #[qjs(rename = "update")]
     fn hash_update<'js>(
         this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        let bytes = bytes.as_bytes();
+        let bytes = bytes.as_bytes(&ctx)?;
         this.0.borrow_mut().context.update(bytes);
         Ok(this.0)
     }
@@ -195,8 +197,8 @@ pub struct ShaHash {
 #[rquickjs::methods]
 impl ShaHash {
     #[qjs(skip)]
-    pub fn new(algorithm: ShaAlgorithm, secret: Opt<ObjectBytes<'_>>) -> Result<Self> {
-        let secret = secret.0.map(|bytes| bytes.into_bytes());
+    pub fn new(ctx: Ctx, algorithm: ShaAlgorithm, secret: Opt<ObjectBytes<'_>>) -> Result<Self> {
+        let secret = secret.0.map(|bytes| bytes.into_bytes(&ctx)).transpose()?;
 
         Ok(ShaHash {
             secret,
@@ -223,9 +225,10 @@ impl ShaHash {
     #[qjs(rename = "update")]
     fn sha_update<'js>(
         this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        this.0.borrow_mut().bytes = bytes.into();
+        this.0.borrow_mut().bytes = bytes.try_into().or_throw(&ctx)?;
         Ok(this.0)
     }
 }

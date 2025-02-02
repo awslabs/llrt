@@ -78,7 +78,7 @@ fn zlib_converter<'js>(
     options: Opt<Value<'js>>,
     command: ZlibCommand,
 ) -> Result<Value<'js>> {
-    let src = bytes.as_bytes();
+    let src = bytes.as_bytes(&ctx)?;
 
     let mut level = llrt_compression::zlib::Compression::default();
     if let Some(options) = options.0 {
@@ -134,7 +134,7 @@ fn brotli_converter<'js>(
     _options: Opt<Value<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
-    let src = bytes.as_bytes();
+    let src = bytes.as_bytes(&ctx)?;
 
     let mut dst: Vec<u8> = Vec::with_capacity(src.len());
 

@@ -35,7 +35,7 @@ fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Uuid> {
         Uuid::try_parse(&value.as_string().unwrap().to_string()?)
     } else {
         let bytes = ObjectBytes::from(ctx, &value)?;
-        let bytes = bytes.as_bytes();
+        let bytes = bytes.as_bytes(ctx)?;
         Uuid::from_slice(bytes)
     }
     .or_throw_msg(ctx, ERROR_MESSAGE)
@@ -134,7 +134,7 @@ fn stringify<'js>(ctx: Ctx<'js>, value: Value<'js>, offset: Opt<u8>) -> Result<S
         offset.0.map(|o| o.into()).unwrap_or_default(),
         None,
     )?;
-    let value = bytes_to_hex(bytes.as_bytes());
+    let value = bytes_to_hex(bytes.as_bytes(&ctx)?);
 
     let uuid = Uuid::try_parse_ascii(&value)
         .or_throw_msg(&ctx, ERROR_MESSAGE)?

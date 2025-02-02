@@ -4,7 +4,7 @@ use std::hash::Hasher;
 
 use crc32c::Crc32cHasher;
 use llrt_utils::bytes::ObjectBytes;
-use rquickjs::{prelude::This, Class, Result};
+use rquickjs::{prelude::This, Class, Ctx, Result};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -30,9 +30,10 @@ impl Crc32c {
     #[qjs(rename = "update")]
     fn crc32c_update<'js>(
         this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        this.0.borrow_mut().hasher.write(bytes.as_bytes());
+        this.0.borrow_mut().hasher.write(bytes.as_bytes(&ctx)?);
         Ok(this.0)
     }
 }
@@ -61,9 +62,10 @@ impl Crc32 {
     #[qjs(rename = "update")]
     fn crc32_update<'js>(
         this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        this.0.borrow_mut().hasher.write(bytes.as_bytes());
+        this.0.borrow_mut().hasher.write(bytes.as_bytes(&ctx)?);
         Ok(this.0)
     }
 }

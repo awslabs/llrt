@@ -90,7 +90,7 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
     if let Some(encoding) = encoding.0 {
         let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
         let a = ObjectBytes::from(&ctx, &value)?;
-        let bytes = a.as_bytes();
+        let bytes = a.as_bytes(&ctx)?;
         return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
     }
     //fast path
@@ -110,7 +110,7 @@ fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> 
 
     if let Some(obj) = value.as_object() {
         if let Some(ob) = ObjectBytes::from_array_buffer(obj)? {
-            return Ok(ob.as_bytes().len());
+            return Ok(ob.as_bytes(&ctx)?.len());
         }
     }
 
@@ -202,7 +202,7 @@ fn alloc<'js>(
         }
         if let Some(obj) = value.as_object() {
             if let Some(ob) = ObjectBytes::from_array_buffer(obj)? {
-                let bytes = ob.as_bytes();
+                let bytes = ob.as_bytes(&ctx)?;
                 return alloc_byte_ref(&ctx, bytes, length);
             }
         }
@@ -274,7 +274,7 @@ fn from<'js>(
 
     if let Some(obj) = value.as_object() {
         if let Some(ab_bytes) = ObjectBytes::from_array_buffer(obj)? {
-            let bytes = ab_bytes.as_bytes();
+            let bytes = ab_bytes.as_bytes(&ctx)?;
             let (start, end) = get_start_end_indexes(bytes.len(), length.0, offset);
 
             //buffers from buffer should be copied

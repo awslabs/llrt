@@ -37,9 +37,10 @@ impl Md5 {
     #[qjs(rename = "update")]
     fn md5_update<'js>(
         this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
-        this.0.borrow_mut().hasher.update(bytes.as_bytes());
+        this.0.borrow_mut().hasher.update(bytes.as_bytes(&ctx)?);
         Ok(this.0)
     }
 }

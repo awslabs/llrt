@@ -14,7 +14,7 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
         .or_throw_msg(&ctx, write_error_message)?;
 
     let bytes = ObjectBytes::from(&ctx, &data)?;
-    file.write_all(bytes.as_bytes())
+    file.write_all(bytes.as_bytes(&ctx)?)
         .await
         .or_throw_msg(&ctx, write_error_message)?;
     file.flush().await.or_throw_msg(&ctx, write_error_message)?;
@@ -23,7 +23,7 @@ pub async fn write_file<'js>(ctx: Ctx<'js>, path: String, data: Value<'js>) -> R
 }
 
 pub fn write_file_sync<'js>(ctx: Ctx<'js>, path: String, bytes: ObjectBytes<'js>) -> Result<()> {
-    std::fs::write(&path, bytes.as_bytes())
+    std::fs::write(&path, bytes.as_bytes(&ctx)?)
         .or_throw_msg(&ctx, &["Can't write \"{}\"", &path].concat())?;
 
     Ok(())

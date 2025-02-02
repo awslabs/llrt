@@ -28,7 +28,7 @@ pub async fn subtle_decrypt<'js>(
         &ctx,
         &algorithm,
         &key,
-        data.as_bytes(),
+        data.as_bytes(&ctx)?,
         EncryptionMode::Encryption,
         EncryptionOperation::Decrypt,
     )?;
@@ -48,7 +48,7 @@ pub async fn subtle_encrypt<'js>(
         &ctx,
         &algorithm,
         &key,
-        data.as_bytes(),
+        data.as_bytes(&ctx)?,
         EncryptionMode::Encryption,
         EncryptionOperation::Encrypt,
     )?;

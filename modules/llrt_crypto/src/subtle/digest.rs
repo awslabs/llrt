@@ -18,7 +18,7 @@ pub async fn subtle_digest<'js>(
     };
 
     let sha_algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
-    let bytes = digest(&sha_algorithm, data.as_bytes());
+    let bytes = digest(&sha_algorithm, data.as_bytes(&ctx)?);
     ArrayBuffer::new(ctx, bytes)
 }
 
