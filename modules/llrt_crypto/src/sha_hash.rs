@@ -197,20 +197,11 @@ pub struct ShaHash {
 #[rquickjs::methods]
 impl ShaHash {
     #[qjs(skip)]
-    pub fn new(ctx: &Ctx, algorithm: ShaAlgorithm, secret: Opt<ObjectBytes<'_>>) -> Result<Self> {
-        let secret = secret.0.map(|bytes| bytes.into_bytes(ctx)).transpose()?;
+    pub fn new(ctx: Ctx, algorithm: ShaAlgorithm, secret: Opt<ObjectBytes<'_>>) -> Result<Self> {
+        let secret = secret.0.map(|bytes| bytes.into_bytes(&ctx)).transpose()?;
 
         Ok(ShaHash {
             secret,
-            bytes: Vec::new(),
-            algorithm,
-        })
-    }
-
-    #[qjs(skip)]
-    pub fn default(algorithm: ShaAlgorithm) -> Result<Self> {
-        Ok(ShaHash {
-            secret: None,
             bytes: Vec::new(),
             algorithm,
         })
