@@ -153,7 +153,7 @@ impl<'js> ObjectBytes<'js> {
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.into())
     }
 
-    pub fn into_bytes(self, ctx: &Ctx<'js>) -> Result<Vec<u8>> {
+    pub fn into_bytes(self, ctx: &Ctx<'_>) -> Result<Vec<u8>> {
         self.into_bytes_inner().or_throw(ctx)
     }
 
