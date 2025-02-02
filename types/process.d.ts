@@ -189,7 +189,7 @@ declare module "process" {
      * process. (See [`getgid(2)`](http://man7.org/linux/man-pages/man2/getgid.2.html).)
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.getgid) {
      *   console.log(`Current gid: ${process.getgid()}`);
@@ -208,7 +208,7 @@ declare module "process" {
      * associated numeric ID.
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.getgid &#x26;&#x26; process.setgid) {
      *   console.log(`Current gid: ${process.getgid()}`);
@@ -233,7 +233,7 @@ declare module "process" {
      * (See [`getuid(2)`](http://man7.org/linux/man-pages/man2/getuid.2.html).)
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.getuid) {
      *   console.log(`Current uid: ${process.getuid()}`);
@@ -252,7 +252,7 @@ declare module "process" {
      * numeric ID.
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.getuid &#x26;&#x26; process.setuid) {
      *   console.log(`Current uid: ${process.getuid()}`);
@@ -276,7 +276,7 @@ declare module "process" {
      * the process. (See [`geteuid(2)`](http://man7.org/linux/man-pages/man2/geteuid.2.html).)
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.geteuid) {
      *   console.log(`Current uid: ${process.geteuid()}`);
@@ -295,7 +295,7 @@ declare module "process" {
      * associated numeric ID.
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.geteuid &#x26;&#x26; process.seteuid) {
      *   console.log(`Current uid: ${process.geteuid()}`);
@@ -320,7 +320,7 @@ declare module "process" {
      * of the Node.js process. (See [`getegid(2)`](http://man7.org/linux/man-pages/man2/getegid.2.html).)
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.getegid) {
      *   console.log(`Current gid: ${process.getegid()}`);
@@ -339,7 +339,7 @@ declare module "process" {
      * the associated a numeric ID.
      *
      * ```js
-     * import process from 'node:process';
+     * import process from 'process';
      *
      * if (process.getegid &#x26;&#x26; process.setegid) {
      *   console.log(`Current gid: ${process.getegid()}`);
