@@ -220,7 +220,7 @@ impl<'js> Response<'js> {
                     let blob = blob.borrow();
                     blob.get_bytes()
                 } else {
-                    let bytes = ObjectBytes::from(ctx, provided)?;
+                    let bytes = ObjectBytes::from(ctx, &provided)?;
                     bytes.as_bytes(ctx)?.to_vec()
                 }
             },
