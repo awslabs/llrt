@@ -20,7 +20,7 @@ memchr = "2"
 [dev-dependencies]
 criterion = "0.5"
 once_cell = "1"
-rand = "0.8"
+rand = "0.9"
 
 [[bench]]
 name = "slash_replacement"

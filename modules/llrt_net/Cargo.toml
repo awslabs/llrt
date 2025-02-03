@@ -24,5 +24,5 @@ tracing = "0.1"
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-rand = "0.8"
+rand = "0.9"
 tokio = { version = "1", features = ["full"] }

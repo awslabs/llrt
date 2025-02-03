@@ -14,7 +14,7 @@ path = "src/lib.rs"
 itoa = "1"
 llrt_utils = { version = "0.4.0-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", default-features = false }
-rand = "0.8"
+rand = "0.9"
 ryu = "1"
 
 [dev-dependencies]
