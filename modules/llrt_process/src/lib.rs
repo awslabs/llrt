@@ -63,6 +63,46 @@ fn env_proxy_setter<'js>(
     Ok(true)
 }
 
+#[cfg(unix)]
+fn getuid() -> u32 {
+    unsafe { libc::getuid() }
+}
+
+#[cfg(unix)]
+fn getgid() -> u32 {
+    unsafe { libc::getgid() }
+}
+
+#[cfg(unix)]
+fn geteuid() -> u32 {
+    unsafe { libc::geteuid() }
+}
+
+#[cfg(unix)]
+fn getegid() -> u32 {
+    unsafe { libc::getegid() }
+}
+
+#[cfg(unix)]
+fn setuid(id: u32) -> i32 {
+    unsafe { libc::setuid(id) }
+}
+
+#[cfg(unix)]
+fn setgid(id: u32) -> i32 {
+    unsafe { libc::setgid(id) }
+}
+
+#[cfg(unix)]
+fn seteuid(id: u32) -> i32 {
+    unsafe { libc::seteuid(id) }
+}
+
+#[cfg(unix)]
+fn setegid(id: u32) -> i32 {
+    unsafe { libc::setegid(id) }
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
     let process = Object::new(ctx.clone())?;
@@ -105,6 +145,18 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("versions", process_versions)?;
     process.set("exit", Func::from(exit))?;
 
+    #[cfg(unix)]
+    {
+        process.set("getuid", Func::from(getuid))?;
+        process.set("getgid", Func::from(getgid))?;
+        process.set("geteuid", Func::from(geteuid))?;
+        process.set("getegid", Func::from(getegid))?;
+        process.set("setuid", Func::from(setuid))?;
+        process.set("setgid", Func::from(setgid))?;
+        process.set("seteuid", Func::from(seteuid))?;
+        process.set("setegid", Func::from(setegid))?;
+    }
+
     globals.set("process", process)?;
 
     Ok(())
@@ -126,6 +178,18 @@ impl ModuleDef for ProcessModule {
         declare.declare("version")?;
         declare.declare("versions")?;
         declare.declare("exit")?;
+
+        #[cfg(unix)]
+        {
+            declare.declare("getuid")?;
+            declare.declare("getgid")?;
+            declare.declare("geteuid")?;
+            declare.declare("getegid")?;
+            declare.declare("setuid")?;
+            declare.declare("setgid")?;
+            declare.declare("seteuid")?;
+            declare.declare("setegid")?;
+        }
 
         declare.declare("default")?;
         Ok(())

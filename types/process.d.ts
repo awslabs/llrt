@@ -183,5 +183,181 @@ declare module "process" {
      * ```
      */
     exit(code?: number | string | null | undefined): never;
+
+    /**
+     * The `process.getgid()` method returns the numerical group identity of the
+     * process. (See [`getgid(2)`](http://man7.org/linux/man-pages/man2/getgid.2.html).)
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.getgid) {
+     *   console.log(`Current gid: ${process.getgid()}`);
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * @since v0.1.31
+     */
+    getgid?: () => number
+    /**
+     * The `process.setgid()` method sets the group identity of the process. (See [`setgid(2)`](http://man7.org/linux/man-pages/man2/setgid.2.html).) The `id` can be passed as either a
+     * numeric ID or a group name
+     * string. If a group name is specified, this method blocks while resolving the
+     * associated numeric ID.
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.getgid &#x26;&#x26; process.setgid) {
+     *   console.log(`Current gid: ${process.getgid()}`);
+     *   try {
+     *     process.setgid(501);
+     *     console.log(`New gid: ${process.getgid()}`);
+     *   } catch (err) {
+     *     console.log(`Failed to set gid: ${err}`);
+     *   }
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * This feature is not available in `Worker` threads.
+     * @since v0.1.31
+     * @param id The group name or ID
+     */
+    setgid?: (id: number) => void
+    /**
+     * The `process.getuid()` method returns the numeric user identity of the process.
+     * (See [`getuid(2)`](http://man7.org/linux/man-pages/man2/getuid.2.html).)
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.getuid) {
+     *   console.log(`Current uid: ${process.getuid()}`);
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * @since v0.1.28
+     */
+    getuid?: () => number
+    /**
+     * The `process.setuid(id)` method sets the user identity of the process. (See [`setuid(2)`](http://man7.org/linux/man-pages/man2/setuid.2.html).) The `id` can be passed as either a
+     * numeric ID or a username string.
+     * If a username is specified, the method blocks while resolving the associated
+     * numeric ID.
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.getuid &#x26;&#x26; process.setuid) {
+     *   console.log(`Current uid: ${process.getuid()}`);
+     *   try {
+     *     process.setuid(501);
+     *     console.log(`New uid: ${process.getuid()}`);
+     *   } catch (err) {
+     *     console.log(`Failed to set uid: ${err}`);
+     *   }
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * This feature is not available in `Worker` threads.
+     * @since v0.1.28
+     */
+    setuid?: (id: number) => void
+    /**
+     * The `process.geteuid()` method returns the numerical effective user identity of
+     * the process. (See [`geteuid(2)`](http://man7.org/linux/man-pages/man2/geteuid.2.html).)
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.geteuid) {
+     *   console.log(`Current uid: ${process.geteuid()}`);
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * @since v2.0.0
+     */
+    geteuid?: () => number
+    /**
+     * The `process.seteuid()` method sets the effective user identity of the process.
+     * (See [`seteuid(2)`](http://man7.org/linux/man-pages/man2/seteuid.2.html).) The `id` can be passed as either a numeric ID or a username
+     * string. If a username is specified, the method blocks while resolving the
+     * associated numeric ID.
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.geteuid &#x26;&#x26; process.seteuid) {
+     *   console.log(`Current uid: ${process.geteuid()}`);
+     *   try {
+     *     process.seteuid(501);
+     *     console.log(`New uid: ${process.geteuid()}`);
+     *   } catch (err) {
+     *     console.log(`Failed to set uid: ${err}`);
+     *   }
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * This feature is not available in `Worker` threads.
+     * @since v2.0.0
+     * @param id A user name or ID
+     */
+    seteuid?: (id: number) => void
+    /**
+     * The `process.getegid()` method returns the numerical effective group identity
+     * of the Node.js process. (See [`getegid(2)`](http://man7.org/linux/man-pages/man2/getegid.2.html).)
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.getegid) {
+     *   console.log(`Current gid: ${process.getegid()}`);
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * @since v2.0.0
+     */
+    getegid?: () => number
+    /**
+     * The `process.setegid()` method sets the effective group identity of the process.
+     * (See [`setegid(2)`](http://man7.org/linux/man-pages/man2/setegid.2.html).) The `id` can be passed as either a numeric ID or a group
+     * name string. If a group name is specified, this method blocks while resolving
+     * the associated a numeric ID.
+     *
+     * ```js
+     * import process from 'process';
+     *
+     * if (process.getegid &#x26;&#x26; process.setegid) {
+     *   console.log(`Current gid: ${process.getegid()}`);
+     *   try {
+     *     process.setegid(501);
+     *     console.log(`New gid: ${process.getegid()}`);
+     *   } catch (err) {
+     *     console.log(`Failed to set gid: ${err}`);
+     *   }
+     * }
+     * ```
+     *
+     * This function is only available on POSIX platforms (i.e. not Windows or
+     * Android).
+     * This feature is not available in `Worker` threads.
+     * @since v2.0.0
+     * @param id A group name or ID
+     */
+    setegid?: (id: number) => void
   }
 }
