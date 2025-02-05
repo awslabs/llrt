@@ -533,7 +533,11 @@ async function loadShims() {
     loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
     loadShim(/sdk-stream-mixin.browser\.js/, "sdk-stream-mixin.js"),
     loadShim(/stream-collector\.js/, "stream-collector.js"),
-    loadShim(/splitStream.browser\.js/, "@smithy/split-stream.js"),
+    loadShim(/splitStream\.browser\.js/, "@smithy/split-stream.js"),
+    loadShim(
+      /create-read-stream-on-buffer\.browser\.js/,
+      "create-read-stream.js"
+    ),
   ]);
 }
 
@@ -604,6 +608,7 @@ async function buildSdks() {
       chunkNames: "llrt-[name]-sdk-[hash]",
       metafile: true,
       ...ES_BUILD_OPTIONS,
+      external: [...ES_BUILD_OPTIONS.external, "@aws-crypto"],
     }),
     esbuild.build({
       entryPoints: REPLACEMENT_PACKAGES,
