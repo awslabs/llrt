@@ -63,9 +63,12 @@ pub fn get_user_info<'js>(
 fn version() -> Result<String> {
     let version = OsVersion::current();
 
-    let registry_key = LOCAL_MACHINE.open("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion")?;
-    let mut value = registry_key.get_string("ProductName")?;
-
+    let registry_key = LOCAL_MACHINE
+        .open("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion")
+        .map_err(std::io::Error::from)?;
+    let mut value = registry_key
+        .get_string("ProductName")
+        .map_err(std::io::Error::from)?;
     // Windows 11 shares dwMajorVersion with Windows 10
     // this workaround tries to disambiguate that by checking
     // if the dwBuildNumber is from Windows 11 releases (>= 22000).
