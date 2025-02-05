@@ -18,7 +18,7 @@ home = "0.5"
 llrt_utils = { version = "0.4.0-beta", path = "../../libs/llrt_utils", default-features = false }
 num_cpus = "1"
 once_cell = "1"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.8.1", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
 sysinfo = { version = "0.33", features = ["system"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]
@@ -27,8 +27,8 @@ users = { version = "0.11", features = ["cache"], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 whoami = { version = "1", default-features = false }
-windows-registry = "0.3"
-windows-result = "0.2"
+windows-registry = "0.4"
+windows-result = "0.3"
 windows-version = "0.1"
 
 [dev-dependencies]
