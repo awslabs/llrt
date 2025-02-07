@@ -1,7 +1,7 @@
 [package]
 name = "llrt_http"
 description = "LLRT Module http"
-version = "0.4.0-beta"
+version = "0.5.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -32,13 +32,13 @@ hyper-rustls = { version = "0.27", default-features = false, features = [
 ] }
 hyper-util = "0.1"
 itoa = "1"
-llrt_abort = { version = "0.4.0-beta", path = "../llrt_abort" }
-llrt_compression = { version = "0.4.0-beta", path = "../../libs/llrt_compression", default-features = false }
-llrt_context = { version = "0.4.0-beta", path = "../../libs/llrt_context" }
-llrt_encoding = { version = "0.4.0-beta", path = "../../libs/llrt_encoding" }
-llrt_json = { version = "0.4.0-beta", path = "../../libs/llrt_json" }
-llrt_url = { version = "0.4.0-beta", path = "../llrt_url" }
-llrt_utils = { version = "0.4.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_abort = { version = "0.5.0-beta", path = "../llrt_abort" }
+llrt_compression = { version = "0.5.0-beta", path = "../../libs/llrt_compression", default-features = false }
+llrt_context = { version = "0.5.0-beta", path = "../../libs/llrt_context" }
+llrt_encoding = { version = "0.5.0-beta", path = "../../libs/llrt_encoding" }
+llrt_json = { version = "0.5.0-beta", path = "../../libs/llrt_json" }
+llrt_url = { version = "0.5.0-beta", path = "../llrt_url" }
+llrt_utils = { version = "0.5.0-beta", path = "../../libs/llrt_utils", default-features = false }
 pin-project-lite = "0.2"
 once_cell = "1"
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
@@ -56,7 +56,7 @@ tower-service = "0.3.3"
 quick_cache = "0.6.9"
 
 [dev-dependencies]
-llrt_compression = { version = "0.4.0-beta", path = "../../libs/llrt_compression" }
+llrt_compression = { version = "0.5.0-beta", path = "../../libs/llrt_compression" }
 llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 wiremock = "0.6"
