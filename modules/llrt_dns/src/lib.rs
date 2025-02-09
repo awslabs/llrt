@@ -35,7 +35,7 @@ fn lookup<'js>(ctx: Ctx<'js>, hostname: String, args: Rest<Value<'js>>) -> Resul
                 return Ok(());
             }
             v
-        } else if let Ok(Some(v)) = options.get_optional::<_, i32>("famiry") {
+        } else if let Ok(Some(v)) = options.get_optional::<_, i32>("family") {
             if !matches!(v, 4 | 6 | 0) {
                 () = cb.call((Exception::from_message(
                     ctx,
