@@ -1,6 +1,6 @@
 [package]
 name = "llrt_core"
-version = "0.5.0-beta"
+version = "0.5.1-beta"
 edition = "2021"
 license-file = "LICENSE"
 
