@@ -1,5 +1,4 @@
 import { Crc32c as CryptoCrc32c } from "crypto";
-import { isEmptyData, numToUint8 } from "@aws-crypto/util";
 
 export const Crc32c = CryptoCrc32c;
 
@@ -18,4 +17,20 @@ export class AwsCrc32c {
   reset() {
     this.#crc32c = new CryptoCrc32c();
   }
+}
+
+function isEmptyData(data) {
+  if (typeof data === "string") {
+    return data.length === 0;
+  }
+  return data.byteLength === 0;
+}
+
+function numToUint8(num) {
+  return new Uint8Array([
+    (num & 0xff000000) >> 24,
+    (num & 0x00ff0000) >> 16,
+    (num & 0x0000ff00) >> 8,
+    num & 0x000000ff,
+  ]);
 }
