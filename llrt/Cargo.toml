@@ -1,6 +1,6 @@
 [package]
 name = "llrt"
-version = "0.5.0-beta"
+version = "0.5.1-beta"
 edition = "2021"
 license-file = "LICENSE"
 
@@ -27,7 +27,7 @@ snmalloc-rs = { version = "0.3.7", features = ["lto"] }
 
 
 [dev-dependencies]
-llrt_test = { version = "0.5.0-beta", path = "../libs/llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../libs/llrt_test" }
 
 [[bin]]
 name = "llrt"
