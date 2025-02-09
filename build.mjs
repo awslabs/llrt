@@ -75,6 +75,7 @@ const ES_BUILD_OPTIONS = {
     "llrt:xml",
     "perf_hooks",
     "tty",
+    "@aws-crypto",
   ],
 };
 
@@ -608,7 +609,6 @@ async function buildSdks() {
       chunkNames: "llrt-[name]-sdk-[hash]",
       metafile: true,
       ...ES_BUILD_OPTIONS,
-      external: [...ES_BUILD_OPTIONS.external, "@aws-crypto"],
     }),
     esbuild.build({
       entryPoints: REPLACEMENT_PACKAGES,
