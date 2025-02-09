@@ -44,12 +44,6 @@ fn lookup<'js>(ctx: Ctx<'js>, hostname: String, args: Rest<Value<'js>>) -> Resul
                 return Ok(());
             }
             v
-        } else if let Ok(Some(v)) = options.get_optional::<_, String>("famiry") {
-            match v.as_ref() {
-                "IPv4" => 4,
-                "IPv6" => 6,
-                _ => 0,
-            }
         } else {
             0
         }
