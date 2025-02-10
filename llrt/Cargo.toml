@@ -23,7 +23,7 @@ crossterm = { version = "0.28.1" }
 constcat = "0.6.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-snmalloc-rs = { version = "0.3.7", features = ["lto"] }
+snmalloc-rs = { version = "0.3.8", features = ["lto"] }
 
 
 [dev-dependencies]
