@@ -113,9 +113,17 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
             )?;
 
             if let Event::Key(KeyEvent {
-                code, modifiers, ..
+                code,
+                modifiers,
+                #[cfg(windows)]
+                kind,
+                ..
             }) = event::read()?
             {
+                #[cfg(windows)]
+                if kind == event::KeyEventKind::Release {
+                  continue;
+                }
                 match code {
                     KeyCode::Enter => {
                         println!();
