@@ -502,4 +502,10 @@ declare module "fs/promises" {
         }
       | BufferEncoding
   ): Promise<string>;
+
+  /**
+   * Changes the permissions of a file.
+   * @return Fulfills with `undefined` upon success.
+   */
+  function chmod(path: PathLike, mode: Mode): Promise<void>;
 }

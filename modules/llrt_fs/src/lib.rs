@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod access;
+mod chmod;
 mod file_handle;
 mod mkdir;
 mod open;
@@ -18,6 +19,7 @@ use rquickjs::{
 use rquickjs::{Class, Ctx, Object, Result};
 
 use self::access::{access, access_sync};
+use self::chmod::{chmod, chmod_sync};
 use self::file_handle::FileHandle;
 use self::mkdir::{mkdir, mkdir_sync, mkdtemp, mkdtemp_sync};
 use self::open::open;
@@ -95,6 +97,7 @@ impl ModuleDef for FsModule {
         declare.declare("statSync")?;
         declare.declare("writeFileSync")?;
         declare.declare("constants")?;
+        declare.declare("chmodSync")?;
 
         declare.declare("default")?;
 
@@ -123,6 +126,7 @@ impl ModuleDef for FsModule {
             default.set("rmSync", Func::from(rmfile_sync))?;
             default.set("statSync", Func::from(stat_fn_sync))?;
             default.set("writeFileSync", Func::from(write_file_sync))?;
+            default.set("chmodSync", Func::from(chmod_sync))?;
 
             Ok(())
         })
@@ -145,6 +149,7 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("rm", Func::from(Async(rmfile)))?;
     exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("stat", Func::from(Async(stat_fn)))?;
+    exports.set("chmod", Func::from(Async(chmod)))?;
 
     Ok(())
 }

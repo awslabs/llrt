@@ -114,6 +114,8 @@ Available globally
 
 [writeFileSync](https://nodejs.org/api/fs.html#fswritefilesyncfile-data-options)
 
+[chmodSync](https://nodejs.org/api/fs.html#fschmodsyncpath-mode)
+
 ## fs/promises
 
 [access](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
@@ -135,6 +137,8 @@ Available globally
 [stat](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
 
 [writeFile](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
+
+[chmod](https://nodejs.org/api/fs.html#fspromiseschmodpath-mode)
 
 ## module
 
