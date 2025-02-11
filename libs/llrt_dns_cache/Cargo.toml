@@ -1,6 +1,6 @@
 [package]
-name = "llrt_dns"
-description = "LLRT Module dns"
+name = "llrt_dns_cache"
+description = "LLRT dns cache helpers"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -8,13 +8,23 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [lib]
-name = "llrt_dns"
+name = "llrt_dns_cache"
 path = "src/lib.rs"
 
 [dependencies]
+dns-lookup = "2"
+hyper = { version = "1", features = ["client"] }
+hyper-rustls = { version = "0.27", default-features = false, features = [
+  "webpki-roots",
+  "webpki-tokio",
+  "ring",
+] }
+hyper-util = "0.1"
 llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
-llrt_dns_cache = { version = "0.5.1-beta", path = "../../libs/llrt_dns_cache" }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
+tokio = "1"
+tower-service = "0.3.3"
+quick_cache = "0.6.9"

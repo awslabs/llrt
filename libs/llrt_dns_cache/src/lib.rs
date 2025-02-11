@@ -1,15 +1,21 @@
-use std::future::Future;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{self, Poll};
-use std::time::{Duration, Instant};
-use std::{io, vec};
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+use std::{
+    future::Future,
+    io,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+    pin::Pin,
+    str::FromStr,
+    sync::Arc,
+    task::{self, Poll},
+    time::{Duration, Instant},
+    vec,
+};
 
-use hyper_util::client::legacy::connect::dns::Name;
-use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::client::legacy::connect::{dns::Name, HttpConnector};
+use llrt_utils::object::ObjectExt;
 use quick_cache::sync::Cache;
-use std::io::Result;
+use rquickjs::{Ctx, Exception, Result, Value};
 use tokio::sync::Semaphore;
 use tower_service::Service;
 
@@ -56,9 +62,9 @@ pub struct CachedDnsResolver {
 impl Service<Name> for CachedDnsResolver {
     type Response = SocketAddrs;
     type Error = io::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response>> + Send>>;
+    type Future = Pin<Box<dyn Future<Output = std::io::Result<Self::Response>> + Send>>;
 
-    fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<Result<()>> {
+    fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<std::io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 
@@ -135,4 +141,58 @@ impl CachedDnsResolver {
     pub fn into_http_connector(self) -> HttpConnector<Self> {
         HttpConnector::<Self>::new_with_resolver(self)
     }
+}
+
+pub fn lookup_host<'js>(
+    ctx: &Ctx<'js>,
+    hostname: &str,
+    options: Option<Value<'js>>,
+) -> Result<(String, i32)> {
+    let mut family = 0;
+    if let Some(options) = options {
+        family = if let Some(v) = options.as_int() {
+            if !matches!(v, 4 | 6) {
+                Err(Exception::throw_message(
+                    ctx,
+                    "If options is an integer, then it must be 4 or 6",
+                ))?;
+            }
+            v
+        } else if let Ok(Some(v)) = options.get_optional::<_, i32>("family") {
+            if !matches!(v, 4 | 6 | 0) {
+                Err(Exception::throw_message(
+                    ctx,
+                    "If family record is exist, then it must be 4, 6, or 0",
+                ))?;
+            }
+            v
+        } else {
+            0
+        }
+    }
+
+    match dns_lookup::lookup_host(hostname) {
+        Ok(ips) => {
+            for ip in ips {
+                if matches!(family, 4 | 0) {
+                    if let Ok(ipv4) = Ipv4Addr::from_str(&ip.to_string()) {
+                        return Ok((ipv4.to_string(), 4));
+                    }
+                }
+                if matches!(family, 6 | 0) {
+                    if let Ok(ipv6) = Ipv6Addr::from_str(&ip.to_string()) {
+                        return Ok((ipv6.to_string(), 6));
+                    }
+                }
+            }
+        },
+        Err(err) => {
+            Err(Exception::throw_message(ctx, &err.to_string()))?;
+        },
+    }
+
+    Err(Exception::throw_message(
+        ctx,
+        "No values ware found matching the criteria",
+    ))?
 }

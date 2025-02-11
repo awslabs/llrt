@@ -1804,11 +1804,26 @@ dependencies = [
 name = "llrt_dns"
 version = "0.5.1-beta"
 dependencies = [
- "dns-lookup",
  "llrt_context",
- "llrt_test",
+ "llrt_dns_cache",
  "llrt_utils",
  "rquickjs",
+]
+
+[[package]]
+name = "llrt_dns_cache"
+version = "0.5.1-beta"
+dependencies = [
+ "dns-lookup",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "llrt_context",
+ "llrt_utils",
+ "quick_cache",
+ "rquickjs",
+ "tokio",
+ "tower-service",
 ]
 
 [[package]]
@@ -1868,6 +1883,7 @@ dependencies = [
  "llrt_abort",
  "llrt_compression",
  "llrt_context",
+ "llrt_dns_cache",
  "llrt_encoding",
  "llrt_json",
  "llrt_test",
