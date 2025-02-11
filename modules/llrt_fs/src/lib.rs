@@ -52,6 +52,7 @@ impl ModuleDef for FsPromisesModule {
         declare.declare("rmdir")?;
         declare.declare("stat")?;
         declare.declare("constants")?;
+        declare.declare("chmod")?;
 
         declare.declare("default")?;
 
