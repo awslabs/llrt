@@ -4,6 +4,7 @@ use rquickjs::{Ctx, Result};
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
 
+#[cfg(unix)]
 pub(crate) fn chmod_error(path: &str) -> String {
     ["Can't set permissions of \"", path, "\""].concat()
 }
