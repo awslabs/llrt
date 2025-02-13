@@ -1,8 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
-
+use crate::chmod::{set_mode, set_mode_sync};
 use llrt_utils::result::ResultExt;
 use ring::rand::{SecureRandom, SystemRandom};
 use rquickjs::{function::Opt, Ctx, Object, Result};
@@ -18,16 +16,7 @@ pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
     }
     .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
 
-    #[cfg(unix)]
-    {
-        fs::set_permissions(&path, PermissionsExt::from_mode(mode))
-            .await
-            .or_throw_msg(&ctx, &["Can't set permissions of \"", &path, "\""].concat())?;
-    }
-    #[cfg(not(unix))]
-    {
-        _ = mode;
-    }
+    set_mode(ctx, &path, mode).await?;
 
     Ok(path)
 }
@@ -42,15 +31,7 @@ pub fn mkdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -
     }
     .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
 
-    #[cfg(unix)]
-    {
-        std::fs::set_permissions(&path, PermissionsExt::from_mode(mode))
-            .or_throw_msg(&ctx, &["Can't set permissions of \"", &path, "\""].concat())?;
-    }
-    #[cfg(not(unix))]
-    {
-        _ = mode;
-    }
+    set_mode_sync(ctx, &path, mode)?;
 
     Ok(path)
 }
