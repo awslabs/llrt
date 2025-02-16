@@ -3,7 +3,6 @@
 use crate::chmod::{set_mode, set_mode_sync};
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
-use std::path;
 
 use llrt_path::resolve_path;
 use llrt_utils::result::ResultExt;
