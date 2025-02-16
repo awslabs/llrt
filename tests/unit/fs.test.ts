@@ -220,12 +220,25 @@ describe("mkdir", () => {
 
     await fs.mkdir(dirPath, { recursive: true });
 
+    // Helper function to check if directory exists
+    const checkDirExists = async (dirPath: string) => {
+      return await fs
+        .stat(dirPath)
+        .then(() => true)
+        .catch(() => false);
+    };
+
     // Check that the directory exists
-    const dirExists = await fs
-      .stat(dirPath)
-      .then(() => true)
-      .catch(() => false);
+    const dirExists = await checkDirExists(dirPath);
     expect(dirExists).toBeTruthy();
+
+    await fs.rmdir(dirPath, { recursive: true });
+
+    await fs.mkdir(`${dirPath}/./`, { recursive: true });
+
+    // Check that the directory exists
+    const dirExists2 = await checkDirExists(dirPath);
+    expect(dirExists2).toBeTruthy();
 
     // Clean up the directory
     await fs.rmdir(dirPath, { recursive: true });
