@@ -1,8 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use crate::chmod::{set_mode, set_mode_sync};
-#[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
 
 use llrt_path::resolve_path;
 use llrt_utils::result::ResultExt;
