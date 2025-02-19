@@ -773,6 +773,11 @@ mod tests {
                 .to_string_lossy()
                 .to_string()
         ); // Start with ..
+
+        assert_eq!(
+            resolve_path(["../".repeat(32)].iter()).unwrap(),
+            prefix.clone()
+        ); // Many ..
     }
 
     #[test]
