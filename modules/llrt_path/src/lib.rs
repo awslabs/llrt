@@ -386,6 +386,11 @@ where
 
     let mut index_stack = Vec::with_capacity(16);
 
+    // Remove the trailing sep: /a/b// -> /a/b
+    if ends_with_sep(&result) && result.len() > 1 {
+        result.truncate(result.len() - 1);
+    }
+
     for part in parts {
         let mut part_ref: &str = part.as_ref();
         let mut start = 0;
@@ -434,9 +439,14 @@ where
             let end = find_next_separator(&part_ref[start..]).map_or(part_ref.len(), |i| i + start);
             match &part_ref[start..end] {
                 ".." => {
-                    empty = false;
                     if let Some(last_index) = index_stack.pop() {
                         result.truncate(last_index);
+                        // maybe don't need this?
+                        // empty = false;
+                    } else if empty {
+                        if let Some(last_index) = find_last_sep(&result) {
+                            result.truncate(last_index);
+                        }
                     }
                 },
                 "" | "." => {
@@ -444,6 +454,9 @@ where
                 },
                 sub_part => {
                     let len = result.len();
+                    if !result.ends_with(sep) && !result.is_empty() {
+                        result.push(sep);
+                    }
                     result.push_str(sub_part);
                     result.push(sep);
                     empty = false;
@@ -749,6 +762,17 @@ mod tests {
             resolve_path(["/foo/bar", "/..", "baz"].iter()).unwrap(),
             prefix.clone() + &"/baz".replace('/', MAIN_SEPARATOR_STR)
         ); // Parent dir with absolute path
+
+        assert_eq!(
+            resolve_path(["../foo"].iter()).unwrap(),
+            std::env::current_dir()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .join("foo".replace('/', MAIN_SEPARATOR_STR))
+                .to_string_lossy()
+                .to_string()
+        ); // Start with ..
     }
 
     #[test]
