@@ -102,18 +102,18 @@ fn uuidv6_to_v1<'js>(ctx: Ctx<'js>, v6_value: Value<'js>) -> Result<String> {
     let mut v1_bytes = [0u8; 16];
 
     // time_low
-    v1_bytes[0] = (v6_bytes[3] & 0x0f) << 4 | (v6_bytes[4] & 0xf0) >> 4;
-    v1_bytes[1] = (v6_bytes[4] & 0x0f) << 4 | (v6_bytes[5] & 0xf0) >> 4;
-    v1_bytes[2] = (v6_bytes[5] & 0x0f) << 4 | (v6_bytes[6] & 0x0f);
+    v1_bytes[0] = ((v6_bytes[3] & 0x0f) << 4) | ((v6_bytes[4] & 0xf0) >> 4);
+    v1_bytes[1] = ((v6_bytes[4] & 0x0f) << 4) | ((v6_bytes[5] & 0xf0) >> 4);
+    v1_bytes[2] = ((v6_bytes[5] & 0x0f) << 4) | (v6_bytes[6] & 0x0f);
     v1_bytes[3] = v6_bytes[7];
 
     // time_mid
-    v1_bytes[4] = (v6_bytes[1] & 0x0f) << 4 | (v6_bytes[2] & 0xf0) >> 4;
-    v1_bytes[5] = (v6_bytes[2] & 0x0f) << 4 | (v6_bytes[3] & 0xf0) >> 4;
+    v1_bytes[4] = ((v6_bytes[1] & 0x0f) << 4) | ((v6_bytes[2] & 0xf0) >> 4);
+    v1_bytes[5] = ((v6_bytes[2] & 0x0f) << 4) | ((v6_bytes[3] & 0xf0) >> 4);
 
     // version and time_high
-    v1_bytes[6] = 0x10 | (v6_bytes[0] & 0xf0) >> 4;
-    v1_bytes[7] = (v6_bytes[0] & 0x0f) << 4 | (v6_bytes[1] & 0xf0) >> 4;
+    v1_bytes[6] = 0x10 | ((v6_bytes[0] & 0xf0) >> 4);
+    v1_bytes[7] = ((v6_bytes[0] & 0x0f) << 4) | ((v6_bytes[1] & 0xf0) >> 4);
 
     // clock_seq and node
     v1_bytes[8..16].copy_from_slice(&v6_bytes[8..16]);

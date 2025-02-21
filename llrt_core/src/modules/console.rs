@@ -183,7 +183,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 #[inline(always)]
 fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool, newline: bool) {
     const SEPARATOR_TABLE: [&str; 8] = ["", ",", "\r", ",\r", " ", ", ", "\n", ",\n"];
-    let index = (add_comma as usize) | (has_indentation as usize) << 1 | (newline as usize) << 2;
+    let index =
+        (add_comma as usize) | ((has_indentation as usize) << 1) | ((newline as usize) << 2);
     result.push_str(SEPARATOR_TABLE[index]);
 }
 
