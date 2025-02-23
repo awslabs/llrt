@@ -5,6 +5,7 @@ use std::{
     io,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
+    result::Result as StdResult,
     str::FromStr,
     sync::Arc,
     task::{self, Poll},
@@ -15,7 +16,7 @@ use std::{
 use hyper_util::client::legacy::connect::{dns::Name, HttpConnector};
 use llrt_utils::object::ObjectExt;
 use quick_cache::sync::Cache;
-use rquickjs::{Ctx, Exception, Result, Value};
+use rquickjs::Value;
 use tokio::sync::Semaphore;
 use tower_service::Service;
 
@@ -143,27 +144,26 @@ impl CachedDnsResolver {
     }
 }
 
-pub fn lookup_host<'js>(
-    ctx: &Ctx<'js>,
+pub async fn lookup_host(
     hostname: &str,
-    options: Option<Value<'js>>,
-) -> Result<(String, i32)> {
+    options: Option<Value<'_>>,
+) -> StdResult<(String, i32), std::io::Error> {
     let mut family = 0;
     if let Some(options) = options {
         family = if let Some(v) = options.as_int() {
             if !matches!(v, 4 | 6) {
-                Err(Exception::throw_message(
-                    ctx,
-                    "If options is an integer, then it must be 4 or 6",
-                ))?;
+                return Err(io::Error::new::<String>(
+                    io::ErrorKind::InvalidInput,
+                    "If options is an integer, then it must be 4 or 6".into(),
+                ));
             }
             v
         } else if let Ok(Some(v)) = options.get_optional::<_, i32>("family") {
             if !matches!(v, 4 | 6 | 0) {
-                Err(Exception::throw_message(
-                    ctx,
-                    "If family record is exist, then it must be 4, 6, or 0",
-                ))?;
+                return Err(io::Error::new::<String>(
+                    io::ErrorKind::InvalidInput,
+                    "If family record is exist, then it must be 4, 6, or 0".into(),
+                ));
             }
             v
         } else {
@@ -171,28 +171,24 @@ pub fn lookup_host<'js>(
         }
     }
 
-    match dns_lookup::lookup_host(hostname) {
-        Ok(ips) => {
-            for ip in ips {
-                if matches!(family, 4 | 0) {
-                    if let Ok(ipv4) = Ipv4Addr::from_str(&ip.to_string()) {
-                        return Ok((ipv4.to_string(), 4));
-                    }
-                }
-                if matches!(family, 6 | 0) {
-                    if let Ok(ipv6) = Ipv6Addr::from_str(&ip.to_string()) {
-                        return Ok((ipv6.to_string(), 6));
-                    }
-                }
+    let addrs = tokio::net::lookup_host((hostname, 0)).await?;
+    let addrs = addrs.collect::<Vec<_>>();
+
+    for ip in addrs {
+        if matches!(family, 4 | 0) {
+            if let Ok(ipv4) = Ipv4Addr::from_str(&ip.to_string()) {
+                return Ok((ipv4.to_string(), 4));
             }
-        },
-        Err(err) => {
-            Err(Exception::throw_message(ctx, &err.to_string()))?;
-        },
+        }
+        if matches!(family, 6 | 0) {
+            if let Ok(ipv6) = Ipv6Addr::from_str(&ip.to_string()) {
+                return Ok((ipv6.to_string(), 6));
+            }
+        }
     }
 
-    Err(Exception::throw_message(
-        ctx,
-        "No values ware found matching the criteria",
-    ))?
+    Err(io::Error::new::<String>(
+        io::ErrorKind::NotFound,
+        "No values ware found matching the criteria".into(),
+    ))
 }

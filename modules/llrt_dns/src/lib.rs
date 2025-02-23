@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_context::CtxExtension;
 use llrt_dns_cache::lookup_host;
 use llrt_utils::{
     module::{export_default, ModuleInfo},
@@ -18,16 +19,22 @@ fn lookup<'js>(ctx: Ctx<'js>, hostname: String, args: Rest<Value<'js>>) -> Resul
         .and_then(|v| v.into_function())
         .or_throw_msg(&ctx, "Callback parameter is not a function")?;
 
-    match lookup_host(&ctx, &hostname, args_iter.next()) {
-        Ok((address, family)) => {
-            () = cb.call((Null.into_js(&ctx), address, family))?;
-            Ok::<_, Error>(())
-        },
-        Err(err) => {
-            () = cb.call((Exception::from_message(ctx, &err.to_string()),))?;
-            Ok(())
-        },
-    }
+    ctx.clone().spawn_exit(async move {
+        match lookup_host(&hostname, args_iter.next())
+            .await
+            .or_throw(&ctx)
+        {
+            Ok((address, family)) => {
+                () = cb.call((Null.into_js(&ctx), address, family))?;
+                Ok::<_, Error>(())
+            },
+            Err(err) => {
+                () = cb.call((Exception::from_message(ctx, &err.to_string()),))?;
+                Ok(())
+            },
+        }
+    })?;
+    Ok(())
 }
 
 pub struct DnsModule;

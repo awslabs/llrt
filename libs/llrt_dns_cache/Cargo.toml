@@ -12,7 +12,6 @@ name = "llrt_dns_cache"
 path = "src/lib.rs"
 
 [dependencies]
-dns-lookup = "2"
 hyper = { version = "1", features = ["client"] }
 hyper-rustls = { version = "0.27", default-features = false, features = [
   "webpki-roots",
