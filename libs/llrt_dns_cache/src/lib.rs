@@ -3,7 +3,7 @@
 use std::{
     future::Future,
     io,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{SocketAddr, SocketAddrV4, SocketAddrV6},
     pin::Pin,
     result::Result as StdResult,
     str::FromStr,
@@ -176,13 +176,13 @@ pub async fn lookup_host(
 
     for ip in addrs {
         if matches!(family, 4 | 0) {
-            if let Ok(ipv4) = Ipv4Addr::from_str(&ip.to_string()) {
-                return Ok((ipv4.to_string(), 4));
+            if let Ok(ipv4) = SocketAddrV4::from_str(&ip.to_string()) {
+                return Ok((ipv4.ip().to_string(), 4));
             }
         }
         if matches!(family, 6 | 0) {
-            if let Ok(ipv6) = Ipv6Addr::from_str(&ip.to_string()) {
-                return Ok((ipv6.to_string(), 6));
+            if let Ok(ipv6) = SocketAddrV6::from_str(&ip.to_string()) {
+                return Ok((ipv6.ip().to_string(), 6));
             }
         }
     }

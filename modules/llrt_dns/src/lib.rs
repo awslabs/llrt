@@ -20,10 +20,7 @@ fn lookup<'js>(ctx: Ctx<'js>, hostname: String, args: Rest<Value<'js>>) -> Resul
         .or_throw_msg(&ctx, "Callback parameter is not a function")?;
 
     ctx.clone().spawn_exit(async move {
-        match lookup_host(&hostname, args_iter.next())
-            .await
-            .or_throw(&ctx)
-        {
+        match lookup_host(&hostname, args_iter.next()).await {
             Ok((address, family)) => {
                 () = cb.call((Null.into_js(&ctx), address, family))?;
                 Ok::<_, Error>(())
