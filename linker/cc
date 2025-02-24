@@ -7,7 +7,7 @@ shift
 new_array=()
 for value in "$@"
 do
-    [[ $value != *self-contained/*crt* ]] && [[ $value != *lc_nonshared* ]] && [[ $value != *latomic* ]] && new_array+=($value)
+    [[ $value != *self-contained/*crt* ]] && [[ $value != *lgcc_s* ]] && [[ $value != *lc_nonshared* ]] && [[ $value != *latomic* ]] && new_array+=($value)
 done
 
 zig cc "${new_array[@]}" -target $target
