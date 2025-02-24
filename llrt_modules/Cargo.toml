@@ -15,6 +15,7 @@ all = [
   "buffer",
   "child-process",
   "crypto",
+  "dns",
   "events",
   "exceptions",
   "fs",
@@ -38,6 +39,7 @@ assert = ["llrt_assert"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
 crypto = ["llrt_crypto"]
+dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
 fs = ["llrt_fs"]
@@ -60,6 +62,7 @@ llrt_assert = { version = "0.5.1-beta", path = "../modules/llrt_assert", optiona
 llrt_buffer = { version = "0.5.1-beta", path = "../modules/llrt_buffer", optional = true }
 llrt_child_process = { version = "0.5.1-beta", path = "../modules/llrt_child_process", optional = true }
 llrt_crypto = { version = "0.5.1-beta", path = "../modules/llrt_crypto", optional = true }
+llrt_dns = { version = "0.5.1-beta", path = "../modules/llrt_dns", optional = true }
 llrt_events = { version = "0.5.1-beta", path = "../modules/llrt_events", optional = true }
 llrt_exceptions = { version = "0.5.1-beta", path = "../modules/llrt_exceptions", optional = true }
 llrt_fs = { version = "0.5.1-beta", path = "../modules/llrt_fs", optional = true }

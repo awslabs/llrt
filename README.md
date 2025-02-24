@@ -105,6 +105,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | child_process | ✔︎     | ✔︎⏱   |
 | console       | ✔︎     | ✔︎     |
 | crypto        | ✔︎     | ✔︎     |
+| dns           | ✔︎     | ✔︎     |
 | events        | ✔︎     | ✔︎     |
 | fs/promises   | ✔︎     | ✔︎     |
 | fs            | ✔︎     | ✘⏱     |

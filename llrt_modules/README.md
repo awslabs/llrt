@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
 | buffer        | ✔︎     | ✔︎️         | `buffer`        | `llrt_buffer`        |
 | child process | ✔︎     | ⚠️           | `child-process` | `llrt_child_process` |
 | crypto        | ✔︎     | ⚠️           | `crypto`        | `llrt_cryto`         |
+| dns           | ✔︎     | ⚠️           | `dns`           | `llrt_dns`           |
 | events        | ✔︎     | ⚠️           | `events`        | `llrt_events`        |
 | exceptions    | ✔︎     | ⚠️           | `exceptions`    | `llrt_exceptions`    |
 | fs/promises   | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |

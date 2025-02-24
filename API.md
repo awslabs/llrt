@@ -72,6 +72,10 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [subtle.verify](https://nodejs.org/api/webcrypto.html#subtleverifyalgorithm-key-signature-datah)
 
+## dns
+
+[lookup](https://nodejs.org/api/dns.html#dnslookuphostname-options-callback)
+
 ## events
 
 [EventEmitter](https://nodejs.org/api/events.html#class-eventemitter)

@@ -1,19 +1,24 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::convert::Infallible;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::{io, sync::OnceLock, time::Duration};
+use std::{
+    convert::Infallible,
+    io,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        OnceLock,
+    },
+    time::Duration,
+};
 
 use bytes::Bytes;
-use cached_dns_resolver::CachedDnsResolver;
 use http_body_util::combinators::BoxBody;
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
-use llrt_utils::class::CustomInspectExtension;
-use llrt_utils::result::ResultExt;
+use llrt_dns_cache::CachedDnsResolver;
+use llrt_utils::{class::CustomInspectExtension, result::ResultExt};
 use once_cell::sync::Lazy;
 use rquickjs::{Class, Ctx, Result};
 use rustls::{
@@ -26,7 +31,6 @@ use self::{file::File, headers::Headers, request::Request, response::Response};
 
 mod blob;
 mod body;
-mod cached_dns_resolver;
 mod fetch;
 mod file;
 mod headers;

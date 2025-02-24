@@ -35,6 +35,7 @@ itoa = "1"
 llrt_abort = { version = "0.5.1-beta", path = "../llrt_abort" }
 llrt_compression = { version = "0.5.1-beta", path = "../../libs/llrt_compression", default-features = false }
 llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
+llrt_dns_cache = { version = "0.5.1-beta", path = "../../libs/llrt_dns_cache" }
 llrt_encoding = { version = "0.5.1-beta", path = "../../libs/llrt_encoding" }
 llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json" }
 llrt_url = { version = "0.5.1-beta", path = "../llrt_url" }

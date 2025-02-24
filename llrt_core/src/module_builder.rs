@@ -6,6 +6,7 @@ use crate::modules::{
     child_process::ChildProcessModule,
     console::ConsoleModule,
     crypto::CryptoModule,
+    dns::DnsModule,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
     llrt::{hex::LlrtHexModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
@@ -107,6 +108,7 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::perf_hooks::init)
             .with_module(ZlibModule)
             .with_module(TtyModule)
+            .with_module(DnsModule)
     }
 }
 
