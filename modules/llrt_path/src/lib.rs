@@ -441,8 +441,6 @@ where
                 ".." => {
                     if let Some(last_index) = index_stack.pop() {
                         result.truncate(last_index);
-                        // maybe don't need this?
-                        // empty = false;
                     } else if empty {
                         if let Some(last_index) = find_last_sep(&result) {
                             result.truncate(last_index);
@@ -459,7 +457,6 @@ where
                     }
                     result.push_str(sub_part);
                     result.push(sep);
-                    empty = false;
                     index_stack.push(len);
                 },
             }
