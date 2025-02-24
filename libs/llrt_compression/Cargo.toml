@@ -29,4 +29,4 @@ zstd-rust = ["zstd"] # No pure rust implementation exists
 brotlic = { version = "0.8", optional = true }
 brotli = { version = "7", optional = true }
 flate2 = { version = "1", default-features = false, optional = true }
-zstd = { version = "0.13.2", default-features = false, optional = true }
+zstd = { version = "0.13.3", default-features = false, optional = true }
