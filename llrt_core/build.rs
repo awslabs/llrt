@@ -146,7 +146,7 @@ fn generate_bytecode_cache(out_dir: &str) -> StdResult<(), Box<dyn Error>> {
             let source = fs::read_to_string(dir_ent.path())
                 .unwrap_or_else(|_| panic!("Unable to load: {}", dir_ent.path().to_string_lossy()));
 
-            let module_name = if !path_str.starts_with("llrt-chunk-") {
+            let module_name = if !path_str.starts_with("llrt-") {
                 path.with_extension("")
                     .to_string_lossy()
                     .replace('\\', "/")
