@@ -14,6 +14,8 @@ mod modules {
     pub use llrt_child_process as child_process;
     #[cfg(feature = "crypto")]
     pub use llrt_crypto as crypto;
+    #[cfg(feature = "dns")]
+    pub use llrt_dns as dns;
     #[cfg(feature = "events")]
     pub use llrt_events as events;
     #[cfg(feature = "exceptions")]

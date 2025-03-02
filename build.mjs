@@ -57,6 +57,7 @@ const ES_BUILD_OPTIONS = {
     "console",
     "node:console",
     "crypto",
+    "dns",
     "os",
     "fs",
     "child_process",
