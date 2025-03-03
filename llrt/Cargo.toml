@@ -16,7 +16,7 @@ bindgen = ["llrt_core/bindgen"]
 llrt_core = { path = "../llrt_core" }
 tracing = { version = "0.1.41", features = ["log"] }
 llrt_utils = { path = "../libs/llrt_utils" }
-chrono = { version = "0.4.38", default-features = false, features = ["std"] }
+chrono = { version = "0.4.40", default-features = false, features = ["std"] }
 tracing-core = "0.1.33"
 tokio = { version = "1", features = ["full"] }
 crossterm = { version = "0.28.1" }
