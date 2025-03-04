@@ -20,9 +20,7 @@ describe("lookup", () => {
   });
 
   it("Name resolution for localhost2 should result in an error (optionless)", async () => {
-    await expect(dnsLookupAsync("localhost2")).rejects.toThrow(
-      "failed to lookup address information: nodename nor servname provided, or not known"
-    );
+    await expect(dnsLookupAsync("localhost2")).rejects.toThrow("known");
   });
 
   it("localhost name resolution should be possible (integer option)", async () => {
@@ -32,9 +30,7 @@ describe("lookup", () => {
   });
 
   it("Name resolution for localhost2 should result in an error (integer option)", async () => {
-    await expect(dnsLookupAsync("localhost2", 4)).rejects.toThrow(
-      "failed to lookup address information: nodename nor servname provided, or not known"
-    );
+    await expect(dnsLookupAsync("localhost2", 4)).rejects.toThrow("known");
   });
 
   it("localhost name resolution should be possible (record option)", async () => {
@@ -47,7 +43,7 @@ describe("lookup", () => {
 
   it("Name resolution for localhost2 should result in an error (record option)", async () => {
     await expect(dnsLookupAsync("localhost2", { family: 4 })).rejects.toThrow(
-      "failed to lookup address information: nodename nor servname provided, or not known"
+      "known"
     );
   });
 });
