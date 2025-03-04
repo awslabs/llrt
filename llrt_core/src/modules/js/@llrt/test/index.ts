@@ -179,6 +179,20 @@ class TestServer {
     socket.on("error", (error) => {
       const workerId = this.workerIdBySocket.get(socket);
       if (!workerId || !this.workerData[workerId].completed) {
+        if (workerId) {
+          const workerData = this.workerData[workerId];
+          const stdErr = workerData.stdErrBuffer.getContent().toString();
+          const stdOut = workerData.stdOutBuffer.getContent().toString();
+          let errorOutput = Color.RED_BACKGROUND(Color.BOLD("Worker Error:\n"));
+
+          if (stdErr) {
+            errorOutput += Color.RED(`\nStd Err:\n${stdErr}`);
+          }
+          if (stdOut) {
+            errorOutput += Color.RED(`\nStd Out:\n${stdOut}`);
+          }
+          console.error(errorOutput);
+        }
         this.handleError(TestServer.ERROR_CODE_SOCKET_ERROR, error, {
           socket,
         });
