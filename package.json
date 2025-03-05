@@ -91,7 +91,7 @@
     "@types/readable-stream": "4.0.18",
     "@types/uuid": "10.0.0",
     "esbuild": "0.25.0",
-    "esbuild-plugins-node-modules-polyfill": "1.6.8",
+    "esbuild-plugins-node-modules-polyfill": "1.7.0",
     "prettier": "3.5.2",
     "pretty-format": "29.7.0",
     "pretty-quick": "4.0.0",
