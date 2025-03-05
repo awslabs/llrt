@@ -1,11 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::{mem::MaybeUninit, slice};
+
 use llrt_encoding::{bytes_from_b64, bytes_to_b64_string, Encoder};
 use llrt_utils::{
     bytes::{
         get_array_bytes, get_coerced_string_bytes, get_start_end_indexes, get_string_bytes,
         ObjectBytes,
     },
+    error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
     module::{export_default, ModuleInfo},
     primordials::Primordial,
     result::ResultExt,
@@ -14,7 +17,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, This},
+    prelude::{Func, Rest, This},
     Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
     Value,
 };
@@ -85,97 +88,7 @@ impl<'js> Buffer {
     }
 }
 
-fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> Result<usize> {
-    //slow path
-    if let Some(encoding) = encoding.0 {
-        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
-        let a = ObjectBytes::from(&ctx, &value)?;
-        let bytes = a.as_bytes(&ctx)?;
-        return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
-    }
-    //fast path
-    if let Some(val) = value.as_string() {
-        return Ok(val.to_string()?.len());
-    }
-
-    if value.is_array() {
-        let array = value.as_array().unwrap();
-
-        for val in array.iter::<u8>() {
-            val.or_throw_msg(&ctx, "array value is not u8")?;
-        }
-
-        return Ok(array.len());
-    }
-
-    if let Some(obj) = value.as_object() {
-        if let Some(ob) = ObjectBytes::from_array_buffer(obj)? {
-            return Ok(ob.as_bytes(&ctx)?.len());
-        }
-    }
-
-    Err(Exception::throw_message(
-        &ctx,
-        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or string",
-    ))
-}
-
-fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
-    if let Some(object) = value.as_object() {
-        let constructor = BufferPrimordials::get(&ctx)?;
-        return Ok(object.is_instance_of(&constructor.constructor));
-    }
-
-    Ok(false)
-}
-
-fn is_encoding(value: Value) -> Result<bool> {
-    if let Some(js_string) = value.as_string() {
-        let std_string = js_string.to_string()?;
-        return Ok(Encoder::from_str(std_string.as_str()).is_ok());
-    }
-
-    Ok(false)
-}
-
-fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
-    let typed_array = TypedArray::<u8>::from_object(this.0)?;
-    let bytes: &[u8] = typed_array.as_ref();
-
-    let encoder = Encoder::from_optional_str(encoding.as_deref()).or_throw(&ctx)?;
-    encoder.encode_to_string(bytes, true).or_throw(&ctx)
-}
-
-fn subarray<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    start: Opt<isize>,
-    end: Opt<isize>,
-) -> Result<Value<'js>> {
-    let typed_array = TypedArray::<u8>::from_object(this.0)?;
-    let array_buffer = typed_array.arraybuffer()?;
-    let ab_length = array_buffer.len() as isize;
-    let offset = start.map_or(0, |start| {
-        if start < 0 {
-            (ab_length + start).max(0) as usize
-        } else {
-            start.min(ab_length) as usize
-        }
-    });
-
-    let end_index = end.map_or(ab_length, |end| {
-        if end < 0 {
-            (ab_length + end).max(0)
-        } else {
-            end.min(ab_length)
-        }
-    });
-
-    let length = (end_index as usize).saturating_sub(offset);
-
-    Buffer::from_array_buffer_offset_length(&ctx, array_buffer, offset, length)
-}
-
+// Static Methods
 fn alloc<'js>(
     ctx: Ctx<'js>,
     length: usize,
@@ -218,6 +131,73 @@ fn alloc_byte_ref<'js>(ctx: &Ctx<'js>, byte_ref: &[u8], length: usize) -> Result
         bytes[i] = byte_ref[i % byte_ref_length];
     }
     Buffer(bytes).into_js(ctx)
+}
+
+fn alloc_unsafe(ctx: Ctx<'_>, size: usize) -> Result<Value<'_>> {
+    let mut bytes: Vec<MaybeUninit<u8>> = Vec::with_capacity(size);
+    unsafe {
+        bytes.set_len(size);
+    }
+
+    Buffer(maybeuninit_to_u8(bytes)).into_js(&ctx)
+}
+
+fn maybeuninit_to_u8(vec: Vec<MaybeUninit<u8>>) -> Vec<u8> {
+    let len = vec.len();
+    let capacity = vec.capacity();
+    let ptr = vec.as_ptr() as *mut u8;
+
+    std::mem::forget(vec);
+
+    unsafe { Vec::from_raw_parts(ptr, len, capacity) }
+}
+
+fn alloc_unsafe_slow(ctx: Ctx<'_>, size: usize) -> Result<Value<'_>> {
+    let layout = std::alloc::Layout::array::<u8>(size).or_throw(&ctx)?;
+
+    let bytes = unsafe {
+        let ptr = std::alloc::alloc(layout);
+        if ptr.is_null() {
+            return Err(Exception::throw_internal(&ctx, "Memory allocation failed"));
+        }
+        Vec::from_raw_parts(ptr, size, size)
+    };
+    Buffer(bytes).into_js(&ctx)
+}
+
+fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> Result<usize> {
+    //slow path
+    if let Some(encoding) = encoding.0 {
+        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+        let a = ObjectBytes::from(&ctx, &value)?;
+        let bytes = a.as_bytes(&ctx)?;
+        return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
+    }
+    //fast path
+    if let Some(val) = value.as_string() {
+        return Ok(val.to_string()?.len());
+    }
+
+    if value.is_array() {
+        let array = value.as_array().unwrap();
+
+        for val in array.iter::<u8>() {
+            val.or_throw_msg(&ctx, "array value is not u8")?;
+        }
+
+        return Ok(array.len());
+    }
+
+    if let Some(obj) = value.as_object() {
+        if let Some(ob) = ObjectBytes::from_array_buffer(obj)? {
+            return Ok(ob.as_bytes(&ctx)?.len());
+        }
+    }
+
+    Err(Exception::throw_message(
+        &ctx,
+        "value must be typed DataView, Buffer, ArrayBuffer, Uint8Array or string",
+    ))
 }
 
 fn concat<'js>(ctx: Ctx<'js>, list: Array<'js>, max_length: Opt<usize>) -> Result<Value<'js>> {
@@ -308,17 +288,252 @@ fn from<'js>(
     ))
 }
 
+fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
+    if let Some(object) = value.as_object() {
+        let constructor = BufferPrimordials::get(&ctx)?;
+        return Ok(object.is_instance_of(&constructor.constructor));
+    }
+
+    Ok(false)
+}
+
+fn is_encoding(value: Value) -> Result<bool> {
+    if let Some(js_string) = value.as_string() {
+        let std_string = js_string.to_string()?;
+        return Ok(Encoder::from_str(std_string.as_str()).is_ok());
+    }
+
+    Ok(false)
+}
+
+// Prototype Methods
+fn copy<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    target: ObjectBytes<'js>,
+    args: Rest<usize>,
+) -> Result<usize> {
+    let mut args_iter = args.0.into_iter();
+    let target_start = args_iter.next().unwrap_or_default();
+    let source_start = args_iter.next().unwrap_or_default();
+    let source_end = args_iter.next().unwrap_or_else(|| this.0.len());
+
+    let source_bytes = ObjectBytes::from(&ctx, this.0.as_inner())?;
+    let source_bytes = source_bytes.as_bytes(&ctx)?;
+
+    let mut copyable_length = 0;
+
+    if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
+        let raw = array_buffer
+            .as_raw()
+            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            .or_throw(&ctx)?;
+
+        let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+        copyable_length = (source_end - source_start).min(raw.len - target_start);
+
+        target_bytes[target_start..target_start + copyable_length]
+            .copy_from_slice(&source_bytes[source_start..source_start + copyable_length]);
+    }
+
+    Ok(copyable_length)
+}
+
+fn subarray<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    start: Opt<isize>,
+    end: Opt<isize>,
+) -> Result<Value<'js>> {
+    let typed_array = TypedArray::<u8>::from_object(this.0)?;
+    let array_buffer = typed_array.arraybuffer()?;
+    let ab_length = array_buffer.len() as isize;
+    let offset = start.map_or(0, |start| {
+        if start < 0 {
+            (ab_length + start).max(0) as usize
+        } else {
+            start.min(ab_length) as usize
+        }
+    });
+
+    let end_index = end.map_or(ab_length, |end| {
+        if end < 0 {
+            (ab_length + end).max(0)
+        } else {
+            end.min(ab_length)
+        }
+    });
+
+    let length = (end_index as usize).saturating_sub(offset);
+
+    Buffer::from_array_buffer_offset_length(&ctx, array_buffer, offset, length)
+}
+
+fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
+    let typed_array = TypedArray::<u8>::from_object(this.0)?;
+    let bytes: &[u8] = typed_array.as_ref();
+
+    let encoder = Encoder::from_optional_str(encoding.as_deref()).or_throw(&ctx)?;
+    encoder.encode_to_string(bytes, true).or_throw(&ctx)
+}
+
+fn write<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    string: String,
+    args: Rest<Value<'js>>,
+) -> Result<usize> {
+    let (offset, length, encoding) = get_write_parameters(&args, this.0.len())?;
+
+    let target = ObjectBytes::from(&ctx, this.0.as_inner())?;
+
+    let mut writable_length = 0;
+
+    if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
+        let raw = array_buffer
+            .as_raw()
+            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            .or_throw(&ctx)?;
+
+        let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+        let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
+
+        if encoder.as_label() == "utf-8" {
+            let (source_slice, valid_length) = safe_byte_slice(&string, length.min(string.len()));
+            writable_length = valid_length;
+            target_bytes[offset..offset + writable_length].copy_from_slice(source_slice);
+        } else {
+            let decode_bytes = encoder.decode_from_string(string).or_throw(&ctx)?;
+            writable_length = length.min(decode_bytes.len());
+            target_bytes[offset..offset + writable_length]
+                .copy_from_slice(&decode_bytes[..writable_length]);
+        };
+    }
+
+    Ok(writable_length)
+}
+
+fn get_write_parameters(args: &Rest<Value<'_>>, len: usize) -> Result<(usize, usize, String)> {
+    let encoding = "utf8".to_owned();
+
+    match (args.0.first(), args.0.get(1), args.0.get(2)) {
+        (Some(v1), _, _) if v1.as_string().is_some() => {
+            Ok((0, len, v1.as_string().unwrap().to_string()?))
+        },
+
+        (Some(v1), Some(v2), _) if v2.as_string().is_some() => {
+            let offset = v1.as_int().unwrap_or(0) as usize;
+            Ok((offset, len - offset, v2.as_string().unwrap().to_string()?))
+        },
+
+        (Some(v1), Some(v2), Some(v3)) => {
+            let offset = v1.as_int().unwrap_or(0) as usize;
+            Ok((
+                offset,
+                v2.as_int()
+                    .map_or(len - offset, |l| (l as usize).min(len - offset)),
+                v3.as_string().map_or(encoding, |s| s.to_string().unwrap()),
+            ))
+        },
+
+        (Some(v1), Some(v2), None) => {
+            let offset = v1.as_int().unwrap_or(0) as usize;
+            Ok((
+                offset,
+                v2.as_int()
+                    .map_or(len - offset, |l| (l as usize).min(len - offset)),
+                encoding,
+            ))
+        },
+
+        (Some(v1), None, None) => {
+            let offset = v1.as_int().unwrap_or(0) as usize;
+            Ok((offset, len - offset, encoding))
+        },
+
+        _ => Ok((0, len, encoding)),
+    }
+}
+
+fn safe_byte_slice(s: &str, end: usize) -> (&[u8], usize) {
+    let bytes = s.as_bytes();
+
+    if bytes.len() <= end {
+        return (bytes, bytes.len());
+    }
+
+    let valid_end = s
+        .char_indices()
+        .map(|(i, _)| i)
+        .filter(|&i| i <= end)
+        .last()
+        .unwrap_or(0);
+
+    (&bytes[0..valid_end], valid_end)
+}
+
+fn write_int32_be<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    value: i32,
+    offset: Opt<i32>,
+) -> Result<usize> {
+    let source_slice = [
+        (value >> 24) as u8,
+        (value >> 16) as u8,
+        (value >> 8) as u8,
+        value as u8,
+    ];
+    let offset = offset.0.unwrap_or_default();
+    let buf_length = this.0.len().try_into().unwrap_or(i32::MAX);
+
+    if offset < 0 || offset + source_slice.len() as i32 > buf_length {
+        return Err(Exception::throw_range(
+            &ctx,
+            "The specified offset is out of range",
+        ));
+    }
+
+    let offset = offset as usize;
+
+    let target = ObjectBytes::from(&ctx, this.0.as_inner())?;
+
+    let mut writable_length = 0;
+
+    if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
+        let raw = array_buffer
+            .as_raw()
+            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+            .or_throw(&ctx)?;
+
+        let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+        writable_length = offset + source_slice.len();
+
+        target_bytes[offset..writable_length].copy_from_slice(&source_slice);
+    }
+
+    Ok(writable_length)
+}
+
 fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
-    let _ = &constructor.set(PredefinedAtom::From, Func::from(from))?;
-    let _ = &constructor.set(stringify!(alloc), Func::from(alloc))?;
-    let _ = &constructor.set(stringify!(concat), Func::from(concat))?;
+    let _ = &constructor.set("alloc", Func::from(alloc))?;
+    let _ = &constructor.set("allocUnsafe", Func::from(alloc_unsafe))?;
+    let _ = &constructor.set("allocUnsafeSlow", Func::from(alloc_unsafe_slow))?;
     let _ = &constructor.set("byteLength", Func::from(byte_length))?;
+    let _ = &constructor.set("concat", Func::from(concat))?;
+    let _ = &constructor.set(PredefinedAtom::From, Func::from(from))?;
     let _ = &constructor.set("isBuffer", Func::from(is_buffer))?;
     let _ = &constructor.set("isEncoding", Func::from(is_encoding))?;
 
     let prototype: &Object = &constructor.get(PredefinedAtom::Prototype)?;
-    prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
+    prototype.set("copy", Func::from(copy))?;
     prototype.set("subarray", Func::from(subarray))?;
+    prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
+    prototype.set("write", Func::from(write))?;
+    prototype.set("writeInt32BE", Func::from(write_int32_be))?;
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 
