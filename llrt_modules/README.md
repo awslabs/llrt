@@ -6,12 +6,28 @@ LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime d
 
 ## Usage
 
+The package is not available in the crate registry yet, but you can clone the repo and import it as a local path.
+
+Use this script to set everything up:
+```bash
+cd your_project_dir
+git clone https://github.com/awslabs/llrt.git
+
+cd llrt
+npm i
+make js
+```
+
 Each module has a feature flag, they are all enabled by default but if you prefer to can decide which one you need.
 Check the [Compability matrix](#compatibility-matrix) for the full list.
 
 ```toml
 [dependencies]
-llrt_modules = { version = "<version>", features = ["<feature>"], default-features = false }
+llrt_modules = { path = "llrt/llrt_modules", default-features = true } # load from local path
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
+"full-async"] }
+tokio = { version = "1", features = ["full"] }
+
 ```
 
 Once you have enable a module, you can import it in your runtime.
@@ -21,25 +37,31 @@ Once you have enable a module, you can import it in your runtime.
 
 ```rust
 use llrt_modules::buffer;
-use rquickjs::{AsyncRuntime, AsyncContext, async_with, Error, Module};
+use rquickjs::{async_with, context::EvalOptions, AsyncContext, AsyncRuntime, Error, Module};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Error> {
     let runtime = AsyncRuntime::new()?;
     let context = AsyncContext::full(&runtime).await?;
 
     async_with!(context => |ctx| {
-        buffer::init(ctx)?;
-        let (_module, module_eval) = Module::evaluate_def::<buffer::BufferModule, _>(ctx.clone(), "buffer")?;
-        module_eval.into_future().await?;
+        buffer::init(&ctx)?;
+        let (_module, module_eval) = Module::evaluate_def::<buffer::BufferModule,_>(ctx.clone(), "buffer")?;
+        module_eval.into_future::<()>().await?;
 
-        ctx.eval(
-          r#"
-          import { Buffer } from "buffer";
-          Buffer.alloc(10);
-          "#,
-        )?;
-
+        let mut options = EvalOptions::default();
+        options.global = false;
+        if let Err(Error::Exception) = ctx.eval_with_options::<(), _>(
+            r#"
+            import { Buffer } from "buffer";
+            Buffer.alloc(10);
+            "#,                          
+            options
+        ){
+            println!("{:#?}", ctx.catch());
+        };
+        
         Ok::<_, Error>(())
     })
     .await?;
