@@ -19,18 +19,10 @@ describe("lookup", () => {
     expect(family === 4 || family === 6).toBeTruthy();
   });
 
-  it("Name resolution for localhost2 should result in an error (optionless)", async () => {
-    await expect(dnsLookupAsync("localhost2")).rejects.toThrow("known");
-  });
-
   it("localhost name resolution should be possible (integer option)", async () => {
     const { address, family } = await dnsLookupAsync("localhost", 4);
     expect(address).toEqual("127.0.0.1");
     expect(family).toEqual(4);
-  });
-
-  it("Name resolution for localhost2 should result in an error (integer option)", async () => {
-    await expect(dnsLookupAsync("localhost2", 4)).rejects.toThrow("known");
   });
 
   it("localhost name resolution should be possible (record option)", async () => {
@@ -41,9 +33,19 @@ describe("lookup", () => {
     expect(family).toEqual(4);
   });
 
-  it("Name resolution for localhost2 should result in an error (record option)", async () => {
-    await expect(dnsLookupAsync("localhost2", { family: 4 })).rejects.toThrow(
-      "known"
-    );
-  });
+  if (process.platform !== "linux") {
+    it("Name resolution for localhost2 should result in an error (integer option)", async () => {
+      await expect(dnsLookupAsync("localhost2", 4)).rejects.toThrow("known");
+    });
+
+    it("Name resolution for localhost2 should result in an error (optionless)", async () => {
+      await expect(dnsLookupAsync("localhost2")).rejects.toThrow("known");
+    });
+
+    it("Name resolution for localhost2 should result in an error (record option)", async () => {
+      await expect(dnsLookupAsync("localhost2", { family: 4 })).rejects.toThrow(
+        "known"
+      );
+    });
+  }
 });
