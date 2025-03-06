@@ -86,21 +86,21 @@
     "@aws-sdk/s3-presigned-post": "3.734.0",
     "@aws-sdk/s3-request-presigner": "3.734.0",
     "@jest/types": "29.6.3",
-    "@types/chai": "5.0.1",
+    "@types/chai": "5.2.0",
     "@types/jest": "^29.5.14",
     "@types/readable-stream": "4.0.18",
     "@types/uuid": "10.0.0",
     "esbuild": "0.25.0",
     "esbuild-plugins-node-modules-polyfill": "1.7.0",
-    "prettier": "3.5.2",
+    "prettier": "3.5.3",
     "pretty-format": "29.7.0",
-    "pretty-quick": "4.0.0",
+    "pretty-quick": "4.1.1",
     "pure-http": "4.0.2",
     "readable-stream": "4.7.0",
     "stream-browserify": "3.0.0",
     "ts-node": "10.9.2",
-    "typescript": "5.7.3",
-    "vitest": "3.0.5"
+    "typescript": "5.8.2",
+    "vitest": "3.0.8"
   },
   "packageManager": "yarn@1.22.22"
 }
