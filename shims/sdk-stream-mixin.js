@@ -7,11 +7,11 @@ const transformToWebStream = () => {
 };
 
 async function transformToByteArray() {
-  return await this.bytes();
+  return this;
 }
 
 async function transformToString(encoding) {
-  const typedArray = await this.arrayBuffer();
+  const typedArray = this;
   if (encoding === "base64") {
     return toBase64(typedArray);
   } else if (encoding === "hex") {
