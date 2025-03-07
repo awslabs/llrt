@@ -186,11 +186,11 @@ fn run_replacer<'js>(
         value,
     ))?;
 
-    return write_primitive2(context, add_comma, Some(new_value));
+    write_primitive2(context, add_comma, Some(new_value))
 }
 
-fn write_primitive<'a, 'js>(
-    context: &mut StringifyContext<'a, 'js>,
+fn write_primitive<'js>(
+    context: &mut StringifyContext<'_, 'js>,
     add_comma: bool,
 ) -> Result<PrimitiveStatus<'js>> {
     if let Some(replacer_fn) = context.replacer_fn {
@@ -200,8 +200,8 @@ fn write_primitive<'a, 'js>(
     write_primitive2(context, add_comma, None)
 }
 
-fn write_primitive2<'a, 'js>(
-    context: &mut StringifyContext<'a, 'js>,
+fn write_primitive2<'js>(
+    context: &mut StringifyContext<'_, 'js>,
     add_comma: bool,
     new_value: Option<Value<'js>>,
 ) -> Result<PrimitiveStatus<'js>> {
@@ -414,8 +414,8 @@ fn get_key_or_index<'a>(
     key.unwrap_or_else(|| itoa_buffer.format(index.unwrap_or_default()))
 }
 
-fn iterate<'a, 'js>(
-    context: &mut StringifyContext<'a, 'js>,
+fn iterate<'js>(
+    context: &mut StringifyContext<'_, 'js>,
     new_value: Option<Value<'js>>,
 ) -> Result<()> {
     let mut add_comma;
