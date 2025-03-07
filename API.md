@@ -9,17 +9,41 @@
 
 ## buffer
 
+### static methods
+
 [alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding)
+
+[allocUnsafe](https://nodejs.org/api/buffer.html#static-method-bufferallocunsafesize)
+
+[allocUnsafeSlow](https://nodejs.org/api/buffer.html#static-method-bufferallocunsafeslowsize)
 
 [byteLength](https://nodejs.org/api/buffer.html#static-method-bufferbytelengthstring-encoding)
 
 [concat](https://nodejs.org/api/buffer.html#static-method-bufferconcatlist-totallength)
 
+[from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
+
+[isBuffer](https://nodejs.org/api/buffer.html#static-method-bufferisbufferobj)
+
+[isEncoding](https://nodejs.org/api/buffer.html#static-method-bufferisencodingencoding)
+
+### prototype methods
+
+[copy](https://nodejs.org/api/buffer.html#bufcopytarget-targetstart-sourcestart-sourceend)
+
+[subarray](https://nodejs.org/api/buffer.html#bufsubarraystart-end)
+
+[toString](https://nodejs.org/api/buffer.html#buftostringencoding-start-end)
+
+[write](https://nodejs.org/api/buffer.html#bufwritestring-offset-length-encoding)
+
+[writeInt32BE](https://nodejs.org/api/buffer.html#bufwriteint32bevalue-offset)
+
+### constants
+
 [constants.MAX_LENGTH](https://nodejs.org/api/buffer.html#bufferconstantsmax_length)
 
 [constants.MAX_STRING_LENGTH](https://nodejs.org/api/buffer.html#bufferconstantsmax_string_length)
-
-[from](https://nodejs.org/api/buffer.html#static-method-bufferfromarray)
 
 Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
 
