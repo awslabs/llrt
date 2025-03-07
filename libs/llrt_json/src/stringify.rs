@@ -108,7 +108,7 @@ pub fn json_stringify_replacer_space<'js>(
 
     context.depth += 1;
     context.indentation = indentation;
-    iterate(&mut context)?;
+    iterate(&mut context, None)?;
     Ok(Some(result))
 }
 
@@ -157,10 +157,10 @@ fn run_to_json<'js>(
 }
 
 #[derive(PartialEq)]
-enum PrimitiveStatus {
+enum PrimitiveStatus<'js> {
     Written,
     Ignored,
-    Iterate,
+    Iterate(Option<Value<'js>>),
 }
 
 #[inline(always)]
@@ -169,62 +169,57 @@ fn run_replacer<'js>(
     context: &mut StringifyContext<'_, 'js>,
     replacer_fn: &Function<'js>,
     add_comma: bool,
-) -> Result<PrimitiveStatus> {
-    let parent = context.parent;
-    let ctx = context.ctx;
-    let value = context.value;
+) -> Result<PrimitiveStatus<'js>> {
     let key = context.key;
     let index = context.index;
-    let parent = if let Some(parent) = parent {
+    let value = context.value;
+    let parent = if let Some(parent) = context.parent {
         parent.clone()
     } else {
-        let parent = Object::new(ctx.clone())?;
+        let parent = Object::new(context.ctx.clone())?;
         parent.set("", value.clone())?;
         parent
     };
-    let new_value = replacer_fn.call((
+    let new_value: Value = replacer_fn.call((
         This(parent),
         get_key_or_index(context.itoa_buffer, key, index),
         value,
     ))?;
-    write_primitive(
-        &mut StringifyContext {
-            ctx,
-            result: context.result,
-            value: &new_value,
-            replacer_fn: None,
-            key,
-            index: None,
-            indentation: context.indentation,
-            parent: None,
-            include_keys_replacer: None,
-            depth: context.depth,
-            ancestors: context.ancestors,
-            itoa_buffer: context.itoa_buffer,
-            ryu_buffer: context.ryu_buffer,
-        },
-        add_comma,
-    )
+
+    return write_primitive2(context, add_comma, Some(new_value));
 }
 
-fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<PrimitiveStatus> {
+fn write_primitive<'a, 'js>(
+    context: &mut StringifyContext<'a, 'js>,
+    add_comma: bool,
+) -> Result<PrimitiveStatus<'js>> {
     if let Some(replacer_fn) = context.replacer_fn {
         return run_replacer(context, replacer_fn, add_comma);
     }
 
-    let include_keys_replacer = context.include_keys_replacer;
-    let value = context.value;
+    write_primitive2(context, add_comma, None)
+}
+
+fn write_primitive2<'a, 'js>(
+    context: &mut StringifyContext<'a, 'js>,
+    add_comma: bool,
+    new_value: Option<Value<'js>>,
+) -> Result<PrimitiveStatus<'js>> {
     let key = context.key;
     let index = context.index;
+    let include_keys_replacer = context.include_keys_replacer;
     let indentation = context.indentation;
     let depth = context.depth;
 
+    let value = new_value.as_ref().unwrap_or(context.value);
+
     let type_of = value.type_of();
 
-    if matches!(
-        type_of,
-        Type::Symbol | Type::Undefined | Type::Function | Type::Constructor
-    ) && context.index.is_none()
+    if context.index.is_none()
+        && matches!(
+            type_of,
+            Type::Symbol | Type::Undefined | Type::Function | Type::Constructor
+        )
     {
         return Ok(PrimitiveStatus::Ignored);
     }
@@ -289,7 +284,7 @@ fn write_primitive(context: &mut StringifyContext, add_comma: bool) -> Result<Pr
             context.result,
             &unsafe { value.as_string().unwrap_unchecked() }.to_string()?,
         ),
-        _ => return Ok(PrimitiveStatus::Iterate),
+        _ => return Ok(PrimitiveStatus::Iterate(new_value)),
     }
     Ok(PrimitiveStatus::Written)
 }
@@ -374,9 +369,9 @@ fn append_value(context: &mut StringifyContext<'_, '_>, add_comma: bool) -> Resu
     match write_primitive(context, add_comma)? {
         PrimitiveStatus::Written => Ok(true),
         PrimitiveStatus::Ignored => Ok(false),
-        PrimitiveStatus::Iterate => {
+        PrimitiveStatus::Iterate(new_value) => {
             context.depth += 1;
-            iterate(context)?;
+            iterate(context, new_value)?;
             Ok(true)
         },
     }
@@ -419,10 +414,13 @@ fn get_key_or_index<'a>(
     key.unwrap_or_else(|| itoa_buffer.format(index.unwrap_or_default()))
 }
 
-fn iterate(context: &mut StringifyContext<'_, '_>) -> Result<()> {
+fn iterate<'a, 'js>(
+    context: &mut StringifyContext<'a, 'js>,
+    new_value: Option<Value<'js>>,
+) -> Result<()> {
     let mut add_comma;
     let mut value_written;
-    let elem = context.value;
+    let elem = new_value.as_ref().unwrap_or(context.value);
     let depth = context.depth;
     let ctx = context.ctx;
     let indentation = context.indentation;

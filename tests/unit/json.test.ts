@@ -299,7 +299,7 @@ describe("JSON Stringified", () => {
   });
 
   it("should stringify and remove objects that are not valid json", () => {
-    const now = new Date()
+    const now = new Date();
     const dateString = now.toJSON();
     const data = {
       a: "123",
@@ -326,5 +326,25 @@ describe("JSON Stringified", () => {
         v: 1n,
       })
     ).toThrow(/Do not know how to serialize a BigInt/);
+  });
+
+  it("should allow replacer that returns new non-primitive objects", () => {
+    const json = JSON.stringify({ key: "value" });
+
+    const obj = {
+      simple: "text",
+      nested: json,
+    };
+
+    const replacer = (key: any, value: any) => {
+      try {
+        return typeof value === "string" ? JSON.parse(value) : value;
+      } catch {
+        return value;
+      }
+    };
+
+    const result = JSON.stringify(obj, replacer);
+    expect(result).toEqual('{"simple":"text","nested":{"key":"value"}}');
   });
 });

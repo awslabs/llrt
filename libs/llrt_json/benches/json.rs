@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![allow(dead_code)]
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use llrt_json::{parse::json_parse, stringify::json_stringify};
 use rquickjs::{Context, Runtime};
 
@@ -10,58 +10,60 @@ static JSON: &str = r#"{"organization":{"name":"TechCorp","founding_year":2000,"
 
 static JSON_MIN: &str = r#"{"glossary":{"title":"example glossary","GlossDiv":{"title":"S","GlossList":{"GlossEntry":{"ID":"SGML","SortAs":"SGML","GlossTerm":"Standard Generalized Markup Language","Acronym":"SGML","Abbrev":"ISO 8879:1986","GlossDef":{"para":"A meta-markup language, used to create markup languages such as DocBook.","GlossSeeAlso":["GML","XML"]},"GlossSee":"markup"}}}}}"#;
 
-// fn generate_json(child_json: &str, size: usize) -> String {
-//     let mut json = String::with_capacity(child_json.len() * size);
-//     json.push('{');
-//     for i in 0..size {
-//         json.push_str("\"obj");
-//         json.push_str(&i.to_string());
-//         json.push_str("\":");
-//         json.push_str(child_json);
-//         json.push(',');
-//     }
-//     json.push_str("\"array\":[");
-//     for i in 0..size {
-//         json.push_str(child_json);
-//         if i < size - 1 {
-//             json.push(',');
-//         }
-//     }
+fn generate_json(child_json: &str, size: usize) -> String {
+    let mut json = String::with_capacity(child_json.len() * size);
+    json.push('{');
+    for i in 0..size {
+        json.push_str("\"obj");
+        json.push_str(&i.to_string());
+        json.push_str("\":");
+        json.push_str(child_json);
+        json.push(',');
+    }
+    json.push_str("\"array\":[");
+    for i in 0..size {
+        json.push_str(child_json);
+        if i < size - 1 {
+            json.push(',');
+        }
+    }
 
-//     json.push_str("]}");
-//     json
-// }
+    json.push_str("]}");
+    json
+}
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    // let mut group = c.benchmark_group("Parsing");
+    let mut group = c.benchmark_group("Parsing");
 
-    // let json = JSON.to_owned();
-    // for (id, json) in [
-    //     json.clone(),
-    //     generate_json(&json, 1),
-    //     generate_json(&json, 10),
-    //     generate_json(&json, 100),
-    // ]
-    // .into_iter()
-    // .enumerate()
-    // {
-    //     let runtime = Runtime::new().unwrap();
-    //     runtime.set_max_stack_size(512 * 1024);
+    let json = JSON.to_owned();
+    for (id, json) in [
+        json.clone(),
+        generate_json(&json, 1),
+        generate_json(&json, 10),
+        generate_json(&json, 100),
+        generate_json(&json, 1000),
+        generate_json(&json, 10000),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let runtime = Runtime::new().unwrap();
+        runtime.set_max_stack_size(512 * 1024);
 
-    //     let ctx = Context::full(&runtime).unwrap();
-    //     group.bench_with_input(BenchmarkId::new("Custom", id), &json, |b, json| {
-    //         ctx.with(|ctx| {
-    //             b.iter(|| json_parse(&ctx, json.clone()));
-    //         });
-    //     });
-    //     group.bench_with_input(BenchmarkId::new("Built-in", id), &json, |b, json| {
-    //         ctx.with(|ctx| {
-    //             b.iter(|| ctx.json_parse(json.clone()));
-    //         });
-    //     });
-    // }
+        let ctx = Context::full(&runtime).unwrap();
+        group.bench_with_input(BenchmarkId::new("Custom", id), &json, |b, json| {
+            ctx.with(|ctx| {
+                b.iter(|| json_parse(&ctx, json.clone()));
+            });
+        });
+        group.bench_with_input(BenchmarkId::new("Built-in", id), &json, |b, json| {
+            ctx.with(|ctx| {
+                b.iter(|| ctx.json_parse(json.clone()));
+            });
+        });
+    }
 
-    // group.finish();
+    group.finish();
 
     c.bench_function("json parse", |b| {
         let runtime = Runtime::new().unwrap();
