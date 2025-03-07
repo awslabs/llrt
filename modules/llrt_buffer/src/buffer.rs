@@ -318,10 +318,14 @@ fn copy<'js>(
     let source_start = args_iter.next().unwrap_or_default();
     let source_end = args_iter.next().unwrap_or_else(|| this.0.len());
 
+    let mut copyable_length = 0;
+
+    if source_start >= source_end {
+        return Ok(copyable_length);
+    }
+
     let source_bytes = ObjectBytes::from(&ctx, this.0.as_inner())?;
     let source_bytes = source_bytes.as_bytes(&ctx)?;
-
-    let mut copyable_length = 0;
 
     if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
         let raw = array_buffer
