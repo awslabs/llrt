@@ -211,7 +211,7 @@ fn bytes_from_parts<'js>(
     Ok(data)
 }
 
-pub(crate) fn init<'js>(ctx: &Ctx<'js>, globals: &Object<'js>) -> Result<()> {
+pub fn init<'js>(ctx: &Ctx<'js>, globals: &Object<'js>) -> Result<()> {
     if let Some(constructor) = Class::<Blob>::create_constructor(ctx)? {
         constructor.prop(
             PredefinedAtom::SymbolHasInstance,
