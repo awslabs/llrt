@@ -118,6 +118,18 @@ pub fn require_resolve<'a>(
     y: &str,
     is_esm: bool,
 ) -> Result<Cow<'a, str>> {
+    // resolve symlink
+    let y = if let Ok(path) = Path::new(y).read_link() {
+        if path.is_absolute() {
+            path.to_string_lossy().to_string()
+        } else {
+            [y, "/../", path.to_string_lossy().as_ref()].concat()
+        }
+    } else {
+        y.to_string()
+    };
+    let y = y.as_str();
+
     trace!("require_resolve(x, y):({}, {})", x, y);
 
     // 1'. If X is a bytecode cache,
