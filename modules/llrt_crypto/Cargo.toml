@@ -49,7 +49,7 @@ ecdsa = "0.16"
 spki = { version = "0.7", features = ["std"] }
 pkcs8 = { version = "0.10", features = ["std"] }
 der = { version = "0.7", features = ["derive"] }
-const-oid = { version = "0.9", features = ["db"] }
+const-oid = { version = "0.10", features = ["db"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 memchr = "2"
