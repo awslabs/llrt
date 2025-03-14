@@ -149,6 +149,12 @@ fn maybeuninit_to_u8(vec: Vec<MaybeUninit<u8>>) -> Vec<u8> {
 
     std::mem::forget(vec);
 
+    // This conversion is safe because MaybeUninit has the same memory layout as u8, meaning the underlying bytes are identical.
+    // Since Vec<MaybeUninit> and Vec share the same memory representation, a simple reinterpretation of the pointer is valid.
+    // Additionally, Vec::from_raw_parts correctly reconstructs the vector using the original length and capacity, ensuring that memory ownership remains consistent.
+    // The call to std::mem::forget(vec) prevents the original Vec<MaybeUninit> from being dropped, avoiding double frees or memory corruption.
+    // However, this conversion is only safe if all elements of MaybeUninit are properly initialized.
+    // If any uninitialized values exist, reading them as u8 would lead to undefined behavior.
     unsafe { Vec::from_raw_parts(ptr, len, capacity) }
 }
 
