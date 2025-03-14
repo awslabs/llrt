@@ -557,6 +557,69 @@ describe("write", () => {
   });
 });
 
+describe("writeInt8", () => {
+  it("should write a 8-bit integer at the beginning of the buffer", () => {
+    const buf = Buffer.alloc(2);
+    expect(buf.writeInt8(0x01)).toEqual(1);
+    expect(buf).toEqual(Buffer.from([1, 0]));
+  });
+
+  it("should write a 8-bit integer at the specified offset in the buffer", () => {
+    const buf = Buffer.alloc(2);
+    expect(buf.writeInt8(0x01, 1)).toEqual(2);
+    expect(buf).toEqual(Buffer.from([0, 1]));
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(2);
+      buf.writeInt8(0x01, 3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("writeInt16BE", () => {
+  it("should write a 16-bit integer in big-endian format at the beginning of the buffer", () => {
+    const buf = Buffer.alloc(4);
+    expect(buf.writeInt16BE(0x0102)).toEqual(2);
+    expect(buf).toEqual(Buffer.from([1, 2, 0, 0]));
+  });
+
+  it("should write a 16-bit integer in big-endian format at the specified offset in the buffer", () => {
+    const buf = Buffer.alloc(4);
+    expect(buf.writeInt16BE(0x0102, 2)).toEqual(4);
+    expect(buf).toEqual(Buffer.from([0, 0, 1, 2]));
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(4);
+      buf.writeInt16BE(0x0102, 3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("writeInt16LE", () => {
+  it("should write a 16-bit integer in little-endian format at the beginning of the buffer", () => {
+    const buf = Buffer.alloc(4);
+    expect(buf.writeInt16LE(0x0102)).toEqual(2);
+    expect(buf).toEqual(Buffer.from([2, 1, 0, 0]));
+  });
+
+  it("should write a 16-bit integer in little-endian format at the specified offset in the buffer", () => {
+    const buf = Buffer.alloc(4);
+    expect(buf.writeInt16LE(0x0102, 2)).toEqual(4);
+    expect(buf).toEqual(Buffer.from([0, 0, 2, 1]));
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(4);
+      buf.writeInt16LE(0x0102, 3);
+    }).toThrow(RangeError);
+  });
+});
+
 describe("writeInt32BE", () => {
   it("should write a 32-bit integer in big-endian format at the beginning of the buffer", () => {
     const buf = Buffer.alloc(8);
@@ -574,6 +637,27 @@ describe("writeInt32BE", () => {
     expect(() => {
       const buf = Buffer.alloc(8);
       buf.writeInt32BE(0x01020304, 5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("writeInt32LE", () => {
+  it("should write a 32-bit integer in little-endian format at the beginning of the buffer", () => {
+    const buf = Buffer.alloc(8);
+    expect(buf.writeInt32LE(0x01020304)).toEqual(4);
+    expect(buf).toEqual(Buffer.from([4, 3, 2, 1, 0, 0, 0, 0]));
+  });
+
+  it("should write a 32-bit integer in little-endian format at the specified offset in the buffer", () => {
+    const buf = Buffer.alloc(8);
+    expect(buf.writeInt32LE(0x01020304, 4)).toEqual(8);
+    expect(buf).toEqual(Buffer.from([0, 0, 0, 0, 4, 3, 2, 1]));
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.writeInt32LE(0x01020304, 5);
     }).toThrow(RangeError);
   });
 });

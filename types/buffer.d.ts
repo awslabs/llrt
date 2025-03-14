@@ -248,7 +248,7 @@ declare module "buffer" {
      * ```
      *
      * ```js
-     * import { Buffer } from 'node:buffer';
+     * import { Buffer } from 'buffer';
      *
      * // Create a `Buffer` and copy data from one region to an overlapping region
      * // within the same `Buffer`.
@@ -364,6 +364,92 @@ declare module "buffer" {
      */
     toString(encoding?: BufferEncoding): string;
     /**
+     * Writes `value` to `buf` at the specified `offset`. `value` must be a valid
+     * signed 8-bit integer. Behavior is undefined when `value` is anything other than
+     * a signed 8-bit integer.
+     *
+     * `value` is interpreted and written as a two's complement signed integer.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(2);
+     *
+     * buf.writeInt8(2, 0);
+     * buf.writeInt8(-2, 1);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 02 fe>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 1`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeInt8(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian.  The `value` must be a valid signed 16-bit integer. Behavior is undefined when `value` is
+     * anything other than a signed 16-bit integer.
+     *
+     * The `value` is interpreted and written as a two's complement signed integer.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(2);
+     *
+     * buf.writeInt16LE(0x0304, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 04 03>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 2`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeInt16LE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian.  The `value` must be a valid signed 16-bit integer. Behavior is undefined when `value` is
+     * anything other than a signed 16-bit integer.
+     *
+     * The `value` is interpreted and written as a two's complement signed integer.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(2);
+     *
+     * buf.writeInt16BE(0x0102, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 01 02>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 2`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeInt16BE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a valid signed 32-bit integer. Behavior is undefined when `value` is
+     * anything other than a signed 32-bit integer.
+     *
+     * The `value` is interpreted and written as a two's complement signed integer.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeInt32LE(0x05060708, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 08 07 06 05>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeInt32LE(value: number, offset?: number): number;
+    /**
      * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a valid signed 32-bit integer. Behavior is undefined when `value` is
      * anything other than a signed 32-bit integer.
      *
@@ -379,7 +465,6 @@ declare module "buffer" {
      * console.log(buf);
      * // Prints: <Buffer 01 02 03 04>
      * ```
-     * @param value Number to be written to `buf`.
      * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
      * @return `offset` plus the number of bytes written.
      */

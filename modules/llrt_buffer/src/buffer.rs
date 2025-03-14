@@ -478,48 +478,97 @@ fn safe_byte_slice(s: &str, end: usize) -> (&[u8], usize) {
     (&bytes[0..valid_end], valid_end)
 }
 
-fn write_int32_be<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    value: i32,
-    offset: Opt<i32>,
-) -> Result<usize> {
-    let source_slice = [
-        (value >> 24) as u8,
-        (value >> 16) as u8,
-        (value >> 8) as u8,
-        value as u8,
-    ];
-    let offset = offset.0.unwrap_or_default();
-    let buf_length = this.0.len().try_into().unwrap_or(i32::MAX);
+#[derive(Clone, Copy)]
+pub enum Endian {
+    Little,
+    Big,
+}
 
-    if offset < 0 || offset + source_slice.len() as i32 > buf_length {
+fn write_int<'js, T: Into<i32> + Copy>(
+    this: &This<Object<'js>>,
+    ctx: &Ctx<'js>,
+    value: T,
+    offset: &Opt<usize>,
+    endian: Endian,
+    size: usize,
+) -> Result<usize> {
+    let value = value.into();
+    let source_slice: Vec<u8> = match endian {
+        Endian::Little => (0..size).map(|i| (value >> (i * 8)) as u8).collect(),
+        Endian::Big => (0..size).rev().map(|i| (value >> (i * 8)) as u8).collect(),
+    };
+
+    let offset = offset.0.unwrap_or_default();
+    let buf_length = this.0.len();
+
+    if offset >= buf_length || offset + source_slice.len() > buf_length {
         return Err(Exception::throw_range(
-            &ctx,
+            ctx,
             "The specified offset is out of range",
         ));
     }
 
-    let offset = offset as usize;
-
-    let target = ObjectBytes::from(&ctx, this.0.as_inner())?;
-
+    let target = ObjectBytes::from(ctx, this.0.as_inner())?;
     let mut writable_length = 0;
 
     if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
         let raw = array_buffer
             .as_raw()
             .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            .or_throw(&ctx)?;
+            .or_throw(ctx)?;
 
         let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
 
         writable_length = offset + source_slice.len();
-
         target_bytes[offset..writable_length].copy_from_slice(&source_slice);
     }
 
     Ok(writable_length)
+}
+
+fn write_int8<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    value: i8,
+    offset: Opt<usize>,
+) -> Result<usize> {
+    write_int(&this, &ctx, value, &offset, Endian::Little, 1)
+}
+
+fn write_int16_be<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    value: i16,
+    offset: Opt<usize>,
+) -> Result<usize> {
+    write_int(&this, &ctx, value, &offset, Endian::Big, 2)
+}
+
+fn write_int16_le<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    value: i16,
+    offset: Opt<usize>,
+) -> Result<usize> {
+    write_int(&this, &ctx, value, &offset, Endian::Little, 2)
+}
+
+fn write_int32_be<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    value: i32,
+    offset: Opt<usize>,
+) -> Result<usize> {
+    write_int(&this, &ctx, value, &offset, Endian::Big, 4)
+}
+
+fn write_int32_le<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    value: i32,
+    offset: Opt<usize>,
+) -> Result<usize> {
+    write_int(&this, &ctx, value, &offset, Endian::Little, 4)
 }
 
 fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
@@ -537,7 +586,11 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     prototype.set("subarray", Func::from(subarray))?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
     prototype.set("write", Func::from(write))?;
+    prototype.set("writeInt8", Func::from(write_int8))?;
+    prototype.set("writeInt16BE", Func::from(write_int16_be))?;
+    prototype.set("writeInt16LE", Func::from(write_int16_le))?;
     prototype.set("writeInt32BE", Func::from(write_int32_be))?;
+    prototype.set("writeInt32LE", Func::from(write_int32_le))?;
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 
