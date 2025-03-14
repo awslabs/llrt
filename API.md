@@ -37,7 +37,15 @@
 
 [write](https://nodejs.org/api/buffer.html#bufwritestring-offset-length-encoding)
 
+[writeInt8](https://nodejs.org/api/buffer.html#bufwriteint8value-offset)
+
+[writeInt16BE](https://nodejs.org/api/buffer.html#bufwriteint16bevalue-offset)
+
+[writeInt16LE](https://nodejs.org/api/buffer.html#bufwriteint16levalue-offset)
+
 [writeInt32BE](https://nodejs.org/api/buffer.html#bufwriteint32bevalue-offset)
+
+[writeInt32LE](https://nodejs.org/api/buffer.html#bufwriteint32levalue-offset)
 
 ### constants
 
