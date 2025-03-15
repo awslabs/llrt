@@ -490,24 +490,71 @@ pub enum Endian {
     Big,
 }
 
-fn write_int<'js, T: Into<i32> + Copy>(
+#[allow(clippy::too_many_arguments)]
+fn write_value<'js>(
     this: &This<Object<'js>>,
     ctx: &Ctx<'js>,
-    value: T,
+    value: &Value<'js>,
     offset: &Opt<usize>,
     endian: Endian,
-    size: usize,
+    bits: u8,
+    signed: bool,
+    is_float: bool,
+    is_bigint: bool,
 ) -> Result<usize> {
-    let value = value.into();
-    let source_slice: Vec<u8> = match endian {
-        Endian::Little => (0..size).map(|i| (value >> (i * 8)) as u8).collect(),
-        Endian::Big => (0..size).rev().map(|i| (value >> (i * 8)) as u8).collect(),
+    let offset = offset.0.unwrap_or_default();
+
+    // Strict type validation
+    match (is_bigint, is_float) {
+        (true, _) if value.as_big_int().is_none() => {
+            return Err(Exception::throw_type(ctx, "Expected BigInt"))
+        },
+        (_, true) if !value.is_number() => {
+            return Err(Exception::throw_type(ctx, "Expected number"))
+        },
+        _ => (),
+    }
+
+    // Extract and convert value
+    let (byte_count, bytes) = if is_bigint {
+        let bigint = value.as_big_int().unwrap();
+        let (byte_count, val) = match (signed, bits) {
+            (true, 64) => (8, bigint.clone().to_i64().or_throw(ctx)? as u64),
+            (false, 64) => return Err(Exception::throw_type(ctx, "Uint64 is not supported")),
+            _ => return Err(Exception::throw_range(ctx, "Invalid BigInt size")),
+        };
+        (byte_count, endian_bytes(val, endian))
+    } else if is_float {
+        let float_val = value.as_float().unwrap();
+        match (bits, endian) {
+            (32, Endian::Big) => (4, (float_val as f32).to_bits().to_be_bytes().to_vec()),
+            (32, Endian::Little) => (4, (float_val as f32).to_bits().to_le_bytes().to_vec()),
+            (64, Endian::Big) => (8, float_val.to_bits().to_be_bytes().to_vec()),
+            (64, Endian::Little) => (8, float_val.to_bits().to_le_bytes().to_vec()),
+            _ => return Err(Exception::throw_range(ctx, "Invalid float size")),
+        }
+    } else {
+        let int_val = value.as_number().unwrap() as i64;
+        let bit_mask = (1i64 << bits) - 1;
+        let max_val = if signed {
+            (1i64 << (bits - 1)) - 1
+        } else {
+            bit_mask
+        };
+        let min_val = if signed { -max_val - 1 } else { 0 };
+
+        if int_val < min_val || int_val > max_val {
+            return Err(Exception::throw_range(ctx, "Value out of range"));
+        }
+
+        let masked = int_val & bit_mask;
+        (
+            (bits / 8) as usize,
+            shifted_bytes(masked as u64, bits, endian),
+        )
     };
 
-    let offset = offset.0.unwrap_or_default();
-    let buf_length = this.0.len();
-
-    if offset >= buf_length || offset + source_slice.len() > buf_length {
+    if offset >= this.0.len() || offset + byte_count > this.0.len() {
         return Err(Exception::throw_range(
             ctx,
             "The specified offset is out of range",
@@ -525,56 +572,46 @@ fn write_int<'js, T: Into<i32> + Copy>(
 
         let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
 
-        writable_length = offset + source_slice.len();
-        target_bytes[offset..writable_length].copy_from_slice(&source_slice);
+        writable_length = offset + bytes.len();
+        target_bytes[offset..writable_length].copy_from_slice(&bytes);
     }
 
     Ok(writable_length)
 }
 
-fn write_int8<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    value: i8,
-    offset: Opt<usize>,
-) -> Result<usize> {
-    write_int(&this, &ctx, value, &offset, Endian::Little, 1)
+// Pure mathematical byte generation
+fn endian_bytes(mut val: u64, endian: Endian) -> Vec<u8> {
+    let mut bytes = vec![0u8; 8];
+
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..8 {
+        bytes[i] = match endian {
+            Endian::Big => (val >> (56 - i * 8)) as u8,
+            Endian::Little => (val >> (i * 8)) as u8,
+        };
+        // Clear processed bits
+        match endian {
+            Endian::Big => val &= !(0xFF << ((7 - i) * 8)),
+            Endian::Little => val &= !(0xFF << (i * 8)),
+        }
+    }
+    bytes
 }
 
-fn write_int16_be<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    value: i16,
-    offset: Opt<usize>,
-) -> Result<usize> {
-    write_int(&this, &ctx, value, &offset, Endian::Big, 2)
-}
+fn shifted_bytes(mut val: u64, bits: u8, endian: Endian) -> Vec<u8> {
+    let byte_count = (bits / 8) as usize;
+    let mut bytes = vec![0u8; byte_count];
 
-fn write_int16_le<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    value: i16,
-    offset: Opt<usize>,
-) -> Result<usize> {
-    write_int(&this, &ctx, value, &offset, Endian::Little, 2)
-}
-
-fn write_int32_be<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    value: i32,
-    offset: Opt<usize>,
-) -> Result<usize> {
-    write_int(&this, &ctx, value, &offset, Endian::Big, 4)
-}
-
-fn write_int32_le<'js>(
-    this: This<Object<'js>>,
-    ctx: Ctx<'js>,
-    value: i32,
-    offset: Opt<usize>,
-) -> Result<usize> {
-    write_int(&this, &ctx, value, &offset, Endian::Little, 4)
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..byte_count {
+        let shift = match endian {
+            Endian::Big => (byte_count - 1 - i) * 8,
+            Endian::Little => i * 8,
+        };
+        bytes[i] = (val >> shift) as u8;
+        val &= !(0xFF << shift); // Clear processed bits
+    }
+    bytes
 }
 
 fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
@@ -592,11 +629,134 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     prototype.set("subarray", Func::from(subarray))?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
     prototype.set("write", Func::from(write))?;
-    prototype.set("writeInt8", Func::from(write_int8))?;
-    prototype.set("writeInt16BE", Func::from(write_int16_be))?;
-    prototype.set("writeInt16LE", Func::from(write_int16_le))?;
-    prototype.set("writeInt32BE", Func::from(write_int32_be))?;
-    prototype.set("writeInt32LE", Func::from(write_int32_le))?;
+    prototype.set(
+        "writeBigInt64BE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 64, true, false, true)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeBigInt64LE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 64, true, false, true)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeDoubleBE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 64, true, true, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeDoubleLE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 64, true, true, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeFloatBE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 32, true, true, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeFloatLE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 32, true, true, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeInt8",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 8, true, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeInt16BE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 16, true, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeInt16LE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 16, true, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeInt32BE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 32, true, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeInt32LE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 32, true, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeUInt8",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 8, false, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeUInt16BE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 16, false, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeUInt16LE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 16, false, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeUInt32BE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Big, 32, false, false, false)
+            },
+        ),
+    )?;
+    prototype.set(
+        "writeUInt32LE",
+        Func::from(
+            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
+                write_value(&t, &c, &v, &o, Endian::Little, 32, false, false, false)
+            },
+        ),
+    )?;
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 

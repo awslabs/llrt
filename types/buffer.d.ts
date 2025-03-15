@@ -364,6 +364,82 @@ declare module "buffer" {
      */
     toString(encoding?: BufferEncoding): string;
     /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a JavaScript number. Behavior is undefined when `value` is anything
+     * other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(8);
+     *
+     * buf.writeDoubleLE(123.456, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 77 be 9f 1a 2f dd 5e 40>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 8`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeDoubleLE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a JavaScript number. Behavior is undefined when `value` is anything
+     * other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(8);
+     *
+     * buf.writeDoubleBE(123.456, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 40 5e dd 2f 1a 9f be 77>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 8`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeDoubleBE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian. Behavior is
+     * undefined when `value` is anything other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeFloatLE(0xcafebabe, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer bb fe 4a 4f>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeFloatLE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian. Behavior is
+     * undefined when `value` is anything other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeFloatBE(0xcafebabe, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 4f 4a fe bb>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeFloatBE(value: number, offset?: number): number;
+    /**
      * Writes `value` to `buf` at the specified `offset`. `value` must be a valid
      * signed 8-bit integer. Behavior is undefined when `value` is anything other than
      * a signed 8-bit integer.

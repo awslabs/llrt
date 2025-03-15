@@ -37,6 +37,18 @@
 
 [write](https://nodejs.org/api/buffer.html#bufwritestring-offset-length-encoding)
 
+[writeBigInt64BE](https://nodejs.org/api/buffer.html#bufwritebigint64bevalue-offset)
+
+[writeBigInt64LE](https://nodejs.org/api/buffer.html#bufwritebigint64levalue-offset)
+
+[writeDoubleBE](https://nodejs.org/api/buffer.html#bufwritedoublebevalue-offset)
+
+[writeDoubleLE](https://nodejs.org/api/buffer.html#bufwritedoublelevalue-offset)
+
+[writeFloatBE](https://nodejs.org/api/buffer.html#bufwritefloatbevalue-offset)
+
+[writeFloatLE](https://nodejs.org/api/buffer.html#bufwritefloatlevalue-offset)
+
 [writeInt8](https://nodejs.org/api/buffer.html#bufwriteint8value-offset)
 
 [writeInt16BE](https://nodejs.org/api/buffer.html#bufwriteint16bevalue-offset)
@@ -46,6 +58,16 @@
 [writeInt32BE](https://nodejs.org/api/buffer.html#bufwriteint32bevalue-offset)
 
 [writeInt32LE](https://nodejs.org/api/buffer.html#bufwriteint32levalue-offset)
+
+[writeUInt8](https://nodejs.org/api/buffer.html#bufwriteuint8value-offset)
+
+[writeUInt16BE](https://nodejs.org/api/buffer.html#bufwriteuint16bevalue-offset)
+
+[writeUInt16LE](https://nodejs.org/api/buffer.html#bufwriteuint16levalue-offset)
+
+[writeUInt32BE](https://nodejs.org/api/buffer.html#bufwriteuint32bevalue-offset)
+
+[writeUInt32LE](https://nodejs.org/api/buffer.html#bufwriteuint32levalue-offset)
 
 ### constants
 
