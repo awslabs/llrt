@@ -426,45 +426,33 @@ fn write<'js>(
 }
 
 fn get_write_parameters(args: &Rest<Value<'_>>, len: usize) -> Result<(usize, usize, String)> {
-    let encoding = "utf8".to_owned();
+    let mut offset = 0;
+    let mut length = len;
+    let mut encoding = "utf8".to_owned();
 
-    match (args.0.first(), args.0.get(1), args.0.get(2)) {
-        (Some(v1), _, _) if v1.as_string().is_some() => {
-            Ok((0, len, v1.as_string().unwrap().to_string()?))
-        },
-
-        (Some(v1), Some(v2), _) if v2.as_string().is_some() => {
-            let offset = v1.as_int().unwrap_or(0) as usize;
-            Ok((offset, len - offset, v2.as_string().unwrap().to_string()?))
-        },
-
-        (Some(v1), Some(v2), Some(v3)) => {
-            let offset = v1.as_int().unwrap_or(0) as usize;
-            Ok((
-                offset,
-                v2.as_int()
-                    .map_or(len - offset, |l| (l as usize).min(len - offset)),
-                v3.as_string().map_or(encoding, |s| s.to_string().unwrap()),
-            ))
-        },
-
-        (Some(v1), Some(v2), None) => {
-            let offset = v1.as_int().unwrap_or(0) as usize;
-            Ok((
-                offset,
-                v2.as_int()
-                    .map_or(len - offset, |l| (l as usize).min(len - offset)),
-                encoding,
-            ))
-        },
-
-        (Some(v1), None, None) => {
-            let offset = v1.as_int().unwrap_or(0) as usize;
-            Ok((offset, len - offset, encoding))
-        },
-
-        _ => Ok((0, len, encoding)),
+    if let Some(v1) = args.0.first() {
+        if let Some(s) = v1.as_string() {
+            return Ok((0, len, s.to_string()?));
+        }
+        offset = v1.as_int().unwrap_or(0) as usize;
     }
+
+    if let Some(v2) = args.0.get(1) {
+        if let Some(s) = v2.as_string() {
+            return Ok((offset, len - offset, s.to_string()?));
+        }
+        length = v2
+            .as_int()
+            .map_or(len - offset, |l| (l as usize).min(len - offset));
+    }
+
+    if let Some(v3) = args.0.get(2) {
+        if let Some(s) = v3.as_string() {
+            encoding = s.to_string()?;
+        }
+    }
+
+    Ok((offset, length, encoding))
 }
 
 fn safe_byte_slice(s: &str, end: usize) -> (&[u8], usize) {
