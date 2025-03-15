@@ -805,13 +805,13 @@ describe("writeInt32LE", () => {
 });
 
 describe("writeUInt8", () => {
-  it("should write a 8-bit integer at the beginning of the buffer", () => {
+  it("should write a 8-bit unsigned integer at the beginning of the buffer", () => {
     const buf = Buffer.alloc(2);
     expect(buf.writeUInt8(2)).toEqual(1);
     expect(buf).toEqual(Buffer.from([2, 0]));
   });
 
-  it("should write a 8-bit integer at the specified offset in the buffer", () => {
+  it("should write a 8-bit unsigned integer at the specified offset in the buffer", () => {
     const buf = Buffer.alloc(4);
     expect(buf.writeUInt8(0x3, 0)).toEqual(1);
     expect(buf.writeUInt8(0x4, 1)).toEqual(2);
@@ -829,13 +829,13 @@ describe("writeUInt8", () => {
 });
 
 describe("writeUInt16BE", () => {
-  it("should write a 16-bit integer in big-endian format at the beginning of the buffer", () => {
+  it("should write a 16-bit unsigned integer in big-endian format at the beginning of the buffer", () => {
     const buf = Buffer.alloc(4);
     expect(buf.writeUInt16BE(0xdead)).toEqual(2);
     expect(buf).toEqual(Buffer.from([222, 173, 0, 0]));
   });
 
-  it("should write a 16-bit integer in big-endian format at the specified offset in the buffer", () => {
+  it("should write a 16-bit unsigned integer in big-endian format at the specified offset in the buffer", () => {
     const buf = Buffer.alloc(4);
     expect(buf.writeUInt16BE(0xbeef, 2)).toEqual(4);
     expect(buf).toEqual(Buffer.from([0, 0, 190, 239]));
@@ -850,13 +850,13 @@ describe("writeUInt16BE", () => {
 });
 
 describe("writeUInt16LE", () => {
-  it("should write a 16-bit integer in little-endian format at the beginning of the buffer", () => {
+  it("should write a 16-bit unsigned integer in little-endian format at the beginning of the buffer", () => {
     const buf = Buffer.alloc(4);
     expect(buf.writeUInt16LE(0xdead)).toEqual(2);
     expect(buf).toEqual(Buffer.from([173, 222, 0, 0]));
   });
 
-  it("should write a 16-bit integer in little-endian format at the specified offset in the buffer", () => {
+  it("should write a 16-bit unsigned integer in little-endian format at the specified offset in the buffer", () => {
     const buf = Buffer.alloc(4);
     expect(buf.writeUInt16LE(0xbeef, 2)).toEqual(4);
     expect(buf).toEqual(Buffer.from([0, 0, 239, 190]));
@@ -871,13 +871,13 @@ describe("writeUInt16LE", () => {
 });
 
 describe("writeUInt32BE", () => {
-  it("should write a 32-bit integer in big-endian format at the beginning of the buffer", () => {
+  it("should write a 32-bit unsigned integer in big-endian format at the beginning of the buffer", () => {
     const buf = Buffer.alloc(8);
     expect(buf.writeUInt32BE(0xfeedface)).toEqual(4);
     expect(buf).toEqual(Buffer.from([254, 237, 250, 206, 0, 0, 0, 0]));
   });
 
-  it("should write a 32-bit integer in big-endian format at the specified offset in the buffer", () => {
+  it("should write a 32-bit unsigned integer in big-endian format at the specified offset in the buffer", () => {
     const buf = Buffer.alloc(8);
     expect(buf.writeUInt32BE(0xfeedface, 4)).toEqual(8);
     expect(buf).toEqual(Buffer.from([0, 0, 0, 0, 254, 237, 250, 206]));
@@ -891,23 +891,23 @@ describe("writeUInt32BE", () => {
   });
 });
 
-describe("writeInt32LE", () => {
-  it("should write a 32-bit integer in little-endian format at the beginning of the buffer", () => {
+describe("writeUInt32LE", () => {
+  it("should write a 32-bit unsigned integer in little-endian format at the beginning of the buffer", () => {
     const buf = Buffer.alloc(8);
     expect(buf.writeUInt32LE(0xfeedface)).toEqual(4);
     expect(buf).toEqual(Buffer.from([206, 250, 237, 254, 0, 0, 0, 0]));
   });
 
-  it("should write a 32-bit integer in little-endian format at the specified offset in the buffer", () => {
+  it("should write a 32-bit unsigned integer in little-endian format at the specified offset in the buffer", () => {
     const buf = Buffer.alloc(8);
-    expect(buf.writeInt32LE(0x01020304, 4)).toEqual(8);
+    expect(buf.writeUInt32LE(0x01020304, 4)).toEqual(8);
     expect(buf).toEqual(Buffer.from([0, 0, 0, 0, 4, 3, 2, 1]));
   });
 
   it("should throw a RangeError if the offset is out of bounds", () => {
     expect(() => {
       const buf = Buffer.alloc(8);
-      buf.writeInt32LE(0x01020304, 5);
+      buf.writeUInt32LE(0x01020304, 5);
     }).toThrow(RangeError);
   });
 });
