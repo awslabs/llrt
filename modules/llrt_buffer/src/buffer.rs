@@ -479,7 +479,7 @@ pub enum Endian {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn write_value<'js>(
+fn write_buf<'js>(
     this: &This<Object<'js>>,
     ctx: &Ctx<'js>,
     value: &Value<'js>,
@@ -619,131 +619,67 @@ fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     prototype.set("write", Func::from(write))?;
     prototype.set(
         "writeBigInt64BE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 64, true, false, true)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 64, true, false, true)),
     )?;
     prototype.set(
         "writeBigInt64LE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 64, true, false, true)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 64, true, false, true)),
     )?;
     prototype.set(
         "writeDoubleBE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 64, true, true, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 64, true, true, false)),
     )?;
     prototype.set(
         "writeDoubleLE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 64, true, true, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 64, true, true, false)),
     )?;
     prototype.set(
         "writeFloatBE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 32, true, true, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 32, true, true, false)),
     )?;
     prototype.set(
         "writeFloatLE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 32, true, true, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 32, true, true, false)),
     )?;
     prototype.set(
         "writeInt8",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 8, true, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 8, true, false, false)),
     )?;
     prototype.set(
         "writeInt16BE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 16, true, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 16, true, false, false)),
     )?;
     prototype.set(
         "writeInt16LE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 16, true, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 16, true, false, false)),
     )?;
     prototype.set(
         "writeInt32BE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 32, true, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 32, true, false, false)),
     )?;
     prototype.set(
         "writeInt32LE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 32, true, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 32, true, false, false)),
     )?;
     prototype.set(
         "writeUInt8",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 8, false, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 8, false, false, false)),
     )?;
     prototype.set(
         "writeUInt16BE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 16, false, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 16, false, false, false)),
     )?;
     prototype.set(
         "writeUInt16LE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 16, false, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 16, false, false, false)),
     )?;
     prototype.set(
         "writeUInt32BE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Big, 32, false, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 32, false, false, false)),
     )?;
     prototype.set(
         "writeUInt32LE",
-        Func::from(
-            |t: This<Object<'js>>, c: Ctx<'js>, v: Value<'js>, o: Opt<usize>| {
-                write_value(&t, &c, &v, &o, Endian::Little, 32, false, false, false)
-            },
-        ),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 32, false, false, false)),
     )?;
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
