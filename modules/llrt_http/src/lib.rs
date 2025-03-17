@@ -116,7 +116,7 @@ pub fn set_http_version(version: HttpVersion) {
 
 fn get_http_version() -> HttpVersion {
     *HTTP_VERSION.get_or_init(|| {
-        #[cfg(any(feature = "http2", feature = "http1"))]
+        #[cfg(all(feature = "http2", feature = "http1"))]
         {
             HttpVersion::Http1_1
         }
