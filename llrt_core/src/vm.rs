@@ -3,6 +3,7 @@
 use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult};
 
 use llrt_json::{parse::json_parse_string, stringify::json_stringify_replacer_space};
+use llrt_logging::LogLevel;
 use llrt_numbers::number_to_string;
 use llrt_utils::{
     clone::structured_clone,
@@ -181,9 +182,7 @@ impl Vm {
         let mut error_str = String::new();
         write!(error_str, "Error: {:?}", err).unwrap();
         if let Ok(error) = err.into_value(ctx) {
-            if console::log_std_err(ctx, Rest(vec![error.clone()]), console::LogLevel::Fatal)
-                .is_err()
-            {
+            if console::log_std_err(ctx, Rest(vec![error.clone()]), LogLevel::Fatal).is_err() {
                 eprintln!("{}", error_str);
             };
             if cfg!(test) {

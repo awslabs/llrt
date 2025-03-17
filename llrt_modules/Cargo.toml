@@ -8,8 +8,10 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["all"]
-all = [
+default = ["base", "console"]
+lambda = ["base"]
+
+base = [
   "abort",
   "assert",
   "buffer",
@@ -28,9 +30,9 @@ all = [
   "process",
   "stream-web",
   "timers",
+  "tty",
   "url",
   "zlib",
-  "tty",
 ]
 
 # Modules
@@ -38,6 +40,7 @@ abort = ["llrt_abort"]
 assert = ["llrt_assert"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
+console = ["llrt_console"]
 crypto = ["llrt_crypto"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
@@ -52,15 +55,16 @@ process = ["llrt_process"]
 perf-hooks = ["llrt_perf_hooks"]
 stream-web = ["llrt_stream_web"]
 timers = ["llrt_timers"]
+tty = ["llrt_tty"]
 url = ["llrt_url"]
 zlib = ["llrt_zlib"]
-tty = ["llrt_tty"]
 
 [dependencies]
 llrt_abort = { version = "0.5.1-beta", path = "../modules/llrt_abort", optional = true }
 llrt_assert = { version = "0.5.1-beta", path = "../modules/llrt_assert", optional = true }
 llrt_buffer = { version = "0.5.1-beta", path = "../modules/llrt_buffer", optional = true }
 llrt_child_process = { version = "0.5.1-beta", path = "../modules/llrt_child_process", optional = true }
+llrt_console = { version = "0.5.1-beta", path = "../modules/llrt_console", optional = true }
 llrt_crypto = { version = "0.5.1-beta", path = "../modules/llrt_crypto", optional = true }
 llrt_dns = { version = "0.5.1-beta", path = "../modules/llrt_dns", optional = true }
 llrt_events = { version = "0.5.1-beta", path = "../modules/llrt_events", optional = true }
@@ -75,7 +79,7 @@ llrt_process = { version = "0.5.1-beta", path = "../modules/llrt_process", optio
 llrt_perf_hooks = { version = "0.5.1-beta", path = "../modules/llrt_perf_hooks", optional = true }
 llrt_stream_web = { version = "0.5.1-beta", path = "../modules/llrt_stream_web", optional = true }
 llrt_timers = { version = "0.5.1-beta", path = "../modules/llrt_timers", optional = true }
+llrt_tty = { version = "0.5.1-beta", path = "../modules/llrt_tty", optional = true }
 llrt_url = { version = "0.5.1-beta", path = "../modules/llrt_url", optional = true }
 llrt_utils = { version = "0.5.1-beta", path = "../libs/llrt_utils" }
 llrt_zlib = { version = "0.5.1-beta", path = "../modules/llrt_zlib", optional = true }
-llrt_tty = { version = "0.5.1-beta", path = "../modules/llrt_tty", optional = true }

@@ -1624,6 +1624,7 @@ dependencies = [
  "constcat",
  "crossterm",
  "llrt_core",
+ "llrt_logging",
  "llrt_test",
  "llrt_utils",
  "snmalloc-rs",
@@ -1700,6 +1701,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_console"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_logging",
+ "llrt_utils",
+ "rquickjs",
+]
+
+[[package]]
 name = "llrt_context"
 version = "0.5.1-beta"
 dependencies = [
@@ -1726,9 +1736,11 @@ dependencies = [
  "jwalk",
  "libc",
  "llrt_build",
+ "llrt_console",
  "llrt_context",
  "llrt_encoding",
  "llrt_json",
+ "llrt_logging",
  "llrt_modules",
  "llrt_numbers",
  "llrt_test",
@@ -1911,6 +1923,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_logging"
+version = "0.5.1-beta"
+dependencies = [
+ "itoa",
+ "llrt_context",
+ "llrt_encoding",
+ "llrt_json",
+ "llrt_numbers",
+ "llrt_utils",
+ "rquickjs",
+ "ryu",
+ "terminal_size",
+]
+
+[[package]]
 name = "llrt_modules"
 version = "0.5.1-beta"
 dependencies = [
@@ -1918,6 +1945,7 @@ dependencies = [
  "llrt_assert",
  "llrt_buffer",
  "llrt_child_process",
+ "llrt_console",
  "llrt_crypto",
  "llrt_dns",
  "llrt_events",

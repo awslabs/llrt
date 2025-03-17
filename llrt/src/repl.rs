@@ -13,8 +13,8 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 use llrt_core::{
-    async_with, atom::PredefinedAtom, context::EvalOptions, function::Rest, modules::console,
-    AsyncContext, CatchResultExt, Ctx, Error, Object, Promise,
+    async_with, atom::PredefinedAtom, context::EvalOptions, function::Rest, AsyncContext,
+    CatchResultExt, Ctx, Error, Object, Promise,
 };
 use llrt_utils::{error::ErrorExtensions, result::ResultExt};
 
@@ -30,7 +30,7 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
         let promise = ctx.eval_with_options::<Promise, _>(input.as_bytes(), options)?;
         let future = promise.into_future::<Object>();
         let value = future.await?.get(PredefinedAtom::Value)?;
-        console::format_values(ctx, Rest(vec![value]), tty)
+        llrt_logging::format_values(ctx, Rest(vec![value]), tty, true)
     }
     .await
     .catch(ctx)
@@ -39,7 +39,7 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
         Err(error) => {
             match (|| {
                 let error_value = error.into_value(ctx)?;
-                console::format_values(ctx, Rest(vec![error_value]), tty)
+                llrt_logging::format_values(ctx, Rest(vec![error_value]), tty, true)
             })() {
                 Ok(s) => s,
                 Err(err) => err.to_string(),

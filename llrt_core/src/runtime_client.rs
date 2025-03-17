@@ -19,6 +19,7 @@ use llrt_json::{
     parse::json_parse,
     stringify::{self, json_stringify},
 };
+use llrt_logging::{format_values, replace_newline_with_carriage_return};
 use llrt_utils::class::get_class_name;
 use once_cell::sync::Lazy;
 use rquickjs::{
@@ -28,7 +29,6 @@ use rquickjs::{
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use crate::modules::console;
 use crate::modules::http::{HyperClient, HTTP_CLIENT};
 use crate::utils::latch::Latch;
 use crate::utils::result::ResultExt;
@@ -497,13 +497,13 @@ async fn post_error<'js>(
             error_type = Some(error_name);
 
             if let Some(mut stack) = ex.stack() {
-                console::replace_newline_with_carriage_return(&mut stack);
+                replace_newline_with_carriage_return(&mut stack);
                 error_stack = Some(stack);
             }
             str
         },
         CaughtError::Value(value) => {
-            let log_msg = console::format_values(ctx, Rest(vec![value.clone()]), false)
+            let log_msg = format_values(ctx, Rest(vec![value.clone()]), false, true)
                 .unwrap_or(String::from("{unknown value}"));
             ["Error: ", &log_msg].concat()
         },
@@ -519,14 +519,10 @@ async fn post_error<'js>(
     error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
     let error_object = error_object.into_value();
 
-    #[cfg(not(test))]
-    {
-        console::log_std_err(
-            ctx,
-            Rest(vec![error_object.clone()]),
-            console::LogLevel::Error,
-        )?;
-    }
+    // #[cfg(not(test))]
+    // {
+    //     console::log_std_err(ctx, Rest(vec![error_object.clone()]), LogLevel::Error)?;
+    // }
 
     let error_body = json_stringify(ctx, error_object)?.unwrap_or_default();
 

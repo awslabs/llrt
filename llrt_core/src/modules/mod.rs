@@ -5,7 +5,12 @@ pub use llrt_modules::{
     net, os, path, perf_hooks, process, stream_web, tty, url, zlib,
 };
 
+#[cfg(not(feature = "lambda"))]
+pub use llrt_modules::console;
+
+#[cfg(feature = "lambda")]
 pub mod console;
+
 pub mod llrt;
 pub mod module;
 pub mod util;
