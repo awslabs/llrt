@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::io::{stderr, stdout, IsTerminal, Write};
 
-use llrt_logging::{build_formatted_string, format, get_dimensions, FormatOptions, NEWLINE};
+use llrt_logging::{build_formatted_string, get_dimensions, FormatOptions, NEWLINE};
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -155,7 +155,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("warn", Func::from(log_warn))?;
     console.set("assert", Func::from(log_assert))?;
     console.prop("__dimensions", Accessor::from(get_dimensions))?;
-    console.set("__format", Func::from(|ctx, args| format(&ctx, true, args)))?;
 
     globals.set("console", console)?;
 
