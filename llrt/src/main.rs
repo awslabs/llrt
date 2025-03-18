@@ -8,8 +8,6 @@ mod repl;
 use constcat::concat;
 #[cfg(not(feature = "lambda"))]
 use llrt_core::compiler::compile_file;
-#[cfg(feature = "lambda")]
-use llrt_core::modules::console::lambda_mode_initializer;
 use llrt_core::{
     async_with,
     bytecode::BYTECODE_EXT,
@@ -45,11 +43,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
 
     if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
-        #[cfg(feature = "lambda")]
-        {
-            lambda_mode_initializer();
-        }
-
         start_runtime(&vm).await
     } else {
         start_cli(&vm).await;

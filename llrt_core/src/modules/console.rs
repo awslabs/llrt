@@ -30,7 +30,7 @@ static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
 static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
 static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
 
-pub fn lambda_mode_initializer() {
+fn lambda_mode_initializer() {
     let aws_lambda_json_log_format = env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("JSON".to_string());
     let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();
     let log_level = LogLevel::from_str(&aws_lambda_log_level);
@@ -351,6 +351,8 @@ impl From<ConsoleModule> for ModuleInfo<ConsoleModule> {
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    lambda_mode_initializer();
+
     let globals = ctx.globals();
 
     let console = Object::new(ctx.clone())?;
