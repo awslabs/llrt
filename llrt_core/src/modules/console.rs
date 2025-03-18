@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    env,
     fmt::Write as FormatWrite,
     io::{stderr, stdout, IsTerminal, Write},
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -25,9 +26,19 @@ use rquickjs::{
 
 use crate::runtime_client;
 
-pub static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
-pub static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
-pub static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
+static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
+static AWS_LAMBDA_JSON_LOG_FORMAT: AtomicBool = AtomicBool::new(false);
+static AWS_LAMBDA_JSON_LOG_LEVEL: AtomicUsize = AtomicUsize::new(LogLevel::Info as usize);
+
+pub fn lambda_mode_initializer() {
+    let aws_lambda_json_log_format = env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("JSON".to_string());
+    let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();
+    let log_level = LogLevel::from_str(&aws_lambda_log_level);
+
+    AWS_LAMBDA_JSON_LOG_LEVEL.store(log_level as usize, Ordering::Relaxed);
+    AWS_LAMBDA_MODE.store(true, Ordering::Relaxed);
+    AWS_LAMBDA_JSON_LOG_FORMAT.store(aws_lambda_json_log_format, Ordering::Relaxed);
+}
 
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
@@ -72,44 +83,41 @@ impl Console {
     }
 }
 
-fn log_error<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_err(&ctx, args, LogLevel::Error)
+pub fn log_fatal<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    write_log(stderr(), &ctx, args, LogLevel::Fatal)
+}
+
+pub fn log_error<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    write_log(stderr(), &ctx, args, LogLevel::Error)
 }
 
 fn log_warn<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_err(&ctx, args, LogLevel::Warn)
+    write_log(stderr(), &ctx, args, LogLevel::Warn)
 }
 
 fn log_debug<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(&ctx, args, LogLevel::Debug)
+    write_log(stdout(), &ctx, args, LogLevel::Debug)
 }
 
 fn log_trace<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(&ctx, args, LogLevel::Trace)
+    write_log(stdout(), &ctx, args, LogLevel::Trace)
 }
 
 fn log_assert<'js>(ctx: Ctx<'js>, expression: bool, args: Rest<Value<'js>>) -> Result<()> {
     if !expression {
-        log_error(ctx, args)?;
+        write_log(stderr(), &ctx, args, LogLevel::Error)?
     }
-
     Ok(())
 }
 
 fn log<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(&ctx, args, LogLevel::Info)
+    write_log(stdout(), &ctx, args, LogLevel::Info)
 }
 
 fn clear() {
-    let _ = stdout().write_all(b"\x1b[1;1H\x1b[0J");
-}
-
-fn log_std_out<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
-    write_log(stdout(), ctx, args, level)
-}
-
-pub fn log_std_err<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
-    write_log(stderr(), ctx, args, level)
+    if stdout().is_terminal() {
+        let _ = stdout().write_all(b"\x1b[1;1H\x1b[0J");
+    }
 }
 
 #[allow(clippy::unused_io_amount)]

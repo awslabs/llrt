@@ -8,8 +8,7 @@ use std::{
 };
 
 use chrono::Utc;
-use http_body_util::combinators::BoxBody;
-use http_body_util::{BodyExt, Full};
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{
     header::{HeaderMap, CONTENT_TYPE},
     http::header::HeaderName,
@@ -29,9 +28,10 @@ use rquickjs::{
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
+#[cfg(not(test))]
+use crate::modules::console::log_error;
 use crate::modules::http::{HyperClient, HTTP_CLIENT};
-use crate::utils::latch::Latch;
-use crate::utils::result::ResultExt;
+use crate::utils::{latch::Latch, result::ResultExt};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
@@ -519,10 +519,10 @@ async fn post_error<'js>(
     error_object.set("requestId", request_id.unwrap_or(&String::from("n/a")))?;
     let error_object = error_object.into_value();
 
-    // #[cfg(not(test))]
-    // {
-    //     console::log_std_err(ctx, Rest(vec![error_object.clone()]), LogLevel::Error)?;
-    // }
+    #[cfg(not(test))]
+    {
+        log_error(ctx.clone(), Rest(vec![error_object.clone()]))?;
+    }
 
     let error_body = json_stringify(ctx, error_object)?.unwrap_or_default();
 

@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::io::{stderr, stdout, IsTerminal, Write};
 
-use llrt_logging::{
-    build_formatted_string, format, get_dimensions, FormatOptions, LogLevel, NEWLINE,
-};
-
+use llrt_logging::{build_formatted_string, format, get_dimensions, FormatOptions, NEWLINE};
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -63,53 +60,42 @@ impl Console {
     }
 }
 
-fn log_error<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_err(&ctx, args, LogLevel::Error)
+pub fn log_fatal<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    write_log(stderr(), &ctx, args)
+}
+
+pub fn log_error<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    write_log(stderr(), &ctx, args)
 }
 
 fn log_warn<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_err(&ctx, args, LogLevel::Warn)
+    write_log(stderr(), &ctx, args)
 }
 
 fn log_debug<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(&ctx, args, LogLevel::Debug)
+    write_log(stdout(), &ctx, args)
 }
 
 fn log_trace<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(&ctx, args, LogLevel::Trace)
+    write_log(stdout(), &ctx, args)
 }
 
 fn log_assert<'js>(ctx: Ctx<'js>, expression: bool, args: Rest<Value<'js>>) -> Result<()> {
     if !expression {
-        log_error(ctx, args)?;
+        write_log(stderr(), &ctx, args)?;
     }
-
     Ok(())
 }
 
 fn log<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    log_std_out(&ctx, args, LogLevel::Info)
+    write_log(stdout(), &ctx, args)
 }
 
 fn clear() {
     let _ = stdout().write_all(b"\x1b[1;1H\x1b[0J");
 }
 
-fn log_std_out<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
-    write_log(stdout(), ctx, args, level)
-}
-
-pub fn log_std_err<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>, level: LogLevel) -> Result<()> {
-    write_log(stderr(), ctx, args, level)
-}
-
-#[allow(clippy::unused_io_amount)]
-fn write_log<'js, T>(
-    mut output: T,
-    ctx: &Ctx<'js>,
-    args: Rest<Value<'js>>,
-    _level: LogLevel,
-) -> Result<()>
+fn write_log<'js, T>(mut output: T, ctx: &Ctx<'js>, args: Rest<Value<'js>>) -> Result<()>
 where
     T: Write + IsTerminal,
 {

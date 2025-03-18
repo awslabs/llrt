@@ -6,6 +6,10 @@ mod minimal_tracer;
 mod repl;
 
 use constcat::concat;
+#[cfg(not(feature = "lambda"))]
+use llrt_core::compiler::compile_file;
+#[cfg(feature = "lambda")]
+use llrt_core::modules::console::lambda_mode_initializer;
 use llrt_core::{
     async_with,
     bytecode::BYTECODE_EXT,
@@ -26,18 +30,6 @@ use std::{
 };
 use tracing::trace;
 
-#[cfg(not(feature = "lambda"))]
-use llrt_core::compiler::compile_file;
-
-#[cfg(feature = "lambda")]
-use llrt_core::modules::console::{
-    AWS_LAMBDA_JSON_LOG_FORMAT, AWS_LAMBDA_JSON_LOG_LEVEL, AWS_LAMBDA_MODE,
-};
-#[cfg(feature = "lambda")]
-use llrt_logging::LogLevel;
-#[cfg(feature = "lambda")]
-use std::sync::atomic::Ordering;
-
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
@@ -55,14 +47,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
         #[cfg(feature = "lambda")]
         {
-            let aws_lambda_json_log_format =
-                env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("JSON".to_string());
-            let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();
-            let log_level = LogLevel::from_str(&aws_lambda_log_level);
-
-            AWS_LAMBDA_JSON_LOG_LEVEL.store(log_level as usize, Ordering::Relaxed);
-            AWS_LAMBDA_MODE.store(true, Ordering::Relaxed);
-            AWS_LAMBDA_JSON_LOG_FORMAT.store(aws_lambda_json_log_format, Ordering::Relaxed);
+            lambda_mode_initializer();
         }
 
         start_runtime(&vm).await
