@@ -10,7 +10,7 @@ use rquickjs::{
 
 use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
-pub fn dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
+fn dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
     let array = Array::new(ctx.clone())?;
     match terminal_size::terminal_size() {
         Some((width, height)) => {
