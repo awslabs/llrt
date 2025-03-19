@@ -10,8 +10,8 @@ use std::{
 use chrono::{DateTime, Utc};
 use llrt_json::{escape::escape_json, stringify::json_stringify};
 use llrt_logging::{
-    build_formatted_string, format, get_dimensions, replace_newline_with_carriage_return,
-    FormatOptions, LogLevel, NEWLINE, TIME_FORMAT,
+    build_formatted_string, replace_newline_with_carriage_return, FormatOptions, LogLevel, NEWLINE,
+    TIME_FORMAT,
 };
 use llrt_utils::{
     class::get_class_name,
@@ -19,7 +19,6 @@ use llrt_utils::{
 };
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    object::Accessor,
     prelude::{Func, Rest},
     Array, Class, Ctx, Object, Result, Value,
 };
@@ -357,19 +356,14 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     let console = Object::new(ctx.clone())?;
 
-    console.set("log", Func::from(log))?;
+    console.set("assert", Func::from(log_assert))?;
     console.set("clear", Func::from(clear))?;
     console.set("debug", Func::from(log_debug))?;
-    console.set("info", Func::from(log))?;
-    console.set("trace", Func::from(log_trace))?;
     console.set("error", Func::from(log_error))?;
+    console.set("info", Func::from(log))?;
+    console.set("log", Func::from(log))?;
+    console.set("trace", Func::from(log_trace))?;
     console.set("warn", Func::from(log_warn))?;
-    console.set("assert", Func::from(log_assert))?;
-    console.prop("__dimensions", Accessor::from(get_dimensions))?;
-    console.set(
-        "__format",
-        Func::from(|ctx, args| format(&ctx, !AWS_LAMBDA_MODE.load(Ordering::Relaxed), args)),
-    )?;
 
     globals.set("console", console)?;
 
