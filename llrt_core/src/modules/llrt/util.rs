@@ -1,15 +1,29 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_logging::get_dimensions;
 use llrt_utils::object::ObjectExt;
 use rquickjs::{
     context::EvalOptions,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    Ctx, Object, Result, Value,
+    Array, Ctx, Object, Result, Value,
 };
 
 use crate::{module_builder::ModuleInfo, modules::module::export_default};
+
+pub fn dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
+    let array = Array::new(ctx.clone())?;
+    match terminal_size::terminal_size() {
+        Some((width, height)) => {
+            array.set(0, width.0)?;
+            array.set(1, height.0)?;
+        },
+        None => {
+            array.set(0, 0)?;
+            array.set(1, 0)?;
+        },
+    }
+    Ok(array)
+}
 
 fn load<'js>(ctx: Ctx<'js>, filename: String, options: Opt<Object<'js>>) -> Result<Value<'js>> {
     let mut eval_options = EvalOptions::default();
@@ -50,7 +64,7 @@ impl ModuleDef for LlrtUtilModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            default.set("dimensions", Func::from(get_dimensions))?;
+            default.set("dimensions", Func::from(dimensions))?;
             default.set("load", Func::from(load))?;
             default.set("print", Func::from(print))?;
             Ok(())

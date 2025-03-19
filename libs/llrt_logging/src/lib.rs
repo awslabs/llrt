@@ -16,7 +16,7 @@ use llrt_utils::{
 };
 use rquickjs::{
     atom::PredefinedAtom, function::This, object::Filter, prelude::Rest, promise::PromiseState,
-    Array, Coerced, Ctx, Error, Function, Object, Result, Symbol, Type, Value,
+    Coerced, Ctx, Error, Function, Object, Result, Symbol, Type, Value,
 };
 
 pub const NEWLINE: char = '\n';
@@ -664,19 +664,4 @@ pub fn replace_newline_with_carriage_return(result: &mut str) {
         str_bytes[pos + index] = b'\r';
         pos += index + 1; // Move the position after the found '\n'
     }
-}
-
-pub fn get_dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
-    let array = Array::new(ctx.clone())?;
-    match terminal_size::terminal_size() {
-        Some((width, height)) => {
-            array.set(0, width.0)?;
-            array.set(1, height.0)?;
-        },
-        None => {
-            array.set(0, 0)?;
-            array.set(1, 0)?;
-        },
-    }
-    Ok(array)
 }
