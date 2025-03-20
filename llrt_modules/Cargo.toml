@@ -8,8 +8,10 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["all"]
-all = [
+default = ["base", "console"]
+lambda = ["base"]
+
+base = [
   "abort",
   "assert",
   "buffer",
@@ -29,9 +31,9 @@ all = [
   "stream-web",
   "string-decoder",
   "timers",
+  "tty",
   "url",
   "zlib",
-  "tty",
 ]
 
 # Modules
@@ -39,6 +41,7 @@ abort = ["llrt_abort"]
 assert = ["llrt_assert"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
+console = ["llrt_console"]
 crypto = ["llrt_crypto"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
@@ -63,6 +66,7 @@ llrt_abort = { version = "0.5.1-beta", path = "../modules/llrt_abort", optional 
 llrt_assert = { version = "0.5.1-beta", path = "../modules/llrt_assert", optional = true }
 llrt_buffer = { version = "0.5.1-beta", path = "../modules/llrt_buffer", optional = true }
 llrt_child_process = { version = "0.5.1-beta", path = "../modules/llrt_child_process", optional = true }
+llrt_console = { version = "0.5.1-beta", path = "../modules/llrt_console", optional = true }
 llrt_crypto = { version = "0.5.1-beta", path = "../modules/llrt_crypto", optional = true }
 llrt_dns = { version = "0.5.1-beta", path = "../modules/llrt_dns", optional = true }
 llrt_events = { version = "0.5.1-beta", path = "../modules/llrt_events", optional = true }

@@ -12,6 +12,8 @@ mod modules {
     pub use llrt_buffer as buffer;
     #[cfg(feature = "child-process")]
     pub use llrt_child_process as child_process;
+    #[cfg(feature = "console")]
+    pub use llrt_console as console;
     #[cfg(feature = "crypto")]
     pub use llrt_crypto as crypto;
     #[cfg(feature = "dns")]

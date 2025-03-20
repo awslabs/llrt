@@ -6,13 +6,12 @@ mod minimal_tracer;
 mod repl;
 
 use constcat::concat;
+#[cfg(not(feature = "lambda"))]
+use llrt_core::compiler::compile_file;
 use llrt_core::{
     async_with,
     bytecode::BYTECODE_EXT,
-    modules::{
-        console::{self, LogLevel},
-        path::name_extname,
-    },
+    modules::path::name_extname,
     runtime_client,
     utils::io::{is_supported_ext, DirectoryWalker, SUPPORTED_EXTENSIONS},
     vm::Vm,
@@ -25,14 +24,9 @@ use std::{
     error::Error,
     path::{Path, PathBuf},
     process::exit,
-    sync::atomic::Ordering,
     time::Instant,
 };
-
 use tracing::trace;
-
-#[cfg(not(feature = "lambda"))]
-use llrt_core::compiler::compile_file;
 
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]
@@ -49,15 +43,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
 
     if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
-        let aws_lambda_json_log_format =
-            env::var("AWS_LAMBDA_LOG_FORMAT") == Ok("JSON".to_string());
-        let aws_lambda_log_level = env::var("AWS_LAMBDA_LOG_LEVEL").unwrap_or_default();
-        let log_level = LogLevel::from_str(&aws_lambda_log_level);
-
-        console::AWS_LAMBDA_JSON_LOG_LEVEL.store(log_level as usize, Ordering::Relaxed);
-        console::AWS_LAMBDA_MODE.store(true, Ordering::Relaxed);
-        console::AWS_LAMBDA_JSON_LOG_FORMAT.store(aws_lambda_json_log_format, Ordering::Relaxed);
-
         start_runtime(&vm).await
     } else {
         start_cli(&vm).await;

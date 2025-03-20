@@ -72,6 +72,7 @@ const ES_BUILD_OPTIONS = {
     "url",
     "zlib",
     "llrt:hex",
+    "llrt:util",
     "llrt:uuid",
     "llrt:xml",
     "perf_hooks",

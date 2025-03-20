@@ -9,7 +9,7 @@ use crate::modules::{
     dns::DnsModule,
     events::EventsModule,
     fs::{FsModule, FsPromisesModule},
-    llrt::{hex::LlrtHexModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
+    llrt::{hex::LlrtHexModule, util::LlrtUtilModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
     module::ModuleModule,
     net::NetModule,
     os::OsModule,
@@ -103,6 +103,7 @@ impl Default for ModuleBuilder {
             .with_global(crate::modules::http::init)
             .with_global(crate::modules::exceptions::init)
             .with_module(LlrtHexModule)
+            .with_module(LlrtUtilModule)
             .with_module(LlrtUuidModule)
             .with_module(LlrtXmlModule)
             .with_module(PerfHooksModule)

@@ -82,7 +82,8 @@ async fn main() -> Result<(), Error> {
 | assert         | ✔︎     | ⚠️           | `assert`         | `llrt_assert`         |
 | buffer         | ✔︎     | ✔︎️         | `buffer`         | `llrt_buffer`         |
 | child process  | ✔︎     | ⚠️           | `child-process`  | `llrt_child_process`  |
-| crypto         | ✔︎     | ⚠️           | `crypto`         | `llrt_cryto`          |
+| console        | ✔︎     | ⚠️           | `console`        | `llrt_console`        |
+| crypto         | ✔︎     | ⚠️           | `crypto`         | `llrt_crypto`         |
 | dns            | ✔︎     | ⚠️           | `dns`            | `llrt_dns`            |
 | events         | ✔︎     | ⚠️           | `events`         | `llrt_events`         |
 | exceptions     | ✔︎     | ⚠️           | `exceptions`     | `llrt_exceptions`     |

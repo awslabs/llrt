@@ -3,6 +3,7 @@
 pub mod text_decoder;
 pub mod text_encoder;
 
+use llrt_logging::format_plain;
 use rquickjs::{
     function::Func,
     module::{Declarations, Exports, ModuleDef},
@@ -12,8 +13,6 @@ use text_decoder::TextDecoder;
 use text_encoder::TextEncoder;
 
 use crate::{module_builder::ModuleInfo, modules::module::export_default};
-
-use super::console::format_plain;
 
 pub struct UtilModule;
 
@@ -35,7 +34,10 @@ impl ModuleDef for UtilModule {
 
             default.set(stringify!(TextEncoder), encoder)?;
             default.set(stringify!(TextDecoder), decoder)?;
-            default.set("format", Func::from(format_plain))?;
+            default.set(
+                "format",
+                Func::from(|ctx, args| format_plain(ctx, true, args)),
+            )?;
 
             Ok(())
         })

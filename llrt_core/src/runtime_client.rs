@@ -8,8 +8,7 @@ use std::{
 };
 
 use chrono::Utc;
-use http_body_util::combinators::BoxBody;
-use http_body_util::{BodyExt, Full};
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{
     header::{HeaderMap, CONTENT_TYPE},
     http::header::HeaderName,
@@ -19,6 +18,7 @@ use llrt_json::{
     parse::json_parse,
     stringify::{self, json_stringify},
 };
+use llrt_logging::{format_values, replace_newline_with_carriage_return};
 use llrt_utils::class::get_class_name;
 use once_cell::sync::Lazy;
 use rquickjs::{
@@ -28,10 +28,10 @@ use rquickjs::{
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
-use crate::modules::console;
+#[cfg(not(test))]
+use crate::modules::console::log_error;
 use crate::modules::http::{HyperClient, HTTP_CLIENT};
-use crate::utils::latch::Latch;
-use crate::utils::result::ResultExt;
+use crate::utils::{latch::Latch, result::ResultExt};
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
@@ -497,13 +497,13 @@ async fn post_error<'js>(
             error_type = Some(error_name);
 
             if let Some(mut stack) = ex.stack() {
-                console::replace_newline_with_carriage_return(&mut stack);
+                replace_newline_with_carriage_return(&mut stack);
                 error_stack = Some(stack);
             }
             str
         },
         CaughtError::Value(value) => {
-            let log_msg = console::format_values(ctx, Rest(vec![value.clone()]), false)
+            let log_msg = format_values(ctx, Rest(vec![value.clone()]), false, true)
                 .unwrap_or(String::from("{unknown value}"));
             ["Error: ", &log_msg].concat()
         },
@@ -521,11 +521,7 @@ async fn post_error<'js>(
 
     #[cfg(not(test))]
     {
-        console::log_std_err(
-            ctx,
-            Rest(vec![error_object.clone()]),
-            console::LogLevel::Error,
-        )?;
+        log_error(ctx.clone(), Rest(vec![error_object.clone()]))?;
     }
 
     let error_body = json_stringify(ctx, error_object)?.unwrap_or_default();
