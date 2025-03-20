@@ -31,6 +31,7 @@ const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
     "unicodefeff" => Encoder::Utf16le,
     "utf-16" => Encoder::Utf16le,
     "utf-16le" => Encoder::Utf16le,
+    "utf16le" => Encoder::Utf16le,
     "unicodefffe" => Encoder::Utf16be,
     "utf-16be" => Encoder::Utf16be,
     "ansi_x3.4-1968" => Encoder::Windows1252,

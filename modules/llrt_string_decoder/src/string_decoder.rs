@@ -61,7 +61,7 @@ impl StringDecoder {
                 self.buffered_bytes += found_bytes;
                 if self.missing_bytes == 0 {
                     // We have enough bytes to decode the buffered character
-                    match self.encoder.encode_to_string(&self.buffer, false) {
+                    match self.encoder.encode_to_string(&self.buffer, true) {
                         Ok(decoded) => {
                             result = decoded;
                             self.buffer.clear();
@@ -81,12 +81,12 @@ impl StringDecoder {
 
                 // See whether there is a character that we may have to cut off and
                 // finish when receiving the next chunk.
-                if matches!(self.encoder, Encoder::Utf8) && (data[data.len() - 1] & 0x80) > 0 {
+                if matches!(self.encoder, Encoder::Utf8) && (data[data.len() - 1] & 0x80) != 0 {
                     let mut i = data.len() - 1;
                     loop {
                         if (data[i] & 0xC0) == 0x80 {
                             // This byte does not start a character (a "trailing" byte).
-                            if self.buffer.len() >= 4 || i == 0 {
+                            if self.buffered_bytes >= 4 || i == 0 {
                                 // We either have more then 4 trailing bytes (which means
                                 // the current character would not be inside the range for
                                 // valid Unicode, and in particular cannot be represented
@@ -95,6 +95,7 @@ impl StringDecoder {
                                 // at all. Either way, this is invalid UTF8 and we can just
                                 // let the engine's decoder handle it.
                                 self.buffer.clear();
+                                self.buffered_bytes = 0;
                                 break;
                             }
                         } else {
@@ -153,7 +154,7 @@ impl StringDecoder {
                 }
 
                 if !data.is_empty() {
-                    match self.encoder.encode_to_string(data, false) {
+                    match self.encoder.encode_to_string(data, true) {
                         Ok(decoded) => {
                             result.push_str(&decoded);
                         },
