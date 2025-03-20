@@ -11,9 +11,6 @@ readme = "README.md"
 name = "llrt_string_decoder"
 path = "src/lib.rs"
 
-[features]
-
-
 [dependencies]
 llrt_buffer = { version = "0.5.1-beta", path = "../llrt_buffer" }
 llrt_encoding = { version = "0.5.1-beta", path = "../../libs/llrt_encoding" }
