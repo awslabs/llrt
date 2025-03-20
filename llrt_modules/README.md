@@ -9,6 +9,7 @@ LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime d
 The package is not available in the crate registry yet, but you can clone the repo and import it as a local path.
 
 Use this script to set everything up:
+
 ```bash
 cd your_project_dir
 git clone https://github.com/awslabs/llrt.git
@@ -56,12 +57,12 @@ async fn main() -> Result<(), Error> {
             r#"
             import { Buffer } from "buffer";
             Buffer.alloc(10);
-            "#,                          
+            "#,
             options
         ){
             println!("{:#?}", ctx.catch());
         };
-        
+
         Ok::<_, Error>(())
     })
     .await?;
@@ -75,30 +76,31 @@ async fn main() -> Result<(), Error> {
 > [!NOTE]
 > Only a fraction of the Node.js APIs are supported. Below is a high level overview of partially supported APIs and modules.
 
-|               | Node.js | LLRT Modules | Feature         | Crate                |
-| ------------- | ------- | ------------ | --------------- | -------------------- |
-| abort         | ✔︎     | ✔︎️         | `abort`         | `llrt_abort`         |
-| assert        | ✔︎     | ⚠️           | `assert`        | `llrt_assert`        |
-| buffer        | ✔︎     | ✔︎️         | `buffer`        | `llrt_buffer`        |
-| child process | ✔︎     | ⚠️           | `child-process` | `llrt_child_process` |
-| crypto        | ✔︎     | ⚠️           | `crypto`        | `llrt_cryto`         |
-| dns           | ✔︎     | ⚠️           | `dns`           | `llrt_dns`           |
-| events        | ✔︎     | ⚠️           | `events`        | `llrt_events`        |
-| exceptions    | ✔︎     | ⚠️           | `exceptions`    | `llrt_exceptions`    |
-| fs/promises   | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |
-| fs            | ✔︎     | ⚠️           | `fs`            | `llrt_fs`            |
-| http          | ✔︎     | ⚠️           | `http`          | `llrt_http`          |
-| navigator     | ✔︎     | ⚠️           | `navigator`     | `llrt_navigator`     |
-| net           | ✔︎     | ⚠️           | `net`           | `llrt_net`           |
-| os            | ✔︎     | ⚠️           | `os`            | `llrt_os`            |
-| path          | ✔︎     | ✔︎          | `path`          | `llrt_path`          |
-| perf hooks    | ✔︎     | ⚠️           | `perf-hooks`    | `llrt_perf_hooks`    |
-| stream        | ✔︎     | ⚠️           | N/A             | `llrt_stream`        |
-| timers        | ✔︎     | ✔︎          | `timers`        | `llrt_timers`        |
-| process       | ✔︎     | ✔︎          | `process`       | `llrt_process`       |
-| url           | ✔︎     | ⚠️           | `url`           | `llrt_url`           |
-| zlib          | ✔︎     | ⚠️           | `zlib`          | `llrt_zlib`          |
-| Other modules | ✔︎     | ✘            | N/A             | N/A                  |
+|                | Node.js | LLRT Modules | Feature          | Crate                 |
+| -------------- | ------- | ------------ | ---------------- | --------------------- |
+| abort          | ✔︎     | ✔︎️         | `abort`          | `llrt_abort`          |
+| assert         | ✔︎     | ⚠️           | `assert`         | `llrt_assert`         |
+| buffer         | ✔︎     | ✔︎️         | `buffer`         | `llrt_buffer`         |
+| child process  | ✔︎     | ⚠️           | `child-process`  | `llrt_child_process`  |
+| crypto         | ✔︎     | ⚠️           | `crypto`         | `llrt_cryto`          |
+| dns            | ✔︎     | ⚠️           | `dns`            | `llrt_dns`            |
+| events         | ✔︎     | ⚠️           | `events`         | `llrt_events`         |
+| exceptions     | ✔︎     | ⚠️           | `exceptions`     | `llrt_exceptions`     |
+| fs/promises    | ✔︎     | ⚠️           | `fs`             | `llrt_fs`             |
+| fs             | ✔︎     | ⚠️           | `fs`             | `llrt_fs`             |
+| http           | ✔︎     | ⚠️           | `http`           | `llrt_http`           |
+| navigator      | ✔︎     | ⚠️           | `navigator`      | `llrt_navigator`      |
+| net            | ✔︎     | ⚠️           | `net`            | `llrt_net`            |
+| os             | ✔︎     | ⚠️           | `os`             | `llrt_os`             |
+| path           | ✔︎     | ✔︎          | `path`           | `llrt_path`           |
+| perf hooks     | ✔︎     | ⚠️           | `perf-hooks`     | `llrt_perf_hooks`     |
+| stream         | ✔︎     | ⚠️           | N/A              | `llrt_stream`         |
+| string_decoder | ✔︎     | ✔︎          | `string_decoder` | `llrt_string_decoder` |
+| timers         | ✔︎     | ✔︎          | `timers`         | `llrt_timers`         |
+| process        | ✔︎     | ✔︎          | `process`        | `llrt_process`        |
+| url            | ✔︎     | ⚠️           | `url`            | `llrt_url`            |
+| zlib           | ✔︎     | ⚠️           | `zlib`           | `llrt_zlib`           |
+| Other modules  | ✔︎     | ✘            | N/A              | N/A                   |
 
 _⚠️ = partially supported_
 _⏱ = planned partial support_

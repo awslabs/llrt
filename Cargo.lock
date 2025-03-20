@@ -1931,6 +1931,7 @@ dependencies = [
  "llrt_perf_hooks",
  "llrt_process",
  "llrt_stream_web",
+ "llrt_string_decoder",
  "llrt_timers",
  "llrt_tty",
  "llrt_url",
