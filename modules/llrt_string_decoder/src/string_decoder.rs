@@ -85,6 +85,7 @@ impl StringDecoder {
                 if matches!(self.encoder, Encoder::Utf8) && (data[data.len() - 1] & 0x80) != 0 {
                     let mut i = data.len() - 1;
                     loop {
+                        self.buffered_bytes += 1;
                         if (data[i] & 0xC0) == 0x80 {
                             // This byte does not start a character (a "trailing" byte).
                             if self.buffered_bytes >= 4 || i == 0 {
@@ -130,6 +131,11 @@ impl StringDecoder {
                         i -= 1;
                     }
                 } else if matches!(self.encoder, Encoder::Utf16le) {
+                    // WARN: For UTF-16LE we deviate from the specification when an invalid
+                    // high surrogate is found. The spec says we should keep it as is, but
+                    // there no way to encode in UTF-8 (required to interface with quickjs).
+                    // For now, we will replace it with a replacement character.
+                    // See https://github.com/quickjs-ng/quickjs/issues/992
                     if (data.len() % 2) == 1 {
                         // We got half a codepoint, and need the second byte of it.
                         self.buffered_bytes = 1;
@@ -204,6 +210,11 @@ impl StringDecoder {
             buffered_bytes: 0,
             missing_bytes: 0,
         })
+    }
+
+    #[qjs(get)]
+    pub fn encoding(&self) -> &str {
+        self.encoder.as_label()
     }
 
     pub fn end(&mut self, ctx: Ctx<'_>, buffer: Opt<ArrayBufferView<'_>>) -> Result<String> {

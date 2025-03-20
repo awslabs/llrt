@@ -27,6 +27,7 @@ const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
     "csunicode" => Encoder::Utf16le,
     "iso-10646-ucs-2" => Encoder::Utf16le,
     "ucs-2" => Encoder::Utf16le,
+    "ucs2" => Encoder::Utf16le,
     "unicode" => Encoder::Utf16le,
     "unicodefeff" => Encoder::Utf16le,
     "utf-16" => Encoder::Utf16le,
@@ -193,9 +194,8 @@ pub enum Endian {
 }
 
 pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Result<String, String> {
-    if bytes.len() % 2 != 0 {
-        return Err("Input byte slice length must be even".to_string());
-    }
+    // If the length is not even, we will skip the last byte.
+    // This is the behaviour of the Node.js implementation.
 
     #[cfg(rust_nightly)]
     let data16: Vec<u16> = match endian {
