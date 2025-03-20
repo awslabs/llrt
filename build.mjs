@@ -76,6 +76,7 @@ const ES_BUILD_OPTIONS = {
     "llrt:xml",
     "perf_hooks",
     "tty",
+    "string_decoder",
     "@aws-crypto",
   ],
 };
