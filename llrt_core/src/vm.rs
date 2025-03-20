@@ -7,7 +7,6 @@ use llrt_numbers::number_to_string;
 use llrt_utils::{
     clone::structured_clone,
     error::ErrorExtensions,
-    object::ObjectExt,
     primordials::{BasePrimordials, Primordial},
 };
 use ring::rand::SecureRandom;
@@ -29,14 +28,6 @@ use crate::{
     modules::{console, crypto::SYSTEM_RANDOM},
     security,
 };
-
-fn print(value: String, stdout: Opt<bool>) {
-    if stdout.0.unwrap_or_default() {
-        println!("{value}");
-    } else {
-        eprintln!("{value}")
-    }
-}
 
 pub struct Vm {
     pub runtime: AsyncRuntime,
@@ -181,9 +172,7 @@ impl Vm {
         let mut error_str = String::new();
         write!(error_str, "Error: {:?}", err).unwrap();
         if let Ok(error) = err.into_value(ctx) {
-            if console::log_std_err(ctx, Rest(vec![error.clone()]), console::LogLevel::Fatal)
-                .is_err()
-            {
+            if console::log_fatal(ctx.clone(), Rest(vec![error.clone()])).is_err() {
                 eprintln!("{}", error_str);
             };
             if cfg!(test) {
@@ -220,8 +209,6 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
-    globals.set("load", Func::from(load))?;
-    globals.set("print", Func::from(print))?;
     globals.set(
         "structuredClone",
         Func::from(|ctx, value, options| structured_clone(&ctx, value, options)),
@@ -264,22 +251,4 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
     let _ = BasePrimordials::get(ctx)?;
 
     Ok(())
-}
-
-fn load<'js>(ctx: Ctx<'js>, filename: String, options: Opt<Object<'js>>) -> Result<Value<'js>> {
-    let mut eval_options = EvalOptions::default();
-    eval_options.strict = false;
-    eval_options.promise = true;
-
-    if let Some(options) = options.0 {
-        if let Some(global) = options.get_optional("global")? {
-            eval_options.global = global;
-        }
-
-        if let Some(strict) = options.get_optional("strict")? {
-            eval_options.strict = strict;
-        }
-    }
-
-    ctx.eval_file_with_options(filename, eval_options)
 }

@@ -13,18 +13,18 @@ uncompressed = ["llrt_core/uncompressed"]
 bindgen = ["llrt_core/bindgen"]
 
 [dependencies]
-llrt_core = { path = "../llrt_core" }
-tracing = { version = "0.1", features = ["log"] }
-llrt_utils = { path = "../libs/llrt_utils" }
 chrono = { version = "0.4", default-features = false, features = ["std"] }
-tracing-core = "0.1"
-tokio = { version = "1", features = ["full"] }
-crossterm = { version = "0.28" }
 constcat = "0.6"
+crossterm = { version = "0.28" }
+llrt_core = { path = "../llrt_core" }
+llrt_logging = { path = "../libs/llrt_logging" }
+llrt_utils = { path = "../libs/llrt_utils" }
+tokio = { version = "1", features = ["full"] }
+tracing = { version = "0.1", features = ["log"] }
+tracing-core = "0.1"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 snmalloc-rs = { version = "0.3", features = ["lto"] }
-
 
 [dev-dependencies]
 llrt_test = { version = "0.5.1-beta", path = "../libs/llrt_test" }

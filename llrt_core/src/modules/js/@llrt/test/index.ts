@@ -8,6 +8,7 @@ import { SocketReqMsg } from "./shared";
 import { platform } from "os";
 const IS_WINDOWS = platform() === "win32";
 import CircularBuffer from "./CircularBuffer";
+import { dimensions } from "llrt:util";
 
 type TestOptions = {
   workerCount?: number;
@@ -503,7 +504,7 @@ class TestServer {
     }
 
     if (this.completedWorkers != this.workerCount) {
-      let [terminalWidth] = (console as any).__dimensions;
+      let [terminalWidth] = dimensions();
       let message = "";
 
       if (!first) {
