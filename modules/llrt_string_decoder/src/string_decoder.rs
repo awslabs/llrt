@@ -16,6 +16,12 @@ pub struct StringDecoder {
 }
 
 impl StringDecoder {
+    fn make_string(&self, ctx: &Ctx<'_>, data: &[u8]) -> Result<String> {
+        self.encoder
+            .encode_to_string(data, true)
+            .map_err(|_| Exception::throw_internal(ctx, "Encoding error"))
+    }
+
     /// Try to decode the given buffer and store the incomplete bytes.
     /// The logic was adapted from the [Node implementation].
     ///
@@ -61,14 +67,9 @@ impl StringDecoder {
                 self.buffered_bytes += found_bytes;
                 if self.missing_bytes == 0 {
                     // We have enough bytes to decode the buffered character
-                    match self.encoder.encode_to_string(&self.buffer, true) {
-                        Ok(decoded) => {
-                            result = decoded;
-                            self.buffer.clear();
-                            self.buffered_bytes = 0;
-                        },
-                        Err(_) => return Err(Exception::throw_internal(ctx, "Encoding error")),
-                    }
+                    result = self.make_string(ctx, &self.buffer)?;
+                    self.buffer.clear();
+                    self.buffered_bytes = 0;
                 }
             }
 
@@ -154,21 +155,14 @@ impl StringDecoder {
                 }
 
                 if !data.is_empty() {
-                    match self.encoder.encode_to_string(data, true) {
-                        Ok(decoded) => {
-                            result.push_str(&decoded);
-                        },
-                        Err(_) => return Err(Exception::throw_internal(ctx, "Encoding error")),
-                    }
+                    result.push_str(&self.make_string(ctx, data)?);
                 }
             }
 
             Ok(result)
         } else {
             // For ASCII, HEX, and LATIN1, we can decode everything directly
-            self.encoder
-                .encode_to_string(data, false)
-                .map_err(|_| Exception::throw_internal(ctx, "Encoding error"))
+            self.make_string(ctx, data)
         }
     }
 
@@ -183,10 +177,7 @@ impl StringDecoder {
             return Ok(String::new());
         }
 
-        let res = self
-            .encoder
-            .encode_to_string(&self.buffer, false)
-            .map_err(|_| Exception::throw_internal(ctx, "Encoding error"));
+        let res = self.make_string(ctx, &self.buffer);
 
         self.missing_bytes = 0;
         self.buffered_bytes = 0;
