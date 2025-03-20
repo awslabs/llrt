@@ -20,54 +20,50 @@ use rquickjs::{
 };
 
 pub const NEWLINE: char = '\n';
+pub const CARRIAGE_RETURN: char = '\r';
 const SPACING: char = ' ';
 const CIRCULAR: &str = "[Circular]";
-const OBJECT_ARRAY_LOOKUP: [&str; 2] = ["[Array]", "[Object]"];
 pub const TIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
 
 const MAX_INDENTATION_LEVEL: usize = 4;
 const MAX_EXPANSION_DEPTH: usize = 4;
-const OBJECT_ARRAY_START: [char; 2] = ['[', '{'];
-const OBJECT_ARRAY_END: [char; 2] = [']', '}'];
-const LINE_BREAK_LOOKUP: [&str; 3] = ["", "\r", "\n"];
-const SPACING_LOOKUP: [&str; 2] = ["", " "];
-const SINGLE_QUOTE_LOOKUP: [&str; 2] = ["", "\'"];
-const CLASS_FUNCTION_LOOKUP: [&str; 2] = ["[function: ", "[class: "];
 const INDENTATION_LOOKUP: [&str; MAX_INDENTATION_LEVEL + 1] =
     ["", "  ", "    ", "        ", "                "];
-
-impl Color {
-    #[inline(always)]
-    fn push(self, value: &mut String, enabled: usize) {
-        value.push_str(COLOR_LOOKUP[self as usize & enabled])
-    }
-
-    #[inline(always)]
-    fn reset(value: &mut String, enabled: usize) {
-        value.push_str(COLOR_LOOKUP[Color::RESET as usize & enabled])
-    }
-}
 
 macro_rules! ascii_colors {
     ( $( $name:ident => $value:expr ),* ) => {
         #[derive(Debug, Clone, Copy)]
         pub enum Color {
             $(
-                $name = $value+1,
+                $name,
             )*
         }
 
-        pub const COLOR_LOOKUP: [&str; 39] = {
-            let mut array = [""; 39];
-            $(
-                //shift 1 position so if disabled we return ""
-                array[Color::$name as usize] = concat!("\x1b[", stringify!($value), "m");
-            )*
-            array
-        };
+        impl AsRef<str> for Color {
+            fn as_ref(&self) -> &str {
+                match self {
+                    $(
+                        Color::$name => concat!("\x1b[", stringify!($value), "m"),
+                    )*
+                }
+            }
+        }
     }
 }
 
+impl Color {
+    #[inline(always)]
+    fn push(self, value: &mut String) {
+        value.push_str(self.as_ref())
+    }
+
+    #[inline(always)]
+    fn reset(value: &mut String) {
+        value.push_str(Color::RESET.as_ref())
+    }
+}
+
+// Define the colors
 ascii_colors!(
     RESET => 0,
     BOLD => 1,
@@ -308,36 +304,49 @@ fn format_raw_inner<'js>(
 ) -> Result<()> {
     let value_type = value.type_of();
 
-    let (color_enabled_mask, not_root_mask, not_root) = get_masks(options, depth);
+    let color_enabled = options.color;
+    let is_root = depth == 0;
 
     match value_type {
         Type::Uninitialized | Type::Null => {
-            Color::BOLD.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::BOLD.push(result);
+            }
             result.push_str("null")
         },
         Type::Undefined => {
-            Color::BLACK.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::BLACK.push(result);
+            }
             result.push_str("undefined")
         },
         Type::Bool => {
-            Color::YELLOW.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::YELLOW.push(result);
+            }
             const BOOL_STRINGS: [&str; 2] = ["false", "true"];
             result.push_str(BOOL_STRINGS[unsafe { value.as_bool().unwrap_unchecked() } as usize]);
         },
         Type::BigInt => {
-            Color::YELLOW.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::YELLOW.push(result);
+            }
             let mut buffer = itoa::Buffer::new();
             let big_int = unsafe { value.as_big_int().unwrap_unchecked() };
             result.push_str(buffer.format(big_int.clone().to_i64().unwrap()));
             result.push('n');
         },
         Type::Int => {
-            Color::YELLOW.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::YELLOW.push(result);
+            }
             let mut buffer = itoa::Buffer::new();
             result.push_str(buffer.format(unsafe { value.as_int().unwrap_unchecked() }));
         },
         Type::Float => {
-            Color::YELLOW.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::YELLOW.push(result);
+            }
             let mut buffer = ryu::Buffer::new();
             result.push_str(float_to_string(&mut buffer, unsafe {
                 value.as_float().unwrap_unchecked()
@@ -353,20 +362,23 @@ fn format_raw_inner<'js>(
                         .to_string()
                         .unwrap_unchecked()
                 },
-                not_root_mask,
-                color_enabled_mask,
-                not_root,
+                !is_root,
+                color_enabled,
             );
         },
         Type::Symbol => {
-            Color::YELLOW.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::YELLOW.push(result);
+            }
             let description = unsafe { value.as_symbol().unwrap_unchecked() }.description()?;
             result.push_str("Symbol(");
             result.push_str(&unsafe { description.get::<String>().unwrap_unchecked() });
             result.push(')');
         },
         Type::Function | Type::Constructor => {
-            Color::CYAN.push(result, color_enabled_mask);
+            if color_enabled {
+                Color::CYAN.push(result);
+            }
             let obj = unsafe { value.as_object().unwrap_unchecked() };
 
             const ANONYMOUS: &str = "(anonymous)";
@@ -385,7 +397,8 @@ fn format_raw_inner<'js>(
                 let writable: bool = desc.get(PredefinedAtom::Writable)?;
                 is_class = !writable;
             }
-            result.push_str(CLASS_FUNCTION_LOOKUP[is_class as usize]);
+
+            result.push_str(if is_class { "[class: " } else { "[function: " });
             result.push_str(&name);
             result.push(']');
         },
@@ -394,14 +407,21 @@ fn format_raw_inner<'js>(
             let state = promise.state();
             result.push_str("Promise {");
             let is_pending = matches!(state, PromiseState::Pending);
-            let apply_indentation = bitmask(depth < 2 && !is_pending);
-            write_sep(result, false, apply_indentation > 0, options.newline);
-            push_indentation(result, apply_indentation & (depth + 1));
+            let apply_indentation = depth < 2 && !is_pending;
+            write_sep(result, false, apply_indentation, options.newline);
+            if apply_indentation {
+                push_indentation(result, depth + 1);
+            }
+
             match state {
                 PromiseState::Pending => {
-                    Color::CYAN.push(result, color_enabled_mask);
+                    if color_enabled {
+                        Color::CYAN.push(result);
+                    }
                     result.push_str("<pending>");
-                    Color::reset(result, color_enabled_mask);
+                    if color_enabled {
+                        Color::reset(result);
+                    }
                 },
                 PromiseState::Resolved => {
                     let value: Value = unsafe { promise.result().unwrap_unchecked() }?;
@@ -411,23 +431,34 @@ fn format_raw_inner<'js>(
                     let value: Error =
                         unsafe { promise.result::<Value>().unwrap_unchecked() }.unwrap_err();
                     let value = value.into_value(promise.ctx())?;
-                    Color::RED.push(result, color_enabled_mask);
+                    if color_enabled {
+                        Color::RED.push(result);
+                    }
                     result.push_str("<rejected> ");
-                    Color::reset(result, color_enabled_mask);
+                    if color_enabled {
+                        Color::reset(result);
+                    }
                     format_raw_inner(result, value, options, visited, depth + 1)?;
                 },
             }
-            write_sep(result, false, apply_indentation > 0, options.newline);
-            push_indentation(result, apply_indentation & (depth));
+            write_sep(result, false, apply_indentation, options.newline);
+            if apply_indentation {
+                push_indentation(result, depth);
+            }
+
             result.push('}');
             return Ok(());
         },
         Type::Array | Type::Object | Type::Exception => {
             let hash = hash::default_hash(&value);
             if visited.contains(&hash) {
-                Color::CYAN.push(result, color_enabled_mask);
+                if color_enabled {
+                    Color::CYAN.push(result);
+                }
                 result.push_str(CIRCULAR);
-                Color::reset(result, color_enabled_mask);
+                if color_enabled {
+                    Color::reset(result);
+                }
                 return Ok(());
             }
             visited.insert(hash);
@@ -441,15 +472,24 @@ fn format_raw_inner<'js>(
                 result.push_str(&name);
                 result.push_str(": ");
                 result.push_str(&message);
-                Color::BLACK.push(result, color_enabled_mask);
+                if color_enabled {
+                    Color::BLACK.push(result);
+                }
+
                 if let Ok(stack) = stack {
                     for line in stack.trim().split('\n') {
-                        result.push_str(LINE_BREAK_LOOKUP[1 + (options.newline as usize)]);
+                        result.push(if options.newline {
+                            NEWLINE
+                        } else {
+                            CARRIAGE_RETURN
+                        });
                         push_indentation(result, depth + 1);
                         result.push_str(line);
                     }
                 }
-                Color::reset(result, color_enabled_mask);
+                if color_enabled {
+                    Color::reset(result);
+                }
                 return Ok(());
             }
 
@@ -460,22 +500,30 @@ fn format_raw_inner<'js>(
                 class_name = get_class_name(&value)?;
                 match class_name.as_deref() {
                     Some("Date") => {
-                        Color::MAGENTA.push(result, color_enabled_mask);
+                        if color_enabled {
+                            Color::MAGENTA.push(result);
+                        }
                         let iso_fn: Function = obj.get("toISOString").unwrap();
                         let str: String = iso_fn.call((This(value),))?;
                         result.push_str(&str);
-                        Color::reset(result, color_enabled_mask);
+                        if color_enabled {
+                            Color::reset(result);
+                        }
                         return Ok(());
                     },
                     Some("RegExp") => {
-                        Color::RED.push(result, color_enabled_mask);
+                        if color_enabled {
+                            Color::RED.push(result);
+                        }
                         let source: String = obj.get("source")?;
                         let flags: String = obj.get("flags")?;
                         result.push('/');
                         result.push_str(&source);
                         result.push('/');
                         result.push_str(&flags);
-                        Color::reset(result, color_enabled_mask);
+                        if color_enabled {
+                            Color::reset(result);
+                        }
                         return Ok(());
                     },
                     None | Some("") | Some("Object") => {
@@ -518,7 +566,7 @@ fn format_raw_inner<'js>(
                         options,
                         visited,
                         depth,
-                        color_enabled_mask,
+                        color_enabled,
                         is_array,
                     );
                 }
@@ -529,46 +577,41 @@ fn format_raw_inner<'js>(
                     options,
                     visited,
                     depth,
-                    color_enabled_mask,
+                    color_enabled,
                     is_array,
                 )?;
             } else {
-                Color::CYAN.push(result, color_enabled_mask);
-                result.push_str(OBJECT_ARRAY_LOOKUP[is_object as usize]);
+                if color_enabled {
+                    Color::CYAN.push(result);
+                }
+                result.push_str(if is_object { "[Object]" } else { "[Array]" });
             }
         },
         _ => {},
     }
 
-    Color::reset(result, color_enabled_mask);
+    if color_enabled {
+        Color::reset(result);
+    }
 
     Ok(())
 }
 
 fn format_raw_string(result: &mut String, value: String, options: &FormatOptions<'_>) {
-    let (color_enabled_mask, not_root_mask, not_root) = get_masks(options, 0);
-    format_raw_string_inner(result, value, not_root_mask, color_enabled_mask, not_root);
+    format_raw_string_inner(result, value, false, options.color);
 }
 
-fn format_raw_string_inner(
-    result: &mut String,
-    value: String,
-    not_root_mask: usize,
-    color_enabled_mask: usize,
-    not_root: usize,
-) {
-    Color::GREEN.push(result, not_root_mask & color_enabled_mask);
-    result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
+fn format_raw_string_inner(result: &mut String, value: String, quoted: bool, color_enabled: bool) {
+    if quoted {
+        if color_enabled {
+            Color::GREEN.push(result);
+        }
+        result.push('\'');
+    }
     result.push_str(&value);
-    result.push_str(SINGLE_QUOTE_LOOKUP[not_root]);
-}
-
-#[inline(always)]
-fn get_masks(options: &FormatOptions<'_>, depth: usize) -> (usize, usize, usize) {
-    let color_enabled_mask = bitmask(options.color);
-    let not_root_mask = bitmask(depth != 0);
-    let not_root = (depth != 0) as usize;
-    (color_enabled_mask, not_root_mask, not_root)
+    if quoted {
+        result.push('\'');
+    }
 }
 
 fn write_object<'js>(
@@ -577,10 +620,10 @@ fn write_object<'js>(
     options: &FormatOptions<'js>,
     visited: &mut HashSet<usize>,
     depth: usize,
-    color_enabled_mask: usize,
+    color_enabled: bool,
     is_array: bool,
 ) -> Result<()> {
-    result.push(OBJECT_ARRAY_START[(!is_array) as usize]);
+    result.push(if is_array { '[' } else { '{' });
 
     let mut keys = obj.keys();
     let mut filter_functions = false;
@@ -593,32 +636,35 @@ fn write_object<'js>(
             }
         }
     }
-    let apply_indentation = bitmask(!is_array && depth < 2);
+    let apply_indentation = !is_array && depth < 2;
 
-    let mut first = 0;
+    let mut first = false;
     let mut numeric_key;
     let length = keys.len();
     for (i, key) in keys.flatten().enumerate() {
         let value: Value = obj.get::<&String, _>(&key)?;
         if !(value.is_function() && filter_functions) {
-            numeric_key = if key.parse::<f64>().is_ok() { !0 } else { 0 };
-            write_sep(result, first > 0, apply_indentation > 0, options.newline);
-            push_indentation(result, apply_indentation & (depth + 1));
+            numeric_key = key.parse::<f64>().is_ok();
+            write_sep(result, first, apply_indentation, options.newline);
+
+            if apply_indentation {
+                push_indentation(result, depth + 1);
+            }
             if depth > MAX_INDENTATION_LEVEL - 1 {
                 result.push(SPACING);
             }
             if !is_array {
-                Color::GREEN.push(result, color_enabled_mask & numeric_key);
-                result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
-                result.push_str(&key);
-                result.push_str(SINGLE_QUOTE_LOOKUP[numeric_key & 1]);
-                Color::reset(result, color_enabled_mask & numeric_key);
+                format_raw_string_inner(result, key, numeric_key, numeric_key & color_enabled);
+                if numeric_key && color_enabled {
+                    Color::reset(result);
+                }
+
                 result.push(':');
                 result.push(SPACING);
             }
 
             format_raw_inner(result, value, options, visited, depth + 1)?;
-            first = !0;
+            first = true;
             if i > 99 {
                 result.push_str("... ");
                 let mut buffer = itoa::Buffer::new();
@@ -628,30 +674,44 @@ fn write_object<'js>(
             }
         }
     }
-    result
-        .push_str(LINE_BREAK_LOOKUP[first & apply_indentation & (1 + (options.newline as usize))]);
-    result.push_str(SPACING_LOOKUP[first & !apply_indentation & 1]);
-    push_indentation(result, first & apply_indentation & depth);
-    result.push(OBJECT_ARRAY_END[(!is_array) as usize]);
+    if first {
+        if apply_indentation {
+            result.push(if options.newline {
+                NEWLINE
+            } else {
+                CARRIAGE_RETURN
+            });
+            push_indentation(result, depth);
+        } else {
+            result.push(SPACING);
+        }
+    }
+
+    result.push(if is_array { ']' } else { '}' });
+
     Ok(())
 }
 
 #[inline(always)]
 fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool, newline: bool) {
-    const SEPARATOR_TABLE: [&str; 8] = ["", ",", "\r", ",\r", " ", ", ", "\n", ",\n"];
-    let index =
-        (add_comma as usize) | ((has_indentation as usize) << 1) | ((newline as usize) << 2);
-    result.push_str(SEPARATOR_TABLE[index]);
+    if add_comma {
+        result.push(',');
+    }
+
+    if has_indentation {
+        if newline {
+            result.push('\n');
+        } else {
+            result.push('\r')
+        }
+    } else {
+        result.push(' ');
+    }
 }
 
 #[inline(always)]
 fn push_indentation(result: &mut String, depth: usize) {
     result.push_str(INDENTATION_LOOKUP[depth]);
-}
-
-#[inline(always)]
-fn bitmask(condition: bool) -> usize {
-    !(condition as usize).wrapping_sub(1)
 }
 
 pub fn replace_newline_with_carriage_return(result: &mut str) {
