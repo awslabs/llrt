@@ -75,4 +75,74 @@ mod tests {
         })
         .await;
     }
+
+    #[tokio::test]
+    async fn test_base64() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                llrt_buffer::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<StringDecoderModule>(ctx.clone(), "string_decoder")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { StringDecoder } from 'string_decoder';
+
+                        export async function test() {
+                            const decoder = new StringDecoder('base64');
+                            let res = "";
+                            res += decoder.write(Buffer.of(0x61));
+                            res += decoder.end();
+                            res += decoder.write(Buffer.of());
+                            res += decoder.end();
+                            return res;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "YQ==");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_utf16le() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                llrt_buffer::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<StringDecoderModule>(ctx.clone(), "string_decoder")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { StringDecoder } from 'string_decoder';
+
+                        export async function test() {
+                            const decoder = new StringDecoder('utf16le');
+                            let res = "";
+                            res += decoder.write(Buffer.of(0x61, 0x00));
+                            res += decoder.end();
+                            res += decoder.write(Buffer.of());
+                            res += decoder.end();
+                            return res;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "a");
+            })
+        })
+        .await;
+    }
 }
