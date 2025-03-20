@@ -324,8 +324,12 @@ fn format_raw_inner<'js>(
             if color_enabled {
                 Color::YELLOW.push(result);
             }
-            const BOOL_STRINGS: [&str; 2] = ["false", "true"];
-            result.push_str(BOOL_STRINGS[unsafe { value.as_bool().unwrap_unchecked() } as usize]);
+            let bool_str = if unsafe { value.as_bool().unwrap_unchecked() } {
+                "true"
+            } else {
+                "false"
+            };
+            result.push_str(bool_str);
         },
         Type::BigInt => {
             if color_enabled {
