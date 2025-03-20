@@ -56,6 +56,18 @@ impl StringDecoder {
                         }
                         i += 1;
                     }
+                } else if matches!(self.encoder, Encoder::Utf16le) {
+                    // For UTF-16le, we need special alignment treatment:
+                    // If we have a high surrogate we need to extend the missing bytes
+                    // to 3 to get the low surrogate.
+                    let mut i = 0;
+                    while i < data.len() && i < self.missing_bytes {
+                        if (data[i] & 0xFC) == 0xD8 {
+                            self.missing_bytes = 3;
+                            break;
+                        }
+                        i += 1;
+                    }
                 }
 
                 let found_bytes = std::cmp::min(data.len(), self.missing_bytes);
@@ -138,8 +150,15 @@ impl StringDecoder {
                     // See https://github.com/quickjs-ng/quickjs/issues/992
                     if (data.len() % 2) == 1 {
                         // We got half a codepoint, and need the second byte of it.
-                        self.buffered_bytes = 1;
-                        self.missing_bytes = 1;
+                        // But we need to avoid rendering high surrogates before we
+                        // have the full character.
+                        if data.len() >= 3 && (data[data.len() - 2] & 0xFC) == 0xD8 {
+                            self.buffered_bytes = 3;
+                            self.missing_bytes = 1;
+                        } else {
+                            self.buffered_bytes = 1;
+                            self.missing_bytes = 1;
+                        }
                     } else if (data[data.len() - 1] & 0xFC) == 0xD8 {
                         // Half a split UTF-16 character.
                         self.buffered_bytes = 2;
