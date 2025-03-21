@@ -101,8 +101,8 @@ where
     let is_tty = output.is_terminal();
     let mut result = String::new();
 
-    let mut options = FormatOptions::new(ctx, is_tty, true)?;
-    build_formatted_string(&mut result, ctx, args, &mut options)?;
+    let options = FormatOptions::new(ctx, is_tty, true)?;
+    build_formatted_string(&mut result, ctx, args, &options)?;
 
     result.push(NEWLINE);
 
