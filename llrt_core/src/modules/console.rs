@@ -153,8 +153,8 @@ where
             return Ok(());
         }
     } else {
-        let mut options = FormatOptions::new(ctx, is_tty, true)?;
-        build_formatted_string(&mut result, ctx, args, &mut options)?;
+        let options = FormatOptions::new(ctx, is_tty, true)?;
+        build_formatted_string(&mut result, ctx, args, &options)?;
     }
 
     result.push(NEWLINE);
@@ -261,7 +261,7 @@ fn write_lambda_log<'js>(
 
             let mut exception = None;
 
-            let mut options = FormatOptions::new(ctx, is_tty, true)?;
+            let options = FormatOptions::new(ctx, is_tty, true)?;
 
             for arg in args.0.iter() {
                 if arg.is_error() && exception.is_none() {
@@ -271,7 +271,7 @@ fn write_lambda_log<'js>(
                 }
             }
 
-            build_formatted_string(&mut values_string, ctx, args, &mut options)?;
+            build_formatted_string(&mut values_string, ctx, args, &options)?;
 
             result.push_str(&escape_json(values_string.as_bytes()));
             result.push('\"');
