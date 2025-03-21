@@ -7,6 +7,12 @@ use rquickjs::{function::Opt, Ctx, Exception, Object, Result, TypedArray, Value}
 #[rquickjs::class]
 pub struct TextEncoder {}
 
+impl Default for TextEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[rquickjs::methods(rename_all = "camelCase")]
 impl TextEncoder {
     #[qjs(constructor)]

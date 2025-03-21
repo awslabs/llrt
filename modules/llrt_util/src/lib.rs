@@ -4,6 +4,7 @@ pub mod text_decoder;
 pub mod text_encoder;
 
 use llrt_logging::format_plain;
+use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     function::Func,
     module::{Declarations, Exports, ModuleDef},
@@ -11,8 +12,6 @@ use rquickjs::{
 };
 use text_decoder::TextDecoder;
 use text_encoder::TextEncoder;
-
-use crate::{module_builder::ModuleInfo, modules::module::export_default};
 
 pub struct UtilModule;
 

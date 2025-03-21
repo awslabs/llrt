@@ -79,7 +79,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 ## child_process
 
-> [!WARNING] > `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
+> [!WARNING]
+> `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
@@ -205,7 +206,8 @@ Available globally
 
 [createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename)
 
-> [!NOTE] > `require` is available from esm modules natively. This function is just for compatibility
+> [!NOTE]
+> `require` is available from esm modules natively. This function is just for compatibility
 
 ## net
 
@@ -385,6 +387,8 @@ export class URLSearchParams {
 
 > [!IMPORTANT]
 > Supported encodings: hex, base64, utf-8, utf-16le, windows-1252 and their aliases.
+
+[format](https://nodejs.org/api/util.html#utilformatformat-args)
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
