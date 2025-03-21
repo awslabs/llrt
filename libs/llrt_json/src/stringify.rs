@@ -250,10 +250,12 @@ fn write_primitive2<'js>(
     match type_of {
         Type::Null | Type::Undefined => context.result.push_str("null"),
         Type::Bool => {
-            const BOOL_STRINGS: [&str; 2] = ["false", "true"];
-            context
-                .result
-                .push_str(BOOL_STRINGS[unsafe { value.as_bool().unwrap_unchecked() } as usize]);
+            let bool_str = if unsafe { value.as_bool().unwrap_unchecked() } {
+                "true"
+            } else {
+                "false"
+            };
+            context.result.push_str(bool_str);
         },
         Type::Int => context.result.push_str(
             context
@@ -381,21 +383,20 @@ fn append_value(context: &mut StringifyContext<'_, '_>, add_comma: bool) -> Resu
 fn write_key(string: &mut String, key: &str, indent: bool) {
     string.push('"');
     escape_json_string(string, key.as_bytes());
-    const SUFFIXES: [&str; 2] = ["\":", "\": "];
-    string.push_str(SUFFIXES[indent as usize]);
+    string.push_str("\":");
+    if indent {
+        string.push(' ');
+    }
 }
 
 #[inline(always)]
 fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool) {
-    const SEPARATOR_TABLE: [&str; 4] = [
-        "",    // add_comma = false, has_indentation = false
-        ",",   // add_comma = false, has_indentation = true
-        "\n",  // add_comma = true, has_indentation = false
-        ",\n", // add_comma = true, has_indentation = true
-    ];
-
-    let index = (add_comma as usize) | ((has_indentation as usize) << 1);
-    result.push_str(SEPARATOR_TABLE[index]);
+    if add_comma {
+        result.push(',');
+    }
+    if has_indentation {
+        result.push('\n');
+    }
 }
 
 #[inline(always)]
