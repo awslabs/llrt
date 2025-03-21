@@ -251,6 +251,9 @@ fn from<'js>(
         }
     }
 
+    // WARN: This is currently bugged for encodings that are not utf8 since we first
+    // convert to utf8 and then decode using the encoding.
+    // See https://github.com/quickjs-ng/quickjs/issues/992
     if let Some(bytes) = get_string_bytes(&value, offset, length.0)? {
         return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
     }

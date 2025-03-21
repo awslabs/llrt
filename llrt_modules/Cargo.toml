@@ -29,6 +29,7 @@ base = [
   "perf-hooks",
   "process",
   "stream-web",
+  "string-decoder",
   "timers",
   "tty",
   "url",
@@ -54,6 +55,7 @@ path = ["llrt_path"]
 process = ["llrt_process"]
 perf-hooks = ["llrt_perf_hooks"]
 stream-web = ["llrt_stream_web"]
+string-decoder = ["llrt_string_decoder"]
 timers = ["llrt_timers"]
 tty = ["llrt_tty"]
 url = ["llrt_url"]
@@ -78,6 +80,7 @@ llrt_path = { version = "0.5.1-beta", path = "../modules/llrt_path", optional = 
 llrt_process = { version = "0.5.1-beta", path = "../modules/llrt_process", optional = true }
 llrt_perf_hooks = { version = "0.5.1-beta", path = "../modules/llrt_perf_hooks", optional = true }
 llrt_stream_web = { version = "0.5.1-beta", path = "../modules/llrt_stream_web", optional = true }
+llrt_string_decoder = { version = "0.5.1-beta", path = "../modules/llrt_string_decoder", optional = true }
 llrt_timers = { version = "0.5.1-beta", path = "../modules/llrt_timers", optional = true }
 llrt_tty = { version = "0.5.1-beta", path = "../modules/llrt_tty", optional = true }
 llrt_url = { version = "0.5.1-beta", path = "../modules/llrt_url", optional = true }

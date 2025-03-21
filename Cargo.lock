@@ -1958,6 +1958,7 @@ dependencies = [
  "llrt_perf_hooks",
  "llrt_process",
  "llrt_stream_web",
+ "llrt_string_decoder",
  "llrt_timers",
  "llrt_tty",
  "llrt_url",
@@ -2072,6 +2073,18 @@ name = "llrt_stream_web"
 version = "0.5.1-beta"
 dependencies = [
  "llrt_abort",
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
+name = "llrt_string_decoder"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_buffer",
+ "llrt_encoding",
  "llrt_test",
  "llrt_utils",
  "rquickjs",

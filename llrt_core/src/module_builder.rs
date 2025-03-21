@@ -17,6 +17,7 @@ use crate::modules::{
     perf_hooks::PerfHooksModule,
     process::ProcessModule,
     stream_web::StreamWebModule,
+    string_decoder::StringDecoderModule,
     tty::TtyModule,
     url::UrlModule,
     util::UtilModule,
@@ -110,6 +111,7 @@ impl Default for ModuleBuilder {
             .with_module(ZlibModule)
             .with_module(TtyModule)
             .with_module(DnsModule)
+            .with_module(StringDecoderModule)
     }
 }
 

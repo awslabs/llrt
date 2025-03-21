@@ -4,7 +4,7 @@
 pub use llrt_modules::console;
 pub use llrt_modules::{
     abort, assert, buffer, child_process, crypto, dns, events, exceptions, fs, http, navigator,
-    net, os, path, perf_hooks, process, stream_web, tty, url, zlib,
+    net, os, path, perf_hooks, process, stream_web, string_decoder, tty, url, zlib,
 };
 
 #[cfg(feature = "lambda")]

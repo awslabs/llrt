@@ -40,6 +40,8 @@ mod modules {
     pub use llrt_process as process;
     #[cfg(feature = "stream-web")]
     pub use llrt_stream_web as stream_web;
+    #[cfg(feature = "string-decoder")]
+    pub use llrt_string_decoder as string_decoder;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
     #[cfg(feature = "tty")]
