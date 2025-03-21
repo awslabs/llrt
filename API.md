@@ -79,8 +79,7 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 ## child_process
 
-> [!WARNING]
-> `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
+> [!WARNING] > `spawn` uses native streams that is not 100% compatible with the Node.js Streams API.
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
@@ -148,6 +147,10 @@ Available globally
 > - `response.body` returns `null`. Use `response.text()`, `response.json()` etc
 > - `mode`, `credentials`, `referrerPolicy`, `priority`, `cache` is not available/applicable
 
+## string_decoder
+
+[StringDecoder](https://nodejs.org/api/string_decoder.html#class-stringdecoder)
+
 ## file
 
 [file](https://developer.mozilla.org/en-US/docs/Web/API/File)
@@ -202,8 +205,7 @@ Available globally
 
 [createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename)
 
-> [!NOTE]
-> `require` is available from esm modules natively. This function is just for compatibility
+> [!NOTE] > `require` is available from esm modules natively. This function is just for compatibility
 
 ## net
 
