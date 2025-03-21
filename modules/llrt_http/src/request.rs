@@ -5,8 +5,8 @@ use llrt_json::parse::json_parse;
 use llrt_url::url_class::URL;
 use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt, result::ResultExt};
 use rquickjs::{
-    class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, JsLifetime,
-    Null, Object, Result, TypedArray, Value,
+    class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
+    Result, TypedArray, Value,
 };
 
 use super::{blob::Blob, headers::Headers};

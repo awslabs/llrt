@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{prelude::Opt, Ctx, IntoJs, JsLifetime, Null, Result, Value};
+use rquickjs::{prelude::Opt, Ctx, IntoJs, Null, Result, Value};
 
 use llrt_utils::object::ObjectExt;
 

@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, Class, Coerced, Ctx, Exception, FromJs,
-    IntoJs, JsLifetime, Null, Object, Result, Value,
+    IntoJs, Null, Object, Result, Value,
 };
 use url::{quirks, Url};
 

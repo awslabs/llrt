@@ -130,8 +130,6 @@ fn prepare_shell_args(
     vec!["-c".into(), string_args]
 }
 
-use rquickjs::JsLifetime;
-
 #[allow(dead_code)]
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime)]

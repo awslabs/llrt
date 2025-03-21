@@ -14,7 +14,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Property,
     prelude::This,
-    Array, Class, Ctx, Error, Function, IntoJs, JsLifetime, Object, Result, Value,
+    Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
 
 const AMP: &str = "&amp;";
