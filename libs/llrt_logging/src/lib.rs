@@ -125,6 +125,7 @@ impl LogLevel {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FormatOptions<'js> {
     color: bool,
     newline: bool,
@@ -135,6 +136,27 @@ pub struct FormatOptions<'js> {
     parse_int: Function<'js>,
     object_filter: Filter,
     custom_inspect_symbol: Symbol<'js>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct FormatOptionsOverride {
+    color: Option<bool>,
+    object_filter: Option<Filter>,
+}
+
+impl FormatOptionsOverride {
+    pub fn reset(&mut self) {
+        // Keep color once overriden
+        self.object_filter = None;
+    }
+
+    pub fn without_color(&mut self) {
+        self.color = Some(false);
+    }
+
+    pub fn with_default_filter(&mut self) {
+        self.object_filter = Some(Filter::default());
+    }
 }
 
 impl<'js> FormatOptions<'js> {
@@ -182,8 +204,8 @@ pub fn format_values<'js>(
     newline: bool,
 ) -> Result<String> {
     let mut result = String::with_capacity(64);
-    let mut options = FormatOptions::new(ctx, tty, newline)?;
-    build_formatted_string(&mut result, ctx, args, &mut options)?;
+    let options = FormatOptions::new(ctx, tty, newline)?;
+    build_formatted_string(&mut result, ctx, args, &options)?;
     Ok(result)
 }
 
@@ -191,13 +213,12 @@ pub fn build_formatted_string<'js>(
     result: &mut String,
     ctx: &Ctx<'js>,
     args: Rest<Value<'js>>,
-    options: &mut FormatOptions<'js>,
+    options: &FormatOptions<'js>,
 ) -> Result<()> {
     let size = args.len();
     let mut iter = args.0.into_iter().enumerate().peekable();
 
-    let current_filter = options.object_filter;
-    let default_filter = Filter::default();
+    let mut options_override = FormatOptionsOverride::default();
 
     while let Some((index, arg)) = iter.next() {
         if index == 0 && size > 1 {
@@ -206,7 +227,7 @@ pub fn build_formatted_string<'js>(
 
                 //fast check for format any strings
                 if str.find('%').is_none() {
-                    format_raw_string(result, str, options);
+                    format_raw_string(result, str, options, &options_override);
                     continue;
                 }
                 let bytes = str.as_bytes();
@@ -241,7 +262,7 @@ pub fn build_formatted_string<'js>(
                                     continue;
                                 },
                                 b'O' => {
-                                    options.object_filter = default_filter;
+                                    options_override.with_default_filter();
                                     next_value()
                                 },
                                 b'o' => next_value(),
@@ -259,10 +280,10 @@ pub fn build_formatted_string<'js>(
                                     continue;
                                 },
                             };
-                            options.color = false;
+                            options_override.without_color();
 
-                            format_raw(result, value, options)?;
-                            options.object_filter = current_filter;
+                            format_raw(result, value, options, &options_override)?;
+                            options_override.reset();
                             continue;
                         }
                         result.push_byte(byte);
@@ -279,7 +300,7 @@ pub fn build_formatted_string<'js>(
         if index != 0 {
             result.push(SPACING);
         }
-        format_raw(result, arg, options)?;
+        format_raw(result, arg, options, &options_override)?;
     }
 
     Ok(())
@@ -290,8 +311,16 @@ fn format_raw<'js>(
     result: &mut String,
     value: Value<'js>,
     options: &FormatOptions<'js>,
+    options_override: &FormatOptionsOverride,
 ) -> Result<()> {
-    format_raw_inner(result, value, options, &mut HashSet::default(), 0)?;
+    format_raw_inner(
+        result,
+        value,
+        options,
+        options_override,
+        &mut HashSet::default(),
+        0,
+    )?;
     Ok(())
 }
 
@@ -299,12 +328,13 @@ fn format_raw_inner<'js>(
     result: &mut String,
     value: Value<'js>,
     options: &FormatOptions<'js>,
+    options_override: &FormatOptionsOverride,
     visited: &mut HashSet<usize>,
     depth: usize,
 ) -> Result<()> {
     let value_type = value.type_of();
 
-    let color_enabled = options.color;
+    let color_enabled = options_override.color.unwrap_or(options.color);
     let is_root = depth == 0;
 
     match value_type {
@@ -429,7 +459,7 @@ fn format_raw_inner<'js>(
                 },
                 PromiseState::Resolved => {
                     let value: Value = unsafe { promise.result().unwrap_unchecked() }?;
-                    format_raw_inner(result, value, options, visited, depth + 1)?;
+                    format_raw_inner(result, value, options, options_override, visited, depth + 1)?;
                 },
                 PromiseState::Rejected => {
                     let value: Error =
@@ -442,7 +472,7 @@ fn format_raw_inner<'js>(
                     if color_enabled {
                         Color::reset(result);
                     }
-                    format_raw_inner(result, value, options, visited, depth + 1)?;
+                    format_raw_inner(result, value, options, options_override, visited, depth + 1)?;
                 },
             }
             write_sep(result, false, apply_indentation, options.newline);
@@ -568,6 +598,7 @@ fn format_raw_inner<'js>(
                         result,
                         obj,
                         options,
+                        options_override,
                         visited,
                         depth,
                         color_enabled,
@@ -579,6 +610,7 @@ fn format_raw_inner<'js>(
                     result,
                     obj,
                     options,
+                    options_override,
                     visited,
                     depth,
                     color_enabled,
@@ -601,8 +633,18 @@ fn format_raw_inner<'js>(
     Ok(())
 }
 
-fn format_raw_string(result: &mut String, value: String, options: &FormatOptions<'_>) {
-    format_raw_string_inner(result, value, false, options.color);
+fn format_raw_string(
+    result: &mut String,
+    value: String,
+    options: &FormatOptions<'_>,
+    options_override: &FormatOptionsOverride,
+) {
+    format_raw_string_inner(
+        result,
+        value,
+        false,
+        options_override.color.unwrap_or(options.color),
+    );
 }
 
 fn format_raw_string_inner(result: &mut String, value: String, quoted: bool, color_enabled: bool) {
@@ -618,10 +660,12 @@ fn format_raw_string_inner(result: &mut String, value: String, quoted: bool, col
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn write_object<'js>(
     result: &mut String,
     obj: &Object<'js>,
     options: &FormatOptions<'js>,
+    options_override: &FormatOptionsOverride,
     visited: &mut HashSet<usize>,
     depth: usize,
     color_enabled: bool,
@@ -634,7 +678,11 @@ fn write_object<'js>(
     if !is_array && keys.len() == 0 {
         if let Some(proto) = obj.get_prototype() {
             if proto != options.object_prototype {
-                keys = proto.own_keys(options.object_filter);
+                keys = proto.own_keys(
+                    options_override
+                        .object_filter
+                        .unwrap_or(options.object_filter),
+                );
 
                 filter_functions = true;
             }
@@ -667,7 +715,7 @@ fn write_object<'js>(
                 result.push(SPACING);
             }
 
-            format_raw_inner(result, value, options, visited, depth + 1)?;
+            format_raw_inner(result, value, options, options_override, visited, depth + 1)?;
             first = true;
             if i > 99 {
                 result.push_str("... ");
