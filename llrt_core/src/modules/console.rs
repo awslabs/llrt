@@ -312,8 +312,8 @@ fn write_lambda_log<'js>(
 
         result.push('}');
     } else {
-        let mut options = FormatOptions::new(ctx, is_tty && !is_json_log_format, is_newline)?;
-        build_formatted_string(result, ctx, args, &mut options)?;
+        let options = FormatOptions::new(ctx, is_tty && !is_json_log_format, is_newline)?;
+        build_formatted_string(result, ctx, args, &options)?;
 
         replace_newline_with_carriage_return(result);
     }
