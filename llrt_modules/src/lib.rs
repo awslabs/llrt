@@ -48,6 +48,8 @@ mod modules {
     pub use llrt_tty as tty;
     #[cfg(feature = "url")]
     pub use llrt_url as url;
+    #[cfg(feature = "util")]
+    pub use llrt_util as util;
     #[cfg(feature = "zlib")]
     pub use llrt_zlib as zlib;
 }

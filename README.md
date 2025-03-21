@@ -119,7 +119,9 @@ The test runner also has support for filters. Using filters is as simple as addi
 | process       | ✔︎     | ✔︎     |
 | streams       | ✔︎     | ✔︎\*   |
 | timers        | ✔︎     | ✔︎     |
+| tty           | ✔︎     | ✔︎     |
 | url           | ✔︎     | ✔︎     |
+| util          | ✔︎     | ✔︎     |
 | tls           | ✔︎     | ✘⏱     |
 | zlib          | ✔︎     | ✔︎     |
 | Other modules | ✔︎     | ✘       |

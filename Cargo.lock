@@ -1962,6 +1962,7 @@ dependencies = [
  "llrt_timers",
  "llrt_tty",
  "llrt_url",
+ "llrt_util",
  "llrt_utils",
  "llrt_zlib",
 ]
@@ -2133,6 +2134,19 @@ dependencies = [
  "rquickjs",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "llrt_util"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_context",
+ "llrt_encoding",
+ "llrt_logging",
+ "llrt_test",
+ "llrt_utils",
+ "rquickjs",
+ "tokio",
 ]
 
 [[package]]
