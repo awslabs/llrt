@@ -2143,10 +2143,8 @@ dependencies = [
  "llrt_context",
  "llrt_encoding",
  "llrt_logging",
- "llrt_test",
  "llrt_utils",
  "rquickjs",
- "tokio",
 ]
 
 [[package]]
