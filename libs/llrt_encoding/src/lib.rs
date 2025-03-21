@@ -194,8 +194,9 @@ pub enum Endian {
 }
 
 pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Result<String, String> {
-    // If the length is not even, we will skip the last byte.
-    // This is the behaviour of the Node.js implementation.
+    if !lossy && bytes.len() % 2 != 0 {
+        return Err("Input byte slice length must be even".to_string());
+    }
 
     #[cfg(rust_nightly)]
     let data16: Vec<u16> = match endian {
