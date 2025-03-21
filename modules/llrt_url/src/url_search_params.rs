@@ -399,3 +399,488 @@ fn get_coerced_string_value<'js>(ctx: &Ctx<'js>, value: Opt<Value<'js>>) -> Opti
     };
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::test_sync_with;
+    use rquickjs::{CatchResultExt, Class};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_basic() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.append('b', '4');
+                params.append('c', 8);
+                params.delete('a');
+                params.delete('b', '2');
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "b=4&c=8");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_iterate() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                let res = [];
+                for (const [name, value] of params) {
+                    res.push(`${name}=${value}`);
+                }
+                res.join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=1&b=2&a=3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_iterate_entries() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                let res = [];
+                for (const [name, value] of params.entries()) {
+                    res.push(`${name}=${value}`);
+                }
+                res.join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=1&b=2&a=3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_iterate_keys() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                let res = [];
+                for (const name of params.keys()) {
+                    res.push(name);
+                }
+                res.join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a&b&a");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_iterate_values() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                let res = [];
+                for (const name of params.values()) {
+                    res.push(name);
+                }
+                res.join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "1&2&3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_new_string() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams('a=1&b=2&a=3');
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=1&b=2&a=3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_new_string_url() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams('https://google.com?a=1&b=2&a=3');
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "https%3A%2F%2Fgoogle.com%3Fa=1&b=2&a=3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_new_object() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams({'a': 1, 'b': 2});
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=1&b=2");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_new_array() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams([['a', 1], ['b', 2], ['a', 3]]);
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=1&b=2&a=3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_new_iterator() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                const params2 = new URLSearchParams(params.entries());
+                params2.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=1&b=2&a=3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_size() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<usize, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.size
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, 3);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_set() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.set('a', '4');
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=4&b=2");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_get() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.get('a')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "1");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_get_missing() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<bool, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.get('c') === null
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert!(result);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_get_all() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.getAll('a').join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "1&3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_get_all_missing() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.getAll('c').join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_has() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<bool, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.has('b')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert!(result);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_has_value() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<bool, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.has('b', 5)
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert!(!result);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_has_not() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<bool, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '1');
+                params.append('b', '2');
+                params.append('a', '3');
+                params.has('c')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert!(!result);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_sort() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '3');
+                params.append('b', '2');
+                params.append('a', '1');
+                params.sort();
+                params.toString()
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=3&a=1&b=2");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_for_each() {
+        test_sync_with(|ctx| {
+            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams();
+                params.append('a', '3');
+                params.append('b', '2');
+                params.append('a', '1');
+                let res = [];
+                params.forEach((value, name) => {
+                    res.push(`${name}=${value}`);
+                });
+                res.join('&')
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a=3&b=2&a=1");
+            Ok(())
+        })
+        .await
+    }
+}
