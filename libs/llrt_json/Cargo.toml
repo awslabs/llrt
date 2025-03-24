@@ -1,6 +1,6 @@
 [package]
 name = "llrt_json"
-description = "LLRT json helpers"
+description = "LLRT json libraries"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -21,11 +21,11 @@ simd-json = { version = "0.15", default-features = false, features = [
 
 [dev-dependencies]
 criterion = "0.5"
-llrt_test = { version = "0.5.1-beta", path = "../llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../../helpers/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-llrt_build = { version = "0.5.1-beta", path = "../llrt_build" }
+llrt_build = { version = "0.5.1-beta", path = "../../helpers/llrt_build" }
 
 [[bench]]
 name = "json"

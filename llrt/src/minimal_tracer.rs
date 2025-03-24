@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use tracing::{field::Visit, Id, Level, Subscriber};
 use tracing_core::{span, Field};
 
-use llrt_core::environment;
+use crate::core::environment;
 
 pub struct StringVisitor<'a> {
     string: &'a mut String,

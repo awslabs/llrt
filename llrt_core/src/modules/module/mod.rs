@@ -1,25 +1,49 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    fs,
+    env, fs,
     rc::Rc,
     sync::Mutex,
 };
 
-use llrt_json::parse::json_parse;
-use llrt_modules::{path::resolve_path, timers::poll_timers};
+use once_cell::sync::Lazy;
 use rquickjs::{
-    atom::PredefinedAtom, object::Accessor, prelude::Func, qjs, Ctx, Error, Filter, JsLifetime,
-    Module, Object, Result, Value,
+    atom::PredefinedAtom,
+    module::{Declarations, Exports, ModuleDef},
+    object::Accessor,
+    prelude::Func,
+    qjs, Ctx, Error, Filter, JsLifetime, Module, Object, Result, Value,
 };
 use tokio::time::Instant;
 use tracing::trace;
 
-use crate::{
-    bytecode::BYTECODE_FILE_EXT,
-    module_loader::{resolver::require_resolve, CJS_IMPORT_PREFIX},
-    utils::ctx::CtxExt,
+use crate::bytecode::BYTECODE_FILE_EXT;
+use crate::environment;
+use crate::libs::{
+    json::parse::json_parse,
+    utils::module::{export_default, ModuleInfo},
 };
+use crate::modules::{path::resolve_path, timers::poll_timers};
+use crate::utils::ctx::CtxExt;
+
+use self::resolver::require_resolve;
+
+pub mod loader;
+pub mod resolver;
+
+// added when .cjs files are imported
+pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
+// added to force CJS imports in loader
+pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
+
+pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
+    env::var(environment::ENV_LLRT_PLATFORM)
+        .ok()
+        .filter(|platform| platform == "node")
+        .unwrap_or_else(|| "browser".to_string())
+});
 
 #[derive(Default)]
 struct RequireState<'js> {
@@ -29,6 +53,40 @@ struct RequireState<'js> {
 
 unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
     type Changed<'to> = RequireState<'to>;
+}
+
+pub struct ModuleModule;
+
+fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
+    ctx.globals().get("require")
+}
+
+impl ModuleDef for ModuleModule {
+    fn declare(declare: &Declarations) -> Result<()> {
+        declare.declare("createRequire")?;
+        declare.declare("default")?;
+
+        Ok(())
+    }
+
+    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
+        export_default(ctx, exports, |default| {
+            default.set("createRequire", Func::from(create_require))?;
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+}
+
+impl From<ModuleModule> for ModuleInfo<ModuleModule> {
+    fn from(val: ModuleModule) -> Self {
+        ModuleInfo {
+            name: "module",
+            module: val,
+        }
+    }
 }
 
 pub fn init(ctx: &Ctx, module_names: HashSet<&'static str>) -> Result<()> {
