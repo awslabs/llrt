@@ -153,6 +153,12 @@ it("require `@aws-lambda-powertools` module element", () => {
   );
 });
 
+it("regression testing for issue #903", () => {
+  expect(() => _require(`${CWD}/fixtures/test903/foo.mjs`)).toThrow(
+    /Error resolving module /
+  );
+});
+
 //create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
 it("should handle blocking requires", (done) => {
   const proc = spawn(process.argv0, [`${CWD}/fixtures/require.mjs`]);
