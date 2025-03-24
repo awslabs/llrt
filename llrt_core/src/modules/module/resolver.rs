@@ -141,6 +141,10 @@ pub fn require_resolve<'a>(
     let (_, ext_name) = name_extname(x);
     let is_supported_ext = is_supported_ext(ext_name);
 
+    let x_is_absolute = path::is_absolute(x);
+    let x_starts_with_current_dir = x.starts_with("./");
+    let x_starts_with_parent_dir = x.starts_with("../");
+
     if is_supported_ext && Path::new(x).is_file() {
         return resolved_by_file_exists(x.into());
     }
@@ -150,12 +154,9 @@ pub fn require_resolve<'a>(
         return resolved_by_bytecode_cache(x_normalized.into());
     }
 
-    if is_supported_ext && Path::new(&x_normalized).is_file() {
+    if !x_starts_with_parent_dir && is_supported_ext && Path::new(&x_normalized).is_file() {
         return resolved_by_file_exists(x_normalized.into());
     }
-
-    let x_is_absolute = path::is_absolute(x);
-    let x_starts_with_current_dir = x.starts_with("./");
 
     // 2. If X begins with '/'
     let y = if path::is_absolute(x) {
@@ -174,7 +175,7 @@ pub fn require_resolve<'a>(
     };
 
     // 3. If X begins with './' or '/' or '../'
-    if x_starts_with_current_dir || x_is_absolute || x.starts_with("../") {
+    if x_starts_with_current_dir || x_is_absolute || x_starts_with_parent_dir {
         let y_plus_x = if x_is_absolute {
             x.into()
         } else if x_starts_with_current_dir {
