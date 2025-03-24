@@ -33,6 +33,7 @@ base = [
   "timers",
   "tty",
   "url",
+  "util",
   "zlib",
 ]
 
@@ -59,6 +60,7 @@ string-decoder = ["llrt_string_decoder"]
 timers = ["llrt_timers"]
 tty = ["llrt_tty"]
 url = ["llrt_url"]
+util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
@@ -84,5 +86,7 @@ llrt_string_decoder = { version = "0.5.1-beta", path = "../modules/llrt_string_d
 llrt_timers = { version = "0.5.1-beta", path = "../modules/llrt_timers", optional = true }
 llrt_tty = { version = "0.5.1-beta", path = "../modules/llrt_tty", optional = true }
 llrt_url = { version = "0.5.1-beta", path = "../modules/llrt_url", optional = true }
-llrt_utils = { version = "0.5.1-beta", path = "../libs/llrt_utils" }
+llrt_util = { version = "0.5.1-beta", path = "../modules/llrt_util", optional = true }
 llrt_zlib = { version = "0.5.1-beta", path = "../modules/llrt_zlib", optional = true }
+
+llrt_utils = { version = "0.5.1-beta", path = "../libs/llrt_utils" }

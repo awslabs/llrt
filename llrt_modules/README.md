@@ -99,7 +99,9 @@ async fn main() -> Result<(), Error> {
 | string_decoder | ✔︎     | ✔︎          | `string_decoder` | `llrt_string_decoder` |
 | timers         | ✔︎     | ✔︎          | `timers`         | `llrt_timers`         |
 | process        | ✔︎     | ✔︎          | `process`        | `llrt_process`        |
+| tty            | ✔︎     | ⚠️           | `tty`            | `llrt_tty`            |
 | url            | ✔︎     | ⚠️           | `url`            | `llrt_url`            |
+| util           | ✔︎     | ⚠️           | `util`           | `llrt_util`           |
 | zlib           | ✔︎     | ⚠️           | `zlib`           | `llrt_zlib`           |
 | Other modules  | ✔︎     | ✘            | N/A              | N/A                   |
 
