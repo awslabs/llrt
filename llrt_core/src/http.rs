@@ -1,23 +1,28 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::{env, fs::File, io, result::Result as StdResult};
 
-use llrt_modules::http::HttpVersion;
 use rustls::{pki_types::CertificateDer, version, SupportedProtocolVersion};
 use tracing::warn;
 
 use crate::environment;
+use crate::modules::http::{
+    set_extra_ca_certs, set_http_version, set_pool_idle_timeout_seconds, set_tls_versions,
+    HttpVersion,
+};
 
 pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Some(pool_idle_timeout) = build_pool_idle_timeout() {
-        llrt_modules::http::set_pool_idle_timeout_seconds(pool_idle_timeout);
+        set_pool_idle_timeout_seconds(pool_idle_timeout);
     }
 
     if let Some(extra_ca_certs) = buid_extra_ca_certs()? {
-        llrt_modules::http::set_extra_ca_certs(extra_ca_certs);
+        set_extra_ca_certs(extra_ca_certs);
     }
 
-    llrt_modules::http::set_tls_versions(build_tls_versions());
+    set_tls_versions(build_tls_versions());
 
-    llrt_modules::http::set_http_version(build_http_version());
+    set_http_version(build_http_version());
 
     Ok(())
 }

@@ -84,5 +84,5 @@ md-5 = "0.10"
 md-5 = { version = "0.10", features = ["asm"] }
 
 [dev-dependencies]
-llrt_test = { path = "../../libs/llrt_test" }
+llrt_test = { path = "../../helpers/llrt_test" }
 tokio = { version = "1", features = ["full"] }

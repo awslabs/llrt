@@ -1,6 +1,6 @@
 [package]
 name = "llrt_compression"
-description = "LLRT compression helpers"
+description = "LLRT compression libraries"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"

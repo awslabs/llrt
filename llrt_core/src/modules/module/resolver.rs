@@ -11,21 +11,18 @@ use std::{
     sync::Mutex,
 };
 
-use llrt_modules::path::{
-    self, is_absolute, name_extname, replace_backslash, resolve_path_with_separator,
-};
-use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Result};
 use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
-use crate::{
-    module_loader::CJS_LOADER_PREFIX,
-    utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS},
+use crate::libs::utils::result::ResultExt;
+use crate::modules::path::{
+    self, is_absolute, name_extname, replace_backslash, resolve_path_with_separator,
 };
+use crate::utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS};
 
-use super::{CJS_IMPORT_PREFIX, LLRT_PLATFORM};
+use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 
@@ -144,10 +141,6 @@ pub fn require_resolve<'a>(
     let (_, ext_name) = name_extname(x);
     let is_supported_ext = is_supported_ext(ext_name);
 
-    let x_is_absolute = path::is_absolute(x);
-    let x_starts_with_current_dir = x.starts_with("./");
-    let x_starts_with_parent_dir = x.starts_with("../");
-
     if is_supported_ext && Path::new(x).is_file() {
         return resolved_by_file_exists(x.into());
     }
@@ -157,9 +150,12 @@ pub fn require_resolve<'a>(
         return resolved_by_bytecode_cache(x_normalized.into());
     }
 
-    if !x_starts_with_parent_dir && is_supported_ext && Path::new(&x_normalized).is_file() {
+    if is_supported_ext && Path::new(&x_normalized).is_file() {
         return resolved_by_file_exists(x_normalized.into());
     }
+
+    let x_is_absolute = path::is_absolute(x);
+    let x_starts_with_current_dir = x.starts_with("./");
 
     // 2. If X begins with '/'
     let y = if path::is_absolute(x) {
@@ -178,7 +174,7 @@ pub fn require_resolve<'a>(
     };
 
     // 3. If X begins with './' or '/' or '../'
-    if x_starts_with_current_dir || x_is_absolute || x_starts_with_parent_dir {
+    if x_starts_with_current_dir || x_is_absolute || x.starts_with("../") {
         let y_plus_x = if x_is_absolute {
             x.into()
         } else if x_starts_with_current_dir {

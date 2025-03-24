@@ -8,21 +8,23 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use llrt_json::{escape::escape_json, stringify::json_stringify};
-use llrt_logging::{
-    build_formatted_string, replace_newline_with_carriage_return, FormatOptions, LogLevel, NEWLINE,
-    TIME_FORMAT,
-};
-use llrt_utils::{
-    class::get_class_name,
-    module::{export_default, ModuleInfo},
-};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
     Array, Class, Ctx, Object, Result, Value,
 };
 
+use crate::libs::{
+    json::{escape::escape_json, stringify::json_stringify},
+    logging::{
+        build_formatted_string, replace_newline_with_carriage_return, FormatOptions, LogLevel,
+        NEWLINE, TIME_FORMAT,
+    },
+    utils::{
+        class::get_class_name,
+        module::{export_default, ModuleInfo},
+    },
+};
 use crate::runtime_client;
 
 static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
@@ -372,11 +374,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use llrt_json::stringify::json_stringify_replacer_space;
-    use llrt_logging::LogLevel;
     use llrt_test::test_sync_with;
     use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
 
+    use crate::libs::{json::stringify::json_stringify_replacer_space, logging::LogLevel};
     use crate::modules::console::write_lambda_log;
 
     #[tokio::test]
