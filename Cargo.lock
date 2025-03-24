@@ -1961,7 +1961,6 @@ dependencies = [
  "llrt_tty",
  "llrt_url",
  "llrt_util",
- "llrt_utils",
  "llrt_zlib",
 ]
 
