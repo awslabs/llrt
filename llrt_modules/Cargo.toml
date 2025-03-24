@@ -88,5 +88,3 @@ llrt_tty = { version = "0.5.1-beta", path = "../modules/llrt_tty", optional = tr
 llrt_url = { version = "0.5.1-beta", path = "../modules/llrt_url", optional = true }
 llrt_util = { version = "0.5.1-beta", path = "../modules/llrt_util", optional = true }
 llrt_zlib = { version = "0.5.1-beta", path = "../modules/llrt_zlib", optional = true }
-
-llrt_utils = { version = "0.5.1-beta", path = "../libs/llrt_utils" }
