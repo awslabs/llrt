@@ -30,7 +30,8 @@ use crate::module_builder::ModuleBuilder;
 use crate::modules::{
     console,
     crypto::SYSTEM_RANDOM,
-    module::{self, loader::CustomLoader, resolver::CustomResolver},
+    module::{self},
+    require::{loader::CustomLoader, resolver::CustomResolver},
 };
 use crate::{environment, http, security};
 
