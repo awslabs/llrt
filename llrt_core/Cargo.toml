@@ -51,7 +51,7 @@ rustls = { version = "0.23", default-features = false, features = [
 ] }
 rustls-pemfile = "2"
 ryu = "1"
-simd-json = { version = "0.14", default-features = false, features = [
+simd-json = { version = "0.15", default-features = false, features = [
   "big-int-as-float",
 ] }
 terminal_size = "0.4"
