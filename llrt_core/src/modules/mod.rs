@@ -11,3 +11,4 @@ pub use llrt_modules::{
 pub mod console;
 pub mod llrt;
 pub mod module;
+pub mod require;

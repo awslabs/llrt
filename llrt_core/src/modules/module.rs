@@ -3,12 +3,11 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    env, fs,
+    fs,
     rc::Rc,
     sync::Mutex,
 };
 
-use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
@@ -20,33 +19,19 @@ use tokio::time::Instant;
 use tracing::trace;
 
 use crate::bytecode::BYTECODE_FILE_EXT;
-use crate::environment;
 use crate::libs::{
     json::parse::json_parse,
     utils::module::{export_default, ModuleInfo},
 };
-use crate::modules::{path::resolve_path, timers::poll_timers};
+use crate::modules::{
+    path::resolve_path,
+    require::{resolver::require_resolve, CJS_IMPORT_PREFIX},
+    timers::poll_timers,
+};
 use crate::utils::ctx::CtxExt;
 
-use self::resolver::require_resolve;
-
-pub mod loader;
-pub mod resolver;
-
-// added when .cjs files are imported
-pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
-// added to force CJS imports in loader
-pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
-
-pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
-    env::var(environment::ENV_LLRT_PLATFORM)
-        .ok()
-        .filter(|platform| platform == "node")
-        .unwrap_or_else(|| "browser".to_string())
-});
-
 #[derive(Default)]
-struct RequireState<'js> {
+pub struct RequireState<'js> {
     cache: HashMap<Rc<str>, Value<'js>>,
     exports: HashMap<Rc<str>, Value<'js>>,
 }
