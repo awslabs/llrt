@@ -1,6 +1,6 @@
 [package]
 name = "llrt_dns_cache"
-description = "LLRT dns cache libraries"
+description = "LLRT dns cache helpers"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"

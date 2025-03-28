@@ -1,6 +1,6 @@
 [package]
 name = "llrt_numbers"
-description = "LLRT numbers libraries"
+description = "LLRT numbers helpers"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ ryu = "1"
 
 [dev-dependencies]
 criterion = "0.5"
-llrt_test = { version = "0.5.1-beta", path = "../../libs/llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../llrt_test" }
 
 [[bench]]
 name = "numbers"

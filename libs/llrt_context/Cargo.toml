@@ -1,6 +1,6 @@
 [package]
 name = "llrt_context"
-description = "LLRT context libraries"
+description = "LLRT context helpers"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -15,8 +15,8 @@ tokio = { version = "1", features = ["sync"], default-features = false }
 tracing = "0.1"
 
 [dev-dependencies]
-llrt_test = { version = "0.5.1-beta", path = "../../libs/llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../llrt_test" }
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-llrt_build = { version = "0.5.1-beta", path = "../../libs/llrt_build" }
+llrt_build = { version = "0.5.1-beta", path = "../llrt_build" }

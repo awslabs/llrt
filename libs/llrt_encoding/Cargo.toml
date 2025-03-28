@@ -1,6 +1,6 @@
 [package]
 name = "llrt_encoding"
-description = "LLRT encoding libraries"
+description = "LLRT encoding helpers"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -13,4 +13,4 @@ phf = { version = "0.11", features = ["macros"] }
 memchr = "2"
 
 [build-dependencies]
-llrt_build = { version = "0.5.1-beta", path = "../../libs/llrt_build" }
+llrt_build = { version = "0.5.1-beta", path = "../llrt_build" }
