@@ -82,8 +82,8 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0"
 phf_codegen = "0.11"
 jwalk = "0.8"
 nanoid = "0.4"
-llrt_build = { path = "../helpers/llrt_build" }
+llrt_build = { path = "../libs/llrt_build" }
 
 [dev-dependencies]
 wiremock = "0.6"
-llrt_test = { path = "../helpers/llrt_test" }
+llrt_test = { path = "../libs/llrt_test" }

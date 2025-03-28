@@ -13,4 +13,4 @@ phf = { version = "0.11", features = ["macros"] }
 memchr = "2"
 
 [build-dependencies]
-llrt_build = { version = "0.5.1-beta", path = "../../helpers/llrt_build" }
+llrt_build = { version = "0.5.1-beta", path = "../../libs/llrt_build" }

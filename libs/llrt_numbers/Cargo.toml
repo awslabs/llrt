@@ -19,7 +19,7 @@ ryu = "1"
 
 [dev-dependencies]
 criterion = "0.5"
-llrt_test = { version = "0.5.1-beta", path = "../../helpers/llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../../libs/llrt_test" }
 
 [[bench]]
 name = "numbers"
