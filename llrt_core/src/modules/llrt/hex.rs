@@ -1,21 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub mod encoder {
-    pub use llrt_encoding::*;
-}
-
-use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
     Ctx, Result, Value,
 };
 
-use crate::{
-    module_builder::ModuleInfo, modules::module::export_default, utils::result::ResultExt,
+use crate::libs::{
+    encoding::{bytes_from_hex, bytes_to_hex_string},
+    utils::{
+        bytes::{bytes_to_typed_array, ObjectBytes},
+        module::{export_default, ModuleInfo},
+        result::ResultExt,
+    },
 };
-
-use self::encoder::{bytes_from_hex, bytes_to_hex_string};
 
 pub struct LlrtHexModule;
 

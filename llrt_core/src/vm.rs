@@ -2,13 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult};
 
-use llrt_json::{parse::json_parse_string, stringify::json_stringify_replacer_space};
-use llrt_numbers::number_to_string;
-use llrt_utils::{
-    clone::structured_clone,
-    error::ErrorExtensions,
-    primordials::{BasePrimordials, Primordial},
-};
 use ring::rand::SecureRandom;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -22,12 +15,25 @@ use rquickjs::{
 
 pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
-use crate::{
-    environment, http,
-    module_loader::{loader::CustomLoader, require, resolver::CustomResolver},
-    modules::{console, crypto::SYSTEM_RANDOM},
-    security,
+use crate::libs::{
+    context::set_spawn_error_handler,
+    json::{parse::json_parse_string, stringify::json_stringify_replacer_space},
+    numbers::number_to_string,
+    utils::{
+        clone::structured_clone,
+        error::ErrorExtensions,
+        primordials::{BasePrimordials, Primordial},
+        time,
+    },
 };
+use crate::module_builder::ModuleBuilder;
+use crate::modules::{
+    console,
+    crypto::SYSTEM_RANDOM,
+    module::{self},
+    require::{loader::CustomLoader, resolver::CustomResolver},
+};
+use crate::{environment, http, security};
 
 pub struct Vm {
     pub runtime: AsyncRuntime,
@@ -38,7 +44,7 @@ pub struct Vm {
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
 pub struct VmOptions {
-    pub module_builder: crate::module_builder::ModuleBuilder,
+    pub module_builder: ModuleBuilder,
     pub max_stack_size: usize,
     pub gc_threshold_mb: usize,
 }
@@ -46,7 +52,7 @@ pub struct VmOptions {
 impl Default for VmOptions {
     fn default() -> Self {
         Self {
-            module_builder: crate::module_builder::ModuleBuilder::default(),
+            module_builder: ModuleBuilder::default(),
             max_stack_size: 512 * 1024,
             gc_threshold_mb: {
                 const DEFAULT_GC_THRESHOLD_MB: usize = 20;
@@ -67,7 +73,7 @@ impl Vm {
     pub async fn from_options(
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
-        llrt_modules::time::init();
+        time::init();
         http::init()?;
         security::init()?;
 
@@ -114,8 +120,8 @@ impl Vm {
                 for init_global in init_globals {
                     init_global(&ctx)?;
                 }
-                init(&ctx)?;
-                require::init(&ctx, module_names)?;
+                self::init(&ctx)?;
+                module::init(&ctx, module_names)?;
                 Ok(())
             })()
             .catch(&ctx)
@@ -195,7 +201,7 @@ impl Vm {
 }
 
 fn init(ctx: &Ctx<'_>) -> Result<()> {
-    llrt_context::set_spawn_error_handler(|ctx, err| {
+    set_spawn_error_handler(|ctx, err| {
         Vm::print_error_and_exit(ctx, err);
     });
 

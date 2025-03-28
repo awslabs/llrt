@@ -1,5 +1,12 @@
 use std::collections::HashSet;
 
+use rquickjs::{
+    loader::{ModuleLoader, Resolver},
+    module::ModuleDef,
+    Ctx, Error, Result,
+};
+
+use crate::libs::utils::module::ModuleInfo;
 use crate::modules::{
     assert::AssertModule,
     buffer::BufferModule,
@@ -18,17 +25,11 @@ use crate::modules::{
     process::ProcessModule,
     stream_web::StreamWebModule,
     string_decoder::StringDecoderModule,
+    timers::TimersModule,
     tty::TtyModule,
     url::UrlModule,
     util::UtilModule,
     zlib::ZlibModule,
-};
-use llrt_modules::timers::TimersModule;
-pub use llrt_utils::module::ModuleInfo;
-use rquickjs::{
-    loader::{ModuleLoader, Resolver},
-    module::ModuleDef,
-    Ctx, Error, Result,
 };
 
 #[derive(Debug, Default)]
@@ -80,7 +81,7 @@ impl Default for ModuleBuilder {
             .with_module(FsModule)
             .with_module(OsModule)
             .with_module(TimersModule)
-            .with_global(llrt_modules::timers::init)
+            .with_global(crate::modules::timers::init)
             .with_module(EventsModule)
             .with_global(crate::modules::events::init)
             .with_global(crate::modules::abort::init)

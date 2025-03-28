@@ -1,7 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_encoding::bytes_to_hex;
-use llrt_utils::bytes::ObjectBytes;
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
 use rquickjs::{
@@ -12,11 +10,15 @@ use rquickjs::{
 use uuid::Uuid;
 use uuid_simd::UuidExt;
 
-use crate::{
-    module_builder::ModuleInfo,
-    modules::{crypto::SYSTEM_RANDOM, module::export_default},
-    utils::result::ResultExt,
+use crate::libs::{
+    encoding::bytes_to_hex,
+    utils::{
+        bytes::ObjectBytes,
+        module::{export_default, ModuleInfo},
+        result::ResultExt,
+    },
 };
+use crate::modules::crypto::SYSTEM_RANDOM;
 
 pub struct LlrtUuidModule;
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{collections::HashMap, rc::Rc};
 
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use quick_xml::{
     escape::resolve_xml_entity,
     events::{BytesStart, Event},
@@ -17,6 +16,13 @@ use rquickjs::{
     Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
 
+use crate::libs::utils::{
+    bytes::ObjectBytes,
+    module::{export_default, ModuleInfo},
+    object::ObjectExt,
+    result::ResultExt,
+};
+
 const AMP: &str = "&amp;";
 const LT: &str = "&lt;";
 const GT: &str = "&gt;";
@@ -26,10 +32,6 @@ const CR: &str = "&#x0D;";
 const LF: &str = "&#x0A;";
 const NEL: &str = "&#x85;";
 const LS: &str = "&#x2028;";
-
-use crate::{
-    module_builder::ModuleInfo, modules::module::export_default, utils::result::ResultExt,
-};
 
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime)]

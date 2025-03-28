@@ -1,8 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-pub use llrt_utils::fs::DirectoryWalker;
-
 use crate::bytecode::BYTECODE_FILE_EXT;
 
 macro_rules! define_supported_extensions {

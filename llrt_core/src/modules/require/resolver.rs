@@ -11,21 +11,18 @@ use std::{
     sync::Mutex,
 };
 
-use llrt_modules::path::{
-    self, is_absolute, name_extname, replace_backslash, resolve_path_with_separator,
-};
-use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Result};
 use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
-use crate::{
-    module_loader::CJS_LOADER_PREFIX,
-    utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS},
+use crate::libs::utils::result::ResultExt;
+use crate::modules::path::{
+    self, is_absolute, name_extname, replace_backslash, resolve_path_with_separator,
 };
+use crate::utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS};
 
-use super::{CJS_IMPORT_PREFIX, LLRT_PLATFORM};
+use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
 
 include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 

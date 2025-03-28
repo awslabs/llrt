@@ -29,11 +29,10 @@ hyper-util = "0.1"
 itoa = "1"
 libc = "0.2"
 llrt_context = { path = "../libs/llrt_context" }
-llrt_console = { path = "../modules/llrt_console" }
 llrt_encoding = { path = "../libs/llrt_encoding" }
 llrt_json = { path = "../libs/llrt_json" }
 llrt_logging = { path = "../libs/llrt_logging" }
-llrt_modules = { path = "../llrt_modules", features = ["lambda"] }
+llrt_modules = { path = "../llrt_modules" }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = "1"
