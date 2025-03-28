@@ -21,11 +21,11 @@ simd-json = { version = "0.15", default-features = false, features = [
 
 [dev-dependencies]
 criterion = "0.5"
-llrt_test = { version = "0.5.1-beta", path = "../../helpers/llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-llrt_build = { version = "0.5.1-beta", path = "../../helpers/llrt_build" }
+llrt_build = { version = "0.5.1-beta", path = "../../libs/llrt_build" }
 
 [[bench]]
 name = "json"

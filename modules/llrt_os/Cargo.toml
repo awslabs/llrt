@@ -32,5 +32,5 @@ windows-result = "0.3"
 windows-version = "0.1"
 
 [dev-dependencies]
-llrt_test = { path = "../../helpers/llrt_test" }
+llrt_test = { path = "../../libs/llrt_test" }
 tokio = { version = "1", features = ["full"] }

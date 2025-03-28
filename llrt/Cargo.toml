@@ -25,7 +25,7 @@ tracing-core = "0.1"
 snmalloc-rs = { version = "0.3", features = ["lto"] }
 
 [dev-dependencies]
-llrt_test = { version = "0.5.1-beta", path = "../helpers/llrt_test" }
+llrt_test = { version = "0.5.1-beta", path = "../libs/llrt_test" }
 
 [[bin]]
 name = "llrt"

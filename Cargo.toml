@@ -3,13 +3,13 @@ resolver = "2"
 # Patch doesn't play well with *, so we have to list individual members
 # See https://github.com/rust-lang/cargo/issues/14717
 members = [
-  "helpers/llrt_build",
-  "helpers/llrt_test",
+  "libs/llrt_build",
   "libs/llrt_compression",
   "libs/llrt_context",
   "libs/llrt_encoding",
   "libs/llrt_json",
   "libs/llrt_numbers",
+  "libs/llrt_test",
   "libs/llrt_utils",
   "modules/llrt_abort",
   "modules/llrt_buffer",
