@@ -118,6 +118,9 @@ pub fn require_resolve<'a>(
     y: &str,
     is_esm: bool,
 ) -> Result<Cow<'a, str>> {
+    // trim schema
+    let x = x.trim_start_matches("file://");
+
     // resolve symlink
     let y = if let Ok(path) = Path::new(y).read_link() {
         if path.is_absolute() {
