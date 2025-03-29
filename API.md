@@ -390,6 +390,8 @@ export class URLSearchParams {
 
 [format](https://nodejs.org/api/util.html#utilformatformat-args)
 
+[inherits](https://nodejs.org/api/util.html#utilinheritsconstructor-superconstructor)
+
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
