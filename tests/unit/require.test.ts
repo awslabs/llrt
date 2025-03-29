@@ -35,6 +35,18 @@ it("should require a json file (path unspecified)", () => {
   expect(a.private).toEqual(true);
 });
 
+it("should require a file (file schema)", () => {
+  const { hello } = _require(`file://${CWD}/fixtures/hello.js`);
+
+  expect(hello).toEqual("hello world!");
+});
+
+it("should require a json file (file schema)", () => {
+  const a = _require(`file://${CWD}/package.json`);
+
+  expect(a.private).toEqual(true);
+});
+
 it("should return same module when require multiple files", () => {
   const { hello: hello1 } = _require(`${CWD}/fixtures/hello.js`);
   const { hello: hello2 } = _require(`${CWD}/fixtures/hello.js`);
