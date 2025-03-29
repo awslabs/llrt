@@ -55,6 +55,66 @@ declare module "util" {
    */
   export function format(format?: any, ...param: any[]): string;
   /**
+   * Usage of `util.inherits()` is discouraged. Please use the ES6 `class` and `extends` keywords to get language level inheritance support. Also note
+   * that the two styles are [semantically incompatible](https://github.com/nodejs/node/issues/4179).
+   *
+   * Inherit the prototype methods from one [constructor](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/constructor) into another. The
+   * prototype of `constructor` will be set to a new object created from `superConstructor`.
+   *
+   * This mainly adds some input validation on top of`Object.setPrototypeOf(constructor.prototype, superConstructor.prototype)`.
+   * As an additional convenience, `superConstructor` will be accessible
+   * through the `constructor.super_` property.
+   *
+   * ```js
+   * import util from 'util';
+   * import EventEmitter from 'events';
+   *
+   * function MyStream() {
+   *   EventEmitter.call(this);
+   * }
+   *
+   * util.inherits(MyStream, EventEmitter);
+   *
+   * MyStream.prototype.write = function(data) {
+   *   this.emit('data', data);
+   * };
+   *
+   * const stream = new MyStream();
+   *
+   * console.log(stream instanceof EventEmitter); // true
+   * console.log(MyStream.super_ === EventEmitter); // true
+   *
+   * stream.on('data', (data) => {
+   *   console.log(`Received data: "${data}"`);
+   * });
+   * stream.write('It works!'); // Received data: "It works!"
+   * ```
+   *
+   * ES6 example using `class` and `extends`:
+   *
+   * ```js
+   * import EventEmitter from 'events';
+   *
+   * class MyStream extends EventEmitter {
+   *   write(data) {
+   *     this.emit('data', data);
+   *   }
+   * }
+   *
+   * const stream = new MyStream();
+   *
+   * stream.on('data', (data) => {
+   *   console.log(`Received data: "${data}"`);
+   * });
+   * stream.write('With ES6');
+   * ```
+   * @legacy Use ES2015 class syntax and `extends` keyword instead.
+   */
+  export function inherits(
+    constructor: unknown,
+    superConstructor: unknown
+  ): void;
+  /**
    * An implementation of the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) `TextDecoder` API.
    *
    * ```js

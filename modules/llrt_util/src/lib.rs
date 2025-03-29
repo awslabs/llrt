@@ -8,10 +8,18 @@ use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     function::Func,
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Function, Result,
+    Class, Ctx, Function, Object, Result,
 };
 use text_decoder::TextDecoder;
 use text_encoder::TextEncoder;
+
+fn inherits<'js>(ctor: Function<'js>, super_ctor: Function<'js>) -> Result<()> {
+    let super_proto: Object<'js> = super_ctor.get("prototype")?;
+    let proto: Object<'js> = ctor.get("prototype")?;
+    proto.set_prototype(Some(&super_proto))?;
+    ctor.set("super_", super_ctor)?;
+    Ok(())
+}
 
 pub struct UtilModule;
 
@@ -20,6 +28,7 @@ impl ModuleDef for UtilModule {
         declare.declare(stringify!(TextDecoder))?;
         declare.declare(stringify!(TextEncoder))?;
         declare.declare(stringify!(format))?;
+        declare.declare(stringify!(inherits))?;
         declare.declare("default")?;
         Ok(())
     }
@@ -37,6 +46,7 @@ impl ModuleDef for UtilModule {
                 "format",
                 Func::from(|ctx, args| format_plain(ctx, true, args)),
             )?;
+            default.set("inherits", Func::from(inherits))?;
 
             Ok(())
         })
