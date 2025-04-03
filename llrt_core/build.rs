@@ -14,7 +14,7 @@ use std::{
 use std::io::Write;
 
 use jwalk::WalkDir;
-use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime};
+use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime, WriteOptions};
 
 const BUNDLE_JS_DIR: &str = "../bundle/js";
 
@@ -160,7 +160,7 @@ fn generate_bytecode_cache(out_dir: &str) -> StdResult<(), Box<dyn Error>> {
             let bytes = {
                 {
                     let module = Module::declare(ctx.clone(), module_name.clone(), source)?;
-                    module.write(false)
+                    module.write(WriteOptions::default())
                 }
             }
             .catch(&ctx)
