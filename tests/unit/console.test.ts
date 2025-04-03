@@ -182,3 +182,23 @@ it("should log Headers", () => {
   foo: 'bar'
 }`);
 });
+
+it("should handle broken utf8 surrogate pairs", () => {
+  const s = "🌍🌎🌏";
+  expect(util.format(s)).toEqual(s);
+  expect(util.format(s.slice(1))).toEqual("�🌎🌏");
+
+  // Test single emoji
+  expect(util.format("🌍")).toEqual("🌍");
+
+  // Test broken surrogate at end
+  expect(util.format("abc🌍".slice(0, 4))).toEqual("abc�");
+
+  // Test multiple broken surrogates
+  const broken = "🌍".slice(0, 1) + "🌎".slice(0, 1) + "🌏";
+  expect(util.format(broken)).toEqual("��🌏");
+
+  // Test mixing regular chars and emojis
+  expect(util.format("a🌍b🌎c")).toEqual("a🌍b🌎c");
+  expect(util.format("a🌍b🌎c".slice(2))).toEqual("�b🌎c");
+});
