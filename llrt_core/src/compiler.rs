@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{fs, io, path::Path};
 
-use rquickjs::{CatchResultExt, Context, Module, Runtime};
+use rquickjs::{CatchResultExt, Context, Module, Runtime, WriteOptions};
 use tracing::trace;
 use zstd::bulk::Compressor;
 
@@ -53,10 +53,9 @@ pub async fn compile_file(
             trace!("Compiling module: {}", module_name);
 
             let module = Module::declare(ctx.clone(), module_name, source)?;
-            let bytes = module.write(false)?;
-            let filename = output_filename.to_string_lossy().to_string();
+            let bytes = module.write(WriteOptions::default())?;
             let compressed = compress_module(&bytes)?;
-            fs::write(filename, &compressed)?;
+            fs::write(output_filename, &compressed)?;
 
             total_bytes += bytes.len();
             compressed_bytes += compressed.len();

@@ -26,4 +26,4 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0"
 ], default-features = false }
 tokio = "1"
 tower-service = "0.3.3"
-quick_cache = "0.6.9"
+quick_cache = "0.6.12"
