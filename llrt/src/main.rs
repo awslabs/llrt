@@ -1,24 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-mod minimal_tracer;
-#[cfg(not(feature = "lambda"))]
-mod repl;
-
-use constcat::concat;
-#[cfg(not(feature = "lambda"))]
-use llrt_core::compiler::compile_file;
-use llrt_core::{
-    async_with,
-    bytecode::BYTECODE_EXT,
-    modules::path::name_extname,
-    runtime_client,
-    utils::io::{is_supported_ext, DirectoryWalker, SUPPORTED_EXTENSIONS},
-    vm::Vm,
-    CatchResultExt, VERSION,
-};
-use llrt_utils::sysinfo::{ARCH, PLATFORM};
-use minimal_tracer::MinimalTracer;
 use std::{
     env,
     error::Error,
@@ -26,7 +7,33 @@ use std::{
     process::exit,
     time::Instant,
 };
+
+mod core;
+mod minimal_tracer;
+#[cfg(not(feature = "lambda"))]
+mod repl;
+
+use constcat::concat;
+use minimal_tracer::MinimalTracer;
 use tracing::trace;
+
+#[cfg(not(feature = "lambda"))]
+use crate::core::compiler::compile_file;
+use crate::core::{
+    bytecode::BYTECODE_EXT,
+    libs::utils::{
+        fs::DirectoryWalker,
+        sysinfo::{ARCH, PLATFORM},
+    },
+    modules::path::name_extname,
+    runtime_client,
+    utils::io::{is_supported_ext, SUPPORTED_EXTENSIONS},
+    vm::Vm,
+    VERSION,
+};
+
+// rquickjs components
+use crate::core::{async_with, CatchResultExt};
 
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]

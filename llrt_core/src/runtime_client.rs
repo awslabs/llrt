@@ -14,12 +14,6 @@ use hyper::{
     http::header::HeaderName,
     Request, StatusCode,
 };
-use llrt_json::{
-    parse::json_parse,
-    stringify::{self, json_stringify},
-};
-use llrt_logging::{format_values, replace_newline_with_carriage_return};
-use llrt_utils::class::get_class_name;
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
@@ -28,10 +22,19 @@ use rquickjs::{
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
 
+use crate::libs::{
+    json::{
+        parse::json_parse,
+        stringify::{self, json_stringify},
+    },
+    logging::{format_values, replace_newline_with_carriage_return},
+    utils::{class::get_class_name, result::ResultExt},
+};
+
 #[cfg(not(test))]
 use crate::modules::console::log_error;
 use crate::modules::http::{HyperClient, HTTP_CLIENT};
-use crate::utils::{latch::Latch, result::ResultExt};
+use crate::utils::latch::Latch;
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";
@@ -595,13 +598,11 @@ mod tests {
     use rquickjs::{async_with, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
-    use crate::{
-        modules::llrt::uuid::uuidv4,
-        runtime_client::{
-            self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
-        },
-        vm::Vm,
+    use crate::modules::llrt::uuid::uuidv4;
+    use crate::runtime_client::{
+        self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
     };
+    use crate::vm::Vm;
 
     #[tokio::test]
     async fn runtime() {

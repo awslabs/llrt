@@ -6,12 +6,10 @@ use rquickjs::{CatchResultExt, Context, Module, Runtime, WriteOptions};
 use tracing::trace;
 use zstd::bulk::Compressor;
 
-use crate::{
-    bytecode::add_bytecode_header,
-    compiler_common::{human_file_size, DummyLoader, DummyResolver},
-    utils::result::ResultExt,
-    vm::{Vm, COMPRESSION_DICT},
-};
+use crate::bytecode::add_bytecode_header;
+use crate::compiler_common::{human_file_size, DummyLoader, DummyResolver};
+use crate::libs::utils::result::ResultExt;
+use crate::vm::{Vm, COMPRESSION_DICT};
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut compressor = Compressor::with_dictionary(22, COMPRESSION_DICT)?;

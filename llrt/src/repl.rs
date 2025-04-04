@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::{
     collections::VecDeque,
     env, fs,
@@ -12,11 +14,16 @@ use crossterm::{
     style::Print,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
-use llrt_core::{
-    async_with, atom::PredefinedAtom, context::EvalOptions, function::Rest, AsyncContext,
-    CatchResultExt, Ctx, Error, Object, Promise,
+
+use crate::core::libs::{
+    logging::format_values,
+    utils::{error::ErrorExtensions, result::ResultExt},
 };
-use llrt_utils::{error::ErrorExtensions, result::ResultExt};
+// rquickjs components
+use crate::core::{
+    async_with, AsyncContext, CatchResultExt, Ctx, Error, EvalOptions, Object, PredefinedAtom,
+    Promise, Rest,
+};
 
 use crate::VERSION_STRING;
 
@@ -30,7 +37,7 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
         let promise = ctx.eval_with_options::<Promise, _>(input.as_bytes(), options)?;
         let future = promise.into_future::<Object>();
         let value = future.await?.get(PredefinedAtom::Value)?;
-        llrt_logging::format_values(ctx, Rest(vec![value]), tty, true)
+        format_values(ctx, Rest(vec![value]), tty, true)
     }
     .await
     .catch(ctx)
@@ -39,7 +46,7 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
         Err(error) => {
             match (|| {
                 let error_value = error.into_value(ctx)?;
-                llrt_logging::format_values(ctx, Rest(vec![error_value]), tty, true)
+                format_values(ctx, Rest(vec![error_value]), tty, true)
             })() {
                 Ok(s) => s,
                 Err(err) => err.to_string(),

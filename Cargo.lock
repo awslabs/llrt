@@ -1628,9 +1628,7 @@ dependencies = [
  "constcat",
  "crossterm",
  "llrt_core",
- "llrt_logging",
  "llrt_test",
- "llrt_utils",
  "snmalloc-rs",
  "tokio",
  "tracing",
@@ -1740,7 +1738,6 @@ dependencies = [
  "jwalk",
  "libc",
  "llrt_build",
- "llrt_console",
  "llrt_context",
  "llrt_encoding",
  "llrt_json",
@@ -1967,7 +1964,6 @@ dependencies = [
  "llrt_tty",
  "llrt_url",
  "llrt_util",
- "llrt_utils",
  "llrt_zlib",
 ]
 

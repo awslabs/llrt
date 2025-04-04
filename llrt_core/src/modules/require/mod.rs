@@ -7,7 +7,6 @@ use once_cell::sync::Lazy;
 use crate::environment;
 
 pub mod loader;
-pub mod require;
 pub mod resolver;
 
 // added when .cjs files are imported

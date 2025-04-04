@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::atomic::{AtomicUsize, Ordering};
+
 use tokio::sync::Notify;
 
 #[derive(Default)]

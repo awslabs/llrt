@@ -5,13 +5,12 @@ use std::{
     env,
     error::Error,
     fs::{self, File},
+    io::Write,
     io::{self, BufRead, BufReader, BufWriter},
     path::{Path, PathBuf},
     process::Command,
     result::Result as StdResult,
 };
-
-use std::io::Write;
 
 use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime, WriteOptions};

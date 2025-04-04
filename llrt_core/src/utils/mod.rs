@@ -4,6 +4,3 @@ pub mod ctx;
 pub mod io;
 pub mod latch;
 pub mod object;
-pub mod result {
-    pub use llrt_utils::result::*;
-}
