@@ -104,7 +104,7 @@ fn derive_bits(
             return algorithm_mismatch_error(ctx, "ECDH");
         },
         DeriveAlgorithm::X25519 { public_key } => {
-            if !matches!(base_key.algorithm, KeyAlgorithm::X25519 { .. }) {
+            if !matches!(base_key.algorithm, KeyAlgorithm::X25519) {
                 return algorithm_mismatch_error(ctx, "X25519");
             }
 
@@ -116,7 +116,7 @@ fn derive_bits(
             shared_secret.as_bytes().to_vec()
         },
         DeriveAlgorithm::Derive(KeyDerivation::Hkdf { hash, salt, info }) => {
-            if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport { .. }) {
+            if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport) {
                 return algorithm_mismatch_error(ctx, "HKDF");
             }
             let hash_algorithm = match hash {
@@ -142,7 +142,7 @@ fn derive_bits(
             salt,
             iterations,
         }) => {
-            if !matches!(base_key.algorithm, KeyAlgorithm::Pbkdf2Import { .. }) {
+            if !matches!(base_key.algorithm, KeyAlgorithm::Pbkdf2Import) {
                 return algorithm_mismatch_error(ctx, "PBKDF2");
             }
             let hash_algorithm = match hash {
