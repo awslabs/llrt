@@ -19,10 +19,11 @@ use crate::libs::{
         time,
     },
 };
-use crate::module_builder::ModuleBuilder;
 use crate::modules::{
     crypto::SYSTEM_RANDOM,
-    module::{self},
+    llrt::{hex::LlrtHexModule, util::LlrtUtilModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
+    module::{self, ModuleModule},
+    module_builder::ModuleBuilder,
     require::{loader::CustomLoader, resolver::CustomResolver},
 };
 use crate::{environment, http, security};
@@ -43,8 +44,15 @@ pub struct VmOptions {
 
 impl Default for VmOptions {
     fn default() -> Self {
+        let module_builder = ModuleBuilder::default()
+            .with_module(ModuleModule)
+            .with_module(LlrtHexModule)
+            .with_module(LlrtUtilModule)
+            .with_module(LlrtUuidModule)
+            .with_module(LlrtXmlModule);
+
         Self {
-            module_builder: ModuleBuilder::default(),
+            module_builder,
             max_stack_size: 512 * 1024,
             gc_threshold_mb: {
                 const DEFAULT_GC_THRESHOLD_MB: usize = 20;

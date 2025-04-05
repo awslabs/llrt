@@ -11,7 +11,6 @@ mod compiler_common;
 pub mod environment;
 mod http;
 pub mod libs;
-mod module_builder;
 pub mod modules;
 pub mod runtime_client;
 mod security;
