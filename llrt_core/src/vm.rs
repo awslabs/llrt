@@ -1,24 +1,20 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult};
+use std::{env, fmt::Write, process::exit, result::Result as StdResult};
 
 use ring::rand::SecureRandom;
 use rquickjs::{
-    atom::PredefinedAtom,
     context::EvalOptions,
-    function::Opt,
     loader::FileResolver,
     prelude::{Func, Rest},
-    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs, Object,
-    Result, Value,
+    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Object, Result, Value,
 };
 
 pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
 use crate::libs::{
     context::set_spawn_error_handler,
-    json::{parse::json_parse_string, stringify::json_stringify_replacer_space},
-    numbers::number_to_string,
+    json, numbers,
     utils::{
         clone::structured_clone,
         error::ErrorExtensions,
@@ -208,11 +204,6 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
     globals.set("__gc", Func::from(|ctx: Ctx| ctx.run_gc()))?;
-
-    let number: Function = globals.get(PredefinedAtom::Number)?;
-    let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
-    number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
-
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
     globals.set(
@@ -220,38 +211,8 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(|ctx, value, options| structured_clone(&ctx, value, options)),
     )?;
 
-    let json_module: Object = globals.get(PredefinedAtom::JSON)?;
-    json_module.set("parse", Func::from(json_parse_string))?;
-    json_module.set(
-        "stringify",
-        Func::from(|ctx, value, replacer, space| {
-            struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
-            let StringifyArgs(ctx, value, replacer, space) =
-                StringifyArgs(ctx, value, replacer, space);
-
-            let mut space_value = None;
-            let mut replacer_value = None;
-
-            if let Some(replacer) = replacer.0 {
-                if let Some(space) = space.0 {
-                    if let Some(space) = space.as_string() {
-                        let mut space = space.clone().to_string()?;
-                        space.truncate(20);
-                        space_value = Some(space);
-                    }
-                    if let Some(number) = space.as_int() {
-                        if number > 0 {
-                            space_value = Some(" ".repeat(min(10, number as usize)));
-                        }
-                    }
-                }
-                replacer_value = Some(replacer);
-            }
-
-            json_stringify_replacer_space(&ctx, value, replacer_value, space_value)
-                .map(|v| v.into_js(&ctx))?
-        }),
-    )?;
+    numbers::redefine_prototype(ctx)?;
+    json::redefine_static_methods(ctx)?;
 
     //init base primordials
     let _ = BasePrimordials::get(ctx)?;
