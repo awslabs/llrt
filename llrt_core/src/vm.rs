@@ -102,7 +102,7 @@ impl Vm {
             file_resolver.add_path(*path);
         }
 
-        let (module_resolver, module_loader, module_names, init_globals) =
+        let (module_resolver, module_loader, module_names, global_attachment) =
             vm_options.module_builder.build();
 
         let resolver = (module_resolver, CustomResolver, file_resolver);
@@ -117,9 +117,7 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
-                for init_global in init_globals {
-                    init_global(&ctx)?;
-                }
+                global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
                 module::init(&ctx, module_names)?;
                 Ok(())

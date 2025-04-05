@@ -10,6 +10,26 @@ use rquickjs::{
 };
 
 #[derive(Debug, Default)]
+pub struct GlobalAttachment {
+    global_attachment: Vec<fn(&Ctx<'_>) -> Result<()>>,
+}
+
+impl GlobalAttachment {
+    #[must_use]
+    pub fn with_global(mut self, init: fn(&Ctx<'_>) -> Result<()>) -> Self {
+        self.global_attachment.push(init);
+        self
+    }
+
+    pub fn attach(self, ctx: &Ctx<'_>) -> Result<()> {
+        for init_function in self.global_attachment {
+            init_function(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct ModuleResolver {
     modules: HashSet<String>,
 }
@@ -37,14 +57,14 @@ pub type Modules = (
     ModuleResolver,
     ModuleLoader,
     HashSet<&'static str>,
-    Vec<fn(&Ctx<'_>) -> Result<()>>,
+    GlobalAttachment,
 );
 
 pub struct ModuleBuilder {
     module_resolver: ModuleResolver,
     module_loader: ModuleLoader,
     module_names: HashSet<&'static str>,
-    init_globals: Vec<fn(&Ctx<'_>) -> Result<()>>,
+    global_attachment: GlobalAttachment,
 }
 
 impl Default for ModuleBuilder {
@@ -180,7 +200,7 @@ impl ModuleBuilder {
             module_resolver: ModuleResolver::default(),
             module_loader: ModuleLoader::default(),
             module_names: HashSet::new(),
-            init_globals: Vec::new(),
+            global_attachment: GlobalAttachment::default(),
         }
     }
 
@@ -197,7 +217,7 @@ impl ModuleBuilder {
     }
 
     pub fn with_global(mut self, init: fn(&Ctx<'_>) -> Result<()>) -> Self {
-        self.init_globals.push(init);
+        self.global_attachment = self.global_attachment.with_global(init);
         self
     }
 
@@ -206,7 +226,7 @@ impl ModuleBuilder {
             self.module_resolver,
             self.module_loader,
             self.module_names,
-            self.init_globals,
+            self.global_attachment,
         )
     }
 }
