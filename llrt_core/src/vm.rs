@@ -44,12 +44,20 @@ pub struct VmOptions {
 
 impl Default for VmOptions {
     fn default() -> Self {
-        let module_builder = ModuleBuilder::default()
+        #[allow(unused_mut)]
+        let mut module_builder: ModuleBuilder = ModuleBuilder::default()
             .with_module(ModuleModule)
             .with_module(LlrtHexModule)
             .with_module(LlrtUtilModule)
             .with_module(LlrtUuidModule)
             .with_module(LlrtXmlModule);
+
+        #[cfg(feature = "lambda")]
+        {
+            module_builder = module_builder
+                .with_global(crate::modules::console::init)
+                .with_module(crate::modules::console::ConsoleModule);
+        }
 
         Self {
             module_builder,
