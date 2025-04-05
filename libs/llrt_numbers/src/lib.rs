@@ -1,8 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
+    atom::PredefinedAtom,
     function::{Opt, This},
-    Ctx, Exception, Result, Value,
+    prelude::Func,
+    Ctx, Exception, Function, Object, Result, Value,
 };
 use std::result::Result as StdResult;
 
@@ -10,6 +12,14 @@ const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
 const BUF_SIZE: usize = 80;
 const BIN_MAX_DIGITS: usize = 64;
 const OCT_MAX_DIGITS: usize = 21;
+
+pub fn redefine_prototype(ctx: &Ctx<'_>) -> Result<()> {
+    let globals = ctx.globals();
+    let number: Function = globals.get(PredefinedAtom::Number)?;
+    let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
+    number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
+    Ok(())
+}
 
 #[inline(always)]
 pub fn to_dec(number: i64) -> String {
@@ -246,7 +256,7 @@ fn check_radix(ctx: &Ctx, radix: u8) -> Result<()> {
     Ok(())
 }
 
-pub fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<String> {
+fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<String> {
     if let Some(int) = this.as_int() {
         if let Some(radix) = radix.0 {
             check_radix(&ctx, radix)?;
