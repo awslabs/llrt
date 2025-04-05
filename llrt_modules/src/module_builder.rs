@@ -41,10 +41,10 @@ pub type Modules = (
 );
 
 pub struct ModuleBuilder {
-    builtin_resolver: ModuleResolver,
+    module_resolver: ModuleResolver,
     module_loader: ModuleLoader,
     module_names: HashSet<&'static str>,
-    init_global: Vec<fn(&Ctx<'_>) -> Result<()>>,
+    init_globals: Vec<fn(&Ctx<'_>) -> Result<()>>,
 }
 
 impl Default for ModuleBuilder {
@@ -177,17 +177,17 @@ impl Default for ModuleBuilder {
 impl ModuleBuilder {
     pub fn new() -> Self {
         Self {
-            builtin_resolver: ModuleResolver::default(),
+            module_resolver: ModuleResolver::default(),
             module_loader: ModuleLoader::default(),
             module_names: HashSet::new(),
-            init_global: Vec::new(),
+            init_globals: Vec::new(),
         }
     }
 
     pub fn with_module<M: ModuleDef, I: Into<ModuleInfo<M>>>(mut self, module: I) -> Self {
         let module_info: ModuleInfo<M> = module.into();
 
-        self.builtin_resolver = self.builtin_resolver.with_module(module_info.name);
+        self.module_resolver = self.module_resolver.with_module(module_info.name);
         self.module_loader = self
             .module_loader
             .with_module(module_info.name, module_info.module);
@@ -196,17 +196,17 @@ impl ModuleBuilder {
         self
     }
 
-    pub fn with_global(mut self, init_global: fn(&Ctx<'_>) -> Result<()>) -> Self {
-        self.init_global.push(init_global);
+    pub fn with_global(mut self, init: fn(&Ctx<'_>) -> Result<()>) -> Self {
+        self.init_globals.push(init);
         self
     }
 
     pub fn build(self) -> Modules {
         (
-            self.builtin_resolver,
+            self.module_resolver,
             self.module_loader,
             self.module_names,
-            self.init_global,
+            self.init_globals,
         )
     }
 }

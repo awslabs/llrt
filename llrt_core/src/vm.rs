@@ -102,10 +102,10 @@ impl Vm {
             file_resolver.add_path(*path);
         }
 
-        let (builtin_resolver, module_loader, module_names, init_globals) =
+        let (module_resolver, module_loader, module_names, init_globals) =
             vm_options.module_builder.build();
 
-        let resolver = (builtin_resolver, CustomResolver, file_resolver);
+        let resolver = (module_resolver, CustomResolver, file_resolver);
 
         let loader = (module_loader, CustomLoader);
 
