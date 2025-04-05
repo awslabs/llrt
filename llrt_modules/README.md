@@ -71,7 +71,7 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
-Using ModuleResolver makes it even simpler.
+Using ModuleBuilder makes it even simpler.
 
 ```rust
 use llrt_modules::module_builder::ModuleBuilder;
