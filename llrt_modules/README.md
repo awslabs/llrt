@@ -74,7 +74,7 @@ async fn main() -> Result<(), Error> {
 Using ModuleResolver makes it even simpler.
 
 ```rust
-use llrt_modules::module_builder;
+use llrt_modules::module_builder::ModuleBuilder;
 use rquickjs::{async_with, context::EvalOptions, AsyncContext, AsyncRuntime, Error, Module};
 
 
@@ -82,6 +82,7 @@ use rquickjs::{async_with, context::EvalOptions, AsyncContext, AsyncRuntime, Err
 async fn main() -> Result<(), Error> {
     let runtime = AsyncRuntime::new()?;
 
+    let module_builder = ModuleBuilder::default();
     let (module_resolver, module_loader, _module_names, global_attachment) = module_builder.build();
     runtime.set_loader((module_resolver,), (module_loader,)).await;
 
