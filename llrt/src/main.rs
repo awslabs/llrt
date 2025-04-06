@@ -21,9 +21,12 @@ use tracing::trace;
 use crate::core::compiler::compile_file;
 use crate::core::{
     bytecode::BYTECODE_EXT,
-    libs::utils::{
-        fs::DirectoryWalker,
-        sysinfo::{ARCH, PLATFORM},
+    libs::{
+        logging::print_error_and_exit,
+        utils::{
+            fs::DirectoryWalker,
+            sysinfo::{ARCH, PLATFORM},
+        },
     },
     modules::path::name_extname,
     runtime_client,
@@ -96,7 +99,7 @@ Options:
 async fn start_runtime(vm: &Vm) {
     async_with!(vm.ctx => |ctx|{
         if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
-            Vm::print_error_and_exit(&ctx, err)
+            print_error_and_exit(&ctx, err)
         }
     })
     .await;

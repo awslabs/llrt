@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{
     collections::HashSet,
-    io::{stdout, IsTerminal},
+    io::{stderr, stdout, IsTerminal, Write},
     mem,
     ops::Deref,
+    process::exit,
     slice,
+    string::String,
 };
 
 use llrt_json::stringify::json_stringify;
@@ -22,7 +24,7 @@ use rquickjs::{
     object::Filter,
     prelude::Rest,
     promise::PromiseState,
-    qjs, Coerced, Ctx,
+    qjs, CaughtError, Coerced, Ctx,
     Error::{self},
     Function, Object, Result, Symbol, Type, Value,
 };
@@ -848,4 +850,42 @@ fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
     }
 
     result
+}
+
+pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
+    use std::fmt::Write;
+
+    let mut error_str = String::new();
+    write!(error_str, "Error: {:?}", err).unwrap();
+
+    if let Ok(error) = err.into_value(ctx) {
+        if print_error(ctx, Rest(vec![error.clone()])).is_err() {
+            eprintln!("{}", error_str);
+        };
+        if cfg!(test) {
+            panic!("{:?}", error);
+        } else {
+            exit(1)
+        }
+    } else if cfg!(test) {
+        panic!("{}", error_str);
+    } else {
+        eprintln!("{}", error_str);
+        exit(1)
+    };
+}
+
+fn print_error<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    let is_tty = stderr().is_terminal();
+    let mut result = String::new();
+
+    let mut options = FormatOptions::new(ctx, is_tty, true)?;
+    build_formatted_string(&mut result, ctx, args, &mut options)?;
+
+    result.push(NEWLINE);
+
+    //we don't care if output is interrupted
+    let _ = stderr().write_all(result.as_bytes());
+
+    Ok(())
 }

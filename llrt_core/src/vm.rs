@@ -1,30 +1,28 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{env, fmt::Write, process::exit, result::Result as StdResult};
+use std::{env, result::Result as StdResult};
 
 use ring::rand::SecureRandom;
 use rquickjs::{
-    context::EvalOptions,
-    loader::FileResolver,
-    prelude::{Func, Rest},
-    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Object, Result, Value,
+    context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
+    CatchResultExt, Ctx, Error, Object, Result, Value,
 };
 
 pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
 use crate::libs::{
     context::set_spawn_error_handler,
-    json, numbers,
+    json,
+    logging::print_error_and_exit,
+    numbers,
     utils::{
         clone::structured_clone,
-        error::ErrorExtensions,
         primordials::{BasePrimordials, Primordial},
         time,
     },
 };
 use crate::module_builder::ModuleBuilder;
 use crate::modules::{
-    console,
     crypto::SYSTEM_RANDOM,
     module::{self},
     require::{loader::CustomLoader, resolver::CustomResolver},
@@ -121,7 +119,7 @@ impl Vm {
                 Ok(())
             })()
             .catch(&ctx)
-            .unwrap_or_else(|err| Self::print_error_and_exit(&ctx, err));
+            .unwrap_or_else(|err| print_error_and_exit(&ctx, err));
             Ok::<_, Error>(())
         })
         .await?;
@@ -141,7 +139,7 @@ impl Vm {
         self.ctx
             .with(|ctx| {
                 if let Err(err) = f(&ctx).catch(&ctx) {
-                    Self::print_error_and_exit(&ctx, err);
+                    print_error_and_exit(&ctx, err);
                 }
             })
             .await;
@@ -170,26 +168,6 @@ impl Vm {
         .await;
     }
 
-    pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
-        let mut error_str = String::new();
-        write!(error_str, "Error: {:?}", err).unwrap();
-        if let Ok(error) = err.into_value(ctx) {
-            if console::log_fatal(ctx.clone(), Rest(vec![error.clone()])).is_err() {
-                eprintln!("{}", error_str);
-            };
-            if cfg!(test) {
-                panic!("{:?}", error);
-            } else {
-                exit(1)
-            }
-        } else if cfg!(test) {
-            panic!("{}", error_str);
-        } else {
-            eprintln!("{}", error_str);
-            exit(1)
-        };
-    }
-
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
         Ok(())
@@ -198,7 +176,7 @@ impl Vm {
 
 fn init(ctx: &Ctx<'_>) -> Result<()> {
     set_spawn_error_handler(|ctx, err| {
-        Vm::print_error_and_exit(ctx, err);
+        print_error_and_exit(ctx, err);
     });
 
     let globals = ctx.globals();
