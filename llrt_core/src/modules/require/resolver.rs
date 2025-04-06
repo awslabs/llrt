@@ -4,7 +4,6 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    env,
     fs::{self},
     path::{Path, PathBuf},
     rc::Rc,
@@ -22,9 +21,7 @@ use crate::modules::path::{
 };
 use crate::utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS};
 
-use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
-
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
+use super::{BYTECODE_CACHE, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
 
 fn rc_string_to_cow<'a>(rc: Rc<String>) -> Cow<'a, str> {
     match Rc::try_unwrap(rc) {

@@ -8,8 +8,6 @@ use rquickjs::{
     CatchResultExt, Ctx, Error, Object, Result, Value,
 };
 
-pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
-
 use crate::libs::{
     context::set_spawn_error_handler,
     json,
