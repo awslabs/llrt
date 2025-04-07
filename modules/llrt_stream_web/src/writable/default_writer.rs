@@ -23,16 +23,24 @@ use crate::{
 };
 
 #[rquickjs::class]
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime)]
 pub(crate) struct WritableStreamDefaultWriter<'js> {
     pub(crate) ready_promise: ResolveablePromise<'js>,
     pub(crate) closed_promise: ResolveablePromise<'js>,
     pub(super) stream: Option<Class<'js, WritableStream<'js>>>,
 
-    #[qjs(skip_trace)]
     constructor_type_error: Constructor<'js>,
-    #[qjs(skip_trace)]
     promise_primordials: PromisePrimordials<'js>,
+}
+
+impl<'js> Trace<'js> for WritableStreamDefaultWriter<'js> {
+    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+        self.ready_promise.trace(tracer);
+        self.closed_promise.trace(tracer);
+        self.stream.trace(tracer);
+        self.constructor_type_error.trace(tracer);
+        self.promise_primordials.trace(tracer);
+    }
 }
 
 pub(crate) type WritableStreamDefaultWriterClass<'js> =

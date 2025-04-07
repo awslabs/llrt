@@ -7,7 +7,7 @@ use llrt_utils::{
     result::ResultExt,
 };
 use rquickjs::{
-    class::{OwnedBorrow, OwnedBorrowMut, Trace},
+    class::{OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     methods,
     prelude::{Opt, This},
@@ -41,7 +41,7 @@ use crate::{
     },
 };
 
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime)]
 #[rquickjs::class]
 pub(crate) struct ReadableByteStreamController<'js> {
     auto_allocate_chunk_size: Option<usize>,
@@ -59,12 +59,27 @@ pub(crate) struct ReadableByteStreamController<'js> {
     strategy_hwm: f64,
     pub(super) stream: ReadableStreamClass<'js>,
 
-    #[qjs(skip_trace)]
     pub(super) array_constructor_primordials: ArrayConstructorPrimordials<'js>,
-    #[qjs(skip_trace)]
     constructor_array_buffer: Constructor<'js>,
-    #[qjs(skip_trace)]
     pub(super) function_array_buffer_is_view: Function<'js>,
+}
+
+impl<'js> Trace<'js> for ReadableByteStreamController<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.auto_allocate_chunk_size.trace(tracer);
+        self.byob_request.trace(tracer);
+        self.cancel_algorithm.trace(tracer);
+        self.pull_algorithm.trace(tracer);
+        self.pending_pull_intos.trace(tracer);
+        self.queue.trace(tracer);
+        self.queue_total_size.trace(tracer);
+        self.started.trace(tracer);
+        self.strategy_hwm.trace(tracer);
+        self.stream.trace(tracer);
+        self.array_constructor_primordials.trace(tracer);
+        self.constructor_array_buffer.trace(tracer);
+        self.function_array_buffer_is_view.trace(tracer);
+    }
 }
 
 pub(crate) type ReadableByteStreamControllerClass<'js> =
@@ -1957,7 +1972,7 @@ pub(super) struct PullIntoDescriptor<'js> {
 }
 
 impl<'js> Trace<'js> for PullIntoDescriptor<'js> {
-    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.buffer.trace(tracer);
         self.buffer_byte_length.trace(tracer);
         self.byte_offset.trace(tracer);
@@ -1990,7 +2005,7 @@ struct ReadableByteStreamQueueEntry<'js> {
 }
 
 impl<'js> Trace<'js> for ReadableByteStreamQueueEntry<'js> {
-    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.buffer.trace(tracer);
         self.byte_offset.trace(tracer);
         self.byte_length.trace(tracer)
