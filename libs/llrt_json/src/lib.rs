@@ -1,10 +1,55 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 #![cfg_attr(rust_nightly, feature(portable_simd))]
+use std::cmp::min;
+
+use rquickjs::{
+    atom::PredefinedAtom, function::Opt, prelude::Func, Ctx, IntoJs, Object, Result, Value,
+};
 
 pub mod escape;
 pub mod parse;
 pub mod stringify;
+
+use crate::parse::json_parse_string;
+use crate::stringify::json_stringify_replacer_space;
+
+pub fn redefine_static_methods(ctx: &Ctx<'_>) -> Result<()> {
+    let globals = ctx.globals();
+    let json_module: Object = globals.get(PredefinedAtom::JSON)?;
+    json_module.set("parse", Func::from(json_parse_string))?;
+    json_module.set(
+        "stringify",
+        Func::from(|ctx, value, replacer, space| {
+            struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
+            let StringifyArgs(ctx, value, replacer, space) =
+                StringifyArgs(ctx, value, replacer, space);
+
+            let mut space_value = None;
+            let mut replacer_value = None;
+
+            if let Some(replacer) = replacer.0 {
+                if let Some(space) = space.0 {
+                    if let Some(space) = space.as_string() {
+                        let mut space = space.clone().to_string()?;
+                        space.truncate(20);
+                        space_value = Some(space);
+                    }
+                    if let Some(number) = space.as_int() {
+                        if number > 0 {
+                            space_value = Some(" ".repeat(min(10, number as usize)));
+                        }
+                    }
+                }
+                replacer_value = Some(replacer);
+            }
+
+            json_stringify_replacer_space(&ctx, value, replacer_value, space_value)
+                .map(|v| v.into_js(&ctx))?
+        }),
+    )?;
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

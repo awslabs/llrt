@@ -15,14 +15,12 @@ use crate::bytecode::{
     BYTECODE_COMPRESSED, BYTECODE_FILE_EXT, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION,
     SIGNATURE_LENGTH,
 };
-use crate::vm::COMPRESSION_DICT;
 
-use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
+use super::{BYTECODE_CACHE, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, COMPRESSION_DICT};
 
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
 
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 #[cfg(feature = "lambda")]
 include!(concat!(env!("OUT_DIR"), "/sdk_client_endpoints.rs"));
 

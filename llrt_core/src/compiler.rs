@@ -8,8 +8,8 @@ use zstd::bulk::Compressor;
 
 use crate::bytecode::add_bytecode_header;
 use crate::compiler_common::{human_file_size, DummyLoader, DummyResolver};
-use crate::libs::utils::result::ResultExt;
-use crate::vm::{Vm, COMPRESSION_DICT};
+use crate::libs::{logging::print_error_and_exit, utils::result::ResultExt};
+use crate::modules::require::COMPRESSION_DICT;
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut compressor = Compressor::with_dictionary(22, COMPRESSION_DICT)?;
@@ -60,7 +60,7 @@ pub async fn compile_file(
             Ok(())
         })()
         .catch(&ctx)
-        .unwrap_or_else(|err| Vm::print_error_and_exit(&ctx, err))
+        .unwrap_or_else(|err| print_error_and_exit(&ctx, err))
     });
 
     trace!("JS size: {}", human_file_size(js_bytes));

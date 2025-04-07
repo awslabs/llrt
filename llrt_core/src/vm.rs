@@ -1,34 +1,26 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult};
+use std::{env, result::Result as StdResult};
 
 use ring::rand::SecureRandom;
 use rquickjs::{
-    atom::PredefinedAtom,
-    context::EvalOptions,
-    function::Opt,
-    loader::FileResolver,
-    prelude::{Func, Rest},
-    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs, Object,
-    Result, Value,
+    context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
+    CatchResultExt, Ctx, Error, Object, Result, Value,
 };
-
-pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
 use crate::libs::{
     context::set_spawn_error_handler,
-    json::{parse::json_parse_string, stringify::json_stringify_replacer_space},
-    numbers::number_to_string,
+    json,
+    logging::print_error_and_exit,
+    numbers,
     utils::{
         clone::structured_clone,
-        error::ErrorExtensions,
         primordials::{BasePrimordials, Primordial},
         time,
     },
 };
 use crate::module_builder::ModuleBuilder;
 use crate::modules::{
-    console,
     crypto::SYSTEM_RANDOM,
     module::{self},
     require::{loader::CustomLoader, resolver::CustomResolver},
@@ -125,7 +117,7 @@ impl Vm {
                 Ok(())
             })()
             .catch(&ctx)
-            .unwrap_or_else(|err| Self::print_error_and_exit(&ctx, err));
+            .unwrap_or_else(|err| print_error_and_exit(&ctx, err));
             Ok::<_, Error>(())
         })
         .await?;
@@ -145,21 +137,10 @@ impl Vm {
         self.ctx
             .with(|ctx| {
                 if let Err(err) = f(&ctx).catch(&ctx) {
-                    Self::print_error_and_exit(&ctx, err);
+                    print_error_and_exit(&ctx, err);
                 }
             })
             .await;
-    }
-
-    pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
-        let source = [
-            r#"import(""#,
-            &filename.as_ref().replace('\\', "/"),
-            r#"").catch((e) => {console.error(e);process.exit(1)})"#,
-        ]
-        .concat();
-
-        self.run(source, strict, global).await;
     }
 
     pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool, global: bool) {
@@ -174,24 +155,15 @@ impl Vm {
         .await;
     }
 
-    pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
-        let mut error_str = String::new();
-        write!(error_str, "Error: {:?}", err).unwrap();
-        if let Ok(error) = err.into_value(ctx) {
-            if console::log_fatal(ctx.clone(), Rest(vec![error.clone()])).is_err() {
-                eprintln!("{}", error_str);
-            };
-            if cfg!(test) {
-                panic!("{:?}", error);
-            } else {
-                exit(1)
-            }
-        } else if cfg!(test) {
-            panic!("{}", error_str);
-        } else {
-            eprintln!("{}", error_str);
-            exit(1)
-        };
+    pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
+        let source = [
+            r#"import(""#,
+            &filename.as_ref().replace('\\', "/"),
+            r#"").catch((e) => {console.error(e);process.exit(1)})"#,
+        ]
+        .concat();
+
+        self.run(source, strict, global).await;
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
@@ -202,17 +174,12 @@ impl Vm {
 
 fn init(ctx: &Ctx<'_>) -> Result<()> {
     set_spawn_error_handler(|ctx, err| {
-        Vm::print_error_and_exit(ctx, err);
+        print_error_and_exit(ctx, err);
     });
 
     let globals = ctx.globals();
 
     globals.set("__gc", Func::from(|ctx: Ctx| ctx.run_gc()))?;
-
-    let number: Function = globals.get(PredefinedAtom::Number)?;
-    let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
-    number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
-
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
     globals.set(
@@ -220,38 +187,8 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(|ctx, value, options| structured_clone(&ctx, value, options)),
     )?;
 
-    let json_module: Object = globals.get(PredefinedAtom::JSON)?;
-    json_module.set("parse", Func::from(json_parse_string))?;
-    json_module.set(
-        "stringify",
-        Func::from(|ctx, value, replacer, space| {
-            struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
-            let StringifyArgs(ctx, value, replacer, space) =
-                StringifyArgs(ctx, value, replacer, space);
-
-            let mut space_value = None;
-            let mut replacer_value = None;
-
-            if let Some(replacer) = replacer.0 {
-                if let Some(space) = space.0 {
-                    if let Some(space) = space.as_string() {
-                        let mut space = space.clone().to_string()?;
-                        space.truncate(20);
-                        space_value = Some(space);
-                    }
-                    if let Some(number) = space.as_int() {
-                        if number > 0 {
-                            space_value = Some(" ".repeat(min(10, number as usize)));
-                        }
-                    }
-                }
-                replacer_value = Some(replacer);
-            }
-
-            json_stringify_replacer_space(&ctx, value, replacer_value, space_value)
-                .map(|v| v.into_js(&ctx))?
-        }),
-    )?;
+    numbers::redefine_prototype(ctx)?;
+    json::redefine_static_methods(ctx)?;
 
     //init base primordials
     let _ = BasePrimordials::get(ctx)?;
