@@ -506,6 +506,22 @@ pub(super) struct ArrayConstructorPrimordials<'js> {
     constructor_data_view: Constructor<'js>,
 }
 
+impl<'js> Trace<'js> for ArrayConstructorPrimordials<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.constructor_uint8array.trace(tracer);
+        self.constructor_int8array.trace(tracer);
+        self.constructor_uint16array.trace(tracer);
+        self.constructor_int16array.trace(tracer);
+        self.constructor_uint32array.trace(tracer);
+        self.constructor_int32array.trace(tracer);
+        self.constructor_uint64array.trace(tracer);
+        self.constructor_int64array.trace(tracer);
+        self.constructor_f32array.trace(tracer);
+        self.constructor_f64array.trace(tracer);
+        self.constructor_data_view.trace(tracer);
+    }
+}
+
 impl<'js> Primordial<'js> for ArrayConstructorPrimordials<'js> {
     fn new(ctx: &Ctx<'js>) -> Result<Self>
     where

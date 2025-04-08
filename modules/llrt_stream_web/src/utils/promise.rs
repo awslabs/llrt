@@ -60,6 +60,16 @@ pub struct PromisePrimordials<'js> {
     pub promise_resolved_with_undefined: Promise<'js>,
 }
 
+impl<'js> Trace<'js> for PromisePrimordials<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.promise_constructor.trace(tracer);
+        self.promise_resolve.trace(tracer);
+        self.promise_reject.trace(tracer);
+        self.promise_all.trace(tracer);
+        self.promise_resolved_with_undefined.trace(tracer);
+    }
+}
+
 impl<'js> Primordial<'js> for PromisePrimordials<'js> {
     fn new(ctx: &Ctx<'js>) -> Result<Self>
     where
