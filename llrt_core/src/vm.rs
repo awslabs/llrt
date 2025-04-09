@@ -19,10 +19,11 @@ use crate::libs::{
         time,
     },
 };
-use crate::module_builder::ModuleBuilder;
 use crate::modules::{
     crypto::SYSTEM_RANDOM,
-    module::{self},
+    llrt::{hex::LlrtHexModule, util::LlrtUtilModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
+    module::{self, ModuleModule},
+    module_builder::ModuleBuilder,
     require::{loader::CustomLoader, resolver::CustomResolver},
 };
 use crate::{environment, http, security};
@@ -43,8 +44,23 @@ pub struct VmOptions {
 
 impl Default for VmOptions {
     fn default() -> Self {
+        #[allow(unused_mut)]
+        let mut module_builder: ModuleBuilder = ModuleBuilder::default()
+            .with_module(ModuleModule)
+            .with_module(LlrtHexModule)
+            .with_module(LlrtUtilModule)
+            .with_module(LlrtUuidModule)
+            .with_module(LlrtXmlModule);
+
+        #[cfg(feature = "lambda")]
+        {
+            module_builder = module_builder
+                .with_global(crate::modules::console::init)
+                .with_module(crate::modules::console::ConsoleModule);
+        }
+
         Self {
-            module_builder: ModuleBuilder::default(),
+            module_builder,
             max_stack_size: 512 * 1024,
             gc_threshold_mb: {
                 const DEFAULT_GC_THRESHOLD_MB: usize = 20;
@@ -94,10 +110,10 @@ impl Vm {
             file_resolver.add_path(*path);
         }
 
-        let (builtin_resolver, module_loader, module_names, init_globals) =
+        let (module_resolver, module_loader, module_names, global_attachment) =
             vm_options.module_builder.build();
 
-        let resolver = (builtin_resolver, CustomResolver, file_resolver);
+        let resolver = (module_resolver, CustomResolver, file_resolver);
 
         let loader = (module_loader, CustomLoader);
 
@@ -109,9 +125,7 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
-                for init_global in init_globals {
-                    init_global(&ctx)?;
-                }
+                global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
                 module::init(&ctx, module_names)?;
                 Ok(())
