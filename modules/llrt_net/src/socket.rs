@@ -378,7 +378,7 @@ impl<'js> Socket<'js> {
                 if !allow_half_open {
                     WritableStream::end(This(this2));
                 }
-            })?;
+            },None)?;
         let writable_done = WritableStream::process(this.clone(), ctx, writer)?;
 
         trace!("Connected to stream");

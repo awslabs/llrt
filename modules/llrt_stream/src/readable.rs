@@ -178,6 +178,15 @@ where
         Ok(Null.into_value(ctx))
     }
 
+    fn read_data(this: This<Class<'js, Self>>) -> Result<Buffer> {
+        if let Some(data) = this.borrow().inner().buffer.read(Some(3)) {
+            println!("fhhh{:#?}",data);
+            return Ok(Buffer(data));
+        }
+
+        Ok(Buffer(Vec::new()))
+    }
+
     fn drain(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
         let this2 = this.clone();
         let borrow = this2.borrow();
@@ -209,12 +218,30 @@ where
         Ok(())
     }
 
+    fn drain_without_emitter(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Vec<u8> {
+        let borrow = this.borrow();
+        let inner = borrow.inner();
+
+            let ba_buffer = inner.buffer.clone();
+            if !ba_buffer.is_empty() {
+                let buffer = ba_buffer.read(None).unwrap_or_default();
+                if buffer.is_empty() {
+                    println!("vecddd is emty");
+                    return Vec::new();
+                }
+                vec![Buffer(buffer).into_js(ctx)];
+            }
+            println!("vec is emty");
+        Vec::new()
+    }
+
     fn process<T: AsyncRead + 'js + Unpin>(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
         readable: T,
+        combined_buffer: Option<&mut Vec<u8>>
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, || {})
+        Self::do_process(this, ctx, readable, || {}, combined_buffer)
     }
 
     fn process_callback<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -222,8 +249,9 @@ where
         ctx: &Ctx<'js>,
         readable: T,
         on_end: C,
+        combined_buffer: Option<&mut Vec<u8>>
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, on_end)
+        Self::do_process(this, ctx, readable, on_end, combined_buffer)
     }
 
     fn do_process<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -231,6 +259,7 @@ where
         ctx: &Ctx<'js>,
         readable: T,
         on_end: C,
+        _: Option<&mut Vec<u8>>
     ) -> Result<Receiver<bool>> {
         let ctx2 = ctx.clone();
         ctx.spawn_exit(async move {
@@ -254,11 +283,15 @@ where
                 let mut buffer = Vec::<u8>::with_capacity(DEFAULT_BUFFER_SIZE);
                 let mut last_state = ReadableState::Init;
                 let mut error_value = None;
+                println!("inside 11");
 
                 if !is_ended && !is_destroyed {
+                    println!("inside 22");
                     loop {
+                        println!("inside 22.1");
                         tokio::select! {
                             result = reader.read_buf(&mut buffer) => {
+                                println!("inside 33");
                                 let bytes_read = result.or_throw(&ctx3)?;
 
                                 let mut state = this2.borrow().inner().state.clone();
@@ -270,6 +303,7 @@ where
 
                                 match state {
                                     ReadableState::Flowing => {
+                                        println!("inside 44");
                                         if last_state == ReadableState::Paused {
                                             if let Some(empty_buffer) = ba_buffer.read(None) {
                                                 buffer.extend(empty_buffer);
@@ -290,7 +324,7 @@ where
                                         buffer.clear();
                                     },
                                     ReadableState::Paused => {
-
+                                        println!("inside 55");
                                         if bytes_read == 0 {
                                             break;
                                         }
@@ -349,6 +383,7 @@ where
                 drop(reader);
 
                 if !is_destroyed {
+                    println!("inside 66");
                     on_end();
                     Self::emit_str(This(this2), &ctx3, "end", vec![], false)?;
                 }

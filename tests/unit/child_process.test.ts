@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn, execFile } from "child_process";
 import { platform } from "os";
 const IS_WINDOWS = platform() === "win32";
 
@@ -138,6 +138,101 @@ describe("child_process.spawn", () => {
         done();
       } catch (error) {
         done(error);
+      }
+    });
+  });
+});
+
+describe("child_process.execFile", () => {
+  it("should execute a file and return stdout", (done) => {
+    execFile("echo", ["Hello, World!"], (error, stdout, stderr) => {
+      console.log({ error, stdout, stderr });
+      try {
+        expect(error).toBeNull();
+        expect(stdout.trim()).toEqual("Hello, World!");
+        expect(stderr).toEqual("");
+        done();
+      } catch (err) {
+        done(err);
+      }
+    });
+  });
+
+  it("should execute in a different directory", (done) => {
+    execFile("pwd", { cwd: "./tests" }, (error, stdout) => {
+      try {
+        expect(error).toBeNull();
+        const dir = stdout.trim().split("/").at(-1);
+        expect(dir).toEqual("tests");
+        done();
+      } catch (err) {
+        done(err);
+      }
+    });
+  });
+
+  it("should handle errors from the executed file", (done) => {
+    if (process.env._VIRTUAL_ENV) {
+      return done(); // Skip in environments that allow non-existent commands
+    }
+
+    execFile("nonexistent-command", (error) => {
+      try {
+        expect(error).toBeTruthy();
+        done();
+      } catch (err) {
+        done(err);
+      }
+    });
+  });
+
+  it("should return stderr output if there is an error", (done) => {
+    execFile("ls", ["nonexistent-dir"], (error, stdout, stderr) => {
+      try {
+        expect(error).toBeTruthy();
+        expect(stderr).toBeTruthy();
+        done();
+      } catch (err) {
+        done(err);
+      }
+    });
+  });
+
+  it("should execute with shell option", (done) => {
+    execFile("echo", ["Shell Execution"], { shell: true }, (error, stdout) => {
+      try {
+        expect(error).toBeNull();
+        expect(stdout.trim()).toEqual("Shell Execution");
+        done();
+      } catch (err) {
+        done(err);
+      }
+    });
+  });
+
+  it("should handle large stdout output", (done) => {
+    const largeOutput = Array.from({ length: 10000 }, () => "line").join("\n");
+    execFile("printf", [largeOutput], (error, stdout) => {
+      try {
+        expect(error).toBeNull();
+        expect(stdout.length).toBeGreaterThan(1000);
+        done();
+      } catch (err) {
+        done(err);
+      }
+    });
+  });
+
+  it("should handle execution with env vars", (done) => {
+    const env = { ...process.env, CUSTOM_VAR: "hello" };
+    const script = IS_WINDOWS ? "echo %CUSTOM_VAR%" : "echo $CUSTOM_VAR";
+    execFile(script, { shell: true, env }, (error, stdout) => {
+      try {
+        expect(error).toBeNull();
+        expect(stdout.trim()).toEqual("hello");
+        done();
+      } catch (err) {
+        done(err);
       }
     });
   });
