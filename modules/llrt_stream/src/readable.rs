@@ -249,9 +249,8 @@ where
         ctx: &Ctx<'js>,
         readable: T,
         on_end: C,
-        combined_buffer: Option<&mut Vec<u8>>
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, on_end, combined_buffer)
+        Self::do_process(this, ctx, readable, on_end, None)
     }
 
     fn do_process<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
