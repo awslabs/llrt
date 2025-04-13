@@ -226,6 +226,7 @@ pub fn init(ctx: &Ctx, module_names: HashSet<&'static str>) -> Result<()> {
 
             if let Some(exports_obj) = exports_obj {
                 if exports_obj.type_of() == rquickjs::Type::Object {
+                    drop(state);
                     let exports = unsafe { exports_obj.as_object().unwrap_unchecked() };
 
                     for prop in
@@ -239,7 +240,12 @@ pub fn init(ctx: &Ctx, module_names: HashSet<&'static str>) -> Result<()> {
                     state.cache.insert(import_name, exports_obj.clone());
                     return Ok(exports_obj);
                 }
+            } else {
+                drop(state);
             }
+
+            let binding = ctx.userdata::<RefCell<RequireState>>().unwrap();
+            let mut state = binding.borrow_mut();
 
             let props = imported_object.props::<String, Value>();
 
