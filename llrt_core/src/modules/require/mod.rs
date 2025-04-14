@@ -4,6 +4,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     env, fs,
+    marker::PhantomData,
     rc::Rc,
 };
 
@@ -50,12 +51,30 @@ unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
     type Changed<'to> = RequireState<'to>;
 }
 
-pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
-    let globals = ctx.globals();
-    let module_names: HashSet<String> = globals.get("__module_names")?;
+pub struct ModuleNames<'js> {
+    pub list: HashSet<String>,
+    _marker: PhantomData<&'js ()>,
+}
 
+unsafe impl<'js> JsLifetime<'js> for ModuleNames<'js> {
+    type Changed<'to> = ModuleNames<'to>;
+}
+
+impl ModuleNames<'_> {
+    pub fn new(names: HashSet<String>) -> Self {
+        Self {
+            list: names,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
+
+    let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
+    let module_names = binding.borrow();
 
     let is_cjs_import = specifier.starts_with(CJS_IMPORT_PREFIX);
 
@@ -74,7 +93,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             specifier.trim_start_matches("node:").to_string()
         };
 
-        if module_names.contains(specifier.as_str()) {
+        if module_names.list.contains(specifier.as_str()) {
             import_name = specifier.into();
             import_name.clone()
         } else {

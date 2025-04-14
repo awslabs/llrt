@@ -1,20 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashSet};
+use std::cell::RefCell;
 
-use once_cell::sync::OnceCell;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Accessor,
     prelude::Func,
-    Ctx, Error, Exception, Object, Result, Value,
+    Ctx, Error, Object, Result, Value,
 };
 
 use crate::libs::utils::module::{export_default, ModuleInfo};
-use crate::modules::require::{require, RequireState, CJS_IMPORT_PREFIX};
+use crate::modules::require::{require, ModuleNames, RequireState, CJS_IMPORT_PREFIX};
 use crate::utils::ctx::CtxExt;
-
-static MODULE_NAMES: OnceCell<HashSet<String>> = OnceCell::new();
 
 pub struct ModuleModule;
 
@@ -22,8 +19,11 @@ fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
     ctx.globals().get("require")
 }
 
-fn is_builtin(name: String) -> bool {
-    MODULE_NAMES.get().unwrap().contains(&name)
+fn is_builtin(ctx: Ctx<'_>, name: String) -> bool {
+    let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
+    let module_names = binding.borrow();
+
+    module_names.list.contains(&name)
 }
 
 impl ModuleDef for ModuleModule {
@@ -37,12 +37,11 @@ impl ModuleDef for ModuleModule {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        MODULE_NAMES
-            .set(ctx.globals().get("__module_names")?)
-            .map_err(|_| Exception::throw_internal(ctx, "MODULE_NAMES already initialized"))?;
-
         export_default(ctx, exports, |default| {
-            default.set("builtinModules", MODULE_NAMES.get().unwrap())?;
+            let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
+            let module_names = binding.borrow();
+
+            default.set("builtinModules", module_names.list.clone())?;
             default.set("createRequire", Func::from(create_require))?;
             default.set("isBuiltin", Func::from(is_builtin))?;
 
@@ -105,6 +104,10 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     let module = Object::new(ctx.clone())?;
     module.prop("exports", exports_accessor)?;
     globals.prop("module", module)?;
+
+    let _ = ctx.store_userdata(RefCell::new(ModuleNames::new(
+        ctx.globals().get("__module_names")?,
+    )));
 
     Ok(())
 }
