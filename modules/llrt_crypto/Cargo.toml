@@ -75,7 +75,7 @@ ecdsa = { version = "0.16", optional = true }
 spki = { version = "0.7", features = ["std"], optional = true }
 pkcs8 = { version = "0.10", features = ["std"], optional = true }
 der = { version = "0.7", features = ["derive"], optional = true }
-const-oid = { version = "0.9", features = ["db"], optional = true }
+const-oid = { version = "0.10", features = ["db"], optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 memchr = "2"
