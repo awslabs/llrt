@@ -1,12 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    env, fs,
-    marker::PhantomData,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, env, fs, rc::Rc};
 
 use once_cell::sync::Lazy;
 use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, JsLifetime, Module, Object, Result, Value};
@@ -16,7 +10,10 @@ use tracing::trace;
 use crate::bytecode::BYTECODE_FILE_EXT;
 use crate::environment;
 use crate::libs::json::parse::json_parse;
-use crate::modules::{path::resolve_path, timers::poll_timers};
+use crate::modules::{
+    ModuleNames,
+    {path::resolve_path, timers::poll_timers},
+};
 use crate::utils::ctx::CtxExt;
 
 use self::resolver::require_resolve;
@@ -51,30 +48,12 @@ unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
     type Changed<'to> = RequireState<'to>;
 }
 
-pub struct ModuleNames<'js> {
-    pub list: HashSet<String>,
-    _marker: PhantomData<&'js ()>,
-}
-
-unsafe impl<'js> JsLifetime<'js> for ModuleNames<'js> {
-    type Changed<'to> = ModuleNames<'to>;
-}
-
-impl ModuleNames<'_> {
-    pub fn new(names: HashSet<String>) -> Self {
-        Self {
-            list: names,
-            _marker: PhantomData,
-        }
-    }
-}
-
 pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
 
     let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
-    let module_names = binding.borrow();
+    let module_list = binding.borrow().get_list();
 
     let is_cjs_import = specifier.starts_with(CJS_IMPORT_PREFIX);
 
@@ -93,7 +72,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             specifier.trim_start_matches("node:").to_string()
         };
 
-        if module_names.list.contains(specifier.as_str()) {
+        if module_list.contains(specifier.as_str()) {
             import_name = specifier.into();
             import_name.clone()
         } else {

@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::collections::HashSet;
+use std::{cell::RefCell, collections::HashSet};
 
 use llrt_utils::module::ModuleInfo;
 use rquickjs::{
@@ -8,6 +8,8 @@ use rquickjs::{
     module::ModuleDef,
     Ctx, Error, Result,
 };
+
+use super::ModuleNames;
 
 #[derive(Debug, Default)]
 pub struct GlobalAttachment {
@@ -28,8 +30,7 @@ impl GlobalAttachment {
 
     pub fn attach(self, ctx: &Ctx<'_>) -> Result<()> {
         if !self.names.is_empty() {
-            let object = ctx.globals();
-            object.set("__module_names", self.names)?;
+            let _ = ctx.store_userdata(RefCell::new(ModuleNames::new(self.names)));
         }
         for init in self.functions {
             init(ctx)?;
