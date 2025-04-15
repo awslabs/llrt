@@ -53,7 +53,7 @@ impl<'js> ReadableStreamInner<'js> {
             match event.as_ref() {
                 "data" => {
                     if added {
-                        println!("state is flowing");
+                        // println!("state is flowing");
                         if self.state == ReadableState::Paused {
                             let _ = self.data_listener_attached_tx.send(());
                         }
@@ -65,7 +65,7 @@ impl<'js> ReadableStreamInner<'js> {
                 },
                 "readable" => {
                     if added {
-                        println!("now it went to paused");
+                        // println!("now it went to paused");
                         self.state = ReadableState::Paused;
                         self.listener = Some("readable");
                     } else {
@@ -79,7 +79,7 @@ impl<'js> ReadableStreamInner<'js> {
     }
 
     pub fn new(emitter: EventEmitter<'js>, emit_close: bool) -> Self {
-        println!("new called");
+        // println!("new called");
         let (destroy_tx, _) = broadcast::channel::<Option<Value<'js>>>(1);
         let (listener_attached_tx, _) = broadcast::channel::<()>(1);
         Self {
@@ -110,7 +110,7 @@ unsafe impl<'js> JsLifetime<'js> for DefaultReadableStream<'js> {
 
 impl<'js> DefaultReadableStream<'js> {
     fn with_emitter(ctx: Ctx<'js>, emitter: EventEmitter<'js>) -> Result<Class<'js, Self>> {
-        println!("here in with_emitter");
+        // println!("here in with_emitter");
         Class::instance(
             ctx,
             Self {
@@ -120,7 +120,7 @@ impl<'js> DefaultReadableStream<'js> {
     }
 
     pub fn new(ctx: Ctx<'js>) -> Result<Class<'js, Self>> {
-        println!("here in new");
+        // println!("here in new");
         Self::with_emitter(ctx, EventEmitter::new())
     }
 }
@@ -183,7 +183,7 @@ where
 
     fn read_data(this: This<Class<'js, Self>>) -> Result<Buffer> {
         if let Some(data) = this.borrow().inner().buffer.read(Some(3)) {
-            println!("fhhh{:#?}",data);
+            // println!("fhhh{:#?}",data);
             return Ok(Buffer(data));
         }
 
@@ -247,7 +247,6 @@ where
         readable: T,
         on_end: C,
         combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
-        // cb: Option<&'js Function<'js>>
         cb: Option<Function<'js>>
     ) -> Result<Receiver<bool>> {
         let ctx2 = ctx.clone();
@@ -287,9 +286,11 @@ where
                                 if !has_data && state == ReadableState::Init {
                                     println!("inside initii");
                                     if let Some(_) = cb {
+                                        println!("cbb");
                                         this2.borrow_mut().inner_mut().state = ReadableState::Paused;
                                         state =  ReadableState::Flowing;
                                     }else{
+                                        println!("nonn cbb");
                                         this2.borrow_mut().inner_mut().state = ReadableState::Paused;
                                         state =  ReadableState::Paused;
                                     }
@@ -386,7 +387,7 @@ where
                 drop(reader);
 
                 if !is_destroyed {
-                    println!("inside 66");
+                    // println!("inside 66");
                     on_end();
                     Self::emit_str(This(this2), &ctx3, "end", vec![], false)?;
                 }

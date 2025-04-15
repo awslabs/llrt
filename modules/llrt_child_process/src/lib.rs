@@ -188,7 +188,7 @@ impl<'js> ChildProcess<'js> {
     fn kill(&mut self, signal: Opt<Value<'js>>) -> Result<bool> {
         #[cfg(unix)]
         let signal = if let Some(signal) = signal.0 {
-            println!("signnalll{:#?}", signal);
+            // println!("signnalll{:#?}", signal);
             if signal.is_number() {
                 Some(signal.as_number().unwrap() as i32)
             } else if signal.is_string() {
@@ -417,7 +417,6 @@ impl<'js> ChildProcess<'js> {
                         let mut exit_signal = None;
                         let mut killed = false;
 
-                        println!("still waiting");
                         wait_for_process(
                             child,
                             &ctx3,
@@ -447,6 +446,8 @@ impl<'js> ChildProcess<'js> {
                             //ok if sender drops
                             let _ = stdout_join_receiver.await;
                         }
+
+                        WritableStream::end(This(stdin_instance));
 
                         ChildProcess::emit_str(
                             This(instance2.clone()),
@@ -506,11 +507,12 @@ impl<'js> ChildProcess<'js> {
                                                 killed,
                                                 Some(data),
                                             )?;
+                                            let err_message: Value<'js>=error_object.get("message")?;
 
                                             () = cb.call((
-                                                Null.into_js(&ctx3),
                                                 error_object.into_js(&ctx3),
                                                 "".into_js(&ctx3),
+                                                err_message
                                             ))?;
                                         }
                                     }
@@ -562,12 +564,12 @@ async fn wait_for_process(
     exit_signal: &mut Option<i32>,
     killed: &mut bool,
 ) -> Result<()> {
-    println!("wtttttt");
+    // println!("wtttttt");
     loop {
-        println!("innside loop");
+        // println!("innside loop");
         tokio::select! {
             status = child.wait() => {
-                println!("waithnngg");
+                // println!("waithnngg");
                 let exit_status = status.or_throw(ctx)?;
                 exit_code.replace(exit_status.code().unwrap_or_default());
 
@@ -585,7 +587,7 @@ async fn wait_for_process(
                 #[cfg(unix)]
                 {
                     if let Some(signal) = signal {
-                        println!("kil signnal recievdv{}",signal);
+                        // println!("kil signnal recievdv{}",signal);
                         if let Some(pid) = child.id() {
                             if unsafe { libc::killpg(pid as i32, signal) } == 0 {
                                 *killed=true;
@@ -595,7 +597,7 @@ async fn wait_for_process(
                             }
                         }
                     } else {
-                        println!("kil signnal else");
+                        // println!("kil signnal else");
                         child.kill().await.or_throw(ctx)?;
                         *killed=true;
                         break;
@@ -976,7 +978,6 @@ fn get_output<'js, T>(
     output: Option<T>,
     native_readable_stream: Class<'js, DefaultReadableStream<'js>>,
     combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
-    // cb: Option<&'js Function<'js>>
     cb: Option<Function<'js>>,
 ) -> Result<Option<OneshotReceiver<bool>>>
 where
