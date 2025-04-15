@@ -221,23 +221,6 @@ where
         Ok(())
     }
 
-    fn drain_without_emitter(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Vec<u8> {
-        let borrow = this.borrow();
-        let inner = borrow.inner();
-
-            let ba_buffer = inner.buffer.clone();
-            if !ba_buffer.is_empty() {
-                let buffer = ba_buffer.read(None).unwrap_or_default();
-                if buffer.is_empty() {
-                    println!("vecddd is emty");
-                    return Vec::new();
-                }
-                vec![Buffer(buffer).into_js(ctx)];
-            }
-            println!("vec is emty");
-        Vec::new()
-    }
-
     fn process<T: AsyncRead + 'js + Unpin>(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,

@@ -13,10 +13,11 @@ use std::os::{
 };
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     io::Result as IoResult,
     process::{Command as StdCommand, Stdio},
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex, MutexGuard, RwLock},
 };
 
 use llrt_buffer::Buffer;
@@ -273,6 +274,7 @@ impl<'js> ChildProcess<'js> {
                             kill_signal_rx,
                             &mut exit_code,
                             &mut exit_signal,
+                            &mut false,
                         )
                         .await?;
 
@@ -301,8 +303,6 @@ impl<'js> ChildProcess<'js> {
 
                         ReadableStream::drain(stdout_instance, &ctx3)?;
                         ReadableStream::drain(stderr_instance, &ctx3)?;
-                        // ReadableStream::read(This(stdout_instance), ctx3.clone(),None)?;
-                        // ReadableStream::read(This(stderr_instance), ctx3.clone(),None)?;
 
                         ChildProcess::emit_str(
                             This(instance2.clone()),
@@ -385,19 +385,12 @@ impl<'js> ChildProcess<'js> {
                     DefaultWritableStream::process(stdin_instance.clone(), &ctx, child_stdin)?;
                 };
 
-                let mut stdout: Option<Value<'_>> = None;
-                let mut stderr: Option<Value<'_>> = None;
-                let mut stdout_new: Vec<u8> = Vec::new();
-                let mut stderr_new: Vec<u8> = Vec::new();
+                let stdout_new: Vec<u8> = Vec::new();
+                let stderr_new: Vec<u8> = Vec::new();
                 let stdout_arc = Arc::new(Mutex::new(stdout_new));
                 let stderr_arc = Arc::new(Mutex::new(stderr_new));
                 let combined_stdout_buffer = Some(Arc::clone(&stdout_arc));
                 let combined_stderr_buffer = Some(Arc::clone(&stderr_arc));
-                // let combined_stdout_buffer: Option<&mut Vec<u8>> = Some(&mut stdout_new);
-                // let combined_stderr_buffer: Option<&mut Vec<u8>> = Some(&mut stderr_new);
-                // let stdout_join_receiver = create_std_output(&ctx, &mut child.stdout, &mut stdout);
-                // let stderr_join_receiver = create_std_output(&ctx, &mut child.stderr, &mut stderr);
-                // let cb_cloned = cb.cloned();
 
                 let stdout_join_receiver = get_output(
                     &ctx,
@@ -422,6 +415,7 @@ impl<'js> ChildProcess<'js> {
                     let spawn_proc = async move {
                         let mut exit_code = None;
                         let mut exit_signal = None;
+                        let mut killed = false;
 
                         println!("still waiting");
                         wait_for_process(
@@ -430,18 +424,9 @@ impl<'js> ChildProcess<'js> {
                             kill_signal_rx,
                             &mut exit_code,
                             &mut exit_signal,
+                            &mut killed,
                         )
                         .await?;
-
-                        // let _ = create_std_output(&ctx, &mut child.stdout, &mut stdout).await?;
-                        // let _ = create_std_output(&ctx, &mut child.stderr, &mut stderr).await?;
-
-                        // let stdout_fut = create_std_output(&ctx, &mut child.stdout, &mut stdout);
-                        // let stderr_fut = create_std_output(&ctx, &mut child.stderr, &mut stderr);
-                        // let wait_fut = wait_for_process(&mut child, &ctx3, kill_signal_rx, &mut exit_code, &mut exit_signal);
-
-                        // let (_stdout_res, _stderr_res, wait_res) = tokio::join!(stdout_fut, stderr_fut, wait_fut);
-                        // wait_res?;
 
                         let code = exit_code.unwrap_or_default().into_js(&ctx3)?;
                         let signal = get_signal(&ctx3, exit_signal)?;
@@ -457,61 +442,11 @@ impl<'js> ChildProcess<'js> {
                         if let Some(stderr_join_receiver) = stderr_join_receiver {
                             //ok if sender drops
                             let _ = stderr_join_receiver.await;
-                            // println!("stouttt{}",)
                         }
                         if let Some(stdout_join_receiver) = stdout_join_receiver {
                             //ok if sender drops
                             let _ = stdout_join_receiver.await;
                         }
-
-                        WritableStream::end(This(stdin_instance));
-
-                        // ReadableStream::drain(stdout_instance, &ctx3)?;
-                        // ReadableStream::drain(stderr_instance, &ctx3)?;
-
-                        // let stdout_data=ReadableStream::read_data(This(stdout_instance), ctx3.clone(),Opt(None))?;
-                        // let stderr_data=ReadableStream::read_data(This(stderr_instance), ctx3.clone(),Opt(None))?;
-                        // let stdout_data=ReadableStream::read_data(stdout_instance)?;
-                        // let stderr_data=ReadableStream::read_data(This(stderr_instance))?;
-
-                        // stderr_data.to_string(&ctx3,"utf8");
-
-                        let stdout_data =
-                            ReadableStream::drain_without_emitter(stdout_instance, &ctx3);
-                        let stderr_data =
-                            ReadableStream::drain_without_emitter(stderr_instance, &ctx3);
-                            if let Some(buf) = &combined_stdout_buffer {
-                                let count = Arc::strong_count(buf);
-                                println!("Number of Arc references to stdout buffer: {}", count);
-                            }
-
-                        // println!("stdoutll{:#?}", combined_stdout_buffer);
-                        println!("stderrll{:#?}", stderr_data);
-                        // if let Some(stdout) = stdout_data {
-                        //     println!("stdoutll{:#?}",stdout_data.into_js(&ctx3));
-                        //     // println!("stdoutll{:#?}",stdout_data.into_value(ct3.clone()));
-                        // };
-
-                        // if let Some(stderr) = stderr_data {
-                        //     println!("stderrll{:#?}",stderr.into_js(&ctx3));
-                        // };
-
-                        // println!("stderrll{:#?}",stdin_data.into_js(&ctx3));
-
-                        // let stdout_data=read(This(stdout_instance),Opt(None))?;
-                        // let stdin_data=read(This(stderr_instance),Opt(None))?;
-
-                        // if let Some(stdout) = stdout_data {
-
-                        // };
-
-                        // if let Some(data) = This(stdout_instance).borrow().inner().buffer.read(Opt(None)) {
-                        //     return Buffer(data).into_js(&ctx);
-                        // }
-
-                        // ReadableStream::read(this, ctx, size);
-
-                        // println!("res{:#?}",stdout_instance);
 
                         ChildProcess::emit_str(
                             This(instance2.clone()),
@@ -521,40 +456,69 @@ impl<'js> ChildProcess<'js> {
                             false,
                         )?;
 
-                        // println!("stdout{:#?}",stdout.clone());
-                        // println!("stderr{:#?}",stderr.clone());
+                        if let Some(cb) = cb {
+                            match killed {
+                                true => {
+                                    // Even though we killed the process we need to display whatever we collected to buffer.
+                                    let stdout_data = combined_stdout_buffer
+                                        .as_ref()
+                                        .map(|stdout| stdout.lock().unwrap());
 
-                        if stdout.is_some() {
-                            if let Some(cb) = cb {
-                                () = cb.call((Null.into_js(&ctx3), stdout, "".into_js(&ctx3)))?;
-                            }
-                            Ok::<_, Error>(())
-                        } else {
-                            // error: Error: Command failed: ls hello
-                            //     ls: hello: No such file or directory
-                            //         code: 1,
-                            //         killed: false,
-                            //         signal: null,
-                            //         cmd: 'ls hello'
-                            let arg = args.unwrap();
-                            let cmd = format!("{} {}", command, arg.join(" "));
-                            let err_message =
-                                format!("error: Error: Command failed: {} args{}", command, cmd);
-                            let error_object = Object::new(ctx3.clone())?;
-                            error_object.set("message", err_message)?;
-                            error_object.set("code", code)?;
-                            error_object.set("cmd", cmd)?;
-                            println!("err obj{:#?}", error_object.clone().into_js(&ctx3));
+                                    let stdout: Result<Value<'js>> = match stdout_data {
+                                        Some(data) if !data.is_empty() => {
+                                            let message = String::from_utf8_lossy(&data);
+                                            message.into_js(&ctx3)
+                                        },
+                                        _ => "".into_js(&ctx3),
+                                    };
 
-                            if let Some(cb) = cb {
-                                () = cb.call((
-                                    error_object.into_js(&ctx3),
-                                    "".into_js(&ctx3),
-                                    stderr,
-                                ))?;
+                                    let error_object = create_error_object(
+                                        &ctx3, args, command, code, killed, None,
+                                    )?;
+
+                                    () = cb.call((
+                                        error_object.into_js(&ctx3),
+                                        stdout,
+                                        "".into_js(&ctx3),
+                                    ))?;
+                                },
+                                false => {
+                                    if let Some(stdout) = combined_stdout_buffer {
+                                        let data = stdout.lock().unwrap();
+                                        if !data.is_empty() {
+                                            let message = String::from_utf8_lossy(&data);
+                                            () = cb.call((
+                                                Null.into_js(&ctx3),
+                                                message.into_js(&ctx3),
+                                                "".into_js(&ctx3),
+                                            ))?;
+                                        }
+                                    }
+
+                                    if let Some(stderr) = combined_stderr_buffer {
+                                        let data = stderr.lock().unwrap();
+                                        if !data.is_empty() {
+                                            let error_object = create_error_object(
+                                                &ctx3,
+                                                args,
+                                                command,
+                                                code,
+                                                killed,
+                                                Some(data),
+                                            )?;
+
+                                            () = cb.call((
+                                                Null.into_js(&ctx3),
+                                                error_object.into_js(&ctx3),
+                                                "".into_js(&ctx3),
+                                            ))?;
+                                        }
+                                    }
+                                },
                             }
-                            Ok::<_, Error>(())
                         }
+
+                        Ok::<_, Error>(())
                     };
 
                     spawn_proc
@@ -566,7 +530,6 @@ impl<'js> ChildProcess<'js> {
             },
             Err(err) => {
                 let ctx3 = ctx.clone();
-                println!("commign to err{:#?}", err);
 
                 let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
 
@@ -597,6 +560,7 @@ async fn wait_for_process(
     mut kill_signal_rx: Receiver<Option<i32>>,
     exit_code: &mut Option<i32>,
     exit_signal: &mut Option<i32>,
+    killed: &mut bool,
 ) -> Result<()> {
     println!("wtttttt");
     loop {
@@ -624,6 +588,7 @@ async fn wait_for_process(
                         println!("kil signnal recievdv{}",signal);
                         if let Some(pid) = child.id() {
                             if unsafe { libc::killpg(pid as i32, signal) } == 0 {
+                                *killed=true;
                                 continue;
                             } else {
                                return Err(Exception::throw_message(ctx, &["Failed to send signal ",itoa::Buffer::new().format(signal)," to process ", itoa::Buffer::new().format(pid)].concat()));
@@ -632,6 +597,7 @@ async fn wait_for_process(
                     } else {
                         println!("kil signnal else");
                         child.kill().await.or_throw(ctx)?;
+                        *killed=true;
                         break;
                     }
                 }
@@ -639,6 +605,7 @@ async fn wait_for_process(
                 {
                     _ = signal;
                     child.kill().await.or_throw(ctx)?;
+                    *killed=true;
                     break;
                 }
             },
@@ -1004,30 +971,6 @@ fn str_to_stdio(ctx: &Ctx<'_>, input: &str) -> Result<StdioEnum> {
     }
 }
 
-// async fn create_std_output<'js, T>(
-//     ctx: &Ctx<'js>,
-//     child_std: &mut Option<T>,
-//     stdvar: &mut Option<Value<'js>>,
-// ) -> Result<()>
-// where
-//     T: AsyncRead + Unpin,
-// {
-//     if let Some(mut child_std) = child_std.take() {
-//         let mut buf = Vec::new();
-//         child_std
-//             .read_to_end(&mut buf)
-//             .await
-//             .expect("Failed to read stdout");
-//         let result = String::from_utf8_lossy(&buf);
-//         let data = result.into_js(&ctx)?;
-
-//         if !result.trim().is_empty() {
-//             *stdvar = Some(data);
-//         }
-//     }
-//     Ok(())
-// }
-
 fn get_output<'js, T>(
     ctx: &Ctx<'js>,
     output: Option<T>,
@@ -1062,6 +1005,36 @@ where
     T: AsyncRead + Unpin + Send + 'static,
 {
     get_output(ctx, output, native_readable_stream, None, None)
+}
+
+fn create_error_object<'js>(
+    ctx3: &Ctx<'js>,
+    args: Option<Vec<String>>,
+    command: String,
+    code: Value<'js>,
+    killed: bool,
+    data: Option<MutexGuard<'_, Vec<u8>>>,
+) -> Result<Object<'js>> {
+    let arg = args.unwrap_or_default();
+    let cmd = format!("{} {}", command, arg.join(" "));
+    let message: Cow<'_, str>;
+    if killed {
+        message = format!("Error: Command failed:{} {}", command, arg.join(" ")).into();
+    } else {
+        message = if let Some(ref data) = data {
+            String::from_utf8_lossy(&data)
+        } else {
+            "".into()
+        }
+    }
+
+    let error_object = Object::new(ctx3.clone())?;
+    error_object.set("message", message.into_js(&ctx3))?;
+    error_object.set("code", code)?;
+    error_object.set("killed", killed)?;
+    error_object.set("cmd", cmd)?;
+
+    Ok(error_object)
 }
 
 pub struct ChildProcessModule;
