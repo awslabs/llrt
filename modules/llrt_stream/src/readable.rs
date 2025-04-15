@@ -1,15 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::{atomic::AtomicUsize, Arc, RwLock};
+use std::sync::{atomic::AtomicUsize, Arc, Mutex, RwLock};
 
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
 use llrt_utils::{bytearray_buffer::BytearrayBuffer, result::ResultExt};
 use rquickjs::{
-    class::{Trace, Tracer},
-    prelude::{Func, Opt, This},
-    Class, Ctx, Error, IntoJs, JsLifetime, Null, Result, Value,
+    class::{Trace, Tracer}, prelude::{Func, Opt, This}, Class, Ctx, Error, Function, IntoJs, JsLifetime, Null, Result, Value
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, BufReader},
@@ -55,6 +53,7 @@ impl<'js> ReadableStreamInner<'js> {
             match event.as_ref() {
                 "data" => {
                     if added {
+                        println!("state is flowing");
                         if self.state == ReadableState::Paused {
                             let _ = self.data_listener_attached_tx.send(());
                         }
@@ -66,6 +65,7 @@ impl<'js> ReadableStreamInner<'js> {
                 },
                 "readable" => {
                     if added {
+                        println!("now it went to paused");
                         self.state = ReadableState::Paused;
                         self.listener = Some("readable");
                     } else {
@@ -79,6 +79,7 @@ impl<'js> ReadableStreamInner<'js> {
     }
 
     pub fn new(emitter: EventEmitter<'js>, emit_close: bool) -> Self {
+        println!("new called");
         let (destroy_tx, _) = broadcast::channel::<Option<Value<'js>>>(1);
         let (listener_attached_tx, _) = broadcast::channel::<()>(1);
         Self {
@@ -109,6 +110,7 @@ unsafe impl<'js> JsLifetime<'js> for DefaultReadableStream<'js> {
 
 impl<'js> DefaultReadableStream<'js> {
     fn with_emitter(ctx: Ctx<'js>, emitter: EventEmitter<'js>) -> Result<Class<'js, Self>> {
+        println!("here in with_emitter");
         Class::instance(
             ctx,
             Self {
@@ -118,6 +120,7 @@ impl<'js> DefaultReadableStream<'js> {
     }
 
     pub fn new(ctx: Ctx<'js>) -> Result<Class<'js, Self>> {
+        println!("here in new");
         Self::with_emitter(ctx, EventEmitter::new())
     }
 }
@@ -239,9 +242,11 @@ where
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
         readable: T,
-        combined_buffer: Option<&mut Vec<u8>>
+        combined_std_buffer:  Option<Arc<Mutex<Vec<u8>>>>,
+        // cb: Option<&'js Function<'js>>
+        cb: Option<Function<'js>>
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, || {}, combined_buffer)
+        Self::do_process(this, ctx, readable, || {}, combined_std_buffer,cb)
     }
 
     fn process_callback<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -250,7 +255,7 @@ where
         readable: T,
         on_end: C,
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, on_end, None)
+        Self::do_process(this, ctx, readable, on_end, None,None)
     }
 
     fn do_process<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -258,7 +263,9 @@ where
         ctx: &Ctx<'js>,
         readable: T,
         on_end: C,
-        _: Option<&mut Vec<u8>>
+        combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
+        // cb: Option<&'js Function<'js>>
+        cb: Option<Function<'js>>
     ) -> Result<Receiver<bool>> {
         let ctx2 = ctx.clone();
         ctx.spawn_exit(async move {
@@ -292,11 +299,17 @@ where
                             result = reader.read_buf(&mut buffer) => {
                                 println!("inside 33");
                                 let bytes_read = result.or_throw(&ctx3)?;
-
                                 let mut state = this2.borrow().inner().state.clone();
+                                println!("has_data {} state {:#?}",has_data,state);
                                 if !has_data && state == ReadableState::Init {
-                                    this2.borrow_mut().inner_mut().state = ReadableState::Paused;
-                                    state =  ReadableState::Paused;
+                                    println!("inside initii");
+                                    if let Some(_) = cb {
+                                        this2.borrow_mut().inner_mut().state = ReadableState::Paused;
+                                        state =  ReadableState::Flowing;
+                                    }else{
+                                        this2.borrow_mut().inner_mut().state = ReadableState::Paused;
+                                        state =  ReadableState::Paused;
+                                    }
                                     has_data = true;
                                 }
 
@@ -313,13 +326,21 @@ where
                                             break;
                                         }
 
-                                        Self::emit_str(
-                                            This(this2.clone()),
-                                            &ctx3,
-                                            "data",
-                                            vec![Buffer(buffer.clone()).into_js(&ctx3)?],
-                                            false
-                                        )?;
+                                        if let Some(_) = &cb {
+                                            println!("appending");
+                                            if let Some(buf) = &combined_std_buffer {
+                                                let mut stdout_lock = buf.lock().unwrap();
+                                                stdout_lock.extend_from_slice(&buffer);
+                                            }
+                                        } else {
+                                            Self::emit_str(
+                                                This(this2.clone()),
+                                                &ctx3,
+                                                "data",
+                                                vec![Buffer(buffer.clone()).into_js(&ctx3)?],
+                                                false
+                                            )?;
+                                        }
                                         buffer.clear();
                                     },
                                     ReadableState::Paused => {

@@ -16,7 +16,7 @@ use std::{
     collections::HashMap,
     io::Result as IoResult,
     process::{Command as StdCommand, Stdio},
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use llrt_buffer::Buffer;
@@ -187,7 +187,7 @@ impl<'js> ChildProcess<'js> {
     fn kill(&mut self, signal: Opt<Value<'js>>) -> Result<bool> {
         #[cfg(unix)]
         let signal = if let Some(signal) = signal.0 {
-            println!("signnalll{:#?}",signal);
+            println!("signnalll{:#?}", signal);
             if signal.is_number() {
                 Some(signal.as_number().unwrap() as i32)
             } else if signal.is_string() {
@@ -352,7 +352,7 @@ impl<'js> ChildProcess<'js> {
         command: String,
         args: Option<Vec<String>>,
         child: IoResult<Child>,
-        cb: Function<'js>,
+        cb: Option<Function<'js>>,
     ) -> Result<Class<'js, Self>> {
         let (kill_signal_tx, kill_signal_rx) = broadcast_channel::<Option<i32>>(1);
 
@@ -385,20 +385,35 @@ impl<'js> ChildProcess<'js> {
                     DefaultWritableStream::process(stdin_instance.clone(), &ctx, child_stdin)?;
                 };
 
-                // let mut stdout: Option<Value<'_>> = None;
-                // let mut stderr: Option<Value<'_>> = None;
-                let mut stdout:Vec<u8>= Vec::new();
-                let mut stderr:Vec<u8>= Vec::new();
-                let mut combined_stdout_buffer: Option<&mut Vec<u8>> = Some(&mut stdout);
-                let mut combined_stderr_buffer: Option<&mut Vec<u8>> = Some(&mut stderr);
+                let mut stdout: Option<Value<'_>> = None;
+                let mut stderr: Option<Value<'_>> = None;
+                let mut stdout_new: Vec<u8> = Vec::new();
+                let mut stderr_new: Vec<u8> = Vec::new();
+                let stdout_arc = Arc::new(Mutex::new(stdout_new));
+                let stderr_arc = Arc::new(Mutex::new(stderr_new));
+                let combined_stdout_buffer = Some(Arc::clone(&stdout_arc));
+                let combined_stderr_buffer = Some(Arc::clone(&stderr_arc));
+                // let combined_stdout_buffer: Option<&mut Vec<u8>> = Some(&mut stdout_new);
+                // let combined_stderr_buffer: Option<&mut Vec<u8>> = Some(&mut stderr_new);
                 // let stdout_join_receiver = create_std_output(&ctx, &mut child.stdout, &mut stdout);
                 // let stderr_join_receiver = create_std_output(&ctx, &mut child.stderr, &mut stderr);
+                // let cb_cloned = cb.cloned();
 
-                let stdout_join_receiver =
-                    get_output(&ctx, child.stdout.take(), stdout_instance.clone(), combined_stdout_buffer)?;
+                let stdout_join_receiver = get_output(
+                    &ctx,
+                    child.stdout.take(),
+                    stdout_instance.clone(),
+                    combined_stdout_buffer.as_ref().cloned(),
+                    cb.clone(),
+                )?;
 
-                let stderr_join_receiver =
-                    get_output(&ctx, child.stderr.take(), stderr_instance.clone(), combined_stderr_buffer)?;
+                let stderr_join_receiver = get_output(
+                    &ctx,
+                    child.stderr.take(),
+                    stderr_instance.clone(),
+                    combined_stderr_buffer.as_ref().cloned(),
+                    cb.clone(),
+                )?;
 
                 let ctx2 = ctx.clone();
                 let ctx3 = ctx.clone();
@@ -408,7 +423,6 @@ impl<'js> ChildProcess<'js> {
                         let mut exit_code = None;
                         let mut exit_signal = None;
 
-                        
                         println!("still waiting");
                         wait_for_process(
                             child,
@@ -462,16 +476,22 @@ impl<'js> ChildProcess<'js> {
 
                         // stderr_data.to_string(&ctx3,"utf8");
 
-                        let stdout_data=ReadableStream::drain_without_emitter(stdout_instance, &ctx3);
-                        let stderr_data=ReadableStream::drain_without_emitter(stderr_instance, &ctx3);
+                        let stdout_data =
+                            ReadableStream::drain_without_emitter(stdout_instance, &ctx3);
+                        let stderr_data =
+                            ReadableStream::drain_without_emitter(stderr_instance, &ctx3);
+                            if let Some(buf) = &combined_stdout_buffer {
+                                let count = Arc::strong_count(buf);
+                                println!("Number of Arc references to stdout buffer: {}", count);
+                            }
 
-                        println!("stdoutll{:#?}",stdout_data);
-                        println!("stderrll{:#?}",stderr_data);
+                        // println!("stdoutll{:#?}", combined_stdout_buffer);
+                        println!("stderrll{:#?}", stderr_data);
                         // if let Some(stdout) = stdout_data {
                         //     println!("stdoutll{:#?}",stdout_data.into_js(&ctx3));
                         //     // println!("stdoutll{:#?}",stdout_data.into_value(ct3.clone()));
                         // };
-                        
+
                         // if let Some(stderr) = stderr_data {
                         //     println!("stderrll{:#?}",stderr.into_js(&ctx3));
                         // };
@@ -505,7 +525,9 @@ impl<'js> ChildProcess<'js> {
                         // println!("stderr{:#?}",stderr.clone());
 
                         if stdout.is_some() {
-                            () = cb.call((Null.into_js(&ctx3), stdout, "".into_js(&ctx3)))?;
+                            if let Some(cb) = cb {
+                                () = cb.call((Null.into_js(&ctx3), stdout, "".into_js(&ctx3)))?;
+                            }
                             Ok::<_, Error>(())
                         } else {
                             // error: Error: Command failed: ls hello
@@ -514,18 +536,23 @@ impl<'js> ChildProcess<'js> {
                             //         killed: false,
                             //         signal: null,
                             //         cmd: 'ls hello'
-                            let arg=args.unwrap();
-                            let cmd=format!("{} {}", command, arg.join(" "));
-                            let err_message = format!("error: Error: Command failed: {} args{}", command, cmd);
+                            let arg = args.unwrap();
+                            let cmd = format!("{} {}", command, arg.join(" "));
+                            let err_message =
+                                format!("error: Error: Command failed: {} args{}", command, cmd);
                             let error_object = Object::new(ctx3.clone())?;
                             error_object.set("message", err_message)?;
                             error_object.set("code", code)?;
                             error_object.set("cmd", cmd)?;
-                            println!("err obj{:#?}",error_object.clone().into_js(&ctx3));
+                            println!("err obj{:#?}", error_object.clone().into_js(&ctx3));
 
-
-
-                            () = cb.call((error_object.into_js(&ctx3), "".into_js(&ctx3), stderr))?;
+                            if let Some(cb) = cb {
+                                () = cb.call((
+                                    error_object.into_js(&ctx3),
+                                    "".into_js(&ctx3),
+                                    stderr,
+                                ))?;
+                            }
                             Ok::<_, Error>(())
                         }
                     };
@@ -539,7 +566,7 @@ impl<'js> ChildProcess<'js> {
             },
             Err(err) => {
                 let ctx3 = ctx.clone();
-                println!("commign to err{:#?}",err);
+                println!("commign to err{:#?}", err);
 
                 let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
 
@@ -553,7 +580,9 @@ impl<'js> ChildProcess<'js> {
                         false,
                     )?;
 
-                    () = cb.call((ex, "".into_js(&ctx3), "".into_js(&ctx3)))?;
+                    if let Some(cb) = cb {
+                        () = cb.call((ex, "".into_js(&ctx3), "".into_js(&ctx3)))?;
+                    }
                     Ok(())
                 })?;
             },
@@ -689,14 +718,11 @@ fn exec_file<'js>(
 ) -> Result<Class<'js, ChildProcess<'js>>> {
     let args_0 = args_and_opts.first();
     let args_1 = args_and_opts.get(1);
-    let callback = args_and_opts.get(2).or_else(|| args_and_opts.last());
+    let args_3 = args_and_opts.get(2);
+
+    let cb = get_callback_fn(&ctx, vec![args_0, args_1, args_3])?;
 
     let mut opts = None;
-
-    let cb: Function = callback
-        .and_then(|v| v.clone().into_function())
-        .or_throw_msg(&ctx, "Callback parameter is not a function")?;
-
     if let Some(arg) = &args_1 {
         if !arg.is_function() {
             opts = arg.as_object().map(|o| o.clone());
@@ -742,13 +768,27 @@ fn exec_file<'js>(
 
     //tokio command does not have all std command features stabilized
     let mut command = Command::from(command);
-    ChildProcess::new_exec(
-        ctx.clone(),
-        cmd,
-        command_args,
-        command.spawn(),
-        cb,
-    )
+    ChildProcess::new_exec(ctx.clone(), cmd, command_args, command.spawn(), cb)
+}
+
+fn get_callback_fn<'js>(
+    ctx: &Ctx<'js>,
+    args: Vec<Option<&Value<'js>>>,
+) -> Result<Option<Function<'js>>> {
+    for (i, arg) in args.iter().enumerate() {
+        if let Some(arg) = arg {
+            if let Some(func) = arg.as_function() {
+                return Ok(Some(func.clone()));
+            }
+            if i == 2 {
+                return Err(Exception::throw_message(
+                    &ctx,
+                    "The \"callback\" argument must be of type function.",
+                ));
+            }
+        }
+    }
+    Ok(None)
 }
 
 fn get_command_args<'js>(
@@ -992,18 +1032,25 @@ fn get_output<'js, T>(
     ctx: &Ctx<'js>,
     output: Option<T>,
     native_readable_stream: Class<'js, DefaultReadableStream<'js>>,
-    combined_std_buffer: Option<&mut Vec<u8>>
+    combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
+    // cb: Option<&'js Function<'js>>
+    cb: Option<Function<'js>>,
 ) -> Result<Option<OneshotReceiver<bool>>>
 where
     T: AsyncRead + Unpin + Send + 'static,
 {
     if let Some(output) = output {
-        let receiver = DefaultReadableStream::process(native_readable_stream, ctx, output,combined_std_buffer)?;
+        let receiver = DefaultReadableStream::process(
+            native_readable_stream,
+            ctx,
+            output,
+            combined_std_buffer,
+            cb,
+        )?;
         return Ok(Some(receiver));
     }
 
     Ok(None)
-    
 }
 
 fn create_output<'js, T>(
@@ -1014,7 +1061,7 @@ fn create_output<'js, T>(
 where
     T: AsyncRead + Unpin + Send + 'static,
 {
-    get_output(ctx, output, native_readable_stream, None)
+    get_output(ctx, output, native_readable_stream, None, None)
 }
 
 pub struct ChildProcessModule;
