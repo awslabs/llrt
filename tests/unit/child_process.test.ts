@@ -189,6 +189,7 @@ describe("child_process.execFile", () => {
   it("should return stderr output if there is an error", (done) => {
     execFile("ls", ["nonexistent-dir"], (error, stdout, stderr) => {
       try {
+        console.log({ error, stdout, stderr });
         expect(error).toBeTruthy();
         expect(stderr).toBeTruthy();
         done();
