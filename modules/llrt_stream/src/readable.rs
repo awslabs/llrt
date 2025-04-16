@@ -53,7 +53,7 @@ impl<'js> ReadableStreamInner<'js> {
             match event.as_ref() {
                 "data" => {
                     if added {
-                        // println!("state is flowing");
+                        println!("state is flowing");
                         if self.state == ReadableState::Paused {
                             let _ = self.data_listener_attached_tx.send(());
                         }
@@ -65,7 +65,7 @@ impl<'js> ReadableStreamInner<'js> {
                 },
                 "readable" => {
                     if added {
-                        // println!("now it went to paused");
+                        println!("now it went to paused");
                         self.state = ReadableState::Paused;
                         self.listener = Some("readable");
                     } else {
@@ -282,6 +282,7 @@ where
                                 println!("inside 33");
                                 let bytes_read = result.or_throw(&ctx3)?;
                                 let mut state = this2.borrow().inner().state.clone();
+                                let listener = this2.borrow().inner().listener.clone();
                                 println!("has_data {} state {:#?}",has_data,state);
                                 if !has_data && state == ReadableState::Init {
                                     println!("inside initii");
@@ -289,7 +290,7 @@ where
                                         println!("cbb");
                                         this2.borrow_mut().inner_mut().state = ReadableState::Paused;
                                         state =  ReadableState::Flowing;
-                                    }else{
+                                    } else {
                                         println!("nonn cbb");
                                         this2.borrow_mut().inner_mut().state = ReadableState::Paused;
                                         state =  ReadableState::Paused;
@@ -316,14 +317,19 @@ where
                                                 let mut stdout_lock = buf.lock().unwrap();
                                                 stdout_lock.extend_from_slice(&buffer);
                                             }
-                                        } else {
-                                            Self::emit_str(
-                                                This(this2.clone()),
-                                                &ctx3,
-                                                "data",
-                                                vec![Buffer(buffer.clone()).into_js(&ctx3)?],
-                                                false
-                                            )?;
+                                            this2.borrow_mut().inner_mut().state = ReadableState::Flowing;
+                                        }
+                                        
+                                        if let Some(listener) = listener {
+                                            if listener == "data" {
+                                                Self::emit_str(
+                                                    This(this2.clone()),
+                                                    &ctx3,
+                                                    "data",
+                                                    vec![Buffer(buffer.clone()).into_js(&ctx3)?],
+                                                    false
+                                                )?;
+                                            }
                                         }
                                         buffer.clear();
                                     },

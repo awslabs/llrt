@@ -20,7 +20,6 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, RwLock},
 };
 
-use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{
@@ -40,7 +39,7 @@ use rquickjs::{
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 use tokio::{
-    io::{AsyncRead, AsyncReadExt},
+    io::AsyncRead,
     process::{Child, Command},
     sync::{
         broadcast::{channel as broadcast_channel, Receiver, Sender},
