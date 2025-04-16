@@ -641,17 +641,17 @@ fn spawn<'js>(
         Err(err) => return Err(err),
     };
 
-    let mut windows_verbatim_arguments: bool = get_windows_verbatim_arguments(&opts)?;
+    let mut windows_verbatim_arguments: bool = get_windows_verbatim_arguments(opts.as_ref())?;
 
     let cmd = get_cmd(
-        &opts,
+        opts.as_ref(),
         &mut command_args,
         &mut windows_verbatim_arguments,
         cmd,
     )?;
 
     let mut command = StdCommand::new(cmd.clone());
-    set_command_args(&mut command, &command_args, windows_verbatim_arguments);
+    set_command_args(&mut command, command_args.as_ref(), windows_verbatim_arguments);
 
     let mut stdin = StdioEnum::Piped;
     let mut stdout = StdioEnum::Piped;
@@ -703,16 +703,16 @@ fn exec_file<'js>(
         Err(err) => return Err(err),
     };
 
-    let mut windows_verbatim_arguments: bool = get_windows_verbatim_arguments(&opts)?;
+    let mut windows_verbatim_arguments: bool = get_windows_verbatim_arguments(opts.as_ref())?;
     let cmd = get_cmd(
-        &opts,
+        opts.as_ref(),
         &mut command_args,
         &mut windows_verbatim_arguments,
         cmd,
     )?;
 
     let mut command = StdCommand::new(cmd.clone());
-    set_command_args(&mut command, &command_args, windows_verbatim_arguments);
+    set_command_args(&mut command, command_args.as_ref(), windows_verbatim_arguments);
 
     let stdin = StdioEnum::Piped;
     let stdout = StdioEnum::Piped;
@@ -794,7 +794,7 @@ fn get_command_args<'js>(
     Ok(command_args)
 }
 
-fn get_windows_verbatim_arguments<'js>(opts: &Option<Object<'js>>) -> Result<bool> {
+fn get_windows_verbatim_arguments<'js>(opts: Option<&Object<'js>>) -> Result<bool> {
     let windows_verbatim_arguments: bool = if let Some(opts) = &opts {
         opts.get_optional::<&str, bool>("windowsVerbatimArguments")?
             .unwrap_or_default()
@@ -805,7 +805,7 @@ fn get_windows_verbatim_arguments<'js>(opts: &Option<Object<'js>>) -> Result<boo
 }
 
 fn get_cmd<'js>(
-    opts: &Option<Object<'js>>,
+    opts: Option<&Object<'js>>,
     command_args: &mut Option<Vec<String>>,
     windows_verbatim_arguments: &mut bool,
     cmd: String,
@@ -920,7 +920,7 @@ fn get_stdio<'js>(
 #[allow(unused_variables)]
 fn set_command_args(
     command: &mut std::process::Command,
-    args: &Option<Vec<String>>,
+    args: Option<&Vec<String>>,
     windows_verbatim_arguments: bool,
 ) {
     if let Some(args) = args {
