@@ -695,7 +695,7 @@ fn exec_file<'js>(
         if !arg.is_function() {
             // is_object() is returning true for array, so checking is_array() aswell
             if !arg.is_array() && arg.is_object() {
-                opts = arg.as_object().map(|o| o.clone());
+                opts = arg.as_object().cloned();
             } else {
                 return Err(Exception::throw_message(
                     &ctx,
@@ -731,10 +731,10 @@ fn exec_file<'js>(
     let stderr = StdioEnum::Piped;
 
     if let Some(opts) = &opts {
-        get_gid(&opts, &mut command)?;
-        get_uid(&opts, &mut command)?;
-        get_cwd(&opts, &mut command)?;
-        get_env(&opts, &mut command)?;
+        get_gid(opts, &mut command)?;
+        get_uid(opts, &mut command)?;
+        get_cwd(opts, &mut command)?;
+        get_env(opts, &mut command)?;
     }
 
     command.stdin(stdin.to_stdio());
@@ -762,7 +762,7 @@ fn get_callback_fn<'js>(
             }
             if i == 2 {
                 return Err(Exception::throw_message(
-                    &ctx,
+                    ctx,
                     "The \"callback\" argument must be of type function.",
                 ));
             }
@@ -778,13 +778,13 @@ fn get_command_args<'js>(
 ) -> Result<Option<Vec<String>>> {
     let command_args = if let Some(args_0) = args_0 {
         if args_0.is_array() {
-            let args = args_0.clone().into_array().or_throw(&ctx)?;
+            let args = args_0.clone().into_array().or_throw(ctx)?;
             let mut args_vec = Vec::with_capacity(args.len());
             for arg in args.iter() {
                 let arg: Value = arg?;
                 let arg = arg
                     .as_string()
-                    .or_throw_msg(&ctx, "argument is not a string")?;
+                    .or_throw_msg(ctx, "argument is not a string")?;
                 let arg = arg.to_string()?;
                 args_vec.push(arg);
             }
@@ -794,7 +794,7 @@ fn get_command_args<'js>(
             None
         } else if args_0.is_string() {
             return Err(Exception::throw_message(
-                &ctx,
+                ctx,
                 "The \"args\" argument must be of type object",
             ));
         } else {
@@ -806,7 +806,7 @@ fn get_command_args<'js>(
     Ok(command_args)
 }
 
-fn get_windows_verbatim_arguments<'js>(opts: Option<&Object<'js>>) -> Result<bool> {
+fn get_windows_verbatim_arguments(opts: Option<&Object<'_>>) -> Result<bool> {
     let windows_verbatim_arguments: bool = if let Some(opts) = &opts {
         opts.get_optional::<&str, bool>("windowsVerbatimArguments")?
             .unwrap_or_default()
@@ -816,8 +816,8 @@ fn get_windows_verbatim_arguments<'js>(opts: Option<&Object<'js>>) -> Result<boo
     Ok(windows_verbatim_arguments)
 }
 
-fn get_cmd<'js>(
-    opts: Option<&Object<'js>>,
+fn get_cmd(
+    opts: Option<&Object<'_>>,
     command_args: &mut Option<Vec<String>>,
     windows_verbatim_arguments: &mut bool,
     cmd: String,
@@ -855,7 +855,7 @@ fn get_cmd<'js>(
     Ok(cmd)
 }
 
-fn get_gid<'js>(opts: &Object<'js>, command: &mut std::process::Command) -> Result<()> {
+fn get_gid(opts: &Object<'_>, command: &mut std::process::Command) -> Result<()> {
     #[cfg(unix)]
     if let Some(gid) = opts.get_optional("gid")? {
         command.gid(gid);
@@ -863,7 +863,7 @@ fn get_gid<'js>(opts: &Object<'js>, command: &mut std::process::Command) -> Resu
     Ok(())
 }
 
-fn get_uid<'js>(opts: &Object<'js>, command: &mut std::process::Command) -> Result<()> {
+fn get_uid(opts: &Object<'_>, command: &mut std::process::Command) -> Result<()> {
     #[cfg(unix)]
     if let Some(uid) = opts.get_optional("uid")? {
         command.gid(uid);
@@ -871,14 +871,14 @@ fn get_uid<'js>(opts: &Object<'js>, command: &mut std::process::Command) -> Resu
     Ok(())
 }
 
-fn get_cwd<'js>(opts: &Object<'js>, command: &mut std::process::Command) -> Result<()> {
+fn get_cwd(opts: &Object<'_>, command: &mut std::process::Command) -> Result<()> {
     if let Some(cwd) = opts.get_optional::<_, String>("cwd")? {
         command.current_dir(&cwd);
     }
     Ok(())
 }
 
-fn get_env<'js>(opts: &Object<'js>, command: &mut std::process::Command) -> Result<()> {
+fn get_env(opts: &Object<'_>, command: &mut std::process::Command) -> Result<()> {
     if let Some(env) = opts.get_optional::<_, HashMap<String, Coerced<String>>>("env")? {
         let env: HashMap<String, String> = env
             .iter()
@@ -899,7 +899,7 @@ fn get_stdio<'js>(
 ) -> Result<()> {
     if let Some(stdio) = opts.get_optional::<_, Value<'js>>("stdio")? {
         if let Some(stdio_str) = stdio.as_string() {
-            let stdio = str_to_stdio(&ctx, &stdio_str.to_string()?)?;
+            let stdio = str_to_stdio(ctx, &stdio_str.to_string()?)?;
             *stdin = stdio.clone();
             *stdout = stdio.clone();
             *stderr = stdio;
@@ -909,7 +909,7 @@ fn get_stdio<'js>(
                 let stdio = if item.is_undefined() || item.is_null() {
                     StdioEnum::Piped
                 } else if let Some(std_io_str) = item.as_string() {
-                    str_to_stdio(&ctx, &std_io_str.to_string()?)?
+                    str_to_stdio(ctx, &std_io_str.to_string()?)?
                 } else if let Some(fd) = item.as_number() {
                     StdioEnum::Fd(fd as i32)
                 } else {
@@ -957,7 +957,7 @@ fn get_signal<'js>(ctx3: &Ctx<'js>, exit_signal: Option<i32>) -> Result<Value<'j
     #[cfg(unix)]
     {
         if let Some(s) = exit_signal {
-            signal = signal_str_from_i32(s).into_js(&ctx3)?;
+            signal = signal_str_from_i32(s).into_js(ctx3)?;
         } else {
             signal = Undefined.into_value(ctx3.clone());
         }
@@ -1035,17 +1035,17 @@ fn create_error_object<'js>(
         message = format!("Error: Command failed:{} {}", command, arg.join(" ")).into();
     } else {
         message = if let Some(ref data) = data {
-            String::from_utf8_lossy(&data)
+            String::from_utf8_lossy(data)
         } else {
             "".into()
         }
     }
 
     let error_object = Object::new(ctx3.clone())?;
-    error_object.set("message", message.into_js(&ctx3))?;
+    error_object.set("message", message.into_js(ctx3))?;
     error_object.set("code", code)?;
     error_object.set("killed", killed)?;
-    error_object.set("signal", signal.into_js(&ctx3))?;
+    error_object.set("signal", signal.into_js(ctx3))?;
     error_object.set("cmd", cmd)?;
 
     Ok(error_object)

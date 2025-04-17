@@ -265,9 +265,9 @@ where
                             result = reader.read_buf(&mut buffer) => {
                                 let bytes_read = result.or_throw(&ctx3)?;
                                 let mut state = this2.borrow().inner().state.clone();
-                                let listener = this2.borrow().inner().listener.clone();
+                                let listener = this2.borrow().inner().listener;
                                 if !has_data && state == ReadableState::Init {
-                                    if let Some(_) = cb {
+                                    if cb.is_some() {
                                         this2.borrow_mut().inner_mut().state = ReadableState::Paused;
                                         state =  ReadableState::Flowing;
                                     } else {
@@ -289,7 +289,7 @@ where
                                             break;
                                         }
 
-                                        if let Some(_) = &cb {
+                                        if cb.is_some() {
                                             if let Some(buf) = &combined_std_buffer {
                                                 let mut stdout_lock = buf.lock().unwrap();
                                                 stdout_lock.extend_from_slice(&buffer);
