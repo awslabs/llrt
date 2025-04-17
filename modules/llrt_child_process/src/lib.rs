@@ -1091,7 +1091,7 @@ impl From<ChildProcessModule> for ModuleInfo<ChildProcessModule> {
 mod tests {
     use super::*;
     use llrt_buffer as buffer;
-    use llrt_test::{test_async_with, ModuleEvaluator};
+    use llrt_test::{test_async_with, test_sync_with, ModuleEvaluator};
     use rquickjs::CatchResultExt;
 
     #[tokio::test]
@@ -1149,23 +1149,19 @@ mod tests {
                     ctx.clone(),
                     "test",
                     r#"
-                   import {execFile} from "child_process";
-                   let response;
-                    let resp=execFile("echo", ["hello"],(error, stdout, stderr) => {
-                        if (error) {
-                            // console.error(`Error1111: ${error.message}`);
-                        }
-                        if (stdout) {
-                            // console.log(`stdout1111: ${stdout}`);
-                            response=stdout;
-                        }
-                        if (stderr) {
-                            // console.error(`stderr1111: ${stderr}`);
-                        }
-                    });
-                     
-                    export default await response;
 
+                    import {execFile} from "child_process";
+
+                    let resolve = null;
+                    const deferred = new Promise(res => {
+                        resolve = res;
+                    });
+
+                    execFile("echo", ["hello"], (error, stdout, stderr)=>{
+                        resolve(stdout.trim())
+                    })
+
+                    export default await deferred;
 
                 "#,
                 )
