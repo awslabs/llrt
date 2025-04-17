@@ -7,7 +7,9 @@ use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
 use llrt_utils::{bytearray_buffer::BytearrayBuffer, result::ResultExt};
 use rquickjs::{
-    class::{Trace, Tracer}, prelude::{Func, Opt, This}, Class, Ctx, Error, Function, IntoJs, JsLifetime, Null, Result, Value
+    class::{Trace, Tracer},
+    prelude::{Func, Opt, This},
+    Class, Ctx, Error, Function, IntoJs, JsLifetime, Null, Result, Value,
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, BufReader},
@@ -211,10 +213,10 @@ where
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
         readable: T,
-        combined_std_buffer:  Option<Arc<Mutex<Vec<u8>>>>,
-        cb: Option<Function<'js>>
+        combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
+        cb: Option<Function<'js>>,
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, || {}, combined_std_buffer,cb)
+        Self::do_process(this, ctx, readable, || {}, combined_std_buffer, cb)
     }
 
     fn process_callback<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -223,7 +225,7 @@ where
         readable: T,
         on_end: C,
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, on_end, None,None)
+        Self::do_process(this, ctx, readable, on_end, None, None)
     }
 
     fn do_process<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -232,7 +234,7 @@ where
         readable: T,
         on_end: C,
         combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
-        cb: Option<Function<'js>>
+        cb: Option<Function<'js>>,
     ) -> Result<Receiver<bool>> {
         let ctx2 = ctx.clone();
         ctx.spawn_exit(async move {
