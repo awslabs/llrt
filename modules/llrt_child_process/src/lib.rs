@@ -1091,7 +1091,7 @@ impl From<ChildProcessModule> for ModuleInfo<ChildProcessModule> {
 mod tests {
     use super::*;
     use llrt_buffer as buffer;
-    use llrt_test::{test_async_with, test_sync_with, ModuleEvaluator};
+    use llrt_test::{test_async_with, ModuleEvaluator};
     use rquickjs::CatchResultExt;
 
     #[tokio::test]
