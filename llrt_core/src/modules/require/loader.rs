@@ -1,30 +1,26 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use once_cell::sync::Lazy;
-use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use std::{
     fs::File,
     io::{self, Read},
     result::Result as StdResult,
 };
+
+use once_cell::sync::Lazy;
+use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
-use super::CJS_IMPORT_PREFIX;
-
-use crate::{
-    bytecode::{
-        BYTECODE_COMPRESSED, BYTECODE_FILE_EXT, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION,
-        SIGNATURE_LENGTH,
-    },
-    module_loader::CJS_LOADER_PREFIX,
-    vm::COMPRESSION_DICT,
+use crate::bytecode::{
+    BYTECODE_COMPRESSED, BYTECODE_FILE_EXT, BYTECODE_UNCOMPRESSED, BYTECODE_VERSION,
+    SIGNATURE_LENGTH,
 };
+
+use super::{BYTECODE_CACHE, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, COMPRESSION_DICT};
 
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
 
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
 #[cfg(feature = "lambda")]
 include!(concat!(env!("OUT_DIR"), "/sdk_client_endpoints.rs"));
 
@@ -216,17 +212,16 @@ impl Loader for CustomLoader {
         Ok(module)
     }
 }
-
 #[cfg(feature = "lambda")]
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
-    use crate::{
-        modules::http::HTTP_CLIENT,
-        runtime_client::{check_client_inited, mark_client_inited},
-    };
-    use http_body_util::BodyExt;
-    use llrt_utils::result::ResultExt;
-    use rquickjs::qjs;
     use std::{env, time::Instant};
+
+    use http_body_util::BodyExt;
+    use rquickjs::qjs;
+
+    use crate::libs::utils::result::ResultExt;
+    use crate::modules::http::HTTP_CLIENT;
+    use crate::runtime_client::{check_client_inited, mark_client_inited};
 
     if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
         let client_name = sdk_import.trim_start_matches("client-");

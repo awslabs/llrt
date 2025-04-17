@@ -1,33 +1,32 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cmp::min, env, fmt::Write, process::exit, result::Result as StdResult};
+use std::{env, result::Result as StdResult};
 
-use llrt_json::{parse::json_parse_string, stringify::json_stringify_replacer_space};
-use llrt_numbers::number_to_string;
-use llrt_utils::{
-    clone::structured_clone,
-    error::ErrorExtensions,
-    primordials::{BasePrimordials, Primordial},
-};
 use ring::rand::SecureRandom;
 use rquickjs::{
-    atom::PredefinedAtom,
-    context::EvalOptions,
-    function::Opt,
-    loader::FileResolver,
-    prelude::{Func, Rest},
-    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, Function, IntoJs, Object,
-    Result, Value,
+    context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
+    CatchResultExt, Ctx, Error, Object, Result, Value,
 };
 
-pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
-
-use crate::{
-    environment, http,
-    module_loader::{loader::CustomLoader, require, resolver::CustomResolver},
-    modules::{console, crypto::SYSTEM_RANDOM},
-    security,
+use crate::libs::{
+    context::set_spawn_error_handler,
+    json,
+    logging::print_error_and_exit,
+    numbers,
+    utils::{
+        clone::structured_clone,
+        primordials::{BasePrimordials, Primordial},
+        time,
+    },
 };
+use crate::modules::{
+    crypto::SYSTEM_RANDOM,
+    llrt::{hex::LlrtHexModule, util::LlrtUtilModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
+    module::{self, ModuleModule},
+    module_builder::ModuleBuilder,
+    require::{loader::CustomLoader, resolver::CustomResolver},
+};
+use crate::{environment, http, security};
 
 pub struct Vm {
     pub runtime: AsyncRuntime,
@@ -38,15 +37,30 @@ pub struct Vm {
 struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
 
 pub struct VmOptions {
-    pub module_builder: crate::module_builder::ModuleBuilder,
+    pub module_builder: ModuleBuilder,
     pub max_stack_size: usize,
     pub gc_threshold_mb: usize,
 }
 
 impl Default for VmOptions {
     fn default() -> Self {
+        #[allow(unused_mut)]
+        let mut module_builder: ModuleBuilder = ModuleBuilder::default()
+            .with_module(ModuleModule)
+            .with_module(LlrtHexModule)
+            .with_module(LlrtUtilModule)
+            .with_module(LlrtUuidModule)
+            .with_module(LlrtXmlModule);
+
+        #[cfg(feature = "lambda")]
+        {
+            module_builder = module_builder
+                .with_global(crate::modules::console::init)
+                .with_module(crate::modules::console::ConsoleModule);
+        }
+
         Self {
-            module_builder: crate::module_builder::ModuleBuilder::default(),
+            module_builder,
             max_stack_size: 512 * 1024,
             gc_threshold_mb: {
                 const DEFAULT_GC_THRESHOLD_MB: usize = 20;
@@ -67,7 +81,7 @@ impl Vm {
     pub async fn from_options(
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
-        llrt_modules::time::init();
+        time::init();
         http::init()?;
         security::init()?;
 
@@ -96,10 +110,10 @@ impl Vm {
             file_resolver.add_path(*path);
         }
 
-        let (builtin_resolver, module_loader, module_names, init_globals) =
+        let (module_resolver, module_loader, module_names, global_attachment) =
             vm_options.module_builder.build();
 
-        let resolver = (builtin_resolver, CustomResolver, file_resolver);
+        let resolver = (module_resolver, CustomResolver, file_resolver);
 
         let loader = (module_loader, CustomLoader);
 
@@ -111,15 +125,13 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
-                for init_global in init_globals {
-                    init_global(&ctx)?;
-                }
-                init(&ctx)?;
-                require::init(&ctx, module_names)?;
+                global_attachment.attach(&ctx)?;
+                self::init(&ctx)?;
+                module::init(&ctx, module_names)?;
                 Ok(())
             })()
             .catch(&ctx)
-            .unwrap_or_else(|err| Self::print_error_and_exit(&ctx, err));
+            .unwrap_or_else(|err| print_error_and_exit(&ctx, err));
             Ok::<_, Error>(())
         })
         .await?;
@@ -139,21 +151,10 @@ impl Vm {
         self.ctx
             .with(|ctx| {
                 if let Err(err) = f(&ctx).catch(&ctx) {
-                    Self::print_error_and_exit(&ctx, err);
+                    print_error_and_exit(&ctx, err);
                 }
             })
             .await;
-    }
-
-    pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
-        let source = [
-            r#"import(""#,
-            &filename.as_ref().replace('\\', "/"),
-            r#"").catch((e) => {console.error(e);process.exit(1)})"#,
-        ]
-        .concat();
-
-        self.run(source, strict, global).await;
     }
 
     pub async fn run<S: Into<Vec<u8>> + Send>(&self, source: S, strict: bool, global: bool) {
@@ -168,24 +169,15 @@ impl Vm {
         .await;
     }
 
-    pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
-        let mut error_str = String::new();
-        write!(error_str, "Error: {:?}", err).unwrap();
-        if let Ok(error) = err.into_value(ctx) {
-            if console::log_fatal(ctx.clone(), Rest(vec![error.clone()])).is_err() {
-                eprintln!("{}", error_str);
-            };
-            if cfg!(test) {
-                panic!("{:?}", error);
-            } else {
-                exit(1)
-            }
-        } else if cfg!(test) {
-            panic!("{}", error_str);
-        } else {
-            eprintln!("{}", error_str);
-            exit(1)
-        };
+    pub async fn run_file(&self, filename: impl AsRef<str>, strict: bool, global: bool) {
+        let source = [
+            r#"import(""#,
+            &filename.as_ref().replace('\\', "/"),
+            r#"").catch((e) => {console.error(e);process.exit(1)})"#,
+        ]
+        .concat();
+
+        self.run(source, strict, global).await;
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
@@ -195,18 +187,13 @@ impl Vm {
 }
 
 fn init(ctx: &Ctx<'_>) -> Result<()> {
-    llrt_context::set_spawn_error_handler(|ctx, err| {
-        Vm::print_error_and_exit(ctx, err);
+    set_spawn_error_handler(|ctx, err| {
+        print_error_and_exit(ctx, err);
     });
 
     let globals = ctx.globals();
 
     globals.set("__gc", Func::from(|ctx: Ctx| ctx.run_gc()))?;
-
-    let number: Function = globals.get(PredefinedAtom::Number)?;
-    let number_proto: Object = number.get(PredefinedAtom::Prototype)?;
-    number_proto.set(PredefinedAtom::ToString, Func::from(number_to_string))?;
-
     globals.set("global", ctx.globals())?;
     globals.set("self", ctx.globals())?;
     globals.set(
@@ -214,38 +201,8 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(|ctx, value, options| structured_clone(&ctx, value, options)),
     )?;
 
-    let json_module: Object = globals.get(PredefinedAtom::JSON)?;
-    json_module.set("parse", Func::from(json_parse_string))?;
-    json_module.set(
-        "stringify",
-        Func::from(|ctx, value, replacer, space| {
-            struct StringifyArgs<'js>(Ctx<'js>, Value<'js>, Opt<Value<'js>>, Opt<Value<'js>>);
-            let StringifyArgs(ctx, value, replacer, space) =
-                StringifyArgs(ctx, value, replacer, space);
-
-            let mut space_value = None;
-            let mut replacer_value = None;
-
-            if let Some(replacer) = replacer.0 {
-                if let Some(space) = space.0 {
-                    if let Some(space) = space.as_string() {
-                        let mut space = space.clone().to_string()?;
-                        space.truncate(20);
-                        space_value = Some(space);
-                    }
-                    if let Some(number) = space.as_int() {
-                        if number > 0 {
-                            space_value = Some(" ".repeat(min(10, number as usize)));
-                        }
-                    }
-                }
-                replacer_value = Some(replacer);
-            }
-
-            json_stringify_replacer_space(&ctx, value, replacer_value, space_value)
-                .map(|v| v.into_js(&ctx))?
-        }),
-    )?;
+    numbers::redefine_prototype(ctx)?;
+    json::redefine_static_methods(ctx)?;
 
     //init base primordials
     let _ = BasePrimordials::get(ctx)?;

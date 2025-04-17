@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+pub mod module_builder;
 
 pub use self::modules::*;
 
@@ -53,6 +54,5 @@ mod modules {
     #[cfg(feature = "zlib")]
     pub use llrt_zlib as zlib;
 }
-pub use llrt_utils::time;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -1,6 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::object::ObjectExt;
 use rquickjs::{
     context::EvalOptions,
     module::{Declarations, Exports, ModuleDef},
@@ -8,7 +7,10 @@ use rquickjs::{
     Array, Ctx, Object, Result, Value,
 };
 
-use crate::{module_builder::ModuleInfo, modules::module::export_default};
+use crate::libs::utils::{
+    module::{export_default, ModuleInfo},
+    object::ObjectExt,
+};
 
 fn dimensions(ctx: Ctx<'_>) -> Result<Array<'_>> {
     let array = Array::new(ctx.clone())?;

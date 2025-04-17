@@ -56,21 +56,29 @@ pub(super) mod source;
 mod tee;
 
 #[rquickjs::class]
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime)]
 pub(crate) struct ReadableStream<'js> {
     pub controller: ReadableStreamControllerClass<'js>,
     pub disturbed: bool,
     pub state: ReadableStreamState<'js>,
     pub reader: Option<ReadableStreamReaderClass<'js>>,
-
-    #[qjs(skip_trace)]
     pub promise_primordials: PromisePrimordials<'js>,
-    #[qjs(skip_trace)]
     pub constructor_type_error: Constructor<'js>,
-    #[qjs(skip_trace)]
     pub constructor_range_error: Constructor<'js>,
-    #[qjs(skip_trace)]
     pub function_array_buffer_is_view: Function<'js>,
+}
+
+impl<'js> Trace<'js> for ReadableStream<'js> {
+    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+        self.controller.trace(tracer);
+        self.state.trace(tracer);
+        self.reader.trace(tracer);
+
+        self.promise_primordials.trace(tracer);
+        self.constructor_type_error.trace(tracer);
+        self.constructor_range_error.trace(tracer);
+        self.function_array_buffer_is_view.trace(tracer);
+    }
 }
 
 pub(crate) type ReadableStreamClass<'js> = Class<'js, ReadableStream<'js>>;

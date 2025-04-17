@@ -1,21 +1,23 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use hyper::{http::uri::InvalidUri, Uri};
 use std::{env, result::Result as StdResult};
 
+use hyper::{http::uri::InvalidUri, Uri};
+
 use crate::environment::{ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY};
+use crate::modules::{http, net};
 
 pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Ok(env_value) = env::var(ENV_LLRT_NET_ALLOW) {
         let allow_list = build_access_list(env_value);
-        llrt_modules::http::set_allow_list(build_http_access_list(&allow_list)?);
-        llrt_modules::net::set_allow_list(allow_list);
+        http::set_allow_list(build_http_access_list(&allow_list)?);
+        net::set_allow_list(allow_list);
     }
 
     if let Ok(env_value) = env::var(ENV_LLRT_NET_DENY) {
         let deny_list = build_access_list(env_value);
-        llrt_modules::http::set_deny_list(build_http_access_list(&deny_list)?);
-        llrt_modules::net::set_deny_list(deny_list);
+        http::set_deny_list(build_http_access_list(&deny_list)?);
+        net::set_deny_list(deny_list);
     }
 
     Ok(())

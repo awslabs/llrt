@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{
     collections::HashSet,
-    io::{stdout, IsTerminal},
+    io::{stderr, stdout, IsTerminal, Write},
+    mem,
     ops::Deref,
+    process::exit,
+    slice,
+    string::String,
 };
 
 use llrt_json::stringify::json_stringify;
@@ -15,8 +19,14 @@ use llrt_utils::{
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
-    atom::PredefinedAtom, function::This, object::Filter, prelude::Rest, promise::PromiseState,
-    Coerced, Ctx, Error, Function, Object, Result, Symbol, Type, Value,
+    atom::PredefinedAtom,
+    function::This,
+    object::Filter,
+    prelude::Rest,
+    promise::PromiseState,
+    qjs, CaughtError, Coerced, Ctx,
+    Error::{self},
+    Function, Object, Result, Symbol, Type, Value,
 };
 
 pub const NEWLINE: char = '\n';
@@ -357,18 +367,9 @@ fn format_raw_inner<'js>(
             }));
         },
         Type::String => {
-            format_raw_string_inner(
-                result,
-                unsafe {
-                    value
-                        .as_string()
-                        .unwrap_unchecked()
-                        .to_string()
-                        .unwrap_unchecked()
-                },
-                !is_root,
-                color_enabled,
-            );
+            //FIXME can be removed if https://github.com/DelSkayn/rquickjs/pull/447 is merged
+            let lossy_string = get_lossy_string(value)?;
+            format_raw_string_inner(result, lossy_string, !is_root, color_enabled);
         },
         Type::Symbol => {
             if color_enabled {
@@ -601,6 +602,33 @@ fn format_raw_inner<'js>(
     Ok(())
 }
 
+fn get_lossy_string(string_value: Value) -> Result<String> {
+    if !string_value.is_string() {
+        return Err(Error::FromJs {
+            from: "Value",
+            to: "JSString",
+            message: Some("Value is not a string".into()),
+        });
+    }
+
+    let mut len = mem::MaybeUninit::uninit();
+
+    let ctx_ptr = string_value.ctx().as_raw().as_ptr();
+
+    let ptr = unsafe { qjs::JS_ToCStringLen(ctx_ptr, len.as_mut_ptr(), string_value.as_raw()) };
+    if ptr.is_null() {
+        // Might not ever happen but I am not 100% sure
+        // so just incase check it.
+        return Err(Error::Unknown);
+    }
+    let len = unsafe { len.assume_init() };
+    let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr as _, len as _) };
+    let string = replace_invalid_utf8_and_utf16(bytes);
+    unsafe { qjs::JS_FreeCString(ctx_ptr, ptr) };
+
+    Ok(string)
+}
+
 fn format_raw_string(result: &mut String, value: String, options: &FormatOptions<'_>) {
     format_raw_string_inner(result, value, false, options.color);
 }
@@ -728,4 +756,136 @@ pub fn replace_newline_with_carriage_return(result: &mut str) {
         str_bytes[pos + index] = b'\r';
         pos += index + 1; // Move the position after the found '\n'
     }
+}
+
+fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(bytes.len());
+    let mut i = 0;
+
+    while i < bytes.len() {
+        let current = bytes[i];
+        match current {
+            // ASCII (1-byte)
+            0x00..=0x7F => {
+                result.push(current as char);
+                i += 1;
+            },
+            // 2-byte UTF-8 sequence
+            0xC0..=0xDF => {
+                if i + 1 < bytes.len() {
+                    let next = bytes[i + 1];
+                    if (next & 0xC0) == 0x80 {
+                        let code_point = ((current as u32 & 0x1F) << 6) | (next as u32 & 0x3F);
+                        if let Some(c) = char::from_u32(code_point) {
+                            result.push(c);
+                        } else {
+                            result.push('�');
+                        }
+                        i += 2;
+                    } else {
+                        result.push('�');
+                        i += 1;
+                    }
+                } else {
+                    result.push('�');
+                    i += 1;
+                }
+            },
+            // 3-byte UTF-8 sequence
+            0xE0..=0xEF => {
+                if i + 2 < bytes.len() {
+                    let next1 = bytes[i + 1];
+                    let next2 = bytes[i + 2];
+                    if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 {
+                        let code_point = ((current as u32 & 0x0F) << 12)
+                            | ((next1 as u32 & 0x3F) << 6)
+                            | (next2 as u32 & 0x3F);
+                        if let Some(c) = char::from_u32(code_point) {
+                            result.push(c);
+                        } else {
+                            result.push('�');
+                        }
+                        i += 3;
+                    } else {
+                        result.push('�');
+                        i += 1;
+                    }
+                } else {
+                    result.push('�');
+                    i += 1;
+                }
+            },
+            // 4-byte UTF-8 sequence
+            0xF0..=0xF7 => {
+                if i + 3 < bytes.len() {
+                    let next1 = bytes[i + 1];
+                    let next2 = bytes[i + 2];
+                    let next3 = bytes[i + 3];
+                    if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 && (next3 & 0xC0) == 0x80 {
+                        let code_point = ((current as u32 & 0x07) << 18)
+                            | ((next1 as u32 & 0x3F) << 12)
+                            | ((next2 as u32 & 0x3F) << 6)
+                            | (next3 as u32 & 0x3F);
+                        if let Some(c) = char::from_u32(code_point) {
+                            result.push(c);
+                        } else {
+                            result.push('�');
+                        }
+                        i += 4;
+                    } else {
+                        result.push('�');
+                        i += 1;
+                    }
+                } else {
+                    result.push('�');
+                    i += 1;
+                }
+            },
+            // Invalid starting byte
+            _ => {
+                result.push('�');
+                i += 1;
+            },
+        }
+    }
+
+    result
+}
+
+pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
+    use std::fmt::Write;
+
+    let mut error_str = String::new();
+    write!(error_str, "Error: {:?}", err).unwrap();
+
+    if let Ok(error) = err.into_value(ctx) {
+        if print_error(ctx, Rest(vec![error.clone()])).is_err() {
+            eprintln!("{}", error_str);
+        };
+        if cfg!(test) {
+            panic!("{:?}", error);
+        } else {
+            exit(1)
+        }
+    } else if cfg!(test) {
+        panic!("{}", error_str);
+    } else {
+        eprintln!("{}", error_str);
+        exit(1)
+    };
+}
+
+fn print_error<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    let is_tty = stderr().is_terminal();
+    let mut result = String::new();
+
+    let mut options = FormatOptions::new(ctx, is_tty, true)?;
+    build_formatted_string(&mut result, ctx, args, &mut options)?;
+
+    result.push(NEWLINE);
+
+    //we don't care if output is interrupted
+    let _ = stderr().write_all(result.as_bytes());
+
+    Ok(())
 }

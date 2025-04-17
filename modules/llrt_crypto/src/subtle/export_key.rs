@@ -157,7 +157,7 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
                 }),
             };
             let alg_id = match algorithm {
-                EcAlgorithm::Ecdh { .. } => AlgorithmIdentifier {
+                EcAlgorithm::Ecdh => AlgorithmIdentifier {
                     oid: const_oid::db::rfc5912::ID_EC_PUBLIC_KEY,
                     parameters: alg_id.parameters,
                 },

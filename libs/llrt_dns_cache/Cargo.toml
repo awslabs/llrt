@@ -19,11 +19,11 @@ hyper-rustls = { version = "0.27", default-features = false, features = [
   "ring",
 ] }
 hyper-util = "0.1"
-llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
-llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_context = { version = "0.5.1-beta", path = "../llrt_context" }
+llrt_utils = { version = "0.5.1-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
 tokio = "1"
 tower-service = "0.3.3"
-quick_cache = "0.6.9"
+quick_cache = "0.6.12"

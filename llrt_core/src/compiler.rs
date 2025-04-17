@@ -2,16 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{fs, io, path::Path};
 
-use rquickjs::{CatchResultExt, Context, Module, Runtime};
+use rquickjs::{CatchResultExt, Context, Module, Runtime, WriteOptions};
 use tracing::trace;
 use zstd::bulk::Compressor;
 
-use crate::{
-    bytecode::add_bytecode_header,
-    compiler_common::{human_file_size, DummyLoader, DummyResolver},
-    utils::result::ResultExt,
-    vm::{Vm, COMPRESSION_DICT},
-};
+use crate::bytecode::add_bytecode_header;
+use crate::compiler_common::{human_file_size, DummyLoader, DummyResolver};
+use crate::libs::{logging::print_error_and_exit, utils::result::ResultExt};
+use crate::modules::require::COMPRESSION_DICT;
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut compressor = Compressor::with_dictionary(22, COMPRESSION_DICT)?;
@@ -53,17 +51,16 @@ pub async fn compile_file(
             trace!("Compiling module: {}", module_name);
 
             let module = Module::declare(ctx.clone(), module_name, source)?;
-            let bytes = module.write(false)?;
-            let filename = output_filename.to_string_lossy().to_string();
+            let bytes = module.write(WriteOptions::default())?;
             let compressed = compress_module(&bytes)?;
-            fs::write(filename, &compressed)?;
+            fs::write(output_filename, &compressed)?;
 
             total_bytes += bytes.len();
             compressed_bytes += compressed.len();
             Ok(())
         })()
         .catch(&ctx)
-        .unwrap_or_else(|err| Vm::print_error_and_exit(&ctx, err))
+        .unwrap_or_else(|err| print_error_and_exit(&ctx, err))
     });
 
     trace!("JS size: {}", human_file_size(js_bytes));

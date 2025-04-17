@@ -1,6 +1,6 @@
 # LLRT Modules
 
-LLRT Modules is a library of [rquickjs](https://github.com/DelSkayn/rquickjs) modules that can be used independantly of LLRT (**L**ow **L**atency **R**un**t**ime). They aim to bring to [quickjs](https://bellard.org/quickjs/) APIs from [Node.js](https://nodejs.org/) and [WinterCG](https://wintercg.org/). You can use this meta-library, but each module is also a unique crate.
+LLRT Modules is a meta-module of [rquickjs](https://github.com/DelSkayn/rquickjs) modules that can be used independantly of LLRT (**L**ow **L**atency **R**un**t**ime). They aim to bring to [quickjs](https://bellard.org/quickjs/) APIs from [Node.js](https://nodejs.org/) and [WinterCG](https://wintercg.org/). You can use this meta-module, but each module is also a unique crate.
 
 LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications.
 
@@ -71,6 +71,47 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
+Using ModuleBuilder makes it even simpler.
+
+```rust
+use llrt_modules::module_builder::ModuleBuilder;
+use rquickjs::{async_with, context::EvalOptions, AsyncContext, AsyncRuntime, Error, Module};
+
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Error> {
+    let runtime = AsyncRuntime::new()?;
+
+    let module_builder = ModuleBuilder::default();
+    let (module_resolver, module_loader, _module_names, global_attachment) = module_builder.build();
+    runtime.set_loader((module_resolver,), (module_loader,)).await;
+
+    let context = AsyncContext::full(&runtime).await?;
+
+    async_with!(context => |ctx| {
+        global_attachment.attach(&ctx)?;
+
+        let mut options = EvalOptions::default();
+        options.global = false;
+        if let Err(Error::Exception) = ctx.eval_with_options::<(), _>(
+            r#"
+            import { Buffer } from "buffer";
+            Buffer.alloc(10);
+            "#,
+            options
+        ){
+            println!("{:#?}", ctx.catch());
+        };
+
+        Ok::<_, Error>(())
+    })
+    .await?;
+
+    Ok(())
+}
+
+```
+
 ## Compatibility matrix
 
 > [!NOTE]
@@ -112,4 +153,4 @@ _\*\* = Use fetch instead_
 
 ## License
 
-This library is licensed under the Apache-2.0 License.
+This module is licensed under the Apache-2.0 License.

@@ -6,7 +6,7 @@ use llrt_utils::{
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
-    class::{OwnedBorrowMut, Trace},
+    class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     prelude::{Opt, This},
     Class, Ctx, Exception, JsLifetime, Object, Promise, Result, Value,
@@ -37,7 +37,7 @@ use sink::UnderlyingSink;
 pub(super) mod sink;
 
 #[rquickjs::class]
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime)]
 pub struct WritableStream<'js> {
     pub(super) backpressure: bool,
     close_request: Option<ResolveablePromise<'js>>,
@@ -48,11 +48,23 @@ pub struct WritableStream<'js> {
     pub(crate) state: WritableStreamState<'js>,
     pub(crate) writer: Option<WritableStreamDefaultWriterClass<'js>>,
     write_requests: VecDeque<ResolveablePromise<'js>>,
-
-    #[qjs(skip_trace)]
     pub(super) constructor_type_error: Constructor<'js>,
-    #[qjs(skip_trace)]
     pub(crate) promise_primordials: PromisePrimordials<'js>,
+}
+
+impl<'js> Trace<'js> for WritableStream<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.close_request.trace(tracer);
+        self.controller.trace(tracer);
+        self.in_flight_write_request.trace(tracer);
+        self.in_flight_close_request.trace(tracer);
+        self.pending_abort_request.trace(tracer);
+        self.state.trace(tracer);
+        self.writer.trace(tracer);
+        self.write_requests.trace(tracer);
+        self.constructor_type_error.trace(tracer);
+        self.promise_primordials.trace(tracer);
+    }
 }
 
 pub(crate) type WritableStreamClass<'js> = Class<'js, WritableStream<'js>>;

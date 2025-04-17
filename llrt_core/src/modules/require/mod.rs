@@ -7,7 +7,6 @@ use once_cell::sync::Lazy;
 use crate::environment;
 
 pub mod loader;
-pub mod require;
 pub mod resolver;
 
 // added when .cjs files are imported
@@ -21,3 +20,7 @@ pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
         .filter(|platform| platform == "node")
         .unwrap_or_else(|| "browser".to_string())
 });
+
+pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
+
+include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
