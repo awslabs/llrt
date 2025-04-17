@@ -36,7 +36,7 @@ use rquickjs::{
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
+    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Undefined, Value,
 };
 use tokio::{
     io::AsyncRead,
@@ -187,7 +187,6 @@ impl<'js> ChildProcess<'js> {
     fn kill(&mut self, signal: Opt<Value<'js>>) -> Result<bool> {
         #[cfg(unix)]
         let signal = if let Some(signal) = signal.0 {
-            // println!("signnalll{:#?}", signal);
             if signal.is_number() {
                 Some(signal.as_number().unwrap() as i32)
             } else if signal.is_string() {
@@ -452,7 +451,7 @@ impl<'js> ChildProcess<'js> {
                             This(instance2.clone()),
                             &ctx3,
                             "close",
-                            vec![code.clone(), signal],
+                            vec![code.clone(), signal.clone()],
                             false,
                         )?;
 
@@ -473,7 +472,7 @@ impl<'js> ChildProcess<'js> {
                                     };
 
                                     let error_object = create_error_object(
-                                        &ctx3, args, command, code, killed, None,
+                                        &ctx3, args, command, code, killed, signal, None,
                                     )?;
 
                                     () = cb.call((
@@ -504,14 +503,16 @@ impl<'js> ChildProcess<'js> {
                                                 command,
                                                 code,
                                                 killed,
+                                                signal,
                                                 Some(data),
                                             )?;
-                                            let err_message: Value<'js>=error_object.get("message")?;
+                                            let err_message: Value<'js> =
+                                                error_object.get("message")?;
 
                                             () = cb.call((
                                                 error_object.into_js(&ctx3),
                                                 "".into_js(&ctx3),
-                                                err_message
+                                                err_message,
                                             ))?;
                                         }
                                     }
@@ -563,12 +564,9 @@ async fn wait_for_process(
     exit_signal: &mut Option<i32>,
     killed: &mut bool,
 ) -> Result<()> {
-    // println!("wtttttt");
     loop {
-        // println!("innside loop");
         tokio::select! {
             status = child.wait() => {
-                // println!("waithnngg");
                 let exit_status = status.or_throw(ctx)?;
                 exit_code.replace(exit_status.code().unwrap_or_default());
 
@@ -586,7 +584,6 @@ async fn wait_for_process(
                 #[cfg(unix)]
                 {
                     if let Some(signal) = signal {
-                        // println!("kil signnal recievdv{}",signal);
                         if let Some(pid) = child.id() {
                             if unsafe { libc::killpg(pid as i32, signal) } == 0 {
                                 *killed=true;
@@ -596,7 +593,6 @@ async fn wait_for_process(
                             }
                         }
                     } else {
-                        // println!("kil signnal else");
                         child.kill().await.or_throw(ctx)?;
                         *killed=true;
                         break;
@@ -651,7 +647,11 @@ fn spawn<'js>(
     )?;
 
     let mut command = StdCommand::new(cmd.clone());
-    set_command_args(&mut command, command_args.as_ref(), windows_verbatim_arguments);
+    set_command_args(
+        &mut command,
+        command_args.as_ref(),
+        windows_verbatim_arguments,
+    );
 
     let mut stdin = StdioEnum::Piped;
     let mut stdout = StdioEnum::Piped;
@@ -693,7 +693,15 @@ fn exec_file<'js>(
     let mut opts = None;
     if let Some(arg) = &args_1 {
         if !arg.is_function() {
-            opts = arg.as_object().map(|o| o.clone());
+            // is_object() is returning true for array, so checking is_array() aswell
+            if !arg.is_array() && arg.is_object() {
+                opts = arg.as_object().map(|o| o.clone());
+            } else {
+                return Err(Exception::throw_message(
+                    &ctx,
+                    "The \"options\" argument must be of type object.",
+                ));
+            }
         }
     }
 
@@ -712,7 +720,11 @@ fn exec_file<'js>(
     )?;
 
     let mut command = StdCommand::new(cmd.clone());
-    set_command_args(&mut command, command_args.as_ref(), windows_verbatim_arguments);
+    set_command_args(
+        &mut command,
+        command_args.as_ref(),
+        windows_verbatim_arguments,
+    );
 
     let stdin = StdioEnum::Piped;
     let stdout = StdioEnum::Piped;
@@ -947,7 +959,7 @@ fn get_signal<'js>(ctx3: &Ctx<'js>, exit_signal: Option<i32>) -> Result<Value<'j
         if let Some(s) = exit_signal {
             signal = signal_str_from_i32(s).into_js(&ctx3)?;
         } else {
-            signal = rquickjs::Undefined.into_value(ctx3.clone());
+            signal = Undefined.into_value(ctx3.clone());
         }
     }
     #[cfg(not(unix))]
@@ -1013,6 +1025,7 @@ fn create_error_object<'js>(
     command: String,
     code: Value<'js>,
     killed: bool,
+    signal: Value<'js>,
     data: Option<MutexGuard<'_, Vec<u8>>>,
 ) -> Result<Object<'js>> {
     let arg = args.unwrap_or_default();
@@ -1032,6 +1045,7 @@ fn create_error_object<'js>(
     error_object.set("message", message.into_js(&ctx3))?;
     error_object.set("code", code)?;
     error_object.set("killed", killed)?;
+    error_object.set("signal", signal.into_js(&ctx3))?;
     error_object.set("cmd", cmd)?;
 
     Ok(error_object)
