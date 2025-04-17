@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#[derive(Debug)]
+
 #[cfg(windows)]
 use std::os::windows::{
     io::{FromRawHandle, RawHandle},
@@ -215,7 +215,7 @@ impl<'js> ChildProcess<'js> {
 }
 
 impl<'js> ChildProcess<'js> {
-    fn new(
+    fn spawn(
         ctx: Ctx<'js>,
         command: String,
         args: Option<Vec<String>>,
@@ -345,7 +345,7 @@ impl<'js> ChildProcess<'js> {
         Ok(instance)
     }
 
-    fn new_exec(
+    fn exec_file(
         ctx: Ctx<'js>,
         command: String,
         args: Option<Vec<String>>,
@@ -676,7 +676,7 @@ fn spawn<'js>(
 
     //tokio command does not have all std command features stabilized
     let mut command = Command::from(command);
-    ChildProcess::new(ctx.clone(), cmd, command_args, command.spawn())
+    ChildProcess::spawn(ctx.clone(), cmd, command_args, command.spawn())
 }
 
 fn exec_file<'js>(
@@ -748,7 +748,7 @@ fn exec_file<'js>(
 
     //tokio command does not have all std command features stabilized
     let mut command = Command::from(command);
-    ChildProcess::new_exec(ctx.clone(), cmd, command_args, command.spawn(), cb)
+    ChildProcess::exec_file(ctx.clone(), cmd, command_args, command.spawn(), cb)
 }
 
 fn get_callback_fn<'js>(
