@@ -6,7 +6,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Accessor,
     prelude::Func,
-    Ctx, Error, Object, Result, Value,
+    Ctx, Error, Exception, Function, Object, Result, Value,
 };
 
 use crate::libs::utils::module::{export_default, ModuleInfo};
@@ -19,12 +19,15 @@ use crate::utils::ctx::CtxExt;
 pub struct ModuleModule;
 
 fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
-    ctx.globals().get("require")
+    ctx.globals()
+        .get::<_, Function>("require")
+        .map(|f| f.into())
+        .map_err(|_| Exception::throw_reference(&ctx, "create_require is not supported"))
 }
 
 fn is_builtin(ctx: Ctx<'_>, name: String) -> bool {
-    let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
-    let module_list = binding.borrow().get_list();
+    let binding = ctx.userdata::<ModuleNames>().unwrap();
+    let module_list = binding.get_list();
 
     module_list.contains(&name)
 }
@@ -41,8 +44,8 @@ impl ModuleDef for ModuleModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
-            let module_list = binding.borrow().get_list();
+            let binding = ctx.userdata::<ModuleNames>().unwrap();
+            let module_list = binding.get_list();
 
             default.set("builtinModules", module_list)?;
             default.set("createRequire", Func::from(create_require))?;

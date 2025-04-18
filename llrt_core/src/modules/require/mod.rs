@@ -52,8 +52,8 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
 
-    let binding = ctx.userdata::<RefCell<ModuleNames>>().unwrap();
-    let module_list = binding.borrow().get_list();
+    let binding = ctx.userdata::<ModuleNames>().unwrap();
+    let module_list = binding.get_list();
 
     let is_cjs_import = specifier.starts_with(CJS_IMPORT_PREFIX);
 
