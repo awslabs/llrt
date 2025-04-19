@@ -1030,16 +1030,13 @@ fn create_error_object<'js>(
 ) -> Result<Object<'js>> {
     let arg = args.unwrap_or_default();
     let cmd = format!("{} {}", command, arg.join(" "));
-    let message: Cow<'_, str>;
-    if killed {
-        message = format!("Error: Command failed:{} {}", command, arg.join(" ")).into();
+    let message: Cow<'_, str> = if killed {
+        format!("Error: Command failed:{} {}", command, arg.join(" ")).into()
+    } else if let Some(ref data) = data {
+        String::from_utf8_lossy(data)
     } else {
-        message = if let Some(ref data) = data {
-            String::from_utf8_lossy(data)
-        } else {
-            "".into()
-        }
-    }
+        "".into()
+    };
 
     let error_object = Object::new(ctx3.clone())?;
     error_object.set("message", message.into_js(ctx3))?;

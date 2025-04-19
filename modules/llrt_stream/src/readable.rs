@@ -296,7 +296,6 @@ where
                                             }
                                             this2.borrow_mut().inner_mut().state = ReadableState::Flowing;
                                         }
-                                        
                                         if let Some(listener) = listener {
                                             if listener == "data" {
                                                 Self::emit_str(
