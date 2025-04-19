@@ -11,7 +11,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Resolver, Ctx, Error, Result};
+use rquickjs::{loader::Resolver, Ctx, Error, Function, Result};
 use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
@@ -21,7 +21,7 @@ use crate::modules::path::{
 };
 use crate::utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS};
 
-use super::{BYTECODE_CACHE, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
+use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
 
 fn rc_string_to_cow<'a>(rc: Rc<String>) -> Cow<'a, str> {
     match Rc::try_unwrap(rc) {
@@ -87,10 +87,10 @@ static FILESYSTEM_ROOT: Lazy<Box<str>> = Lazy::new(|| {
 });
 
 #[derive(Debug, Default)]
-pub struct CustomResolver;
+pub struct NpmJsResolver;
 
 #[allow(clippy::manual_strip)]
-impl Resolver for CustomResolver {
+impl Resolver for NpmJsResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         if name.starts_with(CJS_IMPORT_PREFIX) {
             return Ok(name.to_string());
@@ -100,16 +100,18 @@ impl Resolver for CustomResolver {
 
         trace!("Try resolve '{}' from '{}'", name, base);
 
-        require_resolve(ctx, name, base, true).map(|name| name.into_owned())
+        require_resolve(ctx, name, base, None, true).map(|name| name.into_owned())
     }
 }
 
 // [CJS Reference Implementation](https://nodejs.org/api/modules.html#all-together)
 // require(X) from module at path Y
+#[allow(clippy::type_complexity)]
 pub fn require_resolve<'a>(
     ctx: &Ctx<'_>,
     x: &'a str,
     y: &str,
+    embedded_fn: Option<Function<'_>>,
     is_esm: bool,
 ) -> Result<Cow<'a, str>> {
     // trim schema
@@ -130,8 +132,10 @@ pub fn require_resolve<'a>(
     trace!("require_resolve(x, y):({}, {})", x, y);
 
     // 1'. If X is a bytecode cache,
-    if BYTECODE_CACHE.contains_key(x) {
-        return resolved_by_bytecode_cache(x.into());
+    if let Some(embedded_resolve) = embedded_fn {
+        if let Ok(path) = embedded_resolve.call::<_, String>((x, y)) {
+            return Ok(path.into());
+        }
     }
 
     //fast path for when we have supported extensions
@@ -147,10 +151,6 @@ pub fn require_resolve<'a>(
     }
 
     let x_normalized = path::normalize(x);
-    if BYTECODE_CACHE.contains_key(&x_normalized) {
-        return resolved_by_bytecode_cache(x_normalized.into());
-    }
-
     if !x_starts_with_parent_dir && is_supported_ext && Path::new(&x_normalized).is_file() {
         return resolved_by_file_exists(x_normalized.into());
     }
@@ -185,12 +185,12 @@ pub fn require_resolve<'a>(
 
         // a. LOAD_AS_FILE(Y + X)
         if let Ok(Some(path)) = load_as_file(ctx, y_plus_x.clone()) {
-            trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
+            trace!("+- Resolved by `LOAD_AS_FILE`: {}", path);
             return to_abs_path(path);
         } else {
             // b. LOAD_AS_DIRECTORY(Y + X)
             if let Ok(Some(path)) = load_as_directory(ctx, y_plus_x) {
-                trace!("+- Resolved by `LOAD_AS_DIRECTORY`: {}\n", path);
+                trace!("+- Resolved by `LOAD_AS_DIRECTORY`: {}", path);
                 return to_abs_path(path);
             }
         }
@@ -203,26 +203,26 @@ pub fn require_resolve<'a>(
     if x.starts_with('#') {
         // a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
         if let Ok(Some(path)) = load_package_imports(ctx, x, &dirname_y) {
-            trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}\n", path);
+            trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}", path);
             return Ok(path.into());
         }
     }
 
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
     if let Ok(Some(path)) = load_package_self(ctx, x, &dirname_y, is_esm) {
-        trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}\n", path);
+        trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}", path);
         return to_abs_path(path.into());
     }
 
     // 6. LOAD_NODE_MODULES(X, dirname(Y))
     if let Some(path) = load_node_modules(ctx, x, dirname_y, is_esm) {
-        trace!("+- Resolved by `LOAD_NODE_MODULES`: {}\n", path);
+        trace!("+- Resolved by `LOAD_NODE_MODULES`: {}", path);
         return Ok(path);
     }
 
     // 6.5. LOAD_AS_FILE(X)
     if let Ok(Some(path)) = load_as_file(ctx, Rc::new(x.to_owned())) {
-        trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
+        trace!("+- Resolved by `LOAD_AS_FILE`: {}", path);
         return to_abs_path(path);
     }
 
@@ -230,13 +230,8 @@ pub fn require_resolve<'a>(
     Err(Error::new_resolving(y.to_string(), x.to_string()))
 }
 
-fn resolved_by_bytecode_cache(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    trace!("+- Resolved by `BYTECODE_CACHE`: {}\n", x);
-    Ok(x)
-}
-
 fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    trace!("+- Resolved by `FILE`: {}\n", path);
+    trace!("+- Resolved by `FILE`: {}", path);
     to_abs_path(path)
 }
 
