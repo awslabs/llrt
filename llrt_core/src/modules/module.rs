@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashSet};
 
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -25,11 +25,13 @@ fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
         .map_err(|_| Exception::throw_reference(&ctx, "create_require is not supported"))
 }
 
-fn is_builtin(ctx: Ctx<'_>, name: String) -> bool {
-    let binding = ctx.userdata::<ModuleNames>().unwrap();
-    let module_list = binding.get_list();
+fn is_builtin(ctx: Ctx<'_>, name: String) -> Result<bool> {
+    let module_list = ctx
+        .userdata::<ModuleNames>()
+        .ok_or_else(|| Exception::throw_reference(&ctx, "is_builtin is not supported"))?
+        .get_list();
 
-    module_list.contains(&name)
+    Ok(module_list.contains(&name))
 }
 
 impl ModuleDef for ModuleModule {
@@ -44,8 +46,9 @@ impl ModuleDef for ModuleModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            let binding = ctx.userdata::<ModuleNames>().unwrap();
-            let module_list = binding.get_list();
+            let module_list = ctx
+                .userdata::<ModuleNames>()
+                .map_or_else(HashSet::new, |v| v.get_list());
 
             default.set("builtinModules", module_list)?;
             default.set("createRequire", Func::from(create_require))?;

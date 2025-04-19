@@ -1,6 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashMap, env, fs, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    env, fs,
+    rc::Rc,
+};
 
 use once_cell::sync::Lazy;
 use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, JsLifetime, Module, Object, Result, Value};
@@ -52,8 +57,9 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
 
-    let binding = ctx.userdata::<ModuleNames>().unwrap();
-    let module_list = binding.get_list();
+    let module_list = ctx
+        .userdata::<ModuleNames>()
+        .map_or_else(HashSet::new, |v| v.get_list());
 
     let is_cjs_import = specifier.starts_with(CJS_IMPORT_PREFIX);
 
