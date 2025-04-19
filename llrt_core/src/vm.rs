@@ -5,7 +5,7 @@ use std::{env, result::Result as StdResult};
 use ring::rand::SecureRandom;
 use rquickjs::{
     context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
-    CatchResultExt, Ctx, Error, Object, Result, Value,
+    CatchResultExt, Ctx, Error, Result, Value,
 };
 
 use crate::libs::{
@@ -21,8 +21,6 @@ use crate::libs::{
 };
 use crate::modules::{
     crypto::SYSTEM_RANDOM,
-    llrt::{hex::LlrtHexModule, util::LlrtUtilModule, uuid::LlrtUuidModule, xml::LlrtXmlModule},
-    module::{self, ModuleModule},
     module_builder::ModuleBuilder,
     require::{loader::CustomLoader, resolver::CustomResolver},
 };
@@ -33,9 +31,6 @@ pub struct Vm {
     pub ctx: AsyncContext,
 }
 
-#[allow(dead_code)]
-struct ExportArgs<'js>(Ctx<'js>, Object<'js>, Value<'js>, Value<'js>);
-
 pub struct VmOptions {
     pub module_builder: ModuleBuilder,
     pub max_stack_size: usize,
@@ -45,12 +40,13 @@ pub struct VmOptions {
 impl Default for VmOptions {
     fn default() -> Self {
         #[allow(unused_mut)]
-        let mut module_builder: ModuleBuilder = ModuleBuilder::default()
-            .with_module(ModuleModule)
-            .with_module(LlrtHexModule)
-            .with_module(LlrtUtilModule)
-            .with_module(LlrtUuidModule)
-            .with_module(LlrtXmlModule);
+        let mut module_builder = ModuleBuilder::default()
+            .with_global(crate::modules::module::init)
+            .with_module(crate::modules::module::ModuleModule)
+            .with_module(crate::modules::llrt::hex::LlrtHexModule)
+            .with_module(crate::modules::llrt::util::LlrtUtilModule)
+            .with_module(crate::modules::llrt::uuid::LlrtUuidModule)
+            .with_module(crate::modules::llrt::xml::LlrtXmlModule);
 
         #[cfg(feature = "lambda")]
         {
@@ -110,11 +106,8 @@ impl Vm {
             file_resolver.add_path(*path);
         }
 
-        let (module_resolver, module_loader, module_names, global_attachment) =
-            vm_options.module_builder.build();
-
+        let (module_resolver, module_loader, global_attachment) = vm_options.module_builder.build();
         let resolver = (module_resolver, CustomResolver, file_resolver);
-
         let loader = (module_loader, CustomLoader);
 
         let runtime = AsyncRuntime::new()?;
@@ -127,7 +120,6 @@ impl Vm {
             (|| {
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
-                module::init(&ctx, module_names)?;
                 Ok(())
             })()
             .catch(&ctx)

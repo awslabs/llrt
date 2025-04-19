@@ -1,5 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::{collections::HashSet, env, marker::PhantomData};
+
+use rquickjs::JsLifetime;
+
 pub mod module_builder;
 
 pub use self::modules::*;
@@ -56,3 +60,25 @@ mod modules {
 }
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub struct ModuleNames<'js> {
+    list: HashSet<String>,
+    _marker: PhantomData<&'js ()>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for ModuleNames<'js> {
+    type Changed<'to> = ModuleNames<'to>;
+}
+
+impl ModuleNames<'_> {
+    pub fn new(names: HashSet<String>) -> Self {
+        Self {
+            list: names,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn get_list(&self) -> HashSet<String> {
+        self.list.clone()
+    }
+}

@@ -83,7 +83,7 @@ async fn main() -> Result<(), Error> {
     let runtime = AsyncRuntime::new()?;
 
     let module_builder = ModuleBuilder::default();
-    let (module_resolver, module_loader, _module_names, global_attachment) = module_builder.build();
+    let (module_resolver, module_loader, global_attachment) = module_builder.build();
     runtime.set_loader((module_resolver,), (module_loader,)).await;
 
     let context = AsyncContext::full(&runtime).await?;
