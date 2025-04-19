@@ -1673,6 +1673,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_async_hooks"
+version = "0.6.0-beta"
+dependencies = [
+ "llrt_utils",
+ "rquickjs",
+]
+
+[[package]]
 name = "llrt_buffer"
 version = "0.6.0-beta"
 dependencies = [
@@ -1949,6 +1957,7 @@ version = "0.6.0-beta"
 dependencies = [
  "llrt_abort",
  "llrt_assert",
+ "llrt_async_hooks",
  "llrt_buffer",
  "llrt_child_process",
  "llrt_console",
