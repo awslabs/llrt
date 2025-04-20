@@ -9,21 +9,31 @@ use rquickjs::{
     Ctx, Error, Result,
 };
 
+use super::ModuleNames;
+
 #[derive(Debug, Default)]
 pub struct GlobalAttachment {
-    global_attachment: Vec<fn(&Ctx<'_>) -> Result<()>>,
+    names: HashSet<String>,
+    functions: Vec<fn(&Ctx<'_>) -> Result<()>>,
 }
 
 impl GlobalAttachment {
-    #[must_use]
-    pub fn with_global(mut self, init: fn(&Ctx<'_>) -> Result<()>) -> Self {
-        self.global_attachment.push(init);
+    pub fn add_function(mut self, init: fn(&Ctx<'_>) -> Result<()>) -> Self {
+        self.functions.push(init);
+        self
+    }
+
+    pub fn add_name<P: Into<String>>(mut self, path: P) -> Self {
+        self.names.insert(path.into());
         self
     }
 
     pub fn attach(self, ctx: &Ctx<'_>) -> Result<()> {
-        for init_function in self.global_attachment {
-            init_function(ctx)?;
+        if !self.names.is_empty() {
+            let _ = ctx.store_userdata(ModuleNames::new(self.names));
+        }
+        for init in self.functions {
+            init(ctx)?;
         }
         Ok(())
     }
@@ -36,7 +46,7 @@ pub struct ModuleResolver {
 
 impl ModuleResolver {
     #[must_use]
-    pub fn with_module<P: Into<String>>(mut self, path: P) -> Self {
+    pub fn add_name<P: Into<String>>(mut self, path: P) -> Self {
         self.modules.insert(path.into());
         self
     }
@@ -53,17 +63,9 @@ impl Resolver for ModuleResolver {
     }
 }
 
-pub type Modules = (
-    ModuleResolver,
-    ModuleLoader,
-    HashSet<&'static str>,
-    GlobalAttachment,
-);
-
 pub struct ModuleBuilder {
     module_resolver: ModuleResolver,
     module_loader: ModuleLoader,
-    module_names: HashSet<&'static str>,
     global_attachment: GlobalAttachment,
 }
 
@@ -199,7 +201,6 @@ impl ModuleBuilder {
         Self {
             module_resolver: ModuleResolver::default(),
             module_loader: ModuleLoader::default(),
-            module_names: HashSet::new(),
             global_attachment: GlobalAttachment::default(),
         }
     }
@@ -207,25 +208,23 @@ impl ModuleBuilder {
     pub fn with_module<M: ModuleDef, I: Into<ModuleInfo<M>>>(mut self, module: I) -> Self {
         let module_info: ModuleInfo<M> = module.into();
 
-        self.module_resolver = self.module_resolver.with_module(module_info.name);
+        self.module_resolver = self.module_resolver.add_name(module_info.name);
         self.module_loader = self
             .module_loader
             .with_module(module_info.name, module_info.module);
-        self.module_names.insert(module_info.name);
-
+        self.global_attachment = self.global_attachment.add_name(module_info.name);
         self
     }
 
     pub fn with_global(mut self, init: fn(&Ctx<'_>) -> Result<()>) -> Self {
-        self.global_attachment = self.global_attachment.with_global(init);
+        self.global_attachment = self.global_attachment.add_function(init);
         self
     }
 
-    pub fn build(self) -> Modules {
+    pub fn build(self) -> (ModuleResolver, ModuleLoader, GlobalAttachment) {
         (
             self.module_resolver,
             self.module_loader,
-            self.module_names,
             self.global_attachment,
         )
     }
