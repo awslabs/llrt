@@ -688,7 +688,7 @@ fn exec_file<'js>(
     let args_1 = args_and_opts.get(1);
     let args_3 = args_and_opts.get(2);
 
-    let cb = get_callback_fn(&ctx, vec![args_0, args_1, args_3])?;
+    let cb = get_callback_fn(&ctx, &[args_0, args_1, args_3])?;
 
     let mut opts = None;
     if let Some(arg) = &args_1 {
@@ -753,7 +753,7 @@ fn exec_file<'js>(
 
 fn get_callback_fn<'js>(
     ctx: &Ctx<'js>,
-    args: Vec<Option<&Value<'js>>>,
+    args: &[Option<&Value<'js>>],
 ) -> Result<Option<Function<'js>>> {
     for (i, arg) in args.iter().enumerate() {
         if let Some(arg) = arg {
