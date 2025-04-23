@@ -9,7 +9,7 @@ use zstd::bulk::Compressor;
 use crate::bytecode::add_bytecode_header;
 use crate::compiler_common::{human_file_size, DummyLoader, DummyResolver};
 use crate::libs::{logging::print_error_and_exit, utils::result::ResultExt};
-use crate::modules::require::COMPRESSION_DICT;
+use crate::modules::embedded::COMPRESSION_DICT;
 
 fn compress_module(bytes: &[u8]) -> io::Result<Vec<u8>> {
     let mut compressor = Compressor::with_dictionary(22, COMPRESSION_DICT)?;

@@ -8,7 +8,9 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, JsLifetime, Module, Object, Result, Value};
+use rquickjs::{
+    atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
+};
 use tokio::time::Instant;
 use tracing::trace;
 
@@ -38,10 +40,6 @@ pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
         .unwrap_or_else(|| "browser".to_string())
 });
 
-pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
-
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
-
 #[derive(Default)]
 pub struct RequireState<'js> {
     pub cache: HashMap<Rc<str>, Value<'js>>,
@@ -54,6 +52,9 @@ unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
 }
 
 pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
+    let globals = ctx.globals();
+    let embedded_fn: Option<Function> = globals.get("__embedded_hook").ok();
+
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
 
@@ -86,7 +87,8 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
             let abs_path = resolve_path([module_name].iter())?;
 
-            let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?.into_owned();
+            let resolved_path =
+                require_resolve(&ctx, &specifier, &abs_path, embedded_fn, false)?.into_owned();
             import_name = resolved_path.into();
             if is_bytecode_or_json {
                 import_name.clone()
