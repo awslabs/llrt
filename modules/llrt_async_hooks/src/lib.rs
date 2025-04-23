@@ -6,17 +6,16 @@ use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
+    promise::PromiseHookType,
+    runtime::PromiseHook,
     Ctx, Function, JsLifetime, Object, Result, Value,
 };
-
-mod hooking;
 
 pub(crate) struct Hook<'js> {
     pub(crate) enabled: Rc<RefCell<bool>>,
     pub(crate) init: Option<Function<'js>>,
     pub(crate) before: Option<Function<'js>>,
     pub(crate) after: Option<Function<'js>>,
-    pub(crate) destroy: Option<Function<'js>>,
     pub(crate) promise_resolve: Option<Function<'js>>,
 }
 
@@ -68,15 +67,46 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookIds<'js> {
     type Changed<'to> = AsyncHookIds<'to>;
 }
 
-pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>> {
-    hooking::promise(&ctx)?;
-    hooking::timeout(&ctx)?;
-    hooking::immediate(&ctx)?;
+pub fn create_promise_hook() -> PromiseHook {
+    Box::new(
+        |ctx: Ctx<'_>, type_: PromiseHookType, _promise: Value<'_>, _parent: Value<'_>| {
+            let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
+            let state = bind_state.borrow();
 
+            for hook in &state.hooks {
+                if *hook.enabled.as_ref().borrow() {
+                    match type_ {
+                        PromiseHookType::Init => {
+                            if let Some(func) = &hook.init {
+                                let _: Result<()> = func.call((0, "PROMISE", 0));
+                            }
+                        },
+                        PromiseHookType::Before => {
+                            if let Some(func) = &hook.before {
+                                let _: Result<()> = func.call((0,));
+                            }
+                        },
+                        PromiseHookType::After => {
+                            if let Some(func) = &hook.after {
+                                let _: Result<()> = func.call((0,));
+                            }
+                        },
+                        PromiseHookType::Resolve => {
+                            if let Some(func) = &hook.promise_resolve {
+                                let _: Result<()> = func.call((0,));
+                            }
+                        },
+                    }
+                }
+            }
+        },
+    )
+}
+
+pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>> {
     let init = hooks_obj.get::<_, Function>("init").ok();
     let before = hooks_obj.get::<_, Function>("before").ok();
     let after = hooks_obj.get::<_, Function>("after").ok();
-    let destroy = hooks_obj.get::<_, Function>("destroy").ok();
     let promise_resolve = hooks_obj.get::<_, Function>("promiseResolve").ok();
     let enabled = Rc::new(RefCell::new(false));
 
@@ -85,7 +115,6 @@ pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<
         init,
         before,
         after,
-        destroy,
         promise_resolve,
     };
 
@@ -175,7 +204,7 @@ impl From<AsyncHooksModule> for ModuleInfo<AsyncHooksModule> {
     }
 }
 
-pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
+pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let global = ctx.globals();
 
     let _ = ctx.store_userdata(RefCell::new(AsyncHookState::default()));
@@ -183,87 +212,6 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
 
     global.set("__async_hook_next_id", Func::from(next_async_id))?;
     global.set("__async_hook_exec_id", Func::from(execution_async_id))?;
-
-    global.set(
-        "__async_hook_init",
-        Func::from(
-            move |ctx: Ctx<'js>, id: u64, name: String, trigger_id: Option<u64>| {
-                let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                let mut ids = bind_ids.borrow_mut();
-                ids.execution_async_id = id;
-                ids.trigger_async_id = trigger_id.unwrap_or_default();
-                drop(ids);
-
-                let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
-                let state = bind_state.borrow();
-
-                for hook in &state.hooks {
-                    if *hook.enabled.as_ref().borrow() {
-                        if let Some(func) = &hook.init {
-                            let _: Result<()> = func.call((id, &name, trigger_id));
-                        }
-                    }
-                }
-                drop(state);
-            },
-        ),
-    )?;
-
-    global.set(
-        "__async_hook_func",
-        Func::from(move |ctx: Ctx<'js>, event: String, id: u64| {
-            if event.as_str() == "before" {
-                let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                let mut ids = bind_ids.borrow_mut();
-                ids.execution_async_id = id;
-                drop(ids);
-            }
-
-            let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
-            let state = bind_state.borrow();
-
-            match event.as_str() {
-                "before" => {
-                    for hook in &state.hooks {
-                        if *hook.enabled.as_ref().borrow() {
-                            if let Some(func) = &hook.before {
-                                let _: Result<()> = func.call((id,));
-                            }
-                        }
-                    }
-                },
-                "after" => {
-                    for hook in &state.hooks {
-                        if *hook.enabled.as_ref().borrow() {
-                            if let Some(func) = &hook.after {
-                                let _: Result<()> = func.call((id,));
-                            }
-                        }
-                    }
-                },
-                "destroy" => {
-                    for hook in &state.hooks {
-                        if *hook.enabled.as_ref().borrow() {
-                            if let Some(func) = &hook.destroy {
-                                let _: Result<()> = func.call((id,));
-                            }
-                        }
-                    }
-                },
-                "promiseResolve" => {
-                    for hook in &state.hooks {
-                        if *hook.enabled.as_ref().borrow() {
-                            if let Some(func) = &hook.promise_resolve {
-                                let _: Result<()> = func.call((id,));
-                            }
-                        }
-                    }
-                },
-                _ => {},
-            }
-            drop(state);
-        }),
-    )?;
 
     Ok(())
 }
