@@ -16,7 +16,7 @@ llrt_utils = { version = "0.6.0-beta", path = "../../libs/llrt_utils", default-f
 once_cell = { version = "1", features = [
   "std",
 ], default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
+rquickjs = { git = "https://github.com/nabetti1720/bnoordhuis-rquickjs.git", branch = "promisehook-aarch64", version = "0.9.0", default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "sync",
