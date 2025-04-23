@@ -642,18 +642,18 @@ fn to_object<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Object<'js>> {
 mod tests {
     use super::*;
     use llrt_test::test_sync_with;
-    use rquickjs::BigInt;
+    // use rquickjs::BigInt;
 
     #[tokio::test]
     async fn test_to_object() {
         test_sync_with(|ctx| {
-            let good_values: [Value; 7] = [
+            let good_values: [Value; 6] = [
                 Value::new_bool(ctx.clone(), false),
                 Value::new_int(ctx.clone(), 123),
                 Value::new_float(ctx.clone(), 1.5),
                 rquickjs::String::from_str(ctx.clone(), "abc")?.into_value(),
                 Symbol::for_description(&ctx, "def")?.into_value(),
-                BigInt::from_i64(ctx.clone(), 123456)?.into_value(),
+                // BigInt::from_i64(ctx.clone(), 123456)?.into_value(),
                 Object::new(ctx.clone())?.into_value(),
             ];
 

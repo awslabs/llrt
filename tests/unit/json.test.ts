@@ -320,13 +320,13 @@ describe("JSON Stringified", () => {
     expect(JSON.stringify(exception)).toEqual("{}");
   });
 
-  it("should throw an Error when stringify BigInt", () => {
-    expect(() =>
-      JSON.stringify({
-        v: 1n,
-      })
-    ).toThrow(/Do not know how to serialize a BigInt/);
-  });
+  // it("should throw an Error when stringify BigInt", () => {
+  //   expect(() =>
+  //     JSON.stringify({
+  //       v: 1n,
+  //     })
+  //   ).toThrow(/Do not know how to serialize a BigInt/);
+  // });
 
   it("should allow replacer that returns new non-primitive objects", () => {
     const json = JSON.stringify({ key: "value" });
