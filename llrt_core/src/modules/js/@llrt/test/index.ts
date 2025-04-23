@@ -653,8 +653,7 @@ class TestServer {
           }
         }
       }
-      console.log(output);
-      process.exit(1);
+      process.exitCode = 1;
     }
     console.log(output);
   }

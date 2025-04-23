@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { platform } from "os";
+import process from "process";
 const IS_WINDOWS = platform() === "win32";
 
 describe("child_process.spawn", () => {
@@ -140,5 +141,28 @@ describe("child_process.spawn", () => {
         done(error);
       }
     });
+  });
+
+  it("should have a process exitCode", async () => {
+    const testExitCode = async (
+      exitCodeValue: number,
+      expectedCode: number
+    ) => {
+      const proc = spawn(process.argv0, [
+        "-e",
+        `process.exitCode = ${exitCodeValue}`,
+      ]);
+      await new Promise<void>((resolve) => {
+        proc.on("exit", (code) => {
+          expect(code).toEqual(expectedCode);
+          resolve();
+        });
+      });
+    };
+
+    await testExitCode(241212341, 255);
+    await testExitCode(-1, 255);
+    await testExitCode(1, 1);
+    await testExitCode(-1231231231, 1);
   });
 });

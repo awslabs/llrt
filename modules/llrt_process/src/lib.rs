@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::HashMap;
 use std::env;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 pub use llrt_utils::sysinfo;
 use llrt_utils::{
@@ -11,13 +12,16 @@ use llrt_utils::{
     sysinfo::{ARCH, PLATFORM},
     time, VERSION,
 };
+use rquickjs::Exception;
 use rquickjs::{
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
-    object::Property,
+    object::{Accessor, Property},
     prelude::Func,
-    Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
+    Array, BigInt, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
+
+pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
 
 fn cwd(ctx: Ctx<'_>) -> Result<String> {
     env::current_dir()
@@ -143,6 +147,38 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("release", release)?;
     process.set("version", VERSION)?;
     process.set("versions", process_versions)?;
+
+    process.prop(
+        "exitCode",
+        Accessor::new(
+            |ctx| {
+                struct Args<'js>(Ctx<'js>);
+                let Args(ctx) = Args(ctx);
+                ctx.globals().get::<_, Value>("__exitCode")
+            },
+            |ctx, code| {
+                struct Args<'js>(Ctx<'js>, Value<'js>);
+                let Args(ctx, code) = Args(ctx, code);
+                if let Some(code) = code.as_number() {
+                    let code: u8 = if code.fract() != 0.0 {
+                        return Err(Exception::throw_range(
+                            &ctx,
+                            "The value of 'code' must be an integer",
+                        ));
+                    } else if code > 255.0 {
+                        255
+                    } else {
+                        (code as i32).rem_euclid(256) as u8
+                    };
+                    EXIT_CODE.store(code, Ordering::Relaxed);
+                }
+                ctx.globals().set("__exitCode", code)?;
+                Ok::<_, Error>(())
+            },
+        )
+        .configurable()
+        .enumerable(),
+    )?;
     process.set("exit", Func::from(exit))?;
 
     #[cfg(unix)]
@@ -177,6 +213,7 @@ impl ModuleDef for ProcessModule {
         declare.declare("release")?;
         declare.declare("version")?;
         declare.declare("versions")?;
+        declare.declare("exitCode")?;
         declare.declare("exit")?;
 
         #[cfg(unix)]
