@@ -145,7 +145,7 @@ describe("child_process.spawn", () => {
 
   it("should have a process exitCode", async () => {
     const testExitCode = async (
-      exitCodeValue: number,
+      exitCodeValue: number | string,
       expectedCode: number
     ) => {
       const proc = spawn(process.argv0, [
@@ -160,9 +160,11 @@ describe("child_process.spawn", () => {
       });
     };
 
-    await testExitCode(241212341, 255);
+    await testExitCode(241212341, 181);
     await testExitCode(-1, 255);
     await testExitCode(1, 1);
     await testExitCode(-1231231231, 1);
+    await testExitCode(266, 10);
+    await testExitCode("266", 10);
   });
 });

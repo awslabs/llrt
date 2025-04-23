@@ -54,8 +54,28 @@ fn hr_time(ctx: Ctx<'_>) -> Result<Array<'_>> {
     Ok(array)
 }
 
-fn exit(code: i32) {
-    std::process::exit(code)
+fn to_exit_code(ctx: &Ctx<'_>, code: &Value<'_>) -> Result<Option<u8>> {
+    if let Ok(code) = code.get::<Coerced<f64>>() {
+        let code = code.0;
+        let code: u8 = if code.fract() != 0.0 {
+            return Err(Exception::throw_range(
+                ctx,
+                "The value of 'code' must be an integer",
+            ));
+        } else {
+            (code as i32).rem_euclid(256) as u8
+        };
+        return Ok(Some(code));
+    }
+    Ok(None)
+}
+
+fn exit(ctx: Ctx<'_>, code: Value<'_>) -> Result<()> {
+    let code = match to_exit_code(&ctx, &code)? {
+        Some(code) => code,
+        None => EXIT_CODE.load(Ordering::Relaxed),
+    };
+    std::process::exit(code.into())
 }
 
 fn env_proxy_setter<'js>(
@@ -159,17 +179,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
             |ctx, code| {
                 struct Args<'js>(Ctx<'js>, Value<'js>);
                 let Args(ctx, code) = Args(ctx, code);
-                if let Some(code) = code.as_number() {
-                    let code: u8 = if code.fract() != 0.0 {
-                        return Err(Exception::throw_range(
-                            &ctx,
-                            "The value of 'code' must be an integer",
-                        ));
-                    } else if code > 255.0 {
-                        255
-                    } else {
-                        (code as i32).rem_euclid(256) as u8
-                    };
+                if let Some(code) = to_exit_code(&ctx, &code)? {
                     EXIT_CODE.store(code, Ordering::Relaxed);
                 }
                 ctx.globals().set("__exitCode", code)?;
