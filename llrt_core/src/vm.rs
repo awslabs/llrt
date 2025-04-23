@@ -20,13 +20,13 @@ use crate::libs::{
     },
 };
 use crate::modules::{
+    async_hooks::create_promise_hook,
     crypto::SYSTEM_RANDOM,
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
     require::{loader::NpmJsLoader, resolver::NpmJsResolver},
 };
 use crate::{environment, http, security};
-
 pub struct Vm {
     pub runtime: AsyncRuntime,
     pub ctx: AsyncContext,
@@ -127,6 +127,7 @@ impl Vm {
             (|| {
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
+
                 Ok(())
             })()
             .catch(&ctx)
@@ -134,6 +135,8 @@ impl Vm {
             Ok::<_, Error>(())
         })
         .await?;
+
+        runtime.set_promise_hook(Some(create_promise_hook())).await;
 
         Ok(Vm { runtime, ctx })
     }
