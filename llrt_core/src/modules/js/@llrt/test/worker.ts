@@ -513,4 +513,3 @@ if (isNaN(workerId) || isNaN(serverPort)) {
 
 const agent = new TestAgent(workerId, serverPort);
 await agent.start();
-process.exit(0); //force exit if socket hangs
