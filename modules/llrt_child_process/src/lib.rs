@@ -395,7 +395,6 @@ impl<'js> ChildProcess<'js> {
                     child.stdout.take(),
                     stdout_instance.clone(),
                     combined_stdout_buffer.as_ref().cloned(),
-                    cb.clone(),
                 )?;
 
                 let stderr_join_receiver = get_output(
@@ -403,7 +402,6 @@ impl<'js> ChildProcess<'js> {
                     child.stderr.take(),
                     stderr_instance.clone(),
                     combined_stderr_buffer.as_ref().cloned(),
-                    cb.clone(),
                 )?;
 
                 let ctx2 = ctx.clone();
@@ -989,7 +987,6 @@ fn get_output<'js, T>(
     output: Option<T>,
     native_readable_stream: Class<'js, DefaultReadableStream<'js>>,
     combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
-    cb: Option<Function<'js>>,
 ) -> Result<Option<OneshotReceiver<bool>>>
 where
     T: AsyncRead + Unpin + Send + 'static,
@@ -1000,7 +997,6 @@ where
             ctx,
             output,
             combined_std_buffer,
-            cb,
         )?;
         return Ok(Some(receiver));
     }
@@ -1016,7 +1012,7 @@ fn create_output<'js, T>(
 where
     T: AsyncRead + Unpin + Send + 'static,
 {
-    get_output(ctx, output, native_readable_stream, None, None)
+    get_output(ctx, output, native_readable_stream, None)
 }
 
 fn create_error_object<'js>(

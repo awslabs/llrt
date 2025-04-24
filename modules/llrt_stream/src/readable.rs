@@ -9,7 +9,7 @@ use llrt_utils::{bytearray_buffer::BytearrayBuffer, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
-    Class, Ctx, Error, Function, IntoJs, JsLifetime, Null, Result, Value,
+    Class, Ctx, Error, IntoJs, JsLifetime, Null, Result, Value,
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, BufReader},
@@ -214,9 +214,8 @@ where
         ctx: &Ctx<'js>,
         readable: T,
         combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
-        cb: Option<Function<'js>>,
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, || {}, combined_std_buffer, cb)
+        Self::do_process(this, ctx, readable, || {}, combined_std_buffer)
     }
 
     fn process_callback<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -225,7 +224,7 @@ where
         readable: T,
         on_end: C,
     ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, on_end, None, None)
+        Self::do_process(this, ctx, readable, on_end, None)
     }
 
     fn do_process<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
@@ -234,7 +233,6 @@ where
         readable: T,
         on_end: C,
         combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
-        cb: Option<Function<'js>>,
     ) -> Result<Receiver<bool>> {
         let ctx2 = ctx.clone();
         ctx.spawn_exit(async move {
@@ -267,7 +265,7 @@ where
                                 let mut state = this2.borrow().inner().state.clone();
                                 let listener = this2.borrow().inner().listener;
                                 if !has_data && state == ReadableState::Init {
-                                    if cb.is_some() {
+                                    if combined_std_buffer.is_some() {
                                         this2.borrow_mut().inner_mut().state = ReadableState::Paused;
                                         state =  ReadableState::Flowing;
                                     } else {
@@ -289,7 +287,7 @@ where
                                             break;
                                         }
 
-                                        if cb.is_some() {
+                                        if combined_std_buffer.is_some() {
                                             if let Some(buf) = &combined_std_buffer {
                                                 let mut stdout_lock = buf.lock().unwrap();
                                                 stdout_lock.extend_from_slice(&buffer);
