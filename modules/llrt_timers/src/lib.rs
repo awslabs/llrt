@@ -11,12 +11,14 @@ use std::{
     time::Duration,
 };
 
+use llrt_async_hooks::call_async_hooks;
 use llrt_context::CtxExtension;
 use llrt_utils::module::{export_default, ModuleInfo};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
+    promise::PromiseHookType,
     qjs, Ctx, Function, Persistent, Result, Value,
 };
 use tokio::{
@@ -73,7 +75,8 @@ impl Default for Timeout {
     }
 }
 
-fn set_immediate(cb: Function) -> Result<()> {
+fn set_immediate(ctx: Ctx<'_>, cb: Function) -> Result<()> {
+    call_async_hooks(&ctx, PromiseHookType::Init, "Immediate")?;
     cb.defer::<()>(())?;
     Ok(())
 }
@@ -84,6 +87,9 @@ pub fn set_timeout_interval<'js>(
     delay: u64,
     repeating: bool,
 ) -> Result<usize> {
+    let async_type = if repeating { "Interval" } else { "Timetout" };
+    call_async_hooks(ctx, PromiseHookType::Init, async_type)?;
+
     let deadline = Instant::now() + Duration::from_millis(delay);
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
 
@@ -329,7 +335,9 @@ pub fn poll_timers(
             }
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
+                call_async_hooks(&ctx2, PromiseHookType::Before, "")?;
                 timeout.call::<_, ()>(())?;
+                call_async_hooks(&ctx2, PromiseHookType::After, "")?;
             }
 
             while ctx2.execute_pending_job() {}
@@ -357,6 +365,7 @@ mod tests {
     #[tokio::test]
     async fn test_timers() {
         test_async_with(|ctx| {
+            llrt_async_hooks::init(&ctx).unwrap();
             Box::pin(async move {
                 init(&ctx).unwrap();
 

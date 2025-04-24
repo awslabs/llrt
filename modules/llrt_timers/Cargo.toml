@@ -11,6 +11,7 @@ name = "llrt_timers"
 path = "src/lib.rs"
 
 [dependencies]
+llrt_async_hooks = { version = "0.6.0-beta", path = "../llrt_async_hooks" }
 llrt_context = { version = "0.6.0-beta", path = "../../libs/llrt_context" }
 llrt_utils = { version = "0.6.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = [
