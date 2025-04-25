@@ -11,14 +11,15 @@ use std::{
     time::Duration,
 };
 
-use llrt_async_hooks::call_async_hooks;
 use llrt_context::CtxExtension;
-use llrt_utils::module::{export_default, ModuleInfo};
+use llrt_utils::{
+    module::{export_default, ModuleInfo},
+    object::ObjectExt,
+};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    promise::PromiseHookType,
     qjs, Ctx, Function, Persistent, Result, Value,
 };
 use tokio::{
@@ -75,20 +76,26 @@ impl Default for Timeout {
     }
 }
 
+#[allow(dependency_on_unit_never_type_fallback)]
 fn set_immediate(ctx: Ctx<'_>, cb: Function) -> Result<()> {
-    call_async_hooks(&ctx, PromiseHookType::Init, "Immediate")?;
+    if let Ok(Some(func)) = ctx.globals().get_optional::<_, Function>("invokeAsyncHook") {
+        func.call(("init", "Immediate"))?;
+    }
     cb.defer::<()>(())?;
     Ok(())
 }
 
+#[allow(dependency_on_unit_never_type_fallback)]
 pub fn set_timeout_interval<'js>(
     ctx: &Ctx<'js>,
     cb: Function<'js>,
     delay: u64,
     repeating: bool,
 ) -> Result<usize> {
-    let async_type = if repeating { "Interval" } else { "Timetout" };
-    call_async_hooks(ctx, PromiseHookType::Init, async_type)?;
+    if let Ok(Some(func)) = ctx.globals().get_optional::<_, Function>("invokeAsyncHook") {
+        let async_type = if repeating { "Interval" } else { "Timetout" };
+        func.call(("init", async_type))?;
+    }
 
     let deadline = Instant::now() + Duration::from_millis(delay);
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
@@ -266,6 +273,7 @@ pub struct ExecutingTimer(
 
 unsafe impl Send for ExecutingTimer {}
 
+#[allow(dependency_on_unit_never_type_fallback)]
 pub fn poll_timers(
     rt: *mut qjs::JSRuntime,
     call_vec: &mut Vec<Option<ExecutingTimer>>,
@@ -335,9 +343,16 @@ pub fn poll_timers(
             }
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
-                call_async_hooks(&ctx2, PromiseHookType::Before, "")?;
+                let invoke_async_hook = ctx2
+                    .globals()
+                    .get_optional::<_, Function>("invokeAsyncHook")?;
+                if let Some(func) = &invoke_async_hook {
+                    func.call(("before", ""))?;
+                }
                 timeout.call::<_, ()>(())?;
-                call_async_hooks(&ctx2, PromiseHookType::After, "")?;
+                if let Some(func) = &invoke_async_hook {
+                    func.call(("after", ""))?;
+                }
             }
 
             while ctx2.execute_pending_job() {}
@@ -365,7 +380,6 @@ mod tests {
     #[tokio::test]
     async fn test_timers() {
         test_async_with(|ctx| {
-            llrt_async_hooks::init(&ctx).unwrap();
             Box::pin(async move {
                 init(&ctx).unwrap();
 
