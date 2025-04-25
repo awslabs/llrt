@@ -251,7 +251,6 @@ mod tests {
         test_async_with(|ctx| {
             crate::init(&ctx).unwrap();
             llrt_timers::init(&ctx).unwrap();
-            llrt_async_hooks::init(&ctx).unwrap();
             Box::pin(async move {
                 let signal = AbortSignal::timeout(ctx, 5).unwrap();
 

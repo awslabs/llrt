@@ -1654,7 +1654,6 @@ dependencies = [
 name = "llrt_abort"
 version = "0.6.0-beta"
 dependencies = [
- "llrt_async_hooks",
  "llrt_events",
  "llrt_exceptions",
  "llrt_test",
@@ -2122,7 +2121,6 @@ dependencies = [
 name = "llrt_timers"
 version = "0.6.0-beta"
 dependencies = [
- "llrt_async_hooks",
  "llrt_context",
  "llrt_test",
  "llrt_utils",

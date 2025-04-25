@@ -162,8 +162,24 @@ impl From<AsyncHooksModule> for ModuleInfo<AsyncHooksModule> {
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    let global = ctx.globals();
+
     let _ = ctx.store_userdata(RefCell::new(AsyncHookState::default()));
     let _ = ctx.store_userdata(RefCell::new(AsyncHookIds::default()));
+
+    global.set(
+        "invokeAsyncHook",
+        Func::from(move |ctx: Ctx<'_>, type_: String, async_type: String| {
+            let type_ = match type_.as_ref() {
+                "init" => PromiseHookType::Init,
+                "before" => PromiseHookType::Before,
+                "after" => PromiseHookType::After,
+                "resolve" => PromiseHookType::Resolve,
+                _ => return,
+            };
+            let _ = invoke_async_hook(&ctx, type_, async_type.as_ref());
+        }),
+    )?;
 
     Ok(())
 }
@@ -171,12 +187,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, _promise: Value<'_>, _parent: Value<'_>| {
-            let _ = call_async_hooks(&ctx, type_, "PROMISE");
+            let _ = invoke_async_hook(&ctx, type_, "PROMISE");
         },
     )
 }
 
-pub fn call_async_hooks(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) -> Result<()> {
+pub fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) -> Result<()> {
     let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
     let state = bind_state.borrow();
 
