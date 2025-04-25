@@ -11,16 +11,16 @@ use rquickjs::{
     Ctx, Function, JsLifetime, Object, Result, Value,
 };
 
-pub(crate) struct Hook<'js> {
-    pub(crate) enabled: Rc<RefCell<bool>>,
-    pub(crate) init: Option<Function<'js>>,
-    pub(crate) before: Option<Function<'js>>,
-    pub(crate) after: Option<Function<'js>>,
-    pub(crate) promise_resolve: Option<Function<'js>>,
+struct Hook<'js> {
+    enabled: Rc<RefCell<bool>>,
+    init: Option<Function<'js>>,
+    before: Option<Function<'js>>,
+    after: Option<Function<'js>>,
+    promise_resolve: Option<Function<'js>>,
 }
 
-pub(crate) struct AsyncHookState<'js> {
-    pub(crate) hooks: Vec<Hook<'js>>,
+struct AsyncHookState<'js> {
+    hooks: Vec<Hook<'js>>,
 }
 
 impl Default for AsyncHookState<'_> {
@@ -30,7 +30,7 @@ impl Default for AsyncHookState<'_> {
 }
 
 impl AsyncHookState<'_> {
-    pub(crate) fn new() -> Self {
+    fn new() -> Self {
         Self { hooks: Vec::new() }
     }
 }
@@ -39,10 +39,10 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
     type Changed<'to> = AsyncHookState<'to>;
 }
 
-pub(crate) struct AsyncHookIds<'js> {
-    pub(crate) next_async_id: u64,
-    pub(crate) execution_async_id: u64,
-    pub(crate) trigger_async_id: u64,
+struct AsyncHookIds<'js> {
+    next_async_id: u64,
+    execution_async_id: u64,
+    trigger_async_id: u64,
     _marker: PhantomData<&'js ()>,
 }
 
@@ -53,7 +53,7 @@ impl Default for AsyncHookIds<'_> {
 }
 
 impl AsyncHookIds<'_> {
-    pub(crate) fn new() -> Self {
+    fn new() -> Self {
         Self {
             next_async_id: 0,
             execution_async_id: 0,
@@ -67,7 +67,7 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookIds<'js> {
     type Changed<'to> = AsyncHookIds<'to>;
 }
 
-pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>> {
+fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>> {
     let init = hooks_obj.get::<_, Function>("init").ok();
     let before = hooks_obj.get::<_, Function>("before").ok();
     let after = hooks_obj.get::<_, Function>("after").ok();
@@ -192,7 +192,7 @@ pub fn promise_hook_tracker() -> PromiseHook {
     )
 }
 
-pub fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) -> Result<()> {
+fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) -> Result<()> {
     let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
     let state = bind_state.borrow();
 
