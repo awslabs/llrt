@@ -1677,6 +1677,7 @@ version = "0.5.1-beta"
 dependencies = [
  "llrt_utils",
  "rquickjs",
+ "tracing",
 ]
 
 [[package]]
