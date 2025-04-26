@@ -87,22 +87,26 @@ fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>>
     state.hooks.push(hook);
 
     let obj = Object::new(ctx.clone())?;
-    let enabled_clone = enabled.clone();
-    obj.set(
-        "enable",
-        Function::new(ctx.clone(), move || -> Result<()> {
-            *enabled_clone.borrow_mut() = true;
-            Ok(())
-        }),
-    )?;
-    let enabled_clone = enabled.clone();
-    obj.set(
-        "disable",
-        Function::new(ctx.clone(), move || -> Result<()> {
-            *enabled_clone.borrow_mut() = false;
-            Ok(())
-        }),
-    )?;
+    {
+        let enabled_clone = enabled.clone();
+        obj.set(
+            "enable",
+            Function::new(ctx.clone(), move || -> Result<()> {
+                *enabled_clone.borrow_mut() = true;
+                Ok(())
+            }),
+        )?;
+    }
+    {
+        let enabled_clone = enabled.clone();
+        obj.set(
+            "disable",
+            Function::new(ctx.clone(), move || -> Result<()> {
+                *enabled_clone.borrow_mut() = false;
+                Ok(())
+            }),
+        )?;
+    }
 
     Ok(obj.into())
 }
