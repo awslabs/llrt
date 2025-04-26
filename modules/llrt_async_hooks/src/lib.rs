@@ -209,7 +209,14 @@ fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) ->
                     drop(ids);
 
                     if let Some(func) = &hook.init {
-                        let _: Result<()> = func.call((async_id, async_type, trigger_id));
+                        if func
+                            .call::<_, ()>((async_id, async_type, trigger_id))
+                            .is_err()
+                            && func.call::<_, ()>((async_id, async_type)).is_err()
+                            && func.call::<_, ()>((async_id,)).is_err()
+                        {
+                            let _ = func.call::<_, ()>(());
+                        }
                     }
                 },
                 PromiseHookType::Before => {
@@ -221,7 +228,9 @@ fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) ->
                     drop(ids);
 
                     if let Some(func) = &hook.before {
-                        let _: Result<()> = func.call((trigger_async_id,));
+                        if func.call::<_, ()>((trigger_async_id,)).is_err() {
+                            let _ = func.call::<_, ()>(());
+                        }
                     }
 
                     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
@@ -234,7 +243,9 @@ fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) ->
                     let ids = bind_ids.borrow();
 
                     if let Some(func) = &hook.after {
-                        let _: Result<()> = func.call((ids.execution_async_id,));
+                        if func.call::<_, ()>((ids.execution_async_id,)).is_err() {
+                            let _ = func.call::<_, ()>(());
+                        }
                     }
                 },
                 PromiseHookType::Resolve => {
@@ -242,7 +253,9 @@ fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) ->
                     let ids = bind_ids.borrow();
 
                     if let Some(func) = &hook.promise_resolve {
-                        let _: Result<()> = func.call((ids.execution_async_id,));
+                        if func.call::<_, ()>((ids.execution_async_id,)).is_err() {
+                            let _ = func.call::<_, ()>(());
+                        }
                     }
                 },
             }
