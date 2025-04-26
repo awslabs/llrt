@@ -48,8 +48,8 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
 
 struct AsyncHookIds<'js> {
     next_async_id: u64,
-    promise_id: HashMap<TypeId, (u64, u64)>, // (execution_async_id, trigger_async_id)
-    latest_id: (u64, u64),                   // (execution_async_id, trigger_async_id)
+    id_map: HashMap<TypeId, (u64, u64)>, // (execution_async_id, trigger_async_id)
+    current_id: (u64, u64),              // (execution_async_id, trigger_async_id)
     _marker: PhantomData<&'js ()>,
 }
 
@@ -63,8 +63,8 @@ impl AsyncHookIds<'_> {
     fn new() -> Self {
         Self {
             next_async_id: 0,
-            promise_id: HashMap::new(),
-            latest_id: (0, 0),
+            id_map: HashMap::new(),
+            current_id: (0, 0),
             _marker: PhantomData,
         }
     }
@@ -127,13 +127,13 @@ fn current_id() -> u64 {
 fn execution_async_id(ctx: Ctx<'_>) -> u64 {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let ids = bind_ids.borrow();
-    ids.latest_id.0
+    ids.current_id.0
 }
 
 fn trigger_async_id(ctx: Ctx<'_>) -> u64 {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let ids = bind_ids.borrow();
-    ids.latest_id.1
+    ids.current_id.1
 }
 
 pub struct AsyncHooksModule;
@@ -188,6 +188,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
                 "resolve" => PromiseHookType::Resolve,
                 _ => return,
             };
+
             let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), None, None);
         }),
     )?;
@@ -198,10 +199,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
-            let uid1 = promise.as_object().map(|v| v.as_raw().type_id());
-            let uid2 = parent.as_object().map(|v| v.as_raw().type_id());
+            let tid1 = promise.as_object().map(|v| v.as_raw().type_id());
+            let tid2 = parent.as_object().map(|v| v.as_raw().type_id());
 
-            let _ = invoke_async_hook(&ctx, type_, "PROMISE", uid1, uid2);
+            let _ = invoke_async_hook(&ctx, type_, "PROMISE", tid1, tid2);
         },
     )
 }
@@ -210,7 +211,7 @@ fn invoke_async_hook(
     ctx: &Ctx<'_>,
     type_: PromiseHookType,
     async_type: &str,
-    promise: Option<TypeId>,
+    object: Option<TypeId>,
     parent: Option<TypeId>,
 ) -> Result<()> {
     let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
@@ -220,49 +221,49 @@ fn invoke_async_hook(
         if *hook.enabled.as_ref().borrow() {
             match type_ {
                 PromiseHookType::Init => {
-                    let promise_id = promise
-                        .map(|p| set_promise_id(ctx, p, parent))
+                    let current_id = object
+                        .map(|p| insert_id_map(ctx, p, parent))
                         .unwrap_or((0, 0));
-                    trace!("init: promise_id: {:?}", promise_id);
+                    trace!("Init(async_id, trigger_id): {:?}", current_id);
 
                     if let Some(func) = &hook.init {
                         let _ = func
-                            .call::<_, ()>((promise_id.0, async_type, promise_id.1))
-                            .or_else(|_| func.call::<_, ()>((promise_id.0, async_type)))
-                            .or_else(|_| func.call::<_, ()>((promise_id.0,)))
+                            .call::<_, ()>((current_id.0, async_type, current_id.1))
+                            .or_else(|_| func.call::<_, ()>((current_id.0, async_type)))
+                            .or_else(|_| func.call::<_, ()>((current_id.0,)))
                             .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
                 PromiseHookType::Before => {
-                    let promise_id = get_promise_id(ctx, promise);
-                    update_latest_id(ctx, promise_id);
-                    trace!("before: promise_id: {:?}", promise_id);
+                    let current_id = get_id_map(ctx, object);
+                    update_current_id(ctx, current_id);
+                    trace!("Before(async_id, trigger_id): {:?}", current_id);
 
                     if let Some(func) = &hook.before {
                         let _ = func
-                            .call::<_, ()>((promise_id.0,))
+                            .call::<_, ()>((current_id.0,))
                             .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
                 PromiseHookType::After => {
-                    let promise_id = get_promise_id(ctx, promise);
-                    update_latest_id(ctx, promise_id);
-                    trace!("after: promise_id: {:?}", promise_id);
+                    let current_id = get_id_map(ctx, object);
+                    update_current_id(ctx, current_id);
+                    trace!("After(async_id, trigger_id): {:?}", current_id);
 
                     if let Some(func) = &hook.after {
                         let _ = func
-                            .call::<_, ()>((promise_id.0,))
+                            .call::<_, ()>((current_id.0,))
                             .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
                 PromiseHookType::Resolve => {
-                    let promise_id = get_promise_id(ctx, promise);
-                    update_latest_id(ctx, promise_id);
-                    trace!("resolve: promise_id: {:?}", promise_id);
+                    let current_id = get_id_map(ctx, object);
+                    update_current_id(ctx, current_id);
+                    trace!("Resolve(async_id, trigger_id): {:?}", current_id);
 
                     if let Some(func) = &hook.promise_resolve {
                         let _ = func
-                            .call::<_, ()>((promise_id.0,))
+                            .call::<_, ()>((current_id.0,))
                             .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
@@ -272,43 +273,43 @@ fn invoke_async_hook(
     Ok(())
 }
 
-fn set_promise_id(ctx: &Ctx<'_>, type_id: TypeId, parent: Option<TypeId>) -> (u64, u64) {
+fn insert_id_map(ctx: &Ctx<'_>, type_id: TypeId, parent: Option<TypeId>) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
     ids.next_async_id += 1;
     let async_id = ids.next_async_id;
     let trigger_id = parent
-        .and_then(|tid| ids.promise_id.get(&tid))
+        .and_then(|tid| ids.id_map.get(&tid))
         .map(|id| id.0)
         .unwrap_or(0);
-    ids.promise_id.insert(type_id, (async_id, trigger_id));
-    ids.latest_id = (async_id, trigger_id);
+    ids.id_map.insert(type_id, (async_id, trigger_id));
+    ids.current_id = (async_id, trigger_id);
     (async_id, trigger_id)
 }
 
-fn get_promise_id(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
+fn get_id_map(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
     type_id
         .map(|v| {
             let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
             let ids = bind_ids.borrow();
-            *ids.promise_id.get(&v).unwrap_or(&(0, 0))
+            *ids.id_map.get(&v).unwrap_or(&(0, 0))
         })
         .unwrap_or((0, 0))
 }
 
 #[allow(dead_code)]
-fn delete_promise_id(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
+fn remove_id_map(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
     type_id
         .and_then(|v| {
             let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
             let mut ids = bind_ids.borrow_mut();
-            ids.promise_id.remove_entry(&v)
+            ids.id_map.remove_entry(&v)
         })
         .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
         .unwrap_or((0, 0))
 }
 
-fn update_latest_id(ctx: &Ctx<'_>, id: (u64, u64)) {
+fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-    bind_ids.borrow_mut().latest_id = id;
+    bind_ids.borrow_mut().current_id = id;
 }
