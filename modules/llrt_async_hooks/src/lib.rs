@@ -1,6 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::{
+    any::{Any, TypeId},
+    cell::RefCell,
+    collections::HashMap,
+    marker::PhantomData,
+    rc::Rc,
+};
 
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
@@ -10,6 +16,7 @@ use rquickjs::{
     runtime::PromiseHook,
     Ctx, Function, JsLifetime, Object, Result, Value,
 };
+use tracing::trace;
 
 struct Hook<'js> {
     enabled: Rc<RefCell<bool>>,
@@ -41,8 +48,8 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
 
 struct AsyncHookIds<'js> {
     next_async_id: u64,
-    execution_async_id: u64,
-    trigger_async_id: u64,
+    promise_id: HashMap<TypeId, (u64, u64)>, // (execution_async_id, trigger_async_id)
+    latest_id: (u64, u64),                   // (execution_async_id, trigger_async_id)
     _marker: PhantomData<&'js ()>,
 }
 
@@ -56,8 +63,8 @@ impl AsyncHookIds<'_> {
     fn new() -> Self {
         Self {
             next_async_id: 0,
-            execution_async_id: 0,
-            trigger_async_id: 0,
+            promise_id: HashMap::new(),
+            latest_id: (0, 0),
             _marker: PhantomData,
         }
     }
@@ -120,13 +127,13 @@ fn current_id() -> u64 {
 fn execution_async_id(ctx: Ctx<'_>) -> u64 {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let ids = bind_ids.borrow();
-    ids.execution_async_id
+    ids.latest_id.0
 }
 
 fn trigger_async_id(ctx: Ctx<'_>) -> u64 {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let ids = bind_ids.borrow();
-    ids.trigger_async_id
+    ids.latest_id.1
 }
 
 pub struct AsyncHooksModule;
@@ -181,7 +188,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
                 "resolve" => PromiseHookType::Resolve,
                 _ => return,
             };
-            let _ = invoke_async_hook(&ctx, type_, async_type.as_ref());
+            let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), None, None);
         }),
     )?;
 
@@ -190,13 +197,22 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
 pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
-        |ctx: Ctx<'_>, type_: PromiseHookType, _promise: Value<'_>, _parent: Value<'_>| {
-            let _ = invoke_async_hook(&ctx, type_, "PROMISE");
+        |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
+            let uid1 = promise.as_object().map(|v| v.as_raw().type_id());
+            let uid2 = parent.as_object().map(|v| v.as_raw().type_id());
+
+            let _ = invoke_async_hook(&ctx, type_, "PROMISE", uid1, uid2);
         },
     )
 }
 
-fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) -> Result<()> {
+fn invoke_async_hook(
+    ctx: &Ctx<'_>,
+    type_: PromiseHookType,
+    async_type: &str,
+    promise: Option<TypeId>,
+    parent: Option<TypeId>,
+) -> Result<()> {
     let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
     let state = bind_state.borrow();
 
@@ -204,66 +220,95 @@ fn invoke_async_hook(ctx: &Ctx<'_>, type_: PromiseHookType, async_type: &str) ->
         if *hook.enabled.as_ref().borrow() {
             match type_ {
                 PromiseHookType::Init => {
-                    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                    let mut ids = bind_ids.borrow_mut();
-                    ids.trigger_async_id = ids.execution_async_id;
-                    ids.next_async_id += 1;
-                    let async_id = ids.next_async_id;
-                    let trigger_id = ids.execution_async_id;
-                    drop(ids);
+                    let promise_id = promise
+                        .map(|p| set_promise_id(ctx, p, parent))
+                        .unwrap_or((0, 0));
+                    trace!("init: promise_id: {:?}", promise_id);
 
                     if let Some(func) = &hook.init {
-                        if func
-                            .call::<_, ()>((async_id, async_type, trigger_id))
-                            .is_err()
-                            && func.call::<_, ()>((async_id, async_type)).is_err()
-                            && func.call::<_, ()>((async_id,)).is_err()
-                        {
-                            let _ = func.call::<_, ()>(());
-                        }
+                        let _ = func
+                            .call::<_, ()>((promise_id.0, async_type, promise_id.1))
+                            .or_else(|_| func.call::<_, ()>((promise_id.0, async_type)))
+                            .or_else(|_| func.call::<_, ()>((promise_id.0,)))
+                            .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
                 PromiseHookType::Before => {
-                    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                    let mut ids = bind_ids.borrow_mut();
-                    ids.execution_async_id = ids.trigger_async_id;
-                    let trigger_async_id = ids.trigger_async_id;
-                    let previous_execution_id = ids.execution_async_id;
-                    drop(ids);
+                    let promise_id = get_promise_id(ctx, promise);
+                    update_latest_id(ctx, promise_id);
+                    trace!("before: promise_id: {:?}", promise_id);
 
                     if let Some(func) = &hook.before {
-                        if func.call::<_, ()>((trigger_async_id,)).is_err() {
-                            let _ = func.call::<_, ()>(());
-                        }
+                        let _ = func
+                            .call::<_, ()>((promise_id.0,))
+                            .or_else(|_| func.call::<_, ()>(()));
                     }
-
-                    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                    let mut ids = bind_ids.borrow_mut();
-                    ids.execution_async_id = previous_execution_id;
-                    drop(ids);
                 },
                 PromiseHookType::After => {
-                    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                    let ids = bind_ids.borrow();
+                    let promise_id = get_promise_id(ctx, promise);
+                    update_latest_id(ctx, promise_id);
+                    trace!("after: promise_id: {:?}", promise_id);
 
                     if let Some(func) = &hook.after {
-                        if func.call::<_, ()>((ids.execution_async_id,)).is_err() {
-                            let _ = func.call::<_, ()>(());
-                        }
+                        let _ = func
+                            .call::<_, ()>((promise_id.0,))
+                            .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
                 PromiseHookType::Resolve => {
-                    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-                    let ids = bind_ids.borrow();
+                    let promise_id = get_promise_id(ctx, promise);
+                    update_latest_id(ctx, promise_id);
+                    trace!("resolve: promise_id: {:?}", promise_id);
 
                     if let Some(func) = &hook.promise_resolve {
-                        if func.call::<_, ()>((ids.execution_async_id,)).is_err() {
-                            let _ = func.call::<_, ()>(());
-                        }
+                        let _ = func
+                            .call::<_, ()>((promise_id.0,))
+                            .or_else(|_| func.call::<_, ()>(()));
                     }
                 },
             }
         }
     }
     Ok(())
+}
+
+fn set_promise_id(ctx: &Ctx<'_>, type_id: TypeId, parent: Option<TypeId>) -> (u64, u64) {
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+    let mut ids = bind_ids.borrow_mut();
+    ids.next_async_id += 1;
+    let async_id = ids.next_async_id;
+    let trigger_id = parent
+        .and_then(|tid| ids.promise_id.get(&tid))
+        .map(|id| id.0)
+        .unwrap_or(0);
+    ids.promise_id.insert(type_id, (async_id, trigger_id));
+    ids.latest_id = (async_id, trigger_id);
+    (async_id, trigger_id)
+}
+
+fn get_promise_id(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
+    type_id
+        .map(|v| {
+            let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+            let ids = bind_ids.borrow();
+            *ids.promise_id.get(&v).unwrap_or(&(0, 0))
+        })
+        .unwrap_or((0, 0))
+}
+
+#[allow(dead_code)]
+fn delete_promise_id(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
+    type_id
+        .and_then(|v| {
+            let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+            let mut ids = bind_ids.borrow_mut();
+            ids.promise_id.remove_entry(&v)
+        })
+        .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
+        .unwrap_or((0, 0))
+}
+
+fn update_latest_id(ctx: &Ctx<'_>, id: (u64, u64)) {
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+    bind_ids.borrow_mut().latest_id = id;
 }
