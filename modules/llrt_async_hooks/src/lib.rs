@@ -1,12 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    any::{Any, TypeId},
-    cell::RefCell,
-    collections::HashMap,
-    marker::PhantomData,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
@@ -48,8 +42,8 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
 
 struct AsyncHookIds<'js> {
     next_async_id: u64,
-    id_map: HashMap<TypeId, (u64, u64)>, // (execution_async_id, trigger_async_id)
-    current_id: (u64, u64),              // (execution_async_id, trigger_async_id)
+    id_map: HashMap<usize, (u64, u64)>, // (execution_async_id, trigger_async_id)
+    current_id: (u64, u64),             // (execution_async_id, trigger_async_id)
     _marker: PhantomData<&'js ()>,
 }
 
@@ -199,8 +193,13 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
-            let tid1 = promise.as_object().map(|v| v.as_raw().type_id());
-            let tid2 = parent.as_object().map(|v| v.as_raw().type_id());
+            // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
+            let tid1 = promise
+                .as_object()
+                .map(|v| unsafe { v.as_raw().u.ptr } as usize);
+            let tid2 = parent
+                .as_object()
+                .map(|v| unsafe { v.as_raw().u.ptr } as usize);
 
             let _ = invoke_async_hook(&ctx, type_, "PROMISE", tid1, tid2);
         },
@@ -211,8 +210,8 @@ fn invoke_async_hook(
     ctx: &Ctx<'_>,
     type_: PromiseHookType,
     async_type: &str,
-    object: Option<TypeId>,
-    parent: Option<TypeId>,
+    object: Option<usize>,
+    parent: Option<usize>,
 ) -> Result<()> {
     let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
     let state = bind_state.borrow();
@@ -274,7 +273,7 @@ fn invoke_async_hook(
     Ok(())
 }
 
-fn insert_id_map(ctx: &Ctx<'_>, type_id: TypeId, parent: Option<TypeId>) -> (u64, u64) {
+fn insert_id_map(ctx: &Ctx<'_>, type_id: usize, parent: Option<usize>) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
     ids.next_async_id += 1;
@@ -287,7 +286,7 @@ fn insert_id_map(ctx: &Ctx<'_>, type_id: TypeId, parent: Option<TypeId>) -> (u64
     (async_id, trigger_id)
 }
 
-fn get_id_map(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
+fn get_id_map(ctx: &Ctx<'_>, type_id: Option<usize>) -> (u64, u64) {
     type_id
         .map(|v| {
             let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
@@ -298,7 +297,7 @@ fn get_id_map(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
 }
 
 #[allow(dead_code)]
-fn remove_id_map(ctx: &Ctx<'_>, type_id: Option<TypeId>) -> (u64, u64) {
+fn remove_id_map(ctx: &Ctx<'_>, type_id: Option<usize>) -> (u64, u64) {
     type_id
         .and_then(|v| {
             let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
