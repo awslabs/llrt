@@ -224,6 +224,7 @@ fn invoke_async_hook(
                     let current_id = object
                         .map(|p| insert_id_map(ctx, p, parent))
                         .unwrap_or((0, 0));
+                    update_current_id(ctx, current_id);
                     trace!("Init(async_id, trigger_id): {:?}", current_id);
 
                     if let Some(func) = &hook.init {
@@ -283,7 +284,6 @@ fn insert_id_map(ctx: &Ctx<'_>, type_id: TypeId, parent: Option<TypeId>) -> (u64
         .map(|id| id.0)
         .unwrap_or(0);
     ids.id_map.insert(type_id, (async_id, trigger_id));
-    ids.current_id = (async_id, trigger_id);
     (async_id, trigger_id)
 }
 
