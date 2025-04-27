@@ -257,7 +257,7 @@ fn invoke_async_hook(
                     }
                 },
                 PromiseHookType::Resolve => {
-                    let current_id = get_id_map(ctx, object);
+                    let current_id = remove_id_map(ctx, object);
                     update_current_id(ctx, current_id);
                     trace!("Resolve(async_id, trigger_id): {:?}", current_id);
 
@@ -296,7 +296,6 @@ fn get_id_map(ctx: &Ctx<'_>, type_id: Option<usize>) -> (u64, u64) {
         .unwrap_or((0, 0))
 }
 
-#[allow(dead_code)]
 fn remove_id_map(ctx: &Ctx<'_>, type_id: Option<usize>) -> (u64, u64) {
     type_id
         .and_then(|v| {
