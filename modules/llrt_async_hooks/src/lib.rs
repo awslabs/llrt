@@ -174,17 +174,19 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     global.set(
         "invokeAsyncHook",
-        Func::from(move |ctx: Ctx<'_>, type_: String, async_type: String| {
-            let type_ = match type_.as_ref() {
-                "init" => PromiseHookType::Init,
-                "before" => PromiseHookType::Before,
-                "after" => PromiseHookType::After,
-                "resolve" => PromiseHookType::Resolve,
-                _ => return,
-            };
+        Func::from(
+            move |ctx: Ctx<'_>, type_: String, async_type: String, uid: usize| {
+                let type_ = match type_.as_ref() {
+                    "init" => PromiseHookType::Init,
+                    "before" => PromiseHookType::Before,
+                    "after" => PromiseHookType::After,
+                    "resolve" => PromiseHookType::Resolve,
+                    _ => return,
+                };
 
-            let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), None, None);
-        }),
+                let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), Some(uid), None);
+            },
+        ),
     )?;
 
     Ok(())
@@ -194,14 +196,14 @@ pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
             // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
-            let tid1 = promise
+            let uid1 = promise
                 .as_object()
                 .map(|v| unsafe { v.as_raw().u.ptr } as usize);
-            let tid2 = parent
+            let uid2 = parent
                 .as_object()
                 .map(|v| unsafe { v.as_raw().u.ptr } as usize);
 
-            let _ = invoke_async_hook(&ctx, type_, "PROMISE", tid1, tid2);
+            let _ = invoke_async_hook(&ctx, type_, "PROMISE", uid1, uid2);
         },
     )
 }
@@ -273,7 +275,7 @@ fn invoke_async_hook(
     Ok(())
 }
 
-fn insert_id_map(ctx: &Ctx<'_>, type_id: usize, parent: Option<usize>) -> (u64, u64) {
+fn insert_id_map(ctx: &Ctx<'_>, uid: usize, parent: Option<usize>) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
     ids.next_async_id += 1;
@@ -282,29 +284,27 @@ fn insert_id_map(ctx: &Ctx<'_>, type_id: usize, parent: Option<usize>) -> (u64, 
         .and_then(|tid| ids.id_map.get(&tid))
         .map(|id| id.0)
         .unwrap_or(0);
-    ids.id_map.insert(type_id, (async_id, trigger_id));
+    ids.id_map.insert(uid, (async_id, trigger_id));
     (async_id, trigger_id)
 }
 
-fn get_id_map(ctx: &Ctx<'_>, type_id: Option<usize>) -> (u64, u64) {
-    type_id
-        .map(|v| {
-            let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-            let ids = bind_ids.borrow();
-            *ids.id_map.get(&v).unwrap_or(&(0, 0))
-        })
-        .unwrap_or((0, 0))
+fn get_id_map(ctx: &Ctx<'_>, uid: Option<usize>) -> (u64, u64) {
+    uid.map(|v| {
+        let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+        let ids = bind_ids.borrow();
+        *ids.id_map.get(&v).unwrap_or(&(0, 0))
+    })
+    .unwrap_or((0, 0))
 }
 
-fn remove_id_map(ctx: &Ctx<'_>, type_id: Option<usize>) -> (u64, u64) {
-    type_id
-        .and_then(|v| {
-            let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-            let mut ids = bind_ids.borrow_mut();
-            ids.id_map.remove_entry(&v)
-        })
-        .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
-        .unwrap_or((0, 0))
+fn remove_id_map(ctx: &Ctx<'_>, uid: Option<usize>) -> (u64, u64) {
+    uid.and_then(|v| {
+        let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+        let mut ids = bind_ids.borrow_mut();
+        ids.id_map.remove_entry(&v)
+    })
+    .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
+    .unwrap_or((0, 0))
 }
 
 fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) {

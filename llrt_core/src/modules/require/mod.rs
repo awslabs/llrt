@@ -136,13 +136,16 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
 
     let mut executing_timers = Vec::new();
 
+    // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
+    let uid = unsafe { obj.as_object().unwrap().as_raw().u.ptr } as usize;
+
     let imported_object = loop {
         if let Some(x) = import_promise.result::<Object>() {
             break x?;
         }
 
         if deadline < Instant::now() {
-            poll_timers(rt, &mut executing_timers, None, Some(&mut deadline))?;
+            poll_timers(rt, &mut executing_timers, None, Some(&mut deadline), uid)?;
         }
 
         ctx.execute_pending_job();
