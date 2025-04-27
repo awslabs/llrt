@@ -184,7 +184,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
                     _ => return,
                 };
 
-                let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), Some(uid), None);
+                let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), uid, None);
             },
         ),
     )?;
@@ -198,7 +198,8 @@ pub fn promise_hook_tracker() -> PromiseHook {
             // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
             let uid1 = promise
                 .as_object()
-                .map(|v| unsafe { v.as_raw().u.ptr } as usize);
+                .map(|v| unsafe { v.as_raw().u.ptr } as usize)
+                .unwrap();
             let uid2 = parent
                 .as_object()
                 .map(|v| unsafe { v.as_raw().u.ptr } as usize);
@@ -212,7 +213,7 @@ fn invoke_async_hook(
     ctx: &Ctx<'_>,
     type_: PromiseHookType,
     async_type: &str,
-    object: Option<usize>,
+    object: usize,
     parent: Option<usize>,
 ) -> Result<()> {
     let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
@@ -222,9 +223,7 @@ fn invoke_async_hook(
         if *hook.enabled.as_ref().borrow() {
             match type_ {
                 PromiseHookType::Init => {
-                    let current_id = object
-                        .map(|p| insert_id_map(ctx, p, parent))
-                        .unwrap_or((0, 0));
+                    let current_id = insert_id_map(ctx, object, parent);
                     update_current_id(ctx, current_id);
                     trace!("Init(async_id, trigger_id): {:?}", current_id);
 
@@ -288,23 +287,19 @@ fn insert_id_map(ctx: &Ctx<'_>, uid: usize, parent: Option<usize>) -> (u64, u64)
     (async_id, trigger_id)
 }
 
-fn get_id_map(ctx: &Ctx<'_>, uid: Option<usize>) -> (u64, u64) {
-    uid.map(|v| {
-        let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-        let ids = bind_ids.borrow();
-        *ids.id_map.get(&v).unwrap_or(&(0, 0))
-    })
-    .unwrap_or((0, 0))
+fn get_id_map(ctx: &Ctx<'_>, uid: usize) -> (u64, u64) {
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+    let ids = bind_ids.borrow();
+    *ids.id_map.get(&uid).unwrap_or(&(0, 0))
 }
 
-fn remove_id_map(ctx: &Ctx<'_>, uid: Option<usize>) -> (u64, u64) {
-    uid.and_then(|v| {
-        let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
-        let mut ids = bind_ids.borrow_mut();
-        ids.id_map.remove_entry(&v)
-    })
-    .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
-    .unwrap_or((0, 0))
+fn remove_id_map(ctx: &Ctx<'_>, uid: usize) -> (u64, u64) {
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
+    let mut ids = bind_ids.borrow_mut();
+    ids.id_map
+        .remove_entry(&uid)
+        .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
+        .unwrap_or((0, 0))
 }
 
 fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) {
