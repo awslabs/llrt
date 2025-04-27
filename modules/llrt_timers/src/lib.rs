@@ -79,7 +79,9 @@ impl Default for Timeout {
 #[allow(dependency_on_unit_never_type_fallback)]
 fn set_immediate(ctx: Ctx<'_>, cb: Function) -> Result<()> {
     if let Ok(Some(func)) = ctx.globals().get_optional::<_, Function>("invokeAsyncHook") {
-        func.call(("init", "Immediate"))?;
+        // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+        let uid = unsafe { cb.as_raw().u.ptr } as usize;
+        func.call(("init", "Immediate", uid))?;
     }
     cb.defer::<()>(())?;
     Ok(())
@@ -92,10 +94,13 @@ pub fn set_timeout_interval<'js>(
     delay: u64,
     repeating: bool,
 ) -> Result<usize> {
+    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+    let uid = unsafe { cb.as_raw().u.ptr } as usize;
+
     if let Ok(Some(func)) = ctx.globals().get_optional::<_, Function>("invokeAsyncHook") {
         let async_type = if repeating { "Interval" } else { "Timetout" };
-        func.call(("init", async_type))?;
-    }
+        func.call(("init", async_type, uid))?;
+    };
 
     let deadline = Instant::now() + Duration::from_millis(delay);
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
@@ -126,7 +131,7 @@ pub fn set_timeout_interval<'js>(
         state.running = true;
         let timer_abort = state.notify.clone();
         drop(rt_timer);
-        create_spawn_loop(rt_ptr, ctx, timer_abort, deadline)?;
+        create_spawn_loop(rt_ptr, ctx, timer_abort, deadline, uid)?;
     }
 
     Ok(id)
@@ -243,6 +248,7 @@ fn create_spawn_loop(
     ctx: &Ctx<'_>,
     timer_abort: Rc<Notify>,
     deadline: Instant,
+    uid: usize,
 ) -> Result<()> {
     ctx.spawn_exit_simple(async move {
         let mut sleep = pin!(tokio::time::sleep_until(deadline));
@@ -255,7 +261,7 @@ fn create_spawn_loop(
                 _ = sleep.as_mut() => {}
             }
 
-            if !poll_timers(rt, &mut executing_timers, Some(&mut sleep), None)? {
+            if !poll_timers(rt, &mut executing_timers, Some(&mut sleep), None, uid)? {
                 break;
             }
         }
@@ -279,6 +285,7 @@ pub fn poll_timers(
     call_vec: &mut Vec<Option<ExecutingTimer>>,
     sleep: Option<&mut Pin<&mut Sleep>>,
     deadline: Option<&mut Instant>,
+    uid: usize,
 ) -> Result<bool> {
     static MIN_SLEEP: Duration = Duration::from_millis(4);
     static FAR_FUTURE: Duration = Duration::from_secs(84200 * 365 * 30);
@@ -347,11 +354,11 @@ pub fn poll_timers(
                     .globals()
                     .get_optional::<_, Function>("invokeAsyncHook")?;
                 if let Some(func) = &invoke_async_hook {
-                    func.call(("before", ""))?;
+                    func.call(("before", "", uid))?;
                 }
                 timeout.call::<_, ()>(())?;
                 if let Some(func) = &invoke_async_hook {
-                    func.call(("after", ""))?;
+                    func.call(("after", "", uid))?;
                 }
             }
 
