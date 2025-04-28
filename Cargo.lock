@@ -1787,6 +1787,7 @@ dependencies = [
  "llrt_build",
  "llrt_context",
  "llrt_encoding",
+ "llrt_hooking",
  "llrt_json",
  "llrt_logging",
  "llrt_modules",
