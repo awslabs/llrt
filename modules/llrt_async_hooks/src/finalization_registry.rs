@@ -16,7 +16,7 @@ pub(crate) fn init_finalization_registry(ctx: &Ctx<'_>) -> Result<()> {
     )?;
 
     let _: () = ctx.eval(
-        "globalThis.__finalizationRegistry = new FinalizationRegistry(__invokeFinalizationHook)",
+        "globalThis.asyncFinalizationRegistry = new FinalizationRegistry(__invokeFinalizationHook)",
     )?;
 
     global.remove("__invokeFinalizationHook")?;
@@ -30,7 +30,7 @@ pub(crate) fn register_finalization_registry<'js>(
     uid: usize,
 ) -> Result<()> {
     let global = ctx.globals();
-    let finalization_registry: Object = global.get("__finalizationRegistry")?;
+    let finalization_registry: Object = global.get("asyncFinalizationRegistry")?;
     let register: Function = finalization_registry.get("register")?;
     register.call::<_, ()>((target, uid))?;
     Ok(())
