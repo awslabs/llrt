@@ -12,6 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
+llrt_hooking = { version = "0.5.1-beta", path = "../../libs/llrt_hooking" }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = [
   "std",
