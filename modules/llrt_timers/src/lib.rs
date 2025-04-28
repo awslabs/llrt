@@ -12,10 +12,8 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
-use llrt_utils::{
-    module::{export_default, ModuleInfo},
-    object::ObjectExt,
-};
+use llrt_hooking::{invoke_async_hook, HookType, ProviderType};
+use llrt_utils::module::{export_default, ModuleInfo};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -78,11 +76,9 @@ impl Default for Timeout {
 
 #[allow(dependency_on_unit_never_type_fallback)]
 fn set_immediate(ctx: Ctx<'_>, cb: Function) -> Result<()> {
-    if let Ok(Some(func)) = ctx.globals().get_optional::<_, Function>("invokeAsyncHook") {
-        // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-        let uid = unsafe { cb.as_raw().u.ptr } as usize;
-        func.call(("init", "Immediate", uid))?;
-    }
+    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+    let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    invoke_async_hook(&ctx, HookType::Init, ProviderType::Immediate, uid)?;
     cb.defer::<()>(())?;
     Ok(())
 }
@@ -94,13 +90,14 @@ pub fn set_timeout_interval<'js>(
     delay: u64,
     repeating: bool,
 ) -> Result<usize> {
+    let provider_type = if repeating {
+        ProviderType::Interval
+    } else {
+        ProviderType::Timeout
+    };
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
-
-    if let Ok(Some(func)) = ctx.globals().get_optional::<_, Function>("invokeAsyncHook") {
-        let async_type = if repeating { "Interval" } else { "Timetout" };
-        func.call(("init", async_type, uid))?;
-    };
+    invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
 
     let deadline = Instant::now() + Duration::from_millis(delay);
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
@@ -350,16 +347,9 @@ pub fn poll_timers(
             }
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
-                let invoke_async_hook = ctx2
-                    .globals()
-                    .get_optional::<_, Function>("invokeAsyncHook")?;
-                if let Some(func) = &invoke_async_hook {
-                    func.call(("before", "", uid))?;
-                }
+                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, uid)?;
                 timeout.call::<_, ()>(())?;
-                if let Some(func) = &invoke_async_hook {
-                    func.call(("after", "", uid))?;
-                }
+                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, uid)?;
             }
 
             while ctx2.execute_pending_job() {}
