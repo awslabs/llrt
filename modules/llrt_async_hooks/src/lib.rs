@@ -12,6 +12,10 @@ use rquickjs::{
 };
 use tracing::trace;
 
+mod finalization_registry;
+
+use crate::finalization_registry::{init_finalization_registry, register_finalization_registry};
+
 struct Hook<'js> {
     enabled: Rc<RefCell<bool>>,
     init: Option<Function<'js>>,
@@ -193,6 +197,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         ),
     )?;
 
+    init_finalization_registry(ctx)?;
+
     Ok(())
 }
 
@@ -200,15 +206,19 @@ pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
             // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
-            let uid1 = promise
+            let object = promise
                 .as_object()
                 .map(|v| unsafe { v.as_raw().u.ptr } as usize)
                 .unwrap();
-            let uid2 = parent
+            let parent = parent
                 .as_object()
                 .map(|v| unsafe { v.as_raw().u.ptr } as usize);
 
-            let _ = invoke_async_hook(&ctx, type_, "PROMISE", uid1, uid2);
+            if type_ == PromiseHookType::Init {
+                let _ = register_finalization_registry(&ctx, promise, object);
+            }
+
+            let _ = invoke_async_hook(&ctx, type_, "PROMISE", object, parent);
         },
     )
 }
@@ -294,7 +304,7 @@ fn invoke_async_hook(
     Ok(())
 }
 
-fn insert_id_map(ctx: &Ctx<'_>, uid: usize, parent: Option<usize>) -> (u64, u64) {
+fn insert_id_map(ctx: &Ctx<'_>, target: usize, parent: Option<usize>) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
     ids.next_async_id += 1;
@@ -303,22 +313,22 @@ fn insert_id_map(ctx: &Ctx<'_>, uid: usize, parent: Option<usize>) -> (u64, u64)
         .and_then(|tid| ids.id_map.get(&tid))
         .map(|id| id.0)
         .unwrap_or(0);
-    ids.id_map.insert(uid, (async_id, trigger_id));
+    ids.id_map.insert(target, (async_id, trigger_id));
     (async_id, trigger_id)
 }
 
-fn get_id_map(ctx: &Ctx<'_>, uid: usize) -> (u64, u64) {
+fn get_id_map(ctx: &Ctx<'_>, target: usize) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let ids = bind_ids.borrow();
-    *ids.id_map.get(&uid).unwrap_or(&(0, 0))
+    *ids.id_map.get(&target).unwrap_or(&(0, 0))
 }
 
 #[allow(dead_code)]
-fn remove_id_map(ctx: &Ctx<'_>, uid: usize) -> (u64, u64) {
+fn remove_id_map(ctx: &Ctx<'_>, target: usize) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
     ids.id_map
-        .remove_entry(&uid)
+        .remove_entry(&target)
         .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
         .unwrap_or((0, 0))
 }
