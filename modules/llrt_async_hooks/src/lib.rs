@@ -18,6 +18,8 @@ struct Hook<'js> {
     before: Option<Function<'js>>,
     after: Option<Function<'js>>,
     promise_resolve: Option<Function<'js>>,
+    #[allow(dead_code)]
+    destroy: Option<Function<'js>>,
 }
 
 struct AsyncHookState<'js> {
@@ -73,6 +75,7 @@ fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>>
     let before = hooks_obj.get::<_, Function>("before").ok();
     let after = hooks_obj.get::<_, Function>("after").ok();
     let promise_resolve = hooks_obj.get::<_, Function>("promiseResolve").ok();
+    let destroy = hooks_obj.get::<_, Function>("destroy").ok();
     let enabled = Rc::new(RefCell::new(false));
 
     let hook = Hook {
@@ -81,6 +84,7 @@ fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>>
         before,
         after,
         promise_resolve,
+        destroy,
     };
 
     let binding = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
@@ -272,7 +276,7 @@ fn invoke_async_hook(
             }
         },
         PromiseHookType::Resolve => {
-            let current_id = remove_id_map(ctx, object);
+            let current_id = get_id_map(ctx, object);
             update_current_id(ctx, current_id);
             trace!("Resolve(async_id, trigger_id): {:?}", current_id);
 
@@ -309,6 +313,7 @@ fn get_id_map(ctx: &Ctx<'_>, uid: usize) -> (u64, u64) {
     *ids.id_map.get(&uid).unwrap_or(&(0, 0))
 }
 
+#[allow(dead_code)]
 fn remove_id_map(ctx: &Ctx<'_>, uid: usize) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
