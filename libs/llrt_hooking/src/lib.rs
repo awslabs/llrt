@@ -54,6 +54,7 @@ pub fn invoke_async_hook(
         ProviderType::Immediate => "Immediate",
         ProviderType::Interval => "Interval",
         ProviderType::Timeout => "Timeout",
+        ProviderType::TimerWrap => "TIMERWRAP",
         _ => {
             return Err(Exception::throw_type(
                 ctx,
