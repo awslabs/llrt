@@ -32,7 +32,11 @@ pub(crate) fn register_finalization_registry<'js>(
     let global = ctx.globals();
     let finalization_registry: Object = global.get("asyncFinalizationRegistry")?;
     let register: Function = finalization_registry.get("register")?;
-    register.call::<_, ()>((target, uid))?;
+    if let Err(e) = register.call::<_, ()>((target, uid)) {
+        trace!("register_finalization_registry::Error: {}", &e.to_string());
+        let exception_value = ctx.catch();
+        trace!("register_finalization_registry {:?}", exception_value);
+    }
     Ok(())
 }
 
