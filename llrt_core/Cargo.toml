@@ -24,6 +24,7 @@ llrt_context = { path = "../libs/llrt_context" }
 llrt_encoding = { path = "../libs/llrt_encoding" }
 llrt_json = { path = "../libs/llrt_json" }
 llrt_logging = { path = "../libs/llrt_logging" }
+llrt_hooking = { path = "../libs/llrt_hooking" }
 llrt_modules = { path = "../llrt_modules" }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
