@@ -7,6 +7,7 @@ use std::{
     rc::Rc,
 };
 
+use llrt_hooking::{invoke_async_hook, HookType, ProviderType};
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
@@ -138,6 +139,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
 
     // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
     let uid = unsafe { obj.as_object().unwrap().as_raw().u.ptr } as usize;
+    invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, uid)?;
 
     let imported_object = loop {
         if let Some(x) = import_promise.result::<Object>() {
