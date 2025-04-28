@@ -1923,6 +1923,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_hooking"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_utils",
+ "rquickjs",
+]
+
+[[package]]
 name = "llrt_http"
 version = "0.5.1-beta"
 dependencies = [
@@ -2157,6 +2165,7 @@ name = "llrt_timers"
 version = "0.5.1-beta"
 dependencies = [
  "llrt_context",
+ "llrt_hooking",
  "llrt_test",
  "llrt_utils",
  "once_cell",
