@@ -15,8 +15,31 @@ pub(crate) fn init_finalization_registry(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(invoke_finalization_hook),
     )?;
 
+    // TODO: Once it's stable, replace it with the following code.
+    // globalThis.asyncFinalizationRegistry = new FinalizationRegistry(__invokeFinalizationHook);
     let _: () = ctx.eval(
-        "globalThis.asyncFinalizationRegistry = new FinalizationRegistry(__invokeFinalizationHook)",
+        r#"
+        globalThis.asyncFinalizationRegistry = (() => {
+            const registry = new FinalizationRegistry(__invokeFinalizationHook);
+            const tracked = new Set();
+
+            return {
+                register(target, heldValue) {
+                    tracked.add(heldValue);
+                    registry.register(target, heldValue);
+                },
+                getTrackedCount() {
+                    return tracked.size;
+                },
+                getTrackedValues() {
+                    return Array.from(tracked);
+                },
+                clearTrackedValue() {
+                    tracked.clear();
+                },
+            };
+        })();
+        "#,
     )?;
 
     global.remove("__invokeFinalizationHook")?;
@@ -29,10 +52,10 @@ pub(crate) fn register_finalization_registry<'js>(
     target: Value<'js>,
     uid: usize,
 ) -> Result<()> {
-    trace!("registred(target, uid: ({:?}, {})", target, uid);
+    let register =
+        ctx.eval::<Function<'js>, &str>("globalThis.asyncFinalizationRegistry.register")?;
 
-    let global = ctx.globals();
-    let register: Function = global.get("asyncFinalizationRegistry.register")?;
+    trace!("registred(target, uid: ({:?}, {})", target, uid);
     if let Err(e) = register.call::<_, ()>((target, uid)) {
         trace!("register_finalization_registry::Error: {}", &e.to_string());
         let exception_value = ctx.catch();
