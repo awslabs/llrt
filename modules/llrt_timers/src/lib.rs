@@ -12,7 +12,7 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
-use llrt_hooking::{invoke_async_hook, HookType, ProviderType};
+use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType, ProviderType};
 use llrt_utils::module::{export_default, ModuleInfo};
 use once_cell::sync::Lazy;
 use rquickjs::{
@@ -75,9 +75,10 @@ impl Default for Timeout {
 }
 
 #[allow(dependency_on_unit_never_type_fallback)]
-fn set_immediate(ctx: Ctx<'_>, cb: Function) -> Result<()> {
+fn set_immediate<'js>(ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    register_finalization_registry(&ctx, cb.clone().into_value(), uid)?;
     invoke_async_hook(&ctx, HookType::Init, ProviderType::Immediate, uid)?;
     cb.defer::<()>(())?;
     Ok(())
@@ -97,6 +98,7 @@ pub fn set_timeout_interval<'js>(
     };
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
     invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
 
     let deadline = Instant::now() + Duration::from_millis(delay);
