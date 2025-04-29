@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::object::ObjectExt;
-use rquickjs::{Ctx, Exception, Function, Result};
+use rquickjs::{Ctx, Exception, Function, Result, Value};
 
 #[derive(PartialEq)]
 pub enum HookType {
@@ -68,6 +68,19 @@ pub fn invoke_async_hook(
         .get_optional::<_, Function>("invokeAsyncHook")?;
     if let Some(func) = &invoke_async_hook {
         func.call((hook_, async_, uid))?;
+    }
+    Ok(())
+}
+
+pub fn register_finalization_registry<'js>(
+    ctx: &Ctx<'js>,
+    target: Value<'js>,
+    uid: usize,
+) -> Result<()> {
+    if let Ok(register) =
+        ctx.eval::<Function<'js>, &str>("globalThis.asyncFinalizationRegistry.register")
+    {
+        let _ = register.call::<_, ()>((target, uid));
     }
     Ok(())
 }
