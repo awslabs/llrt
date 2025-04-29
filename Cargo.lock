@@ -1700,6 +1700,7 @@ dependencies = [
 name = "llrt_async_hooks"
 version = "0.5.1-beta"
 dependencies = [
+ "llrt_hooking",
  "llrt_utils",
  "rquickjs",
  "tracing",

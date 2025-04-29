@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
+use llrt_hooking::register_finalization_registry;
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -14,7 +15,7 @@ use tracing::trace;
 
 mod finalization_registry;
 
-use crate::finalization_registry::{init_finalization_registry, register_finalization_registry};
+use crate::finalization_registry::init_finalization_registry;
 
 struct Hook<'js> {
     enabled: Rc<RefCell<bool>>,
