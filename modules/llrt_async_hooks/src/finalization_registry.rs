@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::cell::RefCell;
 
-use rquickjs::{prelude::Func, Ctx, Function, Object, Result, Value};
+use rquickjs::{prelude::Func, Ctx, Function, Result, Value};
 use tracing::trace;
 
 use super::{remove_id_map, update_current_id, AsyncHookState};
@@ -29,9 +29,10 @@ pub(crate) fn register_finalization_registry<'js>(
     target: Value<'js>,
     uid: usize,
 ) -> Result<()> {
+    trace!("registred(target, uid: ({:?}, {})", target, uid);
+
     let global = ctx.globals();
-    let finalization_registry: Object = global.get("asyncFinalizationRegistry")?;
-    let register: Function = finalization_registry.get("register")?;
+    let register: Function = global.get("asyncFinalizationRegistry.register")?;
     if let Err(e) = register.call::<_, ()>((target, uid)) {
         trace!("register_finalization_registry::Error: {}", &e.to_string());
         let exception_value = ctx.catch();
@@ -52,7 +53,7 @@ fn invoke_finalization_hook<'js>(ctx: Ctx<'js>, uid: Value<'js>) -> Result<()> {
 
     let current_id = remove_id_map(&ctx, uid);
     update_current_id(&ctx, current_id);
-    trace!("Destroy(async_id, trigger_id): {:?}", current_id);
+    trace!("Destroy[{}](async_id, trigger_id): {:?}", uid, current_id);
 
     for hook in &state.hooks {
         if *hook.enabled.as_ref().borrow() {
