@@ -240,8 +240,8 @@ fn invoke_async_hook(
     match type_ {
         PromiseHookType::Init => {
             let current_id = insert_id_map(ctx, object, parent);
-            update_current_id(ctx, current_id);
             trace!("Init(async_id, trigger_id): {:?}", current_id);
+            update_current_id(ctx, current_id);
 
             for hook in &state.hooks {
                 if *hook.enabled.as_ref().borrow() {
@@ -255,56 +255,29 @@ fn invoke_async_hook(
                 }
             }
         },
-        PromiseHookType::Before => {
+        PromiseHookType::Before | PromiseHookType::After | PromiseHookType::Resolve => {
             let current_id = get_id_map(ctx, object);
             if current_id.0 == 0 {
                 return Ok(());
             }
 
+            let _type = match type_ {
+                PromiseHookType::Before => "Before",
+                PromiseHookType::After => "After",
+                PromiseHookType::Resolve => "Resolve",
+                _ => unreachable!(),
+            };
+            trace!("{}(async_id, trigger_id): {:?}", _type, current_id);
             update_current_id(ctx, current_id);
-            trace!("Before(async_id, trigger_id): {:?}", current_id);
 
             for hook in &state.hooks {
                 if *hook.enabled.as_ref().borrow() {
-                    if let Some(func) = &hook.before {
-                        let _ = func
-                            .call::<_, ()>((current_id.0,))
-                            .or_else(|_| func.call::<_, ()>(()));
-                    }
-                }
-            }
-        },
-        PromiseHookType::After => {
-            let current_id = get_id_map(ctx, object);
-            if current_id.0 == 0 {
-                return Ok(());
-            }
-
-            update_current_id(ctx, current_id);
-            trace!("After(async_id, trigger_id): {:?}", current_id);
-
-            for hook in &state.hooks {
-                if *hook.enabled.as_ref().borrow() {
-                    if let Some(func) = &hook.after {
-                        let _ = func
-                            .call::<_, ()>((current_id.0,))
-                            .or_else(|_| func.call::<_, ()>(()));
-                    }
-                }
-            }
-        },
-        PromiseHookType::Resolve => {
-            let current_id = get_id_map(ctx, object);
-            if current_id.0 == 0 {
-                return Ok(());
-            }
-
-            update_current_id(ctx, current_id);
-            trace!("Resolve(async_id, trigger_id): {:?}", current_id);
-
-            for hook in &state.hooks {
-                if *hook.enabled.as_ref().borrow() {
-                    if let Some(func) = &hook.promise_resolve {
+                    if let Some(func) = match type_ {
+                        PromiseHookType::Before => &hook.before,
+                        PromiseHookType::After => &hook.after,
+                        PromiseHookType::Resolve => &hook.promise_resolve,
+                        _ => unreachable!(),
+                    } {
                         let _ = func
                             .call::<_, ()>((current_id.0,))
                             .or_else(|_| func.call::<_, ()>(()));
