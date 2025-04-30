@@ -13,7 +13,7 @@ mod modules {
     pub use llrt_abort as abort;
     #[cfg(feature = "assert")]
     pub use llrt_assert as assert;
-    #[cfg(feature = "async_hooks")]
+    #[cfg(feature = "async-hooks")]
     pub use llrt_async_hooks as async_hooks;
     #[cfg(feature = "buffer")]
     pub use llrt_buffer as buffer;

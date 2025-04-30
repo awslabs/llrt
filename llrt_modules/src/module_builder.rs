@@ -81,7 +81,7 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_module(crate::modules::assert::AssertModule);
         }
-        #[cfg(feature = "async_hooks")]
+        #[cfg(feature = "async-hooks")]
         {
             builder = builder
                 .with_global(crate::modules::async_hooks::init)
