@@ -62,7 +62,7 @@ impl Default for AsyncHookIds<'_> {
 impl AsyncHookIds<'_> {
     fn new() -> Self {
         Self {
-            next_async_id: 0,
+            next_async_id: 1,
             id_map: HashMap::new(),
             current_id: (0, 0),
             _marker: PhantomData,
@@ -297,7 +297,7 @@ fn insert_id_map(ctx: &Ctx<'_>, target: usize, parent: Option<usize>) -> (u64, u
     let trigger_id = parent
         .and_then(|tid| ids.id_map.get(&tid))
         .map(|id| id.0)
-        .unwrap_or(0);
+        .unwrap_or(1);
     ids.id_map.insert(target, (async_id, trigger_id));
     (async_id, trigger_id)
 }
