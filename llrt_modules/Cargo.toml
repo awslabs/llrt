@@ -14,7 +14,7 @@ lambda = ["base"]
 base = [
   "abort",
   "assert",
-  "async_hooks",
+  "async-hooks",
   "buffer",
   "child-process",
   "crypto",
@@ -41,7 +41,7 @@ base = [
 # Modules
 abort = ["llrt_abort"]
 assert = ["llrt_assert"]
-async_hooks = ["llrt_async_hooks"]
+async-hooks = ["llrt_async_hooks"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
 console = ["llrt_console"]
