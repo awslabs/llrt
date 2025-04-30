@@ -12,21 +12,23 @@ pub enum HookType {
 
 pub enum ProviderType {
     None,
-    Resource(String),   // Custom asynchronous resource
-    Timeout,            // [Timeout] Timer by setTimeout()
-    Immediate,          // [Immediate] Processing by setImmediate()
-    Interval,           // [Interval] Timer by setInterval()
-    TickObject,         // [TickObject] Processing by process.nextTick()
-    TimerWrap,          // [TIMERWRAP] Internal timer wrap (low level)
-    TcpWrap,            // [TCPWRAP] TCP socket wrap (net.Socket, etc.)
-    UdpWrap,            // [UDPWRAP] UDP socket wrap (dgram module)
-    PipeWrap,           // [PIPEWRAP] Pipe connection
-    StatWatcher,        // [STATWACHER] File monitoring such as fs.watch()
+    Resource(String), // Custom asynchronous resource
+    // Userland provider types
+    Immediate,   // [Immediate] Processing by setImmediate()
+    Interval,    // [Interval] Timer by setInterval()
+    MessagePort, // [MessagePort] Port for worker_threads
+    TickObject,  // [TickObject] Processing by process.nextTick()
+    Timeout,     // [Timeout] Timer by setTimeout()
+    // Internal provider types
     FsReqCallback,      // [FSREQCALLBACK] Callback for file system operations
     GetAddrInfoReqWrap, // [GETADDRINFOREQWRAP] When resolving DNS (dns.lookup(), etc.)
     GetNameInfoReqWrap, // [GETNAMEINFOREQWRAP] DNS reverse lookup
+    PipeWrap,           // [PIPEWRAP] Pipe connection
+    StatWatcher,        // [STATWACHER] File monitoring such as fs.watch()
+    TcpWrap,            // [TCPWRAP] TCP socket wrap (net.Socket, etc.)
+    TimerWrap,          // [TIMERWRAP] Internal timer wrap (low level)
     TlsWrap,            // [TLSWRAP] TLS socket (HTTPS, etc.)
-    MessagePort,        // [MessagePort] Port for worker_threads
+    UdpWrap,            // [UDPWRAP] UDP socket wrap (dgram module)
 }
 
 #[allow(dependency_on_unit_never_type_fallback)]
@@ -51,16 +53,22 @@ pub fn invoke_async_hook(
             ))
         },
         ProviderType::Resource(s) => &["Resource(", &s, ")"].concat(),
+        // Userland provider types
         ProviderType::Immediate => "Immediate",
         ProviderType::Interval => "Interval",
+        ProviderType::MessagePort => "MessagePort",
+        ProviderType::TickObject => "TickObject",
         ProviderType::Timeout => "Timeout",
+        // Internal provider types
+        ProviderType::FsReqCallback => "FSREQCALLBACK",
+        ProviderType::GetAddrInfoReqWrap => "GETADDRINFOREQWRAP",
+        ProviderType::GetNameInfoReqWrap => "GETNAMEINFOREQWRAP",
+        ProviderType::PipeWrap => "PIPEWRAP",
+        ProviderType::StatWatcher => "STATWACHER",
+        ProviderType::TcpWrap => "TCPWRAP",
         ProviderType::TimerWrap => "TIMERWRAP",
-        _ => {
-            return Err(Exception::throw_type(
-                ctx,
-                "This asynchronous types is not yet supported.",
-            ))
-        },
+        ProviderType::TlsWrap => "TLSWRAP",
+        ProviderType::UdpWrap => "UDPWRAP",
     };
 
     let invoke_async_hook = ctx
