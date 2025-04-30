@@ -1832,6 +1832,7 @@ version = "0.5.1-beta"
 dependencies = [
  "llrt_context",
  "llrt_dns_cache",
+ "llrt_hooking",
  "llrt_utils",
  "rquickjs",
 ]
