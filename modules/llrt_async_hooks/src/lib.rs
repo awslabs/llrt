@@ -64,7 +64,7 @@ impl AsyncHookIds<'_> {
         Self {
             next_async_id: 1,
             id_map: HashMap::new(),
-            current_id: (0, 0),
+            current_id: (1, 1),
             _marker: PhantomData,
         }
     }
