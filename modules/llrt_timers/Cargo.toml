@@ -10,6 +10,11 @@ repository = "https://github.com/awslabs/llrt"
 name = "llrt_timers"
 path = "src/lib.rs"
 
+[features]
+default = ["hooking"]
+
+hooking = ["llrt_hooking"]
+
 [dependencies]
 llrt_context = { version = "0.6.0-beta", path = "../../libs/llrt_context" }
 llrt_hooking = { version = "0.6.0-beta", path = "../../libs/llrt_hooking" }

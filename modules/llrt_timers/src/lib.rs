@@ -12,6 +12,7 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
+#[cfg(feature = "hooking")]
 use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType, ProviderType};
 use llrt_utils::module::{export_default, ModuleInfo};
 use once_cell::sync::Lazy;
@@ -75,11 +76,14 @@ impl Default for Timeout {
 }
 
 #[allow(dependency_on_unit_never_type_fallback)]
-fn set_immediate<'js>(ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
-    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { cb.as_raw().u.ptr } as usize;
-    register_finalization_registry(&ctx, cb.clone().into_value(), uid)?;
-    invoke_async_hook(&ctx, HookType::Init, ProviderType::Immediate, uid)?;
+fn set_immediate<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
+    #[cfg(feature = "hooking")]
+    {
+        // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+        let uid = unsafe { cb.as_raw().u.ptr } as usize;
+        register_finalization_registry(&_ctx, cb.clone().into_value(), uid)?;
+        invoke_async_hook(&_ctx, HookType::Init, ProviderType::Immediate, uid)?;
+    }
     cb.defer::<()>(())?;
     Ok(())
 }
@@ -91,16 +95,18 @@ pub fn set_timeout_interval<'js>(
     delay: u64,
     repeating: bool,
 ) -> Result<usize> {
-    let provider_type = if repeating {
-        ProviderType::Interval
-    } else {
-        ProviderType::Timeout
-    };
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
-    register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
-    invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
-
+    #[cfg(feature = "hooking")]
+    {
+        let provider_type = if repeating {
+            ProviderType::Interval
+        } else {
+            ProviderType::Timeout
+        };
+        register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
+        invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
+    }
     let deadline = Instant::now() + Duration::from_millis(delay);
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
 
@@ -284,7 +290,7 @@ pub fn poll_timers(
     call_vec: &mut Vec<Option<ExecutingTimer>>,
     sleep: Option<&mut Pin<&mut Sleep>>,
     deadline: Option<&mut Instant>,
-    uid: usize,
+    _uid: usize,
 ) -> Result<bool> {
     static MIN_SLEEP: Duration = Duration::from_millis(4);
     static FAR_FUTURE: Duration = Duration::from_secs(84200 * 365 * 30);
@@ -349,9 +355,11 @@ pub fn poll_timers(
             }
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
-                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, uid)?;
+                #[cfg(feature = "hooking")]
+                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, _uid)?;
                 timeout.call::<_, ()>(())?;
-                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, uid)?;
+                #[cfg(feature = "hooking")]
+                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, _uid)?;
             }
 
             while ctx2.execute_pending_job() {}
