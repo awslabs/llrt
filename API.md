@@ -7,6 +7,34 @@
 
 [ok](https://nodejs.org/api/assert.html#assertokvalue-message)
 
+## async_hooks
+
+### static methods
+
+[createHook](https://nodejs.org/api/async_hooks.html#async_hookscreatehookcallbacks)
+
+[executionAsyncId](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncid)
+
+[triggerAsyncId](https://nodejs.org/api/async_hooks.html#async_hookstriggerasyncid)
+
+### Class: AsyncHook
+
+[enable](https://nodejs.org/api/async_hooks.html#asynchookenable)
+
+[disable](https://nodejs.org/api/async_hooks.html#asynchookdisable)
+
+#### Hook callbacks
+
+[init](https://nodejs.org/api/async_hooks.html#initasyncid-type-triggerasyncid-resource)
+
+[before](https://nodejs.org/api/async_hooks.html#beforeasyncid)
+
+[after](https://nodejs.org/api/async_hooks.html#afterasyncid)
+
+[destroy](https://nodejs.org/api/async_hooks.html#destroyasyncid)
+
+[promiseResolve](https://nodejs.org/api/async_hooks.html#promiseresolveasyncid)
+
 ## buffer
 
 ### static methods

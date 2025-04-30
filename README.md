@@ -107,6 +107,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | Modules        | Node.js | LLRT ⚠️ |
 | -------------- | ------- | ------- |
 | assert         | ✔︎     | ✔︎️    |
+| async_hooks    | ✔︎     | ✔︎️    |
 | buffer         | ✔︎     | ✔︎️    |
 | child_process  | ✔︎     | ✔︎⏱   |
 | console        | ✔︎     | ✔︎     |
