@@ -121,6 +121,7 @@ async fn main() -> Result<(), Error> {
 | -------------- | ------- | ------------ | ---------------- | --------------------- |
 | abort          | ✔︎     | ✔︎️         | `abort`          | `llrt_abort`          |
 | assert         | ✔︎     | ⚠️           | `assert`         | `llrt_assert`         |
+| async_hooks    | ✔︎     | ⚠️           | `async-hooks`    | `llrt_async_hooks`    |
 | buffer         | ✔︎     | ✔︎️         | `buffer`         | `llrt_buffer`         |
 | child process  | ✔︎     | ⚠️           | `child-process`  | `llrt_child_process`  |
 | console        | ✔︎     | ⚠️           | `console`        | `llrt_console`        |
