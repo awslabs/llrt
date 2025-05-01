@@ -297,7 +297,7 @@ fn insert_id_map(ctx: &Ctx<'_>, target: usize, parent: Option<usize>) -> (u64, u
     let trigger_id = parent
         .and_then(|tid| ids.id_map.get(&tid))
         .map(|id| id.0)
-        .unwrap_or(1);
+        .unwrap_or(ids.current_id.0);
     ids.id_map.insert(target, (async_id, trigger_id));
     (async_id, trigger_id)
 }
