@@ -36,7 +36,7 @@ once_cell = { version = "1", features = [
 phf = {version = "0.11", default-features = false }
 quick-xml = { version = "0.37", default-features = false }
 ring = { version = "0.17", default-features = false }
-rquickjs = { git = "https://github.com/nabetti1720/bnoordhuis-rquickjs.git", branch = "promisehook-aarch64", version = "0.9.0", features = [
+rquickjs = { git = "https://github.com/bnoordhuis/rquickjs.git", branch = "promisehook", version = "0.9.0", features = [
   "full-async",
   "parallel",
   "rust-alloc",
@@ -80,7 +80,7 @@ md-5 = { version = "0.10", features = [
 ], default-features = false }
 
 [build-dependencies]
-rquickjs = { git = "https://github.com/nabetti1720/bnoordhuis-rquickjs.git", branch = "promisehook-aarch64", version = "0.9.0", features = [
+rquickjs = { git = "https://github.com/bnoordhuis/rquickjs.git", branch = "promisehook", version = "0.9.0", features = [
   "full-async",
   "rust-alloc",
 ], default-features = false }
