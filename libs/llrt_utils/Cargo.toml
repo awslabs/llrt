@@ -14,7 +14,7 @@ fs = ["tokio/fs"]
 bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
-rquickjs = { git = "https://github.com/nabetti1720/bnoordhuis-rquickjs.git", branch = "promisehook-aarch64", version = "0.9.0", features = [
+rquickjs = { git = "https://github.com/bnoordhuis/rquickjs.git", branch = "promisehook", version = "0.9.0", features = [
   "array-buffer",
   "macro",
 ], default-features = false }
