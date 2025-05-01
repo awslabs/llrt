@@ -239,7 +239,7 @@ fn invoke_async_hook(
 
     match type_ {
         PromiseHookType::Init => {
-            let current_id = insert_id_map(ctx, object, parent);
+            let current_id = insert_id_map(ctx, object, parent, async_type == "PROMISE");
             trace!("Init(async_id, trigger_id): {:?}", current_id);
             update_current_id(ctx, current_id);
 
@@ -289,7 +289,12 @@ fn invoke_async_hook(
     Ok(())
 }
 
-fn insert_id_map(ctx: &Ctx<'_>, target: usize, parent: Option<usize>) -> (u64, u64) {
+fn insert_id_map(
+    ctx: &Ctx<'_>,
+    target: usize,
+    parent: Option<usize>,
+    is_promise: bool,
+) -> (u64, u64) {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().unwrap();
     let mut ids = bind_ids.borrow_mut();
     ids.next_async_id += 1;
@@ -297,7 +302,7 @@ fn insert_id_map(ctx: &Ctx<'_>, target: usize, parent: Option<usize>) -> (u64, u
     let trigger_id = parent
         .and_then(|tid| ids.id_map.get(&tid))
         .map(|id| id.0)
-        .unwrap_or(ids.current_id.0);
+        .unwrap_or(if is_promise { 1 } else { ids.current_id.1 });
     ids.id_map.insert(target, (async_id, trigger_id));
     (async_id, trigger_id)
 }
