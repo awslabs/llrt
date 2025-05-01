@@ -77,14 +77,19 @@ impl Default for Timeout {
 
 #[allow(dependency_on_unit_never_type_fallback)]
 fn set_immediate<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
+    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+    let _uid = unsafe { cb.as_raw().u.ptr } as usize;
     #[cfg(feature = "hooking")]
     {
-        // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-        let uid = unsafe { cb.as_raw().u.ptr } as usize;
-        register_finalization_registry(&_ctx, cb.clone().into_value(), uid)?;
-        invoke_async_hook(&_ctx, HookType::Init, ProviderType::Immediate, uid)?;
+        register_finalization_registry(&_ctx, cb.clone().into_value(), _uid)?;
+        invoke_async_hook(&_ctx, HookType::Init, ProviderType::Immediate, _uid)?;
+        invoke_async_hook(&_ctx, HookType::Before, ProviderType::None, _uid)?;
     }
     cb.defer::<()>(())?;
+    #[cfg(feature = "hooking")]
+    {
+        invoke_async_hook(&_ctx, HookType::After, ProviderType::None, _uid)?;
+    }
     Ok(())
 }
 
