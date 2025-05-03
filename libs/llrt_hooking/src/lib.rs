@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::object::ObjectExt;
+use llrt_utils::{object::ObjectExt, provider::ProviderType};
 use rquickjs::{Ctx, Exception, Function, Result, Value};
 
 #[derive(PartialEq)]
@@ -8,27 +8,6 @@ pub enum HookType {
     Init,
     Before,
     After,
-}
-
-pub enum ProviderType {
-    None,
-    Resource(String), // Custom asynchronous resource
-    // Userland provider types
-    Immediate,   // [Immediate] Processing by setImmediate()
-    Interval,    // [Interval] Timer by setInterval()
-    MessagePort, // [MessagePort] Port for worker_threads
-    TickObject,  // [TickObject] Processing by process.nextTick()
-    Timeout,     // [Timeout] Timer by setTimeout()
-    // Internal provider types
-    FsReqCallback,      // [FSREQCALLBACK] Callback for file system operations
-    GetAddrInfoReqWrap, // [GETADDRINFOREQWRAP] When resolving DNS (dns.lookup(), etc.)
-    GetNameInfoReqWrap, // [GETNAMEINFOREQWRAP] DNS reverse lookup
-    PipeWrap,           // [PIPEWRAP] Pipe connection
-    StatWatcher,        // [STATWACHER] File monitoring such as fs.watch()
-    TcpWrap,            // [TCPWRAP] TCP socket wrap (net.Socket, etc.)
-    TimerWrap,          // [TIMERWRAP] Internal timer wrap (low level)
-    TlsWrap,            // [TLSWRAP] TLS socket (HTTPS, etc.)
-    UdpWrap,            // [UDPWRAP] UDP socket wrap (dgram module)
 }
 
 pub fn invoke_async_hook(
@@ -56,6 +35,7 @@ pub fn invoke_async_hook(
         ProviderType::Immediate => "Immediate",
         ProviderType::Interval => "Interval",
         ProviderType::MessagePort => "MessagePort",
+        ProviderType::Microtask => "Microtask",
         ProviderType::TickObject => "TickObject",
         ProviderType::Timeout => "Timeout",
         // Internal provider types

@@ -3,9 +3,10 @@
 use llrt_context::CtxExtension;
 use llrt_dns_cache::lookup_host;
 #[cfg(feature = "hooking")]
-use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType, ProviderType};
+use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use llrt_utils::{
     module::{export_default, ModuleInfo},
+    provider::ProviderType,
     result::ResultExt,
 };
 use rquickjs::{
