@@ -7,7 +7,7 @@ use std::{
     rc::Rc,
 };
 
-use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType, ProviderType};
+use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
@@ -17,7 +17,7 @@ use tracing::trace;
 
 use crate::bytecode::BYTECODE_FILE_EXT;
 use crate::environment;
-use crate::libs::json::parse::json_parse;
+use crate::libs::{json::parse::json_parse, utils::provider::ProviderType};
 use crate::modules::{
     ModuleNames,
     {path::resolve_path, timers::poll_timers},

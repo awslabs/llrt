@@ -13,8 +13,11 @@ use std::{
 
 use llrt_context::CtxExtension;
 #[cfg(feature = "hooking")]
-use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType, ProviderType};
-use llrt_utils::module::{export_default, ModuleInfo};
+pub use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
+use llrt_utils::{
+    module::{export_default, ModuleInfo},
+    provider::ProviderType,
+};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -75,20 +78,18 @@ impl Default for Timeout {
     }
 }
 
-fn set_immediate<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
+fn queue_microtask<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let _uid = unsafe { cb.as_raw().u.ptr } as usize;
     #[cfg(feature = "hooking")]
     {
         register_finalization_registry(&_ctx, cb.clone().into_value(), _uid)?;
-        invoke_async_hook(&_ctx, HookType::Init, ProviderType::Immediate, _uid)?;
-        invoke_async_hook(&_ctx, HookType::Before, ProviderType::None, _uid)?;
+        invoke_async_hook(&_ctx, HookType::Init, ProviderType::Microtask, _uid)?;
+        // NOTE: Defer simply registers a task in a microtask queue
+        // and is separate from the timing of when the actual callback runs.
+        // Therefore, asynchronous before/after hooks are not meaningful and will not be implemented.
     }
     cb.defer::<()>(())?;
-    #[cfg(feature = "hooking")]
-    {
-        invoke_async_hook(&_ctx, HookType::After, ProviderType::None, _uid)?;
-    }
     Ok(())
 }
 
@@ -96,17 +97,14 @@ pub fn set_timeout_interval<'js>(
     ctx: &Ctx<'js>,
     cb: Function<'js>,
     delay: u64,
-    repeating: bool,
+    provider_type: ProviderType,
 ) -> Result<usize> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    let repeating = provider_type == ProviderType::Interval;
+
     #[cfg(feature = "hooking")]
     {
-        let provider_type = if repeating {
-            ProviderType::Interval
-        } else {
-            ProviderType::Timeout
-        };
         register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
         invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
     }
@@ -182,6 +180,7 @@ impl ModuleDef for TimersModule {
         declare.declare("setInterval")?;
         declare.declare("setImmediate")?;
         declare.declare("clearInterval")?;
+        declare.declare("queueMicrotask")?;
         declare.declare("default")?;
         Ok(())
     }
@@ -196,6 +195,7 @@ impl ModuleDef for TimersModule {
                 "setInterval",
                 "clearInterval",
                 "setImmediate",
+                "queueMicrotask",
             ];
             for func_name in functions {
                 let function: Function = globals.get(func_name)?;
@@ -229,7 +229,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         "setTimeout",
         Func::from(move |ctx, cb, delay: Opt<f64>| {
             let delay = delay.unwrap_or(0.).max(0.) as u64;
-            set_timeout_interval(&ctx, cb, delay, false)
+            set_timeout_interval(&ctx, cb, delay, ProviderType::Timeout)
         }),
     )?;
 
@@ -237,7 +237,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         "setInterval",
         Func::from(move |ctx, cb, delay: Opt<f64>| {
             let delay = delay.unwrap_or(0.).max(0.) as u64;
-            set_timeout_interval(&ctx, cb, delay, true)
+            set_timeout_interval(&ctx, cb, delay, ProviderType::Interval)
         }),
     )?;
 
@@ -245,7 +245,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     globals.set("clearInterval", Func::from(clear_timeout_interval))?;
 
-    globals.set("setImmediate", Func::from(set_immediate))?;
+    globals.set(
+        "setImmediate",
+        Func::from(move |ctx, cb| set_timeout_interval(&ctx, cb, 0, ProviderType::Immediate)),
+    )?;
+
+    globals.set("queueMicrotask", Func::from(queue_microtask))?;
 
     Ok(())
 }

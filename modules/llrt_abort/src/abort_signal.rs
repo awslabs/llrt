@@ -203,7 +203,12 @@ impl<'js> AbortSignal<'js> {
 
         #[cfg(feature = "sleep-timers")]
         {
-            llrt_timers::set_timeout_interval(&ctx, cb, milliseconds, false)?;
+            llrt_timers::set_timeout_interval(
+                &ctx,
+                cb,
+                milliseconds,
+                llrt_utils::provider::ProviderType::Timeout,
+            )?;
         }
         #[cfg(all(not(feature = "sleep-timers"), feature = "sleep-tokio"))]
         {
