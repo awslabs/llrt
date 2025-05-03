@@ -31,7 +31,6 @@ pub enum ProviderType {
     UdpWrap,            // [UDPWRAP] UDP socket wrap (dgram module)
 }
 
-#[allow(dependency_on_unit_never_type_fallback)]
 pub fn invoke_async_hook(
     ctx: &Ctx<'_>,
     hook_type: HookType,
@@ -44,7 +43,7 @@ pub fn invoke_async_hook(
         HookType::After => "after",
     };
 
-    let async_ = match provider_type {
+    let provider_ = match provider_type {
         ProviderType::None if hook_type != HookType::Init => "",
         ProviderType::None => {
             return Err(Exception::throw_type(
@@ -75,7 +74,7 @@ pub fn invoke_async_hook(
         .globals()
         .get_optional::<_, Function>("invokeAsyncHook")?;
     if let Some(func) = &invoke_async_hook {
-        func.call((hook_, async_, uid))?;
+        func.call::<_, ()>((hook_, provider_, uid))?;
     }
     Ok(())
 }

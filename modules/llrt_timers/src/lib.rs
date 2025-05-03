@@ -75,7 +75,6 @@ impl Default for Timeout {
     }
 }
 
-#[allow(dependency_on_unit_never_type_fallback)]
 fn set_immediate<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let _uid = unsafe { cb.as_raw().u.ptr } as usize;
@@ -93,7 +92,6 @@ fn set_immediate<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     Ok(())
 }
 
-#[allow(dependency_on_unit_never_type_fallback)]
 pub fn set_timeout_interval<'js>(
     ctx: &Ctx<'js>,
     cb: Function<'js>,
@@ -289,7 +287,6 @@ pub struct ExecutingTimer(
 
 unsafe impl Send for ExecutingTimer {}
 
-#[allow(dependency_on_unit_never_type_fallback)]
 pub fn poll_timers(
     rt: *mut qjs::JSRuntime,
     call_vec: &mut Vec<Option<ExecutingTimer>>,
