@@ -22,7 +22,7 @@ use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    qjs, Ctx, Function, Persistent, Result, Value,
+    qjs, Ctx, Exception, Function, Persistent, Result, Value,
 };
 use tokio::{
     select,
@@ -89,6 +89,7 @@ fn queue_microtask<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
         // and is separate from the timing of when the actual callback runs.
         // Therefore, asynchronous before/after hooks are not meaningful and will not be implemented.
     }
+
     cb.defer::<()>(())?;
     Ok(())
 }
@@ -101,14 +102,24 @@ pub fn set_timeout_interval<'js>(
 ) -> Result<usize> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
-    let repeating = provider_type == ProviderType::Interval;
+
+    let (repeating, deadline) = match provider_type {
+        ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(86400)), // Already finished
+        ProviderType::Timeout => (false, Instant::now() + Duration::from_millis(delay)),
+        ProviderType::Interval => (true, Instant::now() + Duration::from_millis(delay)),
+        _ => {
+            return Err(Exception::throw_type(
+                ctx,
+                "The specified provider type is not supported.",
+            ))
+        },
+    };
 
     #[cfg(feature = "hooking")]
     {
         register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
         invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
     }
-    let deadline = Instant::now() + Duration::from_millis(delay);
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
 
     let callback = Persistent::<Function>::save(ctx, cb);
@@ -364,7 +375,9 @@ pub fn poll_timers(
             if let Ok(timeout) = timeout.restore(&ctx2) {
                 #[cfg(feature = "hooking")]
                 invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, _uid)?;
+
                 timeout.call::<_, ()>(())?;
+
                 #[cfg(feature = "hooking")]
                 invoke_async_hook(&ctx2, HookType::After, ProviderType::None, _uid)?;
             }
