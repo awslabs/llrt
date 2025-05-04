@@ -148,7 +148,7 @@ pub fn set_timeout_interval<'js>(
         state.running = true;
         let timer_abort = state.notify.clone();
         drop(rt_timer);
-        create_spawn_loop(rt_ptr, ctx, timer_abort, deadline, uid)?;
+        create_spawn_loop(rt_ptr, ctx, timer_abort, deadline)?;
     }
 
     Ok(id)
@@ -272,7 +272,6 @@ fn create_spawn_loop(
     ctx: &Ctx<'_>,
     timer_abort: Rc<Notify>,
     deadline: Instant,
-    uid: usize,
 ) -> Result<()> {
     ctx.spawn_exit_simple(async move {
         let mut sleep = pin!(tokio::time::sleep_until(deadline));
@@ -285,7 +284,7 @@ fn create_spawn_loop(
                 _ = sleep.as_mut() => {}
             }
 
-            if !poll_timers(rt, &mut executing_timers, Some(&mut sleep), None, uid)? {
+            if !poll_timers(rt, &mut executing_timers, Some(&mut sleep), None)? {
                 break;
             }
         }
@@ -308,7 +307,6 @@ pub fn poll_timers(
     call_vec: &mut Vec<Option<ExecutingTimer>>,
     sleep: Option<&mut Pin<&mut Sleep>>,
     deadline: Option<&mut Instant>,
-    _uid: usize,
 ) -> Result<bool> {
     static MIN_SLEEP: Duration = Duration::from_millis(4);
     static FAR_FUTURE: Duration = Duration::from_secs(84200 * 365 * 30);
@@ -373,6 +371,9 @@ pub fn poll_timers(
             }
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
+                // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+                let _uid: usize = unsafe { timeout.as_raw().u.ptr } as usize;
+
                 #[cfg(feature = "hooking")]
                 invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, _uid)?;
 

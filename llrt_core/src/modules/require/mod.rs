@@ -148,7 +148,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
         }
 
         if deadline < Instant::now() {
-            poll_timers(rt, &mut executing_timers, None, Some(&mut deadline), uid)?;
+            poll_timers(rt, &mut executing_timers, None, Some(&mut deadline))?;
         }
 
         ctx.execute_pending_job();
