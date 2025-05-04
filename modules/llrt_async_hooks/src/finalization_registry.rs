@@ -15,28 +15,14 @@ pub(crate) fn init_finalization_registry(ctx: &Ctx<'_>) -> Result<()> {
         Func::from(invoke_finalization_hook),
     )?;
 
-    // TODO: Once it's stable, replace it with the following code.
-    // globalThis.asyncFinalizationRegistry = new FinalizationRegistry(__invokeFinalizationHook);
     let _: () = ctx.eval(
         r#"
         globalThis.asyncFinalizationRegistry = (() => {
             const registry = new FinalizationRegistry(__invokeFinalizationHook);
-            const tracked = new Set();
-
             return {
                 register(target, heldValue) {
-                    tracked.add(heldValue);
                     registry.register(target, heldValue);
-                },
-                getTrackedCount() {
-                    return tracked.size;
-                },
-                getTrackedValues() {
-                    return Array.from(tracked);
-                },
-                clearTrackedValue() {
-                    tracked.clear();
-                },
+                }
             };
         })();
         "#,
