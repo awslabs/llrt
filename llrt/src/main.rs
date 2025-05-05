@@ -4,7 +4,8 @@ use std::{
     env,
     error::Error,
     path::{Path, PathBuf},
-    process::exit,
+    process::{exit, ExitCode},
+    sync::atomic::Ordering,
     time::Instant,
 };
 
@@ -14,6 +15,7 @@ mod minimal_tracer;
 mod repl;
 
 use constcat::concat;
+use llrt_core::modules::process::EXIT_CODE;
 use minimal_tracer::MinimalTracer;
 use tracing::trace;
 
@@ -43,7 +45,7 @@ use crate::core::{async_with, CatchResultExt};
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
     let now = Instant::now();
 
     MinimalTracer::register()?;
@@ -60,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     vm.idle().await?;
 
-    Ok(())
+    Ok(ExitCode::from(EXIT_CODE.load(Ordering::Relaxed)))
 }
 
 pub const VERSION_STRING: &str = concat!("LLRT v", VERSION, " (", PLATFORM, ", ", ARCH, ")");

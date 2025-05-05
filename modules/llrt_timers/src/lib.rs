@@ -252,7 +252,11 @@ fn create_spawn_loop(
     Ok(())
 }
 
-pub struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
+pub struct ExecutingTimer(
+    Instant,
+    NonNull<qjs::JSContext>,
+    Persistent<Function<'static>>,
+);
 
 unsafe impl Send for ExecutingTimer {}
 
@@ -277,14 +281,14 @@ pub fn poll_timers(
             let ctx = timeout.raw_ctx;
             if let Some(cb) = timeout.callback.take() {
                 if !timeout.repeating {
-                    call_vec.push(Some(ExecutingTimer(ctx, cb)));
+                    call_vec.push(Some(ExecutingTimer(timeout.deadline, ctx, cb)));
                     return false;
                 }
                 timeout.deadline = now + Duration::from_millis(timeout.interval);
                 if timeout.deadline < lowest {
                     lowest = timeout.deadline;
                 }
-                call_vec.push(Some(ExecutingTimer(ctx, cb.clone())));
+                call_vec.push(Some(ExecutingTimer(timeout.deadline, ctx, cb.clone())));
                 timeout.callback.replace(cb);
             } else {
                 return false;
@@ -312,9 +316,11 @@ pub fn poll_timers(
 
     drop(rt_timers);
 
+    call_vec.sort_unstable_by_key(|v| v.as_ref().map(|v| v.0));
+
     let mut is_first_time = true;
     for item in call_vec.iter_mut() {
-        if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
+        if let Some(ExecutingTimer(_, ctx, timeout)) = item.take() {
             let ctx2 = unsafe { Ctx::from_raw(ctx) };
 
             if is_first_time {

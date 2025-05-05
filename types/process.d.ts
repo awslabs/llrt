@@ -185,6 +185,22 @@ declare module "process" {
     exit(code?: number | string | null | undefined): never;
 
     /**
+     * The `process.exitCode` property indicates the exit code that will be used
+     * when the llrt process eventually exits. If it is not specified, the default
+     * exit code is `undefined` and will be 0 on exit.
+     *
+     * ```js
+     * import { exitCode, exit } from 'process';
+     *
+     * exitCode = 42;
+     * exit();
+     * ```
+     *
+     * This will cause the llrt process to exit with the exit code `42`.
+     */
+    exitCode: number | null;
+
+    /**
      * The `process.getgid()` method returns the numerical group identity of the
      * process. (See [`getgid(2)`](http://man7.org/linux/man-pages/man2/getgid.2.html).)
      *
@@ -200,7 +216,7 @@ declare module "process" {
      * Android).
      * @since v0.1.31
      */
-    getgid?: () => number
+    getgid?: () => number;
     /**
      * The `process.setgid()` method sets the group identity of the process. (See [`setgid(2)`](http://man7.org/linux/man-pages/man2/setgid.2.html).) The `id` can be passed as either a
      * numeric ID or a group name
@@ -227,7 +243,7 @@ declare module "process" {
      * @since v0.1.31
      * @param id The group name or ID
      */
-    setgid?: (id: number) => void
+    setgid?: (id: number) => void;
     /**
      * The `process.getuid()` method returns the numeric user identity of the process.
      * (See [`getuid(2)`](http://man7.org/linux/man-pages/man2/getuid.2.html).)
@@ -244,7 +260,7 @@ declare module "process" {
      * Android).
      * @since v0.1.28
      */
-    getuid?: () => number
+    getuid?: () => number;
     /**
      * The `process.setuid(id)` method sets the user identity of the process. (See [`setuid(2)`](http://man7.org/linux/man-pages/man2/setuid.2.html).) The `id` can be passed as either a
      * numeric ID or a username string.
@@ -270,7 +286,7 @@ declare module "process" {
      * This feature is not available in `Worker` threads.
      * @since v0.1.28
      */
-    setuid?: (id: number) => void
+    setuid?: (id: number) => void;
     /**
      * The `process.geteuid()` method returns the numerical effective user identity of
      * the process. (See [`geteuid(2)`](http://man7.org/linux/man-pages/man2/geteuid.2.html).)
@@ -287,7 +303,7 @@ declare module "process" {
      * Android).
      * @since v2.0.0
      */
-    geteuid?: () => number
+    geteuid?: () => number;
     /**
      * The `process.seteuid()` method sets the effective user identity of the process.
      * (See [`seteuid(2)`](http://man7.org/linux/man-pages/man2/seteuid.2.html).) The `id` can be passed as either a numeric ID or a username
@@ -314,7 +330,7 @@ declare module "process" {
      * @since v2.0.0
      * @param id A user name or ID
      */
-    seteuid?: (id: number) => void
+    seteuid?: (id: number) => void;
     /**
      * The `process.getegid()` method returns the numerical effective group identity
      * of the Node.js process. (See [`getegid(2)`](http://man7.org/linux/man-pages/man2/getegid.2.html).)
@@ -331,7 +347,7 @@ declare module "process" {
      * Android).
      * @since v2.0.0
      */
-    getegid?: () => number
+    getegid?: () => number;
     /**
      * The `process.setegid()` method sets the effective group identity of the process.
      * (See [`setegid(2)`](http://man7.org/linux/man-pages/man2/setegid.2.html).) The `id` can be passed as either a numeric ID or a group
@@ -358,6 +374,6 @@ declare module "process" {
      * @since v2.0.0
      * @param id A group name or ID
      */
-    setegid?: (id: number) => void
+    setegid?: (id: number) => void;
   }
 }

@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
-# Patch doesn't play well with *, so we have to list individual members
-# See https://github.com/rust-lang/cargo/issues/14717
+
 members = [
   "libs/llrt_build",
   "libs/llrt_compression",
