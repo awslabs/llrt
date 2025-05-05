@@ -53,6 +53,18 @@ use rsa::RsaPrivateKey;
 
 use crate::sha_hash::ShaAlgorithm;
 
+#[rquickjs::class]
+#[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
+pub struct SubtleCrypto {}
+
+#[rquickjs::methods]
+impl SubtleCrypto {
+    #[qjs(constructor)]
+    pub fn new(ctx: Ctx<'_>) -> Result<Self> {
+        Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
+}
+
 pub enum AesCbcEncVariant {
     Aes128(cbc::Encryptor<aes::Aes128>),
     Aes192(cbc::Encryptor<aes::Aes192>),

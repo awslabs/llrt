@@ -21,6 +21,7 @@ use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{mc_oneshot, result::ResultExt};
 use once_cell::sync::Lazy;
 use rquickjs::{
+    atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
     ArrayBuffer, Class, Coerced, Ctx, Exception, JsLifetime, Null, Object, Result, TypedArray,
@@ -329,6 +330,11 @@ impl<'js> Response<'js> {
             0 => "error",
             _ => "basic",
         }
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(Response)
     }
 
     #[qjs(get)]

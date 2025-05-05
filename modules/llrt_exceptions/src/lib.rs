@@ -168,7 +168,7 @@ impl DOMException {
 
     #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
     pub fn to_string_tag(&self) -> &str {
-        "DOMException"
+        stringify!(DOMException)
     }
 }
 

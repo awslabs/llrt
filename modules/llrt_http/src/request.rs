@@ -5,8 +5,8 @@ use llrt_json::parse::json_parse;
 use llrt_url::url_class::URL;
 use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt, result::ResultExt};
 use rquickjs::{
-    class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs, IntoJs, Null, Object,
-    Result, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs,
+    IntoJs, Null, Object, Result, TypedArray, Value,
 };
 
 use super::{blob::Blob, headers::Headers};
@@ -97,6 +97,11 @@ impl<'js> Request<'js> {
         self.headers.clone()
     }
 
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(Request)
+    }
+
     //TODO should implement readable stream
     #[qjs(get)]
     fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -122,13 +127,13 @@ impl<'js> Request<'js> {
     }
 
     #[qjs(get)]
-    fn mode(&self) -> String {
-        "navigate".to_string()
+    fn mode(&self) -> &'static str {
+        "navigate"
     }
 
     #[qjs(get)]
-    fn cache(&self) -> String {
-        "no-store".to_string()
+    fn cache(&self) -> &'static str {
+        "no-store"
     }
 
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
