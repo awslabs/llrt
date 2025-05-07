@@ -20,7 +20,7 @@ pub async fn subtle_import_key<'js>(
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
-) -> Result<Class<'js, CryptoKey>> {
+) -> Result<Class<'js, CryptoKey<'js>>> {
     let format = match format {
         KeyFormat::Raw => KeyFormatData::Raw(ObjectBytes::from_js(&ctx, key_data)?),
         KeyFormat::Pkcs8 => KeyFormatData::Pkcs8(ObjectBytes::from_js(&ctx, key_data)?),
@@ -37,7 +37,7 @@ pub fn import_key<'js>(
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
-) -> Result<Class<'js, CryptoKey>> {
+) -> Result<Class<'js, CryptoKey<'js>>> {
     let mut kind = KeyKind::Public;
     let mut data = Vec::new();
 

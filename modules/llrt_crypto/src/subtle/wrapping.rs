@@ -18,13 +18,13 @@ use super::{
 pub async fn subtle_wrap_key<'js>(
     ctx: Ctx<'js>,
     format: KeyFormat,
-    key: Class<'js, CryptoKey>,
-    wrapping_key: Class<'js, CryptoKey>,
+    key: Class<'js, CryptoKey<'js>>,
+    wrapping_key: Class<'js, CryptoKey<'js>>,
     wrap_algo: EncryptionAlgorithm,
 ) -> Result<ArrayBuffer<'js>> {
-    let key = key.borrow();
+    let mut key = key.borrow_mut();
 
-    let export = export_key(&ctx, format, &key)?;
+    let export = export_key(&ctx, format, &mut key)?;
 
     let (bytes, padding) = match export {
         ExportOutput::Bytes(bytes) => (bytes, 0),
@@ -53,12 +53,12 @@ pub async fn subtle_wrap_key<'js>(
 pub async fn subtle_unwrap_key<'js>(
     format: KeyFormat,
     wrapped_key: ArrayBuffer<'js>,
-    unwrapping_key: Class<'js, CryptoKey>,
+    unwrapping_key: Class<'js, CryptoKey<'js>>,
     unwrap_algo: EncryptionAlgorithm,
     unwrapped_key_algo: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
-) -> Result<Class<'js, CryptoKey>> {
+) -> Result<Class<'js, CryptoKey<'js>>> {
     let unwrapping_key = unwrapping_key.borrow();
     let ctx = wrapped_key.ctx().clone();
     unwrapping_key.check_validity("unwrapKey").or_throw(&ctx)?;

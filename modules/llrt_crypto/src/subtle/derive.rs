@@ -32,7 +32,7 @@ impl hkdf::KeyType for HkdfOutput {
 pub async fn subtle_derive_bits<'js>(
     ctx: Ctx<'js>,
     algorithm: DeriveAlgorithm,
-    base_key: Class<'js, CryptoKey>,
+    base_key: Class<'js, CryptoKey<'js>>,
     length: u32,
 ) -> Result<ArrayBuffer<'js>> {
     let base_key = base_key.borrow();
@@ -172,11 +172,11 @@ fn derive_bits(
 pub async fn subtle_derive_key<'js>(
     ctx: Ctx<'js>,
     algorithm: DeriveAlgorithm,
-    base_key: Class<'js, CryptoKey>,
+    base_key: Class<'js, CryptoKey<'js>>,
     derived_key_algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
-) -> Result<Class<'js, CryptoKey>> {
+) -> Result<Class<'js, CryptoKey<'js>>> {
     let KeyAlgorithmWithUsages {
         algorithm: derived_key_algorithm,
         name,

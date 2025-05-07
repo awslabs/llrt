@@ -847,4 +847,22 @@ describe("web-platform-tests", () => {
       });
     });
   });
+  describe("WebCrypto", () => {
+    describe("cyrpto-tests", () => {
+      it("should pass crypto_key_cached_slots.https.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/webcrypto/crypto_key_cached_slots.https.any.js")
+            .default,
+          done
+        );
+      });
+      it("should pass getRandomValues.any.js tests", (done) => {
+        runTest(
+          require("./web-platform-tests/webcrypto/getRandomValues.any.js")
+            .default,
+          done
+        );
+      });
+    });
+  });
 });

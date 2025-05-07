@@ -20,6 +20,14 @@ pub struct DOMException {
     stack: String,
     code: u8,
 }
+impl DOMException {
+    pub fn throw(self, ctx: Ctx<'_>) -> rquickjs::Error {
+        match Class::instance(ctx.clone(), self) {
+            Ok(instance) => ctx.throw(instance.into_value()),
+            Err(error) => error,
+        }
+    }
+}
 
 fn add_constants(obj: &Object<'_>) -> Result<()> {
     const CONSTANTS: [(&str, u8); 25] = [

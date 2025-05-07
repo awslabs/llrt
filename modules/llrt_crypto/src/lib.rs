@@ -11,6 +11,7 @@ use std::slice;
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string};
+use llrt_exceptions::{DOMException, DOMExceptionName};
 use llrt_utils::{
     bytes::{bytes_to_typed_array, get_start_end_indexes, ObjectBytes},
     error::ErrorExtensions,
@@ -28,6 +29,7 @@ use rquickjs::{
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
+    qjs::{self},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 use subtle::SubtleCrypto;
@@ -146,12 +148,25 @@ fn random_fill_sync<'js>(
 }
 
 fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>> {
+    let array_type = unsafe { qjs::JS_GetTypedArrayType(obj.as_raw()) };
+
+    const FLOAT16_TYPED_ARRAY: i32 = qjs::JSTypedArrayEnum_JS_TYPED_ARRAY_FLOAT16 as i32;
+    const FLOAT32_TYPED_ARRAY: i32 = qjs::JSTypedArrayEnum_JS_TYPED_ARRAY_FLOAT32 as i32;
+    const FLOAT64_TYPED_ARRAY: i32 = qjs::JSTypedArrayEnum_JS_TYPED_ARRAY_FLOAT64 as i32;
+    const BIG_UINT16_TYPED_ARRAY: i32 = qjs::JSTypedArrayEnum_JS_TYPED_ARRAY_BIG_UINT64 as i32;
+
+    let mut is_array = false;
+
+    match array_type {
+        FLOAT16_TYPED_ARRAY | FLOAT32_TYPED_ARRAY | FLOAT64_TYPED_ARRAY => {
+            throw_type_mismatch_error(&ctx)?;
+        },
+        _ => is_array = array_type > -1 && array_type <= BIG_UINT16_TYPED_ARRAY,
+    }
+
     if let Some(object_bytes) = ObjectBytes::from_array_buffer(&obj)? {
-        if matches!(
-            object_bytes,
-            ObjectBytes::F64Array(_) | ObjectBytes::F32Array(_)
-        ) {
-            return Err(Exception::throw_message(&ctx, "Unsupported TypedArray"));
+        if matches!(object_bytes, ObjectBytes::DataView(_)) && !is_array {
+            throw_type_mismatch_error(&ctx)?;
         }
 
         let (array_buffer, source_length, source_offset) = object_bytes
@@ -163,10 +178,12 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             .or_throw(&ctx)?;
 
         if source_length > 0x10000 {
-            return Err(Exception::throw_message(
+            let ex = DOMException::new_with_name(
                 &ctx,
-                "QuotaExceededError: The requested length exceeds 65,536 bytes",
-            ));
+                DOMExceptionName::QuotaExceededError,
+                "The requested length exceeds 65,536 bytes".into(),
+            )?;
+            return Err(ex.throw(ctx.clone()));
         }
 
         let bytes = unsafe {
@@ -177,6 +194,15 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
     }
 
     Ok(obj)
+}
+
+fn throw_type_mismatch_error(ctx: &Ctx<'_>) -> Result<Error> {
+    let ex = DOMException::new_with_name(
+        ctx,
+        DOMExceptionName::TypeMismatchError,
+        "The data argument must be an integer-type TypedArray".into(),
+    )?;
+    Err(ex.throw(ctx.clone()))
 }
 
 fn uuidv4() -> String {

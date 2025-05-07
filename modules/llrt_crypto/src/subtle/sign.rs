@@ -23,7 +23,7 @@ use super::{
 pub async fn subtle_sign<'js>(
     ctx: Ctx<'js>,
     algorithm: SigningAlgorithm,
-    key: Class<'js, CryptoKey>,
+    key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let key = key.borrow();

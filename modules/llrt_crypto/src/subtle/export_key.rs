@@ -41,11 +41,11 @@ pub enum ExportOutput<'js> {
 pub async fn subtle_export_key<'js>(
     ctx: Ctx<'js>,
     format: KeyFormat,
-    key: Class<'js, CryptoKey>,
+    key: Class<'js, CryptoKey<'js>>,
 ) -> Result<Object<'js>> {
-    let key = key.borrow();
+    let mut key = key.borrow_mut();
 
-    let export = export_key(&ctx, format, &key)?;
+    let export = export_key(&ctx, format, &mut key)?;
 
     Ok(match export {
         ExportOutput::Bytes(bytes) => ArrayBuffer::new(ctx, bytes)?.into_object(),
@@ -56,7 +56,7 @@ pub async fn subtle_export_key<'js>(
 pub fn export_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormat,
-    key: &CryptoKey,
+    key: &mut CryptoKey<'js>,
 ) -> Result<ExportOutput<'js>> {
     if !key.extractable {
         return Err(Exception::throw_type(
@@ -201,11 +201,13 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
+fn export_jwk<'js>(ctx: &Ctx<'js>, key: &mut CryptoKey<'js>) -> Result<Object<'js>> {
+    let obj = Object::new(ctx.clone())?;
+    obj.set("key_ops", key.usages(ctx.clone()))?;
+
     let name = key.name.as_ref();
     let handle = key.handle.as_ref();
-    let obj = Object::new(ctx.clone())?;
-    obj.set("key_ops", key.usages())?;
+
     obj.set("ext", true)?;
     match &key.algorithm {
         KeyAlgorithm::Aes { length } => {

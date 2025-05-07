@@ -1824,6 +1824,7 @@ dependencies = [
  "llrt_buffer",
  "llrt_context",
  "llrt_encoding",
+ "llrt_exceptions",
  "llrt_json",
  "llrt_test",
  "llrt_utils",
