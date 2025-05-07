@@ -4,8 +4,9 @@ use std::rc::Rc;
 
 use llrt_utils::str_enum;
 use rquickjs::{
+    atom::PredefinedAtom,
     class::{Trace, Tracer},
-    Ctx, Result, Value,
+    Ctx, Exception, Result, Value,
 };
 
 use super::key_algorithm::KeyAlgorithm;
@@ -60,6 +61,11 @@ impl<'js> Trace<'js> for CryptoKey {
 
 #[rquickjs::methods]
 impl CryptoKey {
+    #[qjs(constructor)]
+    fn constructor(ctx: Ctx<'_>) -> Result<Self> {
+        Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
+
     #[qjs(get, rename = "type")]
     pub fn get_type(&self) -> &str {
         self.kind.as_str()
@@ -68,6 +74,11 @@ impl CryptoKey {
     #[qjs(get)]
     pub fn extractable(&self) -> bool {
         self.extractable
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(CryptoKey)
     }
 
     #[qjs(get)]

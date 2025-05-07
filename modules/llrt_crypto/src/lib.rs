@@ -30,6 +30,7 @@ use rquickjs::{
     prelude::{Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
+use subtle::SubtleCrypto;
 #[cfg(feature = "subtle-rs")]
 use subtle::{
     subtle_decrypt, subtle_derive_bits, subtle_derive_key, subtle_digest, subtle_encrypt,
@@ -182,13 +183,23 @@ fn uuidv4() -> String {
     Uuid::new_v4().format_hyphenated().to_string()
 }
 
+#[rquickjs::class]
+#[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
+struct Crypto {}
+
+#[rquickjs::methods]
+impl Crypto {
+    #[qjs(constructor)]
+    pub fn new(ctx: Ctx<'_>) -> Result<Self> {
+        Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
-    #[cfg(feature = "subtle-rs")]
-    Class::<CryptoKey>::define(&globals)?;
-
-    let crypto = Object::new(ctx.clone())?;
+    Class::<Crypto>::define(&globals)?;
+    let crypto = Class::instance(ctx.clone(), Crypto {})?;
 
     crypto.set("createHash", Func::from(Hash::new))?;
     crypto.set("createHmac", Func::from(Hmac::new))?;
@@ -201,7 +212,11 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     #[cfg(feature = "subtle-rs")]
     {
-        let subtle = Object::new(ctx.clone())?;
+        Class::<SubtleCrypto>::define(&globals)?;
+        Class::<CryptoKey>::define(&globals)?;
+
+        let subtle = Class::instance(ctx.clone(), SubtleCrypto {})?;
+
         subtle.set("decrypt", Func::from(Async(subtle_decrypt)))?;
         subtle.set("deriveKey", Func::from(Async(subtle_derive_key)))?;
         subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
