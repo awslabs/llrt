@@ -14,6 +14,7 @@ lambda = ["base"]
 base = [
   "abort",
   "assert",
+  "async-hooks",
   "buffer",
   "child-process",
   "crypto",
@@ -40,6 +41,7 @@ base = [
 # Modules
 abort = ["llrt_abort"]
 assert = ["llrt_assert"]
+async-hooks = ["llrt_async_hooks"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
 console = ["llrt_console"]
@@ -66,6 +68,7 @@ zlib = ["llrt_zlib"]
 [dependencies]
 llrt_abort = { version = "0.5.1-beta", path = "../modules/llrt_abort", optional = true }
 llrt_assert = { version = "0.5.1-beta", path = "../modules/llrt_assert", optional = true }
+llrt_async_hooks = { version = "0.5.1-beta", path = "../modules/llrt_async_hooks", optional = true }
 llrt_buffer = { version = "0.5.1-beta", path = "../modules/llrt_buffer", optional = true }
 llrt_child_process = { version = "0.5.1-beta", path = "../modules/llrt_child_process", optional = true }
 llrt_console = { version = "0.5.1-beta", path = "../modules/llrt_console", optional = true }
@@ -89,6 +92,6 @@ llrt_url = { version = "0.5.1-beta", path = "../modules/llrt_url", optional = tr
 llrt_util = { version = "0.5.1-beta", path = "../modules/llrt_util", optional = true }
 llrt_zlib = { version = "0.5.1-beta", path = "../modules/llrt_zlib", optional = true }
 llrt_utils = { version = "0.5.1-beta", path = "../libs/llrt_utils" }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
+rquickjs = { git = "https://github.com/bnoordhuis/rquickjs.git", branch = "promisehook", version = "0.9.0", features = [
   "loader",
 ], default-features = false }

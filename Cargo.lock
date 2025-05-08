@@ -1354,7 +1354,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.61.0",
 ]
 
 [[package]]
@@ -1697,6 +1697,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_async_hooks"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_hooking",
+ "llrt_utils",
+ "rquickjs",
+ "tracing",
+]
+
+[[package]]
 name = "llrt_buffer"
 version = "0.5.1-beta"
 dependencies = [
@@ -1778,6 +1788,7 @@ dependencies = [
  "llrt_build",
  "llrt_context",
  "llrt_encoding",
+ "llrt_hooking",
  "llrt_json",
  "llrt_logging",
  "llrt_modules",
@@ -1851,6 +1862,7 @@ version = "0.5.1-beta"
 dependencies = [
  "llrt_context",
  "llrt_dns_cache",
+ "llrt_hooking",
  "llrt_utils",
  "rquickjs",
 ]
@@ -1911,6 +1923,14 @@ dependencies = [
  "ring",
  "rquickjs",
  "tokio",
+]
+
+[[package]]
+name = "llrt_hooking"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_utils",
+ "rquickjs",
 ]
 
 [[package]]
@@ -1981,6 +2001,7 @@ version = "0.5.1-beta"
 dependencies = [
  "llrt_abort",
  "llrt_assert",
+ "llrt_async_hooks",
  "llrt_buffer",
  "llrt_child_process",
  "llrt_console",
@@ -2147,6 +2168,7 @@ name = "llrt_timers"
 version = "0.5.1-beta"
 dependencies = [
  "llrt_context",
+ "llrt_hooking",
  "llrt_test",
  "llrt_utils",
  "once_cell",
@@ -2372,16 +2394,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c10c2894a6fed806ade6027bcd50662746363a9589d3ec9d9bef30a4e4bc166"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "objc2-io-kit"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71c1c64d6120e51cd86033f67176b1cb66780c2efe34dec55176f77befd93c0a"
-dependencies = [
- "libc",
- "objc2-core-foundation",
 ]
 
 [[package]]
@@ -2901,7 +2913,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#3394aa3128dc2d8e73c6fc8bb064a9d48c0680ff"
+source = "git+https://github.com/bnoordhuis/rquickjs.git?branch=promisehook#3c02778338993f339983058f0b95eb04c1448c3e"
 dependencies = [
  "either",
  "indexmap",
@@ -2912,7 +2924,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#3394aa3128dc2d8e73c6fc8bb064a9d48c0680ff"
+source = "git+https://github.com/bnoordhuis/rquickjs.git?branch=promisehook#3c02778338993f339983058f0b95eb04c1448c3e"
 dependencies = [
  "async-lock",
  "chrono",
@@ -2927,7 +2939,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#3394aa3128dc2d8e73c6fc8bb064a9d48c0680ff"
+source = "git+https://github.com/bnoordhuis/rquickjs.git?branch=promisehook#3c02778338993f339983058f0b95eb04c1448c3e"
 dependencies = [
  "convert_case 0.6.0",
  "fnv",
@@ -2945,7 +2957,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#3394aa3128dc2d8e73c6fc8bb064a9d48c0680ff"
+source = "git+https://github.com/bnoordhuis/rquickjs.git?branch=promisehook#3c02778338993f339983058f0b95eb04c1448c3e"
 dependencies = [
  "bindgen",
  "cc",
@@ -3332,15 +3344,14 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.35.0"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b897c8ea620e181c7955369a31be5f48d9a9121cb59fd33ecef9ff2a34323422"
+checksum = "a4b93974b3d3aeaa036504b8eefd4c039dced109171c1ae973f1dc63b2c7e4b2"
 dependencies = [
  "libc",
  "memchr",
  "ntapi",
  "objc2-core-foundation",
- "objc2-io-kit",
  "windows",
 ]
 
@@ -3786,24 +3797,12 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
-version = "0.61.1"
+version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ee8f3d025738cb02bad7868bbb5f8a6327501e870bf51f1b455b0a2454a419"
+checksum = "12342cb4d8e3b046f3d80effd474a7a02447231330ef77d71daa6fbc40681143"
 dependencies = [
- "windows-collections",
- "windows-core 0.61.0",
- "windows-future",
- "windows-link",
- "windows-numerics",
-]
-
-[[package]]
-name = "windows-collections"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3beeceb5e5cfd9eb1d76b381630e82c4241ccd0d27f1a39ed41b2760b255c5e8"
-dependencies = [
- "windows-core 0.61.0",
+ "windows-core 0.57.0",
+ "windows-targets",
 ]
 
 [[package]]
@@ -3829,16 +3828,6 @@ dependencies = [
  "windows-link",
  "windows-result 0.3.2",
  "windows-strings",
-]
-
-[[package]]
-name = "windows-future"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a1d6bbefcb7b60acd19828e1bc965da6fcf18a7e39490c5f8be71e54a19ba32"
-dependencies = [
- "windows-core 0.61.0",
- "windows-link",
 ]
 
 [[package]]
@@ -3890,16 +3879,6 @@ name = "windows-link"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76840935b766e1b0a05c0066835fb9ec80071d4c09a16f6bd5f7e655e3c14c38"
-
-[[package]]
-name = "windows-numerics"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9150af68066c4c5c07ddc0ce30421554771e528bde427614c61038bc2c92c2b1"
-dependencies = [
- "windows-core 0.61.0",
- "windows-link",
-]
 
 [[package]]
 name = "windows-registry"
