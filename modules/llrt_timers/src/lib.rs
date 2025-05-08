@@ -318,12 +318,21 @@ pub fn poll_timers(
 
     call_vec.sort_unstable_by_key(|v| v.as_ref().map(|v| v.0));
 
+    let mut is_first_time = true;
     for item in call_vec.iter_mut() {
         if let Some(ExecutingTimer(_, ctx, timeout)) = item.take() {
             let ctx2 = unsafe { Ctx::from_raw(ctx) };
+
+            if is_first_time {
+                while ctx2.execute_pending_job() {}
+                is_first_time = false;
+            }
+
             if let Ok(timeout) = timeout.restore(&ctx2) {
                 timeout.call::<_, ()>(())?;
             }
+
+            while ctx2.execute_pending_job() {}
         }
     }
     call_vec.clear();
