@@ -5,18 +5,18 @@ use std::{env, result::Result as StdResult};
 use hyper::{http::uri::InvalidUri, Uri};
 
 use crate::environment::{ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY};
-use crate::modules::{http, net};
+use crate::modules::{fetch, net};
 
 pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Ok(env_value) = env::var(ENV_LLRT_NET_ALLOW) {
         let allow_list = build_access_list(env_value);
-        http::set_allow_list(build_http_access_list(&allow_list)?);
+        fetch::set_allow_list(build_http_access_list(&allow_list)?);
         net::set_allow_list(allow_list);
     }
 
     if let Ok(env_value) = env::var(ENV_LLRT_NET_DENY) {
         let deny_list = build_access_list(env_value);
-        http::set_deny_list(build_http_access_list(&deny_list)?);
+        fetch::set_deny_list(build_http_access_list(&deny_list)?);
         net::set_deny_list(deny_list);
     }
 

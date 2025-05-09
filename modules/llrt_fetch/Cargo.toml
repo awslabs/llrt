@@ -1,6 +1,6 @@
 [package]
-name = "llrt_http"
-description = "LLRT Module http"
+name = "llrt_fetch"
+description = "LLRT Module fetch"
 version = "0.5.1-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [lib]
-name = "llrt_http"
+name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
