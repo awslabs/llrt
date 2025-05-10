@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_false } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -16,5 +13,3 @@ promise_test(async t => {
   con.enqueue();
   assert_false(synchronous, 'write algorithm must not run synchronously');
 }, "enqueue() must not synchronously call write algorithm");
-
-};

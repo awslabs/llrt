@@ -1,8 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_throws_js, promise_rejects_exactly } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../../common/gc.js").default(ctx);
 
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
@@ -75,5 +70,3 @@ promise_test(async () => {
     'old reader should still be locking the stream even after garbage collection'));
 
 }, 'Garbage-collecting a ReadableStreamDefaultReader should not unlock its stream');
-
-};

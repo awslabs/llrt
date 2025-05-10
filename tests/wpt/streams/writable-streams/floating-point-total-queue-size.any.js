@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -88,5 +85,3 @@ function setupTestStream() {
 
   return ws.getWriter();
 }
-
-};

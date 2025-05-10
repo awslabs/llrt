@@ -1,11 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, test, assert_greater_than, assert_equals, assert_false, assert_true, assert_object_equals, assert_array_equals } = ctx;
-  
-require("../resources/test-utils.js").default(ctx);
-require("../resources/rs-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/rs-utils.js
@@ -267,5 +259,3 @@ promise_test(async () => {
   assert_array_equals(events, ['pull', 'cancel'], 'cancel should have been called');
 
 }, 'ReadableStream cancellation: underlyingSource.cancel() should called, even with pending pull');
-
-};

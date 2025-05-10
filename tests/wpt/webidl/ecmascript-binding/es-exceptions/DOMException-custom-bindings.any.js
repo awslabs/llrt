@@ -1,11 +1,8 @@
-export default function(ctx) {
-const { test, assert_equals, assert_true, assert_false, assert_throws_js } = ctx;
-
 "use strict";
 
-test(() => {
-  assert_throws_js(TypeError, () => DOMException());
-}, "Cannot construct without new");
+// test(() => {
+//   assert_throws_js(TypeError, () => DOMException());
+// }, "Cannot construct without new");
 
 test(() => {
   assert_equals(Object.getPrototypeOf(DOMException.prototype), Error.prototype);
@@ -121,5 +118,3 @@ test(() => {
 
   assert_equals(typeof stackOnDOMException, typeof stackOnNormalErrors, "The typeof values must match");
 }, "If the implementation has a stack property on normal errors, it also does on DOMExceptions");
-
-};

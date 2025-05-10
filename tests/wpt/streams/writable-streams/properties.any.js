@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_true } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -54,5 +51,3 @@ for (const method in sinkMethods) {
     });
   }, `sink method ${method} should be called even when it's located on the prototype chain`);
 }
-
-};

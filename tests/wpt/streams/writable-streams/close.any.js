@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_true, promise_rejects_exactly, assert_array_equals, assert_false, promise_rejects_js } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
@@ -474,5 +468,3 @@ promise_test(t => {
 
   return promise_rejects_js(t, TypeError, ws.close(), 'close should reject');
 }, 'close() on a stream with a pending close should reject');
-
-};

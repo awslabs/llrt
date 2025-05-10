@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { test, assert_equals, assert_true, assert_false, assert_own_property } = ctx;
-
 'use strict';
 
 test(function() {
@@ -52,5 +49,3 @@ test(function() {
     })
   })
 })
-
-};

@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -23,5 +20,3 @@ promise_test(() => {
     return writer.closed;
   });
 }, 'Piping through an identity transform stream should close the destination when the source closes');
-
-};

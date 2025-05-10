@@ -1,8 +1,3 @@
-export default function(ctx) {
-  
-require("../resources/test-utils.js").default(ctx);
-require("../resources/rs-test-templates.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/rs-test-templates.js
@@ -146,5 +141,3 @@ templatedRSTwoChunksClosedReader('ReadableStream (two chunks enqueued, then clos
 function streamAndDefaultReader(stream) {
   return { stream, reader: stream.getReader() };
 }
-
-};

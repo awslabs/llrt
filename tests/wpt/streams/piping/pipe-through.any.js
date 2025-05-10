@@ -1,10 +1,3 @@
-export default function(ctx) {
-const { test, promise_test, assert_equals, assert_true, assert_array_equals, assert_false, assert_throws_js, assert_throws_exactly } = ctx;
-
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/rs-utils.js
 // META: script=../resources/test-utils.js
@@ -336,5 +329,3 @@ test(() => {
   assert_equals(result, "readable threw");
 
 }, 'pipeThrough() should throw if readable/writable getters throw');
-
-};

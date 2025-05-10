@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_throws_js, assert_true, promise_rejects_exactly, assert_array_equals, assert_false, assert_unreached } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -278,5 +275,3 @@ test(() => {
   ws.getWriter();
   assert_true(ws.locked, 'stream should be locked');
 }, 'the locked getter should return true if the stream has a writer');
-
-};

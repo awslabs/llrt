@@ -1,4 +1,4 @@
-import { runTest } from "./runTest.js";
+import { runTestWpt } from "./runTestWpt.js";
 import fs from "fs";
 import path from "path";
 
@@ -25,7 +25,9 @@ const testFiles = [
 describe.skip("writable-streams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
-      runTest(require(`./streams/writable-streams/${file}`).default, done);
+      const filePath = path.resolve(baseDir, "streams", "writable-streams", file);
+      const sourceCode = fs.readFileSync(filePath, "utf8");
+      runTestWpt(sourceCode, done);
     });
   }
 });

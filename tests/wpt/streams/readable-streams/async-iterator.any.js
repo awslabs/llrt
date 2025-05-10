@@ -1,12 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, test, assert_equals, promise_rejects_exactly, assert_throws_js, assert_array_equals, assert_true, assert_false } = ctx;
-
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/rs-utils.js
 // META: script=../resources/test-utils.js
@@ -739,5 +730,3 @@ promise_test(async () => {
   }
   assert_array_equals(chunks, ['a', 'b', 'c']);
 }, 'close() while next() is pending');
-
-};

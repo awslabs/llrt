@@ -1,11 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, assert_equals, promise_rejects_exactly, assert_throws_js, assert_array_equals, assert_true, assert_false, promise_rejects_js, assert_not_equals } = ctx;
-
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/rs-utils.js
 // META: script=../resources/test-utils.js
@@ -781,5 +773,3 @@ promise_test(async t => {
   assert_false(result3.done, 'branch2 second read() should not be done');
   assert_typed_array_equals(result3.value, new Uint8Array([0x02, 0x03]), 'branch2 second read() value');
 }, 'ReadableStream with byte source: tee() with read({ min }) from branch1 and read() from branch2');
-
-};

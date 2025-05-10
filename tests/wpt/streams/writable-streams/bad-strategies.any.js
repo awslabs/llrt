@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_throws_js, promise_rejects_exactly, assert_unreached, assert_throws_exactly } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -96,5 +93,3 @@ test(() => {
     highWaterMark: NaN
   }), 'WritableStream constructor should throw a TypeError');
 }, 'Writable stream: invalid size beats invalid highWaterMark');
-
-};

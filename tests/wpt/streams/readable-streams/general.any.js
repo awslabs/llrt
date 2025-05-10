@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_object_equals, assert_throws_js, assert_true, assert_not_equals, promise_rejects_exactly, assert_throws_exactly, assert_array_equals, assert_false, assert_unreached } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/rs-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/rs-utils.js
@@ -844,5 +838,3 @@ promise_test(() => {
   });
 
 }, 'ReadableStream integration test: adapting an async pull source');
-
-};

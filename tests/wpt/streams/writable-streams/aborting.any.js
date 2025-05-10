@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_true, promise_rejects_exactly, assert_array_equals, assert_false, assert_not_equals, promise_rejects_js } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
@@ -1491,5 +1485,3 @@ promise_test(async t => {
 
   await promise_rejects_exactly(t, e2, writer.closed, 'closed');
 }, 'recursive abort() call');
-
-};

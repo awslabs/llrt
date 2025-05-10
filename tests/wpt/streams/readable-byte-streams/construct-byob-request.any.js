@@ -1,10 +1,3 @@
-export default function(
-  ctx
-) {
-const { test, assert_throws_js } = ctx;
-
-require("../resources/rs-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/rs-utils.js
 'use strict';
@@ -58,5 +51,3 @@ for (const controllerType of dummyTypes) {
         `ReadableByteStreamController and a ${viewType} view`);
   }
 }
-
-};

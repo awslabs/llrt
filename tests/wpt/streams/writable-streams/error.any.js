@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, promise_rejects_exactly } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -65,5 +62,3 @@ promise_test(() => {
     controller.error(error1);
   });
 }, 'controller.error() on closed stream should not throw');
-
-};

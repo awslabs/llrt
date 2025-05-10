@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { test, promise_test, assert_array_equals, assert_throws_js, promise_rejects_js } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -66,5 +63,3 @@ for (let i = 0; i < checkOrder.length; ++i) {
         'options should be touched in the right order');
   }, `pipeThrough should stop after getting ${whatShouldThrow} throws`);
 }
-
-};

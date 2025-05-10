@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { test, assert_equals, assert_true, assert_false, assert_own_property } = ctx;
-
 test(function() {
     assert_own_property(self, "DOMException", "property of global");
 
@@ -33,5 +30,3 @@ test(function() {
     assert_true(desc.configurable, "configurable");
     assert_equals(self.DOMException.prototype.constructor, self.DOMException, "equality with actual constructor");
 }, "existence and property descriptor of DOMException.prototype.constructor");
-
-};

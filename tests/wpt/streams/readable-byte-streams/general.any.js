@@ -1,11 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, test, assert_equals, promise_rejects_exactly, assert_throws_js, assert_array_equals, assert_true, assert_false, promise_rejects_js, assert_not_equals } = ctx;
-
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/rs-utils.js
 // META: script=../resources/test-utils.js
@@ -2907,5 +2899,3 @@ promise_test(async t => {
   assert_equals(view.buffer.byteLength, 10, 'result.value.buffer.byteLength');
   assert_array_equals([...new Uint8Array(view)], [20, 21, 22], 'result.value');
 }, 'ReadableStream with byte source: autoAllocateChunkSize, read(), respondWithNewView()');
-
-};
