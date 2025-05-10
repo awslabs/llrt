@@ -1,8 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, test, assert_throws_js } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -73,5 +68,3 @@ promise_test(async t => {
 
   assert_throws_js(TypeError, () => byobRequest.respondWithNewView(newView));
 }, 'ReadableStream with byte source: respondWithNewView() with a non-transferable buffer');
-
-};

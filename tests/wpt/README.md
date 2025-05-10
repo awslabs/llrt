@@ -67,10 +67,12 @@ mv <path> tests/wpt/<path>
 It's recommended to commit the added files before making any changes so we have
 a clear history.
 
-For each test script from web-platform-tests, surround the script in a closure
-to provide the "globals" the script expects. Refer to existing tests for
-examples. Try to make the minimal changes possible and don't use any
-auto-formatting!
+The test scripts in web-platform-tests can be used as is, with the exception of a few resources.
+
+Please refer to the existing tests for how to call them.
+
+They can be easily replaced with the latest test suites,so please update to the latest version
+as much as possible.
 
 If you are using vscode (Visual Studio Code), it is very convenient to open
 the `tests/wpt` directory directly, as this will enable the settings

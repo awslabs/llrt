@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_object_equals } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -209,5 +206,3 @@ promise_test(() => {
     });
 
 }, 'Correctly governs a ReadableStreamController\'s desiredSize property (HWM = 4)');
-
-};

@@ -1,10 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_array_equals, promise_rejects_exactly } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/rs-utils.js
@@ -302,5 +295,3 @@ promise_test(() => {
     ]);
   });
 }, 'Piping to a WritableStream that does not consume the writes fast enough exerts backpressure on the ReadableStream');
-
-};

@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_throws_js, promise_rejects_exactly, assert_array_equals, assert_throws_exactly, assert_not_equals } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -156,5 +153,3 @@ test(() => {
   assert_throws_js(TypeError, () => new WritableStreamDefaultWriter(stream),
                    'constructor should throw a TypeError exception');
 }, 'WritableStreamDefaultWriter constructor should throw when stream argument is locked');
-
-};

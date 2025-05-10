@@ -1,8 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, promise_rejects_exactly, assert_throws_js } = ctx;
-
 // META: global=window,worker,shadowrealm
 
 promise_test(async t => {
@@ -24,5 +19,3 @@ promise_test(async t => {
   const reader = rs.getReader({ mode: 'byob' });
   await promise_rejects_exactly(t, error, reader.read(new Uint8Array(1)));
 }, 'enqueue after detaching byobRequest.view.buffer should throw');
-
-};

@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_array_equals, promise_rejects_exactly, assert_false } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
@@ -593,5 +587,3 @@ promise_test(t => {
     ]);
   });
 }, 'Closing must be propagated forward: erroring the writable while flushing pending writes should error pipeTo');
-
-};

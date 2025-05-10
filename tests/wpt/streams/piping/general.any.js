@@ -1,8 +1,3 @@
-export default function(ctx) {
-const { test, promise_test, assert_equals, assert_true, assert_array_equals, promise_rejects_js, assert_false, assert_unreached } = ctx;
-
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/recording-streams.js
 'use strict';
@@ -215,5 +210,3 @@ promise_test(t => {
 
   return rs.pipeTo(ws, null);
 }, 'pipeTo() promise should resolve if null is passed');
-
-};

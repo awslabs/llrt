@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { test, assert_equals, assert_false } = ctx;
-
 'use strict';
 
 test(function() {
@@ -141,5 +138,3 @@ test(function() {
                   "Should have matching legacy code from error names table");
   },'new DOMexception("msg", "' + test_case.name + '")');
 });
-
-};

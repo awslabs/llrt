@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_array_equals, promise_rejects_exactly } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
@@ -231,5 +225,3 @@ promise_test(() => {
   });
 
 }, 'Piping from a closed readable stream to a closed writable stream');
-
-};

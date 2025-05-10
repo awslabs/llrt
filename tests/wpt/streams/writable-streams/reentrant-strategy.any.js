@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, promise_rejects_exactly, assert_array_equals, promise_rejects_js } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
@@ -178,5 +172,3 @@ promise_test(t => {
         assert_array_equals(ws.events, ['write', 0, 'close'], 'sink.write() should only be called once');
       });
 }, 'original reader should error when new reader is created within strategy.size()');
-
-};

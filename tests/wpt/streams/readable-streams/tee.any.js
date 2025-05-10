@@ -1,11 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals, assert_object_equals, assert_true, assert_not_equals, promise_rejects_exactly, assert_array_equals } = ctx;
-
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-require("../resources/rs-test-templates.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/rs-utils.js
 // META: script=../resources/test-utils.js
@@ -486,5 +478,3 @@ promise_test(async () => {
   assert_object_equals(await branch2Reads[1], { value: undefined, done: true }, 'second read() from branch2 should be done');
 
 }, 'ReadableStream teeing: enqueue() and close() while both branches are pulling');
-
-};

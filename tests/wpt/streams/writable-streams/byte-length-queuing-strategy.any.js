@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_true } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -29,5 +26,3 @@ promise_test(t => {
 
   return writer.close();
 }, 'Closing a writable stream with in-flight writes below the high water mark delays the close call properly');
-
-};

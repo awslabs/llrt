@@ -1,8 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_array_equals, promise_rejects_js, promise_rejects_exactly, assert_unreached } = ctx;
-
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/recording-streams.js
 'use strict';
@@ -156,5 +151,3 @@ promise_test(t => {
 
 }, 'Closing must be propagated backward: starts closed; preventCancel = true, preventAbort = true, preventClose ' +
    '= true');
-
-};

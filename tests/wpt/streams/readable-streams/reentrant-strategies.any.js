@@ -1,10 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_throws_js, assert_true, assert_not_equals, promise_rejects_exactly, assert_array_equals, assert_false } = ctx;
-
-require("../resources/recording-streams.js").default(ctx);
-require("../resources/rs-utils.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/recording-streams.js
 // META: script=../resources/rs-utils.js
@@ -269,5 +262,3 @@ promise_test(() => {
     readableStreamToArray(branch2).then(array => assert_array_equals(array, ['a'], 'branch2 should have one chunk'))
   ]);
 }, 'tee() inside size() should work');
-
-};

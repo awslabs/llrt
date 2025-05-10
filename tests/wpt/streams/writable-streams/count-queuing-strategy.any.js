@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_equals } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -125,5 +122,3 @@ promise_test(() => {
     assert_equals(writer.desiredSize, -1, 'desiredSize should be -1 after 9th write()');
   });
 }, 'Correctly governs the value of a WritableStream\'s state property (HWM = 4)');
-
-};

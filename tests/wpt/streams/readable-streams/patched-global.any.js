@@ -1,6 +1,3 @@
-export default function(ctx) {
-const { promise_test, test, assert_true } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -143,5 +140,3 @@ test(t => {
   rs.pipeTo(ws);
   readableController.close();
 }, 'pipeTo() should not call Promise.prototype.then()');
-
-};

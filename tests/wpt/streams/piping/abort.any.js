@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_equals, assert_true, promise_rejects_exactly, assert_array_equals, promise_rejects_js, promise_rejects_dom } = ctx;
-
-require("../resources/recording-streams.js").default(ctx);
-require("../resources/test-utils.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/recording-streams.js
 // META: script=../resources/test-utils.js
@@ -452,5 +446,3 @@ promise_test(async t => {
   await delay(0);
   assert_true(aborted, "pipeTo should be aborted now");
 }, "pipeTo on a teed readable byte stream should only be aborted when both branches are aborted");
-
-};

@@ -1,9 +1,3 @@
-export default function(ctx) {
-const { promise_test, assert_array_equals } = ctx;
-
-require("../resources/test-utils.js").default(ctx);
-require("../resources/recording-streams.js").default(ctx);
-
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
@@ -72,5 +66,3 @@ promise_test(async t => {
   assert_array_equals(intercepted, [], 'nothing should have been intercepted');
   assert_array_equals(ws.events, ['write', 'a', 'close'], 'written chunk should be "a"');
 }, 'tee should not be observable');
-
-};

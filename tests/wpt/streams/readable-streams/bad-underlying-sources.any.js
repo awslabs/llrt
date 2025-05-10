@@ -1,8 +1,3 @@
-export default function(
-  ctx
-) {
-const { promise_test, test, assert_equals, assert_true, assert_object_equals, assert_throws_exactly, promise_rejects_exactly, assert_throws_js } = ctx;
-
 // META: global=window,worker,shadowrealm
 'use strict';
 
@@ -402,5 +397,3 @@ promise_test(t => {
   });
 
 }, 'read should not error if it dequeues and pull() throws');
-
-};

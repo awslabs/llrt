@@ -1,8 +1,12 @@
-
+import subsetTests from "./common/subset-tests.js";
+import gc from "./common/gc.js";
 import idlharness from "./resources/idlharness.js";
 import testharness from "./resources/testharness.js";
-import subsetTests from "./common/subset-tests.js";
 import encodings from "./encoding/resources/encodings.js";
+import recordingStreams from "./streams/resources/recording-streams.js";
+import testUtils from "./streams/resources/test-utils.js";
+import rsUtils from "./streams/resources/rs-utils.js";
+import rsTestTemplates from "./streams/resources/rs-test-templates.js";
 
 export const runTestWpt = (testSource, done) => {
   const context = {
@@ -30,8 +34,13 @@ export const runTestWpt = (testSource, done) => {
   };
 
   idlharness(context);
+  gc(context);
   testharness(context);
   subsetTests(context);
+  recordingStreams(context);
+  testUtils(context);
+  rsUtils(context);
+  rsTestTemplates(context);
 
   context.setup({
     explicit_done: true,
