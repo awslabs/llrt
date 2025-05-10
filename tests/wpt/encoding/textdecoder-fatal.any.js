@@ -1,11 +1,3 @@
-export default function({
-    assert_equals,
-    assert_false,
-    assert_throws_js,
-    assert_true,
-    test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: Fatal flag
 
@@ -87,5 +79,3 @@ test(() => {
                 '♥',
                 'decode() should not throw on subsequent call');
 }, 'Error seen with fatal does not prevent future decodes');
-
-};

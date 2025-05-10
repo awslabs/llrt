@@ -1,8 +1,3 @@
-export default function({
-  assert_equals,
-  test,
-}) {
-
 test(() => {
   const params = new URLSearchParams("a=1&b=2&a=3");
   assert_equals(params.size, 3);
@@ -37,5 +32,3 @@ test(() => {
   url.search = "?";
   assert_equals(url.searchParams.size, 0);
 }, "URLSearchParams's size when obtained from a URL and using .search");
-
-};

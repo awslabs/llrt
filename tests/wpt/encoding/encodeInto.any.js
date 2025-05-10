@@ -1,10 +1,3 @@
-export default function({
-  assert_equals,
-  assert_throws_js,
-  createBuffer,
-  test,
-}) {
-
 // META: global=window,worker
 // META: script=/common/sab.js
 
@@ -168,5 +161,3 @@ export default function({
 //   assert_equals(read, 0);
 //   assert_equals(written, 0);
 // }, "encodeInto() and a detached output buffer");
-
-};

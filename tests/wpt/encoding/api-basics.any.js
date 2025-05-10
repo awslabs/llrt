@@ -1,10 +1,3 @@
-export default function({
-  assert_array_equals,
-  assert_equals,
-  test,
-  testDecodeSample,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: Basics
 
@@ -58,5 +51,3 @@ testDecodeSample(
   sample,
   [0x7A, 0x00, 0xA2, 0x00, 0x34, 0x6C, 0x34, 0xD8, 0x1E, 0xDD, 0xFF, 0xF8, 0xFF, 0xDB, 0xFD, 0xDF, 0xFE, 0xFF]
 );
-
-};

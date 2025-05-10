@@ -1,9 +1,3 @@
-export default function({
-    assert_throws_js,
-    encodings_table,
-    test,
-}) {
-
 // META: title=Encoding API: replacement encoding
 // META: script=resources/encodings.js
 
@@ -18,5 +12,3 @@ encodings_table.forEach(function(section) {
         });
     });
 });
-
-};

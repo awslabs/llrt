@@ -1,13 +1,3 @@
-export default function({
-  assert_equals,
-  assert_throws_js,
-  assert_true,
-  fetch,
-  promise_test,
-  subsetTestByKey,
-  test,
-}) {
-
 // META: script=/common/subset-tests-by-key.js
 // META: timeout=long
 // META: variant=?include=file
@@ -61,5 +51,3 @@ function runURLTests(urlTests) {
 }
 
 promise_test(() => fetch("resources/urltestdata.json").then(res => res.json()).then(runURLTests), "Loading data…");
-
-};

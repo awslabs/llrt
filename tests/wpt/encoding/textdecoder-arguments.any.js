@@ -1,8 +1,3 @@
-export default function({
-  assert_equals,
-  test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: TextDecoder decode() optional arguments
 
@@ -53,5 +48,3 @@ test(t => {
   //   'Undefined as first arg should flush the stream');
 
 }, 'TextDecoder decode() with undefined and options');
-
-};

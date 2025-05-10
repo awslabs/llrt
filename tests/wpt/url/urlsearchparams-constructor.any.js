@@ -1,12 +1,3 @@
-export default function({
-    assert_array_equals,
-    assert_equals,
-    assert_false,
-    assert_throws_js,
-    assert_true,
-    test,
-}) {
-
 test(function() {
     var params = new URLSearchParams();
     assert_equals(params + '', '');
@@ -205,4 +196,3 @@ test(() => {
   assert_equals(params2.get("a"), "b")
 }, "Custom [Symbol.iterator]")
 
-};

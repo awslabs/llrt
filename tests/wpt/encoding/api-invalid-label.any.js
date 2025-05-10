@@ -1,12 +1,3 @@
-export default function({
-  assert_throws_js,
-  encodings_table,
-  format_value,
-  setup,
-  subsetTest,
-  test,
-}) {
-
 // META: title=Encoding API: invalid label
 // META: timeout=long
 // META: variant=?1-1000
@@ -36,5 +27,3 @@ tests.forEach(function(input) {
     assert_throws_js(RangeError, function() { new TextDecoder(input); });
   }, 'Invalid label ' + format_value(input) + ' should be rejected by TextDecoder.');
 });
-
-};

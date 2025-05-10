@@ -1,9 +1,3 @@
-export default function({
-    assert_equals,
-    assert_throws_js,
-    test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: End-of-file
 
@@ -49,5 +43,3 @@ test(function() {
 //     assert_equals(decoder.decode(even), '\u0000');
 
 // }, 'Fatal flag, streaming cases');
-
-};

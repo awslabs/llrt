@@ -1,10 +1,3 @@
-export default function({
-    assert_equals,
-    assert_false,
-    assert_true,
-    test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: TextDecoder ignoreBOM option
 
@@ -57,5 +50,3 @@ test(function() {
     assert_true(new TextDecoder('utf-8', {ignoreBOM: true}).ignoreBOM, 'The ignoreBOM attribute can be set using an option.');
 
 }, 'The ignoreBOM attribute of TextDecoder');
-
-};

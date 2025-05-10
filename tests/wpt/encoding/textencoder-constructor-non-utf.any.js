@@ -1,9 +1,3 @@
-export default function({
-    assert_equals,
-    encodings_table,
-    test,
-}) {
-
 // META: title=Encoding API: Legacy encodings
 // META: script=resources/encodings.js
 
@@ -21,5 +15,3 @@ encodings_table.forEach(function(section) {
         }, 'Encoding argument not considered for encode: ' + encoding.name);
     });
 });
-
-};

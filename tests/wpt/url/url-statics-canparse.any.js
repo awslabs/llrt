@@ -1,8 +1,3 @@
-export default function({
-  assert_equals,
-  test,
-}) {
-
 // This intentionally does not use resources/urltestdata.json to preserve resources.
 [
   {
@@ -45,5 +40,3 @@ export default function({
     assert_equals(URL.canParse(url, base), expected);
   }, `URL.canParse(${url}, ${base})`);
 });
-
-};

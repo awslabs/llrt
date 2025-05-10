@@ -1,8 +1,3 @@
-export default function({
-    assert_equals,
-    test,
-}) {
-
 test(function() {
     var params = new URLSearchParams();
     params.append('a', 'b c');
@@ -147,5 +142,3 @@ test(() => {
 
     assert_equals(params.toString(), "a%0Ab=c%0Dd&e%0A%0Df=g%0D%0Ah");
 }, 'URLSearchParams must not do newline normalization');
-
-};
