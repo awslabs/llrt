@@ -144,6 +144,11 @@ impl Headers {
         }
         Ok(())
     }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(Headers)
+    }
 }
 
 impl Headers {

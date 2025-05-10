@@ -153,7 +153,7 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use rquickjs::qjs;
 
     use crate::libs::utils::result::ResultExt;
-    use crate::modules::http::HTTP_CLIENT;
+    use crate::modules::fetch::HTTP_CLIENT;
     use crate::runtime_client::{check_client_inited, mark_client_inited};
 
     if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {

@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use hyper::Uri;
 use rquickjs::{Ctx, Error, Exception, Result};
 use std::sync::OnceLock;

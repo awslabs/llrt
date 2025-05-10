@@ -17,6 +17,7 @@ use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
+use llrt_buffer::Blob;
 use llrt_dns_cache::CachedDnsResolver;
 use llrt_utils::{class::CustomInspectExtension, result::ResultExt};
 use once_cell::sync::Lazy;
@@ -27,16 +28,14 @@ use rustls::{
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
-use self::{file::File, headers::Headers, request::Request, response::Response};
+use self::{headers::Headers, request::Request, response::Response};
 
-mod blob;
 mod body;
-mod fetch;
-mod file;
-mod headers;
+pub mod fetch;
+pub mod headers;
 mod incoming;
-mod request;
-mod response;
+pub mod request;
+pub mod response;
 mod security;
 
 static CONNECTION_POOL_IDLE_TIMEOUT: AtomicU64 = AtomicU64::new(15);
@@ -175,10 +174,6 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define_with_custom_inspect(&globals)?;
-
-    blob::init(ctx, &globals)?;
-
-    Class::<File>::define(&globals)?;
 
     Ok(())
 }

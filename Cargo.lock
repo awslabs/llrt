@@ -1899,22 +1899,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "llrt_fs"
-version = "0.5.1-beta"
-dependencies = [
- "either",
- "llrt_buffer",
- "llrt_encoding",
- "llrt_path",
- "llrt_test",
- "llrt_utils",
- "ring",
- "rquickjs",
- "tokio",
-]
-
-[[package]]
-name = "llrt_http"
+name = "llrt_fetch"
 version = "0.5.1-beta"
 dependencies = [
  "bytes",
@@ -1925,6 +1910,7 @@ dependencies = [
  "hyper-util",
  "itoa",
  "llrt_abort",
+ "llrt_buffer",
  "llrt_compression",
  "llrt_context",
  "llrt_dns_cache",
@@ -1944,6 +1930,21 @@ dependencies = [
  "tracing",
  "webpki-roots",
  "wiremock",
+]
+
+[[package]]
+name = "llrt_fs"
+version = "0.5.1-beta"
+dependencies = [
+ "either",
+ "llrt_buffer",
+ "llrt_encoding",
+ "llrt_path",
+ "llrt_test",
+ "llrt_utils",
+ "ring",
+ "rquickjs",
+ "tokio",
 ]
 
 [[package]]
@@ -1988,8 +1989,8 @@ dependencies = [
  "llrt_dns",
  "llrt_events",
  "llrt_exceptions",
+ "llrt_fetch",
  "llrt_fs",
- "llrt_http",
  "llrt_navigator",
  "llrt_net",
  "llrt_os",

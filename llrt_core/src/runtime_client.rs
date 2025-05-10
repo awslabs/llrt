@@ -33,7 +33,7 @@ use crate::libs::{
 
 #[cfg(not(test))]
 use crate::modules::console::log_error;
-use crate::modules::http::{HyperClient, HTTP_CLIENT};
+use crate::modules::fetch::{HyperClient, HTTP_CLIENT};
 use crate::utils::latch::Latch;
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";

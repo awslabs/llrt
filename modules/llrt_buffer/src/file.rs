@@ -1,7 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::time;
-use rquickjs::{class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result, Value};
+use rquickjs::{
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result,
+    Value,
+};
 
 use super::blob::Blob;
 
@@ -75,5 +78,10 @@ impl File {
 
     pub async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         self.blob.bytes(ctx).await
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(File)
     }
 }
