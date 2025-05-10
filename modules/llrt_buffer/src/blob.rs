@@ -3,8 +3,8 @@
 use std::ops::RangeInclusive;
 
 use rquickjs::{
-    class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object,
-    Result, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception,
+    FromJs, Object, Result, TypedArray, Value,
 };
 
 use super::file::File;
@@ -119,6 +119,11 @@ impl Blob {
             mime_type,
             data: data.to_vec(),
         }
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(Blob)
     }
 }
 
