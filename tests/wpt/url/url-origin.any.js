@@ -1,10 +1,3 @@
-export default function({
-  assert_equals,
-  fetch,
-  promise_test,
-  test,
-}) {
-
 promise_test(() => fetch("resources/urltestdata.json").then(res => res.json()).then(runURLTests), "Loading data…");
 
 function runURLTests(urlTests) {
@@ -30,5 +23,3 @@ function runURLTests(urlTests) {
     }, `Origin parsing: <${expected.input}> ${base ? "against <" + base + ">" : "without base"}`);
   }
 }
-
-};

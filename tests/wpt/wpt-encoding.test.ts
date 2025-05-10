@@ -1,4 +1,9 @@
-import { runTest } from "./runTest.js";
+import { runTestWpt } from "./runTestWpt.js";
+import fs from "fs";
+import path from "path";
+
+const CWD = process.cwd();
+const baseDir = `${CWD}/tests/wpt`;
 
 const testFiles = [
   "api-basics.any.js",
@@ -14,7 +19,9 @@ const testFiles = [
 describe("encoding", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
-      runTest(require(`./encoding/${file}`).default, done);
+      const filePath = path.resolve(baseDir, "encoding", file);
+      const sourceCode = fs.readFileSync(filePath, "utf8");
+      runTestWpt(sourceCode, done);
     });
   }
 });

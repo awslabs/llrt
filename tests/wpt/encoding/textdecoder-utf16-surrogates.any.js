@@ -1,9 +1,3 @@
-export default function({
-    assert_equals,
-    assert_throws_js,
-    test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: UTF-16 surrogate handling
 
@@ -50,5 +44,3 @@ bad.forEach(function(t) {
         });
     }, t.encoding + ' - ' + t.name + ' (fatal flag set)');
 });
-
-};

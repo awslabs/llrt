@@ -1,9 +1,3 @@
-export default function({
-  assert_equals,
-  assert_not_equals,
-  test,
-}) {
-
 // This intentionally does not use resources/urltestdata.json to preserve resources.
 [
   {
@@ -54,5 +48,3 @@ export default function({
 test(() => {
   assert_not_equals(URL.parse("https://example/"), URL.parse("https://example/"));
 }, `URL.parse() should return a unique object`);
-
-};

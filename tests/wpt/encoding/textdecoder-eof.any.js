@@ -1,8 +1,3 @@
-export default function({
-  assert_equals,
-  test,
-}) {
-
 test(() => {
   // Truncated sequences
   assert_equals(new TextDecoder().decode(new Uint8Array([0xF0])), "\uFFFD");
@@ -43,5 +38,3 @@ test(() => {
 //   assert_equals(decoder.decode(new Uint8Array([0x92]), { stream: true }), "\uFFFD");
 //   assert_equals(decoder.decode(), "");
 // }, "TextDecoder end-of-queue handling using stream: true");
-
-};

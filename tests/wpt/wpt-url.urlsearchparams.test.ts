@@ -1,4 +1,9 @@
-import { runTest } from "./runTest.js";
+import { runTestWpt } from "./runTestWpt.js";
+import fs from "fs";
+import path from "path";
+
+const CWD = process.cwd();
+const baseDir = `${CWD}/tests/wpt`;
 
 const testFiles = [
   "urlsearchparams-append.any.js",
@@ -17,7 +22,9 @@ const testFiles = [
 describe("urlsearchparams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
-      runTest(require(`./url/${file}`).default, done);
+      const filePath = path.resolve(baseDir, "url", file);
+      const sourceCode = fs.readFileSync(filePath, "utf8");
+      runTestWpt(sourceCode, done);
     });
   }
 });

@@ -1,10 +1,3 @@
-export default function({
-    assert_equals,
-    assert_throws_js,
-    subsetTest,
-    test,
-}) {
-
 // META: timeout=long
 // META: title=Encoding API: Fatal flag for single byte encodings
 // META: timeout=long
@@ -65,5 +58,3 @@ singleByteEncodings.forEach(function(t) {
         }
     }
 });
-
-};

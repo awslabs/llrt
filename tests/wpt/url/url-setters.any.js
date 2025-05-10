@@ -1,11 +1,3 @@
-export default function({
-  assert_equals,
-  fetch,
-  promise_test,
-  subsetTestByKey,
-  test,
-}) {
-
 // META: script=/common/subset-tests-by-key.js
 // META: variant=?include=file
 // META: variant=?include=javascript
@@ -40,5 +32,3 @@ function runURLSettersTests(all_test_cases) {
     }
   }
 }
-
-};

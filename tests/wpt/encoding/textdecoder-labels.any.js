@@ -1,9 +1,3 @@
-export default function({
-  assert_equals,
-  encodings_table,
-  test,
-}) {
-
 // META: title=Encoding API: Encoding labels
 // META: script=resources/encodings.js
 // META: timeout=long
@@ -37,5 +31,3 @@ encodings_table.forEach(function(section) {
     });
   });
 });
-
-};

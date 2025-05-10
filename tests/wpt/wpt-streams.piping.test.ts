@@ -1,4 +1,9 @@
 import { runTest } from "./runTest.js";
+import fs from "fs";
+import path from "path";
+
+const CWD = process.cwd();
+const baseDir = `${CWD}/tests/wpt`;
 
 const testFiles = [
   "abort.any.js",

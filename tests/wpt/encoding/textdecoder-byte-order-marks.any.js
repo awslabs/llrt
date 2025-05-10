@@ -1,9 +1,3 @@
-export default function({
-    assert_equals,
-    assert_not_equals,
-    test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: Byte-order marks
 
@@ -47,5 +41,3 @@ testCases.forEach(function(t) {
 
     }, 'Byte-order marks: ' + t.encoding);
 });
-
-};

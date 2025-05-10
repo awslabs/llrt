@@ -1,9 +1,3 @@
-export default function({
-    assert_array_equals,
-    assert_equals,
-    test,
-}) {
-
 test(function() {
     var params = new URLSearchParams('a=1&b=2&c=3');
     var keys = [];
@@ -80,5 +74,3 @@ test(function() {
     assert_array_equals(seen, ["param0", "param2"], "param1 should not have been seen by the loop");
     assert_equals(String(searchParams), "param1=1", "param1 should remain");
 }, "delete every param seen during iteration");
-
-};

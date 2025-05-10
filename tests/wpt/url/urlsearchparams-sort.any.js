@@ -1,9 +1,3 @@
-export default function({
-  assert_array_equals,
-  assert_equals,
-  test,
-}) {
-
 [
   {
     "input": "z=b&a=b&z=a&a=a",
@@ -62,5 +56,3 @@ test(function() {
   assert_equals(url.href, "http://example.com/")
   assert_equals(url.search, "")
 }, "Sorting non-existent params removes ? from URL")
-
-};

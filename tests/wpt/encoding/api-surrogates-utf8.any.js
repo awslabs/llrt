@@ -1,9 +1,3 @@
-export default function({
-    assert_array_equals,
-    assert_equals,
-    test,
-}) {
-
 // META: global=window,dedicatedworker,shadowrealm
 // META: title=Encoding API: Invalid UTF-16 surrogates with UTF-8 encoding
 
@@ -53,5 +47,3 @@ badStrings.forEach(function(t) {
         assert_equals(new TextDecoder('utf-8').decode(encoded), t.decoded);
     }, 'Invalid surrogates encoded into UTF-8: ' + t.name);
 });
-
-};
