@@ -22,7 +22,7 @@ use rquickjs::{
 use tokio::select;
 use tokio::sync::Semaphore;
 
-use super::{blob::Blob, headers::Headers, response::Response, security::ensure_url_access};
+use super::{headers::Headers, response::Response, security::ensure_url_access, Blob};
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 

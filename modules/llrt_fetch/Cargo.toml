@@ -33,6 +33,7 @@ hyper-rustls = { version = "0.27", default-features = false, features = [
 hyper-util = "0.1"
 itoa = "1"
 llrt_abort = { version = "0.5.1-beta", path = "../llrt_abort" }
+llrt_buffer = { version = "0.5.1-beta", path = "../llrt_buffer" }
 llrt_compression = { version = "0.5.1-beta", path = "../../libs/llrt_compression", default-features = false }
 llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
 llrt_dns_cache = { version = "0.5.1-beta", path = "../../libs/llrt_dns_cache" }

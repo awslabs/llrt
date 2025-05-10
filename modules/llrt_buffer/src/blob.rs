@@ -3,10 +3,8 @@
 use std::ops::RangeInclusive;
 
 use rquickjs::{
-    atom::PredefinedAtom,
-    class::{JsClass, Trace},
-    function::{Func, Opt},
-    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
+    class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object,
+    Result, TypedArray, Value,
 };
 
 use super::file::File;
@@ -209,15 +207,4 @@ fn bytes_from_parts<'js>(
         }
     }
     Ok(data)
-}
-
-pub fn init<'js>(ctx: &Ctx<'js>, globals: &Object<'js>) -> Result<()> {
-    if let Some(constructor) = Class::<Blob>::create_constructor(ctx)? {
-        constructor.prop(
-            PredefinedAtom::SymbolHasInstance,
-            Func::from(Blob::has_instance),
-        )?;
-        let _ = &globals.set(Blob::NAME, constructor)?;
-    }
-    Ok(())
 }

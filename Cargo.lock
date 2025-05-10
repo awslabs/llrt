@@ -1910,6 +1910,7 @@ dependencies = [
  "hyper-util",
  "itoa",
  "llrt_abort",
+ "llrt_buffer",
  "llrt_compression",
  "llrt_context",
  "llrt_dns_cache",
