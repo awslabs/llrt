@@ -178,10 +178,10 @@ run-cli: js
 test: export JS_MINIFY = 0
 test: js
 	cargo run -- test -d bundle/js/__tests__/unit
-	cargo run -- test -d bundle/js/__tests__/wpt
 
 test-wpt: export JS_MINIFY = 0
 test-wpt: js
+	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"
 	cargo run -- test -d bundle/js/__tests__/wpt
 
 test-e2e: export JS_MINIFY = 0

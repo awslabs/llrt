@@ -14,6 +14,7 @@ const testFiles = [
   "url-statics-canparse.any.js",
   "url-statics-parse.any.js",
   "url-tojson.any.js",
+  "urlencoded-parser.any.js",
 ];
 
 describe("url", () => {

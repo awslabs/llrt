@@ -15,6 +15,7 @@ const testFiles = [
   "count-queuing-strategy.any.js",
   "error.any.js",
   "floating-point-total-queue-size.any.js",
+  "garbage-collection.any.js",
   "general.any.js",
   "properties.any.js",
   "reentrant-strategy.any.js",
@@ -25,7 +26,12 @@ const testFiles = [
 describe.skip("writable-streams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
-      const filePath = path.resolve(baseDir, "streams", "writable-streams", file);
+      const filePath = path.resolve(
+        baseDir,
+        "streams",
+        "writable-streams",
+        file
+      );
       const sourceCode = fs.readFileSync(filePath, "utf8");
       runTestWpt(sourceCode, done);
     });

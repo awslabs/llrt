@@ -8,14 +8,15 @@ const baseDir = `${CWD}/tests/wpt`;
 const testFiles = [
   "textdecoder-arguments.any.js",
   "textdecoder-byte-order-marks.any.js",
-  // "textdecoder-copy.any.js", // stream option not implemented
+  "textdecoder-copy.any.js",
   "textdecoder-eof.any.js",
-  // "textdecoder-fatal-single-byte.any.js", // Current support is utf8 and utf16le
+  // SKIP: Only some single-byte codes are supported
+  // "textdecoder-fatal-single-byte.any.js",
   "textdecoder-fatal-streaming.any.js",
   "textdecoder-fatal.any.js",
   "textdecoder-ignorebom.any.js",
   "textdecoder-labels.any.js",
-  // "textdecoder-streaming.any.js", // stream option not implemented
+  "textdecoder-streaming.any.js",
   "textdecoder-utf16-surrogates.any.js",
 ];
 

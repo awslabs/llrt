@@ -1,135 +1,147 @@
-export default function ({ }) {
+export default function ({}) {
+  // 'use strict';
 
-// 'use strict';
+  self.recordingReadableStream = (extras = {}, strategy) => {
+    let controllerToCopyOver;
+    const stream = new ReadableStream(
+      {
+        type: extras.type,
+        start(controller) {
+          controllerToCopyOver = controller;
 
-self.recordingReadableStream = (extras = {}, strategy) => {
-  let controllerToCopyOver;
-  const stream = new ReadableStream({
-    type: extras.type,
-    start(controller) {
-      controllerToCopyOver = controller;
+          if (extras.start) {
+            return extras.start(controller);
+          }
 
-      if (extras.start) {
-        return extras.start(controller);
-      }
+          return undefined;
+        },
+        pull(controller) {
+          stream.events.push("pull");
 
-      return undefined;
-    },
-    pull(controller) {
-      stream.events.push('pull');
+          if (extras.pull) {
+            return extras.pull(controller);
+          }
 
-      if (extras.pull) {
-        return extras.pull(controller);
-      }
+          return undefined;
+        },
+        cancel(reason) {
+          stream.events.push("cancel", reason);
+          stream.eventsWithoutPulls.push("cancel", reason);
 
-      return undefined;
-    },
-    cancel(reason) {
-      stream.events.push('cancel', reason);
-      stream.eventsWithoutPulls.push('cancel', reason);
+          if (extras.cancel) {
+            return extras.cancel(reason);
+          }
 
-      if (extras.cancel) {
-        return extras.cancel(reason);
-      }
+          return undefined;
+        },
+      },
+      strategy
+    );
 
-      return undefined;
-    }
-  }, strategy);
+    stream.controller = controllerToCopyOver;
+    stream.events = [];
+    stream.eventsWithoutPulls = [];
 
-  stream.controller = controllerToCopyOver;
-  stream.events = [];
-  stream.eventsWithoutPulls = [];
+    return stream;
+  };
 
-  return stream;
-};
+  self.recordingWritableStream = (extras = {}, strategy) => {
+    let controllerToCopyOver;
+    const stream = new WritableStream(
+      {
+        start(controller) {
+          controllerToCopyOver = controller;
 
-self.recordingWritableStream = (extras = {}, strategy) => {
-  let controllerToCopyOver;
-  const stream = new WritableStream({
-    start(controller) {
-      controllerToCopyOver = controller;
+          if (extras.start) {
+            return extras.start(controller);
+          }
 
-      if (extras.start) {
-        return extras.start(controller);
-      }
+          return undefined;
+        },
+        write(chunk, controller) {
+          stream.events.push("write", chunk);
 
-      return undefined;
-    },
-    write(chunk, controller) {
-      stream.events.push('write', chunk);
+          if (extras.write) {
+            return extras.write(chunk, controller);
+          }
 
-      if (extras.write) {
-        return extras.write(chunk, controller);
-      }
+          return undefined;
+        },
+        close() {
+          stream.events.push("close");
 
-      return undefined;
-    },
-    close() {
-      stream.events.push('close');
+          if (extras.close) {
+            return extras.close();
+          }
 
-      if (extras.close) {
-        return extras.close();
-      }
+          return undefined;
+        },
+        abort(e) {
+          stream.events.push("abort", e);
 
-      return undefined;
-    },
-    abort(e) {
-      stream.events.push('abort', e);
+          if (extras.abort) {
+            return extras.abort(e);
+          }
 
-      if (extras.abort) {
-        return extras.abort(e);
-      }
+          return undefined;
+        },
+      },
+      strategy
+    );
 
-      return undefined;
-    }
-  }, strategy);
+    stream.controller = controllerToCopyOver;
+    stream.events = [];
 
-  stream.controller = controllerToCopyOver;
-  stream.events = [];
+    return stream;
+  };
 
-  return stream;
-};
+  self.recordingTransformStream = (
+    extras = {},
+    writableStrategy,
+    readableStrategy
+  ) => {
+    let controllerToCopyOver;
+    const stream = new TransformStream(
+      {
+        start(controller) {
+          controllerToCopyOver = controller;
 
-self.recordingTransformStream = (extras = {}, writableStrategy, readableStrategy) => {
-  let controllerToCopyOver;
-  const stream = new TransformStream({
-    start(controller) {
-      controllerToCopyOver = controller;
+          if (extras.start) {
+            return extras.start(controller);
+          }
 
-      if (extras.start) {
-        return extras.start(controller);
-      }
+          return undefined;
+        },
 
-      return undefined;
-    },
+        transform(chunk, controller) {
+          stream.events.push("transform", chunk);
 
-    transform(chunk, controller) {
-      stream.events.push('transform', chunk);
+          if (extras.transform) {
+            return extras.transform(chunk, controller);
+          }
 
-      if (extras.transform) {
-        return extras.transform(chunk, controller);
-      }
+          controller.enqueue(chunk);
 
-      controller.enqueue(chunk);
+          return undefined;
+        },
 
-      return undefined;
-    },
+        flush(controller) {
+          stream.events.push("flush");
 
-    flush(controller) {
-      stream.events.push('flush');
+          if (extras.flush) {
+            return extras.flush(controller);
+          }
 
-      if (extras.flush) {
-        return extras.flush(controller);
-      }
+          return undefined;
+        },
+      },
+      writableStrategy,
+      readableStrategy
+    );
 
-      return undefined;
-    }
-  }, writableStrategy, readableStrategy);
+    stream.controller = controllerToCopyOver;
+    stream.events = [];
 
-  stream.controller = controllerToCopyOver;
-  stream.events = [];
-
-  return stream;
-};
-
-};
+    return stream;
+  };
+}

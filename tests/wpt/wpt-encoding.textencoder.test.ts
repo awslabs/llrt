@@ -7,7 +7,7 @@ const baseDir = `${CWD}/tests/wpt`;
 
 const testFiles = [
   "textencoder-constructor-non-utf.any.js",
-  // "textencoder-utf16-surrogates.any.js",
+  "textencoder-utf16-surrogates.any.js",
 ];
 
 describe("textencoder", () => {

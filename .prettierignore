@@ -1,3 +1,2 @@
 # Ignore web-platform-tests to avoid collisions!
-/tests/wpt
 **/node_modules

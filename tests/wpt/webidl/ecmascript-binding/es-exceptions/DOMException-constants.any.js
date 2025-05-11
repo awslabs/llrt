@@ -1,6 +1,6 @@
-'use strict';
+"use strict";
 
-test(function() {
+test(function () {
   // https://www.w3.org/Bugs/Public/show_bug.cgi?id=27732
   var constants = [
     "INDEX_SIZE_ERR",
@@ -27,25 +27,29 @@ test(function() {
     "QUOTA_EXCEEDED_ERR",
     "TIMEOUT_ERR",
     "INVALID_NODE_TYPE_ERR",
-    "DATA_CLONE_ERR"
-  ]
+    "DATA_CLONE_ERR",
+  ];
   var objects = [
     [DOMException, "DOMException constructor object"],
-    [DOMException.prototype, "DOMException prototype object"]
-  ]
-  constants.forEach(function(name, i) {
-    objects.forEach(function(o) {
-      var object = o[0], description = o[1];
-      test(function() {
-        assert_equals(object[name], i + 1, name)
-        assert_own_property(object, name)
-        var pd = Object.getOwnPropertyDescriptor(object, name)
-        assert_false("get" in pd, "get")
-        assert_false("set" in pd, "set")
-        assert_false(pd.writable, "writable")
-        assert_true(pd.enumerable, "enumerable")
-        assert_false(pd.configurable, "configurable")
-      }, "Constant " + name + " on " + description)
-    })
-  })
-})
+    [DOMException.prototype, "DOMException prototype object"],
+  ];
+  constants.forEach(function (name, i) {
+    objects.forEach(function (o) {
+      var object = o[0],
+        description = o[1];
+      test(
+        function () {
+          assert_equals(object[name], i + 1, name);
+          assert_own_property(object, name);
+          var pd = Object.getOwnPropertyDescriptor(object, name);
+          assert_false("get" in pd, "get");
+          assert_false("set" in pd, "set");
+          assert_false(pd.writable, "writable");
+          assert_true(pd.enumerable, "enumerable");
+          assert_false(pd.configurable, "configurable");
+        },
+        "Constant " + name + " on " + description
+      );
+    });
+  });
+});

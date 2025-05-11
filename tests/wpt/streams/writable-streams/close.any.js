@@ -1,27 +1,28 @@
 // META: global=window,worker,shadowrealm
 // META: script=../resources/test-utils.js
 // META: script=../resources/recording-streams.js
-'use strict';
+"use strict";
 
-const error1 = new Error('error1');
-error1.name = 'error1';
+const error1 = new Error("error1");
+error1.name = "error1";
 
-const error2 = new Error('error2');
-error2.name = 'error2';
+const error2 = new Error("error2");
+error2.name = "error2";
 
 promise_test(() => {
   const ws = new WritableStream({
     close() {
-      return 'Hello';
-    }
+      return "Hello";
+    },
   });
 
   const writer = ws.getWriter();
 
   const closePromise = writer.close();
-  return closePromise.then(value => assert_equals(value, undefined, 'fulfillment value must be undefined'));
-}, 'fulfillment value of writer.close() call must be undefined even if the underlying sink returns a non-undefined ' +
-    'value');
+  return closePromise.then((value) =>
+    assert_equals(value, undefined, "fulfillment value must be undefined")
+  );
+}, "fulfillment value of writer.close() call must be undefined even if the underlying sink returns a non-undefined " + "value");
 
 promise_test(() => {
   let controller;
@@ -31,76 +32,88 @@ promise_test(() => {
       controller = c;
     },
     close() {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         resolveClose = resolve;
       });
-    }
+    },
   });
 
   const writer = ws.getWriter();
 
   const closePromise = writer.close();
-  return flushAsyncEvents().then(() => {
-    controller.error(error1);
-    return flushAsyncEvents();
-  }).then(() => {
-    resolveClose();
-    return Promise.all([
-      closePromise,
-      writer.closed,
-      flushAsyncEvents().then(() => writer.closed)]);
-  });
-}, 'when sink calls error asynchronously while sink close is in-flight, the stream should not become errored');
+  return flushAsyncEvents()
+    .then(() => {
+      controller.error(error1);
+      return flushAsyncEvents();
+    })
+    .then(() => {
+      resolveClose();
+      return Promise.all([
+        closePromise,
+        writer.closed,
+        flushAsyncEvents().then(() => writer.closed),
+      ]);
+    });
+}, "when sink calls error asynchronously while sink close is in-flight, the stream should not become errored");
 
 promise_test(() => {
   let controller;
-  const passedError = new Error('error me');
+  const passedError = new Error("error me");
   const ws = new WritableStream({
     start(c) {
       controller = c;
     },
     close() {
       controller.error(passedError);
-    }
+    },
   });
 
   const writer = ws.getWriter();
 
   return writer.close().then(() => writer.closed);
-}, 'when sink calls error synchronously while closing, the stream should not become errored');
+}, "when sink calls error synchronously while closing, the stream should not become errored");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream({
     close() {
       throw error1;
-    }
+    },
   });
 
   const writer = ws.getWriter();
 
   return Promise.all([
-    writer.write('y'),
-    promise_rejects_exactly(t, error1, writer.close(), 'close() must reject with the error'),
-    promise_rejects_exactly(t, error1, writer.closed, 'closed must reject with the error')
+    writer.write("y"),
+    promise_rejects_exactly(
+      t,
+      error1,
+      writer.close(),
+      "close() must reject with the error"
+    ),
+    promise_rejects_exactly(
+      t,
+      error1,
+      writer.closed,
+      "closed must reject with the error"
+    ),
   ]);
-}, 'when the sink throws during close, and the close is requested while a write is still in-flight, the stream should ' +
-   'become errored during the close');
+}, "when the sink throws during close, and the close is requested while a write is still in-flight, the stream should " + "become errored during the close");
 
 promise_test(() => {
   const ws = new WritableStream({
     write(chunk, controller) {
       controller.error(error1);
       return new Promise(() => {});
-    }
+    },
   });
 
   const writer = ws.getWriter();
-  writer.write('a');
+  writer.write("a");
 
   return delay(0).then(() => {
     writer.releaseLock();
   });
-}, 'releaseLock on a stream with a pending write in which the stream has been errored');
+}, "releaseLock on a stream with a pending write in which the stream has been errored");
 
 promise_test(() => {
   let controller;
@@ -111,7 +124,7 @@ promise_test(() => {
     close() {
       controller.error(error1);
       return new Promise(() => {});
-    }
+    },
   });
 
   const writer = ws.getWriter();
@@ -120,7 +133,7 @@ promise_test(() => {
   return delay(0).then(() => {
     writer.releaseLock();
   });
-}, 'releaseLock on a stream with a pending close in which controller.error() was called');
+}, "releaseLock on a stream with a pending close in which controller.error() was called");
 
 promise_test(() => {
   const ws = recordingWritableStream();
@@ -128,46 +141,65 @@ promise_test(() => {
   const writer = ws.getWriter();
 
   return writer.ready.then(() => {
-    assert_equals(writer.desiredSize, 1, 'desiredSize should be 1');
+    assert_equals(writer.desiredSize, 1, "desiredSize should be 1");
 
     writer.close();
-    assert_equals(writer.desiredSize, 1, 'desiredSize should be still 1');
+    assert_equals(writer.desiredSize, 1, "desiredSize should be still 1");
 
-    return writer.ready.then(v => {
-      assert_equals(v, undefined, 'ready promise should be fulfilled with undefined');
-      assert_array_equals(ws.events, ['close'], 'write and abort should not be called');
+    return writer.ready.then((v) => {
+      assert_equals(
+        v,
+        undefined,
+        "ready promise should be fulfilled with undefined"
+      );
+      assert_array_equals(
+        ws.events,
+        ["close"],
+        "write and abort should not be called"
+      );
     });
   });
-}, 'when close is called on a WritableStream in writable state, ready should return a fulfilled promise');
+}, "when close is called on a WritableStream in writable state, ready should return a fulfilled promise");
 
 promise_test(() => {
   const ws = recordingWritableStream({
     write() {
       return new Promise(() => {});
-    }
+    },
   });
 
   const writer = ws.getWriter();
 
   return writer.ready.then(() => {
-    writer.write('a');
+    writer.write("a");
 
-    assert_equals(writer.desiredSize, 0, 'desiredSize should be 0');
+    assert_equals(writer.desiredSize, 0, "desiredSize should be 0");
 
     let calledClose = false;
     return Promise.all([
-      writer.ready.then(v => {
-        assert_equals(v, undefined, 'ready promise should be fulfilled with undefined');
-        assert_true(calledClose, 'ready should not be fulfilled before writer.close() is called');
-        assert_array_equals(ws.events, ['write', 'a'], 'sink abort() should not be called');
+      writer.ready.then((v) => {
+        assert_equals(
+          v,
+          undefined,
+          "ready promise should be fulfilled with undefined"
+        );
+        assert_true(
+          calledClose,
+          "ready should not be fulfilled before writer.close() is called"
+        );
+        assert_array_equals(
+          ws.events,
+          ["write", "a"],
+          "sink abort() should not be called"
+        );
       }),
       flushAsyncEvents().then(() => {
         writer.close();
         calledClose = true;
-      })
+      }),
     ]);
   });
-}, 'when close is called on a WritableStream in waiting state, ready promise should be fulfilled');
+}, "when close is called on a WritableStream in waiting state, ready promise should be fulfilled");
 
 promise_test(() => {
   let asyncCloseFinished = false;
@@ -176,37 +208,54 @@ promise_test(() => {
       return flushAsyncEvents().then(() => {
         asyncCloseFinished = true;
       });
-    }
+    },
   });
 
   const writer = ws.getWriter();
   return writer.ready.then(() => {
-    writer.write('a');
+    writer.write("a");
 
     writer.close();
 
-    return writer.ready.then(v => {
-      assert_false(asyncCloseFinished, 'ready promise should be fulfilled before async close completes');
-      assert_equals(v, undefined, 'ready promise should be fulfilled with undefined');
-      assert_array_equals(ws.events, ['write', 'a', 'close'], 'sink abort() should not be called');
+    return writer.ready.then((v) => {
+      assert_false(
+        asyncCloseFinished,
+        "ready promise should be fulfilled before async close completes"
+      );
+      assert_equals(
+        v,
+        undefined,
+        "ready promise should be fulfilled with undefined"
+      );
+      assert_array_equals(
+        ws.events,
+        ["write", "a", "close"],
+        "sink abort() should not be called"
+      );
     });
   });
-}, 'when close is called on a WritableStream in waiting state, ready should be fulfilled immediately even if close ' +
-    'takes a long time');
+}, "when close is called on a WritableStream in waiting state, ready should be fulfilled immediately even if close " + "takes a long time");
 
-promise_test(t => {
-  const rejection = { name: 'letter' };
+promise_test((t) => {
+  const rejection = { name: "letter" };
   const ws = new WritableStream({
     close() {
       return {
-        then(onFulfilled, onRejected) { onRejected(rejection); }
+        then(onFulfilled, onRejected) {
+          onRejected(rejection);
+        },
       };
-    }
+    },
   });
-  return promise_rejects_exactly(t, rejection, ws.getWriter().close(), 'close() should return a rejection');
-}, 'returning a thenable from close() should work');
+  return promise_rejects_exactly(
+    t,
+    rejection,
+    ws.getWriter().close(),
+    "close() should return a rejection"
+  );
+}, "returning a thenable from close() should work");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream();
   const writer = ws.getWriter();
   return writer.ready.then(() => {
@@ -215,16 +264,21 @@ promise_test(t => {
     writer.releaseLock();
     return Promise.all([
       closePromise,
-      promise_rejects_js(t, TypeError, closedPromise, '.closed promise should be rejected')
+      promise_rejects_js(
+        t,
+        TypeError,
+        closedPromise,
+        ".closed promise should be rejected"
+      ),
     ]);
   });
-}, 'releaseLock() should not change the result of sync close()');
+}, "releaseLock() should not change the result of sync close()");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream({
     close() {
       return flushAsyncEvents();
-    }
+    },
   });
   const writer = ws.getWriter();
   return writer.ready.then(() => {
@@ -233,20 +287,25 @@ promise_test(t => {
     writer.releaseLock();
     return Promise.all([
       closePromise,
-      promise_rejects_js(t, TypeError, closedPromise, '.closed promise should be rejected')
+      promise_rejects_js(
+        t,
+        TypeError,
+        closedPromise,
+        ".closed promise should be rejected"
+      ),
     ]);
   });
-}, 'releaseLock() should not change the result of async close()');
+}, "releaseLock() should not change the result of async close()");
 
 promise_test(() => {
   let resolveClose;
   const ws = new WritableStream({
     close() {
-      const promise = new Promise(resolve => {
+      const promise = new Promise((resolve) => {
         resolveClose = resolve;
       });
       return promise;
-    }
+    },
   });
   const writer = ws.getWriter();
   const closePromise = writer.close();
@@ -254,20 +313,20 @@ promise_test(() => {
   return delay(0).then(() => {
     resolveClose();
     return closePromise.then(() => {
-      assert_equals(ws.getWriter().desiredSize, 0, 'desiredSize should be 0');
+      assert_equals(ws.getWriter().desiredSize, 0, "desiredSize should be 0");
     });
   });
-}, 'close() should set state to CLOSED even if writer has detached');
+}, "close() should set state to CLOSED even if writer has detached");
 
 promise_test(() => {
   let resolveClose;
   const ws = new WritableStream({
     close() {
-      const promise = new Promise(resolve => {
+      const promise = new Promise((resolve) => {
         resolveClose = resolve;
       });
       return promise;
-    }
+    },
   });
   const writer = ws.getWriter();
   writer.close();
@@ -279,7 +338,7 @@ promise_test(() => {
     resolveClose();
     return abortPromise;
   });
-}, 'the promise returned by async abort during close should resolve');
+}, "the promise returned by async abort during close should resolve");
 
 // Though the order in which the promises are fulfilled or rejected is arbitrary, we're checking it for
 // interoperability. We can change the order as long as we file bugs on all implementers to update to the latest tests
@@ -295,16 +354,19 @@ promise_test(() => {
   const events = [];
   return Promise.all([
     closePromise.then(() => {
-      events.push('closePromise');
+      events.push("closePromise");
     }),
     writer.closed.then(() => {
-      events.push('closed');
-    })
+      events.push("closed");
+    }),
   ]).then(() => {
-    assert_array_equals(events, ['closePromise', 'closed'],
-                        'promises must fulfill/reject in the expected order');
+    assert_array_equals(
+      events,
+      ["closePromise", "closed"],
+      "promises must fulfill/reject in the expected order"
+    );
   });
-}, 'promises must fulfill/reject in the expected order on closure');
+}, "promises must fulfill/reject in the expected order on closure");
 
 promise_test(() => {
   const ws = new WritableStream({});
@@ -320,26 +382,29 @@ promise_test(() => {
     const events = [];
     return Promise.all([
       closePromise.then(() => {
-        events.push('closePromise');
+        events.push("closePromise");
       }),
       abortPromise.then(() => {
-        events.push('abortPromise');
+        events.push("abortPromise");
       }),
       writer.closed.then(() => {
-        events.push('closed');
-      })
+        events.push("closed");
+      }),
     ]).then(() => {
-      assert_array_equals(events, ['closePromise', 'abortPromise', 'closed'],
-                          'promises must fulfill/reject in the expected order');
+      assert_array_equals(
+        events,
+        ["closePromise", "abortPromise", "closed"],
+        "promises must fulfill/reject in the expected order"
+      );
     });
   });
-}, 'promises must fulfill/reject in the expected order on aborted closure');
+}, "promises must fulfill/reject in the expected order on aborted closure");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream({
     close() {
       return Promise.reject(error1);
-    }
+    },
   });
 
   // Wait until the WritableStream starts so that the close() call gets processed.
@@ -350,37 +415,52 @@ promise_test(t => {
     const abortPromise = writer.abort(error2);
 
     const events = [];
-    closePromise.catch(() => events.push('closePromise'));
-    abortPromise.catch(() => events.push('abortPromise'));
-    writer.closed.catch(() => events.push('closed'));
+    closePromise.catch(() => events.push("closePromise"));
+    abortPromise.catch(() => events.push("abortPromise"));
+    writer.closed.catch(() => events.push("closed"));
     return Promise.all([
-      promise_rejects_exactly(t, error1, closePromise,
-                             'closePromise must reject with the error returned from the sink\'s close method'),
-      promise_rejects_exactly(t, error1, abortPromise,
-                             'abortPromise must reject with the error returned from the sink\'s close method'),
-      promise_rejects_exactly(t, error2, writer.closed,
-                              'writer.closed must reject with error2')
+      promise_rejects_exactly(
+        t,
+        error1,
+        closePromise,
+        "closePromise must reject with the error returned from the sink's close method"
+      ),
+      promise_rejects_exactly(
+        t,
+        error1,
+        abortPromise,
+        "abortPromise must reject with the error returned from the sink's close method"
+      ),
+      promise_rejects_exactly(
+        t,
+        error2,
+        writer.closed,
+        "writer.closed must reject with error2"
+      ),
     ]).then(() => {
-      assert_array_equals(events, ['closePromise', 'abortPromise', 'closed'],
-                          'promises must fulfill/reject in the expected order');
+      assert_array_equals(
+        events,
+        ["closePromise", "abortPromise", "closed"],
+        "promises must fulfill/reject in the expected order"
+      );
     });
   });
-}, 'promises must fulfill/reject in the expected order on aborted and errored closure');
+}, "promises must fulfill/reject in the expected order on aborted and errored closure");
 
-promise_test(t => {
+promise_test((t) => {
   let resolveWrite;
   let controller;
   const ws = new WritableStream({
     write(chunk, c) {
       controller = c;
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         resolveWrite = resolve;
       });
-    }
+    },
   });
   const writer = ws.getWriter();
   return writer.ready.then(() => {
-    const writePromise = writer.write('c');
+    const writePromise = writer.write("c");
     controller.error(error1);
     const closePromise = writer.close();
     let closeRejected = false;
@@ -392,13 +472,18 @@ promise_test(t => {
       resolveWrite();
       return Promise.all([
         writePromise,
-        promise_rejects_exactly(t, error1, closePromise, 'close() should reject')
+        promise_rejects_exactly(
+          t,
+          error1,
+          closePromise,
+          "close() should reject"
+        ),
       ]).then(() => {
         assert_true(closeRejected);
       });
     });
   });
-}, 'close() should not reject until no sink methods are in flight');
+}, "close() should not reject until no sink methods are in flight");
 
 promise_test(() => {
   const ws = new WritableStream();
@@ -410,61 +495,87 @@ promise_test(() => {
     assert_equals(ready.constructor, Promise);
     return ready;
   });
-}, 'ready promise should be initialised as fulfilled for a writer on a closed stream');
+}, "ready promise should be initialised as fulfilled for a writer on a closed stream");
 
 promise_test(() => {
   const ws = new WritableStream();
   ws.close();
   const writer = ws.getWriter();
   return writer.closed;
-}, 'close() on a writable stream should work');
+}, "close() on a writable stream should work");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream();
   ws.getWriter();
-  return promise_rejects_js(t, TypeError, ws.close(), 'close should reject');
-}, 'close() on a locked stream should reject');
+  return promise_rejects_js(t, TypeError, ws.close(), "close should reject");
+}, "close() on a locked stream should reject");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream({
     start(controller) {
       controller.error(error1);
-    }
+    },
   });
-  return promise_rejects_exactly(t, error1, ws.close(), 'close should reject with error1');
-}, 'close() on an erroring stream should reject');
+  return promise_rejects_exactly(
+    t,
+    error1,
+    ws.close(),
+    "close should reject with error1"
+  );
+}, "close() on an erroring stream should reject");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream({
     start(controller) {
       controller.error(error1);
-    }
+    },
   });
   const writer = ws.getWriter();
-  return promise_rejects_exactly(t, error1, writer.closed, 'closed should reject with the error').then(() => {
+  return promise_rejects_exactly(
+    t,
+    error1,
+    writer.closed,
+    "closed should reject with the error"
+  ).then(() => {
     writer.releaseLock();
-    return promise_rejects_js(t, TypeError, ws.close(), 'close should reject');
+    return promise_rejects_js(t, TypeError, ws.close(), "close should reject");
   });
-}, 'close() on an errored stream should reject');
+}, "close() on an errored stream should reject");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream();
   const writer = ws.getWriter();
   return writer.close().then(() => {
-    return promise_rejects_js(t, TypeError, ws.close(), 'close should reject');
+    return promise_rejects_js(t, TypeError, ws.close(), "close should reject");
   });
-}, 'close() on an closed stream should reject');
+}, "close() on an closed stream should reject");
 
-promise_test(t => {
+promise_test((t) => {
   const ws = new WritableStream({
     close() {
       return new Promise(() => {});
-    }
+    },
   });
 
   const writer = ws.getWriter();
   writer.close();
   writer.releaseLock();
 
-  return promise_rejects_js(t, TypeError, ws.close(), 'close should reject');
-}, 'close() on a stream with a pending close should reject');
+  return promise_rejects_js(t, TypeError, ws.close(), "close should reject");
+}, "close() on a stream with a pending close should reject");
+
+// See https://github.com/whatwg/streams/issues/1341.
+promise_test(async (t) => {
+  const ws = new WritableStream();
+  const writer = ws.getWriter();
+
+  await writer.write(1);
+  await writer.close();
+
+  return promise_rejects_js(
+    t,
+    TypeError,
+    writer.write(2),
+    "write should reject"
+  );
+}, "write() on a closed stream should reject");

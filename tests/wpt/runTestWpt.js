@@ -1,12 +1,17 @@
-import subsetTests from "./common/subset-tests.js";
-import gc from "./common/gc.js";
-import idlharness from "./resources/idlharness.js";
-import testharness from "./resources/testharness.js";
 import encodings from "./encoding/resources/encodings.js";
-import recordingStreams from "./streams/resources/recording-streams.js";
-import testUtils from "./streams/resources/test-utils.js";
-import rsUtils from "./streams/resources/rs-utils.js";
-import rsTestTemplates from "./streams/resources/rs-test-templates.js";
+
+import commonGc from "./common/gc.js";
+import commonSubsetTests from "./common/subset-tests.js";
+
+import resourcesIdlharness from "./resources/idlharness.js";
+import resourcesTestharness from "./resources/testharness.js";
+
+import encodingDecodingHelpers from "./encoding/resources/decoding-helpers.js";
+
+import streamsRecordingStreams from "./streams/resources/recording-streams.js";
+import streamsRsTestTemplates from "./streams/resources/rs-test-templates.js";
+import streamsRsUtils from "./streams/resources/rs-utils.js";
+import streamsTestUtils from "./streams/resources/test-utils.js";
 
 export const runTestWpt = (testSource, done) => {
   const context = {
@@ -15,6 +20,9 @@ export const runTestWpt = (testSource, done) => {
     fetch: (url) => {
       let data;
       switch (url) {
+        case "resources/urltestdata-javascript-only.json":
+          data = require("./url/resources/urltestdata-javascript-only.json");
+          break;
         case "resources/urltestdata.json":
           data = require("./url/resources/urltestdata.json");
           break;
@@ -33,14 +41,18 @@ export const runTestWpt = (testSource, done) => {
     location: {},
   };
 
-  idlharness(context);
-  gc(context);
-  testharness(context);
-  subsetTests(context);
-  recordingStreams(context);
-  testUtils(context);
-  rsUtils(context);
-  rsTestTemplates(context);
+  commonGc(context);
+  commonSubsetTests(context);
+
+  resourcesIdlharness(context);
+  resourcesTestharness(context);
+
+  encodingDecodingHelpers(context);
+
+  streamsRecordingStreams(context);
+  streamsRsTestTemplates(context);
+  streamsRsUtils(context);
+  streamsTestUtils(context);
 
   context.setup({
     explicit_done: true,
@@ -61,16 +73,18 @@ export const runTestWpt = (testSource, done) => {
     done(failure);
   });
 
-  const testFunction = wrapTestSource(testSource);
-  testFunction(context);
+  wrapTestSuite(testSource)(context);
 
   context.done();
 };
 
-function wrapTestSource(sourceCode) {
-  return new Function("context", `
+function wrapTestSuite(sourceCode) {
+  return new Function(
+    "context",
+    `
       with (context) {
         ${sourceCode}
       }
-    `);
+    `
+  );
 }

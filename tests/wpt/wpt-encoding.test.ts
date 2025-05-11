@@ -11,9 +11,8 @@ const testFiles = [
   "api-replacement-encodings.any.js",
   "api-surrogates-utf8.any.js",
   "encodeInto.any.js",
-  // "iso-2022-jp-decoder.any.js", // Current support is utf8 and utf16le
-  // "replacement-encodings.any.js", // Requires XMLHTTPRequest which is not defined
-  // "unsupported-encodings.any.js", // Requires XMLHTTPRequest which is not defined
+  "replacement-encodings.any.js",
+  "unsupported-encodings.any.js",
 ];
 
 describe("encoding", () => {

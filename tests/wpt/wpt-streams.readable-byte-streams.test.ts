@@ -10,16 +10,24 @@ const testFiles = [
   "construct-byob-request.any.js",
   "enqueue-with-detached-buffer.any.js",
   "general.any.js",
-  // "non-transferable-buffers.any.js", // requires WebAssembly (!?)
+  // SKIP: WebAssembly support is pending
+  // "non-transferable-buffers.any.js",
+  "patched-global.any.js",
   "read-min.any.js",
   "respond-after-enqueue.any.js",
   "tee.any.js",
+  "templated.any.js",
 ];
 
 describe("readable-byte-streams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
-      const filePath = path.resolve(baseDir, "streams", "readable-byte-streams", file);
+      const filePath = path.resolve(
+        baseDir,
+        "streams",
+        "readable-byte-streams",
+        file
+      );
       const sourceCode = fs.readFileSync(filePath, "utf8");
       runTestWpt(sourceCode, done);
     });
