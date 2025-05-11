@@ -70,7 +70,12 @@ export const runTestWpt = (testSource, done) => {
       done(new Error("No tests were executed!"));
     }
     const failure = tests.find((test) => test.status !== 0);
-    done(failure);
+    if (failure) {
+      const message = `[${failure.name}] ${failure.message || String(failure)}`;
+      done(message);
+      return;
+    }
+    done();
   });
 
   wrapTestSuite(testSource)(context);
