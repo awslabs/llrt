@@ -36,4 +36,6 @@ export default function (self) {
         });
     }, description);
   }
+
+  self.decode_test = decode_test;
 }
