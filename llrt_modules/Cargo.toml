@@ -20,8 +20,8 @@ base = [
   "dns",
   "events",
   "exceptions",
+  "fetch",
   "fs",
-  "http",
   "navigator",
   "net",
   "os",
@@ -47,8 +47,8 @@ crypto = ["llrt_crypto"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
+fetch = ["llrt_fetch"]
 fs = ["llrt_fs"]
-http = ["llrt_http"]
 navigator = ["llrt_navigator"]
 net = ["llrt_net"]
 os = ["llrt_os"]
@@ -73,8 +73,8 @@ llrt_crypto = { version = "0.5.1-beta", path = "../modules/llrt_crypto", optiona
 llrt_dns = { version = "0.5.1-beta", path = "../modules/llrt_dns", optional = true }
 llrt_events = { version = "0.5.1-beta", path = "../modules/llrt_events", optional = true }
 llrt_exceptions = { version = "0.5.1-beta", path = "../modules/llrt_exceptions", optional = true }
+llrt_fetch = { version = "0.5.1-beta", path = "../modules/llrt_fetch", optional = true }
 llrt_fs = { version = "0.5.1-beta", path = "../modules/llrt_fs", optional = true }
-llrt_http = { version = "0.5.1-beta", path = "../modules/llrt_http", optional = true }
 llrt_navigator = { version = "0.5.1-beta", path = "../modules/llrt_navigator", optional = true }
 llrt_net = { version = "0.5.1-beta", path = "../modules/llrt_net", optional = true }
 llrt_os = { version = "0.5.1-beta", path = "../modules/llrt_os", optional = true }

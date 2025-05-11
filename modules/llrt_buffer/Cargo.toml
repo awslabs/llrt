@@ -14,6 +14,7 @@ path = "src/lib.rs"
 llrt_encoding = { version = "0.5.1-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
+  "futures",
   "macro",
 ], default-features = false }
 

@@ -117,15 +117,15 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_global(crate::modules::exceptions::init);
         }
+        #[cfg(feature = "fetch")]
+        {
+            builder = builder.with_global(crate::modules::fetch::init);
+        }
         #[cfg(feature = "fs")]
         {
             builder = builder
                 .with_module(crate::modules::fs::FsPromisesModule)
                 .with_module(crate::modules::fs::FsModule);
-        }
-        #[cfg(feature = "http")]
-        {
-            builder = builder.with_global(crate::modules::http::init);
         }
         #[cfg(feature = "navigator")]
         {

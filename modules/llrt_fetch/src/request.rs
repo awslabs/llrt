@@ -9,7 +9,7 @@ use rquickjs::{
     IntoJs, Null, Object, Result, TypedArray, Value,
 };
 
-use super::{blob::Blob, headers::Headers};
+use super::{headers::Headers, Blob};
 
 impl<'js> Request<'js> {
     async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<ObjectBytes<'js>>> {

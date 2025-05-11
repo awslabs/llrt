@@ -3,10 +3,8 @@
 use std::ops::RangeInclusive;
 
 use rquickjs::{
-    atom::PredefinedAtom,
-    class::{JsClass, Trace},
-    function::{Func, Opt},
-    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception,
+    FromJs, Object, Result, TypedArray, Value,
 };
 
 use super::file::File;
@@ -122,6 +120,11 @@ impl Blob {
             data: data.to_vec(),
         }
     }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(Blob)
+    }
 }
 
 impl Blob {
@@ -209,15 +212,4 @@ fn bytes_from_parts<'js>(
         }
     }
     Ok(data)
-}
-
-pub(crate) fn init<'js>(ctx: &Ctx<'js>, globals: &Object<'js>) -> Result<()> {
-    if let Some(constructor) = Class::<Blob>::create_constructor(ctx)? {
-        constructor.prop(
-            PredefinedAtom::SymbolHasInstance,
-            Func::from(Blob::has_instance),
-        )?;
-        let _ = &globals.set(Blob::NAME, constructor)?;
-    }
-    Ok(())
 }

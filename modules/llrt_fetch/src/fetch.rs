@@ -22,11 +22,11 @@ use rquickjs::{
 use tokio::select;
 use tokio::sync::Semaphore;
 
-use super::{blob::Blob, headers::Headers, response::Response, security::ensure_url_access};
+use super::{headers::Headers, response::Response, security::ensure_url_access, Blob};
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
-pub(crate) fn init<C>(client: Client<C, BoxBody<Bytes, Infallible>>, globals: &Object) -> Result<()>
+pub fn init<C>(client: Client<C, BoxBody<Bytes, Infallible>>, globals: &Object) -> Result<()>
 where
     C: Clone + Send + Sync + Connect + 'static,
 {

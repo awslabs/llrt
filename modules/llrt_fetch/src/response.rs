@@ -29,7 +29,7 @@ use rquickjs::{
 };
 use tokio::select;
 
-use super::{blob::Blob, headers::Headers};
+use super::{headers::Headers, Blob};
 use crate::incoming::{self, IncomingReceiver};
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {

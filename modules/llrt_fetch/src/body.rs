@@ -9,7 +9,7 @@ use rquickjs::{
     ArrayBuffer, Class, Ctx, Exception, IntoJs, JsLifetime, Null, Result, TypedArray, Value,
 };
 
-use super::blob::Blob;
+use super::Blob;
 
 // WARN: We don't use that code since we don't have an implementation of ReadableStream.
 // We will revisit later.

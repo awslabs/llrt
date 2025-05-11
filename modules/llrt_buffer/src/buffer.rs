@@ -9,14 +9,12 @@ use llrt_utils::{
         ObjectBytes,
     },
     error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
-    module::{export_default, ModuleInfo},
     primordials::Primordial,
     result::ResultExt,
 };
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
-    module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest, This},
     Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
     Value,
@@ -605,7 +603,7 @@ fn shifted_bytes(mut val: u64, bits: u8, endian: Endian) -> Vec<u8> {
     bytes
 }
 
-fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
+pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Result<()> {
     let _ = &constructor.set("alloc", Func::from(alloc))?;
     let _ = &constructor.set("allocUnsafe", Func::from(alloc_unsafe))?;
     let _ = &constructor.set("allocUnsafeSlow", Func::from(alloc_unsafe_slow))?;
@@ -704,80 +702,17 @@ pub fn btoa(value: Coerced<String>) -> String {
     bytes_to_b64_string(value.as_bytes())
 }
 
-pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
-    // Buffer
-    let buffer = ctx.eval::<Object<'js>, &str>(concat!(
-        "class ",
-        stringify!(Buffer),
-        " extends Uint8Array {}\n",
-        stringify!(Buffer),
-    ))?;
-    set_prototype(ctx, buffer)?;
-
-    //init primordials
-    let _ = BufferPrimordials::get(ctx)?;
-
-    // Conversion
-    let globals = ctx.globals();
-    globals.set("atob", Func::from(atob))?;
-    globals.set("btoa", Func::from(btoa))?;
-
-    Ok(())
-}
-
-pub struct BufferModule;
-
-impl ModuleDef for BufferModule {
-    fn declare(declare: &Declarations) -> Result<()> {
-        declare.declare(stringify!(Buffer))?;
-        declare.declare("atob")?;
-        declare.declare("btoa")?;
-        declare.declare("constants")?;
-        declare.declare("default")?;
-
-        Ok(())
-    }
-
-    fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
-        let globals = ctx.globals();
-        let buf: Constructor = globals.get(stringify!(Buffer))?;
-
-        let constants = Object::new(ctx.clone())?;
-        constants.set("MAX_LENGTH", u32::MAX)?; // For QuickJS
-        constants.set("MAX_STRING_LENGTH", (1 << 30) - 1)?; // For QuickJS
-
-        export_default(ctx, exports, |default| {
-            default.set(stringify!(Buffer), buf)?;
-            default.set("atob", Func::from(atob))?;
-            default.set("btoa", Func::from(btoa))?;
-            default.set("constants", constants)?;
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-}
-
-impl From<BufferModule> for ModuleInfo<BufferModule> {
-    fn from(val: BufferModule) -> Self {
-        ModuleInfo {
-            name: "buffer",
-            module: val,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
 
-    use super::*;
+    use crate::BufferModule;
 
     #[tokio::test]
     async fn test_atob() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
                     .await
                     .unwrap();
@@ -807,7 +742,7 @@ mod tests {
     async fn test_atob_invalid_utf8() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
                     .await
                     .unwrap();
@@ -837,7 +772,7 @@ mod tests {
     async fn test_btoa() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
                     .await
                     .unwrap();
@@ -867,7 +802,7 @@ mod tests {
     async fn test_subarray() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
                     .await
                     .unwrap();
@@ -899,7 +834,7 @@ mod tests {
     async fn test_subarray_partial() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
                     .await
                     .unwrap();
@@ -931,7 +866,7 @@ mod tests {
     async fn test_subarray_out_of_bounds() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
                     .await
                     .unwrap();
