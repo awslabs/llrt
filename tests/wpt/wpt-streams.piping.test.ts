@@ -1,4 +1,4 @@
-import { runTestWpt } from "./runTestWpt.js";
+import { runTestDynamic } from "./wptTestHarness.js";
 import fs from "fs";
 import path from "path";
 
@@ -26,7 +26,7 @@ describe("piping", () => {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "streams", "piping", file);
       const sourceCode = fs.readFileSync(filePath, "utf8");
-      runTestWpt(sourceCode, done);
+      runTestDynamic(sourceCode, done);
     });
   }
 });

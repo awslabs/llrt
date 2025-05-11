@@ -1,4 +1,4 @@
-import { runTestWpt } from "./runTestWpt.js";
+import { runTestDynamic } from "./wptTestHarness.js";
 import fs from "fs";
 import path from "path";
 
@@ -22,7 +22,7 @@ describe("url", () => {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "url", file);
       const sourceCode = fs.readFileSync(filePath, "utf8");
-      runTestWpt(sourceCode, done);
+      runTestDynamic(sourceCode, done);
     });
   }
 });

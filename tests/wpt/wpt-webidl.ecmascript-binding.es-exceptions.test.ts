@@ -1,4 +1,4 @@
-import { runTestWpt } from "./runTestWpt.js";
+import { runTestDynamic } from "./wptTestHarness.js";
 import fs from "fs";
 import path from "path";
 
@@ -15,9 +15,15 @@ const testFiles = [
 describe("es-exceptions", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
-      const filePath = path.resolve(baseDir, "webidl", "ecmascript-binding", "es-exceptions", file);
+      const filePath = path.resolve(
+        baseDir,
+        "webidl",
+        "ecmascript-binding",
+        "es-exceptions",
+        file
+      );
       const sourceCode = fs.readFileSync(filePath, "utf8");
-      runTestWpt(sourceCode, done);
+      runTestDynamic(sourceCode, done);
     });
   }
 });

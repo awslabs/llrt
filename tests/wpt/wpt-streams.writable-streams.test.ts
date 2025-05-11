@@ -1,4 +1,4 @@
-import { runTestWpt } from "./runTestWpt.js";
+import { runTestDynamic } from "./wptTestHarness.js";
 import fs from "fs";
 import path from "path";
 
@@ -33,7 +33,7 @@ describe.skip("writable-streams", () => {
         file
       );
       const sourceCode = fs.readFileSync(filePath, "utf8");
-      runTestWpt(sourceCode, done);
+      runTestDynamic(sourceCode, done);
     });
   }
 });

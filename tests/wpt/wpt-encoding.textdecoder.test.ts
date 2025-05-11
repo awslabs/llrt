@@ -1,4 +1,4 @@
-import { runTestWpt } from "./runTestWpt.js";
+import { runTestDynamic } from "./wptTestHarness.js";
 import fs from "fs";
 import path from "path";
 
@@ -25,7 +25,7 @@ describe("textdecoder", () => {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "encoding", file);
       const sourceCode = fs.readFileSync(filePath, "utf8");
-      runTestWpt(sourceCode, done);
+      runTestDynamic(sourceCode, done);
     });
   }
 });
