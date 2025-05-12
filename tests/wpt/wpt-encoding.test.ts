@@ -1,4 +1,4 @@
-import { runTestDynamic } from "./wptTestHarness.js";
+import { runTestDynamic } from "./wpt-encoding.harness.js";
 import fs from "fs";
 import path from "path";
 
