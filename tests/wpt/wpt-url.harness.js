@@ -16,13 +16,13 @@ export const runTestDynamic = (testSource, done) => {
       let data;
       switch (url) {
         case "resources/urltestdata-javascript-only.json":
-          data = require("./wpt/url/resources/urltestdata-javascript-only.json");
+          data = require("./url/resources/urltestdata-javascript-only.json");
           break;
         case "resources/urltestdata.json":
-          data = require("./wpt/url/resources/urltestdata.json");
+          data = require("./url/resources/urltestdata.json");
           break;
         case "resources/setters_tests.json":
-          data = require("./wpt/url/resources/setters_tests.json");
+          data = require("./url/resources/setters_tests.json");
           break;
         default:
           throw new Error(`Cannot fetch URL: ${url}`);
