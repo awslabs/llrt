@@ -7,6 +7,7 @@ import commonSubsetTests from "./common/subset-tests.js";
 import encodings from "./encoding/resources/encodings.js";
 
 import fileApiBlob from "./FileAPI/support/Blob.js";
+import sendFileFormdataHelper from "./FileAPI/support/send-file-formdata-helper.js";
 
 export const runTestDynamic = (testSource, done) => {
   const context = {
@@ -24,6 +25,7 @@ export const runTestDynamic = (testSource, done) => {
   commonSubsetTests(context);
 
   fileApiBlob(context);
+  sendFileFormdataHelper(context);
 
   context.setup({
     explicit_done: true,
