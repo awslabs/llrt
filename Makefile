@@ -182,16 +182,16 @@ test: js
 init-wpt:
 	git config core.sparsecheckout false
 	echo "/README.md" > ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/console" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/encoding" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/FileAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/streams" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/url" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/WrbCryptoAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/WebCryptoAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/webidl" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	git config core.sparsecheckout true
 
 update-wpt:
-	( cd tests/wpt/wpt && git submodule update --remote --force; git log -1 --oneline > ../revision )
+	( cd tests/wpt/wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../revision )
 
 test-wpt: export JS_MINIFY = 0
 test-wpt: js
