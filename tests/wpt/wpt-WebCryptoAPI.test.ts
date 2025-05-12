@@ -1,4 +1,4 @@
-import { runTestDynamic } from "./wptTestHarness.js";
+import { runTestDynamic } from "./wpt-WebCryptoAPI.harness.js";
 import fs from "fs";
 import path from "path";
 
@@ -11,7 +11,7 @@ const testFiles = [
   "randomUUID.https.any.js",
 ];
 
-describe.skip("WebCryptoAPI", () => {
+describe("WebCryptoAPI", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "WebCryptoAPI", file);
