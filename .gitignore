@@ -23,3 +23,5 @@ bootstrap
 
 node_modules
 !/fixtures/node_modules
+
+tests/wpt/revision

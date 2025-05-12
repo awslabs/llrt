@@ -191,7 +191,7 @@ init-wpt:
 	git config core.sparsecheckout true
 
 update-wpt:
-	( cd tests/wpt/wpt && git read-tree -mu HEAD )
+	( cd tests/wpt/wpt && git submodule update --remote --force; git log -1 --oneline > ../revision )
 
 test-wpt: export JS_MINIFY = 0
 test-wpt: js
