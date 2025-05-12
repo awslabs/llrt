@@ -19,7 +19,7 @@ const testFiles = [
   "templated.any.js",
 ];
 
-describe("readable-byte-streams", () => {
+describe("streams.readable-byte-streams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(

@@ -27,7 +27,7 @@ const testFiles = [
   "templated.any.js",
 ];
 
-describe("readable-streams", () => {
+describe("streams.readable-streams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(

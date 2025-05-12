@@ -1,4 +1,4 @@
-import { runTestDynamic } from "./wptTestHarness.js";
+import { runTestDynamic } from "./wpt-encoding.harness.js";
 import fs from "fs";
 import path from "path";
 
@@ -10,7 +10,7 @@ const testFiles = [
   "textencoder-utf16-surrogates.any.js",
 ];
 
-describe("textencoder", () => {
+describe("encoding.textencoder", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "encoding", file);

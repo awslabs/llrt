@@ -19,7 +19,7 @@ const testFiles = [
   "urlsearchparams-stringifier.any.js",
 ];
 
-describe("urlsearchparams", () => {
+describe("url.urlsearchparams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "url", file);

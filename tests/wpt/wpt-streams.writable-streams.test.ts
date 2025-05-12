@@ -23,7 +23,7 @@ const testFiles = [
   "write.any.js",
 ];
 
-describe.skip("writable-streams", () => {
+describe.skip("streams.writable-streams", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(

@@ -17,7 +17,7 @@ const testFiles = [
   "urlencoded-parser.any.js",
 ];
 
-describe("url", () => {
+describe("url.url", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "url", file);

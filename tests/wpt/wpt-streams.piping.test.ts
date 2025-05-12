@@ -21,7 +21,7 @@ const testFiles = [
   // "transform-streams.any.js", // requires TransformStream
 ];
 
-describe("piping", () => {
+describe("streams.piping", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "streams", "piping", file);

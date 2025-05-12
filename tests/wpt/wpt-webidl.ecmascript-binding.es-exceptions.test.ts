@@ -1,4 +1,4 @@
-import { runTestDynamic } from "./wptTestHarness.js";
+import { runTestDynamic } from "./wpt-webidl-harness.js";
 import fs from "fs";
 import path from "path";
 
@@ -12,7 +12,7 @@ const testFiles = [
   "DOMException-custom-bindings.any.js",
 ];
 
-describe("es-exceptions", () => {
+describe("webidl.ecmascript-binding.es-exceptions", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(
