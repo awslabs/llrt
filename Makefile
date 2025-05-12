@@ -179,6 +179,20 @@ test: export JS_MINIFY = 0
 test: js
 	cargo run -- test -d bundle/js/__tests__/unit
 
+init-wpt:
+	git config core.sparsecheckout false
+	echo "/README.md" > ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/console" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/encoding" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/streams" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/url" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/WrbCryptoAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/webidl" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	git config core.sparsecheckout true
+
+update-wpt:
+	( cd tests/wpt/wpt && git read-tree -mu HEAD )
+
 test-wpt: export JS_MINIFY = 0
 test-wpt: js
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"

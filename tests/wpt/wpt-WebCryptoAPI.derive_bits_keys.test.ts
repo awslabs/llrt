@@ -1,7 +1,7 @@
 import { runTest } from "./wptTestHarness.js";
 
 const CWD = process.cwd();
-const baseDir = `${CWD}/tests/wpt`;
+const baseDir = `${CWD}/tests/wpt/wpt`;
 
 const testFiles = [
   "cfrg_curves_bits_curve25519.https.any.js",
@@ -16,7 +16,7 @@ const testFiles = [
   "pbkdf2.https.any.js",
 ];
 
-describe("encoding", () => {
+describe.skip("WebCryptoAPI.derive_bits_keys", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       runTest(

@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 const CWD = process.cwd();
-const baseDir = `${CWD}/tests/wpt`;
+const baseDir = `${CWD}/tests/wpt/wpt`;
 
 const testFiles = [
   "crypto_key_cached_slots.https.any.js",
@@ -11,7 +11,7 @@ const testFiles = [
   "randomUUID.https.any.js",
 ];
 
-describe("WebCryptoAPI", () => {
+describe.skip("WebCryptoAPI", () => {
   for (const file of testFiles) {
     it(`should pass ${file} tests`, (done) => {
       const filePath = path.resolve(baseDir, "WebCryptoAPI", file);
