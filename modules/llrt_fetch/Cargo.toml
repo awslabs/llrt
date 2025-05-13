@@ -53,7 +53,7 @@ rustls = { version = "0.23", default-features = false, features = [
 ryu = "1"
 tokio = "1"
 tracing = "0.1"
-webpki-roots = "0.26"
+webpki-roots = "1.0"
 tower-service = "0.3"
 quick_cache = "0.6"
 
