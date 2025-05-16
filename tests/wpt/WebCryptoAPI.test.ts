@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
   "getRandomValues.any.js", // It's Slowly...
+  "idlharness.https.any.js", // ReferenceError: idl_test is not defined
 ];
 
 const __filename = fileURLToPath(import.meta.url);

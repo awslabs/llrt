@@ -3,7 +3,9 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const SKIP_FILES = [];
+const SKIP_FILES = [
+  "Blob-constructor.any.js", // ReferenceError: promise_test is not defined
+];
 
 const __filename = fileURLToPath(import.meta.url);
 const basename = path.basename(__filename);

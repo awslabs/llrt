@@ -182,8 +182,11 @@ test: js
 init-wpt:
 	git config core.sparsecheckout false
 	echo "/README.md" > ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/console" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/encoding" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/FileAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/fetch" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/hr-time" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/streams" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/url" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
 	echo "/WebCryptoAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout

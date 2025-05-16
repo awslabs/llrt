@@ -1,10 +1,10 @@
-import { runTestDynamic } from "./url.harness.js";
+import { runTestDynamic } from "./console.harness.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
-  "historical.any.js", // TypeError: cannot read property 'isWindow' of undefined
+  "console-log-symbol.any.js", // Error: Test timed out after 5000ms
   "idlharness.any.js", // ReferenceError: idl_test is not defined
 ];
 

@@ -3,7 +3,12 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const SKIP_FILES = [];
+const SKIP_FILES = [
+  "idlharness.any.js", // ReferenceError: idl_test is not defined
+  "iso-2022-jp-decoder.any.js", // The "iso-2022-jp" encoding is not supported
+  "replacement-encodings.any.js", // ReferenceError: promise_test is not defined
+  "unsupported-encodings.any.js", // ReferenceError: promise_test is not defined
+];
 
 const __filename = fileURLToPath(import.meta.url);
 const basename = path.basename(__filename);

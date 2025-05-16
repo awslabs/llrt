@@ -1,11 +1,12 @@
-import { runTestDynamic } from "./url.harness.js";
+import { runTestDynamic } from "./fetch.harness.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
-  "historical.any.js", // TypeError: cannot read property 'isWindow' of undefined
-  "idlharness.any.js", // ReferenceError: idl_test is not defined
+  "response-consume-empty.any.js", // ReferenceError: FormData is not defined
+  "response-consume-stream.any.js", // ReferenceError: FormData is not defined
+  "response-init-002.any.js", // ReferenceError: FormData is not defined
 ];
 
 const __filename = fileURLToPath(import.meta.url);

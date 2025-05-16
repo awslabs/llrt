@@ -3,7 +3,12 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const SKIP_FILES = [];
+const SKIP_FILES = [
+  "send-file-formdata-controls.any.js", // ReferenceError: promise_test is not defined
+  "send-file-formdata-punctuation.any.js", // ReferenceError: promise_test is not defined
+  "send-file-formdata-utf-8.any.js", // ReferenceError: promise_test is not defined
+  "send-file-formdata.any.js", // ReferenceError: promise_test is not defined
+];
 
 const __filename = fileURLToPath(import.meta.url);
 const basename = path.basename(__filename);

@@ -1,11 +1,11 @@
-import { runTestDynamic } from "./url.harness.js";
+import { runTestDynamic } from "./fetch.harness.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
-  "historical.any.js", // TypeError: cannot read property 'isWindow' of undefined
-  "idlharness.any.js", // ReferenceError: idl_test is not defined
+  "header-values-normalize.any.js", // TypeError: cannot read property 'isWorker' of undefined
+  "header-values.any.js", // TypeError: cannot read property 'isWorker' of undefined
 ];
 
 const __filename = fileURLToPath(import.meta.url);

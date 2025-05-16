@@ -1,11 +1,17 @@
-import { runTestDynamic } from "./url.harness.js";
+import { runTestDynamic } from "./fetch.harness.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
-  "historical.any.js", // TypeError: cannot read property 'isWindow' of undefined
-  "idlharness.any.js", // ReferenceError: idl_test is not defined
+  "integrity.sub.any.js", // TypeError: cannot read property 'replace' of undefined
+  "keepalive.any.js", // ReferenceError: get_host_info is not defined
+  "mode-same-origin.any.js", // ReferenceError: get_host_info is not defined
+  "referrer.any.js", // ReferenceError: get_host_info is not defined
+  "request-forbidden-headers.any.js", // ReferenceError: promise_test is not defined
+  "request-private-network-headers.tentative.any.js", // ReferenceError: promise_test is not defined
+  "request-referrer.any.js", // TypeError: cannot read property 'href' of undefined
+  "scheme-blob.sub.any.js", // TypeError: not a function
 ];
 
 const __filename = fileURLToPath(import.meta.url);

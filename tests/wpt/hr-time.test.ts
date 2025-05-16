@@ -1,10 +1,9 @@
-import { runTestDynamic } from "./url.harness.js";
+import { runTestDynamic } from "./hr-time.harness.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
-  "historical.any.js", // TypeError: cannot read property 'isWindow' of undefined
   "idlharness.any.js", // ReferenceError: idl_test is not defined
 ];
 
