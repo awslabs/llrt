@@ -18,7 +18,7 @@ make init-wpt
 2. **Load as a submodule** (only once)
 
 ```sh
-git submodule update --init
+git submodule add --force -b master https://github.com/web-platform-tests/wpt tests/wpt/wpt
 ```
 
 3. **Update the local revision** (when the remote is updated)
