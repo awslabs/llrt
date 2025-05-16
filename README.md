@@ -70,7 +70,7 @@ That's it 🎉
 
 ## Testing & ensuring compatibility
 
-The best way to ensure your code is compatible with LLRT is to write tests and execute them using the built-in test runner. The test runner currently supports Jest/Chai assertions. There are two main types of tests you can create:
+The best way to ensure your code is compatible with LLRT is to write tests and execute them using the built-in test runner. The test runner currently supports Jest/Chai assertions. There are three main types of tests you can create:
 
 Unit Tests
 
@@ -82,8 +82,14 @@ End-to-End (E2E) Tests
 - Validate overall compatibility with AWS SDK and WinterCG compliance
 - Test the integration between all components
 - Confirm expected behavior from end-user perspective
+- For more information about the E2E Tests and how to run them, see [here](tests/e2e/README.md).
 
-For more information about the E2E Tests and how to run them, see [here](tests/e2e/README.md).
+Web Platform Tests (WPT)
+
+- Useful for validating LLRT’s behavior against standardized browser APIs and runtime expectations
+- Ensure compatibility with web standards and cross-runtime environments
+- Help verify alignment with WinterCG and broader JavaScript ecosystem
+- For setup instructions and how to run WPT in LLRT, see [here](tests/wpt/README.md).
 
 ### Test runner
 
