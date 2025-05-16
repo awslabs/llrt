@@ -179,6 +179,28 @@ test: export JS_MINIFY = 0
 test: js
 	cargo run -- test -d bundle/js/__tests__/unit
 
+init-wpt:
+	git config core.sparsecheckout false
+	echo "/README.md" > ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/console" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/encoding" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/FileAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/fetch" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/hr-time" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/streams" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/url" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/WebCryptoAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/webidl" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	git config core.sparsecheckout true
+
+update-wpt:
+	( cd tests/wpt/wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../revision )
+
+test-wpt: export JS_MINIFY = 0
+test-wpt: js
+	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"
+	cargo run -- test -d bundle/js/__tests__/wpt
+
 test-e2e: export JS_MINIFY = 0
 test-e2e: export TEST_TIMEOUT = 60000
 test-e2e: export SDK_BUNDLE_MODE = STD
