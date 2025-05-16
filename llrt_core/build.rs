@@ -253,10 +253,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
             .output()?;
 
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to compress file",
-            ));
+            return Err(io::Error::other("Failed to compress file"));
         }
 
         let bytes = fs::read(&filename)?;
@@ -313,8 +310,7 @@ fn generate_compression_dictionary(
     let mut cmd = cmd.current_dir(out_dir).args(short_source_files).spawn()?;
     let exit_status = cmd.wait()?;
     if !exit_status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Failed to generate compression dictionary",
         ));
     };
