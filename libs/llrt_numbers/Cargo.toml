@@ -18,7 +18,7 @@ rand = "0.8"
 ryu = "1"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.6"
 llrt_test = { version = "0.5.1-beta", path = "../llrt_test" }
 
 [[bench]]
