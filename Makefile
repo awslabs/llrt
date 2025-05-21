@@ -176,42 +176,46 @@ run-cli: js
 	cargo run
 
 test: export JS_MINIFY = 0
+test: export TEST_SUB_DIR = unit
 test: js
-	cargo run -- test -d bundle/js/__tests__/unit
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 init-wpt:
 	git config core.sparsecheckout false
-	echo "/README.md" > ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/console" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/encoding" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/FileAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/fetch" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/hr-time" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/streams" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/url" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/WebCryptoAPI" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
-	echo "/webidl" >> ./.git/modules/tests/wpt/wpt/info/sparse-checkout
+	echo "/README.md" > ./.git/modules/wpt/info/sparse-checkout
+	echo "/console" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/encoding" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/FileAPI" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/fetch" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/hr-time" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/streams" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/url" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/WebCryptoAPI" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/webidl" >> ./.git/modules/wpt/info/sparse-checkout
 	git config core.sparsecheckout true
 
 update-wpt:
-	( cd tests/wpt/wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../revision )
+	( cd wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../tests/wpt/revision )
 
 test-wpt: export JS_MINIFY = 0
+test-wpt: export TEST_SUB_DIR = wpt
 test-wpt: js
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"
-	cargo run -- test -d bundle/js/__tests__/wpt
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 test-e2e: export JS_MINIFY = 0
 test-e2e: export TEST_TIMEOUT = 60000
 test-e2e: export SDK_BUNDLE_MODE = STD
+test-e2e: export TEST_SUB_DIR = e2e
 test-e2e: js
-	cargo run -- test -d bundle/js/__tests__/e2e
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
+test-ci: export TEST_SUB_DIR = unit
 test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) -- --nocapture --show-output
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h

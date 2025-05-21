@@ -18,7 +18,7 @@ const subDir = basename
   .join(path.sep);
 
 const CWD = process.cwd();
-const baseDir = path.join(CWD, "tests", "wpt", "wpt");
+const baseDir = path.join(CWD, "wpt");
 const targetDir = path.join(baseDir, subDir);
 
 const testFiles = fs

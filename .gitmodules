@@ -3,8 +3,8 @@
 	url = https://github.com/facebook/zstd.git
 	update = none # Workaround for https://github.com/rust-lang/cargo/issues/4247
 
-[submodule "tests/wpt/wpt"]
-	path = tests/wpt/wpt
+[submodule "wpt"]
+	path = wpt
 	url = https://github.com/web-platform-tests/wpt
 	branch = master
 	update = none # Workaround for https://github.com/rust-lang/cargo/issues/4247
