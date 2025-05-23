@@ -48,6 +48,29 @@ fn main() -> StdResult<(), Box<dyn Error>> {
 
     generate_bytecode_cache(&out_dir)?;
 
+    // Generate the runtime binary for executable creation
+    let runtime_path = PathBuf::from(&out_dir).join("llrt-runtime");
+
+    // Get the path to the llrt binary from the workspace
+    let workspace_root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let llrt_path = workspace_root.join("target/release/llrt");
+
+    // Copy the llrt binary to our output directory if it exists
+    if llrt_path.exists() {
+        fs::copy(&llrt_path, &runtime_path)?;
+        println!("cargo:info=Copied LLRT runtime for executable creation");
+    } else {
+        // If the binary doesn't exist yet, create an empty file as a placeholder
+        fs::write(&runtime_path, b"")?;
+        println!("cargo:info=Created placeholder for LLRT runtime (will be updated on next build)");
+    }
+
+    // Tell cargo to rerun this script if the llrt binary changes
+    println!("cargo:rerun-if-changed={}", llrt_path.display());
+
     Ok(())
 }
 

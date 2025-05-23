@@ -7,6 +7,7 @@ use rquickjs::{
     context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
     CatchResultExt, Ctx, Error, Result, Value,
 };
+use tracing::trace;
 
 use crate::libs::{
     context::set_spawn_error_handler,
@@ -177,6 +178,98 @@ impl Vm {
         .concat();
 
         self.run(source, strict, global).await;
+    }
+
+    pub async fn run_bytecode(&self, bytecode: Vec<u8>) {
+        self.run_with(|ctx| {
+            // Load the bytecode directly using the context
+            let _module_name = "main";
+
+            trace!(
+                "Attempting to load bytecode of size {} bytes",
+                bytecode.len()
+            );
+
+            // First, try to load and execute it as a module
+            match crate::modules::require::loader::CustomLoader::get_module_bytecode(&bytecode) {
+                Ok(extracted_bytecode) => {
+                    trace!(
+                        "Successfully extracted bytecode, size: {} bytes",
+                        extracted_bytecode.len()
+                    );
+                    match unsafe { rquickjs::Module::load(ctx.clone(), &extracted_bytecode) } {
+                        Ok(module) => {
+                            trace!("Successfully loaded bytecode as module");
+                            // Execute the module
+                            let _ = module.eval()?;
+                            Ok(())
+                        },
+                        Err(err) => {
+                            // If loading as a module fails, log the error and exit
+                            trace!("Failed to load as module: {:?}", err);
+                            eprintln!("Error loading bytecode: {:?}", err);
+                            Err(err)
+                        },
+                    }
+                },
+                Err(err) => {
+                    trace!("Failed to extract bytecode: {:?}", err);
+                    eprintln!("Error extracting bytecode: {:?}", err);
+                    Err(err)
+                },
+            }
+        })
+        .await;
+    }
+
+    pub async fn run_raw_bytecode(&self, bytecode: Vec<u8>) -> StdResult<(), String> {
+        self.run_with_result(move |ctx| {
+            // Load the raw bytecode directly
+            trace!("Loading raw bytecode of size {} bytes", bytecode.len());
+
+            match unsafe { rquickjs::Module::load(ctx.clone(), &bytecode) } {
+                Ok(module) => {
+                    trace!("Successfully loaded raw bytecode as module");
+                    // Execute the module
+                    match module.eval() {
+                        Ok(_) => {
+                            trace!("Successfully executed module");
+                            Ok(())
+                        },
+                        Err(err) => {
+                            trace!("Failed to evaluate module: {:?}", err);
+                            Err(format!("Error evaluating module: {:?}", err))
+                        },
+                    }
+                },
+                Err(err) => {
+                    trace!("Failed to load raw bytecode as module: {:?}", err);
+                    Err(format!("Error loading bytecode: {:?}", err))
+                },
+            }
+        })
+        .await
+    }
+
+    async fn run_with_result<F, T>(&self, f: F) -> StdResult<T, String>
+    where
+        F: for<'js> FnOnce(&Ctx<'js>) -> StdResult<T, String> + std::marker::Send,
+        T: Send + 'static,
+    {
+        let mut result = None;
+
+        self.ctx
+            .with(|ctx| match f(&ctx) {
+                Ok(value) => {
+                    result = Some(Ok(value));
+                },
+                Err(err) => {
+                    result = Some(Err(err));
+                },
+            })
+            .await;
+
+        result.unwrap_or(Err("Failed to execute function in context".to_string()))
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
