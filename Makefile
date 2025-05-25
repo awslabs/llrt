@@ -201,7 +201,13 @@ test-wpt: export JS_MINIFY = 0
 test-wpt: export TEST_SUB_DIR = wpt
 test-wpt: js
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"
-	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp
+
+tidyup-wpt:
+	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
+	| sed '1,/^$$/d' \
+	| sed -E '/^ ?[^ ]/s|^.*__tests__/|🧪/|' \
+	> wpt_errors.txt
 
 test-e2e: export JS_MINIFY = 0
 test-e2e: export TEST_TIMEOUT = 60000

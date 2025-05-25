@@ -29,7 +29,7 @@ describe(subDir, () => {
       it(`should pass ${file} tests`, (done) => {
         const filePath = path.join(targetDir, file);
         const sourceCode = fs.readFileSync(filePath, "utf8");
-        runTestDynamic(sourceCode, done);
+        runTestDynamic(sourceCode, baseDir, done);
       });
     }
   }

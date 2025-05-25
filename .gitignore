@@ -26,3 +26,4 @@ node_modules
 
 tests/wpt/revision
 /wpt
+wpt_errors.tmp

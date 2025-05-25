@@ -13,7 +13,9 @@ import fetchSwIntercept from "./fetch/api/resources/sw-intercept.js";
 import fetchUtils from "./fetch/api/resources/utils.js";
 import fetchRequestRequestCache from "./fetch/api/request/request-cache.js";
 
-export const runTestDynamic = (testSource, done) => {
+export const runTestDynamic = (testSource, baseDir, done) => {
+  globalThis._fetch = globalThis.fetch;
+
   const context = {
     createBuffer: (type, length) => new self[type](length),
     encodings_table: encodings,
@@ -21,6 +23,22 @@ export const runTestDynamic = (testSource, done) => {
     DOMException: DOMException,
     location: {},
     RESOURCES_DIR: "",
+
+    fetch: (url, option) => {
+      let data;
+      switch (url) {
+        case "../cors/resources/not-cors-safelisted.json":
+          data = require(
+            baseDir + "/fetch/api/cors/resources/not-cors-safelisted.json"
+          );
+          break;
+        default:
+          return _fetch(url, option);
+      }
+      return Promise.resolve({
+        json: () => Promise.resolve(data),
+      });
+    },
   };
 
   resourcesIdlharness(context);

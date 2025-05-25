@@ -637,7 +637,10 @@ class TestServer {
     output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
     output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
 
+    console.log(output);
+
     if (this.totalFailed > 0) {
+      output = "";
       for (let [file, testFailure] of this.filesFailed) {
         output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
 
@@ -655,7 +658,7 @@ class TestServer {
       }
       process.exitCode = 1;
     }
-    console.log(output);
+    console.error(output);
   }
 
   private printSuiteResult(result: SuiteResult, depth = 0): string {
