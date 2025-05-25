@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 const SKIP_FILES = [
   "cache.https.any.js", // ReferenceError: caches is not defined
   "general.any.js", // ReferenceError: get_host_info is not defined
+  "request.any.js", // ReferenceError: FormData is not defined
 ];
 
 const __filename = fileURLToPath(import.meta.url);

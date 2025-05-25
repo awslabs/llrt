@@ -85,18 +85,6 @@ encoding > should pass textencoder-utf16-surrogates.any.js tests
 Error: [USVString handling: lone surrogate lead] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
 
 
-🧪/wpt/fetch.api.abort.test.js 
-fetch/api/abort > should pass request.any.js tests
-ReferenceError: FormData is not defined
-    at anonymous (<input>:11:17)
-    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.abort.test.js:8042:29)
-    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.abort.test.js:8080:24)
-    at <anonymous> (llrt:test/worker:6657:28)
-    at Promise (native)
-    at executeAsyncOrCallbackFn (llrt:test/worker:6648:17)
-    at runTests (llrt:test/worker:6726:45)
-
-
 🧪/wpt/fetch.api.basic.test.js 
 fetch/api/basic > should pass accept-header.any.js tests
 Error: [Request through fetch should have 'accept' header with value '*/*'] promise_test: Unhandled rejection with value: object "Error: invalid format"
