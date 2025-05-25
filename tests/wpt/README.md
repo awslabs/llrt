@@ -38,3 +38,9 @@ make update-wpt
 ```sh
 make test-wpt
 ```
+
+6. **Organizing the results of the WPT**
+
+```sh
+make tidyup-wpt
+```
