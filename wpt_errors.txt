@@ -1,26 +1,3 @@
-🧪/wpt/console.test.js 
-console > should pass console-is-a-namespace.any.js tests
-Error: [console has the right property descriptors] assert_equals: must not be enumerable expected false but got true
-
-console > should pass console-label-conversion.any.js tests
-Error: [console.count()'s label gets converted to string via label.toString() when label is an object] not a function
-
-console > should pass console-namespace-object-class-string.any.js tests
-Error: [@@toStringTag exists on the namespace object with the appropriate descriptor] assert_own_property: expected property symbol "Symbol(Symbol.toStringTag)" missing
-
------ LAST STDOUT: -----
-[ 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'... 9999900 more items ]
-Uint8Array [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 9999900 more items ]
-
-
-🧪/wpt/WebCryptoAPI.test.js 
-WebCryptoAPI > should pass crypto_key_cached_slots.https.any.js tests
-Error: [CryptoKey.algorithm getter returns cached object] assert_true: expected true got false
-
-WebCryptoAPI > should pass historical.any.js tests
-Error: [Non-secure context window does not have access to crypto.subtle] assert_equals: expected (undefined) undefined but got (object) object "[object Object]"
-
-
 🧪/wpt/FileAPI.blob.test.js 
 FileAPI/blob > should pass Blob-array-buffer.any.js tests
 Error: [Blob.arrayBuffer()] promise_test: Unhandled rejection with value: object "ReferenceError: assert_true is not defined"
@@ -43,6 +20,69 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 🧪/wpt/FileAPI.file.test.js 
 FileAPI/file > should pass File-constructor.any.js tests
 Error: [Empty File fileBits] assert_equals: expected 0 but got 13
+
+
+🧪/wpt/WebCryptoAPI.digest.test.js 
+WebCryptoAPI/digest > should pass digest.https.any.js tests
+Error: [SHA-1 with short source data and altered buffer after call] assert_true: digest() yielded expected result for sha-1:short expected true got false
+
+
+🧪/wpt/WebCryptoAPI.test.js 
+WebCryptoAPI > should pass crypto_key_cached_slots.https.any.js tests
+Error: [CryptoKey.algorithm getter returns cached object] assert_true: expected true got false
+
+WebCryptoAPI > should pass historical.any.js tests
+Error: [Non-secure context window does not have access to crypto.subtle] assert_equals: expected (undefined) undefined but got (object) object "[object Object]"
+
+
+🧪/wpt/console.test.js 
+console > should pass console-is-a-namespace.any.js tests
+Error: [console has the right property descriptors] assert_equals: must not be enumerable expected false but got true
+
+console > should pass console-label-conversion.any.js tests
+Error: [console.count()'s label gets converted to string via label.toString() when label is an object] not a function
+
+console > should pass console-namespace-object-class-string.any.js tests
+Error: [@@toStringTag exists on the namespace object with the appropriate descriptor] assert_own_property: expected property symbol "Symbol(Symbol.toStringTag)" missing
+
+----- LAST STDOUT: -----
+[ 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'... 9999900 more items ]
+Uint8Array [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 9999900 more items ]
+
+
+🧪/wpt/encoding.test.js 
+encoding > should pass api-surrogates-utf8.any.js tests
+Error: [Invalid surrogates encoded into UTF-8: Surrogate half (low)] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
+
+encoding > should pass encodeInto.any.js tests
+Error: [encodeInto() into ArrayBuffer with U+d834AU+df06A¥Hi and destination length 10, offset 0, filler 0] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
+
+encoding > should pass textdecoder-arguments.any.js tests
+Error: [TextDecoder decode() with explicit undefined] assert_equals: Undefined as first arg should flush the stream expected "\ufffd" but got ""
+
+encoding > should pass textdecoder-byte-order-marks.any.js tests
+Error: [Byte-order marks: utf-8] assert_not_equals: Mismatching BOM should not be ignored - treated as garbage bytes. got disallowed value "z¢水𝄞􏿽"
+
+encoding > should pass textdecoder-copy.any.js tests
+Error: [Modify buffer after passing it in (ArrayBuffer)] assert_equals: expected "" but got "\ufffd"
+
+encoding > should pass textdecoder-eof.any.js tests
+Error: [TextDecoder end-of-queue handling using stream: true] Error calling function with 0 argument(s) while 1 where expected
+
+encoding > should pass textdecoder-fatal-single-byte.any.js tests
+Error: [Not throw: IBM866 has a pointer 0] The "IBM866" encoding is not supported
+
+encoding > should pass textdecoder-fatal-streaming.any.js tests
+Error: [Fatal flag, non-streaming cases] assert_equals: Unterminated UTF-8 sequence should emit replacement character if fatal flag is unset expected "\ufffd" but got ""
+
+encoding > should pass textdecoder-fatal.any.js tests
+Error: [Error seen with fatal does not prevent future decodes] assert_throws_js: decode() should throw on incomplete sequence function "() => decoder.decode(new DataView(bytes.buffer, 0, 2))" did not throw
+
+encoding > should pass textdecoder-streaming.any.js tests
+Error: [Streaming decode: utf-8, 1 byte window (ArrayBuffer)] Error calling function with 0 argument(s) while 1 where expected
+
+encoding > should pass textencoder-utf16-surrogates.any.js tests
+Error: [USVString handling: lone surrogate lead] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
 
 
 🧪/wpt/fetch.api.abort.test.js 
@@ -283,44 +323,9 @@ fetch/api/response > should pass response-stream-with-broken-then.any.js tests
 Error: [Attempt to inject {done: false, value: bye} via Object.prototype.then.] assert_equals: The value should be "hello". expected "hello" but got "[object Object]"
 
 
-🧪/wpt/encoding.test.js 
-encoding > should pass api-surrogates-utf8.any.js tests
-Error: [Invalid surrogates encoded into UTF-8: Surrogate half (low)] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
-
-encoding > should pass encodeInto.any.js tests
-Error: [encodeInto() into ArrayBuffer with U+d834AU+df06A¥Hi and destination length 10, offset 0, filler 0] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
-
-encoding > should pass textdecoder-arguments.any.js tests
-Error: [TextDecoder decode() with explicit undefined] assert_equals: Undefined as first arg should flush the stream expected "\ufffd" but got ""
-
-encoding > should pass textdecoder-byte-order-marks.any.js tests
-Error: [Byte-order marks: utf-8] assert_not_equals: Mismatching BOM should not be ignored - treated as garbage bytes. got disallowed value "z¢水𝄞􏿽"
-
-encoding > should pass textdecoder-copy.any.js tests
-Error: [Modify buffer after passing it in (ArrayBuffer)] assert_equals: expected "" but got "\ufffd"
-
-encoding > should pass textdecoder-eof.any.js tests
-Error: [TextDecoder end-of-queue handling using stream: true] Error calling function with 0 argument(s) while 1 where expected
-
-encoding > should pass textdecoder-fatal-single-byte.any.js tests
-Error: [Not throw: IBM866 has a pointer 0] The "IBM866" encoding is not supported
-
-encoding > should pass textdecoder-fatal-streaming.any.js tests
-Error: [Fatal flag, non-streaming cases] assert_equals: Unterminated UTF-8 sequence should emit replacement character if fatal flag is unset expected "\ufffd" but got ""
-
-encoding > should pass textdecoder-fatal.any.js tests
-Error: [Error seen with fatal does not prevent future decodes] assert_throws_js: decode() should throw on incomplete sequence function "() => decoder.decode(new DataView(bytes.buffer, 0, 2))" did not throw
-
-encoding > should pass textdecoder-streaming.any.js tests
-Error: [Streaming decode: utf-8, 1 byte window (ArrayBuffer)] Error calling function with 0 argument(s) while 1 where expected
-
-encoding > should pass textencoder-utf16-surrogates.any.js tests
-Error: [USVString handling: lone surrogate lead] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
-
-
-🧪/wpt/WebCryptoAPI.digest.test.js 
-WebCryptoAPI/digest > should pass digest.https.any.js tests
-Error: [SHA-1 with short source data and altered buffer after call] assert_true: digest() yielded expected result for sha-1:short expected true got false
+🧪/wpt/hr-time.test.js 
+hr-time > should pass basic.any.js tests
+Error: [Performance interface extends EventTarget.] not a function
 
 
 🧪/wpt/streams.readable-byte-streams.test.js 
@@ -382,10 +387,5 @@ Error: [Cannot construct without new] assert_throws_js: function "() => DOMExcep
 
 webidl/ecmascript-binding/es-exceptions > should pass DOMException-is-error.any.js tests
 Error: [Untitled] assert_true: expected true got false
-
-
-🧪/wpt/hr-time.test.js 
-hr-time > should pass basic.any.js tests
-Error: [Performance interface extends EventTarget.] not a function
 
 

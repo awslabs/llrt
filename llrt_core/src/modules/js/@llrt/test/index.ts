@@ -641,7 +641,12 @@ class TestServer {
 
     if (this.totalFailed > 0) {
       output = "";
-      for (let [file, testFailure] of this.filesFailed) {
+      const sortedFilesFailed = new Map(
+        Array.from(this.filesFailed.entries()).sort(([keyA], [keyB]) =>
+          keyA.localeCompare(keyB)
+        )
+      );
+      for (let [file, testFailure] of sortedFilesFailed) {
         output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
 
         for (let failure of testFailure) {
