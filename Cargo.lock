@@ -1880,29 +1880,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "llrt_fs"
-version = "0.5.1-beta"
-dependencies = [
- "either",
- "llrt_buffer",
- "llrt_encoding",
- "llrt_path",
- "llrt_test",
- "llrt_utils",
- "ring",
- "rquickjs",
- "tokio",
-]
-
-[[package]]
-name = "llrt_hooking"
-version = "0.5.1-beta"
-dependencies = [
- "llrt_utils",
- "rquickjs",
-]
-
-[[package]]
 name = "llrt_fetch"
 version = "0.6.0-beta"
 dependencies = [
@@ -1947,6 +1924,14 @@ dependencies = [
  "ring",
  "rquickjs",
  "tokio",
+]
+
+[[package]]
+name = "llrt_hooking"
+version = "0.5.1-beta"
+dependencies = [
+ "llrt_utils",
+ "rquickjs",
 ]
 
 [[package]]
@@ -3492,7 +3477,19 @@ checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
  "log",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
+dependencies = [
+ "proc-macro2 1.0.94",
+ "quote 1.0.40",
+ "syn 2.0.100",
 ]
 
 [[package]]

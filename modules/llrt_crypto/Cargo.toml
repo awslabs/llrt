@@ -48,7 +48,7 @@ rand = { version = "0.8", features = [
   "std_rng",
 ], default-features = false }
 ring = { version = "0.17", default-features = false }
-rquickjs = { git = "https://github.com/bnoordhuis/rquickjs.git", branch = "promisehook", version = "0.9.0", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
 uuid = { version = "1", features = [
