@@ -16,6 +16,7 @@ llrt_utils = { version = "0.6.0-beta", path = "../../libs/llrt_utils", default-f
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "futures",
   "macro",
+  "futures",
 ], default-features = false }
 
 [dev-dependencies]
