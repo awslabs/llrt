@@ -31,7 +31,7 @@ impl Headers {
         if let Some(init) = init.into_inner() {
             if init.is_array() {
                 let array = unsafe { init.into_array().unwrap_unchecked() };
-                let headers = Self::array_to_headers(array)?;
+                let headers = Self::array_to_headers(&ctx, array)?;
                 return Ok(Self { headers });
             } else if init.is_null() || init.is_number() {
                 return Err(Exception::throw_type(&ctx, "Invalid argument"));
@@ -190,13 +190,17 @@ impl Headers {
         Self { headers }
     }
 
-    fn array_to_headers(array: Array<'_>) -> Result<Vec<(ImmutableString, ImmutableString)>> {
+    fn array_to_headers<'js>(
+        ctx: &Ctx<'js>,
+        array: Array<'js>,
+    ) -> Result<Vec<(ImmutableString, ImmutableString)>> {
         let mut vec = Vec::new();
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
                 let key = array_entry.get::<String>(0)?.to_lowercase();
-                let value = array_entry.get::<String>(1)?;
-                vec.push((key.into(), value.into()));
+                let raw_value = array_entry.get::<Value>(1)?;
+                let value: ImmutableString = coerce_to_string(ctx, raw_value)?.into();
+                vec.push((key.into(), value));
             }
         }
         Ok(vec)
@@ -220,6 +224,20 @@ impl<'js> CustomInspect<'js> for Headers {
         }
 
         Ok(obj)
+    }
+}
+
+fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
+    if value.is_null() {
+        Ok("null".to_string())
+    } else if let Some(s) = value.as_string() {
+        Ok(s.to_string()?)
+    } else {
+        // fallback: try JSON.stringify or [object Object]
+        let global = ctx.globals();
+        let string_ctor: Function = global.get("String")?;
+        let result: String = string_ctor.call((value,))?;
+        Ok(result)
     }
 }
 
