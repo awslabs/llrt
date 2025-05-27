@@ -228,7 +228,7 @@ impl Headers {
         ctx: &Ctx<'js>,
         array: Array<'js>,
     ) -> Result<Vec<(ImmutableString, ImmutableString)>> {
-        let mut vec = Vec::new();
+        let mut vec: Vec<(ImmutableString, ImmutableString)> = Vec::new();
 
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
@@ -268,6 +268,9 @@ impl Headers {
                 }
             }
         }
+
+        vec.sort_by(|a, b| a.0.cmp(&b.0));
+
         Ok(vec)
     }
 }

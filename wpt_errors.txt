@@ -182,13 +182,10 @@ Error: [Request: overriding explicit Content-Type] assert_equals: expected "test
 
 🧪/wpt/fetch.api.headers.test.js 
 fetch/api/headers > should pass header-setcookie.any.js tests
-Error: [Headers iterator preserves per header ordering, but sorts keys alphabetically] assert_array_equals: expected property 0 to be "a-cool-header" but got "xylophone-header" (expected array ["a-cool-header", "4, 6"] got ["xylophone-header", "1"])
+Error: [Headers iterator is correctly updated with set-cookie changes] assert_array_equals: expected property 0 to be "set-cookie" but got "x-header" (expected array ["set-cookie", "a=b"] got ["x-header", "test"])
 
 fetch/api/headers > should pass headers-basic.any.js tests
 Error: [Create headers with existing headers with custom iterator] assert_equals: expected (string) "test" but got (object) null
-
-fetch/api/headers > should pass headers-combine.any.js tests
-Error: [Iterate combined values in sorted order] assert_array_equals: expected property 0 to be "1" but got "2" (expected array ["1", "b"] got ["2", "a, b"])
 
 fetch/api/headers > should pass headers-no-cors.any.js tests
 Error: ["no-cors" Headers object cannot have accept set to sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, , sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss] assert_equals: 1 expected "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss" but got "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, "
