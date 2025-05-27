@@ -209,6 +209,10 @@ impl Headers {
 
                 let raw_value = array_entry.get::<Value>(1)?;
                 let value: ImmutableString = coerce_to_string(ctx, raw_value)?.into();
+                if !is_http_header_value(&value) {
+                    return Err(Exception::throw_type(ctx, "Invalid value of key"));
+                }
+
                 vec.push((key.into(), value));
             }
         }
@@ -263,6 +267,27 @@ fn is_http_header_name(name: &str) -> bool {
             b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~' |
             b'0'..=b'9' | b'A'..=b'Z' | b'a'..=b'z'
         )
+    })
+}
+
+fn is_http_header_value(value: &str) -> bool {
+    let bytes = value.as_bytes();
+
+    // Reject leading/trailing SP or HTAB
+    if bytes.first().is_some_and(|&b| b == 0x20 || b == 0x09) {
+        return false;
+    }
+    if bytes.last().is_some_and(|&b| b == 0x20 || b == 0x09) {
+        return false;
+    }
+
+    // Validate chars same as sanitize
+    bytes.iter().all(|&b| {
+        b == 0x09  // HTAB
+        || b == 0x20 // SP
+        || (0x21..=0x7E).contains(&b) // VCHAR
+        || b == 0x0C // \f
+        || b == 0xA0 // NBSP
     })
 }
 

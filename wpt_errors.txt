@@ -191,7 +191,7 @@ fetch/api/headers > should pass headers-combine.any.js tests
 Error: [Create headers using same name for different values] assert_equals: expected "doubleValue1, doubleValue2" but got "doubleValue1"
 
 fetch/api/headers > should pass headers-errors.any.js tests
-Error: [Create headers giving bad header value as init argument] assert_throws_js: function "function() { new Headers([["name", "invalidValueĀ"]]); }" did not throw
+Error: [Check headers get with an invalid name invalidĀ] assert_throws_js: function "function() { headers.get(name); }" did not throw
 
 fetch/api/headers > should pass headers-no-cors.any.js tests
 Error: ["no-cors" Headers object cannot have accept set to sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, , sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss] assert_equals: 1 expected "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss" but got "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, "
