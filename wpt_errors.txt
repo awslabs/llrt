@@ -185,7 +185,7 @@ fetch/api/headers > should pass header-setcookie.any.js tests
 Error: [Headers iterator does not special case set-cookie2 headers] assert_equals: Array length is not equal expected 1 but got 2
 
 fetch/api/headers > should pass headers-basic.any.js tests
-Error: [Create headers with null should throw] assert_throws_js: function "function() { new Headers(parameter) }" did not throw
+Error: [Create headers with 1 should throw] assert_throws_js: function "function() { new Headers(parameter) }" did not throw
 
 fetch/api/headers > should pass headers-combine.any.js tests
 Error: [Create headers using same name for different values] assert_equals: expected "doubleValue1, doubleValue2" but got "doubleValue1"
@@ -200,9 +200,7 @@ fetch/api/headers > should pass headers-normalize.any.js tests
 Error: [Create headers with not normalized values] assert_equals: name: name1 has normalized value: space expected "space" but got " space "
 
 fetch/api/headers > should pass headers-record.any.js tests
-Error: [Passing null to Headers constructor] assert_throws_js: function "function() {
-    var h = new Headers(null);
-  }" did not throw
+Error: [Basic operation with one property] assert_equals: expected 4 but got 3
 
 
 🧪/wpt/fetch.api.request.test.js 

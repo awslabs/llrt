@@ -8,8 +8,8 @@ use llrt_utils::{
     object::map_to_entries,
 };
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, FromJs, Function, IntoJs,
-    Null, Object, Result, Value,
+    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, Exception, FromJs, Function,
+    IntoJs, Null, Object, Result, Value,
 };
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
@@ -33,6 +33,8 @@ impl Headers {
                 let array = unsafe { init.into_array().unwrap_unchecked() };
                 let headers = Self::array_to_headers(array)?;
                 return Ok(Self { headers });
+            } else if init.is_null() {
+                return Err(Exception::throw_type(&ctx, "Invalid argument"));
             } else if init.is_object() {
                 return Self::from_value(&ctx, init);
             }
