@@ -197,6 +197,10 @@ impl Headers {
         let mut vec = Vec::new();
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
+                if array_entry.clone().into_iter().flatten().count() % 2 != 0 {
+                    return Err(Exception::throw_type(ctx, "Header arrays are not paired"));
+                }
+
                 let key = array_entry.get::<String>(0)?.to_lowercase();
                 let raw_value = array_entry.get::<Value>(1)?;
                 let value: ImmutableString = coerce_to_string(ctx, raw_value)?.into();
