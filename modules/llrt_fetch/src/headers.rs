@@ -33,7 +33,7 @@ impl Headers {
                 let array = unsafe { init.into_array().unwrap_unchecked() };
                 let headers = Self::array_to_headers(array)?;
                 return Ok(Self { headers });
-            } else if init.is_null() {
+            } else if init.is_null() || init.is_number() {
                 return Err(Exception::throw_type(&ctx, "Invalid argument"));
             } else if init.is_object() {
                 return Self::from_value(&ctx, init);
