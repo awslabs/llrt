@@ -44,11 +44,23 @@ impl Headers {
         })
     }
 
-    pub fn append(&mut self, key: String, value: String) {
+    pub fn append<'js>(&mut self, ctx: Ctx<'js>, key: String, value: String) -> Result<()> {
         let key: ImmutableString = key.to_lowercase().into();
+        if !is_http_header_name(&key) {
+            return Err(Exception::throw_type(&ctx, "Invalid key"));
+        }
+
+        let value: Rc<str> = value.into();
+        if !is_http_header_value(&value) {
+            return Err(Exception::throw_type(&ctx, "Invalid value of key"));
+        }
+
         let str_key = key.as_ref();
         if str_key == HEADERS_KEY_SET_COOKIE {
-            return self.headers.push((key, value.into()));
+            return {
+                self.headers.push((key, value));
+                Ok(())
+            };
         }
         if let Some((_, existing_value)) = self.headers.iter_mut().find(|(k, _)| k == &key) {
             let mut new_value = String::with_capacity(existing_value.len() + 2 + value.len());
@@ -62,6 +74,7 @@ impl Headers {
         } else {
             self.headers.push((key, value.into()));
         }
+        Ok(())
     }
 
     pub fn get<'js>(&self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
