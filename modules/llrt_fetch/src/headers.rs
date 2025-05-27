@@ -102,9 +102,13 @@ impl Headers {
             .collect()
     }
 
-    pub fn has(&self, key: String) -> bool {
-        let key = key.to_lowercase().into();
-        self.headers.iter().any(|(k, _)| k == &key)
+    pub fn has<'js>(&self, ctx: Ctx<'js>, key: String) -> Result<bool> {
+        let key: ImmutableString = key.to_lowercase().into();
+        if !is_http_header_name(&key) {
+            return Err(Exception::throw_type(&ctx, "Invalid key"));
+        }
+
+        Ok(self.headers.iter().any(|(k, _)| k == &key))
     }
 
     pub fn set(&mut self, key: String, value: String) {
