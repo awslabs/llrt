@@ -201,7 +201,12 @@ impl Headers {
                     return Err(Exception::throw_type(ctx, "Header arrays are not paired"));
                 }
 
-                let key = array_entry.get::<String>(0)?.to_lowercase();
+                let raw_key = array_entry.get::<String>(0)?.to_lowercase();
+                let key: Rc<str> = ImmutableString::from(raw_key.clone());
+                if !is_http_header_name(&key) {
+                    return Err(Exception::throw_type(ctx, "Invalid key"));
+                }
+
                 let raw_value = array_entry.get::<Value>(1)?;
                 let value: ImmutableString = coerce_to_string(ctx, raw_value)?.into();
                 vec.push((key.into(), value));
@@ -243,6 +248,22 @@ fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
         let result: String = string_ctor.call((value,))?;
         Ok(result)
     }
+}
+
+fn is_http_header_name(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+
+    // 3.2.6.  Field Value Components
+    // https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6
+    name.bytes().all(|b| {
+        matches!(b,
+            b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' |
+            b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~' |
+            b'0'..=b'9' | b'A'..=b'Z' | b'a'..=b'z'
+        )
+    })
 }
 
 #[cfg(test)]
