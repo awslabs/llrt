@@ -66,6 +66,10 @@ impl Headers {
 
     pub fn get<'js>(&self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
         let key: ImmutableString = key.to_lowercase().into();
+        if !is_http_header_name(&key) {
+            return Err(Exception::throw_type(&ctx, "Invalid key"));
+        }
+
         if key.as_ref() == HEADERS_KEY_SET_COOKIE {
             let result: Vec<&str> = self
                 .headers
