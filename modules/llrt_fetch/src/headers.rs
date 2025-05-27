@@ -229,6 +229,7 @@ impl Headers {
         array: Array<'js>,
     ) -> Result<Vec<(ImmutableString, ImmutableString)>> {
         let mut vec = Vec::new();
+
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
                 if array_entry.clone().into_iter().flatten().count() % 2 != 0 {
@@ -247,7 +248,24 @@ impl Headers {
                     return Err(Exception::throw_type(ctx, "Invalid value of key"));
                 }
 
-                vec.push((key.into(), value));
+                if raw_key == HEADERS_KEY_SET_COOKIE {
+                    vec.push((key, value));
+                    continue;
+                }
+
+                if let Some((_, existing_value)) = vec.iter_mut().find(|(k, _)| *k == key) {
+                    let mut new_value = existing_value.to_string();
+
+                    match raw_key.as_str() {
+                        HEADERS_KEY_COOKIE => new_value.push_str("; "),
+                        _ => new_value.push_str(", "),
+                    }
+
+                    new_value.push_str(&value);
+                    *existing_value = ImmutableString::from(new_value);
+                } else {
+                    vec.push((key, value));
+                }
             }
         }
         Ok(vec)
