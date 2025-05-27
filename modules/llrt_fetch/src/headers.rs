@@ -337,11 +337,25 @@ mod tests {
             crate::init(&ctx).unwrap();
             Box::pin(async move {
                 let mut headers = Headers::new(ctx.clone(), Opt(None)).unwrap();
-                headers.set("Content-Type".into(), "application/json".into());
-                headers.append("set-cookie".into(), "cookie1=value1".into());
-                headers.append("set-cookie".into(), "cookie2=value2".into());
-                headers.append("Accept-Encoding".into(), "deflate".into());
-                headers.append("Accept-Encoding".into(), "gzip".into());
+                headers
+                    .set(
+                        ctx.clone(),
+                        "Content-Type".into(),
+                        "application/json".into(),
+                    )
+                    .unwrap();
+                headers
+                    .append(ctx.clone(), "set-cookie".into(), "cookie1=value1".into())
+                    .unwrap();
+                headers
+                    .append(ctx.clone(), "set-cookie".into(), "cookie2=value2".into())
+                    .unwrap();
+                headers
+                    .append(ctx.clone(), "Accept-Encoding".into(), "deflate".into())
+                    .unwrap();
+                headers
+                    .append(ctx.clone(), "Accept-Encoding".into(), "gzip".into())
+                    .unwrap();
 
                 assert_eq!(
                     headers
