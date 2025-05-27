@@ -72,7 +72,7 @@ impl Headers {
             new_value.push_str(&value);
             *existing_value = new_value.into();
         } else {
-            self.headers.push((key, value.into()));
+            self.headers.push((key, value));
         }
         Ok(())
     }
