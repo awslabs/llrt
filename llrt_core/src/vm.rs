@@ -20,6 +20,7 @@ use crate::libs::{
     },
 };
 use crate::modules::{
+    async_hooks::promise_hook_tracker,
     crypto::SYSTEM_RANDOM,
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
@@ -134,6 +135,8 @@ impl Vm {
             Ok::<_, Error>(())
         })
         .await?;
+
+        runtime.set_promise_hook(Some(promise_hook_tracker())).await;
 
         Ok(Vm { runtime, ctx })
     }

@@ -39,8 +39,10 @@ it("should log module", () => {
     clearTimeout: [function: (anonymous)],
     setInterval: [function: (anonymous)],
     clearInterval: [function: (anonymous)],
-    setImmediate: [function: (anonymous)]
+    setImmediate: [function: (anonymous)],
+    queueMicrotask: [function: (anonymous)]
   },
+  queueMicrotask: [function: (anonymous)],
   setImmediate: [function: (anonymous)],
   setInterval: [function: (anonymous)],
   setTimeout: [function: (anonymous)]
