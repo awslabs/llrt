@@ -637,8 +637,16 @@ class TestServer {
     output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
     output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
 
+    console.log(output);
+
     if (this.totalFailed > 0) {
-      for (let [file, testFailure] of this.filesFailed) {
+      output = "";
+      const sortedFilesFailed = new Map(
+        Array.from(this.filesFailed.entries()).sort(([keyA], [keyB]) =>
+          keyA.localeCompare(keyB)
+        )
+      );
+      for (let [file, testFailure] of sortedFilesFailed) {
         output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
 
         for (let failure of testFailure) {
@@ -655,7 +663,7 @@ class TestServer {
       }
       process.exitCode = 1;
     }
-    console.log(output);
+    console.error(output);
   }
 
   private printSuiteResult(result: SuiteResult, depth = 0): string {

@@ -10,6 +10,7 @@ process.env.NODE_PATH = ".";
 const TMP_DIR = `.tmp-llrt-aws-sdk`;
 const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
+const TESTS_SUB_DIR = process.env.TEST_SUB_DIR || "unit";
 const OUT_DIR = "bundle/js";
 const SHIMS = new Map();
 const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
@@ -31,8 +32,11 @@ async function readFilesRecursive(dir, filePredicate) {
 }
 
 const TEST_FILES = await readFilesRecursive(
-  TESTS_DIR,
-  (filePath) => filePath.endsWith(".test.ts") || filePath.endsWith(".spec.ts")
+  path.join(TESTS_DIR, TESTS_SUB_DIR),
+  (filePath) =>
+    filePath.endsWith(".test.ts") ||
+    filePath.endsWith(".spec.ts") ||
+    filePath.endsWith(".any.js")
 );
 const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
