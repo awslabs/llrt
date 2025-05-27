@@ -111,9 +111,16 @@ impl Headers {
         Ok(self.headers.iter().any(|(k, _)| k == &key))
     }
 
-    pub fn set(&mut self, key: String, value: String) {
+    pub fn set<'js>(&mut self, ctx: Ctx<'js>, key: String, value: String) -> Result<()> {
         let key: ImmutableString = key.to_lowercase().into();
-        let value = value.into();
+        if !is_http_header_name(&key) {
+            return Err(Exception::throw_type(&ctx, "Invalid key"));
+        }
+
+        let value: Rc<str> = value.into();
+        if !is_http_header_value(&value) {
+            return Err(Exception::throw_type(&ctx, "Invalid value of key"));
+        }
 
         if key.as_ref() == HEADERS_KEY_SET_COOKIE {
             self.headers.retain(|(k, _)| k != &key);
@@ -124,6 +131,7 @@ impl Headers {
                 None => self.headers.push((key, value)),
             }
         }
+        Ok(())
     }
 
     pub fn delete<'js>(&mut self, ctx: Ctx<'js>, key: String) -> Result<()> {
