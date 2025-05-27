@@ -122,9 +122,14 @@ impl Headers {
         }
     }
 
-    pub fn delete(&mut self, key: String) {
-        let key = key.to_lowercase().into();
+    pub fn delete<'js>(&mut self, ctx: Ctx<'js>, key: String) -> Result<()> {
+        let key: ImmutableString = key.to_lowercase().into();
+        if !is_http_header_name(&key) {
+            return Err(Exception::throw_type(&ctx, "Invalid key"));
+        }
+
         self.headers.retain(|(k, _)| k != &key);
+        Ok(())
     }
 
     pub fn keys(&self) -> Vec<&str> {
