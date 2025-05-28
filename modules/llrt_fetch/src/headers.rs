@@ -219,8 +219,14 @@ impl Headers {
     pub fn from_map(map: BTreeMap<String, Coerced<String>>) -> Self {
         let headers = map
             .into_iter()
-            .map(|(k, v)| (k.to_lowercase().into(), v.to_string().into()))
-            .collect();
+            .filter_map(|(k, v)| {
+                if !is_http_header_name(&k) {
+                    return None;
+                }
+                sanitize_http_header_value(&v).map(|clean| (k.to_lowercase().into(), clean.into()))
+            })
+            .collect::<Vec<(Rc<str>, Rc<str>)>>();
+
         Self { headers }
     }
 
@@ -344,6 +350,37 @@ fn is_http_header_value(value: &str) -> bool {
         || b == 0x0C // \f
         || b == 0xA0 // NBSP
     })
+}
+pub fn sanitize_http_header_value(value: &str) -> Option<String> {
+    let mut normalized = String::new();
+    let mut chars = value.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\r' {
+            if chars.peek() == Some(&'\n') {
+                chars.next();
+                match chars.peek() {
+                    Some(' ') | Some('\t') => {
+                        chars.next();
+                        normalized.push(' ');
+                        continue;
+                    },
+                    _ => continue,
+                }
+            } else {
+                continue;
+            }
+        } else if c == '\n' || c == '\0' || c == '\u{000B}'
+        /* \f */
+        {
+            continue;
+        } else {
+            normalized.push(c);
+        }
+    }
+
+    let trimmed = normalized.trim_matches(|c| c == ' ' || c == '\t');
+    Some(trimmed.to_string())
 }
 
 #[cfg(test)]
