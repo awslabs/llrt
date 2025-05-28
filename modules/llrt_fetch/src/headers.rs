@@ -238,7 +238,7 @@ impl Headers {
 
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
-                if array_entry.clone().into_iter().flatten().count() % 2 != 0 {
+                if array_entry.len() % 2 != 0 {
                     return Err(Exception::throw_type(ctx, "Header arrays are not paired"));
                 }
 
