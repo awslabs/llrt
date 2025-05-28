@@ -6,6 +6,7 @@ use hyper::HeaderMap;
 use llrt_utils::{
     class::{CustomInspect, IteratorDef},
     object::map_to_entries,
+    primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
     atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, Exception, FromJs, Function,
@@ -304,14 +305,18 @@ impl<'js> CustomInspect<'js> for Headers {
 fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
     if value.is_null() {
         Ok("null".to_string())
+    } else if value.is_undefined() {
+        Ok("undefined".to_string())
+    } else if value.is_bool() {
+        Ok(value.as_bool().unwrap().to_string())
+    } else if value.is_number() {
+        Ok(value.as_number().unwrap().to_string())
     } else if let Some(s) = value.as_string() {
         Ok(s.to_string()?)
     } else {
         // fallback: try JSON.stringify or [object Object]
-        let global = ctx.globals();
-        let string_ctor: Function = global.get("String")?;
-        let result: String = string_ctor.call((value,))?;
-        Ok(result)
+        let base_primordials = BasePrimordials::get(ctx)?;
+        Ok(base_primordials.constructor_string.construct((value,))?)
     }
 }
 
