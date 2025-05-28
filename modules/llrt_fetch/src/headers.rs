@@ -304,19 +304,19 @@ impl<'js> CustomInspect<'js> for Headers {
 
 fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
     if value.is_null() {
-        Ok("null".to_string())
+        Ok("null".into())
     } else if value.is_undefined() {
-        Ok("undefined".to_string())
-    } else if value.is_bool() {
-        Ok(value.as_bool().unwrap().to_string())
-    } else if value.is_number() {
-        Ok(value.as_number().unwrap().to_string())
+        Ok("undefined".into())
+    } else if let Some(v) = value.as_bool() {
+        Ok(v.to_string())
+    } else if let Some(v) = value.as_number() {
+        Ok(v.to_string())
     } else if let Some(s) = value.as_string() {
-        Ok(s.to_string()?)
+        s.to_string()
     } else {
         // fallback: try JSON.stringify or [object Object]
         let base_primordials = BasePrimordials::get(ctx)?;
-        Ok(base_primordials.constructor_string.construct((value,))?)
+        base_primordials.constructor_string.construct((value,))
     }
 }
 
