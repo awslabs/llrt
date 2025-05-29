@@ -52,7 +52,8 @@ impl Headers {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
 
-        let value: Rc<str> = value.into();
+        let mut value: String = value;
+        normalize_header_value_inplace(&ctx, &mut value)?;
         if !is_http_header_value(&value) {
             return Err(Exception::throw_type(&ctx, "Invalid value of key"));
         }
@@ -60,7 +61,7 @@ impl Headers {
         let str_key = key.as_ref();
         if str_key == HEADERS_KEY_SET_COOKIE {
             return {
-                self.headers.push((key, value));
+                self.headers.push((key, value.into()));
                 Ok(())
             };
         }
@@ -74,7 +75,7 @@ impl Headers {
             new_value.push_str(&value);
             *existing_value = new_value.into();
         } else {
-            self.headers.push((key, value));
+            self.headers.push((key, value.into()));
         }
         Ok(())
     }
@@ -132,18 +133,19 @@ impl Headers {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
 
-        let value: Rc<str> = value.into();
+        let mut value: String = value;
+        normalize_header_value_inplace(&ctx, &mut value)?;
         if !is_http_header_value(&value) {
             return Err(Exception::throw_type(&ctx, "Invalid value of key"));
         }
 
         if key.as_ref() == HEADERS_KEY_SET_COOKIE {
             self.headers.retain(|(k, _)| k != &key);
-            self.headers.push((key, value));
+            self.headers.push((key, value.into()));
         } else {
             match self.headers.iter_mut().find(|(k, _)| k == &key) {
-                Some((_, existing_value)) => *existing_value = value,
-                None => self.headers.push((key, value)),
+                Some((_, existing_value)) => *existing_value = value.into(),
+                None => self.headers.push((key, value.into())),
             }
         }
         Ok(())
@@ -340,86 +342,71 @@ fn is_http_header_name(name: &str) -> bool {
 }
 
 fn is_http_header_value(value: &str) -> bool {
-    let bytes = value.as_bytes();
-
-    // Reject leading/trailing SP or HTAB
-    if bytes.first().is_some_and(|&b| b == 0x20 || b == 0x09) {
-        return false;
-    }
-    if bytes.last().is_some_and(|&b| b == 0x20 || b == 0x09) {
-        return false;
-    }
-
-    // Validate chars same as sanitize
-    bytes.iter().all(|&b| {
-        b == 0x09  // HTAB
-        || b == 0x20 // SP
-        || (0x21..=0x7E).contains(&b) // VCHAR
-        || b == 0x0C // \f
-        || b == 0xA0 // NBSP
+    value.chars().all(|c| {
+        c == '\t'                // HTAB
+        || c == ' '              // SP
+        || (('\u{21}'..='\u{7E}').contains(&c)) // VCHAR range
+        || c == '\u{0C}'         // Form Feed
+        || c == '\u{00A0}' // NBSP
     })
 }
 
 fn normalize_header_value_inplace(ctx: &Ctx<'_>, text: &mut String) -> Result<()> {
     let mut input = std::mem::take(text).into_bytes();
-
     let mut read_idx = 0;
     let mut write_idx = 0;
 
+    // Skip leading SP or HTAB
+    while read_idx < input.len() && (input[read_idx] == b' ' || input[read_idx] == b'\t') {
+        read_idx += 1;
+    }
+
+    // Store the last whitespace byte if any (space or tab)
+    let mut pending_whitespace: Option<u8> = None;
+
     while read_idx < input.len() {
         match input[read_idx] {
-            b'\r' => {
-                // obs-fold: CRLF followed by SP or HTAB -> replace with a single space
+            // obs-fold: CRLF followed by SP or HTAB
+            b'\r'
                 if read_idx + 2 < input.len()
                     && input[read_idx + 1] == b'\n'
-                    && (input[read_idx + 2] == b' ' || input[read_idx + 2] == b'\t')
-                {
-                    input[write_idx] = b' ';
-                    write_idx += 1;
-                    read_idx += 3;
-                } else {
-                    // skip bare CR
-                    read_idx += 1;
-                }
+                    && (input[read_idx + 2] == b' ' || input[read_idx + 2] == b'\t') =>
+            {
+                pending_whitespace = Some(input[read_idx + 2]);
+                read_idx += 3;
             },
-            b'\n' => {
-                // skip bare LF
+            b'\r' | b'\n' => {
+                // skip bare CR or LF
                 read_idx += 1;
             },
-            c => {
-                // copy normal characters
-                input[write_idx] = c;
+            b' ' | b'\t' => {
+                // keep the last whitespace char to write later (collapse multiple)
+                pending_whitespace = Some(input[read_idx]);
+                read_idx += 1;
+            },
+            byte => {
+                // write pending whitespace if any
+                if let Some(ws) = pending_whitespace.take() {
+                    if write_idx > 0 {
+                        input[write_idx] = ws;
+                        write_idx += 1;
+                    }
+                }
+                input[write_idx] = byte;
                 write_idx += 1;
                 read_idx += 1;
             },
         }
     }
 
+    // Trim trailing SP or HTAB
+    while write_idx > 0 && (input[write_idx - 1] == b' ' || input[write_idx - 1] == b'\t') {
+        write_idx -= 1;
+    }
+
     input.truncate(write_idx);
-
-    // Find trimmed range of leading/trailing SP or HTAB,
-    // and shift trimmed range to the beginning of the buffer
-    let (start, end) = find_trimmed_range(&input);
-    let trimmed_len = end - start;
-    input.copy_within(start..end, 0);
-    input.truncate(trimmed_len);
-
     *text = String::from_utf8(input).or_throw(ctx)?;
-
     Ok(())
-}
-
-fn find_trimmed_range(buffer: &[u8]) -> (usize, usize) {
-    let mut start = 0;
-    let mut end = buffer.len();
-
-    while start < end && (buffer[start] == b' ' || buffer[start] == b'\t') {
-        start += 1;
-    }
-    while end > start && (buffer[end - 1] == b' ' || buffer[end - 1] == b'\t') {
-        end -= 1;
-    }
-    (start, end)
 }
 
 #[cfg(test)]

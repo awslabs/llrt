@@ -190,9 +190,6 @@ Error: [Create headers with existing headers with custom iterator] assert_equals
 fetch/api/headers > should pass headers-no-cors.any.js tests
 Error: ["no-cors" Headers object cannot have accept set to sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, , sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss] assert_equals: 1 expected "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss" but got "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, "
 
-fetch/api/headers > should pass headers-normalize.any.js tests
-Error: [Check append method with not normalized values] Invalid value of key
-
 fetch/api/headers > should pass headers-record.any.js tests
 Error: [Basic operation with one property] assert_equals: expected 4 but got 3
 
