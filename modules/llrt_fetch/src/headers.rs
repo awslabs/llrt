@@ -475,4 +475,37 @@ mod tests {
         })
         .await;
     }
+
+    #[tokio::test]
+    async fn test_normalize_header_value_inplace() {
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                // https://github.com/web-platform-tests/wpt/blob/master/fetch/api/headers/headers-normalize.any.js
+                let expectations = [
+                    (" space ", "space"),
+                    ("\ttab\t", "tab"),
+                    (" spaceAndTab\t", "spaceAndTab"),
+                    ("\r\n newLine", "newLine"),
+                    ("newLine\r\n ", "newLine"),
+                    ("\r\n\tnewLine", "newLine"),
+                    ("\t\u{000C}\tnewLine\n", "\u{000C}\tnewLine"), //  \f = \u{000C}
+                    ("newLine\u{00A0}", "newLine\u{00A0}"),   // \u{00A0} = NBSP
+                ];
+                for (input, expected) in expectations {
+                    let mut value = input.to_string();
+                    super::normalize_header_value_inplace(&ctx, &mut value).unwrap();
+                    assert_eq!(
+                        value,
+                        expected,
+                        "normalize_header_value_inplace failed: input = {:?}, expected = {:?}, got = {:?}",
+                        input,
+                        expected,
+                        value
+                    );
+                }
+            })
+        })
+        .await;
+    }
 }
