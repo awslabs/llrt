@@ -212,13 +212,13 @@ impl Headers {
                 Headers::from_js(ctx, value)
             } else {
                 let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
-                return Self::from_map(ctx, map);
+                return Ok(Self::from_map(ctx, map));
             };
         }
         Ok(Headers::default())
     }
 
-    pub fn from_map(ctx: &Ctx<'_>, map: BTreeMap<String, Coerced<String>>) -> Result<Self> {
+    pub fn from_map(ctx: &Ctx<'_>, map: BTreeMap<String, Coerced<String>>) -> Self {
         let headers = map
             .into_iter()
             .filter_map(|(k, v)| {
@@ -231,7 +231,7 @@ impl Headers {
             })
             .collect::<Vec<(Rc<str>, Rc<str>)>>();
 
-        Ok(Self { headers })
+        Self { headers }
     }
 
     fn array_to_headers<'js>(
