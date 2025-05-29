@@ -7,6 +7,7 @@ use llrt_utils::{
     class::{CustomInspect, IteratorDef},
     object::map_to_entries,
     primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
 };
 use rquickjs::{
     atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, Exception, FromJs, Function,
@@ -211,24 +212,26 @@ impl Headers {
                 Headers::from_js(ctx, value)
             } else {
                 let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
-                return Ok(Self::from_map(map));
+                return Self::from_map(ctx, map);
             };
         }
         Ok(Headers::default())
     }
 
-    pub fn from_map(map: BTreeMap<String, Coerced<String>>) -> Self {
+    pub fn from_map(ctx: &Ctx<'_>, map: BTreeMap<String, Coerced<String>>) -> Result<Self> {
         let headers = map
             .into_iter()
             .filter_map(|(k, v)| {
                 if !is_http_header_name(&k) {
                     return None;
                 }
-                sanitize_http_header_value(&v).map(|clean| (k.to_lowercase().into(), clean.into()))
+                let mut value = v.0;
+                let _ = normalize_header_value_inplace(ctx, &mut value);
+                Some((k.to_lowercase().into(), value.into()))
             })
             .collect::<Vec<(Rc<str>, Rc<str>)>>();
 
-        Self { headers }
+        Ok(Self { headers })
     }
 
     fn array_to_headers<'js>(
@@ -356,36 +359,67 @@ fn is_http_header_value(value: &str) -> bool {
         || b == 0xA0 // NBSP
     })
 }
-pub fn sanitize_http_header_value(value: &str) -> Option<String> {
-    let mut normalized = String::new();
-    let mut chars = value.chars().peekable();
 
-    while let Some(c) = chars.next() {
-        if c == '\r' {
-            if chars.peek() == Some(&'\n') {
-                chars.next();
-                match chars.peek() {
-                    Some(' ') | Some('\t') => {
-                        chars.next();
-                        normalized.push(' ');
-                        continue;
-                    },
-                    _ => continue,
+fn normalize_header_value_inplace(ctx: &Ctx<'_>, text: &mut String) -> Result<()> {
+    let mut input = std::mem::take(text).into_bytes();
+
+    let mut read_idx = 0;
+    let mut write_idx = 0;
+
+    while read_idx < input.len() {
+        match input[read_idx] {
+            b'\r' => {
+                // obs-fold: CRLF followed by SP or HTAB -> replace with a single space
+                if read_idx + 2 < input.len()
+                    && input[read_idx + 1] == b'\n'
+                    && (input[read_idx + 2] == b' ' || input[read_idx + 2] == b'\t')
+                {
+                    input[write_idx] = b' ';
+                    write_idx += 1;
+                    read_idx += 3;
+                } else {
+                    // skip bare CR
+                    read_idx += 1;
                 }
-            } else {
-                continue;
-            }
-        } else if c == '\n' || c == '\0' || c == '\u{000B}'
-        /* \f */
-        {
-            continue;
-        } else {
-            normalized.push(c);
+            },
+            b'\n' => {
+                // skip bare LF
+                read_idx += 1;
+            },
+            c => {
+                // copy normal characters
+                input[write_idx] = c;
+                write_idx += 1;
+                read_idx += 1;
+            },
         }
     }
 
-    let trimmed = normalized.trim_matches(|c| c == ' ' || c == '\t');
-    Some(trimmed.to_string())
+    input.truncate(write_idx);
+
+    // Find trimmed range of leading/trailing SP or HTAB,
+    // and shift trimmed range to the beginning of the buffer
+    let (start, end) = find_trimmed_range(&input);
+    let trimmed_len = end - start;
+    input.copy_within(start..end, 0);
+    input.truncate(trimmed_len);
+
+    *text = String::from_utf8(input).or_throw(ctx)?;
+
+    Ok(())
+}
+
+fn find_trimmed_range(buffer: &[u8]) -> (usize, usize) {
+    let mut start = 0;
+    let mut end = buffer.len();
+
+    while start < end && (buffer[start] == b' ' || buffer[start] == b'\t') {
+        start += 1;
+    }
+    while end > start && (buffer[end - 1] == b' ' || buffer[end - 1] == b'\t') {
+        end -= 1;
+    }
+    (start, end)
 }
 
 #[cfg(test)]

@@ -504,7 +504,7 @@ impl<'js> Response<'js> {
 
         let mut header = BTreeMap::new();
         header.insert("location".to_string(), Coerced(url));
-        let headers = Headers::from_map(header);
+        let headers = Headers::from_map(&ctx, header)?;
         let headers = Class::instance(ctx.clone(), headers)?;
 
         Ok(Self {
