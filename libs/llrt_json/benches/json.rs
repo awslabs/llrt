@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![allow(dead_code)]
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use llrt_json::{parse::json_parse, stringify::json_stringify};
 use rquickjs::{Context, Runtime};
 
