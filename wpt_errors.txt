@@ -187,9 +187,6 @@ Error: [Headers iterator is correctly updated with set-cookie changes] assert_ar
 fetch/api/headers > should pass headers-basic.any.js tests
 Error: [Create headers with existing headers with custom iterator] assert_equals: expected (string) "test" but got (object) null
 
-fetch/api/headers > should pass headers-no-cors.any.js tests
-Error: ["no-cors" Headers object cannot have accept set to sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, , sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss] assert_equals: 1 expected "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss" but got "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, "
-
 fetch/api/headers > should pass headers-record.any.js tests
 Error: [Basic operation with one property] assert_equals: expected 4 but got 3
 
