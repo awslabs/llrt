@@ -9,7 +9,10 @@ use rquickjs::{
     IntoJs, Null, Object, Result, TypedArray, Value,
 };
 
-use super::{headers::Headers, Blob};
+use super::{
+    headers::{Headers, HeadersGuard},
+    Blob,
+};
 
 impl<'js> Request<'js> {
     async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<ObjectBytes<'js>>> {
@@ -35,6 +38,7 @@ pub struct Request<'js> {
     headers: Option<Class<'js, Headers>>,
     body: Option<Value<'js>>,
     signal: Option<Class<'js, AbortSignal<'js>>>,
+    mode: String,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -53,11 +57,12 @@ impl<'js> Request<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, input: Value<'js>, options: Opt<Value<'js>>) -> Result<Self> {
         let mut request = Self {
-            url: String::from(""),
-            method: "GET".to_string(),
+            url: "".into(),
+            method: "GET".into(),
             headers: None,
             body: None,
             signal: None,
+            mode: "no-cors".into(),
         };
 
         if input.is_string() {
@@ -127,8 +132,8 @@ impl<'js> Request<'js> {
     }
 
     #[qjs(get)]
-    fn mode(&self) -> &'static str {
-        "navigate"
+    fn mode(&self) -> String {
+        self.mode.clone()
     }
 
     #[qjs(get)]
@@ -169,7 +174,11 @@ impl<'js> Request<'js> {
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let headers = Headers::from_value(&ctx, self.headers().unwrap().as_value().clone())?;
+            let headers = Headers::from_value(
+                &ctx,
+                self.headers().unwrap().as_value().clone(),
+                HeadersGuard::None,
+            )?;
             let mime_type = headers
                 .iter()
                 .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
@@ -197,6 +206,7 @@ impl<'js> Request<'js> {
             headers,
             body: self.body.clone(),
             signal: self.signal.clone(),
+            mode: self.mode.clone(),
         })
     }
 }
@@ -207,6 +217,9 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
     if let Some(method) = obj.get_optional("method")? {
         request.method = method;
+    }
+    if let Some(mode) = obj.get_optional("mode")? {
+        request.mode = mode;
     }
 
     if let Some(signal) = obj.get_optional::<_, Value>("signal")? {
@@ -240,11 +253,21 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         }
     }
 
-    if let Some(headers) = obj.get_optional("headers")? {
-        let headers = Headers::from_value(&ctx, headers)?;
-        let headers = Class::instance(ctx, headers)?;
-        request.headers = Some(headers);
-    }
+    let headers = {
+        let guard = if request.mode.eq_ignore_ascii_case("no-cors") {
+            HeadersGuard::RequestNoCors
+        } else {
+            HeadersGuard::Request
+        };
+        let headers = Headers::from_value(
+            &ctx,
+            obj.get_optional("headers")?
+                .unwrap_or_else(|| Null.into_js(&ctx).unwrap()),
+            guard,
+        )?;
+        Class::instance(ctx, headers)?
+    };
+    request.headers = Some(headers);
 
     Ok(())
 }

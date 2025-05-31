@@ -22,7 +22,12 @@ use rquickjs::{
 use tokio::select;
 use tokio::sync::Semaphore;
 
-use super::{headers::Headers, response::Response, security::ensure_url_access, Blob};
+use super::{
+    headers::{Headers, HeadersGuard},
+    response::Response,
+    security::ensure_url_access,
+    Blob,
+};
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
@@ -58,8 +63,8 @@ where
 
                 let mut redirect_count = 0;
                 let mut response_status = 0;
-                let res = loop {
-                    let req = build_request(
+                let (res, guard) = loop {
+                    let (req, guard) = build_request(
                         &ctx,
                         &method,
                         &uri,
@@ -85,11 +90,11 @@ where
                                 ensure_url_access(&ctx, &uri)?;
                             }
                         },
-                        None => break res,
+                        None => break (res, guard),
                     };
 
                     if options.redirect == "manual" {
-                        break res;
+                        break (res, guard);
                     } else if options.redirect == "error" {
                         return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
                     }
@@ -112,6 +117,7 @@ where
                     start,
                     !matches!(redirect_count, 0),
                     abort_receiver,
+                    guard,
                 )
             }
         })),
@@ -172,8 +178,13 @@ fn build_request(
     body: Option<&BodyBytes>,
     prev_status: &u16,
     initial_uri: &Uri,
-) -> Result<Request<BoxBody<Bytes, Infallible>>> {
+) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
     let same_origin = is_same_origin(uri, initial_uri);
+    let guard = if !same_origin {
+        HeadersGuard::Response
+    } else {
+        HeadersGuard::Immutable
+    };
 
     let change_method = should_change_method(*prev_status, method);
 
@@ -209,10 +220,13 @@ fn build_request(
     if !detected_headers.contains("accept") {
         req = req.header("accept", "*/*");
     }
-    req.body(BoxBody::new(
-        body.map(|b| b.body.clone()).unwrap_or_default(),
-    ))
-    .or_throw(ctx)
+    let body = req
+        .body(BoxBody::new(
+            body.map(|b| b.body.clone()).unwrap_or_default(),
+        ))
+        .or_throw(ctx)?;
+
+    Ok((body, guard))
 }
 
 fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
@@ -345,7 +359,7 @@ fn get_fetch_options<'js>(
         if let Some(headers_op) =
             get_option::<Value>("headers", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            headers = Some(Headers::from_value(ctx, headers_op)?);
+            headers = Some(Headers::from_value(ctx, headers_op, HeadersGuard::None)?);
         }
 
         if let Some(signal) =
