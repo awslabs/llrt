@@ -180,7 +180,7 @@ fn build_request(
     initial_uri: &Uri,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
     let same_origin = is_same_origin(uri, initial_uri);
-    let guard = if !same_origin {
+    let guard = if same_origin {
         HeadersGuard::Response
     } else {
         HeadersGuard::Immutable
