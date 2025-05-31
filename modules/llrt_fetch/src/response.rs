@@ -29,8 +29,12 @@ use rquickjs::{
 };
 use tokio::select;
 
-use super::{headers::Headers, Blob};
 use crate::incoming::{self, IncomingReceiver};
+
+use super::{
+    headers::{Headers, HeadersGuard},
+    Blob,
+};
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -121,6 +125,7 @@ pub struct Response<'js> {
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl<'js> Response<'js> {
     pub fn from_incoming(
         ctx: Ctx<'js>,
@@ -130,6 +135,7 @@ impl<'js> Response<'js> {
         start: Instant,
         redirected: bool,
         abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+        guard: HeadersGuard,
     ) -> Result<Self> {
         let response_headers = response.headers();
 
@@ -142,7 +148,7 @@ impl<'js> Response<'js> {
             }
         }
 
-        let headers = Headers::from_http_headers(response.headers())?;
+        let headers = Headers::from_http_headers(response.headers(), guard)?;
         let headers = Class::instance(ctx.clone(), headers)?;
 
         let status = response.status();
@@ -240,7 +246,7 @@ unsafe impl<'js> JsLifetime<'js> for Response<'js> {
 impl<'js> Response<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, body: Opt<Value<'js>>, options: Opt<Object<'js>>) -> Result<Self> {
-        let mut url = String::from("");
+        let mut url = "".into();
         let mut status = 200;
         let mut headers = None;
         let mut status_text = None;
@@ -254,7 +260,11 @@ impl<'js> Response<'js> {
                 status = status_opt;
             }
             if let Some(headers_opt) = opt.get("headers")? {
-                headers = Some(Headers::from_value(&ctx, headers_opt)?);
+                headers = Some(Headers::from_value(
+                    &ctx,
+                    headers_opt,
+                    HeadersGuard::Response,
+                )?);
             }
             if let Some(status_text_opt) = opt.get("statusText")? {
                 status_text = Some(status_text_opt);
@@ -387,7 +397,8 @@ impl<'js> Response<'js> {
 
     async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let headers = Headers::from_value(&ctx, self.headers().as_value().clone())?;
+            let headers =
+                Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
             let mime_type = headers
                 .iter()
                 .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
@@ -464,7 +475,11 @@ impl<'js> Response<'js> {
                 status = status_opt;
             }
             if let Some(headers_opt) = opt.get("headers")? {
-                headers = Some(Headers::from_value(&ctx, headers_opt)?);
+                headers = Some(Headers::from_value(
+                    &ctx,
+                    headers_opt,
+                    HeadersGuard::Response,
+                )?);
             }
             if let Some(status_text_opt) = opt.get("statusText")? {
                 status_text = Some(status_text_opt);
@@ -504,7 +519,7 @@ impl<'js> Response<'js> {
 
         let mut header = BTreeMap::new();
         header.insert("location".to_string(), Coerced(url));
-        let headers = Headers::from_map(&ctx, header);
+        let headers = Headers::from_map(&ctx, header, HeadersGuard::Response);
         let headers = Class::instance(ctx.clone(), headers)?;
 
         Ok(Self {

@@ -10,8 +10,8 @@ use llrt_utils::{
     result::ResultExt,
 };
 use rquickjs::{
-    atom::PredefinedAtom, methods, prelude::Opt, Array, Coerced, Ctx, Exception, FromJs, Function,
-    IntoJs, Null, Object, Result, Value,
+    atom::PredefinedAtom, class::Trace, methods, prelude::Opt, Array, Coerced, Ctx, Exception,
+    FromJs, Function, IntoJs, JsLifetime, Null, Object, Result, Value,
 };
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
@@ -19,11 +19,24 @@ const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
 
 type ImmutableString = Rc<str>;
 
-#[derive(Clone, Default, rquickjs::class::Trace, rquickjs::JsLifetime)]
+// https://fetch.spec.whatwg.org/#concept-headers-guard
+#[derive(Clone, Default, PartialEq)]
+pub enum HeadersGuard {
+    #[default]
+    None,
+    Request,
+    RequestNoCors,
+    Response,
+    Immutable,
+}
+
+#[derive(Clone, Default, Trace, JsLifetime)]
 #[rquickjs::class]
 pub struct Headers {
     #[qjs(skip_trace)]
     headers: Vec<(ImmutableString, ImmutableString)>,
+    #[qjs(skip_trace)]
+    guard: HeadersGuard,
 }
 
 #[methods(rename_all = "camelCase")]
@@ -34,15 +47,19 @@ impl Headers {
             if init.is_array() {
                 let array = unsafe { init.into_array().unwrap_unchecked() };
                 let headers = Self::array_to_headers(&ctx, array)?;
-                return Ok(Self { headers });
+                return Ok(Self {
+                    headers,
+                    guard: HeadersGuard::None,
+                });
             } else if init.is_null() || init.is_number() {
                 return Err(Exception::throw_type(&ctx, "Invalid argument"));
             } else if init.is_object() {
-                return Self::from_value(&ctx, init);
+                return Self::from_value(&ctx, init, HeadersGuard::None);
             }
         }
         Ok(Self {
             headers: Vec::new(),
+            guard: HeadersGuard::None,
         })
     }
 
@@ -54,6 +71,16 @@ impl Headers {
 
         let mut value: String = value;
         normalize_header_value_inplace(&ctx, &mut value)?;
+        if self.guard == HeadersGuard::RequestNoCors {
+            let val = value.split(',').next().unwrap_or("").trim();
+            if !is_cors_safelisted_request_header(&key, val) {
+                return Ok(()); // silently ignore disallowed header
+            }
+            if self.headers.iter().any(|(k, _)| k == &key) {
+                return Ok(()); // silently ignore same header
+            }
+            value = val.into();
+        };
         if !is_http_header_value(&value) {
             return Err(Exception::throw_type(&ctx, "Invalid value of key"));
         }
@@ -135,6 +162,13 @@ impl Headers {
 
         let mut value: String = value;
         normalize_header_value_inplace(&ctx, &mut value)?;
+        if self.guard == HeadersGuard::RequestNoCors {
+            let val = value.split(',').next().unwrap_or("").trim();
+            if !is_cors_safelisted_request_header(&key, val) {
+                return Ok(()); // silently ignore disallowed header
+            }
+            value = val.into();
+        }
         if !is_http_header_value(&value) {
             return Err(Exception::throw_type(&ctx, "Invalid value of key"));
         }
@@ -196,7 +230,7 @@ impl Headers {
         self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 
-    pub fn from_http_headers(header_map: &HeaderMap) -> Result<Self> {
+    pub fn from_http_headers(header_map: &HeaderMap, guard: HeadersGuard) -> Result<Self> {
         let mut headers = Vec::new();
         for (n, v) in header_map.iter() {
             headers.push((
@@ -204,23 +238,30 @@ impl Headers {
                 String::from_utf8_lossy(v.as_bytes()).into(),
             ));
         }
-        Ok(Self { headers })
+        Ok(Self { headers, guard })
     }
 
-    pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
+    pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>, guard: HeadersGuard) -> Result<Self> {
         if value.is_object() {
             let headers_obj = unsafe { value.as_object().unwrap_unchecked() };
             return if headers_obj.instance_of::<Headers>() {
                 Headers::from_js(ctx, value)
             } else {
                 let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
-                return Ok(Self::from_map(ctx, map));
+                return Ok(Self::from_map(ctx, map, guard));
             };
         }
-        Ok(Headers::default())
+        Ok(Self {
+            headers: vec![],
+            guard,
+        })
     }
 
-    pub fn from_map(ctx: &Ctx<'_>, map: BTreeMap<String, Coerced<String>>) -> Self {
+    pub fn from_map(
+        ctx: &Ctx<'_>,
+        map: BTreeMap<String, Coerced<String>>,
+        guard: HeadersGuard,
+    ) -> Self {
         let headers = map
             .into_iter()
             .filter_map(|(k, v)| {
@@ -233,7 +274,7 @@ impl Headers {
             })
             .collect::<Vec<(Rc<str>, Rc<str>)>>();
 
-        Self { headers }
+        Self { headers, guard }
     }
 
     fn array_to_headers<'js>(
@@ -325,13 +366,13 @@ fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
     }
 }
 
+// 3.2.6.  Field Value Components
+// https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6
 fn is_http_header_name(name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
 
-    // 3.2.6.  Field Value Components
-    // https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6
     name.bytes().all(|b| {
         matches!(b,
             b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' |
@@ -407,6 +448,57 @@ fn normalize_header_value_inplace(ctx: &Ctx<'_>, text: &mut String) -> Result<()
     input.truncate(write_idx);
     *text = String::from_utf8(input).or_throw(ctx)?;
     Ok(())
+}
+
+// https://fetch.spec.whatwg.org/#cors-safelisted-request-header
+pub fn is_cors_safelisted_request_header(key: &str, value: &str) -> bool {
+    if value.len() > 128 {
+        return false;
+    }
+
+    match key.to_ascii_lowercase().as_str() {
+        "accept" => !contains_cors_unsafe_request_header_byte(value),
+        "accept-language" | "content-language" => is_cors_safelisted_field_value(value),
+        "content-type" => {
+            if contains_cors_unsafe_request_header_byte(value) {
+                return false;
+            }
+            let mime_type = value.split(';').next().unwrap_or("").trim();
+            matches!(
+                mime_type.to_ascii_lowercase().as_str(),
+                "application/x-www-form-urlencoded" | "multipart/form-data" | "text/plain" | ""
+            )
+        },
+        _ => false,
+    }
+}
+
+// https://fetch.spec.whatwg.org/#cors-unsafe-request-header-byte
+pub fn contains_cors_unsafe_request_header_byte(value: &str) -> bool {
+    for byte in value.bytes() {
+        match byte {
+            // Control characters except for HT (0x09)
+            0x00..=0x08 | 0x0A..=0x1F => return true,
+
+            // byte is 0x22 ("), 0x28 (left parenthesis), 0x29 (right parenthesis), 0x3A (:), 0x3C (<),
+            // 0x3E (>), 0x3F (?), 0x40 (@), 0x5B ([), 0x5C (\), 0x5D (]), 0x7B ({), 0x7D (}), or 0x7F DEL.
+            0x22 | 0x28 | 0x29 | 0x3A | 0x3C | 0x3E | 0x3F | 0x40 | 0x5B | 0x5C | 0x5D | 0x7B
+            | 0x7F | 0x7D => return true,
+
+            _ => {}, // Allowed byte
+        }
+    }
+    false
+}
+
+pub fn is_cors_safelisted_field_value(value: &str) -> bool {
+    value.bytes().all(|b| match b {
+        0x30..=0x39 | // 0-9
+        0x41..=0x5A | // A-Z
+        0x61..=0x7A | // a-z
+        0x20 | 0x2A | 0x2C | 0x2D | 0x2E | 0x3B | 0x3D => true, // allowed symbols
+        _ => false,
+    })
 }
 
 #[cfg(test)]
