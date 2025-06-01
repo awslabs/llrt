@@ -2058,7 +2058,6 @@ name = "llrt_test"
 version = "0.5.1-beta"
 dependencies = [
  "nanoid",
- "rand 0.8.5",
  "rquickjs",
  "tokio",
 ]

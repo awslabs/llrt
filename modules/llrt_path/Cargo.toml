@@ -22,7 +22,10 @@ criterion = { version = "0.6", default-features = false }
 once_cell = { version = "1", features = [
   "std",
 ], default-features = false }
-rand = { version = "0.8", default-features = false }
+rand = { version = "0.8", features = [
+  "alloc",
+  "getrandom",
+], default-features = false }
 
 [[bench]]
 name = "slash_replacement"

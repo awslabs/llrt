@@ -45,7 +45,10 @@ llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json", optional = 
 once_cell = { version = "1", features = [
   "std",
 ], default-features = false }
-rand = { version = "0.8", default-features = false}
+rand = { version = "0.8", features = [
+  "alloc",
+  "getrandom",
+], default-features = false }
 ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",

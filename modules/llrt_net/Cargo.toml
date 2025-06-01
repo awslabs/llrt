@@ -26,4 +26,7 @@ tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-rand = { version = "0.8", default-features = false }
+rand = { version = "0.8", features = [
+  "alloc",
+  "getrandom",
+], default-features = false }
