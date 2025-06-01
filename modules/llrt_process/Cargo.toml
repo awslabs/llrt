@@ -14,9 +14,11 @@ path = "src/lib.rs"
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
 
+[target.'cfg(unix)'.dependencies]
+libc = { version = "0.2", default-features = false }
+
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["full"] }
-
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
+tokio = { version = "1", features = [
+  "test-util"
+], default-features = false }

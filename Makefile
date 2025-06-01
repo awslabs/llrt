@@ -146,7 +146,6 @@ fix:
 	cargo fmt
 
 bloat: js
-	cargo build --profile=flame --target $(CURRENT_TARGET)
 	cargo bloat --profile=flame --crates
 
 run: export AWS_LAMBDA_FUNCTION_NAME = n/a

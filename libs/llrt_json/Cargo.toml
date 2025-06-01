@@ -11,18 +11,18 @@ name = "llrt_json"
 path = "src/lib.rs"
 
 [dependencies]
-itoa = "1"
+itoa = { version = "1", default-features = false }
 llrt_utils = { version = "0.5.1-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
-ryu = "1"
-simd-json = { version = "0.15", default-features = false, features = [
+ryu = { version = "1", default-features = false }
+simd-json = { version = "0.15", features = [
   "big-int-as-float",
-] }
+], default-features = false }
 
 [dev-dependencies]
-criterion = "0.6"
+criterion = { version = "0.6", default-features = false }
 llrt_test = { version = "0.5.1-beta", path = "../llrt_test" }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["test-util"], default-features = false }
 
 [build-dependencies]
 llrt_build = { version = "0.5.1-beta", path = "../llrt_build" }

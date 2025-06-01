@@ -21,17 +21,19 @@ compression-c = ["llrt_compression/all-c"]
 compression-rust = ["llrt_compression/all-rust"]
 
 [dependencies]
-bytes = "1"
-either = "1"
-http-body-util = "0.1"
-hyper = { version = "1", features = ["client"] }
-hyper-rustls = { version = "0.27", default-features = false, features = [
+bytes = { version = "1", default-features = false }
+either = { version = "1", default-features = false }
+http-body-util = { version = "0.1", default-features = false }
+hyper = { version = "1", features = [
+  "client",
+], default-features = false }
+hyper-rustls = { version = "0.27", features = [
+  "ring",
   "webpki-roots",
   "webpki-tokio",
-  "ring",
-] }
-hyper-util = "0.1"
-itoa = "1"
+], default-features = false }
+hyper-util = { version = "0.1", default-features = false }
+itoa = { version = "1", default-features = false }
 llrt_abort = { version = "0.5.1-beta", path = "../llrt_abort" }
 llrt_buffer = { version = "0.5.1-beta", path = "../llrt_buffer" }
 llrt_compression = { version = "0.5.1-beta", path = "../../libs/llrt_compression", default-features = false }
@@ -41,24 +43,24 @@ llrt_encoding = { version = "0.5.1-beta", path = "../../libs/llrt_encoding" }
 llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json" }
 llrt_url = { version = "0.5.1-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
-pin-project-lite = "0.2"
-once_cell = "1"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-  "either",
-], default-features = false }
-rustls = { version = "0.23", default-features = false, features = [
-  "tls12",
+pin-project-lite = { version = "0.2", default-features = false }
+once_cell = { version = "1", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
+rustls = { version = "0.23", features = [
   "ring",
-] }
-ryu = "1"
-tokio = "1"
-tracing = "0.1"
-webpki-roots = "1.0"
-tower-service = "0.3"
-quick_cache = "0.6"
+  "tls12",
+], default-features = false }
+ryu = { version = "1", default-features = false }
+tokio = { version = "1", features = [
+  "macros",
+  "sync",
+], default-features = false }
+tracing = { version = "0.1", default-features = false }
+webpki-roots = { version = "1", default-features = false }
+tower-service = { version = "0.3", default-features = false }
+quick_cache = { version = "0.6", default-features = false }
 
 [dev-dependencies]
 llrt_compression = { version = "0.5.1-beta", path = "../../libs/llrt_compression" }
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["full"] }
-wiremock = "0.6"
+wiremock = { version = "0.6", default-features = false }

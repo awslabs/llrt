@@ -18,4 +18,7 @@ llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", features 
   "bytearray-buffer",
 ], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
-tokio = { version = "1", features = ["macros", "io-util"] }
+tokio = { version = "1", features = [
+  "macros",
+  "io-util",
+], default-features = false }

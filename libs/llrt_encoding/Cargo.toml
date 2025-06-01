@@ -7,10 +7,16 @@ license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
 [dependencies]
-base64-simd = "0.8"
-hex-simd = "0.8"
-phf = { version = "0.11", features = ["macros"] }
-memchr = "2"
+base64-simd = { version = "0.8", features = [
+  "alloc",
+], default-features = false }
+hex-simd = { version = "0.8", features = [
+  "alloc",
+], default-features = false }
+phf = { version = "0.11", features = [
+  "macros",
+], default-features = false }
+memchr = { version = "2", default-features = false }
 
 [build-dependencies]
 llrt_build = { version = "0.5.1-beta", path = "../llrt_build" }

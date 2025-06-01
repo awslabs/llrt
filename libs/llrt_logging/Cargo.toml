@@ -11,7 +11,7 @@ name = "llrt_logging"
 path = "src/lib.rs"
 
 [dependencies]
-itoa = "1"
+itoa = { version = "1", default-features = false }
 llrt_context = { version = "0.5.1-beta", path = "../llrt_context" }
 llrt_encoding = { version = "0.5.1-beta", path = "../llrt_encoding" }
 llrt_json = { version = "0.5.1-beta", path = "../llrt_json" }
@@ -20,4 +20,4 @@ llrt_utils = { version = "0.5.1-beta", path = "../llrt_utils", default-features 
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
-ryu = "1"
+ryu = { version = "1", default-features = false }

@@ -77,7 +77,7 @@ llrt_fetch = { version = "0.5.1-beta", path = "../modules/llrt_fetch", optional 
 llrt_fs = { version = "0.5.1-beta", path = "../modules/llrt_fs", optional = true }
 llrt_navigator = { version = "0.5.1-beta", path = "../modules/llrt_navigator", optional = true }
 llrt_net = { version = "0.5.1-beta", path = "../modules/llrt_net", optional = true }
-llrt_os = { version = "0.5.1-beta", path = "../modules/llrt_os", optional = true }
+llrt_os = { version = "0.5.1-beta", path = "../modules/llrt_os", default-features = false, optional = true }
 llrt_path = { version = "0.5.1-beta", path = "../modules/llrt_path", optional = true }
 llrt_process = { version = "0.5.1-beta", path = "../modules/llrt_process", optional = true }
 llrt_perf_hooks = { version = "0.5.1-beta", path = "../modules/llrt_perf_hooks", optional = true }

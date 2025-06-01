@@ -12,18 +12,12 @@ name = "llrt_dns_cache"
 path = "src/lib.rs"
 
 [dependencies]
-hyper = { version = "1", features = ["client"] }
-hyper-rustls = { version = "0.27", default-features = false, features = [
-  "webpki-roots",
-  "webpki-tokio",
-  "ring",
-] }
-hyper-util = "0.1"
+hyper-util = { version = "0.1", default-features = false }
 llrt_context = { version = "0.5.1-beta", path = "../llrt_context" }
 llrt_utils = { version = "0.5.1-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
-tokio = "1"
-tower-service = "0.3.3"
-quick_cache = "0.6.12"
+tokio = {version = "1", default-features = false }
+tower-service = { version = "0.3", default-features = false }
+quick_cache = { version = "0.6", default-features = false }

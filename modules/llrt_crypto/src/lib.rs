@@ -30,12 +30,11 @@ use rquickjs::{
     prelude::{Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
-use subtle::SubtleCrypto;
 #[cfg(feature = "subtle-rs")]
 use subtle::{
     subtle_decrypt, subtle_derive_bits, subtle_derive_key, subtle_digest, subtle_encrypt,
     subtle_export_key, subtle_generate_key, subtle_import_key, subtle_sign, subtle_unwrap_key,
-    subtle_verify, subtle_wrap_key, CryptoKey,
+    subtle_verify, subtle_wrap_key, CryptoKey, SubtleCrypto,
 };
 use uuid::Uuid;
 use uuid_simd::UuidExt;

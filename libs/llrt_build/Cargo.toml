@@ -11,4 +11,4 @@ name = "llrt_build"
 path = "src/lib.rs"
 
 [dependencies]
-rustc_version = "0.4"
+rustc_version = { version = "0.4", default-features = false }
