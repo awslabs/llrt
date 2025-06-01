@@ -18,7 +18,9 @@ system = ["sysinfo/system"]
 home = { version = "0.5", default-features = false }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
 num_cpus = { version = "1", default-features = false }
-once_cell = { version = "1", default-features = false }
+once_cell = { version = "1", features = [
+  "std",
+], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
 sysinfo = { version = "0.35", default-features = false, optional = true }
 

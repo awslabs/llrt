@@ -44,7 +44,9 @@ llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json" }
 llrt_url = { version = "0.5.1-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
 pin-project-lite = { version = "0.2", default-features = false }
-once_cell = { version = "1", default-features = false }
+once_cell = { version = "1", features = [
+  "std",
+], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
 rustls = { version = "0.23", features = [
   "ring",
