@@ -32,8 +32,12 @@ users = { version = "0.11", features = [
 
 [target.'cfg(windows)'.dependencies]
 whoami = { version = "1", default-features = false }
-windows-registry = { version = "0.5", default-features = false }
-windows-result = { version = "0.3", default-features = false }
+windows-registry = { version = "0.5", features = [
+  "std",
+], default-features = false }
+windows-result = { version = "0.3", features = [
+  "std",
+], default-features = false }
 windows-version = { version = "0.1", default-features = false }
 
 [dev-dependencies]
