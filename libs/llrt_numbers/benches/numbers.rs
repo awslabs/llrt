@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use llrt_numbers::i64_to_base_n;
 use rand::Rng;
-use std::fmt::Write;
+use std::{fmt::Write, hint::black_box};
 
 macro_rules! write_formatted {
     ($format:expr, $number:expr) => {{
