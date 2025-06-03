@@ -19,8 +19,7 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rand::prelude::ThreadRng;
-use rand::Rng;
+use rand::{prelude::ThreadRng, Rng};
 use ring::rand::{SecureRandom, SystemRandom};
 #[cfg(feature = "subtle-rs")]
 use rquickjs::prelude::Async;

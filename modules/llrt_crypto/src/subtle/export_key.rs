@@ -1,6 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 use der::{
     asn1::{self, BitString},
     Decode, Encode, SecretDocument,
@@ -11,11 +10,12 @@ use elliptic_curve::{
 };
 use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_utils::result::ResultExt;
-use pkcs8::{AssociatedOid, DecodePrivateKey, PrivateKeyInfo};
-
-use pkcs8::EncodePrivateKey;
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
-use rsa::{pkcs1::DecodeRsaPrivateKey, RsaPrivateKey};
+use rsa::{
+    pkcs1::DecodeRsaPrivateKey,
+    pkcs8::{AssociatedOid, DecodePrivateKey, EncodePrivateKey, PrivateKeyInfo},
+    RsaPrivateKey,
+};
 use spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfo};
 
 use crate::subtle::CryptoKey;

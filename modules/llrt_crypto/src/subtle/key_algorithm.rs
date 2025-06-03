@@ -1,22 +1,21 @@
-use der::asn1::UintRef;
-use der::Decode;
-use der::Encode;
-use llrt_encoding::bytes_from_b64_url_safe;
-use llrt_utils::str_enum;
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use pkcs8::EncodePrivateKey;
-use pkcs8::PrivateKeyInfo;
-use rquickjs::FromJs;
-use rquickjs::{atom::PredefinedAtom, Array, Ctx, Exception, Object, Result, TypedArray, Value};
-use spki::{AlgorithmIdentifier, ObjectIdentifier};
-
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::rc::Rc;
+
+use der::{asn1::UintRef, Decode, Encode};
+use llrt_encoding::bytes_from_b64_url_safe;
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
+use rquickjs::{
+    atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
+};
+use rsa::pkcs8::{EncodePrivateKey, PrivateKeyInfo};
+use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
 use crate::sha_hash::ShaAlgorithm;
 
-use super::algorithm_mismatch_error;
 use super::{
-    algorithm_not_supported_error, crypto_key::KeyKind, to_name_and_maybe_object, EllipticCurve,
+    algorithm_mismatch_error, algorithm_not_supported_error, crypto_key::KeyKind,
+    to_name_and_maybe_object, EllipticCurve,
 };
 
 #[derive(Clone, Copy, PartialEq)]

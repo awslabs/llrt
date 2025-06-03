@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{Ctx, FromJs, Result, Value};
 

@@ -29,7 +29,6 @@ subtle-rs = [
   "x25519-dalek",
   "ecdsa",
   "spki",
-  "pkcs8",
   "der",
   "const-oid",
 ]
@@ -41,7 +40,6 @@ llrt_buffer = { version = "0.5.1-beta", path = "../llrt_buffer" }
 llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.5.1-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
-llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json", optional = true }
 once_cell = { version = "1", features = [
   "std",
 ], default-features = false }
@@ -49,7 +47,6 @@ rand = { version = "0.8", features = [
   "std",
   "std_rng",
 ], default-features = false }
-ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
@@ -60,6 +57,10 @@ uuid = { version = "1", features = [
 uuid-simd = { version = "0.8", features = [
   "uuid",
 ], default-features = false }
+
+# optional
+llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json", optional = true }
+ring = { version = "0.17", default-features = false }
 aes = { version = "0.8", optional = true }
 aes-gcm = { version = "0.10", features = [
   "alloc",
@@ -99,9 +100,6 @@ x25519-dalek = { version = "2", features = [
 ], default-features = false, optional = true }
 ecdsa = { version = "0.16", default-features = false, optional = true }
 spki = { version = "0.7", features = [
-  "alloc",
-], default-features = false, optional = true }
-pkcs8 = { version = "0.10", features = [
   "alloc",
 ], default-features = false, optional = true }
 der = { version = "0.7", features = [

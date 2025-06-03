@@ -1757,7 +1757,6 @@ dependencies = [
  "p256",
  "p384",
  "p521",
- "pkcs8",
  "rand 0.8.5",
  "ring",
  "rquickjs",

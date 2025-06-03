@@ -1,17 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 use llrt_utils::result::ResultExt;
-use p256::pkcs8::DecodePrivateKey;
-use pkcs8::EncodePrivateKey;
 use ring::{
     rand::SecureRandom,
     signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair},
 };
-use rquickjs::Class;
-use rquickjs::{object::Property, Array, Ctx, Exception, Object, Result, Value};
+use rquickjs::{object::Property, Array, Class, Ctx, Exception, Object, Result, Value};
 use rsa::{
     pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},
+    pkcs8::{DecodePrivateKey, EncodePrivateKey},
     rand_core::OsRng,
     BigUint, RsaPrivateKey,
 };
