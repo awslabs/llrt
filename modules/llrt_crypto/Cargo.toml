@@ -47,6 +47,7 @@ rand = { version = "0.8", features = [
   "std",
   "std_rng",
 ], default-features = false }
+ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
@@ -60,7 +61,6 @@ uuid-simd = { version = "0.8", features = [
 
 # optional
 llrt_json = { version = "0.5.1-beta", path = "../../libs/llrt_json", optional = true }
-ring = { version = "0.17", default-features = false }
 aes = { version = "0.8", optional = true }
 aes-gcm = { version = "0.10", features = [
   "alloc",
