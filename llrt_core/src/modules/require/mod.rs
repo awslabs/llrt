@@ -7,6 +7,7 @@ use std::{
     rc::Rc,
 };
 
+use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
@@ -16,7 +17,7 @@ use tracing::trace;
 
 use crate::bytecode::BYTECODE_FILE_EXT;
 use crate::environment;
-use crate::libs::json::parse::json_parse;
+use crate::libs::{json::parse::json_parse, utils::provider::ProviderType};
 use crate::modules::{
     ModuleNames,
     {path::resolve_path, timers::poll_timers},
@@ -135,6 +136,11 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     let mut deadline = Instant::now();
 
     let mut executing_timers = Vec::new();
+
+    // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
+    let uid = unsafe { obj.as_object().unwrap().as_raw().u.ptr } as usize;
+    register_finalization_registry(&ctx, obj.clone().into_value(), uid)?;
+    invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, uid)?;
 
     let imported_object = loop {
         if let Some(x) = import_promise.result::<Object>() {
