@@ -68,7 +68,9 @@ aes-gcm = { version = "0.10", features = [
 aes-kw = { version = "0.2", features = [
   "alloc",
 ], default-features = false, optional = true }
-cbc = { version = "0.1", features = ["std"], optional = true }
+cbc = { version = "0.1", features = [
+  "std"
+], optional = true }
 ctr = { version = "0.9", default-features = false, optional = true }
 rsa = { version = "0.9", features = [
   "std",
@@ -91,7 +93,6 @@ p521 = { version = "0.13", features = [
 ], default-features = false, optional = true }
 elliptic-curve = { version = "0.13", features = [
   "alloc",
-  "arithmetic",
 ], default-features = false, optional = true }
 x25519-dalek = { version = "2", features = [
   "getrandom",
