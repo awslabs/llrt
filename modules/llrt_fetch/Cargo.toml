@@ -12,13 +12,16 @@ name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "compression-c"]
+default = ["http1", "http2", "compression-c", "platform-roots"]
 
 http1 = ["hyper/http1", "hyper-rustls/http1"]
 http2 = ["hyper/http2", "hyper-rustls/http2"]
 
 compression-c = ["llrt_compression/all-c"]
 compression-rust = ["llrt_compression/all-rust"]
+
+platform-roots = ["hyper-rustls/rustls-platform-verifier"]
+builtin-roots = ["hyper-rustls/webpki-tokio", "webpki-roots"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
@@ -29,8 +32,6 @@ hyper = { version = "1", features = [
 ], default-features = false }
 hyper-rustls = { version = "0.27", features = [
   "ring",
-  "webpki-roots",
-  "webpki-tokio",
 ], default-features = false }
 hyper-util = { version = "0.1", default-features = false }
 itoa = { version = "1", default-features = false }
@@ -60,9 +61,11 @@ tokio = { version = "1", features = [
   "sync",
 ], default-features = false }
 tracing = { version = "0.1", default-features = false }
-webpki-roots = { version = "1", default-features = false }
 tower-service = { version = "0.3", default-features = false }
 quick_cache = { version = "0.6", default-features = false }
+
+# optional
+webpki-roots = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
 llrt_compression = { version = "0.5.1-beta", path = "../../libs/llrt_compression" }
