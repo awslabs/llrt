@@ -161,9 +161,9 @@ describe("Request class", () => {
     expect(request.method).toEqual("GET");
   });
 
-  it("should set the mode to no-cors by default", () => {
+  it("should set the mode to cors by default", () => {
     const request = new Request("https://example.com");
-    expect(request.mode).toEqual("no-cors");
+    expect(request.mode).toEqual("cors");
   });
 
   it("should set the cache to no-store by default", () => {
