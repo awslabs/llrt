@@ -253,4 +253,12 @@ deploy:
 check:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy
+check-crates:
+	cargo metadata --no-deps --format-version 1 --quiet | \
+	jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name' | \
+	while read crate; do \
+	  echo "Checking crate: $$crate"; \
+	  cargo check -p "$$crate"; \
+	done
+
+.PHONY: libs check check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy

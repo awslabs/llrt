@@ -26,7 +26,7 @@ zstd-c = ["zstd"]
 zstd-rust = ["zstd"] # No pure rust implementation exists
 
 [dependencies]
-brotlic = { version = "0.8", optional = true }
-brotli = { version = "8", optional = true }
+brotlic = { version = "0.8", default-features = false, optional = true }
+brotli = { version = "8", default-features = false, optional = true }
 flate2 = { version = "1", default-features = false, optional = true }
 zstd = { version = "0.13", default-features = false, optional = true }

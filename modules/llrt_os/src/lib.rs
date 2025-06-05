@@ -11,6 +11,8 @@ use rquickjs::{
     prelude::Func,
     Ctx, Exception, Result,
 };
+
+#[cfg(feature = "system")]
 use sysinfo::System;
 
 #[cfg(unix)]
@@ -58,16 +60,19 @@ fn get_home_dir(ctx: Ctx<'_>) -> Result<String> {
         .ok_or_else(|| Exception::throw_message(&ctx, "Could not determine home directory"))
 }
 
+#[cfg(feature = "system")]
 fn get_host_name(ctx: Ctx<'_>) -> Result<String> {
     System::host_name().ok_or_else(|| Exception::throw_reference(&ctx, "System::host_name"))
 }
 
+#[cfg(feature = "system")]
 fn get_load_avg() -> Vec<f64> {
     let load_avg = System::load_average();
 
     vec![load_avg.one, load_avg.five, load_avg.fifteen]
 }
 
+#[cfg(feature = "system")]
 fn get_machine() -> String {
     System::cpu_arch()
 }
@@ -76,6 +81,7 @@ fn get_tmp_dir() -> String {
     env::temp_dir().to_string_lossy().to_string()
 }
 
+#[cfg(feature = "system")]
 fn get_uptime() -> u64 {
     System::uptime()
 }
@@ -91,15 +97,11 @@ impl ModuleDef for OsModule {
         declare.declare("EOL")?;
         declare.declare("getPriority")?;
         declare.declare("homedir")?;
-        declare.declare("hostname")?;
-        declare.declare("loadavg")?;
-        declare.declare("machine")?;
         declare.declare("platform")?;
         declare.declare("release")?;
         declare.declare("setPriority")?;
         declare.declare("tmpdir")?;
         declare.declare("type")?;
-        declare.declare("uptime")?;
         declare.declare("userInfo")?;
         declare.declare("version")?;
 
@@ -114,7 +116,13 @@ impl ModuleDef for OsModule {
             declare.declare("freemem")?;
             declare.declare("totalmem")?;
         }
-
+        #[cfg(feature = "system")]
+        {
+            declare.declare("hostname")?;
+            declare.declare("loadavg")?;
+            declare.declare("machine")?;
+            declare.declare("uptime")?;
+        }
         declare.declare("default")?;
         Ok(())
     }
@@ -131,18 +139,13 @@ impl ModuleDef for OsModule {
             default.set("EOL", EOL)?;
             default.set("getPriority", Func::from(get_priority))?;
             default.set("homedir", Func::from(get_home_dir))?;
-            default.set("hostname", Func::from(get_host_name))?;
-            default.set("loadavg", Func::from(get_load_avg))?;
-            default.set("machine", Func::from(get_machine))?;
             default.set("platform", Func::from(|| PLATFORM))?;
             default.set("release", Func::from(get_release))?;
             default.set("setPriority", Func::from(set_priority))?;
             default.set("tmpdir", Func::from(get_tmp_dir))?;
             default.set("type", Func::from(get_type))?;
-            default.set("uptime", Func::from(get_uptime))?;
             default.set("userInfo", Func::from(get_user_info))?;
             default.set("version", Func::from(get_version))?;
-
             #[cfg(feature = "network")]
             {
                 default.set("networkInterfaces", Func::from(get_network_interfaces))?;
@@ -153,6 +156,13 @@ impl ModuleDef for OsModule {
                 default.set("cpus", Func::from(get_cpus))?;
                 default.set("freemem", Func::from(get_free_mem))?;
                 default.set("totalmem", Func::from(get_total_mem))?;
+            }
+            #[cfg(feature = "system")]
+            {
+                default.set("hostname", Func::from(get_host_name))?;
+                default.set("loadavg", Func::from(get_load_avg))?;
+                default.set("machine", Func::from(get_machine))?;
+                default.set("uptime", Func::from(get_uptime))?;
             }
             Ok(())
         })
@@ -330,6 +340,7 @@ mod tests {
         .await;
     }
 
+    #[cfg(feature = "system")]
     #[tokio::test]
     async fn test_hostname() {
         test_async_with(|ctx| {
@@ -343,6 +354,7 @@ mod tests {
         .await;
     }
 
+    #[cfg(feature = "system")]
     #[tokio::test]
     async fn test_machine() {
         test_async_with(|ctx| {
@@ -422,6 +434,7 @@ mod tests {
         .await;
     }
 
+    #[cfg(feature = "system")]
     #[tokio::test]
     async fn test_uptime() {
         test_async_with(|ctx| {

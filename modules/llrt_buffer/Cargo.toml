@@ -20,4 +20,6 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0"
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = [
+  "test-util"
+], default-features = false }
