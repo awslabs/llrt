@@ -14,7 +14,7 @@ static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
     )))
 });
 
-pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object>> {
+pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object<'_>>> {
     let mut vec: Vec<Object> = Vec::new();
     let system = SYSTEM.lock().unwrap();
 
