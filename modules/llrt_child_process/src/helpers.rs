@@ -9,6 +9,10 @@ use std::os::{
     unix::process::{CommandExt, ExitStatusExt},
 };
 
+use url::Url;
+
+use llrt_url::{file_url_to_path};
+
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -17,6 +21,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, RwLock},
 };
 
+use either::Either;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{
@@ -29,11 +34,7 @@ use llrt_utils::{
     result::ResultExt,
 };
 use rquickjs::{
-    class::{Trace, Tracer},
-    convert::Coerced,
-    module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, Opt, Rest, This},
-    Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Undefined, Value,
+    class::{Trace, Tracer}, convert::Coerced, module::{Declarations, Exports, ModuleDef}, prelude::{Func, Opt, Rest, This}, Array, Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Undefined, Value
 };
 use tokio::{
     io::AsyncRead,
@@ -214,25 +215,66 @@ pub async fn wait_for_process(
     Ok(())
 }
 
-pub fn get_callback_fn<'js>(
-    ctx: &Ctx<'js>,
-    args: &[Option<&Value<'js>>],
-) -> Result<Option<Function<'js>>> {
-    for (i, arg) in args.iter().enumerate() {
-        if let Some(arg) = arg {
-            if let Some(func) = arg.as_function() {
-                return Ok(Some(func.clone()));
-            }
-            if i == 2 {
-                return Err(Exception::throw_message(
-                    ctx,
-                    "The \"callback\" argument must be of type function.",
-                ));
-            }
-        }
+// pub fn normalize_exec_file_args<'js>(
+//     ctx: &Ctx<'js>,
+//     args_0: Opt<Either<Either<Array<'js>, Object<'js>>, Function<'js>>>,
+//     args_1: Opt<Either<Object<'js>, Function<'js>>>,
+//     args_2: Opt<Function<'js>>
+// ) -> Result<Option<Function<'js>>> {
+//     let callback = match args_0.0 {
+//         Some(Either::Right(callback)) => {
+//             if callback.is_function() {
+//                 callback
+//             }
+//         },
+//         Some(Either::Left(Either::Right(callback))) => {
+//             if callback.is_function() {
+//                 callback
+//             }
+//         },
+//         Some(Either::Left(Either::Left(callback))) => {
+//             if callback.is_function() {
+//                 callback
+//             }
+//         },
+//     };
+
+//     // println!("valtest{:#?}",args_0.0);
+//     Ok(None)
+// }
+// pub fn get_callback_fn<'js>(
+//     ctx: &Ctx<'js>,
+//     args: &[Option<&Value<'js>>],
+// ) -> Result<Option<Function<'js>>> {
+//     for (i, arg) in args.iter().enumerate() {
+//         if let Some(arg) = arg {
+//             if let Some(func) = arg.as_function() {
+//                 return Ok(Some(func.clone()));
+//             }
+//             if i == 2 {
+//                 return Err(Exception::throw_message(
+//                     ctx,
+//                     "The \"callback\" argument must be of type function.",
+//                 ));
+//             }
+//         }
+//     }
+//     Ok(None)
+// }
+
+pub fn extract_args_array<'js>(ctx: &Ctx<'js>, array: Array<'js>) -> Result<Vec<String>> {
+    let args = array.as_array().or_throw(ctx)?;
+    let mut args_vec = Vec::with_capacity(args.len());
+    for arg in args.iter() {
+        let val: Value = arg?;
+        let val = val
+            .as_string()
+            .or_throw_msg(ctx, "argument is not a string")?;
+        args_vec.push(val.to_string()?);
     }
-    Ok(None)
+    Ok(args_vec)
 }
+
 
 pub fn get_command_args<'js>(
     ctx: &Ctx<'_>,
@@ -267,6 +309,85 @@ pub fn get_command_args<'js>(
         None
     };
     Ok(command_args)
+}
+
+pub fn validate_string_length(ctx: &Ctx<'_>, cmd: &str) -> Result<()> {
+    if cmd.is_empty() {
+        return Err(Exception::throw_message(
+                ctx,
+                "File cannot be empty",
+            ));
+    }
+
+    Ok(())
+}
+
+pub fn is_url_str(input: &str) -> bool {
+    Url::parse(input).is_ok()
+}
+
+pub fn to_path_if_file_url(ctx: &Ctx<'_>, url: &str) -> Result<String> {
+    if !is_url_str(url) {
+        return Ok(url.to_string());
+    }
+
+    let url_value = url.into_js(ctx).or_throw(ctx)?;
+    file_url_to_path(ctx.clone(), url_value)
+}
+
+// pub fn validate_path(ctx: &Ctx<'_>, path: Result<String>, prop_name: &str) -> Result<()> {
+//     let message=format!("{} must not contain null bytes", prop_name);
+//     if path.is_some() {
+//         if path.contains('\0') {
+//         return Err(Exception::throw_type(
+//                 ctx,
+//                 &message,
+//             ));
+//     }
+//     }
+
+//     Ok(())
+// }
+
+pub fn validate_path(ctx: &Ctx<'_>, path: &str, prop_name: &str) -> Result<()> {
+            let message = format!(
+                "{:?} must be without null bytes.",
+                prop_name,
+            );
+
+            if path.contains('\0') {
+                return Err(Exception::throw_type(
+                    ctx,
+                    &message,
+                ));
+            }
+            Ok(())
+        }
+
+pub fn get_validated_path(ctx: &Ctx<'_>, url: &str, prop_name: &str) -> Result<()> {
+    let path= to_path_if_file_url(ctx, url);
+    let result = path?;
+    validate_path(ctx, &result, prop_name)?;
+    Ok(())
+}
+
+pub fn validate_argument_null_check(ctx: &Ctx<'_>, cmd: &str) -> Result<()> {
+    if cmd.contains('\0') {
+        return Err(Exception::throw_type(
+                ctx,
+                "argument must be a string without null bytes",
+            ));
+    }
+    Ok(())
+}
+
+pub fn validate_arguments_null_check(ctx: &Ctx<'_>, command_args: Option<&Vec<String>>) -> Result<()> {
+    if let Some(cmds) = command_args {
+        for arg in cmds.iter() {
+            validate_argument_null_check(&ctx, arg)?
+        }
+    }
+    Ok(())
 }
 
 pub fn get_windows_verbatim_arguments(opts: Option<&Object<'_>>) -> Result<bool> {
@@ -334,8 +455,9 @@ pub fn get_uid(opts: &Object<'_>, command: &mut std::process::Command) -> Result
     Ok(())
 }
 
-pub fn get_cwd(opts: &Object<'_>, command: &mut std::process::Command) -> Result<()> {
+pub fn get_cwd(ctx: &Ctx<'_> ,opts: &Object<'_>, command: &mut std::process::Command) -> Result<()> {
     if let Some(cwd) = opts.get_optional::<_, String>("cwd")? {
+        get_validated_path(&ctx, &cwd, "cwd")?;
         command.current_dir(&cwd);
     }
     Ok(())
@@ -450,8 +572,7 @@ pub fn str_to_stdio(ctx: &Ctx<'_>, input: &str) -> Result<StdioEnum> {
 pub fn get_output<'js, T>(
     ctx: &Ctx<'js>,
     output: Option<T>,
-    native_readable_stream: Class<'js, DefaultReadableStream<'js>>,
-    combined_std_buffer: Option<Arc<Mutex<Vec<u8>>>>,
+    native_readable_stream: Class<'js, DefaultReadableStream<'js>>
 ) -> Result<Option<OneshotReceiver<bool>>>
 where
     T: AsyncRead + Unpin + Send + 'static,
@@ -460,8 +581,7 @@ where
         let receiver = DefaultReadableStream::process(
             native_readable_stream,
             ctx,
-            output,
-            combined_std_buffer,
+            output
         )?;
         return Ok(Some(receiver));
     }
@@ -477,7 +597,7 @@ pub fn create_output<'js, T>(
 where
     T: AsyncRead + Unpin + Send + 'static,
 {
-    get_output(ctx, output, native_readable_stream, None)
+    get_output(ctx, output, native_readable_stream)
 }
 
 pub fn create_error_object<'js>(
