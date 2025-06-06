@@ -106,7 +106,9 @@ static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
     .expect("TLS configuration failed");
 
     #[cfg(not(all(feature = "builtin-roots", not(feature = "platform-roots"))))]
-    let client_config = client_config.with_platform_verifier();
+    let client_config = client_config
+        .try_with_platform_verifier()
+        .expect("Failed to initialize platform varifier");
     #[cfg(all(feature = "builtin-roots", not(feature = "platform-roots")))]
     let client_config = client_config.with_root_certificates(root_certificates);
 
