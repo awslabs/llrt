@@ -29,7 +29,7 @@ fn cwd(ctx: Ctx<'_>) -> Result<String> {
         .map(|path| path.to_string_lossy().to_string())
 }
 
-fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {
+fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt<'_>> {
     let now = time::now_nanos();
     let started = time::origin_nanos();
 
