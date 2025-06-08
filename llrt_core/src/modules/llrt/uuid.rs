@@ -123,7 +123,7 @@ fn uuidv6_to_v1<'js>(ctx: Ctx<'js>, v6_value: Value<'js>) -> Result<String> {
     Ok(Uuid::from_bytes(v1_bytes).format_hyphenated().to_string())
 }
 
-fn parse(ctx: Ctx<'_>, value: String) -> Result<TypedArray<u8>> {
+fn parse(ctx: Ctx<'_>, value: String) -> Result<TypedArray<'_, u8>> {
     let uuid = Uuid::try_parse(&value).or_throw_msg(&ctx, ERROR_MESSAGE)?;
     let bytes = uuid.as_bytes();
     TypedArray::<u8>::new(ctx, *bytes)
