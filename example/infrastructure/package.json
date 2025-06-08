@@ -13,7 +13,7 @@
     "aws-cdk": "2.1017.1",
     "aws-cdk-lib": "2.199.0",
     "constructs": "10.4.2",
-    "esbuild": "0.25.2",
+    "esbuild": "0.25.5",
     "ts-node": "10.9.2",
     "typescript": "5.8.2"
   }
