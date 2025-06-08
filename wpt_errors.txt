@@ -333,11 +333,8 @@ Error: [Parsing: <file:///w|/m> without base] assert_equals: href expected "file
 url > should pass url-origin.any.js tests
 Error: [Origin parsing: <blob:blob:https://example.org/> without base] assert_equals: origin expected "null" but got "https://example.org"
 
-url > should pass url-setters-stripping.any.js tests
-Error: [Setting port with leading U+0000 (https:)] assert_equals: property expected "8000" but got ""
-
 url > should pass url-setters.any.js tests
-Error: [URL: Setting <http://example.net:8080>.host = 'example.com:invalid' Anything other than ASCII digit stops the port parser in a setter but is not an error] assert_equals: expected "http://example.com:8080/" but got "http://example.com/"
+Error: [URL: Setting <non-spec:/.//p>.hostname = 'h' Drop /. from path] assert_equals: expected "non-spec://h//p" but got "non-spec://h/.//p"
 
 url > should pass urlencoded-parser.any.js tests
 Error: [request.formData() with input: test] not a function

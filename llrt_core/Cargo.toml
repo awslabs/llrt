@@ -57,7 +57,6 @@ tokio = { version = "1", features = [
 tracing = { version = "0.1", features = [
   "log"
 ], default-features = false }
-url = { version = "=2.5.1", default-features = false }
 uuid = { version = "1", features = [
   "fast-rng",
   "v1",
