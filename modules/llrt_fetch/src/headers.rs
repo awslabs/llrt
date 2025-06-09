@@ -74,13 +74,13 @@ impl Headers {
         })
     }
 
-    pub fn append<'js>(&mut self, ctx: Ctx<'js>, key: String, value: String) -> Result<()> {
+    pub fn append<'js>(&mut self, ctx: Ctx<'js>, key: String, value: Value<'js>) -> Result<()> {
         let key: ImmutableString = key.to_lowercase().into();
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
 
-        let mut value: String = value;
+        let mut value = coerce_to_string(&ctx, value)?;
         normalize_header_value_inplace(&ctx, &mut value)?;
         if self.guard == HeadersGuard::RequestNoCors {
             let val = value.split(',').next().unwrap_or("").trim();
@@ -531,18 +531,18 @@ mod tests {
                         "application/json".into(),
                     )
                     .unwrap();
-                headers
-                    .append(ctx.clone(), "set-cookie".into(), "cookie1=value1".into())
-                    .unwrap();
-                headers
-                    .append(ctx.clone(), "set-cookie".into(), "cookie2=value2".into())
-                    .unwrap();
-                headers
-                    .append(ctx.clone(), "Accept-Encoding".into(), "deflate".into())
-                    .unwrap();
-                headers
-                    .append(ctx.clone(), "Accept-Encoding".into(), "gzip".into())
-                    .unwrap();
+
+                let append_headers = [
+                    ("set-cookie", "cookie1=value1"),
+                    ("set-cookie", "cookie2=value2"),
+                    ("Accept-Encoding", "deflate"),
+                    ("Accept-Encoding", "gzip"),
+                ];
+                for (key, value) in append_headers {
+                    headers
+                        .append(ctx.clone(), key.into(), value.into_js(&ctx).unwrap())
+                        .unwrap();
+                }
 
                 assert_eq!(
                     headers
