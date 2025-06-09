@@ -11,7 +11,7 @@ use llrt_utils::{
 };
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, methods, prelude::Opt, Array, Coerced, Ctx, Exception,
-    FromJs, Function, IntoJs, JsLifetime, Null, Object, Result, Value,
+    FromJs, Function, IntoJs, JsLifetime, Null, Object, Result, Symbol, Value,
 };
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
@@ -54,6 +54,17 @@ impl Headers {
             } else if init.is_null() || init.is_number() {
                 return Err(Exception::throw_type(&ctx, "Invalid argument"));
             } else if init.is_object() {
+                if let Some(obj) = init.as_object() {
+                    if obj.contains_key(Symbol::iterator(ctx.clone()))? {
+                        let array: Array = BasePrimordials::get(&ctx)?
+                            .function_array_from
+                            .call((init,))?;
+                        return Ok(Self {
+                            headers: Self::array_to_headers(&ctx, array)?,
+                            guard: HeadersGuard::None,
+                        });
+                    }
+                }
                 return Self::from_value(&ctx, init, HeadersGuard::None);
             }
         }
