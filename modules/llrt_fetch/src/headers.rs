@@ -544,36 +544,23 @@ mod tests {
                         .unwrap();
                 }
 
-                assert_eq!(
-                    headers
-                        .get(ctx.clone(), "Content-Type".into())
-                        .unwrap()
-                        .as_string()
-                        .unwrap()
-                        .to_string()
-                        .unwrap(),
-                    "application/json"
-                );
-                assert_eq!(
-                    headers
-                        .get(ctx.clone(), "set-cookie".into())
-                        .unwrap()
-                        .as_string()
-                        .unwrap()
-                        .to_string()
-                        .unwrap(),
-                    "cookie1=value1, cookie2=value2"
-                );
-                assert_eq!(
-                    headers
-                        .get(ctx.clone(), "Accept-Encoding".into())
-                        .unwrap()
-                        .as_string()
-                        .unwrap()
-                        .to_string()
-                        .unwrap(),
-                    "deflate, gzip"
-                );
+                let get_headers = [
+                    ("Content-Type", "application/json"),
+                    ("set-cookie", "cookie1=value1, cookie2=value2"),
+                    ("Accept-Encoding", "deflate, gzip"),
+                ];
+                for (key, expected) in get_headers {
+                    assert_eq!(
+                        headers
+                            .get(ctx.clone(), key.into())
+                            .unwrap()
+                            .as_string()
+                            .unwrap()
+                            .to_string()
+                            .unwrap(),
+                        expected
+                    );
+                }
             })
         })
         .await;
