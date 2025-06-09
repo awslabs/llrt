@@ -165,13 +165,13 @@ impl Headers {
         Ok(self.headers.iter().any(|(k, _)| k == &key))
     }
 
-    pub fn set<'js>(&mut self, ctx: Ctx<'js>, key: String, value: String) -> Result<()> {
+    pub fn set<'js>(&mut self, ctx: Ctx<'js>, key: String, value: Value<'js>) -> Result<()> {
         let key: ImmutableString = key.to_lowercase().into();
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
 
-        let mut value: String = value;
+        let mut value = coerce_to_string(&ctx, value)?;
         normalize_header_value_inplace(&ctx, &mut value)?;
         if self.guard == HeadersGuard::RequestNoCors {
             let val = value.split(',').next().unwrap_or("").trim();
@@ -528,7 +528,7 @@ mod tests {
                     .set(
                         ctx.clone(),
                         "Content-Type".into(),
-                        "application/json".into(),
+                        "application/json".into_js(&ctx).unwrap(),
                     )
                     .unwrap();
 
