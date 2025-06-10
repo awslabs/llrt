@@ -185,10 +185,10 @@ fetch/api/headers > should pass header-setcookie.any.js tests
 Error: [Headers iterator is correctly updated with set-cookie changes] assert_array_equals: expected property 0 to be "set-cookie" but got "x-header" (expected array ["set-cookie", "a=b"] got ["x-header", "test"])
 
 fetch/api/headers > should pass headers-basic.any.js tests
-Error: [Create headers with existing headers with custom iterator] assert_equals: expected (string) "test" but got (object) null
+Error: [Check keys method] assert_equals: expected object "[object Iterator]" but got object "[object Object]"
 
 fetch/api/headers > should pass headers-record.any.js tests
-Error: [Basic operation with one property] assert_equals: expected 4 but got 3
+Error: [Basic operation with one property] assert_array_equals: lengths differ, expected array ["get", object "[object Object]", symbol "Symbol(Symbol.iterator)", object "[object Object]"] length 4, got ["has", object "[object Object]", symbol "Symbol(Symbol.iterator)"] length 3
 
 
 🧪/wpt/fetch.api.request.test.js 
