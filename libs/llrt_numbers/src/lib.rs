@@ -4,7 +4,7 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::Func,
-    Ctx, Exception, Function, Object, Result, Value,
+    Ctx, Exception, FromJs, Function, Object, Result, Value,
 };
 use std::result::Result as StdResult;
 
@@ -256,11 +256,11 @@ fn check_radix(ctx: &Ctx, radix: u8) -> Result<()> {
     Ok(())
 }
 
-fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<String> {
-    if let Some(int) = this.as_int() {
+fn number_to_string<'js>(ctx: Ctx<'js>, this: This<Value<'js>>, radix: Opt<u8>) -> Result<String> {
+    if let Ok(int) = i64::from_js(&ctx, this.0.clone()) {
         if let Some(radix) = radix.0 {
             check_radix(&ctx, radix)?;
-            return Ok(i64_to_base_n(int as i64, radix));
+            return Ok(i64_to_base_n(int, radix));
         }
         let mut buffer = itoa::Buffer::new();
         return Ok(buffer.format(int).into());
