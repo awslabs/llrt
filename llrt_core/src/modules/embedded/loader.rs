@@ -14,6 +14,11 @@ use crate::bytecode::{
 
 use super::{BYTECODE_CACHE, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, COMPRESSION_DICT};
 
+// Legacy bytecode support
+const LEGACY_BYTECODE_VERSION: &str = "LLRT0001";
+const LEGACY_BYTECODE_COMPRESSED: u8 = 1;
+const LEGACY_SIGNATURE_LENGTH: usize = LEGACY_BYTECODE_VERSION.len() + 1;
+
 static DECOMPRESSOR_DICT: Lazy<DecoderDictionary> =
     Lazy::new(|| DecoderDictionary::copy(COMPRESSION_DICT));
 
@@ -22,6 +27,130 @@ include!(concat!(env!("OUT_DIR"), "/sdk_client_endpoints.rs"));
 
 #[derive(Debug, Default)]
 pub struct EmbeddedLoader;
+
+#[derive(Debug, Default)]
+pub struct CustomLoader;
+
+impl CustomLoader {
+    pub fn load_bytecode_module<'js>(ctx: Ctx<'js>, buf: &[u8]) -> Result<Module<'js>> {
+        let bytes = Self::get_module_bytecode(buf)?;
+        unsafe { Module::load(ctx, &bytes) }
+    }
+
+    #[inline]
+    pub fn uncompressed_size(input: &[u8]) -> StdResult<(usize, &[u8]), io::Error> {
+        let size = input.get(..4).ok_or(io::ErrorKind::InvalidInput)?;
+        let size: &[u8; 4] = size.try_into().map_err(|_| io::ErrorKind::InvalidInput)?;
+        let uncompressed_size = u32::from_le_bytes(*size) as usize;
+        let rest = &input[4..];
+        Ok((uncompressed_size, rest))
+    }
+
+    pub fn get_module_bytecode(input: &[u8]) -> Result<Vec<u8>> {
+        // Check for LLRT_EXE marker at the end (self-contained executable)
+        let marker = b"LLRT_EXE";
+        if input.len() > marker.len() + 8 {
+            let marker_pos = input.len() - marker.len();
+            if &input[marker_pos..] == marker {
+                trace!("Found LLRT_EXE marker at position {}", marker_pos);
+
+                let size_bytes = &input[marker_pos - 8..marker_pos];
+                let bytecode_size = u64::from_le_bytes([
+                    size_bytes[0],
+                    size_bytes[1],
+                    size_bytes[2],
+                    size_bytes[3],
+                    size_bytes[4],
+                    size_bytes[5],
+                    size_bytes[6],
+                    size_bytes[7],
+                ]) as usize;
+
+                trace!("Bytecode size from footer: {} bytes", bytecode_size);
+
+                if bytecode_size > 0 && bytecode_size < input.len() {
+                    let bytecode_start = marker_pos - 8 - bytecode_size;
+                    trace!("Bytecode starts at offset {}", bytecode_start);
+
+                    let bytecode = &input[bytecode_start..bytecode_start + bytecode_size];
+                    trace!("Checking bytecode signature and format");
+
+                    // Return the raw bytecode for further processing
+                    return Self::extract_bytecode(bytecode);
+                } else {
+                    trace!("Invalid bytecode size: {}", bytecode_size);
+                }
+            }
+        }
+
+        // Regular bytecode processing
+        Self::extract_bytecode(input)
+    }
+
+    fn extract_bytecode(input: &[u8]) -> Result<Vec<u8>> {
+        trace!("Extracting bytecode, input size: {} bytes", input.len());
+
+        // Try the current bytecode format
+        if input.len() >= SIGNATURE_LENGTH
+            && &input[..BYTECODE_VERSION.len()] == BYTECODE_VERSION.as_bytes()
+        {
+            trace!(
+                "Recognized current bytecode format signature: {}",
+                BYTECODE_VERSION
+            );
+            let compressed = input[BYTECODE_VERSION.len()] == BYTECODE_COMPRESSED;
+            trace!("Bytecode is compressed: {}", compressed);
+            let rest = &input[SIGNATURE_LENGTH..];
+
+            if compressed {
+                let (size, data) = Self::uncompressed_size(rest)?;
+                trace!("Uncompressed size will be: {} bytes", size);
+                let mut buf = Vec::with_capacity(size);
+                let mut decompressor = Decompressor::with_dictionary(COMPRESSION_DICT)?;
+                decompressor.decompress_to_buffer(data, &mut buf)?;
+                trace!("Successfully decompressed bytecode");
+                return Ok(buf);
+            } else {
+                trace!("Using uncompressed bytecode");
+                return Ok(rest.to_vec());
+            }
+        }
+
+        // Try the legacy bytecode format
+        if input.len() >= LEGACY_SIGNATURE_LENGTH
+            && &input[..LEGACY_BYTECODE_VERSION.len()] == LEGACY_BYTECODE_VERSION.as_bytes()
+        {
+            trace!(
+                "Recognized legacy bytecode format signature: {}",
+                LEGACY_BYTECODE_VERSION
+            );
+            let compressed = input[LEGACY_BYTECODE_VERSION.len()] == LEGACY_BYTECODE_COMPRESSED;
+            trace!("Legacy bytecode is compressed: {}", compressed);
+            let rest = &input[LEGACY_SIGNATURE_LENGTH..];
+
+            if compressed {
+                let (size, data) = Self::uncompressed_size(rest)?;
+                trace!("Uncompressed size will be: {} bytes", size);
+                let mut buf = Vec::with_capacity(size);
+                let mut decompressor = Decompressor::with_dictionary(COMPRESSION_DICT)?;
+                decompressor.decompress_to_buffer(data, &mut buf)?;
+                trace!("Successfully decompressed legacy bytecode");
+                return Ok(buf);
+            } else {
+                trace!("Using uncompressed legacy bytecode");
+                return Ok(rest.to_vec());
+            }
+        }
+
+        // If both formats fail, return an error
+        trace!("Failed to recognize bytecode format");
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Invalid bytecode signature".to_string(),
+        )
+        .into())
+    }
+}
 
 impl EmbeddedLoader {
     pub fn load_bytecode_module<'js>(ctx: Ctx<'js>, buf: &[u8]) -> Result<Module<'js>> {
@@ -89,7 +218,7 @@ impl EmbeddedLoader {
 
     fn normalize_name(name: &str) -> (bool, bool, &str, &str) {
         if !name.starts_with("__") {
-            // If name doesn’t start with "__", return defaults
+            // If name doesn't start with "__", return defaults
             return (false, false, name, name);
         }
 
