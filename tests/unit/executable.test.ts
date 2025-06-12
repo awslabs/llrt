@@ -5,7 +5,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { test, expect, describe, it } from "vitest";
+import { test, describe, it } from "vitest";
 import { platform } from "os";
 
 const IS_WINDOWS = platform() === "win32";
@@ -72,15 +72,25 @@ describe("executable compilation", () => {
         });
       });
       
-      expect(compileResult).toBe(0);
-      expect(fs.existsSync(exePath)).toBe(true);
+      // Basic assertions without expect
+      if (compileResult !== 0) {
+        throw new Error(`Compilation failed with exit code ${compileResult}`);
+      }
+      
+      if (!fs.existsSync(exePath)) {
+        throw new Error("Executable file was not created");
+      }
       
       // Check executable permissions on non-Windows platforms
       if (!IS_WINDOWS) {
         const stats = fs.statSync(exePath);
         // Just verify it's a file and is not empty
-        expect(stats.isFile()).toBe(true);
-        expect(stats.size).toBeGreaterThan(0);
+        if (!stats.isFile()) {
+          throw new Error("Created file is not a regular file");
+        }
+        if (stats.size <= 0) {
+          throw new Error("Created file is empty");
+        }
       }
       
       // Run the executable
@@ -111,8 +121,15 @@ describe("executable compilation", () => {
       });
       
       // Verify exit code and output
-      expect(execResult.code).toBe(42);
-      expect(execResult.stdout).toContain("LLRT executable test");
+      if (execResult.code !== 42) {
+        throw new Error(`Expected exit code 42, got ${execResult.code}`);
+      }
+      
+      if (!execResult.stdout.includes("LLRT executable test")) {
+        throw new Error(`Expected output to contain "LLRT executable test", got: ${execResult.stdout}`);
+      }
+      
+      console.log("✅ Executable test passed successfully!");
     } finally {
       // Clean up
       try {

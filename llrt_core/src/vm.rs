@@ -191,7 +191,7 @@ impl Vm {
             );
 
             // First, try to load and execute it as a module
-            match crate::modules::require::loader::CustomLoader::get_module_bytecode(&bytecode) {
+            match crate::modules::embedded::loader::CustomLoader::get_module_bytecode(&bytecode) {
                 Ok(extracted_bytecode) => {
                     trace!(
                         "Successfully extracted bytecode, size: {} bytes",
