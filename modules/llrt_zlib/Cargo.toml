@@ -12,13 +12,17 @@ name = "llrt_zlib"
 path = "src/lib.rs"
 
 [features]
-default = ["compression-c"]
+default = ["zlib", "zstd"]
+#default = ["std"]
+std = ["brotli", "zlib", "zstd"]
 
-compression-c = ["llrt_compression/brotli-c", "llrt_compression/flate2-c"]
-compression-rust = [
-  "llrt_compression/brotli-rust",
-  "llrt_compression/flate2-rust",
-]
+brotli = ["llrt_compression/brotli-c"]
+zlib = ["llrt_compression/flate2-c"]
+zstd = ["llrt_compression/zstd-c"]
+
+brotli-rs = ["llrt_compression/brotli-rust"]
+zlib-rs = ["llrt_compression/flate2-rust"]
+zstd-rs = ["llrt_compression/zstd-rust"]
 
 [dependencies]
 llrt_buffer = { version = "0.5.1-beta", path = "../llrt_buffer" }

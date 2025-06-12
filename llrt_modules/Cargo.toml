@@ -8,10 +8,10 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["base", "console"]
-lambda = ["base"]
+default = ["std", "console"]
+lambda = ["std"]
 
-base = [
+std = [
   "abort",
   "assert",
   "buffer",
@@ -63,6 +63,16 @@ url = ["llrt_url"]
 util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
+# Options
+fetch-brotli = ["llrt_fetch/brotli"]
+fetch-http2 = ["llrt_fetch/http2"]
+
+os-network = ["llrt_os/network"]
+os-statistics = ["llrt_os/statistics"]
+os-system = ["llrt_os/system"]
+
+zlib-brotli = ["llrt_zlib/brotli"]
+
 [dependencies]
 llrt_abort = { version = "0.5.1-beta", path = "../modules/llrt_abort", optional = true }
 llrt_assert = { version = "0.5.1-beta", path = "../modules/llrt_assert", optional = true }
@@ -77,7 +87,7 @@ llrt_fetch = { version = "0.5.1-beta", path = "../modules/llrt_fetch", optional 
 llrt_fs = { version = "0.5.1-beta", path = "../modules/llrt_fs", optional = true }
 llrt_navigator = { version = "0.5.1-beta", path = "../modules/llrt_navigator", optional = true }
 llrt_net = { version = "0.5.1-beta", path = "../modules/llrt_net", optional = true }
-llrt_os = { version = "0.5.1-beta", path = "../modules/llrt_os", default-features = false, optional = true }
+llrt_os = { version = "0.5.1-beta", path = "../modules/llrt_os", optional = true }
 llrt_path = { version = "0.5.1-beta", path = "../modules/llrt_path", optional = true }
 llrt_process = { version = "0.5.1-beta", path = "../modules/llrt_process", optional = true }
 llrt_perf_hooks = { version = "0.5.1-beta", path = "../modules/llrt_perf_hooks", optional = true }

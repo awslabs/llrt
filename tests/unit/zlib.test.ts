@@ -50,7 +50,13 @@ describe("gzip/gunzip", () => {
 });
 
 describe("brotli", () => {
-  it("brotliCompress/brotliDecompress", (done) => {
+  const hasBrotli =
+    typeof zlib?.brotliCompress === "function" &&
+    typeof zlib?.brotliDecompress === "function" &&
+    typeof zlib?.brotliCompressSync === "function" &&
+    typeof zlib?.brotliDecompressSync === "function";
+
+  (hasBrotli ? it : it.skip)("brotliCompress/brotliDecompress", (done) => {
     zlib.brotliCompress(data, (err, compressed) => {
       zlib.brotliDecompress(compressed, (err, decompressed) => {
         expect(data).toEqual(decompressed.toString());
@@ -58,7 +64,7 @@ describe("brotli", () => {
       });
     });
   });
-  it("brotliCompressSync/brotliDecompressSync", () => {
+  (hasBrotli ? it : it.skip)("brotliCompressSync/brotliDecompressSync", () => {
     const compressed = zlib.brotliCompressSync(data);
     const decompressed = zlib.brotliDecompressSync(compressed);
     expect(data).toEqual(decompressed.toString());

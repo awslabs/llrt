@@ -12,13 +12,16 @@ name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "compression-c", "platform-roots"]
+default = ["http1", "flate2", "zstd", "platform-roots"]
+#default = ["std"]
+std = ["http1", "http2", "brotli", "flate2", "zstd", "platform-roots"]
 
 http1 = ["hyper/http1", "hyper-rustls/http1"]
 http2 = ["hyper/http2", "hyper-rustls/http2"]
 
-compression-c = ["llrt_compression/all-c"]
-compression-rust = ["llrt_compression/all-rust"]
+brotli = ["llrt_compression/brotli-c"]
+flate2 = ["llrt_compression/flate2-c"]
+zstd = ["llrt_compression/zstd-c"]
 
 platform-roots = ["hyper-rustls/rustls-platform-verifier"]
 builtin-roots = ["hyper-rustls/webpki-tokio", "webpki-roots"]

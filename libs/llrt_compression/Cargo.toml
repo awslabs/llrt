@@ -11,10 +11,9 @@ name = "llrt_compression"
 path = "src/lib.rs"
 
 [features]
-default = ["all-c"]
-
-all-c = ["brotli-c", "flate2-c", "zstd-c"]
-all-rust = ["brotli-rust", "flate2-rust", "zstd-rust"]
+default = ["flate2-c", "zstd-c"]
+#default = ["std"]
+std = ["brotli-c", "flate2-c", "zstd-c"]
 
 brotli-c = ["brotlic"]
 brotli-rust = ["brotli"]

@@ -215,7 +215,12 @@ fn build_request(
         req = req.header("user-agent", ["llrt ", VERSION].concat());
     }
     if !detected_headers.contains("accept-encoding") {
-        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
+        let accept_encoding = if cfg!(feature = "brotli") {
+            "zstd, br, gzip, deflate"
+        } else {
+            "zstd, gzip, deflate"
+        };
+        req = req.header("accept-encoding", accept_encoding);
     }
     if !detected_headers.contains("accept") {
         req = req.header("accept", "*/*");
@@ -591,18 +596,21 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let mut data: Vec<u8> = Vec::new();
-        llrt_compression::brotli::encoder(welcome_message.as_bytes())
-            .read_to_end(&mut data)
-            .unwrap();
-        Mock::given(matchers::path("content-encoding/br/"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .append_header("content-encoding", "br")
-                    .set_body_raw(data.to_owned(), "text/plain"),
-            )
-            .mount(&mock_server)
-            .await;
+        #[cfg(feature = "brotli")]
+        {
+            let mut data: Vec<u8> = Vec::new();
+            llrt_compression::brotli::encoder(welcome_message.as_bytes())
+                .read_to_end(&mut data)
+                .unwrap();
+            Mock::given(matchers::path("content-encoding/br/"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .append_header("content-encoding", "br")
+                        .set_body_raw(data.to_owned(), "text/plain"),
+                )
+                .mount(&mock_server)
+                .await;
+        }
 
         let mut data: Vec<u8> = Vec::new();
         llrt_compression::gz::encoder(
@@ -731,17 +739,20 @@ mod tests {
                     assert_eq!(response_text, welcome_message);
 
                     // Content-Encoding: br
-                    let url = format!(
-                        "http://{}/content-encoding/br/",
-                        mock_server.address().clone()
-                    );
+                    #[cfg(feature = "brotli")]
+                    {
+                        let url = format!(
+                            "http://{}/content-encoding/br/",
+                            mock_server.address().clone()
+                        );
 
-                    let response_promise: Promise = fetch.call((url, options.clone()))?;
-                    let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                        let response_promise: Promise = fetch.call((url, options.clone()))?;
+                        let response: Class<Response> = response_promise.into_future().await?;
+                        let response = response.borrow_mut();
+                        let response_text = response.text(ctx.clone()).await?;
 
-                    assert_eq!(response_text, welcome_message);
+                        assert_eq!(response_text, welcome_message);
+                    }
 
                     // Content-Encoding: gzip
                     let url = format!(
