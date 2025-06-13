@@ -8,7 +8,9 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["network", "statistics", "system"]
+default = []
+#default = ["std"]
+std = ["network", "statistics", "system"]
 
 network = ["sysinfo/network", "system"]
 statistics = ["system"]

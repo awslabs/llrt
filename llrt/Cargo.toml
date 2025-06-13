@@ -26,9 +26,7 @@ tokio = { version = "1", features = [
   "macros",
   "rt-multi-thread",
 ], default-features = false }
-tracing = { version = "0.1", features = [
-  "log"
-], default-features = false }
+tracing = { version = "0.1", default-features = false }
 tracing-core = { version = "0.1", default-features = false }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]

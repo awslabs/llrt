@@ -530,6 +530,9 @@ Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 
 Extends the HTTP request version. By default, only HTTP/1.1 is enabled. Specifying '2' will enable HTTP/1.1 and HTTP/2.
 
+> [!NOTE]
+> Although it is supported by the llrt_fetch crate, the http/2 feature is disabled at build time to reduce binary size. Regardless of the setting of this environment variable, llrt only works with http/1.1.
+
 ### `LLRT_LOG=[target][=][level][,...]`
 
 Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priority logs.

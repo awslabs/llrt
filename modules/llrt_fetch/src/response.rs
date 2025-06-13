@@ -185,6 +185,7 @@ impl<'js> Response<'js> {
             let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
             match content_encoding {
                 "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
+                #[cfg(feature = "brotli")]
                 "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
                 "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
                 "deflate" => llrt_compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
