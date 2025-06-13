@@ -1745,9 +1745,7 @@ dependencies = [
  "home",
  "http-body-util",
  "hyper",
- "itoa",
  "jwalk",
- "libc",
  "llrt_build",
  "llrt_context",
  "llrt_encoding",
@@ -1767,7 +1765,6 @@ dependencies = [
  "rquickjs",
  "rustls",
  "rustls-pemfile",
- "ryu",
  "simd-json",
  "terminal_size",
  "tokio",
@@ -3475,7 +3472,6 @@ version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
- "log",
  "pin-project-lite",
  "tracing-core",
 ]

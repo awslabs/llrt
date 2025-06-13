@@ -20,8 +20,6 @@ chrono = { version = "0.4", features = [
 home = { version = "0.5", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", default-features = false }
-itoa = { version = "1", default-features = false }
-libc = { version = "0.2", default-features = false }
 llrt_context = { path = "../libs/llrt_context" }
 llrt_encoding = { path = "../libs/llrt_encoding" }
 llrt_json = { path = "../libs/llrt_json" }
@@ -47,16 +45,13 @@ rustls = { version = "0.23", features = [
 rustls-pemfile = { version = "2", features = [
   "std",
 ], default-features = false }
-ryu = { version = "1", default-features = false }
 simd-json = { version = "0.15", default-features = false }
 terminal_size = { version = "0.4", default-features = false }
 tokio = { version = "1", features = [
   "sync",
   "time",
 ], default-features = false }
-tracing = { version = "0.1", features = [
-  "log"
-], default-features = false }
+tracing = { version = "0.1", default-features = false }
 uuid = { version = "1", features = [
   "fast-rng",
   "v1",
@@ -73,6 +68,7 @@ zstd = { version = "0.13", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 md-5 = { version = "0.10", default-features = false }
+
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 md-5 = { version = "0.10", features = [
   "asm",
