@@ -3,6 +3,7 @@
 use std::{
     env,
     error::Error,
+    fs,
     path::{Path, PathBuf},
     process::{exit, ExitCode},
     sync::atomic::Ordering,
@@ -51,6 +52,81 @@ async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
     MinimalTracer::register()?;
     trace!("Started runtime");
 
+    // Check if this is a self-contained executable
+    let executable_path = env::current_exe()
+        .unwrap_or_else(|_| PathBuf::from(env::args().next().unwrap_or_default()));
+    let executable_filename = executable_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
+
+    // Only check for embedded bytecode if we're not running the llrt binary itself
+    if !executable_filename.starts_with("llrt") {
+        trace!(
+            "Checking if {} is a self-contained executable",
+            executable_path.display()
+        );
+
+        // Try to read the executable file to check for embedded bytecode
+        if let Ok(executable_content) = fs::read(&executable_path) {
+            // Look for the LLRT_EXE marker at the end of the file
+            let marker = b"LLRT_EXE";
+            if executable_content.len() > marker.len() + 8 {
+                let marker_pos = executable_content.len() - marker.len();
+                let tail = &executable_content[marker_pos..];
+
+                if tail == marker {
+                    trace!("Found LLRT_EXE marker at position {}", marker_pos);
+
+                    // Read the bytecode size (8 bytes before marker)
+                    let size_start = marker_pos - 8;
+                    let size_bytes = &executable_content[size_start..marker_pos];
+                    let bytecode_size = u64::from_le_bytes([
+                        size_bytes[0],
+                        size_bytes[1],
+                        size_bytes[2],
+                        size_bytes[3],
+                        size_bytes[4],
+                        size_bytes[5],
+                        size_bytes[6],
+                        size_bytes[7],
+                    ]) as usize;
+
+                    trace!("Bytecode size from footer: {} bytes", bytecode_size);
+
+                    // Validate the size is reasonable
+                    if bytecode_size > 0 && bytecode_size < executable_content.len() {
+                        // Find where the runtime ends and the bytecode begins
+                        let bytecode_start = marker_pos - 8 - bytecode_size;
+                        trace!("Bytecode starts at offset {}", bytecode_start);
+
+                        // Extract the bytecode
+                        let bytecode = executable_content
+                            [bytecode_start..bytecode_start + bytecode_size]
+                            .to_vec();
+                        trace!("Extracted bytecode of size {} bytes", bytecode.len());
+
+                        // Create a VM and run the bytecode
+                        let vm = Vm::new().await?;
+                        trace!("Initialized VM in {}ms", now.elapsed().as_millis());
+
+                        // Run the extracted bytecode directly (raw bytecode format from QuickJS)
+                        let result = vm.run_raw_bytecode(bytecode).await;
+                        if let Err(err) = result {
+                            eprintln!("Error executing bytecode: {}", err);
+                            exit(1);
+                        }
+
+                        vm.idle().await?;
+                        return Ok(ExitCode::from(EXIT_CODE.load(Ordering::Relaxed)));
+                    } else {
+                        trace!("Invalid bytecode size: {}", bytecode_size);
+                    }
+                }
+            }
+        }
+    }
+
     let vm = Vm::new().await?;
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
 
@@ -81,7 +157,7 @@ Usage:
   llrt -v | --version
   llrt -h | --help
   llrt -e | --eval <source>
-  llrt compile input.js [output.lrt]
+  llrt compile input.js [output.lrt] [--executable]
   llrt test <test_args>
 
 Options:
@@ -92,6 +168,8 @@ Options:
                       if [output.lrt] is omitted, <input>.lrt is used.
                       lrt file is expected to be executed by the llrt version
                       that created it
+                      --executable    Create a self-contained executable that includes
+                                    the LLRT runtime
   test              Run tests with provided arguments:
                       <test_args> -d <directory> <test-filter>
 "#
@@ -140,17 +218,31 @@ async fn start_cli(vm: &Vm) {
                         #[cfg(not(feature = "lambda"))]
                         {
                             if let Some(filename) = args.get(i + 1) {
-                                let output_filename = if let Some(arg) = args.get(i + 2) {
-                                    arg.to_string()
-                                } else {
+                                // Parse args for output_filename and --executable
+                                let mut output_filename = String::new();
+                                let mut create_executable = false;
+
+                                // Parse remaining arguments
+                                for arg in args.iter().skip(i + 2) {
+                                    if arg == "--executable" {
+                                        create_executable = true;
+                                    } else if output_filename.is_empty() && !arg.starts_with("--") {
+                                        output_filename = arg.clone();
+                                    }
+                                }
+
+                                // If no output filename was explicitly provided, generate one
+                                if output_filename.is_empty() {
                                     let mut buf = PathBuf::from(filename);
                                     buf.set_extension("lrt");
-                                    buf.to_string_lossy().to_string()
-                                };
+                                    output_filename = buf.to_string_lossy().to_string();
+                                }
 
                                 let filename = Path::new(filename);
                                 let output_filename = Path::new(&output_filename);
-                                if let Err(error) = compile_file(filename, output_filename).await {
+                                if let Err(error) =
+                                    compile_file(filename, output_filename, create_executable).await
+                                {
                                     eprintln!("{error}");
                                     exit(1);
                                 }
