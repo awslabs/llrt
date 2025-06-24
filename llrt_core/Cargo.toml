@@ -14,9 +14,7 @@ bindgen = ["rquickjs/bindgen"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
-chrono = { version = "0.4", features = [
-  "std"
-], default-features = false }
+chrono = { version = "0.4", features = ["std"], default-features = false }
 home = { version = "0.5", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", default-features = false }
@@ -29,10 +27,8 @@ llrt_logging = { path = "../libs/llrt_logging" }
 llrt_modules = { path = "../llrt_modules" }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
-once_cell = { version = "1", features = [
-  "std",
-], default-features = false }
-phf = {version = "0.11", default-features = false }
+once_cell = { version = "1", features = ["std"], default-features = false }
+phf = { version = "0.12", default-features = false }
 quick-xml = { version = "0.37", default-features = false }
 ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
@@ -44,19 +40,12 @@ rustls = { version = "0.23", features = [
   "ring",
   "tls12",
 ], default-features = false }
-rustls-pemfile = { version = "2", features = [
-  "std",
-], default-features = false }
+rustls-pemfile = { version = "2", features = ["std"], default-features = false }
 ryu = { version = "1", default-features = false }
 simd-json = { version = "0.15", default-features = false }
 terminal_size = { version = "0.4", default-features = false }
-tokio = { version = "1", features = [
-  "sync",
-  "time",
-], default-features = false }
-tracing = { version = "0.1", features = [
-  "log"
-], default-features = false }
+tokio = { version = "1", features = ["sync", "time"], default-features = false }
+tracing = { version = "0.1", features = ["log"], default-features = false }
 uuid = { version = "1", features = [
   "fast-rng",
   "v1",
@@ -66,24 +55,20 @@ uuid = { version = "1", features = [
   "v6",
   "v7",
 ], default-features = false }
-uuid-simd = { version = "0.8", features = [
-  "uuid",
-], default-features = false }
+uuid-simd = { version = "0.8", features = ["uuid"], default-features = false }
 zstd = { version = "0.13", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 md-5 = { version = "0.10", default-features = false }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.10", features = [
-  "asm",
-], default-features = false }
+md-5 = { version = "0.10", features = ["asm"], default-features = false }
 
 [build-dependencies]
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "full-async",
   "rust-alloc",
 ], default-features = false }
-phf_codegen = { version = "0.11", default-features = false }
+phf_codegen = { version = "0.12", default-features = false }
 jwalk = { version = "0.8", default-features = false }
 nanoid = { version = "0.4", default-features = false }
 llrt_build = { path = "../libs/llrt_build" }
