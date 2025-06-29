@@ -62,12 +62,12 @@ impl<'js> URL<'js> {
             if let Some(base) = base.as_string() {
                 if let Ok(base) = base.to_string() {
                     let mut url: Url = base.parse().map_err(|err| {
-                        Exception::throw_type(&ctx, format!("Invalid base URL: {}", err).as_str())
+                        Exception::throw_type(&ctx, format!("Invalid base URL: {err}").as_str())
                     })?;
 
                     if let Ok(input) = input {
                         url = url.join(input.as_str()).map_err(|err| {
-                            Exception::throw_type(&ctx, format!("Invalid URL: {}", err).as_str())
+                            Exception::throw_type(&ctx, format!("Invalid URL: {err}").as_str())
                         })?;
                     }
 

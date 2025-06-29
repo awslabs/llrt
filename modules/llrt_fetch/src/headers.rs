@@ -588,10 +588,7 @@ mod tests {
                     assert_eq!(
                         value,
                         expected,
-                        "normalize_header_value_inplace failed: input = {:?}, expected = {:?}, got = {:?}",
-                        input,
-                        expected,
-                        value
+                        "normalize_header_value_inplace failed: input = {input:?}, expected = {expected:?}, got = {value:?}"
                     );
                 }
             })

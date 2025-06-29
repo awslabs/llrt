@@ -856,21 +856,21 @@ pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
     use std::fmt::Write;
 
     let mut error_str = String::new();
-    write!(error_str, "Error: {:?}", err).unwrap();
+    write!(error_str, "Error: {err:?}").unwrap();
 
     if let Ok(error) = err.into_value(ctx) {
         if print_error(ctx, Rest(vec![error.clone()])).is_err() {
-            eprintln!("{}", error_str);
+            eprintln!("{error_str}");
         };
         if cfg!(test) {
-            panic!("{:?}", error);
+            panic!("{error:?}");
         } else {
             exit(1)
         }
     } else if cfg!(test) {
         panic!("{}", error_str);
     } else {
-        eprintln!("{}", error_str);
+        eprintln!("{error_str}");
         exit(1)
     };
 }

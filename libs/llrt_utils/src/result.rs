@@ -27,7 +27,7 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
             let mut message = String::with_capacity(100);
             message.push_str(msg);
             message.push_str(". ");
-            write!(message, "{}", e).unwrap();
+            write!(message, "{e}").unwrap();
             Exception::throw_message(ctx, &message)
         })
     }
@@ -39,7 +39,7 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
                 message.push_str(msg);
                 message.push_str(". ");
             }
-            write!(message, "{}", e).unwrap();
+            write!(message, "{e}").unwrap();
             Exception::throw_range(ctx, &message)
         })
     }
@@ -51,7 +51,7 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
                 message.push_str(msg);
                 message.push_str(". ");
             }
-            write!(message, "{}", e).unwrap();
+            write!(message, "{e}").unwrap();
             Exception::throw_type(ctx, &message)
         })
     }

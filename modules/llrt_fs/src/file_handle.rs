@@ -136,7 +136,7 @@ impl FileHandle {
             None => ReadOptions::default(),
         };
 
-        let buffer = options_1
+        let mut buffer = options_1
             .buffer
             .or(options_2.buffer)
             .unwrap_or_else_ok(|| {
@@ -396,7 +396,7 @@ fn validate_length_offset(
     if offset > buffer_length {
         return Err(Exception::throw_range(
             ctx,
-            &format!("offset ({}) <= {}", offset, buffer_length),
+            &format!("offset ({offset}) <= {buffer_length}"),
         ));
     }
     if length > buffer_length - offset {

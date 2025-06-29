@@ -148,7 +148,7 @@ impl<'js> ArrayBufferView<'js> {
     /// # Safety
     /// This is only safe if you have a lock on the runtime.
     /// Do not pass it directly to other threads.
-    pub fn as_bytes_mut(&self) -> Option<&mut [u8]> {
+    pub fn as_bytes_mut(&mut self) -> Option<&mut [u8]> {
         self.buffer
             .as_ref()
             .map(|b| unsafe { std::slice::from_raw_parts_mut(b.ptr.as_ptr(), b.len) })
