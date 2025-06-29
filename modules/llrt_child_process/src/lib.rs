@@ -330,7 +330,7 @@ impl<'js> ChildProcess<'js> {
             Err(err) => {
                 let ctx3 = ctx.clone();
 
-                let err_message = format!("Child process failed to spawn \"{}\". {}", command, err);
+                let err_message = format!("Child process failed to spawn \"{command}\". {err}");
 
                 ctx.spawn_exit(async move {
                     if !instance3.borrow().emitter.has_listener_str("error") {
@@ -578,10 +578,7 @@ fn str_to_stdio(ctx: &Ctx<'_>, input: &str) -> Result<StdioEnum> {
         "inherit" => Ok(StdioEnum::Inherit),
         _ => Err(Exception::throw_type(
             ctx,
-            &format!(
-                "Invalid stdio \"{}\". Expected one of: pipe, ignore, inherit",
-                input
-            ),
+            &format!("Invalid stdio \"{input}\". Expected one of: pipe, ignore, inherit"),
         )),
     }
 }

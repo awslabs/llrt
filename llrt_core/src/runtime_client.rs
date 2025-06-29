@@ -610,8 +610,7 @@ mod tests {
 
         Mock::given(matchers::method("GET"))
             .and(matchers::path(format!(
-                "{}/invocation/next",
-                ENV_RUNTIME_PATH
+                "{ENV_RUNTIME_PATH}/invocation/next"
             )))
             .respond_with(
                 ResponseTemplate::new(200)
@@ -643,7 +642,7 @@ mod tests {
         let vm = Vm::new().await.unwrap();
 
         async fn run_with_handler(vm: &Vm, handler: &str, runtime_api: &str) {
-            println!("Testing {}", handler);
+            println!("Testing {handler}");
             let mock_config = RuntimeConfig {
                 runtime_api: runtime_api.into(),
                 handler: handler.into(),

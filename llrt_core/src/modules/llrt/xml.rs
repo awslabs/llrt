@@ -500,7 +500,7 @@ impl<'js> XmlNode<'js> {
                                 let string_value = child
                                     .clone()
                                     .try_into_string()
-                                    .map_err(|err| format!("Unable to convert {:?} to string", err))
+                                    .map_err(|err| format!("Unable to convert {err:?} to string"))
                                     .or_throw(&ctx)?
                                     .to_string()?;
                                 xml_text.push_str(&string_value);

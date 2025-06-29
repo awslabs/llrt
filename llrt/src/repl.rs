@@ -115,7 +115,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
                 stdout(),
                 cursor::MoveToColumn(0),
                 Clear(ClearType::CurrentLine),
-                Print(format!("> {}", current_input)),
+                Print(format!("> {current_input}")),
                 cursor::MoveToColumn(cursor_pos as u16 + 2)
             )?;
 

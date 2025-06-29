@@ -125,7 +125,7 @@ fn generate_random_path() -> String {
     for _ in 0..depth {
         let name = WORD_LIST.choose(&mut rng).unwrap();
         if rng.gen_bool(PATH_STYLE_PROB) {
-            path.push(format!("{}\\", name));
+            path.push(format!("{name}\\"));
         } else {
             path.push(name);
         }

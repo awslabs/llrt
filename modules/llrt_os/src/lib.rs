@@ -201,13 +201,12 @@ mod tests {
             "test",
             &format!(
                 r#"
-                    import {{ {} }} from 'os';
+                    import {{ {name} }} from 'os';
 
                     export async function test() {{
-                        return {}{}
+                        return {name}{brackets}
                     }}
-                "#,
-                name, name, brackets
+                "#
             ),
         )
         .await
@@ -227,13 +226,12 @@ mod tests {
             "test",
             &format!(
                 r#"
-                    import {{ {} }} from 'os';
+                    import {{ {name} }} from 'os';
 
                     export async function test() {{
-                        return {}()
+                        return {name}()
                     }}
-                "#,
-                name, name
+                "#
             ),
         )
         .await

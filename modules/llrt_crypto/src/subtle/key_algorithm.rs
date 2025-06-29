@@ -372,10 +372,7 @@ impl KeyAlgorithm {
                 if !matches!(length, 128 | 192 | 256) {
                     return Err(Exception::throw_message(
                         ctx,
-                        &format!(
-                            "Algorithm 'length' must be one of: 128, 192, or 256 = {}",
-                            length
-                        ),
+                        &format!("Algorithm 'length' must be one of: 128, 192, or 256 = {length}"),
                     ));
                 }
 
