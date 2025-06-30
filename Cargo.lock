@@ -1836,7 +1836,7 @@ dependencies = [
  "hex-simd",
  "llrt_build",
  "memchr",
- "phf 0.11.3",
+ "phf 0.12.1",
 ]
 
 [[package]]
@@ -2449,7 +2449,6 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd6780a80ae0c52cc120a26a1a42c1ae51b247a253e4e06113d23d2c2edd078"
 dependencies = [
- "phf_macros",
  "phf_shared 0.11.3",
 ]
 
@@ -2459,6 +2458,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "913273894cec178f401a31ec4b656318d95473527be05c0752cc41cdc32be8b7"
 dependencies = [
+ "phf_macros",
  "phf_shared 0.12.1",
  "serde",
 ]
@@ -2495,12 +2495,12 @@ dependencies = [
 
 [[package]]
 name = "phf_macros"
-version = "0.11.3"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f84ac04429c13a7ff43785d75ad27569f2951ce0ffd30a3321230db2fc727216"
+checksum = "d713258393a82f091ead52047ca779d37e5766226d009de21696c4e667044368"
 dependencies = [
- "phf_generator 0.11.3",
- "phf_shared 0.11.3",
+ "phf_generator 0.12.1",
+ "phf_shared 0.12.1",
  "proc-macro2 1.0.94",
  "quote 1.0.40",
  "syn 2.0.100",
