@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::borrow::Cow;
 use std::path::PathBuf;
 
@@ -136,7 +138,7 @@ impl FileHandle {
             None => ReadOptions::default(),
         };
 
-        let buffer = options_1
+        let mut buffer = options_1
             .buffer
             .or(options_2.buffer)
             .unwrap_or_else_ok(|| {
