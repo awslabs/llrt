@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::env;
 
 use llrt_utils::{
@@ -201,12 +203,13 @@ mod tests {
             "test",
             &format!(
                 r#"
-                    import {{ {name} }} from 'os';
+                    import {{ {} }} from 'os';
 
                     export async function test() {{
-                        return {name}{brackets}
+                        return {}{}
                     }}
-                "#
+                "#,
+                name, name, brackets
             ),
         )
         .await
@@ -226,12 +229,13 @@ mod tests {
             "test",
             &format!(
                 r#"
-                    import {{ {name} }} from 'os';
+                    import {{ {} }} from 'os';
 
                     export async function test() {{
-                        return {name}()
+                        return {}()
                     }}
-                "#
+                "#,
+                name, name
             ),
         )
         .await
