@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{fmt::Write, result::Result as StdResult};
 
 use rquickjs::{Ctx, Exception, Result};
