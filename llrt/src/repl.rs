@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     collections::VecDeque,
     env, fs,
@@ -115,7 +117,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
                 stdout(),
                 cursor::MoveToColumn(0),
                 Clear(ClearType::CurrentLine),
-                Print(format!("> {current_input}")),
+                Print(format!("> {}", current_input)),
                 cursor::MoveToColumn(cursor_pos as u16 + 2)
             )?;
 

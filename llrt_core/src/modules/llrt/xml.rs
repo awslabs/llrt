@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{collections::HashMap, rc::Rc};
 
 use quick_xml::{
@@ -500,7 +502,7 @@ impl<'js> XmlNode<'js> {
                                 let string_value = child
                                     .clone()
                                     .try_into_string()
-                                    .map_err(|err| format!("Unable to convert {err:?} to string"))
+                                    .map_err(|err| format!("Unable to convert {:?} to string", err))
                                     .or_throw(&ctx)?
                                     .to_string()?;
                                 xml_text.push_str(&string_value);

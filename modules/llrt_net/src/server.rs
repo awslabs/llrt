@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, RwLock,
@@ -402,7 +404,7 @@ mod tests {
     async fn call_tcp(port: u16) {
         // Connect to server
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{port}"))
+        let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port))
             .await
             .unwrap();
         stream.set_nodelay(true).unwrap();

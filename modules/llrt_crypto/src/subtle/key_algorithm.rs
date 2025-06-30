@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::rc::Rc;
 
 use der::{asn1::UintRef, Decode, Encode};
@@ -372,7 +374,10 @@ impl KeyAlgorithm {
                 if !matches!(length, 128 | 192 | 256) {
                     return Err(Exception::throw_message(
                         ctx,
-                        &format!("Algorithm 'length' must be one of: 128, 192, or 256 = {length}"),
+                        &format!(
+                            "Algorithm 'length' must be one of: 128, 192, or 256 = {}",
+                            length
+                        ),
                     ));
                 }
 

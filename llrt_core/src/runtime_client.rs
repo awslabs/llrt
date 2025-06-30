@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     env,
     result::Result as StdResult,
@@ -610,7 +612,8 @@ mod tests {
 
         Mock::given(matchers::method("GET"))
             .and(matchers::path(format!(
-                "{ENV_RUNTIME_PATH}/invocation/next"
+                "{}/invocation/next",
+                ENV_RUNTIME_PATH
             )))
             .respond_with(
                 ResponseTemplate::new(200)
@@ -642,7 +645,7 @@ mod tests {
         let vm = Vm::new().await.unwrap();
 
         async fn run_with_handler(vm: &Vm, handler: &str, runtime_api: &str) {
-            println!("Testing {handler}");
+            println!("Testing {}", handler);
             let mock_config = RuntimeConfig {
                 runtime_api: runtime_api.into(),
                 handler: handler.into(),

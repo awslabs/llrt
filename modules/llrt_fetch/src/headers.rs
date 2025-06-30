@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{collections::BTreeMap, rc::Rc};
 
 use hyper::HeaderMap;
@@ -588,7 +590,10 @@ mod tests {
                     assert_eq!(
                         value,
                         expected,
-                        "normalize_header_value_inplace failed: input = {input:?}, expected = {expected:?}, got = {value:?}"
+                        "normalize_header_value_inplace failed: input = {:?}, expected = {:?}, got = {:?}",
+                        input,
+                        expected,
+                        value
                     );
                 }
             })

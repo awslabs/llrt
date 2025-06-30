@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     env,
     fmt::Write as FormatWrite,
@@ -198,7 +200,7 @@ fn write_lambda_log<'js>(
         result.push('{');
         //time
         result.push_str("\"time\":\"");
-        write!(result, "{formatted_time}").unwrap();
+        write!(result, "{}", formatted_time).unwrap();
         result.push_str("\",");
 
         //request id
@@ -213,7 +215,7 @@ fn write_lambda_log<'js>(
         result.push_str(&level.to_string());
         result.push('\"');
     } else {
-        write!(result, "{formatted_time}").unwrap();
+        write!(result, "{}", formatted_time).unwrap();
         result.push('\t');
 
         match request_id.as_ref() {

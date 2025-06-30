@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     collections::HashSet,
     env,
@@ -75,7 +77,7 @@ fn generate_sdk_client_endpoint_map(out_dir: &str) -> StdResult<(), Box<dyn Erro
                 if package_name == sdks_to_init {
                     ph_map.entry(package_name, r#""""#);
                 } else {
-                    ph_map.entry(package_name, format!("\"{sdks_to_init}\""));
+                    ph_map.entry(package_name, format!("\"{}\"", sdks_to_init));
                 }
             }
         }
@@ -166,7 +168,7 @@ fn generate_bytecode_cache(out_dir: &str) -> StdResult<(), Box<dyn Error>> {
             .map_err(|err| match err {
                 CaughtError::Error(error) => error.to_string(),
                 CaughtError::Exception(ex) => ex.to_string(),
-                CaughtError::Value(value) => format!("{value:?}"),
+                CaughtError::Value(value) => format!("{:?}", value),
             })?;
 
             total_bytes += bytes.len();

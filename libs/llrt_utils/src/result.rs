@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{fmt::Write, result::Result as StdResult};
 
 use rquickjs::{Ctx, Exception, Result};
@@ -27,7 +29,7 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
             let mut message = String::with_capacity(100);
             message.push_str(msg);
             message.push_str(". ");
-            write!(message, "{e}").unwrap();
+            write!(message, "{}", e).unwrap();
             Exception::throw_message(ctx, &message)
         })
     }
@@ -39,7 +41,7 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
                 message.push_str(msg);
                 message.push_str(". ");
             }
-            write!(message, "{e}").unwrap();
+            write!(message, "{}", e).unwrap();
             Exception::throw_range(ctx, &message)
         })
     }
@@ -51,7 +53,7 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
                 message.push_str(msg);
                 message.push_str(". ");
             }
-            write!(message, "{e}").unwrap();
+            write!(message, "{}", e).unwrap();
             Exception::throw_type(ctx, &message)
         })
     }

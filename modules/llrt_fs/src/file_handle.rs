@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::borrow::Cow;
 use std::path::PathBuf;
 
@@ -396,7 +398,7 @@ fn validate_length_offset(
     if offset > buffer_length {
         return Err(Exception::throw_range(
             ctx,
-            &format!("offset ({offset}) <= {buffer_length}"),
+            &format!("offset ({}) <= {}", offset, buffer_length),
         ));
     }
     if length > buffer_length - offset {

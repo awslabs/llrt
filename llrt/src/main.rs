@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     env,
     error::Error,
@@ -180,14 +182,14 @@ async fn start_cli(vm: &Vm) {
                     if file_exists {
                         return vm.run_file(arg, true, global).await;
                     } else {
-                        eprintln!("No such file: {arg}");
+                        eprintln!("No such file: {}", arg);
                         exit(1);
                     }
                 } else {
                     if file_exists {
                         return vm.run_file(arg, true, false).await;
                     }
-                    eprintln!("Unknown command: {arg}");
+                    eprintln!("Unknown command: {}", arg);
                     usage();
                     exit(1);
                 }
