@@ -29,7 +29,7 @@ llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.12", default-features = false }
-quick-xml = { version = "0.37", default-features = false }
+quick-xml = { version = "0.38", default-features = false }
 ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "full-async",
