@@ -13,7 +13,7 @@ base64-simd = { version = "0.8", features = [
 hex-simd = { version = "0.8", features = [
   "alloc",
 ], default-features = false }
-phf = { version = "0.11", features = [
+phf = { version = "0.12", features = [
   "macros",
 ], default-features = false }
 memchr = { version = "2", default-features = false }
