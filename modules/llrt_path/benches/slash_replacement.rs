@@ -1,3 +1,7 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use llrt_path::replace_backslash;
 use rand::seq::SliceRandom;
