@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::uninlined_format_args)]
 
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use quick_xml::{
     escape::resolve_xml_entity,
@@ -43,7 +43,7 @@ struct XMLParser<'js> {
     attribute_name_prefix: Rc<str>,
     ignore_attributes: bool,
     text_node_name: Rc<str>,
-    entities: HashMap<Rc<str>, Rc<str>>,
+    entities: Vec<(Rc<str>, Rc<str>)>,
 }
 
 impl<'js> Trace<'js> for XMLParser<'js> {
@@ -100,7 +100,7 @@ impl<'js> XMLParser<'js> {
             }
         }
 
-        let entities = HashMap::new();
+        let entities = Vec::new();
 
         Ok(XMLParser {
             tag_value_processor,
@@ -113,7 +113,11 @@ impl<'js> XMLParser<'js> {
     }
 
     pub fn add_entity(&mut self, key: String, value: String) {
-        self.entities.insert(key.into(), value.into());
+        if let Some((_, v)) = self.entities.iter_mut().find(|(k, _)| k.as_ref() == key) {
+            *v = key.into()
+        } else {
+            self.entities.push((key.into(), value.into()));
+        }
     }
 
     pub fn parse(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Object<'js>> {
@@ -189,13 +193,19 @@ impl<'js> XMLParser<'js> {
                     }
                 },
                 Ok(Event::Text(ref text)) => {
-                    let tag_value = text
-                        .unescape_with(|v| {
-                            resolve_xml_entity(v)
-                                .or_else(|| self.entities.get(v).map(|x| x.as_ref()))
+                    let text = text.decode().or_throw(&ctx)?;
+
+                    let text_ref = text.as_ref();
+
+                    let tag_value = resolve_xml_entity(text_ref)
+                        .and_then(|_| {
+                            self.entities
+                                .iter()
+                                .find(|(k, _)| k.as_ref() == text_ref)
+                                .map(|(_, v)| v.as_ref())
                         })
-                        .or_throw(&ctx)?;
-                    let tag_value = tag_value.as_ref();
+                        .unwrap_or(text_ref);
+
                     let tag_value =
                         self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
 
