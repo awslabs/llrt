@@ -467,7 +467,7 @@ mod tests {
                                         clearInterval(intervalId);
                                         resolve(count);
                                     }
-                                }, 100);
+                                }, 10);
                             });
                         }
                     "#,
@@ -489,9 +489,9 @@ mod tests {
                                     setImmediate(() => {
                                         setTimeout(() => {
                                             resolve('nested');
-                                        }, 100);
+                                        }, 10);
                                     });
-                                }, 100);
+                                }, 10);
                             });
                         }
                     "#,
@@ -511,9 +511,9 @@ mod tests {
                             return new Promise((resolve) => {
                                 const timeoutId = setTimeout(() => {
                                     resolve('should not happen');
-                                }, 100);
+                                }, 10);
                                 clearTimeout(timeoutId);
-                                setTimeout(() => resolve('canceled'), 200);
+                                setTimeout(() => resolve('canceled'), 20);
                             });
                         }
                     "#,
@@ -535,14 +535,14 @@ mod tests {
                                 const id1 = setInterval(() => {
                                     count1++;
                                     if (count1 === 2) clearInterval(id1);
-                                }, 100);
+                                }, 10);
                                 const id2 = setInterval(() => {
                                     count2++;
                                     if (count2 === 3) {
                                         clearInterval(id2);
                                         resolve([count1, count2]);
                                     }
-                                }, 200);
+                                }, 20);
                             });
                         }
                     "#,
