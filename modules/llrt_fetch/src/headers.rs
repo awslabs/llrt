@@ -239,11 +239,7 @@ impl Headers {
     pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>, guard: HeadersGuard) -> Result<Self> {
         if value.is_array() {
             let array = unsafe { value.into_array().unwrap_unchecked() };
-            let headers = Self::array_to_headers(ctx, array)?;
-            return Ok(Self {
-                headers,
-                guard: HeadersGuard::None,
-            });
+            return Self::from_array(ctx, array, guard);
         }
 
         if let Some(obj) = value.as_object() {
@@ -251,10 +247,7 @@ impl Headers {
                 let array: Array = BasePrimordials::get(ctx)?
                     .function_array_from
                     .call((value,))?;
-                return Ok(Self {
-                    headers: Self::array_to_headers(ctx, array)?,
-                    guard: HeadersGuard::None,
-                });
+                return Self::from_array(ctx, array, guard);
             } else if obj.instance_of::<Headers>() {
                 return Headers::from_js(ctx, value);
             } else {
@@ -289,11 +282,8 @@ impl Headers {
         Self { headers, guard }
     }
 
-    fn array_to_headers<'js>(
-        ctx: &Ctx<'js>,
-        array: Array<'js>,
-    ) -> Result<Vec<(ImmutableString, ImmutableString)>> {
-        let mut vec: Vec<(ImmutableString, ImmutableString)> = Vec::new();
+    fn from_array<'js>(ctx: &Ctx<'js>, array: Array<'js>, guard: HeadersGuard) -> Result<Self> {
+        let mut headers: Vec<(ImmutableString, ImmutableString)> = Vec::new();
 
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
@@ -314,11 +304,11 @@ impl Headers {
                 }
 
                 if raw_key == HEADERS_KEY_SET_COOKIE {
-                    vec.push((key, value));
+                    headers.push((key, value));
                     continue;
                 }
 
-                if let Some((_, existing_value)) = vec.iter_mut().find(|(k, _)| *k == key) {
+                if let Some((_, existing_value)) = headers.iter_mut().find(|(k, _)| *k == key) {
                     let mut new_value = existing_value.to_string();
 
                     match raw_key.as_str() {
@@ -329,14 +319,14 @@ impl Headers {
                     new_value.push_str(&value);
                     *existing_value = ImmutableString::from(new_value);
                 } else {
-                    vec.push((key, value));
+                    headers.push((key, value));
                 }
             }
         }
 
-        vec.sort_by(|a, b| a.0.cmp(&b.0));
+        headers.sort_by(|a, b| a.0.cmp(&b.0));
 
-        Ok(vec)
+        Ok(Self { headers, guard })
     }
 }
 
