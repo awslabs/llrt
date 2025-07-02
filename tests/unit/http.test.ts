@@ -304,7 +304,7 @@ describe("Request class", () => {
     });
     expect(await request.text()).toEqual("Hello, world!");
     expect((await request.blob()).size).toEqual(blob.size);
-    expect((await request.blob()).type).toEqual("");
+    expect((await request.blob()).type).toEqual("text/plain");
   });
 
   it("should set the body to a Blob if Blob and content-type are provided", async () => {

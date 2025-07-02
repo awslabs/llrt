@@ -16,7 +16,7 @@ use hyper::{
 use llrt_abort::AbortSignal;
 use llrt_context::CtxExtension;
 use llrt_json::parse::json_parse;
-use llrt_url::url_class::URL;
+use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{mc_oneshot, result::ResultExt};
 use once_cell::sync::Lazy;
@@ -24,8 +24,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, JsLifetime, Null, Object, Result, TypedArray,
-    Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Null, Object, Result,
+    TypedArray, Value,
 };
 use tokio::select;
 
@@ -275,19 +275,41 @@ impl<'js> Response<'js> {
             }
         }
 
-        let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
-        let content_encoding = headers.get("content-encoding")?;
+        let mut content_type: Option<String> = None;
 
         let body = body
             .0
             .and_then(|body| {
                 if body.is_null() || body.is_undefined() {
                     None
+                } else if let Some(blob) = body.as_object().and_then(Class::<Blob>::from_object) {
+                    let blob = blob.borrow();
+                    if !blob.mime_type().is_empty() {
+                        content_type = Some(blob.mime_type());
+                    }
+                    Some(BodyVariant::Provided(Some(body)))
+                } else if body
+                    .as_object()
+                    .and_then(Class::<URLSearchParams>::from_object)
+                    .is_some()
+                {
+                    content_type = Some("application/x-www-form-urlencoded;charset=UTF-8".into());
+                    Some(BodyVariant::Provided(Some(body)))
                 } else {
                     Some(BodyVariant::Provided(Some(body)))
                 }
             })
             .unwrap_or_else(|| BodyVariant::Empty);
+
+        let mut headers = headers.unwrap_or_default();
+        if !headers.has(ctx.clone(), "content-type".into())? {
+            if let Some(value) = content_type {
+                headers.set(ctx.clone(), "content-type".into(), value.into_js(&ctx)?)?;
+            }
+        }
+        let headers = Class::instance(ctx.clone(), headers)?;
+
+        let content_encoding = headers.get("content-encoding")?;
 
         Ok(Self {
             body: RwLock::new(body),
@@ -396,15 +418,16 @@ impl<'js> Response<'js> {
     }
 
     async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
+        let headers =
+            Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
+        let mime_type = headers
+            .iter()
+            .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
+
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let headers =
-                Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
-            let mime_type = headers
-                .iter()
-                .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
             return Ok(Blob::from_bytes(bytes, mime_type));
         }
-        Ok(Blob::from_bytes(Vec::<u8>::new(), None))
+        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
     }
 
     pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
