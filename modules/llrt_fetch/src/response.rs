@@ -295,6 +295,9 @@ impl<'js> Response<'js> {
                 {
                     content_type = Some("application/x-www-form-urlencoded;charset=UTF-8".into());
                     Some(BodyVariant::Provided(Some(body)))
+                } else if body.as_string().is_some() {
+                    content_type = Some("text/plain;charset=UTF-8".into());
+                    Some(BodyVariant::Provided(Some(body)))
                 } else {
                     Some(BodyVariant::Provided(Some(body)))
                 }

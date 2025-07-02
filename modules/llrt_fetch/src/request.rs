@@ -289,7 +289,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 if !blob.mime_type().is_empty() {
                     content_type = Some(blob.mime_type());
                 }
-                Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value())
+                Some(body)
             } else if body
                 .as_object()
                 .and_then(Class::<URLSearchParams>::from_object)
@@ -297,10 +297,9 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
             {
                 content_type = Some("application/x-www-form-urlencoded;charset=UTF-8".into());
                 Some(body)
-            } else if let Some(string) = body.as_string() {
+            } else if body.as_string().is_some() {
                 content_type = Some("text/plain;charset=UTF-8".into());
-                let string = string.to_string().or_throw(&ctx)?;
-                Some(string.into_js(&ctx)?)
+                Some(body)
             } else {
                 Some(body)
             }
