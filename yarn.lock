@@ -2,23 +2,23 @@
 # yarn lockfile v1
 
 
-"@aws-cdk/asset-awscli-v1@2.2.237":
-  version "2.2.237"
-  resolved "https://registry.yarnpkg.com/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.237.tgz#d3356aaf3f73e34982ae289b7e4441e20d58497a"
-  integrity sha512-OlXylbXI52lboFVJBFLae+WB99qWmI121x/wXQHEMj2RaVNVbWE+OAHcDk2Um1BitUQCaTf9ki57B0Fuqx0Rvw==
+"@aws-cdk/asset-awscli-v1@2.2.240":
+  version "2.2.240"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.240.tgz#1dae84e4772778b461aaf14dec5ed7922d8c4385"
+  integrity sha512-Ry5yvGVf8s7j1Gf1aBFs0mBnWzRkkRtgSVpRGkDWXvZoPbRODAH33S1mAxkETNb+dNnTPGE2Gvws0XbhpJ6RzA==
 
 "@aws-cdk/asset-node-proxy-agent-v6@^2.1.0":
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@aws-cdk/asset-node-proxy-agent-v6/-/asset-node-proxy-agent-v6-2.1.0.tgz#6d3c7860354d4856a7e75375f2f0ecab313b4989"
   integrity sha512-7bY3J8GCVxLupn/kNmpPc5VJz8grx+4RKfnnJiO1LG+uxkZfANZG3RMHhE+qQxxwkyQ9/MfPtTpf748UhR425A==
 
-"@aws-cdk/cloud-assembly-schema@^41.2.0":
-  version "41.2.0"
-  resolved "https://registry.yarnpkg.com/@aws-cdk/cloud-assembly-schema/-/cloud-assembly-schema-41.2.0.tgz#c1ef513e1cc0528dbc05948ae39d5631306af423"
-  integrity sha512-JaulVS6z9y5+u4jNmoWbHZRs9uGOnmn/ktXygNWKNu1k6lF3ad4so3s18eRu15XCbUIomxN9WPYT6Ehh7hzONw==
+"@aws-cdk/cloud-assembly-schema@^44.2.0":
+  version "44.8.0"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/cloud-assembly-schema/-/cloud-assembly-schema-44.8.0.tgz#52da129bd718cc354c2970a6922c2346459f3945"
+  integrity sha512-Bxyj0VH8phE1uHJ6LiG3/UC/HYK91EBZnXSOzwtLsMJ0ZPuaQCYDRVAAfjDCSsEOwAk56/Waks8b5pXHpgz/xw==
   dependencies:
     jsonschema "~1.4.1"
-    semver "^7.7.1"
+    semver "^7.7.2"
 
 "@aws-crypto/crc32@5.2.0":
   version "5.2.0"
@@ -3762,6 +3762,13 @@
   dependencies:
     jest-get-type "^29.6.3"
 
+"@jest/schemas@30.0.1":
+  version "30.0.1"
+  resolved "https://registry.yarnpkg.com/@jest/schemas/-/schemas-30.0.1.tgz#27c00d707d480ece0c19126af97081a1af3bc46e"
+  integrity sha512-+g/1TKjFuGrf1Hh0QPCv0gISwBxJ+MQSNXmG9zjHy7BmFhtoJ9fdNhWJp3qUKRi93AOZHXtdxZgJ1vAtz6z65w==
+  dependencies:
+    "@sinclair/typebox" "^0.34.0"
+
 "@jest/schemas@^29.6.3":
   version "29.6.3"
   resolved "https://registry.yarnpkg.com/@jest/schemas/-/schemas-29.6.3.tgz#430b5ce8a4e0044a7e3819663305a7b3091c8e03"
@@ -3908,6 +3915,11 @@
   version "0.27.8"
   resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.27.8.tgz#6667fac16c436b5434a387a34dedb013198f6e6e"
   integrity sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==
+
+"@sinclair/typebox@^0.34.0":
+  version "0.34.37"
+  resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.34.37.tgz#f331e4db64ff8195e9e3d8449343c85aaa237d6e"
+  integrity sha512-2TRuQVgQYfy+EzHRTIvkhv2ADEouJ2xNS/Vq+W5EuuewBdOrvATvljZTxHWZSTYr2sTjTHpGvucaGAt67S2akw==
 
 "@smithy/abort-controller@^4.0.1":
   version "4.0.1"
@@ -4646,7 +4658,7 @@ ansi-styles@^4.0.0, ansi-styles@^4.1.0:
   dependencies:
     color-convert "^2.0.1"
 
-ansi-styles@^5.0.0:
+ansi-styles@^5.0.0, ansi-styles@^5.2.0:
   version "5.2.0"
   resolved "https://registry.yarnpkg.com/ansi-styles/-/ansi-styles-5.2.0.tgz#07449690ad45777d1924ac2abb2fc8895dba836b"
   integrity sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==
@@ -4673,14 +4685,14 @@ available-typed-arrays@^1.0.7:
   dependencies:
     possible-typed-array-names "^1.0.0"
 
-aws-cdk-lib@2.199.0:
-  version "2.199.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.199.0.tgz#7cf529cd58f54ed3fc39524154ecc3350b0a1b13"
-  integrity sha512-hAZHdb7bPHepIGpuyg0jS/F3toY7VRvJDqxo4+C2cYY5zvktGP3lgcC9ukE2ehxYU1Pa9YOAehEDIxrita0Hvw==
+aws-cdk-lib@2.202.0:
+  version "2.202.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.202.0.tgz#5cae32d08e6072cc49e6cb090471a1292efdd867"
+  integrity sha512-JDycQoE8AxUAeCFXFoCx6FGvR78e6W9zYxPgmfW/uPPbntyNCXXBqwyAYo17RGS/lr0RO3zqD/oCBZSNU2e/Yg==
   dependencies:
-    "@aws-cdk/asset-awscli-v1" "2.2.237"
+    "@aws-cdk/asset-awscli-v1" "2.2.240"
     "@aws-cdk/asset-node-proxy-agent-v6" "^2.1.0"
-    "@aws-cdk/cloud-assembly-schema" "^41.2.0"
+    "@aws-cdk/cloud-assembly-schema" "^44.2.0"
     "@balena/dockerignore" "^1.0.2"
     case "1.6.3"
     fs-extra "^11.3.0"
@@ -4693,10 +4705,10 @@ aws-cdk-lib@2.199.0:
     table "^6.9.0"
     yaml "1.10.2"
 
-aws-cdk@2.1017.1:
-  version "2.1017.1"
-  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1017.1.tgz#3091e8f295c3fda397f3e691f5ffad8ad4be5d96"
-  integrity sha512-KtDdkMhfVjDeexjpMrVoSlz2mTYI5BE/KotvJ7iFbZy1G0nkpW1ImZ54TdBefeeFmZ+8DAjU3I6nUFtymyOI1A==
+aws-cdk@2.1019.2:
+  version "2.1019.2"
+  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1019.2.tgz#acbdd3be7e095d3347168cd37aab437b3bd777f7"
+  integrity sha512-LkWZ3IKBkfCPTCu60t4Wb9JMSkb+0Uzk+HIxZeW5sFohq8bxDGV0OP1hcqEC2+KbVYRn7q+YhMeSJ/FOQcgpiw==
   optionalDependencies:
     fsevents "2.3.2"
 
@@ -5573,7 +5585,16 @@ prettier@3.5.3:
   resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.5.3.tgz#4fc2ce0d657e7a02e602549f053b239cb7dfe1b5"
   integrity sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw==
 
-pretty-format@29.7.0, pretty-format@^29.0.0, pretty-format@^29.7.0:
+pretty-format@30.0.2:
+  version "30.0.2"
+  resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-30.0.2.tgz#54717b6aa2b4357a2e6d83868e10a2ea8dd647c7"
+  integrity sha512-yC5/EBSOrTtqhCKfLHqoUIAXVRZnukHPwWBJWR7h84Q3Be1DRQZLncwcfLoPA5RPQ65qfiCMqgYwdUuQ//eVpg==
+  dependencies:
+    "@jest/schemas" "30.0.1"
+    ansi-styles "^5.2.0"
+    react-is "^18.3.1"
+
+pretty-format@^29.0.0, pretty-format@^29.7.0:
   version "29.7.0"
   resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-29.7.0.tgz#ca42c758310f365bfa71a0bda0a807160b776812"
   integrity sha512-Pdlw/oPxN+aXdmM9R00JVC9WVFoCLTKJvDVLgmJ+qAffBMxsV85l/Lu7sNx4zSzPyoL2euImuEwHhOXdEgNFZQ==
@@ -5632,7 +5653,7 @@ react-dom@19.1.0:
   dependencies:
     scheduler "^0.26.0"
 
-react-is@^18.0.0:
+react-is@^18.0.0, react-is@^18.3.1:
   version "18.3.1"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.3.1.tgz#e83557dc12eae63a99e003a46388b1dcbb44db7e"
   integrity sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==
@@ -5721,7 +5742,7 @@ scheduler@^0.26.0:
   resolved "https://registry.yarnpkg.com/scheduler/-/scheduler-0.26.0.tgz#4ce8a8c2a2095f13ea11bf9a445be50c555d6337"
   integrity sha512-NlHwttCI/l5gCPR3D1nNXtWABUmBwvZpEQiD4IXSbIDq8BzLIK/7Ir5gTFSGZDUu37K5cMNp0hFtzO38sC7gWA==
 
-semver@^7.7.1, semver@^7.7.2:
+semver@^7.7.2:
   version "7.7.2"
   resolved "https://registry.yarnpkg.com/semver/-/semver-7.7.2.tgz#67d99fdcd35cec21e6f8b87a7fd515a33f982b58"
   integrity sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==
@@ -5904,10 +5925,10 @@ tslib@^2.6.2, tslib@^2.8.1:
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.8.1.tgz#612efe4ed235d567e8aba5f2a5fab70280ade83f"
   integrity sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==
 
-typescript@5.8.2:
-  version "5.8.2"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.8.2.tgz#8170b3702f74b79db2e5a96207c15e65807999e4"
-  integrity sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==
+typescript@5.8.3:
+  version "5.8.3"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.8.3.tgz#92f8a3e5e3cf497356f4178c34cd65a7f5e8440e"
+  integrity sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==
 
 ufo@^1.5.4:
   version "1.5.4"
