@@ -283,23 +283,22 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 ));
             }
 
-            request.body = if let Some(blob) = body.as_object().and_then(Class::<Blob>::from_object)
-            {
-                let blob = blob.borrow();
-                if !blob.mime_type().is_empty() {
-                    content_type = Some(blob.mime_type());
-                }
-                Some(body)
-            } else if body
-                .as_object()
-                .and_then(Class::<URLSearchParams>::from_object)
-                .is_some()
-            {
-                content_type = Some(MIME_TYPE_APPLICATION.into());
-                Some(body)
-            } else if body.as_string().is_some() {
+            request.body = if body.is_string() {
                 content_type = Some(MIME_TYPE_TEXT.into());
                 Some(body)
+            } else if let Some(obj) = body.as_object() {
+                if let Some(blob) = Class::<Blob>::from_object(obj) {
+                    let blob = blob.borrow();
+                    if !blob.mime_type().is_empty() {
+                        content_type = Some(blob.mime_type());
+                    }
+                    Some(body)
+                } else if obj.instance_of::<URLSearchParams>() {
+                    content_type = Some(MIME_TYPE_APPLICATION.into());
+                    Some(body)
+                } else {
+                    Some(body)
+                }
             } else {
                 Some(body)
             }
