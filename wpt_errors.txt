@@ -6,15 +6,30 @@ FileAPI/blob > should pass Blob-bytes.any.js tests
 Error: [Blob.bytes()] promise_test: Unhandled rejection with value: object "ReferenceError: assert_true is not defined"
 
 FileAPI/blob > should pass Blob-slice-overflow.any.js tests
-Error: Test timed out after 5000ms
-    at tick (llrt:test/index:480:15)
-    at <anonymous> (llrt:test/index:160:12)
+undefined: undefined
 
 ----- LAST STDERR: -----
 
 thread 'main' panicked at modules/llrt_buffer/src/blob.rs:115:30:
 slice index starts at 2001 but ends at 2000
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+FileAPI/blob > should pass Blob-slice.any.js tests
+ReferenceError: promise_test is not defined
+    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7490:5)
+    at anonymous (<input>:9:11)
+    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7642:29)
+    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7678:24)
+    at <anonymous> (llrt:test/worker:6657:28)
+    at Promise (native)
+    at executeAsyncOrCallbackFn (llrt:test/worker:6648:17)
+    at runTests (llrt:test/worker:6726:45)
+
+FileAPI/blob > should pass Blob-stream.any.js tests
+Error: [Blob.stream()] promise_test: Unhandled rejection with value: object "TypeError: not a function"
+
+FileAPI/blob > should pass Blob-text.any.js tests
+Error: [Blob.text() non-unicode] assert_equals: expected "å" but got "97,204,138"
 
 
 🧪/wpt/FileAPI.file.test.js 
