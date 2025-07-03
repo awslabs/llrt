@@ -24,8 +24,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Null, Object, Result,
-    TypedArray, Undefined, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Undefined, Value,
 };
 use tokio::select;
 
