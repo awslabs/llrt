@@ -172,6 +172,25 @@ describe("XMLParser options and handling", () => {
     const result = parser.parse(xmlString);
     expect(result).toStrictEqual(expectedResult);
   });
+
+  it("Will escape ref", () => {
+    const xmlString =
+      '<?xml version="1.0" encoding="UTF-8"?><ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ETag>&quot;7265f4d211b56873a381d321f586e4a9&quot;</ETag><data>Hello&#10;world!</data></ListPartsResult>';
+    const expectedResult = {
+      ListPartsResult: {
+        "@_xmlns": "http://s3.amazonaws.com/doc/2006-03-01/",
+        ETag: '"7265f4d211b56873a381d321f586e4a9"',
+        data: "Hello\nworld!",
+      },
+    };
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+    });
+    parser.addEntity("#10", "\n");
+    const result = parser.parse(xmlString);
+
+    expect(result).toStrictEqual(expectedResult);
+  });
 });
 
 describe("XML Builder", () => {
