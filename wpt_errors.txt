@@ -6,15 +6,30 @@ FileAPI/blob > should pass Blob-bytes.any.js tests
 Error: [Blob.bytes()] promise_test: Unhandled rejection with value: object "ReferenceError: assert_true is not defined"
 
 FileAPI/blob > should pass Blob-slice-overflow.any.js tests
-Error: Test timed out after 5000ms
-    at tick (llrt:test/index:480:15)
-    at <anonymous> (llrt:test/index:160:12)
+undefined: undefined
 
 ----- LAST STDERR: -----
 
 thread 'main' panicked at modules/llrt_buffer/src/blob.rs:115:30:
 slice index starts at 2001 but ends at 2000
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+FileAPI/blob > should pass Blob-slice.any.js tests
+ReferenceError: promise_test is not defined
+    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7490:5)
+    at anonymous (<input>:9:11)
+    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7642:29)
+    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7678:24)
+    at <anonymous> (llrt:test/worker:6657:28)
+    at Promise (native)
+    at executeAsyncOrCallbackFn (llrt:test/worker:6648:17)
+    at runTests (llrt:test/worker:6726:45)
+
+FileAPI/blob > should pass Blob-stream.any.js tests
+Error: [Blob.stream()] promise_test: Unhandled rejection with value: object "TypeError: not a function"
+
+FileAPI/blob > should pass Blob-text.any.js tests
+Error: [Blob.text() non-unicode] assert_equals: expected "å" but got "97,204,138"
 
 
 🧪/wpt/FileAPI.file.test.js 
@@ -176,9 +191,6 @@ Error: [UTF-8 with BOM with Request.text()] assert_equals: Request.text() should
 fetch/api/body > should pass formdata.any.js tests
 Error: [Consume empty response.formData() as FormData] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
 
-fetch/api/body > should pass mime-type.any.js tests
-Error: [Request: overriding explicit Content-Type] assert_equals: expected "test/test" but got ""
-
 
 🧪/wpt/fetch.api.headers.test.js 
 fetch/api/headers > should pass header-setcookie.any.js tests
@@ -212,7 +224,7 @@ fetch/api/request > should pass request-headers.any.js tests
 Error: [Adding invalid request header "Accept-Charset: KO"] assert_equals: expected (object) null but got (string) "KO"
 
 fetch/api/request > should pass request-init-contenttype.any.js tests
-Error: [Default Content-Type for Request with Blob body (set type)] assert_equals: expected (string) "a/b; c=d" but got (object) null
+Error: [Default Content-Type for Request with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
 
 fetch/api/request > should pass request-init-priority.any.js tests
 Error: [new Request() throws a TypeError if any of RequestInit's members' values are invalid] assert_throws_js: a new Request() must throw a TypeError if RequestInit's priority is an invalid value function "() => {
@@ -258,7 +270,7 @@ fetch/api/response > should pass response-init-001.any.js tests
 Error: [Check default value for type attribute] assert_equals: Expect default response.type is default expected "default" but got "basic"
 
 fetch/api/response > should pass response-init-contenttype.any.js tests
-Error: [Default Content-Type for Response with Blob body (set type)] assert_equals: expected (string) "a/b; c=d" but got (object) null
+Error: [Default Content-Type for Response with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
 
 fetch/api/response > should pass response-static-error.any.js tests
 Error: [the 'guard' of the Headers instance should be immutable] assert_throws_js: function "function () { headers.append('name', 'value'); }" did not throw

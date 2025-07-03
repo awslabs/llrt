@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_abort::AbortSignal;
 use llrt_json::parse::json_parse;
-use llrt_url::url_class::URL;
+use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs,
@@ -10,8 +10,8 @@ use rquickjs::{
 };
 
 use super::{
-    headers::{Headers, HeadersGuard},
-    Blob,
+    headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
+    Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
 };
 
 #[derive(Clone, Default, PartialEq)]
@@ -207,21 +207,25 @@ impl<'js> Request<'js> {
     }
 
     async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
+        let mime_type = self
+            .headers()
+            .map(|headers| {
+                Headers::from_value(&ctx, headers.as_value().clone(), HeadersGuard::None)
+            })
+            .transpose()?
+            .and_then(|headers| {
+                headers
+                    .iter()
+                    .find_map(|(k, v)| (k == HEADERS_KEY_CONTENT_TYPE).then(|| v.to_string()))
+            });
+
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let headers = Headers::from_value(
-                &ctx,
-                self.headers().unwrap().as_value().clone(),
-                HeadersGuard::None,
-            )?;
-            let mime_type = headers
-                .iter()
-                .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
             return Ok(Blob::from_bytes(
                 bytes.try_into().or_throw(&ctx)?,
                 mime_type,
             ));
         }
-        Ok(Blob::from_bytes(Vec::<u8>::new(), None))
+        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
     }
 
     fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
@@ -268,6 +272,8 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         }
     }
 
+    let mut content_type: Option<String> = None;
+
     if let Some(body) = obj.get_optional::<_, Value>("body")? {
         if !body.is_undefined() && !body.is_null() {
             if let "GET" | "HEAD" = request.method.as_str() {
@@ -277,10 +283,22 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 ));
             }
 
-            request.body = if let Some(blob) = body.as_object().and_then(Class::<Blob>::from_object)
-            {
-                let blob = blob.borrow();
-                Some(TypedArray::<u8>::new(ctx.clone(), blob.get_bytes())?.into_value())
+            request.body = if body.is_string() {
+                content_type = Some(MIME_TYPE_TEXT.into());
+                Some(body)
+            } else if let Some(obj) = body.as_object() {
+                if let Some(blob) = Class::<Blob>::from_object(obj) {
+                    let blob = blob.borrow();
+                    if !blob.mime_type().is_empty() {
+                        content_type = Some(blob.mime_type());
+                    }
+                    Some(body)
+                } else if obj.instance_of::<URLSearchParams>() {
+                    content_type = Some(MIME_TYPE_APPLICATION.into());
+                    Some(body)
+                } else {
+                    Some(body)
+                }
             } else {
                 Some(body)
             }
@@ -293,12 +311,21 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         } else {
             HeadersGuard::Request
         };
-        let headers = Headers::from_value(
+        let mut headers = Headers::from_value(
             &ctx,
             obj.get_optional("headers")?
                 .unwrap_or_else(|| Null.into_js(&ctx).unwrap()),
             guard,
         )?;
+        if !headers.has(ctx.clone(), HEADERS_KEY_CONTENT_TYPE.into())? {
+            if let Some(value) = content_type {
+                headers.set(
+                    ctx.clone(),
+                    HEADERS_KEY_CONTENT_TYPE.into(),
+                    value.into_js(&ctx)?,
+                )?;
+            }
+        }
         Class::instance(ctx, headers)?
     };
     request.headers = Some(headers);

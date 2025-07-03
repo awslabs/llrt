@@ -18,6 +18,7 @@ use rquickjs::{
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
 const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
+pub const HEADERS_KEY_CONTENT_TYPE: &str = "content-type";
 
 type ImmutableString = Rc<str>;
 
@@ -46,30 +47,12 @@ impl Headers {
     #[qjs(constructor)]
     pub fn new<'js>(ctx: Ctx<'js>, init: Opt<Value<'js>>) -> Result<Self> {
         if let Some(init) = init.into_inner() {
-            if init.is_array() {
-                let array = unsafe { init.into_array().unwrap_unchecked() };
-                let headers = Self::array_to_headers(&ctx, array)?;
-                return Ok(Self {
-                    headers,
-                    guard: HeadersGuard::None,
-                });
-            } else if init.is_null() || init.is_number() {
+            if init.is_null() || init.is_number() {
                 return Err(Exception::throw_type(&ctx, "Invalid argument"));
-            } else if init.is_object() {
-                if let Some(obj) = init.as_object() {
-                    if obj.contains_key(Symbol::iterator(ctx.clone()))? {
-                        let array: Array = BasePrimordials::get(&ctx)?
-                            .function_array_from
-                            .call((init,))?;
-                        return Ok(Self {
-                            headers: Self::array_to_headers(&ctx, array)?,
-                            guard: HeadersGuard::None,
-                        });
-                    }
-                }
-                return Self::from_value(&ctx, init, HeadersGuard::None);
             }
+            return Self::from_value(&ctx, init, HeadersGuard::None);
         }
+
         Ok(Self {
             headers: Vec::new(),
             guard: HeadersGuard::None,
@@ -255,15 +238,25 @@ impl Headers {
     }
 
     pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>, guard: HeadersGuard) -> Result<Self> {
-        if value.is_object() {
-            let headers_obj = unsafe { value.as_object().unwrap_unchecked() };
-            return if headers_obj.instance_of::<Headers>() {
-                Headers::from_js(ctx, value)
+        if value.is_array() {
+            let array = unsafe { value.into_array().unwrap_unchecked() };
+            return Self::from_array(ctx, array, guard);
+        }
+
+        if let Some(obj) = value.as_object() {
+            if obj.contains_key(Symbol::iterator(ctx.clone()))? {
+                let array: Array = BasePrimordials::get(ctx)?
+                    .function_array_from
+                    .call((value,))?;
+                return Self::from_array(ctx, array, guard);
+            } else if obj.instance_of::<Headers>() {
+                return Headers::from_js(ctx, value);
             } else {
                 let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
                 return Ok(Self::from_map(ctx, map, guard));
-            };
+            }
         }
+
         Ok(Self {
             headers: vec![],
             guard,
@@ -290,11 +283,8 @@ impl Headers {
         Self { headers, guard }
     }
 
-    fn array_to_headers<'js>(
-        ctx: &Ctx<'js>,
-        array: Array<'js>,
-    ) -> Result<Vec<(ImmutableString, ImmutableString)>> {
-        let mut vec: Vec<(ImmutableString, ImmutableString)> = Vec::new();
+    fn from_array<'js>(ctx: &Ctx<'js>, array: Array<'js>, guard: HeadersGuard) -> Result<Self> {
+        let mut headers: Vec<(ImmutableString, ImmutableString)> = Vec::new();
 
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
@@ -315,11 +305,11 @@ impl Headers {
                 }
 
                 if raw_key == HEADERS_KEY_SET_COOKIE {
-                    vec.push((key, value));
+                    headers.push((key, value));
                     continue;
                 }
 
-                if let Some((_, existing_value)) = vec.iter_mut().find(|(k, _)| *k == key) {
+                if let Some((_, existing_value)) = headers.iter_mut().find(|(k, _)| *k == key) {
                     let mut new_value = existing_value.to_string();
 
                     match raw_key.as_str() {
@@ -330,14 +320,14 @@ impl Headers {
                     new_value.push_str(&value);
                     *existing_value = ImmutableString::from(new_value);
                 } else {
-                    vec.push((key, value));
+                    headers.push((key, value));
                 }
             }
         }
 
-        vec.sort_by(|a, b| a.0.cmp(&b.0));
+        headers.sort_by(|a, b| a.0.cmp(&b.0));
 
-        Ok(vec)
+        Ok(Self { headers, guard })
     }
 }
 
