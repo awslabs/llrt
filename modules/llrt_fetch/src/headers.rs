@@ -18,6 +18,7 @@ use rquickjs::{
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
 const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
+pub const HEADERS_KEY_CONTENT_TYPE: &str = "content-type";
 
 type ImmutableString = Rc<str>;
 

@@ -29,11 +29,10 @@ use rquickjs::{
 };
 use tokio::select;
 
-use crate::incoming::{self, IncomingReceiver};
-
 use super::{
-    headers::{Headers, HeadersGuard},
-    Blob,
+    headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
+    incoming::{self, IncomingReceiver},
+    Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
 };
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
@@ -293,10 +292,10 @@ impl<'js> Response<'js> {
                     .and_then(Class::<URLSearchParams>::from_object)
                     .is_some()
                 {
-                    content_type = Some("application/x-www-form-urlencoded;charset=UTF-8".into());
+                    content_type = Some(MIME_TYPE_APPLICATION.into());
                     Some(BodyVariant::Provided(Some(body)))
                 } else if body.as_string().is_some() {
-                    content_type = Some("text/plain;charset=UTF-8".into());
+                    content_type = Some(MIME_TYPE_TEXT.into());
                     Some(BodyVariant::Provided(Some(body)))
                 } else {
                     Some(BodyVariant::Provided(Some(body)))
@@ -305,9 +304,13 @@ impl<'js> Response<'js> {
             .unwrap_or_else(|| BodyVariant::Empty);
 
         let mut headers = headers.unwrap_or_default();
-        if !headers.has(ctx.clone(), "content-type".into())? {
+        if !headers.has(ctx.clone(), HEADERS_KEY_CONTENT_TYPE.into())? {
             if let Some(value) = content_type {
-                headers.set(ctx.clone(), "content-type".into(), value.into_js(&ctx)?)?;
+                headers.set(
+                    ctx.clone(),
+                    HEADERS_KEY_CONTENT_TYPE.into(),
+                    value.into_js(&ctx)?,
+                )?;
             }
         }
         let headers = Class::instance(ctx.clone(), headers)?;
@@ -425,7 +428,7 @@ impl<'js> Response<'js> {
             Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
         let mime_type = headers
             .iter()
-            .find_map(|(k, v)| (k == "content-type").then(|| v.to_string()));
+            .find_map(|(k, v)| (k == HEADERS_KEY_CONTENT_TYPE).then(|| v.to_string()));
 
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(Blob::from_bytes(bytes, mime_type));
