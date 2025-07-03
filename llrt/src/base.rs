@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub use self::core::*;
+pub use self::base::*;
 
 #[allow(clippy::module_inception)]
-mod core {
+mod base {
     pub use llrt_core::bytecode;
     #[cfg(not(feature = "lambda"))]
     pub use llrt_core::compiler;
