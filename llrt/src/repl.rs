@@ -17,12 +17,12 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 
-use crate::core::libs::{
+use crate::base::libs::{
     logging::format_values,
     utils::{error::ErrorExtensions, result::ResultExt},
 };
 // rquickjs components
-use crate::core::{
+use crate::base::{
     async_with, AsyncContext, CatchResultExt, Ctx, Error, EvalOptions, Object, PredefinedAtom,
     Promise, Rest,
 };
