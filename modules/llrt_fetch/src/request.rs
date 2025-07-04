@@ -253,7 +253,11 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     if let Some(url) = obj.get_optional("url")? {
         request.url = url;
     }
-    if let Some(method) = obj.get_optional("method")? {
+    if let Some(method) = obj.get_optional::<_, String>("method")? {
+        let method = method.to_ascii_uppercase();
+        if let "CONNECT" | "TRACE" | "TRACK" = method.as_str() {
+            return Err(Exception::throw_type(&ctx, "This method is not allowed."));
+        }
         request.method = method;
     }
     if let Some(mode) = obj.get_optional::<_, String>("mode")? {
