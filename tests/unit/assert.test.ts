@@ -8,7 +8,7 @@ describe("assert.ok", () => {
     expect(assert.ok([])).toBeUndefined(); // array
     expect(assert.ok({})).toBeUndefined(); // object
     expect(assert.ok(() => {})).toBeUndefined(); // function
-    // expect(assert.ok(123n)).toBeUndefined(); // bigint
+    expect(assert.ok(123n)).toBeUndefined(); // bigint
     expect(assert.ok(Symbol())).toBeUndefined(); // symbol
     expect(assert.ok(new Error())).toBeUndefined(); // error
     class AssertTestClass {}
