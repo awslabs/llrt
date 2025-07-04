@@ -11,6 +11,7 @@ members = [
   "libs/llrt_test",
   "libs/llrt_utils",
   "modules/llrt_abort",
+  "modules/llrt_async_hooks",
   "modules/llrt_buffer",
   "modules/llrt_child_process",
   "modules/llrt_console",
