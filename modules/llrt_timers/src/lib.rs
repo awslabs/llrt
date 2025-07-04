@@ -104,7 +104,7 @@ pub fn set_timeout_interval<'js>(
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
 
     let (repeating, deadline) = match provider_type {
-        ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(86400)), // Already finished
+        ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(3600)), // Already finished
         ProviderType::Timeout => (false, Instant::now() + Duration::from_millis(delay)),
         ProviderType::Interval => (true, Instant::now() + Duration::from_millis(delay)),
         _ => {
