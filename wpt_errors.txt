@@ -14,17 +14,6 @@ thread 'main' panicked at modules/llrt_buffer/src/blob.rs:115:30:
 slice index starts at 2001 but ends at 2000
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
-FileAPI/blob > should pass Blob-slice.any.js tests
-ReferenceError: promise_test is not defined
-    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7490:5)
-    at anonymous (<input>:9:11)
-    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7642:29)
-    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/FileAPI.blob.test.js:7678:24)
-    at <anonymous> (llrt:test/worker:6657:28)
-    at Promise (native)
-    at executeAsyncOrCallbackFn (llrt:test/worker:6648:17)
-    at runTests (llrt:test/worker:6726:45)
-
 FileAPI/blob > should pass Blob-stream.any.js tests
 Error: [Blob.stream()] promise_test: Unhandled rejection with value: object "TypeError: not a function"
 
@@ -204,9 +193,6 @@ Error: [Basic operation with one property] assert_array_equals: lengths differ, 
 
 
 🧪/wpt/fetch.api.request.test.js 
-fetch/api/request > should pass forbidden-method.any.js tests
-Error: [Request() with a forbidden method CONNECT must throw.] assert_throws_js: function "function() { new Request('./', {method: method}); }" did not throw
-
 fetch/api/request > should pass request-bad-port.any.js tests
 Error: [Request on bad port 1 should throw TypeError.] promise_rejects_js: function "function() {
             throw e;
@@ -249,7 +235,7 @@ fetch/api/response > should pass response-blob-realm.any.js tests
 Error: Timeout after 5000ms
 
 fetch/api/response > should pass response-cancel-stream.any.js tests
-Error: [Cancelling a starting blob Response stream] cannot read property 'cancel' of null
+Error: [Cancelling a starting blob Response stream] cannot read property 'cancel' of undefined
 
 fetch/api/response > should pass response-clone.any.js tests
 Error: [Check Response's clone with default values, without body] assert_equals: Expect default response.type is default expected "default" but got "basic"
@@ -273,7 +259,7 @@ fetch/api/response > should pass response-init-contenttype.any.js tests
 Error: [Default Content-Type for Response with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
 
 fetch/api/response > should pass response-static-error.any.js tests
-Error: [the 'guard' of the Headers instance should be immutable] assert_throws_js: function "function () { headers.append('name', 'value'); }" did not throw
+Error: [Check response returned by static method error()] assert_equals: Network error response's body is null expected (object) null but got (undefined) undefined
 
 fetch/api/response > should pass response-static-json.any.js tests
 Error: [Check response returned by static json() with init undefined] promise_test: Unhandled rejection with value: object "TypeError: Error converting from js 'undefined' into type 'object'"
@@ -303,7 +289,7 @@ fetch/api/response > should pass response-stream-disturbed-6.any.js tests
 Error: [A non-closed stream on which read() has been called] assert_true: After calling stream.read() expected true got false
 
 fetch/api/response > should pass response-stream-disturbed-by-pipe.any.js tests
-Error: [using pipeTo on Response body should disturb it synchronously] cannot read property 'pipeTo' of null
+Error: [using pipeTo on Response body should disturb it synchronously] cannot read property 'pipeTo' of undefined
 
 fetch/api/response > should pass response-stream-with-broken-then.any.js tests
 Error: [Attempt to inject {done: false, value: bye} via Object.prototype.then.] assert_equals: The value should be "hello". expected "hello" but got "[object Object]"
@@ -334,8 +320,22 @@ Error: [tee() should not call Promise.prototype.then()] patched then() called
 
 
 🧪/wpt/streams.writable-streams.test.js 
-streams/writable-streams > should pass general.any.js tests
-Error: [WritableStream's strategy.size should not be called as a method] promise_test: Unhandled rejection with value: object "Error: size called as a method"
+streams/writable-streams > should pass aborting.any.js tests
+undefined: undefined
+
+----- LAST STDERR: -----
+
+thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
+called `Option::unwrap()` on a `None` value
+
+streams/writable-streams > should pass bad-strategies.any.js tests
+Error: Test timed out after 5000ms
+    at tick (llrt:test/index:480:15)
+    at <anonymous> (llrt:test/index:160:12)
 
 
 🧪/wpt/url.test.js 
