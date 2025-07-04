@@ -279,7 +279,7 @@ declare global {
     /**
      * The body content (NOT IMPLEMENTED YET).
      */
-    readonly body: null;
+    readonly body: undefined;
     /**
      * Stores a boolean value that declares whether the body has been used in a response yet.
      */

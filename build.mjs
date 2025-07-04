@@ -536,6 +536,7 @@ async function loadShims() {
     loadShim(/@aws-crypto/, "@aws-crypto/index.js"),
     loadShim(/@smithy\/util-hex-encoding/, "@smithy/util-hex-encoding.js"),
     loadShim(/@smithy\/util-utf8/, "@smithy/util-utf8.js"),
+    loadShim(/stringHasher.js/, "string-hasher.js"),
     loadShim(/@smithy\/util-base64/, "@smithy/util-base64.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "mnemonist/lru-cache.js"),
     loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
@@ -546,6 +547,7 @@ async function loadShims() {
       /create-read-stream-on-buffer\.browser\.js/,
       "create-read-stream.js"
     ),
+    loadShim(/isStreaming.js/, "is-streaming.js"),
   ]);
 }
 

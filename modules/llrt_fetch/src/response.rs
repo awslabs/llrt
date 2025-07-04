@@ -24,8 +24,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Null, Object, Result,
-    TypedArray, Value,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Undefined, Value,
 };
 use tokio::select;
 
@@ -353,8 +353,8 @@ impl<'js> Response<'js> {
 
     //FIXME return readable stream when implemented
     #[qjs(get)]
-    pub fn body(&self) -> Null {
-        Null
+    pub fn body(&self) -> Undefined {
+        Undefined
     }
 
     #[qjs(get)]

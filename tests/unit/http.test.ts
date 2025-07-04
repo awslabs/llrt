@@ -318,7 +318,7 @@ describe("Response class", () => {
     expect(response.status).toEqual(200);
     expect(response.statusText).toEqual("OK");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(null);
+    expect(response.body).toEqual(undefined);
     expect(response.redirected).toBeFalsy();
   });
 
@@ -395,7 +395,7 @@ describe("Response class", () => {
     expect(response.status).toEqual(0);
     expect(response.statusText).toEqual("");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(null);
+    expect(response.body).toEqual(undefined);
     expect(response.type).toEqual("error");
   });
 
