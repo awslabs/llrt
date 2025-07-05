@@ -1920,6 +1920,7 @@ name = "llrt_hooking"
 version = "0.5.1-beta"
 dependencies = [
  "llrt_utils",
+ "once_cell",
  "rquickjs",
 ]
 

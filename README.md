@@ -569,6 +569,12 @@ Used to explicitly specify a preferred platform for the Node.js package resolver
 
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
 
+### `LLRT_ASYNC_HOOKS=value`
+
+When using asynchronous hooks, the hooking function inside QuickJS is activated. This is disabled by default as there is concern that it may have a significant impact on performance.
+
+By setting this environment variable to `1`, the asynchronous hook function can be enabled, allowing you to track asynchronous processing using the `async_hooks` module.
+
 ## Benchmark Methodology
 
 Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox.
