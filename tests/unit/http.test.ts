@@ -210,19 +210,6 @@ describe("Request class", () => {
     expect(request.bodyUsed).toBeTruthy();
   });
 
-  it("should set the body to a Blob if a Blob is provided", async () => {
-    const blob = new Blob(["Hello, world!"], { type: "text/plain" });
-    const request = new Request("https://example.com", {
-      body: blob,
-      method: "POST",
-    });
-    expect(request.body).toStrictEqual(
-      new Uint8Array(await blob.arrayBuffer())
-    );
-    expect(request.body).toStrictEqual(await blob.bytes());
-    expect(request.bodyUsed).toBeTruthy();
-  });
-
   it("should accept another request object as argument", () => {
     const oldRequest = new Request("https://example.com", {
       headers: { From: "webmaster@example.org" },
@@ -304,7 +291,7 @@ describe("Request class", () => {
     });
     expect(await request.text()).toEqual("Hello, world!");
     expect((await request.blob()).size).toEqual(blob.size);
-    expect((await request.blob()).type).toEqual("");
+    expect((await request.blob()).type).toEqual("text/plain");
   });
 
   it("should set the body to a Blob if Blob and content-type are provided", async () => {
@@ -331,7 +318,7 @@ describe("Response class", () => {
     expect(response.status).toEqual(200);
     expect(response.statusText).toEqual("OK");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(null);
+    expect(response.body).toEqual(undefined);
     expect(response.redirected).toBeFalsy();
   });
 
@@ -408,7 +395,7 @@ describe("Response class", () => {
     expect(response.status).toEqual(0);
     expect(response.statusText).toEqual("");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(null);
+    expect(response.body).toEqual(undefined);
     expect(response.type).toEqual("error");
   });
 

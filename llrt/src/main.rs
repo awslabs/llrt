@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     env,
     error::Error,
@@ -10,7 +12,7 @@ use std::{
     time::Instant,
 };
 
-mod core;
+mod base;
 mod minimal_tracer;
 #[cfg(not(feature = "lambda"))]
 mod repl;
@@ -21,8 +23,8 @@ use minimal_tracer::MinimalTracer;
 use tracing::trace;
 
 #[cfg(not(feature = "lambda"))]
-use crate::core::compiler::compile_file;
-use crate::core::{
+use crate::base::compiler::compile_file;
+use crate::base::{
     bytecode::BYTECODE_EXT,
     libs::{
         logging::print_error_and_exit,
@@ -39,7 +41,7 @@ use crate::core::{
 };
 
 // rquickjs components
-use crate::core::{async_with, CatchResultExt};
+use crate::base::{async_with, CatchResultExt};
 
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]

@@ -7,22 +7,22 @@ const transformToWebStream = () => {
 };
 
 async function transformToByteArray() {
-  return this;
+  return this.bytes();
 }
 
 async function transformToString(encoding) {
-  const typedArray = this;
+  const blob = await this.bytes();
   if (encoding === "base64") {
-    return toBase64(typedArray);
+    return toBase64(blob);
   } else if (encoding === "hex") {
-    return toHex(typedArray);
+    return toHex(blob);
   }
-  return toUtf8(typedArray);
+  return toUtf8(blob);
 }
 
 export const sdkStreamMixin = (stream) =>
   Object.assign(stream, {
     transformToByteArray,
-    transformToString,
+    transformToString: transformToString,
     transformToWebStream,
   });

@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
   "Blob-constructor.any.js", // ReferenceError: promise_test is not defined
+  "Blob-slice.any.js", // ReferenceError: promise_test is not defined
 ];
 
 const __filename = fileURLToPath(import.meta.url);

@@ -57,10 +57,10 @@ describe("@aws-sdk/client-s3", () => {
 
     it("should succeed with valid body payload", async () => {
       // prepare the object.
-      const body = createBuffer("1MB");
+      const body = createBuffer(1024 * 1024);
 
       try {
-        await client.putObject({ Bucket, Key, Body: body });
+        await client.putObject({ Bucket, Key, Body: body.text });
       } catch (e) {
         console.error("failed to put");
         throw e;
@@ -69,6 +69,9 @@ describe("@aws-sdk/client-s3", () => {
       try {
         // eslint-disable-next-line no-var
         var result = await client.getObject({ Bucket, Key });
+        // or 'transformToByteArray()'
+        const text = await result.Body.transformToString();
+        expect(text).toEqual(body.text);
       } catch (e) {
         console.error("failed to get");
         throw e;
@@ -143,7 +146,7 @@ describe("@aws-sdk/client-s3", () => {
         Key: multipartObjectKey,
         UploadId,
         PartNumber: 1,
-        Body: createBuffer("1KB"),
+        Body: createBuffer(1024).buffer,
       });
       expect(uploadResult.$metadata.httpStatusCode).toEqual(200);
       expect(typeof uploadResult.ETag).toEqual("string");
@@ -157,6 +160,9 @@ describe("@aws-sdk/client-s3", () => {
       });
       expect(listPartsResult.$metadata.httpStatusCode).toEqual(200);
       expect(listPartsResult.Parts?.length).toEqual(1);
+
+      console.error("====", { a: listPartsResult.Parts?.[0].ETag, b: Etag });
+
       expect(listPartsResult.Parts?.[0].ETag).toEqual(Etag);
 
       //complete multipart upload // TODO FB bug here
@@ -269,16 +275,10 @@ esfuture,29`;
   });
 });
 
-export const createBuffer = (size: string) => {
-  const KB_REGEX = /(\d+)KB/;
-  const MB_REGEX = /(\d+)MB/;
-  if (KB_REGEX.test(size)) {
-    return new Uint8Array(parseInt(size.match(KB_REGEX)![1]) * 1024).fill(0x78);
-  } else if (MB_REGEX.test(size)) {
-    return new Uint8Array(
-      parseInt(size.match(MB_REGEX)![1]) * 1024 * 1024
-    ).fill(0x78);
-  } else {
-    return new Uint8Array(1024 * 1024).fill(0x78);
-  }
+export const createBuffer = (bytes: number) => {
+  const byteArray = new Uint8Array(bytes).fill(0x78);
+  return {
+    buffer: byteArray,
+    text: new TextDecoder().decode(byteArray),
+  };
 };
