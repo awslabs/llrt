@@ -10,6 +10,7 @@ use rquickjs::{
 
 use crate::libs::{
     context::set_spawn_error_handler,
+    hooking::HOOKING_MODE,
     json,
     logging::print_error_and_exit,
     numbers,
@@ -136,7 +137,9 @@ impl Vm {
         })
         .await?;
 
-        runtime.set_promise_hook(Some(promise_hook_tracker())).await;
+        if HOOKING_MODE.to_owned() {
+            runtime.set_promise_hook(Some(promise_hook_tracker())).await;
+        }
 
         Ok(Vm { runtime, ctx })
     }

@@ -12,7 +12,6 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
-#[cfg(feature = "hooking")]
 pub use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use llrt_utils::{
     module::{export_default, ModuleInfo},
@@ -80,15 +79,12 @@ impl Default for Timeout {
 
 fn queue_microtask<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let _uid = unsafe { cb.as_raw().u.ptr } as usize;
-    #[cfg(feature = "hooking")]
-    {
-        register_finalization_registry(&_ctx, cb.clone().into_value(), _uid)?;
-        invoke_async_hook(&_ctx, HookType::Init, ProviderType::Microtask, _uid)?;
-        // NOTE: Defer simply registers a task in a microtask queue
-        // and is separate from the timing of when the actual callback runs.
-        // Therefore, asynchronous before/after hooks are not meaningful and will not be implemented.
-    }
+    let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    register_finalization_registry(&_ctx, cb.clone().into_value(), uid)?;
+    invoke_async_hook(&_ctx, HookType::Init, ProviderType::Microtask, uid)?;
+    // NOTE: Defer simply registers a task in a microtask queue
+    // and is separate from the timing of when the actual callback runs.
+    // Therefore, asynchronous before/after hooks are not meaningful and will not be implemented.
 
     cb.defer::<()>(())?;
     Ok(())
@@ -115,11 +111,9 @@ pub fn set_timeout_interval<'js>(
         },
     };
 
-    #[cfg(feature = "hooking")]
-    {
-        register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
-        invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
-    }
+    register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
+    invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
+
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
 
     let callback = Persistent::<Function>::save(ctx, cb);
@@ -372,15 +366,13 @@ pub fn poll_timers(
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
                 // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-                let _uid: usize = unsafe { timeout.as_raw().u.ptr } as usize;
+                let uid: usize = unsafe { timeout.as_raw().u.ptr } as usize;
 
-                #[cfg(feature = "hooking")]
-                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, _uid)?;
+                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, uid)?;
 
                 timeout.call::<_, ()>(())?;
 
-                #[cfg(feature = "hooking")]
-                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, _uid)?;
+                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, uid)?;
             }
 
             while ctx2.execute_pending_job() {}

@@ -178,6 +178,7 @@ run-cli: js
 
 test: export JS_MINIFY = 0
 test: export TEST_SUB_DIR = unit
+test: export LLRT_ASYNC_HOOKS = 1
 test: js
 	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 

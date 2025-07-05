@@ -1,7 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::env;
+
 use llrt_utils::{object::ObjectExt, provider::ProviderType};
+use once_cell::sync::Lazy;
 use rquickjs::{Ctx, Exception, Function, Result, Value};
+
+pub static HOOKING_MODE: Lazy<bool> =
+    Lazy::new(|| env::var("LLRT_ASYNC_HOOKS").as_deref() == Ok("1"));
 
 #[derive(PartialEq)]
 pub enum HookType {
@@ -16,6 +22,10 @@ pub fn invoke_async_hook(
     provider_type: ProviderType,
     uid: usize,
 ) -> Result<()> {
+    if !HOOKING_MODE.to_owned() {
+        return Ok(());
+    }
+
     let hook_ = match hook_type {
         HookType::Init => "init",
         HookType::Before => "before",
@@ -64,6 +74,10 @@ pub fn register_finalization_registry<'js>(
     target: Value<'js>,
     uid: usize,
 ) -> Result<()> {
+    if !HOOKING_MODE.to_owned() {
+        return Ok(());
+    }
+
     if let Ok(register) =
         ctx.eval::<Function<'js>, &str>("globalThis.asyncFinalizationRegistry.register")
     {
