@@ -1626,7 +1626,7 @@ checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "llrt"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "chrono",
  "constcat",
@@ -1641,7 +1641,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_abort"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_events",
  "llrt_exceptions",
@@ -1654,7 +1654,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_assert"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
@@ -1663,7 +1663,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_buffer"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_encoding",
  "llrt_test",
@@ -1674,14 +1674,14 @@ dependencies = [
 
 [[package]]
 name = "llrt_build"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "rustc_version",
 ]
 
 [[package]]
 name = "llrt_child_process"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "itoa",
  "libc",
@@ -1697,7 +1697,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_compression"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "brotli",
  "brotlic",
@@ -1707,7 +1707,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_console"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_logging",
  "llrt_utils",
@@ -1716,7 +1716,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_context"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_build",
  "llrt_test",
@@ -1728,7 +1728,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_core"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "bytes",
  "chrono",
@@ -1770,7 +1770,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_crypto"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1807,7 +1807,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_dns"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_context",
  "llrt_dns_cache",
@@ -1817,7 +1817,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_dns_cache"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "hyper-util",
  "llrt_context",
@@ -1830,7 +1830,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_encoding"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
@@ -1841,7 +1841,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_events"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_utils",
  "rquickjs",
@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_exceptions"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_utils",
  "rquickjs",
@@ -1858,7 +1858,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_fetch"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "bytes",
  "either",
@@ -1890,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_fs"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "either",
  "llrt_buffer",
@@ -1905,7 +1905,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_json"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "criterion",
  "itoa",
@@ -1920,7 +1920,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_logging"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "itoa",
  "llrt_context",
@@ -1934,7 +1934,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_modules"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_abort",
  "llrt_assert",
@@ -1966,14 +1966,14 @@ dependencies = [
 
 [[package]]
 name = "llrt_navigator"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "rquickjs",
 ]
 
 [[package]]
 name = "llrt_net"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "itoa",
  "llrt_buffer",
@@ -1990,7 +1990,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_numbers"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "criterion",
  "itoa",
@@ -2003,7 +2003,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_os"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "home",
  "libc",
@@ -2023,7 +2023,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_path"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "criterion",
  "llrt_utils",
@@ -2035,7 +2035,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_perf_hooks"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
@@ -2044,7 +2044,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_process"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "libc",
  "llrt_test",
@@ -2055,7 +2055,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_stream"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_context",
@@ -2067,7 +2067,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_stream_web"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_abort",
  "llrt_test",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_string_decoder"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_encoding",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_test"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "nanoid",
  "rquickjs",
@@ -2099,7 +2099,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_timers"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_context",
  "llrt_test",
@@ -2111,7 +2111,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_tty"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "libc",
  "llrt_test",
@@ -2122,7 +2122,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_url"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
@@ -2133,7 +2133,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_util"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_context",
  "llrt_encoding",
@@ -2144,7 +2144,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_utils"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_build",
  "llrt_test",
@@ -2155,7 +2155,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_zlib"
-version = "0.5.1-beta"
+version = "0.6.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_compression",
