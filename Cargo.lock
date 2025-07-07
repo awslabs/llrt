@@ -213,7 +213,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "prettyplease",
  "proc-macro2 1.0.94",
@@ -2819,7 +2819,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#f7b42eb69cbd703477277409b63ba5ee7e3a19ea"
+source = "git+https://github.com/DelSkayn/rquickjs.git#f09451836226c7b24ee2c080e26e0fdd7f2ad01c"
 dependencies = [
  "either",
  "indexmap",
@@ -2830,7 +2830,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#f7b42eb69cbd703477277409b63ba5ee7e3a19ea"
+source = "git+https://github.com/DelSkayn/rquickjs.git#f09451836226c7b24ee2c080e26e0fdd7f2ad01c"
 dependencies = [
  "async-lock",
  "chrono",
@@ -2846,7 +2846,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#f7b42eb69cbd703477277409b63ba5ee7e3a19ea"
+source = "git+https://github.com/DelSkayn/rquickjs.git#f09451836226c7b24ee2c080e26e0fdd7f2ad01c"
 dependencies = [
  "convert_case",
  "fnv",
@@ -2864,7 +2864,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#f7b42eb69cbd703477277409b63ba5ee7e3a19ea"
+source = "git+https://github.com/DelSkayn/rquickjs.git#f09451836226c7b24ee2c080e26e0fdd7f2ad01c"
 dependencies = [
  "bindgen",
  "cc",
