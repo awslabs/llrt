@@ -109,7 +109,7 @@ jobs:
           export PATH="$PATH:/c/Users/$USER/scoop/shims"
           make stdlib
           make libs-${{ inputs.release }}
-          cargo clean
+          rm -rf target/ || true
           make llrt-windows-${{ inputs.release }}.zip
           make llrt-windows-${{ inputs.release }}-no-sdk.zip
           make llrt-windows-${{ inputs.release }}-full-sdk.zip
