@@ -99,8 +99,14 @@ pub fn set_timeout_interval<'js>(
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
     let uid = unsafe { cb.as_raw().u.ptr } as usize;
 
+    // NOTE: https://noncodersuccess.medium.com/understanding-setimmediate-vs-settimeout-in-node-js-6a3ef8fc02d4
+    // If `setImmediate(fn)` and `setTimeout(fn, 0) are queued at the exact same time,
+    // `setImmediate(fn) takes precedence in Node.js, regardless of their execution order.
+    // This is due to the specifications of the Node.js event loop.
+    // The event loop specifications of LLRT are completely different from those of Node.js,
+    // but to make them the same, `setImmedaite()` is executed before any delay setting of `setTimeout()`.
     let (repeating, deadline) = match provider_type {
-        ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(600)), // Already finished
+        ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(600)), // before any setTimeout(fn, delay)
         ProviderType::Timeout => (false, Instant::now() + Duration::from_millis(delay)),
         ProviderType::Interval => (true, Instant::now() + Duration::from_millis(delay)),
         _ => {
