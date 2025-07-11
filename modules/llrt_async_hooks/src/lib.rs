@@ -233,7 +233,7 @@ fn invoke_async_hook(
     object: usize,
     parent: Option<usize>,
 ) -> Result<()> {
-    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(&ctx)?;
+    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
     let state = bind_state.borrow();
 
     if state.hooks.is_empty() {
@@ -298,7 +298,7 @@ fn insert_id_map(
     parent: Option<usize>,
     is_promise: bool,
 ) -> Result<(u64, u64)> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(&ctx)?;
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
     let mut ids = bind_ids.borrow_mut();
     ids.next_async_id += 1;
     let async_id = ids.next_async_id;
@@ -311,13 +311,13 @@ fn insert_id_map(
 }
 
 fn get_id_map(ctx: &Ctx<'_>, target: usize) -> Result<(u64, u64)> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(&ctx)?;
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
     let ids = bind_ids.borrow();
     Ok(*ids.id_map.get(&target).unwrap_or(&(0, 0)))
 }
 
 fn remove_id_map(ctx: &Ctx<'_>, target: usize) -> Result<(u64, u64)> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(&ctx)?;
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
     let mut ids = bind_ids.borrow_mut();
     Ok(ids
         .id_map
@@ -327,7 +327,7 @@ fn remove_id_map(ctx: &Ctx<'_>, target: usize) -> Result<(u64, u64)> {
 }
 
 fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) -> Result<()> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(&ctx)?;
+    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
     bind_ids.borrow_mut().current_id = id;
     Ok(())
 }
