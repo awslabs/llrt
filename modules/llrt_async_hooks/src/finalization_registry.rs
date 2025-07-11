@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::cell::RefCell;
 
+use llrt_utils::result::ResultExt;
 use rquickjs::{prelude::Func, Ctx, Result, Value};
 use tracing::trace;
 
@@ -34,7 +35,7 @@ pub(crate) fn init_finalization_registry(ctx: &Ctx<'_>) -> Result<()> {
 }
 
 fn invoke_finalization_hook<'js>(ctx: Ctx<'js>, uid: Value<'js>) -> Result<()> {
-    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().unwrap();
+    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(&ctx)?;
     let state = bind_state.borrow();
     if state.hooks.is_empty() {
         return Ok(());
@@ -42,12 +43,12 @@ fn invoke_finalization_hook<'js>(ctx: Ctx<'js>, uid: Value<'js>) -> Result<()> {
 
     let uid = uid.as_number().unwrap() as usize;
 
-    let current_id = remove_id_map(&ctx, uid);
+    let current_id = remove_id_map(&ctx, uid)?;
     if current_id.0 == 0 {
         return Ok(());
     }
 
-    update_current_id(&ctx, current_id);
+    update_current_id(&ctx, current_id)?;
     trace!("Destroy[{}](async_id, trigger_id): {:?}", uid, current_id);
 
     for hook in &state.hooks {
