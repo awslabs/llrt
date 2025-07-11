@@ -300,7 +300,7 @@ fn insert_id_map(
 ) -> Result<(u64, u64)> {
     let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
     let mut ids = bind_ids.borrow_mut();
-    ids.next_async_id += 1;
+    ids.next_async_id = ids.next_async_id.wrapping_add(1);
     let async_id = ids.next_async_id;
     let trigger_id = parent
         .and_then(|tid| ids.id_map.get(&tid))
