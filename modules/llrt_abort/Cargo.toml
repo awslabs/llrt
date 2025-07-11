@@ -17,6 +17,7 @@ sleep-timers = ["llrt_timers"]
 sleep-tokio = ["tokio"]
 
 [dependencies]
+llrt_async_hooks = { version = "0.6.0-beta", path = "../llrt_async_hooks" }
 llrt_exceptions = { version = "0.6.0-beta", path = "../llrt_exceptions" }
 llrt_events = { version = "0.6.0-beta", path = "../llrt_events" }
 llrt_timers = { version = "0.6.0-beta", path = "../llrt_timers", optional = true }
