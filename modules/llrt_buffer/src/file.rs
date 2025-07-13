@@ -1,9 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::time;
+use llrt_utils::{
+    primordials::{BasePrimordials, Primordial},
+    time,
+};
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result,
-    Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Exception,
+    Result, Value,
 };
 
 use super::blob::Blob;
@@ -23,16 +26,24 @@ impl File {
     fn new<'js>(
         ctx: Ctx<'js>,
         data: Value<'js>,
-        filename: String,
-        options: Opt<Object<'js>>,
+        filename: Value<'js>,
+        options: Opt<Value<'js>>,
     ) -> Result<Self> {
         let mut last_modified = time::now_millis();
 
         if let Some(ref opts) = options.0 {
-            if let Some(x) = opts.get::<_, Option<Coerced<i64>>>("lastModified")? {
-                last_modified = x.0;
+            if opts.is_bool() || opts.is_float() || opts.is_int() || opts.is_string() {
+                return Err(Exception::throw_type(&ctx, "Invalid options"));
+            }
+
+            if let Some(v) = opts.as_object() {
+                if let Some(x) = v.get::<_, Option<Coerced<i64>>>("lastModified")? {
+                    last_modified = x.0;
+                }
             }
         }
+
+        let filename = coerce_to_string(&ctx, filename)?;
 
         let blob = Blob::new(ctx, Opt(Some(data)), options)?;
 
@@ -83,5 +94,23 @@ impl File {
     #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
     pub fn to_string_tag(&self) -> &'static str {
         stringify!(File)
+    }
+}
+
+fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
+    if value.is_null() {
+        Ok("null".into())
+    } else if value.is_undefined() {
+        Ok("undefined".into())
+    } else if let Some(v) = value.as_bool() {
+        Ok(v.to_string())
+    } else if let Some(v) = value.as_number() {
+        Ok(v.to_string())
+    } else if let Some(s) = value.as_string() {
+        s.to_string()
+    } else {
+        // fallback: try JSON.stringify or [object Object]
+        let base_primordials = BasePrimordials::get(ctx)?;
+        base_primordials.constructor_string.construct((value,))
     }
 }

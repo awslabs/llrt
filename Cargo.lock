@@ -1676,10 +1676,12 @@ dependencies = [
 name = "llrt_buffer"
 version = "0.6.0-beta"
 dependencies = [
+ "itoa",
  "llrt_encoding",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
+ "ryu",
  "tokio",
 ]
 
