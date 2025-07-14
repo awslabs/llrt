@@ -3,21 +3,39 @@ describe("Number to base conversion within 32-bit range", () => {
     { num: 0, radix: 2, expected: "0" },
     { num: 1, radix: 2, expected: "1" },
     { num: -1, radix: 2, expected: "-1" },
+    { num: NaN, radix: 2, expected: "NaN" },
+    { num: Infinity, radix: 2, expected: "Infinity" },
 
     { num: 255, radix: 16, expected: "ff" },
     { num: -255, radix: 16, expected: "-ff" },
+    { num: NaN, radix: 16, expected: "NaN" },
+    { num: Infinity, radix: 16, expected: "Infinity" },
 
     { num: 1023, radix: 8, expected: "1777" },
     { num: -1023, radix: 8, expected: "-1777" },
+    { num: NaN, radix: 8, expected: "NaN" },
+    { num: Infinity, radix: 8, expected: "Infinity" },
 
     { num: 123456789, radix: 10, expected: "123456789" },
     { num: -123456789, radix: 10, expected: "-123456789" },
+    { num: 12345.6789, radix: 10, expected: "12345.6789" },
+    { num: -12345.6789, radix: 10, expected: "-12345.6789" },
+    { num: NaN, radix: 10, expected: "NaN" },
+    { num: Infinity, radix: 10, expected: "Infinity" },
+    { num: -Infinity, radix: 10, expected: "-Infinity" },
 
     { num: 2147483647, radix: 16, expected: "7fffffff" }, // max 32bit signed
     { num: -2147483648, radix: 16, expected: "-80000000" }, // min 32bit signed
+    { num: 12345.6789, radix: 16, expected: "3039.adcc63f14" },
+    { num: -12345.6789, radix: 16, expected: "-3039.adcc63f14" },
+    { num: NaN, radix: 16, expected: "NaN" },
+    { num: Infinity, radix: 16, expected: "Infinity" },
+    { num: -Infinity, radix: 16, expected: "-Infinity" },
 
     { num: 100, radix: 36, expected: "2s" },
     { num: -100, radix: 36, expected: "-2s" },
+    { num: NaN, radix: 36, expected: "NaN" },
+    { num: Infinity, radix: 36, expected: "Infinity" },
   ];
 
   testCases.forEach(({ num, radix, expected }) => {
