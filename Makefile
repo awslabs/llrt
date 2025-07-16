@@ -92,7 +92,6 @@ llrt-darwin-${1}${2}.zip: | clean-js js
 # llrt-windows-arm64* is automatically generated, but not currently supported.
 llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-windows-${1}${2}.zip: | clean-js js
-	@rm -rf target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
 	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
 	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
 endef
