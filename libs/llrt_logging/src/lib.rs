@@ -363,8 +363,7 @@ fn format_raw_inner<'js>(
             if color_enabled {
                 Color::YELLOW.push(result);
             }
-            let mut buffer = ryu::Buffer::new();
-            result.push_str(float_to_string(&mut buffer, unsafe {
+            result.push_str(&float_to_string(unsafe {
                 value.as_float().unwrap_unchecked()
             }));
         },
