@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::time;
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Object, Result,
-    Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Exception,
+    Result, Value,
 };
 
 use super::blob::Blob;
@@ -23,14 +23,20 @@ impl File {
     fn new<'js>(
         ctx: Ctx<'js>,
         data: Value<'js>,
-        filename: String,
-        options: Opt<Object<'js>>,
+        filename: Coerced<String>,
+        options: Opt<Value<'js>>,
     ) -> Result<Self> {
         let mut last_modified = time::now_millis();
 
         if let Some(ref opts) = options.0 {
-            if let Some(x) = opts.get::<_, Option<Coerced<i64>>>("lastModified")? {
-                last_modified = x.0;
+            if opts.is_bool() || opts.is_float() || opts.is_int() || opts.is_string() {
+                return Err(Exception::throw_type(&ctx, "Invalid options"));
+            }
+
+            if let Some(v) = opts.as_object() {
+                if let Some(x) = v.get::<_, Option<Coerced<i64>>>("lastModified")? {
+                    last_modified = x.0;
+                }
             }
         }
 
@@ -38,7 +44,7 @@ impl File {
 
         Ok(Self {
             blob,
-            filename,
+            filename: filename.0,
             last_modified,
         })
     }

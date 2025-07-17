@@ -2,12 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::ops::RangeInclusive;
 
+use llrt_utils::{
+    bytes::ObjectBytes,
+    primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
+};
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception,
-    FromJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, Array, ArrayBuffer, Class, Coerced, Ctx,
+    Exception, FromJs, Result, Symbol, TypedArray, Value,
 };
 
 use super::file::File;
+
+static CONSTRUCT_ERROR: &str =
+    "Failed to construct 'Blob': The provided value cannot be converted to a sequence.";
 
 enum EndingType {
     Native,
@@ -46,23 +54,27 @@ impl Blob {
     pub fn new<'js>(
         ctx: Ctx<'js>,
         parts: Opt<Value<'js>>,
-        options: Opt<Object<'js>>,
+        options: Opt<Value<'js>>,
     ) -> Result<Self> {
         let mut endings = EndingType::Transparent;
         let mut mime_type = String::new();
 
         if let Some(opts) = options.0 {
-            if let Some(x) = opts.get::<_, Option<Coerced<String>>>("type")? {
-                mime_type = normalize_type(x.to_string());
-            }
-            if let Some(Coerced(endings_opt)) = opts.get::<_, Option<Coerced<String>>>("endings")? {
-                if endings_opt == "native" {
-                    endings = EndingType::Native;
-                } else if endings_opt != "transparent" {
-                    return Err(Exception::throw_type(
-                        &ctx,
-                        r#"expected 'endings' to be either 'transparent' or 'native'"#,
-                    ));
+            if let Some(v) = opts.as_object() {
+                if let Some(x) = v.get::<_, Option<Coerced<String>>>("type")? {
+                    mime_type = normalize_type(x.to_string());
+                }
+                if let Some(Coerced(endings_opt)) =
+                    v.get::<_, Option<Coerced<String>>>("endings")?
+                {
+                    if endings_opt == "native" {
+                        endings = EndingType::Native;
+                    } else if endings_opt != "transparent" {
+                        return Err(Exception::throw_type(
+                            &ctx,
+                            r#"expected 'endings' to be either 'transparent' or 'native'"#,
+                        ));
+                    }
                 }
             }
         }
@@ -86,7 +98,7 @@ impl Blob {
         self.mime_type.clone()
     }
 
-    pub async fn text(&mut self) -> String {
+    pub async fn text(&self) -> String {
         String::from_utf8_lossy(&self.data).to_string()
     }
 
@@ -104,13 +116,13 @@ impl Blob {
         let start = if start < 0 {
             (self.data.len() as isize + start).max(0) as usize
         } else {
-            start as usize
+            self.data.len().min(start as usize)
         };
         let end = end.0.unwrap_or_default();
         let end = if end < 0 {
             (self.data.len() as isize + end).max(0) as usize
         } else {
-            end as usize
+            self.data.len().min(end as usize)
         };
         let data = &self.data[start..end];
         let mime_type = content_type.0.map(normalize_type).unwrap_or_default();
@@ -151,18 +163,44 @@ fn bytes_from_parts<'js>(
     parts: Value<'js>,
     endings: EndingType,
 ) -> Result<Vec<u8>> {
-    let array = parts.into_array().ok_or_else(|| {
-        Exception::throw_type(
-            ctx,
-            "Failed to construct 'Blob': The provided value cannot be converted to a sequence.",
-        )
-    })?;
+    let array = if let Some(obj) = parts.as_object() {
+        if obj.contains_key(Symbol::iterator(ctx.clone()))? {
+            BasePrimordials::get(ctx)?
+                .function_array_from
+                .call((parts.clone(),))?
+        } else {
+            parts
+                .into_array()
+                .ok_or_else(|| Exception::throw_type(ctx, CONSTRUCT_ERROR))?
+        }
+    } else {
+        return Err(Exception::throw_type(ctx, CONSTRUCT_ERROR));
+    };
+
     let mut data = Vec::new();
     for elem in array.iter::<Value>() {
         let elem = elem?;
+        if let Some(arr) = elem.as_array() {
+            let string = array_to_string(arr)?;
+            data.extend_from_slice(string.as_bytes());
+            continue;
+        }
         if let Some(object) = elem.as_object() {
             if let Some(x) = Class::<Blob>::from_object(object) {
                 data.extend_from_slice(&x.borrow().data);
+                continue;
+            }
+            if let Some(x) = Class::<File>::from_object(object) {
+                let file = x.borrow();
+                let end = Some(file.size().try_into().or_throw(ctx)?);
+                let mime_type = Some(file.mime_type());
+                data.extend_from_slice(&file.slice(Opt(Some(0)), Opt(end), Opt(mime_type)).data);
+                continue;
+            }
+            if let Ok(x) = ObjectBytes::from(ctx, object) {
+                data.extend_from_slice(x.as_bytes(ctx).map_err(|_| {
+                    Exception::throw_type(ctx, "Cannot create a blob with detached buffer")
+                })?);
                 continue;
             }
             if let Some(x) = ArrayBuffer::from_object(object.clone()) {
@@ -172,6 +210,7 @@ fn bytes_from_parts<'js>(
                 continue;
             }
         }
+
         let string = Coerced::<String>::from_js(ctx, elem)?.0;
         if let EndingType::Transparent = endings {
             data.extend_from_slice(string.as_bytes());
@@ -212,4 +251,28 @@ fn bytes_from_parts<'js>(
         }
     }
     Ok(data)
+}
+
+fn array_to_string(array: &Array) -> Result<String> {
+    let mut itoa_buffer = itoa::Buffer::new();
+    let mut ryu_buffer = ryu::Buffer::new();
+
+    let parts = array
+        .clone()
+        .into_iter()
+        .map(|value| {
+            let value = value?;
+            if let Some(string) = value.as_string() {
+                Ok(string.to_string()?)
+            } else if let Some(number) = value.as_int() {
+                Ok(itoa_buffer.format(number).to_string())
+            } else if let Some(number) = value.as_float() {
+                Ok(ryu_buffer.format(number).to_string())
+            } else {
+                Ok(String::new())
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(parts.join(","))
 }
