@@ -1,7 +1,7 @@
 [package]
 name = "llrt_logging"
 description = "LLRT logging helpers"
-version = "0.6.0-beta"
+version = "0.6.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -12,11 +12,11 @@ path = "src/lib.rs"
 
 [dependencies]
 itoa = { version = "1", default-features = false }
-llrt_context = { version = "0.6.0-beta", path = "../llrt_context" }
-llrt_encoding = { version = "0.6.0-beta", path = "../llrt_encoding" }
-llrt_json = { version = "0.6.0-beta", path = "../llrt_json" }
-llrt_numbers = { version = "0.6.0-beta", path = "../llrt_numbers" }
-llrt_utils = { version = "0.6.0-beta", path = "../llrt_utils", default-features = false }
+llrt_context = { version = "0.6.1-beta", path = "../llrt_context" }
+llrt_encoding = { version = "0.6.1-beta", path = "../llrt_encoding" }
+llrt_json = { version = "0.6.1-beta", path = "../llrt_json" }
+llrt_numbers = { version = "0.6.1-beta", path = "../llrt_numbers" }
+llrt_utils = { version = "0.6.1-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }

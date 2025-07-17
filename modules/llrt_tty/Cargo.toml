@@ -1,7 +1,7 @@
 [package]
 name = "llrt_tty"
 description = "LLRT Module tty"
-version = "0.6.0-beta"
+version = "0.6.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -12,7 +12,7 @@ name = "llrt_tty"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_utils = { version = "0.6.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_utils = { version = "0.6.1-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
 libc = { version = "0.2", default-features = false }
 
