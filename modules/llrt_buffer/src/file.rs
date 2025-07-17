@@ -1,9 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{
-    primordials::{BasePrimordials, Primordial},
-    time,
-};
+use llrt_utils::time;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Exception,
     Result, Value,
@@ -26,7 +23,7 @@ impl File {
     fn new<'js>(
         ctx: Ctx<'js>,
         data: Value<'js>,
-        filename: Value<'js>,
+        filename: Coerced<String>,
         options: Opt<Value<'js>>,
     ) -> Result<Self> {
         let mut last_modified = time::now_millis();
@@ -43,13 +40,11 @@ impl File {
             }
         }
 
-        let filename = coerce_to_string(&ctx, filename)?;
-
         let blob = Blob::new(ctx, Opt(Some(data)), options)?;
 
         Ok(Self {
             blob,
-            filename,
+            filename: filename.0,
             last_modified,
         })
     }
@@ -94,23 +89,5 @@ impl File {
     #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
     pub fn to_string_tag(&self) -> &'static str {
         stringify!(File)
-    }
-}
-
-fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
-    if value.is_null() {
-        Ok("null".into())
-    } else if value.is_undefined() {
-        Ok("undefined".into())
-    } else if let Some(v) = value.as_bool() {
-        Ok(v.to_string())
-    } else if let Some(v) = value.as_number() {
-        Ok(v.to_string())
-    } else if let Some(s) = value.as_string() {
-        s.to_string()
-    } else {
-        // fallback: try JSON.stringify or [object Object]
-        let base_primordials = BasePrimordials::get(ctx)?;
-        base_primordials.constructor_string.construct((value,))
     }
 }
