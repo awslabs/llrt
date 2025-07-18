@@ -19,7 +19,7 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rand::{prelude::ThreadRng, Rng};
+use rand::Rng;
 use ring::rand::{SecureRandom, SystemRandom};
 #[cfg(feature = "subtle-rs")]
 use rquickjs::prelude::Async;
@@ -75,10 +75,10 @@ fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
 }
 
 fn get_random_int(first: i64, second: Opt<i64>) -> Result<i64> {
-    let mut rng = ThreadRng::default();
+    let mut rng = rand::rng();
     let random_number = match second.0 {
-        Some(max) => rng.gen_range(first..max),
-        None => rng.gen_range(0..first),
+        Some(max) => rng.random_range(first..max),
+        None => rng.random_range(0..first),
     };
 
     Ok(random_number)

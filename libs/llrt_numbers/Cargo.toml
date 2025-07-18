@@ -19,9 +19,8 @@ ryu = { version = "1", default-features = false }
 [dev-dependencies]
 criterion = { version = "0.6", default-features = false }
 llrt_test = { version = "0.6.0-beta", path = "../llrt_test" }
-rand = { version = "0.8", features = [
+rand = { version = "0.9", features = [
   "alloc",
-  "getrandom",
 ], default-features = false }
 
 [[bench]]
