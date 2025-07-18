@@ -4,13 +4,17 @@
 
 use std::rc::Rc;
 
-use der::{asn1::UintRef, Decode, Encode};
+use der::{
+    asn1::{OctetStringRef, UintRef},
+    Decode, Encode,
+};
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
+use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{
     atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
 };
-use rsa::pkcs8::{EncodePrivateKey, PrivateKeyInfo};
+use rsa::pkcs8::EncodePrivateKey;
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
 use crate::sha_hash::ShaAlgorithm;
@@ -152,8 +156,8 @@ pub enum KeyUsageAlgorithm {
         | KeyUsage::DeriveKey.mask()
         | KeyUsage::DeriveBits.mask(),
 
-    RsaOaep = ((KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask()) << 8) //private
-        | KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask(), //public
+    RsaOaep = ((KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask()) << 8) //private
+    | KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask(), //public
 
     //ECDSA, ED25519, all non-OEAP RSA
     Sign = (KeyUsage::Sign.mask() << 8) //private
@@ -787,16 +791,16 @@ fn import_rsa_key<'js>(
             public_key_info(ctx, kind, data, public_key)?
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pk_info = PrivateKeyInfo::from_der(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
+            let pk_info = PrivateKeyInfoRef::from_der(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             let object_identifier = pk_info.algorithm.oid;
             validate_oid(object_identifier)?;
 
-            let private_key =
-                rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key).or_throw(ctx)?;
+            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key.as_bytes())
+                .or_throw(ctx)?;
 
             let public_exponent = private_key.public_exponent.as_bytes().to_vec();
             let modulus_length = private_key.modulus.as_bytes().len() * 8;
-            *data = pk_info.private_key.to_vec();
+            *data = pk_info.private_key.to_der().or_throw(ctx)?;
             *kind = KeyKind::Private;
 
             (modulus_length, public_exponent)
@@ -1001,7 +1005,7 @@ fn import_ec_key<'js>(
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
+            let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
             *data = object_bytes.into_bytes(ctx)?;
             *kind = KeyKind::Private;
@@ -1037,12 +1041,12 @@ fn import_okp_key<'js>(
             if let Some(d) = object.get_optional::<_, String>("d")? {
                 let private_key = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
 
-                let pk_info = PrivateKeyInfo::new(
+                let pk_info = PrivateKeyInfoRef::new(
                     AlgorithmIdentifier {
                         oid,
                         parameters: None,
                     },
-                    &private_key,
+                    OctetStringRef::new(private_key.as_slice()).or_throw(ctx)?,
                 );
 
                 *data = pk_info.to_der().or_throw(ctx)?;
@@ -1071,7 +1075,7 @@ fn import_okp_key<'js>(
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pkcs8 = PrivateKeyInfo::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
+            let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
             *data = object_bytes.into_bytes(ctx)?;
             *kind = KeyKind::Private;

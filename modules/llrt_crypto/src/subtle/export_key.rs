@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use der::{
-    asn1::{self, BitString},
+    asn1::{self, BitString, OctetStringRef},
     Decode, Encode, SecretDocument,
 };
 use elliptic_curve::{
@@ -10,10 +10,11 @@ use elliptic_curve::{
 };
 use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_utils::result::ResultExt;
+use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
 use rsa::{
     pkcs1::DecodeRsaPrivateKey,
-    pkcs8::{AssociatedOid, DecodePrivateKey, EncodePrivateKey, PrivateKeyInfo},
+    pkcs8::{AssociatedOid, DecodePrivateKey, EncodePrivateKey},
     RsaPrivateKey,
 };
 use spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfo};
@@ -106,12 +107,12 @@ fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
 
     let bytes: Vec<u8> = match &key.algorithm {
         KeyAlgorithm::Ec { .. } | KeyAlgorithm::Ed25519 => handle.into(),
-        KeyAlgorithm::X25519 => PrivateKeyInfo::new(
+        KeyAlgorithm::X25519 => PrivateKeyInfoRef::new(
             AlgorithmIdentifier {
                 oid: const_oid::db::rfc8410::ID_X_25519,
                 parameters: None,
             },
-            handle,
+            OctetStringRef::new(handle).or_throw(ctx)?,
         )
         .to_der()
         .or_throw(ctx)?,
@@ -302,9 +303,14 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         },
         KeyAlgorithm::Ed25519 => {
             if key.kind == KeyKind::Private {
-                let pki = PrivateKeyInfo::try_from(handle).or_throw(ctx)?;
+                let pki = PrivateKeyInfoRef::try_from(handle).or_throw(ctx)?;
                 let pub_key = pki.public_key.as_ref().unwrap();
-                set_okp_jwk_props(name, &obj, Some(pki.private_key), pub_key)?;
+                set_okp_jwk_props(
+                    name,
+                    &obj,
+                    Some(pki.private_key.as_bytes()),
+                    pub_key.raw_bytes(),
+                )?;
             } else {
                 set_okp_jwk_props(name, &obj, None, handle)?;
             }

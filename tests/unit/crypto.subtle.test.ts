@@ -59,7 +59,7 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
   const hashAlgorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
   const curves = ["P-256", "P-384"];
   const rsaParams = {
-    modulusLength: 2048,
+    modulusLength: 1024,
     publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
   };
 
@@ -211,7 +211,7 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
     }
   });
 
-  it.skip("should be processing RSA-PSS/RSA-OAEP/RSASSA-PKCS1-v1_5 algorithm", async () => {
+  it("should be processing RSA-PSS/RSA-OAEP/RSASSA-PKCS1-v1_5 algorithm", async () => {
     const rsaAlgorithms = [
       {
         name: "RSA-PSS",
@@ -264,12 +264,12 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
 
       if (t.usages?.includes("sign")) {
         const signature = await crypto.subtle.sign(
-          { name: t.name },
+          { name: t.name, saltLength: 32 },
           privateKey,
           ENCODED_DATA
         );
         const isValid = await crypto.subtle.verify(
-          { name: t.name },
+          { name: t.name, saltLength: 32 },
           publicKey,
           signature,
           ENCODED_DATA
@@ -432,7 +432,7 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
   });
 
   // Caveat: The current RSA implementation is too slow to complete the test within the time limit.
-  it.skip("should be processing RSA-OAEP algorithm", async () => {
+  it("should be processing RSA-OAEP algorithm", async () => {
     const hashAlgorithms = ["SHA-256", "SHA-384", "SHA-512"];
     const parameters = hashAlgorithms.map((hash) => ({
       name: "RSA-OAEP",
@@ -812,19 +812,19 @@ describe("SubtileCrypto import/export", () => {
       ),
 
       // RSA algorithms
-      // ...["RSASSA-PKCS1-v1_5", "RSA-PSS", "RSA-OAEP"].flatMap((name) =>
-      //   HASH_ALGORITHMS.map((hash) => ({
-      //     generateParams: {
-      //       name,
-      //       modulusLength: 2048,
-      //       publicExponent: new Uint8Array([1, 0, 1]),
-      //       hash,
-      //     },
-      //     usages:
-      //       name === "RSA-OAEP" ? ["encrypt", "decrypt"] : ["sign", "verify"],
-      //     formats: ASYMMETRIC_FORMATS,
-      //   }))
-      // ),
+      ...["RSASSA-PKCS1-v1_5", "RSA-PSS", "RSA-OAEP"].flatMap((name) =>
+        HASH_ALGORITHMS.map((hash) => ({
+          generateParams: {
+            name,
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash,
+          },
+          usages:
+            name === "RSA-OAEP" ? ["encrypt", "decrypt"] : ["sign", "verify"],
+          formats: ASYMMETRIC_FORMATS,
+        }))
+      ),
 
       // EC algorithms
       ...["ECDSA", "ECDH"].flatMap((name) =>
@@ -932,11 +932,11 @@ describe("SubtileCrypto wrap/unwrap", () => {
       })),
 
       // RSA-OAEP
-      // ...HASH_ALGORITHMS.map((hash) => ({
+      // ...HASH_ALGORITHMS.slice(1).map((hash) => ({
       //   name: "RSA-OAEP",
       //   generateParams: {
       //     name: "RSA-OAEP",
-      //     modulusLength: 2048,
+      //     modulusLength: 4096,
       //     publicExponent: new Uint8Array([1, 0, 1]),
       //     hash,
       //   },

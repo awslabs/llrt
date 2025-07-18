@@ -8,9 +8,11 @@ use ring::{
 };
 use rquickjs::{Class, Ctx, Result};
 use rsa::{
+    pkcs1::DecodeRsaPublicKey,
     pkcs1v15::Pkcs1v15Sign,
     pss::Pss,
     sha2::{Sha256, Sha384, Sha512},
+    RsaPublicKey,
 };
 
 use crate::{
@@ -19,7 +21,7 @@ use crate::{
 };
 
 use super::{
-    algorithm_mismatch_error, key_algorithm::KeyAlgorithm, rsa_private_key,
+    algorithm_mismatch_error, key_algorithm::KeyAlgorithm, rsa_hash_digest,
     sign_algorithm::SigningAlgorithm, EllipticCurve,
 };
 
@@ -99,12 +101,12 @@ fn verify(
             hmac.update(data);
             hmac.sign().as_ref() == signature
         },
-        SigningAlgorithm::RsaPss { salt_length } => rsa_verify(
-            ctx,
-            key,
-            "RSA-PSS",
-            data,
-            |hash, digest, public_key| match hash {
+        SigningAlgorithm::RsaPss { salt_length } => {
+            let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSA-PSS")?;
+            let digest = digest.as_ref();
+            let public_key = RsaPublicKey::from_pkcs1_der(&key.handle).or_throw(ctx)?;
+
+            match hash {
                 ShaAlgorithm::SHA256 => public_key
                     .verify(
                         Pss::new_with_salt::<Sha256>(*salt_length as usize),
@@ -127,14 +129,15 @@ fn verify(
                     )
                     .is_ok(),
                 _ => unreachable!(),
-            },
-        )?,
-        SigningAlgorithm::RsassaPkcs1v15 => rsa_verify(
-            ctx,
-            key,
-            "RSASSA-PKCS1-v1_5",
-            data,
-            |hash, digest, public_key| match hash {
+            }
+        },
+        SigningAlgorithm::RsassaPkcs1v15 => {
+            let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSASSA-PKCS1-v1_5")?;
+            let public_key = RsaPublicKey::from_pkcs1_der(&key.handle).or_throw(ctx)?;
+
+            let digest = digest.as_ref();
+
+            match hash {
                 ShaAlgorithm::SHA256 => public_key
                     .verify(Pkcs1v15Sign::new::<Sha256>(), digest, signature)
                     .is_ok(),
@@ -145,27 +148,7 @@ fn verify(
                     .verify(Pkcs1v15Sign::new::<Sha512>(), digest, signature)
                     .is_ok(),
                 _ => unreachable!(),
-            },
-        )?,
+            }
+        },
     })
-}
-
-// Helper function for RSA verification
-fn rsa_verify<F>(
-    ctx: &Ctx<'_>,
-    key: &CryptoKey,
-    algorithm_name: &str,
-    data: &[u8],
-    verify_fn: F,
-) -> Result<bool>
-where
-    F: FnOnce(&ShaAlgorithm, &[u8], &rsa::RsaPublicKey) -> bool,
-{
-    let (private_key, hash, digest) = rsa_private_key(ctx, key, data, algorithm_name)?;
-
-    let public_key = private_key.to_public_key();
-
-    let result = verify_fn(hash, digest.as_ref(), &public_key);
-
-    Ok(result)
 }
