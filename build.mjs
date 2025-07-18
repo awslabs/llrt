@@ -58,6 +58,7 @@ const ES_BUILD_OPTIONS = {
   format: "esm",
   external: [
     "assert",
+    "async_hooks",
     "console",
     "node:console",
     "crypto",
