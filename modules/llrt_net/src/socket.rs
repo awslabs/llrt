@@ -467,8 +467,8 @@ mod tests {
                     .await
                     .unwrap();
 
-                let mut rng = rand::thread_rng();
-                let port: u16 = rng.gen_range(49152..=65535);
+                let mut rng = rand::rng();
+                let port: u16 = rng.random_range(49152..=65535);
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
