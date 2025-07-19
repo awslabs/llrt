@@ -55,15 +55,10 @@ uuid = { version = "1", features = [
 ], default-features = false }
 uuid-simd = { version = "0.8", features = ["uuid"], default-features = false }
 
-
-<<<<<<< HEAD
-llrt_json = { version = "0.6.1-beta", path = "../../libs/llrt_json", optional = true }# optional
-aes-gcm = { version = "0.11.0-rc.0", features = [
-=======
+# optional
 llrt_json = { version = "0.6.1-beta", path = "../../libs/llrt_json", optional = true }
-aes = { version = "0.8", optional = true }
-aes-gcm = { version = "0.10", features = [
->>>>>>> 6d5508e (Prepare v0.6.1-beta)
+aes = { version = "0.9.0-rc.0", optional = true }
+aes-gcm = { version = "0.11.0-rc.0", features = [
   "alloc",
 ], default-features = false, optional = true }
 aes-kw = { version = "0.3.0-rc.0", features = [
@@ -117,4 +112,4 @@ pkcs8 = { version = "0.11.0-rc.6", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-llrt_test = { path = "../../libs/llrt_test" }aes = { version = "0.9.0-rc.0", optional = true }
+llrt_test = { path = "../../libs/llrt_test" }
