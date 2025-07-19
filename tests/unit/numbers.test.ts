@@ -36,6 +36,9 @@ describe("Number to base conversion within 32-bit range", () => {
     { num: -100, radix: 36, expected: "-2s" },
     { num: NaN, radix: 36, expected: "NaN" },
     { num: Infinity, radix: 36, expected: "Infinity" },
+
+    { num: new Number(0), radix: undefined, expected: "0" },
+    { num: new Number(42), radix: undefined, expected: "42" },
   ];
 
   testCases.forEach(({ num, radix, expected }) => {
