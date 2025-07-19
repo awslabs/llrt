@@ -1,7 +1,7 @@
 [package]
 name = "llrt_encoding"
 description = "LLRT encoding helpers"
-version = "0.6.0-beta"
+version = "0.6.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -19,4 +19,4 @@ phf = { version = "0.12", features = [
 memchr = { version = "2", default-features = false }
 
 [build-dependencies]
-llrt_build = { version = "0.6.0-beta", path = "../llrt_build" }
+llrt_build = { version = "0.6.1-beta", path = "../llrt_build" }
