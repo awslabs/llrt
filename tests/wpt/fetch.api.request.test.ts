@@ -12,7 +12,6 @@ const SKIP_FILES = [
   "request-cache-only-if-cached.any.js", // ReferenceError: promise_test is not defined
   "request-cache-reload.any.js", // ReferenceError: promise_test is not defined
   "request-consume-empty.any.js", // ReferenceError: FormData is not defined
-  "request-error.any.js", // ReferenceError: badRequestArgTests is not defined
   "request-init-002.any.js", // ReferenceError: FormData is not defined
 ];
 
