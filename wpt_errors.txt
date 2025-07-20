@@ -97,6 +97,9 @@ Error: [Ensure fetch() rejects null bytes in headers] promise_rejects_js: functi
 fetch/api/basic > should pass http-response-code.any.js tests
 Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
 
+fetch/api/basic > should pass integrity.sub.any.js tests
+Error: [Empty string integrity] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
+
 fetch/api/basic > should pass keepalive.any.js tests
 Error: [[keepalive] simple GET request on 'load' [no payload]; setting up] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
 
@@ -104,26 +107,10 @@ fetch/api/basic > should pass mode-no-cors.sub.any.js tests
 Error: [Fetch top.txt with no-cors mode] promise_test: Unhandled rejection with value: object "Error: invalid format"
 
 fetch/api/basic > should pass mode-same-origin.any.js tests
-TypeError: cannot read property 'replace' of undefined
-    at dirname (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.basic.test.js:7702:3)
-    at anonymous (<input>:27:25)
-    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.basic.test.js:8172:29)
-    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.basic.test.js:8216:24)
-    at <anonymous> (llrt:test/worker:6728:28)
-    at Promise (native)
-    at executeAsyncOrCallbackFn (llrt:test/worker:6719:17)
-    at runTests (llrt:test/worker:6797:45)
+Error: [Fetch top.txt with same-origin mode] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/basic > should pass referrer.any.js tests
-TypeError: cannot read property 'replace' of undefined
-    at dirname (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.basic.test.js:7702:3)
-    at anonymous (<input>:20:68)
-    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.basic.test.js:8172:29)
-    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/fetch.api.basic.test.js:8216:24)
-    at <anonymous> (llrt:test/worker:6728:28)
-    at Promise (native)
-    at executeAsyncOrCallbackFn (llrt:test/worker:6719:17)
-    at runTests (llrt:test/worker:6797:45)
+Error: [origin-when-cross-origin policy on a same-origin URL] promise_test: Unhandled rejection with value: object "Error: invalid format"
 
 fetch/api/basic > should pass request-head.any.js tests
 Error: [Fetch with HEAD with body] promise_rejects_js: function "function() {
