@@ -1,10 +1,4 @@
 🧪/wpt/FileAPI.blob.test.js 
-FileAPI/blob > should pass Blob-array-buffer.any.js tests
-Error: [Blob.arrayBuffer()] promise_test: Unhandled rejection with value: object "ReferenceError: assert_true is not defined"
-
-FileAPI/blob > should pass Blob-bytes.any.js tests
-Error: [Blob.bytes()] promise_test: Unhandled rejection with value: object "ReferenceError: assert_true is not defined"
-
 FileAPI/blob > should pass Blob-stream.any.js tests
 Error: [Blob.stream()] promise_test: Unhandled rejection with value: object "TypeError: not a function"
 
@@ -72,6 +66,11 @@ encoding > should pass textencoder-utf16-surrogates.any.js tests
 Error: [USVString handling: lone surrogate lead] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
 
 
+🧪/wpt/fetch.api.abort.test.js 
+fetch/api/abort > should pass general.any.js tests
+Error: [Aborting rejects with AbortError] assert_unreached: Should have rejected: undefined Reached unreachable code
+
+
 🧪/wpt/fetch.api.basic.test.js 
 fetch/api/basic > should pass accept-header.any.js tests
 Error: [Request through fetch should have 'accept' header with value '*/*'] promise_test: Unhandled rejection with value: object "Error: invalid format"
@@ -98,8 +97,20 @@ Error: [Ensure fetch() rejects null bytes in headers] promise_rejects_js: functi
 fetch/api/basic > should pass http-response-code.any.js tests
 Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
 
+fetch/api/basic > should pass integrity.sub.any.js tests
+Error: [Empty string integrity] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
+
+fetch/api/basic > should pass keepalive.any.js tests
+Error: [[keepalive] simple GET request on 'load' [no payload]; setting up] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
+
 fetch/api/basic > should pass mode-no-cors.sub.any.js tests
 Error: [Fetch top.txt with no-cors mode] promise_test: Unhandled rejection with value: object "Error: invalid format"
+
+fetch/api/basic > should pass mode-same-origin.any.js tests
+Error: [Fetch top.txt with same-origin mode] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
+
+fetch/api/basic > should pass referrer.any.js tests
+Error: [origin-when-cross-origin policy on a same-origin URL] promise_test: Unhandled rejection with value: object "Error: invalid format"
 
 fetch/api/basic > should pass request-head.any.js tests
 Error: [Fetch with HEAD with body] promise_rejects_js: function "function() {
@@ -189,6 +200,9 @@ Error: [Consume String request's body as text] assert_false: bodyUsed is false a
 fetch/api/request > should pass request-disturbed.any.js tests
 Error: [Request's body: initial state] assert_true: non-null body type expected true got false
 
+fetch/api/request > should pass request-error.any.js tests
+Error: [RequestInit's window is not null] assert_throws_js: Expect TypeError exception function "() => new Request(...args)" did not throw
+
 fetch/api/request > should pass request-headers.any.js tests
 Error: [Adding invalid request header "Accept-Charset: KO"] assert_equals: expected (object) null but got (string) "KO"
 
@@ -233,7 +247,7 @@ fetch/api/response > should pass response-from-stream.any.js tests
 Error: [Constructing a Response with a stream on which getReader() is called] assert_throws_js: function "() => new Response(stream)" did not throw
 
 fetch/api/response > should pass response-headers-guard.any.js tests
-Error: [Ensure response headers are immutable] promise_test: Unhandled rejection with value: object "Error: invalid format"
+Error: [Ensure response headers are immutable] promise_test: Unhandled rejection with value: object "TypeError: cannot read property 'get' of undefined"
 
 fetch/api/response > should pass response-init-001.any.js tests
 Error: [Check default value for type attribute] assert_equals: Expect default response.type is default expected "default" but got "basic"
@@ -303,8 +317,22 @@ Error: [tee() should not call Promise.prototype.then()] patched then() called
 
 
 🧪/wpt/streams.writable-streams.test.js 
-streams/writable-streams > should pass general.any.js tests
-Error: [WritableStream's strategy.size should not be called as a method] promise_test: Unhandled rejection with value: object "Error: size called as a method"
+streams/writable-streams > should pass aborting.any.js tests
+undefined: undefined
+
+----- LAST STDERR: -----
+
+thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
+called `Option::unwrap()` on a `None` value
+
+streams/writable-streams > should pass bad-strategies.any.js tests
+Error: Test timed out after 5000ms
+    at tick (llrt:test/index:480:15)
+    at <anonymous> (llrt:test/index:160:12)
 
 
 🧪/wpt/url.test.js 

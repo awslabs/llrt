@@ -2,6 +2,9 @@ export default function (self) {
   var RESOURCES_DIR = "../resources/";
 
   function dirname(path) {
+    if (typeof path !== "string") {
+      return "";
+    }
     return path.replace(/\/[^\/]*$/, "/");
   }
   self.dirname = dirname;

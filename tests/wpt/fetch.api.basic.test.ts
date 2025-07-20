@@ -4,10 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const SKIP_FILES = [
-  "integrity.sub.any.js", // TypeError: cannot read property 'replace' of undefined
-  "keepalive.any.js", // ReferenceError: get_host_info is not defined
-  "mode-same-origin.any.js", // ReferenceError: get_host_info is not defined
-  "referrer.any.js", // ReferenceError: get_host_info is not defined
   "request-forbidden-headers.any.js", // ReferenceError: promise_test is not defined
   "request-private-network-headers.tentative.any.js", // ReferenceError: promise_test is not defined
   "request-referrer.any.js", // TypeError: cannot read property 'href' of undefined

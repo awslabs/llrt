@@ -3,6 +3,7 @@ import resourcesTestharness from "./resources/testharness.js";
 
 import commonGc from "./common/gc.js";
 import commonSubsetTests from "./common/subset-tests.js";
+import getHostInfoSub from "./common/get-host-info.sub.js";
 
 import encodings from "./encoding/resources/encodings.js";
 
@@ -12,6 +13,7 @@ import fetchSwInterceptAbort from "./fetch/api/resources/sw-intercept-abort.js";
 import fetchSwIntercept from "./fetch/api/resources/sw-intercept.js";
 import fetchUtils from "./fetch/api/resources/utils.js";
 import fetchRequestRequestCache from "./fetch/api/request/request-cache.js";
+import fetchRequestRequestError from "./fetch/api/request/request-error.js";
 
 export const runTestDynamic = (testSource, baseDir, done) => {
   globalThis._fetch = globalThis.fetch;
@@ -32,6 +34,9 @@ export const runTestDynamic = (testSource, baseDir, done) => {
             baseDir + "/fetch/api/cors/resources/not-cors-safelisted.json"
           );
           break;
+        case "../resources/data.json":
+          data = require(baseDir + "/fetch/api/resources/data.json");
+          break;
         default:
           return _fetch(url, option);
       }
@@ -46,6 +51,7 @@ export const runTestDynamic = (testSource, baseDir, done) => {
 
   commonGc(context);
   commonSubsetTests(context);
+  getHostInfoSub(context);
 
   fetchKeepaliveHelper(context);
   // fetchKeepaliveWorker(context);
@@ -53,6 +59,7 @@ export const runTestDynamic = (testSource, baseDir, done) => {
   // fetchSwIntercept(context);
   fetchUtils(context);
   fetchRequestRequestCache(context);
+  fetchRequestRequestError(context);
 
   context.setup({
     explicit_done: true,
