@@ -12,8 +12,6 @@ use std::{
 
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
-#[cfg(not(all(feature = "builtin-roots", not(feature = "platform-roots"))))]
-use hyper_rustls::ConfigBuilderExt;
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
@@ -24,10 +22,9 @@ use llrt_dns_cache::CachedDnsResolver;
 use llrt_utils::{class::CustomInspectExtension, result::ResultExt};
 use once_cell::sync::Lazy;
 use rquickjs::{Class, Ctx, Result};
-#[cfg(all(feature = "builtin-roots", not(feature = "platform-roots")))]
-use rustls::RootCertStore;
-use rustls::{crypto::ring, pki_types::CertificateDer, ClientConfig, SupportedProtocolVersion};
-#[cfg(all(feature = "builtin-roots", not(feature = "platform-roots")))]
+use rustls::{
+    crypto::ring, pki_types::CertificateDer, ClientConfig, RootCertStore, SupportedProtocolVersion,
+};
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
@@ -60,7 +57,6 @@ pub fn set_extra_ca_certs(certs: Vec<CertificateDer<'static>>) {
     _ = EXTRA_CA_CERTS.set(certs);
 }
 
-#[cfg(all(feature = "builtin-roots", not(feature = "platform-roots")))]
 fn get_extra_ca_certs() -> Option<Vec<CertificateDer<'static>>> {
     let certs = EXTRA_CA_CERTS.get_or_init(Vec::new).clone();
     if certs.is_empty() {
@@ -86,19 +82,15 @@ fn get_tls_versions() -> Option<Vec<&'static SupportedProtocolVersion>> {
 }
 
 static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
-    #[cfg(all(feature = "builtin-roots", not(feature = "platform-roots")))]
-    let root_certificates = {
-        let mut root_certificates = RootCertStore::empty();
+    let mut root_certificates = RootCertStore::empty();
 
-        for cert in TLS_SERVER_ROOTS.iter().cloned() {
-            root_certificates.roots.push(cert)
-        }
+    for cert in TLS_SERVER_ROOTS.iter().cloned() {
+        root_certificates.roots.push(cert)
+    }
 
-        if let Some(extra_ca_certs) = get_extra_ca_certs() {
-            root_certificates.add_parsable_certificates(extra_ca_certs);
-        }
-        root_certificates
-    };
+    if let Some(extra_ca_certs) = get_extra_ca_certs() {
+        root_certificates.add_parsable_certificates(extra_ca_certs);
+    }
 
     let builder = ClientConfig::builder_with_provider(ring::default_provider().into());
 
@@ -106,16 +98,10 @@ static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
         Some(versions) => builder.with_protocol_versions(&versions),
         None => builder.with_safe_default_protocol_versions(),
     }
-    .expect("TLS configuration failed");
-
-    #[cfg(not(all(feature = "builtin-roots", not(feature = "platform-roots"))))]
-    let client_config = client_config
-        .try_with_platform_verifier()
-        .expect("Failed to initialize platform varifier");
-    #[cfg(all(feature = "builtin-roots", not(feature = "platform-roots")))]
-    let client_config = client_config.with_root_certificates(root_certificates);
-
-    Ok(client_config.with_no_client_auth())
+    .expect("TLS configuration failed")
+    .with_root_certificates(root_certificates)
+    .with_no_client_auth();
+    Ok(client_config)
 });
 
 #[derive(Debug, Clone, Copy)]
