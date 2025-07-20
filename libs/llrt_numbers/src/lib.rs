@@ -1,3 +1,4 @@
+use llrt_utils::object::ObjectExt;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
@@ -245,15 +246,40 @@ fn check_radix(ctx: &Ctx, radix: u8) -> Result<()> {
     Ok(())
 }
 
-fn number_to_string<'js>(ctx: Ctx<'js>, this: This<Value<'js>>, radix: Opt<u8>) -> Result<String> {
-    let radix = radix.0.unwrap_or(10);
+fn number_to_string<'js>(
+    ctx: Ctx<'js>,
+    this: This<Value<'js>>,
+    radix: Opt<Value>,
+) -> Result<String> {
+    let radix = radix
+        .0
+        .and_then(|v| v.as_int())
+        .and_then(|r| u8::try_from(r).ok())
+        .unwrap_or(10);
     check_radix(&ctx, radix)?;
+
+    // handle primitive number values
     if let Some(float) = this.as_float() {
         return Ok(f64_to_base_n(float, radix));
     }
     if let Ok(int) = i64::from_js(&ctx, this.0.clone()) {
         return Ok(i64_to_base_n(int, radix));
     }
+
+    // handle boxed Number objects
+    if let Some(obj) = this.as_object() {
+        if let Some(value_of) = obj.get_optional::<_, Function>(PredefinedAtom::ValueOf)? {
+            let primitive: Value = value_of.call((this,))?;
+
+            if let Some(float) = primitive.as_float() {
+                return Ok(f64_to_base_n(float, radix));
+            }
+            if let Ok(int) = i64::from_js(&ctx, primitive) {
+                return Ok(i64_to_base_n(int, radix));
+            }
+        }
+    }
+
     Ok("".into())
 }
 
