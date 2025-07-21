@@ -9,7 +9,7 @@ use rquickjs::{
     ArrayBuffer, Class, Ctx, Exception, IntoJs, JsLifetime, Null, Result, TypedArray, Value,
 };
 
-use super::Blob;
+use super::{strip_bom, Blob};
 
 // WARN: We don't use that code since we don't have an implementation of ReadableStream.
 // We will revisit later.
@@ -41,13 +41,12 @@ impl<'js> Trace<'js> for Body<'js> {
 impl<'js> Body<'js> {
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         let bytes = self.take_bytes(&ctx).await?;
-        Ok(String::from_utf8_lossy(&bytes).to_string())
+        Ok(String::from_utf8_lossy(strip_bom(&bytes)).to_string())
     }
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         let bytes = self.take_bytes(&ctx).await?;
-        let json = json_parse(&ctx, bytes)?;
-        Ok(json)
+        json_parse(&ctx, strip_bom(&bytes))
     }
 
     pub async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {

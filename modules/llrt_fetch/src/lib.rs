@@ -137,6 +137,14 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
+pub(crate) fn strip_bom(bytes: &[u8]) -> &[u8] {
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        &bytes[3..]
+    } else {
+        bytes
+    }
+}
+
 pub type HyperClient =
     Client<HttpsConnector<HttpConnector<CachedDnsResolver>>, BoxBody<Bytes, Infallible>>;
 pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| {

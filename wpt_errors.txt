@@ -167,7 +167,7 @@ fetch/api/basic > should pass stream-safe-creation.any.js tests
 Error: [throwing Object.prototype.start accessor should not affect stream creation by 'fetch'] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/basic > should pass text-utf8.any.js tests
-Error: [UTF-8 with BOM with Request.text()] assert_equals: Request.text() should decode data as UTF-8 expected "三村かな子" but got "﻿三村かな子"
+Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] promise_test: Unhandled rejection with value: object "Error: invalid format"
 
 
 🧪/wpt/fetch.api.body.test.js 
@@ -226,7 +226,7 @@ Error: [Request has formData method] assert_true: request has formData method ex
 
 🧪/wpt/fetch.api.response.test.js 
 fetch/api/response > should pass json.any.js tests
-Error: [Ensure the correct JSON parser is used] promise_test: Unhandled rejection with value: object "Error: "﻿{ "b": 1, "a": 2, "b": 3 }" not valid JSON at index 0 ('ï')"
+Error: [Ensure UTF-16 results in an error] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/response > should pass response-blob-realm.any.js tests
 Error: Timeout after 5000ms

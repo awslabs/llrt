@@ -32,7 +32,7 @@ use tokio::select;
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
     incoming::{self, IncomingReceiver},
-    Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
+    strip_bom, Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
 };
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
@@ -397,14 +397,14 @@ impl<'js> Response<'js> {
 
     pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(String::from_utf8_lossy(&bytes).to_string());
+            return Ok(String::from_utf8_lossy(strip_bom(&bytes)).to_string());
         }
         Ok("".into())
     }
 
     pub(crate) async fn json(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, bytes);
+            return json_parse(&ctx, strip_bom(&bytes));
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
