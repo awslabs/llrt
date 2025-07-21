@@ -13,6 +13,7 @@ use hyper_util::client::legacy::Client;
 use llrt_abort::AbortSignal;
 use llrt_encoding::bytes_from_b64;
 use llrt_utils::{bytes::ObjectBytes, mc_oneshot, result::ResultExt, VERSION};
+use percent_encoding::percent_decode_str;
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
@@ -50,7 +51,7 @@ where
                 let options = options?;
 
                 if let Some(data_url) = options.url.strip_prefix("data:") {
-                    return parse_data_url(&ctx, data_url);
+                    return parse_data_url(&ctx, data_url, &options.method);
                 }
 
                 let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;
@@ -125,7 +126,7 @@ where
     Ok(())
 }
 
-fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> {
+fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Result<Response<'js>> {
     let (mime_type, data) = data_url
         .split_once(',')
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid data URL format"))?;
@@ -152,9 +153,12 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str) -> Result<Response<'js>> 
         content_type
     };
 
-    let body = if is_base64 {
+    let body = if method == Method::HEAD {
+        vec![]
+    } else if is_base64 {
         bytes_from_b64(data.as_bytes()).or_throw(ctx)?
     } else {
+        let data = percent_decode_str(data).decode_utf8().or_throw(ctx)?;
         data.as_bytes().into()
     };
 
