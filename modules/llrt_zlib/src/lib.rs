@@ -1,25 +1,27 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::io::Read;
-
-use llrt_buffer::Buffer;
-use llrt_context::CtxExtension;
-use llrt_utils::{
-    bytes::ObjectBytes,
-    module::{export_default, ModuleInfo},
-    object::ObjectExt,
-    result::ResultExt,
-};
-use rquickjs::function::Func;
+use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
+    function::Func,
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Opt, Rest},
-    Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
+    Ctx, Result,
 };
 
+mod brotli;
+mod zlib;
+mod zstd;
+
+use self::brotli::{br_comp, br_comp_sync, br_decomp, br_decomp_sync};
+use self::zlib::{
+    deflate, deflate_raw, deflate_raw_sync, deflate_sync, gunzip, gunzip_sync, gzip, gzip_sync,
+    inflate, inflate_raw, inflate_raw_sync, inflate_sync,
+};
+use self::zstd::{zstd_comp, zstd_comp_sync, zstd_decomp, zstd_decomp_sync};
+
+#[macro_export]
 macro_rules! define_sync_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
-        pub fn $fn_name<'js>(
+        pub(crate) fn $fn_name<'js>(
             ctx: Ctx<'js>,
             value: ObjectBytes<'js>,
             options: Opt<Value<'js>>,
@@ -29,9 +31,10 @@ macro_rules! define_sync_function {
     };
 }
 
+#[macro_export]
 macro_rules! define_cb_function {
     ($fn_name:ident, $converter:expr, $command:expr) => {
-        pub fn $fn_name<'js>(
+        pub(crate) fn $fn_name<'js>(
             ctx: Ctx<'js>,
             value: ObjectBytes<'js>,
             args: Rest<Value<'js>>,
@@ -62,98 +65,6 @@ macro_rules! define_cb_function {
         }
     };
 }
-
-enum ZlibCommand {
-    Deflate,
-    DeflateRaw,
-    Gzip,
-    Inflate,
-    InflateRaw,
-    Gunzip,
-}
-
-fn zlib_converter<'js>(
-    ctx: Ctx<'js>,
-    bytes: ObjectBytes<'js>,
-    options: Opt<Value<'js>>,
-    command: ZlibCommand,
-) -> Result<Value<'js>> {
-    let src = bytes.as_bytes(&ctx)?;
-
-    let mut level = llrt_compression::zlib::Compression::default();
-    if let Some(options) = options.0 {
-        if let Some(opt) = options.get_optional("level")? {
-            level = llrt_compression::zlib::Compression::new(opt);
-        }
-    }
-
-    let mut dst: Vec<u8> = Vec::with_capacity(src.len());
-
-    let _ = match command {
-        ZlibCommand::Deflate => {
-            llrt_compression::zlib::encoder(src, level).read_to_end(&mut dst)?
-        },
-        ZlibCommand::DeflateRaw => {
-            llrt_compression::deflate::encoder(src, level).read_to_end(&mut dst)?
-        },
-        ZlibCommand::Gzip => llrt_compression::gz::encoder(src, level).read_to_end(&mut dst)?,
-        ZlibCommand::Inflate => llrt_compression::zlib::decoder(src).read_to_end(&mut dst)?,
-        ZlibCommand::InflateRaw => llrt_compression::deflate::decoder(src).read_to_end(&mut dst)?,
-        ZlibCommand::Gunzip => llrt_compression::gz::decoder(src).read_to_end(&mut dst)?,
-    };
-
-    Buffer(dst).into_js(&ctx)
-}
-
-define_cb_function!(deflate, zlib_converter, ZlibCommand::Deflate);
-define_sync_function!(deflate_sync, zlib_converter, ZlibCommand::Deflate);
-
-define_cb_function!(deflate_raw, zlib_converter, ZlibCommand::DeflateRaw);
-define_sync_function!(deflate_raw_sync, zlib_converter, ZlibCommand::DeflateRaw);
-
-define_cb_function!(gzip, zlib_converter, ZlibCommand::Gzip);
-define_sync_function!(gzip_sync, zlib_converter, ZlibCommand::Gzip);
-
-define_cb_function!(inflate, zlib_converter, ZlibCommand::Inflate);
-define_sync_function!(inflate_sync, zlib_converter, ZlibCommand::Inflate);
-
-define_cb_function!(inflate_raw, zlib_converter, ZlibCommand::InflateRaw);
-define_sync_function!(inflate_raw_sync, zlib_converter, ZlibCommand::InflateRaw);
-
-define_cb_function!(gunzip, zlib_converter, ZlibCommand::Gunzip);
-define_sync_function!(gunzip_sync, zlib_converter, ZlibCommand::Gunzip);
-
-enum BrotliCommand {
-    Compress,
-    Decompress,
-}
-
-fn brotli_converter<'js>(
-    ctx: Ctx<'js>,
-    bytes: ObjectBytes<'js>,
-    _options: Opt<Value<'js>>,
-    command: BrotliCommand,
-) -> Result<Value<'js>> {
-    let src = bytes.as_bytes(&ctx)?;
-
-    let mut dst: Vec<u8> = Vec::with_capacity(src.len());
-
-    let _ = match command {
-        BrotliCommand::Compress => llrt_compression::brotli::encoder(src).read_to_end(&mut dst)?,
-        BrotliCommand::Decompress => {
-            llrt_compression::brotli::decoder(src).read_to_end(&mut dst)?
-        },
-    };
-
-    Buffer(dst).into_js(&ctx)
-}
-
-define_cb_function!(br_comp, brotli_converter, BrotliCommand::Compress);
-define_sync_function!(br_comp_sync, brotli_converter, BrotliCommand::Compress);
-
-define_cb_function!(br_decomp, brotli_converter, BrotliCommand::Decompress);
-define_sync_function!(br_decomp_sync, brotli_converter, BrotliCommand::Decompress);
-
 pub struct ZlibModule;
 
 impl ModuleDef for ZlibModule {
@@ -181,6 +92,12 @@ impl ModuleDef for ZlibModule {
 
         declare.declare("brotliDecompress")?;
         declare.declare("brotliDecompressSync")?;
+
+        declare.declare("zstdCompress")?;
+        declare.declare("zstdCompressSync")?;
+
+        declare.declare("zstdDecompress")?;
+        declare.declare("zstdDecompressSync")?;
 
         declare.declare("default")?;
         Ok(())
@@ -211,6 +128,12 @@ impl ModuleDef for ZlibModule {
 
             default.set("brotliDecompress", Func::from(br_decomp))?;
             default.set("brotliDecompressSync", Func::from(br_decomp_sync))?;
+
+            default.set("zstdCompress", Func::from(zstd_comp))?;
+            default.set("zstdCompressSync", Func::from(zstd_comp_sync))?;
+
+            default.set("zstdDecompress", Func::from(zstd_decomp))?;
+            default.set("zstdDecompressSync", Func::from(zstd_decomp_sync))?;
 
             Ok(())
         })

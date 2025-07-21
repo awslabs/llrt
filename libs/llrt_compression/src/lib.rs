@@ -6,6 +6,7 @@ pub mod zstd {
     use std::io::{BufReader, Read, Result};
 
     use zstd::stream::read::{Decoder as ZstdDecoder, Encoder as ZstdEncoder};
+    pub use zstd::DEFAULT_COMPRESSION_LEVEL;
 
     pub fn encoder<R: Read>(r: R, level: i32) -> Result<ZstdEncoder<'static, BufReader<R>>> {
         ZstdEncoder::new(r, level)
