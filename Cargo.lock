@@ -1866,6 +1866,7 @@ dependencies = [
  "llrt_url",
  "llrt_utils",
  "once_cell",
+ "percent-encoding",
  "pin-project-lite",
  "quick_cache",
  "rquickjs",
