@@ -41,7 +41,7 @@ impl<'js> Trace<'js> for Body<'js> {
 impl<'js> Body<'js> {
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         let bytes = self.take_bytes(&ctx).await?;
-        Ok(String::from_utf8_lossy(strip_bom(&bytes)).to_string())
+        Ok(String::from_utf8_lossy(&strip_bom(&bytes)).to_string())
     }
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {

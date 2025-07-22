@@ -397,7 +397,7 @@ impl<'js> Response<'js> {
 
     pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(String::from_utf8_lossy(strip_bom(&bytes)).to_string());
+            return Ok(String::from_utf8_lossy(&strip_bom(&bytes)).to_string());
         }
         Ok("".into())
     }

@@ -178,7 +178,7 @@ impl<'js> Request<'js> {
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             let bytes = bytes.as_bytes(&ctx)?;
-            return Ok(String::from_utf8_lossy(strip_bom(bytes)).to_string());
+            return Ok(String::from_utf8_lossy(&strip_bom(bytes)).to_string());
         }
         Ok("".into())
     }

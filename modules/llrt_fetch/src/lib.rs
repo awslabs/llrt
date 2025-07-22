@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    borrow::Cow,
     convert::Infallible,
     io,
     sync::{
@@ -137,11 +138,15 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
-pub(crate) fn strip_bom(bytes: &[u8]) -> &[u8] {
-    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        &bytes[3..]
+pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
+    let cow = bytes.into();
+    if cow.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        match cow {
+            Cow::Borrowed(b) => Cow::Borrowed(&b[3..]),
+            Cow::Owned(b) => Cow::Owned(b[3..].to_vec()),
+        }
     } else {
-        bytes
+        cow
     }
 }
 
