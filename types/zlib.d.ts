@@ -146,4 +146,32 @@ declare module "zlib" {
    * Decompress a chunk of data with `BrotliDecompress`.
    */
   function brotliDecompressSync(buf: InputType): Buffer;
+
+  /**
+   * Compress a chunk of data with `ZstdCompress`.
+   */
+  function zstdCompress(buf: InputType, callback: CompressCallback): void;
+  function zstdCompress(
+    buf: InputType,
+    options: ZstdOptions,
+    callback: CompressCallback
+  ): void;
+  /**
+   * Compress a chunk of data with `ZstdCompress`.
+   */
+  function zstdCompressSync(buf: InputType, options?: ZstdOptions): Buffer;
+
+  /**
+   * Decompress a chunk of data with `ZstdDecompress`.
+   */
+  function zstdDecompress(buf: InputType, callback: CompressCallback): void;
+  function zstdDecompress(
+    buf: InputType,
+    options: ZstdOptions,
+    callback: CompressCallback
+  ): void;
+  /**
+   * Decompress a chunk of data with `ZstdDecompress`.
+   */
+  function zstdDecompressSync(buf: InputType, options?: ZstdOptions): Buffer;
 }
