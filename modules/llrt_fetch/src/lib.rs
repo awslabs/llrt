@@ -138,13 +138,10 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
-pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
+fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
     let cow = bytes.into();
-    if cow.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        match cow {
-            Cow::Borrowed(b) => Cow::Borrowed(&b[3..]),
-            Cow::Owned(b) => Cow::Owned(b[3..].to_vec()),
-        }
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        Cow::Borrowed(&cow[3..])
     } else {
         cow
     }
