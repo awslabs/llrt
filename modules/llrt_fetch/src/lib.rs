@@ -138,7 +138,7 @@ fn get_http_version() -> HttpVersion {
     })
 }
 
-fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
+pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
     let cow = bytes.into();
     if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
         Cow::Borrowed(&cow[3..])
