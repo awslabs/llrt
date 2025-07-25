@@ -11,7 +11,7 @@ use rquickjs::{
 
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
-    Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
+    strip_bom, Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
 };
 
 #[derive(Clone, Default, PartialEq)]
@@ -178,14 +178,15 @@ impl<'js> Request<'js> {
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             let bytes = bytes.as_bytes(&ctx)?;
-            return Ok(String::from_utf8_lossy(bytes).to_string());
+            return Ok(String::from_utf8_lossy(&strip_bom(bytes)).to_string());
         }
         Ok("".into())
     }
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, bytes.as_bytes(&ctx)?);
+            let bytes = bytes.as_bytes(&ctx)?;
+            return json_parse(&ctx, strip_bom(bytes));
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
