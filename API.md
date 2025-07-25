@@ -426,6 +426,8 @@ export class URLSearchParams {
 
 ## zlib
 
+### Convenience methods
+
 [deflate](https://nodejs.org/api/zlib.html#zlibdeflatebuffer-options-callback)
 
 [deflateSync](https://nodejs.org/api/zlib.html#zlibdeflatesyncbuffer-options)
@@ -457,6 +459,14 @@ export class URLSearchParams {
 [brotliDecompress](https://nodejs.org/api/zlib.html#zlibbrotlidecompressbuffer-options-callback)
 
 [brotliDecompressSync](https://nodejs.org/api/zlib.html#zlibbrotlidecompresssyncbuffer-options)
+
+[zstdCompress](https://nodejs.org/api/zlib.html#zlibzstdcompressbuffer-options-callback)
+
+[zstdCompressSync](hhttps://nodejs.org/api/zlib.html#zlibzstdcompresssyncbuffer-options)
+
+[zstdDecompress](https://nodejs.org/api/zlib.html#zlibzstddecompressbuffer-options-callback)
+
+[zstdDecompressSync](https://nodejs.org/api/zlib.html#zlibzstddecompresssyncbuffer-options)
 
 ## llrt:hex
 

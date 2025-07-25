@@ -147,9 +147,6 @@ Error: [Fetching about:blank with method GET is KO] promise_rejects_js: function
     [native code]
 }" ("TypeError")
 
-fetch/api/basic > should pass scheme-data.any.js tests
-Error: [Fetching data:,response%27s%20body is OK] assert_equals: Response's body is correct expected "response's body" but got "response%27s%20body"
-
 fetch/api/basic > should pass scheme-others.sub.any.js tests
 Error: [Fetching aaa://{{host}}:{{ports[http][0]}}/ is KO] promise_rejects_js: function "function() {
             throw e;

@@ -14,10 +14,16 @@ path = "src/lib.rs"
 [features]
 default = ["compression-c"]
 
-compression-c = ["llrt_compression/brotli-c", "llrt_compression/flate2-c"]
+compression-c = [
+  "llrt_compression/brotli-c",
+  "llrt_compression/flate2-c",
+  "llrt_compression/zstd-c",
+]
+
 compression-rust = [
   "llrt_compression/brotli-rust",
   "llrt_compression/flate2-rust",
+  "llrt_compression/zstd-rust",
 ]
 
 [dependencies]

@@ -64,3 +64,19 @@ describe("brotli", () => {
     expect(data).toEqual(decompressed.toString());
   });
 });
+
+describe("zstandard", () => {
+  it("zstdCompress/zstdDecompress", (done) => {
+    zlib.zstdCompress(data, (err, compressed) => {
+      zlib.zstdDecompress(compressed, (err, decompressed) => {
+        expect(data).toEqual(decompressed.toString());
+        done();
+      });
+    });
+  });
+  it("zstdCompressSync/zstdDecompressSync", () => {
+    const compressed = zlib.zstdCompressSync(data);
+    const decompressed = zlib.zstdDecompressSync(compressed);
+    expect(data).toEqual(decompressed.toString());
+  });
+});
