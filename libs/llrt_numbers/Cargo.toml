@@ -17,7 +17,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0"
 ryu = { version = "1", default-features = false }
 
 [dev-dependencies]
-criterion = { version = "0.6", default-features = false }
+criterion = { version = "0.7", default-features = false }
 llrt_test = { version = "0.6.2-beta", path = "../llrt_test" }
 rand = { version = "0.9", features = ["alloc"], default-features = false }
 

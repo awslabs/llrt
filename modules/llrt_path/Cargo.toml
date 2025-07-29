@@ -20,7 +20,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0"
 memchr = { version = "2", default-features = false }
 
 [dev-dependencies]
-criterion = { version = "0.6", default-features = false }
+criterion = { version = "0.7", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rand = { version = "0.9", features = [
   "alloc",
