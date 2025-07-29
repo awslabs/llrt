@@ -282,7 +282,7 @@ class TestAgent {
     return JSON.parse(response) as SocketReturnType<T>;
   }
 
-  private async runTests(testSuite: RootSuite, tests: Test[] = []) {
+  private async runTests(testSuite: TestSuite, tests: Test[] = []) {
     for (const test of tests) {
       if (test.skip || (this.onlyCount > 0 && !test.only)) {
         continue;
@@ -454,7 +454,7 @@ class TestAgent {
           if (suite.beforeAll) {
             await this.executeAsyncOrCallbackFn(suite.beforeAll);
           }
-          await this.runTests(testSuite, suite.tests);
+          await this.runTests(suite, suite.tests);
           if (suite.afterAll) {
             await this.executeAsyncOrCallbackFn(suite.afterAll);
           }

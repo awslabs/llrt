@@ -499,3 +499,53 @@ describe("toSatisfy()", () => {
 });
 
 it("timeout", () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+describe("beforeEach", () => {
+  let value: string;
+  beforeEach(() => {
+    value = "beforeEach";
+  });
+
+  it("should have value", () => {
+    expect(value).toEqual("beforeEach");
+  });
+
+  describe("nested beforeEach", () => {
+    beforeEach(() => {
+      value += " nested";
+    });
+
+    it("should have aggregated value", () => {
+      expect(value).toEqual("beforeEach nested");
+    });
+  });
+});
+
+describe("afterEach", () => {
+  let value: string;
+  afterEach(() => {
+    value = "afterEach";
+  });
+
+  afterAll(() => {
+    expect(value).toEqual("afterEach");
+  });
+
+  it("should have value", () => {
+    // do nothing
+  });
+
+  describe("nested afterEach", () => {
+    afterEach(() => {
+      value += " nested";
+    });
+
+    afterAll(() => {
+      expect(value).toEqual("afterEach nested");
+    });
+
+    it("should have aggregated value", () => {
+      // do nothing
+    });
+  });
+});
