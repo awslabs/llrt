@@ -90,7 +90,7 @@
     "@types/jest": "^30.0.0",
     "@types/readable-stream": "4.0.21",
     "@types/uuid": "10.0.0",
-    "esbuild": "0.25.6",
+    "esbuild": "0.25.8",
     "esbuild-plugins-node-modules-polyfill": "1.7.1",
     "prettier": "3.6.2",
     "pretty-format": "30.0.2",
