@@ -84,14 +84,19 @@ where
                         client.request(req).await.or_throw(&ctx)?
                     };
 
-                    match res.headers().get(HeaderName::from_static("location")) {
-                        Some(location_headers) => {
-                            if let Ok(location_str) = location_headers.to_str() {
-                                uri = location_str.parse().or_throw(&ctx)?;
-                                ensure_url_access(&ctx, &uri)?;
-                            }
-                        },
-                        None => break (res, guard),
+                    let status = res.status();
+                    if status.is_redirection() {
+                        match res.headers().get(HeaderName::from_static("location")) {
+                            Some(location_headers) => {
+                                if let Ok(location_str) = location_headers.to_str() {
+                                    uri = location_str.parse().or_throw(&ctx)?;
+                                    ensure_url_access(&ctx, &uri)?;
+                                }
+                            },
+                            None => break (res, guard),
+                        };
+                    } else {
+                        break (res, guard);
                     };
 
                     if options.redirect == "manual" {
@@ -581,6 +586,14 @@ mod tests {
             .mount(&mock_server)
             .await;
 
+        Mock::given(matchers::path("expect/location/"))
+            .respond_with(ResponseTemplate::new(200).insert_header(
+                "location",
+                format!("http://{}/{}", mock_server.address(), "expect/200/"),
+            ))
+            .mount(&mock_server)
+            .await;
+
         let mut data: Vec<u8> = Vec::new();
         llrt_compression::zstd::encoder(welcome_message.as_bytes(), 3)
             .unwrap()
@@ -720,6 +733,21 @@ mod tests {
                         format!("http://{}/expect/200/", mock_server.address().clone())
                     );
                     assert!(response.redirected());
+
+                    // Method: GET, Non-redirect status with location header (304) - should NOT follow
+                    options.set("method", "GET")?;
+                    let url = format!("http://{}/expect/location/", mock_server.address().clone());
+
+                    let response_promise: Promise = fetch.call((url, options.clone()))?;
+                    let response: Class<Response> = response_promise.into_future().await?;
+                    let response = response.borrow();
+
+                    assert_eq!(response.status(), 200);
+                    assert_eq!(
+                        response.url(),
+                        format!("http://{}/expect/location/", mock_server.address().clone())
+                    );
+                    assert!(!response.redirected());
 
                     // Content-Encoding: zstd
                     let url = format!(
