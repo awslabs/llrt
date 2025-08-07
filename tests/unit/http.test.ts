@@ -207,7 +207,7 @@ describe("Request class", () => {
       method: "POST",
     });
     expect(request.body).toStrictEqual(body);
-    expect(request.bodyUsed).toBeTruthy();
+    expect(request.bodyUsed).toBeFalsy();
   });
 
   it("should accept another request object as argument", () => {
@@ -255,12 +255,13 @@ describe("Request class", () => {
     }).toThrow(/property is not an AbortSignal/);
   });
 
-  it("should set the body to the provided value", async () => {
+  it("should return the provided body via text() and set bodyUsed to true", async () => {
     const body = "Hello, world!";
     const request = new Request("http://localhost", {
       body: body,
       method: "POST",
     });
+    expect(request.bodyUsed).toBeFalsy();
     expect(await request.text()).toStrictEqual(body);
     expect(request.bodyUsed).toBeTruthy();
   });
@@ -271,7 +272,9 @@ describe("Request class", () => {
       body: JSON.stringify(jsonBody),
       method: "POST",
     });
+    expect(request.bodyUsed).toBeFalsy();
     expect(await request.json()).toStrictEqual(jsonBody);
+    expect(request.bodyUsed).toBeTruthy();
   });
 
   it("should set the body to a bytes object if a bytes object is provided", async () => {
@@ -280,7 +283,9 @@ describe("Request class", () => {
       body: myArray,
       method: "POST",
     });
+    expect(request.bodyUsed).toBeFalsy();
     expect(await request.bytes()).toStrictEqual(myArray);
+    expect(request.bodyUsed).toBeTruthy();
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {
@@ -289,9 +294,11 @@ describe("Request class", () => {
       body: blob,
       method: "POST",
     });
-    expect(await request.text()).toEqual("Hello, world!");
-    expect((await request.blob()).size).toEqual(blob.size);
-    expect((await request.blob()).type).toEqual("text/plain");
+    expect(request.bodyUsed).toBeFalsy();
+    const res = await request.blob();
+    expect(request.bodyUsed).toBeTruthy();
+    expect(res.size).toEqual(blob.size);
+    expect(res.type).toEqual("text/plain");
   });
 
   it("should set the body to a Blob if Blob and content-type are provided", async () => {
@@ -301,9 +308,9 @@ describe("Request class", () => {
       method: "POST",
       headers: { "content-type": "text/plain" },
     });
-    expect(await request.text()).toEqual("Hello, world!");
-    expect((await request.blob()).size).toEqual(blob.size);
-    expect((await request.blob()).type).toEqual("text/plain");
+    const res = await request.blob();
+    expect(res.size).toEqual(blob.size);
+    expect(res.type).toEqual("text/plain");
   });
 
   it("should ignore request options which are not an object", async () => {
@@ -343,13 +350,17 @@ describe("Response class", () => {
   it("should set the body to the provided value", async () => {
     const body = "Hello, world!";
     const response = new Response(body);
+    expect(response.bodyUsed).toBeFalsy();
     expect(await response.text()).toStrictEqual(body);
+    expect(response.bodyUsed).toBeTruthy();
   });
 
   it("should set the body to a Blob if a Blob is provided", async () => {
     const blob = new Blob(["Hello, world!"], { type: "text/plain" });
     const response = new Response(blob);
+    expect(response.bodyUsed).toBeFalsy();
     expect(await response.text()).toEqual("Hello, world!");
+    expect(response.bodyUsed).toBeTruthy();
   });
 
   it("should set the body to a JSON object if a JSON object is provided", async () => {
@@ -357,13 +368,17 @@ describe("Response class", () => {
     const response = new Response(JSON.stringify(jsonBody), {
       headers: { "Content-Type": "application/json" },
     });
+    expect(response.bodyUsed).toBeFalsy();
     expect(await response.json()).toStrictEqual(jsonBody);
+    expect(response.bodyUsed).toBeTruthy();
   });
 
   it("should set the body to a bytes object if a bytes object is provided", async () => {
     const myArray = new Uint8Array([1, 2, 3]);
     const response = new Response(myArray);
+    expect(response.bodyUsed).toBeFalsy();
     expect(await response.bytes()).toStrictEqual(myArray);
+    expect(response.bodyUsed).toBeTruthy();
   });
 
   it("should clone the response with the clone() method", () => {
