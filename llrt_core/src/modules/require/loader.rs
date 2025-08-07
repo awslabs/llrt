@@ -53,7 +53,7 @@ impl NpmJsLoader {
 
     fn normalize_name(name: &str) -> (bool, bool, &str, &str) {
         if !name.starts_with("__") {
-            // If name doesn’t start with "__", return defaults
+            // If name doesn't start with "__", return defaults
             return (false, false, name, name);
         }
 
