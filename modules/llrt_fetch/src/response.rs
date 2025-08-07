@@ -124,116 +124,14 @@ pub struct Response<'js> {
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
 }
 
-#[allow(clippy::too_many_arguments)]
-impl<'js> Response<'js> {
-    pub fn from_incoming(
-        ctx: Ctx<'js>,
-        response: hyper::Response<Incoming>,
-        method: String,
-        url: String,
-        start: Instant,
-        redirected: bool,
-        abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
-        guard: HeadersGuard,
-    ) -> Result<Self> {
-        let response_headers = response.headers();
-
-        let mut content_encoding = None;
-        if let Some(content_encoding_header) =
-            response_headers.get(HeaderName::from_static("content-encoding"))
-        {
-            if let Ok(content_encoding_header) = content_encoding_header.to_str() {
-                content_encoding = Some(content_encoding_header.to_owned())
-            }
+impl<'js> Trace<'js> for Response<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.headers.trace(tracer);
+        let body = self.body.read().unwrap();
+        let body = &*body;
+        if let BodyVariant::Provided(Some(body)) = body {
+            body.trace(tracer);
         }
-
-        let headers = Headers::from_http_headers(response.headers(), guard)?;
-        let headers = Class::instance(ctx.clone(), headers)?;
-
-        let status = response.status();
-
-        Ok(Self {
-            body: RwLock::new(BodyVariant::Incoming(Some(response))),
-            content_encoding,
-            method,
-            url,
-            start,
-            status: status.as_u16(),
-            status_text: None,
-            redirected,
-            headers,
-            abort_receiver,
-        })
-    }
-
-    async fn take_bytes_body<T>(&self, ctx: &Ctx<'js>, body: T) -> Result<Vec<u8>>
-    where
-        T: Body,
-        T::Error: std::fmt::Display,
-    {
-        let bytes = if let Some(abort_signal) = self.abort_receiver.as_ref() {
-            select! {
-                err = abort_signal.recv() => return Err(ctx.throw(err)),
-                collected_body = body.collect() => collected_body.or_throw(ctx)?.to_bytes()
-            }
-        } else {
-            body.collect().await.or_throw(ctx)?.to_bytes()
-        };
-
-        if let Some(content_encoding) = self.content_encoding.as_deref() {
-            let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
-            match content_encoding {
-                "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
-                "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
-                "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
-                "deflate" => llrt_compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
-                _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
-            };
-            Ok(data)
-        } else {
-            Ok(bytes.to_vec())
-        }
-    }
-
-    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
-    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
-    async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        let mut body_guard = self.body.write().unwrap();
-        let body = &mut *body_guard;
-        let bytes = match body {
-            BodyVariant::Incoming(ref mut incoming) => {
-                let response = incoming
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-
-                self.take_bytes_body(ctx, response.into_body()).await?
-            },
-            BodyVariant::Cloned(ref mut incoming) => {
-                let response = incoming
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-
-                self.take_bytes_body(ctx, response.into_body()).await?
-            },
-            BodyVariant::Provided(provided) => {
-                let provided = provided
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
-                    let blob = blob.borrow();
-                    blob.get_bytes()
-                } else {
-                    let bytes = ObjectBytes::from(ctx, &provided)?;
-                    bytes.as_bytes(ctx)?.to_vec()
-                }
-            },
-            BodyVariant::Empty => return Ok(None),
-        };
-
-        Ok(Some(bytes))
     }
 }
 
@@ -566,13 +464,115 @@ impl<'js> Response<'js> {
     }
 }
 
-impl<'js> Trace<'js> for Response<'js> {
-    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        self.headers.trace(tracer);
-        let body = self.body.read().unwrap();
-        let body = &*body;
-        if let BodyVariant::Provided(Some(body)) = body {
-            body.trace(tracer);
+#[allow(clippy::too_many_arguments)]
+impl<'js> Response<'js> {
+    pub fn from_incoming(
+        ctx: Ctx<'js>,
+        response: hyper::Response<Incoming>,
+        method: String,
+        url: String,
+        start: Instant,
+        redirected: bool,
+        abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+        guard: HeadersGuard,
+    ) -> Result<Self> {
+        let response_headers = response.headers();
+
+        let mut content_encoding = None;
+        if let Some(content_encoding_header) =
+            response_headers.get(HeaderName::from_static("content-encoding"))
+        {
+            if let Ok(content_encoding_header) = content_encoding_header.to_str() {
+                content_encoding = Some(content_encoding_header.to_owned())
+            }
+        }
+
+        let headers = Headers::from_http_headers(response.headers(), guard)?;
+        let headers = Class::instance(ctx.clone(), headers)?;
+
+        let status = response.status();
+
+        Ok(Self {
+            body: RwLock::new(BodyVariant::Incoming(Some(response))),
+            content_encoding,
+            method,
+            url,
+            start,
+            status: status.as_u16(),
+            status_text: None,
+            redirected,
+            headers,
+            abort_receiver,
+        })
+    }
+
+    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
+    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
+    async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
+        let mut body_guard = self.body.write().unwrap();
+        let body = &mut *body_guard;
+        let bytes = match body {
+            BodyVariant::Incoming(ref mut incoming) => {
+                let response = incoming
+                    .take()
+                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+
+                self.take_bytes_body(ctx, response.into_body()).await?
+            },
+            BodyVariant::Cloned(ref mut incoming) => {
+                let response = incoming
+                    .take()
+                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+
+                self.take_bytes_body(ctx, response.into_body()).await?
+            },
+            BodyVariant::Provided(provided) => {
+                let provided = provided
+                    .take()
+                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
+                    let blob = blob.borrow();
+                    blob.get_bytes()
+                } else {
+                    let bytes = ObjectBytes::from(ctx, &provided)?;
+                    bytes.as_bytes(ctx)?.to_vec()
+                }
+            },
+            BodyVariant::Empty => return Ok(None),
+        };
+
+        Ok(Some(bytes))
+    }
+
+    async fn take_bytes_body<T>(&self, ctx: &Ctx<'js>, body: T) -> Result<Vec<u8>>
+    where
+        T: Body,
+        T::Error: std::fmt::Display,
+    {
+        let bytes = if let Some(abort_signal) = self.abort_receiver.as_ref() {
+            select! {
+                err = abort_signal.recv() => return Err(ctx.throw(err)),
+                collected_body = body.collect() => collected_body.or_throw(ctx)?.to_bytes()
+            }
+        } else {
+            body.collect().await.or_throw(ctx)?.to_bytes()
+        };
+
+        if let Some(content_encoding) = self.content_encoding.as_deref() {
+            let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
+            match content_encoding {
+                "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
+                "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
+                "deflate" => llrt_compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
+                _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
+            };
+            Ok(data)
+        } else {
+            Ok(bytes.to_vec())
         }
     }
 }
