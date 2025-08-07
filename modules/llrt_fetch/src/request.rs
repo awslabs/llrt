@@ -1,9 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::sync::RwLock;
+
 use llrt_abort::AbortSignal;
 use llrt_json::parse::json_parse;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
-use llrt_utils::{bytes::ObjectBytes, class::get_class, object::ObjectExt, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs,
     IntoJs, Null, Object, Result, TypedArray, Value,
@@ -48,20 +50,11 @@ impl RequestMode {
     }
 }
 
-impl<'js> Request<'js> {
-    async fn take_bytes(&mut self, ctx: &Ctx<'js>) -> Result<Option<ObjectBytes<'js>>> {
-        match &self.body {
-            Some(provided) => {
-                let bytes = if let Some(blob) = get_class::<Blob>(provided)? {
-                    ObjectBytes::Vec(blob.borrow().get_bytes())
-                } else {
-                    ObjectBytes::from(ctx, provided)?
-                };
-                Ok(Some(bytes))
-            },
-            None => Ok(None),
-        }
-    }
+#[allow(dead_code)]
+#[derive(rquickjs::JsLifetime)]
+enum BodyVariant<'js> {
+    Provided(Option<Value<'js>>),
+    Empty,
 }
 
 #[rquickjs::class]
@@ -70,9 +63,10 @@ pub struct Request<'js> {
     url: String,
     method: String,
     headers: Option<Class<'js, Headers>>,
-    body: Option<Value<'js>>,
+    body: RwLock<BodyVariant<'js>>,
     signal: Option<Class<'js, AbortSignal<'js>>>,
     mode: RequestMode,
+    keepalive: bool,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -80,7 +74,9 @@ impl<'js> Trace<'js> for Request<'js> {
         if let Some(headers) = &self.headers {
             headers.trace(tracer);
         }
-        if let Some(body) = &self.body {
+        let body = self.body.read().unwrap();
+        let body = &*body;
+        if let BodyVariant::Provided(Some(body)) = body {
             body.trace(tracer);
         }
     }
@@ -94,9 +90,10 @@ impl<'js> Request<'js> {
             url: "".into(),
             method: "GET".into(),
             headers: None,
-            body: None,
+            body: RwLock::new(BodyVariant::Empty),
             signal: None,
             mode: RequestMode::Cors,
+            keepalive: false,
         };
 
         if input.is_string() {
@@ -144,15 +141,17 @@ impl<'js> Request<'js> {
     //TODO should implement readable stream
     #[qjs(get)]
     fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(body) = &self.body {
-            return Ok(body.clone());
+        let body = self.body.read().unwrap();
+        let body = &*body;
+        match body {
+            BodyVariant::Provided(value) => value.into_js(&ctx),
+            BodyVariant::Empty => Null.into_js(&ctx),
         }
-        Null.into_js(&ctx)
     }
 
     #[qjs(get)]
     fn keepalive(&self) -> bool {
-        true
+        self.keepalive
     }
 
     #[qjs(get)]
@@ -162,7 +161,12 @@ impl<'js> Request<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        self.body.is_some()
+        let body = self.body.read().unwrap();
+        let body = &*body;
+        match body {
+            BodyVariant::Provided(value) => value.is_none(),
+            BodyVariant::Empty => false,
+        }
     }
 
     #[qjs(get)]
@@ -177,32 +181,28 @@ impl<'js> Request<'js> {
 
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let bytes = bytes.as_bytes(&ctx)?;
-            return Ok(String::from_utf8_lossy(&strip_bom(bytes)).to_string());
+            return Ok(String::from_utf8_lossy(&strip_bom(&bytes)).to_string());
         }
         Ok("".into())
     }
 
     pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let bytes = bytes.as_bytes(&ctx)?;
-            return json_parse(&ctx, strip_bom(bytes));
+            return json_parse(&ctx, strip_bom(&bytes));
         }
         Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
     }
 
     async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        let ctx2 = ctx.clone();
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return ArrayBuffer::new(ctx, bytes.as_bytes(&ctx2)?);
+            return ArrayBuffer::new(ctx, bytes);
         }
         ArrayBuffer::new(ctx, Vec::<u8>::new())
     }
 
     async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let ctx2 = ctx.clone();
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return TypedArray::new(ctx, bytes.as_bytes(&ctx2)?).map(|m| m.into_value());
+            return TypedArray::new(ctx, bytes).map(|m| m.into_value());
         }
         TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
     }
@@ -221,10 +221,7 @@ impl<'js> Request<'js> {
             });
 
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(
-                bytes.try_into().or_throw(&ctx)?,
-                mime_type,
-            ));
+            return Ok(Blob::from_bytes(bytes, mime_type));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
     }
@@ -239,14 +236,50 @@ impl<'js> Request<'js> {
             None
         };
 
+        //not async so should not block
+        let body = self.body.read().unwrap();
+        let body = &*body;
+        let body = match body {
+            BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
+            BodyVariant::Empty => BodyVariant::Empty,
+        };
+
         Ok(Self {
             url: self.url.clone(),
             method: self.url.clone(),
             headers,
-            body: self.body.clone(),
+            body: RwLock::new(body),
             signal: self.signal.clone(),
             mode: self.mode.clone(),
+            keepalive: self.keepalive,
         })
+    }
+}
+
+impl<'js> Request<'js> {
+    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
+    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
+    async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
+        let mut body_guard = self.body.write().unwrap();
+        let body = &mut *body_guard;
+        let bytes = match body {
+            BodyVariant::Provided(provided) => {
+                let provided = provided
+                    .take()
+                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
+                    let blob = blob.borrow();
+                    blob.get_bytes()
+                } else {
+                    let bytes = ObjectBytes::from(ctx, &provided)?;
+                    bytes.as_bytes(ctx)?.to_vec()
+                }
+            },
+            BodyVariant::Empty => return Ok(None),
+        };
+
+        Ok(Some(bytes))
     }
 }
 
@@ -263,6 +296,15 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
     if let Some(mode) = obj.get_optional::<_, String>("mode")? {
         request.mode = mode.try_into().or_throw(&ctx)?;
+    }
+    if let Some(keepalive) = obj.get_optional::<_, Value>("keepalive")? {
+        request.keepalive = if let Some(b) = keepalive.as_bool() {
+            b
+        } else if let Some(n) = keepalive.as_number() {
+            n != 0.0
+        } else {
+            false
+        }
     }
 
     if let Some(signal) = obj.get_optional::<_, Value>("signal")? {
@@ -288,25 +330,26 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 ));
             }
 
-            request.body = if body.is_string() {
+            let body = if body.is_string() {
                 content_type = Some(MIME_TYPE_TEXT.into());
-                Some(body)
+                BodyVariant::Provided(Some(body))
             } else if let Some(obj) = body.as_object() {
                 if let Some(blob) = Class::<Blob>::from_object(obj) {
                     let blob = blob.borrow();
                     if !blob.mime_type().is_empty() {
                         content_type = Some(blob.mime_type());
                     }
-                    Some(body)
+                    BodyVariant::Provided(Some(body))
                 } else if obj.instance_of::<URLSearchParams>() {
                     content_type = Some(MIME_TYPE_APPLICATION.into());
-                    Some(body)
+                    BodyVariant::Provided(Some(body))
                 } else {
-                    Some(body)
+                    BodyVariant::Provided(Some(body))
                 }
             } else {
-                Some(body)
-            }
+                BodyVariant::Provided(Some(body))
+            };
+            request.body = RwLock::new(body);
         }
     }
 
