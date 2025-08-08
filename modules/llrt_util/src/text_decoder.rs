@@ -57,8 +57,9 @@ impl<'js> TextDecoder {
         let bytes = bytes.as_bytes(&ctx)?;
         let start_pos = if !self.ignore_bom {
             match bytes.get(..3) {
-                Some([0xFF, 0xFE, ..]) | Some([0xFE, 0xFF, ..]) => 2,
-                Some([0xEF, 0xBB, 0xBF]) => 3,
+                Some([0xFF, 0xFE, ..]) if self.encoder == Encoder::Utf16le => 2,
+                Some([0xFE, 0xFF, ..]) if self.encoder == Encoder::Utf16be => 2,
+                Some([0xEF, 0xBB, 0xBF]) if self.encoder == Encoder::Utf8 => 3,
                 _ => 0,
             }
         } else {
