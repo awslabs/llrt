@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use hex_simd::AsciiCase;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Encoder {
     Hex,
     Base64,
