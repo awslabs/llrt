@@ -12,7 +12,12 @@ use hyper_util::client::legacy::connect::Connect;
 use hyper_util::client::legacy::Client;
 use llrt_abort::AbortSignal;
 use llrt_encoding::bytes_from_b64;
-use llrt_utils::{bytes::ObjectBytes, mc_oneshot, result::ResultExt, VERSION};
+use llrt_utils::{
+    bytes::{bytes_to_typed_array, ObjectBytes},
+    mc_oneshot,
+    result::ResultExt,
+    VERSION,
+};
 use percent_encoding::percent_decode_str;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -226,6 +231,9 @@ fn build_request(
     if !detected_headers.contains("accept-encoding") {
         req = req.header("accept-encoding", "zstd, br, gzip, deflate");
     }
+    if !detected_headers.contains("accept-language") {
+        req = req.header("accept-language", "*");
+    }
     if !detected_headers.contains("accept") {
         req = req.header("accept", "*/*");
     }
@@ -355,7 +363,13 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let bytes = ObjectBytes::from(ctx, &body_opt)?;
+            let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
+                let blob = blob.borrow();
+                let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
+                ObjectBytes::from(ctx, &typed_array)?
+            } else {
+                ObjectBytes::from(ctx, &body_opt)?
+            };
             body = Some(BodyBytes::new(ctx.clone(), bytes)?);
         }
 

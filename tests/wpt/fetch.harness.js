@@ -24,26 +24,7 @@ export const runTestDynamic = (testSource, baseDir, done) => {
     setTimeout: setTimeout,
     DOMException: DOMException,
     location: {},
-    RESOURCES_DIR: "",
-
-    fetch: (url, option) => {
-      let data;
-      switch (url) {
-        case "../cors/resources/not-cors-safelisted.json":
-          data = require(
-            baseDir + "/fetch/api/cors/resources/not-cors-safelisted.json"
-          );
-          break;
-        case "../resources/data.json":
-          data = require(baseDir + "/fetch/api/resources/data.json");
-          break;
-        default:
-          return _fetch(url, option);
-      }
-      return Promise.resolve({
-        json: () => Promise.resolve(data),
-      });
-    },
+    RESOURCES_DIR: "http://web-platform.test:8000/fetch/api/resources/",
   };
 
   resourcesIdlharness(context);

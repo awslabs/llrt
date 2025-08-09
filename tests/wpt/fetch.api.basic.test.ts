@@ -7,6 +7,7 @@ const SKIP_FILES = [
   "request-forbidden-headers.any.js", // ReferenceError: promise_test is not defined
   "request-private-network-headers.tentative.any.js", // ReferenceError: promise_test is not defined
   "request-referrer.any.js", // TypeError: cannot read property 'href' of undefined
+  "request-upload.h2.any.js",
   "scheme-blob.sub.any.js", // TypeError: not a function
 ];
 

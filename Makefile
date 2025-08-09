@@ -185,14 +185,17 @@ init-wpt:
 	git config core.sparsecheckout false
 	echo "/README.md" > ./.git/modules/wpt/info/sparse-checkout
 	echo "/console" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/docs" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/encoding" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/FileAPI" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/fetch" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/hr-time" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/streams" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "/tools" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/url" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/WebCryptoAPI" >> ./.git/modules/wpt/info/sparse-checkout
 	echo "/webidl" >> ./.git/modules/wpt/info/sparse-checkout
+	echo "wpt" >> ./.git/modules/wpt/info/sparse-checkout
 	git config core.sparsecheckout true
 
 update-wpt:
