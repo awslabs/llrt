@@ -128,7 +128,7 @@ fetch/api/basic > should pass request-headers.any.js tests
 Error: [Fetch with PUT without body] assert_equals: Request should have header origin: undefined expected (undefined) undefined but got (object) null
 
 fetch/api/basic > should pass request-upload.any.js tests
-Error: [Fetch with POST with Blob body] assert_equals: expected "Test" but got "[object Blob]"
+Error: [Fetch with POST with DataView body] assert_equals: expected "\0\0\0\0" but got "\0\0\0\0\0\0\0\0"
 
 fetch/api/basic > should pass response-null-body.any.js tests
 Error: [Response.body is null for responses with status=204 (method=GET)] assert_equals: the body should be null expected (object) null but got (undefined) undefined
