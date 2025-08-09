@@ -226,6 +226,9 @@ fn build_request(
     if !detected_headers.contains("accept-encoding") {
         req = req.header("accept-encoding", "zstd, br, gzip, deflate");
     }
+    if !detected_headers.contains("accept-language") {
+        req = req.header("accept-language", "*");
+    }
     if !detected_headers.contains("accept") {
         req = req.header("accept", "*/*");
     }
