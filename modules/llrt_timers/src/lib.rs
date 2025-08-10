@@ -79,7 +79,7 @@ impl Default for Timeout {
 
 fn queue_microtask<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
     register_finalization_registry(&_ctx, cb.clone().into_value(), uid)?;
     invoke_async_hook(&_ctx, HookType::Init, ProviderType::Microtask, uid)?;
     // NOTE: Defer simply registers a task in a microtask queue
@@ -97,7 +97,7 @@ pub fn set_timeout_interval<'js>(
     provider_type: ProviderType,
 ) -> Result<usize> {
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
 
     // NOTE: https://noncodersuccess.medium.com/understanding-setimmediate-vs-settimeout-in-node-js-6a3ef8fc02d4
     // If `setImmediate(fn)` and `setTimeout(fn, 0) are queued at the exact same time,
@@ -372,7 +372,7 @@ pub fn poll_timers(
 
             if let Ok(timeout) = timeout.restore(&ctx2) {
                 // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-                let uid: usize = unsafe { timeout.as_raw().u.ptr } as usize;
+                let uid: usize = unsafe { qjs::JS_VALUE_GET_PTR(timeout.as_raw()) } as usize;
 
                 invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, uid)?;
 
