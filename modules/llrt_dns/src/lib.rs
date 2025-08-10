@@ -11,7 +11,7 @@ use llrt_utils::{
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
-    Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
+    qjs, Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
 };
 
 fn lookup<'js>(ctx: Ctx<'js>, hostname: String, args: Rest<Value<'js>>) -> Result<()> {
@@ -22,7 +22,7 @@ fn lookup<'js>(ctx: Ctx<'js>, hostname: String, args: Rest<Value<'js>>) -> Resul
         .or_throw_msg(&ctx, "Callback parameter is not a function")?;
 
     // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { cb.as_raw().u.ptr } as usize;
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
     register_finalization_registry(&ctx, cb.clone().into_value(), uid)?;
     invoke_async_hook(&ctx, HookType::Init, ProviderType::GetAddrInfoReqWrap, uid)?;
 
