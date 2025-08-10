@@ -138,7 +138,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     let mut executing_timers = Vec::new();
 
     // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
-    let uid = unsafe { obj.as_object().unwrap().as_raw().u.ptr } as usize;
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(obj.as_object().unwrap().as_raw()) } as usize;
     register_finalization_registry(&ctx, obj.clone().into_value(), uid)?;
     invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, uid)?;
 

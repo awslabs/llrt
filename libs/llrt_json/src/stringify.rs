@@ -3,7 +3,8 @@
 use std::{collections::HashSet, rc::Rc};
 
 use rquickjs::{
-    atom::PredefinedAtom, function::This, Ctx, Exception, Function, Object, Result, Type, Value,
+    atom::PredefinedAtom, function::This, qjs, Ctx, Exception, Function, Object, Result, Type,
+    Value,
 };
 
 use crate::escape::escape_json_string;
@@ -317,8 +318,8 @@ fn detect_circular_reference(
     ancestors: &mut Vec<(usize, Rc<str>)>,
     itoa_buffer: &mut itoa::Buffer,
 ) -> Result<()> {
-    let parent_ptr = unsafe { parent.unwrap_unchecked().as_raw().u.ptr as usize };
-    let current_ptr = unsafe { value.as_raw().u.ptr as usize };
+    let parent_ptr = unsafe { qjs::JS_VALUE_GET_PTR(parent.unwrap_unchecked().as_raw()) as usize };
+    let current_ptr = unsafe { qjs::JS_VALUE_GET_PTR(value.as_raw()) as usize };
 
     while !ancestors.is_empty()
         && match ancestors.last() {
