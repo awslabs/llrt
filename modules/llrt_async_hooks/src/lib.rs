@@ -11,6 +11,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
     promise::PromiseHookType,
+    qjs,
     runtime::PromiseHook,
     Ctx, Function, JsLifetime, Object, Result, Value,
 };
@@ -211,11 +212,11 @@ pub fn promise_hook_tracker() -> PromiseHook {
             // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
             let object = promise
                 .as_object()
-                .map(|v| unsafe { v.as_raw().u.ptr } as usize)
+                .map(|v| unsafe { qjs::JS_VALUE_GET_PTR(v.as_raw()) } as usize)
                 .unwrap();
             let parent = parent
                 .as_object()
-                .map(|v| unsafe { v.as_raw().u.ptr } as usize);
+                .map(|v| unsafe { qjs::JS_VALUE_GET_PTR(v.as_raw()) } as usize);
 
             if type_ == PromiseHookType::Init {
                 let _ = register_finalization_registry(&ctx, promise, object);
