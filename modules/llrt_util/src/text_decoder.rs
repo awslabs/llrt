@@ -56,9 +56,10 @@ impl<'js> TextDecoder {
     pub fn decode(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<String> {
         let bytes = bytes.as_bytes(&ctx)?;
         let start_pos = if !self.ignore_bom {
-            match bytes.get(..3) {
-                Some([0xFF, 0xFE, ..]) | Some([0xFE, 0xFF, ..]) => 2,
-                Some([0xEF, 0xBB, 0xBF]) => 3,
+            match (&self.encoder, bytes.get(..3)) {
+                (Encoder::Utf16le, Some([0xFF, 0xFE, ..])) => 2,
+                (Encoder::Utf16be, Some([0xFE, 0xFF, ..])) => 2,
+                (Encoder::Utf8, Some([0xEF, 0xBB, 0xBF])) => 3,
                 _ => 0,
             }
         } else {

@@ -41,9 +41,6 @@ Error: [encodeInto() into ArrayBuffer with U+d834AU+df06A¥Hi and destination le
 encoding > should pass textdecoder-arguments.any.js tests
 Error: [TextDecoder decode() with explicit undefined] assert_equals: Undefined as first arg should flush the stream expected "\ufffd" but got ""
 
-encoding > should pass textdecoder-byte-order-marks.any.js tests
-Error: [Byte-order marks: utf-8] assert_not_equals: Mismatching BOM should not be ignored - treated as garbage bytes. got disallowed value "z¢水𝄞􏿽"
-
 encoding > should pass textdecoder-copy.any.js tests
 Error: [Modify buffer after passing it in (ArrayBuffer)] assert_equals: expected "" but got "\ufffd"
 
@@ -192,7 +189,7 @@ Error: [Request on bad port 1 should throw TypeError.] promise_rejects_js: funct
 }" ("TypeError")
 
 fetch/api/request > should pass request-consume.any.js tests
-Error: [Consume String request's body as text] assert_false: bodyUsed is false at init expected false got true
+Error: [Consume DataView request's body as text] assert_equals: Retrieve and verify request's body expected "\"123456\"" but got "\0\"123456\"\0"
 
 fetch/api/request > should pass request-disturbed.any.js tests
 Error: [Request's body: initial state] assert_true: non-null body type expected true got false
@@ -215,7 +212,7 @@ fetch/api/request > should pass request-init-stream.any.js tests
 Error: [Constructing a Request with a stream on which getReader() is called] assert_throws_js: function "() => new Request("...", { method, body, duplex })" did not throw
 
 fetch/api/request > should pass request-keepalive.any.js tests
-Error: [keepalive flag] assert_false: default expected false got true
+Error: [keepalive flag with stream body] assert_throws_js: function "() => {new Request('/', init)}" did not throw
 
 fetch/api/request > should pass request-structure.any.js tests
 Error: [Request has formData method] assert_true: request has formData method expected true got false
