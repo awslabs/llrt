@@ -14,7 +14,7 @@ export default function (self) {
       switch (attribute) {
         case "headers":
           for (var key in ExpectedValuesDict["headers"].keys()) {
-            assert_equals(
+            self.assert_equals(
               request["headers"].get(key),
               ExpectedValuesDict["headers"].get(key),
               "Check headers attribute has " +
@@ -27,7 +27,7 @@ export default function (self) {
 
         case "body":
           //for checking body's content, a dedicated asyncronous/promise test should be used
-          assert_true(
+          self.assert_true(
             request["headers"].has("Content-Type"),
             "Check request has body using Content-Type header"
           );
@@ -42,7 +42,7 @@ export default function (self) {
         case "integrity":
         case "url":
         case "destination":
-          assert_equals(
+          self.assert_equals(
             request[attribute],
             ExpectedValuesDict[attribute],
             "Check " + attribute + " attribute"
@@ -71,7 +71,7 @@ export default function (self) {
   self.encode_utf8 = encode_utf8;
 
   function validateBufferFromString(buffer, expectedValue, message) {
-    return assert_array_equals(
+    return self.assert_array_equals(
       new Uint8Array(buffer !== undefined ? buffer : []),
       stringToArray(expectedValue),
       message
@@ -87,7 +87,7 @@ export default function (self) {
     // Passing Uint8Array for byte streams; non-byte streams will simply ignore it
     return reader.read(new Uint8Array(64)).then(function (data) {
       if (!data.done) {
-        assert_true(
+        self.assert_true(
           data.value instanceof Uint8Array,
           "Fetch ReadableStream chunks should be Uint8Array"
         );
@@ -120,7 +120,7 @@ export default function (self) {
     // Passing Uint8Array for byte streams; non-byte streams will simply ignore it
     return reader.read(new Uint8Array(64)).then(function (data) {
       if (!data.done) {
-        assert_true(
+        self.assert_true(
           data.value instanceof Uint8Array,
           "Fetch ReadableStream chunks should be Uint8Array"
         );
@@ -142,7 +142,7 @@ export default function (self) {
       }
 
       var string = new TextDecoder("utf-8").decode(retrievedArrayBuffer);
-      return assert_true(
+      return self.assert_true(
         string.search(expectedValue) != -1,
         "Retrieve and verify stream"
       );
@@ -165,10 +165,10 @@ export default function (self) {
 
     promise_test(function (test) {
       return fetch(url + urlParameters, requestInit).then(function (resp) {
-        assert_equals(resp.status, 200, "HTTP status is 200");
-        assert_equals(resp.type, "basic", "Response's type is basic");
+        self.assert_equals(resp.status, 200, "HTTP status is 200");
+        self.assert_equals(resp.type, "basic", "Response's type is basic");
         for (var header in forbiddenHeaders)
-          assert_not_equals(
+          self.assert_not_equals(
             resp.headers.get("x-request-" + header),
             forbiddenHeaders[header],
             header + " does not have the value we defined"
