@@ -41,9 +41,6 @@ Error: [encodeInto() into ArrayBuffer with U+d834AU+df06A¥Hi and destination le
 encoding > should pass textdecoder-arguments.any.js tests
 Error: [TextDecoder decode() with explicit undefined] assert_equals: Undefined as first arg should flush the stream expected "\ufffd" but got ""
 
-encoding > should pass textdecoder-byte-order-marks.any.js tests
-Error: [Byte-order marks: utf-8] assert_not_equals: Mismatching BOM should not be ignored - treated as garbage bytes. got disallowed value "z¢水𝄞􏿽"
-
 encoding > should pass textdecoder-copy.any.js tests
 Error: [Modify buffer after passing it in (ArrayBuffer)] assert_equals: expected "" but got "\ufffd"
 
