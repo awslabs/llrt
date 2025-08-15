@@ -33,13 +33,23 @@ git submodule add --force -b master https://github.com/web-platform-tests/wpt wp
 make update-wpt
 ```
 
-5. **Run the WPTs**
+5. **Run the WPT server**
+
+```sh
+./wpt/wpt serve
+```
+
+> [!IMPORTANT]
+> The first time you do this, you will need to add the hostname required by wpt to hosts. For more information, please refer to the URL below.
+> https://web-platform-tests.org/running-tests/from-local-system.html#hosts-file-setup
+
+6. **Run the WPTs**
 
 ```sh
 make test-wpt
 ```
 
-6. **Organizing the results of the WPT**
+7. **Organizing the results of the WPT**
 
 ```sh
 make tidyup-wpt
