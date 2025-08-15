@@ -55,8 +55,16 @@ where
                 let lock = connections.acquire().await;
                 let options = options?;
 
-                if let Some(data_url) = options.url.strip_prefix("data:") {
-                    return parse_data_url(&ctx, data_url, &options.method);
+                if let Some((scheme, fragment)) = options.url.split_once(':') {
+                    if !matches!(scheme, "data" | "http" | "https") {
+                        return Err(Exception::throw_type(
+                            &ctx,
+                            "Invalid URL scheme in fetch options",
+                        ));
+                    }
+                    if scheme == "data" {
+                        return parse_data_url(&ctx, fragment, &options.method);
+                    }
                 }
 
                 let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;

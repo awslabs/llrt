@@ -23,7 +23,17 @@ export const runTestDynamic = (testSource, baseDir, done) => {
     encodings_table: encodings,
     setTimeout: setTimeout,
     DOMException: DOMException,
-    location: {},
+    location: {
+      href: "http://web-platform.test:8000/fetch/api/resources/",
+      origin: "http://web-platform.test",
+      protocol: "http:",
+      host: "web-platform.test",
+      hostname: "web-platform.test",
+      port: "8000",
+      pathname: "/fetch/api/resources/",
+      search: "",
+      hash: "",
+    },
     RESOURCES_DIR: "http://web-platform.test:8000/fetch/api/resources/",
   };
 

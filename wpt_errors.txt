@@ -94,7 +94,7 @@ fetch/api/basic > should pass http-response-code.any.js tests
 Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
 
 fetch/api/basic > should pass integrity.sub.any.js tests
-Error: [Invalid integrity] assert_unreached: Should have rejected: undefined Reached unreachable code
+Error: [Empty string integrity] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL scheme in fetch options"
 
 fetch/api/basic > should pass keepalive.any.js tests
 Error: [[keepalive] simple GET request on 'load' [no payload]; setting up] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
@@ -122,7 +122,7 @@ fetch/api/basic > should pass request-headers-nonascii.any.js tests
 Error: [Non-ascii bytes in request headers] promise_test: Unhandled rejection with value: object "Error: invalid format"
 
 fetch/api/basic > should pass request-headers.any.js tests
-Error: [Fetch with PUT without body] assert_equals: Request should have header origin: undefined expected (undefined) undefined but got (object) null
+Error: [Fetch with PUT without body] assert_equals: Request should have header origin: http://web-platform.test expected (string) "http://web-platform.test" but got (object) null
 
 fetch/api/basic > should pass request-upload.any.js tests
 Error: [Fetch with POST with DataView body] assert_equals: expected "\0\0\0\0" but got "\0\0\0\0\0\0\0\0"
@@ -133,28 +133,11 @@ Error: [Response.body is null for responses with status=204 (method=GET)] assert
 fetch/api/basic > should pass response-url.sub.any.js tests
 Error: [Testing response url getter with http://{{host}}:{{ports[http][0]}}/ada] promise_test: Unhandled rejection with value: object "Error: invalid uri character"
 
-fetch/api/basic > should pass scheme-about.any.js tests
-Error: [Fetching about:blank with method GET is KO] promise_rejects_js: function "function() {
-            throw e;
-          }" threw object "Error: client error (UserAbsoluteUriRequired)" ("Error") expected instance of function "function TypeError() {
-    [native code]
-}" ("TypeError")
-
-fetch/api/basic > should pass scheme-others.sub.any.js tests
-Error: [Fetching aaa://{{host}}:{{ports[http][0]}}/ is KO] promise_rejects_js: function "function() {
-            throw e;
-          }" threw object "Error: invalid uri character" ("Error") expected instance of function "function TypeError() {
-    [native code]
-}" ("TypeError")
-
 fetch/api/basic > should pass status.h2.any.js tests
 Error: [statusText over H2 for status 200 should be the empty string] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/basic > should pass stream-response.any.js tests
 Error: [Stream response's body when content-type is present] assert_unreached: Body does not exist in response Reached unreachable code
-
-fetch/api/basic > should pass stream-safe-creation.any.js tests
-Error: [throwing Object.prototype.start accessor should not affect stream creation by 'fetch'] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/basic > should pass text-utf8.any.js tests
 Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] promise_test: Unhandled rejection with value: object "Error: invalid format"
@@ -183,7 +166,7 @@ Error: [Basic operation with one property] assert_array_equals: lengths differ, 
 fetch/api/request > should pass request-bad-port.any.js tests
 Error: [Request on bad port 1 should throw TypeError.] promise_rejects_js: function "function() {
             throw e;
-          }" threw object "Error: client error (UserAbsoluteUriRequired)" ("Error") expected instance of function "function TypeError() {
+          }" threw object "Error: client error (Connect)" ("Error") expected instance of function "function TypeError() {
     [native code]
 }" ("TypeError")
 
