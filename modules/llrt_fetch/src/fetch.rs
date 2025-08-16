@@ -220,13 +220,9 @@ fn build_request(
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
     if let Some(scheme) = uri.scheme_str() {
         if !matches!(scheme, "http" | "https") {
-            return Err(Exception::throw_type(
-                ctx,
-                "Invalid URL scheme in fetch options",
-            ));
+            return Err(Exception::throw_type(ctx, "Invalid scheme in URL"));
         }
     }
-
     if let Some(port) = uri.authority().and_then(|a| a.port_u16()) {
         if BLOCKED_PORTS.contains(&port) {
             return Err(Exception::throw_type(ctx, "Invalid port in URL"));
