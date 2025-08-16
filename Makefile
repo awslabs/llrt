@@ -182,21 +182,23 @@ test: js
 	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 init-wpt:
-	git config core.sparsecheckout false
-	echo "/README.md" > ./.git/modules/wpt/info/sparse-checkout
-	echo "/console" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/docs" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/encoding" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/FileAPI" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/fetch" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/hr-time" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/streams" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/tools" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/url" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/WebCryptoAPI" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "/webidl" >> ./.git/modules/wpt/info/sparse-checkout
-	echo "wpt" >> ./.git/modules/wpt/info/sparse-checkout
-	git config core.sparsecheckout true
+	cd wpt && \
+	git sparse-checkout init --no-cone && \
+	git sparse-checkout set \
+		/README.md \
+		/console \
+		/docs \
+		/encoding \
+		/FileAPI \
+		/fetch \
+		/hr-time \
+		/streams \
+		/tools \
+		/url \
+		/WebCryptoAPI \
+		/webidl \
+		/wpt \
+		/xhr
 
 update-wpt:
 	( cd wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../tests/wpt/revision )
