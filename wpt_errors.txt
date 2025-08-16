@@ -67,7 +67,7 @@ Error: [USVString handling: lone surrogate lead] Conversion from string failed: 
 fetch/api/abort > should pass general.any.js tests
 Error: [Aborting rejects with AbortError] promise_rejects_dom: function "function() {
             throw e;
-          }" threw object "Error: invalid format" that is not a DOMException AbortError: property "code" is equal to undefined, expected 20
+          }" threw object "TypeError: Invalid URL :../resources/data.json" that is not a DOMException AbortError: property "code" is equal to undefined, expected 20
 
 
 🧪/wpt/fetch.api.basic.test.js 
@@ -75,20 +75,13 @@ fetch/api/basic > should pass conditional-get.any.js tests
 Error: [Testing conditional GET with ETags] token is not defined
 
 fetch/api/basic > should pass error-after-response.any.js tests
-Error: [Response reader read() promise should reject after a network error happening after resolving fetch promise] promise_test: Unhandled rejection with value: object "Error: invalid format"
+Error: [Response reader read() promise should reject after a network error happening after resolving fetch promise] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/bad-chunk-encoding.py?count=1"
 
 fetch/api/basic > should pass gc.any.js tests
 Error: [GC/CC should not abruptly close the stream while being consumed by Response] assert_equals: The buffer should be 5-byte long expected 5 but got 15
 
 fetch/api/basic > should pass header-value-combining.any.js tests
-Error: [response.headers.get('content-length') expects 0] promise_test: Unhandled rejection with value: object "Error: invalid format"
-
-fetch/api/basic > should pass header-value-null-byte.any.js tests
-Error: [Ensure fetch() rejects null bytes in headers] promise_rejects_js: function "function() {
-            throw e;
-          }" threw object "Error: invalid format" ("Error") expected instance of function "function TypeError() {
-    [native code]
-}" ("TypeError")
+Error: [response.headers.get('content-length') expects 0] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../../../xhr/resources/header-content-length.asis"
 
 fetch/api/basic > should pass http-response-code.any.js tests
 Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
@@ -100,10 +93,10 @@ fetch/api/basic > should pass keepalive.any.js tests
 Error: [[keepalive] simple GET request on 'load' [no payload]; setting up] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
 
 fetch/api/basic > should pass mode-no-cors.sub.any.js tests
-Error: [Fetch http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt with no-cors mode] promise_test: Unhandled rejection with value: object "Error: invalid uri character"
+Error: [Fetch http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt with no-cors mode] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt?pipe=header(x-is-filtered,value)"
 
 fetch/api/basic > should pass mode-same-origin.any.js tests
-Error: [Fetch http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt with same-origin mode] promise_test: Unhandled rejection with value: object "Error: invalid uri character"
+Error: [Fetch http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt with same-origin mode] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt"
 
 fetch/api/basic > should pass referrer.any.js tests
 Error: [origin-when-cross-origin policy on a same-origin URL] assert_equals: Request's referrer is correct expected (string) "[object Object]" but got (object) null
@@ -119,7 +112,7 @@ fetch/api/basic > should pass request-headers-case.any.js tests
 Error: [Multiple headers with the same name, different case (THIS-is-A-test first)] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/basic > should pass request-headers-nonascii.any.js tests
-Error: [Non-ascii bytes in request headers] promise_test: Unhandled rejection with value: object "Error: invalid format"
+Error: [Non-ascii bytes in request headers] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/inspect-headers.py?headers=accept|x-test"
 
 fetch/api/basic > should pass request-headers.any.js tests
 Error: [Fetch with PUT without body] assert_equals: Request should have header origin: http://web-platform.test expected (string) "http://web-platform.test" but got (object) null
@@ -131,7 +124,7 @@ fetch/api/basic > should pass response-null-body.any.js tests
 Error: [Response.body is null for responses with status=204 (method=GET)] assert_equals: the body should be null expected (object) null but got (undefined) undefined
 
 fetch/api/basic > should pass response-url.sub.any.js tests
-Error: [Testing response url getter with http://{{host}}:{{ports[http][0]}}/ada] promise_test: Unhandled rejection with value: object "Error: invalid uri character"
+Error: [Testing response url getter with http://{{host}}:{{ports[http][0]}}/ada] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :http://{{host}}:{{ports[http][0]}}/ada"
 
 fetch/api/basic > should pass status.h2.any.js tests
 Error: [statusText over H2 for status 200 should be the empty string] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
@@ -140,7 +133,7 @@ fetch/api/basic > should pass stream-response.any.js tests
 Error: [Stream response's body when content-type is present] assert_unreached: Body does not exist in response Reached unreachable code
 
 fetch/api/basic > should pass text-utf8.any.js tests
-Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] promise_test: Unhandled rejection with value: object "Error: invalid format"
+Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/status.py?code=200&type=text%2Fplain%3Bcharset%3DUTF-8&content=%EF%BB%BF%E4%B8%89%E6%9D%91%E3%81%8B%E3%81%AA%E5%AD%90"
 
 
 🧪/wpt/fetch.api.body.test.js 
@@ -156,20 +149,13 @@ fetch/api/headers > should pass headers-basic.any.js tests
 Error: [Check keys method] assert_equals: expected object "[object Iterator]" but got object "[object Object]"
 
 fetch/api/headers > should pass headers-no-cors.any.js tests
-Error: [Loading data…] promise_test: Unhandled rejection with value: object "Error: invalid format"
+Error: [Loading data…] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../cors/resources/not-cors-safelisted.json"
 
 fetch/api/headers > should pass headers-record.any.js tests
 Error: [Basic operation with one property] assert_array_equals: lengths differ, expected array ["get", object "[object Object]", symbol "Symbol(Symbol.iterator)", object "[object Object]"] length 4, got ["has", object "[object Object]", symbol "Symbol(Symbol.iterator)"] length 3
 
 
 🧪/wpt/fetch.api.request.test.js 
-fetch/api/request > should pass request-bad-port.any.js tests
-Error: [Request on bad port 1 should throw TypeError.] promise_rejects_js: function "function() {
-            throw e;
-          }" threw object "Error: client error (Connect)" ("Error") expected instance of function "function TypeError() {
-    [native code]
-}" ("TypeError")
-
 fetch/api/request > should pass request-consume.any.js tests
 Error: [Consume DataView request's body as text] assert_equals: Retrieve and verify request's body expected "\"123456\"" but got "\0\"123456\"\0"
 
@@ -223,7 +209,7 @@ fetch/api/response > should pass response-from-stream.any.js tests
 Error: [Constructing a Response with a stream on which getReader() is called] assert_throws_js: function "() => new Response(stream)" did not throw
 
 fetch/api/response > should pass response-headers-guard.any.js tests
-Error: [Ensure response headers are immutable] promise_test: Unhandled rejection with value: object "Error: invalid format"
+Error: [Ensure response headers are immutable] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/data.json"
 
 fetch/api/response > should pass response-init-001.any.js tests
 Error: [Check default value for type attribute] assert_equals: Expect default response.type is default expected "default" but got "basic"

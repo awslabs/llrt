@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::{collections::HashSet, time::Instant};
 
 use bytes::Bytes;
@@ -35,6 +36,19 @@ use super::{
     Blob,
 };
 
+// https://fetch.spec.whatwg.org/#port-blocking
+static BLOCKED_PORTS: LazyLock<HashSet<u16>> = LazyLock::new(|| {
+    [
+        0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95,
+        101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179,
+        389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601,
+        636, 989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566,
+        6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080,
+    ]
+    .into_iter()
+    .collect()
+});
+
 const MAX_REDIRECT_COUNT: u32 = 20;
 
 pub fn init<C>(client: Client<C, BoxBody<Bytes, Infallible>>, globals: &Object) -> Result<()>
@@ -67,8 +81,11 @@ where
                     }
                 }
 
-                let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;
-                let mut uri: Uri = initial_uri.clone();
+                let mut uri = options.url.parse::<Uri>().map_err(|_| {
+                    Exception::throw_type(&ctx, &["Invalid URL :", &options.url].concat())
+                })?;
+                let initial_uri: Uri = uri.clone();
+
                 let method_string = options.method.to_string();
                 let method = options.method;
                 let abort_receiver = options.abort_receiver;
@@ -201,6 +218,12 @@ fn build_request(
     prev_status: &u16,
     initial_uri: &Uri,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
+    if let Some(port) = uri.authority().and_then(|a| a.port_u16()) {
+        if BLOCKED_PORTS.contains(&port) {
+            return Err(Exception::throw_type(ctx, "Invalid port in URL"));
+        }
+    }
+
     let same_origin = is_same_origin(uri, initial_uri);
     let guard = if same_origin {
         HeadersGuard::Response
