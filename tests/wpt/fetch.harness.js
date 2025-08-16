@@ -48,7 +48,12 @@ export const runTestDynamic = (testSource, baseDir, done) => {
           data = require(baseDir + "/fetch/api/resources/data.json");
           break;
         default:
-          return _fetch(url, option);
+          let absolute_url = url;
+          if (url.startsWith("../")) {
+            absolute_url =
+              "http://web-platform.test:8000/fetch/api/resources/" + url;
+          }
+          return _fetch(absolute_url, option);
       }
       return Promise.resolve({
         json: () => Promise.resolve(data),

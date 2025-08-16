@@ -65,7 +65,7 @@ Error: [USVString handling: lone surrogate lead] Conversion from string failed: 
 
 🧪/wpt/fetch.api.abort.test.js 
 fetch/api/abort > should pass general.any.js tests
-Error: [Aborting rejects with AbortError] assert_unreached: Should have rejected: undefined Reached unreachable code
+Error: Timeout after 5000ms
 
 
 🧪/wpt/fetch.api.basic.test.js 
@@ -73,13 +73,16 @@ fetch/api/basic > should pass conditional-get.any.js tests
 Error: [Testing conditional GET with ETags] token is not defined
 
 fetch/api/basic > should pass error-after-response.any.js tests
-Error: [Response reader read() promise should reject after a network error happening after resolving fetch promise] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/bad-chunk-encoding.py?count=1"
+Error: [Response reader read() promise should reject after a network error happening after resolving fetch promise] promise_test: Unhandled rejection with value: object "TypeError: cannot read property 'getReader' of undefined"
 
 fetch/api/basic > should pass gc.any.js tests
 Error: [GC/CC should not abruptly close the stream while being consumed by Response] assert_equals: The buffer should be 5-byte long expected 5 but got 15
 
 fetch/api/basic > should pass header-value-combining.any.js tests
-Error: [response.headers.get('content-length') expects 0] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../../../xhr/resources/header-content-length.asis"
+Error: [response.headers.get('content-length') expects 0] assert_equals: expected "0" but got "42"
+
+fetch/api/basic > should pass header-value-null-byte.any.js tests
+Error: [Ensure fetch() rejects null bytes in headers] assert_unreached: Should have rejected: undefined Reached unreachable code
 
 fetch/api/basic > should pass http-response-code.any.js tests
 Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
@@ -110,7 +113,7 @@ fetch/api/basic > should pass request-headers-case.any.js tests
 Error: [Multiple headers with the same name, different case (THIS-is-A-test first)] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
 fetch/api/basic > should pass request-headers-nonascii.any.js tests
-Error: [Non-ascii bytes in request headers] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/inspect-headers.py?headers=accept|x-test"
+Error: [Non-ascii bytes in request headers] assert_equals: Accept Header expected (string) "before-æøå-after" but got (object) null
 
 fetch/api/basic > should pass request-headers.any.js tests
 Error: [Fetch with PUT without body] assert_equals: Request should have header origin: http://web-platform.test expected (string) "http://web-platform.test" but got (object) null
@@ -131,7 +134,7 @@ fetch/api/basic > should pass stream-response.any.js tests
 Error: [Stream response's body when content-type is present] assert_unreached: Body does not exist in response Reached unreachable code
 
 fetch/api/basic > should pass text-utf8.any.js tests
-Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :../resources/status.py?code=200&type=text%2Fplain%3Bcharset%3DUTF-8&content=%EF%BB%BF%E4%B8%89%E6%9D%91%E3%81%8B%E3%81%AA%E5%AD%90"
+Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] assert_equals: Fetched Response.text() should decode data as UTF-8 expected "三村かな子" but got "{\"error\": {\"code\": 404, \"message\": \"404\"}}"
 
 
 🧪/wpt/fetch.api.body.test.js 
@@ -192,7 +195,7 @@ fetch/api/response > should pass response-cancel-stream.any.js tests
 Error: [Cancelling a starting blob Response stream] cannot read property 'cancel' of undefined
 
 fetch/api/response > should pass response-clone.any.js tests
-Error: [Check Response's clone with default values, without body] assert_equals: Expect default response.type is default expected "default" but got "basic"
+Error: Timeout after 5000ms
 
 fetch/api/response > should pass response-error-from-stream.any.js tests
 Error: [ReadableStream start() Error propagates to Response.arrayBuffer() Promise] assert_unreached: Should have rejected: CustomTestError should propagate Reached unreachable code
