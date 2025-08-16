@@ -87,7 +87,7 @@ fetch/api/basic > should pass http-response-code.any.js tests
 Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
 
 fetch/api/basic > should pass integrity.sub.any.js tests
-Error: [Empty string integrity] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL scheme in fetch options"
+Error: [Empty string integrity] promise_test: Unhandled rejection with value: object "TypeError: Invalid scheme"
 
 fetch/api/basic > should pass keepalive.any.js tests
 Error: [[keepalive] simple GET request on 'load' [no payload]; setting up] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"

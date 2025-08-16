@@ -69,15 +69,15 @@ where
                 let lock = connections.acquire().await;
                 let options = options?;
 
+                // https://fetch.spec.whatwg.org/#scheme-fetch
                 if let Some((scheme, fragment)) = options.url.split_once(':') {
-                    if !matches!(scheme, "data" | "http" | "https") {
-                        return Err(Exception::throw_type(
-                            &ctx,
-                            "Invalid URL scheme in fetch options",
-                        ));
-                    }
-                    if scheme == "data" {
-                        return parse_data_url(&ctx, fragment, &options.method);
+                    match scheme {
+                        "http" | "https" => {},
+                        "data" => return parse_data_url(&ctx, fragment, &options.method),
+                        "about" | "blob" | "file" => {
+                            return Err(Exception::throw_type(&ctx, "Unsupported scheme"));
+                        },
+                        _ => return Err(Exception::throw_type(&ctx, "Invalid scheme")),
                     }
                 }
 
@@ -218,6 +218,15 @@ fn build_request(
     prev_status: &u16,
     initial_uri: &Uri,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
+    if let Some(scheme) = uri.scheme_str() {
+        if !matches!(scheme, "http" | "https") {
+            return Err(Exception::throw_type(
+                ctx,
+                "Invalid URL scheme in fetch options",
+            ));
+        }
+    }
+
     if let Some(port) = uri.authority().and_then(|a| a.port_u16()) {
         if BLOCKED_PORTS.contains(&port) {
             return Err(Exception::throw_type(ctx, "Invalid port in URL"));
