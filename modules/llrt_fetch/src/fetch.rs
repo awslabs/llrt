@@ -1,16 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::convert::Infallible;
-use std::sync::Arc;
-use std::sync::LazyLock;
-use std::{collections::HashSet, time::Instant};
+use std::{collections::HashSet, convert::Infallible, sync::Arc, time::Instant};
 
 use bytes::Bytes;
-use http_body_util::combinators::BoxBody;
-use http_body_util::Full;
+use http_body_util::{combinators::BoxBody, Full};
 use hyper::{header::HeaderName, Method, Request, Uri};
-use hyper_util::client::legacy::connect::Connect;
-use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::{connect::Connect, Client};
 use llrt_abort::AbortSignal;
 use llrt_encoding::bytes_from_b64;
 use llrt_utils::{
@@ -26,8 +21,7 @@ use rquickjs::{
     prelude::{Async, Func},
     Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
 };
-use tokio::select;
-use tokio::sync::Semaphore;
+use tokio::{select, sync::Semaphore};
 
 use super::{
     headers::{Headers, HeadersGuard},
@@ -37,17 +31,13 @@ use super::{
 };
 
 // https://fetch.spec.whatwg.org/#port-blocking
-static BLOCKED_PORTS: LazyLock<HashSet<u16>> = LazyLock::new(|| {
-    [
-        0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95,
-        101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179,
-        389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601,
-        636, 989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566,
-        6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080,
-    ]
-    .into_iter()
-    .collect()
-});
+static BLOCKED_PORTS: [u16; 83] = [
+    0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101,
+    102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427,
+    465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990,
+    993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667,
+    6668, 6669, 6679, 6697, 10080,
+];
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
