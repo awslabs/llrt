@@ -212,10 +212,11 @@ fn build_request(
         if !matches!(scheme, "http" | "https") {
             return Err(Exception::throw_type(ctx, "Invalid scheme in URL"));
         }
-    }
-    if let Some(port) = uri.authority().and_then(|a| a.port_u16()) {
-        if BLOCKED_PORTS.contains(&port) {
-            return Err(Exception::throw_type(ctx, "Invalid port in URL"));
+
+        if let ("http", Some(port)) = (scheme, uri.authority().and_then(|a| a.port_u16())) {
+            if BLOCKED_PORTS.contains(&port) {
+                return Err(Exception::throw_type(ctx, "Invalid port in URL"));
+            }
         }
     }
 
