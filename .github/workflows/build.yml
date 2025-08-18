@@ -25,7 +25,7 @@ jobs:
     name: build ${{ inputs.arch }}-${{ inputs.platform }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Checkout submodules
         run: git submodule update --init --checkout
       - name: Setup Node.js
