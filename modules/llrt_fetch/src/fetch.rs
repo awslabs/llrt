@@ -1,15 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::convert::Infallible;
-use std::sync::Arc;
-use std::{collections::HashSet, time::Instant};
+use std::{collections::HashSet, convert::Infallible, sync::Arc, time::Instant};
 
 use bytes::Bytes;
-use http_body_util::combinators::BoxBody;
-use http_body_util::Full;
+use http_body_util::{combinators::BoxBody, Full};
 use hyper::{header::HeaderName, Method, Request, Uri};
-use hyper_util::client::legacy::connect::Connect;
-use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::{connect::Connect, Client};
 use llrt_abort::AbortSignal;
 use llrt_encoding::bytes_from_b64;
 use llrt_utils::{
@@ -25,8 +21,7 @@ use rquickjs::{
     prelude::{Async, Func},
     Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
 };
-use tokio::select;
-use tokio::sync::Semaphore;
+use tokio::{select, sync::Semaphore};
 
 use super::{
     headers::{Headers, HeadersGuard},
@@ -34,6 +29,15 @@ use super::{
     security::ensure_url_access,
     Blob,
 };
+
+// https://fetch.spec.whatwg.org/#port-blocking
+const BLOCKED_PORTS: [u16; 83] = [
+    0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101,
+    102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427,
+    465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990,
+    993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667,
+    6668, 6669, 6679, 6697, 10080,
+];
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
@@ -55,12 +59,23 @@ where
                 let lock = connections.acquire().await;
                 let options = options?;
 
-                if let Some(data_url) = options.url.strip_prefix("data:") {
-                    return parse_data_url(&ctx, data_url, &options.method);
+                // https://fetch.spec.whatwg.org/#scheme-fetch
+                if let Some((scheme, fragment)) = options.url.split_once(':') {
+                    match scheme {
+                        "http" | "https" => {},
+                        "data" => return parse_data_url(&ctx, fragment, &options.method),
+                        "about" | "blob" | "file" => {
+                            return Err(Exception::throw_type(&ctx, "Unsupported scheme"));
+                        },
+                        _ => return Err(Exception::throw_type(&ctx, "Invalid scheme")),
+                    }
                 }
 
-                let initial_uri: Uri = options.url.parse().or_throw(&ctx)?;
-                let mut uri: Uri = initial_uri.clone();
+                let mut uri = options.url.parse::<Uri>().map_err(|_| {
+                    Exception::throw_type(&ctx, &["Invalid URL :", &options.url].concat())
+                })?;
+                let initial_uri: Uri = uri.clone();
+
                 let method_string = options.method.to_string();
                 let method = options.method;
                 let abort_receiver = options.abort_receiver;
@@ -193,6 +208,18 @@ fn build_request(
     prev_status: &u16,
     initial_uri: &Uri,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
+    if let Some(scheme) = uri.scheme_str() {
+        if !matches!(scheme, "http" | "https") {
+            return Err(Exception::throw_type(ctx, "Invalid scheme in URL"));
+        }
+
+        if let ("http", Some(port)) = (scheme, uri.authority().and_then(|a| a.port_u16())) {
+            if BLOCKED_PORTS.contains(&port) {
+                return Err(Exception::throw_type(ctx, "Invalid port in URL"));
+            }
+        }
+    }
+
     let same_origin = is_same_origin(uri, initial_uri);
     let guard = if same_origin {
         HeadersGuard::Response
