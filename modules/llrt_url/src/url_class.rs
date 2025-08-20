@@ -10,7 +10,7 @@ use rquickjs::{
 };
 use url::{quirks, Url};
 
-use super::url_search_params::URLSearchParams;
+use super::{convert_trailing_space, url_search_params::URLSearchParams};
 
 /// Naively checks for hostname delimiter, a colon ":", that's *probably* not
 /// part of an IPv6 address
@@ -96,6 +96,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "hash")]
     pub fn set_hash(&mut self, hash: String) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         quirks::set_hash(&mut self.url.borrow_mut(), hash.as_str());
         hash
     }
@@ -107,6 +109,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "host")]
     pub fn set_host(&mut self, host: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         let _ = quirks::set_host(&mut self.url.borrow_mut(), host.as_str());
         host.0
     }
@@ -118,6 +122,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "hostname")]
     pub fn set_hostname(&mut self, hostname: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         // TODO: This should be fixed in Url
         if !has_colon_delimiter(hostname.as_str()) {
             let _ = quirks::set_hostname(&mut self.url.borrow_mut(), hostname.as_str());
@@ -131,9 +137,11 @@ impl<'js> URL<'js> {
     }
 
     #[qjs(set, rename = "href")]
-    pub fn set_href(&mut self, href: String) -> Result<String> {
+    pub fn set_href(&mut self, href: String) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         let _ = quirks::set_href(&mut self.url.borrow_mut(), href.as_str());
-        Ok(href)
+        href
     }
 
     #[qjs(get)]
@@ -148,6 +156,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "password")]
     pub fn set_password(&mut self, password: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         let _ = quirks::set_password(&mut self.url.borrow_mut(), password.as_str());
         password.0
     }
@@ -159,6 +169,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "pathname")]
     pub fn set_pathname(&mut self, pathname: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         quirks::set_pathname(&mut self.url.borrow_mut(), pathname.as_str());
         pathname.0
     }
@@ -170,6 +182,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "port")]
     pub fn set_port(&mut self, ctx: Ctx<'js>, port: Value<'js>) -> Value<'js> {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         // TODO: negative ports should be handled in Url
         if port.is_null()
             || port.is_undefined()
@@ -192,6 +206,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "protocol")]
     pub fn set_protocol(&mut self, protocol: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         let _ = quirks::set_protocol(&mut self.url.borrow_mut(), protocol.as_str());
         protocol.0
     }
@@ -203,6 +219,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "search")]
     pub fn set_search(&mut self, search: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         quirks::set_search(&mut self.url.borrow_mut(), search.as_str());
         search.0
     }
@@ -219,6 +237,8 @@ impl<'js> URL<'js> {
 
     #[qjs(set, rename = "username")]
     pub fn set_username(&mut self, username: Coerced<String>) -> String {
+        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+
         let _ = quirks::set_username(&mut self.url.borrow_mut(), username.as_str());
         username.0
     }
