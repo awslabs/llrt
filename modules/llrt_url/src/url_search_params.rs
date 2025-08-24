@@ -81,7 +81,7 @@ impl<'js> URLSearchParams {
     //
 
     pub fn append(&mut self, key: Coerced<String>, value: Coerced<String>) {
-        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+        convert_trailing_space(&mut self.url.borrow_mut());
 
         self.url
             .borrow_mut()
@@ -90,7 +90,7 @@ impl<'js> URLSearchParams {
     }
 
     pub fn delete(&mut self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) {
-        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+        convert_trailing_space(&mut self.url.borrow_mut());
 
         let key = key.0;
 
@@ -174,7 +174,7 @@ impl<'js> URLSearchParams {
     }
 
     pub fn set(&mut self, key: Coerced<String>, value: Coerced<String>) {
-        let _ = convert_trailing_space(&mut self.url.borrow_mut());
+        convert_trailing_space(&mut self.url.borrow_mut());
 
         let key = key.0;
         let value = value.0;

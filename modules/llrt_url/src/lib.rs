@@ -114,12 +114,12 @@ pub fn url_format<'js>(url: Class<'js, URL<'js>>, options: Opt<Value<'js>>) -> R
 }
 
 // https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state
-pub fn convert_trailing_space(url: &mut Url) -> Result<()> {
+pub fn convert_trailing_space(url: &mut Url) {
     if matches!(
         url.scheme(),
         "file" | "ftp" | "http" | "https" | "ws" | "wss"
     ) {
-        return Ok(());
+        return;
     }
 
     let path = url.path();
@@ -130,8 +130,6 @@ pub fn convert_trailing_space(url: &mut Url) -> Result<()> {
         let new_path = [&path[..path.len() - 1], "%20"].concat();
         url.set_path(&new_path);
     }
-
-    Ok(())
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
