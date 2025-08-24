@@ -23,8 +23,42 @@ export const runTestDynamic = (testSource, baseDir, done) => {
     encodings_table: encodings,
     setTimeout: setTimeout,
     DOMException: DOMException,
-    location: {},
+    location: {
+      href: "http://web-platform.test:8000/fetch/api/resources/",
+      origin: "http://web-platform.test",
+      protocol: "http:",
+      host: "web-platform.test",
+      hostname: "web-platform.test",
+      port: "8000",
+      pathname: "/fetch/api/resources/",
+      search: "",
+      hash: "",
+    },
     RESOURCES_DIR: "http://web-platform.test:8000/fetch/api/resources/",
+
+    fetch: (url, option) => {
+      let data;
+      switch (url) {
+        case "../cors/resources/not-cors-safelisted.json":
+          data = require(
+            baseDir + "/fetch/api/cors/resources/not-cors-safelisted.json"
+          );
+          break;
+        case "../resources/data.json":
+          data = require(baseDir + "/fetch/api/resources/data.json");
+          break;
+        default:
+          let absolute_url = url;
+          if (url.startsWith("../")) {
+            absolute_url =
+              "http://web-platform.test:8000/fetch/api/resources/" + url;
+          }
+          return _fetch(absolute_url, option);
+      }
+      return Promise.resolve({
+        json: () => Promise.resolve(data),
+      });
+    },
   };
 
   resourcesIdlharness(context);
