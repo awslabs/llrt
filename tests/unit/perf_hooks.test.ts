@@ -1,7 +1,18 @@
-import { performance } from "perf_hooks";
+import defaultImport from "node:perf_hooks";
+import legacyImport from "perf_hooks";
+import * as legacyNamedImport from "perf_hooks";
 
-describe("perf_hooks", () => {
-  it("perf_hooks.performance should be the same as globalThis.performance", () => {
-    expect(performance).toBe(globalThis.performance);
+const modules = {
+  "node:perf_hooks": defaultImport,
+  perf_hooks: legacyImport,
+  "* as perf_hooks": legacyNamedImport,
+};
+for (const module in modules) {
+  const { performance } = modules[module];
+
+  describe(module, () => {
+    it("performance should be the same as globalThis.performance", () => {
+      expect(performance).toBe(globalThis.performance);
+    });
   });
-});
+}
