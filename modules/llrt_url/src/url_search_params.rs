@@ -12,6 +12,8 @@ use rquickjs::{
 };
 use url::Url;
 
+use super::convert_trailing_space;
+
 /// Represents `URLSearchParams` in the JavaScript context
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams>
@@ -79,6 +81,8 @@ impl<'js> URLSearchParams {
     //
 
     pub fn append(&mut self, key: Coerced<String>, value: Coerced<String>) {
+        convert_trailing_space(&mut self.url.borrow_mut());
+
         self.url
             .borrow_mut()
             .query_pairs_mut()
@@ -86,6 +90,8 @@ impl<'js> URLSearchParams {
     }
 
     pub fn delete(&mut self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) {
+        convert_trailing_space(&mut self.url.borrow_mut());
+
         let key = key.0;
 
         let value = get_coerced_string_value(&ctx, value);
@@ -168,6 +174,8 @@ impl<'js> URLSearchParams {
     }
 
     pub fn set(&mut self, key: Coerced<String>, value: Coerced<String>) {
+        convert_trailing_space(&mut self.url.borrow_mut());
+
         let key = key.0;
         let value = value.0;
 
