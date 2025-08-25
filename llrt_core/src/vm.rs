@@ -185,6 +185,29 @@ impl Vm {
         self.run(source, strict, global).await;
     }
 
+    pub async fn run_bytecode(&self, bytecode: &[u8]) {
+        self.run_with(|ctx| {
+            // First, try to load and execute it as a module
+            match crate::modules::embedded::loader::EmbeddedLoader::load_bytecode_module(
+                ctx.clone(),
+                bytecode,
+            ) {
+                Ok(module) => match module.eval() {
+                    Ok(_) => Ok(()),
+                    Err(err) => {
+                        eprintln!("Failed to evaluate module: {err:?}");
+                        Err(err)
+                    },
+                },
+                Err(err) => {
+                    eprintln!("Error extracting bytecode: {err:?}");
+                    Err(err)
+                },
+            }
+        })
+        .await;
+    }
+
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
         Ok(())
