@@ -311,9 +311,6 @@ Error: [request.formData() with input: test] not a function
 url > should pass urlsearchparams-constructor.any.js tests
 Error: [URLSearchParams constructor, FormData.] FormData is not defined
 
-url > should pass urlsearchparams-delete.any.js tests
-Error: [Changing the query of a URL with an opaque path with trailing spaces] assert_equals: expected "space   %20" but got "space"
-
 url > should pass urlsearchparams-sort.any.js tests
 Error: [Parse and sort: ﬃ&🌈] assert_array_equals: expected property 0 to be "🌈" but got "ﬃ" (expected array ["🌈", ""] got ["ﬃ", ""])
 
