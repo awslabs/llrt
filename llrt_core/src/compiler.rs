@@ -76,8 +76,7 @@ pub async fn compile_file(
                 let size_bytes = size.to_le_bytes();
                 exe_content.extend_from_slice(&size_bytes);
 
-                let marker_bytes = BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER.as_bytes();
-                exe_content.extend_from_slice(marker_bytes);
+                exe_content.extend_from_slice(BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER);
 
                 fs::write(output_filename, &exe_content)?;
 

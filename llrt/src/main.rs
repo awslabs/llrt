@@ -115,7 +115,8 @@ async fn start_runtime(vm: &Vm) {
 async fn start_cli(vm: &Vm) {
     #[cfg(not(feature = "lambda"))]
     {
-        use std::io::{Read, Seek};
+        use crate::base::bytecode::BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER;
+        use std::io::{Read, Seek, SeekFrom};
 
         let executable_path = env::current_exe()
             .unwrap_or_else(|_| PathBuf::from(env::args().next().unwrap_or_default()));
@@ -125,19 +126,37 @@ async fn start_cli(vm: &Vm) {
         );
 
         if let Ok(mut f) = std::fs::File::open(executable_path) {
-            let _ = f.seek(std::io::SeekFrom::End(-12));
-            let mut size = [0; 8];
-            f.read_exact(&mut size).unwrap();
-            let mut marker = [0; 4];
-            f.read_exact(&mut marker).unwrap();
+            let size_bytes_length: usize = 8;
+            let marker_length: usize = BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER.len();
+            let offset: usize = marker_length + size_bytes_length;
+            let negative_offset = -i64::from_ne_bytes(offset.to_ne_bytes());
+            let _ = f.seek(SeekFrom::End(negative_offset));
+            let mut end = vec![0; offset];
+            f.read_exact(&mut end).unwrap_or_else(|error| {
+                eprintln!("Failed to read end of the executable: {error:?}");
+                exit(1);
+            });
 
-            let marker_string = String::from_utf8_lossy(&marker);
-            if marker_string == crate::base::bytecode::BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER {
-                let size_number = u64::from_le_bytes(size);
-                let start = f.metadata().unwrap().len() - (size_number + 12u64);
-                let _ = f.seek(std::io::SeekFrom::Start(start));
-                let mut module = vec![0; size_number.try_into().unwrap()];
-                f.read_exact(&mut module).unwrap();
+            if &end[size_bytes_length..] == BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER {
+                let size_bytes: [u8; 8] =
+                    end[..size_bytes_length].try_into().unwrap_or_else(|error| {
+                        eprintln!("Failed to read length bytes: {error:?}");
+                        exit(1);
+                    });
+                let size_number = u64::from_le_bytes(size_bytes);
+                let metadata = f.metadata().unwrap_or_else(|error| {
+                    eprintln!("Failed to get metadata of executable: {error:?}");
+                    exit(1);
+                });
+                let unsigned_offset = u64::from_ne_bytes(offset.to_ne_bytes());
+                let start = metadata.len() - size_number - unsigned_offset;
+                let _ = f.seek(SeekFrom::Start(start));
+                let size = usize::from_ne_bytes(size_number.to_ne_bytes());
+                let mut module = vec![0; size];
+                f.read_exact(&mut module).unwrap_or_else(|error| {
+                    eprintln!("Failed to read embedded module: {error:?}");
+                    exit(1);
+                });
                 return vm.run_bytecode(&module).await;
             }
         }

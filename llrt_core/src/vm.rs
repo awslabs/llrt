@@ -187,23 +187,13 @@ impl Vm {
 
     pub async fn run_bytecode(&self, bytecode: &[u8]) {
         self.run_with(|ctx| {
-            // First, try to load and execute it as a module
-            match crate::modules::embedded::loader::EmbeddedLoader::load_bytecode_module(
-                ctx.clone(),
-                bytecode,
-            ) {
-                Ok(module) => match module.eval() {
-                    Ok(_) => Ok(()),
-                    Err(err) => {
-                        eprintln!("Failed to evaluate module: {err:?}");
-                        Err(err)
-                    },
-                },
-                Err(err) => {
-                    eprintln!("Error extracting bytecode: {err:?}");
-                    Err(err)
-                },
-            }
+            EmbeddedLoader::load_bytecode_module(ctx.clone(), bytecode)
+                .map(|module| module.eval())
+                .map_err(|err| {
+                    eprintln!("Failed to evaluate module: {err:?}");
+                    err
+                })
+                .map(|_| ())
         })
         .await;
     }
