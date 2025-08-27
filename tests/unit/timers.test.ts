@@ -1,106 +1,116 @@
-import timers from "timers";
+import defaultImport from "node:timers";
+import legacyImport from "timers";
+import * as legacyNamedImport from "timers";
 
-describe("timers", () => {
-  it("should set timeout", async () => {
-    const start = Date.now();
-    await new Promise((resolve) => {
-      setTimeout(resolve, 10);
+const modules = {
+  "node:timers": defaultImport,
+  timers: legacyImport,
+  "* as timers": legacyNamedImport,
+};
+for (const module in modules) {
+  const { setTimeout } = modules[module];
+  describe(module, () => {
+    it("should set timeout", async () => {
+      const start = Date.now();
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
+      const end = Date.now();
+      expect(end - start >= 10).toBeTruthy();
     });
-    const end = Date.now();
-    expect(end - start >= 10).toBeTruthy();
-  });
 
-  it("should set nested timeout", (done) => {
-    setTimeout(() => {
-      setTimeout(done, 10);
-    }, 10);
-  });
-
-  it("should clear timeout", async () => {
-    const start = Date.now();
-    let status = "";
-    await new Promise<void>((resolve) => {
-      let timeout = setTimeout(() => {
-        status = "not-cleared";
-        resolve();
-      }, 5);
-
+    it("should set nested timeout", (done) => {
       setTimeout(() => {
-        status = "cleared";
-        resolve();
+        setTimeout(done, 10);
       }, 10);
-
-      clearTimeout(timeout);
     });
-    const end = Date.now();
 
-    expect(end - start >= 10).toBeTruthy();
-    expect(status).toEqual("cleared");
-  });
+    it("should clear timeout", async () => {
+      const start = Date.now();
+      let status = "";
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          status = "not-cleared";
+          resolve();
+        }, 5);
 
-  it("should set interval", async () => {
-    const start = Date.now();
-    let count = 1;
-    await new Promise<void>((resolve) => {
-      let interval = setInterval(() => {
-        if (count > 4) {
-          clearInterval(interval);
-          return resolve();
-        }
-        count++;
-      }, 5);
+        setTimeout(() => {
+          status = "cleared";
+          resolve();
+        }, 10);
+
+        clearTimeout(timeout);
+      });
+      const end = Date.now();
+
+      expect(end - start >= 10).toBeTruthy();
+      expect(status).toEqual("cleared");
     });
-    const end = Date.now();
-    expect(end - start >= 10).toBeTruthy();
-    expect(count).toEqual(5);
-  });
 
-  it("should clear interval", async () => {
-    const start = Date.now();
-    let count = 1;
-    await new Promise<void>((resolve) => {
-      let interval = setInterval(() => {
-        if (count == 2) {
-          clearInterval(interval);
-          return;
-        }
-        count++;
-      }, 5);
-      setTimeout(resolve, 20);
+    it("should set interval", async () => {
+      const start = Date.now();
+      let count = 1;
+      await new Promise<void>((resolve) => {
+        const interval = setInterval(() => {
+          if (count > 4) {
+            clearInterval(interval);
+            return resolve();
+          }
+          count++;
+        }, 5);
+      });
+      const end = Date.now();
+      expect(end - start >= 10).toBeTruthy();
+      expect(count).toEqual(5);
     });
-    const end = Date.now();
-    expect(end - start > 10).toBeTruthy();
-    expect(count).toEqual(2);
-  });
 
-  it("should accept any parameter to clear timeout", () => {
-    expect(() => {
-      clearTimeout(null as any);
-      clearTimeout("" as any);
-      clearTimeout(true as any);
-      clearTimeout({});
-    }).not.toThrow();
-  });
-
-  it("should import timers", () => {
-    expect(timers.setTimeout).toEqual(setTimeout);
-  });
-
-  it("delay is optional", async () => {
-    const start = Date.now();
-    await new Promise((resolve) => {
-      setTimeout(resolve);
+    it("should clear interval", async () => {
+      const start = Date.now();
+      let count = 1;
+      await new Promise<void>((resolve) => {
+        let interval = setInterval(() => {
+          if (count == 2) {
+            clearInterval(interval);
+            return;
+          }
+          count++;
+        }, 5);
+        setTimeout(resolve, 20);
+      });
+      const end = Date.now();
+      expect(end - start > 10).toBeTruthy();
+      expect(count).toEqual(2);
     });
-    const end = Date.now();
-    expect(end - start >= 0).toBeTruthy();
-  });
 
-  it("delay can be negative.", async () => {
-    const start = Date.now();
-    await new Promise((resolve) => {
-      setTimeout(resolve, -1);
+    it("should accept any parameter to clear timeout", () => {
+      expect(() => {
+        clearTimeout(null as any);
+        clearTimeout("" as any);
+        clearTimeout(true as any);
+        clearTimeout({});
+      }).not.toThrow();
     });
-    const end = Date.now();
-    expect(end - start >= 0).toBeTruthy();
+
+    it("should import timers", () => {
+      expect(setTimeout).toEqual(globalThis.setTimeout);
+    });
+
+    it("delay is optional", async () => {
+      const start = Date.now();
+      await new Promise((resolve) => {
+        setTimeout(resolve);
+      });
+      const end = Date.now();
+      expect(end - start >= 0).toBeTruthy();
+    });
+
+    it("delay can be negative.", async () => {
+      const start = Date.now();
+      await new Promise((resolve) => {
+        setTimeout(resolve, -1);
+      });
+      const end = Date.now();
+      expect(end - start >= 0).toBeTruthy();
+    });
   });
-});
+}
