@@ -1,6 +1,6 @@
 use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Function, JsLifetime,
-    Object, Result, Symbol,
+    atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Exception, Function,
+    JsLifetime, Object, Result, Symbol,
 };
 
 use crate::class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
@@ -52,10 +52,20 @@ pub trait Primordial<'js> {
             return Ok(primordials);
         }
 
-        let primoridals = Self::new(ctx)?;
+        let primordials = Self::new(ctx)?;
 
-        _ = ctx.store_userdata(primoridals);
-        Ok(ctx.userdata::<Self>().unwrap())
+        if ctx.store_userdata(primordials).is_ok() {
+            return Ok(ctx.userdata::<Self>().unwrap());
+        };
+
+        if let Some(primordials) = ctx.userdata::<Self>() {
+            Ok(primordials)
+        } else {
+            Err(Exception::throw_internal(
+                ctx,
+                "userdata already set but not found",
+            ))
+        }
     }
 
     fn new(ctx: &Ctx<'js>) -> Result<Self>

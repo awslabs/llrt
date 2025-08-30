@@ -277,22 +277,8 @@ Error: [tee() should not call Promise.prototype.then()] patched then() called
 
 
 🧪/wpt/streams.writable-streams.test.js 
-streams/writable-streams > should pass aborting.any.js tests
-undefined: undefined
-
------ LAST STDERR: -----
-
-thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
-called `Option::unwrap()` on a `None` value
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-
-thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
-called `Option::unwrap()` on a `None` value
-
-streams/writable-streams > should pass bad-strategies.any.js tests
-Error: Test timed out after 5000ms
-    at tick (llrt:test/index:480:15)
-    at <anonymous> (llrt:test/index:160:12)
+streams/writable-streams > should pass general.any.js tests
+Error: [WritableStream's strategy.size should not be called as a method] promise_test: Unhandled rejection with value: object "Error: size called as a method"
 
 
 🧪/wpt/url.test.js 
