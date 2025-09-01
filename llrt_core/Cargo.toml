@@ -29,7 +29,7 @@ llrt_modules = { path = "../llrt_modules" }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
-phf = { version = "0.12", default-features = false }
+phf = { version = "0.13", default-features = false }
 quick-xml = { version = "0.38", default-features = false }
 ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
@@ -70,7 +70,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0"
   "full-async",
   "rust-alloc",
 ], default-features = false }
-phf_codegen = { version = "0.12", default-features = false }
+phf_codegen = { version = "0.13", default-features = false }
 jwalk = { version = "0.8", default-features = false }
 nanoid = { version = "0.4", default-features = false }
 llrt_build = { path = "../libs/llrt_build" }
