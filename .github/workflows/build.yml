@@ -36,16 +36,32 @@ jobs:
       - name: Install Linux dependencies
         if: inputs.platform == 'linux'
         run: |
+          set -eux
+
+          # Update and install base packages
           sudo apt-get -y update
-          sudo apt-get -y install make nodejs
+          sudo apt-get -y install make nodejs wget lsb-release gnupg
+
+          # Install Zig (latest beta from snap)
           sudo snap install zig --classic --beta
+
+          # Install LLVM 21 (includes clang/lld)
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21 all
+
+          # Make LLVM 21 the default lld
+          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-21 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
+
       - name: Install MacOS dependencies
         if: inputs.platform == 'darwin'
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install zig make
+          brew install llvm zig make
       - name: Install zig on windows
         if: inputs.platform == 'windows'
         shell: pwsh

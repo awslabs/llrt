@@ -8,6 +8,9 @@ rustflags = ["-Ctarget-feature=+crt-static", "-Ctarget-cpu=haswell"]
 linker = "./linker/cc-x86_64-linux-musl"
 ar = "./linker/ar"
 
+[target.x86_64-pc-windows-gnu]
+linker = "rust-lld.exe"
+
 [env]
 CC_aarch64_apple_darwin = "clang"
 CC_x86_64_apple_darwin = "clang"
