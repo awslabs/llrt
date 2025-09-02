@@ -16,19 +16,8 @@ import { finished } from "readable-stream/lib/internal/streams/end-of-stream.js"
 // @ts-ignore
 import { pipeline } from "readable-stream/lib/internal/streams/pipeline.js";
 
-function inherits(ctor: any, superCtor: any) {
-  if (superCtor) {
-    ctor.super_ = superCtor;
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true,
-      },
-    });
-  }
-}
+import { inherits } from "util";
+
 inherits(Stream, EE);
 Stream.Readable = Readable;
 Stream.Writable = Writable;
