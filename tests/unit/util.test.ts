@@ -1,17 +1,31 @@
-const util = require("util");
-const EventEmitter = require("events");
+import defaultImport from "node:util";
+import legacyImport from "util";
+import * as legacyNamedImport from "util";
 
-describe("Util.inherits", () => {
-  it("should be inheritable parent classes", () => {
-    function MyStream() {
-      EventEmitter.call(this);
-    }
+import { EventEmitter } from "node:events";
 
-    util.inherits(MyStream, EventEmitter);
+const modules = {
+  "node:util": defaultImport,
+  util: legacyImport,
+  "* as util": legacyNamedImport,
+};
+for (const module in modules) {
+  const { inherits } = modules[module];
 
-    const stream = new MyStream();
+  describe(module, () => {
+    describe("inherits", () => {
+      it("should be inheritable parent classes", () => {
+        function MyStream() {
+          EventEmitter.call(this);
+        }
 
-    expect(stream instanceof EventEmitter).toBeTruthy();
-    expect(MyStream.super_).toEqual(EventEmitter);
+        inherits(MyStream, EventEmitter);
+
+        const stream = new MyStream();
+
+        expect(stream instanceof EventEmitter).toBeTruthy();
+        expect(MyStream.super_).toEqual(EventEmitter);
+      });
+    });
   });
-});
+}
