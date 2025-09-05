@@ -256,6 +256,7 @@ impl ModuleDef for CryptoModule {
             declare.declare(class_name)?;
         }
         declare.declare("crypto")?;
+        declare.declare("webcrypto")?;
         declare.declare("default")?;
 
         Ok(())
@@ -291,7 +292,8 @@ impl ModuleDef for CryptoModule {
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;
             default.set("getRandomValues", Func::from(get_random_values))?;
-            default.set("crypto", crypto)?;
+            default.set("crypto", crypto.clone())?;
+            default.set("webcrypto", crypto)?;
             Ok(())
         })?;
 
