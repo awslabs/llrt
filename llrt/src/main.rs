@@ -126,7 +126,7 @@ async fn start_cli(vm: &Vm) {
         );
 
         if let Ok(mut f) = std::fs::File::open(executable_path) {
-            let size_bytes_length: usize = 8;
+            let size_bytes_length: usize = size_of::<u64>();
             let marker_length: usize = BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER.len();
             let offset: usize = marker_length + size_bytes_length;
             let negative_offset = -i64::from_ne_bytes(offset.to_ne_bytes());
@@ -138,7 +138,7 @@ async fn start_cli(vm: &Vm) {
             });
 
             if &end[size_bytes_length..] == BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER {
-                let size_bytes: [u8; 8] =
+                let size_bytes: [u8; size_of::<u64>()] =
                     end[..size_bytes_length].try_into().unwrap_or_else(|error| {
                         eprintln!("Failed to read length bytes: {error:?}");
                         exit(1);
