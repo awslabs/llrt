@@ -785,9 +785,8 @@ fn package_exports_resolve<'a>(
             }
             // Check for wildcard pattern
             if let Some(scope) = wildcard.1 {
-                let scope = scope.as_str();
                 // Check for exports -> scope -> platform(browser or node) -> [import | require]
-                if let Some(BorrowedValue::Object(name)) = exports.get(scope) {
+                if let Some(BorrowedValue::Object(name)) = exports.get(scope.as_str()) {
                     if let Some(BorrowedValue::Object(platform)) = name.get(LLRT_PLATFORM.as_str())
                     {
                         if let Some(BorrowedValue::String(ident)) = platform.get(ident) {
