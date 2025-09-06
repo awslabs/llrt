@@ -185,6 +185,19 @@ impl Vm {
         self.run(source, strict, global).await;
     }
 
+    pub async fn run_bytecode(&self, bytecode: &[u8]) {
+        self.run_with(|ctx| {
+            EmbeddedLoader::load_bytecode_module(ctx.clone(), bytecode)
+                .map(|module| module.eval())
+                .map_err(|err| {
+                    eprintln!("Failed to evaluate module: {err:?}");
+                    err
+                })
+                .map(|_| ())
+        })
+        .await;
+    }
+
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
         Ok(())

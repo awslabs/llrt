@@ -7,6 +7,7 @@ use std::{
     error::Error,
     path::{Path, PathBuf},
     process::{exit, ExitCode},
+    string::String,
     sync::atomic::Ordering,
     time::Instant,
 };
@@ -94,6 +95,8 @@ Options:
                       if [output.lrt] is omitted, <input>.lrt is used.
                       lrt file is expected to be executed by the llrt version
                       that created it
+                      --executable      Create a self-contained executable that includes
+                                        the LLRT runtime
   test              Run tests with provided arguments:
                       <test_args> -d <directory> <test-filter>
 "#
@@ -110,6 +113,55 @@ async fn start_runtime(vm: &Vm) {
 }
 
 async fn start_cli(vm: &Vm) {
+    #[cfg(not(feature = "lambda"))]
+    {
+        use crate::base::bytecode::BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER;
+        use std::io::{Read, Seek, SeekFrom};
+
+        let executable_path = env::current_exe()
+            .unwrap_or_else(|_| PathBuf::from(env::args().next().unwrap_or_default()));
+        trace!(
+            "Checking if {} is a self-contained executable",
+            executable_path.display()
+        );
+
+        if let Ok(mut f) = std::fs::File::open(executable_path) {
+            let size_bytes_length: usize = size_of::<u64>();
+            let marker_length: usize = BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER.len();
+            let offset: usize = marker_length + size_bytes_length;
+            let negative_offset = -i64::from_ne_bytes(offset.to_ne_bytes());
+            let _ = f.seek(SeekFrom::End(negative_offset));
+            let mut end = vec![0; offset];
+            f.read_exact(&mut end).unwrap_or_else(|error| {
+                eprintln!("Failed to read end of the executable: {error:?}");
+                exit(1);
+            });
+
+            if &end[size_bytes_length..] == BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER {
+                let size_bytes: [u8; size_of::<u64>()] =
+                    end[..size_bytes_length].try_into().unwrap_or_else(|error| {
+                        eprintln!("Failed to read length bytes: {error:?}");
+                        exit(1);
+                    });
+                let size_number = u64::from_le_bytes(size_bytes);
+                let metadata = f.metadata().unwrap_or_else(|error| {
+                    eprintln!("Failed to get metadata of executable: {error:?}");
+                    exit(1);
+                });
+                let unsigned_offset = u64::from_ne_bytes(offset.to_ne_bytes());
+                let start = metadata.len() - size_number - unsigned_offset;
+                let _ = f.seek(SeekFrom::Start(start));
+                let size = usize::from_ne_bytes(size_number.to_ne_bytes());
+                let mut module = vec![0; size];
+                f.read_exact(&mut module).unwrap_or_else(|error| {
+                    eprintln!("Failed to read embedded module: {error:?}");
+                    exit(1);
+                });
+                return vm.run_bytecode(&module).await;
+            }
+        }
+    }
+
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 1 {
@@ -142,17 +194,31 @@ async fn start_cli(vm: &Vm) {
                         #[cfg(not(feature = "lambda"))]
                         {
                             if let Some(filename) = args.get(i + 1) {
-                                let output_filename = if let Some(arg) = args.get(i + 2) {
-                                    arg.to_string()
-                                } else {
+                                // Parse args for output_filename and --executable
+                                let mut output_filename = String::new();
+                                let mut create_executable = false;
+
+                                // Parse remaining arguments
+                                for arg in args.iter().skip(i + 2) {
+                                    if arg == "--executable" {
+                                        create_executable = true;
+                                    } else if output_filename.is_empty() && !arg.starts_with("--") {
+                                        output_filename = arg.clone();
+                                    }
+                                }
+
+                                // If no output filename was explicitly provided, generate one
+                                if output_filename.is_empty() {
                                     let mut buf = PathBuf::from(filename);
                                     buf.set_extension("lrt");
-                                    buf.to_string_lossy().to_string()
-                                };
+                                    output_filename = buf.to_string_lossy().to_string();
+                                }
 
                                 let filename = Path::new(filename);
                                 let output_filename = Path::new(&output_filename);
-                                if let Err(error) = compile_file(filename, output_filename).await {
+                                if let Err(error) =
+                                    compile_file(filename, output_filename, create_executable).await
+                                {
                                     eprintln!("{error}");
                                     exit(1);
                                 }
