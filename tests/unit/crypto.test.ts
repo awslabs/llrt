@@ -29,6 +29,10 @@ describe("crypto object/module", () => {
     expect(crypto.randomFill).toBeDefined();
     expect(defaultImport.randomFill).toBeDefined();
   });
+  it("should have a webcrypto and should be equal to globalThis.crypto", () => {
+    expect(defaultImport.webcrypto).toBeDefined();
+    expect(defaultImport.webcrypto === globalThis.crypto).toBeTruthy();
+  });
 });
 
 describe("Hashing", () => {
