@@ -772,6 +772,10 @@ fn package_exports_resolve<'a>(
                         return Ok((default.as_ref(), None, is_cjs));
                     }
                 }
+                // Check for exports -> name -> platform(browser or node)
+                if let Some(BorrowedValue::String(platform)) = name.get(LLRT_PLATFORM.as_str()) {
+                    return Ok((platform.as_ref(), None, is_cjs));
+                }
                 // Check for exports -> name -> [import | require]
                 if let Some(BorrowedValue::String(ident)) = name.get(ident) {
                     return Ok((ident.as_ref(), None, is_cjs));
@@ -800,6 +804,12 @@ fn package_exports_resolve<'a>(
                             let resolve_star = replace_star(default, wildcard.0.unwrap());
                             return Ok((default.as_ref(), Some(resolve_star), is_cjs));
                         }
+                    }
+                    // Check for exports -> scope -> platform(browser or node)
+                    if let Some(BorrowedValue::String(platform)) = name.get(LLRT_PLATFORM.as_str())
+                    {
+                        let resolve_star = replace_star(platform, wildcard.0.unwrap());
+                        return Ok((platform.as_ref(), Some(resolve_star), is_cjs));
                     }
                     // Check for exports -> scope -> [import | require]
                     if let Some(BorrowedValue::String(ident)) = name.get(ident) {
