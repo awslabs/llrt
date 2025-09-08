@@ -661,6 +661,7 @@ mod tests {
         run_with_handler(&vm, "../fixtures/handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/primitive-handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/throwing-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/sdk-handler.handler", &runtime_api).await;
 
         vm.runtime.idle().await;
     }

@@ -112,7 +112,12 @@ impl EmbeddedLoader {
 
         let (_, _, normalized_name, path) = Self::normalize_name(name);
 
+        #[cfg(feature = "lambda")]
+        #[cfg(test)]
+        init_client_connection(&ctx, path)?;
+
         if let Some(bytes) = BYTECODE_CACHE.get(path) {
+            #[cfg(not(test))]
             #[cfg(feature = "lambda")]
             init_client_connection(&ctx, path)?;
 
@@ -145,6 +150,26 @@ impl Loader for EmbeddedLoader {
     }
 }
 
+#[cfg(test)]
+#[cfg(feature = "lambda")]
+fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
+    use crate::runtime_client::{check_client_inited, mark_client_inited};
+    use rquickjs::qjs;
+
+    if specifier.ends_with("sdk-runtime-init.mjs") {
+        let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+        let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
+        if !check_client_inited(rt, "endpoint") {
+            tokio::task::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                mark_client_inited(rt_ptr as _);
+            });
+        }
+    };
+    Ok(())
+}
+
+#[cfg(not(test))]
 #[cfg(feature = "lambda")]
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use std::{env, time::Instant};
