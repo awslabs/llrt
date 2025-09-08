@@ -150,11 +150,18 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use std::{env, time::Instant};
 
     use http_body_util::BodyExt;
+    use hyper::Uri;
     use rquickjs::qjs;
 
+    use crate::environment::ENV_LLRT_SDK_CONNECTION_WARMUP;
     use crate::libs::utils::result::ResultExt;
     use crate::modules::fetch::HTTP_CLIENT;
     use crate::runtime_client::{check_client_inited, mark_client_inited};
+
+    let disable_warmup = env::var(ENV_LLRT_SDK_CONNECTION_WARMUP).unwrap_or_default();
+    if disable_warmup == "0" || disable_warmup == "false" {
+        return Ok(());
+    }
 
     if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
         let client_name = sdk_import.trim_start_matches("client-");
@@ -172,14 +179,39 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
                 let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
 
                 trace!("Started client init {}", client_name);
-                let region = env::var("AWS_REGION").unwrap();
+                let mut region = env::var("AWS_REGION").unwrap();
+                let mut region_separator = ".";
 
-                let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
+                //do not use regional endpoint for global services https://docs.aws.amazon.com/general/latest/gr/rande.html#global-endpoints
+                if matches!(
+                    client_name,
+                    "iam"
+                        | "route-53"
+                        | "cloudfront"
+                        | "waf"
+                        | "shield"
+                        | "global-accelerator"
+                        | "organizations"
+                        | "networkmanager"
+                ) {
+                    region_separator = "";
+                    region.clear();
+                };
+
+                let url = [
+                    "https://",
+                    endpoint,
+                    region_separator,
+                    &region,
+                    ".amazonaws.com/sping",
+                ]
+                .concat();
 
                 tokio::task::spawn(async move {
                     let start = Instant::now();
 
-                    if let Ok(url) = url.parse() {
+                    if let Ok(url) = url.parse::<Uri>() {
+                        let url2 = url.clone();
                         if let Ok(mut res) = client.get(url).await {
                             if let Ok(res) = res.body_mut().collect().await {
                                 let _ = res;
@@ -187,8 +219,17 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
                                 mark_client_inited(rt_ptr as _);
 
                                 trace!("Client connection initialized in {:?}", start.elapsed());
+                            } else {
+                                trace!("Failed to read body for client init {}", &url2);
+                                mark_client_inited(rt_ptr as _);
                             }
+                        } else {
+                            trace!("Failed to connect for client init {}", &url2);
+                            mark_client_inited(rt_ptr as _);
                         }
+                    } else {
+                        trace!("Failed to parse url for init");
+                        mark_client_inited(rt_ptr as _);
                     }
                 });
             }
