@@ -61,9 +61,9 @@ uuid-simd = { version = "0.8", features = ["uuid"], default-features = false }
 zstd = { version = "0.13", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-md-5 = { version = "0.11.0-rc.0", default-features = false }
+md-5 = { version = "0.11.0-rc.2", default-features = false }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.11.0-rc.0", default-features = false }
+md-5 = { version = "0.11.0-rc.2", default-features = false }
 
 [build-dependencies]
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
