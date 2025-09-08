@@ -101,6 +101,7 @@ impl ModuleDef for FsModule {
         declare.declare("writeFileSync")?;
         declare.declare("constants")?;
         declare.declare("chmodSync")?;
+        declare.declare("renameSync")?;
 
         declare.declare("default")?;
 
@@ -130,6 +131,7 @@ impl ModuleDef for FsModule {
             default.set("statSync", Func::from(stat_fn_sync))?;
             default.set("writeFileSync", Func::from(write_file_sync))?;
             default.set("chmodSync", Func::from(chmod_sync))?;
+            default.set("renameSync", Func::from(rename_sync))?;
 
             Ok(())
         })

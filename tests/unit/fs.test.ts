@@ -267,52 +267,6 @@ describe("mkdirSync", () => {
   });
 });
 
-describe("rename", () => {
-  // Underlying rename calls don't care whether rename is done on a file or a folder
-  // Sticking to directories minimizes reliance on other fs method tests succeeeding.
-  (it("should rename a directory"),
-    async () => {
-      const dirPath = path.join(os.tmpdir(), "test/test-");
-      const oldPath = path.join(dirPath, "old");
-      const newPath = path.join(dirPath, "new");
-
-      await fs.mkdir(oldPath);
-      await fs.rename(oldPath, newPath);
-
-      const oldDirExists = await checkDirExists(oldPath);
-      const newDirExists = await checkDirExists(newPath);
-
-      // Only asserting the newPath doesn't ensure a rename as
-      // a mkdir would do the same.
-      expect(oldDirExists).toBeFalsy();
-      expect(newDirExists).toBeTruthy();
-
-      // Cleanup
-      fs.rmdir(dirPath, { recursive: true });
-    });
-});
-
-describe("renameSync", () => {
-  (it("should rename a directory synchronously"),
-    () => {
-      const dirPath = path.join(os.tmpdir(), "test/test-");
-      const oldPath = path.join(dirPath, "old");
-      const newPath = path.join(dirPath, "new");
-
-      defaultFsImport.mkdirSync(oldPath);
-      defaultFsImport.renameSync(oldPath, newPath);
-
-      const oldDirExists = defaultFsImport.statSync(oldPath);
-      const newDirExists = defaultFsImport.statSync(newPath);
-
-      expect(oldDirExists).toBeFalsy();
-      expect(newDirExists).toBeTruthy();
-
-      // Cleanup
-      fs.rmdir(dirPath, { recursive: true });
-    });
-});
-
 describe("writeFile", () => {
   it("should write a file", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
@@ -480,5 +434,72 @@ describe("accessSync", () => {
     expect(() => defaultFsImport.accessSync(filePath)).toThrow(
       /[Nn]o such file or directory/
     );
+  });
+});
+
+describe("rename", () => {
+  it("should rename a directory", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "old");
+    const newPath = path.join(tmpDir, "new");
+
+    await fs.mkdir(oldPath);
+    await fs.rename(oldPath, newPath);
+
+    const oldDirExists = await checkDirExists(oldPath);
+    const newDirExists = await checkDirExists(newPath);
+
+    expect(oldDirExists).toBeFalsy();
+    expect(newDirExists).toBeTruthy();
+
+    // Cleanup
+    await fs.rmdir(tmpDir, { recursive: true });
+  });
+
+  it("should throw error if source doesn't exist", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "nonexistent");
+    const newPath = path.join(tmpDir, "new");
+
+    await expect(fs.rename(oldPath, newPath)).rejects.toThrow(
+      /[Nn]o such file or directory/
+    );
+
+    await fs.rmdir(tmpDir, { recursive: true });
+  });
+});
+
+describe("renameSync", () => {
+  it("should rename a directory synchronously", () => {
+    const tmpDir = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "old");
+    const newPath = path.join(tmpDir, "new");
+
+    defaultFsImport.mkdirSync(oldPath);
+    defaultFsImport.renameSync(oldPath, newPath);
+
+    // Check if old path doesn't exist (should throw)
+    expect(() => defaultFsImport.statSync(oldPath)).toThrow(
+      /[Nn]o such file or directory/
+    );
+
+    // Check if new path exists and is a directory
+    const newDirStat = defaultFsImport.statSync(newPath);
+    expect(newDirStat.isDirectory()).toBeTruthy();
+
+    // Cleanup
+    defaultFsImport.rmdirSync(tmpDir, { recursive: true });
+  });
+
+  it("should throw error if source doesn't exist synchronously", () => {
+    const tmpDir = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "nonexistent");
+    const newPath = path.join(tmpDir, "new");
+
+    expect(() => defaultFsImport.renameSync(oldPath, newPath)).toThrow(
+      /[Nn]o such file or directory/
+    );
+
+    defaultFsImport.rmdirSync(tmpDir, { recursive: true });
   });
 });
