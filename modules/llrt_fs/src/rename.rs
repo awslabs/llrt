@@ -2,7 +2,14 @@ use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result};
 
 pub(crate) fn rename_error(from: &str, to: &str) -> String {
-    ["Can't rename file/folder from \"", from, "\" to \"", to, "\""].concat()
+    [
+        "Can't rename file/folder from \"",
+        from,
+        "\" to \"",
+        to,
+        "\"",
+    ]
+    .concat()
 }
 
 pub async fn rename(ctx: Ctx<'_>, old_path: String, new_path: String) -> Result<()> {
