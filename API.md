@@ -134,6 +134,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 
+[webcrypto](https://nodejs.org/api/crypto.html#cryptowebcrypto)
+
 ## crypto.subtle
 
 [subtle.decrypt](https://nodejs.org/api/webcrypto.html#subtledecryptalgorithm-key-data)
