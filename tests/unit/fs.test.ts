@@ -6,6 +6,14 @@ import os from "os";
 import { platform } from "os";
 const IS_WINDOWS = platform() === "win32";
 
+// Helper function to check if directory exists
+const checkDirExists = async (dirPath: string) => {
+  return await fs
+    .stat(dirPath)
+    .then(() => true)
+    .catch(() => false);
+};
+
 describe("readdir", () => {
   it("should read a directory", async () => {
     const dir = await fs.readdir(".cargo");
@@ -220,14 +228,6 @@ describe("mkdir", () => {
 
     await fs.mkdir(dirPath, { recursive: true });
 
-    // Helper function to check if directory exists
-    const checkDirExists = async (dirPath: string) => {
-      return await fs
-        .stat(dirPath)
-        .then(() => true)
-        .catch(() => false);
-    };
-
     // Check that the directory exists
     const dirExists = await checkDirExists(dirPath);
     expect(dirExists).toBeTruthy();
@@ -265,6 +265,52 @@ describe("mkdirSync", () => {
     // Clean up the directory
     defaultFsImport.rmdirSync(dirPath, { recursive: true });
   });
+});
+
+describe("rename", () => {
+  // Underlying rename calls don't care whether rename is done on a file or a folder
+  // Sticking to directories minimizes reliance on other fs method tests succeeeding.
+  (it("should rename a directory"),
+    async () => {
+      const dirPath = path.join(os.tmpdir(), "test/test-");
+      const oldPath = path.join(dirPath, "old");
+      const newPath = path.join(dirPath, "new");
+
+      await fs.mkdir(oldPath);
+      await fs.rename(oldPath, newPath);
+
+      const oldDirExists = await checkDirExists(oldPath);
+      const newDirExists = await checkDirExists(newPath);
+
+      // Only asserting the newPath doesn't ensure a rename as
+      // a mkdir would do the same.
+      expect(oldDirExists).toBeFalsy();
+      expect(newDirExists).toBeTruthy();
+
+      // Cleanup
+      fs.rmdir(dirPath, { recursive: true });
+    });
+});
+
+describe("renameSync", () => {
+  (it("should rename a directory synchronously"),
+    () => {
+      const dirPath = path.join(os.tmpdir(), "test/test-");
+      const oldPath = path.join(dirPath, "old");
+      const newPath = path.join(dirPath, "new");
+
+      defaultFsImport.mkdirSync(oldPath);
+      defaultFsImport.renameSync(oldPath, newPath);
+
+      const oldDirExists = defaultFsImport.statSync(oldPath);
+      const newDirExists = defaultFsImport.statSync(newPath);
+
+      expect(oldDirExists).toBeFalsy();
+      expect(newDirExists).toBeTruthy();
+
+      // Cleanup
+      fs.rmdir(dirPath, { recursive: true });
+    });
 });
 
 describe("writeFile", () => {
