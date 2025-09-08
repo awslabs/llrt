@@ -745,11 +745,9 @@ fn package_exports_resolve<'a>(
         modules_name
     };
 
-    let n = modules_name.bytes().filter(|&b| b == b'/').count();
-
-    let wildcard = if n > 1 {
-        let (_name, _scope, _) = get_name_and_scope(modules_name, n - 1);
-        (Some(_name), Some([_scope, "/*"].concat()))
+    let wildcard = if let Some(pos) = modules_name.rmatch_indices('/').nth(1) {
+        let (name, scope, _) = get_name_and_scope(modules_name, pos.0);
+        (Some(name), Some([scope, "/*"].concat()))
     } else {
         (None, None)
     };
@@ -861,11 +859,7 @@ fn package_exports_resolve<'a>(
 }
 
 fn replace_star(scope: &str, name: &str) -> String {
-    if scope.contains('*') {
-        scope.replace("*", name)
-    } else {
-        scope.into()
-    }
+    scope.replace("*", name)
 }
 
 // Implementation equivalent to PACKAGE_IMPORTS_RESOLVE including RESOLVE_ESM_MATCH
