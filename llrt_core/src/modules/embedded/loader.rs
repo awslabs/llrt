@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{io, result::Result as StdResult};
+use std::{io, result::Result as StdResult, time::Duration};
 
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Loader, Ctx, Error, Module, Object, Result};
@@ -223,7 +223,7 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
                     region.clear();
                 };
 
-                let url = [
+                let url_string = [
                     "https://",
                     endpoint,
                     region_separator,
@@ -232,12 +232,14 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
                 ]
                 .concat();
 
-                tokio::task::spawn(async move {
-                    let start = Instant::now();
+                if let Ok(url) = url_string.parse::<Uri>() {
+                    tokio::task::spawn(async move {
+                        let start = Instant::now();
 
-                    if let Ok(url) = url.parse::<Uri>() {
-                        let url2 = url.clone();
-                        if let Ok(mut res) = client.get(url).await {
+                        let get_future = client.get(url);
+                        if let Ok(Ok(mut res)) =
+                            tokio::time::timeout(Duration::from_secs(1), get_future).await
+                        {
                             if let Ok(res) = res.body_mut().collect().await {
                                 let _ = res;
 
@@ -245,18 +247,18 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
 
                                 trace!("Client connection initialized in {:?}", start.elapsed());
                             } else {
-                                trace!("Failed to read body for client init {}", &url2);
+                                trace!("Failed to read body for client init {}", url_string);
                                 mark_client_inited(rt_ptr as _);
                             }
                         } else {
-                            trace!("Failed to connect for client init {}", &url2);
+                            trace!("Failed to connect for client init {}", &url_string);
                             mark_client_inited(rt_ptr as _);
                         }
-                    } else {
-                        trace!("Failed to parse url for init");
-                        mark_client_inited(rt_ptr as _);
-                    }
-                });
+                    });
+                } else {
+                    trace!("Failed to parse url for init");
+                    mark_client_inited(rt_ptr as _);
+                }
             }
         }
     }
