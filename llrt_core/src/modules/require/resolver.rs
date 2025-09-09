@@ -778,11 +778,9 @@ fn package_exports_resolve<'a>(
                 if let Some(BorrowedValue::String(ident)) = name.get(ident) {
                     return Ok((ident.as_ref(), None, is_cjs));
                 }
-                // [CJS only] Check for exports -> name -> default
-                if !is_esm {
-                    if let Some(BorrowedValue::String(default)) = name.get("default") {
-                        return Ok((default.as_ref(), None, is_cjs));
-                    }
+                // Check for exports -> name -> default
+                if let Some(BorrowedValue::String(default)) = name.get("default") {
+                    return Ok((default.as_ref(), None, is_cjs));
                 }
             }
             // Check for wildcard pattern
@@ -814,12 +812,10 @@ fn package_exports_resolve<'a>(
                         let resolve_star = replace_star(ident, wildcard.0.unwrap());
                         return Ok((ident.as_ref(), Some(resolve_star), is_cjs));
                     }
-                    // [CJS only] Check for exports -> scope -> default
-                    if !is_esm {
-                        if let Some(BorrowedValue::String(default)) = name.get("default") {
-                            let resolve_star = replace_star(default, wildcard.0.unwrap());
-                            return Ok((default.as_ref(), Some(resolve_star), is_cjs));
-                        }
+                    //  Check for exports -> scope -> default
+                    if let Some(BorrowedValue::String(default)) = name.get("default") {
+                        let resolve_star = replace_star(default, wildcard.0.unwrap());
+                        return Ok((default.as_ref(), Some(resolve_star), is_cjs));
                     }
                 }
             }
