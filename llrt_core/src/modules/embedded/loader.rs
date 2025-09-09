@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{io, result::Result as StdResult, time::Duration};
+use std::{io, result::Result as StdResult};
 
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Loader, Ctx, Error, Module, Object, Result};
@@ -172,7 +172,10 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
 #[cfg(not(test))]
 #[cfg(feature = "lambda")]
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
-    use std::{env, time::Instant};
+    use std::{
+        env,
+        time::{Duration, Instant},
+    };
 
     use http_body_util::BodyExt;
     use hyper::Uri;
@@ -249,8 +252,8 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
 
             let result = tokio::time::timeout(Duration::from_secs(1), get_future).await;
 
-            let res = if let Ok(Ok(mut res)) = result {
-                if let Ok(_) = res.body_mut().collect().await {
+            if let Ok(Ok(mut res)) = result {
+                if res.body_mut().collect().await.is_ok() {
                     trace!("Client connection initialized in {:?}", start.elapsed())
                 } else {
                     trace!("Failed to connect for client init {}", &url_string)
