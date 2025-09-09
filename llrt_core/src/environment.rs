@@ -17,3 +17,6 @@ pub const ENV_LLRT_PLATFORM: &str = "LLRT_PLATFORM";
 
 //vm
 pub const ENV_LLRT_GC_THRESHOLD_MB: &str = "LLRT_GC_THRESHOLD_MB";
+
+//runtime client
+pub const ENV_LLRT_SDK_CONNECTION_WARMUP: &str = "LLRT_SDK_CONNECTION_WARMUP";

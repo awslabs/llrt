@@ -112,7 +112,12 @@ impl EmbeddedLoader {
 
         let (_, _, normalized_name, path) = Self::normalize_name(name);
 
+        #[cfg(feature = "lambda")]
+        #[cfg(test)]
+        init_client_connection(&ctx, path)?;
+
         if let Some(bytes) = BYTECODE_CACHE.get(path) {
+            #[cfg(not(test))]
             #[cfg(feature = "lambda")]
             init_client_connection(&ctx, path)?;
 
@@ -145,55 +150,122 @@ impl Loader for EmbeddedLoader {
     }
 }
 
+#[cfg(test)]
 #[cfg(feature = "lambda")]
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
-    use std::{env, time::Instant};
-
-    use http_body_util::BodyExt;
+    use crate::runtime_client::{check_client_inited, mark_client_inited};
     use rquickjs::qjs;
 
+    if specifier.ends_with("sdk-runtime-init.mjs") {
+        let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+        let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
+        if !check_client_inited(rt, "endpoint") {
+            tokio::task::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                mark_client_inited(rt_ptr as _);
+            });
+        }
+    };
+    Ok(())
+}
+
+#[cfg(not(test))]
+#[cfg(feature = "lambda")]
+fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
+    use std::{
+        env,
+        time::{Duration, Instant},
+    };
+
+    use http_body_util::BodyExt;
+    use hyper::Uri;
+    use rquickjs::qjs;
+
+    use crate::environment::ENV_LLRT_SDK_CONNECTION_WARMUP;
     use crate::libs::utils::result::ResultExt;
     use crate::modules::fetch::HTTP_CLIENT;
     use crate::runtime_client::{check_client_inited, mark_client_inited};
 
-    if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
-        let client_name = sdk_import.trim_start_matches("client-");
-        if let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) {
-            let endpoint = if endpoint.is_empty() {
-                client_name
-            } else {
-                endpoint
-            };
-
-            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-            let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
-
-            if !check_client_inited(rt, endpoint) {
-                let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
-
-                trace!("Started client init {}", client_name);
-                let region = env::var("AWS_REGION").unwrap();
-
-                let url = ["https://", endpoint, ".", &region, ".amazonaws.com/sping"].concat();
-
-                tokio::task::spawn(async move {
-                    let start = Instant::now();
-
-                    if let Ok(url) = url.parse() {
-                        if let Ok(mut res) = client.get(url).await {
-                            if let Ok(res) = res.body_mut().collect().await {
-                                let _ = res;
-
-                                mark_client_inited(rt_ptr as _);
-
-                                trace!("Client connection initialized in {:?}", start.elapsed());
-                            }
-                        }
-                    }
-                });
-            }
-        }
+    let disable_warmup = env::var(ENV_LLRT_SDK_CONNECTION_WARMUP).unwrap_or_default();
+    if disable_warmup == "0" || disable_warmup == "false" {
+        return Ok(());
     }
 
+    let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") else {
+        return Ok(());
+    };
+
+    let client_name = sdk_import.trim_start_matches("client-");
+
+    let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) else {
+        return Ok(());
+    };
+
+    let endpoint = if endpoint.is_empty() {
+        client_name
+    } else {
+        endpoint
+    };
+
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
+
+    if check_client_inited(rt, endpoint) {
+        return Ok(());
+    }
+
+    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
+
+    trace!("Started client init {}", client_name);
+    let mut region = env::var("AWS_REGION").unwrap();
+    let mut region_separator = ".";
+
+    //do not use regional endpoint for global services https://docs.aws.amazon.com/general/latest/gr/rande.html#global-endpoints
+    if matches!(
+        client_name,
+        "iam"
+            | "route-53"
+            | "cloudfront"
+            | "waf"
+            | "shield"
+            | "global-accelerator"
+            | "organizations"
+            | "networkmanager"
+    ) {
+        region_separator = "";
+        region.clear();
+    };
+
+    let url_string = [
+        "https://",
+        endpoint,
+        region_separator,
+        &region,
+        ".amazonaws.com/sping",
+    ]
+    .concat();
+
+    if let Ok(url) = url_string.parse::<Uri>() {
+        tokio::task::spawn(async move {
+            let start = Instant::now();
+            let get_future = client.get(url);
+
+            let result = tokio::time::timeout(Duration::from_secs(1), get_future).await;
+
+            if let Ok(Ok(mut res)) = result {
+                if res.body_mut().collect().await.is_ok() {
+                    trace!("Client connection initialized in {:?}", start.elapsed())
+                } else {
+                    trace!("Failed to connect for client init {}", &url_string)
+                }
+            } else {
+                trace!("Failed to connect for client init {}", &url_string)
+            };
+            mark_client_inited(rt_ptr as _);
+        });
+    } else {
+        trace!("Failed to parse url for init");
+        mark_client_inited(rt_ptr as _);
+    }
     Ok(())
 }

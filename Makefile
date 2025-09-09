@@ -227,7 +227,7 @@ test-ci: export RUST_BACKTRACE = 1
 test-ci: export TEST_SUB_DIR = unit
 test-ci: export LLRT_ASYNC_HOOKS = 1
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) -- --nocapture --show-output
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) --all-features -- --nocapture --show-output
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
