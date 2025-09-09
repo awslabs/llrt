@@ -188,80 +188,81 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
         return Ok(());
     }
 
-    if let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") {
-        let client_name = sdk_import.trim_start_matches("client-");
-        if let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) {
-            let endpoint = if endpoint.is_empty() {
-                client_name
-            } else {
-                endpoint
-            };
+    let Some(sdk_import) = specifier.strip_prefix("@aws-sdk/") else {
+        return Ok(());
+    };
 
-            let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-            let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
+    let client_name = sdk_import.trim_start_matches("client-");
 
-            if !check_client_inited(rt, endpoint) {
-                let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
+    let Some(endpoint) = SDK_CLIENT_ENDPOINTS.get(client_name) else {
+        return Ok(());
+    };
 
-                trace!("Started client init {}", client_name);
-                let mut region = env::var("AWS_REGION").unwrap();
-                let mut region_separator = ".";
+    let endpoint = if endpoint.is_empty() {
+        client_name
+    } else {
+        endpoint
+    };
 
-                //do not use regional endpoint for global services https://docs.aws.amazon.com/general/latest/gr/rande.html#global-endpoints
-                if matches!(
-                    client_name,
-                    "iam"
-                        | "route-53"
-                        | "cloudfront"
-                        | "waf"
-                        | "shield"
-                        | "global-accelerator"
-                        | "organizations"
-                        | "networkmanager"
-                ) {
-                    region_separator = "";
-                    region.clear();
-                };
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
 
-                let url_string = [
-                    "https://",
-                    endpoint,
-                    region_separator,
-                    &region,
-                    ".amazonaws.com/sping",
-                ]
-                .concat();
-
-                if let Ok(url) = url_string.parse::<Uri>() {
-                    tokio::task::spawn(async move {
-                        let start = Instant::now();
-
-                        let get_future = client.get(url);
-                        if let Ok(Ok(mut res)) =
-                            tokio::time::timeout(Duration::from_secs(1), get_future).await
-                        {
-                            if let Ok(res) = res.body_mut().collect().await {
-                                let _ = res;
-
-                                mark_client_inited(rt_ptr as _);
-
-                                trace!("Client connection initialized in {:?}", start.elapsed());
-                            } else {
-                                trace!("Failed to read body for client init {}", url_string);
-                                mark_client_inited(rt_ptr as _);
-                            }
-                        } else {
-                            trace!("Failed to connect for client init {}", &url_string);
-                            mark_client_inited(rt_ptr as _);
-                        }
-                    });
-                } else {
-                    trace!("Failed to parse url for init");
-                    mark_client_inited(rt_ptr as _);
-                }
-            }
-        }
+    if check_client_inited(rt, endpoint) {
+        return Ok(());
     }
 
+    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
+
+    trace!("Started client init {}", client_name);
+    let mut region = env::var("AWS_REGION").unwrap();
+    let mut region_separator = ".";
+
+    //do not use regional endpoint for global services https://docs.aws.amazon.com/general/latest/gr/rande.html#global-endpoints
+    if matches!(
+        client_name,
+        "iam"
+            | "route-53"
+            | "cloudfront"
+            | "waf"
+            | "shield"
+            | "global-accelerator"
+            | "organizations"
+            | "networkmanager"
+    ) {
+        region_separator = "";
+        region.clear();
+    };
+
+    let url_string = [
+        "https://",
+        endpoint,
+        region_separator,
+        &region,
+        ".amazonaws.com/sping",
+    ]
+    .concat();
+
+    if let Ok(url) = url_string.parse::<Uri>() {
+        tokio::task::spawn(async move {
+            let start = Instant::now();
+            let get_future = client.get(url);
+
+            let result = tokio::time::timeout(Duration::from_secs(1), get_future).await;
+
+            let res = if let Ok(Ok(mut res)) = result {
+                if let Ok(_) = res.body_mut().collect().await {
+                    trace!("Client connection initialized in {:?}", start.elapsed())
+                } else {
+                    trace!("Failed to connect for client init {}", &url_string)
+                }
+            } else {
+                trace!("Failed to connect for client init {}", &url_string)
+            };
+            mark_client_inited(rt_ptr as _);
+        });
+    } else {
+        trace!("Failed to parse url for init");
+        mark_client_inited(rt_ptr as _);
+    }
     Ok(())
 }
