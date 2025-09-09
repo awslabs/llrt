@@ -531,6 +531,10 @@ Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 
 Extends the HTTP request version. By default, only HTTP/1.1 is enabled. Specifying '2' will enable HTTP/1.1 and HTTP/2.
 
+### `LLRT_SDK_CONNECTION_WARMUP=1`
+
+Initializes TLS connections in parallel during function init which significantly reduces cold starts due. Enabled by default, can be disabled with value `0` or `false`
+
 ### `LLRT_LOG=[target][=][level][,...]`
 
 Filter the log output by target module, level, or both (using `=`). Log levels are case-insensitive and will also enable any higher priority logs.

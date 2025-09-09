@@ -6,6 +6,14 @@ import os from "os";
 import { platform } from "os";
 const IS_WINDOWS = platform() === "win32";
 
+// Helper function to check if directory exists
+const checkDirExists = async (dirPath: string) => {
+  return await fs
+    .stat(dirPath)
+    .then(() => true)
+    .catch(() => false);
+};
+
 describe("readdir", () => {
   it("should read a directory", async () => {
     const dir = await fs.readdir(".cargo");
@@ -220,14 +228,6 @@ describe("mkdir", () => {
 
     await fs.mkdir(dirPath, { recursive: true });
 
-    // Helper function to check if directory exists
-    const checkDirExists = async (dirPath: string) => {
-      return await fs
-        .stat(dirPath)
-        .then(() => true)
-        .catch(() => false);
-    };
-
     // Check that the directory exists
     const dirExists = await checkDirExists(dirPath);
     expect(dirExists).toBeTruthy();
@@ -434,5 +434,72 @@ describe("accessSync", () => {
     expect(() => defaultFsImport.accessSync(filePath)).toThrow(
       /[Nn]o such file or directory/
     );
+  });
+});
+
+describe("rename", () => {
+  it("should rename a directory", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "old");
+    const newPath = path.join(tmpDir, "new");
+
+    await fs.mkdir(oldPath);
+    await fs.rename(oldPath, newPath);
+
+    const oldDirExists = await checkDirExists(oldPath);
+    const newDirExists = await checkDirExists(newPath);
+
+    expect(oldDirExists).toBeFalsy();
+    expect(newDirExists).toBeTruthy();
+
+    // Cleanup
+    await fs.rmdir(tmpDir, { recursive: true });
+  });
+
+  it("should throw error if source doesn't exist", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "nonexistent");
+    const newPath = path.join(tmpDir, "new");
+
+    await expect(fs.rename(oldPath, newPath)).rejects.toThrow(
+      /[Nn]o such file or directory/
+    );
+
+    await fs.rmdir(tmpDir, { recursive: true });
+  });
+});
+
+describe("renameSync", () => {
+  it("should rename a directory synchronously", () => {
+    const tmpDir = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "old");
+    const newPath = path.join(tmpDir, "new");
+
+    defaultFsImport.mkdirSync(oldPath);
+    defaultFsImport.renameSync(oldPath, newPath);
+
+    // Check if old path doesn't exist (should throw)
+    expect(() => defaultFsImport.statSync(oldPath)).toThrow(
+      /[Nn]o such file or directory/
+    );
+
+    // Check if new path exists and is a directory
+    const newDirStat = defaultFsImport.statSync(newPath);
+    expect(newDirStat.isDirectory()).toBeTruthy();
+
+    // Cleanup
+    defaultFsImport.rmdirSync(tmpDir, { recursive: true });
+  });
+
+  it("should throw error if source doesn't exist synchronously", () => {
+    const tmpDir = defaultFsImport.mkdtempSync(path.join(os.tmpdir(), "test-"));
+    const oldPath = path.join(tmpDir, "nonexistent");
+    const newPath = path.join(tmpDir, "new");
+
+    expect(() => defaultFsImport.renameSync(oldPath, newPath)).toThrow(
+      /[Nn]o such file or directory/
+    );
+
+    defaultFsImport.rmdirSync(tmpDir, { recursive: true });
   });
 });
