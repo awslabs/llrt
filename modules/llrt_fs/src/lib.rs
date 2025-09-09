@@ -7,6 +7,7 @@ mod mkdir;
 mod open;
 mod read_dir;
 mod read_file;
+mod rename;
 mod rm;
 mod stats;
 mod write_file;
@@ -25,6 +26,7 @@ use self::mkdir::{mkdir, mkdir_sync, mkdtemp, mkdtemp_sync};
 use self::open::open;
 use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::{read_file, read_file_sync};
+use self::rename::{rename, rename_sync};
 use self::rm::{rmdir, rmdir_sync, rmfile, rmfile_sync};
 use self::stats::{stat_fn, stat_fn_sync, Stats};
 use self::write_file::{write_file, write_file_sync};
@@ -99,6 +101,7 @@ impl ModuleDef for FsModule {
         declare.declare("writeFileSync")?;
         declare.declare("constants")?;
         declare.declare("chmodSync")?;
+        declare.declare("renameSync")?;
 
         declare.declare("default")?;
 
@@ -128,6 +131,7 @@ impl ModuleDef for FsModule {
             default.set("statSync", Func::from(stat_fn_sync))?;
             default.set("writeFileSync", Func::from(write_file_sync))?;
             default.set("chmodSync", Func::from(chmod_sync))?;
+            default.set("renameSync", Func::from(rename_sync))?;
 
             Ok(())
         })
@@ -143,7 +147,7 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("writeFile", Func::from(Async(write_file)))?;
     // exports.set("appendFile", Func::from(Async(append_file)))?;
     // exports.set("copyFile", Func::from(Async(copy_file)))?;
-    // exports.set("rename", Func::from(Async(rename)))?;
+    exports.set("rename", Func::from(Async(rename)))?;
     exports.set("readdir", Func::from(Async(read_dir)))?;
     exports.set("mkdir", Func::from(Async(mkdir)))?;
     exports.set("mkdtemp", Func::from(Async(mkdtemp)))?;
