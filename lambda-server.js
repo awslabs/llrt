@@ -1,5 +1,5 @@
 import pureHttp from "pure-http";
-import fs from "fs";
+import fs from "node:fs";
 
 const PORT = 3000;
 const BASE_PATH = "/2018-06-01/runtime";

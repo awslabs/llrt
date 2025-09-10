@@ -2,7 +2,7 @@ globalThis._require = require; //used to preserve require during bundling/minifi
 const CWD = process.cwd();
 import { spawn } from "node:child_process";
 
-import { platform } from "os";
+import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
 
 it("should require a file (absolute path)", () => {

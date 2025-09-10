@@ -1,7 +1,7 @@
 import * as esbuild from "esbuild";
-import fs from "fs/promises";
-import { createRequire } from "module";
-import path from "path";
+import fs from "node:fs/promises";
+import { createRequire } from "node:module";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
 

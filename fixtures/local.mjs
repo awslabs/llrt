@@ -2,7 +2,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 
 const uid = () =>
   String.fromCharCode(
