@@ -24,4 +24,4 @@
 Thanks for all the reports and contributors
 
 Full list of changes:
-https://github.com/awslabs/llrt/compare/v0.6.2-beta...v0.6.3-beta
+https://github.com/awslabs/llrt/compare/v0.6.2-beta...v0.7.0-beta
