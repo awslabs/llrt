@@ -1,6 +1,6 @@
 globalThis._require = require; //used to preserve require during bundling/minification
 const CWD = process.cwd();
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 
 import { platform } from "os";
 const IS_WINDOWS = platform() === "win32";

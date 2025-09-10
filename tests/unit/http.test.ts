@@ -1,4 +1,4 @@
-import { platform } from "os";
+import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
 
 describe("Headers class", () => {
