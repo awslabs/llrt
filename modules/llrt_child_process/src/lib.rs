@@ -651,7 +651,7 @@ mod tests {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
 
-                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "node:child_process")
                     .await
                     .unwrap();
 
@@ -692,7 +692,7 @@ mod tests {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
 
-                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "node:child_process")
                     .await
                     .unwrap();
 
