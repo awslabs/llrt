@@ -8,6 +8,7 @@
 ### Fixes
   - Correctly handle percent encoding in data-urls (@nabetti1720)
   - Remove BOM from body.text() and body.json() (@nabetti1720)
+  - Correctly handle wildcards in package.json (@nabetti1720)
   - Correct beforeEach/afterEach calls in tests (@kyubisation)
   - Fix fetch redirection (@richarddavison)
   - Improved compatibility of bodyUsed property (@nabetti1720)
