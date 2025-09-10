@@ -1,4 +1,3 @@
-import net from "net";
 import * as chai from "chai";
 import { JestChaiExpect } from "../expect/jest-expect";
 import { JestAsymmetricMatchers } from "../expect/jest-asymmetric-matchers";

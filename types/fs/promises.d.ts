@@ -508,4 +508,24 @@ declare module "fs/promises" {
    * @return Fulfills with `undefined` upon success.
    */
   function chmod(path: PathLike, mode: Mode): Promise<void>;
+
+  /**
+   * Asynchronously renames a file or directory from `oldPath` to `newPath`.
+   *
+   * ```js
+   * import { rename } from 'fs/promises';
+   *
+   * try {
+   *   await rename('oldfile.txt', 'newfile.txt');
+   *   console.log('Rename complete!');
+   * } catch (err) {
+   *   console.error(err);
+   * }
+   * ```
+   *
+   * @param oldPath A path to a file or directory.
+   * @param newPath The new path for the file or directory.
+   * @return Fulfills with `undefined` upon success.
+   */
+  function rename(oldPath: PathLike, newPath: PathLike): Promise<void>;
 }

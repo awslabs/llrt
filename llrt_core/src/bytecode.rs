@@ -4,6 +4,7 @@
 pub const BYTECODE_VERSION: &str = "lrt01";
 pub const BYTECODE_COMPRESSED: u8 = b'c';
 pub const BYTECODE_UNCOMPRESSED: u8 = b'u';
+pub const BYTECODE_SELF_CONTAINED_EXECUTABLE_MARKER: &[u8] = "lrtx".as_bytes();
 
 macro_rules! define_extension {
     ($base:ident, $file:ident, $ext:expr) => {

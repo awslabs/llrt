@@ -54,6 +54,10 @@ for (const module in modules) {
         expect(crypto.randomFill).toBeDefined();
         expect(randomFill).toBeDefined();
       });
+      it("should have a webcrypto and should be equal to globalThis.crypto", () => {
+        expect(webcrypto).toBeDefined();
+        expect(webcrypto === globalThis.crypto).toBeTruthy();
+      });
     });
 
     describe("Hashing", () => {

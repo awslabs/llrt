@@ -134,6 +134,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 
+[webcrypto](https://nodejs.org/api/crypto.html#cryptowebcrypto)
+
 ## crypto.subtle
 
 [subtle.decrypt](https://nodejs.org/api/webcrypto.html#subtledecryptalgorithm-key-data)
@@ -206,6 +208,8 @@ Available globally
 
 [chmodSync](https://nodejs.org/api/fs.html#fschmodsyncpath-mode)
 
+[renameSync](https://nodejs.org/api/fs.html#fsrenamesyncoldpath-newpath)
+
 ## fs/promises
 
 [access](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
@@ -229,6 +233,8 @@ Available globally
 [writeFile](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
 
 [chmod](https://nodejs.org/api/fs.html#fspromiseschmodpath-mode)
+
+[rename](https://nodejs.org/api/fs.html#fspromisesrenameoldpath-newpath)
 
 ## module
 
