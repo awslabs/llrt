@@ -1,9 +1,17 @@
-import { spawn } from "child_process";
-import { platform } from "os";
-import process from "process";
+import defaultImport from "node:child_process";
+import legacyImport from "child_process";
+
+import { platform } from "node:os";
+import process from "node:process";
 const IS_WINDOWS = platform() === "win32";
 
-describe("child_process.spawn", () => {
+it("node:child_process should be the same as child_process", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { spawn } = defaultImport;
+
+describe("spawn", () => {
   it("should spawn a child process", (done) => {
     const command = "ls";
     const args = ["-l"];

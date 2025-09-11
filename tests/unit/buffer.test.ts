@@ -1,4 +1,12 @@
-// Test static methods
+import defaultImport from "node:buffer";
+import legacyImport from "buffer";
+
+it("node:buffer should be the same as buffer", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { Buffer } = defaultImport;
+
 describe("Buffer.alloc", () => {
   it("should create a buffer with specified size and fill with zeros (default fill)", () => {
     const size = 10;
@@ -909,5 +917,150 @@ describe("writeUInt32LE", () => {
       const buf = Buffer.alloc(8);
       buf.writeUInt32LE(0x01020304, 5);
     }).toThrow(RangeError);
+  });
+});
+
+describe("Blob class", () => {
+  it("should construct a new Blob object with the provided data and options", () => {
+    const blobData = ["Hello, world!"];
+    const blobOptions = { type: "text/plain" };
+    const blob = new Blob(blobData, blobOptions);
+
+    expect(blob.size).toEqual(blobData[0].length);
+    expect(blob.type).toEqual(blobOptions.type);
+  });
+
+  it("should create a Blob with default type if options.type is not provided", () => {
+    const blobData = ["Hello, world!"];
+    const blob = new Blob(blobData);
+
+    expect(blob.size).toEqual(blobData[0].length);
+    expect(blob.type).toEqual("");
+  });
+
+  it("should create a Blob with an empty array if no data is provided", () => {
+    // @ts-ignore
+    const blob = new Blob();
+
+    expect(blob.size).toEqual(0);
+    expect(blob.type).toEqual("");
+  });
+
+  it("should handle line endings properly", async () => {
+    const text = "This\r\n is a \ntest\r\n string";
+
+    // @ts-ignore
+    const blob = new Blob([text], {
+      // @ts-ignore
+      endings: "native",
+    });
+
+    expect(blob.type).toEqual("");
+    if (process.platform != "win32") {
+      expect(blob.size < text.length).toBeTruthy();
+      expect(await blob.text()).toEqual(text.replace(/\r\n/g, "\n"));
+    }
+  });
+
+  it("should return an ArrayBuffer with the arrayBuffer() method", async () => {
+    const blobData = ["Hello, world!"];
+    const blob = new Blob(blobData, { type: "text/plain" });
+
+    const arrayBuffer = await blob.arrayBuffer();
+
+    expect(arrayBuffer).toBeInstanceOf(ArrayBuffer);
+  });
+
+  it("should return an Uint8Array with the bytes() method", async () => {
+    const blobData = ["Hello, world!"];
+    const blob = new Blob(blobData, { type: "text/plain" });
+
+    const bytes = await blob.bytes();
+
+    expect(bytes).toBeInstanceOf(Uint8Array);
+  });
+
+  it("should return a DataView with the slice method", () => {
+    const blobData = ["Hello, world!"];
+    const blob = new Blob(blobData, { type: "text/plain" });
+
+    const slicedBlob = blob.slice(0, 5, "text/plain");
+
+    expect(slicedBlob instanceof Blob).toBeTruthy();
+    expect(slicedBlob.size).toEqual(5);
+    expect(slicedBlob.type).toEqual("text/plain");
+  });
+});
+
+describe("File class", () => {
+  it("should construct a new File", () => {
+    const file = new File(["Hello, world!"], "hello.txt", {
+      type: "text/plain",
+    });
+
+    expect(file.size).toBe(13);
+    expect(file.type).toBe("text/plain");
+    expect(file.name).toBe("hello.txt");
+  });
+
+  it("should return the correct lastModified date", () => {
+    const fileWithDate = new File([], "file.bin", {
+      lastModified: new Date(Date.UTC(2017, 1, 1, 0, 0, 0, 0)).getTime(),
+    });
+    expect(fileWithDate.lastModified).toBe(1485907200000);
+  });
+
+  it("has a name", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file.name).toBe("example.txt");
+  });
+
+  it("has content", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file.size).toBeGreaterThan(0);
+  });
+
+  it("has a size", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file.size).toBeGreaterThan(0);
+  });
+
+  it("has a type", () => {
+    const file = new File(["file content"], "example.txt", {
+      type: "text/plain",
+    });
+    expect(file.type).toBe("text/plain");
+  });
+
+  it("has last modified date", () => {
+    const file = new File(["file content"], "example.txt");
+    const now = new Date();
+    expect(file.lastModified * 0.9999).toBeLessThanOrEqual(now.getTime());
+  });
+
+  it("can slice file", () => {
+    const file = new File(["file content"], "example.txt");
+    const slice = file.slice(0, 5);
+    expect(slice).toBeInstanceOf(Blob);
+    expect(slice.size).toBe(5);
+  });
+
+  it("can read file as text", async () => {
+    const file = new File(["file content"], "example.txt");
+    const text = await file.text();
+    expect(text).toBe("file content");
+  });
+
+  it("can read file as arrayBuffer", async () => {
+    const file = new File([1, 2, 3, 4] as any, "example.txt");
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    expect(Array.from(uint8Array)).toStrictEqual([49, 50, 51, 52]);
+    expect(uint8Array.length).toBe(4);
+  });
+
+  it("is an instance of Blob", () => {
+    const file = new File(["file content"], "example.txt");
+    expect(file).toBeInstanceOf(Blob);
   });
 });

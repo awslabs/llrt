@@ -1,1 +1,1 @@
-export { Sha1 } from "crypto";
+export { Sha1 } from "node:crypto";

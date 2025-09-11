@@ -4,7 +4,7 @@ import {
   DescribeTableCommand,
   BatchWriteItemCommand,
 } from "@aws-sdk/client-dynamodb";
-import path from "path";
+import path from "node:path";
 
 const DDB_CLIENT = new DynamoDBClient({});
 

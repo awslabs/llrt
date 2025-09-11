@@ -6,7 +6,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 import { Todo } from "./react/TodoList";
 
 const uid = () =>

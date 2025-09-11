@@ -1,1 +1,1 @@
-export { Sha256 } from "crypto";
+export { Sha256 } from "node:crypto";

@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
-import fs from "fs/promises";
-import path from "path";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 const OUTDIR = "build";
 
@@ -39,7 +39,7 @@ async function buildReact() {
 
   await fs.rename(path.join(outbase, "index.js"), outfile);
   await fs.readFile(outfile).then((data) => {
-    const indexSource = `import { createRequire } from "module";\nconst require = createRequire(import.meta.url);\n${data.toString()}`;
+    const indexSource = `import { createRequire } from "node:module";\nconst require = createRequire(import.meta.url);\n${data.toString()}`;
     return fs.writeFile(outfile, indexSource);
   });
 }

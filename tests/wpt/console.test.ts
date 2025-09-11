@@ -1,7 +1,7 @@
 import { runTestDynamic } from "./console.harness.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SKIP_FILES = [
   "console-log-symbol.any.js", // Error: Test timed out after 5000ms

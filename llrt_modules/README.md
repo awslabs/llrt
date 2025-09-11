@@ -55,7 +55,7 @@ async fn main() -> Result<(), Error> {
         options.global = false;
         if let Err(Error::Exception) = ctx.eval_with_options::<(), _>(
             r#"
-            import { Buffer } from "buffer";
+            import { Buffer } from "node:buffer";
             Buffer.alloc(10);
             "#,
             options
@@ -95,7 +95,7 @@ async fn main() -> Result<(), Error> {
         options.global = false;
         if let Err(Error::Exception) = ctx.eval_with_options::<(), _>(
             r#"
-            import { Buffer } from "buffer";
+            import { Buffer } from "node:buffer";
             Buffer.alloc(10);
             "#,
             options

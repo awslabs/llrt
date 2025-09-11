@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import { EventEmitter as EE } from "events";
+import { EventEmitter as EE } from "node:events";
 // @ts-ignore
 import { Readable } from "readable-stream/lib/_stream_readable.js";
 // @ts-ignore
@@ -16,7 +16,7 @@ import { finished } from "readable-stream/lib/internal/streams/end-of-stream.js"
 // @ts-ignore
 import { pipeline } from "readable-stream/lib/internal/streams/pipeline.js";
 
-import { inherits } from "util";
+import { inherits } from "node:util";
 
 inherits(Stream, EE);
 Stream.Readable = Readable;

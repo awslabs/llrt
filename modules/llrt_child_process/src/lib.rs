@@ -651,7 +651,7 @@ mod tests {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
 
-                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "node:child_process")
                     .await
                     .unwrap();
 
@@ -659,7 +659,7 @@ mod tests {
                     ctx.clone(),
                     "test",
                     r#"
-                   import {spawn} from "child_process";
+                   import {spawn} from "node:child_process";
 
                     let resolve = null;
                     const deferred = new Promise(res => {
@@ -692,7 +692,7 @@ mod tests {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
 
-                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "node:child_process")
                     .await
                     .unwrap();
 
@@ -700,7 +700,7 @@ mod tests {
                     ctx.clone(),
                     "test",
                     r#"
-                    import {spawn} from "child_process";
+                    import {spawn} from "node:child_process";
 
                     let resolve = null;
                     const deferred = new Promise(res => {

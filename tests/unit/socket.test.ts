@@ -1,4 +1,4 @@
-import net from "net";
+import net from "node:net";
 
 describe("createServer and connect", () => {
   it("should create a server and connect to it", (done) => {

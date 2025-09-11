@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 import {
   accessSync,
   constants,
@@ -7,9 +7,9 @@ import {
   rmSync,
   statSync,
   writeFileSync,
-} from "fs";
-import { platform, tmpdir } from "os";
-import { join } from "path";
+} from "node:fs";
+import { platform, tmpdir } from "node:os";
+import { join } from "node:path";
 
 const TIMEOUT = 30000;
 const IS_WINDOWS = platform() === "win32";

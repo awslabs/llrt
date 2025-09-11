@@ -1,5 +1,5 @@
-import { Socket } from "net";
-import { EventEmitter } from "events";
+import { Socket } from "node:net";
+import { EventEmitter } from "node:events";
 
 class SocketClient extends EventEmitter {
   private host: string;

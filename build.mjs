@@ -1,7 +1,7 @@
 import * as esbuild from "esbuild";
-import fs from "fs/promises";
-import { createRequire } from "module";
-import path from "path";
+import fs from "node:fs/promises";
+import { createRequire } from "node:module";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
 
@@ -58,31 +58,51 @@ const ES_BUILD_OPTIONS = {
   format: "esm",
   external: [
     "assert",
+    "node:assert",
     "async_hooks",
+    "node:async_hooks",
     "console",
     "node:console",
     "crypto",
+    "node:crypto",
     "dns",
+    "node:dns",
     "os",
+    "node:os",
     "fs",
+    "node:fs",
     "child_process",
+    "node:child_process",
     "process",
+    "node:process",
     "timers",
+    "node:timers",
     "stream",
+    "node:stream",
     "path",
+    "node:path",
     "events",
+    "node:events",
     "buffer",
+    "node:buffer",
     "net",
+    "node:net",
     "util",
+    "node:util",
     "url",
+    "node:url",
     "zlib",
+    "node:zlib",
     "llrt:hex",
     "llrt:util",
     "llrt:uuid",
     "llrt:xml",
     "perf_hooks",
+    "node:perf_hooks",
     "tty",
+    "node:tty",
     "string_decoder",
+    "node:string_decoder",
     "@aws-crypto",
   ],
 };

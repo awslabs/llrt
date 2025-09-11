@@ -1,4 +1,4 @@
-import fs from "fs/promises";
+import fs from "node:fs/promises";
 import App from "./react/App";
 import ReactDOMServer from "react-dom/server.edge";
 

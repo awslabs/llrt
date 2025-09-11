@@ -1,4 +1,4 @@
-import { Crc32c as CryptoCrc32c } from "crypto";
+import { Crc32c as CryptoCrc32c } from "node:crypto";
 
 export const Crc32c = CryptoCrc32c;
 

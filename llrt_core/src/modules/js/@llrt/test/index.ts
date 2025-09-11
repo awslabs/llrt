@@ -1,11 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import net from "net";
-import os from "os";
-import { spawn, ChildProcess } from "child_process";
-import path from "path";
+import net from "node:net";
+import os from "node:os";
+import { spawn, ChildProcess } from "node:child_process";
+import path from "node:path";
 import { SocketReqMsg } from "./shared";
-import { platform } from "os";
+import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
 import CircularBuffer from "./CircularBuffer";
 import { dimensions } from "llrt:util";

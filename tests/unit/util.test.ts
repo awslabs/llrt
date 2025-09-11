@@ -1,13 +1,21 @@
-const util = require("util");
-const EventEmitter = require("events");
+import defaultImport from "node:util";
+import legacyImport from "util";
 
-describe("Util.inherits", () => {
+import { EventEmitter } from "node:events";
+
+it("node:util should be the same as util", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { inherits } = defaultImport;
+
+describe("inherits", () => {
   it("should be inheritable parent classes", () => {
     function MyStream() {
       EventEmitter.call(this);
     }
 
-    util.inherits(MyStream, EventEmitter);
+    inherits(MyStream, EventEmitter);
 
     const stream = new MyStream();
 
