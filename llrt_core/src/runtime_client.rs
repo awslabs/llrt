@@ -19,7 +19,7 @@ use hyper::{
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
-    CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
+    CaughtError, Ctx, Exception, Function, IntoJs, Module, Object, Result, Value,
 };
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
@@ -244,10 +244,18 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         state_ref.push(SdkClientInitState::new(rt));
     }
 
-    //allows CJS handlers
-    let require_function: Function = ctx.globals().get("require")?;
-    let require_specifier: String = [task_root.as_str(), module_name].join("/");
-    let js_handler_module: Object = require_function.call((require_specifier,))?;
+    let specifier: String = [task_root.as_str(), module_name].join("/");
+
+    let import_promise = Module::import(ctx, specifier.as_bytes())?;
+
+    let latch = {
+        let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
+        get_sdk_client_init_state(&state_ref, rt).latch.clone()
+    };
+    latch.wait().await;
+
+    let js_handler_module = import_promise.into_future::<Object>().await?;
+
     let handler: Value = js_handler_module.get(handler_name)?;
 
     if !handler.is_function() {
@@ -263,12 +271,6 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
             .concat(),
         ));
     }
-
-    let latch = {
-        let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
-        get_sdk_client_init_state(&state_ref, rt).latch.clone()
-    };
-    latch.wait().await;
 
     let client = HTTP_CLIENT.as_ref().or_throw(ctx)?.clone();
 
@@ -610,6 +612,13 @@ mod tests {
     async fn runtime() {
         let mock_server = MockServer::start().await;
 
+        //MOCK
+        Mock::given(matchers::method("GET"))
+            .and(matchers::path("/"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
         Mock::given(matchers::method("GET"))
             .and(matchers::path(format!(
                 "{}/invocation/next",
@@ -653,6 +662,7 @@ mod tests {
             };
 
             async_with!(vm.ctx => |ctx|{
+                ctx.globals().set("__MOCK_ENDPOINT", ["http://",runtime_api].concat()).unwrap();
                 runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
             })
             .await;
@@ -662,6 +672,8 @@ mod tests {
         run_with_handler(&vm, "../fixtures/primitive-handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/throwing-handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/sdk-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/tla-webcall-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/cjs-handler.handler", &runtime_api).await;
 
         vm.runtime.idle().await;
     }

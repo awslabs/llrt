@@ -233,7 +233,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
         info!("Compressing {}...", filename);
 
         let tmp_filename = tmp_dir
-            .join(nanoid::nanoid!())
+            .join(uuid::Uuid::new_v4().to_string())
             .to_string_lossy()
             .to_string();
 
