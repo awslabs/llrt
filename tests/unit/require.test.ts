@@ -165,6 +165,10 @@ it("require `@aws-lambda-powertools` module element", () => {
   );
 });
 
+it("require `hono/utils/url` module element", () => {
+  _require(`${CWD}/fixtures/test_modules/test-elem-hono.js`);
+});
+
 it("regression testing for issue #903", () => {
   expect(() => _require(`${CWD}/fixtures/test903/foo.mjs`)).toThrow(
     /Error resolving module /
