@@ -16,7 +16,6 @@ use hyper::{
     http::header::HeaderName,
     Request, StatusCode,
 };
-use llrt_utils::error::ErrorExtensions;
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
