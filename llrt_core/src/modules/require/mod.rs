@@ -77,7 +77,10 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
         let specifier = if is_bytecode_or_json {
             specifier
         } else {
-            specifier.trim_start_matches("node:").to_string()
+            specifier
+                .trim_start_matches("node:")
+                .trim_end_matches("/")
+                .to_string()
         };
 
         if module_list.contains(specifier.as_str()) {

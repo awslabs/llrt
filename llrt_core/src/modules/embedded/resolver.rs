@@ -16,6 +16,8 @@ pub struct EmbeddedResolver;
 impl Resolver for EmbeddedResolver {
     fn resolve(&mut self, _ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         let name = name.trim_start_matches(CJS_IMPORT_PREFIX);
+        let name = name.trim_start_matches("node:").trim_end_matches("/");
+
         let base = base.trim_start_matches(CJS_IMPORT_PREFIX);
 
         trace!("Try resolve '{}' from '{}'", name, base);
