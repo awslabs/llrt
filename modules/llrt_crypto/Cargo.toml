@@ -31,6 +31,7 @@ subtle-rs = [
   "spki",
   "der",
   "const-oid",
+  "pkcs8",
 ]
 
 [dependencies]
@@ -109,7 +110,7 @@ const-oid = { version = "0.10", features = [
 md-5 = { version = "0.11.0-rc.0", default-features = false }
 pkcs8 = { version = "0.11.0-rc.6", default-features = false, features = [
   "alloc",
-] }
+], optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

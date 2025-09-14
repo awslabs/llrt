@@ -54,7 +54,7 @@ impl ModuleResolver {
 
 impl Resolver for ModuleResolver {
     fn resolve(&mut self, _: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
-        let name = name.trim_start_matches("node:");
+        let name = name.trim_start_matches("node:").trim_end_matches("/");
         if self.modules.contains(name) {
             Ok(name.into())
         } else {
