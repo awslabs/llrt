@@ -13,7 +13,8 @@
   "scripts": {
     "esbuild": "esbuild",
     "update": "yarn upgrade-interactive --latest",
-    "reinstall": "rm -rf yarn.lock && rm -rf node_modules && yarn"
+    "reinstall": "rm -rf yarn.lock && rm -rf node_modules && yarn",
+    "test": "make test"
   },
   "side-effects": false,
   "devDependencies": {

@@ -1,4 +1,4 @@
-import type { webcrypto } from "crypto";
+import type { webcrypto } from "node:crypto";
 
 const DECODER = new TextDecoder();
 const ENCODER = new TextEncoder();

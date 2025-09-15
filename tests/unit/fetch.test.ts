@@ -1,6 +1,7 @@
-import net from "net";
-import { spawn } from "child_process";
-import { platform } from "os";
+import net from "node:net";
+import { spawn } from "node:child_process";
+import { platform } from "node:os";
+
 const IS_WINDOWS = platform() === "win32";
 
 let server: net.Server;

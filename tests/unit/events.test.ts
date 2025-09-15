@@ -1,6 +1,13 @@
-import { EventEmitter } from "events";
+import defaultImport from "node:events";
+import legacyImport from "events";
+
+it("node:events should be the same as events", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
 
 const sleep = (millis: number) => new Promise((cb) => setTimeout(cb, millis));
+
+const { EventEmitter } = defaultImport;
 
 describe("EventEmitter", () => {
   it("should use custom EventEmitter", () => {
