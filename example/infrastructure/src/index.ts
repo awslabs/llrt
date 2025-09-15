@@ -15,10 +15,10 @@ import {
   Fn,
   Duration,
 } from "aws-cdk-lib";
-import * as fs from "fs/promises";
-import os from "os";
-import path from "path";
-import { execSync } from "child_process";
+import * as fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { execSync } from "node:child_process";
 
 const main = async () => {
   execSync("node build.mjs", {
