@@ -137,7 +137,7 @@ async fn main() -> Result<(), Error> {
 | os             | ✔︎     | ⚠️           | `os`             | `llrt_os`             |
 | path           | ✔︎     | ✔︎          | `path`           | `llrt_path`           |
 | perf hooks     | ✔︎     | ⚠️           | `perf-hooks`     | `llrt_perf_hooks`     |
-| stream         | ✔︎     | ⚠️           | N/A              | `llrt_stream`         |
+| stream (lib)   | N/A     | ✔︎          | N/A              | `llrt_stream`         |
 | string_decoder | ✔︎     | ✔︎          | `string_decoder` | `llrt_string_decoder` |
 | timers         | ✔︎     | ✔︎          | `timers`         | `llrt_timers`         |
 | process        | ✔︎     | ✔︎          | `process`        | `llrt_process`        |
