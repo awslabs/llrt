@@ -91,7 +91,7 @@ p521 = { version = "0.14.0-pre.9", features = [
 elliptic-curve = { version = "0.14.0-rc.10", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-pre.0", features = [
+x25519-dalek = { version = "3.0.0-pre.1", features = [
   "os_rng",
   "static_secrets",
   "zeroize",
