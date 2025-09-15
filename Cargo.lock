@@ -959,6 +959,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1156,7 +1162,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa2c385c6df70fd180bbb673d93039dbd2cd34e41d782600bdf6e1ca7bce39aa"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.15.4",
 ]
 
 [[package]]
@@ -1167,7 +1173,18 @@ checksum = "5971ac85611da7067dbfcabef3c70ebb5606018acd9e2a3903a0da507521e0d5"
 dependencies = [
  "allocator-api2",
  "equivalent",
- "foldhash",
+ "foldhash 0.1.5",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
 ]
 
 [[package]]
@@ -1474,7 +1491,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe4cd85333e22411419a0bcae1297d25e58c9443848b11dc6a86fefe8c78a661"
 dependencies = [
  "equivalent",
- "hashbrown",
+ "hashbrown 0.15.4",
 ]
 
 [[package]]
@@ -1562,7 +1579,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.2",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -1749,7 +1766,7 @@ dependencies = [
  "llrt_utils",
  "md-5 0.11.0-rc.0",
  "once_cell",
- "phf 0.13.1",
+ "phf",
  "phf_codegen",
  "quick-xml",
  "ring",
@@ -1836,7 +1853,7 @@ dependencies = [
  "hex-simd",
  "llrt_build",
  "memchr",
- "phf 0.13.1",
+ "phf",
 ]
 
 [[package]]
@@ -2412,22 +2429,13 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "phf"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "913273894cec178f401a31ec4b656318d95473527be05c0752cc41cdc32be8b7"
-dependencies = [
- "phf_shared 0.12.1",
- "serde",
-]
-
-[[package]]
-name = "phf"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1562dc717473dbaa4c1f85a36410e03c047b2e7df7f45ee938fbef64ae7fadf"
 dependencies = [
  "phf_macros",
- "phf_shared 0.13.1",
+ "phf_shared",
+ "serde",
 ]
 
 [[package]]
@@ -2436,18 +2444,8 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49aa7f9d80421bca176ca8dbfebe668cc7a2684708594ec9f3c0db0805d5d6e1"
 dependencies = [
- "phf_generator 0.13.1",
- "phf_shared 0.13.1",
-]
-
-[[package]]
-name = "phf_generator"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cbb1126afed61dd6368748dae63b1ee7dc480191c6262a3b4ff1e29d86a6c5b"
-dependencies = [
- "fastrand",
- "phf_shared 0.12.1",
+ "phf_generator",
+ "phf_shared",
 ]
 
 [[package]]
@@ -2457,7 +2455,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135ace3a761e564ec88c03a77317a7c6b80bb7f7135ef2544dbe054243b89737"
 dependencies = [
  "fastrand",
- "phf_shared 0.13.1",
+ "phf_shared",
 ]
 
 [[package]]
@@ -2466,20 +2464,11 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812f032b54b1e759ccd5f8b6677695d5268c588701effba24601f6932f8269ef"
 dependencies = [
- "phf_generator 0.13.1",
- "phf_shared 0.13.1",
+ "phf_generator",
+ "phf_shared",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.104",
-]
-
-[[package]]
-name = "phf_shared"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
-dependencies = [
- "siphasher",
 ]
 
 [[package]]
@@ -2633,7 +2622,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ad6644cb07b7f3488b9f3d2fde3b4c0a7fa367cafefb39dff93a659f76eb786"
 dependencies = [
  "equivalent",
- "hashbrown",
+ "hashbrown 0.15.4",
 ]
 
 [[package]]
@@ -2803,7 +2792,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#863148d7e3630dc21dc159ad114dc03245fc7432"
+source = "git+https://github.com/DelSkayn/rquickjs.git#508e6294206fbbd7e620323138918e517285213a"
 dependencies = [
  "either",
  "indexmap",
@@ -2814,15 +2803,15 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#863148d7e3630dc21dc159ad114dc03245fc7432"
+source = "git+https://github.com/DelSkayn/rquickjs.git#508e6294206fbbd7e620323138918e517285213a"
 dependencies = [
  "async-lock",
  "chrono",
  "dlopen",
  "either",
- "hashbrown",
+ "hashbrown 0.16.0",
  "indexmap",
- "phf 0.12.1",
+ "phf",
  "relative-path",
  "rquickjs-sys",
 ]
@@ -2830,14 +2819,14 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#863148d7e3630dc21dc159ad114dc03245fc7432"
+source = "git+https://github.com/DelSkayn/rquickjs.git#508e6294206fbbd7e620323138918e517285213a"
 dependencies = [
  "convert_case",
  "fnv",
  "ident_case",
  "indexmap",
- "phf_generator 0.12.1",
- "phf_shared 0.12.1",
+ "phf_generator",
+ "phf_shared",
  "proc-macro-crate",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
@@ -2848,7 +2837,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#863148d7e3630dc21dc159ad114dc03245fc7432"
+source = "git+https://github.com/DelSkayn/rquickjs.git#508e6294206fbbd7e620323138918e517285213a"
 dependencies = [
  "bindgen",
  "cc",
