@@ -1,7 +1,12 @@
-import { performance } from "perf_hooks";
+import defaultImport from "node:perf_hooks";
+import legacyImport from "perf_hooks";
 
-describe("perf_hooks", () => {
-  it("perf_hooks.performance should be the same as globalThis.performance", () => {
-    expect(performance).toBe(globalThis.performance);
-  });
+it("node:perf_hooks should be the same as perf_hooks", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { performance } = defaultImport;
+
+it("performance should be the same as globalThis.performance", () => {
+  expect(performance).toStrictEqual(globalThis.performance);
 });

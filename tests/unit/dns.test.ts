@@ -1,4 +1,13 @@
-import dns from "dns";
+import type dns from "node:dns";
+
+import defaultImport from "node:dns";
+import legacyImport from "dns";
+
+it("node:dns should be the same as dns", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { lookup } = defaultImport;
 
 // Promise wrapper for dns.lookup
 const dnsLookupAsync = (
@@ -6,7 +15,7 @@ const dnsLookupAsync = (
   options?: number | dns.LookupOptions
 ) =>
   new Promise<dns.LookupAddress>((resolve, reject) => {
-    dns.lookup(hostname, options as any, (err, address, family) => {
+    lookup(hostname, options as any, (err, address, family) => {
       if (err) reject(err);
       else resolve({ address, family });
     });

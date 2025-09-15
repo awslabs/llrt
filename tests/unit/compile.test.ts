@@ -1,6 +1,6 @@
-import fs from "fs/promises";
-import { spawn } from "child_process";
-import { tmpdir } from "os";
+import fs from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 
 const spawnCapture = async (cmd: string, args: string[]) => {
   const child = spawn(cmd, args);
