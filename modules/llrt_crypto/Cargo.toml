@@ -65,7 +65,7 @@ aes-gcm = { version = "0.11.0-rc.0", features = [
 aes-kw = { version = "0.3.0-rc.0", features = [
   "oid",
 ], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.0", features = ["alloc"], optional = true }
+cbc = { version = "0.2.0-rc.1", features = ["alloc"], optional = true }
 ctr = { version = "0.10.0-rc.0", default-features = false, optional = true }
 rsa = { version = "0.10.0-rc.3", features = [
   "std",
