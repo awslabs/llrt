@@ -1,7 +1,7 @@
 [package]
 name = "llrt_crypto"
 description = "LLRT Module crypto"
-version = "0.6.2-beta"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -37,10 +37,10 @@ subtle-rs = [
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
 crc32fast = { version = "1", default-features = false }
-llrt_buffer = { version = "0.6.2-beta", path = "../llrt_buffer" }
-llrt_context = { version = "0.6.2-beta", path = "../../libs/llrt_context" }
-llrt_encoding = { version = "0.6.2-beta", path = "../../libs/llrt_encoding" }
-llrt_utils = { version = "0.6.2-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
+llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
+llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rand = { version = "0.9", features = [
   "std",
@@ -57,7 +57,7 @@ uuid = { version = "1", features = [
 uuid-simd = { version = "0.8", features = ["uuid"], default-features = false }
 
 # optional
-llrt_json = { version = "0.6.2-beta", path = "../../libs/llrt_json", optional = true }
+llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
 aes = { version = "0.9.0-rc.0", optional = true }
 aes-gcm = { version = "0.11.0-rc.0", features = [
   "alloc",
