@@ -16,6 +16,10 @@
   - Check for valid URI in fetch (@nabetti1720)
   - Convert trailing space from opaque path in URL (@nabetti1720)
   - SDK connection warmup for global endpoints (@richarddavison)
+  - Add support for node: prefix for remaining packages (@willfarrell)
+  - Expose stream/promises by polyfill (@nabetti1720)
+  - Support resolving modules when require path ends with a trailing slash (@nabetti1720)
+  - Fix Top-Level-Await webcall in Lambda handler (@richarddavison)
 
 ### Maintenance
   - Core and build cleanup
