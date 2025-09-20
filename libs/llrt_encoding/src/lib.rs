@@ -194,7 +194,7 @@ pub enum Endian {
 }
 
 pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Result<String, String> {
-    if !lossy && bytes.len() % 2 != 0 {
+    if !lossy && !bytes.len().is_multiple_of(2) {
         return Err("Input byte slice length must be even".to_string());
     }
 
