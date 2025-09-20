@@ -133,7 +133,7 @@ pub fn encrypt_decrypt(
             let is_encrypt = matches!(operation, EncryptionOperation::Encrypt);
 
             //Only create new vec if padding is needed, otherwise use original slice
-            let data = if data.len() % 8 != 0 && is_encrypt && padding != 0 {
+            let data = if !data.len().is_multiple_of(8) && is_encrypt && padding != 0 {
                 let padding_size = (8 - (data.len() % 8)) % 8;
                 let mut padded = Vec::with_capacity(data.len() + padding_size);
                 padded.extend_from_slice(data);
