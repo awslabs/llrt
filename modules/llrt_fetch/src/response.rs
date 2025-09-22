@@ -15,7 +15,7 @@ use hyper::{
 };
 use llrt_abort::AbortSignal;
 use llrt_context::CtxExtension;
-use llrt_json::parse::json_parse;
+use llrt_json::{parse::json_parse, stringify::json_stringify};
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::{mc_oneshot, result::ResultExt};
@@ -32,7 +32,7 @@ use tokio::select;
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
     incoming::{self, IncomingReceiver},
-    strip_bom, Blob, MIME_TYPE_APPLICATION, MIME_TYPE_TEXT,
+    strip_bom, Blob, MIME_TYPE_APPLICATION, MIME_TYPE_JSON, MIME_TYPE_TEXT,
 };
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
@@ -394,29 +394,44 @@ impl<'js> Response<'js> {
     #[qjs(static, rename = "json")]
     fn json_static(ctx: Ctx<'js>, body: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
         let mut status = 200;
-        let mut headers = None;
         let mut status_text = None;
 
-        if let Some(opt) = options.0 {
+        if let Some(ref opt) = options.0 {
             if let Some(status_opt) = opt.get("status")? {
                 status = status_opt;
-            }
-            if let Some(headers_opt) = opt.get("headers")? {
-                headers = Some(Headers::from_value(
-                    &ctx,
-                    headers_opt,
-                    HeadersGuard::Response,
-                )?);
             }
             if let Some(status_text_opt) = opt.get("statusText")? {
                 status_text = Some(status_text_opt);
             }
         }
 
-        let headers = Class::instance(ctx.clone(), headers.unwrap_or_default())?;
+        let mut headers = if let Some(ref opt) = options.0 {
+            let head = if let Some(headers_opt) = opt.get("headers")? {
+                headers_opt
+            } else {
+                Value::new_null(ctx.clone())
+            };
+            Headers::from_value(&ctx, head, HeadersGuard::Response)?
+        } else {
+            Headers::from_value(&ctx, Value::new_null(ctx.clone()), HeadersGuard::Response)?
+        };
+
+        if !headers.has(ctx.clone(), "content-type".into())? {
+            headers.append(
+                ctx.clone(),
+                "content-type".into(),
+                MIME_TYPE_JSON.into_js(&ctx)?,
+            )?;
+        }
+
+        let headers = Class::instance(ctx.clone(), headers)?;
         let content_encoding = headers.get("content-encoding")?;
 
-        let body = BodyVariant::Provided(Some(body));
+        let body = if let Ok(Some(v)) = json_stringify(&ctx, body) {
+            BodyVariant::Provided(Some(v.into_js(&ctx)?))
+        } else {
+            return Err(Exception::throw_type(&ctx, "Failed to convert JSON string"));
+        };
 
         Ok(Self {
             body: RwLock::new(body),
