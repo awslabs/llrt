@@ -2047,7 +2047,7 @@ dependencies = [
  "users",
  "whoami",
  "windows-registry",
- "windows-result 0.3.4",
+ "windows-result 0.4.0",
  "windows-version",
 ]
 
