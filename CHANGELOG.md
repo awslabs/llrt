@@ -20,6 +20,7 @@
   - Expose stream/promises by polyfill (@nabetti1720)
   - Support resolving modules when require path ends with a trailing slash (@nabetti1720)
   - Fix Top-Level-Await webcall in Lambda handler (@richarddavison)
+  - Fix Response.json() static method does not correctly hold the body (@nabetti1720)
 
 ### Maintenance
   - Core and build cleanup
