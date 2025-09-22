@@ -108,7 +108,6 @@ jobs:
           # HACK: Add scoop/shims to PATH
           export PATH="$PATH:/c/Users/$USER/scoop/shims"
           make stdlib
-          make libs-${{ inputs.release }}
           rm -rf target/ || true
           make llrt-windows-${{ inputs.release }}.zip
           make llrt-windows-${{ inputs.release }}-no-sdk.zip
