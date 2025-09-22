@@ -33,7 +33,7 @@ whoami = { version = "1", default-features = false }
 windows-registry = { version = "0.6", features = [
   "std",
 ], default-features = false }
-windows-result = { version = "0.3", features = [
+windows-result = { version = "0.4", features = [
   "std",
 ], default-features = false }
 windows-version = { version = "0.1", default-features = false }
