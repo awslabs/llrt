@@ -118,8 +118,8 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:dns                 | ✔︎     | ✔︎⚠️  |
 | node:domain              | ✔︎     | ✘      |
 | node:events              | ✔︎     | ✔︎⚠️  |
-| node:fs/promises         | ✔︎     | ✔︎⚠️  |
 | node:fs                  | ✔︎     | ✔︎⚠️  |
+| node:fs/promises         | ✔︎     | ✔︎⚠️  |
 | node:http                | ✔︎     | ✘⏱    |
 | node:http2               | ✔︎     | ✘      |
 | node:https               | ✔︎     | ✘⏱    |
