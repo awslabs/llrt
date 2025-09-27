@@ -1,20 +1,18 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::env;
-
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    qjs::{self},
-    Ctx, IntoJs, Object, Result, Value,
+    qjs, Ctx, IntoJs, Object, Result, Value,
 };
 
+use crate::environment::ENV_LLRT_PSEUDO_V8_STATS;
 use crate::libs::utils::module::{export_default, ModuleInfo};
 use crate::modules::require::LLRT_PLATFORM;
 
 static LLRT_PSEUDO_V8_STATS: Lazy<String> = Lazy::new(|| {
-    env::var(crate::environment::ENV_LLRT_PSEUDO_V8_STATS)
+    std::env::var(ENV_LLRT_PSEUDO_V8_STATS)
         .ok()
         .filter(|flag| flag == "1")
         .unwrap_or_else(|| "0".to_string())
@@ -24,15 +22,21 @@ fn is_v8_stats() -> bool {
     LLRT_PLATFORM.as_str() == "node" || LLRT_PSEUDO_V8_STATS.as_str() == "1"
 }
 
-fn get_code_statistics(ctx: Ctx<'_>) -> Result<Value<'_>> {
-    let usage = unsafe {
-        let mut usage: qjs::JSMemoryUsage = std::mem::zeroed();
-        let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
-        qjs::JS_ComputeMemoryUsage(rt, &mut usage);
-        usage
-    };
+// SAFETY:
+// - The associated runtime must not be accessed concurrently or destroyed
+//   while this function runs (QuickJS is not thread-safe).
+// - Undefined behavior may occur if called with an invalid or corrupted runtime.
+unsafe fn compute_memory_usage(ctx: &Ctx) -> qjs::JSMemoryUsage {
+    let mut usage: qjs::JSMemoryUsage = std::mem::zeroed();
+    let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
+    qjs::JS_ComputeMemoryUsage(rt, &mut usage);
+    usage
+}
 
-    let obj: Object<'_> = Object::new(ctx.clone())?;
+fn get_code_statistics(ctx: Ctx) -> Result<Value> {
+    let usage = unsafe { compute_memory_usage(&ctx) };
+
+    let obj = Object::new(ctx.clone())?;
     if is_v8_stats() {
         obj.set("code_and_metadata_size", 0)?;
         obj.set("bytecode_and_metadata_size", usage.js_func_code_size)?;
@@ -65,15 +69,10 @@ fn get_code_statistics(ctx: Ctx<'_>) -> Result<Value<'_>> {
     obj.into_js(&ctx)
 }
 
-fn get_heap_statistics(ctx: Ctx<'_>) -> Result<Value<'_>> {
-    let usage = unsafe {
-        let mut usage: qjs::JSMemoryUsage = std::mem::zeroed();
-        let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
-        qjs::JS_ComputeMemoryUsage(rt, &mut usage);
-        usage
-    };
+fn get_heap_statistics(ctx: Ctx) -> Result<Value> {
+    let usage = unsafe { compute_memory_usage(&ctx) };
 
-    let obj: Object<'_> = Object::new(ctx.clone())?;
+    let obj = Object::new(ctx.clone())?;
     if is_v8_stats() {
         obj.set("total_heap_size", usage.memory_used_size)?;
         obj.set("total_heap_size_executable", 0)?;
