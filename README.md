@@ -127,6 +127,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:inspector/promises  | ✔︎     | ✘      |
 | node:module              | ✔︎     | ✔︎⚠️  |
 | node:net                 | ✔︎     | ✔︎⚠️  |
+| node:os                  | ✔︎     | ✔︎⚠️  |
 | node:path                | ✔︎     | ✔︎⚠️  |
 | node:perf_hooks          | ✔︎     | ✔︎⚠️  |
 | node:process             | ✔︎     | ✔︎⚠️  |
