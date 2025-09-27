@@ -50,6 +50,7 @@ impl Default for VmOptions {
             .with_module(crate::modules::llrt::hex::LlrtHexModule)
             .with_module(crate::modules::llrt::util::LlrtUtilModule)
             .with_module(crate::modules::llrt::uuid::LlrtUuidModule)
+            .with_module(crate::modules::llrt::qjs::LlrtQjsModule)
             .with_module(crate::modules::llrt::xml::LlrtXmlModule);
 
         #[cfg(feature = "lambda")]
