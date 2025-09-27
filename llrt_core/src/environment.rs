@@ -15,6 +15,9 @@ pub const ENV_LLRT_LOG: &str = "LLRT_LOG";
 //module
 pub const ENV_LLRT_PLATFORM: &str = "LLRT_PLATFORM";
 
+//llrt
+pub const ENV_LLRT_PSEUDO_V8_STATS: &str = "LLRT_PSEUDO_V8_STATS";
+
 //vm
 pub const ENV_LLRT_GC_THRESHOLD_MB: &str = "LLRT_GC_THRESHOLD_MB";
 
