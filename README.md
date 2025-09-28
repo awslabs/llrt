@@ -116,7 +116,6 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:dgram                                       | ✔︎     | ✘      |
 | node:diagnostics_channel                         | ✔︎     | ✘      |
 | node:dns                                         | ✔︎     | ✔︎⚠️  |
-| node:domain                                      | ✔︎     | ✘      |
 | node:events                                      | ✔︎     | ✔︎⚠️  |
 | node:fs                                          | ✔︎     | ✔︎⚠️  |
 | node:fs/promises                                 | ✔︎     | ✔︎⚠️  |
@@ -131,7 +130,6 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:path                                        | ✔︎     | ✔︎⚠️  |
 | node:perf_hooks                                  | ✔︎     | ✔︎⚠️  |
 | node:process                                     | ✔︎     | ✔︎⚠️  |
-| node:punycode                                    | ✔︎     | ✘      |
 | node:querystring                                 | ✔︎     | ✘      |
 | node:readline                                    | ✔︎     | ✘      |
 | node:readline/promises                           | ✔︎     | ✘      |
