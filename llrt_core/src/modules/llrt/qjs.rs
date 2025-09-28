@@ -26,7 +26,7 @@ fn is_v8_stats() -> bool {
 // - The associated runtime must not be accessed concurrently or destroyed
 //   while this function runs (QuickJS is not thread-safe).
 // - Undefined behavior may occur if called with an invalid or corrupted runtime.
-unsafe fn compute_memory_usage(ctx: &Ctx) -> qjs::JSMemoryUsage {
+unsafe fn js_compute_memory_usage(ctx: &Ctx) -> qjs::JSMemoryUsage {
     let mut usage: qjs::JSMemoryUsage = std::mem::zeroed();
     let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
     qjs::JS_ComputeMemoryUsage(rt, &mut usage);
@@ -34,67 +34,69 @@ unsafe fn compute_memory_usage(ctx: &Ctx) -> qjs::JSMemoryUsage {
 }
 
 fn get_code_statistics(ctx: Ctx) -> Result<Value> {
-    let usage = unsafe { compute_memory_usage(&ctx) };
+    let usage = unsafe { js_compute_memory_usage(&ctx) };
 
     let obj = Object::new(ctx.clone())?;
-    if is_v8_stats() {
-        obj.set("code_and_metadata_size", 0)?;
-        obj.set("bytecode_and_metadata_size", usage.js_func_code_size)?;
-        obj.set("external_script_source_size", 0)?;
-        obj.set("cpu_profiler_metadata_size", 0)?;
-    } else {
-        obj.set("atom_count", usage.atom_count)?;
-        obj.set("atom_size", usage.atom_size)?;
-        obj.set("str_count", usage.str_count)?;
-        obj.set("str_size", usage.str_size)?;
-        obj.set("obj_count", usage.obj_count)?;
-        obj.set("obj_size", usage.obj_size)?;
-        obj.set("prop_count", usage.prop_count)?;
-        obj.set("prop_size", usage.prop_size)?;
-        obj.set("shape_count", usage.shape_count)?;
-        obj.set("shape_size", usage.shape_size)?;
-        obj.set("js_func_count", usage.js_func_count)?;
-        obj.set("js_func_size", usage.js_func_size)?;
-        obj.set("js_func_code_size", usage.js_func_code_size)?;
-        obj.set("js_func_pc2line_count", usage.js_func_pc2line_count)?;
-        obj.set("js_func_pc2line_size", usage.js_func_pc2line_size)?;
-        obj.set("c_func_count", usage.c_func_count)?;
-        obj.set("array_count", usage.array_count)?;
-        obj.set("fast_array_count", usage.fast_array_count)?;
-        obj.set("fast_array_elements", usage.fast_array_elements)?;
-        obj.set("binary_object_count", usage.binary_object_count)?;
-        obj.set("binary_object_size", usage.binary_object_size)?;
-    }
+    obj.set("code_and_metadata_size", 0)?;
+    obj.set("bytecode_and_metadata_size", usage.js_func_code_size)?;
+    obj.set("external_script_source_size", 0)?;
+    obj.set("cpu_profiler_metadata_size", 0)?;
 
     obj.into_js(&ctx)
 }
 
 fn get_heap_statistics(ctx: Ctx) -> Result<Value> {
-    let usage = unsafe { compute_memory_usage(&ctx) };
+    let usage = unsafe { js_compute_memory_usage(&ctx) };
 
     let obj = Object::new(ctx.clone())?;
-    if is_v8_stats() {
-        obj.set("total_heap_size", usage.memory_used_size)?;
-        obj.set("total_heap_size_executable", 0)?;
-        obj.set("total_physical_size", 0)?;
-        obj.set("total_available_size", 0)?;
-        obj.set("used_heap_size", usage.memory_used_size)?;
-        obj.set("heap_size_limit", usage.malloc_limit)?;
-        obj.set("malloced_memory", usage.malloc_size)?;
-        obj.set("peak_malloced_memory", 0)?;
-        obj.set("does_zap_garbage", 0)?;
-        obj.set("number_of_native_contexts", 0)?;
-        obj.set("number_of_detached_contexts", 0)?;
-        obj.set("total_global_handles_size", 0)?;
-        obj.set("used_global_handles_size", 0)?;
-        obj.set("external_memory", 0)?;
-    } else {
-        obj.set("malloc_size", usage.malloc_size)?;
-        obj.set("malloc_limit", usage.malloc_limit)?;
-        obj.set("memory_used_size", usage.memory_used_size)?;
-        obj.set("malloc_count", usage.malloc_count)?;
-        obj.set("memory_used_count", usage.memory_used_count)?;
-    }
+    obj.set("total_heap_size", usage.memory_used_size)?;
+    obj.set("total_heap_size_executable", 0)?;
+    obj.set("total_physical_size", 0)?;
+    obj.set("total_available_size", 0)?;
+    obj.set("used_heap_size", usage.memory_used_size)?;
+    obj.set("heap_size_limit", usage.malloc_limit)?;
+    obj.set("malloced_memory", usage.malloc_size)?;
+    obj.set("peak_malloced_memory", 0)?;
+    obj.set("does_zap_garbage", 0)?;
+    obj.set("number_of_native_contexts", 0)?;
+    obj.set("number_of_detached_contexts", 0)?;
+    obj.set("total_global_handles_size", 0)?;
+    obj.set("used_global_handles_size", 0)?;
+    obj.set("external_memory", 0)?;
+
+    obj.into_js(&ctx)
+}
+
+fn compute_memory_usage(ctx: Ctx) -> Result<Value> {
+    let usage = unsafe { js_compute_memory_usage(&ctx) };
+
+    let obj = Object::new(ctx.clone())?;
+    obj.set("malloc_size", usage.malloc_size)?;
+    obj.set("malloc_limit", usage.malloc_limit)?;
+    obj.set("memory_used_size", usage.memory_used_size)?;
+    obj.set("malloc_count", usage.malloc_count)?;
+    obj.set("memory_used_count", usage.memory_used_count)?;
+    obj.set("atom_count", usage.atom_count)?;
+    obj.set("atom_size", usage.atom_size)?;
+    obj.set("str_count", usage.str_count)?;
+    obj.set("str_size", usage.str_size)?;
+    obj.set("obj_count", usage.obj_count)?;
+    obj.set("obj_size", usage.obj_size)?;
+    obj.set("prop_count", usage.prop_count)?;
+    obj.set("prop_size", usage.prop_size)?;
+    obj.set("shape_count", usage.shape_count)?;
+    obj.set("shape_size", usage.shape_size)?;
+    obj.set("js_func_count", usage.js_func_count)?;
+    obj.set("js_func_size", usage.js_func_size)?;
+    obj.set("js_func_code_size", usage.js_func_code_size)?;
+    obj.set("js_func_pc2line_count", usage.js_func_pc2line_count)?;
+    obj.set("js_func_pc2line_size", usage.js_func_pc2line_size)?;
+    obj.set("c_func_count", usage.c_func_count)?;
+    obj.set("array_count", usage.array_count)?;
+    obj.set("fast_array_count", usage.fast_array_count)?;
+    obj.set("fast_array_elements", usage.fast_array_elements)?;
+    obj.set("binary_object_count", usage.binary_object_count)?;
+    obj.set("binary_object_size", usage.binary_object_size)?;
 
     obj.into_js(&ctx)
 }
@@ -103,16 +105,24 @@ pub struct LlrtQjsModule;
 
 impl ModuleDef for LlrtQjsModule {
     fn declare(declare: &Declarations) -> Result<()> {
-        declare.declare("getCodeStatistics")?;
-        declare.declare("getHeapStatistics")?;
+        if is_v8_stats() {
+            declare.declare("getCodeStatistics")?;
+            declare.declare("getHeapStatistics")?;
+        } else {
+            declare.declare("ComputeMemoryUsage")?;
+        }
         declare.declare("default")?;
         Ok(())
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            default.set("getCodeStatistics", Func::from(get_code_statistics))?;
-            default.set("getHeapStatistics", Func::from(get_heap_statistics))?;
+            if is_v8_stats() {
+                default.set("getCodeStatistics", Func::from(get_code_statistics))?;
+                default.set("getHeapStatistics", Func::from(get_heap_statistics))?;
+            } else {
+                default.set("ComputeMemoryUsage", Func::from(compute_memory_usage))?;
+            }
             Ok(())
         })
     }
