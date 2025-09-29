@@ -1,7 +1,7 @@
 # API documentation
 
 > [!NOTE]
-> The long term goal for LLRT is to become [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md). Not every API from Node.js will be supported.
+> The long term goal for LLRT is to become [WinterTC compliant](https://min-common-api.proposal.wintertc.org/). Not every API from Node.js will be supported.
 
 # Node.js API
 

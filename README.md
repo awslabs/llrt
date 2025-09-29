@@ -79,7 +79,7 @@ Unit Tests
 
 End-to-End (E2E) Tests
 
-- Validate overall compatibility with AWS SDK and WinterCG compliance
+- Validate overall compatibility with AWS SDK and WinterTC compliance
 - Test the integration between all components
 - Confirm expected behavior from end-user perspective
 - For more information about the E2E Tests and how to run them, see [here](tests/e2e/README.md).
@@ -88,7 +88,7 @@ Web Platform Tests (WPT)
 
 - Useful for validating LLRT’s behavior against standardized browser APIs and runtime expectations
 - Ensure compatibility with web standards and cross-runtime environments
-- Help verify alignment with WinterCG and broader JavaScript ecosystem
+- Help verify alignment with WinterTC and broader JavaScript ecosystem
 - For setup instructions and how to run WPT in LLRT, see [here](tests/wpt/README.md).
 
 ### Test runner
