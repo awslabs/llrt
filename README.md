@@ -79,7 +79,7 @@ Unit Tests
 
 End-to-End (E2E) Tests
 
-- Validate overall compatibility with AWS SDK and WinterCG compliance
+- Validate overall compatibility with AWS SDK and WinterTC compliance
 - Test the integration between all components
 - Confirm expected behavior from end-user perspective
 - For more information about the E2E Tests and how to run them, see [here](tests/e2e/README.md).
@@ -88,7 +88,7 @@ Web Platform Tests (WPT)
 
 - Useful for validating LLRT’s behavior against standardized browser APIs and runtime expectations
 - Ensure compatibility with web standards and cross-runtime environments
-- Help verify alignment with WinterCG and broader JavaScript ecosystem
+- Help verify alignment with WinterTC and broader JavaScript ecosystem
 - For setup instructions and how to run WPT in LLRT, see [here](tests/wpt/README.md).
 
 ### Test runner
@@ -104,49 +104,86 @@ The test runner also has support for filters. Using filters is as simple as addi
 > [!NOTE]
 > LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation
 
-| Modules         | Node.js | LLRT ⚠️ |
-| --------------- | ------- | ------- |
-| assert          | ✔︎     | ✔︎️    |
-| async_hooks     | ✔︎     | ✔︎️    |
-| buffer          | ✔︎     | ✔︎️    |
-| child_process   | ✔︎     | ✔︎⏱   |
-| console         | ✔︎     | ✔︎     |
-| crypto          | ✔︎     | ✔︎     |
-| dns             | ✔︎     | ✔︎     |
-| events          | ✔︎     | ✔︎     |
-| fs/promises     | ✔︎     | ✔︎     |
-| fs              | ✔︎     | ✘⏱     |
-| http            | ✔︎     | ✘⏱\*\* |
-| https           | ✔︎     | ✘⏱\*\* |
-| net:sockets     | ✔︎     | ✔︎⏱   |
-| net:server      | ✔︎     | ✔︎     |
-| os              | ✔︎     | ✔︎     |
-| path            | ✔︎     | ✔︎     |
-| perf_hooks      | ✔︎     | ✔︎     |
-| process         | ✔︎     | ✔︎     |
-| stream/promises | ✔︎     | ✔︎\*   |
-| stream          | ✔︎     | ✔︎\*   |
-| string_decoder  | ✔︎     | ✔︎     |
-| timers          | ✔︎     | ✔︎     |
-| tty             | ✔︎     | ✔︎     |
-| url             | ✔︎     | ✔︎     |
-| util            | ✔︎     | ✔︎     |
-| tls             | ✔︎     | ✘⏱     |
-| zlib            | ✔︎     | ✔︎     |
-| Other modules   | ✔︎     | ✘       |
+| [Node.js API](https://nodejs.org/api/index.html) | Node.js | LLRT   |
+| ------------------------------------------------ | ------- | ------ |
+| node:assert                                      | ✔︎     | ✔︎️⚠️ |
+| node:async_hooks                                 | ✔︎     | ✔︎️⚠️ |
+| node:buffer                                      | ✔︎     | ✔︎️⚠️ |
+| node:child_process                               | ✔︎     | ✔︎⚠️  |
+| node:cluster                                     | ✔︎     | ✘      |
+| node:console                                     | ✔︎     | ✔︎⚠️  |
+| node:crypto                                      | ✔︎     | ✔︎⚠️  |
+| node:dgram                                       | ✔︎     | ✘      |
+| node:diagnostics_channel                         | ✔︎     | ✘      |
+| node:dns                                         | ✔︎     | ✔︎⚠️  |
+| node:events                                      | ✔︎     | ✔︎⚠️  |
+| node:fs                                          | ✔︎     | ✔︎⚠️  |
+| node:fs/promises                                 | ✔︎     | ✔︎⚠️  |
+| node:http                                        | ✔︎     | ✘⏱    |
+| node:http2                                       | ✔︎     | ✘      |
+| node:https                                       | ✔︎     | ✘⏱    |
+| node:inspector                                   | ✔︎     | ✘      |
+| node:inspector/promises                          | ✔︎     | ✘      |
+| node:module                                      | ✔︎     | ✔︎⚠️  |
+| node:net                                         | ✔︎     | ✔︎⚠️  |
+| node:os                                          | ✔︎     | ✔︎⚠️  |
+| node:path                                        | ✔︎     | ✔︎⚠️  |
+| node:perf_hooks                                  | ✔︎     | ✔︎⚠️  |
+| node:process                                     | ✔︎     | ✔︎⚠️  |
+| node:querystring                                 | ✔︎     | ✘      |
+| node:readline                                    | ✔︎     | ✘      |
+| node:readline/promises                           | ✔︎     | ✘      |
+| node:repl                                        | ✔︎     | ✘      |
+| node:sqlite                                      | ✔︎     | ✘      |
+| node:stream                                      | ✔︎     | ✔︎\*  |
+| node:stream/promises                             | ✔︎     | ✔︎\*  |
+| node:stream/web                                  | ✔︎     | ✔︎⚠️  |
+| node:string_decoder                              | ✔︎     | ✔︎    |
+| node:test                                        | ✔︎     | ✘      |
+| node:timers                                      | ✔︎     | ✔︎⚠️  |
+| node:tls                                         | ✔︎     | ✘⏱    |
+| node:tty                                         | ✔︎     | ✔︎⚠️  |
+| node:url                                         | ✔︎     | ✔︎⚠️  |
+| node:util                                        | ✔︎     | ✔︎⚠️  |
+| node:v8                                          | ✔︎     | ✘      |
+| node:vm                                          | ✔︎     | ✘      |
+| node:wasi                                        | ✔︎     | ✘      |
+| node:worker_threads                              | ✔︎     | ✘      |
+| node:zlib                                        | ✔︎     | ✔︎⚠️  |
+| llrt:hex                                         | ✘       | ✔︎    |
+| llrt:util                                        | ✘       | ✔︎    |
+| llrt:uuid                                        | ✘       | ✔︎    |
+| llrt:xml                                         | ✘       | ✔︎    |
 
-| Features    | Node.js | LLRT ⚠️ |
-| ----------- | ------- | ------- |
-| async/await | ✔︎     | ✔︎     |
-| encoding    | ✔︎     | ✔︎     |
-| fetch       | ✔︎     | ✔︎     |
-| ESM         | ✔︎     | ✔︎     |
-| CJS         | ✔︎     | ✔︎     |
+| [Web Platform API](https://min-common-api.proposal.wintertc.org/) | LLRT  |
+| ----------------------------------------------------------------- | ----- |
+| COMPRESSION                                                       | ✘⏱   |
+| CONSOLE                                                           | ✔︎⚠️ |
+| DOM                                                               | ✔︎⚠️ |
+| ECMASCRIPT                                                        | ✔︎⚠️ |
+| ENCODING                                                          | ✔︎⚠️ |
+| FETCH                                                             | ✔︎⚠️ |
+| FILEAPI                                                           | ✔︎⚠️ |
+| HR-TIME                                                           | ✔︎   |
+| HTML                                                              | ✔︎⚠️ |
+| STREAMS                                                           | ✔︎⚠️ |
+| URL                                                               | ✔︎   |
+| URLPATTERN                                                        | ✘⏱   |
+| WASM-JS-API-2                                                     | ✘     |
+| WASM-WEB-API-2                                                    | ✘     |
+| WEBCRYPTO                                                         | ✔︎⚠️ |
+| WEBIDL                                                            | ✔︎⚠️ |
+| XHR                                                               | ✔︎⚠️ |
+
+| Other features | LLRT |
+| -------------- | ---- |
+| async/await    | ✔︎  |
+| esm            | ✔︎  |
+| cjs            | ✔︎  |
 
 _⚠️ = partially supported in LLRT_<br />
 _⏱ = planned partial support_<br />
 _\* = Not native_<br />
-_\*\* = Use fetch instead_<br />
 
 ## Using node_modules (dependencies) with LLRT
 
