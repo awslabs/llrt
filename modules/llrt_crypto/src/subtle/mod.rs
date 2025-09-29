@@ -300,7 +300,7 @@ impl AesGcmVariant {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EllipticCurve {
     P256,
     P384,
@@ -339,12 +339,32 @@ pub fn rsa_hash_digest<'a>(
     Ok((hash, digest))
 }
 
-pub fn extract_aes_length(ctx: &Ctx<'_>, key: &CryptoKey, expected_algorithm: &str) -> Result<u16> {
+pub fn validate_aes_length(
+    ctx: &Ctx<'_>,
+    key: &CryptoKey,
+    handle: &[u8],
+    expected_algorithm: &str,
+) -> Result<()> {
     let length = match key.algorithm {
         KeyAlgorithm::Aes { length } => length,
         _ => return algorithm_mismatch_error(ctx, expected_algorithm),
     };
-    Ok(length)
+    if length != handle.len() as u16 * 8 {
+        return Err(Exception::throw_message(
+            ctx,
+            &[
+                "Invalid key handle length for ",
+                expected_algorithm,
+                ". Expected ",
+                &length.to_string(),
+                " bits, found ",
+                &handle.len().to_string(),
+                " bits",
+            ]
+            .concat(),
+        ));
+    }
+    Ok(())
 }
 
 pub fn to_name_and_maybe_object<'js, 'a>(

@@ -1,10 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use ring::digest::Context;
 use rquickjs::{ArrayBuffer, Ctx, Result, Value};
 
-use crate::sha_hash::ShaAlgorithm;
+use crate::{sha_hash::ShaAlgorithm, provider::{CryptoProvider, SimpleDigest}, CRYPTO_PROVIDER};
 
 pub async fn subtle_digest<'js>(
     ctx: Ctx<'js>,
@@ -23,10 +22,7 @@ pub async fn subtle_digest<'js>(
 }
 
 pub fn digest(sha_algorithm: &ShaAlgorithm, data: &[u8]) -> Vec<u8> {
-    let hash = sha_algorithm.digest_algorithm();
-    let mut context = Context::new(hash);
-    context.update(data);
-    let digest = context.finish();
-
-    digest.as_ref().to_vec()
+    let mut hasher = CRYPTO_PROVIDER.digest(*sha_algorithm);
+    hasher.update(data);
+    hasher.finalize()
 }

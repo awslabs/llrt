@@ -1,16 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
-use md5::{Digest as Md5Digest, Md5 as MdHasher};
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
-use super::encoded_bytes;
+use crate::{provider::{CryptoProvider, SimpleDigest}, sha_hash::ShaAlgorithm};
+use super::{encoded_bytes, CRYPTO_PROVIDER};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Md5 {
     #[qjs(skip_trace)]
-    hasher: MdHasher,
+    hasher: <crate::provider::DefaultProvider as CryptoProvider>::Digest,
 }
 
 #[rquickjs::methods]
@@ -18,18 +18,17 @@ impl Md5 {
     #[qjs(constructor)]
     fn new() -> Self {
         Self {
-            hasher: MdHasher::new(),
+            hasher: CRYPTO_PROVIDER.digest(ShaAlgorithm::MD5),
         }
     }
 
     #[qjs(rename = "digest")]
-    fn md5_digest<'js>(&self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
-        let digest = self.hasher.clone().finalize();
-        let bytes: &[u8] = digest.as_ref();
+    fn md5_digest<'js>(&mut self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
+        let digest = std::mem::replace(&mut self.hasher, CRYPTO_PROVIDER.digest(ShaAlgorithm::MD5)).finalize();
 
         match encoding.0 {
-            Some(encoding) => encoded_bytes(ctx, bytes, &encoding),
-            None => bytes_to_typed_array(ctx, bytes),
+            Some(encoding) => encoded_bytes(ctx, &digest, &encoding),
+            None => bytes_to_typed_array(ctx, &digest),
         }
     }
 

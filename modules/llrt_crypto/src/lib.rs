@@ -3,8 +3,9 @@
 mod crc32;
 mod md5_hash;
 mod sha_hash;
-#[cfg(feature = "subtle-rs")]
 mod subtle;
+
+mod provider;
 
 use std::slice;
 
@@ -24,8 +25,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 #[cfg(feature = "subtle-rs")]
 use rquickjs::prelude::Async;
 use rquickjs::{
-    atom::PredefinedAtom,
-    function::{Constructor, Opt},
+    function::Opt,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
@@ -40,10 +40,11 @@ use subtle::{
 use self::{
     crc32::{Crc32, Crc32c},
     md5_hash::Md5,
-    sha_hash::{Hash, Hmac, ShaAlgorithm, ShaHash},
+    sha_hash::{Hash, Hmac, ShaAlgorithm},
 };
 
-pub static SYSTEM_RANDOM: Lazy<SystemRandom> = Lazy::new(SystemRandom::new);
+static CRYPTO_PROVIDER: Lazy<provider::DefaultProvider> =
+    Lazy::new(|| provider::DefaultProvider {});
 
 fn encoded_bytes<'js>(ctx: Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Value<'js>> {
     match encoding {
@@ -63,8 +64,8 @@ fn encoded_bytes<'js>(ctx: Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Val
 
 #[inline]
 pub fn random_byte_array(length: usize) -> Vec<u8> {
-    let mut vec = vec![0; length];
-    SYSTEM_RANDOM.fill(&mut vec).unwrap();
+    let mut vec = vec![0u8; length];
+    rand::rng().fill(&mut vec[..]);
     vec
 }
 
@@ -134,9 +135,7 @@ fn random_fill_sync<'js>(
 
         let bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), source_length) };
 
-        SYSTEM_RANDOM
-            .fill(&mut bytes[start + source_offset..end - source_offset])
-            .unwrap();
+        rand::rng().fill(&mut bytes[start + source_offset..end - source_offset]);
     }
 
     Ok(obj)
@@ -170,7 +169,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             std::slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
         };
 
-        SYSTEM_RANDOM.fill(bytes).unwrap()
+        rand::rng().fill(bytes)
     }
 
     Ok(obj)
@@ -244,27 +243,23 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     crypto.set("randomFill", Func::from(random_fill))?;
     crypto.set("getRandomValues", Func::from(get_random_values))?;
 
-    #[cfg(feature = "subtle-rs")]
-    {
-        Class::<SubtleCrypto>::define(&globals)?;
-        Class::<CryptoKey>::define(&globals)?;
+    Class::<SubtleCrypto>::define(&globals)?;
+    Class::<CryptoKey>::define(&globals)?;
 
-        let subtle = Class::instance(ctx.clone(), SubtleCrypto {})?;
-
-        subtle.set("decrypt", Func::from(Async(subtle_decrypt)))?;
-        subtle.set("deriveKey", Func::from(Async(subtle_derive_key)))?;
-        subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
-        subtle.set("digest", Func::from(Async(subtle_digest)))?;
-        subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
-        subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
-        subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
-        subtle.set("importKey", Func::from(Async(subtle_import_key)))?;
-        subtle.set("sign", Func::from(Async(subtle_sign)))?;
-        subtle.set("verify", Func::from(Async(subtle_verify)))?;
-        subtle.set("wrapKey", Func::from(Async(subtle_wrap_key)))?;
-        subtle.set("unwrapKey", Func::from(Async(subtle_unwrap_key)))?;
-        crypto.set("subtle", subtle)?;
-    }
+    let subtle = Class::instance(ctx.clone(), SubtleCrypto {})?;
+    subtle.set("decrypt", Func::from(Async(subtle_decrypt)))?;
+    subtle.set("deriveKey", Func::from(Async(subtle_derive_key)))?;
+    subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
+    subtle.set("digest", Func::from(Async(subtle_digest)))?;
+    subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
+    subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
+    subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
+    subtle.set("importKey", Func::from(Async(subtle_import_key)))?;
+    subtle.set("sign", Func::from(Async(subtle_sign)))?;
+    subtle.set("verify", Func::from(Async(subtle_verify)))?;
+    subtle.set("wrapKey", Func::from(Async(subtle_wrap_key)))?;
+    subtle.set("unwrapKey", Func::from(Async(subtle_unwrap_key)))?;
+    crypto.set("subtle", subtle)?;
 
     globals.set("crypto", crypto)?;
 
@@ -301,17 +296,8 @@ impl ModuleDef for CryptoModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             for sha_algorithm in ShaAlgorithm::iter() {
-                let class_name: &str = sha_algorithm.class_name();
-                let algo = sha_algorithm;
-
-                let ctor =
-                    Constructor::new_class::<ShaHash, _, _>(ctx.clone(), move |ctx, secret| {
-                        struct Args<'js>(Ctx<'js>, Opt<ObjectBytes<'js>>);
-                        let Args(ctx, secret) = Args(ctx, secret);
-                        ShaHash::new(ctx, algo.clone(), secret)
-                    })?;
-
-                default.set(class_name, ctor)?;
+                let _class_name: &str = sha_algorithm.class_name();
+                // ShaHash class removed - using Hash and Hmac instead
             }
 
             let crypto: Object = ctx.globals().get("crypto")?;

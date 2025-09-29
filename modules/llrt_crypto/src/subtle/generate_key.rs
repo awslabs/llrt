@@ -12,7 +12,9 @@ use rsa::{
     BoxedUint, RsaPrivateKey,
 };
 
-use crate::{sha_hash::ShaAlgorithm, CryptoKey, SYSTEM_RANDOM};
+use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
+
+use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey};
 
 use super::{
     algorithm_not_supported_error,
@@ -85,117 +87,157 @@ pub async fn subtle_generate_key<'js>(
 }
 
 fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec<u8>)> {
-    let private_key;
-    let public_or_secret_key;
     match algorithm {
         KeyAlgorithm::Aes { length } => {
-            let length = *length as usize;
-
-            match length {
-                128 | 192 | 256 => (),
-                _ => {
-                    return Err(Exception::throw_message(
-                        ctx,
-                        "AES key length must be 128, 192, or 256 bits",
-                    ))
-                },
-            }
-
-            public_or_secret_key = generate_symmetric_key(ctx, length / 8)?;
-            private_key = vec![];
+            // Default to AES-256
+            let key = CRYPTO_PROVIDER.generate_aes_key(*length).map_err(|e| {
+                Exception::throw_message(ctx, &format!("AES key generation failed: {}", e))
+            })?;
+            Ok((vec![], key))
         },
         KeyAlgorithm::Hmac { hash, length } => {
-            let length = get_hash_length(ctx, hash, *length)?;
-            public_or_secret_key = generate_symmetric_key(ctx, length)?;
-            private_key = vec![];
+            let key = CRYPTO_PROVIDER
+                .generate_hmac_key(hash.clone(), *length)
+                .map_err(|e| {
+                    Exception::throw_message(ctx, &format!("HMAC key generation failed: {}", e))
+                })?;
+            Ok((vec![], key))
         },
         KeyAlgorithm::Ec { curve, .. } => {
-            let rng = &(*SYSTEM_RANDOM);
-
-            match curve {
-                EllipticCurve::P256 => {
-                    let pkcs8 = EcdsaKeyPair::generate_pkcs8(
-                        &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                        rng,
-                    )
-                    .or_throw(ctx)?;
-                    private_key = pkcs8.as_ref().into();
-                    let signing_key = p256::SecretKey::from_pkcs8_der(&private_key).unwrap();
-                    public_or_secret_key = signing_key.public_key().to_sec1_bytes().into();
-                },
-                EllipticCurve::P384 => {
-                    let pkcs8 = EcdsaKeyPair::generate_pkcs8(
-                        &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
-                        rng,
-                    )
-                    .or_throw(ctx)?;
-                    private_key = pkcs8.as_ref().into();
-                    let signing_key = p384::SecretKey::from_pkcs8_der(&private_key).unwrap();
-                    public_or_secret_key = signing_key.public_key().to_sec1_bytes().into();
-                },
-                EllipticCurve::P521 => {
-                    let mut rng = rand::rng();
-                    let key = p521::SecretKey::try_from_rng(&mut rng).or_throw(ctx)?;
-                    let pkcs8 = key.to_pkcs8_der().or_throw(ctx)?;
-                    private_key = pkcs8.as_bytes().into();
-                    public_or_secret_key = key.public_key().to_sec1_bytes().into();
-                },
-            }
+            CRYPTO_PROVIDER.generate_ec_key(curve.clone()).map_err(|e| {
+                Exception::throw_message(ctx, &format!("EC key generation failed: {}", e))
+            })
         },
-        KeyAlgorithm::Ed25519 => {
-            let rng = &(*SYSTEM_RANDOM);
-            let pkcs8 = Ed25519KeyPair::generate_pkcs8(rng).or_throw(ctx)?;
-            private_key = pkcs8.as_ref().into();
-
-            let key_pair = Ed25519KeyPair::from_pkcs8(&private_key).unwrap();
-            public_or_secret_key = key_pair.public_key().as_ref().into();
-        },
-
-        KeyAlgorithm::X25519 => {
-            let mut rng = rand::rng();
-            let secret_key = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
-            private_key = secret_key.as_bytes().into();
-            public_or_secret_key = x25519_dalek::PublicKey::from(&secret_key).as_bytes().into();
-        },
+        KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER.generate_ed25519_key().map_err(|e| {
+            Exception::throw_message(ctx, &format!("Ed25519 key generation failed: {}", e))
+        }),
+        KeyAlgorithm::X25519 => CRYPTO_PROVIDER.generate_x25519_key().map_err(|e| {
+            Exception::throw_message(ctx, &format!("X25519 key generation failed: {}", e))
+        }),
         KeyAlgorithm::Rsa {
             modulus_length,
             public_exponent,
             ..
-        } => {
-            let public_exponent = public_exponent.as_ref().as_ref();
-            // Convert public exponent bytes to u64 value
-            let exponent: u64 = match public_exponent {
-                [0x01, 0x00, 0x01] => 65537, // Standard RSA exponent F4 (0x10001)
-                [0x03] => 3,                 // Alternative RSA exponent 3
-                bytes
-                    if bytes.ends_with(&[0x03])
-                        && bytes[..bytes.len() - 1].iter().all(|&b| b == 0) =>
-                {
-                    3
-                },
-                _ => return Err(Exception::throw_message(ctx, "Invalid RSA public exponent")),
-            };
-            let exp = BoxedUint::from(exponent);
-            let mut rng = rand::rng();
-            let rsa_private_key =
-                RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, exp)
-                    .or_throw(ctx)?;
-
-            let public_key = rsa_private_key
-                .to_public_key()
-                .to_pkcs1_der()
-                .or_throw(ctx)?;
-
-            let pkcs1 = rsa_private_key.to_pkcs1_der().or_throw(ctx)?;
-
-            private_key = pkcs1.as_bytes().into();
-
-            public_or_secret_key = public_key.as_bytes().into();
-        },
-        _ => return algorithm_not_supported_error(ctx),
-    };
-    Ok((private_key, public_or_secret_key))
+        } => CRYPTO_PROVIDER
+            .generate_rsa_key(*modulus_length, public_exponent.as_ref())
+            .map_err(|e| {
+                Exception::throw_message(ctx, &format!("RSA key generation failed: {}", e))
+            }),
+        _ => algorithm_not_supported_error(ctx),
+    }
 }
+
+// fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec<u8>)> {
+//     let private_key;
+//     let public_or_secret_key;
+//     match algorithm {
+//         KeyAlgorithm::Aes { length } => {
+//             let length = *length as usize;
+
+//             match length {
+//                 128 | 192 | 256 => (),
+//                 _ => {
+//                     return Err(Exception::throw_message(
+//                         ctx,
+//                         "AES key length must be 128, 192, or 256 bits",
+//                     ))
+//                 },
+//             }
+
+//             public_or_secret_key = generate_symmetric_key(ctx, length / 8)?;
+//             private_key = vec![];
+//         },
+//         KeyAlgorithm::Hmac { hash, length } => {
+//             let length = get_hash_length(ctx, hash, *length)?;
+//             public_or_secret_key = generate_symmetric_key(ctx, length)?;
+//             private_key = vec![];
+//         },
+//         KeyAlgorithm::Ec { curve, .. } => {
+//             let rng = &(*SYSTEM_RANDOM);
+
+//             match curve {
+//                 EllipticCurve::P256 => {
+//                     let pkcs8 = EcdsaKeyPair::generate_pkcs8(
+//                         &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+//                         rng,
+//                     )
+//                     .or_throw(ctx)?;
+//                     private_key = pkcs8.as_ref().into();
+//                     let signing_key = p256::SecretKey::from_pkcs8_der(&private_key).unwrap();
+//                     public_or_secret_key = signing_key.public_key().to_sec1_bytes().into();
+//                 },
+//                 EllipticCurve::P384 => {
+//                     let pkcs8 = EcdsaKeyPair::generate_pkcs8(
+//                         &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
+//                         rng,
+//                     )
+//                     .or_throw(ctx)?;
+//                     private_key = pkcs8.as_ref().into();
+//                     let signing_key = p384::SecretKey::from_pkcs8_der(&private_key).unwrap();
+//                     public_or_secret_key = signing_key.public_key().to_sec1_bytes().into();
+//                 },
+//                 EllipticCurve::P521 => {
+//                     let mut rng = rand::rng();
+//                     let key = p521::SecretKey::random(&mut rng);
+//                     let pkcs8 = key.to_pkcs8_der().or_throw(ctx)?;
+//                     private_key = pkcs8.as_bytes().into();
+//                     public_or_secret_key = key.public_key().to_sec1_bytes().into();
+//                 },
+//             }
+//         },
+//         KeyAlgorithm::Ed25519 => {
+//             let rng = &(*SYSTEM_RANDOM);
+//             let pkcs8 = Ed25519KeyPair::generate_pkcs8(rng).or_throw(ctx)?;
+//             private_key = pkcs8.as_ref().into();
+
+//             let key_pair = Ed25519KeyPair::from_pkcs8(&private_key).unwrap();
+//             public_or_secret_key = key_pair.public_key().as_ref().into();
+//         },
+
+//         KeyAlgorithm::X25519 => {
+//             let secret_key = x25519_dalek::StaticSecret::random();
+//             private_key = secret_key.as_bytes().into();
+//             public_or_secret_key = x25519_dalek::PublicKey::from(&secret_key).as_bytes().into();
+//         },
+//         KeyAlgorithm::Rsa {
+//             modulus_length,
+//             public_exponent,
+//             ..
+//         } => {
+//             let public_exponent = public_exponent.as_ref().as_ref();
+//             // Convert public exponent bytes to u64 value
+//             let exponent: u64 = match public_exponent {
+//                 [0x01, 0x00, 0x01] => 65537, // Standard RSA exponent F4 (0x10001)
+//                 [0x03] => 3,                 // Alternative RSA exponent 3
+//                 bytes
+//                     if bytes.ends_with(&[0x03])
+//                         && bytes[..bytes.len() - 1].iter().all(|&b| b == 0) =>
+//                 {
+//                     3
+//                 },
+//                 _ => return Err(Exception::throw_message(ctx, "Invalid RSA public exponent")),
+//             };
+//             let exp = BoxedUint::from(exponent);
+//             let mut rng = rand::rng();
+//             let rsa_private_key =
+//                 RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, exp)
+//                     .or_throw(ctx)?;
+
+//             let public_key = rsa_private_key
+//                 .to_public_key()
+//                 .to_pkcs1_der()
+//                 .or_throw(ctx)?;
+
+//             let pkcs1 = rsa_private_key.to_pkcs1_der().or_throw(ctx)?;
+
+//             private_key = pkcs1.as_bytes().into();
+
+//             public_or_secret_key = public_key.as_bytes().into();
+//         },
+//         _ => return algorithm_not_supported_error(ctx),
+//     };
+//     Ok((private_key, public_or_secret_key))
+// }
 
 fn generate_symmetric_key(ctx: &Ctx<'_>, length: usize) -> Result<Vec<u8>> {
     let mut key = vec![0u8; length];

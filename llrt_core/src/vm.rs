@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{env, result::Result as StdResult};
 
+use llrt_modules::crypto;
 use ring::rand::SecureRandom;
 use rquickjs::{
     context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
@@ -22,7 +23,6 @@ use crate::libs::{
 };
 use crate::modules::{
     async_hooks::promise_hook_tracker,
-    crypto::SYSTEM_RANDOM,
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
     package::{loader::PackageLoader, resolver::PackageResolver},
@@ -84,10 +84,6 @@ impl Vm {
         time::init();
         http::init()?;
         security::init()?;
-
-        SYSTEM_RANDOM
-            .fill(&mut [0; 8])
-            .expect("Failed to initialize SystemRandom");
 
         let mut file_resolver = FileResolver::default();
         let mut paths: Vec<&str> = Vec::with_capacity(10);
