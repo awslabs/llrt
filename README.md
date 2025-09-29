@@ -143,6 +143,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:timers                                      | ✔︎     | ✔︎⚠️  |
 | node:tls                                         | ✔︎     | ✘⏱    |
 | node:tty                                         | ✔︎     | ✔︎⚠️  |
+| node:url                                         | ✔︎     | ✔︎⚠️  |
 | node:util                                        | ✔︎     | ✔︎⚠️  |
 | node:v8                                          | ✔︎     | ✘      |
 | node:vm                                          | ✔︎     | ✘      |
