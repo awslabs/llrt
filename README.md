@@ -151,7 +151,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:worker_threads                              | ✔︎     | ✘         |
 | node:zlib                                        | ✔︎     | ✔︎⚠️     |
 | llrt:hex                                         | ✘       | ✔︎       |
-| llrt:qjs                                         | ✘       | ✔︎       |
+| llrt:qjs                                         | ✘       | ✔︎\*\*   |
 | llrt:util                                        | ✘       | ✔︎       |
 | llrt:xml                                         | ✘       | ✔︎       |
 
@@ -184,7 +184,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 _⚠️ = partially supported in LLRT_<br />
 _⏱ = planned partial support_<br />
 _\* = Not native_<br />
-_\*\* = It is available by specifying an environment variable_<br />
+_\*\* = By default, `llrt:qjs` is available. By specifying `LLRT_PLATFORM=node` or `LLRT_PSEUDO_V8_STATS=1`, `node:v8` will be enabled instead of `llrt:qjs`_<br />
 
 ## Using node_modules (dependencies) with LLRT
 
