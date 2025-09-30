@@ -74,6 +74,7 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
         stringify!(Buffer),
     ))?;
     set_prototype(ctx, buffer)?;
+    BufferPrimordials::init(ctx)?;
 
     // Blob
     if let Some(constructor) = Class::<Blob>::create_constructor(ctx)? {

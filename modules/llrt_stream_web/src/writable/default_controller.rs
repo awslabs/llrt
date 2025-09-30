@@ -817,7 +817,7 @@ impl<'js> AbortAlgorithm<'js> {
 }
 
 #[derive(Trace, Clone, JsLifetime)]
-struct WritableStreamDefaultControllerPrimordials<'js> {
+pub(crate) struct WritableStreamDefaultControllerPrimordials<'js> {
     close_sentinel: Symbol<'js>,
 }
 

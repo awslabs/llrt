@@ -534,7 +534,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
 }
 
 #[derive(Clone, JsLifetime, Trace)]
-struct IteratorPrimordials<'js> {
+pub(crate) struct IteratorPrimordials<'js> {
     end_of_iteration: Symbol<'js>,
     sync_to_async_iterator: Function<'js>,
     async_iterator_prototype: Object<'js>,

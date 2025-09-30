@@ -492,7 +492,7 @@ impl<'js> ViewBytes<'js> {
 }
 
 #[derive(Clone, JsLifetime)]
-pub(super) struct ArrayConstructorPrimordials<'js> {
+pub(crate) struct ArrayConstructorPrimordials<'js> {
     pub(super) constructor_uint8array: Constructor<'js>,
     constructor_int8array: Constructor<'js>,
     constructor_uint16array: Constructor<'js>,

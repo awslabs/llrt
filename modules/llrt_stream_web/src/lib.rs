@@ -1,4 +1,7 @@
-use llrt_utils::module::{export_default, ModuleInfo};
+use llrt_utils::{
+    module::{export_default, ModuleInfo},
+    primordials::Primordial,
+};
 use queuing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
 use readable::{
     ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader,
@@ -9,6 +12,12 @@ use rquickjs::{
     Class, Ctx, Result,
 };
 use writable::{WritableStream, WritableStreamDefaultController, WritableStreamDefaultWriter};
+
+use crate::{
+    readable::{ArrayConstructorPrimordials, IteratorPrimordials},
+    utils::promise::PromisePrimordials,
+    writable::WritableStreamDefaultControllerPrimordials,
+};
 
 mod queuing_strategy;
 mod readable;
@@ -80,6 +89,11 @@ impl ModuleDef for StreamWebModule {
 
             Class::<ByteLengthQueuingStrategy>::define(default)?;
             Class::<CountQueuingStrategy>::define(default)?;
+
+            ArrayConstructorPrimordials::init(ctx)?;
+            WritableStreamDefaultControllerPrimordials::init(ctx)?;
+            IteratorPrimordials::init(ctx)?;
+            PromisePrimordials::init(ctx)?;
 
             Ok(())
         })?;
