@@ -104,55 +104,56 @@ The test runner also has support for filters. Using filters is as simple as addi
 > [!NOTE]
 > LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation
 
-| [Node.js API](https://nodejs.org/api/index.html) | Node.js | LLRT   |
-| ------------------------------------------------ | ------- | ------ |
-| node:assert                                      | ✔︎     | ✔︎️⚠️ |
-| node:async_hooks                                 | ✔︎     | ✔︎️⚠️ |
-| node:buffer                                      | ✔︎     | ✔︎️⚠️ |
-| node:child_process                               | ✔︎     | ✔︎⚠️  |
-| node:cluster                                     | ✔︎     | ✘      |
-| node:console                                     | ✔︎     | ✔︎⚠️  |
-| node:crypto                                      | ✔︎     | ✔︎⚠️  |
-| node:dgram                                       | ✔︎     | ✘      |
-| node:diagnostics_channel                         | ✔︎     | ✘      |
-| node:dns                                         | ✔︎     | ✔︎⚠️  |
-| node:events                                      | ✔︎     | ✔︎⚠️  |
-| node:fs                                          | ✔︎     | ✔︎⚠️  |
-| node:fs/promises                                 | ✔︎     | ✔︎⚠️  |
-| node:http                                        | ✔︎     | ✘⏱    |
-| node:http2                                       | ✔︎     | ✘      |
-| node:https                                       | ✔︎     | ✘⏱    |
-| node:inspector                                   | ✔︎     | ✘      |
-| node:inspector/promises                          | ✔︎     | ✘      |
-| node:module                                      | ✔︎     | ✔︎⚠️  |
-| node:net                                         | ✔︎     | ✔︎⚠️  |
-| node:os                                          | ✔︎     | ✔︎⚠️  |
-| node:path                                        | ✔︎     | ✔︎⚠️  |
-| node:perf_hooks                                  | ✔︎     | ✔︎⚠️  |
-| node:process                                     | ✔︎     | ✔︎⚠️  |
-| node:querystring                                 | ✔︎     | ✘      |
-| node:readline                                    | ✔︎     | ✘      |
-| node:readline/promises                           | ✔︎     | ✘      |
-| node:repl                                        | ✔︎     | ✘      |
-| node:sqlite                                      | ✔︎     | ✘      |
-| node:stream                                      | ✔︎     | ✔︎\*  |
-| node:stream/promises                             | ✔︎     | ✔︎\*  |
-| node:stream/web                                  | ✔︎     | ✔︎⚠️  |
-| node:string_decoder                              | ✔︎     | ✔︎    |
-| node:test                                        | ✔︎     | ✘      |
-| node:timers                                      | ✔︎     | ✔︎⚠️  |
-| node:tls                                         | ✔︎     | ✘⏱    |
-| node:tty                                         | ✔︎     | ✔︎⚠️  |
-| node:url                                         | ✔︎     | ✔︎⚠️  |
-| node:util                                        | ✔︎     | ✔︎⚠️  |
-| node:v8                                          | ✔︎     | ✘      |
-| node:vm                                          | ✔︎     | ✘      |
-| node:wasi                                        | ✔︎     | ✘      |
-| node:worker_threads                              | ✔︎     | ✘      |
-| node:zlib                                        | ✔︎     | ✔︎⚠️  |
-| llrt:hex                                         | ✘       | ✔︎    |
-| llrt:util                                        | ✘       | ✔︎    |
-| llrt:xml                                         | ✘       | ✔︎    |
+| [Node.js API](https://nodejs.org/api/index.html) | Node.js | LLRT      |
+| ------------------------------------------------ | ------- | --------- |
+| node:assert                                      | ✔︎     | ✔︎️⚠️    |
+| node:async_hooks                                 | ✔︎     | ✔︎️⚠️    |
+| node:buffer                                      | ✔︎     | ✔︎️⚠️    |
+| node:child_process                               | ✔︎     | ✔︎⚠️     |
+| node:cluster                                     | ✔︎     | ✘         |
+| node:console                                     | ✔︎     | ✔︎⚠️     |
+| node:crypto                                      | ✔︎     | ✔︎⚠️     |
+| node:dgram                                       | ✔︎     | ✘         |
+| node:diagnostics_channel                         | ✔︎     | ✘         |
+| node:dns                                         | ✔︎     | ✔︎⚠️     |
+| node:events                                      | ✔︎     | ✔︎⚠️     |
+| node:fs                                          | ✔︎     | ✔︎⚠️     |
+| node:fs/promises                                 | ✔︎     | ✔︎⚠️     |
+| node:http                                        | ✔︎     | ✘⏱       |
+| node:http2                                       | ✔︎     | ✘         |
+| node:https                                       | ✔︎     | ✘⏱       |
+| node:inspector                                   | ✔︎     | ✘         |
+| node:inspector/promises                          | ✔︎     | ✘         |
+| node:module                                      | ✔︎     | ✔︎⚠️     |
+| node:net                                         | ✔︎     | ✔︎⚠️     |
+| node:os                                          | ✔︎     | ✔︎⚠️     |
+| node:path                                        | ✔︎     | ✔︎⚠️     |
+| node:perf_hooks                                  | ✔︎     | ✔︎⚠️     |
+| node:process                                     | ✔︎     | ✔︎⚠️     |
+| node:querystring                                 | ✔︎     | ✘         |
+| node:readline                                    | ✔︎     | ✘         |
+| node:readline/promises                           | ✔︎     | ✘         |
+| node:repl                                        | ✔︎     | ✘         |
+| node:sqlite                                      | ✔︎     | ✘         |
+| node:stream                                      | ✔︎     | ✔︎\*     |
+| node:stream/promises                             | ✔︎     | ✔︎\*     |
+| node:stream/web                                  | ✔︎     | ✔︎⚠️     |
+| node:string_decoder                              | ✔︎     | ✔︎       |
+| node:test                                        | ✔︎     | ✘         |
+| node:timers                                      | ✔︎     | ✔︎⚠️     |
+| node:tls                                         | ✔︎     | ✘⏱       |
+| node:tty                                         | ✔︎     | ✔︎⚠️     |
+| node:url                                         | ✔︎     | ✔︎⚠️     |
+| node:util                                        | ✔︎     | ✔︎⚠️     |
+| node:v8                                          | ✔︎     | ✔︎⚠️\*\* |
+| node:vm                                          | ✔︎     | ✘         |
+| node:wasi                                        | ✔︎     | ✘         |
+| node:worker_threads                              | ✔︎     | ✘         |
+| node:zlib                                        | ✔︎     | ✔︎⚠️     |
+| llrt:hex                                         | ✘       | ✔︎       |
+| llrt:qjs                                         | ✘       | ✔︎       |
+| llrt:util                                        | ✘       | ✔︎       |
+| llrt:xml                                         | ✘       | ✔︎       |
 
 | [Web Platform API](https://min-common-api.proposal.wintertc.org/) | LLRT  |
 | ----------------------------------------------------------------- | ----- |
@@ -183,6 +184,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 _⚠️ = partially supported in LLRT_<br />
 _⏱ = planned partial support_<br />
 _\* = Not native_<br />
+_\*\* = It is available by specifying an environment variable_<br />
 
 ## Using node_modules (dependencies) with LLRT
 
@@ -194,9 +196,9 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 > LLRT implements native modules that are largely compatible with the following external packages.
 > By implementing the following conversions in the bundler's alias function, your application may be faster, but we recommend that you test thoroughly as they are not fully compatible.
 
-| Node.js         | LLRT      |
-| --------------- | --------- |
-| fast-xml-parser | llrt:xml  |
+| Node.js         | LLRT     |
+| --------------- | -------- |
+| fast-xml-parser | llrt:xml |
 
 ### ESBuild
 
@@ -555,6 +557,12 @@ Then run llrt:
 
 ## Environment Variables
 
+### `LLRT_ASYNC_HOOKS=value`
+
+When using asynchronous hooks, the hooking function inside QuickJS is activated. This is disabled by default as there is concern that it may have a significant impact on performance.
+
+By setting this environment variable to `1`, the asynchronous hook function can be enabled, allowing you to track asynchronous processing using the `async_hooks` module.
+
 ### `LLRT_EXTRA_CA_CERTS=file`
 
 Load extra certificate authorities from a PEM encoded file
@@ -566,10 +574,6 @@ Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 ### `LLRT_HTTP_VERSION=value`
 
 Extends the HTTP request version. By default, only HTTP/1.1 is enabled. Specifying '2' will enable HTTP/1.1 and HTTP/2.
-
-### `LLRT_SDK_CONNECTION_WARMUP=1`
-
-Initializes TLS connections in parallel during function init which significantly reduces cold starts due. Enabled by default, can be disabled with value `0` or `false`
 
 ### `LLRT_LOG=[target][=][level][,...]`
 
@@ -605,15 +609,21 @@ Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 1
 
 Used to explicitly specify a preferred platform for the Node.js package resolver. The default is `browser`. If `node` is specified, "node" takes precedence in the search path. If a value other than `browser` or `node` is specified, it will behave as if "browser" was specified.
 
+As a side effect of specifying `node`, some methods of the `node:v8` module will become available.
+
+### `LLRT_PSEUDO_V8_STATS=1`
+
+By default, `llrt:qjs` is available as the module for obtaining engine statistics.
+
+However, if you want to use the `node:v8` module for reasons such as compatibility with Node.js, you can opt in by setting this environment variable to `1`.
+
+### `LLRT_SDK_CONNECTION_WARMUP=1`
+
+Initializes TLS connections in parallel during function init which significantly reduces cold starts due. Enabled by default, can be disabled with value `0` or `false`
+
 ### `LLRT_TLS_VERSION=value`
 
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
-
-### `LLRT_ASYNC_HOOKS=value`
-
-When using asynchronous hooks, the hooking function inside QuickJS is activated. This is disabled by default as there is concern that it may have a significant impact on performance.
-
-By setting this environment variable to `1`, the asynchronous hook function can be enabled, allowing you to track asynchronous processing using the `async_hooks` module.
 
 ## Benchmark Methodology
 
