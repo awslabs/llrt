@@ -1,7 +1,4 @@
-use std::{
-    any::type_name,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::any::type_name;
 
 use rquickjs::{
     atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Function, JsLifetime,

@@ -92,8 +92,7 @@ where
 {
     let (_rt, ctx) = given_runtime().await;
 
-    ctx.with(|ctx| (|| func(ctx.clone()))().catch(&ctx).unwrap())
-        .await;
+    ctx.with(|ctx| func(ctx.clone()).catch(&ctx).unwrap()).await;
 }
 
 pub async fn call_test<'js, T, A>(ctx: &Ctx<'js>, module: &Module<'js, Evaluated>, args: A) -> T
