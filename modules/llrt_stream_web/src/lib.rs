@@ -115,7 +115,7 @@ impl From<StreamWebModule> for ModuleInfo<StreamWebModule> {
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = &ctx.globals();
 
-    // https://min-common-api.proposal.wintercg.org/#api-index
+    // https://min-common-api.proposal.wintertc.org/#api-index
     Class::<ByteLengthQueuingStrategy>::define(globals)?;
     Class::<CountQueuingStrategy>::define(globals)?;
 
