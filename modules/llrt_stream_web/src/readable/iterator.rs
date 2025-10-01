@@ -647,6 +647,7 @@ mod tests {
     #[tokio::test]
     async fn test_to_object() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             let good_values: [Value; 7] = [
                 Value::new_bool(ctx.clone(), false),
                 Value::new_int(ctx.clone(), 123),

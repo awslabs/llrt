@@ -1,4 +1,7 @@
-use std::any::type_name;
+use std::{
+    any::type_name,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use rquickjs::{
     atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Function, JsLifetime,
@@ -64,11 +67,13 @@ where
     }
 
     fn init<'a>(ctx: &'a Ctx<'js>) -> Result<()> {
-        let primoridals = Self::new(ctx)?;
-        let _ = ctx.store_userdata(primoridals);
+        if ctx.userdata::<Self>().is_none() {
+            let primoridals = Self::new(ctx)?;
+            let _ = ctx.store_userdata(primoridals);
+        }
+
         Ok(())
     }
-
     fn new(ctx: &Ctx<'js>) -> Result<Self>;
 }
 

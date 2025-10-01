@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::atomic::{AtomicU8, Ordering};
 
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 pub use llrt_utils::sysinfo;
 use llrt_utils::{
     module::{export_default, ModuleInfo},
@@ -129,6 +130,7 @@ fn setegid(id: u32) -> i32 {
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
+    BasePrimordials::init(ctx)?;
     let process = Object::new(ctx.clone())?;
     let process_versions = Object::new(ctx.clone())?;
     process_versions.set("llrt", VERSION)?;

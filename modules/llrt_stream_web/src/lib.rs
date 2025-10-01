@@ -1,6 +1,6 @@
 use llrt_utils::{
     module::{export_default, ModuleInfo},
-    primordials::Primordial,
+    primordials::{BasePrimordials, Primordial},
 };
 use queuing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
 use readable::{
@@ -90,6 +90,7 @@ impl ModuleDef for StreamWebModule {
             Class::<ByteLengthQueuingStrategy>::define(default)?;
             Class::<CountQueuingStrategy>::define(default)?;
 
+            BasePrimordials::init(ctx)?;
             ArrayConstructorPrimordials::init(ctx)?;
             WritableStreamDefaultControllerPrimordials::init(ctx)?;
             IteratorPrimordials::init(ctx)?;

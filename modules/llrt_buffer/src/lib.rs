@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{
     module::{export_default, ModuleInfo},
-    primordials::Primordial,
+    primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
     atom::PredefinedAtom,
@@ -65,6 +65,7 @@ impl From<BufferModule> for ModuleInfo<BufferModule> {
 
 pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
     let globals = ctx.globals();
+    BasePrimordials::init(ctx)?;
 
     // Buffer
     let buffer = ctx.eval::<Object<'js>, &str>(concat!(
@@ -74,6 +75,7 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
         stringify!(Buffer),
     ))?;
     set_prototype(ctx, buffer)?;
+
     BufferPrimordials::init(ctx)?;
 
     // Blob

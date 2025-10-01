@@ -8,6 +8,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use llrt_utils::{
     module::{export_default, ModuleInfo},
+    primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
 use rquickjs::{
@@ -159,6 +160,7 @@ impl ModuleDef for UrlModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
+        BasePrimordials::init(ctx)?;
         let url: Constructor = globals.get(stringify!(URL))?;
         let url_search_params: Constructor = globals.get(stringify!(URLSearchParams))?;
 
