@@ -534,7 +534,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
 }
 
 #[derive(Clone, JsLifetime, Trace)]
-struct IteratorPrimordials<'js> {
+pub(crate) struct IteratorPrimordials<'js> {
     end_of_iteration: Symbol<'js>,
     sync_to_async_iterator: Function<'js>,
     async_iterator_prototype: Object<'js>,
@@ -647,6 +647,7 @@ mod tests {
     #[tokio::test]
     async fn test_to_object() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             let good_values: [Value; 7] = [
                 Value::new_bool(ctx.clone(), false),
                 Value::new_int(ctx.clone(), 123),

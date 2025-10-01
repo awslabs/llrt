@@ -1,9 +1,11 @@
+use std::any::type_name;
+
 use rquickjs::{
     atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Function, JsLifetime,
     Object, Result, Symbol,
 };
 
-use crate::class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
+use crate::{class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION, result::ResultExt};
 
 #[derive(JsLifetime)]
 pub struct BasePrimordials<'js> {
@@ -43,24 +45,33 @@ pub struct BasePrimordials<'js> {
     pub symbol_custom_inspect: Symbol<'js>,
 }
 
-pub trait Primordial<'js> {
-    fn get<'a>(ctx: &'a Ctx<'js>) -> Result<UserDataGuard<'a, Self>>
-    where
-        Self: Sized + JsLifetime<'js>,
-    {
-        if let Some(primordials) = ctx.userdata::<Self>() {
-            return Ok(primordials);
-        }
+pub trait Primordial<'js>
+where
+    Self: Sized + JsLifetime<'js>,
+{
+    fn get<'a>(ctx: &'a Ctx<'js>) -> Result<UserDataGuard<'a, Self>> {
+        let userdata = ctx.userdata::<Self>().or_throw_msg(
+            ctx,
+            &[
+                "Userdata of ",
+                type_name::<Self>(),
+                " not initialized. Call init(&ctx) on this type.",
+            ]
+            .concat(),
+        )?;
 
-        let primoridals = Self::new(ctx)?;
-
-        _ = ctx.store_userdata(primoridals);
-        Ok(ctx.userdata::<Self>().unwrap())
+        Ok(userdata)
     }
 
-    fn new(ctx: &Ctx<'js>) -> Result<Self>
-    where
-        Self: Sized;
+    fn init<'a>(ctx: &'a Ctx<'js>) -> Result<()> {
+        if ctx.userdata::<Self>().is_none() {
+            let primoridals = Self::new(ctx)?;
+            let _ = ctx.store_userdata(primoridals);
+        }
+
+        Ok(())
+    }
+    fn new(ctx: &Ctx<'js>) -> Result<Self>;
 }
 
 impl<'js> Primordial<'js> for BasePrimordials<'js> {

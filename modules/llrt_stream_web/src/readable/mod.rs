@@ -8,8 +8,9 @@ mod objects;
 mod reader;
 mod stream;
 
-pub(crate) use byob_reader::ReadableStreamBYOBReader;
+pub(crate) use byob_reader::{ArrayConstructorPrimordials, ReadableStreamBYOBReader};
 pub(crate) use byte_controller::{ReadableByteStreamController, ReadableStreamBYOBRequest};
 pub(crate) use default_controller::ReadableStreamDefaultController;
 pub(crate) use default_reader::ReadableStreamDefaultReader;
+pub(crate) use iterator::IteratorPrimordials;
 pub(crate) use stream::{ReadableStream, ReadableStreamClass};
