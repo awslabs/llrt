@@ -15,6 +15,6 @@
     "constructs": "10.4.2",
     "esbuild": "0.25.8",
     "ts-node": "10.9.2",
-    "typescript": "5.8.3"
+    "typescript": "5.9.3"
   }
 }
