@@ -100,7 +100,6 @@ const ES_BUILD_OPTIONS = {
     "node:zlib",
     "llrt:hex",
     "llrt:util",
-    "llrt:uuid",
     "llrt:xml",
     "perf_hooks",
     "node:perf_hooks",
@@ -375,6 +374,12 @@ const AWS_SDK_PLUGIN = {
       );
     }
 
+    build.onLoad({ filter: /xml-parser\.browser\.js$/ }, async (args) => {
+      const realPath = path.join(path.dirname(args.path), "xml-parser.js");
+      const contents = await fs.readFile(realPath, "utf8");
+      return { contents, loader: "js" };
+    });
+
     build.onLoad(
       { filter: /protocols\/Aws_json1_1\.js$/ },
       async ({ path: filePath }) => {
@@ -639,7 +644,7 @@ async function buildSdks() {
         "@aws-sdk/util-utf8": "@smithy/util-utf8",
         "@smithy/md5-js": "crypto",
         "fast-xml-parser": "llrt:xml",
-        uuid: "llrt:uuid",
+        "xml-parser.browser": "xml-parser",
       },
       chunkNames: "llrt-[name]-sdk-[hash]",
       metafile: true,

@@ -91,10 +91,10 @@ impl ModuleDef for StreamWebModule {
             Class::<CountQueuingStrategy>::define(default)?;
 
             BasePrimordials::init(ctx)?;
+            PromisePrimordials::init(ctx)?;
             ArrayConstructorPrimordials::init(ctx)?;
             WritableStreamDefaultControllerPrimordials::init(ctx)?;
             IteratorPrimordials::init(ctx)?;
-            PromisePrimordials::init(ctx)?;
 
             Ok(())
         })?;

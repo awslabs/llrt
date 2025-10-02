@@ -152,7 +152,6 @@ The test runner also has support for filters. Using filters is as simple as addi
 | node:zlib                                        | ✔︎     | ✔︎⚠️  |
 | llrt:hex                                         | ✘       | ✔︎    |
 | llrt:util                                        | ✘       | ✔︎    |
-| llrt:uuid                                        | ✘       | ✔︎    |
 | llrt:xml                                         | ✘       | ✔︎    |
 
 | [Web Platform API](https://min-common-api.proposal.wintertc.org/) | LLRT  |
@@ -198,7 +197,6 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 | Node.js         | LLRT      |
 | --------------- | --------- |
 | fast-xml-parser | llrt:xml  |
-| uuid            | llrt:uuid |
 
 ### ESBuild
 
