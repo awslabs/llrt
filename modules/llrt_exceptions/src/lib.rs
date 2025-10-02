@@ -277,6 +277,8 @@ impl DOMExceptionName {
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
+    BasePrimordials::init(ctx)?;
+
     if let Some(constructor) = Class::<DOMException>::create_constructor(ctx)? {
         // the wpt tests expect this particular property descriptor
         globals.prop(

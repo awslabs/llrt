@@ -20,7 +20,11 @@ use hyper_util::{
 };
 use llrt_buffer::Blob;
 use llrt_dns_cache::CachedDnsResolver;
-use llrt_utils::{class::CustomInspectExtension, result::ResultExt};
+use llrt_utils::{
+    class::CustomInspectExtension,
+    primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
+};
 use once_cell::sync::Lazy;
 use rquickjs::{Class, Ctx, Result};
 use rustls::{
@@ -187,6 +191,8 @@ pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| {
 
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = ctx.globals();
+
+    BasePrimordials::init(ctx)?;
 
     //init eagerly
     fetch::init(HTTP_CLIENT.as_ref().or_throw(ctx)?.clone(), &globals)?;

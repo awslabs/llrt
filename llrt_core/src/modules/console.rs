@@ -379,12 +379,17 @@ mod tests {
     use llrt_test::test_sync_with;
     use rquickjs::{function::Rest, Error, IntoJs, Null, Object, Undefined, Value};
 
-    use crate::libs::{json::stringify::json_stringify_replacer_space, logging::LogLevel};
+    use crate::libs::{
+        json::stringify::json_stringify_replacer_space,
+        logging::LogLevel,
+        utils::primordials::{BasePrimordials, Primordial},
+    };
     use crate::modules::console::write_lambda_log;
 
     #[tokio::test]
     async fn json_log_format() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             let write_log = |args| {
                 let mut result = String::new();
 
@@ -467,6 +472,7 @@ mod tests {
     #[tokio::test]
     async fn standard_log_format() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             let write_log = |args| {
                 let mut result = String::new();
 

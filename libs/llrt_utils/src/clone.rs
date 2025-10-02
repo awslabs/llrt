@@ -409,11 +409,14 @@ mod tests {
     use llrt_test::test_sync_with;
     use rquickjs::{function::Opt, Object, Value};
 
+    use crate::primordials::{BasePrimordials, Primordial};
+
     use super::structured_clone;
 
     #[tokio::test]
     async fn clone() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             let value: Object = ctx.eval(
                 r#"
 const a = {
@@ -460,6 +463,7 @@ a
     #[tokio::test]
     async fn clone_circular() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             let _value: Object = ctx.eval(
                 r#"
 const originalObject = { foo: { bar: "baz",arr: [1,2,3] }  };

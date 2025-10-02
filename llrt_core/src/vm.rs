@@ -127,6 +127,7 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
+                BasePrimordials::init(&ctx)?;
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
                 Ok(())
@@ -221,9 +222,6 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     numbers::redefine_prototype(ctx)?;
     json::redefine_static_methods(ctx)?;
-
-    //init base primordials
-    let _ = BasePrimordials::get(ctx)?;
 
     Ok(())
 }

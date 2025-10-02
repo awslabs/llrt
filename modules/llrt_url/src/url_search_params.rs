@@ -624,6 +624,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_iterator() {
         test_sync_with(|ctx| {
+            BasePrimordials::init(&ctx)?;
             Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
             let result = ctx
                 .eval::<String, _>(
