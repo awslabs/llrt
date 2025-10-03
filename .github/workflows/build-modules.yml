@@ -31,10 +31,10 @@ jobs:
         env:
           RUSTFLAGS: ""
         run: |
-          readarray crates < <(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
-          for crate in "${crates[@]}"; do
+          crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
+          for crate in $crates; do
             echo "Compiling crate: $crate"
-            cargo build -p $crate
+            cargo build -p "$crate"
           done
       - name: Run build all
         run: |
