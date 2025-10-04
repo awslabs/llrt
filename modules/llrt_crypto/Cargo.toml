@@ -45,50 +45,46 @@ once_cell = { version = "1", features = ["std"], default-features = false }
 rand = { version = "0.9", features = [
   "std",
   "std_rng",
+  "thread_rng",
 ], default-features = false }
 ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "macro",
 ], default-features = false }
-uuid = { version = "1", features = [
-  "fast-rng",
-  "v4",
-], default-features = false }
-uuid-simd = { version = "0.8", features = ["uuid"], default-features = false }
 
 # optional
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
-aes = { version = "0.9.0-rc.0", optional = true }
-aes-gcm = { version = "0.11.0-rc.0", features = [
+aes = { version = "0.9.0-rc.1", optional = true }
+aes-gcm = { version = "0.11.0-rc.1", features = [
   "alloc",
 ], default-features = false, optional = true }
-aes-kw = { version = "0.3.0-rc.0", features = [
+aes-kw = { version = "0.3.0-rc.1", features = [
   "oid",
 ], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.0", features = ["alloc"], optional = true }
-ctr = { version = "0.10.0-rc.0", default-features = false, optional = true }
-rsa = { version = "0.10.0-rc.3", features = [
+cbc = { version = "0.2.0-rc.1", features = ["alloc"], optional = true }
+ctr = { version = "0.10.0-rc.1", default-features = false, optional = true }
+rsa = { version = "0.10.0-rc.9", features = [
   "std",
   "sha2",
   "encoding",
   "os_rng",
 ], default-features = false, optional = true }
-p256 = { version = "0.14.0-pre.9", features = [
+p256 = { version = "0.14.0-pre.11", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p384 = { version = "0.14.0-pre.9", features = [
+p384 = { version = "0.14.0-pre.11", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p521 = { version = "0.14.0-pre.9", features = [
+p521 = { version = "0.14.0-pre.11", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.10", features = [
+elliptic-curve = { version = "0.14.0-rc.15", features = [
   "alloc",
 ], default-features = false, optional = true }
 x25519-dalek = { version = "3.0.0-pre.1", features = [
@@ -96,19 +92,19 @@ x25519-dalek = { version = "3.0.0-pre.1", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
-ecdsa = { version = "0.17.0-rc.5", default-features = false, optional = true }
+ecdsa = { version = "0.17.0-rc.7", default-features = false, optional = true }
 spki = { version = "0.8.0-rc.4", features = [
   "alloc",
 ], default-features = false, optional = true }
-der = { version = "0.8.0-rc.7", features = [
+der = { version = "0.8.0-rc.9", features = [
   "derive",
   "alloc",
 ], default-features = false, optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
-md-5 = { version = "0.11.0-rc.0", default-features = false }
-pkcs8 = { version = "0.11.0-rc.6", default-features = false, features = [
+md-5 = { version = "0.11.0-rc.2", default-features = false }
+pkcs8 = { version = "0.11.0-rc.7", default-features = false, features = [
   "alloc",
 ], optional = true }
 

@@ -602,7 +602,6 @@ mod tests {
     use rquickjs::{async_with, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
-    use crate::modules::llrt::uuid::uuidv4;
     use crate::runtime_client::{
         self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
     };
@@ -612,7 +611,18 @@ mod tests {
     async fn runtime() {
         let mock_server = MockServer::start().await;
 
-        //MOCK
+        fn uuid_v4() -> String {
+            let mut bytes = [0u8; 8];
+            for b in bytes.iter_mut() {
+                *b = rand::random();
+            }
+
+            format!(
+                "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]
+            )
+        }
+
         Mock::given(matchers::method("GET"))
             .and(matchers::path("/"))
             .respond_with(ResponseTemplate::new(200))
@@ -626,7 +636,7 @@ mod tests {
             )))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .insert_header(&HEADER_REQUEST_ID, uuidv4())
+                    .insert_header(&HEADER_REQUEST_ID, uuid_v4())
                     .insert_header(&HEADER_INVOKED_FUNCTION_ARN, "n/a")
                     .set_body_string(r#"{"hello": "world"}"#),
             )

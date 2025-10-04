@@ -411,35 +411,6 @@ export function encode(
   value: string | Array | ArrayBuffer | Uint8Array
 ): string;
 export function decode(value: string): Uint8Array;
-```
-
-## llrt:uuid
-
-```typescript
-export const NIL: string;
-
-export function v1(): string;
-
-export function v3(
-  name: string,
-  namespace: Array | Uint8Array | String
-): string;
-
-export function v4(): string;
-
-export function v5(
-  name: string,
-  namespace: Array | Uint8Array | String
-): string;
-
-export function parse(value: string): Uint8Array;
-
-export function stringify(arr: Array | Uint8Array): string;
-
-export function validate(arr: string): boolean;
-
-export function version(arr: Array | Uint8Array): number;
-```
 
 ## llrt:xml
 

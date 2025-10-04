@@ -2,5 +2,4 @@
 // SPDX-License-Identifier: Apache-2.0
 pub mod hex;
 pub mod util;
-pub mod uuid;
 pub mod xml;
