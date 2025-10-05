@@ -54,7 +54,7 @@ const ENTRYPOINTS = [
 const ES_BUILD_OPTIONS = {
   splitting: MINIFY_JS,
   minify: MINIFY_JS,
-  sourcemap: true,
+  sourcemap: false,
   target: "es2023",
   outdir: OUT_DIR,
   bundle: true,
@@ -600,6 +600,7 @@ async function buildLibrary() {
     ...defaultLibEsBuildOption,
     entryPoints,
     plugins: [requireProcessPlugin],
+    sourcemap: false,
   });
 
   // Build tests
@@ -614,6 +615,7 @@ async function buildLibrary() {
     ...defaultLibEsBuildOption,
     entryPoints: testEntryPoints,
     external: [...ES_BUILD_OPTIONS.external, "@aws-sdk", "@smithy"],
+    sourcemap: false,
   });
 }
 

@@ -396,7 +396,7 @@ _Also available globally_
 
 [zstdCompress](https://nodejs.org/api/zlib.html#zlibzstdcompressbuffer-options-callback)
 
-[zstdCompressSync](hhttps://nodejs.org/api/zlib.html#zlibzstdcompresssyncbuffer-options)
+[zstdCompressSync](https://nodejs.org/api/zlib.html#zlibzstdcompresssyncbuffer-options)
 
 [zstdDecompress](https://nodejs.org/api/zlib.html#zlibzstddecompressbuffer-options-callback)
 
@@ -411,6 +411,7 @@ export function encode(
   value: string | Array | ArrayBuffer | Uint8Array
 ): string;
 export function decode(value: string): Uint8Array;
+```
 
 ## llrt:xml
 
