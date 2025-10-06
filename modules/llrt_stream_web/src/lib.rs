@@ -90,12 +90,6 @@ impl ModuleDef for StreamWebModule {
             Class::<ByteLengthQueuingStrategy>::define(default)?;
             Class::<CountQueuingStrategy>::define(default)?;
 
-            BasePrimordials::init(ctx)?;
-            PromisePrimordials::init(ctx)?;
-            ArrayConstructorPrimordials::init(ctx)?;
-            WritableStreamDefaultControllerPrimordials::init(ctx)?;
-            IteratorPrimordials::init(ctx)?;
-
             Ok(())
         })?;
 
@@ -114,6 +108,12 @@ impl From<StreamWebModule> for ModuleInfo<StreamWebModule> {
 
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = &ctx.globals();
+
+    BasePrimordials::init(ctx)?;
+    PromisePrimordials::init(ctx)?;
+    ArrayConstructorPrimordials::init(ctx)?;
+    WritableStreamDefaultControllerPrimordials::init(ctx)?;
+    IteratorPrimordials::init(ctx)?;
 
     // https://min-common-api.proposal.wintertc.org/#api-index
     Class::<ByteLengthQueuingStrategy>::define(globals)?;
