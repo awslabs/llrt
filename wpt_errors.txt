@@ -1,0 +1,328 @@
+🧪/wpt/FileAPI.blob.test.js 
+FileAPI/blob > should pass Blob-stream.any.js tests
+Error: [Blob.stream()] promise_test: Unhandled rejection with value: object "TypeError: not a function"
+
+
+🧪/wpt/WebCryptoAPI.digest.test.js 
+WebCryptoAPI/digest > should pass digest.https.any.js tests
+Error: [SHA-1 with short source data and altered buffer after call] assert_true: digest() yielded expected result for sha-1:short expected true got false
+
+
+🧪/wpt/WebCryptoAPI.test.js 
+WebCryptoAPI > should pass crypto_key_cached_slots.https.any.js tests
+Error: [CryptoKey.algorithm getter returns cached object] assert_true: expected true got false
+
+WebCryptoAPI > should pass historical.any.js tests
+Error: [Non-secure context window does not have access to crypto.subtle] assert_equals: expected (undefined) undefined but got (object) object "[object Object]"
+
+
+🧪/wpt/console.test.js 
+console > should pass console-is-a-namespace.any.js tests
+Error: [console has the right property descriptors] assert_equals: must not be enumerable expected false but got true
+
+console > should pass console-label-conversion.any.js tests
+Error: [console.count()'s label gets converted to string via label.toString() when label is an object] not a function
+
+console > should pass console-namespace-object-class-string.any.js tests
+Error: [@@toStringTag exists on the namespace object with the appropriate descriptor] assert_own_property: expected property symbol "Symbol(Symbol.toStringTag)" missing
+
+----- LAST STDOUT: -----
+[ 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'... 9999900 more items ]
+Uint8Array [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 9999900 more items ]
+
+
+🧪/wpt/encoding.test.js 
+encoding > should pass api-surrogates-utf8.any.js tests
+Error: [Invalid surrogates encoded into UTF-8: Surrogate half (low)] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
+
+encoding > should pass encodeInto.any.js tests
+Error: [encodeInto() into ArrayBuffer with U+d834AU+df06A¥Hi and destination length 10, offset 0, filler 0] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
+
+encoding > should pass textdecoder-arguments.any.js tests
+Error: [TextDecoder decode() with explicit undefined] assert_equals: Undefined as first arg should flush the stream expected "\ufffd" but got ""
+
+encoding > should pass textdecoder-copy.any.js tests
+Error: [Modify buffer after passing it in (ArrayBuffer)] assert_equals: expected "" but got "\ufffd"
+
+encoding > should pass textdecoder-eof.any.js tests
+Error: [TextDecoder end-of-queue handling using stream: true] Error calling function with 0 argument(s) while 1 where expected
+
+encoding > should pass textdecoder-fatal-single-byte.any.js tests
+Error: [Not throw: IBM866 has a pointer 0] The "IBM866" encoding is not supported
+
+encoding > should pass textdecoder-fatal-streaming.any.js tests
+Error: [Fatal flag, non-streaming cases] assert_equals: Unterminated UTF-8 sequence should emit replacement character if fatal flag is unset expected "\ufffd" but got ""
+
+encoding > should pass textdecoder-fatal.any.js tests
+Error: [Error seen with fatal does not prevent future decodes] assert_throws_js: decode() should throw on incomplete sequence function "() => decoder.decode(new DataView(bytes.buffer, 0, 2))" did not throw
+
+encoding > should pass textdecoder-streaming.any.js tests
+Error: [Streaming decode: utf-8, 1 byte window (ArrayBuffer)] Error calling function with 0 argument(s) while 1 where expected
+
+encoding > should pass textencoder-utf16-surrogates.any.js tests
+Error: [USVString handling: lone surrogate lead] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
+
+
+🧪/wpt/fetch.api.abort.test.js 
+fetch/api/abort > should pass general.any.js tests
+Error: Timeout after 5000ms
+
+
+🧪/wpt/fetch.api.basic.test.js 
+fetch/api/basic > should pass conditional-get.any.js tests
+Error: [Testing conditional GET with ETags] token is not defined
+
+fetch/api/basic > should pass error-after-response.any.js tests
+Error: [Response reader read() promise should reject after a network error happening after resolving fetch promise] promise_test: Unhandled rejection with value: object "TypeError: cannot read property 'getReader' of undefined"
+
+fetch/api/basic > should pass gc.any.js tests
+Error: [GC/CC should not abruptly close the stream while being consumed by Response] assert_equals: The buffer should be 5-byte long expected 5 but got 15
+
+fetch/api/basic > should pass header-value-combining.any.js tests
+Error: [response.headers.get('content-length') expects 0] assert_equals: expected "0" but got "42"
+
+fetch/api/basic > should pass header-value-null-byte.any.js tests
+Error: [Ensure fetch() rejects null bytes in headers] assert_unreached: Should have rejected: undefined Reached unreachable code
+
+fetch/api/basic > should pass http-response-code.any.js tests
+Error: [Fetch on 425 response should not be retried for non TLS early data.] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
+
+fetch/api/basic > should pass integrity.sub.any.js tests
+Error: [Empty string integrity] promise_test: Unhandled rejection with value: object "TypeError: Invalid scheme"
+
+fetch/api/basic > should pass keepalive.any.js tests
+Error: [[keepalive] simple GET request on 'load' [no payload]; setting up] promise_test: Unhandled rejection with value: object "ReferenceError: token is not defined"
+
+fetch/api/basic > should pass mode-no-cors.sub.any.js tests
+Error: [Fetch http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt with no-cors mode] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt?pipe=header(x-is-filtered,value)"
+
+fetch/api/basic > should pass mode-same-origin.any.js tests
+Error: [Fetch http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt with same-origin mode] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :http://{{host}}:{{ports[http][0]}}/fetch/api/resources/top.txt"
+
+fetch/api/basic > should pass referrer.any.js tests
+Error: [origin-when-cross-origin policy on a same-origin URL] assert_equals: Request's referrer is correct expected (string) "[object Object]" but got (object) null
+
+fetch/api/basic > should pass request-head.any.js tests
+Error: [Fetch with HEAD with body] promise_rejects_js: function "function() {
+            throw e;
+          }" threw object "Error: client error (UserAbsoluteUriRequired)" ("Error") expected instance of function "function TypeError() {
+    [native code]
+}" ("TypeError")
+
+fetch/api/basic > should pass request-headers-case.any.js tests
+Error: [Multiple headers with the same name, different case (THIS-is-A-test first)] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
+
+fetch/api/basic > should pass request-headers-nonascii.any.js tests
+Error: [Non-ascii bytes in request headers] assert_equals: Accept Header expected (string) "before-æøå-after" but got (object) null
+
+fetch/api/basic > should pass request-headers.any.js tests
+Error: [Fetch with PUT without body] assert_equals: Request should have header origin: http://web-platform.test expected (string) "http://web-platform.test" but got (object) null
+
+fetch/api/basic > should pass request-upload.any.js tests
+Error: [Fetch with POST with DataView body] assert_equals: expected "\0\0\0\0" but got "\0\0\0\0\0\0\0\0"
+
+fetch/api/basic > should pass response-null-body.any.js tests
+Error: [Response.body is null for responses with status=204 (method=GET)] assert_equals: the body should be null expected (object) null but got (undefined) undefined
+
+fetch/api/basic > should pass response-url.sub.any.js tests
+Error: [Testing response url getter with http://{{host}}:{{ports[http][0]}}/ada] promise_test: Unhandled rejection with value: object "TypeError: Invalid URL :http://{{host}}:{{ports[http][0]}}/ada"
+
+fetch/api/basic > should pass status.h2.any.js tests
+Error: [statusText over H2 for status 200 should be the empty string] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
+
+fetch/api/basic > should pass stream-response.any.js tests
+Error: [Stream response's body when content-type is present] assert_unreached: Body does not exist in response Reached unreachable code
+
+fetch/api/basic > should pass text-utf8.any.js tests
+Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] assert_equals: Fetched Response.text() should decode data as UTF-8 expected "三村かな子" but got "{\"error\": {\"code\": 404, \"message\": \"404\"}}"
+
+
+🧪/wpt/fetch.api.body.test.js 
+fetch/api/body > should pass formdata.any.js tests
+Error: [Consume empty response.formData() as FormData] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
+
+
+🧪/wpt/fetch.api.headers.test.js 
+fetch/api/headers > should pass header-setcookie.any.js tests
+Error: [Headers iterator is correctly updated with set-cookie changes] assert_array_equals: expected property 0 to be "set-cookie" but got "x-header" (expected array ["set-cookie", "a=b"] got ["x-header", "test"])
+
+fetch/api/headers > should pass headers-basic.any.js tests
+Error: [Check keys method] assert_equals: expected object "[object Iterator]" but got object "[object Object]"
+
+fetch/api/headers > should pass headers-record.any.js tests
+Error: [Basic operation with one property] assert_array_equals: lengths differ, expected array ["get", object "[object Object]", symbol "Symbol(Symbol.iterator)", object "[object Object]"] length 4, got ["has", object "[object Object]", symbol "Symbol(Symbol.iterator)"] length 3
+
+
+🧪/wpt/fetch.api.request.test.js 
+fetch/api/request > should pass request-consume.any.js tests
+Error: [Consume DataView request's body as text] assert_equals: Retrieve and verify request's body expected "\"123456\"" but got "\0\"123456\"\0"
+
+fetch/api/request > should pass request-disturbed.any.js tests
+Error: [Request's body: initial state] assert_true: non-null body type expected true got false
+
+fetch/api/request > should pass request-error.any.js tests
+Error: [RequestInit's window is not null] assert_throws_js: Expect TypeError exception function "() => new Request(...args)" did not throw
+
+fetch/api/request > should pass request-headers.any.js tests
+Error: [Adding invalid request header "Accept-Charset: KO"] assert_equals: expected (object) null but got (string) "KO"
+
+fetch/api/request > should pass request-init-contenttype.any.js tests
+Error: [Default Content-Type for Request with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
+
+fetch/api/request > should pass request-init-priority.any.js tests
+Error: [new Request() throws a TypeError if any of RequestInit's members' values are invalid] assert_throws_js: a new Request() must throw a TypeError if RequestInit's priority is an invalid value function "() => {
+    new Request("", {priority: 'invalid'});
+  }" did not throw
+
+fetch/api/request > should pass request-init-stream.any.js tests
+Error: [Constructing a Request with a stream on which getReader() is called] assert_throws_js: function "() => new Request("...", { method, body, duplex })" did not throw
+
+fetch/api/request > should pass request-keepalive.any.js tests
+Error: [keepalive flag with stream body] assert_throws_js: function "() => {new Request('/', init)}" did not throw
+
+fetch/api/request > should pass request-structure.any.js tests
+Error: [Request has formData method] assert_true: request has formData method expected true got false
+
+
+🧪/wpt/fetch.api.response.test.js 
+fetch/api/response > should pass json.any.js tests
+Error: [Ensure UTF-16 results in an error] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
+
+fetch/api/response > should pass response-blob-realm.any.js tests
+Error: Timeout after 5000ms
+
+fetch/api/response > should pass response-cancel-stream.any.js tests
+Error: [Cancelling a starting blob Response stream] cannot read property 'cancel' of undefined
+
+fetch/api/response > should pass response-clone.any.js tests
+Error: Timeout after 5000ms
+
+fetch/api/response > should pass response-error-from-stream.any.js tests
+Error: [ReadableStream start() Error propagates to Response.arrayBuffer() Promise] assert_unreached: Should have rejected: CustomTestError should propagate Reached unreachable code
+
+fetch/api/response > should pass response-error.any.js tests
+Error: [Throws RangeError when responseInit's status is 0] assert_throws_js: Expect RangeError exception when status is 0 function "function() { new Response("", { "status" : status }); }" did not throw
+
+fetch/api/response > should pass response-from-stream.any.js tests
+Error: [Constructing a Response with a stream on which getReader() is called] assert_throws_js: function "() => new Response(stream)" did not throw
+
+fetch/api/response > should pass response-headers-guard.any.js tests
+Error: [Ensure response headers are immutable] promise_test: Unhandled rejection with value: object "TypeError: cannot read property 'get' of undefined"
+
+fetch/api/response > should pass response-init-001.any.js tests
+Error: [Check default value for type attribute] assert_equals: Expect default response.type is default expected "default" but got "basic"
+
+fetch/api/response > should pass response-init-contenttype.any.js tests
+Error: [Default Content-Type for Response with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
+
+fetch/api/response > should pass response-static-error.any.js tests
+Error: [Check response returned by static method error()] assert_equals: Network error response's body is null expected (object) null but got (undefined) undefined
+
+fetch/api/response > should pass response-static-json.any.js tests
+Error: [Check response returned by static json() with init undefined] promise_test: Unhandled rejection with value: object "TypeError: Error converting from js 'undefined' into type 'object'"
+
+fetch/api/response > should pass response-static-redirect.any.js tests
+Error: [Check default redirect response] assert_equals: expected "default" but got "basic"
+
+fetch/api/response > should pass response-stream-bad-chunk.any.js tests
+Error: [ReadableStream with non-Uint8Array chunk passed to Response.arrayBuffer() causes TypeError] assert_unreached: Should have rejected: TypeError should propagate Reached unreachable code
+
+fetch/api/response > should pass response-stream-disturbed-1.any.js tests
+Error: [Getting blob after getting the Response body - not disturbed, not locked (body source: fetch)] promise_test: Unhandled rejection with value: object "ReferenceError: responseFromBodySource is not defined"
+
+fetch/api/response > should pass response-stream-disturbed-2.any.js tests
+Error: [Getting blob after getting a locked Response body (body source: fetch)] promise_test: Unhandled rejection with value: object "ReferenceError: responseFromBodySource is not defined"
+
+fetch/api/response > should pass response-stream-disturbed-3.any.js tests
+Error: [Getting blob after reading the Response body (body source: fetch)] promise_test: Unhandled rejection with value: object "ReferenceError: responseFromBodySource is not defined"
+
+fetch/api/response > should pass response-stream-disturbed-4.any.js tests
+Error: [Getting blob after cancelling the Response body (body source: fetch)] promise_test: Unhandled rejection with value: object "ReferenceError: responseFromBodySource is not defined"
+
+fetch/api/response > should pass response-stream-disturbed-5.any.js tests
+Error: [Getting a body reader after consuming as blob (body source: fetch)] promise_test: Unhandled rejection with value: object "ReferenceError: responseFromBodySource is not defined"
+
+fetch/api/response > should pass response-stream-disturbed-6.any.js tests
+Error: [A non-closed stream on which read() has been called] assert_true: After calling stream.read() expected true got false
+
+fetch/api/response > should pass response-stream-disturbed-by-pipe.any.js tests
+Error: [using pipeTo on Response body should disturb it synchronously] cannot read property 'pipeTo' of undefined
+
+fetch/api/response > should pass response-stream-with-broken-then.any.js tests
+Error: [Attempt to inject {done: false, value: bye} via Object.prototype.then.] assert_equals: The value should be "hello". expected "hello" but got "[object Object]"
+
+
+🧪/wpt/hr-time.test.js 
+hr-time > should pass basic.any.js tests
+Error: [Performance interface extends EventTarget.] not a function
+
+
+🧪/wpt/streams.readable-byte-streams.test.js 
+streams/readable-byte-streams > should pass patched-global.any.js tests
+Error: [Patched then() sees byobRequest after filling all pending pull-into descriptors] Error borrowing class: can't borrow a value as it is already borrowed
+
+
+🧪/wpt/streams.readable-streams.test.js 
+streams/readable-streams > should pass from.any.js tests
+Error: [ReadableStream.from: cancel() rejects when return() is not a method] promise_test: Unhandled rejection with value: object "TypeError: Error converting from js 'int' into type 'function'"
+
+streams/readable-streams > should pass owning-type-message-port.any.js tests
+Error: [Transferred MessageChannel works as expected] promise_test: Unhandled rejection with value: object "ReferenceError: MessageChannel is not defined"
+
+streams/readable-streams > should pass owning-type.any.js tests
+Error: [ReadableStream can be constructed with owning type] Error converting from js 'string' into type 'ReadableStreamType'
+
+streams/readable-streams > should pass patched-global.any.js tests
+Error: [tee() should not call Promise.prototype.then()] patched then() called
+
+
+🧪/wpt/streams.writable-streams.test.js 
+streams/writable-streams > should pass aborting.any.js tests
+undefined: undefined
+
+----- LAST STDERR: -----
+
+thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'main' panicked at /Users/shinya/Workspaces/llrt/libs/llrt_utils/src/primordials.rs:58:35:
+called `Option::unwrap()` on a `None` value
+
+streams/writable-streams > should pass bad-strategies.any.js tests
+Error: Test timed out after 5000ms
+    at tick (llrt:test/index:480:15)
+    at <anonymous> (llrt:test/index:160:12)
+
+
+🧪/wpt/url.test.js 
+url > should pass url-constructor.any.js tests
+Error: [Parsing: <file:///w|/m> without base] assert_equals: href expected "file:///w:/m" but got "file:///w|/m"
+
+url > should pass url-origin.any.js tests
+Error: [Origin parsing: <blob:blob:https://example.org/> without base] assert_equals: origin expected "null" but got "https://example.org"
+
+url > should pass url-setters.any.js tests
+Error: [URL: Setting <non-spec:/.//p>.hostname = 'h' Drop /. from path] assert_equals: expected "non-spec://h//p" but got "non-spec://h/.//p"
+
+url > should pass urlencoded-parser.any.js tests
+Error: [request.formData() with input: test] not a function
+
+url > should pass urlsearchparams-constructor.any.js tests
+Error: [URLSearchParams constructor, FormData.] FormData is not defined
+
+url > should pass urlsearchparams-sort.any.js tests
+Error: [Parse and sort: ﬃ&🌈] assert_array_equals: expected property 0 to be "🌈" but got "ﬃ" (expected array ["🌈", ""] got ["ﬃ", ""])
+
+url > should pass urlsearchparams-stringifier.any.js tests
+Error: [URLSearchParams connected to URL] assert_equals: expected "http://www.example.com/?a=b%2Cc&x=y" but got "http://www.example.com/?a=b,c&x=y"
+
+
+🧪/wpt/webidl.ecmascript-binding.es-exceptions.test.js 
+webidl/ecmascript-binding/es-exceptions > should pass DOMException-custom-bindings.any.js tests
+Error: [Cannot construct without new] assert_throws_js: function "() => DOMException()" did not throw
+
+webidl/ecmascript-binding/es-exceptions > should pass DOMException-is-error.any.js tests
+Error: [Untitled] assert_true: expected true got false
+
+

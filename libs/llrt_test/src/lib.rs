@@ -15,7 +15,7 @@ use rquickjs::{
 
 pub async fn given_file(content: &str) -> PathBuf {
     let tmp_dir = std::env::temp_dir();
-    let path = tmp_dir.join(nanoid::nanoid!());
+    let path = tmp_dir.join(uuid::Uuid::new_v4().to_string());
     tokio::fs::write(&path, content).await.unwrap();
     path
 }
@@ -92,10 +92,7 @@ where
 {
     let (_rt, ctx) = given_runtime().await;
 
-    ctx.with(|ctx| {
-        func(ctx.clone()).catch(&ctx).unwrap();
-    })
-    .await;
+    ctx.with(|ctx| func(ctx.clone()).catch(&ctx).unwrap()).await;
 }
 
 pub async fn call_test<'js, T, A>(ctx: &Ctx<'js>, module: &Module<'js, Evaluated>, args: A) -> T

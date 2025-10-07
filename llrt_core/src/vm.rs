@@ -10,6 +10,7 @@ use rquickjs::{
 
 use crate::libs::{
     context::set_spawn_error_handler,
+    hooking::HOOKING_MODE,
     json,
     logging::print_error_and_exit,
     numbers,
@@ -20,9 +21,11 @@ use crate::libs::{
     },
 };
 use crate::modules::{
+    async_hooks::promise_hook_tracker,
     crypto::SYSTEM_RANDOM,
+    embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
-    require::{loader::CustomLoader, resolver::CustomResolver},
+    require::{loader::NpmJsLoader, resolver::NpmJsResolver},
 };
 use crate::{environment, http, security};
 
@@ -41,11 +44,11 @@ impl Default for VmOptions {
     fn default() -> Self {
         #[allow(unused_mut)]
         let mut module_builder = ModuleBuilder::default()
+            .with_global(crate::modules::embedded::init)
             .with_global(crate::modules::module::init)
             .with_module(crate::modules::module::ModuleModule)
             .with_module(crate::modules::llrt::hex::LlrtHexModule)
             .with_module(crate::modules::llrt::util::LlrtUtilModule)
-            .with_module(crate::modules::llrt::uuid::LlrtUuidModule)
             .with_module(crate::modules::llrt::xml::LlrtXmlModule);
 
         #[cfg(feature = "lambda")]
@@ -107,8 +110,13 @@ impl Vm {
         }
 
         let (module_resolver, module_loader, global_attachment) = vm_options.module_builder.build();
-        let resolver = (module_resolver, CustomResolver, file_resolver);
-        let loader = (module_loader, CustomLoader);
+        let resolver = (
+            module_resolver,
+            EmbeddedResolver,
+            NpmJsResolver,
+            file_resolver,
+        );
+        let loader = (module_loader, EmbeddedLoader, NpmJsLoader);
 
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(vm_options.max_stack_size).await;
@@ -118,6 +126,7 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
+                BasePrimordials::init(&ctx)?;
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
                 Ok(())
@@ -127,6 +136,10 @@ impl Vm {
             Ok::<_, Error>(())
         })
         .await?;
+
+        if HOOKING_MODE.to_owned() {
+            runtime.set_promise_hook(Some(promise_hook_tracker())).await;
+        }
 
         Ok(Vm { runtime, ctx })
     }
@@ -172,6 +185,19 @@ impl Vm {
         self.run(source, strict, global).await;
     }
 
+    pub async fn run_bytecode(&self, bytecode: &[u8]) {
+        self.run_with(|ctx| {
+            EmbeddedLoader::load_bytecode_module(ctx.clone(), bytecode)
+                .map(|module| module.eval())
+                .map_err(|err| {
+                    eprintln!("Failed to evaluate module: {err:?}");
+                    err
+                })
+                .map(|_| ())
+        })
+        .await;
+    }
+
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
         Ok(())
@@ -195,9 +221,6 @@ fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     numbers::redefine_prototype(ctx)?;
     json::redefine_static_methods(ctx)?;
-
-    //init base primordials
-    let _ = BasePrimordials::get(ctx)?;
 
     Ok(())
 }

@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     collections::HashSet,
     env,
@@ -75,7 +77,7 @@ fn generate_sdk_client_endpoint_map(out_dir: &str) -> StdResult<(), Box<dyn Erro
                 if package_name == sdks_to_init {
                     ph_map.entry(package_name, r#""""#);
                 } else {
-                    ph_map.entry(package_name, &format!("\"{}\"", sdks_to_init));
+                    ph_map.entry(package_name, format!("\"{}\"", sdks_to_init));
                 }
             }
         }
@@ -183,7 +185,7 @@ fn generate_bytecode_cache(out_dir: &str) -> StdResult<(), Box<dyn Error>> {
 
             ph_map.entry(
                 module_name,
-                &format!("include_bytes!(\"{}\")", &lrt_filename),
+                format!("include_bytes!(\"{}\")", &lrt_filename),
             );
         }
 
@@ -231,7 +233,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
         info!("Compressing {}...", filename);
 
         let tmp_filename = tmp_dir
-            .join(nanoid::nanoid!())
+            .join(uuid::Uuid::new_v4().to_string())
             .to_string_lossy()
             .to_string();
 
@@ -253,10 +255,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
             .output()?;
 
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to compress file",
-            ));
+            return Err(io::Error::other("Failed to compress file"));
         }
 
         let bytes = fs::read(&filename)?;
@@ -313,8 +312,7 @@ fn generate_compression_dictionary(
     let mut cmd = cmd.current_dir(out_dir).args(short_source_files).spawn()?;
     let exit_status = cmd.wait()?;
     if !exit_status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             "Failed to generate compression dictionary",
         ));
     };

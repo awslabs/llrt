@@ -1,0 +1,17 @@
+[package]
+name = "llrt_async_hooks"
+description = "LLRT Module async_hooks"
+version = "0.7.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_async_hooks"
+path = "src/lib.rs"
+
+[dependencies]
+llrt_hooking = { version = "0.7.0-beta", path = "../../libs/llrt_hooking" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
+tracing = { version = "0.1", default-features = false }

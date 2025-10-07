@@ -26,32 +26,43 @@ pub use generate_key::subtle_generate_key;
 pub use import_key::subtle_import_key;
 use key_algorithm::KeyAlgorithm;
 use ring::digest::Digest;
-use rsa::pkcs1::DecodeRsaPrivateKey;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
 pub use wrapping::subtle_unwrap_key;
 pub use wrapping::subtle_wrap_key;
 
+use aes::cipher::BlockModeDecrypt;
+use aes::cipher::BlockModeEncrypt;
+
 use aes::{
     cipher::{
         block_padding::{Pkcs7, UnpadError},
-        consts::{U13, U14, U15, U16},
-        typenum::U12,
-        BlockDecryptMut, BlockEncryptMut, InvalidLength, KeyIvInit, StreamCipher,
-        StreamCipherError,
+        consts::{U12, U13, U14, U15, U16},
+        InvalidLength, KeyIvInit, StreamCipher, StreamCipherError,
     },
     Aes128, Aes192, Aes256,
 };
 use aes_gcm::{
     aead::{Aead, Payload},
-    AesGcm, KeyInit,
+    AesGcm, KeyInit, Nonce,
 };
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
-use llrt_utils::{object::ObjectExt, result::ResultExt, str_enum};
+use llrt_utils::{object::ObjectExt, str_enum};
 use rquickjs::{Ctx, Exception, Object, Result, Value};
-use rsa::RsaPrivateKey;
 
 use crate::sha_hash::ShaAlgorithm;
+
+#[rquickjs::class]
+#[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
+pub struct SubtleCrypto {}
+
+#[rquickjs::methods]
+impl SubtleCrypto {
+    #[qjs(constructor)]
+    pub fn new(ctx: Ctx<'_>) -> Result<Self> {
+        Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
+}
 
 pub enum AesCbcEncVariant {
     Aes128(cbc::Encryptor<aes::Aes128>),
@@ -73,9 +84,9 @@ impl AesCbcEncVariant {
 
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
         match self {
-            Self::Aes128(v) => v.clone().encrypt_padded_vec_mut::<Pkcs7>(data),
-            Self::Aes192(v) => v.clone().encrypt_padded_vec_mut::<Pkcs7>(data),
-            Self::Aes256(v) => v.clone().encrypt_padded_vec_mut::<Pkcs7>(data),
+            Self::Aes128(v) => v.clone().encrypt_padded_vec::<Pkcs7>(data),
+            Self::Aes192(v) => v.clone().encrypt_padded_vec::<Pkcs7>(data),
+            Self::Aes256(v) => v.clone().encrypt_padded_vec::<Pkcs7>(data),
         }
     }
 }
@@ -100,9 +111,9 @@ impl AesCbcDecVariant {
 
     pub fn decrypt(&self, data: &[u8]) -> std::result::Result<Vec<u8>, UnpadError> {
         Ok(match self {
-            Self::Aes128(v) => v.clone().decrypt_padded_vec_mut::<Pkcs7>(data)?,
-            Self::Aes192(v) => v.clone().decrypt_padded_vec_mut::<Pkcs7>(data)?,
-            Self::Aes256(v) => v.clone().decrypt_padded_vec_mut::<Pkcs7>(data)?,
+            Self::Aes128(v) => v.clone().decrypt_padded_vec::<Pkcs7>(data)?,
+            Self::Aes192(v) => v.clone().decrypt_padded_vec::<Pkcs7>(data)?,
+            Self::Aes256(v) => v.clone().decrypt_padded_vec::<Pkcs7>(data)?,
         })
     }
 }
@@ -231,22 +242,24 @@ impl AesGcmVariant {
             msg,
             aad: aad.unwrap_or_default(),
         };
+        let nonce: &ctr::cipher::Array<_, _> =
+            &Nonce::<U12>::try_from(nonce).map_err(|_| aes_gcm::Error)?;
         match self {
-            Self::Aes128Gcm96(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes192Gcm96(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes256Gcm96(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes128Gcm104(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes192Gcm104(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes256Gcm104(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes128Gcm112(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes192Gcm112(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes256Gcm112(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes128Gcm120(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes192Gcm120(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes256Gcm120(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes128Gcm128(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes192Gcm128(v) => v.encrypt(nonce.into(), plaintext),
-            Self::Aes256Gcm128(v) => v.encrypt(nonce.into(), plaintext),
+            Self::Aes128Gcm96(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm96(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm96(v) => v.encrypt(nonce, plaintext),
+            Self::Aes128Gcm104(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm104(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm104(v) => v.encrypt(nonce, plaintext),
+            Self::Aes128Gcm112(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm112(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm112(v) => v.encrypt(nonce, plaintext),
+            Self::Aes128Gcm120(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm120(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm120(v) => v.encrypt(nonce, plaintext),
+            Self::Aes128Gcm128(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm128(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm128(v) => v.encrypt(nonce, plaintext),
         }
     }
 
@@ -260,22 +273,24 @@ impl AesGcmVariant {
             msg,
             aad: aad.unwrap_or_default(),
         };
+        let nonce: &ctr::cipher::Array<_, _> =
+            &Nonce::<U12>::try_from(nonce).map_err(|_| aes_gcm::Error)?;
         match self {
-            Self::Aes128Gcm96(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes192Gcm96(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes256Gcm96(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes128Gcm104(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes192Gcm104(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes256Gcm104(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes128Gcm112(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes192Gcm112(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes256Gcm112(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes128Gcm120(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes192Gcm120(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes256Gcm120(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes128Gcm128(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes192Gcm128(v) => v.decrypt(nonce.into(), ciphertext),
-            Self::Aes256Gcm128(v) => v.decrypt(nonce.into(), ciphertext),
+            Self::Aes128Gcm96(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm96(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm96(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes128Gcm104(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm104(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm104(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes128Gcm112(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm112(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm112(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes128Gcm120(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm120(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm120(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes128Gcm128(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm128(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm128(v) => v.decrypt(nonce, ciphertext),
         }
     }
 }
@@ -294,12 +309,12 @@ pub enum EncryptionMode {
     Wrapping(u8), //padding byte
 }
 
-pub fn rsa_private_key<'a>(
+pub fn rsa_hash_digest<'a>(
     ctx: &Ctx<'_>,
     key: &'a CryptoKey,
     data: &'a [u8],
     algorithm_name: &str,
-) -> Result<(RsaPrivateKey, &'a ShaAlgorithm, Digest)> {
+) -> Result<(&'a ShaAlgorithm, Digest)> {
     let hash = match &key.algorithm {
         KeyAlgorithm::Rsa { hash, .. } => hash,
         _ => return algorithm_mismatch_error(ctx, algorithm_name),
@@ -313,11 +328,10 @@ pub fn rsa_private_key<'a>(
             "Only Sha-256, Sha-384 or Sha-512 is supported for RSA",
         ));
     }
-    let private_key = RsaPrivateKey::from_pkcs1_der(&key.handle).or_throw(ctx)?;
 
     let digest = ring::digest::digest(hash.digest_algorithm(), data);
 
-    Ok((private_key, hash, digest))
+    Ok((hash, digest))
 }
 
 pub fn extract_aes_length(ctx: &Ctx<'_>, key: &CryptoKey, expected_algorithm: &str) -> Result<u16> {

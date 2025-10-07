@@ -12,12 +12,16 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
-use llrt_utils::module::{export_default, ModuleInfo};
+pub use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
+use llrt_utils::{
+    module::{export_default, ModuleInfo},
+    provider::ProviderType,
+};
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt},
-    qjs, Ctx, Function, Persistent, Result, Value,
+    qjs, Ctx, Exception, Function, Persistent, Result, Value,
 };
 use tokio::{
     select,
@@ -73,7 +77,15 @@ impl Default for Timeout {
     }
 }
 
-fn set_immediate(cb: Function) -> Result<()> {
+fn queue_microtask<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
+    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
+    register_finalization_registry(&_ctx, cb.clone().into_value(), uid)?;
+    invoke_async_hook(&_ctx, HookType::Init, ProviderType::Microtask, uid)?;
+    // NOTE: Defer simply registers a task in a microtask queue
+    // and is separate from the timing of when the actual callback runs.
+    // Therefore, asynchronous before/after hooks are not meaningful and will not be implemented.
+
     cb.defer::<()>(())?;
     Ok(())
 }
@@ -82,9 +94,32 @@ pub fn set_timeout_interval<'js>(
     ctx: &Ctx<'js>,
     cb: Function<'js>,
     delay: u64,
-    repeating: bool,
+    provider_type: ProviderType,
 ) -> Result<usize> {
-    let deadline = Instant::now() + Duration::from_millis(delay);
+    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
+
+    // NOTE: https://noncodersuccess.medium.com/understanding-setimmediate-vs-settimeout-in-node-js-6a3ef8fc02d4
+    // If `setImmediate(fn)` and `setTimeout(fn, 0) are queued at the exact same time,
+    // `setImmediate(fn) takes precedence in Node.js, regardless of their execution order.
+    // This is due to the specifications of the Node.js event loop.
+    // The event loop specifications of LLRT are completely different from those of Node.js,
+    // but to make them the same, `setImmedaite()` is executed before any delay setting of `setTimeout()`.
+    let (repeating, deadline) = match provider_type {
+        ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(600)), // before any setTimeout(fn, delay)
+        ProviderType::Timeout => (false, Instant::now() + Duration::from_millis(delay)),
+        ProviderType::Interval => (true, Instant::now() + Duration::from_millis(delay)),
+        _ => {
+            return Err(Exception::throw_type(
+                ctx,
+                "The specified provider type is not supported.",
+            ))
+        },
+    };
+
+    register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
+    invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
+
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
 
     let callback = Persistent::<Function>::save(ctx, cb);
@@ -156,6 +191,7 @@ impl ModuleDef for TimersModule {
         declare.declare("setInterval")?;
         declare.declare("setImmediate")?;
         declare.declare("clearInterval")?;
+        declare.declare("queueMicrotask")?;
         declare.declare("default")?;
         Ok(())
     }
@@ -170,6 +206,7 @@ impl ModuleDef for TimersModule {
                 "setInterval",
                 "clearInterval",
                 "setImmediate",
+                "queueMicrotask",
             ];
             for func_name in functions {
                 let function: Function = globals.get(func_name)?;
@@ -203,7 +240,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         "setTimeout",
         Func::from(move |ctx, cb, delay: Opt<f64>| {
             let delay = delay.unwrap_or(0.).max(0.) as u64;
-            set_timeout_interval(&ctx, cb, delay, false)
+            set_timeout_interval(&ctx, cb, delay, ProviderType::Timeout)
         }),
     )?;
 
@@ -211,7 +248,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         "setInterval",
         Func::from(move |ctx, cb, delay: Opt<f64>| {
             let delay = delay.unwrap_or(0.).max(0.) as u64;
-            set_timeout_interval(&ctx, cb, delay, true)
+            set_timeout_interval(&ctx, cb, delay, ProviderType::Interval)
         }),
     )?;
 
@@ -219,7 +256,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     globals.set("clearInterval", Func::from(clear_timeout_interval))?;
 
-    globals.set("setImmediate", Func::from(set_immediate))?;
+    globals.set(
+        "setImmediate",
+        Func::from(move |ctx, cb| set_timeout_interval(&ctx, cb, 0, ProviderType::Immediate)),
+    )?;
+
+    globals.set("queueMicrotask", Func::from(queue_microtask))?;
 
     Ok(())
 }
@@ -252,7 +294,11 @@ fn create_spawn_loop(
     Ok(())
 }
 
-pub struct ExecutingTimer(NonNull<qjs::JSContext>, Persistent<Function<'static>>);
+pub struct ExecutingTimer(
+    Instant,
+    NonNull<qjs::JSContext>,
+    Persistent<Function<'static>>,
+);
 
 unsafe impl Send for ExecutingTimer {}
 
@@ -277,14 +323,14 @@ pub fn poll_timers(
             let ctx = timeout.raw_ctx;
             if let Some(cb) = timeout.callback.take() {
                 if !timeout.repeating {
-                    call_vec.push(Some(ExecutingTimer(ctx, cb)));
+                    call_vec.push(Some(ExecutingTimer(timeout.deadline, ctx, cb)));
                     return false;
                 }
                 timeout.deadline = now + Duration::from_millis(timeout.interval);
                 if timeout.deadline < lowest {
                     lowest = timeout.deadline;
                 }
-                call_vec.push(Some(ExecutingTimer(ctx, cb.clone())));
+                call_vec.push(Some(ExecutingTimer(timeout.deadline, ctx, cb.clone())));
                 timeout.callback.replace(cb);
             } else {
                 return false;
@@ -312,12 +358,30 @@ pub fn poll_timers(
 
     drop(rt_timers);
 
+    call_vec.sort_unstable_by_key(|v| v.as_ref().map(|v| v.0));
+
+    let mut is_first_time = true;
     for item in call_vec.iter_mut() {
-        if let Some(ExecutingTimer(ctx, timeout)) = item.take() {
+        if let Some(ExecutingTimer(_, ctx, timeout)) = item.take() {
             let ctx2 = unsafe { Ctx::from_raw(ctx) };
-            if let Ok(timeout) = timeout.restore(&ctx2) {
-                timeout.call::<_, ()>(())?;
+
+            if is_first_time {
+                while ctx2.execute_pending_job() {}
+                is_first_time = false;
             }
+
+            if let Ok(timeout) = timeout.restore(&ctx2) {
+                // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
+                let uid: usize = unsafe { qjs::JS_VALUE_GET_PTR(timeout.as_raw()) } as usize;
+
+                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, uid)?;
+
+                timeout.call::<_, ()>(())?;
+
+                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, uid)?;
+            }
+
+            while ctx2.execute_pending_job() {}
         }
     }
     call_vec.clear();

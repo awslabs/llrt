@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashMap, rc::Rc};
+#![allow(clippy::uninlined_format_args)]
+
+use std::{borrow::Cow, rc::Rc};
 
 use quick_xml::{
     escape::resolve_xml_entity,
@@ -13,7 +15,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Property,
     prelude::This,
-    Array, Class, Ctx, Error, Function, IntoJs, Object, Result, Value,
+    Array, Class, Ctx, Function, IntoJs, Object, Result, Value,
 };
 
 use crate::libs::utils::{
@@ -41,7 +43,7 @@ struct XMLParser<'js> {
     attribute_name_prefix: Rc<str>,
     ignore_attributes: bool,
     text_node_name: Rc<str>,
-    entities: HashMap<Rc<str>, Rc<str>>,
+    entities: Vec<(Rc<str>, Rc<str>)>,
 }
 
 impl<'js> Trace<'js> for XMLParser<'js> {
@@ -98,7 +100,7 @@ impl<'js> XMLParser<'js> {
             }
         }
 
-        let entities = HashMap::new();
+        let entities = Vec::new();
 
         Ok(XMLParser {
             tag_value_processor,
@@ -111,7 +113,11 @@ impl<'js> XMLParser<'js> {
     }
 
     pub fn add_entity(&mut self, key: String, value: String) {
-        self.entities.insert(key.into(), value.into());
+        if let Some((_, v)) = self.entities.iter_mut().find(|(k, _)| k.as_ref() == key) {
+            *v = key.into()
+        } else {
+            self.entities.push((key.into(), value.into()));
+        }
     }
 
     pub fn parse(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<Object<'js>> {
@@ -124,7 +130,7 @@ impl<'js> XMLParser<'js> {
         current_obj.has_value = true;
         let mut buf = Vec::new();
         let mut current_key: Rc<str> = "".into();
-        let mut current_value: Option<Rc<str>> = None;
+        let mut current_value: Option<String> = None;
         let mut path: Vec<(Rc<str>, StackObject<'js>)> = vec![];
         let mut has_attributes = false;
 
@@ -173,38 +179,43 @@ impl<'js> XMLParser<'js> {
                 },
                 Ok(Event::CData(text)) => {
                     let text = text.escape().or_throw(&ctx)?;
-                    let tag_value = String::from_utf8_lossy(text.as_ref());
-                    let tag_value = tag_value.as_ref();
-                    let tag_value =
-                        self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
-                    if has_attributes {
-                        current_obj.has_value = true;
-                        current_obj
-                            .obj
-                            .set(self.text_node_name.as_ref(), tag_value.as_ref())?;
-                    } else {
-                        current_value = Some(tag_value)
+                    let tag_value = String::from_utf8_lossy(&text);
+                    self.process_text(
+                        &mut current_obj,
+                        &mut current_key,
+                        &mut current_value,
+                        &mut path,
+                        has_attributes,
+                        tag_value,
+                    )?;
+                },
+                Ok(Event::GeneralRef(ref text)) => {
+                    let text_ref = text.decode().or_throw(&ctx)?;
+                    let text_ref: &str = &text_ref;
+                    let tag_value = resolve_xml_entity(text_ref)
+                        .or_else(|| {
+                            self.entities
+                                .iter()
+                                .find(|(k, _)| k.as_ref() == text_ref)
+                                .map(|(_, v)| v.as_ref())
+                        })
+                        .unwrap_or(text_ref);
+                    match current_value {
+                        Some(ref mut val) => val.push_str(tag_value),
+                        None => current_value = Some(tag_value.to_owned()),
                     }
                 },
                 Ok(Event::Text(ref text)) => {
-                    let tag_value = text
-                        .unescape_with(|v| {
-                            resolve_xml_entity(v)
-                                .or_else(|| self.entities.get(v).map(|x| x.as_ref()))
-                        })
-                        .or_throw(&ctx)?;
-                    let tag_value = tag_value.as_ref();
-                    let tag_value =
-                        self.process_tag_value(&path, &current_key, tag_value, has_attributes)?;
+                    let tag_value = text.decode().or_throw(&ctx)?;
 
-                    if has_attributes {
-                        current_obj.has_value = true;
-                        current_obj
-                            .obj
-                            .set(self.text_node_name.as_ref(), tag_value.as_ref())?;
-                    } else {
-                        current_value = Some(tag_value)
-                    }
+                    self.process_text(
+                        &mut current_obj,
+                        &mut current_key,
+                        &mut current_value,
+                        &mut path,
+                        has_attributes,
+                        tag_value,
+                    )?;
                 },
                 Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
                 Ok(Event::Eof) => break,
@@ -216,6 +227,30 @@ impl<'js> XMLParser<'js> {
 }
 
 impl<'js> XMLParser<'js> {
+    fn process_text<'a>(
+        &self,
+        current_obj: &mut StackObject,
+        current_key: &mut Rc<str>,
+        current_value: &mut Option<String>,
+        path: &mut Vec<(Rc<str>, StackObject<'js>)>,
+        has_attributes: bool,
+        tag_value: Cow<'a, str>,
+    ) -> Result<()> {
+        let tag_value = self.process_tag_value(path, current_key, tag_value, has_attributes)?;
+        if has_attributes {
+            current_obj.has_value = true;
+            current_obj
+                .obj
+                .set(self.text_node_name.as_ref(), tag_value)?;
+        } else {
+            match current_value {
+                Some(ref mut val) => val.push_str(&tag_value),
+                None => *current_value = Some(tag_value),
+            }
+        }
+        Ok(())
+    }
+
     fn get_tag_name(
         ctx: &Ctx<'js>,
         reader: &Reader<&[u8]>,
@@ -315,9 +350,9 @@ impl<'js> XMLParser<'js> {
         &self,
         path: &[(Rc<str>, StackObject<'js>)],
         key: &str,
-        value: &str,
+        value: Cow<'_, str>,
         has_attributes: bool,
-    ) -> Result<Rc<str>> {
+    ) -> Result<String> {
         if value.is_empty() {
             return Ok(value.into());
         }
@@ -331,14 +366,14 @@ impl<'js> XMLParser<'js> {
 
             if let Some(new_value) = tag_value_processor.call::<_, Option<String>>((
                 key,
-                value,
+                value.as_ref(),
                 jpath,
                 has_attributes,
             ))? {
-                return Ok(new_value.into());
+                return Ok(new_value);
             }
         }
-        Ok::<_, Error>(value.into())
+        Ok(value.into())
     }
 }
 

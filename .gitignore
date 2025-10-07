@@ -23,3 +23,7 @@ bootstrap
 
 node_modules
 !/fixtures/node_modules
+
+tests/wpt/revision
+/wpt
+wpt_errors.tmp

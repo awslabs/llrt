@@ -13,6 +13,8 @@ mod modules {
     pub use llrt_abort as abort;
     #[cfg(feature = "assert")]
     pub use llrt_assert as assert;
+    #[cfg(feature = "async-hooks")]
+    pub use llrt_async_hooks as async_hooks;
     #[cfg(feature = "buffer")]
     pub use llrt_buffer as buffer;
     #[cfg(feature = "child-process")]
@@ -27,10 +29,10 @@ mod modules {
     pub use llrt_events as events;
     #[cfg(feature = "exceptions")]
     pub use llrt_exceptions as exceptions;
+    #[cfg(feature = "fetch")]
+    pub use llrt_fetch as fetch;
     #[cfg(feature = "fs")]
     pub use llrt_fs as fs;
-    #[cfg(feature = "http")]
-    pub use llrt_http as http;
     #[cfg(feature = "navigator")]
     pub use llrt_navigator as navigator;
     #[cfg(feature = "net")]

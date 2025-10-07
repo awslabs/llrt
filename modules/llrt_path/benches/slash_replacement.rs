@@ -1,7 +1,10 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use llrt_path::replace_backslash;
-use rand::seq::SliceRandom;
-use rand::Rng;
+use rand::prelude::*;
 use std::path::{Path, PathBuf};
 
 const MAX_DEPTH: usize = 10;
@@ -118,13 +121,13 @@ const WORD_LIST: &[&str] = &[
 ];
 
 fn generate_random_path() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = ThreadRng::default();
     let mut path = PathBuf::new();
-    let depth = rng.gen_range(1..=MAX_DEPTH);
+    let depth = rng.random_range(1..=MAX_DEPTH);
 
     for _ in 0..depth {
         let name = WORD_LIST.choose(&mut rng).unwrap();
-        if rng.gen_bool(PATH_STYLE_PROB) {
+        if rng.random_bool(PATH_STYLE_PROB) {
             path.push(format!("{}\\", name));
         } else {
             path.push(name);

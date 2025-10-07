@@ -1,7 +1,7 @@
 [package]
 name = "llrt_child_process"
 description = "LLRT Module child_process"
-version = "0.5.1-beta"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -13,21 +13,19 @@ path = "src/lib.rs"
 [dependencies]
 itoa = "1"
 either = "1"
-llrt_buffer = { version = "0.5.1-beta", path = "../llrt_buffer" }
-llrt_context = { version = "0.5.1-beta", path = "../../libs/llrt_context" }
-llrt_events = { version = "0.5.1-beta", path = "../llrt_events" }
-llrt_stream = { version = "0.5.1-beta", path = "../llrt_stream" }
 llrt_url = { version = "0.5.1-beta", path = "../llrt_url" }
-llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-    "either",
-], default-features = false }
-tokio = { version = "1", features = ["process"] }
 url = "2.5"
+itoa = { version = "1", default-features = false }
+llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
+llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
+llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
+llrt_stream = { version = "0.7.0-beta", path = "../llrt_stream" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["std"], default-features = false }
+tokio = { version = "1", features = ["process"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2"
+libc = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["full"] }

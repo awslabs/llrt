@@ -333,4 +333,12 @@ declare module "fs" {
    * See the POSIX [`chmod(2)`](http://man7.org/linux/man-pages/man2/chmod.2.html) documentation for more detail.
    */
   export function chmodSync(path: PathLike, mode: Mode): void;
+
+  /**
+   * Synchronously renames a file or directory from `oldPath` to `newPath`.
+   *
+   * For detailed information, see the documentation of the asynchronous version of
+   * this API: {@link promises.rename}.
+   */
+  export function renameSync(oldPath: PathLike, newPath: PathLike): void;
 }

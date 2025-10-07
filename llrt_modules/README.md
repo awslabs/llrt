@@ -1,6 +1,6 @@
 # LLRT Modules
 
-LLRT Modules is a meta-module of [rquickjs](https://github.com/DelSkayn/rquickjs) modules that can be used independantly of LLRT (**L**ow **L**atency **R**un**t**ime). They aim to bring to [quickjs](https://bellard.org/quickjs/) APIs from [Node.js](https://nodejs.org/) and [WinterCG](https://wintercg.org/). You can use this meta-module, but each module is also a unique crate.
+LLRT Modules is a meta-module of [rquickjs](https://github.com/DelSkayn/rquickjs) modules that can be used independantly of LLRT (**L**ow **L**atency **R**un**t**ime). They aim to bring to [quickjs](https://bellard.org/quickjs/) APIs from [Node.js](https://nodejs.org/) and [WinterTC](https://wintertc.org/). You can use this meta-module, but each module is also a unique crate.
 
 LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications.
 
@@ -55,7 +55,7 @@ async fn main() -> Result<(), Error> {
         options.global = false;
         if let Err(Error::Exception) = ctx.eval_with_options::<(), _>(
             r#"
-            import { Buffer } from "buffer";
+            import { Buffer } from "node:buffer";
             Buffer.alloc(10);
             "#,
             options
@@ -95,7 +95,7 @@ async fn main() -> Result<(), Error> {
         options.global = false;
         if let Err(Error::Exception) = ctx.eval_with_options::<(), _>(
             r#"
-            import { Buffer } from "buffer";
+            import { Buffer } from "node:buffer";
             Buffer.alloc(10);
             "#,
             options
@@ -121,25 +121,26 @@ async fn main() -> Result<(), Error> {
 | -------------- | ------- | ------------ | ---------------- | --------------------- |
 | abort          | ✔︎     | ✔︎️         | `abort`          | `llrt_abort`          |
 | assert         | ✔︎     | ⚠️           | `assert`         | `llrt_assert`         |
-| buffer         | ✔︎     | ✔︎️         | `buffer`         | `llrt_buffer`         |
+| async_hooks    | ✔︎     | ⚠️           | `async-hooks`    | `llrt_async_hooks`    |
+| buffer         | ✔︎     | ⚠️           | `buffer`         | `llrt_buffer`         |
 | child process  | ✔︎     | ⚠️           | `child-process`  | `llrt_child_process`  |
 | console        | ✔︎     | ⚠️           | `console`        | `llrt_console`        |
 | crypto         | ✔︎     | ⚠️           | `crypto`         | `llrt_crypto`         |
 | dns            | ✔︎     | ⚠️           | `dns`            | `llrt_dns`            |
 | events         | ✔︎     | ⚠️           | `events`         | `llrt_events`         |
 | exceptions     | ✔︎     | ⚠️           | `exceptions`     | `llrt_exceptions`     |
+| fetch          | ✔︎     | ⚠️           | `fetch`          | `llrt_fetch`          |
 | fs/promises    | ✔︎     | ⚠️           | `fs`             | `llrt_fs`             |
 | fs             | ✔︎     | ⚠️           | `fs`             | `llrt_fs`             |
-| http           | ✔︎     | ⚠️           | `http`           | `llrt_http`           |
 | navigator      | ✔︎     | ⚠️           | `navigator`      | `llrt_navigator`      |
 | net            | ✔︎     | ⚠️           | `net`            | `llrt_net`            |
 | os             | ✔︎     | ⚠️           | `os`             | `llrt_os`             |
-| path           | ✔︎     | ✔︎          | `path`           | `llrt_path`           |
+| path           | ✔︎     | ⚠️           | `path`           | `llrt_path`           |
 | perf hooks     | ✔︎     | ⚠️           | `perf-hooks`     | `llrt_perf_hooks`     |
-| stream         | ✔︎     | ⚠️           | N/A              | `llrt_stream`         |
+| stream (lib)   | N/A     | ✔︎          | N/A              | `llrt_stream`         |
 | string_decoder | ✔︎     | ✔︎          | `string_decoder` | `llrt_string_decoder` |
-| timers         | ✔︎     | ✔︎          | `timers`         | `llrt_timers`         |
-| process        | ✔︎     | ✔︎          | `process`        | `llrt_process`        |
+| timers         | ✔︎     | ⚠️           | `timers`         | `llrt_timers`         |
+| process        | ✔︎     | ⚠️           | `process`        | `llrt_process`        |
 | tty            | ✔︎     | ⚠️           | `tty`            | `llrt_tty`            |
 | url            | ✔︎     | ⚠️           | `url`            | `llrt_url`            |
 | util           | ✔︎     | ⚠️           | `util`           | `llrt_util`           |
@@ -147,9 +148,6 @@ async fn main() -> Result<(), Error> {
 | Other modules  | ✔︎     | ✘            | N/A              | N/A                   |
 
 _⚠️ = partially supported_
-_⏱ = planned partial support_
-_\* = Not native_
-_\*\* = Use fetch instead_
 
 ## License
 

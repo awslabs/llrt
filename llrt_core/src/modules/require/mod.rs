@@ -7,14 +7,17 @@ use std::{
     rc::Rc,
 };
 
+use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use once_cell::sync::Lazy;
-use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, JsLifetime, Module, Object, Result, Value};
+use rquickjs::{
+    atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
+};
 use tokio::time::Instant;
 use tracing::trace;
 
 use crate::bytecode::BYTECODE_FILE_EXT;
 use crate::environment;
-use crate::libs::json::parse::json_parse;
+use crate::libs::{json::parse::json_parse, utils::provider::ProviderType};
 use crate::modules::{
     ModuleNames,
     {path::resolve_path, timers::poll_timers},
@@ -38,10 +41,6 @@ pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
         .unwrap_or_else(|| "browser".to_string())
 });
 
-pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
-
-include!(concat!(env!("OUT_DIR"), "/bytecode_cache.rs"));
-
 #[derive(Default)]
 pub struct RequireState<'js> {
     pub cache: HashMap<Rc<str>, Value<'js>>,
@@ -54,6 +53,9 @@ unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
 }
 
 pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
+    let globals = ctx.globals();
+    let embedded_fn: Option<Function> = globals.get("__embedded_hook").ok();
+
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
 
@@ -75,7 +77,10 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
         let specifier = if is_bytecode_or_json {
             specifier
         } else {
-            specifier.trim_start_matches("node:").to_string()
+            specifier
+                .trim_start_matches("node:")
+                .trim_end_matches("/")
+                .to_string()
         };
 
         if module_list.contains(specifier.as_str()) {
@@ -86,7 +91,8 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             let module_name = module_name.trim_start_matches(CJS_IMPORT_PREFIX);
             let abs_path = resolve_path([module_name].iter())?;
 
-            let resolved_path = require_resolve(&ctx, &specifier, &abs_path, false)?.into_owned();
+            let resolved_path =
+                require_resolve(&ctx, &specifier, &abs_path, embedded_fn, false)?.into_owned();
             import_name = resolved_path.into();
             if is_bytecode_or_json {
                 import_name.clone()
@@ -133,6 +139,11 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     let mut deadline = Instant::now();
 
     let mut executing_timers = Vec::new();
+
+    // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
+    let uid = unsafe { qjs::JS_VALUE_GET_PTR(obj.as_object().unwrap().as_raw()) } as usize;
+    register_finalization_registry(&ctx, obj.clone().into_value(), uid)?;
+    invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, uid)?;
 
     let imported_object = loop {
         if let Some(x) = import_promise.result::<Object>() {

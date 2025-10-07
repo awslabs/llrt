@@ -14,7 +14,7 @@ use sysinfo::Networks;
 static NETWORKS: Lazy<Arc<Mutex<Networks>>> =
     Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list())));
 
-pub fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object>>> {
+pub fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object<'_>>>> {
     let mut map: HashMap<String, Vec<Object>> = HashMap::new();
     let networks = NETWORKS.lock().unwrap();
 

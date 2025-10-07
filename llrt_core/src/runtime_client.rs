@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     env,
     result::Result as StdResult,
@@ -17,7 +19,7 @@ use hyper::{
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
-    CaughtError, Ctx, Exception, Function, IntoJs, Object, Result, Value,
+    CaughtError, Ctx, Exception, Function, IntoJs, Module, Object, Result, Value,
 };
 use tracing::info;
 use zstd::zstd_safe::WriteBuf;
@@ -33,7 +35,7 @@ use crate::libs::{
 
 #[cfg(not(test))]
 use crate::modules::console::log_error;
-use crate::modules::http::{HyperClient, HTTP_CLIENT};
+use crate::modules::fetch::{HyperClient, HTTP_CLIENT};
 use crate::utils::latch::Latch;
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
@@ -242,10 +244,18 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
         state_ref.push(SdkClientInitState::new(rt));
     }
 
-    //allows CJS handlers
-    let require_function: Function = ctx.globals().get("require")?;
-    let require_specifier: String = [task_root.as_str(), module_name].join("/");
-    let js_handler_module: Object = require_function.call((require_specifier,))?;
+    let specifier: String = [task_root.as_str(), module_name].join("/");
+
+    let import_promise = Module::import(ctx, specifier.as_bytes())?;
+
+    let latch = {
+        let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
+        get_sdk_client_init_state(&state_ref, rt).latch.clone()
+    };
+    latch.wait().await;
+
+    let js_handler_module = import_promise.into_future::<Object>().await?;
+
     let handler: Value = js_handler_module.get(handler_name)?;
 
     if !handler.is_function() {
@@ -261,12 +271,6 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
             .concat(),
         ));
     }
-
-    let latch = {
-        let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
-        get_sdk_client_init_state(&state_ref, rt).latch.clone()
-    };
-    latch.wait().await;
 
     let client = HTTP_CLIENT.as_ref().or_throw(ctx)?.clone();
 
@@ -598,7 +602,6 @@ mod tests {
     use rquickjs::{async_with, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
-    use crate::modules::llrt::uuid::uuidv4;
     use crate::runtime_client::{
         self, RuntimeConfig, ENV_RUNTIME_PATH, HEADER_INVOKED_FUNCTION_ARN, HEADER_REQUEST_ID,
     };
@@ -608,6 +611,24 @@ mod tests {
     async fn runtime() {
         let mock_server = MockServer::start().await;
 
+        fn uuid_v4() -> String {
+            let mut bytes = [0u8; 8];
+            for b in bytes.iter_mut() {
+                *b = rand::random();
+            }
+
+            format!(
+                "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]
+            )
+        }
+
+        Mock::given(matchers::method("GET"))
+            .and(matchers::path("/"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
         Mock::given(matchers::method("GET"))
             .and(matchers::path(format!(
                 "{}/invocation/next",
@@ -615,7 +636,7 @@ mod tests {
             )))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .insert_header(&HEADER_REQUEST_ID, uuidv4())
+                    .insert_header(&HEADER_REQUEST_ID, uuid_v4())
                     .insert_header(&HEADER_INVOKED_FUNCTION_ARN, "n/a")
                     .set_body_string(r#"{"hello": "world"}"#),
             )
@@ -651,6 +672,7 @@ mod tests {
             };
 
             async_with!(vm.ctx => |ctx|{
+                ctx.globals().set("__MOCK_ENDPOINT", ["http://",runtime_api].concat()).unwrap();
                 runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
             })
             .await;
@@ -659,6 +681,9 @@ mod tests {
         run_with_handler(&vm, "../fixtures/handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/primitive-handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/throwing-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/sdk-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/tla-webcall-handler.handler", &runtime_api).await;
+        run_with_handler(&vm, "../fixtures/cjs-handler.handler", &runtime_api).await;
 
         vm.runtime.idle().await;
     }

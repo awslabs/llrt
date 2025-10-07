@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
 
 #[cfg(windows)]
 use std::os::windows::{
@@ -325,7 +326,7 @@ mod tests {
             Box::pin(async move {
                 buffer::init(&ctx).unwrap();
 
-                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "child_process")
+                ModuleEvaluator::eval_rust::<ChildProcessModule>(ctx.clone(), "node:child_process")
                     .await
                     .unwrap();
 
@@ -333,6 +334,7 @@ mod tests {
                     ctx.clone(),
                     "test",
                     r#"
+                    import {spawn} from "node:child_process";
 
                     import {execFile} from "child_process";
 

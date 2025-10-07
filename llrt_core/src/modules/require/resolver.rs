@@ -11,7 +11,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Resolver, Ctx, Error, Result};
+use rquickjs::{loader::Resolver, Ctx, Error, Function, Result};
 use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
@@ -21,7 +21,7 @@ use crate::modules::path::{
 };
 use crate::utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS};
 
-use super::{BYTECODE_CACHE, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
+use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
 
 fn rc_string_to_cow<'a>(rc: Rc<String>) -> Cow<'a, str> {
     match Rc::try_unwrap(rc) {
@@ -87,10 +87,10 @@ static FILESYSTEM_ROOT: Lazy<Box<str>> = Lazy::new(|| {
 });
 
 #[derive(Debug, Default)]
-pub struct CustomResolver;
+pub struct NpmJsResolver;
 
 #[allow(clippy::manual_strip)]
-impl Resolver for CustomResolver {
+impl Resolver for NpmJsResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         if name.starts_with(CJS_IMPORT_PREFIX) {
             return Ok(name.to_string());
@@ -100,16 +100,18 @@ impl Resolver for CustomResolver {
 
         trace!("Try resolve '{}' from '{}'", name, base);
 
-        require_resolve(ctx, name, base, true).map(|name| name.into_owned())
+        require_resolve(ctx, name, base, None, true).map(|name| name.into_owned())
     }
 }
 
 // [CJS Reference Implementation](https://nodejs.org/api/modules.html#all-together)
 // require(X) from module at path Y
+#[allow(clippy::type_complexity)]
 pub fn require_resolve<'a>(
     ctx: &Ctx<'_>,
     x: &'a str,
     y: &str,
+    embedded_fn: Option<Function<'_>>,
     is_esm: bool,
 ) -> Result<Cow<'a, str>> {
     // trim schema
@@ -130,8 +132,10 @@ pub fn require_resolve<'a>(
     trace!("require_resolve(x, y):({}, {})", x, y);
 
     // 1'. If X is a bytecode cache,
-    if BYTECODE_CACHE.contains_key(x) {
-        return resolved_by_bytecode_cache(x.into());
+    if let Some(embedded_resolve) = embedded_fn {
+        if let Ok(path) = embedded_resolve.call::<_, String>((x, y)) {
+            return Ok(path.into());
+        }
     }
 
     //fast path for when we have supported extensions
@@ -147,10 +151,6 @@ pub fn require_resolve<'a>(
     }
 
     let x_normalized = path::normalize(x);
-    if BYTECODE_CACHE.contains_key(&x_normalized) {
-        return resolved_by_bytecode_cache(x_normalized.into());
-    }
-
     if !x_starts_with_parent_dir && is_supported_ext && Path::new(&x_normalized).is_file() {
         return resolved_by_file_exists(x_normalized.into());
     }
@@ -185,12 +185,12 @@ pub fn require_resolve<'a>(
 
         // a. LOAD_AS_FILE(Y + X)
         if let Ok(Some(path)) = load_as_file(ctx, y_plus_x.clone()) {
-            trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
+            trace!("+- Resolved by `LOAD_AS_FILE`: {}", path);
             return to_abs_path(path);
         } else {
             // b. LOAD_AS_DIRECTORY(Y + X)
             if let Ok(Some(path)) = load_as_directory(ctx, y_plus_x) {
-                trace!("+- Resolved by `LOAD_AS_DIRECTORY`: {}\n", path);
+                trace!("+- Resolved by `LOAD_AS_DIRECTORY`: {}", path);
                 return to_abs_path(path);
             }
         }
@@ -203,26 +203,26 @@ pub fn require_resolve<'a>(
     if x.starts_with('#') {
         // a. LOAD_PACKAGE_IMPORTS(X, dirname(Y))
         if let Ok(Some(path)) = load_package_imports(ctx, x, &dirname_y) {
-            trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}\n", path);
+            trace!("+- Resolved by `LOAD_PACKAGE_IMPORTS`: {}", path);
             return Ok(path.into());
         }
     }
 
     // 5. LOAD_PACKAGE_SELF(X, dirname(Y))
     if let Ok(Some(path)) = load_package_self(ctx, x, &dirname_y, is_esm) {
-        trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}\n", path);
+        trace!("+- Resolved by `LOAD_PACKAGE_SELF`: {}", path);
         return to_abs_path(path.into());
     }
 
     // 6. LOAD_NODE_MODULES(X, dirname(Y))
     if let Some(path) = load_node_modules(ctx, x, dirname_y, is_esm) {
-        trace!("+- Resolved by `LOAD_NODE_MODULES`: {}\n", path);
+        trace!("+- Resolved by `LOAD_NODE_MODULES`: {}", path);
         return Ok(path);
     }
 
     // 6.5. LOAD_AS_FILE(X)
     if let Ok(Some(path)) = load_as_file(ctx, Rc::new(x.to_owned())) {
-        trace!("+- Resolved by `LOAD_AS_FILE`: {}\n", path);
+        trace!("+- Resolved by `LOAD_AS_FILE`: {}", path);
         return to_abs_path(path);
     }
 
@@ -230,13 +230,8 @@ pub fn require_resolve<'a>(
     Err(Error::new_resolving(y.to_string(), x.to_string()))
 }
 
-fn resolved_by_bytecode_cache(x: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    trace!("+- Resolved by `BYTECODE_CACHE`: {}\n", x);
-    Ok(x)
-}
-
 fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    trace!("+- Resolved by `FILE`: {}\n", path);
+    trace!("+- Resolved by `FILE`: {}", path);
     to_abs_path(path)
 }
 
@@ -660,10 +655,10 @@ fn load_package_exports<'a>(
         return Ok(sub_module.into());
     }
 
-    let (module_path, is_cjs) = package_exports_resolve(&package_json, name, is_esm)?;
-
+    let (module_path, resolve_path, is_cjs) = package_exports_resolve(&package_json, name, is_esm)?;
+    let module_path = resolve_path.unwrap_or_else(|| module_path.to_string());
     let module_path = to_abs_path(correct_extensions(
-        [dir, "/", scope, "/", module_path].concat(),
+        [dir, "/", scope, "/", &module_path].concat(),
     ))?;
 
     if is_cjs && is_esm {
@@ -717,10 +712,11 @@ fn load_package_self(ctx: &Ctx<'_>, x: &str, dir: &str, is_esm: bool) -> Result<
     //    "." + X.slice("name".length), `package.json` "exports", ["node", "require"])
     //    <a href="esm.md#resolver-algorithm-specification">defined in the ESM resolver</a>.
     // 6. RESOLVE_ESM_MATCH(MATCH)
-    if let Ok((path, _)) = package_exports_resolve(&package_json, name, is_esm) {
+    if let Ok((path, resolve_path, _)) = package_exports_resolve(&package_json, name, is_esm) {
+        let path = resolve_path.unwrap_or_else(|| path.to_string());
         trace!("|  load_package_self(2.c): {}", path);
         let dir = package_json_path.trim_end_matches("package.json");
-        let module_path = correct_extensions([dir, path].concat());
+        let module_path = correct_extensions([dir, &path].concat());
         return Ok(Some(module_path.into()));
     }
 
@@ -740,13 +736,20 @@ fn package_exports_resolve<'a>(
     package_json: &'a BorrowedValue<'a>,
     modules_name: &str,
     is_esm: bool,
-) -> Result<(&'a str, bool)> {
+) -> Result<(&'a str, Option<String>, bool)> {
     let ident = if is_esm { "import" } else { "require" };
 
     let modules_name = if modules_name != "." {
         &["./", modules_name].concat()
     } else {
         modules_name
+    };
+
+    let wildcard = if let Some(pos) = modules_name.rmatch_indices('/').nth(1) {
+        let (name, scope, _) = get_name_and_scope(modules_name, pos.0);
+        (Some(name), Some([scope, "/*"].concat()))
+    } else {
+        (None, None)
     };
 
     if let BorrowedValue::Object(map) = package_json {
@@ -758,59 +761,101 @@ fn package_exports_resolve<'a>(
                 // Check for exports -> name -> platform(browser or node) -> [import | require]
                 if let Some(BorrowedValue::Object(platform)) = name.get(LLRT_PLATFORM.as_str()) {
                     if let Some(BorrowedValue::String(ident)) = platform.get(ident) {
-                        return Ok((ident.as_ref(), is_cjs));
+                        return Ok((ident.as_ref(), None, is_cjs));
                     }
                 }
                 // Check for exports -> name -> [import | require] -> default
                 if let Some(BorrowedValue::Object(ident)) = name.get(ident) {
                     if let Some(BorrowedValue::String(default)) = ident.get("default") {
-                        return Ok((default.as_ref(), is_cjs));
+                        return Ok((default.as_ref(), None, is_cjs));
                     }
+                }
+                // Check for exports -> name -> platform(browser or node)
+                if let Some(BorrowedValue::String(platform)) = name.get(LLRT_PLATFORM.as_str()) {
+                    return Ok((platform.as_ref(), None, is_cjs));
                 }
                 // Check for exports -> name -> [import | require]
                 if let Some(BorrowedValue::String(ident)) = name.get(ident) {
-                    return Ok((ident.as_ref(), is_cjs));
+                    return Ok((ident.as_ref(), None, is_cjs));
                 }
-                // [CJS only] Check for exports -> name -> default
-                if !is_esm {
+                // Check for exports -> name -> default
+                if let Some(BorrowedValue::String(default)) = name.get("default") {
+                    return Ok((default.as_ref(), None, is_cjs));
+                }
+            }
+            // Check for wildcard pattern
+            if let Some(scope) = wildcard.1 {
+                // Check for exports -> scope -> platform(browser or node) -> [import | require]
+                if let Some(BorrowedValue::Object(name)) = exports.get(scope.as_str()) {
+                    if let Some(BorrowedValue::Object(platform)) = name.get(LLRT_PLATFORM.as_str())
+                    {
+                        if let Some(BorrowedValue::String(ident)) = platform.get(ident) {
+                            let resolve_star = replace_star(ident, wildcard.0.unwrap());
+                            return Ok((ident.as_ref(), Some(resolve_star), is_cjs));
+                        }
+                    }
+                    // Check for exports -> scope -> [import | require] -> default
+                    if let Some(BorrowedValue::Object(ident)) = name.get(ident) {
+                        if let Some(BorrowedValue::String(default)) = ident.get("default") {
+                            let resolve_star = replace_star(default, wildcard.0.unwrap());
+                            return Ok((default.as_ref(), Some(resolve_star), is_cjs));
+                        }
+                    }
+                    // Check for exports -> scope -> platform(browser or node)
+                    if let Some(BorrowedValue::String(platform)) = name.get(LLRT_PLATFORM.as_str())
+                    {
+                        let resolve_star = replace_star(platform, wildcard.0.unwrap());
+                        return Ok((platform.as_ref(), Some(resolve_star), is_cjs));
+                    }
+                    // Check for exports -> scope -> [import | require]
+                    if let Some(BorrowedValue::String(ident)) = name.get(ident) {
+                        let resolve_star = replace_star(ident, wildcard.0.unwrap());
+                        return Ok((ident.as_ref(), Some(resolve_star), is_cjs));
+                    }
+                    //  Check for exports -> scope -> default
                     if let Some(BorrowedValue::String(default)) = name.get("default") {
-                        return Ok((default.as_ref(), is_cjs));
+                        let resolve_star = replace_star(default, wildcard.0.unwrap());
+                        return Ok((default.as_ref(), Some(resolve_star), is_cjs));
                     }
                 }
             }
             // Check for exports -> [import | require] -> default
             if let Some(BorrowedValue::Object(ident)) = exports.get(ident) {
                 if let Some(BorrowedValue::String(default)) = ident.get("default") {
-                    return Ok((default.as_ref(), is_cjs));
+                    return Ok((default.as_ref(), None, is_cjs));
                 }
             }
             // Check for exports -> [import | require]
             if let Some(BorrowedValue::String(ident)) = exports.get(ident) {
-                return Ok((ident.as_ref(), is_cjs));
+                return Ok((ident.as_ref(), None, is_cjs));
             }
             // [CJS only] Check for exports -> default
             if !is_esm {
                 if let Some(BorrowedValue::String(default)) = exports.get("default") {
-                    return Ok((default.as_ref(), is_cjs));
+                    return Ok((default.as_ref(), None, is_cjs));
                 }
             }
         }
         // Check for platform(browser or node) field
         if let Some(BorrowedValue::String(platform)) = map.get(LLRT_PLATFORM.as_str()) {
-            return Ok((platform.as_ref(), is_cjs));
+            return Ok((platform.as_ref(), None, is_cjs));
         }
         // [ESM only] Check for module field
         if is_esm {
             if let Some(BorrowedValue::String(module)) = map.get("module") {
-                return Ok((module.as_ref(), is_cjs));
+                return Ok((module.as_ref(), None, is_cjs));
             }
         }
         // Check for main field
         if let Some(BorrowedValue::String(main)) = map.get("main") {
-            return Ok((main.as_ref(), is_cjs));
+            return Ok((main.as_ref(), None, is_cjs));
         }
     }
-    Ok(("./index.js", true))
+    Ok(("./index.js", None, true))
+}
+
+fn replace_star(scope: &str, name: &str) -> String {
+    scope.replace("*", name)
 }
 
 // Implementation equivalent to PACKAGE_IMPORTS_RESOLVE including RESOLVE_ESM_MATCH

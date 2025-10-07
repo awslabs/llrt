@@ -1,7 +1,7 @@
 [package]
 name = "llrt_compression"
 description = "LLRT compression helpers"
-version = "0.5.1-beta"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -26,7 +26,8 @@ zstd-c = ["zstd"]
 zstd-rust = ["zstd"] # No pure rust implementation exists
 
 [dependencies]
-brotlic = { version = "0.8", optional = true }
-brotli = { version = "7", optional = true }
+# Optional
+brotlic = { version = "0.8", default-features = false, optional = true }
+brotli = { version = "8", features = ["std"], default-features = false, optional = true }
 flate2 = { version = "1", default-features = false, optional = true }
 zstd = { version = "0.13", default-features = false, optional = true }

@@ -1,7 +1,7 @@
 [package]
 name = "llrt_modules"
 description = "LLRT Modules for rquickjs"
-version = "0.5.1-beta"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -14,14 +14,15 @@ lambda = ["base"]
 base = [
   "abort",
   "assert",
+  "async-hooks",
   "buffer",
   "child-process",
   "crypto",
   "dns",
   "events",
   "exceptions",
+  "fetch",
   "fs",
-  "http",
   "navigator",
   "net",
   "os",
@@ -40,6 +41,7 @@ base = [
 # Modules
 abort = ["llrt_abort"]
 assert = ["llrt_assert"]
+async-hooks = ["llrt_async_hooks"]
 buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
 console = ["llrt_console"]
@@ -47,8 +49,8 @@ crypto = ["llrt_crypto"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
+fetch = ["llrt_fetch"]
 fs = ["llrt_fs"]
-http = ["llrt_http"]
 navigator = ["llrt_navigator"]
 net = ["llrt_net"]
 os = ["llrt_os"]
@@ -64,31 +66,32 @@ util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
-llrt_abort = { version = "0.5.1-beta", path = "../modules/llrt_abort", optional = true }
-llrt_assert = { version = "0.5.1-beta", path = "../modules/llrt_assert", optional = true }
-llrt_buffer = { version = "0.5.1-beta", path = "../modules/llrt_buffer", optional = true }
-llrt_child_process = { version = "0.5.1-beta", path = "../modules/llrt_child_process", optional = true }
-llrt_console = { version = "0.5.1-beta", path = "../modules/llrt_console", optional = true }
-llrt_crypto = { version = "0.5.1-beta", path = "../modules/llrt_crypto", optional = true }
-llrt_dns = { version = "0.5.1-beta", path = "../modules/llrt_dns", optional = true }
-llrt_events = { version = "0.5.1-beta", path = "../modules/llrt_events", optional = true }
-llrt_exceptions = { version = "0.5.1-beta", path = "../modules/llrt_exceptions", optional = true }
-llrt_fs = { version = "0.5.1-beta", path = "../modules/llrt_fs", optional = true }
-llrt_http = { version = "0.5.1-beta", path = "../modules/llrt_http", optional = true }
-llrt_navigator = { version = "0.5.1-beta", path = "../modules/llrt_navigator", optional = true }
-llrt_net = { version = "0.5.1-beta", path = "../modules/llrt_net", optional = true }
-llrt_os = { version = "0.5.1-beta", path = "../modules/llrt_os", optional = true }
-llrt_path = { version = "0.5.1-beta", path = "../modules/llrt_path", optional = true }
-llrt_process = { version = "0.5.1-beta", path = "../modules/llrt_process", optional = true }
-llrt_perf_hooks = { version = "0.5.1-beta", path = "../modules/llrt_perf_hooks", optional = true }
-llrt_stream_web = { version = "0.5.1-beta", path = "../modules/llrt_stream_web", optional = true }
-llrt_string_decoder = { version = "0.5.1-beta", path = "../modules/llrt_string_decoder", optional = true }
-llrt_timers = { version = "0.5.1-beta", path = "../modules/llrt_timers", optional = true }
-llrt_tty = { version = "0.5.1-beta", path = "../modules/llrt_tty", optional = true }
-llrt_url = { version = "0.5.1-beta", path = "../modules/llrt_url", optional = true }
-llrt_util = { version = "0.5.1-beta", path = "../modules/llrt_util", optional = true }
-llrt_zlib = { version = "0.5.1-beta", path = "../modules/llrt_zlib", optional = true }
-llrt_utils = { version = "0.5.1-beta", path = "../libs/llrt_utils" }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-  "loader",
-], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["loader"], default-features = false }
+
+# Optional
+llrt_abort = { version = "0.7.0-beta", path = "../modules/llrt_abort", optional = true }
+llrt_assert = { version = "0.7.0-beta", path = "../modules/llrt_assert", optional = true }
+llrt_async_hooks = { version = "0.7.0-beta", path = "../modules/llrt_async_hooks", optional = true }
+llrt_buffer = { version = "0.7.0-beta", path = "../modules/llrt_buffer", optional = true }
+llrt_child_process = { version = "0.7.0-beta", path = "../modules/llrt_child_process", optional = true }
+llrt_console = { version = "0.7.0-beta", path = "../modules/llrt_console", optional = true }
+llrt_crypto = { version = "0.7.0-beta", path = "../modules/llrt_crypto", optional = true }
+llrt_dns = { version = "0.7.0-beta", path = "../modules/llrt_dns", optional = true }
+llrt_events = { version = "0.7.0-beta", path = "../modules/llrt_events", optional = true }
+llrt_exceptions = { version = "0.7.0-beta", path = "../modules/llrt_exceptions", optional = true }
+llrt_fetch = { version = "0.7.0-beta", path = "../modules/llrt_fetch", optional = true }
+llrt_fs = { version = "0.7.0-beta", path = "../modules/llrt_fs", optional = true }
+llrt_navigator = { version = "0.7.0-beta", path = "../modules/llrt_navigator", optional = true }
+llrt_net = { version = "0.7.0-beta", path = "../modules/llrt_net", optional = true }
+llrt_os = { version = "0.7.0-beta", path = "../modules/llrt_os", default-features = false, optional = true }
+llrt_path = { version = "0.7.0-beta", path = "../modules/llrt_path", optional = true }
+llrt_process = { version = "0.7.0-beta", path = "../modules/llrt_process", optional = true }
+llrt_perf_hooks = { version = "0.7.0-beta", path = "../modules/llrt_perf_hooks", optional = true }
+llrt_stream_web = { version = "0.7.0-beta", path = "../modules/llrt_stream_web", optional = true }
+llrt_string_decoder = { version = "0.7.0-beta", path = "../modules/llrt_string_decoder", optional = true }
+llrt_timers = { version = "0.7.0-beta", path = "../modules/llrt_timers", optional = true }
+llrt_tty = { version = "0.7.0-beta", path = "../modules/llrt_tty", optional = true }
+llrt_url = { version = "0.7.0-beta", path = "../modules/llrt_url", optional = true }
+llrt_util = { version = "0.7.0-beta", path = "../modules/llrt_util", optional = true }
+llrt_zlib = { version = "0.7.0-beta", path = "../modules/llrt_zlib", optional = true }
+llrt_utils = { version = "0.7.0-beta", path = "../libs/llrt_utils" }

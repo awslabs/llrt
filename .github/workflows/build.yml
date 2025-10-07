@@ -25,11 +25,11 @@ jobs:
     name: build ${{ inputs.arch }}-${{ inputs.platform }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Checkout submodules
         run: git submodule update --init --checkout
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           cache: yarn
           node-version: lts/*
@@ -108,7 +108,7 @@ jobs:
           # HACK: Add scoop/shims to PATH
           export PATH="$PATH:/c/Users/$USER/scoop/shims"
           make stdlib
-          make libs-${{ inputs.release }}
+          rm -rf target/ || true
           make llrt-windows-${{ inputs.release }}.zip
           make llrt-windows-${{ inputs.release }}-no-sdk.zip
           make llrt-windows-${{ inputs.release }}-full-sdk.zip

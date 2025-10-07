@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::HashMap;
 use std::env;
+use std::sync::atomic::{AtomicU8, Ordering};
 
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 pub use llrt_utils::sysinfo;
 use llrt_utils::{
     module::{export_default, ModuleInfo},
@@ -11,13 +13,16 @@ use llrt_utils::{
     sysinfo::{ARCH, PLATFORM},
     time, VERSION,
 };
+use rquickjs::Exception;
 use rquickjs::{
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
-    object::Property,
+    object::{Accessor, Property},
     prelude::Func,
-    Array, BigInt, Ctx, Function, IntoJs, Object, Result, Value,
+    Array, BigInt, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
+
+pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
 
 fn cwd(ctx: Ctx<'_>) -> Result<String> {
     env::current_dir()
@@ -25,7 +30,7 @@ fn cwd(ctx: Ctx<'_>) -> Result<String> {
         .map(|path| path.to_string_lossy().to_string())
 }
 
-fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt> {
+fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt<'_>> {
     let now = time::now_nanos();
     let started = time::origin_nanos();
 
@@ -50,8 +55,28 @@ fn hr_time(ctx: Ctx<'_>) -> Result<Array<'_>> {
     Ok(array)
 }
 
-fn exit(code: i32) {
-    std::process::exit(code)
+fn to_exit_code(ctx: &Ctx<'_>, code: &Value<'_>) -> Result<Option<u8>> {
+    if let Ok(code) = code.get::<Coerced<f64>>() {
+        let code = code.0;
+        let code: u8 = if code.fract() != 0.0 {
+            return Err(Exception::throw_range(
+                ctx,
+                "The value of 'code' must be an integer",
+            ));
+        } else {
+            (code as i32).rem_euclid(256) as u8
+        };
+        return Ok(Some(code));
+    }
+    Ok(None)
+}
+
+fn exit(ctx: Ctx<'_>, code: Value<'_>) -> Result<()> {
+    let code = match to_exit_code(&ctx, &code)? {
+        Some(code) => code,
+        None => EXIT_CODE.load(Ordering::Relaxed),
+    };
+    std::process::exit(code.into())
 }
 
 fn env_proxy_setter<'js>(
@@ -105,6 +130,7 @@ fn setegid(id: u32) -> i32 {
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
+    BasePrimordials::init(ctx)?;
     let process = Object::new(ctx.clone())?;
     let process_versions = Object::new(ctx.clone())?;
     process_versions.set("llrt", VERSION)?;
@@ -143,6 +169,28 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("release", release)?;
     process.set("version", VERSION)?;
     process.set("versions", process_versions)?;
+
+    process.prop(
+        "exitCode",
+        Accessor::new(
+            |ctx| {
+                struct Args<'js>(Ctx<'js>);
+                let Args(ctx) = Args(ctx);
+                ctx.globals().get::<_, Value>("__exitCode")
+            },
+            |ctx, code| {
+                struct Args<'js>(Ctx<'js>, Value<'js>);
+                let Args(ctx, code) = Args(ctx, code);
+                if let Some(code) = to_exit_code(&ctx, &code)? {
+                    EXIT_CODE.store(code, Ordering::Relaxed);
+                }
+                ctx.globals().set("__exitCode", code)?;
+                Ok::<_, Error>(())
+            },
+        )
+        .configurable()
+        .enumerable(),
+    )?;
     process.set("exit", Func::from(exit))?;
 
     #[cfg(unix)]
@@ -177,6 +225,7 @@ impl ModuleDef for ProcessModule {
         declare.declare("release")?;
         declare.declare("version")?;
         declare.declare("versions")?;
+        declare.declare("exitCode")?;
         declare.declare("exit")?;
 
         #[cfg(unix)]

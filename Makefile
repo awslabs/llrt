@@ -176,20 +176,59 @@ run-cli: js
 	cargo run
 
 test: export JS_MINIFY = 0
+test: export TEST_SUB_DIR = unit
+test: export LLRT_ASYNC_HOOKS = 1
 test: js
-	cargo run -- test -d bundle/js/__tests__/unit
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+
+init-wpt:
+	cd wpt && \
+	git sparse-checkout init --no-cone && \
+	git sparse-checkout set \
+		/README.md \
+		/console \
+		/docs \
+		/encoding \
+		/FileAPI \
+		/fetch \
+		/hr-time \
+		/streams \
+		/tools \
+		/url \
+		/WebCryptoAPI \
+		/webidl \
+		/wpt \
+		/xhr
+
+update-wpt:
+	( cd wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../tests/wpt/revision )
+
+test-wpt: export JS_MINIFY = 0
+test-wpt: export TEST_SUB_DIR = wpt
+test-wpt: js
+	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp
+
+tidyup-wpt:
+	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
+	| sed '1,/^$$/d' \
+	| sed -E '/^ ?[^ ]/s|^.*__tests__/|🧪/|' \
+	> wpt_errors.txt
 
 test-e2e: export JS_MINIFY = 0
 test-e2e: export TEST_TIMEOUT = 60000
 test-e2e: export SDK_BUNDLE_MODE = STD
+test-e2e: export TEST_SUB_DIR = e2e
 test-e2e: js
-	cargo run -- test -d bundle/js/__tests__/e2e
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
+test-ci: export TEST_SUB_DIR = unit
+test-ci: export LLRT_ASYNC_HOOKS = 1
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) -- --nocapture --show-output
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/unit
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) --all-features -- --nocapture --show-output
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h
@@ -221,4 +260,12 @@ deploy:
 check:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-.PHONY: libs check libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy
+check-crates:
+	cargo metadata --no-deps --format-version 1 --quiet | \
+	jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name' | \
+	while read crate; do \
+	  echo "Checking crate: $$crate"; \
+	  cargo check -p "$$crate"; \
+	done
+
+.PHONY: libs check check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy

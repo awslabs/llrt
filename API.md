@@ -1,15 +1,45 @@
 # API documentation
 
 > [!NOTE]
-> The long term goal for LLRT is to become [Winter CG compliant](https://github.com/wintercg/admin/blob/main/proposals.md). Not every API from Node.js will be supported.
+> The long term goal for LLRT is to become [WinterTC compliant](https://min-common-api.proposal.wintertc.org/). Not every API from Node.js will be supported.
+
+# Node.js API
 
 ## assert
 
 [ok](https://nodejs.org/api/assert.html#assertokvalue-message)
 
+## async_hooks
+
+### Static methods
+
+[createHook](https://nodejs.org/api/async_hooks.html#async_hookscreatehookcallbacks)
+
+[executionAsyncId](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncid)
+
+[triggerAsyncId](https://nodejs.org/api/async_hooks.html#async_hookstriggerasyncid)
+
+### Class: AsyncHook
+
+[enable](https://nodejs.org/api/async_hooks.html#asynchookenable)
+
+[disable](https://nodejs.org/api/async_hooks.html#asynchookdisable)
+
+#### Hook callbacks
+
+[init](https://nodejs.org/api/async_hooks.html#initasyncid-type-triggerasyncid-resource)
+
+[before](https://nodejs.org/api/async_hooks.html#beforeasyncid)
+
+[after](https://nodejs.org/api/async_hooks.html#afterasyncid)
+
+[destroy](https://nodejs.org/api/async_hooks.html#destroyasyncid)
+
+[promiseResolve](https://nodejs.org/api/async_hooks.html#promiseresolveasyncid)
+
 ## buffer
 
-### static methods
+### Static methods
 
 [alloc](https://nodejs.org/api/buffer.html#static-method-bufferallocsize-fill-encoding)
 
@@ -27,7 +57,7 @@
 
 [isEncoding](https://nodejs.org/api/buffer.html#static-method-bufferisencodingencoding)
 
-### prototype methods
+### Prototype methods
 
 [copy](https://nodejs.org/api/buffer.html#bufcopytarget-targetstart-sourcestart-sourceend)
 
@@ -69,7 +99,7 @@
 
 [writeUInt32LE](https://nodejs.org/api/buffer.html#bufwriteuint32levalue-offset)
 
-### constants
+### Constants
 
 [constants.MAX_LENGTH](https://nodejs.org/api/buffer.html#bufferconstantsmax_length)
 
@@ -108,6 +138,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [randomUUID](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 
+[webcrypto](https://nodejs.org/api/crypto.html#cryptowebcrypto)
+
 ## crypto.subtle
 
 [subtle.decrypt](https://nodejs.org/api/webcrypto.html#subtledecryptalgorithm-key-data)
@@ -136,28 +168,6 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [EventEmitter](https://nodejs.org/api/events.html#class-eventemitter)
 
-## fetch
-
-Available globally
-
-[fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch)
-
-> [!IMPORTANT]
-> There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
->
-> - `keepalive` is always true
-> - `request.body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
-> - `response.body` returns `null`. Use `response.text()`, `response.json()` etc
-> - `mode`, `credentials`, `referrerPolicy`, `priority`, `cache` is not available/applicable
-
-## string_decoder
-
-[StringDecoder](https://nodejs.org/api/string_decoder.html#class-stringdecoder)
-
-## file
-
-[file](https://developer.mozilla.org/en-US/docs/Web/API/File)
-
 ## fs
 
 [accessSync](https://nodejs.org/api/fs.html#fsaccesssyncpath-mode)
@@ -179,6 +189,8 @@ Available globally
 [writeFileSync](https://nodejs.org/api/fs.html#fswritefilesyncfile-data-options)
 
 [chmodSync](https://nodejs.org/api/fs.html#fschmodsyncpath-mode)
+
+[renameSync](https://nodejs.org/api/fs.html#fsrenamesyncoldpath-newpath)
 
 ## fs/promises
 
@@ -203,6 +215,8 @@ Available globally
 [writeFile](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
 
 [chmod](https://nodejs.org/api/fs.html#fspromiseschmodpath-mode)
+
+[rename](https://nodejs.org/api/fs.html#fspromisesrenameoldpath-newpath)
 
 ## module
 
@@ -291,6 +305,10 @@ Available globally
 
 [resolve](https://nodejs.org/api/path.html#pathresolvepaths)
 
+## string_decoder
+
+[StringDecoder](https://nodejs.org/api/string_decoder.html#class-stringdecoder)
+
 ## timers
 
 _Also available globally_
@@ -309,81 +327,25 @@ _Also available globally_
 
 ## url
 
-```typescript
-export class URL {
-  constructor(input: string, base?: string | URL);
+### Class
 
-  hash: string;
-  host: string;
-  hostname: string;
-  href: string;
-  origin: string;
-  password: string;
-  pathname: string;
-  port: string;
-  protocol: string;
-  search: string;
-  searchParams: URLSearchParams;
-  username: string;
+[URL](https://nodejs.org/api/url.html#class-url)
 
-  parse(input: string, base?: string): URL | null;
-  canParse(input: string, base?: string): boolean;
-  toJSON(): string;
-  toString(): string;
-}
-```
+[URLSearchParams](https://nodejs.org/api/url.html#class-urlsearchparams)
 
-```typescript
-// Additional utilities in the URL module
-export function domainToASCII(domain: string): string;
+### Prototype methods
 
-export function domainToUnicode(domain: string): string;
+[domainToASCII](https://nodejs.org/api/url.html#urldomaintoasciidomain)
 
-export function fileURLToPath(url: string | URL): string;
+[domainToUnicode](https://nodejs.org/api/url.html#urldomaintounicodedomain)
 
-export function pathToFileURL(path: string): URL;
+[fileURLToPath](https://nodejs.org/api/url.html#urlfileurltopathurl-options)
 
-export function format(url: string | URL, options?: { fragment?: boolean, unicode?: boolean, auth?: boolean
-}): string;
+[format](https://nodejs.org/api/url.html#urlformaturl-options)
 
-export function urlToHttpOptions(url: URL): {
-  protocol?: string;
-  hostname?: string;
-  port?: string;
-  path?: string;
-  ...
-};
-```
+[pathToFileURL](https://nodejs.org/api/url.html#urlpathtofileurlpath-options)
 
-## URLSearchParams
-
-```typescript
-export class URLSearchParams {
-  constructor(
-    init?: string | string[][] | Record<string, string> | URLSearchParams
-  );
-
-  // properties
-  size: number;
-
-  // Methods
-  append(name: string, value: string): void;
-  delete(name: string): void;
-  get(name: string): string | null;
-  getAll(name: string): string[];
-  has(name: string): boolean;
-  set(name: string, value: string): void;
-  sort(): void;
-
-  [Symbol.iterator](): IterableIterator<[string, string]>;
-  entries(): IterableIterator<[string, string]>;
-  forEach(): IterableIterator<[string, string]>;
-  keys(): IterableIterator<string>;
-  values(): IterableIterator<string>;
-
-  toString(): string;
-}
-```
+[urlToHttpOptions](https://nodejs.org/api/url.html#urlurltohttpoptionsurl)
 
 ## util
 
@@ -399,6 +361,8 @@ export class URLSearchParams {
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
 ## zlib
+
+### Convenience methods
 
 [deflate](https://nodejs.org/api/zlib.html#zlibdeflatebuffer-options-callback)
 
@@ -432,6 +396,16 @@ export class URLSearchParams {
 
 [brotliDecompressSync](https://nodejs.org/api/zlib.html#zlibbrotlidecompresssyncbuffer-options)
 
+[zstdCompress](https://nodejs.org/api/zlib.html#zlibzstdcompressbuffer-options-callback)
+
+[zstdCompressSync](https://nodejs.org/api/zlib.html#zlibzstdcompresssyncbuffer-options)
+
+[zstdDecompress](https://nodejs.org/api/zlib.html#zlibzstddecompressbuffer-options-callback)
+
+[zstdDecompressSync](https://nodejs.org/api/zlib.html#zlibzstddecompresssyncbuffer-options)
+
+# LLRT API
+
 ## llrt:hex
 
 ```typescript
@@ -439,34 +413,6 @@ export function encode(
   value: string | Array | ArrayBuffer | Uint8Array
 ): string;
 export function decode(value: string): Uint8Array;
-```
-
-## llrt:uuid
-
-```typescript
-export const NIL: string;
-
-export function v1(): string;
-
-export function v3(
-  name: string,
-  namespace: Array | Uint8Array | String
-): string;
-
-export function v4(): string;
-
-export function v5(
-  name: string,
-  namespace: Array | Uint8Array | String
-): string;
-
-export function parse(value: string): Uint8Array;
-
-export function stringify(arr: Array | Uint8Array): string;
-
-export function validate(arr: string): boolean;
-
-export function version(arr: Array | Uint8Array): number;
 ```
 
 ## llrt:xml
@@ -487,22 +433,124 @@ export class XMLParser(options?: XmlParserOptions){
 
 ```
 
-## Misc Global objects
+# Web Standard API
+
+## CONSOLE
+
+[Console](https://developer.mozilla.org/en-US/docs/Web/API/console)
+
+## DOM
 
 [AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController)
 
 [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)
 
+[CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent)
+
+[Event](https://developer.mozilla.org/en-US/docs/Web/API/Event)
+
+[EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)
+
+## ECMASCRIPT
+
+[globalThis](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/globalThis)
+
+## ENCODING
+
+[TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)
+
+[TextEncoder](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder)
+
+## FETCH
+
+[Headers](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+
+[Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)
+
+[Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)
+
+[fetch](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+
+> [!IMPORTANT]
+> There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
+>
+> - `keepalive` is always true
+> - `request.body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
+> - `response.body` returns `null`. Use `response.text()`, `response.json()` etc
+> - `mode`, `credentials`, `referrerPolicy`, `priority`, `cache` is not available/applicable
+
+## FILEAPI
+
+[Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+
+[File](https://developer.mozilla.org/en-US/docs/Web/API/File)
+
+## HR-TIME
+
+[performance.now](https://developer.mozilla.org/en-US/docs/Web/API/Performance/now)
+
+[performance.timeOrigin](https://developer.mozilla.org/en-US/docs/Web/API/Performance/timeOrigin)
+
+## HTML
+
 [atob](https://developer.mozilla.org/en-US/docs/Web/API/atob)
 
 [btoa](https://developer.mozilla.org/en-US/docs/Web/API/btoa)
 
+[clearInterval](https://developer.mozilla.org/en-US/docs/Web/API/Window/clearInterval)
+
+[clearTimeout](https://developer.mozilla.org/en-US/docs/Web/API/Window/clearTimeout)
+
+[navigator](https://developer.mozilla.org/en-US/docs/Web/API/Window/navigator)
+
+[queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/Window/queueMicrotask)
+
+[setInterval](https://developer.mozilla.org/en-US/docs/Web/API/Window/setInterval)
+
+[setTimeout](https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout)
+
+[structuredClone](https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone)
+
+[userAgent](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/userAgent)
+
+## STREAMS
+
+[ByteLengthQueuingStrategy](https://developer.mozilla.org/en-US/docs/Web/API/ByteLengthQueuingStrategy)
+
+[CountQueuingStrategy](https://developer.mozilla.org/en-US/docs/Web/API/CountQueuingStrategy)
+
+[ReadableByteStreamController](https://developer.mozilla.org/en-US/docs/Web/API/ReadableByteStreamController)
+
+[ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)
+
+[ReadableStreamBYOBReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader)
+
+[ReadableStreamBYOBRequest](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBRequest)
+
+[ReadableStreamDefaultController](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultController)
+
+[ReadableStreamDefaultReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader)
+
+[WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
+
+[WritableStreamDefaultController](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultController)
+
+[WritableStreamDefaultWriter](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultWriter)
+
+## URL
+
+[URL](https://developer.mozilla.org/en-US/docs/Web/API/URL)
+
+[URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+
+## WEBCRYPTO
+
+[Crypto](https://developer.mozilla.org/en-US/docs/Web/API/Crypto)
+
+[CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
+
+[SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+
+## WEBIDL
+
 [DOMException](https://developer.mozilla.org/en-US/docs/Web/API/DOMException)
-
-[navigator.userAgent](https://nodejs.org/api/globals.html#navigatoruseragent)
-
-[performance.now](https://nodejs.org/api/perf_hooks.html#performancenow)
-
-[performance.timeOrigin](https://nodejs.org/api/perf_hooks.html#performancetimeorigin)
-
-[structuredClone](https://nodejs.org/api/globals.html#structuredclonevalue-options)

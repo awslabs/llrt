@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use aes::cipher::typenum::U12;
 use aes_gcm::Nonce;
-use aes_kw::{KekAes128, KekAes192, KekAes256};
+use aes_kw::{KeyInit, KwAes128, KwAes192, KwAes256};
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
-use rand::rngs::OsRng;
+
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Result};
-use rsa::{pkcs1::DecodeRsaPrivateKey, Oaep, RsaPrivateKey};
+use rsa::{
+    pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey},
+    Oaep, RsaPrivateKey, RsaPublicKey,
+};
 
 use crate::sha_hash::ShaAlgorithm;
 
@@ -103,7 +106,8 @@ pub fn encrypt_decrypt(
         } => {
             let length = extract_aes_length(ctx, key, "AES-GCM")?;
 
-            let nonce = Nonce::<U12>::from_slice(iv);
+            let nonce: &ctr::cipher::Array<_, _> =
+                &Nonce::<U12>::try_from(iv.as_ref()).or_throw(ctx)?;
 
             let variant = AesGcmVariant::new(length, *tag_length, handle).or_throw(ctx)?;
             match operation {
@@ -129,7 +133,7 @@ pub fn encrypt_decrypt(
             let is_encrypt = matches!(operation, EncryptionOperation::Encrypt);
 
             //Only create new vec if padding is needed, otherwise use original slice
-            let data = if data.len() % 8 != 0 && is_encrypt && padding != 0 {
+            let data = if !data.len().is_multiple_of(8) && is_encrypt && padding != 0 {
                 let padding_size = (8 - (data.len() % 8)) % 8;
                 let mut padded = Vec::with_capacity(data.len() + padding_size);
                 padded.extend_from_slice(data);
@@ -141,24 +145,48 @@ pub fn encrypt_decrypt(
 
             match handle.len() {
                 16 => {
-                    let kek = KekAes128::new(handle.into());
+                    let kek = KwAes128::new(handle.try_into().or_throw(ctx)?);
                     match operation {
-                        EncryptionOperation::Encrypt => kek.wrap_vec(&data),
-                        EncryptionOperation::Decrypt => kek.unwrap_vec(&data),
+                        EncryptionOperation::Encrypt => {
+                            let mut buf = vec![0u8; data.len() + 8];
+                            let result = kek.wrap_key(&data, &mut buf).or_throw(ctx)?;
+                            rquickjs::Result::Ok(result.to_vec())
+                        },
+                        EncryptionOperation::Decrypt => {
+                            let mut buf = vec![0u8; data.len()];
+                            let result = kek.unwrap_key(&data, &mut buf).or_throw(ctx)?;
+                            Ok(result.to_vec())
+                        },
                     }
                 },
                 24 => {
-                    let kek = KekAes192::new(handle.into());
+                    let kek = KwAes192::new(handle.try_into().or_throw(ctx)?);
                     match operation {
-                        EncryptionOperation::Encrypt => kek.wrap_vec(&data),
-                        EncryptionOperation::Decrypt => kek.unwrap_vec(&data),
+                        EncryptionOperation::Encrypt => {
+                            let mut buf = vec![0u8; data.len() + 8];
+                            let result = kek.wrap_key(&data, &mut buf).or_throw(ctx)?;
+                            Ok(result.to_vec())
+                        },
+                        EncryptionOperation::Decrypt => {
+                            let mut buf = vec![0u8; data.len()];
+                            let result = kek.unwrap_key(&data, &mut buf).or_throw(ctx)?;
+                            Ok(result.to_vec())
+                        },
                     }
                 },
                 32 => {
-                    let kek = KekAes256::new(handle.into());
+                    let kek = KwAes256::new(handle.try_into().or_throw(ctx)?);
                     match operation {
-                        EncryptionOperation::Encrypt => kek.wrap_vec(&data),
-                        EncryptionOperation::Decrypt => kek.unwrap_vec(&data),
+                        EncryptionOperation::Encrypt => {
+                            let mut buf = vec![0u8; data.len() + 8];
+                            let result = kek.wrap_key(&data, &mut buf).or_throw(ctx)?;
+                            Ok(result.to_vec())
+                        },
+                        EncryptionOperation::Decrypt => {
+                            let mut buf = vec![0u8; data.len()];
+                            let result = kek.unwrap_key(&data, &mut buf).or_throw(ctx)?;
+                            Ok(result.to_vec())
+                        },
                     }
                 },
                 _ => return Err(Exception::throw_message(ctx, "Invalid AES-KW key length")),
@@ -170,27 +198,29 @@ pub fn encrypt_decrypt(
                 KeyAlgorithm::Rsa { hash, .. } => hash,
                 _ => return algorithm_mismatch_error(ctx, "RSA-OAEP"),
             };
-            let (private_key, padding) = rsa_oaep_private_key(ctx, handle, label, hash)?;
+            let padding = rsa_oaep_padding(ctx, label, hash)?;
             match operation {
                 EncryptionOperation::Encrypt => {
-                    let public_key = private_key.to_public_key();
-                    let mut rng = OsRng;
+                    let public_key = RsaPublicKey::from_pkcs1_der(handle).or_throw(ctx)?;
+                    let mut rng = rand::rng();
                     public_key.encrypt(&mut rng, padding, data).or_throw(ctx)?
                 },
-                EncryptionOperation::Decrypt => private_key.decrypt(padding, data).or_throw(ctx)?,
+                EncryptionOperation::Decrypt => {
+                    let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
+
+                    private_key.decrypt(padding, data).or_throw(ctx)?
+                },
             }
         },
     };
     Ok(bytes)
 }
 
-pub fn rsa_oaep_private_key(
+pub fn rsa_oaep_padding(
     ctx: &Ctx<'_>,
-    handle: &[u8],
     label: &Option<Box<[u8]>>,
     hash: &ShaAlgorithm,
-) -> Result<(RsaPrivateKey, Oaep)> {
-    let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
+) -> Result<Oaep> {
     let mut padding = match hash {
         ShaAlgorithm::SHA1 => {
             return Err(Exception::throw_message(
@@ -204,9 +234,9 @@ pub fn rsa_oaep_private_key(
     };
     if let Some(label) = label {
         if !label.is_empty() {
-            padding.label = Some(String::from_utf8_lossy(label).to_string());
+            padding.label = Some(label.to_owned());
         }
     }
 
-    Ok((private_key, padding))
+    Ok(padding)
 }

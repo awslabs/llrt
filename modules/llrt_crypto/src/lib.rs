@@ -19,7 +19,6 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rand::prelude::ThreadRng;
 use rand::Rng;
 use ring::rand::{SecureRandom, SystemRandom};
 #[cfg(feature = "subtle-rs")]
@@ -34,10 +33,8 @@ use rquickjs::{
 use subtle::{
     subtle_decrypt, subtle_derive_bits, subtle_derive_key, subtle_digest, subtle_encrypt,
     subtle_export_key, subtle_generate_key, subtle_import_key, subtle_sign, subtle_unwrap_key,
-    subtle_verify, subtle_wrap_key, CryptoKey,
+    subtle_verify, subtle_wrap_key, CryptoKey, SubtleCrypto,
 };
-use uuid::Uuid;
-use uuid_simd::UuidExt;
 
 use self::{
     crc32::{Crc32, Crc32c},
@@ -76,10 +73,10 @@ fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
 }
 
 fn get_random_int(first: i64, second: Opt<i64>) -> Result<i64> {
-    let mut rng = ThreadRng::default();
+    let mut rng = rand::rng();
     let random_number = match second.0 {
-        Some(max) => rng.gen_range(first..max),
-        None => rng.gen_range(0..first),
+        Some(max) => rng.random_range(first..max),
+        None => rng.random_range(0..first),
     };
 
     Ok(random_number)
@@ -179,16 +176,58 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
 }
 
 fn uuidv4() -> String {
-    Uuid::new_v4().format_hyphenated().to_string()
+    let uuid = rand::random::<u128>() & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF | 0x40008000000000000000;
+
+    static HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    let bytes = uuid.to_be_bytes();
+
+    let mut buf = [0u8; 36];
+
+    // Precomputed positions for 32 hex digits (excluding hyphens)
+    static HEX_POS: [usize; 32] = [
+        0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 19, 20, 21, 22, 24, 25, 26, 27, 28,
+        29, 30, 31, 32, 33, 34, 35,
+    ];
+
+    // Map each byte to its hex representation
+    let mut hex_idx = 0;
+    for &byte in &bytes[..] {
+        let high = HEX_CHARS[(byte >> 4) as usize];
+        let low = HEX_CHARS[(byte & 0x0f) as usize];
+
+        buf[HEX_POS[hex_idx]] = high;
+        buf[HEX_POS[hex_idx + 1]] = low;
+        hex_idx += 2;
+    }
+
+    // Insert hyphens at standard positions
+    buf[8] = b'-';
+    buf[13] = b'-';
+    buf[18] = b'-';
+    buf[23] = b'-';
+
+    // SAFETY: The buffer only contains valid UTF-8 characters (hex digits and hyphens)
+    // that were explicitly set from the HEX_CHARS array and hyphen literals
+    unsafe { String::from_utf8_unchecked(buf.to_vec()) }
+}
+
+#[rquickjs::class]
+#[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
+struct Crypto {}
+
+#[rquickjs::methods]
+impl Crypto {
+    #[qjs(constructor)]
+    pub fn new(ctx: Ctx<'_>) -> Result<Self> {
+        Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
-    #[cfg(feature = "subtle-rs")]
-    Class::<CryptoKey>::define(&globals)?;
-
-    let crypto = Object::new(ctx.clone())?;
+    Class::<Crypto>::define(&globals)?;
+    let crypto = Class::instance(ctx.clone(), Crypto {})?;
 
     crypto.set("createHash", Func::from(Hash::new))?;
     crypto.set("createHmac", Func::from(Hmac::new))?;
@@ -201,7 +240,11 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     #[cfg(feature = "subtle-rs")]
     {
-        let subtle = Object::new(ctx.clone())?;
+        Class::<SubtleCrypto>::define(&globals)?;
+        Class::<CryptoKey>::define(&globals)?;
+
+        let subtle = Class::instance(ctx.clone(), SubtleCrypto {})?;
+
         subtle.set("decrypt", Func::from(Async(subtle_decrypt)))?;
         subtle.set("deriveKey", Func::from(Async(subtle_derive_key)))?;
         subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
@@ -243,6 +286,7 @@ impl ModuleDef for CryptoModule {
             declare.declare(class_name)?;
         }
         declare.declare("crypto")?;
+        declare.declare("webcrypto")?;
         declare.declare("default")?;
 
         Ok(())
@@ -278,7 +322,8 @@ impl ModuleDef for CryptoModule {
             default.set("randomFillSync", Func::from(random_fill_sync))?;
             default.set("randomFill", Func::from(random_fill))?;
             default.set("getRandomValues", Func::from(get_random_values))?;
-            default.set("crypto", crypto)?;
+            default.set("crypto", crypto.clone())?;
+            default.set("webcrypto", crypto)?;
             Ok(())
         })?;
 

@@ -1,8 +1,8 @@
 globalThis._require = require; //used to preserve require during bundling/minification
 const CWD = process.cwd();
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 
-import { platform } from "os";
+import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
 
 it("should require a file (absolute path)", () => {
@@ -163,6 +163,10 @@ it("require `@aws-lambda-powertools` module element", () => {
   _require(
     `${CWD}/fixtures/test_modules/test-aws-lambda-powertools-jmespath.js`
   );
+});
+
+it("require `hono/utils/url` module element", () => {
+  _require(`${CWD}/fixtures/test_modules/test-elem-hono.js`);
 });
 
 it("regression testing for issue #903", () => {

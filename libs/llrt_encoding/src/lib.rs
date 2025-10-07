@@ -1,11 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#![cfg_attr(rust_nightly, feature(array_chunks))]
+#![cfg_attr(rust_nightly, feature(iter_array_chunks))]
 use std::borrow::Cow;
 
 use hex_simd::AsciiCase;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Encoder {
     Hex,
     Base64,
@@ -194,19 +194,23 @@ pub enum Endian {
 }
 
 pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Result<String, String> {
-    if !lossy && bytes.len() % 2 != 0 {
+    if !lossy && !bytes.len().is_multiple_of(2) {
         return Err("Input byte slice length must be even".to_string());
     }
 
     #[cfg(rust_nightly)]
     let data16: Vec<u16> = match endian {
         Endian::Little => bytes
+            .iter()
+            .copied()
             .array_chunks::<2>()
-            .map(|&chunk| u16::from_le_bytes(chunk))
+            .map(|chunk| u16::from_le_bytes(chunk))
             .collect(),
         Endian::Big => bytes
+            .iter()
+            .copied()
             .array_chunks::<2>()
-            .map(|&chunk| u16::from_be_bytes(chunk))
+            .map(|chunk| u16::from_be_bytes(chunk))
             .collect(),
     };
 

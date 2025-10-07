@@ -1,11 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import net from "net";
-import os from "os";
-import { spawn, ChildProcess } from "child_process";
-import path from "path";
+import net from "node:net";
+import os from "node:os";
+import { spawn, ChildProcess } from "node:child_process";
+import path from "node:path";
 import { SocketReqMsg } from "./shared";
-import { platform } from "os";
+import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
 import CircularBuffer from "./CircularBuffer";
 import { dimensions } from "llrt:util";
@@ -637,8 +637,16 @@ class TestServer {
     output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
     output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
 
+    console.log(output);
+
     if (this.totalFailed > 0) {
-      for (let [file, testFailure] of this.filesFailed) {
+      output = "";
+      const sortedFilesFailed = new Map(
+        Array.from(this.filesFailed.entries()).sort(([keyA], [keyB]) =>
+          keyA.localeCompare(keyB)
+        )
+      );
+      for (let [file, testFailure] of sortedFilesFailed) {
         output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
 
         for (let failure of testFailure) {
@@ -653,10 +661,9 @@ class TestServer {
           }
         }
       }
-      console.log(output);
-      process.exit(1);
+      process.exitCode = 1;
     }
-    console.log(output);
+    console.error(output);
   }
 
   private printSuiteResult(result: SuiteResult, depth = 0): string {

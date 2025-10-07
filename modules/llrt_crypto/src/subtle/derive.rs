@@ -7,6 +7,11 @@ use p256::pkcs8::DecodePrivateKey;
 use ring::{hkdf, pbkdf2};
 use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
 
+use crate::{
+    sha_hash::ShaAlgorithm,
+    subtle::{CryptoKey, EllipticCurve},
+};
+
 use super::{
     algorithm_mismatch_error, algorithm_not_supported_error,
     crypto_key::KeyKind,
@@ -14,11 +19,6 @@ use super::{
     key_algorithm::{
         EcAlgorithm, KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation,
     },
-};
-
-use crate::{
-    sha_hash::ShaAlgorithm,
-    subtle::{CryptoKey, EllipticCurve},
 };
 
 struct HkdfOutput(usize);

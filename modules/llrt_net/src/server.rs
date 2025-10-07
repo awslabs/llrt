@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, RwLock,
@@ -428,8 +430,8 @@ mod tests {
                     .await
                     .unwrap();
 
-                let mut rng = rand::thread_rng();
-                let port: u16 = rng.gen_range(49152..=65535);
+                let mut rng = rand::rng();
+                let port: u16 = rng.random_range(49152..=65535);
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),

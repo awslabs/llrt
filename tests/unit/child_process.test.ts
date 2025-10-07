@@ -1,8 +1,18 @@
 import { spawn, execFile } from "child_process";
-import { platform } from "os";
+import defaultImport from "node:child_process";
+import legacyImport from "child_process";
+
+import { platform } from "node:os";
+import process from "node:process";
 const IS_WINDOWS = platform() === "win32";
 
-describe("child_process.spawn", () => {
+it("node:child_process should be the same as child_process", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { spawn } = defaultImport;
+
+describe("spawn", () => {
   it("should spawn a child process", (done) => {
     const command = "ls";
     const args = ["-l"];
@@ -140,6 +150,31 @@ describe("child_process.spawn", () => {
         done(error);
       }
     });
+  });
+
+  it("should have a process exitCode", async () => {
+    const testExitCode = async (
+      exitCodeValue: number | string,
+      expectedCode: number
+    ) => {
+      const proc = spawn(process.argv0, [
+        "-e",
+        `process.exitCode = ${exitCodeValue}`,
+      ]);
+      await new Promise<void>((resolve) => {
+        proc.on("exit", (code) => {
+          expect(code).toEqual(expectedCode);
+          resolve();
+        });
+      });
+    };
+
+    await testExitCode(241212341, 181);
+    await testExitCode(-1, 255);
+    await testExitCode(1, 1);
+    await testExitCode(-1231231231, 1);
+    await testExitCode(266, 10);
+    await testExitCode("266", 10);
   });
 });
 

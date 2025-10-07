@@ -54,7 +54,7 @@ impl ModuleResolver {
 
 impl Resolver for ModuleResolver {
     fn resolve(&mut self, _: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
-        let name = name.trim_start_matches("node:");
+        let name = name.trim_start_matches("node:").trim_end_matches("/");
         if self.modules.contains(name) {
             Ok(name.into())
         } else {
@@ -80,6 +80,12 @@ impl Default for ModuleBuilder {
         #[cfg(feature = "assert")]
         {
             builder = builder.with_module(crate::modules::assert::AssertModule);
+        }
+        #[cfg(feature = "async-hooks")]
+        {
+            builder = builder
+                .with_global(crate::modules::async_hooks::init)
+                .with_module(crate::modules::async_hooks::AsyncHooksModule);
         }
         #[cfg(feature = "buffer")]
         {
@@ -117,15 +123,15 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_global(crate::modules::exceptions::init);
         }
+        #[cfg(feature = "fetch")]
+        {
+            builder = builder.with_global(crate::modules::fetch::init);
+        }
         #[cfg(feature = "fs")]
         {
             builder = builder
                 .with_module(crate::modules::fs::FsPromisesModule)
                 .with_module(crate::modules::fs::FsModule);
-        }
-        #[cfg(feature = "http")]
-        {
-            builder = builder.with_global(crate::modules::http::init);
         }
         #[cfg(feature = "navigator")]
         {

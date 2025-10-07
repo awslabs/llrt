@@ -1,7 +1,7 @@
 import * as esbuild from "esbuild";
-import fs from "fs/promises";
-import { createRequire } from "module";
-import path from "path";
+import fs from "node:fs/promises";
+import { createRequire } from "node:module";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
 
@@ -10,6 +10,7 @@ process.env.NODE_PATH = ".";
 const TMP_DIR = `.tmp-llrt-aws-sdk`;
 const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
+const TESTS_SUB_DIR = process.env.TEST_SUB_DIR || "unit";
 const OUT_DIR = "bundle/js";
 const SHIMS = new Map();
 const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
@@ -31,8 +32,11 @@ async function readFilesRecursive(dir, filePredicate) {
 }
 
 const TEST_FILES = await readFilesRecursive(
-  TESTS_DIR,
-  (filePath) => filePath.endsWith(".test.ts") || filePath.endsWith(".spec.ts")
+  path.join(TESTS_DIR, TESTS_SUB_DIR),
+  (filePath) =>
+    filePath.endsWith(".test.ts") ||
+    filePath.endsWith(".spec.ts") ||
+    filePath.endsWith(".any.js")
 );
 const AWS_JSON_SHARED_COMMAND_REGEX =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\(_json\(input\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
@@ -40,12 +44,17 @@ const AWS_JSON_SHARED_COMMAND_REGEX2 =
   /{\s*const\s*headers\s*=\s*sharedHeaders\(("\w+")\);\s*let body;\s*body\s*=\s*JSON.stringify\((\w+)\(input,\s*context\)\);\s*return buildHttpRpcRequest\(context,\s*headers,\s*"\/",\s*undefined,\s*body\);\s*}/gm;
 const MINIFY_JS = process.env.JS_MINIFY !== "0";
 const SDK_UTILS_PACKAGE = "sdk-utils";
-const ENTRYPOINTS = ["stream", "@llrt/test/index", "@llrt/test/worker"];
+const ENTRYPOINTS = [
+  "stream",
+  "stream/promises",
+  "@llrt/test/index",
+  "@llrt/test/worker",
+];
 
 const ES_BUILD_OPTIONS = {
   splitting: MINIFY_JS,
   minify: MINIFY_JS,
-  sourcemap: true,
+  sourcemap: false,
   target: "es2023",
   outdir: OUT_DIR,
   bundle: true,
@@ -54,30 +63,50 @@ const ES_BUILD_OPTIONS = {
   format: "esm",
   external: [
     "assert",
+    "node:assert",
+    "async_hooks",
+    "node:async_hooks",
     "console",
     "node:console",
     "crypto",
+    "node:crypto",
     "dns",
+    "node:dns",
     "os",
+    "node:os",
     "fs",
+    "node:fs",
     "child_process",
+    "node:child_process",
     "process",
+    "node:process",
     "timers",
+    "node:timers",
     "stream",
+    "node:stream",
     "path",
+    "node:path",
     "events",
+    "node:events",
     "buffer",
+    "node:buffer",
     "net",
+    "node:net",
     "util",
+    "node:util",
     "url",
+    "node:url",
     "zlib",
+    "node:zlib",
     "llrt:hex",
     "llrt:util",
-    "llrt:uuid",
     "llrt:xml",
     "perf_hooks",
+    "node:perf_hooks",
     "tty",
+    "node:tty",
     "string_decoder",
+    "node:string_decoder",
     "@aws-crypto",
   ],
 };
@@ -345,6 +374,12 @@ const AWS_SDK_PLUGIN = {
       );
     }
 
+    build.onLoad({ filter: /xml-parser\.browser\.js$/ }, async (args) => {
+      const realPath = path.join(path.dirname(args.path), "xml-parser.js");
+      const contents = await fs.readFile(realPath, "utf8");
+      return { contents, loader: "js" };
+    });
+
     build.onLoad(
       { filter: /protocols\/Aws_json1_1\.js$/ },
       async ({ path: filePath }) => {
@@ -532,6 +567,7 @@ async function loadShims() {
     loadShim(/@aws-crypto/, "@aws-crypto/index.js"),
     loadShim(/@smithy\/util-hex-encoding/, "@smithy/util-hex-encoding.js"),
     loadShim(/@smithy\/util-utf8/, "@smithy/util-utf8.js"),
+    loadShim(/stringHasher.js/, "string-hasher.js"),
     loadShim(/@smithy\/util-base64/, "@smithy/util-base64.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "mnemonist/lru-cache.js"),
     loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
@@ -542,6 +578,7 @@ async function loadShims() {
       /create-read-stream-on-buffer\.browser\.js/,
       "create-read-stream.js"
     ),
+    loadShim(/isStreaming.js/, "is-streaming.js"),
   ]);
 }
 
@@ -563,6 +600,7 @@ async function buildLibrary() {
     ...defaultLibEsBuildOption,
     entryPoints,
     plugins: [requireProcessPlugin],
+    sourcemap: false,
   });
 
   // Build tests
@@ -577,6 +615,7 @@ async function buildLibrary() {
     ...defaultLibEsBuildOption,
     entryPoints: testEntryPoints,
     external: [...ES_BUILD_OPTIONS.external, "@aws-sdk", "@smithy"],
+    sourcemap: false,
   });
 }
 
@@ -607,7 +646,7 @@ async function buildSdks() {
         "@aws-sdk/util-utf8": "@smithy/util-utf8",
         "@smithy/md5-js": "crypto",
         "fast-xml-parser": "llrt:xml",
-        uuid: "llrt:uuid",
+        "xml-parser.browser": "xml-parser",
       },
       chunkNames: "llrt-[name]-sdk-[hash]",
       metafile: true,

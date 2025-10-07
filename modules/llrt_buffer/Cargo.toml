@@ -1,7 +1,7 @@
 [package]
 name = "llrt_buffer"
 description = "LLRT Module buffer"
-version = "0.5.1-beta"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -11,12 +11,15 @@ name = "llrt_buffer"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_encoding = { version = "0.5.1-beta", path = "../../libs/llrt_encoding" }
-llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
+itoa = { version = "1", default-features = false }
+llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
+  "futures",
   "macro",
 ], default-features = false }
+ryu = { version = "1", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["test-util"], default-features = false }

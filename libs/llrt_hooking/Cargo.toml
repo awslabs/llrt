@@ -1,0 +1,16 @@
+[package]
+name = "llrt_hooking"
+description = "LLRT hooking helpers"
+version = "0.7.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_hooking"
+path = "src/lib.rs"
+
+[dependencies]
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+once_cell = { version = "1", features = ["std"], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }

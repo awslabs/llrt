@@ -1,12 +1,12 @@
+use llrt_utils::object::ObjectExt;
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::Func,
-    Ctx, Exception, Function, Object, Result, Value,
+    Ctx, Exception, FromJs, Function, Object, Result, Value,
 };
-use std::result::Result as StdResult;
 
 const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
 const BUF_SIZE: usize = 80;
@@ -178,6 +178,20 @@ fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: 
 
 #[inline(always)]
 fn f64_to_base_n(number: f64, radix: u8) -> String {
+    const EXP_MASK: u64 = 0x7ff0000000000000;
+    let bits = number.to_bits();
+    if bits & EXP_MASK == EXP_MASK {
+        return get_nonfinite(bits).to_string();
+    }
+
+    if radix == 10 {
+        let mut result = ryu::Buffer::new().format_finite(number).to_string();
+        if result.ends_with(".0") {
+            result.truncate(result.len() - 2);
+        }
+        return result;
+    }
+
     let mut abs_num = number;
     let mut string = String::with_capacity(BUF_SIZE);
     let mut buf = [0u8; BUF_SIZE];
@@ -191,46 +205,22 @@ fn f64_to_base_n(number: f64, radix: u8) -> String {
     let fractional_part = abs_num - integer_part;
     let integer_part = abs_num as i64;
 
-    let mut index = internal_i64_to_base_n(&mut buf, integer_part, radix);
+    let index = internal_i64_to_base_n(&mut buf, integer_part, radix);
     string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[index..BUF_SIZE]) });
 
-    index = BUF_SIZE - index;
-
-    let dot_index = index;
-    index = fractional_to_base(&mut buf, index + 1, fractional_part, radix);
-    if index - 1 > dot_index {
-        buf[dot_index] = b'.';
+    if fractional_part > 0.0 {
+        buf.fill(0);
+        let frac_end = fractional_to_base(&mut buf, 0, fractional_part, radix);
+        if frac_end > 0 {
+            string.push('.');
+            string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[0..frac_end]) });
+        }
     }
-
-    string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[..index]) });
     string
 }
 
-pub fn float_to_string(buffer: &mut ryu::Buffer, float: f64) -> &str {
-    let str = match float_to_str(buffer, float) {
-        Ok(value) => value,
-        Err(value) => return value,
-    };
-    let len = str.len();
-    if unsafe { str.get_unchecked(len - 2..) } == ".0" {
-        return unsafe { std::str::from_utf8_unchecked(&str.as_bytes()[..len - 2]) };
-    }
-    str
-}
-
-/// Returns a string representation of the float value.
-///
-/// Returns error with a `str` if value is non-finite
-#[inline(always)]
-pub fn float_to_str(buf: &mut ryu::Buffer, float: f64) -> StdResult<&str, &str> {
-    const EXP_MASK: u64 = 0x7ff0000000000000;
-    let bits = float.to_bits();
-    if bits & EXP_MASK == EXP_MASK {
-        return Err(get_nonfinite(bits));
-    }
-
-    let str = buf.format_finite(float);
-    Ok(str)
+pub fn float_to_string(float: f64) -> String {
+    f64_to_base_n(float, 10)
 }
 
 #[inline(always)]
@@ -256,40 +246,57 @@ fn check_radix(ctx: &Ctx, radix: u8) -> Result<()> {
     Ok(())
 }
 
-fn number_to_string(ctx: Ctx, this: This<Value>, radix: Opt<u8>) -> Result<String> {
-    if let Some(int) = this.as_int() {
-        if let Some(radix) = radix.0 {
-            check_radix(&ctx, radix)?;
-            return Ok(i64_to_base_n(int as i64, radix));
-        }
-        let mut buffer = itoa::Buffer::new();
-        return Ok(buffer.format(int).into());
-    }
-    if let Some(float) = this.as_float() {
-        if let Some(radix) = radix.0 {
-            check_radix(&ctx, radix)?;
-            return Ok(f64_to_base_n(float, radix));
-        }
+fn number_to_string<'js>(
+    ctx: Ctx<'js>,
+    this: This<Value<'js>>,
+    radix: Opt<Value>,
+) -> Result<String> {
+    let radix = radix
+        .0
+        .and_then(|v| v.as_int())
+        .and_then(|r| u8::try_from(r).ok())
+        .unwrap_or(10);
+    check_radix(&ctx, radix)?;
 
-        let mut buffer = ryu::Buffer::new();
-        return Ok(float_to_string(&mut buffer, float).into());
+    // handle primitive number values
+    if let Some(float) = this.as_float() {
+        return Ok(f64_to_base_n(float, radix));
     }
+    if let Ok(int) = i64::from_js(&ctx, this.0.clone()) {
+        return Ok(i64_to_base_n(int, radix));
+    }
+
+    // handle boxed Number objects
+    if let Some(obj) = this.as_object() {
+        if let Some(value_of) = obj.get_optional::<_, Function>(PredefinedAtom::ValueOf)? {
+            let primitive: Value = value_of.call((this,))?;
+
+            if let Some(float) = primitive.as_float() {
+                return Ok(f64_to_base_n(float, radix));
+            }
+            if let Ok(int) = i64::from_js(&ctx, primitive) {
+                return Ok(i64_to_base_n(int, radix));
+            }
+        }
+    }
+
     Ok("".into())
 }
 
 #[cfg(test)]
 mod test {
-    use rand::{thread_rng, Rng};
+
+    use rand::Rng;
 
     use crate::{float_to_string, i64_to_base_n};
 
     #[test]
     fn test_base_conversions() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         for _ in 0..1_000_000 {
             // Generate random i64 and radix values
-            let num: i64 = rng.gen_range(i64::MIN + 1..i64::MAX - 1);
+            let num: i64 = rng.random_range(i64::MIN + 1..i64::MAX - 1);
 
             let minus_str = if num < 0 { "-" } else { "" };
 
@@ -319,15 +326,13 @@ mod test {
         let base_36 = i64_to_base_n(-123456789, 36);
         assert_eq!("-21i3v9", base_36);
 
-        let mut buf = ryu::Buffer::new();
-
-        let float = float_to_string(&mut buf, 123.456);
+        let float = float_to_string(123.456);
         assert_eq!("123.456", float);
 
-        let float = float_to_string(&mut buf, 123.);
+        let float = float_to_string(123.);
         assert_eq!("123", float);
 
-        let float = float_to_string(&mut buf, 0.0);
+        let float = float_to_string(0.0);
         assert_eq!("0", float);
     }
 }

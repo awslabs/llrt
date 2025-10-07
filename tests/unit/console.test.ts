@@ -1,7 +1,14 @@
-import * as timers from "timers";
-import { Console as NodeConsole } from "node:console";
-import { Console } from "console";
-import util from "util";
+import defaultImport from "node:console";
+import legacyImport from "console";
+
+import * as timers from "node:timers";
+import util from "node:util";
+
+it("node:console should be the same as console", () => {
+  expect(defaultImport).toStrictEqual(legacyImport);
+});
+
+const { Console } = defaultImport;
 
 it("should format strings correctly", () => {
   expect(util.format("%s:%s", "foo", "bar")).toEqual("foo:bar");
@@ -39,8 +46,10 @@ it("should log module", () => {
     clearTimeout: [function: (anonymous)],
     setInterval: [function: (anonymous)],
     clearInterval: [function: (anonymous)],
-    setImmediate: [function: (anonymous)]
+    setImmediate: [function: (anonymous)],
+    queueMicrotask: [function: (anonymous)]
   },
+  queueMicrotask: [function: (anonymous)],
   setImmediate: [function: (anonymous)],
   setInterval: [function: (anonymous)],
   setTimeout: [function: (anonymous)]
@@ -50,24 +59,6 @@ it("should log module", () => {
 });
 it("should log using console object", () => {
   const consoleObj = new Console({
-    stdout: process.stdout,
-    stderr: process.stderr,
-  });
-
-  // we check if the log does not throw an exception when called
-  consoleObj.log("log");
-  consoleObj.debug("debug");
-  consoleObj.info("info");
-  consoleObj.assert(false, "text for assertion should display");
-  consoleObj.assert(true, "This text should not be seen");
-
-  consoleObj.warn("warn");
-  consoleObj.error("error");
-  consoleObj.trace("trace");
-});
-
-it("should log using node:console object", () => {
-  const consoleObj = new NodeConsole({
     stdout: process.stdout,
     stderr: process.stderr,
   });

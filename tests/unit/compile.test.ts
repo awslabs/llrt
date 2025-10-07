@@ -1,7 +1,6 @@
-import fs from "fs/promises";
-import { spawn } from "child_process";
-import { tmpdir, platform } from "os";
-const IS_WINDOWS = platform() === "win32";
+import fs from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 
 const spawnCapture = async (cmd: string, args: string[]) => {
   const child = spawn(cmd, args);
@@ -28,8 +27,17 @@ const spawnCapture = async (cmd: string, args: string[]) => {
   return { stdout, stderr, status, signal };
 };
 
-const compile = async (filename: string, outputFilename: string) =>
-  await spawnCapture(process.argv0, ["compile", filename, outputFilename]);
+const compile = async (
+  filename: string,
+  outputFilename: string,
+  executable = false
+) => {
+  const args = ["compile", filename, outputFilename];
+  if (executable) {
+    args.push("--executable");
+  }
+  return await spawnCapture(process.argv0, args);
+};
 
 const run = async (filename: string) =>
   await spawnCapture(process.argv0, [filename]);
@@ -81,6 +89,23 @@ if (false) {
       expect(runResult.stdout).toEqual("");
       expect(runResult.stderr).toEqual("42\n");
       expect(runResult.status).toEqual(1);
+    });
+
+    it("can create a self-contained executable", async () => {
+      const tmpExe = `${tmpDir}/hello_exe`;
+
+      // Create a self-contained executable
+      const compileResult = await compile("fixtures/hello.js", tmpExe, true);
+
+      expect(compileResult.stderr).toEqual("");
+      expect(compileResult.signal).toEqual(undefined);
+
+      // Check that the file exists and is executable
+      const stat = await fs.stat(tmpExe);
+      expect(stat.isFile()).toBe(true);
+
+      // 0o111 is the executable bits (uga+x)
+      expect(!!(stat.mode & 0o111)).toBe(true);
     });
 
     afterAll(async () => {

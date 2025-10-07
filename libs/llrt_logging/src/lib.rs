@@ -1,5 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     collections::HashSet,
     io::{stderr, stdout, IsTerminal, Write},
@@ -361,8 +363,7 @@ fn format_raw_inner<'js>(
             if color_enabled {
                 Color::YELLOW.push(result);
             }
-            let mut buffer = ryu::Buffer::new();
-            result.push_str(float_to_string(&mut buffer, unsafe {
+            result.push_str(&float_to_string(unsafe {
                 value.as_float().unwrap_unchecked()
             }));
         },

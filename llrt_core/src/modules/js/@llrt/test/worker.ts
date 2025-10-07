@@ -1,4 +1,3 @@
-import net from "net";
 import * as chai from "chai";
 import { JestChaiExpect } from "../expect/jest-expect";
 import { JestAsymmetricMatchers } from "../expect/jest-asymmetric-matchers";
@@ -282,7 +281,7 @@ class TestAgent {
     return JSON.parse(response) as SocketReturnType<T>;
   }
 
-  private async runTests(testSuite: RootSuite, tests: Test[] = []) {
+  private async runTests(testSuite: TestSuite, tests: Test[] = []) {
     for (const test of tests) {
       if (test.skip || (this.onlyCount > 0 && !test.only)) {
         continue;
@@ -454,7 +453,7 @@ class TestAgent {
           if (suite.beforeAll) {
             await this.executeAsyncOrCallbackFn(suite.beforeAll);
           }
-          await this.runTests(testSuite, suite.tests);
+          await this.runTests(suite, suite.tests);
           if (suite.afterAll) {
             await this.executeAsyncOrCallbackFn(suite.afterAll);
           }
@@ -513,4 +512,3 @@ if (isNaN(workerId) || isNaN(serverPort)) {
 
 const agent = new TestAgent(workerId, serverPort);
 await agent.start();
-process.exit(0); //force exit if socket hangs

@@ -1,7 +1,7 @@
 [package]
 name = "llrt_url"
 description = "LLRT Module url"
-version = "0.5.1-beta"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -12,12 +12,10 @@ name = "llrt_url"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_utils = { version = "0.5.1-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-  "macro",
-], default-features = false }
-url = "2.5"
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["macro"], default-features = false }
+url = { version = "2", features = ["std"], default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["test-util"], default-features = false }

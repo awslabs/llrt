@@ -1,19 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 use llrt_utils::result::ResultExt;
-use p256::pkcs8::DecodePrivateKey;
-use pkcs8::EncodePrivateKey;
 use ring::{
     rand::SecureRandom,
     signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair},
 };
-use rquickjs::Class;
-use rquickjs::{object::Property, Array, Ctx, Exception, Object, Result, Value};
+use rquickjs::{object::Property, Array, Class, Ctx, Exception, Object, Result, Value};
 use rsa::{
     pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},
-    rand_core::OsRng,
-    BigUint, RsaPrivateKey,
+    pkcs8::{DecodePrivateKey, EncodePrivateKey},
+    BoxedUint, RsaPrivateKey,
 };
 
 use crate::{sha_hash::ShaAlgorithm, CryptoKey, SYSTEM_RANDOM};
@@ -138,7 +134,7 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
                     public_or_secret_key = signing_key.public_key().to_sec1_bytes().into();
                 },
                 EllipticCurve::P521 => {
-                    let mut rng = OsRng;
+                    let mut rng = rand::rng();
                     let key = p521::SecretKey::random(&mut rng);
                     let pkcs8 = key.to_pkcs8_der().or_throw(ctx)?;
                     private_key = pkcs8.as_bytes().into();
@@ -166,22 +162,22 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
             ..
         } => {
             let public_exponent = public_exponent.as_ref().as_ref();
+            // Convert public exponent bytes to u64 value
             let exponent: u64 = match public_exponent {
-                [0x01, 0x00, 0x01] => 65537, // fast pass
-                [0x03] => 3,                 // fast pass
+                [0x01, 0x00, 0x01] => 65537, // Standard RSA exponent F4 (0x10001)
+                [0x03] => 3,                 // Alternative RSA exponent 3
                 bytes
                     if bytes.ends_with(&[0x03])
                         && bytes[..bytes.len() - 1].iter().all(|&b| b == 0) =>
                 {
                     3
                 },
-                _ => return Err(Exception::throw_message(ctx, "Bad public exponent")),
+                _ => return Err(Exception::throw_message(ctx, "Invalid RSA public exponent")),
             };
-
-            let mut rng = OsRng;
-            let exp = BigUint::from(exponent);
+            let exp = BoxedUint::from(exponent);
+            let mut rng = rand::rng();
             let rsa_private_key =
-                RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, &exp)
+                RsaPrivateKey::new_with_exp(&mut rng, *modulus_length as usize, exp)
                     .or_throw(ctx)?;
 
             let public_key = rsa_private_key
@@ -192,6 +188,7 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
             let pkcs1 = rsa_private_key.to_pkcs1_der().or_throw(ctx)?;
 
             private_key = pkcs1.as_bytes().into();
+
             public_or_secret_key = public_key.as_bytes().into();
         },
         _ => return algorithm_not_supported_error(ctx),
@@ -210,7 +207,7 @@ pub fn get_hash_length(ctx: &Ctx, hash: &ShaAlgorithm, length: u16) -> Result<us
         return Ok(hash.hmac_algorithm().digest_algorithm().block_len());
     }
 
-    if length % 8 != 0 || (length / 8) > ring::digest::MAX_BLOCK_LEN.try_into().unwrap() {
+    if !length.is_multiple_of(8) || (length / 8) > ring::digest::MAX_BLOCK_LEN.try_into().unwrap() {
         return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
     }
 
