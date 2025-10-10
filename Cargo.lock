@@ -1636,6 +1636,7 @@ dependencies = [
 name = "llrt_child_process"
 version = "0.7.0-beta"
 dependencies = [
+ "either",
  "itoa",
  "libc",
  "llrt_buffer",
@@ -1643,9 +1644,11 @@ dependencies = [
  "llrt_events",
  "llrt_stream",
  "llrt_test",
+ "llrt_url",
  "llrt_utils",
  "rquickjs",
  "tokio",
+ "url",
 ]
 
 [[package]]
