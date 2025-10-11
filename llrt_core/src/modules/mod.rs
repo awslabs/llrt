@@ -14,4 +14,5 @@ pub mod console;
 pub mod embedded;
 pub mod llrt;
 pub mod module;
+pub mod pseudo;
 pub mod require;

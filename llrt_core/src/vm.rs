@@ -25,6 +25,7 @@ use crate::modules::{
     crypto::SYSTEM_RANDOM,
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
+    pseudo::resolver::PseudoResolver,
     require::{loader::NpmJsLoader, resolver::NpmJsResolver},
 };
 use crate::{environment, http, security};
@@ -113,6 +114,7 @@ impl Vm {
         let resolver = (
             module_resolver,
             EmbeddedResolver,
+            PseudoResolver,
             NpmJsResolver,
             file_resolver,
         );

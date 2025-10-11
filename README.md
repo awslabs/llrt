@@ -194,9 +194,9 @@ LLRT can work with any bundler of your choice. Below are some configurations for
 > LLRT implements native modules that are largely compatible with the following external packages.
 > By implementing the following conversions in the bundler's alias function, your application may be faster, but we recommend that you test thoroughly as they are not fully compatible.
 
-| Node.js         | LLRT      |
-| --------------- | --------- |
-| fast-xml-parser | llrt:xml  |
+| Node.js         | LLRT     |
+| --------------- | -------- |
+| fast-xml-parser | llrt:xml |
 
 ### ESBuild
 
@@ -555,6 +555,12 @@ Then run llrt:
 
 ## Environment Variables
 
+### `LLRT_ASYNC_HOOKS=value`
+
+When using asynchronous hooks, the hooking function inside QuickJS is activated. This is disabled by default as there is concern that it may have a significant impact on performance.
+
+By setting this environment variable to `1`, the asynchronous hook function can be enabled, allowing you to track asynchronous processing using the `async_hooks` module.
+
 ### `LLRT_EXTRA_CA_CERTS=file`
 
 Load extra certificate authorities from a PEM encoded file
@@ -566,10 +572,6 @@ Set a memory threshold in MB for garbage collection. Default threshold is 20MB
 ### `LLRT_HTTP_VERSION=value`
 
 Extends the HTTP request version. By default, only HTTP/1.1 is enabled. Specifying '2' will enable HTTP/1.1 and HTTP/2.
-
-### `LLRT_SDK_CONNECTION_WARMUP=1`
-
-Initializes TLS connections in parallel during function init which significantly reduces cold starts due. Enabled by default, can be disabled with value `0` or `false`
 
 ### `LLRT_LOG=[target][=][level][,...]`
 
@@ -605,15 +607,21 @@ Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 1
 
 Used to explicitly specify a preferred platform for the Node.js package resolver. The default is `browser`. If `node` is specified, "node" takes precedence in the search path. If a value other than `browser` or `node` is specified, it will behave as if "browser" was specified.
 
+### `LLRT_PSEUDO_MODULE_DIR=path`
+
+LLRT does not plan to support all Node.js APIs, but there are times when it is necessary to behave as if a Node.js API exists in order to make a specific package work.
+
+If you specify a valid path in this environment variable, the JavaScript of the module with the same name in that path will be loaded as a Node.js module during the module resolution process.
+
+As a concrete example, we provide a `diagnostics_channel` in `example/modules` that works out of the box.
+
+### `LLRT_SDK_CONNECTION_WARMUP=1`
+
+Initializes TLS connections in parallel during function init which significantly reduces cold starts due. Enabled by default, can be disabled with value `0` or `false`
+
 ### `LLRT_TLS_VERSION=value`
 
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
-
-### `LLRT_ASYNC_HOOKS=value`
-
-When using asynchronous hooks, the hooking function inside QuickJS is activated. This is disabled by default as there is concern that it may have a significant impact on performance.
-
-By setting this environment variable to `1`, the asynchronous hook function can be enabled, allowing you to track asynchronous processing using the `async_hooks` module.
 
 ## Benchmark Methodology
 
