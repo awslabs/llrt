@@ -1,4 +1,6 @@
-import { createServer as createTcpServer } from 'net'
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+import { createServer as createTcpServer } from 'node:net'
 
 /**
  * Minimal Node.js-like HTTP server implementation using net.
@@ -6,7 +8,7 @@ import { createServer as createTcpServer } from 'net'
  * @returns {import('net').Server}
  *
  * @example
- * import { createServer } from 'minimal-http-server';
+ * import { createServer } from 'node:http';
  *
  * const server = createServer((req, res) => {
  *   console.log(`${req.method} ${req.url}`);
@@ -106,3 +108,5 @@ export function createServer(listener) {
     })
   })
 }
+
+export default { createServer }
