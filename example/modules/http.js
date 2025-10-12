@@ -34,12 +34,12 @@ import { createServer as createTcpServer } from "node:net";
  * [==================================================================================================================] 10s
  * Done!
  * Statistics        Avg      Stdev        Max
- *   Reqs/sec     21330.80    5005.55   42739.37
- *   Latency        6.15ms    10.94ms   356.08ms
+ *   Reqs/sec     25352.15    4168.30   32571.72
+ *   Latency        5.07ms     7.13ms   207.36ms
  *   HTTP codes:
- *     1xx - 0, 2xx - 203257, 3xx - 0, 4xx - 0, 5xx - 0
+ *     1xx - 0, 2xx - 246255, 3xx - 0, 4xx - 0, 5xx - 0
  *     others - 0
- *   Throughput:     2.52MB/s
+ *   Throughput:     3.05MB/s
  *
  * <Node.js>
  * % bombardier -d 10s --fasthttp http://localhost:3000/
@@ -70,13 +70,12 @@ export function createServer(listener) {
         const [method, path, protocol] = lines[0].split(" ");
 
         const headers = {};
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i];
+        lines.slice(1).forEach((line) => {
           if (line) {
             const [key, ...valueParts] = line.split(": ");
             headers[key.toLowerCase()] = valueParts.join(": ");
           }
-        }
+        });
 
         // --- Simplified IncomingMessage object ---
         const req = {
