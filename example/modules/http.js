@@ -21,7 +21,7 @@ import { createServer as createTcpServer } from "node:net";
  * });
  *
  * // Output when you curl:
- * // $ curl http://localhost:3000/hello
+ * // $ curl http://localhost:3000/
  * // Hello Compatible Server
  *
  *
