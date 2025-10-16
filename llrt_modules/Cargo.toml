@@ -66,6 +66,9 @@ util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["loader"], default-features = false }
+
+# Optional
 llrt_abort = { version = "0.7.0-beta", path = "../modules/llrt_abort", optional = true }
 llrt_assert = { version = "0.7.0-beta", path = "../modules/llrt_assert", optional = true }
 llrt_async_hooks = { version = "0.7.0-beta", path = "../modules/llrt_async_hooks", optional = true }
@@ -92,6 +95,3 @@ llrt_url = { version = "0.7.0-beta", path = "../modules/llrt_url", optional = tr
 llrt_util = { version = "0.7.0-beta", path = "../modules/llrt_util", optional = true }
 llrt_zlib = { version = "0.7.0-beta", path = "../modules/llrt_zlib", optional = true }
 llrt_utils = { version = "0.7.0-beta", path = "../libs/llrt_utils" }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-  "loader",
-], default-features = false }

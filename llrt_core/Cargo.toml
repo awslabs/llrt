@@ -31,6 +31,10 @@ llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.13", default-features = false }
 quick-xml = { version = "0.38", default-features = false }
+rand = { version = "0.9", features = [
+  "alloc",
+  "thread_rng",
+], default-features = false }
 ring = { version = "0.17", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
   "full-async",
@@ -49,10 +53,6 @@ terminal_size = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["sync", "time"], default-features = false }
 tracing = { version = "0.1", features = ["log"], default-features = false }
 zstd = { version = "0.13", default-features = false }
-rand = { version = "0.9", features = [
-  "alloc",
-  "thread_rng",
-], default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 md-5 = { version = "0.11.0-rc.2", default-features = false }

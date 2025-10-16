@@ -17,7 +17,5 @@ llrt_encoding = { version = "0.7.0-beta", path = "../llrt_encoding" }
 llrt_json = { version = "0.7.0-beta", path = "../llrt_json" }
 llrt_numbers = { version = "0.7.0-beta", path = "../llrt_numbers" }
 llrt_utils = { version = "0.7.0-beta", path = "../llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-  "macro",
-], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["macro"], default-features = false }
 ryu = { version = "1", default-features = false }

@@ -59,8 +59,6 @@ tokio = { version = "1", features = [
 ], default-features = false }
 tracing = { version = "0.1", default-features = false }
 webpki-roots = { version = "1", default-features = false }
-tower-service = { version = "0.3", default-features = false }
-quick_cache = { version = "0.6", default-features = false }
 
 [dev-dependencies]
 llrt_compression = { version = "0.7.0-beta", path = "../../libs/llrt_compression" }
