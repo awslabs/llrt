@@ -7,9 +7,7 @@ license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
 [dependencies]
-base64-simd = { version = "0.8", features = [
-  "alloc",
-], default-features = false }
+base64-simd = { version = "0.8", features = ["alloc"], default-features = false }
 hex-simd = { version = "0.8", features = ["alloc"], default-features = false }
 phf = { version = "0.13", features = ["macros"], default-features = false }
 memchr = { version = "2", default-features = false }

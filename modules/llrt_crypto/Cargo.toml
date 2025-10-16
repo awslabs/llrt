@@ -48,21 +48,23 @@ rand = { version = "0.9", features = [
   "thread_rng",
 ], default-features = false }
 ring = { version = "0.17", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
-  "macro",
-], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["macro"], default-features = false }
 
-# optional
-llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
+# Optional
 aes = { version = "0.9.0-rc.1", optional = true }
-aes-gcm = { version = "0.11.0-rc.1", features = [
+aes-gcm = { version = "0.11.0-rc.1", features = ["alloc"], default-features = false, optional = true }
+aes-kw = { version = "0.3.0-rc.1", features = ["oid"], default-features = false, optional = true }
+cbc = { version = "0.2.0-rc.1", features = ["alloc"], optional = true }
+const-oid = { version = "0.10", features = ["db"], default-features = false, optional = true }
+ctr = { version = "0.10.0-rc.1", default-features = false, optional = true }
+der = { version = "0.8.0-rc.9", features = [
+  "derive",
   "alloc",
 ], default-features = false, optional = true }
-aes-kw = { version = "0.3.0-rc.1", features = [
-  "oid",
-], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.1", features = ["alloc"], optional = true }
-ctr = { version = "0.10.0-rc.1", default-features = false, optional = true }
+ecdsa = { version = "0.17.0-rc.7", default-features = false, optional = true }
+elliptic-curve = { version = "0.14.0-rc.15", features = ["alloc"], default-features = false, optional = true }
+llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
+md-5 = { version = "0.11.0-rc.2", default-features = false }
 rsa = { version = "0.10.0-rc.9", features = [
   "std",
   "sha2",
@@ -84,29 +86,13 @@ p521 = { version = "0.14.0-pre.11", features = [
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.15", features = [
-  "alloc",
-], default-features = false, optional = true }
+pkcs8 = { version = "0.11.0-rc.7", default-features = false, features = ["alloc"], optional = true }
+spki = { version = "0.8.0-rc.4", features = ["alloc"], default-features = false, optional = true }
 x25519-dalek = { version = "3.0.0-pre.1", features = [
   "os_rng",
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
-ecdsa = { version = "0.17.0-rc.7", default-features = false, optional = true }
-spki = { version = "0.8.0-rc.4", features = [
-  "alloc",
-], default-features = false, optional = true }
-der = { version = "0.8.0-rc.9", features = [
-  "derive",
-  "alloc",
-], default-features = false, optional = true }
-const-oid = { version = "0.10", features = [
-  "db",
-], default-features = false, optional = true }
-md-5 = { version = "0.11.0-rc.2", default-features = false }
-pkcs8 = { version = "0.11.0-rc.7", default-features = false, features = [
-  "alloc",
-], optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
