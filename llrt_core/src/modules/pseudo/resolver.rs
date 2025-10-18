@@ -6,10 +6,8 @@ use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Result};
 use tracing::trace;
 
-use crate::modules::path;
+use crate::modules::{path, require::CJS_IMPORT_PREFIX};
 use crate::utils::io::JS_EXTENSIONS;
-
-use super::CJS_IMPORT_PREFIX;
 
 static LLRT_PSEUDO_MODULE_DIR: Lazy<Option<String>> =
     Lazy::new(|| env::var(crate::environment::ENV_LLRT_PSEUDO_MODULE_DIR).ok());
