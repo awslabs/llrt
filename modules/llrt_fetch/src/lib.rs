@@ -33,10 +33,11 @@ use rustls::{
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
-use self::{headers::Headers, request::Request, response::Response};
+use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 
 mod body;
 pub mod fetch;
+pub mod form_data;
 pub mod headers;
 mod incoming;
 pub mod request;
@@ -196,6 +197,8 @@ pub fn init(ctx: &Ctx) -> Result<()> {
 
     //init eagerly
     fetch::init(HTTP_CLIENT.as_ref().or_throw(ctx)?.clone(), &globals)?;
+
+    Class::<FormData>::define(&globals)?;
 
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;
