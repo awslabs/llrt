@@ -139,7 +139,7 @@ Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] assert_equals: Fetched
 
 🧪/wpt/fetch.api.body.test.js 
 fetch/api/body > should pass formdata.any.js tests
-Error: [Consume empty response.formData() as FormData] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
+Error: [Consume empty response.formData() as FormData] promise_test: Unhandled rejection with value: object "TypeError: not a function"
 
 
 🧪/wpt/fetch.api.headers.test.js 
@@ -167,7 +167,7 @@ fetch/api/request > should pass request-headers.any.js tests
 Error: [Adding invalid request header "Accept-Charset: KO"] assert_equals: expected (object) null but got (string) "KO"
 
 fetch/api/request > should pass request-init-contenttype.any.js tests
-Error: [Default Content-Type for Request with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
+Error: [Default Content-Type for Request with FormData body] assert_equals: expected (string) "multipart/form-data; boundary=bject FormData]" but got (object) null
 
 fetch/api/request > should pass request-init-priority.any.js tests
 Error: [new Request() throws a TypeError if any of RequestInit's members' values are invalid] assert_throws_js: a new Request() must throw a TypeError if RequestInit's priority is an invalid value function "() => {
@@ -213,7 +213,7 @@ fetch/api/response > should pass response-init-001.any.js tests
 Error: [Check default value for type attribute] assert_equals: Expect default response.type is default expected "default" but got "basic"
 
 fetch/api/response > should pass response-init-contenttype.any.js tests
-Error: [Default Content-Type for Response with FormData body] promise_test: Unhandled rejection with value: object "ReferenceError: FormData is not defined"
+Error: [Default Content-Type for Response with FormData body] assert_equals: expected (string) "multipart/form-data; boundary=bject FormData]" but got (object) null
 
 fetch/api/response > should pass response-static-error.any.js tests
 Error: [Check response returned by static method error()] assert_equals: Network error response's body is null expected (object) null but got (undefined) undefined
@@ -295,7 +295,7 @@ url > should pass urlencoded-parser.any.js tests
 Error: [request.formData() with input: test] not a function
 
 url > should pass urlsearchparams-constructor.any.js tests
-Error: [URLSearchParams constructor, FormData.] FormData is not defined
+Error: [Construct with 2 unpaired surrogates (no trailing)] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0
 
 url > should pass urlsearchparams-sort.any.js tests
 Error: [Parse and sort: ﬃ&🌈] assert_array_equals: expected property 0 to be "🌈" but got "ﬃ" (expected array ["🌈", ""] got ["ﬃ", ""])

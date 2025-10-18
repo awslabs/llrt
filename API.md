@@ -431,7 +431,7 @@ export class XMLParser(options?: XmlParserOptions){
 
 ```
 
-# Web Standard API
+# Web Platform API
 
 ## CONSOLE
 
@@ -552,3 +552,7 @@ export class XMLParser(options?: XmlParserOptions){
 ## WEBIDL
 
 [DOMException](https://developer.mozilla.org/en-US/docs/Web/API/DOMException)
+
+## XHR
+
+[FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData)
