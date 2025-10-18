@@ -1,0 +1,8 @@
+{
+  "name": "@example/modules",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "dc-polyfill": "0.1.10"
+  }
+}
