@@ -38,7 +38,7 @@ pub struct FormData {
 
 impl<'js> IteratorDef<'js> for FormData {
     fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        let entries = self.entries.lock().unwrap();
+        let entries = self.entries.lock().or_throw(&ctx)?;
         map_to_entries(&ctx, entries.clone())
     }
 }
@@ -53,7 +53,7 @@ impl<'js> FormData {
     }
 
     pub fn append(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.lock().or_throw(&ctx)?;
 
         if let Some(obj) = value.clone().into_object() {
             if let Some(f) = Class::<File>::from_object(&obj) {
@@ -77,24 +77,24 @@ impl<'js> FormData {
         Err(Exception::throw_type(&ctx, "Invalid FormData value type"))
     }
 
-    pub fn get(&self, ctx: Ctx<'js>, name: String) -> Option<Value<'js>> {
-        let entries = self.entries.lock().unwrap();
+    pub fn get(&self, ctx: Ctx<'js>, name: String) -> Result<Option<Value<'js>>> {
+        let entries = self.entries.lock().or_throw(&ctx)?;
         for (k, v) in entries.iter().rev() {
             if *k == name {
-                return v.clone().into_js(&ctx).ok();
+                return Ok(v.clone().into_js(&ctx).ok());
             }
         }
-        None
+        Ok(None)
     }
 
-    pub fn get_all(&self, ctx: Ctx<'js>, name: String) -> Vec<Value<'js>> {
-        let entries = self.entries.lock().unwrap();
+    pub fn get_all(&self, ctx: Ctx<'js>, name: String) -> Result<Vec<Value<'js>>> {
+        let entries = self.entries.lock().or_throw(&ctx)?;
 
-        entries
+        Ok(entries
             .iter()
             .filter(|(k, _)| *k == name)
             .filter_map(|(_, v)| v.clone().into_js(&ctx).ok())
-            .collect()
+            .collect())
     }
 
     pub fn has(&self, name: String) -> bool {
@@ -102,7 +102,7 @@ impl<'js> FormData {
     }
 
     pub fn set(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.lock().or_throw(&ctx)?;
         entries.retain(|(k, _)| *k != name);
 
         if let Some(obj) = value.clone().into_object() {
@@ -127,26 +127,27 @@ impl<'js> FormData {
         Err(Exception::throw_type(&ctx, "Invalid FormData value type"))
     }
 
-    pub fn delete(&self, name: String) {
-        let mut entries = self.entries.lock().unwrap();
+    pub fn delete(&self, ctx: Ctx<'js>, name: String) -> Result<()> {
+        let mut entries = self.entries.lock().or_throw(&ctx)?;
 
         entries.retain(|(k, _)| *k != name);
+        Ok(())
     }
 
-    pub fn keys(&self) -> Vec<String> {
-        let entries = self.entries.lock().unwrap();
+    pub fn keys(&self, ctx: Ctx<'js>) -> Result<Vec<String>> {
+        let entries = self.entries.lock().or_throw(&ctx)?;
 
-        entries.iter().map(|(k, _)| k.clone()).collect()
+        Ok(entries.iter().map(|(k, _)| k.clone()).collect())
     }
 
-    pub fn values(&self, ctx: Ctx<'js>) -> Vec<Value<'js>> {
+    pub fn values(&self, ctx: Ctx<'js>) -> Result<Vec<Value<'js>>> {
         let ctx2 = ctx.clone();
-        let entries = self.entries.lock().unwrap();
+        let entries = self.entries.lock().or_throw(&ctx)?;
 
-        entries
+        Ok(entries
             .iter()
             .filter_map(|(_, v)| v.clone().into_js(&ctx2).ok())
-            .collect()
+            .collect())
     }
 
     pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -159,7 +160,7 @@ impl<'js> FormData {
     }
 
     pub fn for_each(&self, ctx: Ctx<'js>, callback: Function<'js>) -> Result<()> {
-        let entries = self.entries.lock().unwrap();
+        let entries = self.entries.lock().or_throw(&ctx)?;
 
         for (name, value) in entries.iter() {
             let val = value.clone().into_js(&ctx)?;
