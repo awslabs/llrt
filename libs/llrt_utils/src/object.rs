@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use rquickjs::{
     atom::PredefinedAtom, function::IntoJsFunc, prelude::Func, Array, Coerced, Ctx, Error,
@@ -150,16 +150,6 @@ where
     }
 
     Ok(array)
-}
-
-#[allow(dead_code)]
-pub fn array_to_hash_map<'js>(
-    ctx: &Ctx<'js>,
-    array: Array<'js>,
-) -> Result<HashMap<String, String>> {
-    let value = object_from_entries(ctx, array)?;
-    let value = value.into_value();
-    HashMap::from_js(ctx, value)
 }
 
 pub fn array_to_btree_map<'js>(
