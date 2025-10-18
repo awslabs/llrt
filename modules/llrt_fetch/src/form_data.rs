@@ -97,8 +97,10 @@ impl<'js> FormData {
             .collect())
     }
 
-    pub fn has(&self, name: String) -> bool {
-        self.entries.lock().unwrap().iter().any(|(n, _)| n == &name)
+    pub fn has(&self, ctx: Ctx<'js>, name: String) -> Result<bool> {
+        let entries = self.entries.lock().or_throw(&ctx)?;
+
+        Ok(entries.iter().any(|(n, _)| n == &name))
     }
 
     pub fn set(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
@@ -178,15 +180,16 @@ impl<'js> FormData {
 
 impl FormData {
     #[allow(private_interfaces)]
-    pub fn iter(&self) -> impl Iterator<Item = (String, FormValue)> {
-        let entries = self.entries.lock().unwrap().clone();
+    pub fn iter<'js>(&self, ctx: &Ctx<'js>) -> Result<impl Iterator<Item = (String, FormValue)>> {
+        let entries = self.entries.lock().or_throw(ctx)?;
+        let entries = entries.clone();
 
-        entries.into_iter()
+        Ok(entries.into_iter())
     }
 
     pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         if value.is_object() {
-            let form_data_obj = value.as_object().unwrap();
+            let form_data_obj = value.as_object().or_throw(ctx)?;
             return if form_data_obj.instance_of::<FormData>() {
                 FormData::from_js(ctx, value)
             } else {
