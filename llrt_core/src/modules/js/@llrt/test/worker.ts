@@ -36,10 +36,10 @@ type TestSuite = TestSettings &
   };
 
 type TestSetup = {
-  afterAll?: MaybeAsyncFunction;
-  afterEach?: MaybeAsyncFunction;
-  beforeAll?: MaybeAsyncFunction;
-  beforeEach?: MaybeAsyncFunction;
+  afterAll?: MaybeAsyncFunction[];
+  afterEach?: MaybeAsyncFunction[];
+  beforeAll?: MaybeAsyncFunction[];
+  beforeEach?: MaybeAsyncFunction[];
 };
 
 type RootSuite = TestSettings &
@@ -192,6 +192,24 @@ class TestAgent {
     };
   }
 
+  private async runHook(
+    testSuite: TestSuite,
+    hook: keyof TestSetup,
+    timeout?: number
+  ) {
+    const hooks: MaybeAsyncFunction[] = [];
+    while (testSuite) {
+      if (testSuite[hook]) {
+        hooks.unshift(...testSuite[hook]!);
+      }
+      testSuite = testSuite.parent!;
+    }
+
+    for (const fn of hooks) {
+      await this.executeAsyncOrCallbackFn(fn, timeout);
+    }
+  }
+
   private async executeAsyncOrCallbackFn(
     fn: Function,
     timeout: number = TestAgent.DEFAULT_TIMEOUT_MS
@@ -297,9 +315,7 @@ class TestAgent {
           timeout: test.timeout,
         });
 
-        if (testSuite.beforeEach) {
-          await this.executeAsyncOrCallbackFn(testSuite.beforeEach);
-        }
+        await this.runHook(testSuite, "beforeEach");
 
         started = performance.now();
 
@@ -307,9 +323,7 @@ class TestAgent {
 
         const end = performance.now();
 
-        if (testSuite.afterEach) {
-          await this.executeAsyncOrCallbackFn(testSuite.afterEach);
-        }
+        await this.runHook(testSuite, "afterEach");
 
         await this.sendMessage("end", {
           ended: end,
@@ -360,19 +374,19 @@ class TestAgent {
         global.expect = TestAgent.EXPECT;
 
         global.beforeEach = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.beforeEach = cb;
+          (this.currentSuite.beforeEach ??= []).push(cb);
         };
 
         global.beforeAll = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.beforeAll = cb;
+          (this.currentSuite.beforeAll ??= []).push(cb);
         };
 
         global.afterEach = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.afterEach = cb;
+          (this.currentSuite.afterEach ??= []).push(cb);
         };
 
         global.afterAll = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.afterAll = cb;
+          (this.currentSuite.afterAll ??= []).push(cb);
         };
 
         await import(entry);
@@ -425,12 +439,9 @@ class TestAgent {
         started,
         timeout: testSuite.timeout,
       });
-      if (testSuite.beforeAll) {
-        await this.executeAsyncOrCallbackFn(
-          testSuite.beforeAll,
-          testSuite.timeout
-        );
-      }
+
+      await this.runHook(testSuite, "beforeAll", testSuite.timeout);
+
       await this.runTests(testSuite, testSuite.tests);
       const stack = [...testSuite.suites];
       while (stack.length > 0) {
@@ -450,13 +461,9 @@ class TestAgent {
         });
 
         try {
-          if (suite.beforeAll) {
-            await this.executeAsyncOrCallbackFn(suite.beforeAll);
-          }
+          await this.runHook(suite, "beforeAll");
           await this.runTests(suite, suite.tests);
-          if (suite.afterAll) {
-            await this.executeAsyncOrCallbackFn(suite.afterAll);
-          }
+          await this.runHook(suite, "afterAll");
           await this.sendMessage("end", {
             isSuite: true,
             started: suiteStarted,
@@ -474,9 +481,7 @@ class TestAgent {
           stack.unshift(...suite.suites);
         }
       }
-      if (testSuite.afterAll) {
-        await this.executeAsyncOrCallbackFn(testSuite.afterAll);
-      }
+      await this.runHook(testSuite, "afterAll", testSuite.timeout);
       await this.sendMessage("end", {
         isSuite: true,
         started,
