@@ -46,9 +46,11 @@ mod security;
 
 static CONNECTION_POOL_IDLE_TIMEOUT: AtomicU64 = AtomicU64::new(15);
 
-const MIME_TYPE_APPLICATION: &str = "application/x-www-form-urlencoded;charset=UTF-8";
+const MIME_TYPE_FORM_URLENCODED: &str = "application/x-www-form-urlencoded;charset=UTF-8";
 const MIME_TYPE_TEXT: &str = "text/plain;charset=UTF-8";
 const MIME_TYPE_JSON: &str = "application/json;charset=UTF-8";
+const MIME_TYPE_FORM_DATA: &str = "multipart/form-data; boundary=";
+const MIME_TYPE_OCTET_STREAM: &str = "application/octet-stream";
 
 pub fn set_pool_idle_timeout_seconds(seconds: u64) {
     CONNECTION_POOL_IDLE_TIMEOUT.store(seconds, Ordering::Relaxed);

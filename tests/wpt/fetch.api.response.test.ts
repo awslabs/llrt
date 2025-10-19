@@ -3,11 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SKIP_FILES = [
-  "response-consume-empty.any.js", // ReferenceError: FormData is not defined
-  "response-consume-stream.any.js", // ReferenceError: FormData is not defined
-  "response-init-002.any.js", // ReferenceError: FormData is not defined
-];
+const SKIP_FILES = [];
 
 const __filename = fileURLToPath(import.meta.url);
 const basename = path.basename(__filename);

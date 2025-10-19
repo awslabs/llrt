@@ -67,6 +67,9 @@ Error: [USVString handling: lone surrogate lead] Conversion from string failed: 
 fetch/api/abort > should pass general.any.js tests
 Error: Timeout after 5000ms
 
+fetch/api/abort > should pass request.any.js tests
+Error: [Calling arrayBuffer() on an aborted consumed empty request] promise_test: Unhandled rejection with value: object "TypeError: not a function"
+
 
 🧪/wpt/fetch.api.basic.test.js 
 fetch/api/basic > should pass conditional-get.any.js tests
@@ -137,11 +140,6 @@ fetch/api/basic > should pass text-utf8.any.js tests
 Error: [UTF-8 with BOM with fetched data (UTF-8 charset)] assert_equals: Fetched Response.text() should decode data as UTF-8 expected "三村かな子" but got "{\"error\": {\"code\": 404, \"message\": \"404\"}}"
 
 
-🧪/wpt/fetch.api.body.test.js 
-fetch/api/body > should pass formdata.any.js tests
-Error: [Consume empty response.formData() as FormData] promise_test: Unhandled rejection with value: object "TypeError: not a function"
-
-
 🧪/wpt/fetch.api.headers.test.js 
 fetch/api/headers > should pass header-setcookie.any.js tests
 Error: [Headers iterator is correctly updated with set-cookie changes] assert_array_equals: expected property 0 to be "set-cookie" but got "x-header" (expected array ["set-cookie", "a=b"] got ["x-header", "test"])
@@ -154,6 +152,9 @@ Error: [Basic operation with one property] assert_array_equals: lengths differ, 
 
 
 🧪/wpt/fetch.api.request.test.js 
+fetch/api/request > should pass request-consume-empty.any.js tests
+Error: [Consume request's body as formData with correct multipart type (error case)] assert_unreached: Should have rejected: undefined Reached unreachable code
+
 fetch/api/request > should pass request-consume.any.js tests
 Error: [Consume DataView request's body as text] assert_equals: Retrieve and verify request's body expected "\"123456\"" but got "\0\"123456\"\0"
 
@@ -166,8 +167,8 @@ Error: [RequestInit's window is not null] assert_throws_js: Expect TypeError exc
 fetch/api/request > should pass request-headers.any.js tests
 Error: [Adding invalid request header "Accept-Charset: KO"] assert_equals: expected (object) null but got (string) "KO"
 
-fetch/api/request > should pass request-init-contenttype.any.js tests
-Error: [Default Content-Type for Request with FormData body] assert_equals: expected (string) "multipart/form-data; boundary=bject FormData]" but got (object) null
+fetch/api/request > should pass request-init-002.any.js tests
+Error: [Initialize Request's body with "hi!", text/plain;charset=UTF-8] assert_true: Content-Type header should be "text/plain;charset=UTF-8", not "null" expected true got null
 
 fetch/api/request > should pass request-init-priority.any.js tests
 Error: [new Request() throws a TypeError if any of RequestInit's members' values are invalid] assert_throws_js: a new Request() must throw a TypeError if RequestInit's priority is an invalid value function "() => {
@@ -181,7 +182,7 @@ fetch/api/request > should pass request-keepalive.any.js tests
 Error: [keepalive flag with stream body] assert_throws_js: function "() => {new Request('/', init)}" did not throw
 
 fetch/api/request > should pass request-structure.any.js tests
-Error: [Request has formData method] assert_true: request has formData method expected true got false
+Error: [Check destination attribute] assert_true: request has destination attribute expected true got false
 
 
 🧪/wpt/fetch.api.response.test.js 
@@ -196,6 +197,12 @@ Error: [Cancelling a starting blob Response stream] cannot read property 'cancel
 
 fetch/api/response > should pass response-clone.any.js tests
 Error: Timeout after 5000ms
+
+fetch/api/response > should pass response-consume-empty.any.js tests
+Error: [Consume response's body as formData with correct multipart type (error case)] assert_unreached: Should have rejected: undefined Reached unreachable code
+
+fetch/api/response > should pass response-consume-stream.any.js tests
+Error: [Read empty text response's body as readableStream] cannot read property 'getReader' of undefined
 
 fetch/api/response > should pass response-error-from-stream.any.js tests
 Error: [ReadableStream start() Error propagates to Response.arrayBuffer() Promise] assert_unreached: Should have rejected: CustomTestError should propagate Reached unreachable code
@@ -212,8 +219,8 @@ Error: [Ensure response headers are immutable] promise_test: Unhandled rejection
 fetch/api/response > should pass response-init-001.any.js tests
 Error: [Check default value for type attribute] assert_equals: Expect default response.type is default expected "default" but got "basic"
 
-fetch/api/response > should pass response-init-contenttype.any.js tests
-Error: [Default Content-Type for Response with FormData body] assert_equals: expected (string) "multipart/form-data; boundary=bject FormData]" but got (object) null
+fetch/api/response > should pass response-init-002.any.js tests
+Error: [Read Response's body as readableStream] cannot read property 'getReader' of undefined
 
 fetch/api/response > should pass response-static-error.any.js tests
 Error: [Check response returned by static method error()] assert_equals: Network error response's body is null expected (object) null but got (undefined) undefined
@@ -290,9 +297,6 @@ Error: [Origin parsing: <blob:blob:https://example.org/> without base] assert_eq
 
 url > should pass url-setters.any.js tests
 Error: [URL: Setting <non-spec:/.//p>.hostname = 'h' Drop /. from path] assert_equals: expected "non-spec://h//p" but got "non-spec://h/.//p"
-
-url > should pass urlencoded-parser.any.js tests
-Error: [request.formData() with input: test] not a function
 
 url > should pass urlsearchparams-constructor.any.js tests
 Error: [Construct with 2 unpaired surrogates (no trailing)] Conversion from string failed: invalid utf-8 sequence of 1 bytes from index 0

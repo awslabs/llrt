@@ -9,7 +9,9 @@ use rquickjs::{
     ArrayBuffer, Class, Ctx, Exception, IntoJs, JsLifetime, Null, Result, TypedArray, Value,
 };
 
-use super::{strip_bom, Blob};
+use crate::MIME_TYPE_OCTET_STREAM;
+
+use super::{strip_bom, Blob, FormData};
 
 // WARN: We don't use that code since we don't have an implementation of ReadableStream.
 // We will revisit later.
@@ -62,6 +64,15 @@ impl<'js> Body<'js> {
     pub async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
         let bytes = self.take_bytes(&ctx).await?;
         Ok(Blob::from_bytes(bytes, self.content_type.take())) //no need to copy, we can only take bytes once
+    }
+
+    async fn form_data(&mut self, ctx: Ctx<'js>) -> Result<FormData> {
+        let bytes = self.take_bytes(&ctx).await?;
+        let content_type = self
+            .content_type
+            .take()
+            .unwrap_or(MIME_TYPE_OCTET_STREAM.into());
+        FormData::from_multipart_bytes(&ctx, &content_type, bytes)
     }
 
     pub async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {

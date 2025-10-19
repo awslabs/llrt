@@ -1,15 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
-    collections::BTreeMap,
+    io::Write,
     sync::{Arc, Mutex},
 };
 
 use llrt_buffer::{Blob, File};
 use llrt_utils::{class::IteratorDef, object::map_to_entries, result::ResultExt};
+use rand::Rng;
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, prelude::Opt, Array, Class, Coerced, Ctx, Exception,
-    FromJs, Function, IntoJs, JsLifetime, Result, Value,
+    atom::PredefinedAtom, class::Trace, prelude::Opt, Array, Class, Ctx, Exception, Function,
+    IntoJs, JsLifetime, Result, Value,
 };
 
 #[derive(Clone)]
@@ -29,7 +30,7 @@ impl<'js> IntoJs<'js> for FormValue {
     }
 }
 
-#[derive(Clone, Trace, JsLifetime)]
+#[derive(Clone, Trace, JsLifetime, Default)]
 #[rquickjs::class]
 pub struct FormData {
     #[qjs(skip_trace)]
@@ -187,30 +188,148 @@ impl FormData {
         Ok(entries.into_iter())
     }
 
-    pub fn from_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
-        if value.is_object() {
-            let form_data_obj = value.as_object().or_throw(ctx)?;
-            return if form_data_obj.instance_of::<FormData>() {
-                FormData::from_js(ctx, value)
+    pub fn from_multipart_bytes<'js>(
+        ctx: &Ctx<'js>,
+        content_type: &str,
+        bytes: Vec<u8>,
+    ) -> Result<Self> {
+        if bytes.is_empty() {
+            return Ok(Self::default());
+        }
+
+        let Some(boundary) = extract_boundary(content_type) else {
+            return Ok(Self::default());
+        };
+        let boundary_marker = ["--", &boundary].concat().into_bytes();
+
+        let mut entries = Vec::new();
+        let parts = bytes.split(|b| *b == b'\n').collect::<Vec<_>>();
+
+        let mut current_headers = Vec::new();
+        let mut current_data = Vec::new();
+        let mut in_headers = false;
+
+        let mut name: Option<String> = None;
+        let mut filename: Option<String> = None;
+        let mut mime_type: Option<String> = None;
+
+        for line in parts {
+            if line.starts_with(&boundary_marker) {
+                if !current_data.is_empty() && name.is_some() {
+                    let data = std::mem::take(&mut current_data);
+                    if let Some(filename) = filename.take() {
+                        let file = File::from_bytes(ctx, data, filename, mime_type)?;
+                        entries.push((name.take().or_throw(ctx)?, FormValue::File(file)));
+                    } else {
+                        let text = String::from_utf8_lossy(&data).into_owned();
+                        entries.push((name.take().or_throw(ctx)?, FormValue::Text(text)));
+                    }
+                }
+                current_headers.clear();
+                current_data.clear();
+                name = None;
+                filename = None;
+                mime_type = None;
+                in_headers = true;
+                continue;
+            }
+
+            if in_headers {
+                let line_str = String::from_utf8_lossy(line);
+                if line_str.trim().is_empty() {
+                    in_headers = false;
+                } else {
+                    current_headers.push(line_str.to_string());
+                    if line_str.to_lowercase().starts_with("content-disposition") {
+                        for seg in line_str.split(';') {
+                            let seg = seg.trim();
+                            if let Some(n) = seg.strip_prefix("name=") {
+                                name = Some(n.trim_matches('"').into());
+                            } else if let Some(f) = seg.strip_prefix("filename=") {
+                                filename = Some(f.trim_matches('"').into());
+                            }
+                        }
+                    } else if line_str.to_lowercase().starts_with("content-type") {
+                        if let Some(ct) = line_str.split(':').nth(1) {
+                            mime_type = Some(ct.trim().into());
+                        }
+                    }
+                }
             } else {
-                let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
-                return Ok(Self::from_map(map));
-            };
+                current_data.extend_from_slice(line);
+                current_data.push(b'\n');
+            }
         }
 
         Ok(Self {
-            entries: Arc::new(Mutex::new(Vec::new())),
+            entries: Arc::new(Mutex::new(entries)),
         })
     }
 
-    pub fn from_map(map: BTreeMap<String, Coerced<String>>) -> Self {
-        let entries: Vec<(String, FormValue)> = map
-            .into_iter()
-            .map(|(name, value)| (name, FormValue::Text(value.to_string())))
-            .collect();
+    pub fn to_multipart_bytes<'js>(&self, ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
+        let boundary = generate_boundary();
+        let mut body = Vec::new();
+        let entries = self.entries.lock().or_throw(ctx)?;
 
-        Self {
-            entries: Arc::new(Mutex::new(entries)),
+        for (name, value) in entries.iter() {
+            match value {
+                FormValue::Text(text) => {
+                    write!(
+                        body,
+                        "--{}\r\nContent-Disposition: form-data; name=\"{}\"\r\n\r\n{}\r\n",
+                        boundary, name, text
+                    )?;
+                },
+                FormValue::File(file) => {
+                    let filename = file.name().clone();
+                    let content_type = file.mime_type().clone();
+                    let bytes = file.get_blob().get_bytes();
+                    write!(
+                        body,
+                        "--{}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\nContent-Type: {}\r\n\r\n",
+                        boundary, name, filename, content_type
+                    )?;
+                    body.extend_from_slice(&bytes);
+                    body.extend_from_slice(b"\r\n");
+                },
+                FormValue::Blob(blob) => {
+                    let bytes = blob.get_bytes();
+                    let content_type = blob.mime_type();
+                    write!(
+                        body,
+                        "--{}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"blob\"\r\nContent-Type: {}\r\n\r\n",
+                        boundary, name, content_type
+                    )?;
+                    body.extend_from_slice(&bytes);
+                    body.extend_from_slice(b"\r\n");
+                },
+            }
         }
+
+        write!(body, "--{}--\r\n", boundary)?;
+
+        Ok((body, boundary))
     }
+}
+
+fn extract_boundary(content_type: &str) -> Option<String> {
+    content_type.split(';').find_map(|part| {
+        let part = part.trim();
+        part.find("boundary=").map(|idx| {
+            part[(idx + "boundary=".len())..]
+                .trim()
+                .trim_matches('"')
+                .into()
+        })
+    })
+}
+
+fn generate_boundary() -> String {
+    let rand_string: String = rand::rng()
+        .sample_iter(&rand::distr::Alphanumeric)
+        .take(24)
+        .map(char::from)
+        .collect();
+
+    ["----WebKitFormBoundary", &rand_string].concat()
 }

@@ -32,7 +32,8 @@ use tokio::select;
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
     incoming::{self, IncomingReceiver},
-    strip_bom, Blob, MIME_TYPE_APPLICATION, MIME_TYPE_JSON, MIME_TYPE_TEXT,
+    strip_bom, Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON,
+    MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
 };
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
@@ -189,8 +190,15 @@ impl<'js> Response<'js> {
                             content_type = Some(blob.mime_type());
                         }
                         Some(BodyVariant::Provided(Some(body)))
+                    } else if let Some(fd) = Class::<FormData>::from_object(obj) {
+                        let fd = fd.borrow();
+                        let (multipart_body, boundary) = fd.to_multipart_bytes(&ctx).ok()?;
+                        content_type = Some([MIME_TYPE_FORM_DATA, &boundary].concat());
+                        Some(BodyVariant::Provided(Some(
+                            multipart_body.into_js(&ctx).ok()?,
+                        )))
                     } else if obj.instance_of::<URLSearchParams>() {
-                        content_type = Some(MIME_TYPE_APPLICATION.into());
+                        content_type = Some(MIME_TYPE_FORM_URLENCODED.into());
                         Some(BodyVariant::Provided(Some(body)))
                     } else {
                         Some(BodyVariant::Provided(Some(body)))
@@ -332,6 +340,21 @@ impl<'js> Response<'js> {
             return Ok(Blob::from_bytes(bytes, mime_type));
         }
         Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
+    }
+
+    async fn form_data(&self, ctx: Ctx<'js>) -> Result<FormData> {
+        let headers =
+            Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
+        let mime_type = headers
+            .iter()
+            .find_map(|(k, v)| (k == HEADERS_KEY_CONTENT_TYPE).then(|| v.to_string()))
+            .unwrap_or(MIME_TYPE_OCTET_STREAM.into());
+
+        if let Some(bytes) = self.take_bytes(&ctx).await? {
+            let form_data = FormData::from_multipart_bytes(&ctx, &mime_type, bytes)?;
+            return Ok(form_data);
+        }
+        Ok(FormData::default())
     }
 
     pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
