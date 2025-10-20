@@ -48,7 +48,7 @@ rustls = { version = "0.23", features = [
 ], default-features = false }
 rustls-pemfile = { version = "2", features = ["std"], default-features = false }
 ryu = { version = "1", default-features = false }
-simd-json = { version = "0.16", default-features = false }
+simd-json = { version = "0.17", default-features = false }
 terminal_size = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["sync", "time"], default-features = false }
 tracing = { version = "0.1", features = ["log"], default-features = false }
