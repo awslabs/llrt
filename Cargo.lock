@@ -1780,6 +1780,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
+ "rand",
  "rquickjs",
  "rustls",
  "ryu",

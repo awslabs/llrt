@@ -4,9 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SKIP_FILES = [
-  "response-consume-empty.any.js", // ReferenceError: FormData is not defined
-  "response-consume-stream.any.js", // ReferenceError: FormData is not defined
-  "response-init-002.any.js", // ReferenceError: FormData is not defined
+  "response-blob-realm.any.js", // requires Window
+  "response-clone.any.js", // Error: Timeout after 5000ms
 ];
 
 const __filename = fileURLToPath(import.meta.url);

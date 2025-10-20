@@ -33,10 +33,11 @@ use rustls::{
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
-use self::{headers::Headers, request::Request, response::Response};
+use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 
 mod body;
 pub mod fetch;
+pub mod form_data;
 pub mod headers;
 mod incoming;
 pub mod request;
@@ -45,9 +46,11 @@ mod security;
 
 static CONNECTION_POOL_IDLE_TIMEOUT: AtomicU64 = AtomicU64::new(15);
 
-const MIME_TYPE_APPLICATION: &str = "application/x-www-form-urlencoded;charset=UTF-8";
+const MIME_TYPE_FORM_URLENCODED: &str = "application/x-www-form-urlencoded;charset=UTF-8";
 const MIME_TYPE_TEXT: &str = "text/plain;charset=UTF-8";
 const MIME_TYPE_JSON: &str = "application/json;charset=UTF-8";
+const MIME_TYPE_FORM_DATA: &str = "multipart/form-data; boundary=";
+const MIME_TYPE_OCTET_STREAM: &str = "application/octet-stream";
 
 pub fn set_pool_idle_timeout_seconds(seconds: u64) {
     CONNECTION_POOL_IDLE_TIMEOUT.store(seconds, Ordering::Relaxed);
@@ -196,6 +199,8 @@ pub fn init(ctx: &Ctx) -> Result<()> {
 
     //init eagerly
     fetch::init(HTTP_CLIENT.as_ref().or_throw(ctx)?.clone(), &globals)?;
+
+    Class::<FormData>::define(&globals)?;
 
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;

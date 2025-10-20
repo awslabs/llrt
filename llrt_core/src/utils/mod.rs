@@ -3,4 +3,3 @@
 pub mod ctx;
 pub mod io;
 pub mod latch;
-pub mod object;
