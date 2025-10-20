@@ -330,11 +330,7 @@ impl<'js> Response<'js> {
     }
 
     async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
-        let headers =
-            Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
-        let mime_type = headers
-            .iter()
-            .find_map(|(k, v)| (k == HEADERS_KEY_CONTENT_TYPE).then(|| v.to_string()));
+        let mime_type = self.get_header_value(&ctx, HEADERS_KEY_CONTENT_TYPE)?;
 
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(Blob::from_bytes(bytes, mime_type));
@@ -343,11 +339,8 @@ impl<'js> Response<'js> {
     }
 
     async fn form_data(&self, ctx: Ctx<'js>) -> Result<FormData> {
-        let headers =
-            Headers::from_value(&ctx, self.headers().as_value().clone(), HeadersGuard::None)?;
-        let mime_type = headers
-            .iter()
-            .find_map(|(k, v)| (k == HEADERS_KEY_CONTENT_TYPE).then(|| v.to_string()))
+        let mime_type = self
+            .get_header_value(&ctx, HEADERS_KEY_CONTENT_TYPE)?
             .unwrap_or(MIME_TYPE_OCTET_STREAM.into());
 
         if let Some(bytes) = self.take_bytes(&ctx).await? {
@@ -612,5 +605,16 @@ impl<'js> Response<'js> {
         } else {
             Ok(bytes.to_vec())
         }
+    }
+
+    fn get_headers(&self, ctx: &Ctx<'js>) -> Result<Headers> {
+        Headers::from_value(ctx, self.headers().as_value().clone(), HeadersGuard::None)
+    }
+
+    fn get_header_value(&self, ctx: &Ctx<'js>, key: &str) -> Result<Option<String>> {
+        Ok(self
+            .get_headers(ctx)?
+            .iter()
+            .find_map(|(k, v)| (k == key).then(|| v.to_string())))
     }
 }
