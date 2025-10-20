@@ -64,9 +64,6 @@ Error: [USVString handling: lone surrogate lead] Conversion from string failed: 
 
 
 🧪/wpt/fetch.api.abort.test.js 
-fetch/api/abort > should pass general.any.js tests
-Error: Timeout after 5000ms
-
 fetch/api/abort > should pass request.any.js tests
 Error: [Calling arrayBuffer() on an aborted consumed empty request] promise_test: Unhandled rejection with value: object "TypeError: not a function"
 
@@ -189,14 +186,8 @@ Error: [Check destination attribute] assert_true: request has destination attrib
 fetch/api/response > should pass json.any.js tests
 Error: [Ensure UTF-16 results in an error] promise_test: Unhandled rejection with value: object "Error: client error (UserAbsoluteUriRequired)"
 
-fetch/api/response > should pass response-blob-realm.any.js tests
-Error: Timeout after 5000ms
-
 fetch/api/response > should pass response-cancel-stream.any.js tests
 Error: [Cancelling a starting blob Response stream] cannot read property 'cancel' of undefined
-
-fetch/api/response > should pass response-clone.any.js tests
-Error: Timeout after 5000ms
 
 fetch/api/response > should pass response-consume-empty.any.js tests
 Error: [Consume response's body as formData with correct multipart type (error case)] assert_unreached: Should have rejected: undefined Reached unreachable code

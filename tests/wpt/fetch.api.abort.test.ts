@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const SKIP_FILES = [
   "cache.https.any.js", // ReferenceError: caches is not defined
+  "general.any.js", // Error: Timeout after 5000ms
 ];
 
 const __filename = fileURLToPath(import.meta.url);

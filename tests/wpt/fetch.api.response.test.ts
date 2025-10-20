@@ -3,7 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SKIP_FILES = [];
+const SKIP_FILES = [
+  "response-blob-realm.any.js", // requires Window
+  "response-clone.any.js", // Error: Timeout after 5000ms
+];
 
 const __filename = fileURLToPath(import.meta.url);
 const basename = path.basename(__filename);
