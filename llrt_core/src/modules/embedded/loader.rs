@@ -232,6 +232,15 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
             | "organizations"
             | "networkmanager"
     ) {
+        if region != "us-east-1" {
+            trace!(
+                "Ignoring init for global client: {} because region {} not geographically close to us-east-1",
+                client_name,
+                region
+            );
+            mark_client_inited(rt_ptr as _);
+            return Ok(());
+        }
         region_separator = "";
         region.clear();
     };
