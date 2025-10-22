@@ -2023,6 +2023,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_test_tls"
+version = "0.7.0-beta"
+dependencies = [
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+]
+
+[[package]]
 name = "llrt_timers"
 version = "0.7.0-beta"
 dependencies = [

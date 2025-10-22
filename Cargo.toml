@@ -9,6 +9,7 @@ members = [
   "libs/llrt_json",
   "libs/llrt_numbers",
   "libs/llrt_test",
+  "libs/llrt_test_tls",
   "libs/llrt_utils",
   "modules/llrt_abort",
   "modules/llrt_async_hooks",
