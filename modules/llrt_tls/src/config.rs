@@ -69,7 +69,7 @@ pub fn build_client_config(
     .expect("TLS configuration failed");
 
     // Certificate verification
-    let builder = if options.reject_unauthorized {
+    let builder = if !options.reject_unauthorized {
         builder
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoCertificateVerification::new(provider)))
