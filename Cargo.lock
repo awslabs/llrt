@@ -1773,6 +1773,7 @@ dependencies = [
  "llrt_http",
  "llrt_json",
  "llrt_test",
+ "llrt_test_tls",
  "llrt_url",
  "llrt_utils",
  "once_cell",

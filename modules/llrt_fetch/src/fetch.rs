@@ -483,7 +483,8 @@ fn get_option<'js, V: FromJs<'js> + Sized>(
 mod tests {
     use std::io::Read;
 
-    use llrt_test::test_async_with;
+    use llrt_http::HttpsModule;
+    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
     use rquickjs::{prelude::Promise, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
@@ -857,6 +858,89 @@ mod tests {
                     Ok(())
                 };
                 run.await.catch(&ctx).unwrap();
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_fetch_tls() {
+        let mock_server = llrt_test_tls::MockServer::start().await.unwrap();
+        let addr = mock_server.address().to_string();
+        let ca = mock_server.ca().to_string();
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        export async function test(addr, ca) {
+                            const response = await fetch(`https://${addr}/echo`, {
+                                method: "POST",
+                                body: "Hello, LLRT!",
+                                agent: new Agent({
+                                    ca: ca
+                                }),
+                            });
+                            const text = await response.text();
+                            return text;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, (addr, ca)).await;
+
+                assert_eq!(result, "Hello, LLRT!");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_fetch_ignore_certificate_errors() {
+        let mock_server = llrt_test_tls::MockServer::start().await.unwrap();
+        let addr = mock_server.address().to_string();
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        export async function test(addr) {
+                            const response = await fetch(`https://${addr}/echo`, {
+                                method: "POST",
+                                body: "Hello, LLRT!",
+                                agent: new Agent({
+                                    rejectUnauthorized: false,
+                                }),
+                            });
+                            const text = await response.text();
+                            return text;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, (addr,)).await;
+
+                assert_eq!(result, "Hello, LLRT!");
             })
         })
         .await;

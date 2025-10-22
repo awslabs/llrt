@@ -57,4 +57,5 @@ tracing = { version = "0.1", default-features = false }
 [dev-dependencies]
 llrt_compression = { version = "0.7.0-beta", path = "../../libs/llrt_compression" }
 llrt_test = { path = "../../libs/llrt_test" }
+llrt_test_tls = { path = "../../libs/llrt_test_tls" }
 wiremock = { version = "0.6", default-features = false }
