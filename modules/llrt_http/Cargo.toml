@@ -19,6 +19,7 @@ http2 = ["hyper/http2", "hyper-rustls/http2"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
+either = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
 hyper-util = { version = "0.1", default-features = false }

@@ -1,4 +1,4 @@
-use std::{convert::Infallible, io};
+use std::convert::Infallible;
 
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
@@ -16,9 +16,12 @@ use crate::{get_http_version, get_pool_idle_timeout, HttpVersion};
 
 pub type HyperClient =
     Client<HttpsConnector<HttpConnector<CachedDnsResolver>>, BoxBody<Bytes, Infallible>>;
-pub static HTTP_CLIENT: Lazy<io::Result<HyperClient>> = Lazy::new(|| build_client(None));
+pub static HTTP_CLIENT: Lazy<Result<HyperClient, Box<dyn std::error::Error + Send + Sync>>> =
+    Lazy::new(|| build_client(None));
 
-pub fn build_client(tls_config: Option<ClientConfig>) -> io::Result<HyperClient> {
+pub fn build_client(
+    tls_config: Option<ClientConfig>,
+) -> Result<HyperClient, Box<dyn std::error::Error + Send + Sync>> {
     let pool_idle_timeout = get_pool_idle_timeout();
 
     let config = if let Some(tls_config) = tls_config {
@@ -26,7 +29,7 @@ pub fn build_client(tls_config: Option<ClientConfig>) -> io::Result<HyperClient>
     } else {
         match &*TLS_CONFIG {
             Ok(tls_config) => tls_config.clone(),
-            Err(e) => return io::Result::Err(io::Error::new(e.kind(), e.to_string())),
+            Err(e) => return Err(e.to_string().into()),
         }
     };
 

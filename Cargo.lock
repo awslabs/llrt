@@ -1814,6 +1814,7 @@ name = "llrt_http"
 version = "0.7.0-beta"
 dependencies = [
  "bytes",
+ "either",
  "http-body-util",
  "hyper",
  "hyper-rustls",

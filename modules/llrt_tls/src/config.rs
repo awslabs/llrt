@@ -1,13 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    io,
-    sync::{Arc, OnceLock},
-};
+use std::sync::{Arc, OnceLock};
 
 use once_cell::sync::Lazy;
 use rustls::{
-    crypto::ring, pki_types::CertificateDer, ClientConfig, RootCertStore, SupportedProtocolVersion,
+    crypto::ring,
+    pki_types::{pem::PemObject, CertificateDer},
+    ClientConfig, RootCertStore, SupportedProtocolVersion,
 };
 use webpki_roots::TLS_SERVER_ROOTS;
 
@@ -43,17 +42,22 @@ pub fn get_tls_versions() -> Option<Vec<&'static SupportedProtocolVersion>> {
     }
 }
 
-pub static TLS_CONFIG: Lazy<io::Result<ClientConfig>> = Lazy::new(|| {
-    Ok(build_client_config(BuildClientConfigOptions {
-        reject_unauthorized: true,
-    }))
-});
+pub static TLS_CONFIG: Lazy<Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>>> =
+    Lazy::new(|| {
+        build_client_config(BuildClientConfigOptions {
+            reject_unauthorized: true,
+            ca: None,
+        })
+    });
 
 pub struct BuildClientConfigOptions {
     pub reject_unauthorized: bool,
+    pub ca: Option<Vec<Vec<u8>>>,
 }
 
-pub fn build_client_config(options: BuildClientConfigOptions) -> ClientConfig {
+pub fn build_client_config(
+    options: BuildClientConfigOptions,
+) -> Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>> {
     let provider = Arc::new(ring::default_provider());
     let builder = ClientConfig::builder_with_provider(provider.clone());
 
@@ -69,6 +73,13 @@ pub fn build_client_config(options: BuildClientConfigOptions) -> ClientConfig {
         builder
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoCertificateVerification::new(provider)))
+    } else if let Some(ca) = options.ca {
+        let mut root_certificates = RootCertStore::empty();
+
+        for cert in ca {
+            root_certificates.add(CertificateDer::from_pem_slice(&cert)?)?;
+        }
+        builder.with_root_certificates(root_certificates)
     } else {
         let mut root_certificates = RootCertStore::empty();
 
@@ -83,5 +94,5 @@ pub fn build_client_config(options: BuildClientConfigOptions) -> ClientConfig {
         builder.with_root_certificates(root_certificates)
     };
 
-    builder.with_no_client_auth()
+    Ok(builder.with_no_client_auth())
 }
