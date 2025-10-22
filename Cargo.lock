@@ -1764,15 +1764,13 @@ dependencies = [
  "either",
  "http-body-util",
  "hyper",
- "hyper-rustls",
- "hyper-util",
  "itoa",
  "llrt_abort",
  "llrt_buffer",
  "llrt_compression",
  "llrt_context",
- "llrt_dns_cache",
  "llrt_encoding",
+ "llrt_http",
  "llrt_json",
  "llrt_test",
  "llrt_url",
@@ -1782,11 +1780,8 @@ dependencies = [
  "pin-project-lite",
  "rand",
  "rquickjs",
- "rustls",
- "ryu",
  "tokio",
  "tracing",
- "webpki-roots",
  "wiremock",
 ]
 
@@ -1812,6 +1807,23 @@ dependencies = [
  "llrt_utils",
  "once_cell",
  "rquickjs",
+]
+
+[[package]]
+name = "llrt_http"
+version = "0.7.0-beta"
+dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "llrt_dns_cache",
+ "llrt_tls",
+ "llrt_utils",
+ "once_cell",
+ "rquickjs",
+ "rustls",
 ]
 
 [[package]]
@@ -2020,6 +2032,15 @@ dependencies = [
  "once_cell",
  "rquickjs",
  "tokio",
+]
+
+[[package]]
+name = "llrt_tls"
+version = "0.7.0-beta"
+dependencies = [
+ "once_cell",
+ "rustls",
+ "webpki-roots",
 ]
 
 [[package]]
