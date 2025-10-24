@@ -207,16 +207,6 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
         endpoint
     };
 
-    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-    let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
-
-    if check_client_inited(rt, endpoint) {
-        return Ok(());
-    }
-
-    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
-
-    trace!("Started client init {}", client_name);
     let mut region = env::var("AWS_REGION").unwrap();
     let mut region_separator = ".";
 
@@ -232,18 +222,29 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
             | "organizations"
             | "networkmanager"
     ) {
+        // the latency to do a roundtrip to a global endpoint can exceed the savings if the region is not us-east-1
         if region != "us-east-1" {
             trace!(
-                "Ignoring init for global client: {} because region {} not geographically close to us-east-1",
+                "Ignoring init for global client: {} because region: {} not geographically close to us-east-1",
                 client_name,
                 region
             );
-            mark_client_inited(rt_ptr as _);
             return Ok(());
         }
         region_separator = "";
         region.clear();
     };
+
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    let rt_ptr = rt as usize; //hack to move, is safe since runtime is still alive in spawn
+
+    if check_client_inited(rt, endpoint) {
+        return Ok(());
+    }
+
+    let client = HTTP_CLIENT.as_ref().or_throw(ctx)?;
+
+    trace!("Started client init {}", client_name);
 
     let url_string = [
         "https://",
