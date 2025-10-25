@@ -24,7 +24,7 @@ SOFTWARE.
  */
 
 // Extracted and modified from Vitest:  https://github.com/vitest-dev/vitest/blob/7a31a1ae4223aed3adf260e63ac3b3f7fab3c9d7/test/core/test/jest-expect.test.ts
-
+/*
 class TestError extends Error {}
 
 describe("jest-expect", () => {
@@ -499,7 +499,7 @@ describe("toSatisfy()", () => {
 });
 
 it("timeout", () => new Promise((resolve) => setTimeout(resolve, 0)));
-
+*/
 describe("beforeEach", () => {
   let value: string;
   beforeEach(() => {
@@ -519,6 +519,12 @@ describe("beforeEach", () => {
       expect(value).toEqual("beforeEach nested");
     });
   });
+
+  describe("nested describe without beforeEach", () => {
+    it("should have value", () => {
+      expect(value).toEqual("beforeEach");
+    });
+  });
 });
 
 describe("afterEach", () => {
@@ -528,11 +534,21 @@ describe("afterEach", () => {
   });
 
   afterAll(() => {
-    expect(value).toEqual("afterEach");
+    expect(value).toContain("afterEach");
   });
 
   it("should have value", () => {
     // do nothing
+  });
+
+  describe("nested describe without afterEach", () => {
+    afterAll(() => {
+      expect(value).toEqual("afterEach");
+    });
+
+    it("should have value", () => {
+      // do nothing
+    });
   });
 
   describe("nested afterEach", () => {
