@@ -276,8 +276,7 @@ impl FormData {
                 FormValue::Text(text) => {
                     write!(
                         body,
-                        "--{}\r\nContent-Disposition: form-data; name=\"{}\"\r\n\r\n{}\r\n",
-                        boundary, name, text
+                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{text}\r\n"
                     )?;
                 },
                 FormValue::File(file) => {
@@ -286,8 +285,7 @@ impl FormData {
                     let bytes = file.get_blob().get_bytes();
                     write!(
                         body,
-                        "--{}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\nContent-Type: {}\r\n\r\n",
-                        boundary, name, filename, content_type
+                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n"
                     )?;
                     body.extend_from_slice(&bytes);
                     body.extend_from_slice(b"\r\n");
@@ -297,8 +295,7 @@ impl FormData {
                     let content_type = blob.mime_type();
                     write!(
                         body,
-                        "--{}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"blob\"\r\nContent-Type: {}\r\n\r\n",
-                        boundary, name, content_type
+                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"blob\"\r\nContent-Type: {content_type}\r\n\r\n"
                     )?;
                     body.extend_from_slice(&bytes);
                     body.extend_from_slice(b"\r\n");
@@ -306,7 +303,7 @@ impl FormData {
             }
         }
 
-        write!(body, "--{}--\r\n", boundary)?;
+        write!(body, "--{boundary}--\r\n")?;
 
         Ok((body, boundary))
     }

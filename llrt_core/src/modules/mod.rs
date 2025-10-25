@@ -4,8 +4,8 @@
 pub use llrt_modules::console;
 pub use llrt_modules::{
     abort, assert, async_hooks, buffer, child_process, crypto, dns, events, exceptions, fetch, fs,
-    navigator, net, os, path, perf_hooks, process, stream_web, string_decoder, timers, tty, url,
-    util, zlib,
+    https, navigator, net, os, path, perf_hooks, process, stream_web, string_decoder, timers, tls,
+    tty, url, util, zlib,
 };
 pub use llrt_modules::{module_builder, ModuleNames};
 

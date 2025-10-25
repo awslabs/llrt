@@ -123,6 +123,10 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_global(crate::modules::exceptions::init);
         }
+        #[cfg(feature = "https")]
+        {
+            builder = builder.with_module(crate::modules::https::HttpsModule);
+        }
         #[cfg(feature = "fetch")]
         {
             builder = builder.with_global(crate::modules::fetch::init);
