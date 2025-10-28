@@ -245,6 +245,7 @@ fn write_history(history: &VecDeque<String>, history_file: Option<&Path>) {
 #[cfg(test)]
 mod tests {
 
+    use llrt_core::libs::utils::primordials::{BasePrimordials, Primordial};
     use llrt_test::test_async_with;
 
     use crate::repl::process_input;
@@ -253,6 +254,7 @@ mod tests {
     async fn test_process_input() {
         test_async_with(|ctx| {
             Box::pin(async move {
+                BasePrimordials::init(&ctx).unwrap();
                 let output = process_input(&ctx, "throw new Error('err')", false).await;
 
                 assert_eq!(output, "Error: err\n  at <eval> (eval_script:1:10)");
