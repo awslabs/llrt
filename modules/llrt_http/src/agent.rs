@@ -10,7 +10,7 @@ use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use llrt_dns_cache::CachedDnsResolver;
 use llrt_utils::object::ObjectExt;
 use llrt_utils::result::ResultExt;
-use rquickjs::{prelude::Opt, Ctx, Error, FromJs, Result};
+use rquickjs::{prelude::Opt, Ctx, Error, FromJs, Result, Value};
 
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
@@ -61,7 +61,7 @@ pub struct AgentOptions {
 }
 
 impl<'js> FromJs<'js> for AgentOptions {
-    fn from_js(_: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
+    fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let ty_name = value.type_name();
         let obj = value
             .as_object()

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::Arc;
 
-use rustls::client::danger::HandshakeSignatureValid;
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::DigitallySignedStruct;
+use rustls::{DigitallySignedStruct, Error, SignatureScheme};
 
 #[derive(Debug)]
 pub struct NoCertificateVerification(Arc<CryptoProvider>);
@@ -16,7 +16,7 @@ impl NoCertificateVerification {
     }
 }
 
-impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
+impl ServerCertVerifier for NoCertificateVerification {
     fn verify_server_cert(
         &self,
         _end_entity: &CertificateDer<'_>,
@@ -24,8 +24,8 @@ impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
         _server_name: &ServerName<'_>,
         _ocsp: &[u8],
         _now: UnixTime,
-    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    ) -> Result<ServerCertVerified, Error> {
+        Ok(ServerCertVerified::assertion())
     }
 
     fn verify_tls12_signature(
@@ -33,7 +33,7 @@ impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
         message: &[u8],
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+    ) -> Result<HandshakeSignatureValid, Error> {
         verify_tls12_signature(
             message,
             cert,
@@ -47,7 +47,7 @@ impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
         message: &[u8],
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+    ) -> Result<HandshakeSignatureValid, Error> {
         verify_tls13_signature(
             message,
             cert,
@@ -56,7 +56,7 @@ impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
         )
     }
 
-    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
         self.0.signature_verification_algorithms.supported_schemes()
     }
 }

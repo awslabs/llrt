@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// This library is only needed until TLS is natively supported in wiremock.
+// FIXME this library is only needed until TLS is natively supported in wiremock.
 // See https://github.com/LukeMathWalker/wiremock-rs/issues/58
 
 use std::net::{Ipv4Addr, SocketAddr};
@@ -34,7 +34,7 @@ impl MockServer {
 
         tokio::spawn(async move {
             if let Err(e) = server::run(incoming, certs, shutdown_rx).await {
-                eprintln!("failed to run mock server: {e:#}");
+                println!("failed to run mock server: {e:#}");
             }
         });
 
