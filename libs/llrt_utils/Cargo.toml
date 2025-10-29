@@ -23,6 +23,7 @@ tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 llrt_test = { version = "0.7.0-beta", path = "../llrt_test" }
+tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
 llrt_build = { version = "0.7.0-beta", path = "../llrt_build" }
