@@ -1,7 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::bytecode::BYTECODE_FILE_EXT;
+macro_rules! define_extension {
+    ($base:ident, $file:ident, $ext:expr) => {
+        #[allow(dead_code)]
+        pub const $base: &str = $ext;
+        #[allow(dead_code)]
+        pub const $file: &str = concat!(".", $ext);
+    };
+}
+
+define_extension!(BYTECODE_EXT, BYTECODE_FILE_EXT, "lrt");
 
 macro_rules! define_supported_extensions {
     // Accepts a list of supported extensions and a single additional constant extension

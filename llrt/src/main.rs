@@ -20,22 +20,24 @@ mod repl;
 use constcat::concat;
 use llrt_core::modules::process::EXIT_CODE;
 use minimal_tracer::MinimalTracer;
+use once_cell::sync::Lazy;
 use tracing::trace;
 
 #[cfg(not(feature = "lambda"))]
 use crate::base::compiler::compile_file;
 use crate::base::{
     bytecode::BYTECODE_EXT,
+    environment::ENV_LLRT_REGISTER_HOOKS,
     libs::{
         logging::print_error_and_exit,
         utils::{
             fs::DirectoryWalker,
+            io::{is_supported_ext, SUPPORTED_EXTENSIONS},
             sysinfo::{ARCH, PLATFORM},
         },
     },
     modules::path::name_extname,
     runtime_client,
-    utils::io::{is_supported_ext, SUPPORTED_EXTENSIONS},
     vm::Vm,
     VERSION,
 };
@@ -47,6 +49,9 @@ use crate::base::{async_with, CatchResultExt};
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
+static LLRT_REGISTER_HOOKS: Lazy<Option<String>> =
+    Lazy::new(|| env::var(ENV_LLRT_REGISTER_HOOKS).ok());
+
 #[tokio::main]
 async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
     let now = Instant::now();
@@ -56,6 +61,10 @@ async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
 
     let vm = Vm::new().await?;
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
+
+    if let Some(filename) = LLRT_REGISTER_HOOKS.as_ref() {
+        vm.run_file(filename, true, true).await;
+    }
 
     if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
         start_runtime(&vm).await

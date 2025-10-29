@@ -70,9 +70,17 @@ util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
+home = { version = "0.5", default-features = false }
+llrt_hooking = { path = "../libs/llrt_hooking" }
+llrt_json = { path = "../libs/llrt_json" }
+llrt_utils = { version = "0.7.0-beta", path = "../libs/llrt_utils" }
+once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
   "loader",
 ], default-features = false }
+simd-json = { version = "0.17", default-features = false }
+tokio = { version = "1", default-features = false }
+tracing = { version = "0.1", default-features = false }
 
 # Optional
 llrt_abort = { version = "0.7.0-beta", path = "../modules/llrt_abort", optional = true }
@@ -102,4 +110,3 @@ llrt_tty = { version = "0.7.0-beta", path = "../modules/llrt_tty", optional = tr
 llrt_url = { version = "0.7.0-beta", path = "../modules/llrt_url", optional = true }
 llrt_util = { version = "0.7.0-beta", path = "../modules/llrt_util", optional = true }
 llrt_zlib = { version = "0.7.0-beta", path = "../modules/llrt_zlib", optional = true }
-llrt_utils = { version = "0.7.0-beta", path = "../libs/llrt_utils" }

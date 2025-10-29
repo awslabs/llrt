@@ -1,20 +1,66 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashSet};
+use std::{cell::RefCell, collections::HashSet, marker::PhantomData};
 
+use llrt_utils::{
+    ctx::CtxExt,
+    module::{export_default, ModuleInfo},
+    result::ResultExt,
+};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Accessor,
     prelude::Func,
-    Ctx, Error, Exception, Function, Object, Result, Value,
+    Ctx, Error, Exception, Function, JsLifetime, Object, Result, Value,
 };
 
-use crate::libs::utils::module::{export_default, ModuleInfo};
-use crate::modules::{
-    require::{require, RequireState, CJS_IMPORT_PREFIX},
-    ModuleNames,
-};
-use crate::utils::ctx::CtxExt;
+pub mod loader;
+pub mod resolver;
+
+use crate::require::{require, RequireState};
+use crate::CJS_IMPORT_PREFIX;
+
+#[derive(JsLifetime)]
+pub struct ModuleNames<'js> {
+    list: HashSet<String>,
+    _marker: PhantomData<&'js ()>,
+}
+
+impl ModuleNames<'_> {
+    pub fn new(names: HashSet<String>) -> Self {
+        Self {
+            list: names,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn get_list(&self) -> HashSet<String> {
+        self.list.clone()
+    }
+}
+
+#[derive(Clone, JsLifetime)]
+struct Hook<'js> {
+    resolve: Option<Function<'js>>,
+    load: Option<Function<'js>>,
+}
+
+#[derive(JsLifetime)]
+pub struct ModuleHookState<'js> {
+    hooks: Vec<Hook<'js>>,
+}
+
+impl Default for ModuleHookState<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ModuleHookState<'_> {
+    fn new() -> Self {
+        Self { hooks: Vec::new() }
+    }
+}
 
 pub struct ModuleModule;
 
@@ -34,11 +80,25 @@ fn is_builtin(ctx: Ctx<'_>, name: String) -> Result<bool> {
     Ok(module_list.contains(&name))
 }
 
+pub fn register_hooks<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<()> {
+    let resolve = hooks_obj.get::<_, Function>("resolve").ok();
+    let load = hooks_obj.get::<_, Function>("load").ok();
+
+    let hook = Hook { resolve, load };
+
+    let binding = ctx.userdata::<RefCell<ModuleHookState>>().or_throw(&ctx)?;
+    let mut state = binding.borrow_mut();
+    state.hooks.push(hook);
+
+    Ok(())
+}
+
 impl ModuleDef for ModuleModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("builtinModules")?;
         declare.declare("createRequire")?;
         declare.declare("isBuiltin")?;
+        declare.declare("registerHooks")?;
         declare.declare("default")?;
 
         Ok(())
@@ -53,6 +113,7 @@ impl ModuleDef for ModuleModule {
             default.set("builtinModules", module_list)?;
             default.set("createRequire", Func::from(create_require))?;
             default.set("isBuiltin", Func::from(is_builtin))?;
+            default.set("registerHooks", Func::from(register_hooks))?;
 
             Ok(())
         })?;
@@ -74,6 +135,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = ctx.globals();
 
     let _ = ctx.store_userdata(RefCell::new(RequireState::default()));
+    let _ = ctx.store_userdata(RefCell::new(ModuleHookState::default()));
 
     let exports_accessor = Accessor::new(
         |ctx| {

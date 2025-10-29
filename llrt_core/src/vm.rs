@@ -25,7 +25,7 @@ use crate::modules::{
     crypto::SYSTEM_RANDOM,
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
-    require::{loader::NpmJsLoader, resolver::NpmJsResolver},
+    package::{loader::PackageLoader, resolver::PackageResolver},
 };
 use crate::{environment, http, security};
 
@@ -45,8 +45,6 @@ impl Default for VmOptions {
         #[allow(unused_mut)]
         let mut module_builder = ModuleBuilder::default()
             .with_global(crate::modules::embedded::init)
-            .with_global(crate::modules::module::init)
-            .with_module(crate::modules::module::ModuleModule)
             .with_module(crate::modules::llrt::hex::LlrtHexModule)
             .with_module(crate::modules::llrt::util::LlrtUtilModule)
             .with_module(crate::modules::llrt::xml::LlrtXmlModule);
@@ -113,10 +111,10 @@ impl Vm {
         let resolver = (
             module_resolver,
             EmbeddedResolver,
-            NpmJsResolver,
+            PackageResolver,
             file_resolver,
         );
-        let loader = (module_loader, EmbeddedLoader, NpmJsLoader);
+        let loader = (module_loader, EmbeddedLoader, PackageLoader);
 
         let runtime = AsyncRuntime::new()?;
         runtime.set_max_stack_size(vm_options.max_stack_size).await;
