@@ -62,7 +62,7 @@ der = { version = "0.8.0-rc.9", features = [
   "alloc",
 ], default-features = false, optional = true }
 ecdsa = { version = "0.17.0-rc.7", default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.15", features = ["alloc"], default-features = false, optional = true }
+elliptic-curve = { version = "0.14.0-rc.16", features = ["alloc"], default-features = false, optional = true }
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
 md-5 = { version = "0.11.0-rc.2", default-features = false }
 rsa = { version = "0.10.0-rc.9", features = [

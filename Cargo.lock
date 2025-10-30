@@ -581,9 +581,9 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
 name = "crypto-bigint"
-version = "0.7.0-rc.8"
+version = "0.7.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4113edbc9f68c0a64d5b911f803eb245d04bb812680fd56776411f69c670f3e0"
+checksum = "7f4b0fda9462026d53a3ef37c5ec283639ee8494a1a5401109c0e2a3fb4d490c"
 dependencies = [
  "hybrid-array",
  "num-traits",
@@ -766,9 +766,9 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "elliptic-curve"
-version = "0.14.0-rc.15"
+version = "0.14.0-rc.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e3be87c458d756141f3b6ee188828132743bf90c7d14843e2835d6443e5fb03"
+checksum = "e8cbb5fbebc360d8631bb2e0c0e2617e9141e32825c54547b982509c6ad8de87"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -850,9 +850,9 @@ checksum = "1ced73b1dacfc750a6db6c0a0c3a3853c8b41997e2e2c563dc90804ae6867959"
 
 [[package]]
 name = "flate2"
-version = "1.1.4"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc5a4e564e38c699f2880d3fda590bedc2e69f3f84cd48b457bd892ce61d0aa9"
+checksum = "bfe33edd8e85a12a67454e37f8c75e730830d83e313556ab9ebf9ee7fbeb3bfb"
 dependencies = [
  "crc32fast",
  "libz-ng-sys",
@@ -1118,11 +1118,11 @@ dependencies = [
 
 [[package]]
 name = "home"
-version = "0.5.11"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "589533453244b0995c858700322199b2becb13b627df2851f64a2775d024abcf"
+checksum = "cc627f471c528ff0c4a49e1d5e60450c8f6461dd6d10ba9dcd3a61d3dff7728d"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.1",
 ]
 
 [[package]]
@@ -2777,9 +2777,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.33"
+version = "0.23.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "751e04a496ca00bb97a5e043158d23d66b5aabf2e1d5aa2a0aaebb1aafe6f82c"
+checksum = "6a9586e9ee2b4f8fab52a0048ca7334d7024eef48e2cb9407e3497bb7cab7fa7"
 dependencies = [
  "once_cell",
  "ring",
