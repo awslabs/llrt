@@ -65,8 +65,7 @@ pub fn build_client_config(
     let builder = match get_tls_versions() {
         Some(versions) => builder.with_protocol_versions(&versions),
         None => builder.with_safe_default_protocol_versions(),
-    }
-    .expect("TLS configuration failed");
+    }?;
 
     // Certificate verification
     let builder = if !options.reject_unauthorized {
