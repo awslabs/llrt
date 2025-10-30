@@ -1,0 +1,43 @@
+[package]
+name = "llrt_http"
+description = "LLRT Module http & https"
+version = "0.7.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_http"
+path = "src/lib.rs"
+
+[features]
+default = ["http1", "http2"]
+
+http1 = ["hyper/http1", "hyper-rustls/http1"]
+http2 = ["hyper/http2", "hyper-rustls/http2"]
+
+[dependencies]
+bytes = { version = "1", default-features = false }
+http-body-util = { version = "0.1", default-features = false }
+hyper = { version = "1", features = ["client"], default-features = false }
+hyper-util = { version = "0.1", default-features = false }
+hyper-rustls = { version = "0.27", features = [
+  "ring",
+  "webpki-roots",
+  "webpki-tokio",
+], default-features = false }
+llrt_dns_cache = { version = "0.7.0-beta", path = "../../libs/llrt_dns_cache" }
+llrt_tls = { version = "0.7.0-beta", path = "../llrt_tls" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+once_cell = { version = "1", features = ["std"], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", features = [
+  "either",
+  "std",
+], version = "0.9.0", default-features = false }
+rustls = { version = "0.23", features = [
+  "ring",
+  "tls12",
+], default-features = false }
+
+[dev-dependencies]

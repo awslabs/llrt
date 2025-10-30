@@ -183,7 +183,7 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
 
     use crate::environment::ENV_LLRT_SDK_CONNECTION_WARMUP;
     use crate::libs::utils::result::ResultExt;
-    use crate::modules::fetch::HTTP_CLIENT;
+    use crate::modules::https::HTTP_CLIENT;
     use crate::runtime_client::{check_client_inited, mark_client_inited};
 
     let disable_warmup = env::var(ENV_LLRT_SDK_CONNECTION_WARMUP).unwrap_or_default();

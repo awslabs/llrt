@@ -6,10 +6,8 @@ use rustls::{pki_types::CertificateDer, version, SupportedProtocolVersion};
 use tracing::warn;
 
 use crate::environment;
-use crate::modules::fetch::{
-    set_extra_ca_certs, set_http_version, set_pool_idle_timeout_seconds, set_tls_versions,
-    HttpVersion,
-};
+use crate::modules::https::{set_http_version, set_pool_idle_timeout_seconds, HttpVersion};
+use crate::modules::tls::{set_extra_ca_certs, set_tls_versions};
 
 pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Some(pool_idle_timeout) = build_pool_idle_timeout() {

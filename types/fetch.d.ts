@@ -1,3 +1,5 @@
+import { Agent } from "https";
+
 export {};
 
 declare global {
@@ -152,6 +154,7 @@ declare global {
     signal?: AbortSignal;
     body?: Blob;
     headers?: HeadersLike;
+    agent?: Agent;
   }
 
   type RequestCache = "no-cache";
@@ -203,6 +206,10 @@ declare global {
      * Stores true or false to indicate whether or not the body has been used in a request yet.
      */
     readonly bodyUsed: boolean;
+    /**
+     * The {@link Agent} associated with the request.
+     */
+    readonly agent: Agent;
     /**
      * Returns a promise that resolves with an ArrayBuffer representation of the request body.
      */

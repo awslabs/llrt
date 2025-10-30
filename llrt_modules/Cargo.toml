@@ -23,6 +23,7 @@ base = [
   "exceptions",
   "fetch",
   "fs",
+  "https",
   "navigator",
   "net",
   "os",
@@ -32,6 +33,7 @@ base = [
   "stream-web",
   "string-decoder",
   "timers",
+  "tls",
   "tty",
   "url",
   "util",
@@ -51,6 +53,7 @@ events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
 fetch = ["llrt_fetch"]
 fs = ["llrt_fs"]
+https = ["llrt_http"]
 navigator = ["llrt_navigator"]
 net = ["llrt_net"]
 os = ["llrt_os"]
@@ -60,13 +63,16 @@ perf-hooks = ["llrt_perf_hooks"]
 stream-web = ["llrt_stream_web"]
 string-decoder = ["llrt_string_decoder"]
 timers = ["llrt_timers"]
+tls = ["llrt_tls"]
 tty = ["llrt_tty"]
 url = ["llrt_url"]
 util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["loader"], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
+  "loader",
+], default-features = false }
 
 # Optional
 llrt_abort = { version = "0.7.0-beta", path = "../modules/llrt_abort", optional = true }
@@ -81,6 +87,7 @@ llrt_events = { version = "0.7.0-beta", path = "../modules/llrt_events", optiona
 llrt_exceptions = { version = "0.7.0-beta", path = "../modules/llrt_exceptions", optional = true }
 llrt_fetch = { version = "0.7.0-beta", path = "../modules/llrt_fetch", optional = true }
 llrt_fs = { version = "0.7.0-beta", path = "../modules/llrt_fs", optional = true }
+llrt_http = { version = "0.7.0-beta", path = "../modules/llrt_http", optional = true }
 llrt_navigator = { version = "0.7.0-beta", path = "../modules/llrt_navigator", optional = true }
 llrt_net = { version = "0.7.0-beta", path = "../modules/llrt_net", optional = true }
 llrt_os = { version = "0.7.0-beta", path = "../modules/llrt_os", default-features = false, optional = true }
@@ -90,6 +97,7 @@ llrt_perf_hooks = { version = "0.7.0-beta", path = "../modules/llrt_perf_hooks",
 llrt_stream_web = { version = "0.7.0-beta", path = "../modules/llrt_stream_web", optional = true }
 llrt_string_decoder = { version = "0.7.0-beta", path = "../modules/llrt_string_decoder", optional = true }
 llrt_timers = { version = "0.7.0-beta", path = "../modules/llrt_timers", optional = true }
+llrt_tls = { version = "0.7.0-beta", path = "../modules/llrt_tls", optional = true }
 llrt_tty = { version = "0.7.0-beta", path = "../modules/llrt_tty", optional = true }
 llrt_url = { version = "0.7.0-beta", path = "../modules/llrt_url", optional = true }
 llrt_util = { version = "0.7.0-beta", path = "../modules/llrt_util", optional = true }
