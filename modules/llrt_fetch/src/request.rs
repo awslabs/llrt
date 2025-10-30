@@ -3,6 +3,7 @@
 use std::sync::RwLock;
 
 use llrt_abort::AbortSignal;
+use llrt_http::Agent;
 use llrt_json::parse::json_parse;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
@@ -68,6 +69,7 @@ pub struct Request<'js> {
     signal: Option<Class<'js, AbortSignal<'js>>>,
     mode: RequestMode,
     keepalive: bool,
+    agent: Option<Class<'js, Agent>>,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -95,6 +97,7 @@ impl<'js> Request<'js> {
             signal: None,
             mode: RequestMode::Cors,
             keepalive: false,
+            agent: None,
         };
 
         if input.is_string() {
@@ -180,6 +183,11 @@ impl<'js> Request<'js> {
         "no-store"
     }
 
+    #[qjs(get)]
+    fn agent(&self) -> Option<Class<'js, Agent>> {
+        self.agent.clone()
+    }
+
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
             return Ok(String::from_utf8_lossy(&strip_bom(bytes)).to_string());
@@ -255,6 +263,7 @@ impl<'js> Request<'js> {
             signal: self.signal.clone(),
             mode: self.mode.clone(),
             keepalive: self.keepalive,
+            agent: self.agent.clone(),
         })
     }
 }
@@ -400,6 +409,10 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         Class::instance(ctx, headers)?
     };
     request.headers = Some(headers);
+
+    if let Some(agent_opt) = obj.get_optional("agent")? {
+        request.agent = Some(agent_opt);
+    }
 
     Ok(())
 }
