@@ -8,7 +8,7 @@ use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use llrt_dns_cache::CachedDnsResolver;
 use llrt_utils::result::ResultExt;
-use llrt_utils::{any::Any4, bytes::ObjectBytes, object::ObjectExt};
+use llrt_utils::{any_of::AnyOf4, bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{prelude::Opt, Ctx, Error, FromJs, Result, Value};
 
 #[rquickjs::class]
@@ -68,13 +68,13 @@ impl<'js> FromJs<'js> for AgentOptions {
 
         let reject_unauthorized = obj.get_optional::<_, bool>("rejectUnauthorized")?;
         let ca = obj
-            .get_optional::<_, Any4<String, Vec<String>, ObjectBytes, Vec<ObjectBytes>>>("ca")?
+            .get_optional::<_, AnyOf4<String, Vec<String>, ObjectBytes, Vec<ObjectBytes>>>("ca")?
             .map(|ca| {
                 let ca = match ca {
-                    Any4::A(ca) => vec![ca.into_bytes()],
-                    Any4::B(ca) => ca.into_iter().map(|ca| ca.into_bytes()).collect(),
-                    Any4::C(ca) => vec![ca.into_bytes(ctx)?],
-                    Any4::D(ca) => ca
+                    AnyOf4::A(ca) => vec![ca.into_bytes()],
+                    AnyOf4::B(ca) => ca.into_iter().map(|ca| ca.into_bytes()).collect(),
+                    AnyOf4::C(ca) => vec![ca.into_bytes(ctx)?],
+                    AnyOf4::D(ca) => ca
                         .into_iter()
                         .map(|ca| ca.into_bytes(ctx))
                         .collect::<Result<Vec<_>>>()?,
