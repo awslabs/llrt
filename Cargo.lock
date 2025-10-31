@@ -1861,6 +1861,7 @@ dependencies = [
 name = "llrt_modules"
 version = "0.7.0-beta"
 dependencies = [
+ "either",
  "home",
  "llrt_abort",
  "llrt_assert",
