@@ -347,4 +347,12 @@ describe("JSON Stringified", () => {
     const result = JSON.stringify(obj, replacer);
     expect(result).toEqual('{"simple":"text","nested":{"key":"value"}}');
   });
+
+  it("should escape broken surrogate pairs and other strange text", () => {
+    const text =
+      "[A-Za-z\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u02b8\u0300-\u0590\u0900-\u1fff\u200e\u2c00-\ud801\ud804-\ud839\ud83c-\udbff\uf900-\ufb1c\ufe00-\ufe6f\ufefd-\uffff]";
+
+    const json = JSON.stringify(text);
+    expect(json).toEqual(`"${text}"`);
+  });
 });

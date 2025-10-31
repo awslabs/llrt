@@ -3,7 +3,7 @@
 use llrt_utils::time;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Exception,
-    Result, Value,
+    IntoJs, Object, Result, Value,
 };
 
 use super::blob::Blob;
@@ -89,5 +89,36 @@ impl File {
     #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
     pub fn to_string_tag(&self) -> &'static str {
         stringify!(File)
+    }
+}
+impl File {
+    pub fn from_bytes<'js>(
+        ctx: &Ctx<'js>,
+        data: Vec<u8>,
+        filename: String,
+        mime_type: Option<String>,
+    ) -> Result<Self> {
+        let options = Opt(Some({
+            let obj = Object::new(ctx.clone())?;
+            obj.set(
+                "type",
+                mime_type
+                    .clone()
+                    .unwrap_or("application/octet-stream".into())
+                    .into_js(ctx)?,
+            )?;
+            obj.into_js(ctx)?
+        }));
+        let blob = Blob::new(ctx.clone(), Opt(Some(data.into_js(ctx)?)), options)?;
+
+        Ok(Self {
+            blob,
+            filename,
+            last_modified: time::now_millis(),
+        })
+    }
+
+    pub fn get_blob(&self) -> Blob {
+        self.blob.clone()
     }
 }

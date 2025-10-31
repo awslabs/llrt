@@ -287,7 +287,12 @@ declare module "fs" {
       | Buffer
       | QuickJS.ArrayBufferView
       | ArrayBuffer
-      | SharedArrayBuffer
+      | SharedArrayBuffer,
+    options?:
+      | {
+          mode?: Mode | undefined;
+        }
+      | undefined
   ): void;
 
   export namespace constants {

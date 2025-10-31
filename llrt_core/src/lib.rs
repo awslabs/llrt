@@ -3,7 +3,6 @@
 
 #![allow(clippy::new_without_default)]
 #![allow(clippy::inherent_to_string)]
-#![cfg_attr(rust_nightly, feature(portable_simd))]
 
 pub mod bytecode;
 pub mod compiler;

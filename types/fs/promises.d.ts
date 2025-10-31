@@ -448,7 +448,12 @@ declare module "fs/promises" {
       | Buffer
       | QuickJS.ArrayBufferView
       | ArrayBuffer
-      | SharedArrayBuffer
+      | SharedArrayBuffer,
+    options?:
+      | {
+          mode?: Mode | undefined;
+        }
+      | undefined
   ): Promise<void>;
 
   /**

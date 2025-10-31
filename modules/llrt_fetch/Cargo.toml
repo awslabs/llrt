@@ -44,6 +44,10 @@ llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-f
 pin-project-lite = { version = "0.2", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 percent-encoding = { version = "2", features = ["std"], default-features = false }
+rand = { version = "0.9", features = [
+  "std",
+  "thread_rng",
+], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", features = [
   "either",
   "std",

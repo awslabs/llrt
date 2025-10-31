@@ -1,6 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#![cfg_attr(rust_nightly, feature(portable_simd))]
 use std::cmp::min;
 
 use rquickjs::{

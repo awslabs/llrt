@@ -11,8 +11,6 @@ const SKIP_FILES = [
   "request-cache-no-store.any.js", // ReferenceError: promise_test is not defined
   "request-cache-only-if-cached.any.js", // ReferenceError: promise_test is not defined
   "request-cache-reload.any.js", // ReferenceError: promise_test is not defined
-  "request-consume-empty.any.js", // ReferenceError: FormData is not defined
-  "request-init-002.any.js", // ReferenceError: FormData is not defined
 ];
 
 const __filename = fileURLToPath(import.meta.url);

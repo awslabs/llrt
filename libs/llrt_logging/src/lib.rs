@@ -603,7 +603,7 @@ fn format_raw_inner<'js>(
     Ok(())
 }
 
-fn get_lossy_string(string_value: Value) -> Result<String> {
+pub fn get_lossy_string(string_value: Value) -> Result<String> {
     if !string_value.is_string() {
         return Err(Error::FromJs {
             from: "Value",

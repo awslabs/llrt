@@ -296,9 +296,24 @@ describe("writeFile", () => {
 
     await rmdir(tmpDir, { recursive: true });
   });
+
+  if (!IS_WINDOWS) {
+    it("should write file with permissions", async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), "test-"));
+      const filePath = path.join(tmpDir, "test");
+      const fileContents = "hello";
+      const mode = 0o644;
+      await writeFile(filePath, fileContents, { mode });
+
+      const stats = statSync(filePath);
+      expect(stats.mode & 0o777).toEqual(mode);
+
+      await rmdir(tmpDir, { recursive: true });
+    });
+  }
 });
 
-describe("writeFile synchronously", () => {
+describe("writeFileSync", () => {
   it("should write a file", () => {
     const tmpDir = mkdtempSync(path.join(os.tmpdir(), "test-"));
     const filePath = path.join(tmpDir, "test");
@@ -311,6 +326,21 @@ describe("writeFile synchronously", () => {
 
     rmdirSync(tmpDir, { recursive: true });
   });
+
+  if (!IS_WINDOWS) {
+    it("should write file with permissions", async () => {
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), "test-"));
+      const filePath = path.join(tmpDir, "test");
+      const fileContents = "hello";
+      const mode = 0o644;
+      writeFileSync(filePath, fileContents, { mode });
+
+      const stats = statSync(filePath);
+      expect(stats.mode & 0o777).toEqual(mode);
+
+      rmdirSync(tmpDir, { recursive: true });
+    });
+  }
 });
 
 describe("rm", () => {
