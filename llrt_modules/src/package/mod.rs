@@ -1,3 +1,4 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub mod latch;
+pub mod loader;
+pub mod resolver;

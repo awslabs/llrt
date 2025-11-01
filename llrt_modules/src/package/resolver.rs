@@ -4,24 +4,24 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    fs::{self},
+    fs,
     path::{Path, PathBuf},
     rc::Rc,
     sync::Mutex,
 };
 
+use llrt_utils::{
+    io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS},
+    result::ResultExt,
+};
 use once_cell::sync::Lazy;
 use rquickjs::{loader::Resolver, Ctx, Error, Function, Result};
 use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
-use crate::libs::utils::result::ResultExt;
-use crate::modules::path::{
-    self, is_absolute, name_extname, replace_backslash, resolve_path_with_separator,
-};
-use crate::utils::io::{is_supported_ext, JS_EXTENSIONS, SUPPORTED_EXTENSIONS};
-
-use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
+use crate::modules::path;
+use crate::require::LLRT_PLATFORM;
+use crate::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
 
 fn rc_string_to_cow<'a>(rc: Rc<String>) -> Cow<'a, str> {
     match Rc::try_unwrap(rc) {
@@ -87,10 +87,10 @@ static FILESYSTEM_ROOT: Lazy<Box<str>> = Lazy::new(|| {
 });
 
 #[derive(Debug, Default)]
-pub struct NpmJsResolver;
+pub struct PackageResolver;
 
 #[allow(clippy::manual_strip)]
-impl Resolver for NpmJsResolver {
+impl Resolver for PackageResolver {
     fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
         if name.starts_with(CJS_IMPORT_PREFIX) {
             return Ok(name.to_string());
@@ -111,7 +111,7 @@ pub fn require_resolve<'a>(
     ctx: &Ctx<'_>,
     x: &'a str,
     y: &str,
-    embedded_fn: Option<Function<'_>>,
+    hooked_fn: Option<Function<'_>>,
     is_esm: bool,
 ) -> Result<Cow<'a, str>> {
     // trim schema
@@ -132,14 +132,14 @@ pub fn require_resolve<'a>(
     trace!("require_resolve(x, y):({}, {})", x, y);
 
     // 1'. If X is a bytecode cache,
-    if let Some(embedded_resolve) = embedded_fn {
-        if let Ok(path) = embedded_resolve.call::<_, String>((x, y)) {
+    if let Some(hooked_resolve) = hooked_fn {
+        if let Ok(path) = hooked_resolve.call::<_, String>((x, y)) {
             return Ok(path.into());
         }
     }
 
     //fast path for when we have supported extensions
-    let (_, ext_name) = name_extname(x);
+    let (_, ext_name) = path::name_extname(x);
     let is_supported_ext = is_supported_ext(ext_name);
 
     let x_is_absolute = path::is_absolute(x);
@@ -236,10 +236,10 @@ fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
 }
 
 fn to_abs_path(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    Ok(if !is_absolute(&path) {
-        resolve_path_with_separator([path], true)?.into()
+    Ok(if !path::is_absolute(&path) {
+        path::resolve_path_with_separator([path], true)?.into()
     } else if cfg!(windows) {
-        replace_backslash(path).into()
+        path::replace_backslash(path).into()
     } else {
         path
     })
