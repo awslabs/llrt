@@ -13,6 +13,7 @@
 /// <reference types="./fs/promises.d.ts" />
 /// <reference types="./globals.d.ts" />
 /// <reference types="./http.d.ts" />
+/// <reference types="./module.d.ts" />
 /// <reference types="./navigator.d.ts" />
 /// <reference types="./net.d.ts" />
 /// <reference types="./os.d.ts" />
