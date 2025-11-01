@@ -90,7 +90,7 @@
     "@types/chai": "5.2.2",
     "@types/jest": "^30.0.0",
     "@types/readable-stream": "4.0.21",
-    "esbuild": "0.25.10",
+    "esbuild": "0.25.11",
     "esbuild-plugins-node-modules-polyfill": "1.7.1",
     "prettier": "3.6.2",
     "pretty-format": "30.2.0",
