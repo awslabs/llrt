@@ -6,8 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use either::Either::{self, Left, Right};
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
+use llrt_utils::{any_of::AnyOf2, bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     loader::Loader,
     module::ModuleDef,
@@ -19,7 +18,7 @@ use tracing::trace;
 use super::{Hook, ModuleHookState};
 
 type LoadFn = for<'js> fn(Ctx<'js>, Vec<u8>) -> Result<Module<'js>>;
-type Source<'js> = Either<String, ObjectBytes<'js>>;
+type Source<'js> = AnyOf2<String, ObjectBytes<'js>>;
 
 #[derive(Debug, Default)]
 pub struct ModuleLoader {
@@ -51,8 +50,8 @@ impl Loader for ModuleLoader {
         if short_circuit {
             trace!("+- Loading module via ShortCircuit: {}\n", name);
             return match source {
-                Left(s) => Module::declare(ctx.clone(), name, s),
-                Right(b) => Module::declare(ctx.clone(), name, b.as_bytes(ctx)?),
+                AnyOf2::A(s) => Module::declare(ctx.clone(), name, s),
+                AnyOf2::B(b) => Module::declare(ctx.clone(), name, b.as_bytes(ctx)?),
             };
         };
 
@@ -77,7 +76,7 @@ pub fn module_hook_load<'js>(ctx: &Ctx<'js>, name: &str) -> Result<(bool, bool, 
     let state = bind_state.borrow();
 
     if state.hooks.is_empty() {
-        return Ok((false, false, Source::Left("".into())));
+        return Ok((false, false, AnyOf2::A("".into())));
     }
 
     let result = call_load_hooks(ctx, &state.hooks, 0, name.into())?;
@@ -92,7 +91,7 @@ pub fn module_hook_load<'js>(ctx: &Ctx<'js>, name: &str) -> Result<(bool, bool, 
 
     let source = result
         .get_optional::<_, Source>("source")?
-        .unwrap_or(Source::Left("".into()));
+        .unwrap_or(AnyOf2::A("".into()));
 
     Ok((short_circuit, next_load, source))
 }

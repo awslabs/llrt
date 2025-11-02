@@ -70,7 +70,6 @@ util = ["llrt_util"]
 zlib = ["llrt_zlib"]
 
 [dependencies]
-either = { version = "1", default-features = false }
 home = { version = "0.5", default-features = false }
 llrt_hooking = { path = "../libs/llrt_hooking" }
 llrt_json = { path = "../libs/llrt_json" }
