@@ -33,6 +33,8 @@ mod modules {
     pub use llrt_fetch as fetch;
     #[cfg(feature = "fs")]
     pub use llrt_fs as fs;
+    #[cfg(feature = "https")]
+    pub use llrt_http as https;
     #[cfg(feature = "navigator")]
     pub use llrt_navigator as navigator;
     #[cfg(feature = "net")]
@@ -51,6 +53,8 @@ mod modules {
     pub use llrt_string_decoder as string_decoder;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
+    #[cfg(feature = "tls")]
+    pub use llrt_tls as tls;
     #[cfg(feature = "tty")]
     pub use llrt_tty as tty;
     #[cfg(feature = "url")]

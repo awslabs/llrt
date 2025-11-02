@@ -5,9 +5,10 @@ use std::{collections::HashSet, convert::Infallible, sync::Arc, time::Instant};
 use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, Full};
 use hyper::{header::HeaderName, Method, Request, Uri};
-use hyper_util::client::legacy::{connect::Connect, Client};
 use llrt_abort::AbortSignal;
 use llrt_encoding::bytes_from_b64;
+use llrt_http::Agent;
+use llrt_http::HyperClient;
 use llrt_utils::{
     bytes::{bytes_to_typed_array, ObjectBytes},
     mc_oneshot,
@@ -41,16 +42,13 @@ const BLOCKED_PORTS: [u16; 83] = [
 
 const MAX_REDIRECT_COUNT: u32 = 20;
 
-pub fn init<C>(client: Client<C, BoxBody<Bytes, Infallible>>, globals: &Object) -> Result<()>
-where
-    C: Clone + Send + Sync + Connect + 'static,
-{
+pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
     let connections = Arc::new(Semaphore::new(500));
 
     globals.set(
         "fetch",
         Func::from(Async(move |ctx, resource, args| {
-            let client = client.clone();
+            let global_client = global_client.clone();
             let connections = connections.clone();
             let start = Instant::now();
             let options = get_fetch_options(&ctx, resource, args);
@@ -58,6 +56,11 @@ where
             async move {
                 let lock = connections.acquire().await;
                 let options = options?;
+
+                let client = options
+                    .agent
+                    .map(|agent| agent.borrow().client())
+                    .unwrap_or(global_client);
 
                 // https://fetch.spec.whatwg.org/#scheme-fetch
                 if let Some((scheme, fragment)) = options.url.split_once(':') {
@@ -335,6 +338,7 @@ struct FetchOptions<'js> {
     body: Option<BodyBytes<'js>>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     redirect: String,
+    agent: Option<Class<'js, Agent>>,
 }
 
 fn get_fetch_options<'js>(
@@ -350,6 +354,7 @@ fn get_fetch_options<'js>(
     let mut body = None;
     let mut abort_receiver = None;
     let mut redirect = String::from("");
+    let mut agent = None;
 
     if let Some(obj) = resource.as_object() {
         let obj = obj.clone();
@@ -430,6 +435,12 @@ fn get_fetch_options<'js>(
             }
             redirect.push_str(redirect_str);
         }
+
+        if let Some(agent_opt) =
+            get_option::<Class<'js, Agent>>("agent", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
+            agent = Some(agent_opt);
+        }
     }
 
     let url = match url {
@@ -444,6 +455,7 @@ fn get_fetch_options<'js>(
         body,
         abort_receiver,
         redirect,
+        agent,
     })
 }
 
@@ -471,7 +483,8 @@ fn get_option<'js, V: FromJs<'js> + Sized>(
 mod tests {
     use std::io::Read;
 
-    use llrt_test::test_async_with;
+    use llrt_http::HttpsModule;
+    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
     use rquickjs::{prelude::Promise, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
@@ -845,6 +858,89 @@ mod tests {
                     Ok(())
                 };
                 run.await.catch(&ctx).unwrap();
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_fetch_tls() {
+        let mock_server = llrt_test_tls::MockServer::start().await.unwrap();
+        let addr = mock_server.address().to_string();
+        let ca = mock_server.ca().to_string();
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        export async function test(addr, ca) {
+                            const response = await fetch(`https://${addr}/echo`, {
+                                method: "POST",
+                                body: "Hello, LLRT!",
+                                agent: new Agent({
+                                    ca: ca
+                                }),
+                            });
+                            const text = await response.text();
+                            return text;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, (addr, ca)).await;
+
+                assert_eq!(result, "Hello, LLRT!");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_fetch_ignore_certificate_errors() {
+        let mock_server = llrt_test_tls::MockServer::start().await.unwrap();
+        let addr = mock_server.address().to_string();
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        export async function test(addr) {
+                            const response = await fetch(`https://${addr}/echo`, {
+                                method: "POST",
+                                body: "Hello, LLRT!",
+                                agent: new Agent({
+                                    rejectUnauthorized: false,
+                                }),
+                            });
+                            const text = await response.text();
+                            return text;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<String, _>(&ctx, &module, (addr,)).await;
+
+                assert_eq!(result, "Hello, LLRT!");
             })
         })
         .await;
