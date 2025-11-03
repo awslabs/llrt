@@ -357,28 +357,32 @@ fn subarray<'js>(
     start: Opt<isize>,
     end: Opt<isize>,
 ) -> Result<Value<'js>> {
-    let typed_array = TypedArray::<u8>::from_object(this.0)?;
-    let array_buffer = typed_array.arraybuffer()?;
-    let ab_length = array_buffer.len() as isize;
-    let offset = start.map_or(0, |start| {
-        if start < 0 {
-            (ab_length + start).max(0) as usize
+    let view = TypedArray::<u8>::from_object(this.0.clone())?;
+
+    let array_buffer = view.arraybuffer()?;
+    let view_offset = this.0.get::<_, isize>("byteOffset")?;
+    let view_length = this.0.get::<_, isize>("byteLength")?;
+
+    let start_index = start.map_or(0, |s| {
+        if s < 0 {
+            (view_length + s).max(0)
         } else {
-            start.min(ab_length) as usize
+            s.min(view_length)
         }
     });
 
-    let end_index = end.map_or(ab_length, |end| {
-        if end < 0 {
-            (ab_length + end).max(0)
+    let end_index = end.map_or(view_length, |e| {
+        if e < 0 {
+            (view_length + e).max(0)
         } else {
-            end.min(ab_length)
+            e.min(view_length)
         }
     });
 
-    let length = (end_index as usize).saturating_sub(offset);
+    let length = (end_index - start_index).max(0) as usize;
+    let new_offset = (view_offset + start_index).max(0) as usize;
 
-    Buffer::from_array_buffer_offset_length(&ctx, array_buffer, offset, length)
+    Buffer::from_array_buffer_offset_length(&ctx, array_buffer, new_offset, length)
 }
 
 fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
