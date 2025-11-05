@@ -11,7 +11,7 @@
 /example/functions/build
 /slask
 /VERSION
-/bundle
+/bundle/js/__tests__
 
 *.zip
 cdk.out
