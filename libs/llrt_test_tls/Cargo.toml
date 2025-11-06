@@ -1,0 +1,25 @@
+[package]
+name = "llrt_test_tls"
+description = "LLRT test helpers for TLS"
+version = "0.7.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_test_tls"
+path = "src/lib.rs"
+
+[dependencies]
+http-body-util = { version = "0.1", default-features = false }
+hyper = { version = "1", features = ["server"], default-features = false }
+hyper-util = { version = "0.1", features = [
+  "server-auto",
+], default-features = false }
+http = { version = "1", default-features = false }
+rustls = { version = "0.23", features = [
+  "ring",
+  "tls12",
+], default-features = false }
+tokio = { version = "1", features = ["net", "fs"], default-features = false }
+tokio-rustls = { version = "0.26", default-features = false }

@@ -1,0 +1,23 @@
+[package]
+name = "llrt_tls"
+description = "LLRT Module tls"
+version = "0.7.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_tls"
+path = "src/lib.rs"
+
+[dependencies]
+once_cell = { version = "1", features = ["std"], default-features = false }
+rustls = { version = "0.23", features = [
+  "std",
+  "ring",
+  "tls12",
+], default-features = false }
+webpki-roots = { version = "1", default-features = false }
+
+[dev-dependencies]

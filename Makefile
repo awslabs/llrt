@@ -105,26 +105,26 @@ build: js
 
 ifeq ($(DETECTED_OS),windows)
 stdlib:
-	rustup target add $(TARGET_windows_x86_64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x86_64)
+	rustup target add $(TARGET_windows_x86_64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_windows_x86_64)
 else
 stdlib-x64:
-	rustup target add $(TARGET_linux_x86_64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_x86_64)
+	rustup target add $(TARGET_linux_x86_64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_x86_64)
 
 stdlib-arm64:
-	rustup target add $(TARGET_linux_arm64)
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_linux_arm64)
+	rustup target add $(TARGET_linux_arm64)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(TARGET_linux_arm64)
 
 stdlib: | stdlib-x64 stdlib-arm64
 endif
 
 toolchain:
-	rustup target add $(CURRENT_TARGET)
 	rustup toolchain install $(RUST_VERSION) --target $(CURRENT_TARGET)
+	rustup target add $(CURRENT_TARGET)
 	rustup component add rust-src --toolchain $(RUST_VERSION) --target $(CURRENT_TARGET)
 
 clean-js:
