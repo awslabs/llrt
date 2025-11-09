@@ -16,9 +16,11 @@ either = { version = "1", default-features = false }
 llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_path = { version = "0.7.0-beta", path = "../llrt_path" }
-llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", features = ["fs"], default-features = false }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", features = [
+  "fs",
+], default-features = false }
 ring = { version = "0.17", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
   "either",
   "futures",
   "macro",

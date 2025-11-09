@@ -478,6 +478,17 @@ describe("subarray", () => {
     expect(subBuffer.length).toEqual(0);
     expect(subBuffer.toString()).toEqual("");
   });
+
+  it("should create subarray views that share memory with the original Buffer", () => {
+    const origin = Buffer.from("Hello, World!");
+    const sub = origin.subarray(7, 12);
+
+    expect(origin.toString()).toEqual("Hello, World!");
+    expect(sub.toString()).toEqual("World");
+
+    expect(origin.subarray(1, 3).toString()).toEqual("el");
+    expect(sub.subarray(1, 3).toString()).toEqual("or");
+  });
 });
 
 describe("toString", () => {

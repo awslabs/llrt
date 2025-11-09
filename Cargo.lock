@@ -1387,7 +1387,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.16.0",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -2675,8 +2675,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs"
-version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#36008247d1a2ad44f64b58f222152e70275e1325"
+version = "0.10.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
 dependencies = [
  "either",
  "indexmap",
@@ -2686,8 +2686,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-core"
-version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#36008247d1a2ad44f64b58f222152e70275e1325"
+version = "0.10.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
 dependencies = [
  "async-lock",
  "chrono",
@@ -2702,8 +2702,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-macro"
-version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#36008247d1a2ad44f64b58f222152e70275e1325"
+version = "0.10.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
 dependencies = [
  "convert_case",
  "fnv",
@@ -2720,8 +2720,8 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-sys"
-version = "0.9.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#36008247d1a2ad44f64b58f222152e70275e1325"
+version = "0.10.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
 dependencies = [
  "bindgen",
  "cc",
@@ -3443,9 +3443,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32b130c0d2d49f8b6889abc456e795e82525204f27c42cf767cf0d7734e089b8"
+checksum = "b2878ef029c47c6e8cf779119f20fcf52bde7ad42a731b2a304bc221df17571e"
 dependencies = [
  "rustls-pki-types",
 ]

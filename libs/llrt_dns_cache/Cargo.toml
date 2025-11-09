@@ -18,7 +18,9 @@ hyper-util = { version = "0.1", features = [
 ], default-features = false }
 llrt_context = { version = "0.7.0-beta", path = "../llrt_context" }
 llrt_utils = { version = "0.7.0-beta", path = "../llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", features = ["macro"], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
+  "macro",
+], default-features = false }
 tokio = { version = "1", features = ["net"], default-features = false }
 tower-service = { version = "0.3", default-features = false }
 quick_cache = { version = "0.6", default-features = false }

@@ -13,4 +13,4 @@ path = "src/lib.rs"
 [dependencies]
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.9.0", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
