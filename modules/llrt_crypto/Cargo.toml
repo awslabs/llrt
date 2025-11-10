@@ -53,7 +53,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0
 ], default-features = false }
 
 # Optional
-aes = { version = "0.9.0-rc.1", optional = true }
+aes = { version = "0.9.0-rc.2", optional = true }
 aes-gcm = { version = "0.11.0-rc.1", features = [
   "alloc",
 ], default-features = false, optional = true }
