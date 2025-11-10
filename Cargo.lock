@@ -1387,7 +1387,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.5",
+ "hashbrown 0.16.0",
 ]
 
 [[package]]
@@ -2676,7 +2676,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
+source = "git+https://github.com/DelSkayn/rquickjs.git#7be0e73bbe96399d10702f73a782f7cfa6a21438"
 dependencies = [
  "either",
  "indexmap",
@@ -2687,7 +2687,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
+source = "git+https://github.com/DelSkayn/rquickjs.git#7be0e73bbe96399d10702f73a782f7cfa6a21438"
 dependencies = [
  "async-lock",
  "chrono",
@@ -2703,7 +2703,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
+source = "git+https://github.com/DelSkayn/rquickjs.git#7be0e73bbe96399d10702f73a782f7cfa6a21438"
 dependencies = [
  "convert_case",
  "fnv",
@@ -2721,7 +2721,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#93a5ce59e4ed98ebe3638dbc9b82b614b1e7da43"
+source = "git+https://github.com/DelSkayn/rquickjs.git#7be0e73bbe96399d10702f73a782f7cfa6a21438"
 dependencies = [
  "bindgen",
  "cc",
