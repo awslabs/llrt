@@ -1,10 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashSet,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{
@@ -66,13 +62,13 @@ pub fn module_hook_resolve<'js>(ctx: &Ctx<'js>, x: &str, y: &str) -> Result<(boo
     trace!("|  module_hook_resolve(x, y):({}, {})", x, y);
 
     let bind_state = ctx.userdata::<RefCell<ModuleHookState>>().or_throw(ctx)?;
-    let state = bind_state.borrow();
+    let hooks = Rc::new(bind_state.borrow().hooks.clone());
 
-    if state.hooks.is_empty() {
+    if hooks.is_empty() {
         return Ok((false, false, x.into()));
     }
 
-    let result = call_resolve_hooks(ctx, &state.hooks, 0, x.into(), y.into())?;
+    let result = call_resolve_hooks(ctx, &hooks, x, y)?;
 
     let short_circuit = result
         .get_optional::<_, bool>("shortCircuit")?
@@ -90,55 +86,57 @@ pub fn module_hook_resolve<'js>(ctx: &Ctx<'js>, x: &str, y: &str) -> Result<(boo
 #[allow(dependency_on_unit_never_type_fallback)]
 fn call_resolve_hooks<'js>(
     ctx: &Ctx<'js>,
-    hooks: &[Hook<'js>],
-    index: usize,
-    x: String,
-    y: String,
+    hooks: &Rc<Vec<Hook<'js>>>,
+    spec: &str,
+    parent_url: &str,
 ) -> Result<Object<'js>> {
-    if index >= hooks.len() {
-        let obj = Object::new(ctx.clone())?;
-        obj.set("url", x)?;
-        obj.set("shortCircuit", false)?;
-        obj.set("__nextResolve", false)?;
-        return Ok(obj);
-    }
-
-    let hook = &hooks[index];
-    let context = Object::new(ctx.clone())?;
-    context.set("parentURL", y.clone())?;
-
-    let called_next = Rc::new(Cell::new(false));
-    let called_next_ref = Rc::clone(&called_next);
-
-    let next_func = {
-        let hooks = hooks.to_vec();
-        let parent_url = y.clone();
-        Func::new(
-            move |ctx: Ctx<'js>, spec: String, opt_ctx: Opt<Value<'js>>| {
-                called_next_ref.set(true);
-                let parent_url = get_parent_url(&opt_ctx, &parent_url);
-                call_resolve_hooks(&ctx, &hooks, index + 1, spec, parent_url)
-            },
-        )
-    };
-
-    let Some(resolve_fn) = &hook.resolve else {
-        return call_resolve_hooks(ctx, hooks, index + 1, x, y);
-    };
-
-    let result = resolve_fn.call::<_, Object>((x.clone(), context, next_func))?;
-    result.set("__nextResolve", called_next.get())?;
-
-    Ok(result)
+    call_resolve_hooks_from(ctx, hooks, 0, spec, parent_url)
 }
 
-fn get_parent_url<'js>(opt_ctx: &Opt<Value<'js>>, default: &str) -> String {
-    if let Some(val) = &opt_ctx.0 {
-        if let Some(obj) = val.as_object() {
-            if let Ok(url) = obj.get::<_, String>("parentURL") {
-                return url;
-            }
-        }
+fn call_resolve_hooks_from<'js>(
+    ctx: &Ctx<'js>,
+    hooks: &Rc<Vec<Hook<'js>>>,
+    start_index: usize,
+    spec: &str,
+    parent_url: &str,
+) -> Result<Object<'js>> {
+    for index in start_index..hooks.len() {
+        let Some(resolve_fn) = &hooks[index].resolve else {
+            continue;
+        };
+
+        let context = Object::new(ctx.clone())?;
+        context.set("parentURL", parent_url)?;
+
+        let spec_clone = spec.to_string();
+        let hooks_clone = Rc::clone(hooks);
+
+        let next_func = Func::new(
+            move |ctx: Ctx<'js>,
+                  new_spec: String,
+                  opt_ctx: Opt<Value<'js>>|
+                  -> Result<Object<'js>> {
+                let new_parent = if let Some(val) = opt_ctx.0 {
+                    if let Some(ctx_obj) = val.as_object() {
+                        ctx_obj
+                            .get::<_, String>("parentURL")
+                            .unwrap_or_else(|_| spec_clone.clone())
+                    } else {
+                        spec_clone.clone()
+                    }
+                } else {
+                    spec_clone.clone()
+                };
+                call_resolve_hooks_from(&ctx, &hooks_clone, index + 1, &new_spec, &new_parent)
+            },
+        );
+
+        return resolve_fn.call::<_, Object>((spec, context, next_func));
     }
-    default.into()
+
+    let obj = Object::new(ctx.clone())?;
+    obj.set("url", spec)?;
+    obj.set("shortCircuit", false)?;
+    obj.set("__nextResolve", false)?;
+    Ok(obj)
 }
