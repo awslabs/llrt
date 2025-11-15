@@ -1,1 +1,1 @@
-LLRT_REGISTER_HOOKS=./register-hooks.js llrt test.js
+llrt --import ./hooks/fs.js --import ./hooks/calc.js test.js

@@ -613,6 +613,10 @@ If you want to enable a hooking mechanism that is mostly compatible with Node.js
 
 We provide a concrete example in `example/register-hooks`.
 
+> [!NOTE]
+> This environment variable is only effective when running on AWS Lambda.
+> When using the LLRT CLI, hook files must be specified using the --import option instead of this environment variable.
+
 ### `LLRT_SDK_CONNECTION_WARMUP=1`
 
 Initializes TLS connections in parallel during function init which significantly reduces cold starts due. Enabled by default, can be disabled with value `0` or `false`

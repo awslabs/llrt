@@ -1,1 +1,1 @@
-LLRT_REGISTER_HOOKS=./register-hooks.js llrt simple-server.js
+llrt --import ./hooks/http.js simple-server.js
