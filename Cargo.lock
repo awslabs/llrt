@@ -1885,6 +1885,7 @@ dependencies = [
  "llrt_process",
  "llrt_stream_web",
  "llrt_string_decoder",
+ "llrt_test",
  "llrt_timers",
  "llrt_tls",
  "llrt_tty",

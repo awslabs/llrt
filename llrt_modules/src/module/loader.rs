@@ -185,16 +185,16 @@ mod tests {
                 let result = call_load_hooks(&ctx, &hooks, "math").unwrap();
 
                 let globals = ctx.globals();
-                assert_eq!(globals.get::<_, bool>("hookCalled").unwrap(), true);
-                assert_eq!(result.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(globals.get::<_, bool>("hookCalled").unwrap());
+                assert!(result.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(
                     result.get::<_, String>("source").unwrap(),
                     "export function add(a, b) { return a + b + 1; }"
                 );
 
                 let result2 = call_load_hooks(&ctx, &hooks, "other").unwrap();
-                assert_eq!(globals.get::<_, bool>("nextLoadCalled").unwrap(), true);
-                assert_eq!(result2.get::<_, bool>("shortCircuit").unwrap(), false);
+                assert!(globals.get::<_, bool>("nextLoadCalled").unwrap());
+                assert!(!result2.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(result2.get::<_, String>("url").unwrap(), "other");
             })
         })
@@ -253,13 +253,13 @@ mod tests {
                 let result = call_load_hooks(&ctx, &hooks, "test").unwrap();
 
                 let globals = ctx.globals();
-                assert_eq!(globals.get::<_, bool>("hook1Called").unwrap(), true);
-                assert_eq!(globals.get::<_, bool>("hook2Called").unwrap(), true);
+                assert!(globals.get::<_, bool>("hook1Called").unwrap());
+                assert!(globals.get::<_, bool>("hook2Called").unwrap());
                 assert_eq!(
                     globals.get::<_, String>("finalUrl").unwrap(),
                     "modified-test"
                 );
-                assert_eq!(result.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(result.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(
                     result.get::<_, String>("source").unwrap(),
                     "export const value = 42;"
@@ -301,7 +301,7 @@ mod tests {
 
                 let result = call_load_hooks(&ctx, &hooks, "any").unwrap();
 
-                assert_eq!(result.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(result.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(
                     result.get::<_, String>("source").unwrap(),
                     "export const intercepted = true;"
@@ -346,7 +346,7 @@ mod tests {
                     globals.get::<_, String>("passedThrough").unwrap(),
                     "passthrough"
                 );
-                assert_eq!(result.get::<_, bool>("shortCircuit").unwrap(), false);
+                assert!(!result.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(result.get::<_, String>("url").unwrap(), "passthrough");
             })
         })
@@ -387,14 +387,14 @@ mod tests {
                 let hooks = Rc::new(binding.borrow().hooks.clone());
 
                 let result1 = call_load_hooks(&ctx, &hooks, "internal:test").unwrap();
-                assert_eq!(result1.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(result1.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(
                     result1.get::<_, String>("source").unwrap(),
                     "export const internal = true;"
                 );
 
                 let result2 = call_load_hooks(&ctx, &hooks, "external:test").unwrap();
-                assert_eq!(result2.get::<_, bool>("shortCircuit").unwrap(), false);
+                assert!(!result2.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(result2.get::<_, String>("url").unwrap(), "external:test");
             })
         })
@@ -474,7 +474,7 @@ mod tests {
                     result1.get::<_, String>("source").unwrap(),
                     "export const from = 'hook2';"
                 );
-                assert_eq!(result1.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(result1.get::<_, bool>("shortCircuit").unwrap());
 
                 let result2 = call_load_hooks(&ctx, &hooks, "other").unwrap();
                 let order2: Vec<String> = globals.get("order").unwrap();
@@ -483,7 +483,7 @@ mod tests {
                     result2.get::<_, String>("source").unwrap(),
                     "export const from = 'hook3';"
                 );
-                assert_eq!(result2.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(result2.get::<_, bool>("shortCircuit").unwrap());
             })
         })
         .await;
@@ -558,7 +558,7 @@ mod tests {
                     globals.get::<_, String>("finalUrl").unwrap(),
                     "node_modules/pkg/module/index.js"
                 );
-                assert_eq!(result.get::<_, bool>("shortCircuit").unwrap(), true);
+                assert!(result.get::<_, bool>("shortCircuit").unwrap());
                 assert_eq!(
                     result.get::<_, String>("source").unwrap(),
                     "export default {};"

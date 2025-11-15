@@ -21,24 +21,11 @@ rustflags = [
 linker = "./linker/cc-x86_64-linux-musl"
 ar = "./linker/ar"
 
-[target.aarch64-apple-darwin]
-linker = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"
-rustflags = [
-    "-C",
-    "link-args=-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
-]
-
-[target.x86_64-apple-darwin]
-linker = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"
-rustflags = [
-    "-C",
-    "link-args=-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
-]
-# [env]
-# CC_aarch64_apple_darwin = "/Library/Developer/CommandLineTools/usr/bin/clang -mmacosx-version-min=13.4"
-# CC_x86_64_apple_darwin = "/Library/Developer/CommandLineTools/usr/bin/clang -mmacosx-version-min=13.4"
-# CXX_aarch64_apple_darwin = "/Library/Developer/CommandLineTools/usr/bin/clang++ -mmacosx-version-min=13.4"
-# CXX_x86_64_apple_darwin = "/Library/Developer/CommandLineTools/usr/bin/clang++ -mmacosx-version-min=13.4"
+[env]
+CC_aarch64_apple_darwin = "clang"
+CC_x86_64_apple_darwin = "clang"
+CXX_aarch64_apple_darwin = "clang"
+CXX_x86_64_apple_darwin = "clang"
 
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]
