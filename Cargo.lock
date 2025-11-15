@@ -1860,6 +1860,7 @@ dependencies = [
 name = "llrt_modules"
 version = "0.7.0-beta"
 dependencies = [
+ "home",
  "llrt_abort",
  "llrt_assert",
  "llrt_async_hooks",
@@ -1872,7 +1873,9 @@ dependencies = [
  "llrt_exceptions",
  "llrt_fetch",
  "llrt_fs",
+ "llrt_hooking",
  "llrt_http",
+ "llrt_json",
  "llrt_navigator",
  "llrt_net",
  "llrt_os",
@@ -1881,6 +1884,7 @@ dependencies = [
  "llrt_process",
  "llrt_stream_web",
  "llrt_string_decoder",
+ "llrt_test",
  "llrt_timers",
  "llrt_tls",
  "llrt_tty",
@@ -1888,7 +1892,11 @@ dependencies = [
  "llrt_util",
  "llrt_utils",
  "llrt_zlib",
+ "once_cell",
  "rquickjs",
+ "simd-json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

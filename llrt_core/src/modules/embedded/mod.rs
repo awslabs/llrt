@@ -4,15 +4,12 @@ use std::env;
 
 use rquickjs::{Ctx, Function, Result};
 
+use crate::modules::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
+
 use self::resolver::embedded_resolve;
 
 pub mod loader;
 pub mod resolver;
-
-// added when .cjs files are imported
-const CJS_IMPORT_PREFIX: &str = "__cjs:";
-// added to force CJS imports in loader
-const CJS_LOADER_PREFIX: &str = "__cjsm:";
 
 pub static COMPRESSION_DICT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/compression.dict"));
 
@@ -25,7 +22,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
         embedded_resolve(&x, &y).map(|res| res.into_owned())
     })?;
 
-    globals.set("__embedded_hook", embedded_hook)?;
+    globals.set("__require_hook", embedded_hook)?;
 
     Ok(())
 }

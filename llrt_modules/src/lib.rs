@@ -1,10 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashSet, env, marker::PhantomData};
-
-use rquickjs::JsLifetime;
-
+pub mod module;
 pub mod module_builder;
+pub mod package;
+pub mod require;
 
 pub use self::modules::*;
 
@@ -67,24 +66,9 @@ mod modules {
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub struct ModuleNames<'js> {
-    list: HashSet<String>,
-    _marker: PhantomData<&'js ()>,
-}
+// added when .cjs files are imported
+pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
+// added to force CJS imports in loader
+pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
 
-unsafe impl<'js> JsLifetime<'js> for ModuleNames<'js> {
-    type Changed<'to> = ModuleNames<'to>;
-}
-
-impl ModuleNames<'_> {
-    pub fn new(names: HashSet<String>) -> Self {
-        Self {
-            list: names,
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn get_list(&self) -> HashSet<String> {
-        self.list.clone()
-    }
-}
+pub const ENV_LLRT_PLATFORM: &str = "LLRT_PLATFORM";

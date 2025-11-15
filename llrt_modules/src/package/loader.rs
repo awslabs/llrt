@@ -5,12 +5,12 @@ use std::{fs::File, io::Read};
 use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use tracing::trace;
 
-use super::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
+use crate::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
 
 #[derive(Debug, Default)]
-pub struct NpmJsLoader;
+pub struct PackageLoader;
 
-impl NpmJsLoader {
+impl PackageLoader {
     fn load_cjs_module<'js>(name: &str, ctx: Ctx<'js>) -> Result<Module<'js>> {
         let cjs_specifier = [CJS_IMPORT_PREFIX, name].concat();
         let require: Function = ctx.globals().get("require")?;
@@ -76,7 +76,7 @@ impl NpmJsLoader {
 
         let (from_cjs_import, is_cjs, normalized_name, path) = Self::normalize_name(name);
 
-        trace!("Loading npm module: {}\n", normalized_name);
+        trace!("+- Loading module: {}\n", normalized_name);
 
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
@@ -109,8 +109,9 @@ impl NpmJsLoader {
     }
 }
 
-impl Loader for NpmJsLoader {
+impl Loader for PackageLoader {
     fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+        trace!("Try load '{}'", name);
         let (module, url) = Self::load_module(name, ctx)?;
         if let Some(url) = url {
             let meta: Object = module.meta()?;
