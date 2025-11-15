@@ -23,7 +23,7 @@ use crate::package::resolver::require_resolve;
 use crate::CJS_IMPORT_PREFIX;
 
 pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
-    env::var("LLRT_PLATFORM")
+    env::var(super::ENV_LLRT_PLATFORM)
         .ok()
         .filter(|platform| platform == "node")
         .unwrap_or_else(|| "browser".to_string())

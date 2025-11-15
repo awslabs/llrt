@@ -70,3 +70,5 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
 // added to force CJS imports in loader
 pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
+
+pub const ENV_LLRT_PLATFORM: &str = "LLRT_PLATFORM";

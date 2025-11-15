@@ -20,7 +20,6 @@ mod repl;
 use constcat::concat;
 use llrt_core::modules::process::EXIT_CODE;
 use minimal_tracer::MinimalTracer;
-use once_cell::sync::Lazy;
 use tracing::trace;
 
 #[cfg(not(feature = "lambda"))]
@@ -48,9 +47,6 @@ use crate::base::{async_with, CatchResultExt};
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
-
-static LLRT_REGISTER_HOOKS: Lazy<Option<String>> =
-    Lazy::new(|| env::var(ENV_LLRT_REGISTER_HOOKS).ok());
 
 #[tokio::main]
 async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
@@ -118,7 +114,7 @@ Options:
 }
 
 async fn start_runtime(vm: &Vm) {
-    if let Some(filename) = LLRT_REGISTER_HOOKS.as_ref() {
+    if let Ok(filename) = env::var(ENV_LLRT_REGISTER_HOOKS) {
         vm.run_file(filename, true, true).await;
     }
 

@@ -20,7 +20,6 @@ crossterm = { version = "0.29", features = [
   "windows",
 ], default-features = false }
 llrt_core = { path = "../llrt_core" }
-once_cell = { version = "1", features = ["std"], default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "rt-multi-thread",

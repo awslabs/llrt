@@ -12,9 +12,6 @@ pub const ENV_LLRT_EXTRA_CA_CERTS: &str = "LLRT_EXTRA_CA_CERTS";
 //log
 pub const ENV_LLRT_LOG: &str = "LLRT_LOG";
 
-//module
-pub const ENV_LLRT_PLATFORM: &str = "LLRT_PLATFORM";
-
 //vm
 pub const ENV_LLRT_GC_THRESHOLD_MB: &str = "LLRT_GC_THRESHOLD_MB";
 

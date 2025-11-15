@@ -1521,7 +1521,6 @@ dependencies = [
  "crossterm",
  "llrt_core",
  "llrt_test",
- "once_cell",
  "snmalloc-rs",
  "tokio",
  "tracing",
