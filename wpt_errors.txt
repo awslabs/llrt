@@ -1,19 +1,34 @@
 🧪/wpt/FileAPI.blob.test.js 
+FileAPI/blob > should pass Blob-newobject.any.js tests
+Error: [Blob.stream() returns [NewObject]] not a function
+
 FileAPI/blob > should pass Blob-stream.any.js tests
 Error: [Blob.stream()] promise_test: Unhandled rejection with value: object "TypeError: not a function"
 
 
 🧪/wpt/WebCryptoAPI.digest.test.js 
+WebCryptoAPI/digest > should pass cshake.tentative.https.any.js tests
+Error: [cSHAKE128 with 0 bit output and empty source data] promise_test: Unhandled rejection with value: object "Error: 'cSHAKE128' not available"
+
 WebCryptoAPI/digest > should pass digest.https.any.js tests
 Error: [SHA-1 with short source data and altered buffer after call] assert_true: digest() yielded expected result for sha-1:short expected true got false
+
+WebCryptoAPI/digest > should pass sha3.tentative.https.any.js tests
+Error: [SHA3-256 with empty source data] promise_test: Unhandled rejection with value: object "Error: 'SHA3-256' not available"
 
 
 🧪/wpt/WebCryptoAPI.test.js 
 WebCryptoAPI > should pass crypto_key_cached_slots.https.any.js tests
 Error: [CryptoKey.algorithm getter returns cached object] assert_true: expected true got false
 
+WebCryptoAPI > should pass getPublicKey.tentative.https.any.js tests
+Error: [getPublicKey works for ECDH] promise_test: Unhandled rejection with value: object "TypeError: not a function"
+
 WebCryptoAPI > should pass historical.any.js tests
 Error: [Non-secure context window does not have access to crypto.subtle] assert_equals: expected (undefined) undefined but got (object) object "[object Object]"
+
+WebCryptoAPI > should pass supports.tentative.https.any.js tests
+Error: [SubtleCrypto.supports method exists] assert_true: SubtleCrypto.supports should be a function expected true got false
 
 
 🧪/wpt/console.test.js 
