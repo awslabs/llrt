@@ -10,7 +10,6 @@ mod base {
     pub use llrt_core::environment;
     pub use llrt_core::libs;
     pub use llrt_core::modules;
-    pub use llrt_core::utils;
     pub use llrt_core::vm;
 }
 pub use llrt_core::VERSION;

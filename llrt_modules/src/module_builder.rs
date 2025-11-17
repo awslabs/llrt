@@ -3,13 +3,9 @@
 use std::collections::HashSet;
 
 use llrt_utils::module::ModuleInfo;
-use rquickjs::{
-    loader::{ModuleLoader, Resolver},
-    module::ModuleDef,
-    Ctx, Error, Result,
-};
+use rquickjs::{module::ModuleDef, Ctx, Result};
 
-use super::ModuleNames;
+use crate::module::{loader::ModuleLoader, resolver::ModuleResolver, ModuleNames};
 
 #[derive(Debug, Default)]
 pub struct GlobalAttachment {
@@ -39,30 +35,6 @@ impl GlobalAttachment {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct ModuleResolver {
-    modules: HashSet<String>,
-}
-
-impl ModuleResolver {
-    #[must_use]
-    pub fn add_name<P: Into<String>>(mut self, path: P) -> Self {
-        self.modules.insert(path.into());
-        self
-    }
-}
-
-impl Resolver for ModuleResolver {
-    fn resolve(&mut self, _: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
-        let name = name.trim_start_matches("node:").trim_end_matches("/");
-        if self.modules.contains(name) {
-            Ok(name.into())
-        } else {
-            Err(Error::new_resolving(base, name))
-        }
-    }
-}
-
 pub struct ModuleBuilder {
     module_resolver: ModuleResolver,
     module_loader: ModuleLoader,
@@ -72,6 +44,10 @@ pub struct ModuleBuilder {
 impl Default for ModuleBuilder {
     fn default() -> Self {
         let mut builder = Self::new();
+
+        builder = builder
+            .with_global(crate::module::init)
+            .with_module(crate::module::ModuleModule);
 
         #[cfg(feature = "abort")]
         {

@@ -8,6 +8,8 @@ use std::{
 };
 
 use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
+use llrt_json::parse::json_parse;
+use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, provider::ProviderType};
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
@@ -15,27 +17,13 @@ use rquickjs::{
 use tokio::time::Instant;
 use tracing::trace;
 
-use crate::bytecode::BYTECODE_FILE_EXT;
-use crate::environment;
-use crate::libs::{json::parse::json_parse, utils::provider::ProviderType};
-use crate::modules::{
-    ModuleNames,
-    {path::resolve_path, timers::poll_timers},
-};
-use crate::utils::ctx::CtxExt;
-
-use self::resolver::require_resolve;
-
-pub mod loader;
-pub mod resolver;
-
-// added when .cjs files are imported
-pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
-// added to force CJS imports in loader
-pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
+use crate::module::ModuleNames;
+use crate::modules::{path::resolve_path, timers::poll_timers};
+use crate::package::resolver::require_resolve;
+use crate::CJS_IMPORT_PREFIX;
 
 pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
-    env::var(environment::ENV_LLRT_PLATFORM)
+    env::var(super::ENV_LLRT_PLATFORM)
         .ok()
         .filter(|platform| platform == "node")
         .unwrap_or_else(|| "browser".to_string())
@@ -54,7 +42,7 @@ unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
 
 pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     let globals = ctx.globals();
-    let embedded_fn: Option<Function> = globals.get("__embedded_hook").ok();
+    let hooked_fn: Option<Function> = globals.get("__require_hook").ok();
 
     struct Args<'js>(Ctx<'js>);
     let Args(ctx) = Args(ctx);
@@ -92,7 +80,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             let abs_path = resolve_path([module_name].iter())?;
 
             let resolved_path =
-                require_resolve(&ctx, &specifier, &abs_path, embedded_fn, false)?.into_owned();
+                require_resolve(&ctx, &specifier, &abs_path, hooked_fn, false)?.into_owned();
             import_name = resolved_path.into();
             if is_bytecode_or_json {
                 import_name.clone()

@@ -218,10 +218,16 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 ## module
 
+[builtinModules](https://nodejs.org/api/module.html#modulebuiltinmodules)
+
 [createRequire](https://nodejs.org/api/module.html#modulecreaterequirefilename)
 
 > [!NOTE]
 > `require` is available from esm modules natively. This function is just for compatibility
+
+[isBuiltin](https://nodejs.org/api/module.html#moduleisbuiltinmodulename)
+
+[registerHooks](https://nodejs.org/api/module.html#moduleregisterhooksoptions)
 
 ## net
 
