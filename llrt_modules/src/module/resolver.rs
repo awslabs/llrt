@@ -1,6 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashSet,
+    rc::Rc,
+};
 
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{
@@ -108,6 +112,9 @@ fn call_resolve_hooks_from<'js>(
         let context = Object::new(ctx.clone())?;
         context.set("parentURL", parent_url)?;
 
+        let called_next = Rc::new(Cell::new(false));
+        let called_next_ref = Rc::clone(&called_next);
+
         let spec_clone = spec.to_string();
         let hooks_clone = Rc::clone(hooks);
 
@@ -127,11 +134,15 @@ fn call_resolve_hooks_from<'js>(
                 } else {
                     spec_clone.clone()
                 };
+                called_next_ref.set(true);
                 call_resolve_hooks_from(&ctx, &hooks_clone, index + 1, &new_spec, &new_parent)
             },
         );
 
-        return resolve_fn.call::<_, Object>((spec, context, next_func));
+        let result = resolve_fn.call::<_, Object>((spec, context, next_func))?;
+        result.set("__nextResolve", called_next.get())?;
+
+        return Ok(result);
     }
 
     let obj = Object::new(ctx.clone())?;
