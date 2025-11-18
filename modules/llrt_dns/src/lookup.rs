@@ -171,7 +171,7 @@ impl<'js> FromJs<'js> for LookupOptions {
                         },
                     }
                 } else if family_value.is_null() || family_value.is_undefined() {
-                    family = 0;
+                    // Use default family
                 } else {
                     return Err(Exception::throw_type(ctx, ERROR_MSG_OPTIONS_FAMILY));
                 }
@@ -193,6 +193,8 @@ impl<'js> FromJs<'js> for LookupOptions {
                     },
                 }
             }
+        } else if value.is_null() || value.is_undefined() {
+            // Use default options
         } else {
             return Err(Exception::throw_type(ctx, ERROR_MSG_OPTIONS_FAMILY));
         }
