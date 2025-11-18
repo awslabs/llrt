@@ -18,6 +18,7 @@ base = [
   "buffer",
   "child-process",
   "crypto",
+  "dgram",
   "dns",
   "events",
   "exceptions",
@@ -48,6 +49,7 @@ buffer = ["llrt_buffer"]
 child-process = ["llrt_child_process"]
 console = ["llrt_console"]
 crypto = ["llrt_crypto"]
+dgram = ["llrt_dgram"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
@@ -90,6 +92,7 @@ llrt_buffer = { version = "0.7.0-beta", path = "../modules/llrt_buffer", optiona
 llrt_child_process = { version = "0.7.0-beta", path = "../modules/llrt_child_process", optional = true }
 llrt_console = { version = "0.7.0-beta", path = "../modules/llrt_console", optional = true }
 llrt_crypto = { version = "0.7.0-beta", path = "../modules/llrt_crypto", optional = true }
+llrt_dgram = { version = "0.7.0-beta", path = "../modules/llrt_dgram", optional = true }
 llrt_dns = { version = "0.7.0-beta", path = "../modules/llrt_dns", optional = true }
 llrt_events = { version = "0.7.0-beta", path = "../modules/llrt_events", optional = true }
 llrt_exceptions = { version = "0.7.0-beta", path = "../modules/llrt_exceptions", optional = true }

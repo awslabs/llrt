@@ -1684,6 +1684,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_dgram"
+version = "0.7.0-beta"
+dependencies = [
+ "itoa",
+ "llrt_buffer",
+ "llrt_context",
+ "llrt_events",
+ "llrt_test",
+ "llrt_utils",
+ "rand",
+ "rquickjs",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "llrt_dns"
 version = "0.7.0-beta"
 dependencies = [
@@ -1848,6 +1864,7 @@ dependencies = [
  "llrt_child_process",
  "llrt_console",
  "llrt_crypto",
+ "llrt_dgram",
  "llrt_dns",
  "llrt_events",
  "llrt_exceptions",

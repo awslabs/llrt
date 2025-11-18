@@ -5,6 +5,7 @@
 /// <reference types="./child_process.d.ts" />
 /// <reference types="./console.d.ts" />
 /// <reference types="./crypto.d.ts" />
+/// <reference types="./dgram.d.ts" />
 /// <reference types="./dns.d.ts" />
 /// <reference types="./dom-events.d.ts" />
 /// <reference types="./events.d.ts" />
