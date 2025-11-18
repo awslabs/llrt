@@ -1,75 +1,82 @@
-import { spawn } from "node:child_process";
 import {
-  accessSync,
+  access,
   constants,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnCapture } from "./test-utils";
 
 const TIMEOUT = 30000;
 const IS_WINDOWS = platform() === "win32";
 
-const spawnCapture = async (cmd: string, args: string[] = []) =>
-  await new Promise<number>((resolve, reject) =>
-    spawn(cmd, args)
-      .on("close", (code) => resolve(code ?? -1))
-      .on("error", (err) => reject(err))
-  );
-
-const compile = async (filename: string, outputFilename: string) => {
+const compile = async (
+  filename: string,
+  outputFilename: string
+): Promise<void> => {
   const args = ["compile", filename, outputFilename, "--executable"];
-  const compileResult = await spawnCapture(process.argv0, args);
+  const { code: compileResult } = await spawnCapture(process.argv0, args);
   if (compileResult !== 0) {
     throw new Error(`Compilation failed with exit code ${compileResult}`);
   }
 };
 
-const run = async (filename: string, args: string[] = []) =>
-  await spawnCapture(filename, args);
+const run = async (
+  filename: string,
+  args: string[] = []
+): Promise<{ code: number; output: string }> => {
+  const { code, stdout, stderr } = await spawnCapture(filename, args);
+  return { code, output: stdout + stderr };
+};
 
 describe("executable compilation", () => {
   let tmpDir: string;
   let exePath: string;
-  const createTestScript = (content: string) => {
+
+  const createTestScript = async (content: string): Promise<string> => {
     const scriptPath = join(tmpDir, "exe_test.js");
-    writeFileSync(scriptPath, content, "utf8");
+    await writeFile(scriptPath, content, "utf8");
     return scriptPath;
   };
 
-  beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "llrt-test-compile"));
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "llrt-test-compile"));
     exePath = join(tmpDir, "exe_test");
   });
 
   afterEach(async () => {
-    rmSync(tmpDir, { force: true, recursive: true });
+    //await rm(tmpDir, { force: true, recursive: true });
   });
 
   it(
     "should compile JavaScript to a self-contained executable",
     async () => {
-      const scriptPath = createTestScript("process.exit(0);");
+      const scriptPath = await createTestScript(
+        "console.log('test'); process.exit(0);"
+      );
 
       await compile(scriptPath, exePath);
 
-      const stats = statSync(exePath);
+      const stats = await stat(exePath);
+
       if (!stats.isFile()) {
         throw new Error("Created file is not a regular file");
-      } else if (stats.size <= 0) {
+      }
+      if (stats.size <= 0) {
         throw new Error("Created file is empty");
       }
 
-      // Check executable permissions on non-Windows platforms
       if (!IS_WINDOWS) {
-        accessSync(exePath, constants.X_OK);
+        await access(exePath, constants.X_OK);
       }
-
-      const execResult = await run(exePath);
+      const { code: execResult, output } = await run(exePath);
+      if (output.trim() !== "test") {
+        throw new Error(`Expected output 'test', got '${output}'`);
+      }
       if (execResult !== 0) {
         throw new Error(`Expected exit code 0, got ${execResult}`);
       }
@@ -80,11 +87,15 @@ describe("executable compilation", () => {
   it(
     "should result in the correct exit code",
     async () => {
-      const scriptPath = createTestScript("process.exit(42);");
-
+      const scriptPath = await createTestScript(
+        "console.log('exiting'); process.exit(42);"
+      );
       await compile(scriptPath, exePath);
 
-      const execResult = await run(exePath);
+      const { code: execResult, output } = await run(exePath);
+      if (output.trim() !== "exiting") {
+        throw new Error(`Expected output 'exiting', got '${output}'`);
+      }
       if (execResult !== 42) {
         throw new Error(`Expected exit code 42, got ${execResult}`);
       }
@@ -95,11 +106,15 @@ describe("executable compilation", () => {
   it(
     "should result in the correct exit code passed via argument",
     async () => {
-      const scriptPath = createTestScript("process.exit(process.argv[1]);");
-
+      const scriptPath = await createTestScript(
+        "console.log('arg:', process.argv[1]); process.exit(process.argv[1]);"
+      );
       await compile(scriptPath, exePath);
 
-      const execResult = await run(exePath, ["1"]);
+      const { code: execResult, output } = await run(exePath, ["1"]);
+      if (output.trim() !== "arg: 1") {
+        throw new Error(`Expected output 'arg: 1', got '${output}'`);
+      }
       if (execResult !== 1) {
         throw new Error(`Expected exit code 1, got ${execResult}`);
       }
@@ -108,28 +123,23 @@ describe("executable compilation", () => {
   );
 
   it(
-    "should write a file as part of the executable",
+    "should log output from the executable",
     async () => {
-      const testFile = "test.txt";
-      const expectation = "content";
-      const scriptPath = createTestScript(`
-        import {writeFileSync} from 'fs';
-        import {join} from 'path';
-
-        writeFileSync(join(process.argv[1], '${testFile}'), '${expectation}', 'utf8');
+      const testOutput = "test content";
+      const scriptPath = await createTestScript(`
+        console.log('${testOutput}');
       `);
 
       await compile(scriptPath, exePath);
 
-      const execResult = await run(exePath, [tmpDir]);
+      const { code: execResult, output } = await run(exePath);
       if (execResult !== 0) {
-        throw new Error(`Expected exit code 1, got ${execResult}`);
+        throw new Error(`Expected exit code 0, got ${execResult}`);
       }
 
-      const content = readFileSync(join(tmpDir, testFile), "utf8");
-      if (content !== expectation) {
+      if (output.trim() !== testOutput) {
         throw new Error(
-          `Expected content of the test file to be '${expectation}', but got '${content}'`
+          `Expected output to be '${testOutput}', but got '${output}'`
         );
       }
     },

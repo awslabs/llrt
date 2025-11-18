@@ -662,8 +662,8 @@ class TestServer {
         }
       }
       process.exitCode = 1;
+      console.error(output);
     }
-    console.error(output);
   }
 
   private printSuiteResult(result: SuiteResult, depth = 0): string {
