@@ -48,3 +48,75 @@ impl From<DgramModule> for ModuleInfo<DgramModule> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::{test_async_with, ModuleEvaluator};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_module_loads() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                // Test that the dgram module can be loaded without errors
+                let result = ModuleEvaluator::eval_rust::<DgramModule>(ctx.clone(), "dgram").await;
+                assert!(result.is_ok(), "Dgram module should load successfully");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_create_socket_function_exists() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<DgramModule>(ctx.clone(), "dgram")
+                    .await
+                    .unwrap();
+
+                let result = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import dgram from 'dgram';
+                        typeof dgram.createSocket === 'function'
+                    "#,
+                )
+                .await;
+
+                assert!(result.is_ok(), "createSocket should be accessible");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_socket_creation() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<DgramModule>(ctx.clone(), "dgram")
+                    .await
+                    .unwrap();
+
+                let result = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import dgram from 'dgram';
+                        try {
+                            const socket = dgram.createSocket('udp4');
+                            true
+                        } catch (e) {
+                            false
+                        }
+                    "#,
+                )
+                .await;
+
+                assert!(result.is_ok(), "Socket creation should not throw");
+            })
+        })
+        .await;
+    }
+}
