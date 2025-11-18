@@ -22,10 +22,10 @@ linker = "./linker/cc-x86_64-linux-musl"
 ar = "./linker/ar"
 
 [env]
-CC_aarch64_apple_darwin = "clang"
-CC_x86_64_apple_darwin = "clang"
-CXX_aarch64_apple_darwin = "clang"
-CXX_x86_64_apple_darwin = "clang"
+CC_aarch64_apple_darwin = "/usr/bin/clang"
+CC_x86_64_apple_darwin = "/usr/bin/clang"
+CXX_aarch64_apple_darwin = "/usr/bin/clang"
+CXX_x86_64_apple_darwin = "/usr/bin/clang"
 
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]

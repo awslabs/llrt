@@ -1,6 +1,6 @@
 import net from "node:net";
-import { spawn } from "node:child_process";
 import { platform } from "node:os";
+import { spawnCapture } from "./test-utils";
 
 const IS_WINDOWS = platform() === "win32";
 
@@ -9,37 +9,19 @@ let url: string;
 
 const { LLRT_LOG, ...TEST_ENV } = process.env;
 
-// Helper function to spawn process and collect output
-const spawnAndCollectOutput = (deniedUrl: URL, env: Record<string, string>) => {
-  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    const proc = spawn(
-      process.argv[0],
-      [
-        "-e",
-        `fetch("${deniedUrl}").catch(console.error).then(() => fetch("${url}")).then(() => console.log("OK"))`,
-      ],
-      {
-        env: {
-          ...TEST_ENV,
-          ...env,
-        },
-      }
-    );
-
-    let stdout = "";
-    let stderr = "";
-
-    proc.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-    proc.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-    proc.on("close", () => {
-      resolve({ stdout, stderr });
-    });
-    proc.on("error", reject);
-  });
+const spawnAndCollectOutput = async (
+  deniedUrl: URL,
+  env: Record<string, string>
+) => {
+  const { stdout, stderr } = await spawnCapture(
+    process.argv[0],
+    [
+      "-e",
+      `fetch("${deniedUrl}").catch(console.error).then(() => fetch("${url}")).then(() => console.log("OK"))`,
+    ],
+    { env: { ...TEST_ENV, ...env } }
+  );
+  return { stdout, stderr };
 };
 
 beforeAll((done) => {
