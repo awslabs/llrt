@@ -1,6 +1,7 @@
-globalThis._require = require; //used to preserve require during bundling/minification
+const _require = require; //used to preserve require during bundling/minification
 const CWD = process.cwd();
 import { spawn } from "node:child_process";
+import { spawnCapture } from "./test-utils";
 
 import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
@@ -176,21 +177,12 @@ it("regression testing for issue #903", () => {
 });
 
 //create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
-it("should handle blocking requires", (done) => {
-  const proc = spawn(process.argv0, [`${CWD}/fixtures/require.mjs`]);
-  let stdout = "";
-  proc.stdout.on("data", (data) => {
-    stdout += data.toString();
-  });
-  proc.on("close", (code) => {
-    try {
-      expect(code).toBe(0);
-      expect(stdout).toBe(
-        ["1", "2", "3", "4", "5", "hello world!", "6", ""].join("\n")
-      );
-      done();
-    } catch (e) {
-      done(e);
-    }
-  });
+it("should handle blocking requires", async () => {
+  const { code, stdout } = await spawnCapture(process.argv0, [
+    `${CWD}/fixtures/require.mjs`,
+  ]);
+  expect(code).toBe(0);
+  expect(stdout).toBe(
+    ["1", "2", "3", "4", "5", "hello world!", "6", ""].join("\n")
+  );
 });
