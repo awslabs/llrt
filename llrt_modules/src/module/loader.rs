@@ -1,6 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::Rc,
+};
 
 use llrt_utils::{any_of::AnyOf2, bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
@@ -112,6 +116,9 @@ fn call_load_hooks_from<'js>(
             continue;
         };
 
+        let called_next = Rc::new(Cell::new(false));
+        let called_next_ref = Rc::clone(&called_next);
+
         let context = Object::new(ctx.clone())?;
         let hooks_clone = Rc::clone(hooks);
 
@@ -120,11 +127,15 @@ fn call_load_hooks_from<'js>(
                   new_url: String,
                   _opt_ctx: Opt<Value<'js>>|
                   -> Result<Object<'js>> {
+                called_next_ref.set(true);
                 call_load_hooks_from(&ctx, &hooks_clone, index + 1, &new_url)
             },
         );
 
-        return load_fn.call::<_, Object>((url, context, next_func));
+        let result = load_fn.call::<_, Object>((url, context, next_func))?;
+        result.set("__nextLoad", called_next.get())?;
+
+        return Ok(result);
     }
 
     let obj = Object::new(ctx.clone())?;
