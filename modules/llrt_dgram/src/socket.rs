@@ -7,14 +7,14 @@ use std::sync::{
 
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
-use llrt_events::{Emitter, EventEmitter, EventKey, EventList};
+use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, FromJs, Function, IntoJs, JsLifetime, Object, Result, Value,
 };
-use tokio::net::UdpSocket;
+use tokio::{net::UdpSocket, sync::broadcast};
 use tracing::trace;
 
 #[rquickjs::class]
@@ -27,6 +27,7 @@ pub struct Socket<'js> {
     local_port: Option<u16>,
     local_family: Option<String>,
     receiver_running: Arc<AtomicBool>,
+    close_tx: broadcast::Sender<()>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -71,6 +72,7 @@ impl<'js> Socket<'js> {
         }
 
         let emitter = EventEmitter::new();
+        let (close_tx, _) = broadcast::channel(1);
 
         let instance = Self {
             emitter,
@@ -85,6 +87,7 @@ impl<'js> Socket<'js> {
                 "IPv6".to_string()
             }),
             receiver_running: Arc::new(AtomicBool::new(false)),
+            close_tx,
         };
 
         Class::instance(ctx, instance)
@@ -151,7 +154,7 @@ impl<'js> Socket<'js> {
             )?;
         }
 
-        let bind_addr = format!("{}:{}", address, port);
+        let bind_addr = [&address, ":", &port.to_string()].concat();
         let socket_class = this.clone();
         let is_bound = {
             let borrow = this.borrow();
@@ -195,58 +198,66 @@ impl<'js> Socket<'js> {
                 let recv_class = socket_class.clone();
                 let recv_closed = is_closed.clone();
                 let recv_running = receiver_running.clone();
+                let mut close_rx = {
+                    let borrow = socket_class.borrow();
+                    borrow.close_tx.subscribe()
+                };
 
                 ctx.clone().spawn_exit(async move {
                     let mut buf = vec![0u8; 65536];
 
-                    loop {
-                        if recv_closed.load(Ordering::SeqCst) {
-                            break;
-                        }
-
-                        match recv_socket.recv_from(&mut buf).await {
-                            Ok((size, peer_addr)) => {
-                                let data = Buffer(buf[..size].to_vec()).into_js(&ctx)?;
-                                let info = Object::new(ctx.clone())?;
-                                info.set("address", peer_addr.ip().to_string())?;
-                                info.set("port", peer_addr.port())?;
-                                info.set(
-                                    "family",
-                                    if peer_addr.is_ipv4() { "IPv4" } else { "IPv6" },
-                                )?;
-
-                                let info_val: Value = info.into();
-                                Self::emit_str(
-                                    This(recv_class.clone()),
-                                    &ctx,
-                                    "message",
-                                    vec![data, info_val],
-                                    false,
-                                )?;
-                            },
-                            Err(e) => {
-                                if recv_closed.load(Ordering::SeqCst) {
+                    let result: Result<()> = async {
+                        loop {
+                            tokio::select! {
+                                _ = close_rx.recv() => {
+                                    // Close signal received, exit loop
                                     break;
                                 }
-                                let error_msg = format!("UDP receive error: {}", e);
-                                if let Ok(error_exception) = Exception::from_message(ctx.clone(), &error_msg) {
-                                    if let Ok(error_val) = error_exception.into_js(&ctx) {
-                                        Self::emit_str(
-                                            This(recv_class.clone()),
-                                            &ctx,
-                                            "error",
-                                            vec![error_val],
-                                            false,
-                                        )?;
+                                result = recv_socket.recv_from(&mut buf) => {
+                                    match result {
+                                        Ok((size, peer_addr)) => {
+                                            let data = Buffer(buf[..size].to_vec()).into_js(&ctx)?;
+                                            let info = Object::new(ctx.clone())?;
+                                            info.set("address", peer_addr.ip().to_string())?;
+                                            info.set("port", peer_addr.port())?;
+                                            info.set(
+                                                "family",
+                                                if peer_addr.is_ipv4() { "IPv4" } else { "IPv6" },
+                                            )?;
+
+                                            let info_val: Value = info.into();
+                                            Self::emit_str(
+                                                This(recv_class.clone()),
+                                                &ctx,
+                                                "message",
+                                                vec![data, info_val],
+                                                false,
+                                            )?;
+                                        },
+                                        Err(e) => {
+                                            if recv_closed.load(Ordering::SeqCst) {
+                                                break;
+                                            }
+                                            let error_msg = format!("UDP receive error: {}", e);
+
+                                            if Err::<(), _>(Exception::throw_message(&ctx, &error_msg))
+                                                .emit_error("message", &ctx, recv_class.clone())?
+                                            {
+                                                // Error was handled by error listener, continue receiving
+                                            } else {
+                                                // No error listener, break loop
+                                                break;
+                                            }
+                                        },
                                     }
                                 }
-                                break;
-                            },
+                            }
                         }
-                    }
+                        Ok(())
+                    }.await;
 
                     recv_running.store(false, Ordering::SeqCst);
-                    Result::<()>::Ok(())
+                    result
                 })?;
             }
 
@@ -304,7 +315,7 @@ impl<'js> Socket<'js> {
                 socket_arc
             };
 
-            let dest_addr = format!("{}:{}", address, port);
+            let dest_addr = [&address, ":", &port.to_string()].concat();
             let result = socket.send_to(&bytes, &dest_addr).await;
 
             if let Some(cb) = callback.0 {
@@ -336,6 +347,9 @@ impl<'js> Socket<'js> {
                 return Ok(());
             }
             borrow.is_closed.store(true, Ordering::SeqCst);
+
+            // Send close signal to interrupt receive loop immediately
+            let _ = borrow.close_tx.send(());
         }
 
         if let Some(cb) = callback.0 {
@@ -381,12 +395,14 @@ impl<'js> Socket<'js> {
     pub fn unref(this: This<Class<'js, Self>>) -> Result<Class<'js, Self>> {
         // In Node.js, unref() allows the process to exit if this is the only active handle
         // In LLRT's context, this is a no-op but we keep it for API compatibility
+        trace!("Socket.unref() called - no-op for API compatibility");
         Ok(this.0)
     }
 
     #[qjs(rename = "ref")]
     pub fn r#ref(this: This<Class<'js, Self>>) -> Result<Class<'js, Self>> {
         // Counterpart to unref(), also a no-op in LLRT
+        trace!("Socket.ref() called - no-op for API compatibility");
         Ok(this.0)
     }
 }
