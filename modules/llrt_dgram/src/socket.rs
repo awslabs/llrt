@@ -245,8 +245,8 @@ impl<'js> Socket<'js> {
                                             {
                                                 // Error was handled by error listener, continue receiving
                                             } else {
-                                                // No error listener, break loop
-                                                break;
+                                                // No error listener, propagate error to spawn_exit
+                                                return Err(Exception::throw_message(&ctx, &error_msg));
                                             }
                                         },
                                     }
