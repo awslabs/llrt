@@ -8,6 +8,7 @@ import { SocketReqMsg } from "./shared";
 import { platform } from "node:os";
 const IS_WINDOWS = platform() === "win32";
 import CircularBuffer from "./CircularBuffer";
+// @ts-ignore
 import { dimensions } from "llrt:util";
 
 type TestOptions = {
@@ -39,6 +40,7 @@ type RootSuite = TestProps & {
 };
 
 type WorkerData = {
+  writeInProgress: boolean;
   stdOutBuffer: CircularBuffer;
   stdErrBuffer: CircularBuffer;
   completed: boolean;
@@ -47,8 +49,8 @@ type WorkerData = {
   success: boolean;
   connectionTimeout: Timeout | null;
   currentTest: TestResult | null;
-  currentResult: SuiteResult | null;
-  currentFile: string | null;
+  result: SuiteResult | null;
+  file: string;
   currentPath: string[];
   currentTimeout: number;
 };
@@ -117,6 +119,9 @@ class TestServer {
   private spinnerFrameIndex = 0;
   private started = 0;
   private shutdownPending = false;
+  private nextWorkerId = 0;
+  private activeWorkers = 0;
+  private printFinalResults = false;
 
   constructor(
     testFiles: string[],
@@ -143,18 +148,18 @@ class TestServer {
 
     this.server = server;
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       server.listen(resolve);
     });
 
-    this.spawnAllWorkers();
+    this.spawnWorkers();
     this.updateInterval = setInterval(() => {
       this.tick();
     }, TestServer.UPDATE_INTERVAL_MS);
   }
 
   handleSocketConnected(socket: net.Socket) {
-    socket.on("data", (data) => {
+    socket.on("data", (data: Buffer) => {
       let response;
       try {
         response = this.handleData(socket, data);
@@ -162,7 +167,11 @@ class TestServer {
         this.handleError(TestServer.ERROR_CODE_HANDLE_DATA, e);
         return;
       }
+      const workerId = this.workerIdBySocket.get(socket);
+      const workerData = this.workerData[workerId!];
+      workerData.writeInProgress = true;
       socket.write(JSON.stringify(response), (err) => {
+        workerData.writeInProgress = false;
         if (err) {
           return this.handleError(
             TestServer.ERROR_CODE_SOCKET_WRITE_ERROR,
@@ -201,14 +210,18 @@ class TestServer {
     });
   }
 
-  spawnAllWorkers() {
-    for (let i = 0; i < this.workerCount; i++) {
-      this.workerData[i] = {
+  spawnWorkers() {
+    while (this.activeWorkers < this.workerCount && this.fileQueue.length > 0) {
+      const file = this.fileQueue.shift()!;
+      const workerId = this.nextWorkerId++;
+
+      this.workerData[workerId] = {
+        writeInProgress: false,
         currentTest: null,
         success: true,
         completed: false,
-        currentResult: null,
-        currentFile: null,
+        result: null,
+        file: file,
         currentTimeout: TestServer.DEFAULT_TIMEOUT_MS,
         lastUpdate: Date.now(),
         currentPath: [],
@@ -216,11 +229,23 @@ class TestServer {
         stdOutBuffer: new CircularBuffer(1024, 64),
         stdErrBuffer: new CircularBuffer(1024, 64),
       };
-      this.spawnWorker(i);
+
+      this.results.set(file, {
+        results: [],
+        name: path.basename(file),
+        success: true,
+        started: 0,
+        ended: 0,
+        printed: false,
+      });
+
+      this.workerDataFileInProgress.set(file, this.workerData[workerId]);
+      this.spawnWorker(workerId, file);
+      this.activeWorkers++;
     }
   }
 
-  private spawnWorker(id: number) {
+  private spawnWorker(id: number, file: string) {
     const workerData = this.workerData[id];
     const stdOutBuffer = workerData.stdOutBuffer;
     const stdErrBuffer = workerData.stdErrBuffer;
@@ -229,6 +254,7 @@ class TestServer {
       ...process.env,
       __LLRT_TEST_SERVER_PORT: (this.server?.address() as any).port,
       __LLRT_TEST_WORKER_ID: id.toString(),
+      __LLRT_TEST_FILE: file,
     };
     delete env.LLRT_LOG;
     const proc = spawn(
@@ -260,7 +286,7 @@ class TestServer {
             ended: performance.now(),
           }
         );
-        this.handleWorkerCompleted(id, true);
+        this.handleWorkerCompleted(id);
       }
     });
     workerData.connectionTimeout = setTimeout(() => {
@@ -312,32 +338,6 @@ class TestServer {
         this.totalOnly += onlyCount;
         break;
       }
-      case "next": {
-        const nextFile = this.fileQueue.shift();
-        const workerData = this.workerData[workerId];
-        workerData.stdErrBuffer.clear();
-        workerData.stdOutBuffer.clear();
-        //clear current path
-
-        workerData.currentPath.length = 0;
-
-        if (nextFile) {
-          this.results.set(nextFile, {
-            results: [],
-            name: path.basename(nextFile),
-            success: true,
-            started: 0,
-            ended: 0,
-            printed: false,
-          });
-          workerData.currentFile = nextFile;
-          this.workerDataFileInProgress.set(nextFile, workerData);
-        } else {
-          workerData.currentFile = null;
-          workerData.lastUpdate = 0;
-        }
-        return { nextFile: nextFile || null };
-      }
       case "start": {
         const { desc: describe, isSuite, started, timeout } = message;
         const workerData = this.workerData[workerId];
@@ -350,18 +350,18 @@ class TestServer {
             tests: [],
             success: true,
             children: [],
-            parent: workerData.currentResult,
+            parent: workerData.result,
             started: 0,
             ended: 0,
           };
           if (!result.parent) {
-            const suite = this.results.get(workerData.currentFile!)!;
+            const suite = this.results.get(workerData.file!)!;
             suite.started = started;
             suite.results.push(result);
           } else {
-            workerData.currentResult!.children.push(result);
+            workerData.result!.children.push(result);
           }
-          workerData.currentResult = result;
+          workerData.result = result;
         } else {
           const test: TestResult = {
             desc: describe,
@@ -370,7 +370,7 @@ class TestServer {
             ended: 0,
             error: null,
           };
-          workerData.currentResult!.tests.push(test);
+          workerData.result!.tests.push(test);
           workerData.currentTest = test;
         }
         workerData.currentPath.push(describe);
@@ -380,19 +380,19 @@ class TestServer {
       case "end": {
         const { isSuite, ended, started } = message;
         const workerData = this.workerData[workerId]!;
-        const currentResult = workerData.currentResult!;
+        const currentResult = workerData.result!;
         //if we're not in a test
         workerData.lastUpdate = 0;
         if (isSuite) {
           currentResult.ended = ended;
           currentResult.started = started;
-          workerData.currentResult = currentResult.parent;
-          if (!workerData.currentResult) {
-            const suite = this.results.get(workerData.currentFile!)!;
+          workerData.result = currentResult.parent;
+          if (!workerData.result) {
+            const suite = this.results.get(workerData.file!)!;
             suite.ended = ended;
             suite.started = started;
             if (workerData.success) {
-              this.filesCompleted.add(workerData.currentFile!);
+              this.filesCompleted.add(workerData.file!);
             }
           }
         } else {
@@ -412,7 +412,7 @@ class TestServer {
         break;
       }
       case "completed": {
-        this.handleWorkerCompleted(workerId, false);
+        this.handleWorkerCompleted(workerId);
         break;
       }
       default:
@@ -420,20 +420,49 @@ class TestServer {
     }
     return null;
   }
-  private handleWorkerCompleted(workerId: number, shutdownOnComplete: boolean) {
-    this.workerData[workerId].completed = true;
-    this.completedWorkers++;
-
-    if (this.completedWorkers == this.workerCount) {
-      clearInterval(this.updateInterval!);
-      this.tick();
-      this.printResults();
-      if (shutdownOnComplete) {
-        this.shutdown();
-      } else {
-        this.shutdownPending = true;
-      }
+  private handleWorkerCompleted(workerId: number) {
+    const workerData = this.workerData[workerId];
+    if (workerData.completed) {
+      return;
     }
+    workerData.completed = true;
+    this.completedWorkers++;
+    this.activeWorkers--;
+
+    const shutdownOrPrint = () => {
+      if (
+        this.completedWorkers == this.testFiles.length &&
+        !this.printFinalResults
+      ) {
+        this.printFinalResults = true;
+        clearInterval(this.updateInterval!);
+        this.tick();
+        this.printResults();
+        if (!workerData.writeInProgress) {
+          this.shutdown();
+        } else {
+          this.shutdownPending = true;
+        }
+      }
+    };
+
+    if (workerData.childProc) {
+      const exitTimeout = setTimeout(() => {
+        const error = new Error(
+          "Test did not exit within 1s. It does not properly clean up created resources (servers, timeouts etc)"
+        );
+        this.handleTestError(workerId, error, performance.now());
+        workerData.childProc?.kill();
+      }, 1000);
+
+      workerData.childProc?.once("exit", () => {
+        clearTimeout(exitTimeout);
+        shutdownOrPrint();
+      });
+    } else {
+      shutdownOrPrint();
+    }
+    this.spawnWorkers();
   }
 
   shutdown() {
@@ -455,11 +484,11 @@ class TestServer {
       error,
     };
     workerData.success = false;
-    const results = this.results.get(workerData.currentFile!);
+    const results = this.results.get(workerData.file!);
     if (results) {
       results.success = false;
     }
-    const testFailures = this.filesFailed.get(workerData.currentFile!) || [];
+    const testFailures = this.filesFailed.get(workerData.file!) || [];
     testFailures.push({
       desc: workerData.currentPath.slice(1),
       error,
@@ -468,7 +497,7 @@ class TestServer {
     });
     workerData.stdErrBuffer.clear();
     workerData.stdOutBuffer.clear();
-    this.filesFailed.set(workerData.currentFile!, testFailures);
+    this.filesFailed.set(workerData.file!, testFailures);
     this.totalFailed++;
     test.ended = ended;
     test.error = error;
@@ -498,114 +527,113 @@ class TestServer {
           new Error(`Test timed out after ${workerData.currentTimeout}ms`),
           performance.now()
         );
+
         workerData.childProc?.kill();
-        this.handleWorkerCompleted(parseInt(id), true);
+        workerData.childProc = undefined;
+        this.handleWorkerCompleted(parseInt(id));
       }
     }
 
-    if (this.completedWorkers != this.workerCount) {
-      let [terminalWidth] = dimensions();
-      let message = "";
+    let [terminalWidth] = dimensions();
+    let message = "";
 
-      if (!first) {
-        //clear last line
-        message = "\x1b[F\x1b[2K";
+    if (!first) {
+      //clear last line
+      message = "\x1b[F\x1b[2K";
+    }
+
+    const spinnerFrame = TestServer.SPINNER[this.spinnerFrameIndex];
+
+    if (terminalWidth > 80) {
+      terminalWidth = 80;
+    }
+
+    const total = this.testFiles.length;
+    const progress = (this.filesCompleted.size + this.filesFailed.size) / total;
+
+    const progressText = `${this.totalSuccess}/${this.totalTests}`;
+
+    const progressbarWidth = Math.min(
+      TestServer.DEFAULT_PROGRESS_BAR_WIDTH,
+      Math.max(
+        10,
+        terminalWidth - (2 + progressText.length + 2) //[ + ] + spinner + spacing + progress text
+      )
+    );
+    let totalProgressBarWidth = progressbarWidth;
+    const showProgressBarDesc =
+      totalProgressBarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH;
+    if (showProgressBarDesc) {
+      totalProgressBarWidth += TestServer.TESTING_TEXT.length;
+    }
+    let isSuccess = false;
+    let isFailed = false;
+    let i = 0;
+    let suffix = "";
+    let overflow = false;
+
+    for (let file of this.testFiles) {
+      let results = this.results.get(file);
+      isSuccess = this.filesCompleted.has(file);
+      if (!isSuccess) {
+        isFailed = this.filesFailed.has(file);
       }
-
-      const spinnerFrame = TestServer.SPINNER[this.spinnerFrameIndex];
-
-      if (terminalWidth > 80) {
-        terminalWidth = 80;
-      }
-
-      const total = this.testFiles.length;
-      const progress =
-        (this.filesCompleted.size + this.filesFailed.size) / total;
-
-      const progressText = `${this.totalSuccess}/${this.totalTests}`;
-
-      const progressbarWidth = Math.min(
-        TestServer.DEFAULT_PROGRESS_BAR_WIDTH,
-        Math.max(
-          10,
-          terminalWidth - (2 + progressText.length + 2) //[ + ] + spinner + spacing + progress text
-        )
-      );
-      let totalProgressBarWidth = progressbarWidth;
-      const showProgressBarDesc =
-        totalProgressBarWidth == TestServer.DEFAULT_PROGRESS_BAR_WIDTH;
-      if (showProgressBarDesc) {
-        totalProgressBarWidth += TestServer.TESTING_TEXT.length;
-      }
-      let isSuccess = false;
-      let isFailed = false;
-      let i = 0;
-      let suffix = "";
-      let overflow = false;
-
-      for (let file of this.testFiles) {
-        let results = this.results.get(file);
-        isSuccess = this.filesCompleted.has(file);
-        if (!isSuccess) {
-          isFailed = this.filesFailed.has(file);
+      if (results && (isSuccess || isFailed)) {
+        if (!results.printed) {
+          results.printed = true;
+          message += isSuccess
+            ? Color.GREEN(TestServer.CHECKMARK)
+            : Color.RED(TestServer.CROSS);
+          message += " ";
+          message += results.name;
+          message += "\n";
         }
-        if (results && (isSuccess || isFailed)) {
-          if (!results.printed) {
-            results.printed = true;
-            message += isSuccess
-              ? Color.GREEN(TestServer.CHECKMARK)
-              : Color.RED(TestServer.CROSS);
-            message += " ";
-            message += results.name;
-            message += "\n";
-          }
-          i++;
-          continue;
-        }
-
-        const inProgress = this.workerDataFileInProgress.has(file);
-        const filename = this.testFileNames[i];
-
-        if (
-          inProgress &&
-          totalProgressBarWidth + suffix.length + 4 < terminalWidth
-        ) {
-          if (
-            totalProgressBarWidth + suffix.length + filename.length + 4 <
-            terminalWidth
-          ) {
-            suffix += filename;
-            suffix += ", ";
-          } else {
-            overflow = true;
-            suffix += filename.slice(
-              0,
-              terminalWidth - (totalProgressBarWidth + suffix.length + 5)
-            );
-            suffix += "...";
-          }
-        }
-
         i++;
+        continue;
       }
 
-      if (!overflow) {
-        suffix = suffix.slice(0, -2);
-      }
-      const elapsed = Math.floor(progressbarWidth * progress);
-      const remaining = progressbarWidth - elapsed;
+      const inProgress = this.workerDataFileInProgress.has(file);
+      const filename = this.testFileNames[i];
 
-      message += spinnerFrame;
-      if (showProgressBarDesc) {
-        message += Color.CYAN_BOLD(TestServer.TESTING_TEXT);
+      if (
+        inProgress &&
+        totalProgressBarWidth + suffix.length + 4 < terminalWidth
+      ) {
+        if (
+          totalProgressBarWidth + suffix.length + filename.length + 4 <
+          terminalWidth
+        ) {
+          suffix += filename;
+          suffix += ", ";
+        } else {
+          overflow = true;
+          suffix += filename.slice(
+            0,
+            terminalWidth - (totalProgressBarWidth + suffix.length + 5)
+          );
+          suffix += "...";
+        }
       }
-      message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]`;
-      message += progressText;
-      message += ": ";
-      message += Color.DIM(suffix);
 
-      console.log(message);
+      i++;
     }
+
+    if (!overflow) {
+      suffix = suffix.slice(0, -2);
+    }
+    const elapsed = Math.floor(progressbarWidth * progress);
+    const remaining = progressbarWidth - elapsed;
+
+    message += spinnerFrame;
+    if (showProgressBarDesc) {
+      message += Color.CYAN_BOLD(TestServer.TESTING_TEXT);
+    }
+    message += `[${"=".repeat(elapsed)}${"-".repeat(remaining)}]`;
+    message += progressText;
+    message += ": ";
+    message += Color.DIM(suffix);
+
+    console.log(message);
   }
   private printResults() {
     const ended = performance.now();
@@ -636,9 +664,7 @@ class TestServer {
     }
     output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
     output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
-
     console.log(output);
-
     if (this.totalFailed > 0) {
       output = "";
       const sortedFilesFailed = new Map(
