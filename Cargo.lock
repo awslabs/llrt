@@ -2104,11 +2104,13 @@ dependencies = [
 name = "llrt_utils"
 version = "0.7.0-beta"
 dependencies = [
+ "libc",
  "llrt_build",
  "llrt_test",
  "rquickjs",
  "tokio",
  "tracing",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

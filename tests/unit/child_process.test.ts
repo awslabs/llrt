@@ -3,6 +3,7 @@ import legacyImport from "child_process";
 
 import { platform } from "node:os";
 import process from "node:process";
+import { parse } from "node:path";
 const IS_WINDOWS = platform() === "win32";
 
 it("node:child_process should be the same as child_process", () => {
@@ -174,5 +175,38 @@ describe("spawn", () => {
     await testExitCode(-1231231231, 1);
     await testExitCode(266, 10);
     await testExitCode("266", 10);
+  });
+
+  it("should handle detached child process termination", (done) => {
+    const parentProc = spawn(process.argv0, [
+      "-e",
+      `
+        const child = require('child_process').spawn('sleep', ['999'], {
+          detached: true,
+          stdio: 'ignore'
+        });
+        console.log(child.pid.toString());
+      `,
+    ]);
+
+    let detachedPidString = "";
+    parentProc.stdout.on("data", (data) => {
+      console.log("DATA", data.toString());
+      detachedPidString += data.toString();
+      parentProc.kill();
+    });
+
+    parentProc.on("exit", () => {
+      console.log("aaa", detachedPidString);
+      try {
+        const detachedPid = parseInt(detachedPidString.trim());
+        expect(detachedPid).toBeGreaterThan(0);
+        expect(process.kill(detachedPid, 0)).toBe(true);
+        process.kill(detachedPid);
+        done();
+      } catch (error) {
+        done(error);
+      }
+    });
   });
 });

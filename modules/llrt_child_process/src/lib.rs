@@ -47,40 +47,10 @@ use tokio::{
 };
 
 #[cfg(unix)]
-macro_rules! generate_signal_from_str_fn {
-    ($($signal:path),*) => {
-        fn process_signal_from_str(signal: &str) -> Option<i32> {
-            let signal = ["libc::", signal].concat();
-            match signal.as_str() {
-                $(stringify!($signal) => Some($signal),)*
-                _ => None,
-            }
-        }
+use llrt_utils::signals::{kill, signal_str_from_i32};
 
-        fn signal_str_from_i32(signal: i32) -> Option<&'static str> {
-            $(if signal == $signal {
-                return Some(&stringify!($signal)[6..]);
-            })*
-
-             return None;
-        }
-    };
-}
-
-#[cfg(unix)]
-generate_signal_from_str_fn!(
-    libc::SIGHUP,
-    libc::SIGINT,
-    libc::SIGQUIT,
-    libc::SIGILL,
-    libc::SIGABRT,
-    libc::SIGFPE,
-    libc::SIGKILL,
-    libc::SIGSEGV,
-    libc::SIGPIPE,
-    libc::SIGALRM,
-    libc::SIGTERM
-);
+#[cfg(not(unix))]
+use llrt_utils::signals::{kill_process_raw, parse_signal};
 
 #[allow(unused_variables)]
 fn prepare_shell_args(
@@ -139,7 +109,7 @@ pub struct ChildProcess<'js> {
     emitter: EventEmitter<'js>,
     args: Option<Vec<String>>,
     command: String,
-    kill_signal_tx: Option<Sender<Option<i32>>>,
+    kill_tx: Option<Sender<()>>,
     pid: Option<u32>,
 }
 
@@ -183,30 +153,26 @@ impl<'js> ChildProcess<'js> {
         self.pid.into_js(&ctx)
     }
 
-    fn kill(&mut self, signal: Opt<Value<'js>>) -> Result<bool> {
-        #[cfg(unix)]
-        let signal = if let Some(signal) = signal.0 {
-            if signal.is_number() {
-                Some(signal.as_number().unwrap() as i32)
-            } else if signal.is_string() {
-                let signal = signal.as_string().unwrap().to_string()?;
-                process_signal_from_str(&signal)
-            } else {
-                None
+    fn kill(&mut self, ctx: Ctx<'js>, signal: Opt<Value<'js>>) -> Result<bool> {
+        if let Some(pid) = self.pid {
+            #[cfg(unix)]
+            {
+                return kill(&ctx, pid, signal);
             }
-        } else {
-            process_signal_from_str("SIGTERM")
-        };
 
-        #[cfg(not(unix))]
-        {
-            _ = signal;
-        }
-        #[cfg(not(unix))]
-        let signal = Some(9); // SIGKILL
+            #[cfg(windows)]
+            {
+                let signal = parse_signal(signal.0)?;
+                if signal == 0 {
+                    return kill_process_raw(pid, 0)
+                        .map(|_| true)
+                        .or_else(|_| Ok(false));
+                }
 
-        if let Some(kill_signal_tx) = self.kill_signal_tx.take() {
-            return Ok(kill_signal_tx.send(signal).is_ok());
+                if let Some(tx) = self.kill_tx.take() {
+                    return Ok(tx.send(()).is_ok());
+                }
+            }
         }
 
         Ok(false)
@@ -220,14 +186,14 @@ impl<'js> ChildProcess<'js> {
         args: Option<Vec<String>>,
         child: IoResult<Child>,
     ) -> Result<Class<'js, Self>> {
-        let (kill_signal_tx, kill_signal_rx) = broadcast_channel::<Option<i32>>(1);
+        let (kill_tx, kill_rx) = broadcast_channel::<()>(1);
 
         let instance = Self {
             emitter: EventEmitter::new(),
             command: command.clone(),
             args,
             pid: None,
-            kill_signal_tx: Some(kill_signal_tx),
+            kill_tx: Some(kill_tx),
         };
 
         let stdout_instance = DefaultReadableStream::new(ctx.clone())?;
@@ -265,14 +231,8 @@ impl<'js> ChildProcess<'js> {
                         let mut exit_code = None;
                         let mut exit_signal = None;
 
-                        wait_for_process(
-                            child,
-                            &ctx3,
-                            kill_signal_rx,
-                            &mut exit_code,
-                            &mut exit_signal,
-                        )
-                        .await?;
+                        wait_for_process(child, &ctx3, kill_rx, &mut exit_code, &mut exit_signal)
+                            .await?;
 
                         let code = exit_code.unwrap_or_default().into_js(&ctx3)?;
                         let signal;
@@ -358,7 +318,7 @@ impl<'js> ChildProcess<'js> {
 async fn wait_for_process(
     mut child: Child,
     ctx: &Ctx<'_>,
-    mut kill_signal_rx: Receiver<Option<i32>>,
+    mut kill_rx: Receiver<()>,
     exit_code: &mut Option<i32>,
     exit_signal: &mut Option<i32>,
 ) -> Result<()> {
@@ -378,29 +338,10 @@ async fn wait_for_process(
                 }
                 break;
             }
-            Ok(signal) = kill_signal_rx.recv() => {
-                #[cfg(unix)]
-                {
-                    if let Some(signal) = signal {
-                        if let Some(pid) = child.id() {
-                            if unsafe { libc::killpg(pid as i32, signal) } == 0 {
-                                continue;
-                            } else {
-                               return Err(Exception::throw_message(ctx, &["Failed to send signal ",itoa::Buffer::new().format(signal)," to process ", itoa::Buffer::new().format(pid)].concat()));
-                            }
-                        }
-                    } else {
-                        child.kill().await.or_throw(ctx)?;
-                        break;
-                    }
-                }
-                #[cfg(not(unix))]
-                {
-                    _ = signal;
-                    child.kill().await.or_throw(ctx)?;
-                    break;
-                }
-            },
+
+            Ok(()) = kill_rx.recv() => {
+                child.kill().await.or_throw(ctx)?;
+            }
         }
     }
 
@@ -503,16 +444,21 @@ fn spawn<'js>(
     let mut stdin = StdioEnum::Piped;
     let mut stdout = StdioEnum::Piped;
     let mut stderr = StdioEnum::Piped;
+    let mut detached = false;
 
     if let Some(opts) = opts {
         #[cfg(unix)]
-        if let Some(gid) = opts.get_optional("gid")? {
-            command.gid(gid);
+        {
+            if let Some(gid) = opts.get_optional("gid")? {
+                command.gid(gid);
+            }
+
+            if let Some(uid) = opts.get_optional("uid")? {
+                command.uid(uid);
+            }
         }
-        #[cfg(unix)]
-        if let Some(uid) = opts.get_optional("uid")? {
-            command.gid(uid);
-        }
+
+        detached = opts.get_optional("detached")?.unwrap_or(false);
 
         if let Some(cwd) = opts.get_optional::<_, String>("cwd")? {
             command.current_dir(&cwd);
@@ -562,9 +508,16 @@ fn spawn<'js>(
     command.stdout(stdout.to_stdio());
     command.stderr(stderr.to_stdio());
 
-    #[cfg(unix)]
-    {
-        command.process_group(0);
+    if detached {
+        #[cfg(unix)]
+        {
+            command.process_group(0);
+        }
+        #[cfg(windows)]
+        {
+            // DETACHED_PROCESS = 0x00000008
+            command.creation_flags(0x00000008);
+        }
     }
 
     //tokio command does not have all std command features stabilized

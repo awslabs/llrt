@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::atomic::{AtomicU8, Ordering};
 
+use llrt_utils::signals;
+
 use llrt_utils::primordials::{BasePrimordials, Primordial};
 pub use llrt_utils::sysinfo;
 use llrt_utils::{
@@ -192,6 +194,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         .enumerable(),
     )?;
     process.set("exit", Func::from(exit))?;
+    process.set(
+        "kill",
+        Func::from(|ctx, pid, signal| signals::kill(&ctx, pid, signal)),
+    )?;
 
     #[cfg(unix)]
     {
@@ -227,6 +233,7 @@ impl ModuleDef for ProcessModule {
         declare.declare("versions")?;
         declare.declare("exitCode")?;
         declare.declare("exit")?;
+        declare.declare("kill")?;
 
         #[cfg(unix)]
         {
