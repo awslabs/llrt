@@ -36,10 +36,10 @@ type TestSuite = TestSettings &
   };
 
 type TestSetup = {
-  afterAll?: MaybeAsyncFunction;
-  afterEach?: MaybeAsyncFunction;
-  beforeAll?: MaybeAsyncFunction;
-  beforeEach?: MaybeAsyncFunction;
+  afterAll?: MaybeAsyncFunction[];
+  afterEach?: MaybeAsyncFunction[];
+  beforeAll?: MaybeAsyncFunction[];
+  beforeEach?: MaybeAsyncFunction[];
 };
 
 type RootSuite = TestSettings &
@@ -192,6 +192,23 @@ class TestAgent {
     };
   }
 
+  private async runHook(
+    testSuite: TestSuite,
+    hook: keyof TestSetup,
+    timeout?: number
+  ) {
+    const hooks: MaybeAsyncFunction[] = [];
+    while (testSuite) {
+      if (testSuite[hook]) {
+        hooks.unshift(...testSuite[hook]!);
+      }
+      testSuite = testSuite.parent!;
+    }
+    for (const fn of hooks) {
+      await this.executeAsyncOrCallbackFn(fn, timeout);
+    }
+  }
+
   private async executeAsyncOrCallbackFn(
     fn: Function,
     timeout: number = TestAgent.DEFAULT_TIMEOUT_MS
@@ -237,10 +254,6 @@ class TestAgent {
     return this.sendMessage("ready", {
       workerId: this.workerId,
     });
-  }
-
-  private async nextTestFile() {
-    return await this.sendMessage("next");
   }
 
   private async complete() {
@@ -297,9 +310,7 @@ class TestAgent {
           timeout: test.timeout,
         });
 
-        if (testSuite.beforeEach) {
-          await this.executeAsyncOrCallbackFn(testSuite.beforeEach);
-        }
+        await this.runHook(testSuite, "beforeEach");
 
         started = performance.now();
 
@@ -307,9 +318,7 @@ class TestAgent {
 
         const end = performance.now();
 
-        if (testSuite.afterEach) {
-          await this.executeAsyncOrCallbackFn(testSuite.afterEach);
-        }
+        await this.runHook(testSuite, "afterEach");
 
         await this.sendMessage("end", {
           ended: end,
@@ -326,89 +335,82 @@ class TestAgent {
     }
   }
 
-  public async start(): Promise<void> {
-    await this.connect();
-    await this.sendWorkerId();
+  public async start(entry: string): Promise<void> {
+    const connectAndSend = this.connect().then(() => this.sendWorkerId());
 
     const global: any = globalThis;
+    const started = performance.now();
 
-    while (true) {
-      const started = performance.now();
+    try {
+      const rootSuite = TestAgent.createRootSuite();
+      this.rootSuite = rootSuite;
+      this.onlyCount = 0;
+
+      this.currentSuite = this.rootSuite;
+      this.currentSuites = [];
+
+      let index = entry.lastIndexOf("/");
+      if (index !== -1) {
+        rootSuite.module = entry.substring(index + 1);
+      } else {
+        rootSuite.module = entry;
+      }
+
+      global.it = this.testFunction;
+      global.test = this.testFunction;
+      global.describe = this.describe;
+      global.expect = TestAgent.EXPECT;
+
+      global.beforeEach = (cb: MaybeAsyncFunction) => {
+        (this.currentSuite.beforeEach ??= []).push(cb);
+      };
+
+      global.beforeAll = (cb: MaybeAsyncFunction) => {
+        (this.currentSuite.beforeAll ??= []).push(cb);
+      };
+
+      global.afterEach = (cb: MaybeAsyncFunction) => {
+        (this.currentSuite.afterEach ??= []).push(cb);
+      };
+
+      global.afterAll = (cb: MaybeAsyncFunction) => {
+        (this.currentSuite.afterAll ??= []).push(cb);
+      };
+
+      await import(entry);
+      await connectAndSend;
+
+      while (this.suiteLoadPromises.length > 0) {
+        const suitePromise = this.suiteLoadPromises.shift()!;
+        await suitePromise();
+      }
+
+      await this.sendMessage("module", {
+        skipCount: rootSuite.skipCount,
+        testCount: rootSuite.testCount,
+        onlyCount: rootSuite.onlyCount,
+      });
+
+      await this.runRootSuite();
+
+      delete global.it;
+      delete global.expect;
+      delete global.test;
+      delete global.describe;
+      delete global.beforeEach;
+      delete global.beforeAll;
+      delete global.afterEach;
+      delete global.afterAll;
+    } catch (error) {
       try {
-        const { nextFile: entry } = await this.nextTestFile();
-        if (!entry) {
-          break;
-        }
-
-        const rootSuite = TestAgent.createRootSuite();
-        this.rootSuite = rootSuite;
-        this.onlyCount = 0;
-
-        this.currentSuite = this.rootSuite;
-        this.currentSuites = [];
-
-        let index = entry.lastIndexOf("/");
-        if (index !== -1) {
-          rootSuite.module = entry.substring(index + 1);
-        } else {
-          rootSuite.module = entry;
-        }
-
-        global.it = this.testFunction;
-        global.test = this.testFunction;
-        global.describe = this.describe;
-        global.expect = TestAgent.EXPECT;
-
-        global.beforeEach = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.beforeEach = cb;
-        };
-
-        global.beforeAll = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.beforeAll = cb;
-        };
-
-        global.afterEach = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.afterEach = cb;
-        };
-
-        global.afterAll = (cb: MaybeAsyncFunction) => {
-          this.currentSuite.afterAll = cb;
-        };
-
-        await import(entry);
-
-        while (this.suiteLoadPromises.length > 0) {
-          const suitePromise = this.suiteLoadPromises.shift()!;
-          await suitePromise();
-        }
-
-        await this.sendMessage("module", {
-          skipCount: rootSuite.skipCount,
-          testCount: rootSuite.testCount,
-          onlyCount: rootSuite.onlyCount,
+        await this.sendMessage("error", {
+          error,
+          started,
+          ended: performance.now(),
         });
-
-        await this.runRootSuite();
-
-        delete global.it;
-        delete global.expect;
-        delete global.test;
-        delete global.describe;
-        delete global.beforeEach;
-        delete global.beforeAll;
-        delete global.afterEach;
-        delete global.afterAll;
-      } catch (error) {
-        try {
-          await this.sendMessage("error", {
-            error,
-            started,
-            ended: performance.now(),
-          });
-        } catch (e) {
-          console.error("Error sending error message:", e);
-          process.exit(1);
-        }
+      } catch (e) {
+        console.error("Error sending error message:", e);
+        process.exit(1);
       }
     }
 
@@ -425,12 +427,9 @@ class TestAgent {
         started,
         timeout: testSuite.timeout,
       });
-      if (testSuite.beforeAll) {
-        await this.executeAsyncOrCallbackFn(
-          testSuite.beforeAll,
-          testSuite.timeout
-        );
-      }
+
+      await this.runHook(testSuite, "beforeAll", testSuite.timeout);
+
       await this.runTests(testSuite, testSuite.tests);
       const stack = [...testSuite.suites];
       while (stack.length > 0) {
@@ -450,13 +449,9 @@ class TestAgent {
         });
 
         try {
-          if (suite.beforeAll) {
-            await this.executeAsyncOrCallbackFn(suite.beforeAll);
-          }
+          await this.runHook(suite, "beforeEach");
           await this.runTests(suite, suite.tests);
-          if (suite.afterAll) {
-            await this.executeAsyncOrCallbackFn(suite.afterAll);
-          }
+          await this.runHook(suite, "afterEach");
           await this.sendMessage("end", {
             isSuite: true,
             started: suiteStarted,
@@ -474,9 +469,7 @@ class TestAgent {
           stack.unshift(...suite.suites);
         }
       }
-      if (testSuite.afterAll) {
-        await this.executeAsyncOrCallbackFn(testSuite.afterAll);
-      }
+      await this.runHook(testSuite, "afterAll", testSuite.timeout);
       await this.sendMessage("end", {
         isSuite: true,
         started,
@@ -499,16 +492,17 @@ class TestAgent {
 const {
   __LLRT_TEST_SERVER_PORT: serverPortEnv,
   __LLRT_TEST_WORKER_ID: workerIdEnv,
+  __LLRT_TEST_FILE: testFile,
 } = process.env;
 
 const workerId = parseInt(workerIdEnv || "");
 const serverPort = parseInt(serverPortEnv || "");
 
-if (isNaN(workerId) || isNaN(serverPort)) {
+if (isNaN(workerId) || isNaN(serverPort) || !testFile) {
   throw new Error(
-    "Test worker requires __LLRT_TEST_SERVER_PORT & __LLRT_TEST_WORKER_ID env"
+    "Test worker requires __LLRT_TEST_SERVER_PORT, __LLRT_TEST_WORKER_ID & __LLRT_TEST_FILE env"
   );
 }
 
 const agent = new TestAgent(workerId, serverPort);
-await agent.start();
+await agent.start(testFile);

@@ -1,6 +1,5 @@
 export type SocketReqMsg =
   | ReadyReqMsg
-  | NextReqMsg
   | ModuleReqMsg
   | EndReqMsg
   | StartReqMsg
@@ -30,10 +29,6 @@ export type CompletedReqMsg = {
   type: "completed";
 };
 
-export type NextReqMsg = {
-  type: "next";
-};
-
 export type EndReqMsg = {
   type: "end";
   ended: number;
@@ -49,11 +44,7 @@ export type StartReqMsg = {
   timeout?: number;
 };
 
-export type SocketResponseMap = {
-  next: {
-    nextFile: string | null;
-  };
-};
+export type SocketResponseMap = {};
 
 export type SocketRes<T extends SocketReqMsg> = T extends {
   type: keyof SocketResponseMap;
