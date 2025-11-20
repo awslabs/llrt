@@ -104,7 +104,7 @@ pub fn kill_process_raw(pid: u32, signal: i32) -> io::Result<()> {
 
     // SAFETY: OpenProcess is safe to call with valid parameters, and PROCESS_TERMINATE is a valid access right
     let handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
-    if handle == 0 {
+    if handle == std::ptr::null_mut() {
         return Err(io::Error::last_os_error());
     }
 
