@@ -153,6 +153,7 @@ impl<'js> ChildProcess<'js> {
         self.pid.into_js(&ctx)
     }
 
+    #[allow(unused_variables)]
     fn kill(&mut self, ctx: Ctx<'js>, signal: Opt<Value<'js>>) -> Result<bool> {
         if let Some(pid) = self.pid {
             #[cfg(unix)]
