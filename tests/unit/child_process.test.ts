@@ -181,7 +181,8 @@ describe("spawn", () => {
     const parentProc = spawn(process.argv0, [
       "-e",
       `
-        const child = require('child_process').spawn('sleep', ['999'], {
+        import {spawn} from "child_process";
+        const child = spawn('sleep', ['999'], {
           detached: true,
           stdio: 'ignore'
         });
@@ -191,18 +192,21 @@ describe("spawn", () => {
 
     let detachedPidString = "";
     parentProc.stdout.on("data", (data) => {
-      console.log("DATA", data.toString());
       detachedPidString += data.toString();
+      console.log("Got PID:", detachedPidString);
       parentProc.kill();
     });
 
     parentProc.on("exit", () => {
-      console.log("aaa", detachedPidString);
       try {
         const detachedPid = parseInt(detachedPidString.trim());
+        console.log("Parent exited, detached PID:", detachedPid);
         expect(detachedPid).toBeGreaterThan(0);
-        expect(process.kill(detachedPid, 0)).toBe(true);
-        process.kill(detachedPid);
+        const exists = process.kill(detachedPid, 0);
+        console.log("Process exists check:", exists);
+        expect(exists).toBe(true);
+        const killResult = process.kill(detachedPid);
+        console.log("Kill result:", killResult);
         done();
       } catch (error) {
         done(error);
