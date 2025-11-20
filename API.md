@@ -190,6 +190,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [renameSync](https://nodejs.org/api/fs.html#fsrenamesyncoldpath-newpath)
 
+[symlinkSync](https://nodejs.org/api/fs.html#fssymlinksynctarget-path-type)
+
 ## fs/promises
 
 [access](https://nodejs.org/api/fs.html#fsstatpath-options-callback)
@@ -215,6 +217,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 [chmod](https://nodejs.org/api/fs.html#fspromiseschmodpath-mode)
 
 [rename](https://nodejs.org/api/fs.html#fspromisesrenameoldpath-newpath)
+
+[symlink](https://nodejs.org/api/fs.html#fspromisessymlinktarget-path-type)
 
 ## module
 

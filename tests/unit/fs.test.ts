@@ -20,6 +20,7 @@ const {
   rmSync,
   rmdirSync,
   statSync,
+  symlinkSync,
   writeFileSync,
   promises,
 } = defaultImport;
@@ -33,6 +34,7 @@ const {
   rename,
   rm,
   rmdir,
+  symlink,
   writeFile,
 } = promises;
 
@@ -531,6 +533,50 @@ describe("renameSync", () => {
       /[Nn]o such file or directory/
     );
 
+    rmdirSync(tmpDir, { recursive: true });
+  });
+});
+
+describe("symlink", () => {
+  it("should create a symlink", async () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), "test-"));
+    const filePath = path.join(tmpDir, "file");
+    const linkPath = path.join(tmpDir, "link");
+
+    const expectedContent = "hello world";
+    await writeFile(filePath, expectedContent);
+    await symlink(filePath, linkPath);
+
+    // Check if new path exists and is a symlink
+    const linkStat = statSync(linkPath);
+    expect(linkStat.isSymbolicLink()).toBeTruthy();
+
+    const content = await readFile(linkPath, "utf-8");
+    expect(content).toBe(expectedContent);
+
+    // Cleanup
+    rmdirSync(tmpDir, { recursive: true });
+  });
+});
+
+describe("symlinkSync", () => {
+  it("should create a symlink synchronously", () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), "test-"));
+    const filePath = path.join(tmpDir, "file");
+    const linkPath = path.join(tmpDir, "link");
+
+    const expectedContent = "hello world";
+    writeFileSync(filePath, expectedContent);
+    symlinkSync(filePath, linkPath);
+
+    // Check if new path exists and is a symlink
+    const linkStat = statSync(linkPath);
+    expect(linkStat.isSymbolicLink()).toBeTruthy();
+
+    const content = readFileSync(linkPath, "utf-8");
+    expect(content).toBe(expectedContent);
+
+    // Cleanup
     rmdirSync(tmpDir, { recursive: true });
   });
 });
