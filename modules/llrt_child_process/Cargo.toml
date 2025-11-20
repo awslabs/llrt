@@ -11,6 +11,10 @@ name = "llrt_child_process"
 path = "src/lib.rs"
 
 [dependencies]
+itoa = "1"
+either = "1"
+llrt_url = { version = "0.5.1-beta", path = "../llrt_url" }
+url = "2.5"
 itoa = { version = "1", default-features = false }
 llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
 llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
