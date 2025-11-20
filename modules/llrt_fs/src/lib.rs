@@ -10,6 +10,7 @@ mod read_file;
 mod rename;
 mod rm;
 mod stats;
+mod symlink;
 mod write_file;
 
 use llrt_utils::module::{export_default, ModuleInfo};
@@ -29,6 +30,7 @@ use self::read_file::{read_file, read_file_sync};
 use self::rename::{rename, rename_sync};
 use self::rm::{rmdir, rmdir_sync, rmfile, rmfile_sync};
 use self::stats::{stat_fn, stat_fn_sync, Stats};
+use self::symlink::{symlink, symlink_sync};
 use self::write_file::{write_file, write_file_sync};
 
 pub const CONSTANT_F_OK: u32 = 0;
@@ -132,6 +134,7 @@ impl ModuleDef for FsModule {
             default.set("writeFileSync", Func::from(write_file_sync))?;
             default.set("chmodSync", Func::from(chmod_sync))?;
             default.set("renameSync", Func::from(rename_sync))?;
+            default.set("symlinkSync", Func::from(symlink_sync))?;
 
             Ok(())
         })
@@ -155,6 +158,7 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("stat", Func::from(Async(stat_fn)))?;
     exports.set("chmod", Func::from(Async(chmod)))?;
+    exports.set("symlink", Func::from(Async(symlink)))?;
 
     Ok(())
 }
