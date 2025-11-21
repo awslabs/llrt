@@ -21,6 +21,12 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0
 tokio = { version = "1", features = ["sync"], default-features = false }
 tracing = { version = "0.1", default-features = false }
 
+[target.'cfg(unix)'.dependencies]
+libc = { version = "0.2", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading"], default-features = false }
+
 [dev-dependencies]
 llrt_test = { version = "0.7.0-beta", path = "../llrt_test" }
 tokio = { version = "1", features = ["full"] }

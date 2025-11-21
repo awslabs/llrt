@@ -25,4 +25,6 @@ pub mod reuse_list;
 pub mod sysinfo;
 pub mod time;
 
+pub mod signals;
+
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
