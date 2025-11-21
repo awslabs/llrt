@@ -116,7 +116,7 @@ describe("spawn", () => {
           expect(code).toEqual(0);
         }
 
-        expect(signal).toEqual(IS_WINDOWS ? "SIGKILL" : "SIGINT");
+        expect(signal).toEqual("SIGKILL");
         done();
       } catch (error) {
         done(error);
@@ -124,7 +124,7 @@ describe("spawn", () => {
     });
 
     setTimeout(() => {
-      child.kill("SIGINT");
+      child.kill("SIGKILL"); //SIGINT does not forward to children on Linux
     }, 50);
   });
 
@@ -176,7 +176,7 @@ describe("spawn", () => {
     await testExitCode("266", 10);
   });
 
-  it.skip("should handle detached child process termination", (done) => {
+  it("should handle detached child process termination", (done) => {
     const parentProc = spawn(process.argv0, [
       "-e",
       `
