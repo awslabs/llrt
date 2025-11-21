@@ -14,8 +14,13 @@ use rquickjs::{
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, FromJs, Function, IntoJs, JsLifetime, Object, Result, Value,
 };
-use tokio::{net::UdpSocket, sync::broadcast};
+use tokio::{
+    net::UdpSocket,
+    sync::{broadcast, mpsc},
+};
 use tracing::trace;
+
+type SendMessage<'js> = (Vec<u8>, String, Option<Function<'js>>);
 
 #[rquickjs::class]
 pub struct Socket<'js> {
@@ -28,6 +33,7 @@ pub struct Socket<'js> {
     local_family: Option<String>,
     receiver_running: Arc<AtomicBool>,
     close_tx: broadcast::Sender<()>,
+    send_tx: Option<mpsc::UnboundedSender<SendMessage<'js>>>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -88,6 +94,7 @@ impl<'js> Socket<'js> {
             }),
             receiver_running: Arc::new(AtomicBool::new(false)),
             close_tx,
+            send_tx: None,
         };
 
         Class::instance(ctx, instance)
@@ -97,7 +104,7 @@ impl<'js> Socket<'js> {
         this: This<Class<'js, Self>>,
         ctx: Ctx<'js>,
         args: Rest<Value<'js>>,
-    ) -> Result<()> {
+    ) -> Result<Class<'js, Self>> {
         let mut port = 0u16;
         let mut address = "0.0.0.0".to_string();
         let mut callback: Option<Function> = None;
@@ -140,6 +147,17 @@ impl<'js> Socket<'js> {
                         callback = Some(func.clone());
                     }
                 }
+            }
+        }
+
+        // Check if socket is already bound or closed
+        {
+            let borrow = this.borrow();
+            if borrow.is_bound.load(Ordering::SeqCst) {
+                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_ALREADY_BOUND"));
+            }
+            if borrow.is_closed.load(Ordering::SeqCst) {
+                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_DGRAM_NOT_RUNNING"));
             }
         }
 
@@ -186,9 +204,6 @@ impl<'js> Socket<'js> {
 
             trace!("UDP socket bound to {}", local_addr);
 
-            // Emit 'listening' event
-            Self::emit_str(This(socket_class.clone()), &ctx, "listening", vec![], false)?;
-
             // Start receiving messages
             if receiver_running
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -203,68 +218,138 @@ impl<'js> Socket<'js> {
                     borrow.close_tx.subscribe()
                 };
 
-                ctx.clone().spawn_exit(async move {
-                    let mut buf = vec![0u8; 65536];
+                // Emit 'listening' event right before loop starts
+                Self::emit_str(This(socket_class.clone()), &ctx, "listening", vec![], false)?;
 
-                    let result: Result<()> = async {
-                        loop {
-                            tokio::select! {
-                                _ = close_rx.recv() => {
-                                    // Close signal received, exit loop
-                                    break;
-                                }
-                                result = recv_socket.recv_from(&mut buf) => {
-                                    match result {
-                                        Ok((size, peer_addr)) => {
-                                            let data = Buffer(buf[..size].to_vec()).into_js(&ctx)?;
-                                            let info = Object::new(ctx.clone())?;
-                                            info.set("address", peer_addr.ip().to_string())?;
-                                            info.set("port", peer_addr.port())?;
-                                            info.set(
-                                                "family",
-                                                if peer_addr.is_ipv4() { "IPv4" } else { "IPv6" },
-                                            )?;
+                let mut buf = vec![0u8; 65536];
 
-                                            let info_val: Value = info.into();
-                                            Self::emit_str(
-                                                This(recv_class.clone()),
-                                                &ctx,
-                                                "message",
-                                                vec![data, info_val],
-                                                false,
-                                            )?;
-                                        },
-                                        Err(e) => {
-                                            if recv_closed.load(Ordering::SeqCst) {
-                                                break;
-                                            }
-                                            let error_msg = format!("UDP receive error: {}", e);
+                let result: Result<()> = async {
+                    loop {
+                        tokio::select! {
+                            _ = close_rx.recv() => {
+                                // Close signal received, emit close event and exit loop
+                                Self::emit_str(
+                                    This(recv_class.clone()),
+                                    &ctx,
+                                    "close",
+                                    vec![],
+                                    false,
+                                )?;
+                                break;
+                            }
+                            result = recv_socket.recv_from(&mut buf) => {
+                                match result {
+                                    Ok((size, peer_addr)) => {
+                                        let data = Buffer(buf[..size].to_vec()).into_js(&ctx)?;
+                                        let info = Object::new(ctx.clone())?;
+                                        info.set("address", peer_addr.ip().to_string())?;
+                                        info.set("port", peer_addr.port())?;
+                                        info.set(
+                                            "family",
+                                            if peer_addr.is_ipv4() { "IPv4" } else { "IPv6" },
+                                        )?;
 
-                                            if Err::<(), _>(Exception::throw_message(&ctx, &error_msg))
-                                                .emit_error("message", &ctx, recv_class.clone())?
-                                            {
-                                                // Error was handled by error listener, continue receiving
-                                            } else {
-                                                // No error listener, propagate error to spawn_exit
-                                                return Err(Exception::throw_message(&ctx, &error_msg));
-                                            }
-                                        },
-                                    }
+                                        let info_val: Value = info.into();
+                                        Self::emit_str(
+                                            This(recv_class.clone()),
+                                            &ctx,
+                                            "message",
+                                            vec![data, info_val],
+                                            false,
+                                        )?;
+                                    },
+                                    Err(e) => {
+                                        if recv_closed.load(Ordering::SeqCst) {
+                                            break;
+                                        }
+                                        let error_msg = format!("UDP receive error: {}", e);
+
+                                        if Err::<(), _>(Exception::throw_message(&ctx, &error_msg))
+                                            .emit_error("message", &ctx, recv_class.clone())?
+                                        {
+                                            // Error was handled by error listener, continue receiving
+                                        } else {
+                                            // No error listener, propagate error to spawn_exit
+                                            return Err(Exception::throw_message(&ctx, &error_msg));
+                                        }
+                                    },
                                 }
                             }
                         }
-                        Ok(())
-                    }.await;
+                    }
+                    Ok(())
+                }.await;
 
-                    recv_running.store(false, Ordering::SeqCst);
-                    result
-                })?;
+                recv_running.store(false, Ordering::SeqCst);
+                result?;
             }
+
+            // Create MPSC channel for send operations
+            let (send_tx, mut send_rx) = mpsc::unbounded_channel::<SendMessage>();
+
+            // Store sender in socket
+            {
+                let mut borrow = socket_class.borrow_mut();
+                borrow.send_tx = Some(send_tx);
+            }
+
+            // Spawn background task to process sends
+            let send_socket = socket_arc.clone();
+            let send_ctx = ctx.clone();
+            let send_ctx2 = ctx.clone();
+            let send_class = socket_class.clone();
+            let send_close_rx = {
+                let borrow = socket_class.borrow();
+                borrow.close_tx.subscribe()
+            };
+
+            send_ctx2.spawn(async move {
+                let mut close_rx = send_close_rx;
+                loop {
+                    tokio::select! {
+                        _ = close_rx.recv() => {
+                            // Socket closed, stop processing sends
+                            break;
+                        }
+                        msg = send_rx.recv() => {
+                            match msg {
+                                Some((bytes, dest_addr, callback)) => {
+                                    let result = send_socket.send_to(&bytes, &dest_addr).await;
+
+                                    if let Some(cb) = callback {
+                                        match result {
+                                            Ok(sent) => {
+                                                let null_val = Value::new_null(send_ctx.clone());
+                                                let _ = cb.call::<_, ()>((null_val, sent));
+                                            },
+                                            Err(e) => {
+                                                let error_msg = format!("UDP send error: {}", e);
+                                                if let Ok(error_val) = Exception::from_message(send_ctx.clone(), &error_msg) {
+                                                    let _ = cb.call::<_, ()>((error_val,));
+                                                }
+                                            },
+                                        }
+                                    } else if let Err(e) = result {
+                                        // No callback, use emit_error pattern
+                                        let error_msg = format!("UDP send error: {}", e);
+                                        let _ = Err::<(), _>(Exception::throw_message(&send_ctx, &error_msg))
+                                            .emit_error("send", &send_ctx, send_class.clone());
+                                    }
+                                },
+                                None => {
+                                    // Channel closed, stop task
+                                    break;
+                                },
+                            }
+                        }
+                    }
+                }
+            });
 
             Result::<()>::Ok(())
         })?;
 
-        Ok(())
+        Ok(this.0)
     }
 
     pub fn send(
@@ -277,6 +362,7 @@ impl<'js> Socket<'js> {
     ) -> Result<()> {
         let address = address.0.unwrap_or_else(|| "localhost".to_string());
 
+        // Extract bytes from message
         let bytes: Vec<u8> = if let Some(str_val) = msg.as_string() {
             str_val.to_string()?.into_bytes()
         } else {
@@ -284,94 +370,68 @@ impl<'js> Socket<'js> {
                 .map_err(|e: std::rc::Rc<str>| Exception::throw_type(&ctx, &e))?
         };
 
-        let socket_arc = {
+        // Check if socket is closed
+        {
             let borrow = this.borrow();
             if borrow.is_closed.load(Ordering::SeqCst) {
                 return Err(Exception::throw_message(&ctx, "Socket is closed"));
             }
-            borrow.socket.clone()
+        }
+
+        // Get or create send_tx channel
+        let send_tx = {
+            let borrow = this.borrow();
+            if let Some(tx) = &borrow.send_tx {
+                tx.clone()
+            } else {
+                // Auto-bind if not bound
+                drop(borrow);
+                Self::bind(This(this.clone()), ctx.clone(), Rest(vec![]))?;
+                let borrow = this.borrow();
+                borrow.send_tx.clone().ok_or_else(||
+                    Exception::throw_message(&ctx, "Failed to initialize socket")
+                )?
+            }
         };
 
-        let socket_class = this.clone();
+        // Format destination address
+        let dest_addr = [&address, ":", &port.to_string()].concat();
 
-        ctx.clone().spawn_exit(async move {
-            let socket = if let Some(s) = socket_arc {
-                s
-            } else {
-                // Auto-bind if not bound yet
-                let bind_addr = "0.0.0.0:0";
-                let new_socket = UdpSocket::bind(bind_addr).await.or_throw(&ctx)?;
-                let socket_arc = Arc::new(new_socket);
-
-                {
-                    let mut borrow = socket_class.borrow_mut();
-                    borrow.socket = Some(socket_arc.clone());
-                    let local_addr = socket_arc.local_addr().or_throw(&ctx)?;
-                    borrow.local_address = Some(local_addr.ip().to_string());
-                    borrow.local_port = Some(local_addr.port());
-                    borrow.is_bound.store(true, Ordering::SeqCst);
-                }
-
-                socket_arc
-            };
-
-            let dest_addr = [&address, ":", &port.to_string()].concat();
-            let result = socket.send_to(&bytes, &dest_addr).await;
-
-            if let Some(cb) = callback.0 {
-                match result {
-                    Ok(sent) => {
-                        let null_val = Value::new_null(ctx.clone());
-                        cb.call::<_, ()>((null_val, sent))?;
-                    },
-                    Err(e) => {
-                        let error_msg = format!("UDP send error: {}", e);
-                        let error_val = Exception::from_message(ctx.clone(), &error_msg);
-                        cb.call::<_, ()>((error_val,))?;
-                    },
-                }
-            } else {
-                result.or_throw(&ctx)?;
-            }
-
-            Result::<()>::Ok(())
-        })?;
+        // Send to channel
+        send_tx.send((bytes, dest_addr, callback.0))
+            .map_err(|_| Exception::throw_message(&ctx, "Failed to send message"))?;
 
         Ok(())
     }
 
-    pub fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, callback: Opt<Function<'js>>) -> Result<()> {
-        {
+    pub fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, callback: Opt<Function<'js>>) -> Result<Class<'js, Self>> {
+        let already_closed = {
             let borrow = this.borrow();
             if borrow.is_closed.load(Ordering::SeqCst) {
-                return Ok(());
+                true
+            } else {
+                borrow.is_closed.store(true, Ordering::SeqCst);
+                // Send close signal to interrupt receive loop immediately
+                let _ = borrow.close_tx.send(());
+                false
             }
-            borrow.is_closed.store(true, Ordering::SeqCst);
+        };
 
-            // Send close signal to interrupt receive loop immediately
-            let _ = borrow.close_tx.send(());
+        if already_closed {
+            return Ok(this.0);
         }
 
         if let Some(cb) = callback.0 {
             Self::add_event_listener_str(This(this.clone()), &ctx, "close", cb, true, true)?;
         }
 
-        let socket_class = this.clone();
+        // Drop the socket
+        {
+            let mut borrow = this.borrow_mut();
+            borrow.socket = None;
+        }
 
-        ctx.clone().spawn_exit(async move {
-            // Drop the socket
-            {
-                let mut borrow = socket_class.borrow_mut();
-                borrow.socket = None;
-            }
-
-            // Emit 'close' event
-            Self::emit_str(This(socket_class), &ctx, "close", vec![], false)?;
-
-            Result::<()>::Ok(())
-        })?;
-
-        Ok(())
+        Ok(this.0)
     }
 
     pub fn address(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Object<'js>> {
