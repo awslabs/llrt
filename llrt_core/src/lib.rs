@@ -4,6 +4,7 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::inherent_to_string)]
 
+pub mod builtins_inspect;
 pub mod bytecode;
 pub mod compiler;
 mod compiler_common;
