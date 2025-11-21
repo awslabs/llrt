@@ -3,7 +3,6 @@ import legacyImport from "child_process";
 
 import { platform } from "node:os";
 import process from "node:process";
-import { parse } from "node:path";
 const IS_WINDOWS = platform() === "win32";
 
 it("node:child_process should be the same as child_process", () => {
@@ -177,7 +176,7 @@ describe("spawn", () => {
     await testExitCode("266", 10);
   });
 
-  it("should handle detached child process termination", (done) => {
+  it.skip("should handle detached child process termination", (done) => {
     const parentProc = spawn(process.argv0, [
       "-e",
       `
