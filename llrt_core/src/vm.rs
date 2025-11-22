@@ -45,6 +45,7 @@ impl Default for VmOptions {
         #[allow(unused_mut)]
         let mut module_builder = ModuleBuilder::default()
             .with_global(crate::modules::embedded::init)
+            .with_global(crate::builtins_inspect::init)
             .with_module(crate::modules::llrt::hex::LlrtHexModule)
             .with_module(crate::modules::llrt::util::LlrtUtilModule)
             .with_module(crate::modules::llrt::xml::LlrtXmlModule);
