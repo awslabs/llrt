@@ -70,6 +70,8 @@ const ES_BUILD_OPTIONS = {
     "node:console",
     "crypto",
     "node:crypto",
+    "dgram",
+    "node:dgram",
     "dns",
     "node:dns",
     "os",

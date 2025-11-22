@@ -85,6 +85,10 @@ impl Default for ModuleBuilder {
                 .with_global(crate::modules::crypto::init)
                 .with_module(crate::modules::crypto::CryptoModule);
         }
+        #[cfg(feature = "dgram")]
+        {
+            builder = builder.with_module(crate::modules::dgram::DgramModule);
+        }
         #[cfg(feature = "dns")]
         {
             builder = builder.with_module(crate::modules::dns::DnsModule);
