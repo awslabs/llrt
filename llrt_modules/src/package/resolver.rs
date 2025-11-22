@@ -144,7 +144,7 @@ pub fn require_resolve<'a>(
 
     let x_is_absolute = path::is_absolute(x);
     let x_starts_with_current_dir = x.starts_with("./");
-    let x_starts_with_parent_dir = x.starts_with("../");
+    let x_starts_with_parent_dir = x.starts_with("..");
 
     if is_supported_ext && Path::new(x).is_file() {
         return resolved_by_file_exists(x.into());

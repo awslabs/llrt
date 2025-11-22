@@ -170,10 +170,14 @@ it("require `hono/utils/url` module element", () => {
   _require(`${CWD}/fixtures/test_modules/test-elem-hono.js`);
 });
 
-it("regression testing for issue #903", () => {
+it("regression testing for issue 903", () => {
   expect(() => _require(`${CWD}/fixtures/test903/foo.mjs`)).toThrow(
     /Error resolving module /
   );
+});
+
+it("regression testing for issue 1245", () => {
+  _require(`${CWD}/fixtures/test1245/main/foo.js`);
 });
 
 //create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
