@@ -12,10 +12,19 @@ name = "llrt_dns"
 path = "src/lib.rs"
 
 [dependencies]
+either = { version = "1", default-features = false }
 llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
-llrt_dns_cache = { version = "0.7.0-beta", path = "../../libs/llrt_dns_cache" }
 llrt_hooking = { version = "0.7.0-beta", path = "../../libs/llrt_hooking" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
-    "macro",
+  "macro",
+  "either",
+], default-features = false }
+tokio = { version = "1", features = ["net"], default-features = false }
+
+[dev-dependencies]
+llrt_test = { path = "../../libs/llrt_test" }
+tokio = { version = "1", features = [
+  "macros",
+  "test-util",
 ], default-features = false }

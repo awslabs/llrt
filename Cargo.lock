@@ -1708,11 +1708,13 @@ dependencies = [
 name = "llrt_dns"
 version = "0.7.0-beta"
 dependencies = [
+ "either",
  "llrt_context",
- "llrt_dns_cache",
  "llrt_hooking",
+ "llrt_test",
  "llrt_utils",
  "rquickjs",
+ "tokio",
 ]
 
 [[package]]
@@ -1723,7 +1725,6 @@ dependencies = [
  "llrt_context",
  "llrt_utils",
  "quick_cache",
- "rquickjs",
  "tokio",
  "tower-service",
 ]

@@ -25,7 +25,26 @@ declare module "dns" {
      * The value 0 indicates that either an IPv4 or IPv6 address is returned.
      * @default 0
      */
-    family?: number | undefined;
+    family?: number | "IPv4" | "IPv6" | undefined;
+    /**
+     * When `true`, the callback returns all resolved addresses in an array. Otherwise, returns a single address.
+     * @default false
+     */
+    all?: boolean | undefined;
+    /**
+     * When `verbatim`, the resolved addresses are return unsorted. When `ipv4first`, the resolved addresses are sorted
+     * by placing IPv4 addresses before IPv6 addresses. When `ipv6first`, the resolved addresses are sorted by placing IPv6
+     * addresses before IPv4 addresses. Default value is configurable using
+     * {@link setDefaultResultOrder} or [`--dns-result-order`](https://nodejs.org/docs/latest-v20.x/api/cli.html#--dns-result-orderorder).
+     * @default `verbatim` (addresses are not reordered)
+     */
+    order?: "verbatim" | "ipv4first" | "ipv6first" | undefined;
+  }
+  export interface LookupOneOptions extends LookupOptions {
+    all?: false | undefined;
+  }
+  export interface LookupAllOptions extends LookupOptions {
+    all: true;
   }
   export interface LookupAddress {
     /**
@@ -78,20 +97,26 @@ declare module "dns" {
   ): void;
   export function lookup(
     hostname: string,
+    options: LookupOneOptions,
+    callback: (err: Error | null, address: string, family: number) => void
+  ): void;
+  export function lookup(
+    hostname: string,
+    options: LookupAllOptions,
+    callback: (err: Error | null, addresses: LookupAddress[]) => void
+  ): void;
+  export function lookup(
+    hostname: string,
     options: LookupOptions,
     callback: (
-      err: DOMException | null,
+      err: Error | null,
       address: string | LookupAddress[],
       family: number
     ) => void
   ): void;
   export function lookup(
     hostname: string,
-    callback: (
-      err: DOMException | null,
-      address: string,
-      family: number
-    ) => void
+    callback: (err: Error | null, address: string, family: number) => void
   ): void;
 }
 declare module "dns" {
