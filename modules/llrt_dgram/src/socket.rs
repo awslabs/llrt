@@ -150,17 +150,6 @@ impl<'js> Socket<'js> {
             }
         }
 
-        // Check if socket is already bound or closed
-        {
-            let borrow = this.borrow();
-            if borrow.is_bound.load(Ordering::SeqCst) {
-                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_ALREADY_BOUND"));
-            }
-            if borrow.is_closed.load(Ordering::SeqCst) {
-                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_DGRAM_NOT_RUNNING"));
-            }
-        }
-
         if let Some(cb) = callback {
             Self::add_event_listener_str(
                 This(this.clone()),
@@ -174,17 +163,20 @@ impl<'js> Socket<'js> {
 
         let bind_addr = [&address, ":", &port.to_string()].concat();
         let socket_class = this.clone();
-        let is_bound = {
+
+        // Check state and get Arc clones in single borrow
+        let (is_closed, receiver_running) = {
             let borrow = this.borrow();
-            borrow.is_bound.clone()
-        };
-        let is_closed = {
-            let borrow = this.borrow();
-            borrow.is_closed.clone()
-        };
-        let receiver_running = {
-            let borrow = this.borrow();
-            borrow.receiver_running.clone()
+            if borrow.is_bound.load(Ordering::SeqCst) {
+                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_ALREADY_BOUND"));
+            }
+            if borrow.is_closed.load(Ordering::SeqCst) {
+                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_DGRAM_NOT_RUNNING"));
+            }
+            (
+                borrow.is_closed.clone(),
+                borrow.receiver_running.clone(),
+            )
         };
 
         ctx.clone().spawn_exit(async move {
@@ -193,14 +185,14 @@ impl<'js> Socket<'js> {
 
             let socket_arc = Arc::new(socket);
 
-            {
+            let close_rx = {
                 let mut borrow = socket_class.borrow_mut();
                 borrow.socket = Some(socket_arc.clone());
                 borrow.local_address = Some(local_addr.ip().to_string());
                 borrow.local_port = Some(local_addr.port());
-            }
-
-            is_bound.store(true, Ordering::SeqCst);
+                borrow.is_bound.store(true, Ordering::SeqCst);
+                borrow.close_tx.subscribe()
+            };
 
             trace!("UDP socket bound to {}", local_addr);
 
@@ -213,10 +205,7 @@ impl<'js> Socket<'js> {
                 let recv_class = socket_class.clone();
                 let recv_closed = is_closed.clone();
                 let recv_running = receiver_running.clone();
-                let mut close_rx = {
-                    let borrow = socket_class.borrow();
-                    borrow.close_tx.subscribe()
-                };
+                let mut close_rx = close_rx;
 
                 // Emit 'listening' event right before loop starts
                 Self::emit_str(This(socket_class.clone()), &ctx, "listening", vec![], false)?;
@@ -281,27 +270,23 @@ impl<'js> Socket<'js> {
                 }.await;
 
                 recv_running.store(false, Ordering::SeqCst);
-                result?;
+                result.emit_error("receive", &ctx, socket_class.clone())?;
             }
 
             // Create MPSC channel for send operations
             let (send_tx, mut send_rx) = mpsc::unbounded_channel::<SendMessage>();
 
-            // Store sender in socket
-            {
+            let send_close_rx = {
                 let mut borrow = socket_class.borrow_mut();
                 borrow.send_tx = Some(send_tx);
-            }
+                borrow.close_tx.subscribe()
+            };
 
             // Spawn background task to process sends
             let send_socket = socket_arc.clone();
             let send_ctx = ctx.clone();
             let send_ctx2 = ctx.clone();
             let send_class = socket_class.clone();
-            let send_close_rx = {
-                let borrow = socket_class.borrow();
-                borrow.close_tx.subscribe()
-            };
 
             send_ctx2.spawn(async move {
                 let mut close_rx = send_close_rx;
@@ -312,33 +297,31 @@ impl<'js> Socket<'js> {
                             break;
                         }
                         msg = send_rx.recv() => {
-                            match msg {
-                                Some((bytes, dest_addr, callback)) => {
-                                    let result = send_socket.send_to(&bytes, &dest_addr).await;
+                            let Some((bytes, dest_addr, callback)) = msg else {
+                                // Channel closed, stop task
+                                break;
+                            };
 
-                                    if let Some(cb) = callback {
-                                        match result {
-                                            Ok(sent) => {
-                                                let null_val = Value::new_null(send_ctx.clone());
-                                                let _ = cb.call::<_, ()>((null_val, sent));
-                                            },
-                                            Err(e) => {
-                                                let error_msg = format!("UDP send error: {}", e);
-                                                if let Ok(error_val) = Exception::from_message(send_ctx.clone(), &error_msg) {
-                                                    let _ = cb.call::<_, ()>((error_val,));
-                                                }
-                                            },
-                                        }
-                                    } else if let Err(e) = result {
-                                        // No callback, use emit_error pattern
-                                        let error_msg = format!("UDP send error: {}", e);
-                                        let _ = Err::<(), _>(Exception::throw_message(&send_ctx, &error_msg))
-                                            .emit_error("send", &send_ctx, send_class.clone());
+                            let result = send_socket.send_to(&bytes, &dest_addr).await;
+
+                            match (result, callback) {
+                                (Ok(sent), Some(cb)) => {
+                                    let null_val = Value::new_null(send_ctx.clone());
+                                    let _ = cb.call::<_, ()>((null_val, sent));
+                                },
+                                (Err(e), Some(cb)) => {
+                                    let error_msg = format!("UDP send error: {}", e);
+                                    if let Ok(error_val) = Exception::from_message(send_ctx.clone(), &error_msg) {
+                                        let _ = cb.call::<_, ()>((error_val,));
                                     }
                                 },
-                                None => {
-                                    // Channel closed, stop task
-                                    break;
+                                (Err(e), None) => {
+                                    let error_msg = format!("UDP send error: {}", e);
+                                    let _ = Err::<(), _>(Exception::throw_message(&send_ctx, &error_msg))
+                                        .emit_error("send", &send_ctx, send_class.clone());
+                                },
+                                (Ok(_), None) => {
+                                    // Success without callback, nothing to do
                                 },
                             }
                         }
@@ -418,7 +401,7 @@ impl<'js> Socket<'js> {
         };
 
         if already_closed {
-            return Ok(this.0);
+            return Err(Exception::throw_message(&ctx, "ERR_SOCKET_DGRAM_NOT_RUNNING"));
         }
 
         if let Some(cb) = callback.0 {
