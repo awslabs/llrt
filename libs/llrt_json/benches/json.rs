@@ -107,7 +107,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     ];
 
     for (name, test_str) in test_strings {
-        c.bench_function(&format!("escape_{}", name), |b| {
+        c.bench_function(&format!("escape_{name}"), |b| {
             b.iter(|| escape_json(black_box(test_str.as_bytes())))
         });
     }
