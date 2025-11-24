@@ -3,10 +3,8 @@
 use std::{
     future::Future,
     io,
-    net::{SocketAddr, SocketAddrV4, SocketAddrV6},
+    net::SocketAddr,
     pin::Pin,
-    result::Result as StdResult,
-    str::FromStr,
     sync::Arc,
     task::{self, Poll},
     time::{Duration, Instant},
@@ -14,9 +12,7 @@ use std::{
 };
 
 use hyper_util::client::legacy::connect::{dns::Name, HttpConnector};
-use llrt_utils::object::ObjectExt;
 use quick_cache::sync::Cache;
-use rquickjs::Value;
 use tokio::sync::Semaphore;
 use tower_service::Service;
 
@@ -142,53 +138,4 @@ impl CachedDnsResolver {
     pub fn into_http_connector(self) -> HttpConnector<Self> {
         HttpConnector::<Self>::new_with_resolver(self)
     }
-}
-
-pub async fn lookup_host(
-    hostname: &str,
-    options: Option<Value<'_>>,
-) -> StdResult<(String, i32), std::io::Error> {
-    let mut family = 0;
-    if let Some(options) = options {
-        family = if let Some(v) = options.as_int() {
-            if !matches!(v, 4 | 6) {
-                return Err(io::Error::new::<String>(
-                    io::ErrorKind::InvalidInput,
-                    "If options is an integer, then it must be 4 or 6".into(),
-                ));
-            }
-            v
-        } else if let Ok(Some(v)) = options.get_optional::<_, i32>("family") {
-            if !matches!(v, 4 | 6 | 0) {
-                return Err(io::Error::new::<String>(
-                    io::ErrorKind::InvalidInput,
-                    "If family record is exist, then it must be 4, 6, or 0".into(),
-                ));
-            }
-            v
-        } else {
-            0
-        }
-    }
-
-    let addrs = tokio::net::lookup_host((hostname, 0)).await?;
-    let addrs = addrs.collect::<Vec<_>>();
-
-    for ip in addrs {
-        if matches!(family, 4 | 0) {
-            if let Ok(ipv4) = SocketAddrV4::from_str(&ip.to_string()) {
-                return Ok((ipv4.ip().to_string(), 4));
-            }
-        }
-        if matches!(family, 6 | 0) {
-            if let Ok(ipv6) = SocketAddrV6::from_str(&ip.to_string()) {
-                return Ok((ipv6.ip().to_string(), 6));
-            }
-        }
-    }
-
-    Err(io::Error::new::<String>(
-        io::ErrorKind::NotFound,
-        "No values ware found matching the criteria".into(),
-    ))
 }
