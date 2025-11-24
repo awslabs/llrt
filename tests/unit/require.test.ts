@@ -176,6 +176,10 @@ it("regression testing for issue #903", () => {
   );
 });
 
+it("regression testing for issue #1245", () => {
+  _require(`${CWD}/fixtures/test1245/main/foo.js`);
+});
+
 //create a test that spawns a subprocess and executes require.mjs from fixtures and captures stdout
 it("should handle blocking requires", async () => {
   const { code, stdout } = await spawnCapture(process.argv0, [

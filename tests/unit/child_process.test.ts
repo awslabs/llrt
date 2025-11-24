@@ -116,7 +116,7 @@ describe("spawn", () => {
           expect(code).toEqual(0);
         }
 
-        expect(signal).toEqual(IS_WINDOWS ? "SIGKILL" : "SIGINT");
+        expect(signal).toEqual("SIGKILL");
         done();
       } catch (error) {
         done(error);
@@ -124,7 +124,7 @@ describe("spawn", () => {
     });
 
     setTimeout(() => {
-      child.kill("SIGINT");
+      child.kill("SIGKILL"); //SIGINT does not forward to children on Linux
     }, 50);
   });
 
@@ -174,5 +174,42 @@ describe("spawn", () => {
     await testExitCode(-1231231231, 1);
     await testExitCode(266, 10);
     await testExitCode("266", 10);
+  });
+
+  it("should handle detached child process termination", (done) => {
+    const parentProc = spawn(process.argv0, [
+      "-e",
+      `
+        import {spawn} from "child_process";
+        const child = spawn('sleep', ['999'], {
+          detached: true,
+          stdio: 'ignore'
+        });
+        console.log(child.pid.toString());
+      `,
+    ]);
+
+    let detachedPidString = "";
+    parentProc.stdout.on("data", (data) => {
+      detachedPidString += data.toString();
+      console.log("Got PID:", detachedPidString);
+      parentProc.kill();
+    });
+
+    parentProc.on("exit", () => {
+      try {
+        const detachedPid = parseInt(detachedPidString.trim());
+        console.log("Parent exited, detached PID:", detachedPid);
+        expect(detachedPid).toBeGreaterThan(0);
+        const exists = process.kill(detachedPid, 0);
+        console.log("Process exists check:", exists);
+        expect(exists).toBe(true);
+        const killResult = process.kill(detachedPid);
+        console.log("Kill result:", killResult);
+        done();
+      } catch (error) {
+        done(error);
+      }
+    });
   });
 });

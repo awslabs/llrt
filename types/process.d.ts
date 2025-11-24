@@ -185,6 +185,44 @@ declare module "process" {
     exit(code?: number | string | null | undefined): never;
 
     /**
+     * The `process.kill()` method sends the `signal` to the process identified by `pid`.
+     *
+     * Signal names are strings such as 'SIGINT' or 'SIGHUP'. See Signal Events and kill(2)
+     * for more information.
+     *
+     * This method will throw an error if the target pid does not exist. As a special case,
+     * a signal of 0 can be used to test for the existence of a process. Windows platforms
+     * will throw an error if the pid is used to kill a process group.
+     *
+     * Even though the name of this function is process.kill(), it is really just a signal
+     * sender, like the kill system call. The signal sent may do something other than kill
+     * the target process.
+     *
+     * ```js
+     * import { kill } from 'process';
+     *
+     * process.on('SIGHUP', () => {
+     *   console.log('Got SIGHUP signal.');
+     * });
+     *
+     * setTimeout(() => {
+     *   console.log('Exiting.');
+     *   process.exit(0);
+     * }, 100);
+     *
+     * kill(process.pid, 'SIGHUP');
+     * ```
+     *
+     * When `SIGUSR1` is received by a Node.js process, Node.js will start the debugger.
+     * See the debugger documentation for more information.
+     *
+     * @since v0.1.31
+     * @param pid A process ID
+     * @param signal The signal to send, either as a string or number. Default: 'SIGTERM'.
+     */
+    kill(pid: number, signal?: QuickJS.Signals | number): void;
+
+    /**
      * The `process.exitCode` property indicates the exit code that will be used
      * when the llrt process eventually exits. If it is not specified, the default
      * exit code is `undefined` and will be 0 on exit.

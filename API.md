@@ -419,6 +419,40 @@ export function encode(
 export function decode(value: string): Uint8Array;
 ```
 
+## llrt:qjs
+
+```typescript
+interface MemoryInfo {
+  malloc_size: number;
+  malloc_limit: number;
+  memory_used_size: number;
+  malloc_count: number;
+  memory_used_count: number;
+  atom_count: number;
+  atom_size: number;
+  str_count: number;
+  str_size: number;
+  obj_count: number;
+  obj_size: number;
+  prop_count: number;
+  prop_size: number;
+  shape_count: number;
+  shape_size: number;
+  js_func_count: number;
+  js_func_size: number;
+  js_func_code_size: number;
+  js_func_pc2line_count: number;
+  js_func_pc2line_size: number;
+  c_func_count: number;
+  array_count: number;
+  fast_array_count: number;
+  fast_array_elements: number;
+  binary_object_count: number;
+  binary_object_size: number;
+}
+export function ComputeMemoryUsage(): MemoryInfo;
+```
+
 ## llrt:xml
 
 A lightweight and fast XML parser
