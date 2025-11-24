@@ -64,7 +64,7 @@ cbc = { version = "0.2.0-rc.1", features = ["alloc"], optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
-ctr = { version = "0.10.0-rc.1", default-features = false, optional = true }
+ctr = { version = "0.10.0-rc.2", default-features = false, optional = true }
 der = { version = "0.8.0-rc.9", features = [
   "derive",
   "alloc",
