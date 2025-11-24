@@ -205,7 +205,7 @@ impl<'js> FromJs<'js> for LookupOptions {
 
 #[cfg(test)]
 mod tests {
-    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
+    use llrt_test::{call_test, call_test_err, test_async_with, ModuleEvaluator};
     use llrt_utils::primordials::{BasePrimordials, Primordial};
 
     use crate::DnsModule;
@@ -237,7 +237,7 @@ mod tests {
                 .await
                 .unwrap();
 
-                let result = call_test::<String, _>(&ctx, &module, ("google.com",)).await;
+                let result = call_test::<String, _>(&ctx, &module, ("www.amazon.com",)).await;
 
                 assert!(result.ends_with(":4"));
             })
@@ -272,9 +272,13 @@ mod tests {
                 .await
                 .unwrap();
 
-                let result = call_test::<String, _>(&ctx, &module, ("google.com",)).await;
+                let result = call_test_err::<String, _>(&ctx, &module, ("www.amazon.com",)).await;
 
-                assert!(result.ends_with(":6"));
+                // Not all systems support IPv6 resolution so we need to support it
+                match result {
+                    Ok(result) => assert!(result.ends_with(":6")),
+                    Err(err) => assert!(err.to_string().contains("No address found")),
+                }
             })
         })
         .await
@@ -307,7 +311,7 @@ mod tests {
                 .await
                 .unwrap();
 
-                let result = call_test::<Vec<String>, _>(&ctx, &module, ("google.com",)).await;
+                let result = call_test::<Vec<String>, _>(&ctx, &module, ("www.amazon.com",)).await;
 
                 assert!(!result.is_empty());
                 assert!(result.iter().all(|addr| addr.ends_with(":4") || addr.ends_with(":6")));
@@ -343,12 +347,12 @@ mod tests {
                 .await
                 .unwrap();
 
-                let result = call_test::<Vec<String>, _>(&ctx, &module, ("google.com",)).await;
+                let result = call_test::<Vec<String>, _>(&ctx, &module, ("www.amazon.com",)).await;
 
                 assert!(!result.is_empty());
                 let first_ipv4 = result.iter().position(|addr| addr.ends_with(":4")).unwrap();
-                let last_ipv6 = result.iter().rposition(|addr| addr.ends_with(":6")).unwrap();
-                assert!(last_ipv6 < first_ipv4);
+                let last_ipv6 = result.iter().rposition(|addr| addr.ends_with(":6")).unwrap_or(result.len().saturating_sub(1));
+                assert!(last_ipv6 <= first_ipv4);
             })
         })
         .await
