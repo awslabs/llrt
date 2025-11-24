@@ -100,73 +100,14 @@ impl<'js> Socket<'js> {
         Class::instance(ctx, instance)
     }
 
-    pub fn bind(
-        this: This<Class<'js, Self>>,
+    fn start_listening(
+        socket_class: Class<'js, Self>,
         ctx: Ctx<'js>,
-        args: Rest<Value<'js>>,
-    ) -> Result<Class<'js, Self>> {
-        let mut port = 0u16;
-        let mut address = "0.0.0.0".to_string();
-        let mut callback: Option<Function> = None;
-
-        // Parse arguments: can be (port, address, callback), (port, callback), (callback), or (options, callback)
-        let mut args_iter = args.0.into_iter();
-
-        if let Some(first_arg) = args_iter.next() {
-            if let Some(func) = first_arg.as_function() {
-                // bind(callback)
-                callback = Some(func.clone());
-            } else if let Some(num) = first_arg.as_int() {
-                // bind(port, ...)
-                port = num as u16;
-                if let Some(second_arg) = args_iter.next() {
-                    if let Some(func) = second_arg.as_function() {
-                        // bind(port, callback)
-                        callback = Some(func.clone());
-                    } else if let Some(addr_str) = second_arg.as_string() {
-                        // bind(port, address, ...)
-                        address = addr_str.to_string()?;
-                        if let Some(third_arg) = args_iter.next() {
-                            if let Some(func) = third_arg.as_function() {
-                                // bind(port, address, callback)
-                                callback = Some(func.clone());
-                            }
-                        }
-                    }
-                }
-            } else if let Some(obj) = first_arg.as_object() {
-                // bind(options, callback)
-                if let Some(p) = obj.get::<_, Option<u16>>("port")? {
-                    port = p;
-                }
-                if let Some(addr) = obj.get::<_, Option<String>>("address")? {
-                    address = addr;
-                }
-                if let Some(second_arg) = args_iter.next() {
-                    if let Some(func) = second_arg.as_function() {
-                        callback = Some(func.clone());
-                    }
-                }
-            }
-        }
-
-        if let Some(cb) = callback {
-            Self::add_event_listener_str(
-                This(this.clone()),
-                &ctx,
-                "listening",
-                cb,
-                true,
-                true,
-            )?;
-        }
-
-        let bind_addr = [&address, ":", &port.to_string()].concat();
-        let socket_class = this.clone();
-
+        bind_addr: String,
+    ) -> Result<()> {
         // Check state and get Arc clones in single borrow
         let (is_closed, receiver_running) = {
-            let borrow = this.borrow();
+            let borrow = socket_class.borrow();
             if borrow.is_bound.load(Ordering::SeqCst) {
                 return Err(Exception::throw_message(&ctx, "ERR_SOCKET_ALREADY_BOUND"));
             }
@@ -332,6 +273,109 @@ impl<'js> Socket<'js> {
             Result::<()>::Ok(())
         })?;
 
+        Ok(())
+    }
+
+    fn ensure_listening(
+        this: Class<'js, Self>,
+        ctx: Ctx<'js>,
+    ) -> Result<()> {
+        // Check if already bound
+        let is_bound = {
+            let borrow = this.borrow();
+            borrow.is_bound.load(Ordering::SeqCst)
+        };
+
+        if !is_bound {
+            // Auto-bind to random port
+            let bind_addr = "0.0.0.0:0".to_string();
+            Self::start_listening(this.clone(), ctx.clone(), bind_addr)?;
+        }
+
+        // Wait for send_tx to be available (indicating listener is ready)
+        // The spawn_exit task will set this before returning
+        loop {
+            let send_tx_ready = {
+                let borrow = this.borrow();
+                borrow.send_tx.is_some()
+            };
+
+            if send_tx_ready {
+                break;
+            }
+
+            // Yield to allow async task to progress
+            std::thread::yield_now();
+        }
+
+        Ok(())
+    }
+
+    pub fn bind(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        args: Rest<Value<'js>>,
+    ) -> Result<Class<'js, Self>> {
+        let mut port = 0u16;
+        let mut address = "0.0.0.0".to_string();
+        let mut callback: Option<Function> = None;
+
+        // Parse arguments: can be (port, address, callback), (port, callback), (callback), or (options, callback)
+        let mut args_iter = args.0.into_iter();
+
+        if let Some(first_arg) = args_iter.next() {
+            if let Some(func) = first_arg.as_function() {
+                // bind(callback)
+                callback = Some(func.clone());
+            } else if let Some(num) = first_arg.as_int() {
+                // bind(port, ...)
+                port = num as u16;
+                if let Some(second_arg) = args_iter.next() {
+                    if let Some(func) = second_arg.as_function() {
+                        // bind(port, callback)
+                        callback = Some(func.clone());
+                    } else if let Some(addr_str) = second_arg.as_string() {
+                        // bind(port, address, ...)
+                        address = addr_str.to_string()?;
+                        if let Some(third_arg) = args_iter.next() {
+                            if let Some(func) = third_arg.as_function() {
+                                // bind(port, address, callback)
+                                callback = Some(func.clone());
+                            }
+                        }
+                    }
+                }
+            } else if let Some(obj) = first_arg.as_object() {
+                // bind(options, callback)
+                if let Some(p) = obj.get::<_, Option<u16>>("port")? {
+                    port = p;
+                }
+                if let Some(addr) = obj.get::<_, Option<String>>("address")? {
+                    address = addr;
+                }
+                if let Some(second_arg) = args_iter.next() {
+                    if let Some(func) = second_arg.as_function() {
+                        callback = Some(func.clone());
+                    }
+                }
+            }
+        }
+
+        if let Some(cb) = callback {
+            Self::add_event_listener_str(
+                This(this.clone()),
+                &ctx,
+                "listening",
+                cb,
+                true,
+                true,
+            )?;
+        }
+
+        let bind_addr = [&address, ":", &port.to_string()].concat();
+
+        Self::start_listening(this.0.clone(), ctx, bind_addr)?;
+
         Ok(this.0)
     }
 
@@ -361,26 +405,18 @@ impl<'js> Socket<'js> {
             }
         }
 
-        // Get or create send_tx channel
-        let send_tx = {
-            let borrow = this.borrow();
-            if let Some(tx) = &borrow.send_tx {
-                tx.clone()
-            } else {
-                // Auto-bind if not bound
-                drop(borrow);
-                Self::bind(This(this.clone()), ctx.clone(), Rest(vec![]))?;
-                let borrow = this.borrow();
-                borrow.send_tx.clone().ok_or_else(||
-                    Exception::throw_message(&ctx, "Failed to initialize socket")
-                )?
-            }
-        };
-
         // Format destination address
         let dest_addr = [&address, ":", &port.to_string()].concat();
 
-        // Send to channel
+        // Ensure listener is running before sending
+        Self::ensure_listening(this.0.clone(), ctx.clone())?;
+
+        // Now send to the channel
+        let borrow = this.borrow();
+        let send_tx = borrow.send_tx.as_ref().ok_or_else(||
+            Exception::throw_message(&ctx, "Failed to initialize socket")
+        )?;
+
         send_tx.send((bytes, dest_addr, callback.0))
             .map_err(|_| Exception::throw_message(&ctx, "Failed to send message"))?;
 
