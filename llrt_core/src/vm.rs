@@ -47,6 +47,7 @@ impl Default for VmOptions {
             .with_global(crate::modules::embedded::init)
             .with_global(crate::builtins_inspect::init)
             .with_module(crate::modules::llrt::hex::LlrtHexModule)
+            .with_module(crate::modules::llrt::qjs::LlrtQjsModule)
             .with_module(crate::modules::llrt::util::LlrtUtilModule)
             .with_module(crate::modules::llrt::xml::LlrtXmlModule);
 
