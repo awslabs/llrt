@@ -8,7 +8,7 @@ use std::sync::{
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, latch::Latch, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},
@@ -34,6 +34,7 @@ pub struct Socket<'js> {
     receiver_running: Arc<AtomicBool>,
     close_tx: broadcast::Sender<()>,
     send_tx: Option<mpsc::UnboundedSender<SendMessage<'js>>>,
+    ready_latch: Arc<Latch>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -95,6 +96,7 @@ impl<'js> Socket<'js> {
             receiver_running: Arc::new(AtomicBool::new(false)),
             close_tx,
             send_tx: None,
+            ready_latch: Arc::new(Latch::default()),
         };
 
         Class::instance(ctx, instance)
@@ -106,19 +108,26 @@ impl<'js> Socket<'js> {
         bind_addr: String,
     ) -> Result<()> {
         // Check state and get Arc clones in single borrow
-        let (is_closed, receiver_running) = {
+        let (is_closed, receiver_running, ready_latch) = {
             let borrow = socket_class.borrow();
             if borrow.is_bound.load(Ordering::SeqCst) {
                 return Err(Exception::throw_message(&ctx, "ERR_SOCKET_ALREADY_BOUND"));
             }
             if borrow.is_closed.load(Ordering::SeqCst) {
-                return Err(Exception::throw_message(&ctx, "ERR_SOCKET_DGRAM_NOT_RUNNING"));
+                return Err(Exception::throw_message(
+                    &ctx,
+                    "ERR_SOCKET_DGRAM_NOT_RUNNING",
+                ));
             }
             (
                 borrow.is_closed.clone(),
                 borrow.receiver_running.clone(),
+                borrow.ready_latch.clone(),
             )
         };
+
+        // Increment latch before spawning - will be decremented when send_tx is ready
+        ready_latch.increment();
 
         ctx.clone().spawn_exit(async move {
             let socket = UdpSocket::bind(&bind_addr).await.or_throw(&ctx)?;
@@ -223,6 +232,9 @@ impl<'js> Socket<'js> {
                 borrow.close_tx.subscribe()
             };
 
+            // Signal that send channel is ready
+            ready_latch.decrement();
+
             // Spawn background task to process sends
             let send_socket = socket_arc.clone();
             let send_ctx = ctx.clone();
@@ -276,14 +288,15 @@ impl<'js> Socket<'js> {
         Ok(())
     }
 
-    fn ensure_listening(
-        this: Class<'js, Self>,
-        ctx: Ctx<'js>,
-    ) -> Result<()> {
-        // Check if already bound
-        let is_bound = {
+    #[qjs(skip)]
+    fn ensure_listening(this: Class<'js, Self>, ctx: Ctx<'js>) -> Result<Arc<Latch>> {
+        // Check if already bound and get latch
+        let (is_bound, ready_latch) = {
             let borrow = this.borrow();
-            borrow.is_bound.load(Ordering::SeqCst)
+            (
+                borrow.is_bound.load(Ordering::SeqCst),
+                borrow.ready_latch.clone(),
+            )
         };
 
         if !is_bound {
@@ -292,23 +305,7 @@ impl<'js> Socket<'js> {
             Self::start_listening(this.clone(), ctx.clone(), bind_addr)?;
         }
 
-        // Wait for send_tx to be available (indicating listener is ready)
-        // The spawn_exit task will set this before returning
-        loop {
-            let send_tx_ready = {
-                let borrow = this.borrow();
-                borrow.send_tx.is_some()
-            };
-
-            if send_tx_ready {
-                break;
-            }
-
-            // Yield to allow async task to progress
-            std::thread::yield_now();
-        }
-
-        Ok(())
+        Ok(ready_latch)
     }
 
     pub fn bind(
@@ -362,14 +359,7 @@ impl<'js> Socket<'js> {
         }
 
         if let Some(cb) = callback {
-            Self::add_event_listener_str(
-                This(this.clone()),
-                &ctx,
-                "listening",
-                cb,
-                true,
-                true,
-            )?;
+            Self::add_event_listener_str(This(this.clone()), &ctx, "listening", cb, true, true)?;
         }
 
         let bind_addr = [&address, ":", &port.to_string()].concat();
@@ -393,7 +383,8 @@ impl<'js> Socket<'js> {
         let bytes: Vec<u8> = if let Some(str_val) = msg.as_string() {
             str_val.to_string()?.into_bytes()
         } else {
-            ObjectBytes::from_js(&ctx, msg)?.try_into()
+            ObjectBytes::from_js(&ctx, msg)?
+                .try_into()
                 .map_err(|e: std::rc::Rc<str>| Exception::throw_type(&ctx, &e))?
         };
 
@@ -408,22 +399,39 @@ impl<'js> Socket<'js> {
         // Format destination address
         let dest_addr = [&address, ":", &port.to_string()].concat();
 
-        // Ensure listener is running before sending
-        Self::ensure_listening(this.0.clone(), ctx.clone())?;
+        // Ensure listener is started and get latch to wait on
+        let ready_latch = Self::ensure_listening(this.0.clone(), ctx.clone())?;
 
-        // Now send to the channel
-        let borrow = this.borrow();
-        let send_tx = borrow.send_tx.as_ref().ok_or_else(||
-            Exception::throw_message(&ctx, "Failed to initialize socket")
-        )?;
+        let socket_class = this.0.clone();
+        let cb = callback.0;
 
-        send_tx.send((bytes, dest_addr, callback.0))
-            .map_err(|_| Exception::throw_message(&ctx, "Failed to send message"))?;
+        // Use spawn_exit to wait for latch asynchronously, then send
+        ctx.clone().spawn_exit(async move {
+            // Wait for send channel to be ready
+            ready_latch.wait().await;
+
+            // Now send to the channel
+            let borrow = socket_class.borrow();
+            let send_tx = borrow
+                .send_tx
+                .as_ref()
+                .ok_or_else(|| Exception::throw_message(&ctx, "Failed to initialize socket"))?;
+
+            send_tx
+                .send((bytes, dest_addr, cb))
+                .map_err(|_| Exception::throw_message(&ctx, "Failed to send message"))?;
+
+            Ok(())
+        })?;
 
         Ok(())
     }
 
-    pub fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, callback: Opt<Function<'js>>) -> Result<Class<'js, Self>> {
+    pub fn close(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        callback: Opt<Function<'js>>,
+    ) -> Result<Class<'js, Self>> {
         let already_closed = {
             let borrow = this.borrow();
             if borrow.is_closed.load(Ordering::SeqCst) {
@@ -437,7 +445,10 @@ impl<'js> Socket<'js> {
         };
 
         if already_closed {
-            return Err(Exception::throw_message(&ctx, "ERR_SOCKET_DGRAM_NOT_RUNNING"));
+            return Err(Exception::throw_message(
+                &ctx,
+                "ERR_SOCKET_DGRAM_NOT_RUNNING",
+            ));
         }
 
         if let Some(cb) = callback.0 {
