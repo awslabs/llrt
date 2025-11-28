@@ -238,7 +238,6 @@ impl<'js> Socket<'js> {
                         Ok(())
                     })?;
                 }
-                
 
                 // Start sender loop
                 let send_socket = socket_arc.clone();
