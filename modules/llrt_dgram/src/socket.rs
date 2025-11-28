@@ -16,11 +16,12 @@ use rquickjs::{
 };
 use tokio::{
     net::UdpSocket,
-    sync::{broadcast, mpsc},
+    sync::{broadcast, mpsc, oneshot},
 };
 use tracing::trace;
 
-type SendMessage<'js> = (Vec<u8>, String, Option<Function<'js>>);
+type SendResult = std::result::Result<usize, String>;
+type SendMessage = (Vec<u8>, String, Option<oneshot::Sender<SendResult>>);
 
 #[rquickjs::class]
 pub struct Socket<'js> {
@@ -33,7 +34,7 @@ pub struct Socket<'js> {
     local_family: Option<String>,
     receiver_running: Arc<AtomicBool>,
     close_tx: broadcast::Sender<()>,
-    send_tx: Option<mpsc::UnboundedSender<SendMessage<'js>>>,
+    send_tx: Option<mpsc::UnboundedSender<SendMessage>>,
     ready_latch: Arc<Latch>,
 }
 
@@ -126,163 +127,156 @@ impl<'js> Socket<'js> {
             )
         };
 
-        // Increment latch before spawning - will be decremented when send_tx is ready
+        // Increment latch before spawning - will be decremented when send_tx is ready or on error
         ready_latch.increment();
 
+        let socket_class2 = socket_class.clone();
+        let socket_class3 = socket_class.clone();
         ctx.clone().spawn_exit(async move {
-            let socket = UdpSocket::bind(&bind_addr).await.or_throw(&ctx)?;
-            let local_addr = socket.local_addr().or_throw(&ctx)?;
+            let bind_result = async {
+                let socket = match UdpSocket::bind(&bind_addr).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        ready_latch.decrement();
+                        return Err(e).or_throw(&ctx);
+                    },
+                };
+                let local_addr = match socket.local_addr() {
+                    Ok(a) => a,
+                    Err(e) => {
+                        ready_latch.decrement();
+                        return Err(e).or_throw(&ctx);
+                    },
+                };
 
-            let socket_arc = Arc::new(socket);
+                let socket_arc = Arc::new(socket);
 
-            let close_rx = {
-                let mut borrow = socket_class.borrow_mut();
-                borrow.socket = Some(socket_arc.clone());
-                borrow.local_address = Some(local_addr.ip().to_string());
-                borrow.local_port = Some(local_addr.port());
-                borrow.is_bound.store(true, Ordering::SeqCst);
-                borrow.close_tx.subscribe()
-            };
+                // Create MPSC channel for send operations BEFORE starting loops
+                let (send_tx, mut send_rx) = mpsc::unbounded_channel::<SendMessage>();
 
-            trace!("UDP socket bound to {}", local_addr);
+                let (recv_close_rx, send_close_rx) = {
+                    let mut borrow = socket_class.borrow_mut();
+                    borrow.socket = Some(socket_arc.clone());
+                    borrow.local_address = Some(local_addr.ip().to_string());
+                    borrow.local_port = Some(local_addr.port());
+                    borrow.is_bound.store(true, Ordering::SeqCst);
+                    borrow.send_tx = Some(send_tx);
+                    (borrow.close_tx.subscribe(), borrow.close_tx.subscribe())
+                };
 
-            // Start receiving messages
-            if receiver_running
-                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                .is_ok()
-            {
-                let recv_socket = socket_arc.clone();
-                let recv_class = socket_class.clone();
-                let recv_closed = is_closed.clone();
-                let recv_running = receiver_running.clone();
-                let mut close_rx = close_rx;
+                // Signal that send channel is ready
+                ready_latch.decrement();
 
-                // Emit 'listening' event right before loop starts
+                trace!("UDP socket bound to {}", local_addr);
+
+                // Emit 'listening' event
                 Self::emit_str(This(socket_class.clone()), &ctx, "listening", vec![], false)?;
 
-                let mut buf = vec![0u8; 65536];
+                // Start receiver loop
+                let recv_started = receiver_running
+                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok();
 
-                let result: Result<()> = async {
-                    loop {
-                        tokio::select! {
-                            _ = close_rx.recv() => {
-                                // Close signal received, emit close event and exit loop
-                                Self::emit_str(
-                                    This(recv_class.clone()),
-                                    &ctx,
-                                    "close",
-                                    vec![],
-                                    false,
-                                )?;
-                                break;
-                            }
-                            result = recv_socket.recv_from(&mut buf) => {
-                                match result {
-                                    Ok((size, peer_addr)) => {
-                                        let data = Buffer(buf[..size].to_vec()).into_js(&ctx)?;
-                                        let info = Object::new(ctx.clone())?;
-                                        info.set("address", peer_addr.ip().to_string())?;
-                                        info.set("port", peer_addr.port())?;
-                                        info.set(
-                                            "family",
-                                            if peer_addr.is_ipv4() { "IPv4" } else { "IPv6" },
-                                        )?;
+                if recv_started {
+                    let recv_socket = socket_arc.clone();
+                    let recv_class = socket_class.clone();
+                    let recv_closed = is_closed.clone();
+                    let recv_running = receiver_running.clone();
+                    let recv_ctx = ctx.clone();
+                    let mut close_rx = recv_close_rx;
 
-                                        let info_val: Value = info.into();
-                                        Self::emit_str(
-                                            This(recv_class.clone()),
-                                            &ctx,
-                                            "message",
-                                            vec![data, info_val],
-                                            false,
-                                        )?;
-                                    },
-                                    Err(e) => {
-                                        if recv_closed.load(Ordering::SeqCst) {
-                                            break;
+                    ctx.clone().spawn_exit(async move {
+                        let recv_result = async {
+                            let mut buf = vec![0u8; 65536];
+
+                            loop {
+                                tokio::select! {
+                                    _ = close_rx.recv() => {
+                                        break;
+                                    }
+                                    result = recv_socket.recv_from(&mut buf) => {
+                                        match result {
+                                            Ok((size, peer_addr)) => {
+                                                let data = Buffer(buf[..size].to_vec()).into_js(&recv_ctx)?;
+                                                let info = Object::new(recv_ctx.clone())?;
+                                                info.set("address", peer_addr.ip().to_string())?;
+                                                info.set("port", peer_addr.port())?;
+                                                info.set(
+                                                    "family",
+                                                    if peer_addr.is_ipv4() { "IPv4" } else { "IPv6" },
+                                                )?;
+
+                                                let info_val: Value = info.into();
+                                                Self::emit_str(
+                                                    This(recv_class.clone()),
+                                                    &recv_ctx,
+                                                    "message",
+                                                    vec![data, info_val],
+                                                    false,
+                                                )?;
+                                            },
+                                            Err(e) => {
+                                                if recv_closed.load(Ordering::SeqCst) {
+                                                    break;
+                                                }
+                                                return Err(Exception::throw_message(
+                                                    &recv_ctx,
+                                                    &format!("UDP receive error: {}", e),
+                                                ));
+                                            },
                                         }
-                                        let error_msg = format!("UDP receive error: {}", e);
-
-                                        if Err::<(), _>(Exception::throw_message(&ctx, &error_msg))
-                                            .emit_error("message", &ctx, recv_class.clone())?
-                                        {
-                                            // Error was handled by error listener, continue receiving
-                                        } else {
-                                            // No error listener, propagate error to spawn_exit
-                                            return Err(Exception::throw_message(&ctx, &error_msg));
-                                        }
-                                    },
+                                    }
                                 }
                             }
+
+                            recv_running.store(false, Ordering::SeqCst);
+                            Ok(())
                         }
-                    }
-                    Ok(())
-                }.await;
+                        .await;
 
-                recv_running.store(false, Ordering::SeqCst);
-                result.emit_error("receive", &ctx, socket_class.clone())?;
-            }
-
-            // Create MPSC channel for send operations
-            let (send_tx, mut send_rx) = mpsc::unbounded_channel::<SendMessage>();
-
-            let send_close_rx = {
-                let mut borrow = socket_class.borrow_mut();
-                borrow.send_tx = Some(send_tx);
-                borrow.close_tx.subscribe()
-            };
-
-            // Signal that send channel is ready
-            ready_latch.decrement();
-
-            // Spawn background task to process sends
-            let send_socket = socket_arc.clone();
-            let send_ctx = ctx.clone();
-            let send_ctx2 = ctx.clone();
-            let send_class = socket_class.clone();
-
-            send_ctx2.spawn(async move {
-                let mut close_rx = send_close_rx;
-                loop {
-                    tokio::select! {
-                        _ = close_rx.recv() => {
-                            // Socket closed, stop processing sends
-                            break;
-                        }
-                        msg = send_rx.recv() => {
-                            let Some((bytes, dest_addr, callback)) = msg else {
-                                // Channel closed, stop task
-                                break;
-                            };
-
-                            let result = send_socket.send_to(&bytes, &dest_addr).await;
-
-                            match (result, callback) {
-                                (Ok(sent), Some(cb)) => {
-                                    let null_val = Value::new_null(send_ctx.clone());
-                                    let _ = cb.call::<_, ()>((null_val, sent));
-                                },
-                                (Err(e), Some(cb)) => {
-                                    let error_msg = format!("UDP send error: {}", e);
-                                    if let Ok(error_val) = Exception::from_message(send_ctx.clone(), &error_msg) {
-                                        let _ = cb.call::<_, ()>((error_val,));
-                                    }
-                                },
-                                (Err(e), None) => {
-                                    let error_msg = format!("UDP send error: {}", e);
-                                    let _ = Err::<(), _>(Exception::throw_message(&send_ctx, &error_msg))
-                                        .emit_error("send", &send_ctx, send_class.clone());
-                                },
-                                (Ok(_), None) => {
-                                    // Success without callback, nothing to do
-                                },
-                            }
-                        }
-                    }
+                        recv_result.emit_error("recv", &recv_ctx, recv_class)?;
+                        Ok(())
+                    })?;
                 }
-            });
+                
 
-            Result::<()>::Ok(())
+                // Start sender loop
+                let send_socket = socket_arc.clone();
+                let mut close_rx = send_close_rx;
+                let send_ctx = ctx.clone();
+                ctx.spawn_exit(async move {
+                    let send_result = {
+                        loop {
+                            tokio::select! {
+                                _ = close_rx.recv() => {
+                                    break;
+                                }
+                                msg = send_rx.recv() => {
+                                    let Some((bytes, dest_addr, result_tx)) = msg else {
+                                        break;
+                                    };
+
+                                    let result = send_socket.send_to(&bytes, &dest_addr).await;
+                                    if let Some(result_tx) = result_tx{
+                                        result_tx.send(result.map_err(|e| e.to_string())).map_err(|_|Exception::throw_message(&send_ctx, "Failed to call callback in send, channel closed!"))?;
+                                        continue;
+                                    }
+                                    result?;
+                                }
+                            }
+                        };
+                        Ok(())
+                    };
+                    send_result.emit_error("receive", &send_ctx, socket_class3)?;
+                    Ok(())
+                })?;
+
+                Ok(())
+            }
+            .await;
+
+            bind_result.emit_error("bind", &ctx, socket_class2)?;
+            Ok(())
         })?;
 
         Ok(())
@@ -403,24 +397,64 @@ impl<'js> Socket<'js> {
         let ready_latch = Self::ensure_listening(this.0.clone(), ctx.clone())?;
 
         let socket_class = this.0.clone();
+        let socket_class2 = this.0.clone();
+
         let cb = callback.0;
 
-        // Use spawn_exit to wait for latch asynchronously, then send
         ctx.clone().spawn_exit(async move {
-            // Wait for send channel to be ready
-            ready_latch.wait().await;
+            let send_result = async {
+                // Wait for send channel to be ready
+                ready_latch.wait().await;
 
-            // Now send to the channel
-            let borrow = socket_class.borrow();
-            let send_tx = borrow
-                .send_tx
-                .as_ref()
-                .ok_or_else(|| Exception::throw_message(&ctx, "Failed to initialize socket"))?;
+                // Send to the channel
+                let result_rx = {
+                    let (result_tx, result_rx) = if cb.is_some() {
+                        let (result_tx, result_rx) = oneshot::channel();
+                        (Some(result_tx), Some(result_rx))
+                    } else {
+                        (None, None)
+                    };
 
-            send_tx
-                .send((bytes, dest_addr, cb))
-                .map_err(|_| Exception::throw_message(&ctx, "Failed to send message"))?;
+                    let borrow = socket_class.borrow();
+                    let send_tx = borrow.send_tx.as_ref().ok_or_else(|| {
+                        Exception::throw_message(&ctx, "Failed to initialize socket")
+                    })?;
 
+                    send_tx
+                        .send((bytes, dest_addr, result_tx))
+                        .map_err(|_| Exception::throw_message(&ctx, "Failed to send message"))?;
+                    result_rx
+                };
+
+                //we dont have any callback
+                let Some(result_rx) = result_rx else {
+                    return Ok(());
+                };
+
+                // Wait for result
+                let result = result_rx.await.unwrap_or(Err("Socket closed".to_string()));
+
+                let Some(cb) = cb else {
+                    result.or_throw(&ctx)?;
+                    return Ok(());
+                };
+
+                // Callback handles both success and error
+                match result {
+                    Ok(sent) => {
+                        cb.call::<_, ()>((Value::new_null(ctx.clone()), sent))?;
+                    },
+                    Err(e) => {
+                        let err = Exception::from_message(ctx.clone(), &e)?;
+                        cb.call::<_, ()>((err,))?;
+                    },
+                }
+
+                Ok(())
+            }
+            .await;
+
+            send_result.emit_error("send", &ctx, socket_class2)?;
             Ok(())
         })?;
 
@@ -434,14 +468,15 @@ impl<'js> Socket<'js> {
     ) -> Result<Class<'js, Self>> {
         let already_closed = {
             let borrow = this.borrow();
-            if borrow.is_closed.load(Ordering::SeqCst) {
-                true
-            } else {
-                borrow.is_closed.store(true, Ordering::SeqCst);
-                // Send close signal to interrupt receive loop immediately
+            let was_closed = borrow
+                .is_closed
+                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                .is_err();
+            if !was_closed {
+                // Send close signal to interrupt receive/send loops
                 let _ = borrow.close_tx.send(());
-                false
             }
+            was_closed
         };
 
         if already_closed {
@@ -455,11 +490,19 @@ impl<'js> Socket<'js> {
             Self::add_event_listener_str(This(this.clone()), &ctx, "close", cb, true, true)?;
         }
 
-        // Drop the socket
+        // Drop the socket and clear send channel
         {
             let mut borrow = this.borrow_mut();
             borrow.socket = None;
+            borrow.send_tx = None;
         }
+
+        // Emit close event directly (don't rely on sender loop which may not have started)
+        let this_clone = this.0.clone();
+        ctx.clone().spawn_exit(async move {
+            Self::emit_str(This(this_clone), &ctx, "close", vec![], false)?;
+            Ok(())
+        })?;
 
         Ok(this.0)
     }

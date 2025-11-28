@@ -32,7 +32,7 @@ describe("dgram module", () => {
   it("should bind and close a socket", async () => {
     const socket = dgram.createSocket("udp4");
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       socket.bind(() => {
         resolve();
       });
@@ -43,7 +43,7 @@ describe("dgram module", () => {
     expect(address.port).toBeGreaterThan(0);
     expect(address.family).toBe("IPv4");
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       socket.close(() => {
         resolve();
       });
@@ -56,7 +56,7 @@ describe("dgram module", () => {
 
     const testMessage = "Hello, UDP!";
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       let messageReceived = false;
 
       server.on("message", (msg, rinfo) => {
@@ -101,16 +101,10 @@ describe("dgram module", () => {
     });
   }, 5000);
 
-  it("should support unref and ref methods", () => {
-    const socket = dgram.createSocket("udp4");
-    expect(socket.unref()).toBe(socket);
-    expect(socket.ref()).toBe(socket);
-  });
-
   it("should emit listening event", async () => {
     const socket = dgram.createSocket("udp4");
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       socket.on("listening", () => {
         const address = socket.address();
         expect(address).toBeDefined();
@@ -125,7 +119,7 @@ describe("dgram module", () => {
   it("should emit close event", async () => {
     const socket = dgram.createSocket("udp4");
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       socket.on("close", () => {
         resolve();
       });

@@ -1693,7 +1693,7 @@ dependencies = [
  "llrt_events",
  "llrt_test",
  "llrt_utils",
- "rand",
+ "rand 0.9.2",
  "rquickjs",
  "tokio",
  "tracing",
