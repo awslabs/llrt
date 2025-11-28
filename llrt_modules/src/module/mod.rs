@@ -1,6 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashSet, marker::PhantomData};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    rc::Rc,
+};
 
 use llrt_utils::{
     ctx::CtxExt,
@@ -15,9 +20,9 @@ use rquickjs::{
 };
 
 pub mod loader;
+mod require;
 pub mod resolver;
 
-use crate::require::{require, RequireState};
 use crate::CJS_IMPORT_PREFIX;
 
 #[derive(JsLifetime)]
@@ -37,6 +42,17 @@ impl ModuleNames<'_> {
     pub fn get_list(&self) -> HashSet<String> {
         self.list.clone()
     }
+}
+
+#[derive(Default)]
+pub struct RequireState<'js> {
+    pub cache: HashMap<Rc<str>, Value<'js>>,
+    pub exports: HashMap<Rc<str>, Value<'js>>,
+    pub progress: HashMap<Rc<str>, Object<'js>>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
+    type Changed<'to> = RequireState<'to>;
 }
 
 #[derive(Clone, JsLifetime)]
@@ -63,13 +79,6 @@ impl ModuleHookState<'_> {
 }
 
 pub struct ModuleModule;
-
-fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
-    ctx.globals()
-        .get::<_, Function>("require")
-        .map(|f| f.into())
-        .map_err(|_| Exception::throw_reference(&ctx, "create_require is not supported"))
-}
 
 fn is_builtin(ctx: Ctx<'_>, name: String) -> Result<bool> {
     let module_list = ctx
@@ -111,7 +120,7 @@ impl ModuleDef for ModuleModule {
                 .map_or_else(HashSet::new, |v| v.get_list());
 
             default.set("builtinModules", module_list)?;
-            default.set("createRequire", Func::from(create_require))?;
+            default.set("createRequire", Func::from(require::require))?;
             default.set("isBuiltin", Func::from(is_builtin))?;
             default.set("registerHooks", Func::from(register_hooks))?;
 
@@ -170,7 +179,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     .enumerable();
 
     globals.prop("exports", exports_accessor)?;
-    globals.set("require", Func::from(require))?;
+    globals.set("require", Func::from(require::require))?;
 
     let module = Object::new(ctx.clone())?;
     module.prop("exports", exports_accessor)?;
