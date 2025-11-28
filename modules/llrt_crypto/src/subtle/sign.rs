@@ -101,21 +101,21 @@ fn sign(
                 ShaAlgorithm::SHA256 => private_key
                     .sign_with_rng(
                         &mut rng,
-                        Pss::new_with_salt::<rsa::sha2::Sha256>(salt_length),
+                        Pss::<rsa::sha2::Sha256>::new_with_salt(salt_length),
                         digest,
                     )
                     .or_throw(ctx),
                 ShaAlgorithm::SHA384 => private_key
                     .sign_with_rng(
                         &mut rng,
-                        Pss::new_with_salt::<rsa::sha2::Sha384>(salt_length),
+                        Pss::<rsa::sha2::Sha384>::new_with_salt(salt_length),
                         digest,
                     )
                     .or_throw(ctx),
                 ShaAlgorithm::SHA512 => private_key
                     .sign_with_rng(
                         &mut rng,
-                        Pss::new_with_salt::<rsa::sha2::Sha512>(salt_length),
+                        Pss::<rsa::sha2::Sha512>::new_with_salt(salt_length),
                         digest,
                     )
                     .or_throw(ctx),

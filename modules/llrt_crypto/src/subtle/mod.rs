@@ -36,7 +36,7 @@ use aes::cipher::BlockModeEncrypt;
 
 use aes::{
     cipher::{
-        block_padding::{Pkcs7, UnpadError},
+        block_padding::{Error as PaddingError, Pkcs7},
         consts::{U12, U13, U14, U15, U16},
         InvalidLength, KeyIvInit, StreamCipher, StreamCipherError,
     },
@@ -82,11 +82,11 @@ impl AesCbcEncVariant {
         Ok(variant)
     }
 
-    pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
+    pub fn encrypt(self, data: &[u8]) -> Vec<u8> {
         match self {
-            Self::Aes128(v) => v.clone().encrypt_padded_vec::<Pkcs7>(data),
-            Self::Aes192(v) => v.clone().encrypt_padded_vec::<Pkcs7>(data),
-            Self::Aes256(v) => v.clone().encrypt_padded_vec::<Pkcs7>(data),
+            Self::Aes128(v) => v.encrypt_padded_vec::<Pkcs7>(data),
+            Self::Aes192(v) => v.encrypt_padded_vec::<Pkcs7>(data),
+            Self::Aes256(v) => v.encrypt_padded_vec::<Pkcs7>(data),
         }
     }
 }
@@ -109,11 +109,11 @@ impl AesCbcDecVariant {
         Ok(variant)
     }
 
-    pub fn decrypt(&self, data: &[u8]) -> std::result::Result<Vec<u8>, UnpadError> {
+    pub fn decrypt(self, data: &[u8]) -> std::result::Result<Vec<u8>, PaddingError> {
         Ok(match self {
-            Self::Aes128(v) => v.clone().decrypt_padded_vec::<Pkcs7>(data)?,
-            Self::Aes192(v) => v.clone().decrypt_padded_vec::<Pkcs7>(data)?,
-            Self::Aes256(v) => v.clone().decrypt_padded_vec::<Pkcs7>(data)?,
+            Self::Aes128(v) => v.decrypt_padded_vec::<Pkcs7>(data)?,
+            Self::Aes192(v) => v.decrypt_padded_vec::<Pkcs7>(data)?,
+            Self::Aes256(v) => v.decrypt_padded_vec::<Pkcs7>(data)?,
         })
     }
 }

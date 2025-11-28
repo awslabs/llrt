@@ -13,6 +13,12 @@ use rsa::{
 
 use crate::sha_hash::ShaAlgorithm;
 
+pub(super) enum OaepPadding {
+    Sha256(Oaep<rsa::sha2::Sha256>),
+    Sha384(Oaep<rsa::sha2::Sha384>),
+    Sha512(Oaep<rsa::sha2::Sha512>),
+}
+
 use super::{
     algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm, extract_aes_length,
     key_algorithm::KeyAlgorithm, AesCbcDecVariant, AesCbcEncVariant, AesCtrVariant, AesGcmVariant,
@@ -203,12 +209,25 @@ pub fn encrypt_decrypt(
                 EncryptionOperation::Encrypt => {
                     let public_key = RsaPublicKey::from_pkcs1_der(handle).or_throw(ctx)?;
                     let mut rng = rand::rng();
-                    public_key.encrypt(&mut rng, padding, data).or_throw(ctx)?
+                    match padding {
+                        OaepPadding::Sha256(p) => {
+                            public_key.encrypt(&mut rng, p, data).or_throw(ctx)?
+                        },
+                        OaepPadding::Sha384(p) => {
+                            public_key.encrypt(&mut rng, p, data).or_throw(ctx)?
+                        },
+                        OaepPadding::Sha512(p) => {
+                            public_key.encrypt(&mut rng, p, data).or_throw(ctx)?
+                        },
+                    }
                 },
                 EncryptionOperation::Decrypt => {
                     let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
-
-                    private_key.decrypt(padding, data).or_throw(ctx)?
+                    match padding {
+                        OaepPadding::Sha256(p) => private_key.decrypt(p, data).or_throw(ctx)?,
+                        OaepPadding::Sha384(p) => private_key.decrypt(p, data).or_throw(ctx)?,
+                        OaepPadding::Sha512(p) => private_key.decrypt(p, data).or_throw(ctx)?,
+                    }
                 },
             }
         },
@@ -220,7 +239,7 @@ pub fn rsa_oaep_padding(
     ctx: &Ctx<'_>,
     label: &Option<Box<[u8]>>,
     hash: &ShaAlgorithm,
-) -> Result<Oaep> {
+) -> Result<OaepPadding> {
     let mut padding = match hash {
         ShaAlgorithm::SHA1 => {
             return Err(Exception::throw_message(
@@ -228,13 +247,17 @@ pub fn rsa_oaep_padding(
                 "SHA-1 is not supported for RSA-OAEP",
             ));
         },
-        ShaAlgorithm::SHA256 => Oaep::new::<rsa::sha2::Sha256>(),
-        ShaAlgorithm::SHA384 => Oaep::new::<rsa::sha2::Sha384>(),
-        ShaAlgorithm::SHA512 => Oaep::new::<rsa::sha2::Sha512>(),
+        ShaAlgorithm::SHA256 => OaepPadding::Sha256(Oaep::new()),
+        ShaAlgorithm::SHA384 => OaepPadding::Sha384(Oaep::new()),
+        ShaAlgorithm::SHA512 => OaepPadding::Sha512(Oaep::new()),
     };
     if let Some(label) = label {
         if !label.is_empty() {
-            padding.label = Some(label.to_owned());
+            match &mut padding {
+                OaepPadding::Sha256(p) => p.label = Some(label.to_owned()),
+                OaepPadding::Sha384(p) => p.label = Some(label.to_owned()),
+                OaepPadding::Sha512(p) => p.label = Some(label.to_owned()),
+            }
         }
     }
 
