@@ -53,29 +53,29 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0
 ], default-features = false }
 
 # Optional
-aes = { version = "0.9.0-rc.1", optional = true }
-aes-gcm = { version = "0.11.0-rc.1", features = [
+aes = { version = "0.9.0-rc.2", optional = true }
+aes-gcm = { version = "0.11.0-rc.2", features = [
   "alloc",
 ], default-features = false, optional = true }
 aes-kw = { version = "0.3.0-rc.1", features = [
   "oid",
 ], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.1", features = ["alloc"], optional = true }
+cbc = { version = "0.2.0-rc.2", features = ["alloc"], optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
-ctr = { version = "0.10.0-rc.1", default-features = false, optional = true }
-der = { version = "0.8.0-rc.9", features = [
+ctr = { version = "0.10.0-rc.2", default-features = false, optional = true }
+der = { version = "0.8.0-rc.10", features = [
   "derive",
   "alloc",
 ], default-features = false, optional = true }
-ecdsa = { version = "0.17.0-rc.7", default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.16", features = [
+ecdsa = { version = "0.17.0-rc.9", default-features = false, optional = true }
+elliptic-curve = { version = "0.14.0-rc.17", features = [
   "alloc",
 ], default-features = false, optional = true }
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
 md-5 = { version = "0.11.0-rc.3", default-features = false }
-rsa = { version = "0.10.0-rc.9", features = [
+rsa = { version = "0.10.0-rc.10", features = [
   "std",
   "sha2",
   "encoding",
@@ -103,8 +103,7 @@ pkcs8 = { version = "0.11.0-rc.8", default-features = false, features = [
 spki = { version = "0.8.0-rc.4", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-pre.1", features = [
-  "os_rng",
+x25519-dalek = { version = "3.0.0-pre.2", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }

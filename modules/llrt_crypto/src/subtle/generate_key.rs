@@ -152,7 +152,8 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
         },
 
         KeyAlgorithm::X25519 => {
-            let secret_key = x25519_dalek::StaticSecret::random();
+            let mut rng = rand::rng();
+            let secret_key = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
             private_key = secret_key.as_bytes().into();
             public_or_secret_key = x25519_dalek::PublicKey::from(&secret_key).as_bytes().into();
         },
