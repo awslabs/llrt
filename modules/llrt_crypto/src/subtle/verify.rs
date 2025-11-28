@@ -109,21 +109,21 @@ fn verify(
             match hash {
                 ShaAlgorithm::SHA256 => public_key
                     .verify(
-                        Pss::new_with_salt::<Sha256>(*salt_length as usize),
+                        Pss::<rsa::sha2::Sha256>::new_with_salt(*salt_length as usize),
                         digest,
                         signature,
                     )
                     .is_ok(),
                 ShaAlgorithm::SHA384 => public_key
                     .verify(
-                        Pss::new_with_salt::<Sha384>(*salt_length as usize),
+                        Pss::<rsa::sha2::Sha384>::new_with_salt(*salt_length as usize),
                         digest,
                         signature,
                     )
                     .is_ok(),
                 ShaAlgorithm::SHA512 => public_key
                     .verify(
-                        Pss::new_with_salt::<Sha512>(*salt_length as usize),
+                        Pss::<rsa::sha2::Sha512>::new_with_salt(*salt_length as usize),
                         digest,
                         signature,
                     )

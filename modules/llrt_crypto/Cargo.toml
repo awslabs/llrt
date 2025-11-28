@@ -42,7 +42,7 @@ llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rand = { version = "0.9", features = [
+rand = { version = "0.10.0-rc.5", features = [
   "std",
   "std_rng",
   "thread_rng",
@@ -81,21 +81,22 @@ rsa = { version = "0.10.0-rc.9", features = [
   "encoding",
   "os_rng",
 ], default-features = false, optional = true }
-p256 = { version = "0.14.0-pre.11", features = [
+p256 = { version = "0.14.0-rc.1", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p384 = { version = "0.14.0-pre.11", features = [
+p384 = { version = "0.14.0-rc.1", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p521 = { version = "0.14.0-pre.11", features = [
+p521 = { version = "0.14.0-rc.1", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
+
 pkcs8 = { version = "0.11.0-rc.8", default-features = false, features = [
   "alloc",
 ], optional = true }
