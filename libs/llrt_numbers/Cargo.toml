@@ -19,7 +19,7 @@ ryu = { version = "1", default-features = false }
 [dev-dependencies]
 criterion = { version = "0.7", default-features = false }
 llrt_test = { version = "0.7.0-beta", path = "../llrt_test" }
-rand = { version = "0.9", features = ["alloc"], default-features = false }
+rand = { version = "0.10.0-rc.5", features = ["alloc"], default-features = false }
 
 [[bench]]
 name = "numbers"
