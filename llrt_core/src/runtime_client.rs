@@ -36,7 +36,7 @@ use crate::libs::{
 #[cfg(not(test))]
 use crate::modules::console::log_error;
 use crate::modules::https::{HyperClient, HTTP_CLIENT};
-use crate::utils::latch::Latch;
+use llrt_utils::latch::Latch;
 
 const ENV_AWS_LAMBDA_FUNCTION_NAME: &str = "AWS_LAMBDA_FUNCTION_NAME";
 const ENV_AWS_LAMBDA_FUNCTION_VERSION: &str = "AWS_LAMBDA_FUNCTION_VERSION";

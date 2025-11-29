@@ -14,7 +14,6 @@ pub mod libs;
 pub mod modules;
 pub mod runtime_client;
 mod security;
-pub mod utils;
 pub mod vm;
 
 pub use llrt_modules::VERSION;
