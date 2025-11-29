@@ -260,7 +260,7 @@ impl<'js> Socket<'js> {
                                         result_tx.send(result.map_err(|e| e.to_string())).map_err(|_|Exception::throw_message(&send_ctx, "Failed to call callback in send, channel closed!"))?;
                                         continue;
                                     }
-                                    result?;
+                                    result.or_throw(&send_ctx)?;
                                 }
                             }
                         };
