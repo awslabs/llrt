@@ -1,44 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    env, fs,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
 use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use llrt_json::parse::json_parse;
 use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, provider::ProviderType};
-use once_cell::sync::Lazy;
-use rquickjs::{
-    atom::PredefinedAtom, qjs, Ctx, Filter, Function, JsLifetime, Module, Object, Result, Value,
-};
+use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
 use tokio::time::Instant;
 use tracing::trace;
 
-use crate::module::ModuleNames;
 use crate::modules::{path::resolve_path, timers::poll_timers};
 use crate::package::resolver::require_resolve;
 use crate::CJS_IMPORT_PREFIX;
 
-pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
-    env::var(super::ENV_LLRT_PLATFORM)
-        .ok()
-        .filter(|platform| platform == "node")
-        .unwrap_or_else(|| "browser".to_string())
-});
-
-#[derive(Default)]
-pub struct RequireState<'js> {
-    pub cache: HashMap<Rc<str>, Value<'js>>,
-    pub exports: HashMap<Rc<str>, Value<'js>>,
-    pub progress: HashMap<Rc<str>, Object<'js>>,
-}
-
-unsafe impl<'js> JsLifetime<'js> for RequireState<'js> {
-    type Changed<'to> = RequireState<'to>;
-}
+use super::{ModuleNames, RequireState};
 
 pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     let globals = ctx.globals();

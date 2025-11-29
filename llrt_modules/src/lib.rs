@@ -1,9 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::env;
+
+use once_cell::sync::Lazy;
+
 pub mod module;
 pub mod module_builder;
 pub mod package;
-pub mod require;
 
 pub use self::modules::*;
 
@@ -72,3 +75,10 @@ pub const CJS_IMPORT_PREFIX: &str = "__cjs:";
 pub const CJS_LOADER_PREFIX: &str = "__cjsm:";
 
 pub const ENV_LLRT_PLATFORM: &str = "LLRT_PLATFORM";
+
+pub static LLRT_PLATFORM: Lazy<String> = Lazy::new(|| {
+    env::var(ENV_LLRT_PLATFORM)
+        .ok()
+        .filter(|platform| platform == "node")
+        .unwrap_or_else(|| "browser".to_string())
+});

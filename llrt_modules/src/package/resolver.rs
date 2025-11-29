@@ -20,8 +20,7 @@ use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
 use crate::modules::path;
-use crate::require::LLRT_PLATFORM;
-use crate::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
+use crate::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX, LLRT_PLATFORM};
 
 fn rc_string_to_cow<'a>(rc: Rc<String>) -> Cow<'a, str> {
     match Rc::try_unwrap(rc) {

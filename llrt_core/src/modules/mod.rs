@@ -7,7 +7,7 @@ pub use llrt_modules::{
     https, module, navigator, net, os, path, perf_hooks, process, stream_web, string_decoder,
     timers, tls, tty, url, util, zlib,
 };
-pub use llrt_modules::{module_builder, package, require, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
+pub use llrt_modules::{module_builder, package, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
 
 #[cfg(feature = "lambda")]
 pub mod console;
