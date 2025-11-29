@@ -12,6 +12,7 @@ name = "llrt_perf_hooks"
 path = "src/lib.rs"
 
 [dependencies]
+llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
 

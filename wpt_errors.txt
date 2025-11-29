@@ -265,11 +265,6 @@ fetch/api/response > should pass response-stream-with-broken-then.any.js tests
 Error: [Attempt to inject {done: false, value: bye} via Object.prototype.then.] assert_equals: The value should be "hello". expected "hello" but got "[object Object]"
 
 
-🧪/wpt/hr-time.test.js 
-hr-time > should pass basic.any.js tests
-Error: [Performance interface extends EventTarget.] not a function
-
-
 🧪/wpt/streams.readable-byte-streams.test.js 
 streams/readable-byte-streams > should pass patched-global.any.js tests
 Error: [Patched then() sees byobRequest after filling all pending pull-into descriptors] Error borrowing class: can't borrow a value as it is already borrowed
