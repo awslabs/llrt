@@ -157,15 +157,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("log", Func::from(log))?;
     console.set("trace", Func::from(log_trace))?;
     console.set("warn", Func::from(log_warn))?;
-
     console.prop(
         PredefinedAtom::SymbolToStringTag,
         Property::from("console").configurable(),
     )?;
-    globals.prop(
-        "console",
-        Property::from(console.clone()).writable().configurable(),
-    )?;
+
+    globals.prop("console", Property::from(console).writable().configurable())?;
 
     Ok(())
 }
