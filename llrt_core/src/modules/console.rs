@@ -11,7 +11,9 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use rquickjs::{
+    atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
+    object::Property,
     prelude::{Func, Rest},
     Array, Class, Ctx, Object, Result, Value,
 };
@@ -358,7 +360,9 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     let globals = ctx.globals();
 
-    let console = Object::new(ctx.clone())?;
+    // NOTE: Console must be created from an empty object with no prototype.
+    // https://console.spec.whatwg.org/#console-namespace
+    let console = ctx.eval::<Object, &str>("Object.create({})")?;
 
     console.set("assert", Func::from(log_assert))?;
     console.set("clear", Func::from(clear))?;
@@ -369,7 +373,14 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("trace", Func::from(log_trace))?;
     console.set("warn", Func::from(log_warn))?;
 
-    globals.set("console", console)?;
+    console.prop(
+        PredefinedAtom::SymbolToStringTag,
+        Property::from("console").configurable(),
+    )?;
+    globals.prop(
+        "console",
+        Property::from(console.clone()).writable().configurable(),
+    )?;
 
     Ok(())
 }
