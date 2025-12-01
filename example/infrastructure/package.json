@@ -12,7 +12,7 @@
     "@types/node": "24.10.1",
     "aws-cdk": "2.1031.1",
     "aws-cdk-lib": "2.221.1",
-    "constructs": "10.4.2",
+    "constructs": "10.4.3",
     "esbuild": "0.25.11",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
