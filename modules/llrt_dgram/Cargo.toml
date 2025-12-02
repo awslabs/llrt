@@ -1,0 +1,27 @@
+[package]
+name = "llrt_dgram"
+description = "LLRT Module dgram"
+version = "0.7.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_dgram"
+path = "src/lib.rs"
+
+[dependencies]
+itoa = { version = "1", default-features = false }
+llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
+llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
+llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
+tokio = { version = "1", features = ["net", "macros"], default-features = false }
+tracing = { version = "0.1", default-features = false }
+
+[dev-dependencies]
+llrt_test = { path = "../../libs/llrt_test" }
+rand = { version = "0.9", features = ["alloc"], default-features = false }
+tokio = { version = "1", features = ["rt", "macros"] }

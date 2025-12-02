@@ -13,6 +13,7 @@ pub mod error_messages;
 pub mod fs;
 pub mod hash;
 pub mod io;
+pub mod latch;
 pub mod macros;
 pub mod mc_oneshot;
 pub mod module;

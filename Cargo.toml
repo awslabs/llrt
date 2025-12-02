@@ -17,6 +17,7 @@ members = [
   "modules/llrt_child_process",
   "modules/llrt_console",
   "modules/llrt_crypto",
+  "modules/llrt_dgram",
   "modules/llrt_events",
   "modules/llrt_exceptions",
   "modules/llrt_fetch",

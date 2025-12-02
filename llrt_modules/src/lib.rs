@@ -25,6 +25,8 @@ mod modules {
     pub use llrt_console as console;
     #[cfg(feature = "crypto")]
     pub use llrt_crypto as crypto;
+    #[cfg(feature = "dgram")]
+    pub use llrt_dgram as dgram;
     #[cfg(feature = "dns")]
     pub use llrt_dns as dns;
     #[cfg(feature = "events")]
