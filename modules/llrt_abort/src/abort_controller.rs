@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
+    atom::PredefinedAtom,
     prelude::{Opt, This},
     Class, Ctx, JsLifetime, Result, Value,
 };
@@ -32,6 +33,11 @@ impl<'js> AbortController<'js> {
     #[qjs(get)]
     pub fn signal(&self) -> Class<'js, AbortSignal<'js>> {
         self.signal.clone()
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(AbortController)
     }
 
     pub fn abort(

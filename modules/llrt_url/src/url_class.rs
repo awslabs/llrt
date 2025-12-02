@@ -229,6 +229,11 @@ impl<'js> URL<'js> {
         self.search_params.as_value()
     }
 
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(URL)
+    }
+
     #[qjs(get)]
     pub fn username(&self) -> String {
         quirks::username(&self.url.borrow()).to_string()

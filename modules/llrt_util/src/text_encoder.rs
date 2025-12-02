@@ -1,7 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::result::ResultExt;
-use rquickjs::{function::Opt, Ctx, Exception, Object, Result, TypedArray, Value};
+use rquickjs::{
+    atom::PredefinedAtom, function::Opt, Ctx, Exception, Object, Result, TypedArray, Value,
+};
 
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
@@ -23,6 +25,11 @@ impl TextEncoder {
     #[qjs(get)]
     fn encoding(&self) -> &str {
         "utf-8"
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(TextEncoder)
     }
 
     pub fn encode<'js>(&self, ctx: Ctx<'js>, string: Opt<Value<'js>>) -> Result<Value<'js>> {
