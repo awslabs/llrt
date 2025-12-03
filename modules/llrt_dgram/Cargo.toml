@@ -23,5 +23,5 @@ tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-rand = { version = "0.9", features = ["alloc"], default-features = false }
+rand = { version = "0.10.0-rc.5", features = ["alloc"], default-features = false }
 tokio = { version = "1", features = ["rt", "macros"] }
