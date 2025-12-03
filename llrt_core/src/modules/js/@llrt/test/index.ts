@@ -160,15 +160,18 @@ class TestServer {
 
   handleSocketConnected(socket: net.Socket) {
     socket.on("data", (data: Buffer) => {
-      let response;
+      let result;
       try {
-        response = this.handleData(socket, data);
+        result = this.handleData(socket, data);
       } catch (e: any) {
         this.handleError(TestServer.ERROR_CODE_HANDLE_DATA, e);
         return;
       }
-      const workerId = this.workerIdBySocket.get(socket);
-      const workerData = this.workerData[workerId!];
+      const { response, workerId } = result;
+      if (workerId === undefined) {
+        throw new Error("Could not determine workerId from socket or message");
+      }
+      const workerData = this.workerData[workerId];
       workerData.writeInProgress = true;
       socket.write(JSON.stringify(response), (err) => {
         workerData.writeInProgress = false;
@@ -314,19 +317,22 @@ class TestServer {
     }
   }
 
-  handleData(socket: net.Socket, data: Buffer): object | null {
+  handleData(socket: net.Socket, data: Buffer): { response: object | null; workerId: number } {
     const message = JSON.parse(data as any) as SocketReqMsg;
     const { type } = message;
 
-    const workerId = this.workerIdBySocket.get(socket)!;
+    let workerId = this.workerIdBySocket.get(socket);
+    if (workerId === undefined && "workerId" in message) {
+      workerId = (message as any).workerId;
+    }
 
-    if (workerId) {
+    if (workerId !== undefined) {
       this.workerData[workerId].lastUpdate = Date.now();
     }
 
     switch (type) {
       case "ready": {
-        let { workerId } = message;
+        workerId = message.workerId;
         this.workerIdBySocket.set(socket, workerId);
         clearTimeout(this.workerData[workerId].connectionTimeout!);
         break;
@@ -407,18 +413,23 @@ class TestServer {
         break;
       }
       case "error": {
-        const { error, ended } = message;
-        this.handleTestError(workerId, error, ended);
+        const { error, ended, workerId: msgWorkerId } = message;
+        const effectiveWorkerId = workerId ?? msgWorkerId;
+        if (effectiveWorkerId !== undefined) {
+          this.handleTestError(effectiveWorkerId, error, ended);
+        } else {
+          console.error("Error from unknown worker:", error);
+        }
         break;
       }
       case "completed": {
-        this.handleWorkerCompleted(workerId);
+        this.handleWorkerCompleted(workerId!);
         break;
       }
       default:
         throw new Error("Unknown type");
     }
-    return null;
+    return { response: null, workerId: workerId! };
   }
   private handleWorkerCompleted(workerId: number) {
     const workerData = this.workerData[workerId];
