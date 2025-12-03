@@ -6,6 +6,7 @@ use llrt_events::{Emitter, EventEmitter, EventList};
 use llrt_exceptions::{DOMException, DOMExceptionName};
 use llrt_utils::mc_oneshot;
 use rquickjs::{
+    atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::OnceFn,
     prelude::{Opt, This},
@@ -146,6 +147,11 @@ impl<'js> AbortSignal<'js> {
     #[qjs(get)]
     pub fn reason(&self) -> Option<Value<'js>> {
         self.reason.clone()
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(AbortSignal)
     }
 
     #[qjs(set, rename = "reason")]

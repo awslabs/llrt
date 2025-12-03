@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_encoding::Encoder;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use rquickjs::{function::Opt, Ctx, Object, Result};
+use rquickjs::{atom::PredefinedAtom, function::Opt, Ctx, Object, Result};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -51,6 +51,11 @@ impl<'js> TextDecoder {
     #[qjs(get, rename = "ignoreBOM")]
     fn ignore_bom(&self) -> bool {
         self.ignore_bom
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(TextDecoder)
     }
 
     pub fn decode(&self, ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<String> {

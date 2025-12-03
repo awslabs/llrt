@@ -76,6 +76,11 @@ impl<'js> URLSearchParams {
         self.url.borrow().query_pairs().count()
     }
 
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(URLSearchParams)
+    }
+
     //
     // Instance methods
     //
