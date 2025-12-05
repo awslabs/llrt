@@ -46,8 +46,6 @@ impl ModuleDef for FsPromisesModule {
         declare.declare("open")?;
         declare.declare("readFile")?;
         declare.declare("writeFile")?;
-        declare.declare("appendFile")?;
-        declare.declare("copyFile")?;
         declare.declare("rename")?;
         declare.declare("readdir")?;
         declare.declare("mkdir")?;
@@ -57,6 +55,7 @@ impl ModuleDef for FsPromisesModule {
         declare.declare("stat")?;
         declare.declare("constants")?;
         declare.declare("chmod")?;
+        declare.declare("symlink")?;
 
         declare.declare("default")?;
 
@@ -148,8 +147,6 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("open", Func::from(Async(open)))?;
     exports.set("readFile", Func::from(Async(read_file)))?;
     exports.set("writeFile", Func::from(Async(write_file)))?;
-    // exports.set("appendFile", Func::from(Async(append_file)))?;
-    // exports.set("copyFile", Func::from(Async(copy_file)))?;
     exports.set("rename", Func::from(Async(rename)))?;
     exports.set("readdir", Func::from(Async(read_dir)))?;
     exports.set("mkdir", Func::from(Async(mkdir)))?;
