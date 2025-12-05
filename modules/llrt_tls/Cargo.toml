@@ -18,14 +18,28 @@ webpki-roots = ["dep:webpki-roots"]
 native-roots = ["dep:rustls-native-certs"]
 
 [dependencies]
+base64-simd = { version = "0.8", features = ["alloc"], default-features = false }
+itoa = { version = "1", default-features = false }
+llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
+llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
+llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
+llrt_stream = { version = "0.7.0-beta", path = "../llrt_stream" }
+llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
 rustls = { version = "0.23", features = [
   "std",
   "ring",
   "tls12",
 ], default-features = false }
-webpki-roots = { version = "1", default-features = false, optional = true }
 rustls-native-certs = { version = "0.8", default-features = false, optional = true }
+rustls-pki-types = { version = "1", default-features = false }
+tokio = { version = "1", features = ["net"], default-features = false }
+tokio-rustls = { version = "0.26", default-features = false }
 tracing = { version = "0.1", default-features = false }
+webpki-roots = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
+llrt_test = { path = "../../libs/llrt_test" }
+rand = { version = "0.10.0-rc.5", features = ["alloc"], default-features = false }
+tokio = { version = "1", features = ["macros", "rt"] }

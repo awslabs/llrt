@@ -263,6 +263,29 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [createServer](https://nodejs.org/api/net.html#netcreateserveroptions-connectionlistener)
 
+## tls
+
+> [!WARNING]
+> These APIs uses native streams that is not 100% compatible with the Node.js Streams API.
+
+[connect](https://nodejs.org/api/tls.html#tlsconnectoptions-callback)
+
+[createSecureContext](https://nodejs.org/api/tls.html#tlscreatesecurecontextoptions)
+
+[getCiphers](https://nodejs.org/api/tls.html#tlsgetciphers)
+
+[rootCertificates](https://nodejs.org/api/tls.html#tlsrootcertificates)
+
+[checkServerIdentity](https://nodejs.org/api/tls.html#tlscheckserveridentityhostname-cert)
+
+[DEFAULT_MIN_VERSION](https://nodejs.org/api/tls.html#tlsdefault_min_version)
+
+[DEFAULT_MAX_VERSION](https://nodejs.org/api/tls.html#tlsdefault_max_version)
+
+[TLSSocket](https://nodejs.org/api/tls.html#class-tlstlssocket)
+
+[SecureContext](https://nodejs.org/api/tls.html#tlscreatesecurecontextoptions)
+
 ## os
 
 [arch](https://nodejs.org/api/os.html#osarch)

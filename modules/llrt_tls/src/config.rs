@@ -5,7 +5,7 @@ use std::sync::{Arc, OnceLock};
 use once_cell::sync::Lazy;
 use rustls::{
     crypto::ring,
-    pki_types::{pem::PemObject, CertificateDer},
+    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
     ClientConfig, RootCertStore, SupportedProtocolVersion,
 };
 #[cfg(feature = "webpki-roots")]
@@ -48,12 +48,20 @@ pub static TLS_CONFIG: Lazy<Result<ClientConfig, Box<dyn std::error::Error + Sen
         build_client_config(BuildClientConfigOptions {
             reject_unauthorized: true,
             ca: None,
+            cert: None,
+            key: None,
+            key_log: None,
         })
     });
 
 pub struct BuildClientConfigOptions {
     pub reject_unauthorized: bool,
     pub ca: Option<Vec<Vec<u8>>>,
+    /// Client certificate in PEM format for mTLS
+    pub cert: Option<Vec<u8>>,
+    /// Client private key in PEM format for mTLS
+    pub key: Option<Vec<u8>>,
+    pub key_log: Option<Arc<dyn rustls::KeyLog>>,
 }
 
 pub fn build_client_config(
@@ -73,11 +81,11 @@ pub fn build_client_config(
         builder
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoCertificateVerification::new(provider)))
-    } else if let Some(ca) = options.ca {
+    } else if let Some(ca) = &options.ca {
         let mut root_certificates = RootCertStore::empty();
 
         for cert in ca {
-            root_certificates.add(CertificateDer::from_pem_slice(&cert)?)?;
+            root_certificates.add(CertificateDer::from_pem_slice(cert)?)?;
         }
         builder.with_root_certificates(root_certificates)
     } else {
@@ -109,5 +117,24 @@ pub fn build_client_config(
         builder.with_root_certificates(root_certificates)
     };
 
-    Ok(builder.with_no_client_auth())
+    // Client authentication (mTLS)
+    let mut config = if let (Some(cert_pem), Some(key_pem)) = (&options.cert, &options.key) {
+        // Parse client certificate chain
+        let certs: Vec<CertificateDer<'static>> =
+            CertificateDer::pem_slice_iter(cert_pem).collect::<std::result::Result<Vec<_>, _>>()?;
+
+        // Parse private key
+        let key = PrivateKeyDer::from_pem_slice(key_pem)?;
+
+        builder.with_client_auth_cert(certs, key)?
+    } else {
+        builder.with_no_client_auth()
+    };
+
+    // Set key log if provided
+    if let Some(key_log) = options.key_log {
+        config.key_log = key_log;
+    }
+
+    Ok(config)
 }
