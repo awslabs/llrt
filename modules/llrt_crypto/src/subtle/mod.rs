@@ -48,7 +48,7 @@ use aes_gcm::{
 };
 use ctr::{Ctr128BE, Ctr32BE, Ctr64BE};
 use llrt_utils::{object::ObjectExt, str_enum};
-use rquickjs::{Ctx, Exception, Object, Result, Value};
+use rquickjs::{atom::PredefinedAtom, Ctx, Exception, Object, Result, Value};
 
 use crate::sha_hash::ShaAlgorithm;
 
@@ -61,6 +61,11 @@ impl SubtleCrypto {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'_>) -> Result<Self> {
         Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(SubtleCrypto)
     }
 }
 

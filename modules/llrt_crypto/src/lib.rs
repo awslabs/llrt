@@ -24,6 +24,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 #[cfg(feature = "subtle-rs")]
 use rquickjs::prelude::Async;
 use rquickjs::{
+    atom::PredefinedAtom,
     function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
@@ -220,6 +221,11 @@ impl Crypto {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'_>) -> Result<Self> {
         Err(Exception::throw_type(&ctx, "Illegal constructor"))
+    }
+
+    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
+    pub fn to_string_tag(&self) -> &'static str {
+        stringify!(Crypto)
     }
 }
 
