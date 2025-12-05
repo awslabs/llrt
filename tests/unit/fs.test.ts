@@ -20,6 +20,7 @@ const {
   rmSync,
   rmdirSync,
   statSync,
+  lstatSync,
   symlinkSync,
   writeFileSync,
   promises,
@@ -34,6 +35,7 @@ const {
   rename,
   rm,
   rmdir,
+  lstat,
   symlink,
   writeFile,
 } = promises;
@@ -548,9 +550,10 @@ describe("symlink", () => {
     await symlink(filePath, linkPath);
 
     // Check if new path exists and is a symlink
-    const linkStat = statSync(linkPath);
+    const linkStat = await lstat(linkPath);
     expect(linkStat.isSymbolicLink()).toBeTruthy();
 
+    // Verify symlink works by reading content through it
     const content = await readFile(linkPath, "utf-8");
     expect(content).toBe(expectedContent);
 
@@ -570,9 +573,10 @@ describe("symlinkSync", () => {
     symlinkSync(filePath, linkPath);
 
     // Check if new path exists and is a symlink
-    const linkStat = statSync(linkPath);
+    const linkStat = lstatSync(linkPath);
     expect(linkStat.isSymbolicLink()).toBeTruthy();
 
+    // Verify symlink works by reading content through it
     const content = readFileSync(linkPath, "utf-8");
     expect(content).toBe(expectedContent);
 
