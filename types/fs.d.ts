@@ -151,6 +151,17 @@ declare module "fs" {
      */
     recursive?: boolean | undefined;
   }
+  /**
+   * Synchronous symlink(2) - Create a new symbolic link to an existing file.
+   * @param target A path to an existing file. If a URL is provided, it must use the `file:` protocol.
+   * @param path A path to the new symlink. If a URL is provided, it must use the `file:` protocol.
+   * @param [type='null']
+   */
+  export function symlinkSync(
+    target: PathLike,
+    path: PathLike,
+    type?: "dir" | "file" | "junction" | null
+  ): void;
 
   /**
    * Synchronous [`rmdir(2)`](http://man7.org/linux/man-pages/man2/rmdir.2.html). Returns `undefined`.

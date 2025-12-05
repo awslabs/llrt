@@ -10,6 +10,7 @@ mod read_file;
 mod rename;
 mod rm;
 mod stats;
+mod symlink;
 mod write_file;
 
 use llrt_utils::module::{export_default, ModuleInfo};
@@ -28,7 +29,8 @@ use self::read_dir::{read_dir, read_dir_sync, Dirent};
 use self::read_file::{read_file, read_file_sync};
 use self::rename::{rename, rename_sync};
 use self::rm::{rmdir, rmdir_sync, rmfile, rmfile_sync};
-use self::stats::{stat_fn, stat_fn_sync, Stats};
+use self::stats::{lstat_fn, lstat_fn_sync, stat_fn, stat_fn_sync, Stats};
+use self::symlink::{symlink, symlink_sync};
 use self::write_file::{write_file, write_file_sync};
 
 pub const CONSTANT_F_OK: u32 = 0;
@@ -44,8 +46,6 @@ impl ModuleDef for FsPromisesModule {
         declare.declare("open")?;
         declare.declare("readFile")?;
         declare.declare("writeFile")?;
-        declare.declare("appendFile")?;
-        declare.declare("copyFile")?;
         declare.declare("rename")?;
         declare.declare("readdir")?;
         declare.declare("mkdir")?;
@@ -53,8 +53,10 @@ impl ModuleDef for FsPromisesModule {
         declare.declare("rm")?;
         declare.declare("rmdir")?;
         declare.declare("stat")?;
+        declare.declare("lstat")?;
         declare.declare("constants")?;
         declare.declare("chmod")?;
+        declare.declare("symlink")?;
 
         declare.declare("default")?;
 
@@ -98,10 +100,12 @@ impl ModuleDef for FsModule {
         declare.declare("rmdirSync")?;
         declare.declare("rmSync")?;
         declare.declare("statSync")?;
+        declare.declare("lstatSync")?;
         declare.declare("writeFileSync")?;
         declare.declare("constants")?;
         declare.declare("chmodSync")?;
         declare.declare("renameSync")?;
+        declare.declare("symlinkSync")?;
 
         declare.declare("default")?;
 
@@ -129,9 +133,11 @@ impl ModuleDef for FsModule {
             default.set("rmdirSync", Func::from(rmdir_sync))?;
             default.set("rmSync", Func::from(rmfile_sync))?;
             default.set("statSync", Func::from(stat_fn_sync))?;
+            default.set("lstatSync", Func::from(lstat_fn_sync))?;
             default.set("writeFileSync", Func::from(write_file_sync))?;
             default.set("chmodSync", Func::from(chmod_sync))?;
             default.set("renameSync", Func::from(rename_sync))?;
+            default.set("symlinkSync", Func::from(symlink_sync))?;
 
             Ok(())
         })
@@ -145,8 +151,6 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("open", Func::from(Async(open)))?;
     exports.set("readFile", Func::from(Async(read_file)))?;
     exports.set("writeFile", Func::from(Async(write_file)))?;
-    // exports.set("appendFile", Func::from(Async(append_file)))?;
-    // exports.set("copyFile", Func::from(Async(copy_file)))?;
     exports.set("rename", Func::from(Async(rename)))?;
     exports.set("readdir", Func::from(Async(read_dir)))?;
     exports.set("mkdir", Func::from(Async(mkdir)))?;
@@ -154,7 +158,9 @@ fn export_promises<'js>(ctx: &Ctx<'js>, exports: &Object<'js>) -> Result<()> {
     exports.set("rm", Func::from(Async(rmfile)))?;
     exports.set("rmdir", Func::from(Async(rmdir)))?;
     exports.set("stat", Func::from(Async(stat_fn)))?;
+    exports.set("lstat", Func::from(Async(lstat_fn)))?;
     exports.set("chmod", Func::from(Async(chmod)))?;
+    exports.set("symlink", Func::from(Async(symlink)))?;
 
     Ok(())
 }
