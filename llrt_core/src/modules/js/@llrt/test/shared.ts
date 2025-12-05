@@ -16,6 +16,7 @@ export type ErrorReqMsg = {
   error: any;
   ended: number;
   started: number;
+  workerId: number;
 };
 
 export type ModuleReqMsg = {

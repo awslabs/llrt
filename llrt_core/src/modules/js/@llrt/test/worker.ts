@@ -330,6 +330,7 @@ class TestAgent {
           error,
           started,
           ended: performance.now(),
+          workerId: this.workerId,
         });
       }
     }
@@ -407,6 +408,7 @@ class TestAgent {
           error,
           started,
           ended: performance.now(),
+          workerId: this.workerId,
         });
       } catch (e) {
         console.error("Error sending error message:", e);
@@ -462,6 +464,7 @@ class TestAgent {
             error,
             started,
             ended: performance.now(),
+            workerId: this.workerId,
           });
         }
 
@@ -480,6 +483,7 @@ class TestAgent {
         error,
         started,
         ended: performance.now(),
+        workerId: this.workerId,
       });
     }
   }

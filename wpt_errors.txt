@@ -265,6 +265,36 @@ fetch/api/response > should pass response-stream-with-broken-then.any.js tests
 Error: [Attempt to inject {done: false, value: bye} via Object.prototype.then.] assert_equals: The value should be "hello". expected "hello" but got "[object Object]"
 
 
+🧪/wpt/streams.piping.test.js 
+streams/piping > should pass abort.any.js tests
+TypeError: Error converting from js 'object' into type 'AbortSignal'
+    at toString (native)
+    at concat (native)
+    at anonymous (<input>:29:16)
+    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/streams.piping.test.js:8657:29)
+    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/streams.piping.test.js:8697:24)
+    at <anonymous> (llrt:test/worker:6815:28)
+    at Promise (native)
+    at executeAsyncOrCallbackFn (llrt:test/worker:6806:17)
+    at runTests (llrt:test/worker:6879:45)
+
+streams/piping > should pass pipe-through.any.js tests
+TypeError: Error converting from js 'object' into type 'AbortSignal'
+    at toString (native)
+    at concat (native)
+    at anonymous (<input>:182:3)
+    at runTestDynamic (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/streams.piping.test.js:8657:29)
+    at <anonymous> (/Users/shinya/Workspaces/llrt/bundle/js/__tests__/wpt/streams.piping.test.js:8697:24)
+    at <anonymous> (llrt:test/worker:6815:28)
+    at Promise (native)
+    at executeAsyncOrCallbackFn (llrt:test/worker:6806:17)
+    at runTests (llrt:test/worker:6879:45)
+
+
+Error: Test did not exit within 1s. It does not properly clean up created resources (servers, timeouts etc)
+    at <anonymous> (llrt:test/index:437:27)
+
+
 🧪/wpt/streams.readable-byte-streams.test.js 
 streams/readable-byte-streams > should pass patched-global.any.js tests
 Error: [Patched then() sees byobRequest after filling all pending pull-into descriptors] Error borrowing class: can't borrow a value as it is already borrowed

@@ -97,6 +97,18 @@ describe("Symbol.toStringTag", () => {
   });
 
   describe("Crypto API", () => {
+    it("Crypto should have correct Symbol.toStringTag", () => {
+      expect(crypto[Symbol.toStringTag]).toBe("Crypto");
+      expect(Object.prototype.toString.call(crypto)).toBe("[object Crypto]");
+    });
+
+    it("SubtleCrypto should have correct Symbol.toStringTag", () => {
+      expect(crypto.subtle[Symbol.toStringTag]).toBe("SubtleCrypto");
+      expect(Object.prototype.toString.call(crypto.subtle)).toBe(
+        "[object SubtleCrypto]"
+      );
+    });
+
     it("CryptoKey should have correct Symbol.toStringTag", async () => {
       const key = await crypto.subtle.generateKey(
         { name: "HMAC", hash: "SHA-256" },

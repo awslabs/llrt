@@ -333,6 +333,25 @@ pub fn stat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stats> {
     Ok(stats)
 }
 
+pub async fn lstat_fn(ctx: Ctx<'_>, path: String) -> Result<Stats> {
+    let metadata = fs::symlink_metadata(&path)
+        .await
+        .or_throw_msg(&ctx, &["Can't lstat \"", &path, "\""].concat())?;
+
+    let stats = Stats::new(metadata);
+
+    Ok(stats)
+}
+
+pub fn lstat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stats> {
+    let metadata = std::fs::symlink_metadata(&path)
+        .or_throw_msg(&ctx, &["Can't lstat \"", &path, "\""].concat())?;
+
+    let stats = Stats::new(metadata);
+
+    Ok(stats)
+}
+
 #[allow(dead_code)]
 #[inline(always)]
 fn to_msec(time: SystemTime) -> u64 {
