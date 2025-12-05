@@ -85,6 +85,8 @@ const ES_BUILD_OPTIONS = {
     "net",
     "node:net",
     "os",
+    "tls",
+    "node:tls",
     "node:os",
     "path",
     "node:path",
