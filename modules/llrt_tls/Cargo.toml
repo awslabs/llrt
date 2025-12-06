@@ -11,6 +11,12 @@ readme = "README.md"
 name = "llrt_tls"
 path = "src/lib.rs"
 
+[features]
+default = ["webpki-roots"]
+
+webpki-roots = ["dep:webpki-roots"]
+native-roots = ["dep:rustls-native-certs"]
+
 [dependencies]
 once_cell = { version = "1", features = ["std"], default-features = false }
 rustls = { version = "0.23", features = [
@@ -18,6 +24,8 @@ rustls = { version = "0.23", features = [
   "ring",
   "tls12",
 ], default-features = false }
-webpki-roots = { version = "1", default-features = false }
+webpki-roots = { version = "1", default-features = false, optional = true }
+rustls-native-certs = { version = "0.8", default-features = false, optional = true }
+tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
