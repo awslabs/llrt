@@ -25,6 +25,7 @@ use rquickjs::{
 use tokio::{select, sync::Semaphore};
 
 use super::{
+    body_stream::read_all_bytes_from_stream,
     headers::{Headers, HeadersGuard},
     response::Response,
     security::ensure_url_access,
@@ -85,6 +86,18 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
 
                 ensure_url_access(&ctx, &uri)?;
 
+                // Convert stream body to bytes if needed (must be done before request loop)
+                let body_bytes: Option<BodyBytes> = match options.body {
+                    Some(FetchBody::Bytes(bytes)) => Some(bytes),
+                    Some(FetchBody::Stream(stream)) => {
+                        let bytes = read_all_bytes_from_stream(&ctx, stream).await?;
+                        let typed_array = bytes_to_typed_array(ctx.clone(), &bytes)?;
+                        let object_bytes = ObjectBytes::from(&ctx, &typed_array)?;
+                        Some(BodyBytes::new(ctx.clone(), object_bytes)?)
+                    },
+                    None => None,
+                };
+
                 let mut redirect_count = 0;
                 let mut response_status = 0;
                 let (res, guard) = loop {
@@ -93,7 +106,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                         &method,
                         &uri,
                         options.headers.as_ref(),
-                        options.body.as_ref(),
+                        body_bytes.as_ref(),
                         &response_status,
                         &initial_uri,
                     )?;
@@ -331,11 +344,16 @@ impl<'js> BodyBytes<'js> {
     }
 }
 
+enum FetchBody<'js> {
+    Bytes(BodyBytes<'js>),
+    Stream(llrt_stream_web::ReadableStreamClass<'js>),
+}
+
 struct FetchOptions<'js> {
     method: hyper::Method,
     url: String,
     headers: Option<Headers>,
-    body: Option<BodyBytes<'js>>,
+    body: Option<FetchBody<'js>>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     redirect: String,
     agent: Option<Class<'js, Agent>>,
@@ -395,14 +413,22 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
-                let blob = blob.borrow();
-                let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
-                ObjectBytes::from(ctx, &typed_array)?
+            // Check if body is a ReadableStream first
+            if let Some(stream) = body_opt
+                .as_object()
+                .and_then(Class::<llrt_stream_web::ReadableStreamStruct>::from_object)
+            {
+                body = Some(FetchBody::Stream(stream));
             } else {
-                ObjectBytes::from(ctx, &body_opt)?
-            };
-            body = Some(BodyBytes::new(ctx.clone(), bytes)?);
+                let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
+                    let blob = blob.borrow();
+                    let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
+                    ObjectBytes::from(ctx, &typed_array)?
+                } else {
+                    ObjectBytes::from(ctx, &body_opt)?
+                };
+                body = Some(FetchBody::Bytes(BodyBytes::new(ctx.clone(), bytes)?));
+            }
         }
 
         if let Some(url_opt) =

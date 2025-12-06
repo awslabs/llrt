@@ -24,10 +24,15 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
-    Undefined, Value,
+    prelude::This,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result,
+    TypedArray, Value,
 };
 use tokio::select;
+
+use crate::body_stream::{
+    create_body_stream, create_value_stream, read_all_bytes_from_stream, ContentEncoding,
+};
 
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
@@ -35,6 +40,8 @@ use super::{
     strip_bom, Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON,
     MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
 };
+
+use llrt_stream_web::ReadableStreamClass;
 
 static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -105,9 +112,15 @@ static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
 });
 
 enum BodyVariant<'js> {
+    /// Raw incoming response from hyper (not yet accessed)
     Incoming(Option<hyper::Response<Incoming>>),
+    /// Cloned response body via broadcast channel
     Cloned(Option<hyper::Response<IncomingReceiver>>),
+    /// User-provided body value (string, blob, etc.)
     Provided(Option<Value<'js>>),
+    /// Body converted to ReadableStream (cached for tee() on clone)
+    Stream(Option<ReadableStreamClass<'js>>),
+    /// Empty/null body
     Empty,
 }
 
@@ -130,8 +143,10 @@ impl<'js> Trace<'js> for Response<'js> {
         self.headers.trace(tracer);
         let body = self.body.read().unwrap();
         let body = &*body;
-        if let BodyVariant::Provided(Some(body)) = body {
-            body.trace(tracer);
+        match body {
+            BodyVariant::Provided(Some(body)) => body.trace(tracer),
+            BodyVariant::Stream(Some(stream)) => stream.trace(tracer),
+            _ => {},
         }
     }
 }
@@ -257,10 +272,81 @@ impl<'js> Response<'js> {
         self.redirected
     }
 
-    //FIXME return readable stream when implemented
+    /// Returns the body as a ReadableStream.
+    ///
+    /// Per WHATWG Fetch specification:
+    /// - Returns null if the body is null (empty)
+    /// - Returns a ReadableStream that yields Uint8Array chunks
+    /// - The stream is created lazily and cached for tee() support on clone()
     #[qjs(get)]
-    pub fn body(&self) -> Undefined {
-        Undefined
+    pub fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let mut body_guard = self.body.write().unwrap();
+        let body = &mut *body_guard;
+
+        match body {
+            BodyVariant::Empty => {
+                // Per spec: null body returns null
+                Ok(Value::new_null(ctx))
+            },
+            BodyVariant::Incoming(incoming) => {
+                if let Some(response) = incoming.take() {
+                    let hyper_body = response.into_body();
+                    let encoding = ContentEncoding::from_header(self.content_encoding.as_deref());
+                    let stream = create_body_stream(
+                        &ctx,
+                        hyper_body,
+                        self.abort_receiver.clone(),
+                        encoding,
+                    )?;
+                    // Cache the stream for potential tee() on clone()
+                    *body = BodyVariant::Stream(Some(stream.clone()));
+                    Ok(stream.into_value())
+                } else {
+                    // Body already consumed - return null
+                    Ok(Value::new_null(ctx))
+                }
+            },
+            BodyVariant::Cloned(cloned) => {
+                if let Some(response) = cloned.take() {
+                    let hyper_body = response.into_body();
+                    let encoding = ContentEncoding::from_header(self.content_encoding.as_deref());
+                    let stream = create_body_stream(
+                        &ctx,
+                        hyper_body,
+                        self.abort_receiver.clone(),
+                        encoding,
+                    )?;
+                    // Cache the stream for potential tee() on clone()
+                    *body = BodyVariant::Stream(Some(stream.clone()));
+                    Ok(stream.into_value())
+                } else {
+                    // Body already consumed - return null
+                    Ok(Value::new_null(ctx))
+                }
+            },
+            BodyVariant::Provided(provided) => {
+                if let Some(value) = provided.take() {
+                    let stream_value = create_value_stream(&ctx, value)?;
+                    // Cache the stream if it's a valid ReadableStream
+                    if let Ok(stream) = ReadableStreamClass::from_value(&stream_value) {
+                        *body = BodyVariant::Stream(Some(stream));
+                    }
+                    Ok(stream_value)
+                } else {
+                    // Body already consumed - return null
+                    Ok(Value::new_null(ctx))
+                }
+            },
+            BodyVariant::Stream(stream) => {
+                // Return cached stream (already accessed before)
+                if let Some(stream) = stream {
+                    Ok(stream.clone().into_value())
+                } else {
+                    // Stream was consumed (e.g., by text(), json(), etc.)
+                    Ok(Value::new_null(ctx))
+                }
+            },
+        }
     }
 
     #[qjs(get)]
@@ -297,6 +383,7 @@ impl<'js> Response<'js> {
             BodyVariant::Incoming(response) => response.is_none(),
             BodyVariant::Cloned(response) => response.is_none(),
             BodyVariant::Provided(value) => value.is_none(),
+            BodyVariant::Stream(stream) => stream.is_none(),
             BodyVariant::Empty => false,
         }
     }
@@ -374,6 +461,32 @@ impl<'js> Response<'js> {
             },
             BodyVariant::Cloned(incoming) => BodyVariant::Cloned(incoming.clone()),
             BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
+            BodyVariant::Stream(stream_opt) => {
+                if let Some(stream) = stream_opt.take() {
+                    // Use tee() to split the stream into two independent branches
+                    // Call the JavaScript tee() method on the stream
+                    let stream_obj = stream
+                        .as_value()
+                        .as_object()
+                        .ok_or_else(|| Exception::throw_type(&ctx, "Stream is not an object"))?;
+                    let tee_fn: Function = stream_obj.get("tee")?;
+                    let tee_result: Value = tee_fn.call((This(stream_obj.clone()),))?;
+
+                    // tee() returns an array [branch1, branch2]
+                    let tee_array = tee_result.as_array().ok_or_else(|| {
+                        Exception::throw_type(&ctx, "tee() did not return an array")
+                    })?;
+                    let branch1: ReadableStreamClass = tee_array.get(0)?;
+                    let branch2: ReadableStreamClass = tee_array.get(1)?;
+
+                    // Keep branch1 for this response, return branch2 for clone
+                    *body_mutex = BodyVariant::Stream(Some(branch1));
+                    BodyVariant::Stream(Some(branch2))
+                } else {
+                    // Stream already consumed
+                    BodyVariant::Stream(None)
+                }
+            },
             BodyVariant::Empty => BodyVariant::Empty,
         };
 
@@ -571,6 +684,15 @@ impl<'js> Response<'js> {
                     let bytes = ObjectBytes::from(ctx, &provided)?;
                     bytes.as_bytes(ctx)?.to_vec()
                 }
+            },
+            BodyVariant::Stream(ref mut stream_opt) => {
+                let stream = stream_opt
+                    .take()
+                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+
+                // Read all bytes from the stream
+                read_all_bytes_from_stream(ctx, stream).await?
             },
             BodyVariant::Empty => return Ok(None),
         };

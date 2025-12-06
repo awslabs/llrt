@@ -535,8 +535,7 @@ export class XMLParser(options?: XmlParserOptions){
 > There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
 >
 > - `keepalive` is always true
-> - `request.body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
-> - `response.body` returns `null`. Use `response.text()`, `response.json()` etc
+> - `request.body` can only be `string`, `Array`, `ArrayBuffer`, `Uint8Array`, `Blob`, or `ReadableStream`
 > - `mode`, `credentials`, `referrerPolicy`, `priority`, `cache` is not available/applicable
 
 ## FILEAPI

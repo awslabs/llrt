@@ -36,6 +36,7 @@ llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_http = { version = "0.7.0-beta", default-features = false, path = "../llrt_http" }
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json" }
+llrt_stream_web = { version = "0.7.0-beta", path = "../llrt_stream_web" }
 llrt_url = { version = "0.7.0-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
