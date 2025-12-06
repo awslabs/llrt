@@ -158,6 +158,24 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [subtle.verify](https://nodejs.org/api/webcrypto.html#subtleverifyalgorithm-key-signature-datah)
 
+## dgram
+
+[createSocket](https://nodejs.org/api/dgram.html#dgramcreatesocketoptions-callback)
+
+### Class: dgram.Socket
+
+[address](https://nodejs.org/api/dgram.html#socketaddress)
+
+[bind](https://nodejs.org/api/dgram.html#socketbindport-address-callback)
+
+[close](https://nodejs.org/api/dgram.html#socketclosecallback)
+
+[ref](https://nodejs.org/api/dgram.html#socketref)
+
+[send](https://nodejs.org/api/dgram.html#socketsendmsg-offset-length-port-address-callback)
+
+[unref](hhttps://nodejs.org/api/dgram.html#socketunref)
+
 ## dns
 
 [lookup](https://nodejs.org/api/dns.html#dnslookuphostname-options-callback)

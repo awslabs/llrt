@@ -126,6 +126,7 @@ async fn main() -> Result<(), Error> {
 | child process  | ✔︎     | ⚠️           | `child-process`  | `llrt_child_process`  |
 | console        | ✔︎     | ⚠️           | `console`        | `llrt_console`        |
 | crypto         | ✔︎     | ⚠️           | `crypto`         | `llrt_crypto`         |
+| dgram          | ✔︎     | ⚠️           | `dgram`          | `llrt_dgram`          |
 | dns            | ✔︎     | ⚠️           | `dns`            | `llrt_dns`            |
 | events         | ✔︎     | ⚠️           | `events`         | `llrt_events`         |
 | exceptions     | ✔︎     | ⚠️           | `exceptions`     | `llrt_exceptions`     |
