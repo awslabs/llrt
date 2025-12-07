@@ -57,6 +57,8 @@ mod modules {
     pub use llrt_string_decoder as string_decoder;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
+    #[cfg(feature = "timezone")]
+    pub use llrt_timezone as timezone;
     #[cfg(feature = "tls")]
     pub use llrt_tls as tls;
     #[cfg(feature = "tty")]
