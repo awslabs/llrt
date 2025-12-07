@@ -181,6 +181,12 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_module(crate::modules::zlib::ZlibModule);
         }
+        #[cfg(feature = "timezone")]
+        {
+            builder = builder
+                .with_global(crate::modules::timezone::init)
+                .with_module(crate::modules::timezone::TimezoneModule);
+        }
 
         builder
     }
