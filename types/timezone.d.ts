@@ -1,41 +1,13 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 export {};
 
+/**
+ * Minimal Intl.DateTimeFormat implementation for timezone support.
+ * Enables dayjs and similar libraries to work with timezone conversions.
+ */
 declare global {
-  interface Timezone {
-    /**
-     * Get the UTC offset in minutes for a timezone at a given time.
-     *
-     * @param timezone - IANA timezone name (e.g., "America/Denver", "Asia/Tokyo")
-     * @param epochMs - Unix timestamp in milliseconds
-     * @returns UTC offset in minutes (positive = ahead of UTC, negative = behind)
-     *
-     * @example
-     * // Get current offset for Denver (handles DST automatically)
-     * const offset = Timezone.getOffset("America/Denver", Date.now());
-     * // Returns -420 (UTC-7) in winter, -360 (UTC-6) in summer
-     */
-    getOffset(timezone: string, epochMs: number): number;
-
-    /**
-     * List all available IANA timezone names.
-     *
-     * @returns Array of timezone names
-     *
-     * @example
-     * const zones = Timezone.list();
-     * // ["Africa/Abidjan", "Africa/Accra", ..., "Pacific/Wallis"]
-     */
-    list(): string[];
-
-    readonly [Symbol.toStringTag]: "Timezone";
-  }
-
-  var Timezone: Timezone;
-
-  /**
-   * Minimal Intl.DateTimeFormat implementation for timezone support.
-   * Enables dayjs and similar libraries to work with timezone conversions.
-   */
   namespace Intl {
     interface DateTimeFormatOptions {
       localeMatcher?: "best fit" | "lookup";
@@ -126,8 +98,4 @@ declare global {
   }
 
   var Intl: typeof Intl;
-}
-
-declare module "llrt:timezone" {
-  export { Timezone };
 }

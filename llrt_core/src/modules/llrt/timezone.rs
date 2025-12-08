@@ -56,12 +56,6 @@ fn timezone_object<'js>(ctx: &Ctx<'js>) -> Result<Object<'js>> {
     Ok(timezone)
 }
 
-pub fn init(ctx: &Ctx<'_>) -> Result<()> {
-    let globals = ctx.globals();
-    globals.set("Timezone", timezone_object(ctx)?)?;
-    Ok(())
-}
-
 pub struct LlrtTimezoneModule;
 
 impl ModuleDef for LlrtTimezoneModule {
