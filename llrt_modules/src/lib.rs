@@ -39,6 +39,8 @@ mod modules {
     pub use llrt_fs as fs;
     #[cfg(feature = "https")]
     pub use llrt_http as https;
+    #[cfg(feature = "intl")]
+    pub use llrt_intl as intl;
     #[cfg(feature = "navigator")]
     pub use llrt_navigator as navigator;
     #[cfg(feature = "net")]
@@ -57,8 +59,6 @@ mod modules {
     pub use llrt_string_decoder as string_decoder;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
-    #[cfg(feature = "timezone")]
-    pub use llrt_timezone as timezone;
     #[cfg(feature = "tls")]
     pub use llrt_tls as tls;
     #[cfg(feature = "tty")]

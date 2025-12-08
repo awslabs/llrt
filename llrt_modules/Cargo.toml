@@ -34,7 +34,7 @@ base = [
   "stream-web",
   "string-decoder",
   "timers",
-  "timezone",
+  "intl",
   "tls",
   "tty",
   "url",
@@ -66,7 +66,7 @@ perf-hooks = ["llrt_perf_hooks"]
 stream-web = ["llrt_stream_web"]
 string-decoder = ["llrt_string_decoder"]
 timers = ["llrt_timers"]
-timezone = ["llrt_timezone"]
+intl = ["llrt_intl"]
 tls = ["llrt_tls"]
 tty = ["llrt_tty"]
 url = ["llrt_url"]
@@ -110,7 +110,7 @@ llrt_perf_hooks = { version = "0.7.0-beta", path = "../modules/llrt_perf_hooks",
 llrt_stream_web = { version = "0.7.0-beta", path = "../modules/llrt_stream_web", optional = true }
 llrt_string_decoder = { version = "0.7.0-beta", path = "../modules/llrt_string_decoder", optional = true }
 llrt_timers = { version = "0.7.0-beta", path = "../modules/llrt_timers", optional = true }
-llrt_timezone = { version = "0.7.0-beta", path = "../modules/llrt_timezone", optional = true }
+llrt_intl = { version = "0.7.0-beta", path = "../modules/llrt_intl", optional = true }
 llrt_tls = { version = "0.7.0-beta", path = "../modules/llrt_tls", optional = true }
 llrt_tty = { version = "0.7.0-beta", path = "../modules/llrt_tty", optional = true }
 llrt_url = { version = "0.7.0-beta", path = "../modules/llrt_url", optional = true }
