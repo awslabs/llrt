@@ -230,13 +230,16 @@ test-ci: clean-js | toolchain js
 	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) --all-features -- --nocapture --show-output
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
-libs-arm64: lib/arm64/libzstd.a lib/zstd.h
-libs-x64: lib/x64/libzstd.a lib/zstd.h
+libs-arm64: lib/arm64/libzstd.a lib/zstd.h lib/zstd_errors.h
+libs-x64: lib/x64/libzstd.a lib/zstd.h lib/zstd_errors.h
 
 libs: | libs-arm64 libs-x64
 
 lib/zstd.h:
 	cp zstd/lib/zstd.h $@
+
+lib/zstd_errors.h:
+	cp zstd/lib/zstd_errors.h $@
 
 lib/arm64/libzstd.a:
 	mkdir -p $(dir $@)
