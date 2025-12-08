@@ -103,7 +103,7 @@ pkcs8 = { version = "0.11.0-rc.8", default-features = false, features = [
 spki = { version = "0.8.0-rc.4", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-pre.2", features = [
+x25519-dalek = { version = "3.0.0-pre.3", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
