@@ -1,23 +1,14 @@
-# llrt_timezone
+# llrt_intl
 
-Lightweight timezone support for LLRT. Provides timezone offset calculations and a minimal `Intl.DateTimeFormat` implementation for dayjs and similar library compatibility.
+Minimal internationalization support for LLRT. Provides a subset of `Intl` functionality focused on timezone support.
 
 ## Features
 
-- **Timezone offset calculations** - Get UTC offsets for any IANA timezone with DST support
 - **Intl.DateTimeFormat** - Minimal implementation supporting `format()`, `formatToParts()`, and `resolvedOptions()`
 - **Date.prototype.toLocaleString** - Enhanced to support the `timeZone` option
 - **dayjs compatibility** - Enables the dayjs timezone plugin without polyfills
 
 ## API
-
-### `Timezone.getOffset(timezone: string, epochMs: number): number`
-
-Returns the UTC offset in minutes for the given timezone at the specified time.
-
-### `Timezone.list(): string[]`
-
-Returns a list of all available IANA timezone names.
 
 ### `Intl.DateTimeFormat`
 
@@ -28,19 +19,6 @@ Minimal implementation for timezone-aware date formatting.
 Enhanced to support the `timeZone` option for timezone conversion.
 
 ## Examples
-
-### Basic Timezone API
-
-```javascript
-import { Timezone } from "llrt:timezone";
-
-// Get offset for America/Denver at a specific time
-const offset = Timezone.getOffset("America/Denver", Date.now());
-console.log(offset); // -420 (UTC-7 in minutes) or -360 (UTC-6 during DST)
-
-// List all available timezones
-const timezones = Timezone.list();
-```
 
 ### Intl.DateTimeFormat
 

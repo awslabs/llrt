@@ -1652,6 +1652,7 @@ version = "0.7.0-beta"
 dependencies = [
  "bytes",
  "chrono",
+ "chrono-tz",
  "home",
  "http-body-util",
  "hyper",
@@ -1864,6 +1865,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_intl"
+version = "0.7.0-beta"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "iana-time-zone",
+ "llrt_utils",
+ "rquickjs",
+]
+
+[[package]]
 name = "llrt_json"
 version = "0.7.0-beta"
 dependencies = [
@@ -1912,6 +1924,7 @@ dependencies = [
  "llrt_fs",
  "llrt_hooking",
  "llrt_http",
+ "llrt_intl",
  "llrt_json",
  "llrt_navigator",
  "llrt_net",
@@ -1923,7 +1936,6 @@ dependencies = [
  "llrt_string_decoder",
  "llrt_test",
  "llrt_timers",
- "llrt_timezone",
  "llrt_tls",
  "llrt_tty",
  "llrt_url",
@@ -2095,17 +2107,6 @@ dependencies = [
  "once_cell",
  "rquickjs",
  "tokio",
-]
-
-[[package]]
-name = "llrt_timezone"
-version = "0.7.0-beta"
-dependencies = [
- "chrono",
- "chrono-tz",
- "iana-time-zone",
- "llrt_utils",
- "rquickjs",
 ]
 
 [[package]]

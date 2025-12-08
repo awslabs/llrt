@@ -1,6 +1,6 @@
 [package]
-name = "llrt_timezone"
-description = "LLRT Module timezone"
+name = "llrt_intl"
+description = "LLRT Intl module - minimal internationalization support"
 version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [lib]
-name = "llrt_timezone"
+name = "llrt_intl"
 path = "src/lib.rs"
 
 [dependencies]
