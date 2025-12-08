@@ -46,7 +46,6 @@ impl Default for VmOptions {
         let mut module_builder = ModuleBuilder::default()
             .with_global(crate::modules::embedded::init)
             .with_global(crate::builtins_inspect::init)
-            .with_global(crate::modules::llrt::timezone::init)
             .with_module(crate::modules::llrt::hex::LlrtHexModule)
             .with_module(crate::modules::llrt::qjs::LlrtQjsModule)
             .with_module(crate::modules::llrt::timezone::LlrtTimezoneModule)

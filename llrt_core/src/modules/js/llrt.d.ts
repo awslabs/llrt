@@ -74,3 +74,37 @@ declare module "qjs" {
   }
   function ComputeMemoryUsage(): MemoryInfo;
 }
+
+declare module "llrt:timezone" {
+  interface Timezone {
+    /**
+     * Get the UTC offset in minutes for a timezone at a given time.
+     *
+     * @param timezone - IANA timezone name (e.g., "America/Denver", "Asia/Tokyo")
+     * @param epochMs - Unix timestamp in milliseconds
+     * @returns UTC offset in minutes (positive = ahead of UTC, negative = behind)
+     *
+     * @example
+     * // Get current offset for Denver (handles DST automatically)
+     * const offset = Timezone.getOffset("America/Denver", Date.now());
+     * // Returns -420 (UTC-7) in winter, -360 (UTC-6) in summer
+     */
+    getOffset(timezone: string, epochMs: number): number;
+
+    /**
+     * List all available IANA timezone names.
+     *
+     * @returns Array of timezone names
+     *
+     * @example
+     * const zones = Timezone.list();
+     * // ["Africa/Abidjan", "Africa/Accra", ..., "Pacific/Wallis"]
+     */
+    list(): string[];
+
+    readonly [Symbol.toStringTag]: "Timezone";
+  }
+
+  export const Timezone: Timezone;
+  export default { Timezone: Timezone };
+}

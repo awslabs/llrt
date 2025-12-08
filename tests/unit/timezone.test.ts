@@ -1,6 +1,8 @@
+import { Timezone } from "llrt:timezone";
+
 describe("Timezone", () => {
-  describe("global availability", () => {
-    it("should be defined globally", () => {
+  describe("module import", () => {
+    it("should be importable from llrt:timezone", () => {
       expect(typeof Timezone).toBe("object");
     });
 
@@ -81,15 +83,6 @@ describe("Timezone", () => {
       const zones = Timezone.list();
       expect(zones.length).toBeGreaterThan(400);
     });
-  });
-});
-
-describe("Timezone module import", () => {
-  it("should be importable from llrt:timezone", async () => {
-    const { Timezone: TZ } = await import("llrt:timezone");
-    expect(typeof TZ).toBe("object");
-    expect(typeof TZ.getOffset).toBe("function");
-    expect(typeof TZ.list).toBe("function");
   });
 });
 
