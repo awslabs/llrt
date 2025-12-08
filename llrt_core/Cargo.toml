@@ -67,7 +67,7 @@ rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0
 phf_codegen = { version = "0.13", default-features = false }
 jwalk = { version = "0.8", default-features = false }
 llrt_build = { path = "../libs/llrt_build" }
-uuid = { version = "1", features = ["v4"], default-features = false }
+llrt_utils = { path = "../libs/llrt_utils" }
 
 [dev-dependencies]
 wiremock = { version = "0.6", default-features = false }

@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use llrt_utils::uuid::uuid_v4;
 use rquickjs::{
     async_with,
     function::IntoArgs,
@@ -15,7 +16,7 @@ use rquickjs::{
 
 pub async fn given_file(content: &str) -> PathBuf {
     let tmp_dir = std::env::temp_dir();
-    let path = tmp_dir.join(uuid::Uuid::new_v4().to_string());
+    let path = tmp_dir.join(uuid_v4());
     tokio::fs::write(&path, content).await.unwrap();
     path
 }

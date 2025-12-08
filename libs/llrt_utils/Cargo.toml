@@ -14,6 +14,10 @@ fs = ["tokio/fs"]
 bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
+rand = { version = "0.10.0-rc.5", features = [
+  "alloc",
+  "thread_rng",
+], default-features = false }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
   "array-buffer",
   "macro",

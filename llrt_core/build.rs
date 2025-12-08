@@ -15,6 +15,7 @@ use std::{
 };
 
 use jwalk::WalkDir;
+use llrt_utils::uuid::uuid_v4;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime, WriteOptions};
 
 const BUNDLE_JS_DIR: &str = "../bundle/js";
@@ -232,10 +233,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
     for filename in source_files {
         info!("Compressing {}...", filename);
 
-        let tmp_filename = tmp_dir
-            .join(uuid::Uuid::new_v4().to_string())
-            .to_string_lossy()
-            .to_string();
+        let tmp_filename = tmp_dir.join(uuid_v4());
 
         fs::copy(&filename, &tmp_filename)?;
 
@@ -248,7 +246,7 @@ fn compress_bytecode(dictionary_path: String, source_files: Vec<String>) -> io::
                 "-f",
                 "-D",
                 &dictionary_path,
-                &tmp_filename,
+                tmp_filename.to_string_lossy().as_ref(),
                 "-o",
                 &filename,
             ])

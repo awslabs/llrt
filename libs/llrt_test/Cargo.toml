@@ -11,10 +11,10 @@ name = "llrt_test"
 path = "src/lib.rs"
 
 [dependencies]
+llrt_utils = { version = "0.7.0-beta", path = "../llrt_utils" }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
   "futures",
   "loader",
   "parallel",
 ], default-features = false }
 tokio = { version = "1", features = ["fs"], default-features = false }
-uuid = { version = "1", features = ["v4"], default-features = false }
