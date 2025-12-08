@@ -318,7 +318,7 @@ checksum = "99cbf41c6ec3c4b9eaf7f8f5c11a72cd7d3aa0428125c20d5ef4d09907a0f019"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
 ]
 
 [[package]]
@@ -619,7 +619,7 @@ checksum = "6715836b4946e8585016e80b79c7561476aff3b22f7b756778e7b109d86086c6"
 dependencies = [
  "hybrid-array",
  "num-traits",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
  "serdect",
  "subtle",
  "zeroize",
@@ -642,7 +642,7 @@ checksum = "fdd9b2855017318a49714c07ee8895b89d3510d54fa6d86be5835de74c389609"
 dependencies = [
  "crypto-bigint",
  "libm",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
 ]
 
 [[package]]
@@ -808,7 +808,7 @@ dependencies = [
  "hkdf",
  "hybrid-array",
  "pkcs8",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
  "rustcrypto-ff",
  "rustcrypto-group",
  "sec1",
@@ -1663,7 +1663,7 @@ dependencies = [
  "phf",
  "phf_codegen",
  "quick-xml",
- "rand 0.10.0-rc.5",
+ "rand",
  "ring",
  "rquickjs",
  "rustls",
@@ -1705,7 +1705,7 @@ dependencies = [
  "p384",
  "p521",
  "pkcs8",
- "rand 0.10.0-rc.5",
+ "rand",
  "ring",
  "rquickjs",
  "rsa",
@@ -1804,7 +1804,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rand 0.10.0-rc.5",
+ "rand",
  "rquickjs",
  "tokio",
  "tracing",
@@ -1944,7 +1944,7 @@ dependencies = [
  "llrt_stream",
  "llrt_test",
  "llrt_utils",
- "rand 0.10.0-rc.5",
+ "rand",
  "rquickjs",
  "tokio",
  "tracing",
@@ -1958,7 +1958,7 @@ dependencies = [
  "itoa",
  "llrt_test",
  "llrt_utils",
- "rand 0.10.0-rc.5",
+ "rand",
  "rquickjs",
  "ryu",
 ]
@@ -1991,7 +1991,7 @@ dependencies = [
  "llrt_utils",
  "memchr",
  "once_cell",
- "rand 0.10.0-rc.5",
+ "rand",
  "rquickjs",
 ]
 
@@ -2512,7 +2512,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c3ad342f52c70a953d95acb09a55450fdc07c2214283b81536c3f83f714568e"
 dependencies = [
  "crypto-bigint",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
  "rustcrypto-ff",
  "subtle",
  "zeroize",
@@ -2581,29 +2581,14 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "rand"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6db2770f06117d490610c7488547d543617b21bfa07796d7a12f6f1bd53850d1"
-dependencies = [
- "rand_core 0.9.3",
-]
-
-[[package]]
-name = "rand"
 version = "0.10.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be866deebbade98028b705499827ad6967c8bb1e21f96a2609913c8c076e9307"
 dependencies = [
  "chacha20",
  "getrandom 0.3.4",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
 ]
-
-[[package]]
-name = "rand_core"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
 
 [[package]]
 name = "rand_core"
@@ -2788,8 +2773,8 @@ dependencies = [
  "digest",
  "pkcs1",
  "pkcs8",
- "rand 0.10.0-rc.5",
- "rand_core 0.10.0-rc-2",
+ "rand",
+ "rand_core",
  "sha2",
  "signature",
  "spki",
@@ -2818,7 +2803,7 @@ version = "0.14.0-pre.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9cd37111549306f79b09aa2618e15b1e8241b7178c286821e3dd71579db4db"
 dependencies = [
- "rand_core 0.10.0-rc-2",
+ "rand_core",
  "subtle",
 ]
 
@@ -2828,7 +2813,7 @@ version = "0.14.0-pre.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e394cd734b5f97dfc3484fa42aad7acd912961c2bcd96c99aa05b3d6cab7cafd"
 dependencies = [
- "rand_core 0.10.0-rc-2",
+ "rand_core",
  "rustcrypto-ff",
  "subtle",
 ]
@@ -3086,7 +3071,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a0251c9d6468f4ba853b6352b190fb7c1e405087779917c238445eb03993826"
 dependencies = [
  "digest",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
 ]
 
 [[package]]
@@ -3423,9 +3408,9 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "uuid"
-version = "1.18.1"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
+checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
 dependencies = [
  "getrandom 0.3.4",
 ]
@@ -3945,7 +3930,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a1de04376e841a39a324c95b2b099eb13b8b81d0c0a5adec29f322c205761d6"
 dependencies = [
  "curve25519-dalek",
- "rand_core 0.10.0-rc-2",
+ "rand_core",
  "zeroize",
 ]
 
