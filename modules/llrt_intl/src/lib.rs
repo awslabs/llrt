@@ -83,9 +83,20 @@ fn date_to_locale_string<'js>(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_system_timezone() {
-        let tz = super::get_system_timezone();
+        let tz = get_system_timezone();
         assert!(!tz.is_empty());
+        // Should be a valid IANA timezone
+        assert!(tz.parse::<Tz>().is_ok());
+    }
+
+    #[test]
+    fn test_system_timezone_parseable() {
+        let tz_str = get_system_timezone();
+        let tz: Tz = tz_str.parse().expect("System timezone should be valid");
+        assert!(!tz.name().is_empty());
     }
 }
