@@ -382,6 +382,8 @@ _Also available globally_
 
 [inherits](https://nodejs.org/api/util.html#utilinheritsconstructor-superconstructor)
 
+[inspect](https://nodejs.org/api/util.html#utilinspectobject-options)
+
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
