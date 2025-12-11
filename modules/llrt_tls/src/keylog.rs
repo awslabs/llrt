@@ -12,6 +12,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use llrt_encoding::bytes_to_hex_string;
 use rustls::KeyLog;
 use tokio::sync::mpsc;
 
@@ -24,10 +25,10 @@ pub struct KeyLogLine {
 impl KeyLogLine {
     /// Format a key log line in NSS format
     pub fn new(label: &str, client_random: &[u8], secret: &[u8]) -> Self {
-        let client_random_hex = hex_encode(client_random);
-        let secret_hex = hex_encode(secret);
+        let client_random_hex = bytes_to_hex_string(client_random);
+        let secret_hex = bytes_to_hex_string(secret);
         Self {
-            line: format!("{} {} {}\n", label, client_random_hex, secret_hex),
+            line: [label, " ", &client_random_hex, " ", &secret_hex, "\n"].concat(),
         }
     }
 
@@ -35,11 +36,6 @@ impl KeyLogLine {
     pub fn as_bytes(&self) -> &[u8] {
         self.line.as_bytes()
     }
-}
-
-/// Encode bytes as hexadecimal string
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 /// A KeyLog implementation that sends key log lines through a channel
@@ -82,12 +78,6 @@ mod tests {
     fn test_keylog_line_format() {
         let line = KeyLogLine::new("CLIENT_RANDOM", &[0x01, 0x02, 0x03], &[0xaa, 0xbb, 0xcc]);
         assert_eq!(line.line, "CLIENT_RANDOM 010203 aabbcc\n");
-    }
-
-    #[test]
-    fn test_hex_encode() {
-        assert_eq!(hex_encode(&[0x00, 0xff, 0x10]), "00ff10");
-        assert_eq!(hex_encode(&[]), "");
     }
 
     #[tokio::test]

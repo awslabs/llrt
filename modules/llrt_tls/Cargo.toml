@@ -22,7 +22,9 @@ base64-simd = { version = "0.8", features = ["alloc"], default-features = false 
 itoa = { version = "1", default-features = false }
 llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
 llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
+llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
+llrt_net = { version = "0.7.0-beta", path = "../llrt_net" }
 llrt_stream = { version = "0.7.0-beta", path = "../llrt_stream" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }

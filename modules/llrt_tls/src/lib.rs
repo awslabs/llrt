@@ -130,7 +130,7 @@ fn get_ciphers(ctx: Ctx<'_>) -> Result<Array<'_>> {
 }
 
 /// Convert rustls CipherSuite to OpenSSL-style name
-fn cipher_suite_to_openssl_name(suite: rustls::CipherSuite) -> &'static str {
+pub fn cipher_suite_to_openssl_name(suite: rustls::CipherSuite) -> &'static str {
     use rustls::CipherSuite::*;
     match suite {
         // TLS 1.3 cipher suites

@@ -14,75 +14,73 @@ use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use rustls::{ClientConfig, RootCertStore, ServerConfig};
 use webpki_roots::TLS_SERVER_ROOTS;
 
-/// Options for creating a secure context
-#[derive(Default)]
-pub struct SecureContextOptions {
-    pub cert: Option<Vec<u8>>,
-    pub key: Option<Vec<u8>>,
-    pub ca: Option<Vec<Vec<u8>>>,
-    pub ciphers: Option<String>,
-    pub min_version: Option<String>,
-    pub max_version: Option<String>,
-}
+use crate::BuildClientConfigOptions;
 
-impl SecureContextOptions {
-    pub fn from_js_options<'js>(ctx: &Ctx<'js>, opts: &Object<'js>) -> Result<Self> {
-        let mut options = Self::default();
+/// Parse BuildClientConfigOptions from a JavaScript options object
+pub fn options_from_js<'js>(
+    ctx: &Ctx<'js>,
+    opts: &Object<'js>,
+) -> Result<BuildClientConfigOptions> {
+    let mut options = BuildClientConfigOptions::default();
 
-        // Handle certificate
-        if let Some(cert_value) = opts.get_optional::<_, Value>("cert")? {
-            if let Some(s) = cert_value.as_string() {
-                options.cert = Some(s.to_string()?.into_bytes());
-            } else if let Some(bytes) = get_bytes_from_value(ctx, &cert_value)? {
-                options.cert = Some(bytes);
-            }
+    // Handle certificate
+    if let Some(cert_value) = opts.get_optional::<_, Value>("cert")? {
+        if let Some(s) = cert_value.as_string() {
+            options.cert = Some(s.to_string()?.into_bytes());
+        } else if let Some(bytes) = get_bytes_from_value(ctx, &cert_value)? {
+            options.cert = Some(bytes);
         }
-
-        // Handle private key
-        if let Some(key_value) = opts.get_optional::<_, Value>("key")? {
-            if let Some(s) = key_value.as_string() {
-                options.key = Some(s.to_string()?.into_bytes());
-            } else if let Some(bytes) = get_bytes_from_value(ctx, &key_value)? {
-                options.key = Some(bytes);
-            }
-        }
-
-        // Handle CA certificates
-        if let Some(ca_value) = opts.get_optional::<_, Value>("ca")? {
-            let mut ca_certs = Vec::new();
-            if let Some(ca_array) = ca_value.as_array() {
-                for item in ca_array.iter::<Value>() {
-                    let item = item?;
-                    if let Some(s) = item.as_string() {
-                        ca_certs.push(s.to_string()?.into_bytes());
-                    } else if let Some(bytes) = get_bytes_from_value(ctx, &item)? {
-                        ca_certs.push(bytes);
-                    }
-                }
-            } else if let Some(s) = ca_value.as_string() {
-                ca_certs.push(s.to_string()?.into_bytes());
-            } else if let Some(bytes) = get_bytes_from_value(ctx, &ca_value)? {
-                ca_certs.push(bytes);
-            }
-            if !ca_certs.is_empty() {
-                options.ca = Some(ca_certs);
-            }
-        }
-
-        if let Some(ciphers) = opts.get_optional::<_, String>("ciphers")? {
-            options.ciphers = Some(ciphers);
-        }
-
-        if let Some(min_version) = opts.get_optional::<_, String>("minVersion")? {
-            options.min_version = Some(min_version);
-        }
-
-        if let Some(max_version) = opts.get_optional::<_, String>("maxVersion")? {
-            options.max_version = Some(max_version);
-        }
-
-        Ok(options)
     }
+
+    // Handle private key
+    if let Some(key_value) = opts.get_optional::<_, Value>("key")? {
+        if let Some(s) = key_value.as_string() {
+            options.key = Some(s.to_string()?.into_bytes());
+        } else if let Some(bytes) = get_bytes_from_value(ctx, &key_value)? {
+            options.key = Some(bytes);
+        }
+    }
+
+    // Handle CA certificates
+    if let Some(ca_value) = opts.get_optional::<_, Value>("ca")? {
+        let mut ca_certs = Vec::new();
+        if let Some(ca_array) = ca_value.as_array() {
+            for item in ca_array.iter::<Value>() {
+                let item = item?;
+                if let Some(s) = item.as_string() {
+                    ca_certs.push(s.to_string()?.into_bytes());
+                } else if let Some(bytes) = get_bytes_from_value(ctx, &item)? {
+                    ca_certs.push(bytes);
+                }
+            }
+        } else if let Some(s) = ca_value.as_string() {
+            ca_certs.push(s.to_string()?.into_bytes());
+        } else if let Some(bytes) = get_bytes_from_value(ctx, &ca_value)? {
+            ca_certs.push(bytes);
+        }
+        if !ca_certs.is_empty() {
+            options.ca = Some(ca_certs);
+        }
+    }
+
+    // Handle rejectUnauthorized
+    if let Some(reject_unauthorized) = opts.get_optional::<_, bool>("rejectUnauthorized")? {
+        options.reject_unauthorized = reject_unauthorized;
+    }
+
+    if let Some(ciphers) = opts.get_optional::<_, String>("ciphers")? {
+        options.ciphers = Some(ciphers);
+    }
+
+    if let Some(min_version) = opts.get_optional::<_, String>("minVersion")? {
+        options.min_version = Some(min_version);
+    }
+
+    if let Some(max_version) = opts.get_optional::<_, String>("maxVersion")? {
+        options.max_version = Some(max_version);
+    }
+
+    Ok(options)
 }
 
 fn get_bytes_from_value<'js>(ctx: &Ctx<'js>, value: &Value<'js>) -> Result<Option<Vec<u8>>> {
@@ -132,7 +130,7 @@ impl SecureContext {
 
 impl SecureContext {
     /// Create a new SecureContext from options
-    pub fn from_options(ctx: &Ctx<'_>, options: SecureContextOptions) -> Result<Self> {
+    pub fn from_options(ctx: &Ctx<'_>, options: BuildClientConfigOptions) -> Result<Self> {
         let mut secure_context = Self::new();
 
         // Build client config if we have CA certs or need default trust
@@ -165,26 +163,32 @@ impl SecureContext {
             })?
             .with_root_certificates(root_store);
 
-        let client_config = if let (Some(cert_pem), Some(key_pem)) = (&options.cert, &options.key) {
-            // Client certificate authentication
-            let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(cert_pem)
-                .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(|e| {
-                    Exception::throw_message(ctx, &format!("Invalid certificate: {}", e))
+        let mut client_config =
+            if let (Some(cert_pem), Some(key_pem)) = (&options.cert, &options.key) {
+                // Client certificate authentication
+                let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(cert_pem)
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(|e| {
+                        Exception::throw_message(ctx, &format!("Invalid certificate: {}", e))
+                    })?;
+
+                let key = PrivateKeyDer::from_pem_slice(key_pem).map_err(|e| {
+                    Exception::throw_message(ctx, &format!("Invalid private key: {}", e))
                 })?;
 
-            let key = PrivateKeyDer::from_pem_slice(key_pem).map_err(|e| {
-                Exception::throw_message(ctx, &format!("Invalid private key: {}", e))
-            })?;
+                client_builder
+                    .with_client_auth_cert(certs, key)
+                    .map_err(|e| {
+                        Exception::throw_message(ctx, &format!("Failed to set client auth: {}", e))
+                    })?
+            } else {
+                client_builder.with_no_client_auth()
+            };
 
-            client_builder
-                .with_client_auth_cert(certs, key)
-                .map_err(|e| {
-                    Exception::throw_message(ctx, &format!("Failed to set client auth: {}", e))
-                })?
-        } else {
-            client_builder.with_no_client_auth()
-        };
+        // Set key log if provided
+        if let Some(key_log) = options.key_log {
+            client_config.key_log = key_log;
+        }
 
         secure_context.client_config = Some(Arc::new(client_config));
 
@@ -220,9 +224,9 @@ pub fn create_secure_context<'js>(
     options: Option<Object<'js>>,
 ) -> Result<Class<'js, SecureContext>> {
     let opts = if let Some(opts) = options {
-        SecureContextOptions::from_js_options(&ctx, &opts)?
+        options_from_js(&ctx, &opts)?
     } else {
-        SecureContextOptions::default()
+        BuildClientConfigOptions::default()
     };
 
     let secure_context = SecureContext::from_options(&ctx, opts)?;

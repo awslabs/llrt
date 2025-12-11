@@ -44,24 +44,42 @@ pub fn get_tls_versions() -> Option<Vec<&'static SupportedProtocolVersion>> {
 }
 
 pub static TLS_CONFIG: Lazy<Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>>> =
-    Lazy::new(|| {
-        build_client_config(BuildClientConfigOptions {
-            reject_unauthorized: true,
-            ca: None,
-            cert: None,
-            key: None,
-            key_log: None,
-        })
-    });
+    Lazy::new(|| build_client_config(BuildClientConfigOptions::default()));
 
+/// Unified TLS client configuration options.
+/// Used by SecureContext, tls.connect(), and HTTP agent.
 pub struct BuildClientConfigOptions {
+    /// Whether to reject unauthorized certificates (default: true)
     pub reject_unauthorized: bool,
+    /// Custom CA certificates in PEM format
     pub ca: Option<Vec<Vec<u8>>>,
     /// Client certificate in PEM format for mTLS
     pub cert: Option<Vec<u8>>,
     /// Client private key in PEM format for mTLS
     pub key: Option<Vec<u8>>,
+    /// Key log callback for debugging TLS connections
     pub key_log: Option<Arc<dyn rustls::KeyLog>>,
+    /// Cipher suites (OpenSSL format) - currently unused, reserved for future
+    pub ciphers: Option<String>,
+    /// Minimum TLS version (e.g., "TLSv1.2") - currently unused, reserved for future
+    pub min_version: Option<String>,
+    /// Maximum TLS version (e.g., "TLSv1.3") - currently unused, reserved for future
+    pub max_version: Option<String>,
+}
+
+impl Default for BuildClientConfigOptions {
+    fn default() -> Self {
+        Self {
+            reject_unauthorized: true, // Secure by default
+            ca: None,
+            cert: None,
+            key: None,
+            key_log: None,
+            ciphers: None,
+            min_version: None,
+            max_version: None,
+        }
+    }
 }
 
 pub fn build_client_config(

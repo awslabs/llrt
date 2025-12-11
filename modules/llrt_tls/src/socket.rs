@@ -1,9 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
+// Uses shared types from llrt_net to reduce code duplication.
+// The main difference from net::Socket is that TLSSocket wraps connections with TLS
+// and adds TLS-specific properties (encrypted, authorized, cipher info, etc.)
+
 use std::sync::{Arc, RwLock};
 
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
+// Re-use shared socket types from llrt_net
+use llrt_net::{get_hostname, rw_join, ReadyState, LOCALHOST};
 use llrt_stream::{
     impl_stream_events,
     readable::{ReadableStream, ReadableStreamInner},
@@ -27,53 +34,16 @@ use crate::keylog::{ChannelKeyLog, KeyLogLine};
 use crate::secure_context::SecureContext;
 use crate::{build_client_config, BuildClientConfigOptions};
 
-const LOCALHOST: &str = "localhost";
-
 impl_stream_events!(TLSSocket);
 
-#[allow(dead_code)]
-pub(crate) enum ReadyState {
-    Opening,
-    Open,
-    Closed,
-    ReadOnly,
-    WriteOnly,
-}
-
-impl ReadyState {
-    #[allow(clippy::inherent_to_string)]
-    pub fn to_string(&self) -> String {
-        String::from(match self {
-            ReadyState::Opening => "opening",
-            ReadyState::Open => "open",
-            ReadyState::Closed => "closed",
-            ReadyState::ReadOnly => "readOnly",
-            ReadyState::WriteOnly => "writeOnly",
-        })
-    }
-}
-
-fn get_hostname(host: &str, port: u16) -> String {
-    [host, itoa::Buffer::new().format(port)].join(":")
-}
-
+/// Extract address parts from a SocketAddr (used for TLS connections where we don't
+/// need the Result wrapper that llrt_net::get_address_parts provides)
 fn get_address_parts(addr: std::net::SocketAddr) -> (String, u16, String) {
     (
         addr.ip().to_string(),
         addr.port(),
         String::from(if addr.is_ipv4() { "IPv4" } else { "IPv6" }),
     )
-}
-
-async fn rw_join(
-    ctx: &Ctx<'_>,
-    readable_done: Receiver<bool>,
-    writable_done: Receiver<bool>,
-) -> Result<bool> {
-    let (readable_res, writable_res) = tokio::join!(readable_done, writable_done);
-    let had_error = readable_res.or_throw_msg(ctx, "Readable sender dropped")?
-        || writable_res.or_throw_msg(ctx, "Writable sender dropped")?;
-    Ok(had_error)
 }
 
 #[rquickjs::class]
@@ -97,6 +67,11 @@ pub struct TLSSocket<'js> {
     pub(crate) allow_half_open: bool,
     pub(crate) servername: Option<String>,
     pub(crate) alpn_protocol: Option<String>,
+    // Cipher and protocol info captured after TLS handshake
+    pub(crate) cipher_name: Option<String>,
+    pub(crate) cipher_standard_name: Option<String>,
+    pub(crate) cipher_version: Option<String>,
+    pub(crate) protocol_version: Option<String>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for TLSSocket<'js> {
@@ -189,6 +164,8 @@ impl TlsConnectOptions {
             options.port = port;
         }
 
+        // servername must be a string - it's the SNI (Server Name Indication) hostname
+        // which is required to be a valid DNS name string
         if let Some(servername) = opts.get_optional::<_, String>("servername")? {
             options.servername = Some(servername);
         }
@@ -371,10 +348,13 @@ impl<'js> TLSSocket<'js> {
         self.alpn_protocol.clone()
     }
 
-    pub fn get_protocol(&self) -> Option<String> {
-        // Return the negotiated TLS protocol version
-        // This would be set during connection
-        Some("TLSv1.3".to_string())
+    /// Returns the negotiated TLS protocol version, or null if not connected.
+    pub fn get_protocol(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let borrow = this.borrow();
+        match &borrow.protocol_version {
+            Some(version) => version.clone().into_js(&ctx),
+            None => Ok(Value::new_null(ctx)),
+        }
     }
 
     /// Returns an object representing the peer's certificate.
@@ -389,13 +369,25 @@ impl<'js> TLSSocket<'js> {
     }
 
     /// Returns an object representing the cipher name and SSL/TLS protocol version.
-    pub fn get_cipher(ctx: Ctx<'js>) -> Result<Object<'js>> {
+    /// Returns null if the socket is not connected.
+    pub fn get_cipher(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let borrow = this.borrow();
+        // Return null if not connected (no cipher info available)
+        if borrow.cipher_name.is_none() {
+            return Ok(Value::new_null(ctx));
+        }
+
         let cipher = Object::new(ctx.clone())?;
-        // These would be populated from the actual TLS connection
-        cipher.set("name", "TLS_AES_256_GCM_SHA384")?;
-        cipher.set("standardName", "TLS_AES_256_GCM_SHA384")?;
-        cipher.set("version", "TLSv1.3")?;
-        Ok(cipher)
+        if let Some(name) = &borrow.cipher_name {
+            cipher.set("name", name.clone())?;
+        }
+        if let Some(standard_name) = &borrow.cipher_standard_name {
+            cipher.set("standardName", standard_name.clone())?;
+        }
+        if let Some(version) = &borrow.cipher_version {
+            cipher.set("version", version.clone())?;
+        }
+        Ok(cipher.into_value())
     }
 
     pub fn write(
@@ -523,6 +515,7 @@ impl<'js> TLSSocket<'js> {
                                     cert: opts.cert.clone(),
                                     key: opts.key.clone(),
                                     key_log: Some(keylog),
+                                    ..Default::default()
                                 })
                                 .map_err(|e| Exception::throw_message(&ctx3, &e.to_string()))?,
                             )
@@ -546,6 +539,7 @@ impl<'js> TLSSocket<'js> {
                             cert: opts.cert,
                             key: opts.key,
                             key_log: None,
+                            ..Default::default()
                         })
                         .map_err(|e| Exception::throw_message(&ctx3, &e.to_string()))?,
                     )
@@ -601,6 +595,25 @@ impl<'js> TLSSocket<'js> {
                         Exception::throw_message(&ctx3, &format!("TLS handshake failed: {}", e))
                     })?;
 
+                // Capture cipher and protocol info from the TLS connection
+                let (cipher_name, cipher_standard_name, protocol_version) = {
+                    let conn = tls_stream.get_ref().1;
+                    let cipher_suite = conn.negotiated_cipher_suite();
+                    let protocol = conn.protocol_version();
+
+                    let (name, standard_name) = if let Some(suite) = cipher_suite {
+                        let suite_id = suite.suite();
+                        let standard = format!("{:?}", suite_id);
+                        let openssl_name = crate::cipher_suite_to_openssl_name(suite_id);
+                        (Some(openssl_name.to_string()), Some(standard))
+                    } else {
+                        (None, None)
+                    };
+
+                    let version = protocol.map(|p| format!("{:?}", p));
+                    (name, standard_name, version)
+                };
+
                 // Mark as encrypted and authorized
                 {
                     let mut borrow = this2.borrow_mut();
@@ -609,6 +622,11 @@ impl<'js> TLSSocket<'js> {
                     borrow.connecting = false;
                     borrow.pending = false;
                     borrow.ready_state = ReadyState::Open;
+                    // Store cipher and protocol info
+                    borrow.cipher_name = cipher_name;
+                    borrow.cipher_standard_name = cipher_standard_name;
+                    borrow.cipher_version = protocol_version.clone();
+                    borrow.protocol_version = protocol_version;
                 }
 
                 trace!("TLS connection established to {}", hostname);
@@ -665,6 +683,10 @@ impl<'js> TLSSocket<'js> {
                 allow_half_open,
                 servername: None,
                 alpn_protocol: None,
+                cipher_name: None,
+                cipher_standard_name: None,
+                cipher_version: None,
+                protocol_version: None,
             },
         )?;
         Ok(instance)

@@ -45,9 +45,7 @@ impl Agent {
         let config = llrt_tls::build_client_config(llrt_tls::BuildClientConfigOptions {
             reject_unauthorized,
             ca,
-            cert: None,
-            key: None,
-            key_log: None,
+            ..Default::default()
         })
         .or_throw_msg(&ctx, "Failed to build TLS config")?;
         let client =
