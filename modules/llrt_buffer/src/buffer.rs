@@ -470,8 +470,7 @@ fn safe_byte_slice(s: &str, end: usize) -> (&[u8], usize) {
     let valid_end = s
         .char_indices()
         .map(|(i, _)| i)
-        .filter(|&i| i <= end)
-        .next_back()
+        .rfind(|&i| i <= end)
         .unwrap_or(0);
 
     (&bytes[0..valid_end], valid_end)

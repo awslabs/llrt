@@ -43,5 +43,9 @@ it("should track async operations", async () => {
   expect(counters.before).toBeGreaterThan(0);
   expect(counters.after).toBeGreaterThan(0);
   expect(counters.promiseResolve).toBeGreaterThan(0);
+
+  // destroy callbacks require GC + event loop tick to fire reliably
+  __gc();
+  await new Promise((resolve) => setTimeout(resolve, 1));
   expect(counters.destroy).toBeGreaterThan(0);
 });

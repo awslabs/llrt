@@ -33,11 +33,13 @@ describe("import", () => {
 
   it("should have import.meta.url", async () => {
     const url = import.meta.url;
-    expect(url).toEqual(
-      `file://${CWD}/bundle/js/__tests__/unit/import.test.js`.replaceAll(
-        "\\",
-        "/"
-      )
-    );
+    // Verify import.meta.url structure without depending on CWD
+    // (test can be run from any directory)
+    expect(url.startsWith("file://")).toEqual(true);
+    // Normalize path separators for cross-platform compatibility
+    const normalizedUrl = url.replaceAll("\\", "/");
+    expect(
+      normalizedUrl.endsWith("/bundle/js/__tests__/unit/import.test.js")
+    ).toEqual(true);
   });
 });
