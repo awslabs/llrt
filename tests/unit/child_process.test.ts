@@ -13,8 +13,9 @@ const { spawn } = defaultImport;
 
 describe("spawn", () => {
   it("should spawn a child process", (done) => {
-    const command = "ls";
-    const args = ["-l"];
+    // Use cross-platform commands
+    const command = IS_WINDOWS ? "cmd" : "ls";
+    const args = IS_WINDOWS ? ["/c", "dir"] : ["-l"];
     const child = spawn(command, args);
     child.on("exit", (code) => {
       try {
@@ -26,9 +27,10 @@ describe("spawn", () => {
     });
   });
   it("should spawn in a diffrent directory", (done) => {
-    const child = spawn("pwd", {
-      cwd: "./tests",
-    });
+    // Use cross-platform commands for getting current directory
+    const child = IS_WINDOWS
+      ? spawn("cmd", ["/c", "cd"], { cwd: "./tests" })
+      : spawn("pwd", { cwd: "./tests" });
     let output = "";
     child.stdout.on("data", (data) => {
       output += data.toString();
@@ -36,7 +38,8 @@ describe("spawn", () => {
 
     child.on("close", (code) => {
       try {
-        const dir = output.trim().split("/").at(-1);
+        // Split by either / or \ for cross-platform compatibility
+        const dir = output.trim().split(/[/\\]/).at(-1);
         expect(dir).toEqual("tests");
         expect(code).toEqual(0);
         done();
@@ -65,29 +68,32 @@ describe("spawn", () => {
     });
   });
 
-  it("should send input to the child process", (done) => {
-    const command = "cat";
-    const input = "Hello, world!";
-    const child = spawn(command);
+  // Windows doesn't have 'cat' - skip this test on Windows
+  if (!IS_WINDOWS) {
+    it("should send input to the child process", (done) => {
+      const command = "cat";
+      const input = "Hello, world!";
+      const child = spawn(command);
 
-    child.stdin.write(input);
-    child.stdin.end();
+      child.stdin.write(input);
+      child.stdin.end();
 
-    let output = "";
-    child.stdout.on("data", (data) => {
-      output += data.toString();
+      let output = "";
+      child.stdout.on("data", (data) => {
+        output += data.toString();
+      });
+
+      child.on("close", (code) => {
+        try {
+          expect(code).toEqual(0);
+          expect(output.trim()).toEqual(input);
+          done();
+        } catch (error) {
+          done(error);
+        }
+      });
     });
-
-    child.on("close", (code) => {
-      try {
-        expect(code).toEqual(0);
-        expect(output.trim()).toEqual(input);
-        done();
-      } catch (error) {
-        done(error);
-      }
-    });
-  });
+  }
 
   it("should handle errors from the child process", (done) => {
     if (process.env._VIRTUAL_ENV) {
@@ -106,27 +112,27 @@ describe("spawn", () => {
     });
   });
 
-  it("should handle child process termination", (done) => {
-    const command = "sleep 999";
-    const child = spawn(command, { shell: true });
+  // Windows doesn't have 'sleep' - skip this test on Windows
+  if (!IS_WINDOWS) {
+    it("should handle child process termination", (done) => {
+      const command = "sleep 999";
+      const child = spawn(command, { shell: true });
 
-    child.on("exit", (code, signal) => {
-      try {
-        if (!IS_WINDOWS) {
+      child.on("exit", (code, signal) => {
+        try {
           expect(code).toEqual(0);
+          expect(signal).toEqual("SIGKILL");
+          done();
+        } catch (error) {
+          done(error);
         }
+      });
 
-        expect(signal).toEqual("SIGKILL");
-        done();
-      } catch (error) {
-        done(error);
-      }
+      setTimeout(() => {
+        child.kill("SIGKILL"); //SIGINT does not forward to children on Linux
+      }, 50);
     });
-
-    setTimeout(() => {
-      child.kill("SIGKILL"); //SIGINT does not forward to children on Linux
-    }, 50);
-  });
+  }
 
   it("should handle child process stdio inherit", (done) => {
     const child = spawn("echo", ["123"], { stdio: "inherit" });
@@ -176,40 +182,43 @@ describe("spawn", () => {
     await testExitCode("266", 10);
   });
 
-  it("should handle detached child process termination", (done) => {
-    const parentProc = spawn(process.argv0, [
-      "-e",
-      `
-        import {spawn} from "child_process";
-        const child = spawn('sleep', ['999'], {
-          detached: true,
-          stdio: 'ignore'
-        });
-        console.log(child.pid.toString());
-      `,
-    ]);
+  // Windows doesn't have 'sleep' - skip this test on Windows
+  if (!IS_WINDOWS) {
+    it("should handle detached child process termination", (done) => {
+      const parentProc = spawn(process.argv0, [
+        "-e",
+        `
+          import {spawn} from "child_process";
+          const child = spawn('sleep', ['999'], {
+            detached: true,
+            stdio: 'ignore'
+          });
+          console.log(child.pid.toString());
+        `,
+      ]);
 
-    let detachedPidString = "";
-    parentProc.stdout.on("data", (data) => {
-      detachedPidString += data.toString();
-      console.log("Got PID:", detachedPidString);
-      parentProc.kill();
-    });
+      let detachedPidString = "";
+      parentProc.stdout.on("data", (data) => {
+        detachedPidString += data.toString();
+        console.log("Got PID:", detachedPidString);
+        parentProc.kill();
+      });
 
-    parentProc.on("exit", () => {
-      try {
-        const detachedPid = parseInt(detachedPidString.trim());
-        console.log("Parent exited, detached PID:", detachedPid);
-        expect(detachedPid).toBeGreaterThan(0);
-        const exists = process.kill(detachedPid, 0);
-        console.log("Process exists check:", exists);
-        expect(exists).toBe(true);
-        const killResult = process.kill(detachedPid);
-        console.log("Kill result:", killResult);
-        done();
-      } catch (error) {
-        done(error);
-      }
+      parentProc.on("exit", () => {
+        try {
+          const detachedPid = parseInt(detachedPidString.trim());
+          console.log("Parent exited, detached PID:", detachedPid);
+          expect(detachedPid).toBeGreaterThan(0);
+          const exists = process.kill(detachedPid, 0);
+          console.log("Process exists check:", exists);
+          expect(exists).toBe(true);
+          const killResult = process.kill(detachedPid);
+          console.log("Kill result:", killResult);
+          done();
+        } catch (error) {
+          done(error);
+        }
+      });
     });
-  });
+  }
 });

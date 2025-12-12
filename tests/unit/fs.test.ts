@@ -435,12 +435,15 @@ describe("access", () => {
     await access(filePath);
   });
 
-  it("should throw if not proper permissions", async () => {
-    const filePath = "fixtures/hello.txt";
-    await expect(access(filePath, constants.X_OK)).rejects.toThrow(
-      /[pP]ermission denied/
-    );
-  });
+  // Windows handles execute permissions differently - skip this test on Windows
+  if (!IS_WINDOWS) {
+    it("should throw if not proper permissions", async () => {
+      const filePath = "fixtures/hello.txt";
+      await expect(access(filePath, constants.X_OK)).rejects.toThrow(
+        /[pP]ermission denied/
+      );
+    });
+  }
 
   it("should throw if not exists", async () => {
     const filePath = "fixtures/nothing";
@@ -461,12 +464,15 @@ describe("accessSync", () => {
     accessSync(filePath);
   });
 
-  it("should throw if not proper permissions synchronously", () => {
-    const filePath = "fixtures/hello.txt";
-    expect(() => accessSync(filePath, constants.X_OK)).toThrow(
-      /[pP]ermission denied/
-    );
-  });
+  // Windows handles execute permissions differently - skip this test on Windows
+  if (!IS_WINDOWS) {
+    it("should throw if not proper permissions synchronously", () => {
+      const filePath = "fixtures/hello.txt";
+      expect(() => accessSync(filePath, constants.X_OK)).toThrow(
+        /[pP]ermission denied/
+      );
+    });
+  }
 
   it("should throw if not exists synchronously", () => {
     const filePath = "fixtures/nothing";
@@ -499,7 +505,7 @@ describe("rename", () => {
     const newPath = path.join(tmpDir, "new");
 
     await expect(rename(oldPath, newPath)).rejects.toThrow(
-      /[Nn]o such file or directory/
+      IS_WINDOWS ? /Can't rename/ : /[Nn]o such file or directory/
     );
 
     await rmdir(tmpDir, { recursive: true });
@@ -516,7 +522,10 @@ describe("renameSync", () => {
     renameSync(oldPath, newPath);
 
     // Check if old path doesn't exist (should throw)
-    expect(() => statSync(oldPath)).toThrow(/[Nn]o such file or directory/);
+    // Windows gives "Can't stat" error instead of "no such file or directory"
+    expect(() => statSync(oldPath)).toThrow(
+      IS_WINDOWS ? /Can't stat/ : /[Nn]o such file or directory/
+    );
 
     // Check if new path exists and is a directory
     const newDirStat = statSync(newPath);
@@ -532,7 +541,7 @@ describe("renameSync", () => {
     const newPath = path.join(tmpDir, "new");
 
     expect(() => renameSync(oldPath, newPath)).toThrow(
-      /[Nn]o such file or directory/
+      IS_WINDOWS ? /Can't rename/ : /[Nn]o such file or directory/
     );
 
     rmdirSync(tmpDir, { recursive: true });

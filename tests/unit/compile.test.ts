@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { tmpdir, platform } from "node:os";
 import { spawnCapture } from "./test-utils";
+
+const IS_WINDOWS = platform() === "win32";
 
 const compile = async (
   filename: string,
@@ -71,7 +73,10 @@ describe("llrt compile", async () => {
   });
 
   it("can create a self-contained executable", async () => {
-    const tmpExe = `${tmpDir}/hello_exe`;
+    // On Windows, executables need .exe extension
+    const tmpExe = IS_WINDOWS
+      ? `${tmpDir}/hello_exe.exe`
+      : `${tmpDir}/hello_exe`;
 
     // Create a self-contained executable
     const compileResult = await compile("fixtures/hello.js", tmpExe, true);
@@ -83,8 +88,11 @@ describe("llrt compile", async () => {
     const stat = await fs.stat(tmpExe);
     expect(stat.isFile()).toBe(true);
 
-    // 0o111 is the executable bits (uga+x)
-    expect(!!(stat.mode & 0o111)).toBe(true);
+    // On Windows, executable bits don't work the same way - skip this check
+    if (!IS_WINDOWS) {
+      // 0o111 is the executable bits (uga+x)
+      expect(!!(stat.mode & 0o111)).toBe(true);
+    }
   });
 
   afterAll(async () => {

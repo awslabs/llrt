@@ -43,7 +43,7 @@ const calculateRelativeDepth = (from: string, to: string) => {
 
   //calculate how many '../' are needed from "from" to reach common base directory
   const upLevels = fromParts.length - i;
-  const downPath = toParts.slice(i).join("/");
+  const downPath = toParts.slice(i).join(path.sep);
 
   //return the correct number of '../' segments followed by the remaining "to" path
   return `${`..${path.sep}`.repeat(upLevels)}${downPath}`;
@@ -68,14 +68,14 @@ describe("basename", () => {
 
 describe("dirname", () => {
   it("should return the directory path of a given path", () => {
-    expect(dirname("/foo/bar/baz.txt")).toEqual("/foo/bar");
-    expect(dirname("/foo/bar/baz/")).toEqual("/foo/bar");
-    expect(dirname("/foo/bar/baz")).toEqual("/foo/bar");
-    expect(dirname("/foo/bar/")).toEqual("/foo");
-    expect(dirname("/foo/bar")).toEqual("/foo");
-    expect(dirname("/foo/")).toEqual("/");
-    expect(dirname("/foo")).toEqual("/");
-    expect(dirname("/")).toEqual("/");
+    expect(dirname("/foo/bar/baz.txt")).toEqual(normalizeSeparator("/foo/bar"));
+    expect(dirname("/foo/bar/baz/")).toEqual(normalizeSeparator("/foo/bar"));
+    expect(dirname("/foo/bar/baz")).toEqual(normalizeSeparator("/foo/bar"));
+    expect(dirname("/foo/bar/")).toEqual(normalizeSeparator("/foo"));
+    expect(dirname("/foo/bar")).toEqual(normalizeSeparator("/foo"));
+    expect(dirname("/foo/")).toEqual(path.sep);
+    expect(dirname("/foo")).toEqual(path.sep);
+    expect(dirname("/")).toEqual(path.sep);
     expect(dirname("baz.txt")).toEqual(".");
     expect(dirname("")).toEqual(".");
   });
@@ -99,18 +99,18 @@ describe("extname", () => {
 describe("format", () => {
   it("should return a path string from an object", () => {
     const pathObj1 = {
-      root: "/",
-      dir: "/foo/bar",
+      root: path.sep,
+      dir: normalizeSeparator("/foo/bar"),
       base: "baz.txt",
       ext: ".txt",
       name: "baz",
     };
     const pathObj2 = {
-      dir: "/foo/bar",
+      dir: normalizeSeparator("/foo/bar"),
       base: "baz.txt",
     };
     const pathObj3 = {
-      root: "/",
+      root: path.sep,
       base: "baz.txt",
     };
     const pathObj4 = {
@@ -132,14 +132,14 @@ describe("parse", () => {
 
     const pathObj1 = {
       root: path.sep,
-      dir: "/foo/bar",
+      dir: normalizeSeparator("/foo/bar"),
       base: "baz.txt",
       ext: ".txt",
       name: "baz",
     };
     const pathObj2 = {
       root: path.sep,
-      dir: "/foo/bar",
+      dir: normalizeSeparator("/foo/bar"),
       base: "baz",
       ext: "",
       name: "baz",
@@ -153,7 +153,7 @@ describe("parse", () => {
     };
     const pathObj4 = {
       root: path.sep,
-      dir: "/foo/bar",
+      dir: normalizeSeparator("/foo/bar"),
       base: "baz.tar.gz",
       ext: ".gz",
       name: "baz.tar",
@@ -181,11 +181,15 @@ describe("join", () => {
 
 describe("resolve", () => {
   it("should resolve a sequence of paths and return an absolute path", () => {
+    // On Windows, paths starting with "/" are relative to the current drive
+    // So resolve("/foo/bar") returns "D:\foo\bar" if current drive is D:
+    const drivePrefix = IS_WINDOWS ? process.cwd().slice(0, 2) : "";
+
     expect(resolve("/foo/bar", "./baz")).toEqual(
-      normalizeSeparator("/foo/bar/baz")
+      drivePrefix + normalizeSeparator("/foo/bar/baz")
     );
     expect(resolve("/foo/bar", "/tmp/file/")).toEqual(
-      normalizeSeparator("/tmp/file")
+      drivePrefix + normalizeSeparator("/tmp/file")
     );
 
     expect(resolve("wwwroot", "static_files/png/", "../gif/image.gif")).toEqual(
@@ -210,11 +214,22 @@ describe("normalize", () => {
 
 describe("isAbsolute", () => {
   it("should determine if a path is absolute", () => {
-    expect(isAbsolute(normalizeSeparator("/foo/bar/baz"))).toEqual(true);
-    expect(isAbsolute(normalizeSeparator("////foo/bar/baz"))).toEqual(true);
-    expect(isAbsolute(normalizeSeparator("foo/bar/baz"))).toEqual(false);
-    expect(isAbsolute(normalizeSeparator("/"))).toEqual(true);
-    expect(isAbsolute(normalizeSeparator("."))).toEqual(false);
+    // On Windows, paths without drive letter are not absolute
+    // e.g., "\foo\bar" is NOT absolute, but "C:\foo\bar" is
+    if (IS_WINDOWS) {
+      expect(isAbsolute("C:\\foo\\bar\\baz")).toEqual(true);
+      expect(isAbsolute("\\\\server\\share")).toEqual(true); // UNC path
+      expect(isAbsolute("\\foo\\bar\\baz")).toEqual(false);
+      expect(isAbsolute("foo\\bar\\baz")).toEqual(false);
+      expect(isAbsolute("C:\\")).toEqual(true);
+      expect(isAbsolute(".")).toEqual(false);
+    } else {
+      expect(isAbsolute("/foo/bar/baz")).toEqual(true);
+      expect(isAbsolute("////foo/bar/baz")).toEqual(true);
+      expect(isAbsolute("foo/bar/baz")).toEqual(false);
+      expect(isAbsolute("/")).toEqual(true);
+      expect(isAbsolute(".")).toEqual(false);
+    }
   });
 });
 
