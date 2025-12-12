@@ -393,7 +393,6 @@ mod tests {
 
     use llrt_buffer as buffer;
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
-    use rand::Rng;
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpStream,
@@ -430,26 +429,27 @@ mod tests {
                     .await
                     .unwrap();
 
-                let mut rng = rand::rng();
-                let port: u16 = rng.random_range(49152..=65535);
-
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
                     r#"
                         import { createServer } from 'net';
 
-                        export async function test(port) {
+                        export async function test() {
                             const server = createServer(socket => {
                                 socket.on('data', data => {
                                     socket.write(data, () => server.close());
                                 });
                             });
 
-                            server.listen(port, '127.0.0.1');
+                            // Use port 0 to let the OS assign an available port
+                            server.listen(0, '127.0.0.1');
 
                             return new Promise((resolve, reject) => {
-                                server.on('close', () => resolve());
+                                server.on('listening', () => {
+                                    const port = server.address().port;
+                                    resolve(port);
+                                });
                                 server.on('error', (err) => reject(err));
                             });
                         }
@@ -458,7 +458,11 @@ mod tests {
                 .await
                 .unwrap();
 
-                tokio::join!(call_test::<(), _>(&ctx, &module, (port,)), call_tcp(port));
+                // Get the OS-assigned port from the server
+                let port: u16 = call_test(&ctx, &module, ()).await;
+
+                // Now connect to the server and run the echo test
+                call_tcp(port).await;
             })
         })
         .await;
