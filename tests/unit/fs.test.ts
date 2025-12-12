@@ -435,15 +435,19 @@ describe("access", () => {
     await access(filePath);
   });
 
-  // Windows handles execute permissions differently - skip this test on Windows
-  if (!IS_WINDOWS) {
-    it("should throw if not proper permissions", async () => {
-      const filePath = "fixtures/hello.txt";
+  it("should handle execute permission check", async () => {
+    const filePath = "fixtures/hello.txt";
+    if (IS_WINDOWS) {
+      // On Windows, X_OK doesn't check Unix-style execute bits
+      // Windows determines executability by file extension, so X_OK typically succeeds
+      await access(filePath, constants.X_OK);
+    } else {
+      // On Unix, X_OK throws for files without execute permission
       await expect(access(filePath, constants.X_OK)).rejects.toThrow(
         /[pP]ermission denied/
       );
-    });
-  }
+    }
+  });
 
   it("should throw if not exists", async () => {
     const filePath = "fixtures/nothing";
@@ -464,15 +468,19 @@ describe("accessSync", () => {
     accessSync(filePath);
   });
 
-  // Windows handles execute permissions differently - skip this test on Windows
-  if (!IS_WINDOWS) {
-    it("should throw if not proper permissions synchronously", () => {
-      const filePath = "fixtures/hello.txt";
+  it("should handle execute permission check synchronously", () => {
+    const filePath = "fixtures/hello.txt";
+    if (IS_WINDOWS) {
+      // On Windows, X_OK doesn't check Unix-style execute bits
+      // Windows determines executability by file extension, so X_OK typically succeeds
+      accessSync(filePath, constants.X_OK);
+    } else {
+      // On Unix, X_OK throws for files without execute permission
       expect(() => accessSync(filePath, constants.X_OK)).toThrow(
         /[pP]ermission denied/
       );
-    });
-  }
+    }
+  });
 
   it("should throw if not exists synchronously", () => {
     const filePath = "fixtures/nothing";

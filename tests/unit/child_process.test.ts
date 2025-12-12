@@ -68,32 +68,31 @@ describe("spawn", () => {
     });
   });
 
-  // Windows doesn't have 'cat' - skip this test on Windows
-  if (!IS_WINDOWS) {
-    it("should send input to the child process", (done) => {
-      const command = "cat";
-      const input = "Hello, world!";
-      const child = spawn(command);
+  it("should send input to the child process", (done) => {
+    // Use cross-platform approach: Windows uses 'findstr .*' to echo all input, Unix uses 'cat'
+    const command = IS_WINDOWS ? "findstr" : "cat";
+    const args = IS_WINDOWS ? [".*"] : [];
+    const input = "Hello, world!";
+    const child = spawn(command, args);
 
-      child.stdin.write(input);
-      child.stdin.end();
+    child.stdin.write(input);
+    child.stdin.end();
 
-      let output = "";
-      child.stdout.on("data", (data) => {
-        output += data.toString();
-      });
-
-      child.on("close", (code) => {
-        try {
-          expect(code).toEqual(0);
-          expect(output.trim()).toEqual(input);
-          done();
-        } catch (error) {
-          done(error);
-        }
-      });
+    let output = "";
+    child.stdout.on("data", (data) => {
+      output += data.toString();
     });
-  }
+
+    child.on("close", (code) => {
+      try {
+        expect(code).toEqual(0);
+        expect(output.trim()).toEqual(input);
+        done();
+      } catch (error) {
+        done(error);
+      }
+    });
+  });
 
   it("should handle errors from the child process", (done) => {
     if (process.env._VIRTUAL_ENV) {
@@ -112,27 +111,31 @@ describe("spawn", () => {
     });
   });
 
-  // Windows doesn't have 'sleep' - skip this test on Windows
-  if (!IS_WINDOWS) {
-    it("should handle child process termination", (done) => {
-      const command = "sleep 999";
-      const child = spawn(command, { shell: true });
+  it("should handle child process termination", (done) => {
+    // Use cross-platform long-running command: Windows uses 'ping -n 999 localhost', Unix uses 'sleep 999'
+    const command = IS_WINDOWS ? "ping -n 999 localhost" : "sleep 999";
+    const child = spawn(command, { shell: true });
 
-      child.on("exit", (code, signal) => {
-        try {
+    child.on("exit", (code, signal) => {
+      try {
+        if (IS_WINDOWS) {
+          // Windows terminates with code 1 when killed
+          expect(code).toEqual(1);
+          expect(signal).toBeNull();
+        } else {
           expect(code).toEqual(0);
           expect(signal).toEqual("SIGKILL");
-          done();
-        } catch (error) {
-          done(error);
         }
-      });
-
-      setTimeout(() => {
-        child.kill("SIGKILL"); //SIGINT does not forward to children on Linux
-      }, 50);
+        done();
+      } catch (error) {
+        done(error);
+      }
     });
-  }
+
+    setTimeout(() => {
+      child.kill("SIGKILL"); //SIGINT does not forward to children on Linux
+    }, 50);
+  });
 
   it("should handle child process stdio inherit", (done) => {
     const child = spawn("echo", ["123"], { stdio: "inherit" });
@@ -182,43 +185,45 @@ describe("spawn", () => {
     await testExitCode("266", 10);
   });
 
-  // Windows doesn't have 'sleep' - skip this test on Windows
-  if (!IS_WINDOWS) {
-    it("should handle detached child process termination", (done) => {
-      const parentProc = spawn(process.argv0, [
-        "-e",
-        `
-          import {spawn} from "child_process";
-          const child = spawn('sleep', ['999'], {
-            detached: true,
-            stdio: 'ignore'
-          });
-          console.log(child.pid.toString());
-        `,
-      ]);
+  it("should handle detached child process termination", (done) => {
+    // Use cross-platform long-running command
+    const sleepCmd = IS_WINDOWS
+      ? "spawn('ping', ['-n', '999', 'localhost']"
+      : "spawn('sleep', ['999']";
 
-      let detachedPidString = "";
-      parentProc.stdout.on("data", (data) => {
-        detachedPidString += data.toString();
-        console.log("Got PID:", detachedPidString);
-        parentProc.kill();
-      });
+    const parentProc = spawn(process.argv0, [
+      "-e",
+      `
+        import {spawn} from "child_process";
+        const child = ${sleepCmd}, {
+          detached: true,
+          stdio: 'ignore'
+        });
+        console.log(child.pid.toString());
+      `,
+    ]);
 
-      parentProc.on("exit", () => {
-        try {
-          const detachedPid = parseInt(detachedPidString.trim());
-          console.log("Parent exited, detached PID:", detachedPid);
-          expect(detachedPid).toBeGreaterThan(0);
-          const exists = process.kill(detachedPid, 0);
-          console.log("Process exists check:", exists);
-          expect(exists).toBe(true);
-          const killResult = process.kill(detachedPid);
-          console.log("Kill result:", killResult);
-          done();
-        } catch (error) {
-          done(error);
-        }
-      });
+    let detachedPidString = "";
+    parentProc.stdout.on("data", (data) => {
+      detachedPidString += data.toString();
+      console.log("Got PID:", detachedPidString);
+      parentProc.kill();
     });
-  }
+
+    parentProc.on("exit", () => {
+      try {
+        const detachedPid = parseInt(detachedPidString.trim());
+        console.log("Parent exited, detached PID:", detachedPid);
+        expect(detachedPid).toBeGreaterThan(0);
+        const exists = process.kill(detachedPid, 0);
+        console.log("Process exists check:", exists);
+        expect(exists).toBe(true);
+        const killResult = process.kill(detachedPid);
+        console.log("Kill result:", killResult);
+        done();
+      } catch (error) {
+        done(error);
+      }
+    });
+  });
 });
