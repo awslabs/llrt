@@ -7,6 +7,7 @@ use rquickjs::{function::Opt, Ctx, Exception, Result};
 use tokio::fs::OpenOptions;
 
 use super::file_handle::FileHandle;
+use crate::security::ensure_access;
 
 pub async fn open(
     ctx: Ctx<'_>,
@@ -14,6 +15,8 @@ pub async fn open(
     flags: Opt<String>,
     mode: Opt<u32>,
 ) -> Result<FileHandle> {
+    ensure_access(&ctx, &path)?;
+
     let mut options = OpenOptions::new();
     match flags.0.as_deref().unwrap_or("r") {
         // We are not supporting the sync modes

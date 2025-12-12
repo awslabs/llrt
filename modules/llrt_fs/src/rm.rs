@@ -4,8 +4,12 @@ use llrt_utils::result::ResultExt;
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 
+use crate::security::ensure_access;
+
 #[allow(clippy::manual_async_fn)]
 pub async fn rmdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let recursive = get_params_rm_dir(options);
 
     if recursive {
@@ -20,6 +24,8 @@ pub async fn rmdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
 
 #[allow(clippy::manual_async_fn)]
 pub fn rmdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let recursive = get_params_rm_dir(options);
 
     if recursive {
@@ -33,6 +39,8 @@ pub fn rmdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -
 }
 
 pub async fn rmfile<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let (recursive, force) = get_params_rm(options);
 
     let res = async move {
@@ -61,7 +69,9 @@ pub async fn rmfile<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>)
     Ok(())
 }
 
-pub fn rmfile_sync(path: String, options: Opt<Object<'_>>) -> Result<()> {
+pub fn rmfile_sync(ctx: Ctx<'_>, path: String, options: Opt<Object<'_>>) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let (recursive, force) = get_params_rm(options);
 
     let res = (|| -> Result<()> {

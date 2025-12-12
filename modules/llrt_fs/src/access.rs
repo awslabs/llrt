@@ -6,10 +6,14 @@ use llrt_utils::result::ResultExt;
 use rquickjs::{prelude::Opt, Ctx, Exception, Result};
 use tokio::fs;
 
+use crate::security::ensure_access;
+
 #[allow(dead_code, unused_imports)]
 use super::{CONSTANT_F_OK, CONSTANT_R_OK, CONSTANT_W_OK, CONSTANT_X_OK};
 
 pub async fn access(ctx: Ctx<'_>, path: String, mode: Opt<u32>) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let metadata = fs::metadata(&path).await.or_throw_msg(
         &ctx,
         &["No such file or directory \"", &path, "\""].concat(),
@@ -19,6 +23,8 @@ pub async fn access(ctx: Ctx<'_>, path: String, mode: Opt<u32>) -> Result<()> {
 }
 
 pub fn access_sync(ctx: Ctx<'_>, path: String, mode: Opt<u32>) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let metadata = std::fs::metadata(path.clone()).or_throw_msg(
         &ctx,
         &["No such file or directory \"", &path, "\""].concat(),

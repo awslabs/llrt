@@ -9,6 +9,7 @@ mod read_dir;
 mod read_file;
 mod rename;
 mod rm;
+pub mod security;
 mod stats;
 mod symlink;
 mod write_file;

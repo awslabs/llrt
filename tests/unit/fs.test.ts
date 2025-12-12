@@ -3,6 +3,7 @@ import legacyImport from "fs";
 
 import path from "node:path";
 import os from "node:os";
+import { spawnCapture } from "./test-utils";
 const IS_WINDOWS = os.platform() === "win32";
 
 it("node:fs should be the same as fs", () => {
@@ -609,3 +610,76 @@ const checkDirExists = async (dirPath: string) => {
     .then(() => true)
     .catch(() => false);
 };
+
+// Strip LLRT_FS_* from current env to avoid interference
+const { LLRT_FS_ALLOW, LLRT_FS_DENY, ...TEST_ENV } = process.env;
+
+describe("fs isolation", () => {
+  it("should block access when path is not in allow list", async () => {
+    const { stderr } = await spawnCapture(
+      process.argv[0],
+      [
+        "-e",
+        `import fs from "fs"; try { fs.readFileSync("/etc/hosts"); console.log("ACCESSED"); } catch(e) { console.error(e.message); }`,
+      ],
+      { env: { ...TEST_ENV, LLRT_FS_ALLOW: "/tmp/" } }
+    );
+
+    expect(stderr.trim()).toContain("Filesystem path not allowed");
+  });
+
+  it("should allow access when path is in allow list", async () => {
+    const tmpFile = path.join(os.tmpdir(), "llrt-test-allow.txt");
+    writeFileSync(tmpFile, "test content");
+
+    try {
+      const { stdout, stderr } = await spawnCapture(
+        process.argv[0],
+        [
+          "-e",
+          `import fs from "fs"; try { const content = fs.readFileSync("${tmpFile}", "utf8"); console.log(content); } catch(e) { console.error(e.message); }`,
+        ],
+        { env: { ...TEST_ENV, LLRT_FS_ALLOW: os.tmpdir() + "/" } }
+      );
+
+      expect(stderr.trim()).toEqual("");
+      expect(stdout.trim()).toEqual("test content");
+    } finally {
+      rmSync(tmpFile, { force: true });
+    }
+  });
+
+  it("should block access when path is in deny list", async () => {
+    const { stderr } = await spawnCapture(
+      process.argv[0],
+      [
+        "-e",
+        `import fs from "fs"; try { fs.readFileSync("/etc/hosts"); console.log("ACCESSED"); } catch(e) { console.error(e.message); }`,
+      ],
+      { env: { ...TEST_ENV, LLRT_FS_DENY: "/etc/" } }
+    );
+
+    expect(stderr.trim()).toContain("Filesystem path denied");
+  });
+
+  it("should allow access when path is not in deny list", async () => {
+    const tmpFile = path.join(os.tmpdir(), "llrt-test-deny.txt");
+    writeFileSync(tmpFile, "allowed content");
+
+    try {
+      const { stdout, stderr } = await spawnCapture(
+        process.argv[0],
+        [
+          "-e",
+          `import fs from "fs"; try { const content = fs.readFileSync("${tmpFile}", "utf8"); console.log(content); } catch(e) { console.error(e.message); }`,
+        ],
+        { env: { ...TEST_ENV, LLRT_FS_DENY: "/etc/" } }
+      );
+
+      expect(stderr.trim()).toEqual("");
+      expect(stdout.trim()).toEqual("allowed content");
+    } finally {
+      rmSync(tmpFile, { force: true });
+    }
+  });
+});

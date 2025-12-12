@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use crate::chmod::{set_mode, set_mode_sync};
+use crate::security::ensure_access;
 
 use llrt_path::resolve_path;
 use llrt_utils::result::ResultExt;
@@ -10,6 +11,8 @@ use tokio::fs;
 
 pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
     let (recursive, mode, path) = get_params(&path, options)?;
+
+    ensure_access(&ctx, &path)?;
 
     if recursive {
         fs::create_dir_all(&path).await
@@ -25,6 +28,8 @@ pub async fn mkdir<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) 
 
 pub fn mkdir_sync<'js>(ctx: Ctx<'js>, path: String, options: Opt<Object<'js>>) -> Result<String> {
     let (recursive, mode, path) = get_params(&path, options)?;
+
+    ensure_access(&ctx, &path)?;
 
     if recursive {
         std::fs::create_dir_all(&path)
@@ -68,6 +73,9 @@ fn random_chars(len: usize) -> String {
 
 pub async fn mkdtemp(ctx: Ctx<'_>, prefix: String) -> Result<String> {
     let path = [prefix.as_str(), random_chars(6).as_str()].join(",");
+
+    ensure_access(&ctx, &path)?;
+
     fs::create_dir_all(&path)
         .await
         .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
@@ -76,6 +84,9 @@ pub async fn mkdtemp(ctx: Ctx<'_>, prefix: String) -> Result<String> {
 
 pub fn mkdtemp_sync(ctx: Ctx<'_>, prefix: String) -> Result<String> {
     let path = [prefix.as_str(), random_chars(6).as_str()].join(",");
+
+    ensure_access(&ctx, &path)?;
+
     std::fs::create_dir_all(&path)
         .or_throw_msg(&ctx, &["Can't create dir \"", &path, "\""].concat())?;
     Ok(path)

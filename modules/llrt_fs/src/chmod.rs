@@ -4,6 +4,8 @@ use rquickjs::{Ctx, Result};
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
 
+use crate::security::ensure_access;
+
 #[cfg(unix)]
 pub(crate) fn chmod_error(path: &str) -> String {
     ["Can't set permissions of \"", path, "\""].concat()
@@ -41,9 +43,11 @@ pub(crate) fn set_mode_sync(ctx: Ctx<'_>, path: &str, mode: u32) -> Result<()> {
 }
 
 pub async fn chmod(ctx: Ctx<'_>, path: String, mode: u32) -> Result<()> {
+    ensure_access(&ctx, &path)?;
     set_mode(ctx, &path, mode).await
 }
 
 pub fn chmod_sync(ctx: Ctx<'_>, path: String, mode: u32) -> Result<()> {
+    ensure_access(&ctx, &path)?;
     set_mode_sync(ctx, &path, mode)
 }

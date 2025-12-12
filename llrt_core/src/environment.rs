@@ -4,6 +4,10 @@
 //network
 pub const ENV_LLRT_NET_ALLOW: &str = "LLRT_NET_ALLOW";
 pub const ENV_LLRT_NET_DENY: &str = "LLRT_NET_DENY";
+
+//filesystem
+pub const ENV_LLRT_FS_ALLOW: &str = "LLRT_FS_ALLOW";
+pub const ENV_LLRT_FS_DENY: &str = "LLRT_FS_DENY";
 pub const ENV_LLRT_NET_POOL_IDLE_TIMEOUT: &str = "LLRT_NET_POOL_IDLE_TIMEOUT";
 pub const ENV_LLRT_HTTP_VERSION: &str = "LLRT_HTTP_VERSION";
 pub const ENV_LLRT_TLS_VERSION: &str = "LLRT_TLS_VERSION";
