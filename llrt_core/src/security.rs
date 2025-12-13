@@ -4,10 +4,13 @@ use std::{env, result::Result as StdResult};
 
 use hyper::{http::uri::InvalidUri, Uri};
 
-use crate::environment::{ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY};
-use crate::modules::{fetch, net};
+use crate::environment::{
+    ENV_LLRT_FS_ALLOW, ENV_LLRT_FS_DENY, ENV_LLRT_NET_ALLOW, ENV_LLRT_NET_DENY,
+};
+use crate::modules::{fetch, fs, net};
 
 pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Network isolation
     if let Ok(env_value) = env::var(ENV_LLRT_NET_ALLOW) {
         let allow_list = build_access_list(env_value);
         fetch::set_allow_list(build_http_access_list(&allow_list)?);
@@ -18,6 +21,17 @@ pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
         let deny_list = build_access_list(env_value);
         fetch::set_deny_list(build_http_access_list(&deny_list)?);
         net::set_deny_list(deny_list);
+    }
+
+    // Filesystem isolation
+    if let Ok(env_value) = env::var(ENV_LLRT_FS_ALLOW) {
+        let allow_list = build_fs_access_list(env_value);
+        fs::security::set_allow_list(allow_list);
+    }
+
+    if let Ok(env_value) = env::var(ENV_LLRT_FS_DENY) {
+        let deny_list = build_fs_access_list(env_value);
+        fs::security::set_deny_list(deny_list);
     }
 
     Ok(())
@@ -45,5 +59,12 @@ fn build_access_list(env_value: String) -> Vec<String> {
                 entry.to_string()
             }
         })
+        .collect()
+}
+
+fn build_fs_access_list(env_value: String) -> Vec<String> {
+    env_value
+        .split_whitespace()
+        .map(|entry| entry.to_string())
         .collect()
 }

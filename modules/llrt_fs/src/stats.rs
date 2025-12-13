@@ -16,6 +16,8 @@ use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result};
 use tokio::fs;
 
+use crate::security::ensure_access;
+
 // The Stats implementation is very much based on Unix. The Windows implementation
 // tries its best to mimic the implementation of libuv since it is the standard.
 // See: https://github.com/libuv/libuv/blob/90648ea3e55125a5a819b32106da6462da310da6/src/win/fs.c
@@ -315,6 +317,8 @@ impl Stats {
 }
 
 pub async fn stat_fn(ctx: Ctx<'_>, path: String) -> Result<Stats> {
+    ensure_access(&ctx, &path)?;
+
     let metadata = fs::metadata(&path)
         .await
         .or_throw_msg(&ctx, &["Can't stat \"", &path, "\""].concat())?;
@@ -325,6 +329,8 @@ pub async fn stat_fn(ctx: Ctx<'_>, path: String) -> Result<Stats> {
 }
 
 pub fn stat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stats> {
+    ensure_access(&ctx, &path)?;
+
     let metadata =
         std::fs::metadata(&path).or_throw_msg(&ctx, &["Can't stat \"", &path, "\""].concat())?;
 
@@ -334,6 +340,8 @@ pub fn stat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stats> {
 }
 
 pub async fn lstat_fn(ctx: Ctx<'_>, path: String) -> Result<Stats> {
+    ensure_access(&ctx, &path)?;
+
     let metadata = fs::symlink_metadata(&path)
         .await
         .or_throw_msg(&ctx, &["Can't lstat \"", &path, "\""].concat())?;
@@ -344,6 +352,8 @@ pub async fn lstat_fn(ctx: Ctx<'_>, path: String) -> Result<Stats> {
 }
 
 pub fn lstat_fn_sync(ctx: Ctx<'_>, path: String) -> Result<Stats> {
+    ensure_access(&ctx, &path)?;
+
     let metadata = std::fs::symlink_metadata(&path)
         .or_throw_msg(&ctx, &["Can't lstat \"", &path, "\""].concat())?;
 
