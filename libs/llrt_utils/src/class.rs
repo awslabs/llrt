@@ -9,7 +9,7 @@ use crate::primordials::{BasePrimordials, Primordial};
 
 use super::{object::ObjectExt, result::OptionExt};
 
-pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
+pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "nodejs.util.inspect.custom";
 
 pub trait IteratorDef<'js>
 where
