@@ -32,18 +32,8 @@ Error: [SubtleCrypto.supports method exists] assert_true: SubtleCrypto.supports 
 
 
 🧪/wpt/console.test.js 
-console > should pass console-is-a-namespace.any.js tests
-Error: [console has the right property descriptors] assert_equals: must not be enumerable expected false but got true
-
 console > should pass console-label-conversion.any.js tests
 Error: [console.count()'s label gets converted to string via label.toString() when label is an object] not a function
-
-console > should pass console-namespace-object-class-string.any.js tests
-Error: [@@toStringTag exists on the namespace object with the appropriate descriptor] assert_own_property: expected property symbol "Symbol(Symbol.toStringTag)" missing
-
------ LAST STDOUT: -----
-[ 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'... 9999900 more items ]
-Uint8Array [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 9999900 more items ]
 
 
 🧪/wpt/encoding.test.js 
