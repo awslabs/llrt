@@ -421,7 +421,6 @@ mod tests {
 
     use llrt_buffer as buffer;
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
-    use rand::Rng;
     use rquickjs::{function::IntoArgs, module::Evaluated, Ctx, FromJs, Module};
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
@@ -430,19 +429,26 @@ mod tests {
 
     use crate::NetModule;
 
-    async fn server(port: u16) {
-        let listerner = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+    async fn server() -> u16 {
+        // Use port 0 to let the OS assign an available port
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
 
-        let (mut stream, _) = listerner.accept().await.unwrap();
-        stream.set_nodelay(true).unwrap();
+        // Spawn the accept loop so we can return the port immediately
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            stream.set_nodelay(true).unwrap();
 
-        // Read
-        let mut buf = vec![0; 1024];
-        let n = stream.read(&mut buf).await.unwrap();
+            // Read
+            let mut buf = vec![0; 1024];
+            let n = stream.read(&mut buf).await.unwrap();
 
-        // Write
-        stream.write_all(&buf[..n]).await.unwrap();
-        stream.flush().await.unwrap();
+            // Write
+            stream.write_all(&buf[..n]).await.unwrap();
+            stream.flush().await.unwrap();
+        });
+
+        port
     }
 
     async fn call_test_delay<'js, T, A>(
@@ -467,8 +473,8 @@ mod tests {
                     .await
                     .unwrap();
 
-                let mut rng = rand::rng();
-                let port: u16 = rng.random_range(49152..=65535);
+                // Start server and get OS-assigned port
+                let port = server().await;
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
@@ -497,10 +503,7 @@ mod tests {
                 .await
                 .unwrap();
 
-                let (ok, _) = tokio::join!(
-                    call_test_delay::<bool, _>(&ctx, &module, (port,)),
-                    server(port)
-                );
+                let ok: bool = call_test_delay(&ctx, &module, (port,)).await;
                 assert!(ok)
             })
         })
