@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { tmpdir, platform } from "node:os";
 import { spawnCapture } from "./test-utils";
+
+const IS_WINDOWS = platform() === "win32";
 
 const compile = async (
   filename: string,
@@ -19,6 +21,11 @@ const run = async (filename: string) => {
   const { code, stdout, stderr } = await spawnCapture(process.argv0, [
     filename,
   ]);
+  return { stdout, stderr, status: code };
+};
+
+const runExecutable = async (filename: string) => {
+  const { code, stdout, stderr } = await spawnCapture(filename, []);
   return { stdout, stderr, status: code };
 };
 
@@ -71,7 +78,10 @@ describe("llrt compile", async () => {
   });
 
   it("can create a self-contained executable", async () => {
-    const tmpExe = `${tmpDir}/hello_exe`;
+    // On Windows, executables need .exe extension
+    const tmpExe = IS_WINDOWS
+      ? `${tmpDir}/hello_exe.exe`
+      : `${tmpDir}/hello_exe`;
 
     // Create a self-contained executable
     const compileResult = await compile("fixtures/hello.js", tmpExe, true);
@@ -83,8 +93,18 @@ describe("llrt compile", async () => {
     const stat = await fs.stat(tmpExe);
     expect(stat.isFile()).toBe(true);
 
-    // 0o111 is the executable bits (uga+x)
-    expect(!!(stat.mode & 0o111)).toBe(true);
+    if (IS_WINDOWS) {
+      // On Windows, verify the file has .exe extension (which makes it executable)
+      expect(tmpExe.endsWith(".exe")).toBe(true);
+    } else {
+      // On Unix, verify executable bits are set (0o111 is uga+x)
+      expect(!!(stat.mode & 0o111)).toBe(true);
+    }
+
+    // Verify the executable actually runs correctly on both platforms
+    const runResult = await runExecutable(tmpExe);
+    expect(runResult.stdout).toEqual("hello world!\n");
+    expect(runResult.status).toEqual(0);
   });
 
   afterAll(async () => {

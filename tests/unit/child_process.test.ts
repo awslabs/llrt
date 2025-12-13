@@ -13,8 +13,9 @@ const { spawn } = defaultImport;
 
 describe("spawn", () => {
   it("should spawn a child process", (done) => {
-    const command = "ls";
-    const args = ["-l"];
+    // Use cross-platform commands
+    const command = IS_WINDOWS ? "cmd" : "ls";
+    const args = IS_WINDOWS ? ["/c", "dir"] : ["-l"];
     const child = spawn(command, args);
     child.on("exit", (code) => {
       try {
@@ -26,9 +27,10 @@ describe("spawn", () => {
     });
   });
   it("should spawn in a diffrent directory", (done) => {
-    const child = spawn("pwd", {
-      cwd: "./tests",
-    });
+    // Use cross-platform commands for getting current directory
+    const child = IS_WINDOWS
+      ? spawn("cmd", ["/c", "cd"], { cwd: "./tests" })
+      : spawn("pwd", { cwd: "./tests" });
     let output = "";
     child.stdout.on("data", (data) => {
       output += data.toString();
@@ -36,7 +38,8 @@ describe("spawn", () => {
 
     child.on("close", (code) => {
       try {
-        const dir = output.trim().split("/").at(-1);
+        // Split by either / or \ for cross-platform compatibility
+        const dir = output.trim().split(/[/\\]/).at(-1);
         expect(dir).toEqual("tests");
         expect(code).toEqual(0);
         done();
@@ -66,9 +69,11 @@ describe("spawn", () => {
   });
 
   it("should send input to the child process", (done) => {
-    const command = "cat";
+    // Use cross-platform approach: Windows uses 'findstr .*' to echo all input, Unix uses 'cat'
+    const command = IS_WINDOWS ? "findstr" : "cat";
+    const args = IS_WINDOWS ? [".*"] : [];
     const input = "Hello, world!";
-    const child = spawn(command);
+    const child = spawn(command, args);
 
     child.stdin.write(input);
     child.stdin.end();
@@ -107,16 +112,20 @@ describe("spawn", () => {
   });
 
   it("should handle child process termination", (done) => {
-    const command = "sleep 999";
+    // Use cross-platform long-running command: Windows uses 'ping -n 999 localhost', Unix uses 'sleep 999'
+    const command = IS_WINDOWS ? "ping -n 999 localhost" : "sleep 999";
     const child = spawn(command, { shell: true });
 
     child.on("exit", (code, signal) => {
       try {
-        if (!IS_WINDOWS) {
+        if (IS_WINDOWS) {
+          // Windows terminates with code 1 when killed
+          expect(code).toEqual(1);
+          expect(signal).toBeNull();
+        } else {
           expect(code).toEqual(0);
+          expect(signal).toEqual("SIGKILL");
         }
-
-        expect(signal).toEqual("SIGKILL");
         done();
       } catch (error) {
         done(error);
@@ -177,11 +186,16 @@ describe("spawn", () => {
   });
 
   it("should handle detached child process termination", (done) => {
+    // Use cross-platform long-running command
+    const sleepCmd = IS_WINDOWS
+      ? "spawn('ping', ['-n', '999', 'localhost']"
+      : "spawn('sleep', ['999']";
+
     const parentProc = spawn(process.argv0, [
       "-e",
       `
         import {spawn} from "child_process";
-        const child = spawn('sleep', ['999'], {
+        const child = ${sleepCmd}, {
           detached: true,
           stdio: 'ignore'
         });
