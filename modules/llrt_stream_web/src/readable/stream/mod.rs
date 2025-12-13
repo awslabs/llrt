@@ -57,15 +57,15 @@ mod tee;
 
 #[rquickjs::class]
 #[derive(JsLifetime)]
-pub(crate) struct ReadableStream<'js> {
-    pub controller: ReadableStreamControllerClass<'js>,
-    pub disturbed: bool,
-    pub state: ReadableStreamState<'js>,
-    pub reader: Option<ReadableStreamReaderClass<'js>>,
-    pub promise_primordials: PromisePrimordials<'js>,
-    pub constructor_type_error: Constructor<'js>,
-    pub constructor_range_error: Constructor<'js>,
-    pub function_array_buffer_is_view: Function<'js>,
+pub struct ReadableStream<'js> {
+    pub(crate) controller: ReadableStreamControllerClass<'js>,
+    pub(crate) disturbed: bool,
+    pub(crate) state: ReadableStreamState<'js>,
+    pub(crate) reader: Option<ReadableStreamReaderClass<'js>>,
+    pub(crate) promise_primordials: PromisePrimordials<'js>,
+    pub(crate) constructor_type_error: Constructor<'js>,
+    pub(crate) constructor_range_error: Constructor<'js>,
+    pub(crate) function_array_buffer_is_view: Function<'js>,
 }
 
 impl<'js> Trace<'js> for ReadableStream<'js> {
@@ -81,7 +81,7 @@ impl<'js> Trace<'js> for ReadableStream<'js> {
     }
 }
 
-pub(crate) type ReadableStreamClass<'js> = Class<'js, ReadableStream<'js>>;
+pub type ReadableStreamClass<'js> = Class<'js, ReadableStream<'js>>;
 pub(crate) type ReadableStreamOwned<'js> = OwnedBorrowMut<'js, ReadableStream<'js>>;
 
 #[derive(Debug, Trace, Clone, JsLifetime)]
