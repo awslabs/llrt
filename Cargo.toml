@@ -23,6 +23,7 @@ members = [
   "modules/llrt_fetch",
   "modules/llrt_fs",
   "modules/llrt_http",
+  "modules/llrt_intl",
   "modules/llrt_navigator",
   "modules/llrt_net",
   "modules/llrt_os",

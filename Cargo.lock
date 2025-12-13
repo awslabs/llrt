@@ -335,6 +335,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono-tz"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6139a8597ed92cf816dfb33f5dd6cf0bb93a6adc938f11039f371bc5bcd26c3"
+dependencies = [
+ "chrono",
+ "phf 0.12.1",
+]
+
+[[package]]
 name = "ciborium"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1642,6 +1652,7 @@ version = "0.7.0-beta"
 dependencies = [
  "bytes",
  "chrono",
+ "chrono-tz",
  "home",
  "http-body-util",
  "hyper",
@@ -1660,7 +1671,7 @@ dependencies = [
  "llrt_utils",
  "md-5",
  "once_cell",
- "phf",
+ "phf 0.13.1",
  "phf_codegen",
  "quick-xml",
  "rand",
@@ -1761,7 +1772,7 @@ dependencies = [
  "hex-simd",
  "llrt_build",
  "memchr",
- "phf",
+ "phf 0.13.1",
 ]
 
 [[package]]
@@ -1854,6 +1865,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_intl"
+version = "0.7.0-beta"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "iana-time-zone",
+ "itoa",
+ "llrt_utils",
+ "rquickjs",
+]
+
+[[package]]
 name = "llrt_json"
 version = "0.7.0-beta"
 dependencies = [
@@ -1902,6 +1925,7 @@ dependencies = [
  "llrt_fs",
  "llrt_hooking",
  "llrt_http",
+ "llrt_intl",
  "llrt_json",
  "llrt_navigator",
  "llrt_net",
@@ -2386,12 +2410,21 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "phf"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "913273894cec178f401a31ec4b656318d95473527be05c0752cc41cdc32be8b7"
+dependencies = [
+ "phf_shared 0.12.1",
+]
+
+[[package]]
+name = "phf"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1562dc717473dbaa4c1f85a36410e03c047b2e7df7f45ee938fbef64ae7fadf"
 dependencies = [
  "phf_macros",
- "phf_shared",
+ "phf_shared 0.13.1",
  "serde",
 ]
 
@@ -2402,7 +2435,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49aa7f9d80421bca176ca8dbfebe668cc7a2684708594ec9f3c0db0805d5d6e1"
 dependencies = [
  "phf_generator",
- "phf_shared",
+ "phf_shared 0.13.1",
 ]
 
 [[package]]
@@ -2412,7 +2445,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135ace3a761e564ec88c03a77317a7c6b80bb7f7135ef2544dbe054243b89737"
 dependencies = [
  "fastrand",
- "phf_shared",
+ "phf_shared 0.13.1",
 ]
 
 [[package]]
@@ -2422,10 +2455,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812f032b54b1e759ccd5f8b6677695d5268c588701effba24601f6932f8269ef"
 dependencies = [
  "phf_generator",
- "phf_shared",
+ "phf_shared 0.13.1",
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
+dependencies = [
+ "siphasher",
 ]
 
 [[package]]
@@ -2729,7 +2771,7 @@ dependencies = [
  "either",
  "hashbrown",
  "indexmap",
- "phf",
+ "phf 0.13.1",
  "relative-path",
  "rquickjs-sys",
 ]
@@ -2744,7 +2786,7 @@ dependencies = [
  "ident_case",
  "indexmap",
  "phf_generator",
- "phf_shared",
+ "phf_shared 0.13.1",
  "proc-macro-crate",
  "proc-macro2",
  "quote",

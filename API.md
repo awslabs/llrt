@@ -441,6 +441,118 @@ export function encode(
 export function decode(value: string): Uint8Array;
 ```
 
+## llrt:timezone
+
+Lightweight timezone support for LLRT. Provides timezone offset calculations and a minimal `Intl.DateTimeFormat` implementation for dayjs and similar library compatibility.
+
+```typescript
+interface Timezone {
+  /**
+   * Get the UTC offset in minutes for a timezone at a given time.
+   * Returns a positive value for timezones ahead of UTC (e.g., 540 for Asia/Tokyo)
+   * and a negative value for timezones behind UTC (e.g., -420 for America/Denver).
+   * Automatically handles DST transitions.
+   */
+  getOffset(timezone: string, epochMs: number): number;
+
+  /**
+   * List all available IANA timezone names.
+   */
+  list(): string[];
+}
+
+declare var Timezone: Timezone;
+
+export { Timezone };
+```
+
+### Example
+
+```javascript
+import { Timezone } from "llrt:timezone";
+
+// Get current offset for Denver (handles DST automatically)
+const offset = Timezone.getOffset("America/Denver", Date.now());
+// Returns -420 (UTC-7) in winter, -360 (UTC-6) in summer
+
+// Check DST transition
+const beforeDst = new Date("2024-03-09T12:00:00Z").getTime();
+const afterDst = new Date("2024-03-11T12:00:00Z").getTime();
+console.log(Timezone.getOffset("America/Denver", beforeDst)); // -420
+console.log(Timezone.getOffset("America/Denver", afterDst)); // -360
+
+// List all available timezones
+const zones = Timezone.list();
+```
+
+### Intl.DateTimeFormat
+
+LLRT provides a minimal `Intl.DateTimeFormat` implementation focused on timezone support. This enables libraries like dayjs to work with timezone conversions transparently.
+
+```javascript
+// Create a formatter for a specific timezone
+const formatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Denver",
+  hour12: false,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+// Format a date
+const date = new Date("2022-03-02T15:45:34Z");
+console.log(formatter.format(date)); // "03/02/2022, 08:45:34"
+
+// Get formatted parts
+const parts = formatter.formatToParts(date);
+// [{ type: "month", value: "03" }, { type: "literal", value: "/" }, ...]
+
+// Get resolved options
+const options = formatter.resolvedOptions();
+console.log(options.timeZone); // "America/Denver"
+```
+
+### Date.prototype.toLocaleString with timezone
+
+`Date.prototype.toLocaleString` is enhanced to support the `timeZone` option:
+
+```javascript
+const date = new Date("2022-03-02T15:45:34Z");
+
+// Convert to Denver time
+console.log(date.toLocaleString("en-US", { timeZone: "America/Denver" }));
+// "03/02/2022, 8:45:34 AM"
+
+// Convert to Tokyo time
+console.log(date.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+// "03/03/2022, 12:45:34 AM"
+```
+
+### Using with dayjs
+
+The timezone module enables dayjs timezone support without polyfills:
+
+```javascript
+const dayjs = require("dayjs");
+const utc = require("dayjs/plugin/utc");
+const timezone = require("dayjs/plugin/timezone");
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Convert between timezones
+const date = dayjs("2022-03-02T15:45:34Z");
+console.log(date.tz("America/Denver").format()); // "2022-03-02T08:45:34-07:00"
+console.log(date.tz("Asia/Tokyo").format()); // "2022-03-03T00:45:34+09:00"
+
+// Get start of day in a specific timezone
+const denver = date.tz("America/Denver");
+console.log(denver.startOf("day").format()); // "2022-03-02T00:00:00-07:00"
+```
+
 ## llrt:qjs
 
 ```typescript
