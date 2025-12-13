@@ -694,10 +694,11 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
 }
 
 pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::String<'_>> {
-    //fine to pass a slice here since we won't copy if not base64
     let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
-    // SAFETY: QuickJS will replace invalid characters with U+FFFD
-    let str = unsafe { String::from_utf8_unchecked(vec) };
+    // Convert bytes to Latin-1 string where each byte becomes a character with that code point.
+    // This matches the WHATWG spec: atob returns a "binary string" where each character's
+    // code point is 0-255, directly representing one byte of data.
+    let str: String = vec.iter().map(|&b| b as char).collect();
     rquickjs::String::from_str(ctx, &str)
 }
 
@@ -742,7 +743,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_atob_invalid_utf8() {
+    async fn test_atob_high_bytes() {
+        // Test that atob correctly decodes bytes 128-255 as Latin-1 characters
+        // (each byte becomes a character with that code point)
         test_async_with(|ctx| {
             Box::pin(async move {
                 crate::init(&ctx).unwrap();
@@ -750,22 +753,53 @@ mod tests {
                     .await
                     .unwrap();
 
-                let data = "aGVsbG/Ad29ybGQ=".to_string();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
                     r#"
                         import { atob } from 'buffer';
 
-                        export async function test(data) {
-                            return atob(data);
+                        export async function test() {
+                            // Test individual high-byte values
+                            // gA== decodes to byte 0x80 (128)
+                            // /w== decodes to byte 0xFF (255)
+                            const test128 = atob("gA==");
+                            const test255 = atob("/w==");
+
+                            // Each decoded byte should become a character
+                            // with that exact code point
+                            if (test128.charCodeAt(0) !== 128) {
+                                return `byte 128 failed: got ${test128.charCodeAt(0)}`;
+                            }
+                            if (test255.charCodeAt(0) !== 255) {
+                                return `byte 255 failed: got ${test255.charCodeAt(0)}`;
+                            }
+
+                            // Test all bytes 128-255 to ensure none are corrupted
+                            // Create base64 for bytes 128-255 and verify roundtrip
+                            const highBytes = new Uint8Array(128);
+                            for (let i = 0; i < 128; i++) {
+                                highBytes[i] = 128 + i;
+                            }
+                            const base64 = Buffer.from(highBytes).toString("base64");
+                            const decoded = atob(base64);
+
+                            for (let i = 0; i < 128; i++) {
+                                const expected = 128 + i;
+                                const actual = decoded.charCodeAt(i);
+                                if (actual !== expected) {
+                                    return `byte ${expected} failed: got ${actual}`;
+                                }
+                            }
+
+                            return "ok";
                         }
                     "#,
                 )
                 .await
                 .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
-                assert_eq!(result, "hello�world");
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "ok");
             })
         })
         .await;
