@@ -5,12 +5,24 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro"]
+default = ["macro", "tls-ring", "crypto-rust"]
 macro = ["llrt_core/macro"]
 lambda = ["llrt_core/lambda"]
 no-sdk = ["llrt_core/no-sdk"]
 uncompressed = ["llrt_core/uncompressed"]
 bindgen = ["llrt_core/bindgen"]
+
+# TLS crypto backend features
+tls-ring = ["llrt_core/tls-ring"]
+tls-aws-lc = ["llrt_core/tls-aws-lc"]
+tls-graviola = ["llrt_core/tls-graviola"]
+tls-openssl = ["llrt_core/tls-openssl"]
+
+# Crypto provider features
+crypto-rust = ["llrt_core/crypto-rust"]
+crypto-ring-rust = ["llrt_core/crypto-ring-rust"]
+crypto-graviola-rust = ["llrt_core/crypto-graviola-rust"]
+crypto-openssl = ["llrt_core/crypto-openssl"]
 
 [dependencies]
 chrono = { version = "0.4", features = ["std"], default-features = false }
@@ -19,7 +31,7 @@ crossterm = { version = "0.29", features = [
   "events",
   "windows",
 ], default-features = false }
-llrt_core = { path = "../llrt_core" }
+llrt_core = { path = "../llrt_core", default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "rt-multi-thread",

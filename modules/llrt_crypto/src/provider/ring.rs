@@ -162,7 +162,6 @@ impl CryptoProvider for RingProvider {
     fn hmac(&self, algorithm: ShaAlgorithm, key: &[u8]) -> Self::Hmac {
         match algorithm {
             ShaAlgorithm::MD5 => {
-                // Ring doesn't support HMAC-MD5, return error
                 panic!("HMAC-MD5 not supported by Ring provider");
             },
             ShaAlgorithm::SHA1 => RingHmacType::Sha1(RingHmacSha1(hmac::Context::with_key(
@@ -180,7 +179,6 @@ impl CryptoProvider for RingProvider {
         }
     }
 
-    // Stub implementations for unsupported operations
     fn ecdsa_sign(
         &self,
         _curve: EllipticCurve,
@@ -253,6 +251,26 @@ impl CryptoProvider for RingProvider {
         Err(CryptoError::UnsupportedAlgorithm)
     }
 
+    fn rsa_oaep_encrypt(
+        &self,
+        _public_key_der: &[u8],
+        _data: &[u8],
+        _hash_alg: ShaAlgorithm,
+        _label: Option<&[u8]>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn rsa_oaep_decrypt(
+        &self,
+        _private_key_der: &[u8],
+        _data: &[u8],
+        _hash_alg: ShaAlgorithm,
+        _label: Option<&[u8]>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
     fn ecdh_derive_bits(
         &self,
         _curve: EllipticCurve,
@@ -266,6 +284,28 @@ impl CryptoProvider for RingProvider {
         &self,
         _private_key: &[u8],
         _public_key: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn aes_encrypt(
+        &self,
+        _mode: AesMode,
+        _key: &[u8],
+        _iv: &[u8],
+        _data: &[u8],
+        _additional_data: Option<&[u8]>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn aes_decrypt(
+        &self,
+        _mode: AesMode,
+        _key: &[u8],
+        _iv: &[u8],
+        _data: &[u8],
+        _additional_data: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -297,6 +337,38 @@ impl CryptoProvider for RingProvider {
         _length: usize,
         _hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn generate_aes_key(&self, _length_bits: u16) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn generate_hmac_key(
+        &self,
+        _hash_alg: ShaAlgorithm,
+        _length_bits: u16,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn generate_ec_key(&self, _curve: EllipticCurve) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn generate_ed25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn generate_x25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+
+    fn generate_rsa_key(
+        &self,
+        _modulus_length: u32,
+        _public_exponent: &[u8],
+    ) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
 }

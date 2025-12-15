@@ -31,9 +31,80 @@ crypto-rust = [
   "der",
   "const-oid",
   "pkcs8",
+  "hmac",
+  "sha1",
+]
+crypto-ring = []
+crypto-ring-rust = [
+  "llrt_json",
+  "aes",
+  "aes-gcm",
+  "aes-kw",
+  "cbc",
+  "ctr",
+  "rsa",
+  "p256",
+  "p384",
+  "p521",
+  "elliptic-curve",
+  "x25519-dalek",
+  "ecdsa",
+  "spki",
+  "der",
+  "const-oid",
+  "pkcs8",
+  "hmac",
+  "sha1",
+]
+crypto-graviola = [
+  "graviola",
+]
+crypto-graviola-rust = [
+  "graviola",
+  "llrt_json",
+  "aes",
+  "aes-gcm",
+  "aes-kw",
+  "cbc",
+  "ctr",
+  "rsa",
+  "p256",
+  "p384",
+  "p521",
+  "elliptic-curve",
+  "x25519-dalek",
+  "ecdsa",
+  "spki",
+  "der",
+  "const-oid",
+  "pkcs8",
+  "hmac",
+  "sha1",
 ]
 # Crypto provider features
-crypto-openssl = ["openssl-sys"]
+crypto-openssl = [
+  "openssl-sys",
+  "openssl",
+  "llrt_json",
+  "aes",
+  "aes-gcm",
+  "aes-kw",
+  "cbc",
+  "ctr",
+  "rsa",
+  "p256",
+  "p384",
+  "p521",
+  "elliptic-curve",
+  "x25519-dalek",
+  "ecdsa",
+  "spki",
+  "der",
+  "const-oid",
+  "pkcs8",
+  "hmac",
+  "sha1",
+]
 
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
@@ -54,8 +125,8 @@ rquickjs = { version = "0.11", features = ["macro"], default-features = false }
 
 # optional
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
-aes = { version = "0.9.0-rc.0", optional = true }
-aes-gcm = { version = "0.11.0-rc.0", features = [
+aes = { version = "0.9.0-rc.2", optional = true }
+aes-gcm = { version = "0.11.0-rc.2", features = [
   "alloc",
 ], default-features = false, optional = true }
 aes-kw = { version = "0.3.0-rc.1", features = [
@@ -73,6 +144,7 @@ der = { version = "0.8.0-rc.10", features = [
 ecdsa = { version = "0.17.0-rc.9", default-features = false, optional = true }
 elliptic-curve = { version = "0.14.0-rc.17", features = [
   "alloc",
+  "sec1",
 ], default-features = false, optional = true }
 md-5 = { version = "0.11.0-rc.3", default-features = false }
 rsa = { version = "0.10.0-rc.10", features = [
@@ -107,9 +179,13 @@ x25519-dalek = { version = "3.0.0-pre.3", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
+hmac = { version = "0.13.0-rc.3", default-features = false, optional = true }
+sha1 = { version = "0.11.0-rc.3", default-features = false, optional = true }
 
 # Crypto provider dependencies
 openssl-sys = { version = "0.9", optional = true }
+openssl = { version = "0.10", optional = true }
+graviola = { version = "0.3", optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

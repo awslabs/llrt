@@ -3,8 +3,11 @@
 use llrt_utils::bytes::{bytes_to_typed_array, ObjectBytes};
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
-use crate::{provider::{CryptoProvider, SimpleDigest}, sha_hash::ShaAlgorithm};
 use super::{encoded_bytes, CRYPTO_PROVIDER};
+use crate::{
+    provider::{CryptoProvider, SimpleDigest},
+    sha_hash::ShaAlgorithm,
+};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -24,7 +27,8 @@ impl Md5 {
 
     #[qjs(rename = "digest")]
     fn md5_digest<'js>(&mut self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
-        let digest = std::mem::replace(&mut self.hasher, CRYPTO_PROVIDER.digest(ShaAlgorithm::MD5)).finalize();
+        let digest = std::mem::replace(&mut self.hasher, CRYPTO_PROVIDER.digest(ShaAlgorithm::MD5))
+            .finalize();
 
         match encoding.0 {
             Some(encoding) => encoded_bytes(ctx, &digest, &encoding),

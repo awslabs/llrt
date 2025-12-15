@@ -3,7 +3,11 @@
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{ArrayBuffer, Ctx, Result, Value};
 
-use crate::{sha_hash::ShaAlgorithm, provider::{CryptoProvider, SimpleDigest}, CRYPTO_PROVIDER};
+use crate::{
+    provider::{CryptoProvider, SimpleDigest},
+    sha_hash::ShaAlgorithm,
+    CRYPTO_PROVIDER,
+};
 
 pub async fn subtle_digest<'js>(
     ctx: Ctx<'js>,

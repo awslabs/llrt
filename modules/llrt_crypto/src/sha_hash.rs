@@ -10,8 +10,8 @@ use llrt_utils::{
 use ring::{digest, hmac};
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
-use crate::provider::{CryptoProvider, SimpleDigest, HmacProvider};
 use super::{encoded_bytes, CRYPTO_PROVIDER};
+use crate::provider::{CryptoProvider, HmacProvider, SimpleDigest};
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]

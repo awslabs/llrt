@@ -12,22 +12,30 @@ name = "llrt_http"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "webpki-roots"]
+default = ["http1", "http2", "webpki-roots", "tls-ring"]
 
-http1 = ["hyper/http1", "hyper-rustls/http1"]
-http2 = ["hyper/http2", "hyper-rustls/http2"]
+http1 = ["hyper/http1", "hyper-rustls?/http1", "hyper-util/http1"]
+http2 = ["hyper/http2", "hyper-rustls?/http2", "hyper-util/http2"]
 
 webpki-roots = ["llrt_tls/webpki-roots"]
 native-roots = ["llrt_tls/native-roots"]
+
+# TLS crypto backend features (rustls-based)
+tls-ring = ["llrt_tls/tls-ring", "dep:hyper-rustls", "hyper-rustls?/ring", "dep:rustls"]
+tls-aws-lc = ["llrt_tls/tls-aws-lc", "dep:hyper-rustls", "hyper-rustls?/aws-lc-rs", "dep:rustls"]
+tls-graviola = ["llrt_tls/tls-graviola", "dep:hyper-rustls", "dep:rustls"]
+
+# OpenSSL TLS backend
+tls-openssl = ["llrt_tls/tls-openssl", "dep:hyper-openssl", "dep:openssl"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
-hyper-util = { version = "0.1", default-features = false }
-hyper-rustls = { version = "0.27", features = [
-  "ring",
-], default-features = false }
+hyper-util = { version = "0.1", features = ["client-legacy", "tokio"], default-features = false }
+hyper-rustls = { version = "0.27", default-features = false, optional = true }
+hyper-openssl = { version = "0.10", features = ["client-legacy"], optional = true }
+openssl = { version = "0.10", optional = true }
 llrt_dns_cache = { version = "0.7.0-beta", path = "../../libs/llrt_dns_cache" }
 llrt_tls = { version = "0.7.0-beta", default-features = false, path = "../llrt_tls" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
@@ -37,8 +45,7 @@ rquickjs = { version = "0.11", features = [
   "std",
 ], default-features = false }
 rustls = { version = "0.23", features = [
-  "ring",
   "tls12",
-], default-features = false }
+], default-features = false, optional = true }
 
 [dev-dependencies]

@@ -3,11 +3,7 @@
 use llrt_utils::result::ResultExt;
 use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
 
-use crate::{
-    subtle::CryptoKey,
-    provider::CryptoProvider,
-    CRYPTO_PROVIDER,
-};
+use crate::{provider::CryptoProvider, subtle::CryptoKey, CRYPTO_PROVIDER};
 
 use super::{
     algorithm_mismatch_error, algorithm_not_supported_error,
@@ -49,28 +45,34 @@ fn derive_bits(
                     && matches!(algorithm, EcAlgorithm::Ecdh)
                 {
                     let handle = &base_key.handle;
-                    return CRYPTO_PROVIDER.ecdh_derive_bits(*curve, handle, public_key).or_throw(ctx);
+                    return CRYPTO_PROVIDER
+                        .ecdh_derive_bits(*curve, handle, public_key)
+                        .or_throw(ctx);
                 }
                 return Err(Exception::throw_message(
                     ctx,
                     "ECDH curve must be same as baseKey",
                 ));
             }
-            return algorithm_mismatch_error(ctx, "ECDH");
+            algorithm_mismatch_error(ctx, "ECDH")
         },
         DeriveAlgorithm::X25519 { public_key } => {
             if !matches!(base_key.algorithm, KeyAlgorithm::X25519) {
                 return algorithm_mismatch_error(ctx, "X25519");
             }
 
-            return CRYPTO_PROVIDER.x25519_derive_bits(&base_key.handle, public_key).or_throw(ctx);
+            CRYPTO_PROVIDER
+                .x25519_derive_bits(&base_key.handle, public_key)
+                .or_throw(ctx)
         },
         DeriveAlgorithm::Derive(KeyDerivation::Hkdf { hash, salt, info }) => {
             if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport) {
                 return algorithm_mismatch_error(ctx, "HKDF");
             }
             let out_length = (length / 8).try_into().or_throw(ctx)?;
-            return CRYPTO_PROVIDER.hkdf_derive_key(&base_key.handle, salt, info, out_length, *hash).or_throw(ctx);
+            CRYPTO_PROVIDER
+                .hkdf_derive_key(&base_key.handle, salt, info, out_length, *hash)
+                .or_throw(ctx)
         },
         DeriveAlgorithm::Derive(KeyDerivation::Pbkdf2 {
             hash,
@@ -81,7 +83,9 @@ fn derive_bits(
                 return algorithm_mismatch_error(ctx, "PBKDF2");
             }
             let out_length = (length / 8).try_into().or_throw(ctx)?;
-            return CRYPTO_PROVIDER.pbkdf2_derive_key(&base_key.handle, salt, *iterations, out_length, *hash).or_throw(ctx);
+            CRYPTO_PROVIDER
+                .pbkdf2_derive_key(&base_key.handle, salt, *iterations, out_length, *hash)
+                .or_throw(ctx)
         },
     }
 }

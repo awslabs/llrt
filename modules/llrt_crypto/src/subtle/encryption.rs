@@ -9,14 +9,6 @@ use crate::{
     CRYPTO_PROVIDER,
 };
 
-use crate::sha_hash::ShaAlgorithm;
-
-pub(super) enum OaepPadding {
-    Sha256(Oaep<rsa::sha2::Sha256>),
-    Sha384(Oaep<rsa::sha2::Sha384>),
-    Sha512(Oaep<rsa::sha2::Sha512>),
-}
-
 use super::{
     algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm,
     key_algorithm::KeyAlgorithm, validate_aes_length, CryptoKey, EncryptionMode,
@@ -139,10 +131,11 @@ pub fn encrypt_decrypt(
                     )
                     .or_throw(ctx)?,
                 EncryptionOperation::Decrypt => {
-                    if data.len() < 16 {
+                    let tag_len = (*tag_length as usize) / 8;
+                    if data.len() < tag_len {
                         return Err(Exception::throw_message(ctx, "Invalid ciphertext length"));
                     }
-                    let (ciphertext, tag) = data.split_at(data.len() - 16);
+                    // Pass the full data (ciphertext + tag) to the decrypt function
                     CRYPTO_PROVIDER
                         .aes_decrypt(
                             AesMode::Gcm {
@@ -150,7 +143,7 @@ pub fn encrypt_decrypt(
                             },
                             handle,
                             iv,
-                            ciphertext,
+                            data,
                             aad,
                         )
                         .or_throw(ctx)?
@@ -158,22 +151,47 @@ pub fn encrypt_decrypt(
             }
         },
         EncryptionAlgorithm::AesKw => {
-            let _padding = match mode {
+            let padding = match mode {
                 EncryptionMode::Encryption => {
                     return Err(Exception::throw_message(
                         ctx,
                         "AES-KW can only be used for wrapping keys",
                     ));
                 },
-                EncryptionMode::Wrapping(_padding) => _padding,
+                EncryptionMode::Wrapping(padding) => padding,
             };
 
             match operation {
                 EncryptionOperation::Encrypt => {
-                    CRYPTO_PROVIDER.aes_kw_wrap(handle, data).or_throw(ctx)?
+                    // Pad data to multiple of 8 bytes if needed
+                    let padded_data = if !data.len().is_multiple_of(8) {
+                        let pad_len = 8 - (data.len() % 8);
+                        let mut padded = data.to_vec();
+                        padded.extend(std::iter::repeat_n(padding, pad_len));
+                        padded
+                    } else {
+                        data.to_vec()
+                    };
+                    CRYPTO_PROVIDER
+                        .aes_kw_wrap(handle, &padded_data)
+                        .or_throw(ctx)?
                 },
                 EncryptionOperation::Decrypt => {
-                    CRYPTO_PROVIDER.aes_kw_unwrap(handle, data).or_throw(ctx)?
+                    let unwrapped = CRYPTO_PROVIDER.aes_kw_unwrap(handle, data).or_throw(ctx)?;
+                    // Remove padding if present
+                    if padding != 0 {
+                        let trimmed: Vec<u8> = unwrapped
+                            .into_iter()
+                            .rev()
+                            .skip_while(|&b| b == padding)
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev()
+                            .collect();
+                        trimmed
+                    } else {
+                        unwrapped
+                    }
                 },
             }
         },
@@ -194,29 +212,4 @@ pub fn encrypt_decrypt(
         },
     };
     Ok(bytes)
-}
-
-pub fn rsa_oaep_padding(
-    ctx: &Ctx<'_>,
-    label: &Option<Box<[u8]>>,
-    hash: &ShaAlgorithm,
-) -> Result<Oaep> {
-    let mut padding = match hash {
-        ShaAlgorithm::SHA1 => {
-            return Err(Exception::throw_message(
-                ctx,
-                "SHA-1 is not supported for RSA-OAEP",
-            ));
-        },
-        ShaAlgorithm::SHA256 => Oaep::new::<rsa::sha2::Sha256>(),
-        ShaAlgorithm::SHA384 => Oaep::new::<rsa::sha2::Sha384>(),
-        ShaAlgorithm::SHA512 => Oaep::new::<rsa::sha2::Sha512>(),
-    };
-    if let Some(label) = label {
-        if !label.is_empty() {
-            padding.label = Some(label.to_owned());
-        }
-    }
-
-    Ok(padding)
 }

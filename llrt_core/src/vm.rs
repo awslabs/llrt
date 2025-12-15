@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{env, result::Result as StdResult};
 
-use llrt_modules::crypto;
-use ring::rand::SecureRandom;
 use rquickjs::{
     context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
     CatchResultExt, Ctx, Error, Result, Value,

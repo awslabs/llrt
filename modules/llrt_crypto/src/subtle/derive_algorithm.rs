@@ -48,7 +48,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
 
                 if let KeyAlgorithm::Ec { curve, .. } = &public_key.algorithm {
                     DeriveAlgorithm::Ecdh {
-                        curve: curve.clone(),
+                        curve: *curve,
                         public_key: public_key.handle.clone(),
                     }
                 } else {
