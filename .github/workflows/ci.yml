@@ -30,12 +30,32 @@ jobs:
             echo "console.log(123);" > "bundle/js/test$i.js"
           done
           cargo clippy --all-targets --all-features -- -D warnings
+
   build:
     needs:
       - check
     strategy:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-14
+        crypto:
+          - name: default
+            features: ""
+          - name: crypto-rust+tls-ring
+            features: "--no-default-features --features crypto-rust,tls-ring,macro"
+          - name: crypto-rust+tls-aws-lc
+            features: "--no-default-features --features crypto-rust,tls-aws-lc,macro"
+          - name: crypto-ring-rust+tls-ring
+            features: "--no-default-features --features crypto-ring-rust,tls-ring,macro"
+          - name: crypto-graviola-rust+tls-graviola
+            features: "--no-default-features --features crypto-graviola-rust,tls-graviola,macro"
+          - name: crypto-openssl+tls-openssl
+            features: "--no-default-features --features crypto-openssl,tls-openssl,macro"
         include:
           - os: windows-latest
             platform: windows
@@ -53,7 +73,7 @@ jobs:
             platform: darwin
             arch: x86_64
             toolchain: nightly
-          - os: macos-latest
+          - os: macos-14
             platform: darwin
             arch: aarch64
             toolchain: nightly
@@ -63,6 +83,8 @@ jobs:
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
+      cargo_features: ${{ matrix.crypto.features }}
+
   modules:
     needs:
       - check
@@ -81,7 +103,7 @@ jobs:
             platform: darwin
             arch: x86_64
             toolchain: stable
-          - os: macos-latest
+          - os: macos-14
             platform: darwin
             arch: aarch64
             toolchain: stable
