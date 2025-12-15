@@ -9,10 +9,19 @@ use hyper_util::{
 use llrt_dns_cache::CachedDnsResolver;
 use once_cell::sync::Lazy;
 
-use crate::{get_http_version, get_pool_idle_timeout};
+use crate::get_pool_idle_timeout;
+
+#[cfg(all(
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
+    not(feature = "tls-openssl")
+))]
+use crate::get_http_version;
 
 // Rustls-based TLS backends
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(all(
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
+    not(feature = "tls-openssl")
+))]
 mod rustls_client {
     use super::*;
     use hyper_rustls::HttpsConnector;
@@ -87,7 +96,7 @@ mod openssl_client {
             tls_config
         } else {
             match TLS_CONFIG.as_ref() {
-                Ok(builder) => {
+                Ok(_builder) => {
                     // Clone the builder by creating a new one with same settings
                     llrt_tls::build_client_config(llrt_tls::BuildClientConfigOptions {
                         reject_unauthorized: true,
@@ -115,7 +124,10 @@ mod openssl_client {
 }
 
 // Re-export based on feature
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(all(
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
+    not(feature = "tls-openssl")
+))]
 pub use rustls_client::*;
 
 #[cfg(feature = "tls-openssl")]

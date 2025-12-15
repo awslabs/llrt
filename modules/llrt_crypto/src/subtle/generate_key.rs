@@ -114,10 +114,12 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
     }
 }
 
+#[allow(dead_code)]
 fn generate_symmetric_key(_ctx: &Ctx<'_>, length: usize) -> Result<Vec<u8>> {
     Ok(crate::random_byte_array(length))
 }
 
+#[allow(dead_code)]
 pub fn get_hash_length(ctx: &Ctx, hash: &ShaAlgorithm, length: u16) -> Result<usize> {
     if length == 0 {
         return Ok(hash.hmac_algorithm().digest_algorithm().block_len());

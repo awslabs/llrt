@@ -28,7 +28,7 @@ pub fn set_tls_version(version: Option<openssl::ssl::SslVersion>) {
 }
 
 pub fn get_tls_version() -> Option<openssl::ssl::SslVersion> {
-    TLS_VERSION.get_or_init(|| None).clone()
+    *TLS_VERSION.get_or_init(|| None)
 }
 
 pub static TLS_CONFIG: Lazy<Result<SslConnectorBuilder, Box<dyn std::error::Error + Send + Sync>>> =

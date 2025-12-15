@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 use std::sync::{Arc, OnceLock};
 
 use once_cell::sync::Lazy;
@@ -13,12 +14,16 @@ use webpki_roots::TLS_SERVER_ROOTS;
 use crate::no_verification::NoCertificateVerification;
 
 // Select the crypto provider based on feature flags
-#[cfg(feature = "tls-ring")]
+#[cfg(all(
+    feature = "tls-ring",
+    not(feature = "tls-aws-lc"),
+    not(feature = "tls-graviola")
+))]
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls::crypto::ring::default_provider())
 }
 
-#[cfg(feature = "tls-aws-lc")]
+#[cfg(all(feature = "tls-aws-lc", not(feature = "tls-graviola")))]
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls::crypto::aws_lc_rs::default_provider())
 }

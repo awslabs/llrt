@@ -1,13 +1,22 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(all(
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
+    not(feature = "tls-openssl")
+))]
 mod rustls_config;
 
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(all(
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
+    not(feature = "tls-openssl")
+))]
 pub use rustls_config::*;
 
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(all(
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
+    not(feature = "tls-openssl")
+))]
 mod no_verification;
 
 #[cfg(feature = "tls-openssl")]

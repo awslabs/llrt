@@ -4,9 +4,8 @@
 //! OpenSSL crypto provider - uses OpenSSL for cryptographic operations.
 
 use openssl::hash::{Hasher, MessageDigest};
-use openssl::pkey::{PKey, Private};
-use openssl::sign::{Signer, Verifier};
-use openssl::symm::{Cipher, Crypter, Mode};
+use openssl::pkey::PKey;
+use openssl::sign::Signer;
 
 use crate::provider::{AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest};
 use crate::sha_hash::ShaAlgorithm;

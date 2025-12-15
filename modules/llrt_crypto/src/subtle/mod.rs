@@ -69,12 +69,14 @@ impl SubtleCrypto {
     }
 }
 
+#[allow(dead_code)]
 pub enum AesCbcEncVariant {
     Aes128(cbc::Encryptor<aes::Aes128>),
     Aes192(cbc::Encryptor<aes::Aes192>),
     Aes256(cbc::Encryptor<aes::Aes256>),
 }
 
+#[allow(dead_code)]
 impl AesCbcEncVariant {
     pub fn new(key_len: u16, key: &[u8], iv: &[u8]) -> std::result::Result<Self, InvalidLength> {
         let variant: AesCbcEncVariant = match key_len {
@@ -96,12 +98,14 @@ impl AesCbcEncVariant {
     }
 }
 
+#[allow(dead_code)]
 pub enum AesCbcDecVariant {
     Aes128(cbc::Decryptor<aes::Aes128>),
     Aes192(cbc::Decryptor<aes::Aes192>),
     Aes256(cbc::Decryptor<aes::Aes256>),
 }
 
+#[allow(dead_code)]
 impl AesCbcDecVariant {
     pub fn new(key_len: u16, key: &[u8], iv: &[u8]) -> std::result::Result<Self, InvalidLength> {
         let variant: AesCbcDecVariant = match key_len {
@@ -123,6 +127,7 @@ impl AesCbcDecVariant {
     }
 }
 
+#[allow(dead_code)]
 pub enum AesCtrVariant {
     Aes128Ctr32(Ctr32BE<aes::Aes128>),
     Aes128Ctr64(Ctr64BE<aes::Aes128>),
@@ -135,6 +140,7 @@ pub enum AesCtrVariant {
     Aes256Ctr128(Ctr128BE<aes::Aes256>),
 }
 
+#[allow(dead_code)]
 impl AesCtrVariant {
     pub fn new(
         key_len: u16,
@@ -191,6 +197,7 @@ impl AesCtrVariant {
     }
 }
 
+#[allow(dead_code)]
 pub enum AesGcmVariant {
     Aes128Gcm96(AesGcm<Aes128, U12, U12>),
     Aes192Gcm96(AesGcm<Aes192, U12, U12>),
@@ -209,6 +216,7 @@ pub enum AesGcmVariant {
     Aes256Gcm128(AesGcm<Aes256, U12, U16>),
 }
 
+#[allow(dead_code)]
 impl AesGcmVariant {
     pub fn new(
         key_len: u16,
