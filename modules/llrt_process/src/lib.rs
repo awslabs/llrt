@@ -3,26 +3,30 @@
 use std::collections::HashMap;
 use std::env;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, RwLock};
 
-use llrt_utils::signals;
-
+use llrt_events::{Emitter, EventEmitter, EventList};
 use llrt_utils::primordials::{BasePrimordials, Primordial};
 pub use llrt_utils::sysinfo;
 use llrt_utils::{
-    module::{export_default, ModuleInfo},
+    module::ModuleInfo,
     object::Proxy,
     result::ResultExt,
+    signals,
     sysinfo::{ARCH, PLATFORM},
     time, VERSION,
 };
-use rquickjs::Exception;
 use rquickjs::{
+    class::{Trace, Tracer},
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     object::{Accessor, Property},
-    prelude::Func,
-    Array, BigInt, Ctx, Error, Function, IntoJs, Object, Result, Value,
+    prelude::{Func, Opt, Rest, This},
+    Array, BigInt, Class, Ctx, Error, Exception, Function, IntoJs, Object, Result, Value,
 };
+
+#[cfg(unix)]
+mod signal_handler;
 
 pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
 
@@ -130,21 +134,285 @@ fn setegid(id: u32) -> i32 {
     unsafe { libc::setegid(id) }
 }
 
+#[rquickjs::class]
+#[derive(rquickjs::JsLifetime)]
+pub struct Process<'js> {
+    emitter: EventEmitter<'js>,
+    env: Object<'js>,
+    argv: Vec<String>,
+    argv0: String,
+}
+
+impl<'js> Trace<'js> for Process<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.emitter.trace(tracer);
+        self.env.trace(tracer);
+    }
+}
+
+impl<'js> Emitter<'js> for Process<'js> {
+    fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
+        self.emitter.get_event_list()
+    }
+}
+
+#[rquickjs::methods(rename_all = "camelCase")]
+impl<'js> Process<'js> {
+    #[qjs(get)]
+    fn env(&self) -> Object<'js> {
+        self.env.clone()
+    }
+
+    #[qjs(get)]
+    fn argv(&self) -> Vec<String> {
+        self.argv.clone()
+    }
+
+    #[qjs(get)]
+    fn argv0(&self) -> String {
+        self.argv0.clone()
+    }
+
+    #[qjs(get)]
+    fn platform(&self) -> &'static str {
+        PLATFORM
+    }
+
+    #[qjs(get)]
+    fn arch(&self) -> &'static str {
+        ARCH
+    }
+
+    #[qjs(get)]
+    fn version(&self) -> &'static str {
+        VERSION
+    }
+
+    #[qjs(get)]
+    fn id(&self) -> u32 {
+        std::process::id()
+    }
+
+    fn cwd(ctx: Ctx<'js>) -> Result<String> {
+        cwd(ctx)
+    }
+
+    fn exit(ctx: Ctx<'js>, code: Opt<Value<'js>>) -> Result<()> {
+        let code = code.0.unwrap_or_else(|| Value::new_undefined(ctx.clone()));
+        exit(ctx, code)
+    }
+
+    fn kill(ctx: Ctx<'js>, pid: u32, signal: Opt<Value<'js>>) -> Result<bool> {
+        signals::kill(&ctx, pid, signal)
+    }
+
+    // EventEmitter methods
+    fn on(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        // Start signal handler if this is a signal event (Unix only)
+        #[cfg(unix)]
+        if event.is_string() {
+            let event_name: String = event.get()?;
+            if signal_handler::is_signal_event(&event_name) {
+                signal_handler::maybe_start_signal_handler(&ctx, &this.0, &event_name)?;
+            }
+        }
+        Self::add_event_listener(this, ctx, event, listener, false, false)
+    }
+
+    fn once(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        // Start signal handler if this is a signal event (Unix only)
+        #[cfg(unix)]
+        if event.is_string() {
+            let event_name: String = event.get()?;
+            if signal_handler::is_signal_event(&event_name) {
+                signal_handler::maybe_start_signal_handler(&ctx, &this.0, &event_name)?;
+            }
+        }
+        Self::add_event_listener(this, ctx, event, listener, false, true)
+    }
+
+    fn off(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        <Self as Emitter>::remove_event_listener(this, ctx, event, listener)
+    }
+
+    #[qjs(rename = "addListener")]
+    fn add_listener(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        Self::add_event_listener(this, ctx, event, listener, false, false)
+    }
+
+    #[qjs(rename = "removeListener")]
+    fn remove_listener(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        <Self as Emitter>::remove_event_listener(this, ctx, event, listener)
+    }
+
+    #[qjs(rename = "prependListener")]
+    fn prepend_listener(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        Self::add_event_listener(this, ctx, event, listener, true, false)
+    }
+
+    #[qjs(rename = "prependOnceListener")]
+    fn prepend_once_listener(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+    ) -> Result<Class<'js, Self>> {
+        Self::add_event_listener(this, ctx, event, listener, true, true)
+    }
+
+    fn emit(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        args: Rest<Value<'js>>,
+    ) -> Result<bool> {
+        let has_listeners = this.borrow().has_listener_str_from_value(&ctx, &event)?;
+        <Self as Emitter>::emit(this, ctx, event, args)?;
+        Ok(has_listeners)
+    }
+
+    #[qjs(rename = "eventNames")]
+    fn event_names(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Vec<Value<'js>>> {
+        let events = this.borrow().get_event_list();
+        let events = events.read().or_throw(&ctx)?;
+
+        let mut names = Vec::with_capacity(events.len());
+        for (key, _entry) in events.iter() {
+            let value = match key {
+                llrt_events::EventKey::Symbol(symbol) => symbol.clone().into_value(),
+                llrt_events::EventKey::String(str) => {
+                    rquickjs::String::from_str(ctx.clone(), str)?.into()
+                },
+            };
+            names.push(value)
+        }
+
+        Ok(names)
+    }
+
+    #[qjs(rename = "listenerCount")]
+    fn listener_count(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+    ) -> Result<usize> {
+        let key = if event.is_string() {
+            let s: String = event.get()?;
+            llrt_events::EventKey::String(s.into())
+        } else {
+            let sym = event.into_symbol().ok_or("Not a symbol").or_throw(&ctx)?;
+            llrt_events::EventKey::Symbol(sym)
+        };
+
+        let events = this.borrow().get_event_list();
+        let events = events.read().or_throw(&ctx)?;
+
+        Ok(events
+            .iter()
+            .find(|(k, _)| k == &key)
+            .map(|(_, items)| items.len())
+            .unwrap_or(0))
+    }
+
+    // Unix-specific methods
+    #[cfg(unix)]
+    fn getuid(&self) -> u32 {
+        getuid()
+    }
+
+    #[cfg(unix)]
+    fn getgid(&self) -> u32 {
+        getgid()
+    }
+
+    #[cfg(unix)]
+    fn geteuid(&self) -> u32 {
+        geteuid()
+    }
+
+    #[cfg(unix)]
+    fn getegid(&self) -> u32 {
+        getegid()
+    }
+
+    #[cfg(unix)]
+    fn setuid(&self, id: u32) -> i32 {
+        setuid(id)
+    }
+
+    #[cfg(unix)]
+    fn setgid(&self, id: u32) -> i32 {
+        setgid(id)
+    }
+
+    #[cfg(unix)]
+    fn seteuid(&self, id: u32) -> i32 {
+        seteuid(id)
+    }
+
+    #[cfg(unix)]
+    fn setegid(&self, id: u32) -> i32 {
+        setegid(id)
+    }
+}
+
+impl<'js> Process<'js> {
+    fn add_event_listener(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        event: Value<'js>,
+        listener: Function<'js>,
+        prepend: bool,
+        once: bool,
+    ) -> Result<Class<'js, Self>> {
+        <Self as Emitter>::add_event_listener(this, ctx, event, listener, prepend, once)
+    }
+
+    fn has_listener_str_from_value(&self, ctx: &Ctx<'js>, event: &Value<'js>) -> Result<bool> {
+        if event.is_string() {
+            let s: String = event.get()?;
+            Ok(self.has_listener_str(&s))
+        } else {
+            self.has_listener(ctx.clone(), event.clone())
+        }
+    }
+}
+
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
     BasePrimordials::init(ctx)?;
-    let process = Object::new(ctx.clone())?;
-    let process_versions = Object::new(ctx.clone())?;
-    process_versions.set("llrt", VERSION)?;
-    // Node.js version - Set for compatibility with some Node.js packages (e.g. cls-hooked).
-    process_versions.set("node", "0.0.0")?;
 
-    let hr_time = Function::new(ctx.clone(), hr_time)?;
-    hr_time.set("bigint", Func::from(hr_time_big_int))?;
-
-    let release = Object::new(ctx.clone())?;
-    release.prop("name", Property::from("llrt").enumerable())?;
-
+    // Create environment proxy
     let env_map: HashMap<String, String> = env::vars().collect();
     let mut args: Vec<String> = env::args().collect();
 
@@ -156,23 +424,45 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     }
 
     let env_obj = env_map.into_js(ctx)?;
-
     let env_proxy = Proxy::with_target(ctx.clone(), env_obj)?;
     env_proxy.setter(Func::from(env_proxy_setter))?;
+    let env_proxy_obj: Object = env_proxy.into_js(ctx)?.into_object().unwrap();
 
-    process.set("env", env_proxy)?;
-    process.set("cwd", Func::from(cwd))?;
-    process.set("argv0", args.clone().first().cloned().unwrap_or_default())?;
-    process.set("id", std::process::id())?;
-    process.set("argv", args)?;
-    process.set("platform", PLATFORM)?;
-    process.set("arch", ARCH)?;
-    process.set("hrtime", hr_time)?;
-    process.set("release", release)?;
-    process.set("version", VERSION)?;
-    process.set("versions", process_versions)?;
+    let argv0 = args.first().cloned().unwrap_or_default();
 
-    process.prop(
+    // Create process instance
+    let process = Process {
+        emitter: EventEmitter::new(),
+        env: env_proxy_obj,
+        argv: args,
+        argv0,
+    };
+
+    let process_class = Class::instance(ctx.clone(), process)?;
+
+    // Add additional properties that aren't simple getters
+    let process_obj = process_class
+        .as_object()
+        .expect("Process class should be an object");
+
+    // versions object
+    let process_versions = Object::new(ctx.clone())?;
+    process_versions.set("llrt", VERSION)?;
+    process_versions.set("node", "0.0.0")?;
+    process_obj.set("versions", process_versions)?;
+
+    // hrtime function with bigint method
+    let hr_time_fn = Function::new(ctx.clone(), hr_time)?;
+    hr_time_fn.set("bigint", Func::from(hr_time_big_int))?;
+    process_obj.set("hrtime", hr_time_fn)?;
+
+    // release object
+    let release = Object::new(ctx.clone())?;
+    release.prop("name", Property::from("llrt").enumerable())?;
+    process_obj.set("release", release)?;
+
+    // exitCode accessor
+    process_obj.prop(
         "exitCode",
         Accessor::new(
             |ctx| {
@@ -193,25 +483,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         .configurable()
         .enumerable(),
     )?;
-    process.set("exit", Func::from(exit))?;
-    process.set(
-        "kill",
-        Func::from(|ctx, pid, signal| signals::kill(&ctx, pid, signal)),
-    )?;
 
-    #[cfg(unix)]
-    {
-        process.set("getuid", Func::from(getuid))?;
-        process.set("getgid", Func::from(getgid))?;
-        process.set("geteuid", Func::from(geteuid))?;
-        process.set("getegid", Func::from(getegid))?;
-        process.set("setuid", Func::from(setuid))?;
-        process.set("setgid", Func::from(setgid))?;
-        process.set("seteuid", Func::from(seteuid))?;
-        process.set("setegid", Func::from(setegid))?;
-    }
-
-    globals.set("process", process)?;
+    globals.set("process", process_class)?;
 
     Ok(())
 }
@@ -234,6 +507,14 @@ impl ModuleDef for ProcessModule {
         declare.declare("exitCode")?;
         declare.declare("exit")?;
         declare.declare("kill")?;
+        declare.declare("on")?;
+        declare.declare("once")?;
+        declare.declare("off")?;
+        declare.declare("addListener")?;
+        declare.declare("removeListener")?;
+        declare.declare("emit")?;
+        declare.declare("eventNames")?;
+        declare.declare("listenerCount")?;
 
         #[cfg(unix)]
         {
@@ -253,17 +534,65 @@ impl ModuleDef for ProcessModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         let globals = ctx.globals();
-        let process: Object = globals.get("process")?;
+        let process: Class<Process> = globals.get("process")?;
 
-        export_default(ctx, exports, |default| {
-            for name in process.keys::<String>() {
-                let name = name?;
-                let value: Value = process.get(&name)?;
-                default.set(name, value)?;
+        // Export the process object directly as default
+        // This allows prototype methods to be accessed correctly
+        exports.export("default", process.clone())?;
+
+        // Also export individual named exports for destructuring imports
+        // We need to get these from the object including prototype chain
+        let process_obj = process
+            .as_object()
+            .expect("Process class should be an object");
+
+        // Export commonly used properties/methods
+        let names = [
+            "env",
+            "cwd",
+            "argv0",
+            "argv",
+            "platform",
+            "arch",
+            "hrtime",
+            "release",
+            "version",
+            "versions",
+            "exitCode",
+            "exit",
+            "kill",
+            "on",
+            "once",
+            "off",
+            "addListener",
+            "removeListener",
+            "emit",
+            "eventNames",
+            "listenerCount",
+            "id",
+            #[cfg(unix)]
+            "getuid",
+            #[cfg(unix)]
+            "getgid",
+            #[cfg(unix)]
+            "geteuid",
+            #[cfg(unix)]
+            "getegid",
+            #[cfg(unix)]
+            "setuid",
+            #[cfg(unix)]
+            "setgid",
+            #[cfg(unix)]
+            "seteuid",
+            #[cfg(unix)]
+            "setegid",
+        ];
+
+        for name in names {
+            if let Ok(value) = process_obj.get::<&str, Value>(name) {
+                exports.export(name, value)?;
             }
-
-            Ok(())
-        })?;
+        }
 
         Ok(())
     }
@@ -347,6 +676,35 @@ mod tests {
                 .unwrap();
                 let result = call_test::<Coerced<i64>, _>(&ctx, &module, ()).await;
                 assert!(result.0 > 0);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_process_on() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test() {
+                            let called = false;
+                            process.on('test-event', () => {
+                                called = true;
+                            });
+                            process.emit('test-event');
+                            return called;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<bool, _>(&ctx, &module, ()).await;
+                assert!(result);
             })
         })
         .await;
