@@ -343,47 +343,6 @@ impl<'js> Process<'js> {
             .map(|(_, items)| items.len())
             .unwrap_or(0))
     }
-
-    // Unix-specific methods
-    #[cfg(unix)]
-    fn getuid(&self) -> u32 {
-        getuid()
-    }
-
-    #[cfg(unix)]
-    fn getgid(&self) -> u32 {
-        getgid()
-    }
-
-    #[cfg(unix)]
-    fn geteuid(&self) -> u32 {
-        geteuid()
-    }
-
-    #[cfg(unix)]
-    fn getegid(&self) -> u32 {
-        getegid()
-    }
-
-    #[cfg(unix)]
-    fn setuid(&self, id: u32) -> i32 {
-        setuid(id)
-    }
-
-    #[cfg(unix)]
-    fn setgid(&self, id: u32) -> i32 {
-        setgid(id)
-    }
-
-    #[cfg(unix)]
-    fn seteuid(&self, id: u32) -> i32 {
-        seteuid(id)
-    }
-
-    #[cfg(unix)]
-    fn setegid(&self, id: u32) -> i32 {
-        setegid(id)
-    }
 }
 
 impl<'js> Process<'js> {
@@ -483,6 +442,21 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         .configurable()
         .enumerable(),
     )?;
+
+    // Unix-specific methods - added directly to the object because #[cfg(unix)]
+    // on individual methods inside #[rquickjs::methods] doesn't work correctly
+    // with the proc macro on Windows
+    #[cfg(unix)]
+    {
+        process_obj.set("getuid", Func::from(getuid))?;
+        process_obj.set("getgid", Func::from(getgid))?;
+        process_obj.set("geteuid", Func::from(geteuid))?;
+        process_obj.set("getegid", Func::from(getegid))?;
+        process_obj.set("setuid", Func::from(setuid))?;
+        process_obj.set("setgid", Func::from(setgid))?;
+        process_obj.set("seteuid", Func::from(seteuid))?;
+        process_obj.set("setegid", Func::from(setegid))?;
+    }
 
     globals.set("process", process_class)?;
 
