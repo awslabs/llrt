@@ -41,7 +41,7 @@ jobs:
         if: inputs.platform == 'linux'
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install make nodejs
+          sudo apt-get -y install make nodejs libssl-dev
           sudo snap install zig --classic --beta
       - name: Install MacOS dependencies
         if: inputs.platform == 'darwin'

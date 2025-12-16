@@ -10,6 +10,12 @@ repository = "https://github.com/awslabs/llrt"
 name = "llrt_test_tls"
 path = "src/lib.rs"
 
+[features]
+default = ["tls-ring"]
+tls-ring = ["rustls/ring"]
+tls-aws-lc = ["rustls/aws_lc_rs"]
+tls-graviola = ["dep:rustls-graviola"]
+
 [dependencies]
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["server"], default-features = false }
@@ -18,8 +24,8 @@ hyper-util = { version = "0.1", features = [
 ], default-features = false }
 http = { version = "1", default-features = false }
 rustls = { version = "0.23", features = [
-  "ring",
   "tls12",
 ], default-features = false }
+rustls-graviola = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["net", "fs"], default-features = false }
 tokio-rustls = { version = "0.26", default-features = false }

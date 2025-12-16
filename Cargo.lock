@@ -2317,6 +2317,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rustls",
+ "rustls-graviola",
  "tokio",
  "tokio-rustls",
 ]

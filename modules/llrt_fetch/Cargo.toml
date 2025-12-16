@@ -23,6 +23,10 @@ compression-rust = ["llrt_compression/all-rust"]
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
 
+tls-ring = []
+tls-aws-lc = []
+tls-graviola = []
+
 [dependencies]
 bytes = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
@@ -60,5 +64,5 @@ tracing = { version = "0.1", default-features = false }
 [dev-dependencies]
 llrt_compression = { version = "0.7.0-beta", path = "../../libs/llrt_compression" }
 llrt_test = { path = "../../libs/llrt_test" }
-llrt_test_tls = { path = "../../libs/llrt_test_tls" }
+llrt_test_tls = { path = "../../libs/llrt_test_tls", default-features = false }
 wiremock = { version = "0.6", default-features = false }

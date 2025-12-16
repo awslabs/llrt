@@ -23,6 +23,8 @@ jobs:
           components: clippy, rustfmt
       - name: Format
         run: cargo fmt --all -- --check
+      - name: Install OpenSSL dev packages
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
       - name: Clippy
         run: | #create mock js files
           mkdir -p bundle/js

@@ -9,13 +9,33 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::MockServerCerts;
 
+#[cfg(all(
+    feature = "tls-ring",
+    not(feature = "tls-aws-lc"),
+    not(feature = "tls-graviola")
+))]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls::crypto::ring::default_provider())
+}
+
+#[cfg(all(feature = "tls-aws-lc", not(feature = "tls-graviola")))]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+}
+
+#[cfg(feature = "tls-graviola")]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls_graviola::default_provider())
+}
+
 pub(super) async fn run(
     listener: TcpListener,
     certs: MockServerCerts,
     shutdown_rx: tokio::sync::watch::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cert_chain = vec![certs.server_cert, certs.root_cert];
-    let mut server_config = ServerConfig::builder()
+    let mut server_config = ServerConfig::builder_with_provider(get_crypto_provider())
+        .with_safe_default_protocol_versions()?
         .with_no_client_auth()
         .with_single_cert(cert_chain, certs.server_key)?;
     server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
