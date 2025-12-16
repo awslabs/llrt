@@ -27,6 +27,7 @@ tls-graviola = ["llrt_tls/tls-graviola", "dep:hyper-rustls", "dep:rustls"]
 
 # OpenSSL TLS backend
 tls-openssl = ["llrt_tls/tls-openssl", "dep:hyper-openssl", "dep:openssl"]
+openssl-vendored = ["llrt_tls/openssl-vendored", "openssl?/vendored"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }

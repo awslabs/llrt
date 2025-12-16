@@ -24,6 +24,9 @@ crypto-ring-rust = ["llrt_modules/crypto-ring-rust"]
 crypto-graviola-rust = ["llrt_modules/crypto-graviola-rust"]
 crypto-openssl = ["llrt_modules/crypto-openssl"]
 
+# OpenSSL vendored (builds OpenSSL from source)
+openssl-vendored = ["llrt_modules/openssl-vendored", "openssl?/vendored"]
+
 [dependencies]
 bytes = { version = "1", default-features = false }
 chrono = { version = "0.4", features = ["std", "clock"], default-features = false }

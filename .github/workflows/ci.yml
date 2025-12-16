@@ -23,15 +23,13 @@ jobs:
           components: clippy, rustfmt
       - name: Format
         run: cargo fmt --all -- --check
-      - name: Install OpenSSL dev packages
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
       - name: Clippy
         run: | #create mock js files
           mkdir -p bundle/js
           for i in {1..5}; do
             echo "console.log(123);" > "bundle/js/test$i.js"
           done
-          cargo clippy --all-targets --all-features -- -D warnings
+          cargo clippy --all-targets --all-features --features openssl-vendored -- -D warnings
 
   build:
     needs:
@@ -58,6 +56,17 @@ jobs:
             features: "--no-default-features --features crypto-graviola-rust,tls-graviola,macro"
           - name: crypto-openssl+tls-openssl
             features: "--no-default-features --features crypto-openssl,tls-openssl,macro"
+        exclude:
+          # OpenSSL requires native compilation - exclude from cross-compile targets
+          - os: ubuntu-latest
+            crypto:
+              name: crypto-openssl+tls-openssl
+          - os: ubuntu-24.04-arm
+            crypto:
+              name: crypto-openssl+tls-openssl
+          - os: windows-latest
+            crypto:
+              name: crypto-openssl+tls-openssl
         include:
           - os: windows-latest
             platform: windows

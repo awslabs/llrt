@@ -23,6 +23,9 @@ crypto-ring-rust = ["llrt_crypto?/crypto-ring-rust"]
 crypto-graviola-rust = ["llrt_crypto?/crypto-graviola-rust"]
 crypto-openssl = ["llrt_crypto?/crypto-openssl"]
 
+# OpenSSL vendored (builds OpenSSL from source)
+openssl-vendored = ["llrt_http?/openssl-vendored", "llrt_crypto?/openssl-vendored"]
+
 base = [
   "abort",
   "assert",
