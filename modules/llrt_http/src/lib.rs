@@ -6,10 +6,22 @@ use rquickjs::{
     Class, Ctx, Result,
 };
 
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
 pub use self::agent::Agent;
 pub use self::client::*;
 pub use self::config::*;
 
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
 mod agent;
 mod client;
 mod config;
@@ -20,6 +32,12 @@ pub struct HttpsModule;
 
 impl ModuleDef for HttpsModule {
     fn declare(declare: &Declarations) -> Result<()> {
+        #[cfg(any(
+            feature = "tls-ring",
+            feature = "tls-aws-lc",
+            feature = "tls-graviola",
+            feature = "tls-openssl"
+        ))]
         declare.declare(stringify!(Agent))?;
         declare.declare("default")?;
         Ok(())
@@ -27,6 +45,12 @@ impl ModuleDef for HttpsModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
+            #[cfg(any(
+                feature = "tls-ring",
+                feature = "tls-aws-lc",
+                feature = "tls-graviola",
+                feature = "tls-openssl"
+            ))]
             Class::<Agent>::define(default)?;
 
             Ok(())
