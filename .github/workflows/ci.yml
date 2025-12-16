@@ -29,7 +29,7 @@ jobs:
           for i in {1..5}; do
             echo "console.log(123);" > "bundle/js/test$i.js"
           done
-          cargo clippy --all-targets --all-features --features openssl-vendored -- -D warnings
+          cargo clippy --all-targets --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring,openssl-vendored" -- -D warnings
 
   build:
     needs:

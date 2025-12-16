@@ -1,26 +1,35 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// Ensure only one crypto provider is selected
+#[cfg(all(feature = "crypto-rust", feature = "crypto-openssl"))]
+compile_error!("Features `crypto-rust` and `crypto-openssl` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-rust", feature = "crypto-ring"))]
+compile_error!("Features `crypto-rust` and `crypto-ring` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-rust", feature = "crypto-graviola"))]
+compile_error!("Features `crypto-rust` and `crypto-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-ring", feature = "crypto-openssl"))]
+compile_error!("Features `crypto-ring` and `crypto-openssl` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-ring", feature = "crypto-graviola"))]
+compile_error!("Features `crypto-ring` and `crypto-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-openssl", feature = "crypto-graviola"))]
+compile_error!("Features `crypto-openssl` and `crypto-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-ring-rust", feature = "crypto-graviola-rust"))]
+compile_error!("Features `crypto-ring-rust` and `crypto-graviola-rust` are mutually exclusive");
+
 #[cfg(any(feature = "crypto-graviola", feature = "crypto-graviola-rust"))]
 mod graviola;
 
-// OpenSSL module only compiles when it's the active provider (no other crypto features)
-#[cfg(all(
-    feature = "crypto-openssl",
-    not(feature = "crypto-rust"),
-    not(feature = "crypto-ring"),
-    not(feature = "crypto-ring-rust"),
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(feature = "crypto-openssl")]
 mod openssl;
 
-// Ring module compiles when ring or ring-rust is enabled and graviola variants aren't
-#[cfg(all(
-    any(feature = "crypto-ring", feature = "crypto-ring-rust"),
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(any(feature = "crypto-ring", feature = "crypto-ring-rust"))]
 mod ring;
 
 #[cfg(any(
@@ -236,38 +245,16 @@ impl std::fmt::Display for CryptoError {
 
 impl std::error::Error for CryptoError {}
 
-#[cfg(all(
-    feature = "crypto-openssl",
-    not(feature = "crypto-rust"),
-    not(feature = "crypto-ring"),
-    not(feature = "crypto-ring-rust"),
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(feature = "crypto-openssl")]
 pub type DefaultProvider = openssl::OpenSslProvider;
 
-#[cfg(all(
-    feature = "crypto-rust",
-    not(feature = "crypto-ring"),
-    not(feature = "crypto-ring-rust"),
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(feature = "crypto-rust")]
 pub type DefaultProvider = rust::RustCryptoProvider;
 
-#[cfg(all(
-    feature = "crypto-ring",
-    not(feature = "crypto-ring-rust"),
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(feature = "crypto-ring")]
 pub type DefaultProvider = ring::RingProvider;
 
-#[cfg(all(
-    feature = "crypto-ring-rust",
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(feature = "crypto-ring-rust")]
 pub type DefaultProvider = RingRustProvider;
 
 #[cfg(all(feature = "crypto-graviola", not(feature = "crypto-graviola-rust")))]
@@ -277,14 +264,7 @@ pub type DefaultProvider = graviola::GraviolaProvider;
 pub type DefaultProvider = GraviolaRustProvider;
 
 // Macro to generate hybrid providers that delegate to RustCrypto
-#[cfg(any(
-    all(
-        feature = "crypto-ring-rust",
-        not(feature = "crypto-graviola"),
-        not(feature = "crypto-graviola-rust")
-    ),
-    feature = "crypto-graviola-rust"
-))]
+#[cfg(any(feature = "crypto-ring-rust", feature = "crypto-graviola-rust"))]
 macro_rules! impl_hybrid_provider {
     ($name:ident, $digest:ty, $hmac:ty, $digest_fn:expr, $hmac_fn:expr, $aes_encrypt:expr, $aes_decrypt:expr) => {
         pub struct $name;
@@ -457,11 +437,7 @@ macro_rules! impl_hybrid_provider {
     };
 }
 
-#[cfg(all(
-    feature = "crypto-ring-rust",
-    not(feature = "crypto-graviola"),
-    not(feature = "crypto-graviola-rust")
-))]
+#[cfg(feature = "crypto-ring-rust")]
 impl_hybrid_provider!(
     RingRustProvider,
     ring::RingDigestType,
@@ -498,37 +474,15 @@ mod tests {
     use super::*;
 
     fn provider() -> impl CryptoProvider {
-        #[cfg(all(
-            feature = "crypto-rust",
-            not(feature = "crypto-ring"),
-            not(feature = "crypto-ring-rust"),
-            not(feature = "crypto-graviola"),
-            not(feature = "crypto-graviola-rust")
-        ))]
+        #[cfg(feature = "crypto-rust")]
         return rust::RustCryptoProvider;
-        #[cfg(all(
-            feature = "crypto-ring-rust",
-            not(feature = "crypto-graviola"),
-            not(feature = "crypto-graviola-rust")
-        ))]
+        #[cfg(feature = "crypto-ring-rust")]
         return RingRustProvider;
         #[cfg(feature = "crypto-graviola-rust")]
         return GraviolaRustProvider;
-        #[cfg(all(
-            feature = "crypto-openssl",
-            not(feature = "crypto-rust"),
-            not(feature = "crypto-ring"),
-            not(feature = "crypto-ring-rust"),
-            not(feature = "crypto-graviola"),
-            not(feature = "crypto-graviola-rust")
-        ))]
+        #[cfg(feature = "crypto-openssl")]
         return openssl::OpenSslProvider;
-        #[cfg(all(
-            feature = "crypto-ring",
-            not(feature = "crypto-ring-rust"),
-            not(feature = "crypto-graviola"),
-            not(feature = "crypto-graviola-rust")
-        ))]
+        #[cfg(feature = "crypto-ring")]
         return ring::RingProvider;
         #[cfg(all(feature = "crypto-graviola", not(feature = "crypto-graviola-rust")))]
         return graviola::GraviolaProvider;

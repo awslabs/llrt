@@ -7,22 +7,13 @@ use tracing::warn;
 use crate::environment;
 use crate::modules::https::{set_http_version, set_pool_idle_timeout_seconds, HttpVersion};
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 use std::{fs::File, io};
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 use rustls::{pki_types::CertificateDer, version, SupportedProtocolVersion};
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 use crate::modules::tls::{set_extra_ca_certs, set_tls_versions};
 
 #[cfg(feature = "tls-openssl")]
@@ -33,10 +24,7 @@ pub fn init() -> StdResult<(), Box<dyn std::error::Error + Send + Sync>> {
         set_pool_idle_timeout_seconds(pool_idle_timeout);
     }
 
-    #[cfg(all(
-        any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-        not(feature = "tls-openssl")
-    ))]
+    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
     {
         if let Some(extra_ca_certs) = build_extra_ca_certs()? {
             set_extra_ca_certs(extra_ca_certs);
@@ -71,10 +59,7 @@ fn build_pool_idle_timeout() -> Option<u64> {
     Some(pool_idle_timeout)
 }
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 fn build_extra_ca_certs() -> StdResult<Option<Vec<CertificateDer<'static>>>, io::Error> {
     if let Ok(extra_ca_certs) = env::var(environment::ENV_LLRT_EXTRA_CA_CERTS) {
         if !extra_ca_certs.is_empty() {
@@ -91,10 +76,7 @@ fn build_extra_ca_certs() -> StdResult<Option<Vec<CertificateDer<'static>>>, io:
     Ok(None)
 }
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 fn build_tls_versions() -> Vec<&'static SupportedProtocolVersion> {
     match env::var(environment::ENV_LLRT_TLS_VERSION).as_deref() {
         Ok("1.3") => vec![&version::TLS13, &version::TLS12],

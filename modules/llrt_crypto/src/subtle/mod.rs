@@ -197,7 +197,6 @@ impl AesCtrVariant {
     }
 }
 
-#[allow(dead_code)]
 pub enum AesGcmVariant {
     Aes128Gcm96(AesGcm<Aes128, U12, U12>),
     Aes192Gcm96(AesGcm<Aes192, U12, U12>),

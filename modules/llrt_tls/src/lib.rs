@@ -1,22 +1,32 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+// Ensure only one TLS backend is selected
+#[cfg(all(feature = "tls-ring", feature = "tls-aws-lc"))]
+compile_error!("Features `tls-ring` and `tls-aws-lc` are mutually exclusive");
+
+#[cfg(all(feature = "tls-ring", feature = "tls-graviola"))]
+compile_error!("Features `tls-ring` and `tls-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "tls-ring", feature = "tls-openssl"))]
+compile_error!("Features `tls-ring` and `tls-openssl` are mutually exclusive");
+
+#[cfg(all(feature = "tls-aws-lc", feature = "tls-graviola"))]
+compile_error!("Features `tls-aws-lc` and `tls-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "tls-aws-lc", feature = "tls-openssl"))]
+compile_error!("Features `tls-aws-lc` and `tls-openssl` are mutually exclusive");
+
+#[cfg(all(feature = "tls-graviola", feature = "tls-openssl"))]
+compile_error!("Features `tls-graviola` and `tls-openssl` are mutually exclusive");
+
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 mod rustls_config;
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 pub use rustls_config::*;
 
-#[cfg(all(
-    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"),
-    not(feature = "tls-openssl")
-))]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 mod no_verification;
 
 #[cfg(feature = "tls-openssl")]
