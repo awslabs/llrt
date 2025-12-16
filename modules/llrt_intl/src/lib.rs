@@ -52,6 +52,10 @@ fn patch_date_to_locale_string(ctx: &Ctx<'_>) -> Result<()> {
 }
 
 /// Custom Date.prototype.toLocaleString implementation with timezone support
+///
+/// Note: The `locale` parameter is accepted but not used. It's required in the function
+/// signature to match the JavaScript API `toLocaleString(locales, options)`, ensuring
+/// the options object is correctly received as the second argument.
 fn date_to_locale_string<'js>(
     ctx: Ctx<'js>,
     this: This<Value<'js>>,

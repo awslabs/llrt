@@ -52,7 +52,3 @@ const date = dayjs("2022-03-02T15:45:34Z");
 console.log(date.tz("America/Denver").format()); // "2022-03-02T08:45:34-07:00"
 console.log(date.tz("Asia/Tokyo").format()); // "2022-03-03T00:45:34+09:00"
 ```
-
-## Note on ES Module imports
-
-When using dayjs with LLRT, use CommonJS `require()` syntax. ES module imports of dayjs plugins may not work correctly due to UMD wrapper handling differences.
