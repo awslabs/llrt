@@ -702,8 +702,24 @@ pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::St
     rquickjs::String::from_str(ctx, &str)
 }
 
-pub fn btoa(value: Coerced<String>) -> String {
-    bytes_to_b64_string(value.as_bytes())
+pub fn btoa(ctx: Ctx<'_>, value: Coerced<String>) -> Result<String> {
+    // Per WHATWG spec, btoa() treats input as a "binary string" where each character
+    // must have a code point 0-255. Characters > 255 cause InvalidCharacterError.
+    let bytes: Vec<u8> = value
+        .chars()
+        .map(|c| {
+            let code_point = c as u32;
+            if code_point > 255 {
+                Err(Exception::throw_message(
+                    &ctx,
+                    "Invalid character: btoa() argument contains character with code point > 255",
+                ))
+            } else {
+                Ok(code_point as u8)
+            }
+        })
+        .collect::<Result<Vec<u8>>>()?;
+    Ok(bytes_to_b64_string(&bytes))
 }
 
 #[cfg(test)]
@@ -830,6 +846,70 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, (data,)).await;
                 assert_eq!(result, "aGVsbG8gd29ybGQ=");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_btoa_high_bytes() {
+        // Test that btoa correctly encodes Latin-1 characters (code points 128-255)
+        // as single bytes per WHATWG spec (not UTF-8 encoded)
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { btoa, atob } from 'buffer';
+
+                        export async function test() {
+                            // Test byte 255 (0xFF): should encode as single byte
+                            // btoa(String.fromCharCode(255)) should give "/w==" not "w78="
+                            const char255 = String.fromCharCode(255);
+                            const encoded255 = btoa(char255);
+                            if (encoded255 !== "/w==") {
+                                return `byte 255 encoding failed: got ${encoded255}, expected /w==`;
+                            }
+
+                            // Test byte 128 (0x80): should encode as single byte
+                            const char128 = String.fromCharCode(128);
+                            const encoded128 = btoa(char128);
+                            if (encoded128 !== "gA==") {
+                                return `byte 128 encoding failed: got ${encoded128}, expected gA==`;
+                            }
+
+                            // Test roundtrip for all bytes 0-255
+                            for (let i = 0; i <= 255; i++) {
+                                const char = String.fromCharCode(i);
+                                const encoded = btoa(char);
+                                const decoded = atob(encoded);
+                                if (decoded.charCodeAt(0) !== i || decoded.length !== 1) {
+                                    return `roundtrip failed for byte ${i}`;
+                                }
+                            }
+
+                            // Test that characters > 255 throw
+                            try {
+                                btoa("€"); // U+20AC
+                                return "btoa should have thrown for euro sign";
+                            } catch (e) {
+                                // Expected
+                            }
+
+                            return "ok";
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "ok");
             })
         })
         .await;

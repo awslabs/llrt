@@ -1167,4 +1167,40 @@ describe("btoa", () => {
       expect(atob(btoa(str))).toBe(str);
     }
   });
+
+  it("should correctly encode high bytes (128-255) as Latin-1 characters", () => {
+    // Per WHATWG spec, btoa treats each character as a byte value 0-255
+    // NOT as UTF-8 encoded bytes
+
+    // Test byte 255 (0xFF): btoa(String.fromCharCode(255)) should give "/w=="
+    // If incorrectly UTF-8 encoded, it would give "w78=" (bytes 0xC3, 0xBF)
+    expect(btoa(String.fromCharCode(255))).toBe("/w==");
+
+    // Test byte 128 (0x80): btoa(String.fromCharCode(128)) should give "gA=="
+    expect(btoa(String.fromCharCode(128))).toBe("gA==");
+
+    // Test byte 192 (0xC0): btoa(String.fromCharCode(192)) should give "wA=="
+    expect(btoa(String.fromCharCode(192))).toBe("wA==");
+  });
+
+  it("should roundtrip all bytes 0-255 with atob", () => {
+    for (let i = 0; i <= 255; i++) {
+      const char = String.fromCharCode(i);
+      const encoded = btoa(char);
+      const decoded = atob(encoded);
+      expect(decoded.length).toBe(1);
+      expect(decoded.charCodeAt(0)).toBe(i);
+    }
+  });
+
+  it("should throw for characters with code point > 255", () => {
+    // Euro sign (U+20AC)
+    expect(() => btoa("€")).toThrow();
+
+    // Chinese character (U+4E2D)
+    expect(() => btoa("中")).toThrow();
+
+    // Emoji (U+1F600, represented as surrogate pair)
+    expect(() => btoa("😀")).toThrow();
+  });
 });
