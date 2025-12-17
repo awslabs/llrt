@@ -9,16 +9,12 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::MockServerCerts;
 
-#[cfg(all(
-    feature = "tls-ring",
-    not(feature = "tls-aws-lc"),
-    not(feature = "tls-graviola")
-))]
+#[cfg(feature = "tls-ring")]
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls::crypto::ring::default_provider())
 }
 
-#[cfg(all(feature = "tls-aws-lc", not(feature = "tls-graviola")))]
+#[cfg(feature = "tls-aws-lc")]
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls::crypto::aws_lc_rs::default_provider())
 }

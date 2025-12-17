@@ -12,9 +12,9 @@ default = ["base", "console", "tls-ring", "crypto-rust"]
 lambda = ["base"]
 
 # TLS crypto backend features
-tls-ring = ["llrt_http?/tls-ring", "llrt_tls?/tls-ring"]
-tls-aws-lc = ["llrt_http?/tls-aws-lc", "llrt_tls?/tls-aws-lc"]
-tls-graviola = ["llrt_http?/tls-graviola", "llrt_tls?/tls-graviola"]
+tls-ring = ["llrt_http?/tls-ring", "llrt_tls?/tls-ring", "llrt_fetch?/tls-ring"]
+tls-aws-lc = ["llrt_http?/tls-aws-lc", "llrt_tls?/tls-aws-lc", "llrt_fetch?/tls-aws-lc"]
+tls-graviola = ["llrt_http?/tls-graviola", "llrt_tls?/tls-graviola", "llrt_fetch?/tls-graviola"]
 tls-openssl = ["llrt_http?/tls-openssl", "llrt_tls?/tls-openssl"]
 
 # Crypto provider features
@@ -69,7 +69,7 @@ dgram = ["llrt_dgram"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
-fetch = ["llrt_fetch"]
+fetch = ["llrt_fetch", "llrt_fetch?/http1", "llrt_fetch?/http2", "llrt_fetch?/compression-c", "llrt_fetch?/webpki-roots"]
 fs = ["llrt_fs"]
 https = [
   "llrt_http",
@@ -116,7 +116,7 @@ llrt_dgram = { version = "0.7.0-beta", path = "../modules/llrt_dgram", optional 
 llrt_dns = { version = "0.7.0-beta", path = "../modules/llrt_dns", optional = true }
 llrt_events = { version = "0.7.0-beta", path = "../modules/llrt_events", optional = true }
 llrt_exceptions = { version = "0.7.0-beta", path = "../modules/llrt_exceptions", optional = true }
-llrt_fetch = { version = "0.7.0-beta", path = "../modules/llrt_fetch", optional = true }
+llrt_fetch = { version = "0.7.0-beta", path = "../modules/llrt_fetch", default-features = false, optional = true }
 llrt_fs = { version = "0.7.0-beta", path = "../modules/llrt_fs", optional = true }
 llrt_http = { version = "0.7.0-beta", path = "../modules/llrt_http", default-features = false, optional = true }
 llrt_navigator = { version = "0.7.0-beta", path = "../modules/llrt_navigator", optional = true }

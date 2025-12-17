@@ -12,7 +12,7 @@ name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "compression-c", "webpki-roots", "tls-ring"]
+default = ["http1", "http2", "compression-c", "webpki-roots"]
 
 http1 = ["hyper/http1", "llrt_http/http1"]
 http2 = ["hyper/http2", "llrt_http/http2"]

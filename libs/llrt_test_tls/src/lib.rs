@@ -4,6 +4,15 @@
 // FIXME this library is only needed until TLS is natively supported in wiremock.
 // See https://github.com/LukeMathWalker/wiremock-rs/issues/58
 
+#[cfg(all(feature = "tls-ring", feature = "tls-aws-lc"))]
+compile_error!("Features 'tls-ring' and 'tls-aws-lc' are mutually exclusive");
+
+#[cfg(all(feature = "tls-ring", feature = "tls-graviola"))]
+compile_error!("Features 'tls-ring' and 'tls-graviola' are mutually exclusive");
+
+#[cfg(all(feature = "tls-aws-lc", feature = "tls-graviola"))]
+compile_error!("Features 'tls-aws-lc' and 'tls-graviola' are mutually exclusive");
+
 use std::net::{Ipv4Addr, SocketAddr};
 
 use tokio::net::TcpListener;
