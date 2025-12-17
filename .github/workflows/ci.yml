@@ -42,7 +42,6 @@ jobs:
           - ubuntu-latest
           - ubuntu-24.04-arm
           - macos-latest
-          - macos-14
         crypto:
           - name: default
             features: ""
@@ -84,7 +83,7 @@ jobs:
             platform: darwin
             arch: x86_64
             toolchain: nightly
-          - os: macos-14
+          - os: macos-latest
             platform: darwin
             arch: aarch64
             toolchain: nightly
@@ -114,7 +113,7 @@ jobs:
             platform: darwin
             arch: x86_64
             toolchain: stable
-          - os: macos-14
+          - os: macos-latest
             platform: darwin
             arch: aarch64
             toolchain: stable
