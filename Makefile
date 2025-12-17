@@ -232,7 +232,7 @@ ifdef CARGO_FEATURES
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) $(CARGO_FEATURES) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 else
 	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) --features lambda -- --nocapture --show-output
-	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) --features lambda -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 endif
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h lib/zstd_errors.h

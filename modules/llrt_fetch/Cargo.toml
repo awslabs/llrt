@@ -12,7 +12,7 @@ name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "compression-c", "webpki-roots"]
+default = ["http1", "http2", "compression-c", "webpki-roots", "tls-ring"]
 
 http1 = ["hyper/http1", "llrt_http/http1"]
 http2 = ["hyper/http2", "llrt_http/http2"]
@@ -23,9 +23,9 @@ compression-rust = ["llrt_compression/all-rust"]
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
 
-tls-ring = []
-tls-aws-lc = []
-tls-graviola = []
+tls-ring = ["llrt_http/tls-ring"]
+tls-aws-lc = ["llrt_http/tls-aws-lc"]
+tls-graviola = ["llrt_http/tls-graviola"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
@@ -64,5 +64,5 @@ tracing = { version = "0.1", default-features = false }
 [dev-dependencies]
 llrt_compression = { version = "0.7.0-beta", path = "../../libs/llrt_compression" }
 llrt_test = { path = "../../libs/llrt_test" }
-llrt_test_tls = { path = "../../libs/llrt_test_tls", default-features = false }
+llrt_test_tls = { path = "../../libs/llrt_test_tls", default-features = false, features = ["tls-ring"] }
 wiremock = { version = "0.6", default-features = false }
