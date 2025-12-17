@@ -100,17 +100,17 @@ jobs:
       - check
     strategy:
       matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        tls:
+          - tls-ring
+          - tls-aws-lc
+          - tls-graviola
         include:
           - os: ubuntu-latest
             platform: linux
-            arch: x86_64
-            toolchain: stable
-          - os: ubuntu-24.04-arm
-            platform: linux
-            arch: aarch64
-            toolchain: stable
-          - os: macos-latest
-            platform: darwin
             arch: x86_64
             toolchain: stable
           - os: macos-latest
@@ -127,3 +127,4 @@ jobs:
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
+      tls_feature: ${{ matrix.tls }}

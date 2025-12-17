@@ -14,10 +14,14 @@ on:
       toolchain:
         required: true
         type: string
+      tls_feature:
+        required: false
+        type: string
+        default: "tls-ring"
 
 jobs:
   build:
-    name: ${{ inputs.arch }}-${{ inputs.platform }}
+    name: ${{ inputs.arch }}-${{ inputs.platform }}-${{ inputs.tls_feature }}
     runs-on: ${{ inputs.os }}
     steps:
       - name: Checkout
@@ -30,15 +34,25 @@ jobs:
         shell: bash
         env:
           RUSTFLAGS: ""
+          TLS_FEATURE: ${{ inputs.tls_feature }}
         run: |
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
             echo "Compiling crate: $crate"
-            cargo build -p "$crate"
+            # Use TLS feature for crates that need TLS
+            if [ "$crate" = "llrt_fetch" ] || [ "$crate" = "llrt_http" ]; then
+              cargo build -p "$crate" --features "$TLS_FEATURE"
+            else
+              cargo build -p "$crate"
+            fi
           done
       - name: Run build all
+        env:
+          TLS_FEATURE: ${{ inputs.tls_feature }}
         run: |
-          cargo build -p llrt_modules
+          cargo build -p llrt_modules --features "$TLS_FEATURE"
       - name: Run tests all
+        env:
+          TLS_FEATURE: ${{ inputs.tls_feature }}
         run: |
-          cargo test -p llrt_modules
+          cargo test -p llrt_modules --features "$TLS_FEATURE"
