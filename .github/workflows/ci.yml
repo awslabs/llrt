@@ -49,8 +49,12 @@ jobs:
             features: "--no-default-features --features crypto-rust,tls-ring,macro"
           - name: crypto-rust+tls-aws-lc
             features: "--no-default-features --features crypto-rust,tls-aws-lc,macro"
+          - name: crypto-ring+tls-ring
+            features: "--no-default-features --features crypto-ring,tls-ring,macro"
           - name: crypto-ring-rust+tls-ring
             features: "--no-default-features --features crypto-ring-rust,tls-ring,macro"
+          - name: crypto-graviola+tls-graviola
+            features: "--no-default-features --features crypto-graviola,tls-graviola,macro"
           - name: crypto-graviola-rust+tls-graviola
             features: "--no-default-features --features crypto-graviola-rust,tls-graviola,macro"
           - name: crypto-openssl+tls-openssl
@@ -66,6 +70,19 @@ jobs:
           - os: windows-latest
             crypto:
               name: crypto-openssl+tls-openssl
+          # Graviola only supports aarch64
+          - os: ubuntu-latest
+            crypto:
+              name: crypto-graviola+tls-graviola
+          - os: ubuntu-latest
+            crypto:
+              name: crypto-graviola-rust+tls-graviola
+          - os: windows-latest
+            crypto:
+              name: crypto-graviola+tls-graviola
+          - os: windows-latest
+            crypto:
+              name: crypto-graviola-rust+tls-graviola
         include:
           - os: windows-latest
             platform: windows

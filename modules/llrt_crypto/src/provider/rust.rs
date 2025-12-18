@@ -14,8 +14,10 @@ use aes_gcm::{
 use aes_kw::{KwAes128, KwAes192, KwAes256};
 use cbc::{Decryptor, Encryptor};
 use ctr::{cipher::Array, Ctr128BE, Ctr32BE, Ctr64BE};
+use der::Encode;
 use ecdsa::signature::hazmat::PrehashVerifier;
 use elliptic_curve::consts::U12;
+use elliptic_curve::sec1::ToEncodedPoint;
 use hmac::{Hmac as HmacImpl, Mac};
 use once_cell::sync::Lazy;
 use p256::{
@@ -34,7 +36,7 @@ use p521::{
     ecdsa::{Signature as P521Signature, VerifyingKey as P521VerifyingKey},
     SecretKey as P521SecretKey,
 };
-use pkcs8::EncodePrivateKey;
+use pkcs8::{DecodePrivateKey, EncodePrivateKey};
 use ring::{
     pbkdf2,
     rand::SystemRandom,
@@ -43,7 +45,6 @@ use ring::{
 use rsa::pkcs1::{
     DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
 };
-use rsa::pkcs8::DecodePrivateKey;
 use rsa::signature::hazmat::PrehashSigner;
 use rsa::{
     pss::Pss,
@@ -67,7 +68,7 @@ impl From<aes::cipher::InvalidLength> for CryptoError {
 
 impl From<StreamCipherError> for CryptoError {
     fn from(_: StreamCipherError) -> Self {
-        CryptoError::OperationFailed
+        CryptoError::OperationFailed(None)
     }
 }
 
@@ -175,29 +176,29 @@ impl CryptoProvider for RustCryptoProvider {
         match curve {
             EllipticCurve::P256 => {
                 let secret_key = P256SecretKey::from_pkcs8_der(private_key_der)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let signing_key = P256SigningKey::from(secret_key);
                 let signature: p256::ecdsa::Signature = signing_key
                     .sign_prehash(digest)
-                    .map_err(|_| CryptoError::SigningFailed)?;
+                    .map_err(|_| CryptoError::SigningFailed(None))?;
                 Ok(signature.to_bytes().to_vec())
             },
             EllipticCurve::P384 => {
                 let secret_key = P384SecretKey::from_pkcs8_der(private_key_der)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let signing_key = P384SigningKey::from(secret_key);
                 let signature: p384::ecdsa::Signature = signing_key
                     .sign_prehash(digest)
-                    .map_err(|_| CryptoError::SigningFailed)?;
+                    .map_err(|_| CryptoError::SigningFailed(None))?;
                 Ok(signature.to_bytes().to_vec())
             },
             EllipticCurve::P521 => {
                 let secret_key = P521SecretKey::from_pkcs8_der(private_key_der)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let signing_key = p521::ecdsa::SigningKey::from(secret_key);
                 let signature: p521::ecdsa::Signature = signing_key
                     .sign_prehash(digest)
-                    .map_err(|_| CryptoError::SigningFailed)?;
+                    .map_err(|_| CryptoError::SigningFailed(None))?;
                 Ok(signature.to_bytes().to_vec())
             },
         }
@@ -213,31 +214,31 @@ impl CryptoProvider for RustCryptoProvider {
         match curve {
             EllipticCurve::P256 => {
                 let verifying_key = P256VerifyingKey::from_sec1_bytes(public_key_sec1)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let sig = P256Signature::from_slice(signature)
-                    .map_err(|_| CryptoError::InvalidSignature)?;
+                    .map_err(|_| CryptoError::InvalidSignature(None))?;
                 Ok(verifying_key.verify_prehash(digest, &sig).is_ok())
             },
             EllipticCurve::P384 => {
                 let verifying_key = P384VerifyingKey::from_sec1_bytes(public_key_sec1)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let sig = P384Signature::from_slice(signature)
-                    .map_err(|_| CryptoError::InvalidSignature)?;
+                    .map_err(|_| CryptoError::InvalidSignature(None))?;
                 Ok(verifying_key.verify_prehash(digest, &sig).is_ok())
             },
             EllipticCurve::P521 => {
                 let verifying_key = P521VerifyingKey::from_sec1_bytes(public_key_sec1)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let sig = P521Signature::from_slice(signature)
-                    .map_err(|_| CryptoError::InvalidSignature)?;
+                    .map_err(|_| CryptoError::InvalidSignature(None))?;
                 Ok(verifying_key.verify_prehash(digest, &sig).is_ok())
             },
         }
     }
 
     fn ed25519_sign(&self, private_key_der: &[u8], data: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        let key_pair =
-            Ed25519KeyPair::from_pkcs8(private_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let key_pair = Ed25519KeyPair::from_pkcs8(private_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
         let signature = key_pair.sign(data);
         Ok(signature.as_ref().to_vec())
     }
@@ -260,19 +261,19 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
-        let private_key =
-            RsaPrivateKey::from_pkcs1_der(private_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             ShaAlgorithm::SHA256 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha256>::new_with_salt(salt_length), digest)
-                .map_err(|_| CryptoError::SigningFailed),
+                .map_err(|_| CryptoError::SigningFailed(None)),
             ShaAlgorithm::SHA384 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha384>::new_with_salt(salt_length), digest)
-                .map_err(|_| CryptoError::SigningFailed),
+                .map_err(|_| CryptoError::SigningFailed(None)),
             ShaAlgorithm::SHA512 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha512>::new_with_salt(salt_length), digest)
-                .map_err(|_| CryptoError::SigningFailed),
+                .map_err(|_| CryptoError::SigningFailed(None)),
             _ => Err(CryptoError::UnsupportedAlgorithm),
         }
     }
@@ -285,8 +286,8 @@ impl CryptoProvider for RustCryptoProvider {
         salt_length: usize,
         hash_alg: ShaAlgorithm,
     ) -> Result<bool, CryptoError> {
-        let public_key =
-            RsaPublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             ShaAlgorithm::SHA256 => Ok(public_key
@@ -309,19 +310,19 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
-        let private_key =
-            RsaPrivateKey::from_pkcs1_der(private_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             ShaAlgorithm::SHA256 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha256>(), digest)
-                .map_err(|_| CryptoError::SigningFailed),
+                .map_err(|_| CryptoError::SigningFailed(None)),
             ShaAlgorithm::SHA384 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha384>(), digest)
-                .map_err(|_| CryptoError::SigningFailed),
+                .map_err(|_| CryptoError::SigningFailed(None)),
             ShaAlgorithm::SHA512 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha512>(), digest)
-                .map_err(|_| CryptoError::SigningFailed),
+                .map_err(|_| CryptoError::SigningFailed(None)),
             _ => Err(CryptoError::UnsupportedAlgorithm),
         }
     }
@@ -333,8 +334,8 @@ impl CryptoProvider for RustCryptoProvider {
         digest: &[u8],
         hash_alg: ShaAlgorithm,
     ) -> Result<bool, CryptoError> {
-        let public_key =
-            RsaPublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             ShaAlgorithm::SHA256 => Ok(public_key
@@ -358,8 +359,8 @@ impl CryptoProvider for RustCryptoProvider {
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
-        let public_key =
-            RsaPublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             ShaAlgorithm::SHA1 => {
@@ -371,7 +372,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 public_key
                     .encrypt(&mut rng, padding, data)
-                    .map_err(|_| CryptoError::EncryptionFailed)
+                    .map_err(|_| CryptoError::EncryptionFailed(None))
             },
             ShaAlgorithm::SHA256 => {
                 let mut padding = Oaep::<Sha256>::new();
@@ -382,7 +383,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 public_key
                     .encrypt(&mut rng, padding, data)
-                    .map_err(|_| CryptoError::EncryptionFailed)
+                    .map_err(|_| CryptoError::EncryptionFailed(None))
             },
             ShaAlgorithm::SHA384 => {
                 let mut padding = Oaep::<Sha384>::new();
@@ -393,7 +394,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 public_key
                     .encrypt(&mut rng, padding, data)
-                    .map_err(|_| CryptoError::EncryptionFailed)
+                    .map_err(|_| CryptoError::EncryptionFailed(None))
             },
             ShaAlgorithm::SHA512 => {
                 let mut padding = Oaep::<Sha512>::new();
@@ -404,7 +405,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 public_key
                     .encrypt(&mut rng, padding, data)
-                    .map_err(|_| CryptoError::EncryptionFailed)
+                    .map_err(|_| CryptoError::EncryptionFailed(None))
             },
             _ => Err(CryptoError::UnsupportedAlgorithm),
         }
@@ -417,8 +418,8 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: ShaAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let private_key =
-            RsaPrivateKey::from_pkcs1_der(private_key_der).map_err(|_| CryptoError::InvalidKey)?;
+        let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             ShaAlgorithm::SHA1 => {
@@ -430,7 +431,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 private_key
                     .decrypt(padding, data)
-                    .map_err(|_| CryptoError::DecryptionFailed)
+                    .map_err(|_| CryptoError::DecryptionFailed(None))
             },
             ShaAlgorithm::SHA256 => {
                 let mut padding = Oaep::<Sha256>::new();
@@ -441,7 +442,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 private_key
                     .decrypt(padding, data)
-                    .map_err(|_| CryptoError::DecryptionFailed)
+                    .map_err(|_| CryptoError::DecryptionFailed(None))
             },
             ShaAlgorithm::SHA384 => {
                 let mut padding = Oaep::<Sha384>::new();
@@ -452,7 +453,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 private_key
                     .decrypt(padding, data)
-                    .map_err(|_| CryptoError::DecryptionFailed)
+                    .map_err(|_| CryptoError::DecryptionFailed(None))
             },
             ShaAlgorithm::SHA512 => {
                 let mut padding = Oaep::<Sha512>::new();
@@ -463,7 +464,7 @@ impl CryptoProvider for RustCryptoProvider {
                 }
                 private_key
                     .decrypt(padding, data)
-                    .map_err(|_| CryptoError::DecryptionFailed)
+                    .map_err(|_| CryptoError::DecryptionFailed(None))
             },
             _ => Err(CryptoError::UnsupportedAlgorithm),
         }
@@ -478,9 +479,9 @@ impl CryptoProvider for RustCryptoProvider {
         match curve {
             EllipticCurve::P256 => {
                 let secret_key = P256SecretKey::from_pkcs8_der(private_key_der)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let public_key = p256::PublicKey::from_sec1_bytes(public_key_sec1)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let shared_secret = p256::elliptic_curve::ecdh::diffie_hellman(
                     secret_key.to_nonzero_scalar(),
                     public_key.as_affine(),
@@ -489,9 +490,9 @@ impl CryptoProvider for RustCryptoProvider {
             },
             EllipticCurve::P384 => {
                 let secret_key = P384SecretKey::from_pkcs8_der(private_key_der)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let public_key = p384::PublicKey::from_sec1_bytes(public_key_sec1)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let shared_secret = p384::elliptic_curve::ecdh::diffie_hellman(
                     secret_key.to_nonzero_scalar(),
                     public_key.as_affine(),
@@ -500,9 +501,9 @@ impl CryptoProvider for RustCryptoProvider {
             },
             EllipticCurve::P521 => {
                 let secret_key = P521SecretKey::from_pkcs8_der(private_key_der)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let public_key = p521::PublicKey::from_sec1_bytes(public_key_sec1)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
                 let shared_secret = p521::elliptic_curve::ecdh::diffie_hellman(
                     secret_key.to_nonzero_scalar(),
                     public_key.as_affine(),
@@ -519,8 +520,10 @@ impl CryptoProvider for RustCryptoProvider {
     ) -> Result<Vec<u8>, CryptoError> {
         let private_array: [u8; 32] = private_key
             .try_into()
-            .map_err(|_| CryptoError::InvalidKey)?;
-        let public_array: [u8; 32] = public_key.try_into().map_err(|_| CryptoError::InvalidKey)?;
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_array: [u8; 32] = public_key
+            .try_into()
+            .map_err(|_| CryptoError::InvalidKey(None))?;
 
         let secret_key = x25519_dalek::StaticSecret::from(private_array);
         let public_key = x25519_dalek::PublicKey::from(public_array);
@@ -551,7 +554,7 @@ impl CryptoProvider for RustCryptoProvider {
                     let encryptor = Encryptor::<aes::Aes256>::new_from_slices(key, iv)?;
                     Ok(encryptor.encrypt_padded_vec::<Pkcs7>(data))
                 },
-                _ => Err(CryptoError::InvalidKey),
+                _ => Err(CryptoError::InvalidKey(None)),
             },
             AesMode::Ctr { counter_length } => {
                 let mut ciphertext = data.to_vec();
@@ -592,14 +595,14 @@ impl CryptoProvider for RustCryptoProvider {
                         let mut cipher = Ctr128BE::<aes::Aes256>::new_from_slices(key, iv)?;
                         cipher.try_apply_keystream(&mut ciphertext)?;
                     },
-                    _ => return Err(CryptoError::InvalidKey),
+                    _ => return Err(CryptoError::InvalidKey(None)),
                 }
                 Ok(ciphertext)
             },
             AesMode::Gcm { tag_length } => {
                 let variant = AesGcmVariant::new((key.len() * 8) as u16, tag_length, key)?;
                 let nonce: &Array<_, _> =
-                    &Nonce::<U12>::try_from(iv).map_err(|_| CryptoError::InvalidData)?;
+                    &Nonce::<U12>::try_from(iv).map_err(|_| CryptoError::InvalidData(None))?;
 
                 let plaintext = Payload {
                     msg: data,
@@ -623,7 +626,7 @@ impl CryptoProvider for RustCryptoProvider {
                     AesGcmVariant::Aes192Gcm128(v) => v.encrypt(nonce, plaintext),
                     AesGcmVariant::Aes256Gcm128(v) => v.encrypt(nonce, plaintext),
                 }
-                .map_err(|_| CryptoError::EncryptionFailed)
+                .map_err(|_| CryptoError::EncryptionFailed(None))
             },
         }
     }
@@ -642,21 +645,21 @@ impl CryptoProvider for RustCryptoProvider {
                     let decryptor = Decryptor::<aes::Aes128>::new_from_slices(key, iv)?;
                     decryptor
                         .decrypt_padded_vec::<Pkcs7>(data)
-                        .map_err(|_| CryptoError::DecryptionFailed)
+                        .map_err(|_| CryptoError::DecryptionFailed(None))
                 },
                 24 => {
                     let decryptor = Decryptor::<aes::Aes192>::new_from_slices(key, iv)?;
                     decryptor
                         .decrypt_padded_vec::<Pkcs7>(data)
-                        .map_err(|_| CryptoError::DecryptionFailed)
+                        .map_err(|_| CryptoError::DecryptionFailed(None))
                 },
                 32 => {
                     let decryptor = Decryptor::<aes::Aes256>::new_from_slices(key, iv)?;
                     decryptor
                         .decrypt_padded_vec::<Pkcs7>(data)
-                        .map_err(|_| CryptoError::DecryptionFailed)
+                        .map_err(|_| CryptoError::DecryptionFailed(None))
                 },
-                _ => Err(CryptoError::InvalidKey),
+                _ => Err(CryptoError::InvalidKey(None)),
             },
             AesMode::Ctr { .. } => {
                 // CTR decryption is the same as encryption
@@ -665,7 +668,7 @@ impl CryptoProvider for RustCryptoProvider {
             AesMode::Gcm { tag_length } => {
                 let variant = AesGcmVariant::new((key.len() * 8) as u16, tag_length, key)?;
                 let nonce: &Array<_, _> =
-                    &Nonce::<U12>::try_from(iv).map_err(|_| CryptoError::InvalidData)?;
+                    &Nonce::<U12>::try_from(iv).map_err(|_| CryptoError::InvalidData(None))?;
 
                 let ciphertext = Payload {
                     msg: data,
@@ -689,7 +692,7 @@ impl CryptoProvider for RustCryptoProvider {
                     AesGcmVariant::Aes192Gcm128(v) => v.decrypt(nonce, ciphertext),
                     AesGcmVariant::Aes256Gcm128(v) => v.decrypt(nonce, ciphertext),
                 }
-                .map_err(|_| CryptoError::DecryptionFailed)
+                .map_err(|_| CryptoError::DecryptionFailed(None))
             },
         }
     }
@@ -697,60 +700,66 @@ impl CryptoProvider for RustCryptoProvider {
     fn aes_kw_wrap(&self, kek: &[u8], key: &[u8]) -> Result<Vec<u8>, CryptoError> {
         match kek.len() {
             16 => {
-                let kw = KwAes128::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey)?;
+                let kw =
+                    KwAes128::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey(None))?;
                 let mut buf = vec![0u8; key.len() + 8];
                 let result = kw
                     .wrap_key(key, &mut buf)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 Ok(result.to_vec())
             },
             24 => {
-                let kw = KwAes192::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey)?;
+                let kw =
+                    KwAes192::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey(None))?;
                 let mut buf = vec![0u8; key.len() + 8];
                 let result = kw
                     .wrap_key(key, &mut buf)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 Ok(result.to_vec())
             },
             32 => {
-                let kw = KwAes256::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey)?;
+                let kw =
+                    KwAes256::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey(None))?;
                 let mut buf = vec![0u8; key.len() + 8];
                 let result = kw
                     .wrap_key(key, &mut buf)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 Ok(result.to_vec())
             },
-            _ => Err(CryptoError::InvalidKey),
+            _ => Err(CryptoError::InvalidKey(None)),
         }
     }
 
     fn aes_kw_unwrap(&self, kek: &[u8], wrapped_key: &[u8]) -> Result<Vec<u8>, CryptoError> {
         match kek.len() {
             16 => {
-                let kw = KwAes128::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey)?;
+                let kw =
+                    KwAes128::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey(None))?;
                 let mut buf = vec![0u8; wrapped_key.len()];
                 let result = kw
                     .unwrap_key(wrapped_key, &mut buf)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 Ok(result.to_vec())
             },
             24 => {
-                let kw = KwAes192::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey)?;
+                let kw =
+                    KwAes192::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey(None))?;
                 let mut buf = vec![0u8; wrapped_key.len()];
                 let result = kw
                     .unwrap_key(wrapped_key, &mut buf)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 Ok(result.to_vec())
             },
             32 => {
-                let kw = KwAes256::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey)?;
+                let kw =
+                    KwAes256::new_from_slice(kek).map_err(|_| CryptoError::InvalidKey(None))?;
                 let mut buf = vec![0u8; wrapped_key.len()];
                 let result = kw
                     .unwrap_key(wrapped_key, &mut buf)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 Ok(result.to_vec())
             },
-            _ => Err(CryptoError::InvalidKey),
+            _ => Err(CryptoError::InvalidKey(None)),
         }
     }
 
@@ -777,11 +786,11 @@ impl CryptoProvider for RustCryptoProvider {
         let info = &[info];
         let okm = prk
             .expand(info, HkdfOutput(length))
-            .map_err(|_| CryptoError::DerivationFailed)?;
+            .map_err(|_| CryptoError::DerivationFailed(None))?;
 
         let mut out = vec![0u8; length];
         okm.fill(&mut out)
-            .map_err(|_| CryptoError::DerivationFailed)?;
+            .map_err(|_| CryptoError::DerivationFailed(None))?;
         Ok(out)
     }
 
@@ -802,7 +811,7 @@ impl CryptoProvider for RustCryptoProvider {
         };
 
         let mut out = vec![0; length];
-        let iterations = NonZeroU32::new(iterations).ok_or(CryptoError::InvalidData)?;
+        let iterations = NonZeroU32::new(iterations).ok_or(CryptoError::InvalidData(None))?;
         pbkdf2::derive(algorithm, iterations, salt, password, &mut out);
         Ok(out)
     }
@@ -821,12 +830,12 @@ impl CryptoProvider for RustCryptoProvider {
         length_bits: u16,
     ) -> Result<Vec<u8>, CryptoError> {
         let length_bytes = if length_bits == 0 {
-            hash_alg.hmac_algorithm().digest_algorithm().block_len()
+            hash_alg.block_len()
         } else {
             (length_bits / 8) as usize
         };
 
-        if length_bytes > ring::digest::MAX_BLOCK_LEN {
+        if length_bytes > 128 {
             return Err(CryptoError::InvalidLength);
         }
 
@@ -839,30 +848,30 @@ impl CryptoProvider for RustCryptoProvider {
         match curve {
             EllipticCurve::P256 => {
                 let key = P256SecretKey::try_from_rng(&mut rng)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 let pkcs8 = key
                     .to_pkcs8_der()
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 let private_key = pkcs8.as_bytes().to_vec();
                 let public_key = key.public_key().to_sec1_bytes().to_vec();
                 Ok((private_key, public_key))
             },
             EllipticCurve::P384 => {
                 let key = P384SecretKey::try_from_rng(&mut rng)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 let pkcs8 = key
                     .to_pkcs8_der()
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 let private_key = pkcs8.as_bytes().to_vec();
                 let public_key = key.public_key().to_sec1_bytes().to_vec();
                 Ok((private_key, public_key))
             },
             EllipticCurve::P521 => {
                 let key = P521SecretKey::try_from_rng(&mut rng)
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 let pkcs8 = key
                     .to_pkcs8_der()
-                    .map_err(|_| CryptoError::OperationFailed)?;
+                    .map_err(|_| CryptoError::OperationFailed(None))?;
                 let private_key = pkcs8.as_bytes().to_vec();
                 let public_key = key.public_key().to_sec1_bytes().to_vec();
                 Ok((private_key, public_key))
@@ -873,10 +882,10 @@ impl CryptoProvider for RustCryptoProvider {
     fn generate_ed25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
         let rng = &(*SYSTEM_RANDOM);
         let pkcs8 =
-            Ed25519KeyPair::generate_pkcs8(rng).map_err(|_| CryptoError::OperationFailed)?;
+            Ed25519KeyPair::generate_pkcs8(rng).map_err(|_| CryptoError::OperationFailed(None))?;
         let private_key = pkcs8.as_ref().to_vec();
-        let key_pair =
-            Ed25519KeyPair::from_pkcs8(&private_key).map_err(|_| CryptoError::OperationFailed)?;
+        let key_pair = Ed25519KeyPair::from_pkcs8(&private_key)
+            .map_err(|_| CryptoError::OperationFailed(None))?;
         let public_key = key_pair.public_key().as_ref().to_vec();
         Ok((private_key, public_key))
     }
@@ -904,26 +913,563 @@ impl CryptoProvider for RustCryptoProvider {
             {
                 3
             },
-            _ => return Err(CryptoError::InvalidData),
+            _ => return Err(CryptoError::InvalidData(None)),
         };
 
         let exp = BoxedUint::from(exponent);
         let mut rng = rand::rng();
         let rsa_private_key = RsaPrivateKey::new_with_exp(&mut rng, modulus_length as usize, exp)
-            .map_err(|_| CryptoError::OperationFailed)?;
+            .map_err(|_| CryptoError::OperationFailed(None))?;
 
         let public_key = rsa_private_key
             .to_public_key()
             .to_pkcs1_der()
-            .map_err(|_| CryptoError::OperationFailed)?;
+            .map_err(|_| CryptoError::OperationFailed(None))?;
         let private_key = rsa_private_key
             .to_pkcs1_der()
-            .map_err(|_| CryptoError::OperationFailed)?;
+            .map_err(|_| CryptoError::OperationFailed(None))?;
 
         Ok((
             private_key.as_bytes().to_vec(),
             public_key.as_bytes().to_vec(),
         ))
+    }
+
+    fn import_rsa_public_key_pkcs1(
+        &self,
+        der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        use der::Decode;
+        let public_key =
+            rsa::pkcs1::RsaPublicKey::from_der(der).map_err(|_| CryptoError::InvalidKey(None))?;
+        let modulus_length = public_key.modulus.as_bytes().len() * 8;
+        let public_exponent = public_key.public_exponent.as_bytes().to_vec();
+        let key_data = public_key
+            .to_der()
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        Ok(super::RsaImportResult {
+            key_data,
+            modulus_length: modulus_length as u32,
+            public_exponent,
+            is_private: false,
+        })
+    }
+
+    fn import_rsa_private_key_pkcs1(
+        &self,
+        der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        use der::Decode;
+        let private_key =
+            rsa::pkcs1::RsaPrivateKey::from_der(der).map_err(|_| CryptoError::InvalidKey(None))?;
+        let modulus_length = private_key.modulus.as_bytes().len() * 8;
+        let public_exponent = private_key.public_exponent.as_bytes().to_vec();
+        let key_data = private_key
+            .to_der()
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        Ok(super::RsaImportResult {
+            key_data,
+            modulus_length: modulus_length as u32,
+            public_exponent,
+            is_private: true,
+        })
+    }
+
+    fn import_rsa_public_key_spki(
+        &self,
+        der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        use der::Decode;
+        let spki = spki::SubjectPublicKeyInfoRef::try_from(der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_key = rsa::pkcs1::RsaPublicKey::from_der(spki.subject_public_key.raw_bytes())
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let modulus_length = public_key.modulus.as_bytes().len() * 8;
+        let public_exponent = public_key.public_exponent.as_bytes().to_vec();
+        let key_data = public_key
+            .to_der()
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        Ok(super::RsaImportResult {
+            key_data,
+            modulus_length: modulus_length as u32,
+            public_exponent,
+            is_private: false,
+        })
+    }
+
+    fn import_rsa_private_key_pkcs8(
+        &self,
+        der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        use der::Decode;
+        let pk_info =
+            pkcs8::PrivateKeyInfoRef::from_der(der).map_err(|_| CryptoError::InvalidKey(None))?;
+        let private_key = rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key.as_bytes())
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let modulus_length = private_key.modulus.as_bytes().len() * 8;
+        let public_exponent = private_key.public_exponent.as_bytes().to_vec();
+        let key_data = pk_info
+            .private_key
+            .to_der()
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        Ok(super::RsaImportResult {
+            key_data,
+            modulus_length: modulus_length as u32,
+            public_exponent,
+            is_private: true,
+        })
+    }
+
+    fn export_rsa_public_key_pkcs1(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        // key_data is already PKCS1 DER
+        Ok(key_data.to_vec())
+    }
+
+    fn export_rsa_public_key_spki(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        use der::{Decode, Encode};
+        let public_key = rsa::pkcs1::RsaPublicKey::from_der(key_data)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let spki = spki::SubjectPublicKeyInfo {
+            algorithm: spki::AlgorithmIdentifier::<der::asn1::Any> {
+                oid: const_oid::db::rfc5912::RSA_ENCRYPTION,
+                parameters: Some(der::asn1::Null.into()),
+            },
+            subject_public_key: spki::der::asn1::BitString::from_bytes(
+                &public_key
+                    .to_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?,
+            )
+            .map_err(|_| CryptoError::InvalidKey(None))?,
+        };
+        spki.to_der().map_err(|_| CryptoError::InvalidKey(None))
+    }
+
+    fn export_rsa_private_key_pkcs8(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        let private_key =
+            RsaPrivateKey::from_pkcs1_der(key_data).map_err(|_| CryptoError::InvalidKey(None))?;
+        private_key
+            .to_pkcs8_der()
+            .map(|doc| doc.as_bytes().to_vec())
+            .map_err(|_| CryptoError::InvalidKey(None))
+    }
+
+    fn import_ec_public_key_sec1(
+        &self,
+        data: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
+        Ok(super::EcImportResult {
+            key_data: data.to_vec(),
+            is_private: false,
+        })
+    }
+
+    fn import_ec_public_key_spki(&self, der: &[u8]) -> Result<super::EcImportResult, CryptoError> {
+        let spki = spki::SubjectPublicKeyInfoRef::try_from(der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        Ok(super::EcImportResult {
+            key_data: spki.subject_public_key.raw_bytes().to_vec(),
+            is_private: false,
+        })
+    }
+
+    fn import_ec_private_key_pkcs8(
+        &self,
+        der: &[u8],
+    ) -> Result<super::EcImportResult, CryptoError> {
+        Ok(super::EcImportResult {
+            key_data: der.to_vec(),
+            is_private: true,
+        })
+    }
+
+    fn import_ec_private_key_sec1(
+        &self,
+        data: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
+        // Convert SEC1 private key to PKCS8
+        let pkcs8_der = match curve {
+            EllipticCurve::P256 => {
+                let key =
+                    P256SecretKey::from_slice(data).map_err(|_| CryptoError::InvalidKey(None))?;
+                key.to_pkcs8_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?
+                    .as_bytes()
+                    .to_vec()
+            },
+            EllipticCurve::P384 => {
+                let key =
+                    P384SecretKey::from_slice(data).map_err(|_| CryptoError::InvalidKey(None))?;
+                key.to_pkcs8_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?
+                    .as_bytes()
+                    .to_vec()
+            },
+            EllipticCurve::P521 => {
+                let key =
+                    P521SecretKey::from_slice(data).map_err(|_| CryptoError::InvalidKey(None))?;
+                key.to_pkcs8_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?
+                    .as_bytes()
+                    .to_vec()
+            },
+        };
+        Ok(super::EcImportResult {
+            key_data: pkcs8_der,
+            is_private: true,
+        })
+    }
+
+    fn export_ec_public_key_sec1(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+        is_private: bool,
+    ) -> Result<Vec<u8>, CryptoError> {
+        use elliptic_curve::sec1::ToEncodedPoint;
+        if is_private {
+            // Extract public key from PKCS8 private key
+            match curve {
+                EllipticCurve::P256 => {
+                    let key = P256SecretKey::from_pkcs8_der(key_data)
+                        .map_err(|_| CryptoError::InvalidKey(None))?;
+                    Ok(key.public_key().to_encoded_point(false).as_bytes().to_vec())
+                },
+                EllipticCurve::P384 => {
+                    let key = P384SecretKey::from_pkcs8_der(key_data)
+                        .map_err(|_| CryptoError::InvalidKey(None))?;
+                    Ok(key.public_key().to_encoded_point(false).as_bytes().to_vec())
+                },
+                EllipticCurve::P521 => {
+                    let key = P521SecretKey::from_pkcs8_der(key_data)
+                        .map_err(|_| CryptoError::InvalidKey(None))?;
+                    Ok(key.public_key().to_encoded_point(false).as_bytes().to_vec())
+                },
+            }
+        } else {
+            // key_data is already SEC1 encoded
+            Ok(key_data.to_vec())
+        }
+    }
+
+    fn export_ec_public_key_spki(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<Vec<u8>, CryptoError> {
+        use der::Encode;
+        use elliptic_curve::pkcs8::AssociatedOid;
+        let curve_oid = match curve {
+            EllipticCurve::P256 => p256::NistP256::OID,
+            EllipticCurve::P384 => p384::NistP384::OID,
+            EllipticCurve::P521 => p521::NistP521::OID,
+        };
+        let spki = spki::SubjectPublicKeyInfo {
+            algorithm: spki::AlgorithmIdentifier::<der::asn1::ObjectIdentifier> {
+                oid: elliptic_curve::ALGORITHM_OID,
+                parameters: Some(curve_oid),
+            },
+            subject_public_key: spki::der::asn1::BitString::from_bytes(key_data)
+                .map_err(|_| CryptoError::InvalidKey(None))?,
+        };
+        spki.to_der().map_err(|_| CryptoError::InvalidKey(None))
+    }
+
+    fn export_ec_private_key_pkcs8(
+        &self,
+        key_data: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<Vec<u8>, CryptoError> {
+        // key_data is already PKCS8
+        Ok(key_data.to_vec())
+    }
+
+    fn import_okp_public_key_raw(
+        &self,
+        data: &[u8],
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        if data.len() != 32 {
+            return Err(CryptoError::InvalidKey(None));
+        }
+        Ok(super::OkpImportResult {
+            key_data: data.to_vec(),
+            is_private: false,
+        })
+    }
+
+    fn import_okp_public_key_spki(
+        &self,
+        der: &[u8],
+        _expected_oid: &[u8],
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        let spki = spki::SubjectPublicKeyInfoRef::try_from(der)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        Ok(super::OkpImportResult {
+            key_data: spki.subject_public_key.raw_bytes().to_vec(),
+            is_private: false,
+        })
+    }
+
+    fn import_okp_private_key_pkcs8(
+        &self,
+        der: &[u8],
+        _expected_oid: &[u8],
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        Ok(super::OkpImportResult {
+            key_data: der.to_vec(),
+            is_private: true,
+        })
+    }
+
+    fn export_okp_public_key_raw(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+    ) -> Result<Vec<u8>, CryptoError> {
+        if is_private {
+            // Extract public key from PKCS8 - for X25519/Ed25519
+            use der::Decode;
+            let pk_info = pkcs8::PrivateKeyInfoRef::from_der(key_data)
+                .map_err(|_| CryptoError::InvalidKey(None))?;
+            // The private key is wrapped in an OCTET STRING, skip the tag+length (2 bytes)
+            let private_key_bytes = pk_info.private_key.as_bytes();
+            let seed = if private_key_bytes.len() > 2 && private_key_bytes[0] == 0x04 {
+                &private_key_bytes[2..]
+            } else {
+                private_key_bytes
+            };
+            let bytes: [u8; 32] = seed.try_into().map_err(|_| CryptoError::InvalidKey(None))?;
+            let secret = x25519_dalek::StaticSecret::from(bytes);
+            let public = x25519_dalek::PublicKey::from(&secret);
+            Ok(public.as_bytes().to_vec())
+        } else {
+            Ok(key_data.to_vec())
+        }
+    }
+
+    fn export_okp_public_key_spki(
+        &self,
+        key_data: &[u8],
+        oid: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        use der::Encode;
+        let oid = const_oid::ObjectIdentifier::from_bytes(oid)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let spki = spki::SubjectPublicKeyInfo {
+            algorithm: spki::AlgorithmIdentifierOwned {
+                oid,
+                parameters: None,
+            },
+            subject_public_key: spki::der::asn1::BitString::from_bytes(key_data)
+                .map_err(|_| CryptoError::InvalidKey(None))?,
+        };
+        spki.to_der().map_err(|_| CryptoError::InvalidKey(None))
+    }
+
+    fn export_okp_private_key_pkcs8(
+        &self,
+        key_data: &[u8],
+        _oid: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        // key_data is already PKCS8
+        Ok(key_data.to_vec())
+    }
+
+    fn import_rsa_jwk(
+        &self,
+        jwk: super::RsaJwkImport<'_>,
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        use der::{asn1::UintRef, Encode};
+        let modulus = UintRef::new(jwk.n).map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_exponent = UintRef::new(jwk.e).map_err(|_| CryptoError::InvalidKey(None))?;
+        let modulus_length = (modulus.as_bytes().len() * 8) as u32;
+        let pub_exp_bytes = public_exponent.as_bytes().to_vec();
+
+        if let (Some(d), Some(p), Some(q), Some(dp), Some(dq), Some(qi)) =
+            (jwk.d, jwk.p, jwk.q, jwk.dp, jwk.dq, jwk.qi)
+        {
+            let private_key = rsa::pkcs1::RsaPrivateKey {
+                modulus,
+                public_exponent,
+                private_exponent: UintRef::new(d).map_err(|_| CryptoError::InvalidKey(None))?,
+                prime1: UintRef::new(p).map_err(|_| CryptoError::InvalidKey(None))?,
+                prime2: UintRef::new(q).map_err(|_| CryptoError::InvalidKey(None))?,
+                exponent1: UintRef::new(dp).map_err(|_| CryptoError::InvalidKey(None))?,
+                exponent2: UintRef::new(dq).map_err(|_| CryptoError::InvalidKey(None))?,
+                coefficient: UintRef::new(qi).map_err(|_| CryptoError::InvalidKey(None))?,
+                other_prime_infos: None,
+            };
+            Ok(super::RsaImportResult {
+                key_data: private_key
+                    .to_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?,
+                modulus_length,
+                public_exponent: pub_exp_bytes,
+                is_private: true,
+            })
+        } else {
+            let public_key = rsa::pkcs1::RsaPublicKey {
+                modulus,
+                public_exponent,
+            };
+            Ok(super::RsaImportResult {
+                key_data: public_key
+                    .to_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?,
+                modulus_length,
+                public_exponent: pub_exp_bytes,
+                is_private: false,
+            })
+        }
+    }
+
+    fn export_rsa_jwk(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+    ) -> Result<super::RsaJwkExport, CryptoError> {
+        use der::Decode;
+        if is_private {
+            let key = rsa::pkcs1::RsaPrivateKey::from_der(key_data)
+                .map_err(|_| CryptoError::InvalidKey(None))?;
+            Ok(super::RsaJwkExport {
+                n: key.modulus.as_bytes().to_vec(),
+                e: key.public_exponent.as_bytes().to_vec(),
+                d: Some(key.private_exponent.as_bytes().to_vec()),
+                p: Some(key.prime1.as_bytes().to_vec()),
+                q: Some(key.prime2.as_bytes().to_vec()),
+                dp: Some(key.exponent1.as_bytes().to_vec()),
+                dq: Some(key.exponent2.as_bytes().to_vec()),
+                qi: Some(key.coefficient.as_bytes().to_vec()),
+            })
+        } else {
+            let key = rsa::pkcs1::RsaPublicKey::from_der(key_data)
+                .map_err(|_| CryptoError::InvalidKey(None))?;
+            Ok(super::RsaJwkExport {
+                n: key.modulus.as_bytes().to_vec(),
+                e: key.public_exponent.as_bytes().to_vec(),
+                d: None,
+                p: None,
+                q: None,
+                dp: None,
+                dq: None,
+                qi: None,
+            })
+        }
+    }
+
+    fn import_ec_jwk(
+        &self,
+        jwk: super::EcJwkImport<'_>,
+        curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
+        if let Some(d) = jwk.d {
+            // Private key - convert to PKCS8
+            let pkcs8_der = match curve {
+                EllipticCurve::P256 => {
+                    let key =
+                        P256SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    key.to_pkcs8_der()
+                        .map_err(|_| CryptoError::InvalidKey(None))?
+                        .as_bytes()
+                        .to_vec()
+                },
+                EllipticCurve::P384 => {
+                    let key =
+                        P384SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    key.to_pkcs8_der()
+                        .map_err(|_| CryptoError::InvalidKey(None))?
+                        .as_bytes()
+                        .to_vec()
+                },
+                EllipticCurve::P521 => {
+                    let key =
+                        P521SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    key.to_pkcs8_der()
+                        .map_err(|_| CryptoError::InvalidKey(None))?
+                        .as_bytes()
+                        .to_vec()
+                },
+            };
+            Ok(super::EcImportResult {
+                key_data: pkcs8_der,
+                is_private: true,
+            })
+        } else {
+            // Public key - encode as SEC1 uncompressed point
+            let mut point = Vec::with_capacity(1 + jwk.x.len() + jwk.y.len());
+            point.push(0x04); // uncompressed
+            point.extend_from_slice(jwk.x);
+            point.extend_from_slice(jwk.y);
+            Ok(super::EcImportResult {
+                key_data: point,
+                is_private: false,
+            })
+        }
+    }
+
+    fn export_ec_jwk(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+        is_private: bool,
+    ) -> Result<super::EcJwkExport, CryptoError> {
+        let coord_len = match curve {
+            EllipticCurve::P256 => 32,
+            EllipticCurve::P384 => 48,
+            EllipticCurve::P521 => 66,
+        };
+        if is_private {
+            // key_data is PKCS8
+            use der::Decode;
+            let pk_info = pkcs8::PrivateKeyInfoRef::from_der(key_data)
+                .map_err(|_| CryptoError::InvalidKey(None))?;
+            // Get private key bytes (skip OCTET STRING wrapper if present)
+            let priv_bytes = pk_info.private_key.as_bytes();
+            let d = if priv_bytes.len() > 2 && priv_bytes[0] == 0x04 {
+                &priv_bytes[2..]
+            } else {
+                priv_bytes
+            };
+            // Derive public key to get x, y
+            let (x, y) = match curve {
+                EllipticCurve::P256 => {
+                    let sk =
+                        P256SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    let pk = sk.public_key();
+                    let pt = pk.to_encoded_point(false);
+                    (pt.x().unwrap().to_vec(), pt.y().unwrap().to_vec())
+                },
+                EllipticCurve::P384 => {
+                    let sk =
+                        P384SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    let pk = sk.public_key();
+                    let pt = pk.to_encoded_point(false);
+                    (pt.x().unwrap().to_vec(), pt.y().unwrap().to_vec())
+                },
+                EllipticCurve::P521 => {
+                    let sk =
+                        P521SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    let pk = sk.public_key();
+                    let pt = pk.to_encoded_point(false);
+                    (pt.x().unwrap().to_vec(), pt.y().unwrap().to_vec())
+                },
+            };
+            Ok(super::EcJwkExport {
+                x,
+                y,
+                d: Some(d.to_vec()),
+            })
+        } else {
+            // key_data is SEC1 uncompressed point (0x04 || x || y)
+            if key_data.len() != 1 + 2 * coord_len || key_data[0] != 0x04 {
+                return Err(CryptoError::InvalidKey(None));
+            }
+            let x = key_data[1..1 + coord_len].to_vec();
+            let y = key_data[1 + coord_len..].to_vec();
+            Ok(super::EcJwkExport { x, y, d: None })
+        }
     }
 }
 

@@ -371,4 +371,152 @@ impl CryptoProvider for RingProvider {
     ) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
+
+    fn import_rsa_public_key_pkcs1(
+        &self,
+        _der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_rsa_private_key_pkcs1(
+        &self,
+        _der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_rsa_public_key_spki(
+        &self,
+        _der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_rsa_private_key_pkcs8(
+        &self,
+        _der: &[u8],
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_rsa_public_key_pkcs1(&self, _key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_rsa_public_key_spki(&self, _key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_rsa_private_key_pkcs8(&self, _key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_ec_public_key_sec1(
+        &self,
+        _data: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_ec_public_key_spki(&self, _der: &[u8]) -> Result<super::EcImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_ec_private_key_pkcs8(
+        &self,
+        _der: &[u8],
+    ) -> Result<super::EcImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_ec_private_key_sec1(
+        &self,
+        _data: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_ec_public_key_sec1(
+        &self,
+        _key_data: &[u8],
+        _curve: EllipticCurve,
+        _is_private: bool,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_ec_public_key_spki(
+        &self,
+        _key_data: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_ec_private_key_pkcs8(
+        &self,
+        _key_data: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_okp_public_key_raw(
+        &self,
+        _data: &[u8],
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_okp_public_key_spki(
+        &self,
+        _der: &[u8],
+        _expected_oid: &[u8],
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_okp_private_key_pkcs8(
+        &self,
+        _der: &[u8],
+        _expected_oid: &[u8],
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_okp_public_key_raw(
+        &self,
+        _key_data: &[u8],
+        _is_private: bool,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_okp_public_key_spki(
+        &self,
+        _key_data: &[u8],
+        _oid: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_okp_private_key_pkcs8(
+        &self,
+        _key_data: &[u8],
+        _oid: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_rsa_jwk(
+        &self,
+        _jwk: super::RsaJwkImport<'_>,
+    ) -> Result<super::RsaImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_rsa_jwk(
+        &self,
+        _key_data: &[u8],
+        _is_private: bool,
+    ) -> Result<super::RsaJwkExport, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn import_ec_jwk(
+        &self,
+        _jwk: super::EcJwkImport<'_>,
+        _curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_ec_jwk(
+        &self,
+        _key_data: &[u8],
+        _curve: EllipticCurve,
+        _is_private: bool,
+    ) -> Result<super::EcJwkExport, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
 }

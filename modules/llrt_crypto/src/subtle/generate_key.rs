@@ -122,10 +122,10 @@ fn generate_symmetric_key(_ctx: &Ctx<'_>, length: usize) -> Result<Vec<u8>> {
 #[allow(dead_code)]
 pub fn get_hash_length(ctx: &Ctx, hash: &ShaAlgorithm, length: u16) -> Result<usize> {
     if length == 0 {
-        return Ok(hash.hmac_algorithm().digest_algorithm().block_len());
+        return Ok(hash.block_len());
     }
 
-    if !length.is_multiple_of(8) || (length / 8) > ring::digest::MAX_BLOCK_LEN.try_into().unwrap() {
+    if !length.is_multiple_of(8) || (length / 8) as usize > 128 {
         return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
     }
 
