@@ -20,7 +20,9 @@ tls-openssl = ["llrt_core/tls-openssl"]
 
 # Crypto provider features
 crypto-rust = ["llrt_core/crypto-rust"]
+crypto-ring = ["llrt_core/crypto-ring"]
 crypto-ring-rust = ["llrt_core/crypto-ring-rust"]
+crypto-graviola = ["llrt_core/crypto-graviola"]
 crypto-graviola-rust = ["llrt_core/crypto-graviola-rust"]
 crypto-openssl = ["llrt_core/crypto-openssl"]
 
