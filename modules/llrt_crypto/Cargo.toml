@@ -13,8 +13,19 @@ path = "src/lib.rs"
 
 [features]
 default = ["crypto-rust"]
-crypto-rust = [
+
+# Internal feature: enables DER parsing for SubtleCrypto key import/export
+_subtle-full = [
   "llrt_json",
+  "spki",
+  "der",
+  "const-oid",
+  "pkcs8",
+]
+
+# Internal feature: enables RustCrypto dependencies for key import/export
+_rustcrypto = [
+  "_subtle-full",
   "aes",
   "aes-gcm",
   "aes-kw",
@@ -27,84 +38,16 @@ crypto-rust = [
   "elliptic-curve",
   "x25519-dalek",
   "ecdsa",
-  "spki",
-  "der",
-  "const-oid",
-  "pkcs8",
   "hmac",
   "sha1",
 ]
+
+crypto-rust = ["_rustcrypto"]
 crypto-ring = []
-crypto-ring-rust = [
-  "llrt_json",
-  "aes",
-  "aes-gcm",
-  "aes-kw",
-  "cbc",
-  "ctr",
-  "rsa",
-  "p256",
-  "p384",
-  "p521",
-  "elliptic-curve",
-  "x25519-dalek",
-  "ecdsa",
-  "spki",
-  "der",
-  "const-oid",
-  "pkcs8",
-  "hmac",
-  "sha1",
-]
-crypto-graviola = [
-  "graviola",
-]
-crypto-graviola-rust = [
-  "graviola",
-  "llrt_json",
-  "aes",
-  "aes-gcm",
-  "aes-kw",
-  "cbc",
-  "ctr",
-  "rsa",
-  "p256",
-  "p384",
-  "p521",
-  "elliptic-curve",
-  "x25519-dalek",
-  "ecdsa",
-  "spki",
-  "der",
-  "const-oid",
-  "pkcs8",
-  "hmac",
-  "sha1",
-]
-# Crypto provider features
-crypto-openssl = [
-  "openssl-sys",
-  "openssl",
-  "llrt_json",
-  "aes",
-  "aes-gcm",
-  "aes-kw",
-  "cbc",
-  "ctr",
-  "rsa",
-  "p256",
-  "p384",
-  "p521",
-  "elliptic-curve",
-  "x25519-dalek",
-  "ecdsa",
-  "spki",
-  "der",
-  "const-oid",
-  "pkcs8",
-  "hmac",
-  "sha1",
-]
+crypto-ring-rust = ["_rustcrypto"]
+crypto-graviola = ["graviola"]
+crypto-graviola-rust = ["graviola", "_rustcrypto"]
+crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
 openssl-vendored = ["openssl-sys?/vendored", "openssl?/vendored"]
 
 [dependencies]

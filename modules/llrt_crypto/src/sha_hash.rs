@@ -1,13 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{
     bytes::{bytes_to_typed_array, ObjectBytes},
     iterable_enum,
     result::ResultExt,
 };
-use ring::{digest, hmac};
 use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
 
 use super::{encoded_bytes, CRYPTO_PROVIDER};
@@ -127,24 +124,25 @@ impl ShaAlgorithm {
         }
     }
 
-    // Keep Ring compatibility for subtle crypto
-    pub fn hmac_algorithm(&self) -> &'static hmac::Algorithm {
+    /// Returns the block size in bytes for this hash algorithm
+    pub fn block_len(&self) -> usize {
         match self {
-            ShaAlgorithm::MD5 => panic!("MD5 HMAC not supported by Ring"),
-            ShaAlgorithm::SHA1 => &hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-            ShaAlgorithm::SHA256 => &hmac::HMAC_SHA256,
-            ShaAlgorithm::SHA384 => &hmac::HMAC_SHA384,
-            ShaAlgorithm::SHA512 => &hmac::HMAC_SHA512,
+            ShaAlgorithm::MD5 => 64,
+            ShaAlgorithm::SHA1 => 64,
+            ShaAlgorithm::SHA256 => 64,
+            ShaAlgorithm::SHA384 => 128,
+            ShaAlgorithm::SHA512 => 128,
         }
     }
 
-    pub fn digest_algorithm(&self) -> &'static digest::Algorithm {
+    /// Returns the digest/output size in bytes for this hash algorithm
+    pub fn digest_len(&self) -> usize {
         match self {
-            ShaAlgorithm::MD5 => panic!("MD5 digest not supported by Ring"),
-            ShaAlgorithm::SHA1 => &digest::SHA1_FOR_LEGACY_USE_ONLY,
-            ShaAlgorithm::SHA256 => &digest::SHA256,
-            ShaAlgorithm::SHA384 => &digest::SHA384,
-            ShaAlgorithm::SHA512 => &digest::SHA512,
+            ShaAlgorithm::MD5 => 16,
+            ShaAlgorithm::SHA1 => 20,
+            ShaAlgorithm::SHA256 => 32,
+            ShaAlgorithm::SHA384 => 48,
+            ShaAlgorithm::SHA512 => 64,
         }
     }
 

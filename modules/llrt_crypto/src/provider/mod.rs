@@ -32,16 +32,73 @@ mod openssl;
 #[cfg(any(feature = "crypto-ring", feature = "crypto-ring-rust"))]
 mod ring;
 
-#[cfg(any(
-    feature = "crypto-rust",
-    feature = "crypto-ring-rust",
-    feature = "crypto-graviola-rust",
-    feature = "crypto-openssl"
-))]
+#[cfg(feature = "_rustcrypto")]
 mod rust;
 
 use crate::sha_hash::ShaAlgorithm;
 use crate::subtle::EllipticCurve;
+
+#[derive(Debug)]
+pub struct RsaImportResult {
+    pub key_data: Vec<u8>,
+    pub modulus_length: u32,
+    pub public_exponent: Vec<u8>,
+    pub is_private: bool,
+}
+
+#[derive(Debug)]
+pub struct EcImportResult {
+    pub key_data: Vec<u8>,
+    pub is_private: bool,
+}
+
+#[derive(Debug)]
+pub struct OkpImportResult {
+    pub key_data: Vec<u8>,
+    pub is_private: bool,
+}
+
+/// RSA JWK components for import (all values are raw bytes, not base64)
+#[derive(Debug)]
+pub struct RsaJwkImport<'a> {
+    pub n: &'a [u8],          // modulus
+    pub e: &'a [u8],          // public exponent
+    pub d: Option<&'a [u8]>,  // private exponent
+    pub p: Option<&'a [u8]>,  // first prime
+    pub q: Option<&'a [u8]>,  // second prime
+    pub dp: Option<&'a [u8]>, // first factor CRT exponent
+    pub dq: Option<&'a [u8]>, // second factor CRT exponent
+    pub qi: Option<&'a [u8]>, // first CRT coefficient
+}
+
+/// RSA JWK components for export
+#[derive(Debug)]
+pub struct RsaJwkExport {
+    pub n: Vec<u8>,
+    pub e: Vec<u8>,
+    pub d: Option<Vec<u8>>,
+    pub p: Option<Vec<u8>>,
+    pub q: Option<Vec<u8>>,
+    pub dp: Option<Vec<u8>>,
+    pub dq: Option<Vec<u8>>,
+    pub qi: Option<Vec<u8>>,
+}
+
+/// EC JWK components for import (all values are raw bytes)
+#[derive(Debug)]
+pub struct EcJwkImport<'a> {
+    pub x: &'a [u8],
+    pub y: &'a [u8],
+    pub d: Option<&'a [u8]>,
+}
+
+/// EC JWK components for export
+#[derive(Debug)]
+pub struct EcJwkExport {
+    pub x: Vec<u8>,
+    pub y: Vec<u8>,
+    pub d: Option<Vec<u8>>,
+}
 
 pub trait SimpleDigest {
     fn update(&mut self, data: &[u8]);
@@ -202,6 +259,98 @@ pub trait CryptoProvider {
         modulus_length: u32,
         public_exponent: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>), CryptoError>;
+
+    // RSA key import from DER formats
+    fn import_rsa_public_key_pkcs1(&self, der: &[u8]) -> Result<RsaImportResult, CryptoError>;
+    fn import_rsa_private_key_pkcs1(&self, der: &[u8]) -> Result<RsaImportResult, CryptoError>;
+    fn import_rsa_public_key_spki(&self, der: &[u8]) -> Result<RsaImportResult, CryptoError>;
+    fn import_rsa_private_key_pkcs8(&self, der: &[u8]) -> Result<RsaImportResult, CryptoError>;
+
+    // RSA key export to DER formats
+    fn export_rsa_public_key_pkcs1(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError>;
+    fn export_rsa_public_key_spki(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError>;
+    fn export_rsa_private_key_pkcs8(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError>;
+
+    // EC key import from DER formats
+    fn import_ec_public_key_sec1(
+        &self,
+        data: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<EcImportResult, CryptoError>;
+    fn import_ec_public_key_spki(&self, der: &[u8]) -> Result<EcImportResult, CryptoError>;
+    fn import_ec_private_key_pkcs8(&self, der: &[u8]) -> Result<EcImportResult, CryptoError>;
+    fn import_ec_private_key_sec1(
+        &self,
+        data: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<EcImportResult, CryptoError>;
+
+    // EC key export
+    fn export_ec_public_key_sec1(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+        is_private: bool,
+    ) -> Result<Vec<u8>, CryptoError>;
+    fn export_ec_public_key_spki(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<Vec<u8>, CryptoError>;
+    fn export_ec_private_key_pkcs8(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<Vec<u8>, CryptoError>;
+
+    // OKP (Ed25519/X25519) key import
+    fn import_okp_public_key_raw(&self, data: &[u8]) -> Result<OkpImportResult, CryptoError>;
+    fn import_okp_public_key_spki(
+        &self,
+        der: &[u8],
+        expected_oid: &[u8],
+    ) -> Result<OkpImportResult, CryptoError>;
+    fn import_okp_private_key_pkcs8(
+        &self,
+        der: &[u8],
+        expected_oid: &[u8],
+    ) -> Result<OkpImportResult, CryptoError>;
+
+    // OKP key export
+    fn export_okp_public_key_raw(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+    ) -> Result<Vec<u8>, CryptoError>;
+    fn export_okp_public_key_spki(
+        &self,
+        key_data: &[u8],
+        oid: &[u8],
+    ) -> Result<Vec<u8>, CryptoError>;
+    fn export_okp_private_key_pkcs8(
+        &self,
+        key_data: &[u8],
+        oid: &[u8],
+    ) -> Result<Vec<u8>, CryptoError>;
+
+    // JWK import/export
+    fn import_rsa_jwk(&self, jwk: RsaJwkImport<'_>) -> Result<RsaImportResult, CryptoError>;
+    fn export_rsa_jwk(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+    ) -> Result<RsaJwkExport, CryptoError>;
+    fn import_ec_jwk(
+        &self,
+        jwk: EcJwkImport<'_>,
+        curve: EllipticCurve,
+    ) -> Result<EcImportResult, CryptoError>;
+    fn export_ec_jwk(
+        &self,
+        key_data: &[u8],
+        curve: EllipticCurve,
+        is_private: bool,
+    ) -> Result<EcJwkExport, CryptoError>;
 }
 
 pub trait HmacProvider {
@@ -210,35 +359,43 @@ pub trait HmacProvider {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum CryptoError {
-    InvalidKey,
-    InvalidData,
-    InvalidSignature,
+    InvalidKey(Option<Box<str>>),
+    InvalidData(Option<Box<str>>),
+    InvalidSignature(Option<Box<str>>),
     InvalidLength,
-    SigningFailed,
-    #[allow(dead_code)]
+    SigningFailed(Option<Box<str>>),
     VerificationFailed,
-    OperationFailed,
+    OperationFailed(Option<Box<str>>),
     UnsupportedAlgorithm,
-    DerivationFailed,
-    EncryptionFailed,
-    DecryptionFailed,
+    DerivationFailed(Option<Box<str>>),
+    EncryptionFailed(Option<Box<str>>),
+    DecryptionFailed(Option<Box<str>>),
 }
 
 impl std::fmt::Display for CryptoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CryptoError::InvalidKey => write!(f, "Invalid key"),
-            CryptoError::InvalidData => write!(f, "Invalid data"),
-            CryptoError::InvalidSignature => write!(f, "Invalid signature"),
+            CryptoError::InvalidKey(None) => write!(f, "Invalid key"),
+            CryptoError::InvalidKey(Some(msg)) => write!(f, "Invalid key: {}", msg),
+            CryptoError::InvalidData(None) => write!(f, "Invalid data"),
+            CryptoError::InvalidData(Some(msg)) => write!(f, "Invalid data: {}", msg),
+            CryptoError::InvalidSignature(None) => write!(f, "Invalid signature"),
+            CryptoError::InvalidSignature(Some(msg)) => write!(f, "Invalid signature: {}", msg),
             CryptoError::InvalidLength => write!(f, "Invalid length"),
-            CryptoError::SigningFailed => write!(f, "Signing failed"),
+            CryptoError::SigningFailed(None) => write!(f, "Signing failed"),
+            CryptoError::SigningFailed(Some(msg)) => write!(f, "Signing failed: {}", msg),
             CryptoError::VerificationFailed => write!(f, "Verification failed"),
-            CryptoError::OperationFailed => write!(f, "Operation failed"),
+            CryptoError::OperationFailed(None) => write!(f, "Operation failed"),
+            CryptoError::OperationFailed(Some(msg)) => write!(f, "Operation failed: {}", msg),
             CryptoError::UnsupportedAlgorithm => write!(f, "Unsupported algorithm"),
-            CryptoError::DerivationFailed => write!(f, "Derivation failed"),
-            CryptoError::EncryptionFailed => write!(f, "Encryption failed"),
-            CryptoError::DecryptionFailed => write!(f, "Decryption failed"),
+            CryptoError::DerivationFailed(None) => write!(f, "Derivation failed"),
+            CryptoError::DerivationFailed(Some(msg)) => write!(f, "Derivation failed: {}", msg),
+            CryptoError::EncryptionFailed(None) => write!(f, "Encryption failed"),
+            CryptoError::EncryptionFailed(Some(msg)) => write!(f, "Encryption failed: {}", msg),
+            CryptoError::DecryptionFailed(None) => write!(f, "Decryption failed"),
+            CryptoError::DecryptionFailed(Some(msg)) => write!(f, "Decryption failed: {}", msg),
         }
     }
 }
@@ -432,6 +589,133 @@ macro_rules! impl_hybrid_provider {
                 e: &[u8],
             ) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
                 rust::RustCryptoProvider.generate_rsa_key(b, e)
+            }
+            fn import_rsa_public_key_pkcs1(
+                &self,
+                d: &[u8],
+            ) -> Result<RsaImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_rsa_public_key_pkcs1(d)
+            }
+            fn import_rsa_private_key_pkcs1(
+                &self,
+                d: &[u8],
+            ) -> Result<RsaImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_rsa_private_key_pkcs1(d)
+            }
+            fn import_rsa_public_key_spki(&self, d: &[u8]) -> Result<RsaImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_rsa_public_key_spki(d)
+            }
+            fn import_rsa_private_key_pkcs8(
+                &self,
+                d: &[u8],
+            ) -> Result<RsaImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_rsa_private_key_pkcs8(d)
+            }
+            fn export_rsa_public_key_pkcs1(&self, d: &[u8]) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_rsa_public_key_pkcs1(d)
+            }
+            fn export_rsa_public_key_spki(&self, d: &[u8]) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_rsa_public_key_spki(d)
+            }
+            fn export_rsa_private_key_pkcs8(&self, d: &[u8]) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_rsa_private_key_pkcs8(d)
+            }
+            fn import_ec_public_key_sec1(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+            ) -> Result<EcImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_ec_public_key_sec1(d, c)
+            }
+            fn import_ec_public_key_spki(&self, d: &[u8]) -> Result<EcImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_ec_public_key_spki(d)
+            }
+            fn import_ec_private_key_pkcs8(&self, d: &[u8]) -> Result<EcImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_ec_private_key_pkcs8(d)
+            }
+            fn import_ec_private_key_sec1(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+            ) -> Result<EcImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_ec_private_key_sec1(d, c)
+            }
+            fn export_ec_public_key_sec1(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+                p: bool,
+            ) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_ec_public_key_sec1(d, c, p)
+            }
+            fn export_ec_public_key_spki(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+            ) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_ec_public_key_spki(d, c)
+            }
+            fn export_ec_private_key_pkcs8(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+            ) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_ec_private_key_pkcs8(d, c)
+            }
+            fn import_okp_public_key_raw(&self, d: &[u8]) -> Result<OkpImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_okp_public_key_raw(d)
+            }
+            fn import_okp_public_key_spki(
+                &self,
+                d: &[u8],
+                o: &[u8],
+            ) -> Result<OkpImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_okp_public_key_spki(d, o)
+            }
+            fn import_okp_private_key_pkcs8(
+                &self,
+                d: &[u8],
+                o: &[u8],
+            ) -> Result<OkpImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_okp_private_key_pkcs8(d, o)
+            }
+            fn export_okp_public_key_raw(&self, d: &[u8], p: bool) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_okp_public_key_raw(d, p)
+            }
+            fn export_okp_public_key_spki(
+                &self,
+                d: &[u8],
+                o: &[u8],
+            ) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_okp_public_key_spki(d, o)
+            }
+            fn export_okp_private_key_pkcs8(
+                &self,
+                d: &[u8],
+                o: &[u8],
+            ) -> Result<Vec<u8>, CryptoError> {
+                rust::RustCryptoProvider.export_okp_private_key_pkcs8(d, o)
+            }
+            fn import_rsa_jwk(&self, j: RsaJwkImport<'_>) -> Result<RsaImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_rsa_jwk(j)
+            }
+            fn export_rsa_jwk(&self, d: &[u8], p: bool) -> Result<RsaJwkExport, CryptoError> {
+                rust::RustCryptoProvider.export_rsa_jwk(d, p)
+            }
+            fn import_ec_jwk(
+                &self,
+                j: EcJwkImport<'_>,
+                c: EllipticCurve,
+            ) -> Result<EcImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_ec_jwk(j, c)
+            }
+            fn export_ec_jwk(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+                p: bool,
+            ) -> Result<EcJwkExport, CryptoError> {
+                rust::RustCryptoProvider.export_ec_jwk(d, c, p)
             }
         }
     };
