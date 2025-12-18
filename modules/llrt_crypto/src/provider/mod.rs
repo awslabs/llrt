@@ -53,6 +53,7 @@ pub struct EcImportResult {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct OkpImportResult {
     pub key_data: Vec<u8>,
     pub is_private: bool,
@@ -73,6 +74,7 @@ pub struct RsaJwkImport<'a> {
 
 /// RSA JWK components for export
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct RsaJwkExport {
     pub n: Vec<u8>,
     pub e: Vec<u8>,
@@ -94,6 +96,7 @@ pub struct EcJwkImport<'a> {
 
 /// EC JWK components for export
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EcJwkExport {
     pub x: Vec<u8>,
     pub y: Vec<u8>,
@@ -106,12 +109,14 @@ pub trait SimpleDigest {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum AesMode {
     Ctr { counter_length: u32 },
     Cbc,
     Gcm { tag_length: u8 },
 }
 
+#[allow(dead_code)]
 pub trait CryptoProvider {
     type Digest: SimpleDigest;
     type Hmac: HmacProvider;
