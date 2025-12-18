@@ -145,7 +145,7 @@ impl CryptoProvider for OpenSslProvider {
             .map_err(|e| CryptoError::SigningFailed(Some(e.to_string().into())))?;
         let r = sig.r().to_vec();
         let s = sig.s().to_vec();
-        let coord_len = (group.degree() as usize + 7) / 8;
+        let coord_len = (group.degree() as usize).div_ceil(8);
         let mut result = vec![0u8; coord_len * 2];
         result[coord_len - r.len()..coord_len].copy_from_slice(&r);
         result[coord_len * 2 - s.len()..].copy_from_slice(&s);
@@ -880,7 +880,7 @@ impl CryptoProvider for OpenSslProvider {
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
         let bn = BigNum::from_slice(data)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-        let ec_key = EcKey::from_private_components(&group, &bn, &group.generator())
+        let ec_key = EcKey::from_private_components(&group, &bn, group.generator())
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
         let pkey = PKey::from_ec_key(ec_key)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;

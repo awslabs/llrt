@@ -1,5 +1,25 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
+// Compile-time checks for conflicting crypto features
+#[cfg(all(feature = "crypto-rust", feature = "crypto-openssl"))]
+compile_error!("Features `crypto-rust` and `crypto-openssl` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-rust", feature = "crypto-ring"))]
+compile_error!("Features `crypto-rust` and `crypto-ring` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-rust", feature = "crypto-graviola"))]
+compile_error!("Features `crypto-rust` and `crypto-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-openssl", feature = "crypto-ring"))]
+compile_error!("Features `crypto-openssl` and `crypto-ring` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-openssl", feature = "crypto-graviola"))]
+compile_error!("Features `crypto-openssl` and `crypto-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "crypto-ring", feature = "crypto-graviola"))]
+compile_error!("Features `crypto-ring` and `crypto-graviola` are mutually exclusive");
+
 mod crc32;
 mod md5_hash;
 mod sha_hash;
