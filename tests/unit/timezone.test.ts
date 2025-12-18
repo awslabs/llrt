@@ -207,7 +207,8 @@ describe("Date.prototype.toLocaleString with timezone", () => {
     // Denver should show 8:45 (UTC-7 in March)
     expect(denver).toContain("8:45");
     // Tokyo should show March 3 (next day) 00:45 (UTC+9)
-    expect(tokyo).toContain("03/03");
+    // CLDR en-US short date format is M/d/yy (no leading zeros)
+    expect(tokyo).toContain("3/3");
   });
 
   it("should work without timezone option", () => {

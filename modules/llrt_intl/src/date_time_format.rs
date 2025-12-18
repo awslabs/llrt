@@ -527,6 +527,9 @@ pub fn format_date_in_timezone(
 #[derive(Default)]
 pub struct ToLocaleStringOptions {
     pub hour12: bool,
+    pub hour12_set: bool,
+    pub date_style: Option<String>,
+    pub time_style: Option<String>,
 }
 
 /// Parse toLocaleString options from a JavaScript object
@@ -545,16 +548,21 @@ pub fn parse_to_locale_string_options<'js>(
             })?);
         }
 
-        // Parse hour12 (defaults to true for en-US)
+        // Parse hour12
         if let Ok(h12) = options_obj.get::<_, bool>("hour12") {
             opts.hour12 = h12;
-        } else {
-            // Default to 12-hour for en-US locale
-            opts.hour12 = true;
+            opts.hour12_set = true;
         }
-    } else {
-        // Default to 12-hour for en-US locale
-        opts.hour12 = true;
+
+        // Parse dateStyle
+        if let Ok(ds) = options_obj.get::<_, String>("dateStyle") {
+            opts.date_style = Some(ds);
+        }
+
+        // Parse timeStyle
+        if let Ok(ts) = options_obj.get::<_, String>("timeStyle") {
+            opts.time_style = Some(ts);
+        }
     }
 
     Ok((tz, opts))
@@ -725,11 +733,17 @@ mod tests {
         let epoch_ms = 1710513045000.0;
         let tz: Tz = "UTC".parse().unwrap();
 
-        let opts = ToLocaleStringOptions { hour12: true };
+        let opts = ToLocaleStringOptions {
+            hour12: true,
+            ..Default::default()
+        };
         let result = format_date_in_timezone(epoch_ms, &tz, &opts);
         assert_eq!(result, "03/15/2024, 2:30:45 PM");
 
-        let opts = ToLocaleStringOptions { hour12: false };
+        let opts = ToLocaleStringOptions {
+            hour12: false,
+            ..Default::default()
+        };
         let result = format_date_in_timezone(epoch_ms, &tz, &opts);
         assert_eq!(result, "03/15/2024, 14:30:45");
     }
@@ -740,7 +754,10 @@ mod tests {
         let epoch_ms = 1710513045000.0;
         let tz: Tz = "America/New_York".parse().unwrap();
 
-        let opts = ToLocaleStringOptions { hour12: true };
+        let opts = ToLocaleStringOptions {
+            hour12: true,
+            ..Default::default()
+        };
         let result = format_date_in_timezone(epoch_ms, &tz, &opts);
         assert_eq!(result, "03/15/2024, 10:30:45 AM");
     }
@@ -751,11 +768,17 @@ mod tests {
         let epoch_ms = 1710460800000.0;
         let tz: Tz = "UTC".parse().unwrap();
 
-        let opts = ToLocaleStringOptions { hour12: true };
+        let opts = ToLocaleStringOptions {
+            hour12: true,
+            ..Default::default()
+        };
         let result = format_date_in_timezone(epoch_ms, &tz, &opts);
         assert_eq!(result, "03/15/2024, 12:00:00 AM");
 
-        let opts = ToLocaleStringOptions { hour12: false };
+        let opts = ToLocaleStringOptions {
+            hour12: false,
+            ..Default::default()
+        };
         let result = format_date_in_timezone(epoch_ms, &tz, &opts);
         assert_eq!(result, "03/15/2024, 00:00:00");
     }
@@ -766,7 +789,10 @@ mod tests {
         let epoch_ms = 1710504000000.0;
         let tz: Tz = "UTC".parse().unwrap();
 
-        let opts = ToLocaleStringOptions { hour12: true };
+        let opts = ToLocaleStringOptions {
+            hour12: true,
+            ..Default::default()
+        };
         let result = format_date_in_timezone(epoch_ms, &tz, &opts);
         assert_eq!(result, "03/15/2024, 12:00:00 PM");
     }
