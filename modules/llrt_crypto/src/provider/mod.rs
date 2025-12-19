@@ -765,14 +765,20 @@ impl_hybrid_provider!(
     graviola::GraviolaRustDigest::new,
     graviola::GraviolaRustHmac::new,
     |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| {
-        if graviola_aes_supported() && matches!(m, AesMode::Gcm { .. }) && matches!(k.len(), 16 | 32) {
+        if graviola_aes_supported()
+            && matches!(m, AesMode::Gcm { .. })
+            && matches!(k.len(), 16 | 32)
+        {
             graviola::GraviolaProvider.aes_encrypt(m, k, iv, d, aad)
         } else {
             rust::RustCryptoProvider.aes_encrypt(m, k, iv, d, aad)
         }
     },
     |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| {
-        if graviola_aes_supported() && matches!(m, AesMode::Gcm { .. }) && matches!(k.len(), 16 | 32) {
+        if graviola_aes_supported()
+            && matches!(m, AesMode::Gcm { .. })
+            && matches!(k.len(), 16 | 32)
+        {
             graviola::GraviolaProvider.aes_decrypt(m, k, iv, d, aad)
         } else {
             rust::RustCryptoProvider.aes_decrypt(m, k, iv, d, aad)
