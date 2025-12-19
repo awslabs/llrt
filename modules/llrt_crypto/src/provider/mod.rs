@@ -742,23 +742,41 @@ impl_hybrid_provider!(
 );
 
 #[cfg(feature = "crypto-graviola-rust")]
+fn graviola_aes_supported() -> bool {
+    #[cfg(target_arch = "aarch64")]
+    {
+        std::arch::is_aarch64_feature_detected!("aes")
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        std::arch::is_x86_feature_detected!("aes")
+    }
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    {
+        false
+    }
+}
+
+#[cfg(feature = "crypto-graviola-rust")]
 impl_hybrid_provider!(
     GraviolaRustProvider,
     graviola::GraviolaRustDigest,
     graviola::GraviolaRustHmac,
     graviola::GraviolaRustDigest::new,
     graviola::GraviolaRustHmac::new,
-    |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| match m {
-        // Graviola only supports AES-128 and AES-256, fall back to RustCrypto for AES-192
-        AesMode::Gcm { .. } if matches!(k.len(), 16 | 32) =>
-            graviola::GraviolaProvider.aes_encrypt(m, k, iv, d, aad),
-        _ => rust::RustCryptoProvider.aes_encrypt(m, k, iv, d, aad),
+    |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| {
+        if graviola_aes_supported() && matches!(m, AesMode::Gcm { .. }) && matches!(k.len(), 16 | 32) {
+            graviola::GraviolaProvider.aes_encrypt(m, k, iv, d, aad)
+        } else {
+            rust::RustCryptoProvider.aes_encrypt(m, k, iv, d, aad)
+        }
     },
-    |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| match m {
-        // Graviola only supports AES-128 and AES-256, fall back to RustCrypto for AES-192
-        AesMode::Gcm { .. } if matches!(k.len(), 16 | 32) =>
-            graviola::GraviolaProvider.aes_decrypt(m, k, iv, d, aad),
-        _ => rust::RustCryptoProvider.aes_decrypt(m, k, iv, d, aad),
+    |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| {
+        if graviola_aes_supported() && matches!(m, AesMode::Gcm { .. }) && matches!(k.len(), 16 | 32) {
+            graviola::GraviolaProvider.aes_decrypt(m, k, iv, d, aad)
+        } else {
+            rust::RustCryptoProvider.aes_decrypt(m, k, iv, d, aad)
+        }
     }
 );
 
