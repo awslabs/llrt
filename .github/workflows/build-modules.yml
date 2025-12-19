@@ -39,9 +39,9 @@ jobs:
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
             echo "Compiling crate: $crate"
-            # Use TLS feature for crates that need TLS
+            # Use TLS feature for crates that need TLS, with --no-default-features to avoid conflicts
             if [ "$crate" = "llrt_fetch" ] || [ "$crate" = "llrt_http" ]; then
-              cargo build -p "$crate" --features "$TLS_FEATURE"
+              cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,$TLS_FEATURE"
             else
               cargo build -p "$crate"
             fi
@@ -50,9 +50,9 @@ jobs:
         env:
           TLS_FEATURE: ${{ inputs.tls_feature }}
         run: |
-          cargo build -p llrt_modules --features "$TLS_FEATURE"
+          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE"
       - name: Run tests all
         env:
           TLS_FEATURE: ${{ inputs.tls_feature }}
         run: |
-          cargo test -p llrt_modules --features "$TLS_FEATURE"
+          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE"

@@ -866,7 +866,11 @@ mod tests {
         .await;
     }
 
-    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64")
+    ))]
     #[tokio::test]
     async fn test_fetch_tls() {
         let mock_server = llrt_test_tls::MockServer::start().await.unwrap();
@@ -909,7 +913,11 @@ mod tests {
         .await;
     }
 
-    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64")
+    ))]
     #[tokio::test]
     async fn test_fetch_ignore_certificate_errors() {
         let mock_server = llrt_test_tls::MockServer::start().await.unwrap();
