@@ -88,7 +88,7 @@ jobs:
         env:
           CARGO_FEATURES: ${{ inputs.cargo_features }}
           # Set LIMITED_CRYPTO for providers that don't support full SubtleCrypto
-          LLRT_LIMITED_CRYPTO: ${{ contains(inputs.cargo_features, 'crypto-ring,') || contains(inputs.cargo_features, 'crypto-graviola,') && '1' || '0' }}
+          LLRT_LIMITED_CRYPTO: ${{ (contains(inputs.cargo_features, 'crypto-ring,') || contains(inputs.cargo_features, 'crypto-graviola,')) && '1' || '0' }}
         run: |
           make test-ci 2>&1
       - name: Run tests on windows
@@ -96,7 +96,7 @@ jobs:
         shell: msys2 {0}
         env:
           CARGO_FEATURES: ${{ inputs.cargo_features }}
-          LLRT_LIMITED_CRYPTO: ${{ contains(inputs.cargo_features, 'crypto-ring,') || contains(inputs.cargo_features, 'crypto-graviola,') && '1' || '0' }}
+          LLRT_LIMITED_CRYPTO: ${{ (contains(inputs.cargo_features, 'crypto-ring,') || contains(inputs.cargo_features, 'crypto-graviola,')) && '1' || '0' }}
         run: |
           make test-ci 2>&1
       - name: Build Linux binaries
