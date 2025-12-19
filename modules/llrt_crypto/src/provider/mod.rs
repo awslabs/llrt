@@ -39,6 +39,7 @@ use crate::sha_hash::ShaAlgorithm;
 use crate::subtle::EllipticCurve;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct RsaImportResult {
     pub key_data: Vec<u8>,
     pub modulus_length: u32,
@@ -47,6 +48,7 @@ pub struct RsaImportResult {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EcImportResult {
     pub key_data: Vec<u8>,
     pub is_private: bool,
@@ -61,6 +63,7 @@ pub struct OkpImportResult {
 
 /// RSA JWK components for import (all values are raw bytes, not base64)
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct RsaJwkImport<'a> {
     pub n: &'a [u8],          // modulus
     pub e: &'a [u8],          // public exponent
@@ -88,6 +91,7 @@ pub struct RsaJwkExport {
 
 /// EC JWK components for import (all values are raw bytes)
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EcJwkImport<'a> {
     pub x: &'a [u8],
     pub y: &'a [u8],
