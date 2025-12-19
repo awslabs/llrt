@@ -852,7 +852,13 @@ mod tests {
         assert_eq!(result.len(), 32);
     }
 
-    // AES-GCM tests
+    // AES-GCM tests - only for providers that support AES
+    #[cfg(any(
+        feature = "crypto-rust",
+        feature = "crypto-openssl",
+        feature = "crypto-ring-rust",
+        feature = "crypto-graviola-rust"
+    ))]
     #[test]
     fn test_aes_gcm_128_roundtrip() {
         let p = provider();
@@ -886,6 +892,12 @@ mod tests {
         assert_eq!(decrypted, plaintext);
     }
 
+    #[cfg(any(
+        feature = "crypto-rust",
+        feature = "crypto-openssl",
+        feature = "crypto-ring-rust",
+        feature = "crypto-graviola-rust"
+    ))]
     #[test]
     fn test_aes_gcm_256_roundtrip() {
         let p = provider();
@@ -910,6 +922,12 @@ mod tests {
         assert_eq!(decrypted, plaintext);
     }
 
+    #[cfg(any(
+        feature = "crypto-rust",
+        feature = "crypto-openssl",
+        feature = "crypto-ring-rust",
+        feature = "crypto-graviola-rust"
+    ))]
     #[test]
     fn test_aes_gcm_wrong_key_fails() {
         let p = provider();
@@ -933,7 +951,13 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // Key generation tests
+    // Key generation tests - only for providers that support key generation
+    #[cfg(any(
+        feature = "crypto-rust",
+        feature = "crypto-openssl",
+        feature = "crypto-ring-rust",
+        feature = "crypto-graviola-rust"
+    ))]
     #[test]
     fn test_generate_aes_key_128() {
         let p = provider();
@@ -941,6 +965,12 @@ mod tests {
         assert_eq!(key.len(), 16);
     }
 
+    #[cfg(any(
+        feature = "crypto-rust",
+        feature = "crypto-openssl",
+        feature = "crypto-ring-rust",
+        feature = "crypto-graviola-rust"
+    ))]
     #[test]
     fn test_generate_aes_key_256() {
         let p = provider();
@@ -948,6 +978,12 @@ mod tests {
         assert_eq!(key.len(), 32);
     }
 
+    #[cfg(any(
+        feature = "crypto-rust",
+        feature = "crypto-openssl",
+        feature = "crypto-ring-rust",
+        feature = "crypto-graviola-rust"
+    ))]
     #[test]
     fn test_generate_hmac_key() {
         let p = provider();
