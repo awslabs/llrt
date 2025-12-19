@@ -483,10 +483,18 @@ fn get_option<'js, V: FromJs<'js> + Sized>(
 mod tests {
     use std::io::Read;
 
-    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64")
+    ))]
     use llrt_http::HttpsModule;
     use llrt_test::test_async_with;
-    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64")
+    ))]
     use llrt_test::{call_test, ModuleEvaluator};
     use rquickjs::{prelude::Promise, CatchResultExt};
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
