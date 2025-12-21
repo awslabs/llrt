@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::HashMap;
+#[cfg(unix)]
+use std::collections::HashSet;
 use std::env;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, RwLock};
@@ -141,6 +143,10 @@ pub struct Process<'js> {
     env: Object<'js>,
     argv: Vec<String>,
     argv0: String,
+    /// Tracks which signal handlers have been started for this process instance.
+    /// This ensures multiple runtimes each get their own signal handlers.
+    #[cfg(unix)]
+    started_signals: HashSet<String>,
 }
 
 impl<'js> Trace<'js> for Process<'js> {
@@ -213,14 +219,8 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        // Start signal handler if this is a signal event (Unix only)
         #[cfg(unix)]
-        if event.is_string() {
-            let event_name: String = event.get()?;
-            if signal_handler::is_signal_event(&event_name) {
-                signal_handler::maybe_start_signal_handler(&ctx, &this.0, &event_name)?;
-            }
-        }
+        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, false, false)
     }
 
@@ -230,14 +230,8 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        // Start signal handler if this is a signal event (Unix only)
         #[cfg(unix)]
-        if event.is_string() {
-            let event_name: String = event.get()?;
-            if signal_handler::is_signal_event(&event_name) {
-                signal_handler::maybe_start_signal_handler(&ctx, &this.0, &event_name)?;
-            }
-        }
+        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, false, true)
     }
 
@@ -257,6 +251,8 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
+        #[cfg(unix)]
+        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, false, false)
     }
 
@@ -277,6 +273,8 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
+        #[cfg(unix)]
+        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, true, false)
     }
 
@@ -287,6 +285,8 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
+        #[cfg(unix)]
+        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, true, true)
     }
 
@@ -365,6 +365,33 @@ impl<'js> Process<'js> {
             self.has_listener(ctx.clone(), event.clone())
         }
     }
+
+    /// Check if this is a signal event and start the handler if needed.
+    ///
+    /// This is called from each listener method (`on`, `once`, `addListener`, etc.)
+    /// rather than using `on_event_changed()` because that callback only receives
+    /// `&mut self`, not the `Ctx` needed to spawn async signal handler tasks.
+    /// See `signal_handler` module documentation for full details.
+    #[cfg(unix)]
+    fn maybe_start_signal_handler(
+        process: &Class<'js, Self>,
+        ctx: &Ctx<'js>,
+        event: &Value<'js>,
+    ) -> Result<()> {
+        if !event.is_string() {
+            return Ok(());
+        }
+        let event_name: String = event.get()?;
+        if signal_handler::is_signal_event(&event_name) {
+            signal_handler::start_signal_handler(
+                ctx,
+                process,
+                &event_name,
+                &mut process.borrow_mut().started_signals,
+            )?;
+        }
+        Ok(())
+    }
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
@@ -395,6 +422,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         env: env_proxy_obj,
         argv: args,
         argv0,
+        #[cfg(unix)]
+        started_signals: HashSet::new(),
     };
 
     let process_class = Class::instance(ctx.clone(), process)?;
@@ -679,6 +708,124 @@ mod tests {
                 .unwrap();
                 let result = call_test::<bool, _>(&ctx, &module, ()).await;
                 assert!(result);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_process_add_listener() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test() {
+                            let called = false;
+                            // addListener should work identically to on
+                            process.addListener('test-event', () => {
+                                called = true;
+                            });
+                            process.emit('test-event');
+                            return called;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<bool, _>(&ctx, &module, ()).await;
+                assert!(result);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_process_listener_methods_parity() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test() {
+                            const results = [];
+
+                            // Test all listener registration methods work correctly
+                            process.on('evt1', () => results.push('on'));
+                            process.addListener('evt2', () => results.push('addListener'));
+                            process.once('evt3', () => results.push('once'));
+                            process.prependListener('evt4', () => results.push('prependListener'));
+                            process.prependOnceListener('evt5', () => results.push('prependOnceListener'));
+
+                            // Verify all are registered
+                            const eventCount = process.eventNames().length;
+
+                            // Emit all events
+                            process.emit('evt1');
+                            process.emit('evt2');
+                            process.emit('evt3');
+                            process.emit('evt4');
+                            process.emit('evt5');
+
+                            return {
+                                eventCount,
+                                results: results.join(',')
+                            };
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<HashMap<String, Value>, _>(&ctx, &module, ()).await;
+                let event_count: i32 = result.get("eventCount").unwrap().get().unwrap();
+                let results: String = result.get("results").unwrap().get().unwrap();
+
+                assert_eq!(event_count, 5);
+                assert_eq!(results, "on,addListener,once,prependListener,prependOnceListener");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_process_listener_count() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        export async function test() {
+                            const handler1 = () => {};
+                            const handler2 = () => {};
+
+                            process.on('test-event', handler1);
+                            process.addListener('test-event', handler2);
+
+                            const countBefore = process.listenerCount('test-event');
+
+                            process.removeListener('test-event', handler1);
+
+                            const countAfter = process.listenerCount('test-event');
+
+                            return { countBefore, countAfter };
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<HashMap<String, i32>, _>(&ctx, &module, ()).await;
+
+                assert_eq!(*result.get("countBefore").unwrap(), 2);
+                assert_eq!(*result.get("countAfter").unwrap(), 1);
             })
         })
         .await;

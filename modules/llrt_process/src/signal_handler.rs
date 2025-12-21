@@ -2,8 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Unix signal handling for process.on('SIGTERM', ...) etc.
+//!
+//! Signal handlers are started lazily when the first listener is added for each signal.
+//! Each Process instance maintains its own set of started signals, supporting multiple
+//! runtimes correctly.
+//!
+//! Note: We check for signal events in each listener method (on, once, etc.) rather than
+//! using `on_event_changed()` because:
+//! 1. `on_event_changed()` only receives `&mut self`, not the `Ctx` needed to spawn async tasks
+//! 2. Storing `Ctx` in Process causes lifetime issues (`Ctx` is not `'static`)
+//! 3. Channel-based coordinator approaches cause issues with test harness shutdown
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashSet;
 
 use llrt_context::CtxExtension;
 use llrt_events::Emitter;
@@ -12,49 +22,48 @@ use tokio::signal::unix::{signal, SignalKind};
 
 use crate::Process;
 
-/// Flags to track which signal handlers have been started
-static SIGTERM_HANDLER_STARTED: AtomicBool = AtomicBool::new(false);
-static SIGINT_HANDLER_STARTED: AtomicBool = AtomicBool::new(false);
-static SIGHUP_HANDLER_STARTED: AtomicBool = AtomicBool::new(false);
-static SIGQUIT_HANDLER_STARTED: AtomicBool = AtomicBool::new(false);
-static SIGUSR1_HANDLER_STARTED: AtomicBool = AtomicBool::new(false);
-static SIGUSR2_HANDLER_STARTED: AtomicBool = AtomicBool::new(false);
+/// Single source of truth for supported signals: (name, libc constant)
+/// SignalKind is derived from the libc constant using SignalKind::from_raw()
+static SUPPORTED_SIGNALS: &[(&str, libc::c_int)] = &[
+    ("SIGTERM", libc::SIGTERM),
+    ("SIGINT", libc::SIGINT),
+    ("SIGHUP", libc::SIGHUP),
+    ("SIGQUIT", libc::SIGQUIT),
+    ("SIGUSR1", libc::SIGUSR1),
+    ("SIGUSR2", libc::SIGUSR2),
+];
 
-/// Check if an event name corresponds to a Unix signal
+/// Check if an event name corresponds to a supported Unix signal
 pub fn is_signal_event(event: &str) -> bool {
-    matches!(
-        event,
-        "SIGTERM" | "SIGINT" | "SIGHUP" | "SIGQUIT" | "SIGUSR1" | "SIGUSR2"
-    )
+    SUPPORTED_SIGNALS.iter().any(|(name, _)| *name == event)
 }
 
-/// Get signal kind and started flag for a signal name
-fn get_signal_info(signal_name: &str) -> Option<(SignalKind, &'static AtomicBool)> {
-    match signal_name {
-        "SIGTERM" => Some((SignalKind::terminate(), &SIGTERM_HANDLER_STARTED)),
-        "SIGINT" => Some((SignalKind::interrupt(), &SIGINT_HANDLER_STARTED)),
-        "SIGHUP" => Some((SignalKind::hangup(), &SIGHUP_HANDLER_STARTED)),
-        "SIGQUIT" => Some((SignalKind::quit(), &SIGQUIT_HANDLER_STARTED)),
-        "SIGUSR1" => Some((SignalKind::user_defined1(), &SIGUSR1_HANDLER_STARTED)),
-        "SIGUSR2" => Some((SignalKind::user_defined2(), &SIGUSR2_HANDLER_STARTED)),
-        _ => None,
-    }
+/// Get SignalKind and signal number from signal name
+fn get_signal_info(signal_name: &str) -> Option<(SignalKind, libc::c_int)> {
+    SUPPORTED_SIGNALS
+        .iter()
+        .find(|(name, _)| *name == signal_name)
+        .map(|(_, sig_num)| (SignalKind::from_raw(*sig_num), *sig_num))
 }
 
-/// Start a signal handler for a specific signal when a listener is first registered
-pub fn maybe_start_signal_handler<'js>(
+/// Start a signal handler for a specific signal on this process instance.
+pub fn start_signal_handler<'js>(
     ctx: &Ctx<'js>,
     process: &Class<'js, Process<'js>>,
     signal_name: &str,
+    started_signals: &mut HashSet<String>,
 ) -> Result<()> {
-    let Some((signal_kind, started_flag)) = get_signal_info(signal_name) else {
+    // Check if we already started a handler for this signal on this process instance
+    if started_signals.contains(signal_name) {
+        return Ok(());
+    }
+
+    let Some((signal_kind, sig_num)) = get_signal_info(signal_name) else {
         return Ok(());
     };
 
-    // Only start the handler once
-    if started_flag.swap(true, Ordering::SeqCst) {
-        return Ok(());
-    }
+    // Mark as started for this process instance
+    started_signals.insert(signal_name.to_string());
 
     let ctx = ctx.clone();
     let process = Persistent::save(&ctx, process.clone());
@@ -104,7 +113,7 @@ pub fn maybe_start_signal_handler<'js>(
                 // No listeners - for SIGTERM/SIGINT, perform default action (exit)
                 if signal_name == "SIGTERM" || signal_name == "SIGINT" {
                     tracing::trace!("Received {} with no listeners, exiting", signal_name);
-                    std::process::exit(128 + get_signal_number(&signal_name));
+                    std::process::exit(128 + sig_num);
                 }
             }
         }
@@ -113,17 +122,4 @@ pub fn maybe_start_signal_handler<'js>(
     });
 
     Ok(())
-}
-
-/// Get the numeric signal value for exit code calculation
-fn get_signal_number(signal_name: &str) -> i32 {
-    match signal_name {
-        "SIGHUP" => 1,
-        "SIGINT" => 2,
-        "SIGQUIT" => 3,
-        "SIGTERM" => 15,
-        "SIGUSR1" => 10,
-        "SIGUSR2" => 12,
-        _ => 0,
-    }
 }

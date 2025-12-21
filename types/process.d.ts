@@ -16,7 +16,9 @@ declare module "process" {
         | "SIGPIPE"
         | "SIGQUIT"
         | "SIGSEGV"
-        | "SIGTERM";
+        | "SIGTERM"
+        | "SIGUSR1"
+        | "SIGUSR2";
     }
     type Platform = "darwin" | "linux" | "win32";
     type Architecture = "arm64" | "x64";
