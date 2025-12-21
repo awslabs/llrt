@@ -293,7 +293,9 @@ class TestServer {
       }
     });
     workerData.connectionTimeout = setTimeout(() => {
-      proc.kill();
+      try {
+        proc.kill();
+      } catch {}
     }, 5000);
     workerData.childProc = proc;
   }
@@ -317,7 +319,10 @@ class TestServer {
     }
   }
 
-  handleData(socket: net.Socket, data: Buffer): { response: object | null; workerId: number } {
+  handleData(
+    socket: net.Socket,
+    data: Buffer
+  ): { response: object | null; workerId: number } {
     const message = JSON.parse(data as any) as SocketReqMsg;
     const { type } = message;
 
@@ -463,7 +468,9 @@ class TestServer {
           "Test did not exit within 1s. It does not properly clean up created resources (servers, timeouts etc)"
         );
         this.handleTestError(workerId, error, performance.now());
-        workerData.childProc?.kill();
+        try {
+          workerData.childProc?.kill();
+        } catch {}
       }, 1000);
 
       workerData.childProc?.once("exit", () => {
@@ -538,8 +545,9 @@ class TestServer {
           new Error(`Test timed out after ${workerData.currentTimeout}ms`),
           performance.now()
         );
-
-        workerData.childProc?.kill();
+        try {
+          workerData.childProc?.kill();
+        } catch {}
         workerData.childProc = undefined;
         this.handleWorkerCompleted(parseInt(id));
       }
