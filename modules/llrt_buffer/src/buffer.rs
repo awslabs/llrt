@@ -705,7 +705,15 @@ pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::St
 pub fn btoa(ctx: Ctx<'_>, value: Coerced<String>) -> Result<String> {
     // Per WHATWG spec, btoa() treats input as a "binary string" where each character
     // must have a code point 0-255. Characters > 255 cause InvalidCharacterError.
-    let bytes: Vec<u8> = value
+    let s: &str = value.as_str();
+
+    // Fast path: ASCII is a 1:1 mapping to bytes 0-127 (SIMD optimized)
+    if s.is_ascii() {
+        return Ok(bytes_to_b64_string(s.as_bytes()));
+    }
+
+    // Slow path: Check for Latin-1 (0-255)
+    let bytes: Vec<u8> = s
         .chars()
         .map(|c| {
             let code_point = c as u32;
