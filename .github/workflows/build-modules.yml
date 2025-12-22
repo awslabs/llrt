@@ -41,7 +41,7 @@ jobs:
             echo "Compiling crate: $crate"
             # Use TLS feature for crates that need TLS, with --no-default-features to avoid conflicts
             if [ "$crate" = "llrt_fetch" ] || [ "$crate" = "llrt_http" ]; then
-              cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,$TLS_FEATURE"
+              cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,compression-rust,$TLS_FEATURE"
             else
               cargo build -p "$crate"
             fi
