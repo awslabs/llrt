@@ -1,13 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::HashMap;
-#[cfg(unix)]
-use std::collections::HashSet;
 use std::env;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, RwLock};
 
-use llrt_events::{Emitter, EventEmitter, EventList};
+use llrt_events::{Emitter, EventEmitter, EventKey, EventList};
 use llrt_utils::primordials::{BasePrimordials, Primordial};
 pub use llrt_utils::sysinfo;
 use llrt_utils::{
@@ -26,6 +24,8 @@ use rquickjs::{
     prelude::{Func, Opt, Rest, This},
     Array, BigInt, Class, Ctx, Error, Exception, Function, IntoJs, Object, Result, Value,
 };
+#[cfg(unix)]
+use tokio::sync::mpsc;
 
 #[cfg(unix)]
 mod signal_handler;
@@ -143,10 +143,10 @@ pub struct Process<'js> {
     env: Object<'js>,
     argv: Vec<String>,
     argv0: String,
-    /// Tracks which signal handlers have been started for this process instance.
-    /// This ensures multiple runtimes each get their own signal handlers.
+    /// Channel to send commands to the signal coordinator task.
+    /// None until the first signal listener is added.
     #[cfg(unix)]
-    started_signals: HashSet<String>,
+    signal_command_tx: Option<mpsc::UnboundedSender<signal_handler::SignalCommand>>,
 }
 
 impl<'js> Trace<'js> for Process<'js> {
@@ -159,6 +159,48 @@ impl<'js> Trace<'js> for Process<'js> {
 impl<'js> Emitter<'js> for Process<'js> {
     fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
         self.emitter.get_event_list()
+    }
+
+    #[cfg(unix)]
+    fn on_event_changed(
+        &mut self,
+        ctx: &Ctx<'js>,
+        this: Class<'js, Self>,
+        event: EventKey<'js>,
+        added: bool,
+    ) -> Result<()> {
+        if let EventKey::String(ref event_name) = event {
+            if signal_handler::is_signal_event(event_name) {
+                // Start coordinator on first signal listener
+                if self.signal_command_tx.is_none() {
+                    self.signal_command_tx =
+                        Some(signal_handler::start_signal_coordinator(ctx, &this));
+                }
+
+                // Send add/remove command to coordinator
+                if let Some(tx) = &self.signal_command_tx {
+                    let cmd = if added {
+                        signal_handler::SignalCommand::AddListener(event_name.to_string())
+                    } else {
+                        signal_handler::SignalCommand::RemoveListener(event_name.to_string())
+                    };
+                    // Ignore send errors (coordinator may have shut down)
+                    let _ = tx.send(cmd);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: Class<'js, Self>,
+        _event: EventKey<'js>,
+        _added: bool,
+    ) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -219,8 +261,6 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        #[cfg(unix)]
-        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, false, false)
     }
 
@@ -230,8 +270,6 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        #[cfg(unix)]
-        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, false, true)
     }
 
@@ -251,8 +289,6 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        #[cfg(unix)]
-        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, false, false)
     }
 
@@ -273,8 +309,6 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        #[cfg(unix)]
-        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, true, false)
     }
 
@@ -285,8 +319,6 @@ impl<'js> Process<'js> {
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Class<'js, Self>> {
-        #[cfg(unix)]
-        Self::maybe_start_signal_handler(&this.0, &ctx, &event)?;
         Self::add_event_listener(this, ctx, event, listener, true, true)
     }
 
@@ -365,33 +397,6 @@ impl<'js> Process<'js> {
             self.has_listener(ctx.clone(), event.clone())
         }
     }
-
-    /// Check if this is a signal event and start the handler if needed.
-    ///
-    /// This is called from each listener method (`on`, `once`, `addListener`, etc.)
-    /// rather than using `on_event_changed()` because that callback only receives
-    /// `&mut self`, not the `Ctx` needed to spawn async signal handler tasks.
-    /// See `signal_handler` module documentation for full details.
-    #[cfg(unix)]
-    fn maybe_start_signal_handler(
-        process: &Class<'js, Self>,
-        ctx: &Ctx<'js>,
-        event: &Value<'js>,
-    ) -> Result<()> {
-        if !event.is_string() {
-            return Ok(());
-        }
-        let event_name: String = event.get()?;
-        if signal_handler::is_signal_event(&event_name) {
-            signal_handler::start_signal_handler(
-                ctx,
-                process,
-                &event_name,
-                &mut process.borrow_mut().started_signals,
-            )?;
-        }
-        Ok(())
-    }
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
@@ -423,7 +428,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         argv: args,
         argv0,
         #[cfg(unix)]
-        started_signals: HashSet::new(),
+        signal_command_tx: None,
     };
 
     let process_class = Class::instance(ctx.clone(), process)?;

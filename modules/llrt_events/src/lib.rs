@@ -129,7 +129,13 @@ where
 {
     fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>>;
 
-    fn on_event_changed(&mut self, _event: EventKey<'js>, _added: bool) -> Result<()> {
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: Class<'js, Self>,
+        _event: EventKey<'js>,
+        _added: bool,
+    ) -> Result<()> {
         Ok(())
     }
 
@@ -325,7 +331,10 @@ where
             items.insert(0, item);
         }
         if is_new {
-            this2.borrow_mut().on_event_changed(key, true)?
+            let this_clone = this2.clone();
+            this2
+                .borrow_mut()
+                .on_event_changed(&ctx, this_clone, key, true)?
         }
         Ok(this.0)
     }
@@ -373,7 +382,9 @@ where
             });
             if items.is_empty() {
                 events.remove(index);
-                this.borrow_mut().on_event_changed(key, false)?;
+                let this_clone = this.0.clone();
+                this.borrow_mut()
+                    .on_event_changed(ctx, this_clone, key, false)?;
             }
             drop(events);
             for callback in callbacks {
