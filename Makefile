@@ -227,8 +227,13 @@ test-ci: export RUST_BACKTRACE = 1
 test-ci: export TEST_SUB_DIR = unit
 test-ci: export LLRT_ASYNC_HOOKS = 1
 test-ci: clean-js | toolchain js
-	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) --all-features -- --nocapture --show-output
+ifdef CARGO_FEATURES
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) $(CARGO_FEATURES) -- --nocapture --show-output
+	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) $(CARGO_FEATURES) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+else
+	cargo $(TOOLCHAIN) -Z build-std -Z build-std-features test --target $(CURRENT_TARGET) --features lambda -- --nocapture --show-output
 	cargo $(TOOLCHAIN) run -r --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+endif
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h lib/zstd_errors.h
 libs-x64: lib/x64/libzstd.a lib/zstd.h lib/zstd_errors.h
@@ -261,7 +266,7 @@ deploy:
 	cd example/infrastructure && yarn deploy --require-approval never
 
 check:
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring" -- -D warnings
 
 check-crates:
 	cargo metadata --no-deps --format-version 1 --quiet | \
@@ -271,4 +276,4 @@ check-crates:
 	  cargo check -p "$$crate"; \
 	done
 
-.PHONY: libs check check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy
+.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy

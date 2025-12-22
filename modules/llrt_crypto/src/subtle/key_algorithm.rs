@@ -4,24 +4,25 @@
 
 use std::rc::Rc;
 
-use der::{
-    asn1::{OctetStringRef, UintRef},
-    Decode, Encode,
-};
+#[cfg(feature = "_subtle-full")]
+use der::{asn1::OctetStringRef, Decode, Encode};
+#[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
+#[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{
     atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
 };
-use rsa::pkcs8::EncodePrivateKey;
+#[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
 use crate::sha_hash::ShaAlgorithm;
 
+#[cfg(feature = "_subtle-full")]
+use super::algorithm_mismatch_error;
 use super::{
-    algorithm_mismatch_error, algorithm_not_supported_error, crypto_key::KeyKind,
-    to_name_and_maybe_object, EllipticCurve,
+    algorithm_not_supported_error, crypto_key::KeyKind, to_name_and_maybe_object, EllipticCurve,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -310,12 +311,22 @@ impl KeyAlgorithm {
         value: Value<'js>,
         usages: Array<'js>,
     ) -> Result<KeyAlgorithmWithUsages> {
+        // When _rustcrypto is not enabled, Import mode is not supported
+        #[cfg(not(feature = "_subtle-full"))]
+        if matches!(mode, KeyAlgorithmMode::Import { .. }) {
+            return Err(Exception::throw_message(
+                ctx,
+                "Key import is not supported with this crypto provider",
+            ));
+        }
+
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
         let mut public_usages = vec![];
         let mut private_usages = vec![];
         let algorithm_name = name.as_str();
         let algorithm = match algorithm_name {
             "Ed25519" => {
+                #[cfg(feature = "_subtle-full")]
                 let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
                     import_okp_key(
                         ctx,
@@ -329,6 +340,8 @@ impl KeyAlgorithm {
                 } else {
                     None
                 };
+                #[cfg(not(feature = "_subtle-full"))]
+                let key_kind: Option<&KeyKind> = None;
 
                 KeyUsage::classify_and_check_usages(
                     ctx,
@@ -341,6 +354,7 @@ impl KeyAlgorithm {
                 KeyAlgorithm::Ed25519
             },
             "X25519" => {
+                #[cfg(feature = "_subtle-full")]
                 let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
                     import_okp_key(
                         ctx,
@@ -354,6 +368,8 @@ impl KeyAlgorithm {
                 } else {
                     None
                 };
+                #[cfg(not(feature = "_subtle-full"))]
+                let key_kind: Option<&KeyKind> = None;
 
                 KeyUsage::classify_and_check_usages(
                     ctx,
@@ -366,14 +382,24 @@ impl KeyAlgorithm {
                 KeyAlgorithm::X25519
             },
             "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
-                let mut key_kind = None;
-                let length = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-                    let l = import_symmetric_key(ctx, format, kind, data, algorithm_name, None)?;
-                    key_kind = Some(kind);
-                    l
-                } else {
-                    obj.or_throw(ctx)?.get_required("length", "algorithm")?
-                } as u16;
+                #[cfg(feature = "_subtle-full")]
+                let (length, key_kind) = {
+                    let mut key_kind = None;
+                    let length = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
+                        let l =
+                            import_symmetric_key(ctx, format, kind, data, algorithm_name, None)?;
+                        key_kind = Some(kind);
+                        l
+                    } else {
+                        obj.or_throw(ctx)?.get_required("length", "algorithm")?
+                    } as u16;
+                    (length, key_kind)
+                };
+                #[cfg(not(feature = "_subtle-full"))]
+                let (length, key_kind): (u16, Option<&KeyKind>) = {
+                    let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
+                    (length, None)
+                };
 
                 if !matches!(length, 128 | 192 | 256) {
                     return Err(Exception::throw_message(
@@ -427,8 +453,12 @@ impl KeyAlgorithm {
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
 
-                let mut length = obj.get_optional("length")?.unwrap_or_default();
+                #[cfg(feature = "_subtle-full")]
+                let mut length: u16 = obj.get_optional("length")?.unwrap_or_default();
+                #[cfg(not(feature = "_subtle-full"))]
+                let length: u16 = obj.get_optional("length")?.unwrap_or_default();
 
+                #[cfg(feature = "_subtle-full")]
                 let key_kind = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
                     let data_length =
                         import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(&hash))?;
@@ -439,6 +469,8 @@ impl KeyAlgorithm {
                 } else {
                     None
                 };
+                #[cfg(not(feature = "_subtle-full"))]
+                let key_kind: Option<&KeyKind> = None;
 
                 KeyUsage::classify_and_check_usages(
                     ctx,
@@ -455,6 +487,7 @@ impl KeyAlgorithm {
                 let obj = obj.or_throw(ctx)?;
                 let hash = extract_sha_hash(ctx, &obj)?;
 
+                #[cfg(feature = "_subtle-full")]
                 let (modulus_length, public_exponent, key_kind) =
                     if let KeyAlgorithmMode::Import { format, kind, data } = mode {
                         let (mod_length, exp) =
@@ -473,6 +506,25 @@ impl KeyAlgorithm {
                             .into_boxed_slice();
                         (modulus_length, public_exponent, None)
                     };
+
+                #[cfg(not(feature = "_subtle-full"))]
+                let (modulus_length, public_exponent, key_kind): (
+                    u32,
+                    Box<[u8]>,
+                    Option<&KeyKind>,
+                ) = {
+                    let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+                    let public_exponent: TypedArray<u8> =
+                        obj.get_required("publicExponent", "algorithm")?;
+                    let public_exponent = public_exponent
+                        .as_bytes()
+                        .ok_or_else(|| {
+                            Exception::throw_message(ctx, "Array buffer has been detached")
+                        })?
+                        .to_owned()
+                        .into_boxed_slice();
+                    (modulus_length, public_exponent, None)
+                };
 
                 KeyUsage::classify_and_check_usages(
                     ctx,
@@ -496,7 +548,8 @@ impl KeyAlgorithm {
                 }
             },
             "HKDF" => {
-                let (algorithm, key_kind) = match mode {
+                let (algorithm, key_kind): (KeyAlgorithm, Option<&mut KeyKind>) = match mode {
+                    #[cfg(feature = "_subtle-full")]
                     KeyAlgorithmMode::Import { format, kind, data } => {
                         import_derive_key(ctx, format, kind, data, algorithm_name)?;
 
@@ -525,7 +578,8 @@ impl KeyAlgorithm {
             },
 
             "PBKDF2" => {
-                let (algorithm, key_kind) = match mode {
+                let (algorithm, key_kind): (KeyAlgorithm, Option<&mut KeyKind>) = match mode {
+                    #[cfg(feature = "_subtle-full")]
                     KeyAlgorithmMode::Import { format, kind, data } => {
                         import_derive_key(ctx, format, kind, data, algorithm_name)?;
                         (KeyAlgorithm::Pbkdf2Import, Some(kind))
@@ -619,9 +673,9 @@ impl KeyAlgorithm {
     #[allow(clippy::too_many_arguments)]
     fn from_ec<'js>(
         ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
+        #[allow(unused_variables)] mode: KeyAlgorithmMode<'_, 'js>,
         obj: std::result::Result<Object<'js>, &str>,
-        algorithm_name: &str,
+        #[allow(unused_variables)] algorithm_name: &str,
         algorithm: EcAlgorithm,
         key_usages: &Array<'js>,
         private_usages: &mut Vec<String>,
@@ -632,12 +686,15 @@ impl KeyAlgorithm {
         let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
         let curve = EllipticCurve::try_from(curve_name.as_str()).or_throw(ctx)?;
 
+        #[cfg(feature = "_subtle-full")]
         let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
             import_ec_key(ctx, format, kind, data, algorithm_name, &curve, &curve_name)?;
             Some(kind)
         } else {
             None
         };
+        #[cfg(not(feature = "_subtle-full"))]
+        let key_kind: Option<&KeyKind> = None;
 
         KeyUsage::classify_and_check_usages(
             ctx,
@@ -652,6 +709,7 @@ impl KeyAlgorithm {
     }
 }
 
+#[cfg(feature = "_subtle-full")]
 fn import_derive_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -672,6 +730,7 @@ fn import_derive_key<'js>(
     Ok(())
 }
 
+#[cfg(feature = "_subtle-full")]
 fn import_rsa_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -680,32 +739,17 @@ fn import_rsa_key<'js>(
     algorithm_name: &str,
     hash: &ShaAlgorithm,
 ) -> Result<(u32, Box<[u8]>)> {
+    use crate::{
+        provider::{CryptoProvider, RsaJwkImport},
+        CRYPTO_PROVIDER,
+    };
+
     let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
         if other_oid != const_oid::db::rfc5912::RSA_ENCRYPTION {
             return algorithm_mismatch_error(ctx, algorithm_name);
         }
         Ok(())
     };
-
-    fn public_key_info(
-        ctx: &Ctx<'_>,
-        kind: &mut KeyKind,
-        data: &mut Vec<u8>,
-        public_key: rsa::pkcs1::RsaPublicKey<'_>,
-    ) -> Result<(usize, Vec<u8>)> {
-        *data = public_key.to_der().or_throw(ctx)?;
-        *kind = KeyKind::Public;
-        let modulus_length = public_key.modulus.as_bytes().len() * 8;
-        let public_exponent = public_key.public_exponent.as_bytes().to_vec();
-        Ok((modulus_length, public_exponent))
-    }
-
-    macro_rules! uint_ref_from_b64 {
-        ($name:ident,$ctx:expr,$bytes:expr) => {
-            let bytes = bytes_from_b64_url_safe($bytes).or_throw($ctx)?;
-            let $name = UintRef::new(&bytes).or_throw($ctx)?;
-        };
-    }
 
     let (modulus_length, public_exponent) = match format {
         KeyFormatData::Jwk(object) => {
@@ -742,81 +786,84 @@ fn import_rsa_key<'js>(
 
             let n: String = object.get_required("n", "keyData")?;
             let e: String = object.get_required("e", "keyData")?;
+            let n_bytes = bytes_from_b64_url_safe(n.as_bytes()).or_throw(ctx)?;
+            let e_bytes = bytes_from_b64_url_safe(e.as_bytes()).or_throw(ctx)?;
 
-            uint_ref_from_b64!(modulus, ctx, n.as_bytes());
-            uint_ref_from_b64!(public_exponent, ctx, e.as_bytes());
-
-            if let Some(d) = object.get_optional::<_, String>("d")? {
+            let result = if let Some(d) = object.get_optional::<_, String>("d")? {
                 let p: String = object.get_required("p", "keyData")?;
                 let q: String = object.get_required("q", "keyData")?;
                 let dp: String = object.get_required("dp", "keyData")?;
                 let dq: String = object.get_required("dq", "keyData")?;
                 let qi: String = object.get_required("qi", "keyData")?;
 
-                uint_ref_from_b64!(private_exponent, ctx, d.as_bytes());
-                uint_ref_from_b64!(prime1, ctx, p.as_bytes());
-                uint_ref_from_b64!(prime2, ctx, q.as_bytes());
-                uint_ref_from_b64!(exponent1, ctx, dp.as_bytes());
-                uint_ref_from_b64!(exponent2, ctx, dq.as_bytes());
-                uint_ref_from_b64!(coefficient, ctx, qi.as_bytes());
+                let d_bytes = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
+                let p_bytes = bytes_from_b64_url_safe(p.as_bytes()).or_throw(ctx)?;
+                let q_bytes = bytes_from_b64_url_safe(q.as_bytes()).or_throw(ctx)?;
+                let dp_bytes = bytes_from_b64_url_safe(dp.as_bytes()).or_throw(ctx)?;
+                let dq_bytes = bytes_from_b64_url_safe(dq.as_bytes()).or_throw(ctx)?;
+                let qi_bytes = bytes_from_b64_url_safe(qi.as_bytes()).or_throw(ctx)?;
 
-                let modulus_length = modulus.as_bytes().len() * 8;
-
-                let private_key = rsa::pkcs1::RsaPrivateKey {
-                    modulus,
-                    public_exponent,
-                    private_exponent,
-                    prime1,
-                    prime2,
-                    exponent1,
-                    exponent2,
-                    coefficient,
-                    other_prime_infos: None,
+                let jwk = RsaJwkImport {
+                    n: &n_bytes,
+                    e: &e_bytes,
+                    d: Some(&d_bytes),
+                    p: Some(&p_bytes),
+                    q: Some(&q_bytes),
+                    dp: Some(&dp_bytes),
+                    dq: Some(&dq_bytes),
+                    qi: Some(&qi_bytes),
                 };
-
-                *data = private_key.to_der().or_throw(ctx)?;
-                *kind = KeyKind::Private;
-                (modulus_length, public_exponent.as_bytes().to_vec())
+                CRYPTO_PROVIDER.import_rsa_jwk(jwk).or_throw(ctx)?
             } else {
-                let public_key = rsa::pkcs1::RsaPublicKey {
-                    modulus,
-                    public_exponent,
+                let jwk = RsaJwkImport {
+                    n: &n_bytes,
+                    e: &e_bytes,
+                    d: None,
+                    p: None,
+                    q: None,
+                    dp: None,
+                    dq: None,
+                    qi: None,
                 };
-                public_key_info(ctx, kind, data, public_key)?
-            }
+                CRYPTO_PROVIDER.import_rsa_jwk(jwk).or_throw(ctx)?
+            };
+
+            *data = result.key_data;
+            *kind = if result.is_private {
+                KeyKind::Private
+            } else {
+                KeyKind::Public
+            };
+            (result.modulus_length as usize, result.public_exponent)
         },
         KeyFormatData::Raw(object_bytes) => {
-            let public_key =
-                rsa::pkcs1::RsaPublicKey::from_der(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
-            public_key_info(ctx, kind, data, public_key)?
+            let result = CRYPTO_PROVIDER
+                .import_rsa_public_key_pkcs1(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
+            *data = result.key_data;
+            *kind = KeyKind::Public;
+            (result.modulus_length as usize, result.public_exponent)
         },
         KeyFormatData::Pkcs8(object_bytes) => {
             let pk_info = PrivateKeyInfoRef::from_der(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
-            let object_identifier = pk_info.algorithm.oid;
-            validate_oid(object_identifier)?;
-
-            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key.as_bytes())
+            validate_oid(pk_info.algorithm.oid)?;
+            let result = CRYPTO_PROVIDER
+                .import_rsa_private_key_pkcs8(object_bytes.as_bytes(ctx)?)
                 .or_throw(ctx)?;
-
-            let public_exponent = private_key.public_exponent.as_bytes().to_vec();
-            let modulus_length = private_key.modulus.as_bytes().len() * 8;
-            *data = pk_info.private_key.to_der().or_throw(ctx)?;
+            *data = result.key_data;
             *kind = KeyKind::Private;
-
-            (modulus_length, public_exponent)
+            (result.modulus_length as usize, result.public_exponent)
         },
         KeyFormatData::Spki(object_bytes) => {
             let pk_info = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
                 .or_throw(ctx)?;
-
-            let object_identifier = pk_info.algorithm.oid;
-            validate_oid(object_identifier)?;
-
-            let public_key =
-                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
-                    .or_throw(ctx)?;
-
-            public_key_info(ctx, kind, data, public_key)?
+            validate_oid(pk_info.algorithm.oid)?;
+            let result = CRYPTO_PROVIDER
+                .import_rsa_public_key_spki(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
+            *data = result.key_data;
+            *kind = KeyKind::Public;
+            (result.modulus_length as usize, result.public_exponent)
         },
     };
 
@@ -824,6 +871,7 @@ fn import_rsa_key<'js>(
     Ok((modulus_length as u32, public_exponent))
 }
 
+#[cfg(feature = "_subtle-full")]
 fn import_symmetric_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -878,6 +926,12 @@ fn import_symmetric_key<'js>(
     algorithm_mismatch_error(ctx, algorithm_name)
 }
 
+// EC algorithm OID for validation
+#[cfg(feature = "_subtle-full")]
+const EC_ALGORITHM_OID: const_oid::ObjectIdentifier =
+    const_oid::ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
+
+#[cfg(feature = "_subtle-full")]
 fn import_ec_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -887,59 +941,24 @@ fn import_ec_key<'js>(
     curve: &EllipticCurve,
     curve_name: &str,
 ) -> Result<()> {
+    use crate::{
+        provider::{CryptoProvider, EcJwkImport},
+        CRYPTO_PROVIDER,
+    };
+
     let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
-        if other_oid != elliptic_curve::ALGORITHM_OID {
+        if other_oid != EC_ALGORITHM_OID {
             return algorithm_mismatch_error(ctx, algorithm_name);
         }
         Ok(())
     };
 
-    fn decode_to_curve<C: elliptic_curve::Curve>(
-        ctx: &Ctx<'_>,
-        value: &str,
-    ) -> Result<elliptic_curve::FieldBytes<C>> {
-        let value_bytes = value.as_bytes();
-
-        let mut field_bytes = elliptic_curve::FieldBytes::<C>::default();
-        let mut bytes = bytes_from_b64_url_safe(value_bytes).or_throw(ctx)?;
-        if bytes.len() < field_bytes.len() {
-            bytes.resize(field_bytes.len() - bytes.len(), 0);
-        }
-
-        field_bytes.copy_from_slice(&bytes);
-
-        Ok(field_bytes)
-    }
-
-    fn decode_jwk_to_ec_point_bytes(
-        ctx: &Ctx<'_>,
-        curve: &EllipticCurve,
-        x: &str,
-        y: &str,
-    ) -> Result<Vec<u8>> {
-        let point_bytes = match curve {
-            EllipticCurve::P256 => {
-                let x = decode_to_curve::<p256::NistP256>(ctx, x)?;
-                let y = decode_to_curve::<p256::NistP256>(ctx, y)?;
-
-                p256::EncodedPoint::from_affine_coordinates(&x, &y, false).to_bytes()
-            },
-            EllipticCurve::P384 => {
-                let x = decode_to_curve::<p384::NistP384>(ctx, x)?;
-                let y = decode_to_curve::<p384::NistP384>(ctx, y)?;
-
-                p384::EncodedPoint::from_affine_coordinates(&x, &y, false).to_bytes()
-            },
-            EllipticCurve::P521 => {
-                let x = decode_to_curve::<p521::NistP521>(ctx, x)?;
-                let y = decode_to_curve::<p521::NistP521>(ctx, y)?;
-
-                p521::EncodedPoint::from_affine_coordinates(&x, &y, false).to_bytes()
-            },
-        };
-
-        Ok(point_bytes.to_vec())
-    }
+    // Get expected coordinate length for the curve
+    let coord_len = match curve {
+        EllipticCurve::P256 => 32,
+        EllipticCurve::P384 => 48,
+        EllipticCurve::P521 => 66,
+    };
 
     match format {
         KeyFormatData::Jwk(object) => {
@@ -956,64 +975,81 @@ fn import_ec_key<'js>(
                 ));
             }
 
-            if let Some(d) = object.get_optional::<_, String>("d")? {
-                let private_key = match curve {
-                    EllipticCurve::P256 => {
-                        let d = decode_to_curve::<p256::NistP256>(ctx, &d)?;
-                        let key = p256::SecretKey::from_bytes(&d).or_throw(ctx)?;
-                        key.to_pkcs8_der().or_throw(ctx)?
-                    },
-                    EllipticCurve::P384 => {
-                        let d = decode_to_curve::<p384::NistP384>(ctx, &d)?;
-                        let key = p384::SecretKey::from_bytes(&d).or_throw(ctx)?;
-                        key.to_pkcs8_der().or_throw(ctx)?
-                    },
-                    EllipticCurve::P521 => {
-                        let d = decode_to_curve::<p521::NistP521>(ctx, &d)?;
-                        let key = p521::SecretKey::from_bytes(&d).or_throw(ctx)?;
-                        key.to_pkcs8_der().or_throw(ctx)?
-                    },
-                };
+            let x: String = object.get_required("x", "keyData")?;
+            let y: String = object.get_required("y", "keyData")?;
+            let mut x_bytes = bytes_from_b64_url_safe(x.as_bytes()).or_throw(ctx)?;
+            let mut y_bytes = bytes_from_b64_url_safe(y.as_bytes()).or_throw(ctx)?;
 
-                *data = private_key.as_bytes().to_vec();
-                *kind = KeyKind::Private;
-            } else {
-                *kind = KeyKind::Public;
-                let x: String = object.get_required("x", "keyData")?;
-                let y: String = object.get_required("y", "keyData")?;
-
-                let point_bytes = decode_jwk_to_ec_point_bytes(ctx, curve, &x, &y)?;
-                *data = point_bytes;
+            // Pad to coordinate length if needed
+            if x_bytes.len() < coord_len {
+                let mut padded = vec![0u8; coord_len - x_bytes.len()];
+                padded.extend_from_slice(&x_bytes);
+                x_bytes = padded;
             }
+            if y_bytes.len() < coord_len {
+                let mut padded = vec![0u8; coord_len - y_bytes.len()];
+                padded.extend_from_slice(&y_bytes);
+                y_bytes = padded;
+            }
+
+            let d_bytes = if let Some(d) = object.get_optional::<_, String>("d")? {
+                let mut d_bytes = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
+                if d_bytes.len() < coord_len {
+                    let mut padded = vec![0u8; coord_len - d_bytes.len()];
+                    padded.extend_from_slice(&d_bytes);
+                    d_bytes = padded;
+                }
+                Some(d_bytes)
+            } else {
+                None
+            };
+
+            let jwk = EcJwkImport {
+                x: &x_bytes,
+                y: &y_bytes,
+                d: d_bytes.as_deref(),
+            };
+
+            let result = CRYPTO_PROVIDER.import_ec_jwk(jwk, *curve).or_throw(ctx)?;
+            *data = result.key_data;
+            *kind = if result.is_private {
+                KeyKind::Private
+            } else {
+                KeyKind::Public
+            };
         },
         KeyFormatData::Raw(object_bytes) => {
-            let bytes = object_bytes.into_bytes(ctx)?;
-            if bytes.len() != 32 {
-                return Err(Exception::throw_type(
-                    ctx,
-                    &[algorithm_name, " keys must be 32 bytes long"].concat(),
-                ));
-            }
-            *data = bytes;
+            let bytes = object_bytes.as_bytes(ctx)?;
+            let result = CRYPTO_PROVIDER
+                .import_ec_public_key_sec1(bytes, *curve)
+                .or_throw(ctx)?;
+            *data = result.key_data;
             *kind = KeyKind::Public;
         },
         KeyFormatData::Spki(object_bytes) => {
             let spki = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
                 .or_throw(ctx)?;
             validate_oid(spki.algorithm.oid)?;
-            *data = spki.subject_public_key.raw_bytes().into();
+            let result = CRYPTO_PROVIDER
+                .import_ec_public_key_spki(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
+            *data = result.key_data;
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
             let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            *data = object_bytes.into_bytes(ctx)?;
+            let result = CRYPTO_PROVIDER
+                .import_ec_private_key_pkcs8(object_bytes.as_bytes(ctx)?)
+                .or_throw(ctx)?;
+            *data = result.key_data;
             *kind = KeyKind::Private;
         },
     };
     Ok(())
 }
 
+#[cfg(feature = "_subtle-full")]
 fn import_okp_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -1105,6 +1141,7 @@ fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &ShaAlgorithm) -> Result<Object
     Ok(hash_obj)
 }
 
+#[cfg(feature = "_subtle-full")]
 pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &ShaAlgorithm) -> Result<T> {
     Err(Exception::throw_message(
         ctx,

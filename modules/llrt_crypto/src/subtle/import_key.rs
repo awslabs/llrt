@@ -12,7 +12,6 @@ use super::{
     },
 };
 
-#[allow(dead_code)]
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
     format: KeyFormat,
