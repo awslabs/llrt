@@ -45,20 +45,28 @@ jobs:
         crypto:
           - name: default
             features: ""
+            limited_crypto: false
           - name: crypto-rust+tls-ring
             features: "--no-default-features --features crypto-rust,tls-ring,macro"
+            limited_crypto: false
           - name: crypto-rust+tls-aws-lc
             features: "--no-default-features --features crypto-rust,tls-aws-lc,macro"
+            limited_crypto: false
           - name: crypto-ring+tls-ring
             features: "--no-default-features --features crypto-ring,tls-ring,macro"
+            limited_crypto: true
           - name: crypto-ring-rust+tls-ring
             features: "--no-default-features --features crypto-ring-rust,tls-ring,macro"
+            limited_crypto: false
           - name: crypto-graviola+tls-graviola
             features: "--no-default-features --features crypto-graviola,tls-graviola,macro"
+            limited_crypto: true
           - name: crypto-graviola-rust+tls-graviola
             features: "--no-default-features --features crypto-graviola-rust,tls-graviola,macro"
+            limited_crypto: false
           - name: crypto-openssl+tls-openssl
             features: "--no-default-features --features crypto-openssl,tls-openssl,macro"
+            limited_crypto: false
         exclude:
           # OpenSSL requires native compilation - exclude from cross-compile targets
           - os: ubuntu-latest
@@ -111,6 +119,7 @@ jobs:
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
       cargo_features: ${{ matrix.crypto.features }}
+      limited_crypto: ${{ matrix.crypto.limited_crypto }}
 
   modules:
     needs:
