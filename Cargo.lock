@@ -1797,6 +1797,7 @@ dependencies = [
  "llrt_encoding",
  "llrt_http",
  "llrt_json",
+ "llrt_stream_web",
  "llrt_test",
  "llrt_test_tls",
  "llrt_url",

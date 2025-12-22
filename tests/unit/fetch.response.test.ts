@@ -4,7 +4,8 @@ describe("Response class", () => {
     expect(response.status).toEqual(200);
     expect(response.statusText).toEqual("OK");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(undefined);
+    // Per WHATWG Fetch spec, body is null for empty response
+    expect(response.body).toEqual(null);
     expect(response.redirected).toBeFalsy();
   });
 
@@ -89,7 +90,8 @@ describe("Response class", () => {
     expect(response.status).toEqual(0);
     expect(response.statusText).toEqual("");
     expect(response.headers instanceof Headers).toBeTruthy();
-    expect(response.body).toEqual(undefined);
+    // Per WHATWG Fetch spec, body is null for error response
+    expect(response.body).toEqual(null);
     expect(response.type).toEqual("error");
   });
 
