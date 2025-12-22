@@ -114,6 +114,112 @@ declare module "util" {
     constructor: unknown,
     superConstructor: unknown
   ): void;
+
+  /**
+   * Options for `util.inspect()`.
+   */
+  export interface InspectOptions {
+    /**
+     * If `true`, includes non-enumerable symbols and properties.
+     * @default false
+     */
+    showHidden?: boolean | undefined;
+    /**
+     * Specifies the number of times to recurse while formatting object.
+     * `null` or `Infinity` means recurse up to maximum call stack size.
+     * @default 2
+     */
+    depth?: number | null | undefined;
+    /**
+     * If `true`, the output is styled with ANSI color codes.
+     * @default false
+     */
+    colors?: boolean | undefined;
+    /**
+     * If `false`, `[util.inspect.custom](depth, opts, inspect)` functions are not invoked.
+     * @default true
+     */
+    customInspect?: boolean | undefined;
+    /**
+     * Specifies the maximum number of `Array`, `TypedArray`, `Map`, `Set`, `WeakMap`,
+     * and `WeakSet` elements to include when formatting.
+     * @default 100
+     */
+    maxArrayLength?: number | null | undefined;
+    /**
+     * Specifies the maximum number of characters to include when formatting strings.
+     * @default 10000
+     */
+    maxStringLength?: number | null | undefined;
+    /**
+     * The length at which input values are split across multiple lines.
+     * @default 80
+     */
+    breakLength?: number | undefined;
+    /**
+     * If set to `true` or a function, all properties of an object, and `Set` and `Map`
+     * entries are sorted in the resulting string.
+     * @default false
+     */
+    sorted?: boolean | ((a: string, b: string) => number) | undefined;
+    /**
+     * Setting this to a number specifies how many layers deep the object will be formatted.
+     * Setting this to `false` causes every layer to be formatted on a new line.
+     * @default 3
+     */
+    compact?: boolean | number | undefined;
+  }
+
+  /**
+   * The `util.inspect()` method returns a string representation of `object` that is
+   * intended for debugging. The output of `util.inspect` may change at any time
+   * and should not be depended upon programmatically.
+   *
+   * ```js
+   * import util from 'util';
+   *
+   * console.log(util.inspect({ a: 1, b: { c: 2 } }));
+   * // { a: 1, b: { c: 2 } }
+   *
+   * console.log(util.inspect({ a: 1, b: { c: 2 } }, { depth: 0 }));
+   * // { a: 1, b: [Object] }
+   *
+   * console.log(util.inspect({ a: 1, b: { c: 2 } }, { colors: true }));
+   * // { a: 1, b: { c: 2 } } (with colors)
+   * ```
+   * @param object Any JavaScript primitive or Object.
+   * @param options Options to control the formatting.
+   */
+  export function inspect(object: unknown, options?: InspectOptions): string;
+
+  /**
+   * The `util.inspect()` method returns a string representation of `object` that is
+   * intended for debugging.
+   * @param object Any JavaScript primitive or Object.
+   * @param showHidden If `true`, includes non-enumerable symbols and properties.
+   * @param depth Specifies the number of times to recurse.
+   * @param colors If `true`, the output is styled with ANSI color codes.
+   */
+  export function inspect(
+    object: unknown,
+    showHidden?: boolean,
+    depth?: number | null,
+    colors?: boolean
+  ): string;
+
+  export namespace inspect {
+    /**
+     * A Symbol that can be used to declare custom inspect functions.
+     * This is the same as `Symbol.for('nodejs.util.inspect.custom')`.
+     */
+    const custom: unique symbol;
+
+    /**
+     * The default options for `util.inspect`. These can be modified to change
+     * the default behavior of `util.inspect`.
+     */
+    let defaultOptions: InspectOptions;
+  }
   /**
    * An implementation of the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) `TextDecoder` API.
    *
