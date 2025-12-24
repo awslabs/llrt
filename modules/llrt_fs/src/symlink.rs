@@ -6,6 +6,8 @@ use std::io;
 use llrt_utils::result::ResultExt;
 use rquickjs::{function::Opt, Ctx, Result};
 
+use crate::security::ensure_access;
+
 fn symlink_blocking(target: &str, path: &str, type_value: Option<String>) -> io::Result<()> {
     #[cfg(unix)]
     {
@@ -41,6 +43,9 @@ pub async fn symlink<'js>(
     path: String,
     type_value: Opt<String>,
 ) -> Result<()> {
+    ensure_access(&ctx, &target)?;
+    ensure_access(&ctx, &path)?;
+
     let path_clone = path.clone();
 
     tokio::task::spawn_blocking(move || symlink_blocking(&target, &path_clone, type_value.0))
@@ -55,6 +60,9 @@ pub fn symlink_sync<'js>(
     path: String,
     type_value: Opt<String>,
 ) -> Result<()> {
+    ensure_access(&ctx, &target)?;
+    ensure_access(&ctx, &path)?;
+
     symlink_blocking(&target, &path, type_value.0)
         .or_throw_msg(&ctx, &["Can't create symlink \"", &path, "\""].concat())
 }
