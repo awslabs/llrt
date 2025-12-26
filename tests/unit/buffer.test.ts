@@ -1075,3 +1075,132 @@ describe("File class", () => {
     expect(file).toBeInstanceOf(Blob);
   });
 });
+
+describe("atob", () => {
+  it("should decode basic base64 strings", () => {
+    expect(atob("aGVsbG8gd29ybGQ=")).toBe("hello world");
+    expect(atob("YWJj")).toBe("abc");
+    expect(atob("")).toBe("");
+  });
+
+  it("should handle base64 strings with padding", () => {
+    expect(atob("YQ==")).toBe("a");
+    expect(atob("YWI=")).toBe("ab");
+    expect(atob("YWJj")).toBe("abc");
+  });
+
+  it("should correctly decode high bytes (128-255) as Latin-1 characters", () => {
+    // Per WHATWG spec, atob returns a "binary string" where each character's
+    // code point is 0-255, directly representing one byte of data (Latin-1)
+
+    // Test byte 128 (0x80): base64 "gA=="
+    const decoded128 = atob("gA==");
+    expect(decoded128.length).toBe(1);
+    expect(decoded128.charCodeAt(0)).toBe(128);
+
+    // Test byte 255 (0xFF): base64 "/w=="
+    const decoded255 = atob("/w==");
+    expect(decoded255.length).toBe(1);
+    expect(decoded255.charCodeAt(0)).toBe(255);
+
+    // Test byte 192 (0xC0): base64 "wA=="
+    const decoded192 = atob("wA==");
+    expect(decoded192.length).toBe(1);
+    expect(decoded192.charCodeAt(0)).toBe(192);
+  });
+
+  it("should correctly decode all bytes 0-255", () => {
+    // Create a Uint8Array with all possible byte values
+    const allBytes = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      allBytes[i] = i;
+    }
+
+    // Encode to base64 and decode with atob
+    const base64 = Buffer.from(allBytes).toString("base64");
+    const decoded = atob(base64);
+
+    // Verify length and each byte
+    expect(decoded.length).toBe(256);
+    for (let i = 0; i < 256; i++) {
+      expect(decoded.charCodeAt(i)).toBe(i);
+    }
+  });
+
+  it("should produce same result as Buffer.from for binary data", () => {
+    // This tests the fix for issue #966 - JWT signature decoding
+    const testCases = [
+      "gA==", // 0x80
+      "/w==", // 0xFF
+      "wMDAwA==", // multiple high bytes
+      "AAECAwQFBgc=", // mixed bytes
+    ];
+
+    for (const base64 of testCases) {
+      const atobResult = atob(base64);
+      const bufferResult = Buffer.from(base64, "base64");
+
+      expect(atobResult.length).toBe(bufferResult.length);
+      for (let i = 0; i < atobResult.length; i++) {
+        expect(atobResult.charCodeAt(i)).toBe(bufferResult[i]);
+      }
+    }
+  });
+});
+
+describe("btoa", () => {
+  it("should encode basic strings to base64", () => {
+    expect(btoa("hello world")).toBe("aGVsbG8gd29ybGQ=");
+    expect(btoa("abc")).toBe("YWJj");
+    expect(btoa("")).toBe("");
+  });
+
+  it("should handle strings that need padding", () => {
+    expect(btoa("a")).toBe("YQ==");
+    expect(btoa("ab")).toBe("YWI=");
+    expect(btoa("abc")).toBe("YWJj");
+  });
+
+  it("should roundtrip with atob", () => {
+    const testStrings = ["hello", "test123", "a", "ab", "abc"];
+    for (const str of testStrings) {
+      expect(atob(btoa(str))).toBe(str);
+    }
+  });
+
+  it("should correctly encode high bytes (128-255) as Latin-1 characters", () => {
+    // Per WHATWG spec, btoa treats each character as a byte value 0-255
+    // NOT as UTF-8 encoded bytes
+
+    // Test byte 255 (0xFF): btoa(String.fromCharCode(255)) should give "/w=="
+    // If incorrectly UTF-8 encoded, it would give "w78=" (bytes 0xC3, 0xBF)
+    expect(btoa(String.fromCharCode(255))).toBe("/w==");
+
+    // Test byte 128 (0x80): btoa(String.fromCharCode(128)) should give "gA=="
+    expect(btoa(String.fromCharCode(128))).toBe("gA==");
+
+    // Test byte 192 (0xC0): btoa(String.fromCharCode(192)) should give "wA=="
+    expect(btoa(String.fromCharCode(192))).toBe("wA==");
+  });
+
+  it("should roundtrip all bytes 0-255 with atob", () => {
+    for (let i = 0; i <= 255; i++) {
+      const char = String.fromCharCode(i);
+      const encoded = btoa(char);
+      const decoded = atob(encoded);
+      expect(decoded.length).toBe(1);
+      expect(decoded.charCodeAt(0)).toBe(i);
+    }
+  });
+
+  it("should throw for characters with code point > 255", () => {
+    // Euro sign (U+20AC)
+    expect(() => btoa("€")).toThrow();
+
+    // Chinese character (U+4E2D)
+    expect(() => btoa("中")).toThrow();
+
+    // Emoji (U+1F600, represented as surrogate pair)
+    expect(() => btoa("😀")).toThrow();
+  });
+});
