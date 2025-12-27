@@ -12,12 +12,17 @@ path = "src/lib.rs"
 
 [dependencies]
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
+llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
+    "classes",
     "std",
 ], default-features = false }
+tracing = { version = "0.1", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }
+tokio = { version = "1", features = ["macros", "signal", "sync"], default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

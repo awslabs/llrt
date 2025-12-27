@@ -2034,10 +2034,13 @@ name = "llrt_process"
 version = "0.7.0-beta"
 dependencies = [
  "libc",
+ "llrt_context",
+ "llrt_events",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

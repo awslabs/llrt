@@ -128,7 +128,13 @@ impl<'js> Emitter<'js> for DefaultReadableStream<'js> {
         self.inner.emitter.get_event_list()
     }
 
-    fn on_event_changed(&mut self, event: EventKey<'js>, added: bool) -> Result<()> {
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: Class<'js, Self>,
+        event: EventKey<'js>,
+        added: bool,
+    ) -> Result<()> {
         self.inner.on_event_changed(event, added)
     }
 }

@@ -37,7 +37,9 @@ generate_signal_from_str_fn!(
     libc::SIGSEGV,
     libc::SIGPIPE,
     libc::SIGALRM,
-    libc::SIGTERM
+    libc::SIGTERM,
+    libc::SIGUSR1,
+    libc::SIGUSR2
 );
 
 #[cfg(not(unix))]
