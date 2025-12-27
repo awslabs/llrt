@@ -39,6 +39,8 @@ mod modules {
     pub use llrt_fs as fs;
     #[cfg(feature = "https")]
     pub use llrt_http as https;
+    #[cfg(feature = "intl")]
+    pub use llrt_intl as intl;
     #[cfg(feature = "navigator")]
     pub use llrt_navigator as navigator;
     #[cfg(feature = "net")]
