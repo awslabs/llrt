@@ -9,10 +9,12 @@ use rquickjs::{
 pub use self::agent::Agent;
 pub use self::client::*;
 pub use self::config::*;
+pub use self::proxy::*;
 
 mod agent;
 mod client;
 mod config;
+pub mod proxy;
 
 // Here we should also add the http module.
 
