@@ -3,8 +3,7 @@
 
 //! LLRT timezone module providing timezone offset calculations.
 
-use chrono::{Offset, TimeZone, Utc};
-use chrono_tz::Tz;
+use llrt_tz::Tz;
 use rquickjs::{
     atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
@@ -22,25 +21,20 @@ fn get_offset(ctx: Ctx<'_>, timezone: String, epoch_ms: f64) -> Result<i32> {
         .parse()
         .map_err(|_| Exception::throw_type(&ctx, &format!("Invalid timezone: {}", timezone)))?;
 
-    let epoch_secs = (epoch_ms / 1000.0) as i64;
-    let naive = Utc.timestamp_opt(epoch_secs, 0).single().ok_or_else(|| {
-        Exception::throw_range(&ctx, &format!("Invalid epoch milliseconds: {}", epoch_ms))
-    })?;
-
-    let local = naive.with_timezone(&tz);
-    let offset = local.offset().fix().local_minus_utc();
+    let timestamp_secs = (epoch_ms / 1000.0) as i64;
+    let offset_minutes = tz.offset_at_timestamp(timestamp_secs);
 
     // Return offset in minutes (positive = ahead of UTC, negative = behind)
-    Ok(offset / 60)
+    Ok(offset_minutes as i32)
 }
 
 /// List all available IANA timezone names.
 fn list_timezones(ctx: Ctx<'_>) -> Result<Array<'_>> {
-    let timezones = chrono_tz::TZ_VARIANTS;
+    let timezones = llrt_tz::list_timezones();
     let array = Array::new(ctx.clone())?;
 
-    for (i, tz) in timezones.iter().enumerate() {
-        array.set(i, tz.name())?;
+    for (i, tz_name) in timezones.iter().enumerate() {
+        array.set(i, *tz_name)?;
     }
 
     Ok(array)
