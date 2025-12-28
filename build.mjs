@@ -109,6 +109,7 @@ const ES_BUILD_OPTIONS = {
     "zlib",
     "node:zlib",
     "llrt:hex",
+    "llrt:timezone",
     "llrt:util",
     "llrt:qjs",
     "llrt:xml",

@@ -185,6 +185,10 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_module(crate::modules::zlib::ZlibModule);
         }
+        #[cfg(feature = "intl")]
+        {
+            builder = builder.with_global(crate::modules::intl::init);
+        }
 
         builder
     }
