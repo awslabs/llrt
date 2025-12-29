@@ -16,8 +16,6 @@ use std::path::Path;
 
 /// Historical transition data for a timezone.
 struct HistoricalTzData {
-    /// Index in the sorted timezone list
-    index: usize,
     /// List of (timestamp, offset_minutes) transitions
     transitions: Vec<(i64, i16)>,
 }
@@ -104,44 +102,74 @@ fn generate_historical_data(out_dir: &str) {
     let mut tz_variants: Vec<_> = chrono_tz::TZ_VARIANTS.iter().collect();
     tz_variants.sort_by(|a, b| a.name().cmp(b.name()));
 
-    for (idx, tz) in tz_variants.iter().enumerate() {
+    for tz in tz_variants.iter() {
         let transitions = collect_historical_transitions(**tz);
         // Include all timezones, even with empty transitions (for correct indexing)
-        tz_data.push(HistoricalTzData {
-            index: idx,
-            transitions,
-        });
+        tz_data.push(HistoricalTzData { transitions });
     }
 
-    // Build the binary format
-    let mut header = Vec::new();
-    let mut index = Vec::new();
-    let mut data_sections = Vec::new();
-
-    // Magic number "LLTZ"
-    header.extend_from_slice(&0x5A544C4Cu32.to_le_bytes());
-    // Timezone count
-    header.extend_from_slice(&(tz_data.len() as u16).to_le_bytes());
-
-    // Calculate offsets and compress data
-    let index_start = 6;
-    let index_size = tz_data.len() * 8; // 2 + 4 + 2 per entry
-    let mut data_offset = index_start + index_size;
-
+    // Serialize all timezone data first
+    let mut all_raw_data: Vec<Vec<u8>> = Vec::new();
     for tz in tz_data.iter() {
-        // Serialize transitions
         let mut raw_data = Vec::new();
         for (ts, offset) in &tz.transitions {
             raw_data.extend_from_slice(&ts.to_le_bytes());
             raw_data.extend_from_slice(&offset.to_le_bytes());
         }
+        all_raw_data.push(raw_data);
+    }
 
-        // Compress with zstd at level 19 for good compression ratio
-        // Level 19 provides excellent compression with reasonable speed for build-time
-        let compressed = zstd::bulk::compress(&raw_data, 19).unwrap_or_else(|_| raw_data.clone());
+    // Train a dictionary on all timezone data samples
+    // Only use non-empty samples for training
+    let samples: Vec<&[u8]> = all_raw_data
+        .iter()
+        .filter(|d| !d.is_empty())
+        .map(|d| d.as_slice())
+        .collect();
+
+    // Train dictionary with 32KB size - good balance between size and compression
+    let dict = zstd::dict::from_continuous(
+        &samples.concat(),
+        &samples.iter().map(|s| s.len()).collect::<Vec<_>>(),
+        32 * 1024,
+    )
+    .expect("Failed to train zstd dictionary");
+
+    // Build the binary format with dictionary
+    // Format: [magic(4)][tz_count(2)][dict_len(4)][dictionary][index][compressed_data...]
+    let mut header = Vec::new();
+
+    // Magic number "LLTZ"
+    header.extend_from_slice(&0x5A544C4Cu32.to_le_bytes());
+    // Timezone count
+    header.extend_from_slice(&(tz_data.len() as u16).to_le_bytes());
+    // Dictionary length
+    header.extend_from_slice(&(dict.len() as u32).to_le_bytes());
+
+    // Create compressor with dictionary at level 19
+    let mut compressor =
+        zstd::bulk::Compressor::with_dictionary(19, &dict).expect("Failed to create compressor");
+
+    let mut index = Vec::new();
+    let mut data_sections = Vec::new();
+
+    // Calculate offsets: header(10) + dict + index + data
+    let index_start = 10 + dict.len();
+    let index_size = tz_data.len() * 8; // 2 + 4 + 2 per entry
+    let mut data_offset = index_start + index_size;
+
+    for (i, raw_data) in all_raw_data.iter().enumerate() {
+        // Compress with dictionary
+        let compressed = if raw_data.is_empty() {
+            Vec::new()
+        } else {
+            compressor
+                .compress(raw_data)
+                .unwrap_or_else(|_| raw_data.clone())
+        };
 
         // Index entry: tz_id (2) + data_offset (4) + data_len (2)
-        index.extend_from_slice(&(tz.index as u16).to_le_bytes());
+        index.extend_from_slice(&(i as u16).to_le_bytes());
         index.extend_from_slice(&(data_offset as u32).to_le_bytes());
         index.extend_from_slice(&(compressed.len() as u16).to_le_bytes());
 
@@ -151,6 +179,7 @@ fn generate_historical_data(out_dir: &str) {
 
     // Write everything
     file.write_all(&header).unwrap();
+    file.write_all(&dict).unwrap();
     file.write_all(&index).unwrap();
     for section in data_sections {
         file.write_all(&section).unwrap();

@@ -10,12 +10,14 @@ description = "Compact timezone library for LLRT with lazy historical data loadi
 zstd = { version = "0.13", default-features = false }
 # Chrono for datetime types (TimeZone trait implementation)
 chrono = { version = "0.4", default-features = false, features = ["std"] }
+# Lazy initialization for decoder dictionary
+once_cell = { version = "1", features = ["std"], default-features = false }
 
 [build-dependencies]
 # Only used at build time to generate the compact data
 chrono = "0.4"
 chrono-tz = "0.10"
-zstd = { version = "0.13", default-features = false }
+zstd = { version = "0.13", default-features = false, features = ["zdict_builder"] }
 
 [dev-dependencies]
 chrono-tz = "0.10"

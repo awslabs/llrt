@@ -2138,6 +2138,7 @@ version = "0.7.0-beta"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "once_cell",
  "zstd",
 ]
 

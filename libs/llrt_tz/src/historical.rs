@@ -19,6 +19,9 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+use once_cell::sync::Lazy;
+use zstd::dict::DecoderDictionary;
+
 /// A historical timezone transition.
 #[derive(Debug, Clone, Copy)]
 pub struct Transition {
@@ -32,10 +35,30 @@ pub struct Transition {
 static HISTORICAL_CACHE: RwLock<Option<HashMap<&'static str, Vec<Transition>>>> = RwLock::new(None);
 
 /// Include the compressed historical data blob.
-/// Format: [header][index][compressed_data...]
-/// Header: magic (4 bytes) + tz_count (2 bytes)
-/// Index: [(tz_name_offset: u16, data_offset: u32, data_len: u16)...]
+/// Format: [magic(4)][tz_count(2)][dict_len(4)][dictionary][index][compressed_data...]
+/// Index: [(tz_id: u16, data_offset: u32, data_len: u16)...]
 static HISTORICAL_BLOB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tz_historical.bin"));
+
+/// Lazily parsed dictionary for decompression.
+static DECODER_DICT: Lazy<Option<DecoderDictionary<'static>>> = Lazy::new(|| {
+    if HISTORICAL_BLOB.len() < 10 {
+        return None;
+    }
+
+    let dict_len = u32::from_le_bytes([
+        HISTORICAL_BLOB[6],
+        HISTORICAL_BLOB[7],
+        HISTORICAL_BLOB[8],
+        HISTORICAL_BLOB[9],
+    ]) as usize;
+
+    if 10 + dict_len > HISTORICAL_BLOB.len() {
+        return None;
+    }
+
+    let dict_bytes = &HISTORICAL_BLOB[10..10 + dict_len];
+    Some(DecoderDictionary::copy(dict_bytes))
+});
 
 /// Get the historical offset for a timezone at a given timestamp.
 /// Returns None if no historical data is available.
@@ -83,7 +106,7 @@ fn lookup_offset_in_transitions(transitions: &[Transition], timestamp_secs: i64)
 
 /// Load and decompress historical data for a specific timezone.
 fn load_historical_data(tz_name: &str) -> Option<Vec<Transition>> {
-    if HISTORICAL_BLOB.len() < 6 {
+    if HISTORICAL_BLOB.len() < 10 {
         return None;
     }
 
@@ -101,9 +124,16 @@ fn load_historical_data(tz_name: &str) -> Option<Vec<Transition>> {
     }
 
     let tz_count = u16::from_le_bytes([HISTORICAL_BLOB[4], HISTORICAL_BLOB[5]]) as usize;
+    let dict_len = u32::from_le_bytes([
+        HISTORICAL_BLOB[6],
+        HISTORICAL_BLOB[7],
+        HISTORICAL_BLOB[8],
+        HISTORICAL_BLOB[9],
+    ]) as usize;
 
     // Parse index to find this timezone
-    let index_start = 6;
+    // Index starts after header (10 bytes) + dictionary
+    let index_start = 10 + dict_len;
     let index_entry_size = 8; // tz_id (2) + data_offset (4) + data_len (2)
 
     // Find the timezone in the index
@@ -130,13 +160,32 @@ fn load_historical_data(tz_name: &str) -> Option<Vec<Transition>> {
         HISTORICAL_BLOB[entry_offset + 7],
     ]) as usize;
 
+    if data_len == 0 {
+        return Some(Vec::new());
+    }
+
     if data_offset + data_len > HISTORICAL_BLOB.len() {
         return None;
     }
 
-    // Decompress the data
+    // Get the prepared dictionary (lazily initialized)
+    let dict = DECODER_DICT.as_ref()?;
+
+    // Create decompressor with prepared dictionary and decompress
     let compressed = &HISTORICAL_BLOB[data_offset..data_offset + data_len];
-    let decompressed = match zstd::bulk::decompress(compressed, 1024 * 1024) {
+    let mut decompressor = match zstd::bulk::Decompressor::with_prepared_dictionary(dict) {
+        Ok(d) => d,
+        Err(_e) => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "llrt_tz: failed to create decompressor for timezone '{}': {:?}",
+                tz_name, _e
+            );
+            return None;
+        },
+    };
+
+    let decompressed = match decompressor.decompress(compressed, 1024 * 1024) {
         Ok(data) => data,
         Err(_e) => {
             #[cfg(debug_assertions)]
