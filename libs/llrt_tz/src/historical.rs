@@ -10,7 +10,7 @@
 //!
 //! All functions return `Option` and gracefully handle errors:
 //! - Corrupted or invalid data returns `None`
-//! - LZ4 decompression failures return `None`
+//! - Zstd decompression failures return `None`
 //! - Cache lock failures return `None`
 //!
 //! When `None` is returned, callers fall back to the timezone's current DST rules,
@@ -136,7 +136,7 @@ fn load_historical_data(tz_name: &str) -> Option<Vec<Transition>> {
 
     // Decompress the data
     let compressed = &HISTORICAL_BLOB[data_offset..data_offset + data_len];
-    let decompressed = match lz4_flex::decompress_size_prepended(compressed) {
+    let decompressed = match zstd::bulk::decompress(compressed, 1024 * 1024) {
         Ok(data) => data,
         Err(_e) => {
             #[cfg(debug_assertions)]

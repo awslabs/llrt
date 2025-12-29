@@ -1,13 +1,13 @@
 [package]
 name = "llrt_tz"
-version = "0.1.0"
+version = "0.7.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 description = "Compact timezone library for LLRT with lazy historical data loading"
 
 [dependencies]
-# LZ4 for decompressing historical data
-lz4_flex = { version = "0.11", default-features = false, features = ["safe-decode"] }
+# Zstd for decompressing historical data (already used elsewhere in LLRT)
+zstd = { version = "0.13", default-features = false }
 # Chrono for datetime types (TimeZone trait implementation)
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 
@@ -15,7 +15,7 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 # Only used at build time to generate the compact data
 chrono = "0.4"
 chrono-tz = "0.10"
-lz4_flex = { version = "0.11", default-features = false, features = ["safe-encode"] }
+zstd = { version = "0.13", default-features = false }
 
 [dev-dependencies]
 chrono-tz = "0.10"

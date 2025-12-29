@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 chrono = { version = "0.4", features = ["std", "clock"], default-features = false }
-llrt_tz = { version = "0.1.0", path = "../../libs/llrt_tz" }
+llrt_tz = { version = "0.7.0-beta", path = "../../libs/llrt_tz" }
 iana-time-zone = "0.1"
 itoa = "1.0"
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }

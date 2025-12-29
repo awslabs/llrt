@@ -2134,11 +2134,11 @@ dependencies = [
 
 [[package]]
 name = "llrt_tz"
-version = "0.1.0"
+version = "0.7.0-beta"
 dependencies = [
  "chrono",
  "chrono-tz",
- "lz4_flex",
+ "zstd",
 ]
 
 [[package]]
@@ -2202,12 +2202,6 @@ name = "log"
 version = "0.4.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
-
-[[package]]
-name = "lz4_flex"
-version = "0.11.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08ab2867e3eeeca90e844d1940eab391c9dc5228783db2ed999acbc0a9ed375a"
 
 [[package]]
 name = "md-5"

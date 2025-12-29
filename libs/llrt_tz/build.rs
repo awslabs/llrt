@@ -136,8 +136,9 @@ fn generate_historical_data(out_dir: &str) {
             raw_data.extend_from_slice(&offset.to_le_bytes());
         }
 
-        // Compress (even empty data gets compressed - produces minimal output)
-        let compressed = lz4_flex::compress_prepend_size(&raw_data);
+        // Compress with zstd at level 19 for good compression ratio
+        // Level 19 provides excellent compression with reasonable speed for build-time
+        let compressed = zstd::bulk::compress(&raw_data, 19).unwrap_or_else(|_| raw_data.clone());
 
         // Index entry: tz_id (2) + data_offset (4) + data_len (2)
         index.extend_from_slice(&(tz.index as u16).to_le_bytes());

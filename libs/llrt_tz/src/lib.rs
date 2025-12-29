@@ -16,7 +16,7 @@
 //!    - DST transition rules (e.g., "2nd Sunday of March at 2:00 AM")
 //!    - A `rules_valid_from` timestamp indicating when these rules became effective
 //!
-//! 2. **Compressed Historical Data (~150KB)** - LZ4-compressed, loaded lazily on first
+//! 2. **Compressed Historical Data (~150KB)** - Zstd-compressed, loaded lazily on first
 //!    access to historical dates. Contains hourly offset transitions from 1970 to present.
 //!
 //! # When Historical Data is Loaded
