@@ -76,50 +76,6 @@ declare module "buffer" {
       };
   interface BufferConstructor {
     /**
-     * Allocates a new `Buffer` of `size` bytes. If `fill` is `undefined`, the `Buffer` will be zero-filled.
-     *
-     * ```js
-     * import { Buffer } from 'buffer';
-     *
-     * const buf = Buffer.alloc(5);
-     *
-     * console.log(buf);
-     * // Prints: <Buffer 00 00 00 00 00>
-     * ```
-     *
-     * If `fill` is specified, the allocated `Buffer` will be initialized by calling `Buffer.alloc(size, fill)`.
-     *
-     * ```js
-     * import { Buffer } from 'buffer';
-     *
-     * const buf = Buffer.alloc(5, 'a');
-     *
-     * console.log(buf);
-     * // Prints: <Buffer 61 61 61 61 61>
-     * ```
-     *
-     * If both `fill` and `encoding` are specified, the allocated `Buffer` will be
-     * initialized by calling `Buffer.aloc(size, fill, encoding)`.
-     *
-     * ```js
-     * import { Buffer } from 'buffer';
-     *
-     * const buf = Buffer.alloc(11, 'aGVsbG8gd29ybGQ=', 'base64');
-     *
-     * console.log(buf);
-     * // Prints: <Buffer 68 65 6c 6c 6f 20 77 6f 72 6c 64>
-     * ```
-     *
-     * @param size The desired length of the new `Buffer`.
-     * @param [fill=0] A value to pre-fill the new `Buffer` with.
-     * @param [encoding='utf8'] If `fill` is a string, this is its encoding.
-     */
-    alloc(
-      size: number,
-      fill?: string | Uint8Array | number,
-      encoding?: BufferEncoding
-    ): Buffer;
-    /**
      * Returns the byte length of a string when encoded using `encoding`.
      * This is not the same as [`String.prototype.length`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/length), which does not account
      * for the encoding that is used to convert the string into bytes.
@@ -217,8 +173,208 @@ declare module "buffer" {
           },
       encoding?: BufferEncoding
     ): Buffer;
+    /**
+     * Returns `true` if `obj` is a `Buffer`, `false` otherwise.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * Buffer.isBuffer(Buffer.alloc(10)); // true
+     * Buffer.isBuffer(Buffer.from('foo')); // true
+     * Buffer.isBuffer('a string'); // false
+     * Buffer.isBuffer([]); // false
+     * Buffer.isBuffer(new Uint8Array(1024)); // false
+     * ```
+     */
+    isBuffer(obj: any): obj is Buffer;
+    /**
+     * Returns `true` if `encoding` is the name of a supported character encoding,
+     * or `false` otherwise.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * console.log(Buffer.isEncoding('utf8'));
+     * // Prints: true
+     *
+     * console.log(Buffer.isEncoding('hex'));
+     * // Prints: true
+     *
+     * console.log(Buffer.isEncoding('utf/8'));
+     * // Prints: false
+     *
+     * console.log(Buffer.isEncoding(''));
+     * // Prints: false
+     * ```
+     * @param encoding A character encoding name to check.
+     */
+    isEncoding(encoding: string): encoding is BufferEncoding;
+    /**
+     * Allocates a new `Buffer` of `size` bytes. If `fill` is `undefined`, the `Buffer` will be zero-filled.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.alloc(5);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 00 00 00 00 00>
+     * ```
+     *
+     * If `fill` is specified, the allocated `Buffer` will be initialized by calling `Buffer.alloc(size, fill)`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.alloc(5, 'a');
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 61 61 61 61 61>
+     * ```
+     *
+     * If both `fill` and `encoding` are specified, the allocated `Buffer` will be
+     * initialized by calling `Buffer.aloc(size, fill, encoding)`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.alloc(11, 'aGVsbG8gd29ybGQ=', 'base64');
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 68 65 6c 6c 6f 20 77 6f 72 6c 64>
+     * ```
+     *
+     * @param size The desired length of the new `Buffer`.
+     * @param [fill=0] A value to pre-fill the new `Buffer` with.
+     * @param [encoding='utf8'] If `fill` is a string, this is its encoding.
+     */
+    alloc(
+      size: number,
+      fill?: string | Uint8Array | number,
+      encoding?: BufferEncoding
+    ): Buffer;
+    /**
+     * Allocates a new `Buffer` of `size` bytes.
+     *
+     * The underlying memory for `Buffer` instances created in this way is _not_
+     * _initialized_. The contents of the newly created `Buffer` are unknown and _may contain sensitive data_. Use `Buffer.alloc()` instead to initialize`Buffer` instances with zeroes.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(10);
+     *
+     * console.log(buf);
+     * // Prints (contents may vary): <Buffer a0 8b 28 3f 01 00 00 00 50 32>
+     *
+     * buf.fill(0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 00 00 00 00 00 00 00 00 00 00>
+     * ```
+     *
+     * A `TypeError` will be thrown if `size` is not a number.
+     *
+     * @param size The desired length of the new `Buffer`.
+     */
+    allocUnsafe(size: number): Buffer;
+    /**
+     * Allocates a new `Buffer` of `size` bytes.
+     *
+     * The underlying memory for `Buffer` instances created in this way is _not_
+     * _initialized_. The contents of the newly created `Buffer` are unknown and _may contain sensitive data_. Use `buf.fill(0)` to initialize
+     * such `Buffer` instances with zeroes.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * // Need to keep around a few small chunks of memory.
+     * const store = [];
+     *
+     * socket.on('readable', () => {
+     *   let data;
+     *   while (null !== (data = readable.read())) {
+     *     // Allocate for retained data.
+     *     const sb = Buffer.allocUnsafeSlow(10);
+     *
+     *     // Copy the data into the new allocation.
+     *     data.copy(sb, 0, 0, 10);
+     *
+     *     store.push(sb);
+     *   }
+     * });
+     * ```
+     *
+     * A `TypeError` will be thrown if `size` is not a number.
+     *
+     * @param size The desired length of the new `Buffer`.
+     */
+    allocUnsafeSlow(size: number): Buffer;
   }
   interface Buffer extends Uint8Array {
+    /**
+     * Writes `string` to `buf` at `offset` according to the character encoding in`encoding`. The `length` parameter is the number of bytes to write. If `buf` did
+     * not contain enough space to fit the entire string, only part of `string` will be
+     * written. However, partially encoded characters will not be written.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.alloc(256);
+     *
+     * const len = buf.write('\u00bd + \u00bc = \u00be', 0);
+     *
+     * console.log(`${len} bytes: ${buf.toString('utf8', 0, len)}`);
+     * // Prints: 12 bytes: ½ + ¼ = ¾
+     *
+     * const buffer = Buffer.alloc(10);
+     *
+     * const length = buffer.write('abcd', 8);
+     *
+     * console.log(`${length} bytes: ${buffer.toString('utf8', 8, 10)}`);
+     * // Prints: 2 bytes : ab
+     * ```
+     * @param string String to write to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write `string`.
+     * @param [length=buf.length - offset] Maximum number of bytes to write (written bytes will not exceed `buf.length - offset`).
+     * @param [encoding='utf8'] The character encoding of `string`.
+     * @return Number of bytes written.
+     */
+    write(string: string, encoding?: BufferEncoding): number;
+    write(string: string, offset: number, encoding?: BufferEncoding): number;
+    write(
+      string: string,
+      offset: number,
+      length: number,
+      encoding?: BufferEncoding
+    ): number;
+    /**
+     * Decodes `buf` to a string according to the specified character encoding in`encoding`.
+     *
+     * If `encoding` is `'utf8'` and a byte sequence in the input is not valid UTF-8,
+     * then each invalid byte is replaced with the replacement character `U+FFFD`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf1 = Buffer.alloc(26);
+     *
+     * for (let i = 0; i < 26; i++) {
+     *   // 97 is the decimal ASCII value for 'a'.
+     *   buf1[i] = i + 97;
+     * }
+     *
+     * console.log(buf1.toString('utf8'));
+     * // Prints: abcdefghijklmnopqrstuvwxyz
+     *
+     * const buf2 = Buffer.from('tést');
+     *
+     * console.log(buf2.toString('hex'));
+     * // Prints: 74c3a97374
+     * ```
+     * @param [encoding='utf8'] The character encoding to use.
+     */
+    toString(encoding?: BufferEncoding): string;
     /**
      * Copies data from a region of `buf` to a region in `target`, even if the `target`memory region overlaps with `buf`.
      *
@@ -337,108 +493,156 @@ declare module "buffer" {
      */
     subarray(start?: number, end?: number): Buffer;
     /**
-     * Decodes `buf` to a string according to the specified character encoding in`encoding`.
+     * Writes `value` to `buf` at the specified `offset` as big-endian.
      *
-     * If `encoding` is `'utf8'` and a byte sequence in the input is not valid UTF-8,
-     * then each invalid byte is replaced with the replacement character `U+FFFD`.
-     *
-     * ```js
-     * import { Buffer } from 'buffer';
-     *
-     * const buf1 = Buffer.alloc(26);
-     *
-     * for (let i = 0; i < 26; i++) {
-     *   // 97 is the decimal ASCII value for 'a'.
-     *   buf1[i] = i + 97;
-     * }
-     *
-     * console.log(buf1.toString('utf8'));
-     * // Prints: abcdefghijklmnopqrstuvwxyz
-     *
-     * const buf2 = Buffer.from('tést');
-     *
-     * console.log(buf2.toString('hex'));
-     * // Prints: 74c3a97374
-     * ```
-     * @param [encoding='utf8'] The character encoding to use.
-     */
-    toString(encoding?: BufferEncoding): string;
-    /**
-     * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a JavaScript number. Behavior is undefined when `value` is anything
-     * other than a JavaScript number.
+     * `value` is interpreted and written as a two's complement signed integer.
      *
      * ```js
      * import { Buffer } from 'buffer';
      *
      * const buf = Buffer.allocUnsafe(8);
      *
-     * buf.writeDoubleLE(123.456, 0);
+     * buf.writeBigInt64BE(0x0102030405060708n, 0);
      *
      * console.log(buf);
-     * // Prints: <Buffer 77 be 9f 1a 2f dd 5e 40>
+     * // Prints: <Buffer 01 02 03 04 05 06 07 08>
      * ```
      * @param value Number to be written to `buf`.
-     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 8`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 8`.
      * @return `offset` plus the number of bytes written.
      */
-    writeDoubleLE(value: number, offset?: number): number;
+    writeBigInt64BE(value: bigint, offset?: number): number;
     /**
-     * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a JavaScript number. Behavior is undefined when `value` is anything
-     * other than a JavaScript number.
+     * Writes `value` to `buf` at the specified `offset` as little-endian.
+     *
+     * `value` is interpreted and written as a two's complement signed integer.
      *
      * ```js
      * import { Buffer } from 'buffer';
      *
      * const buf = Buffer.allocUnsafe(8);
      *
-     * buf.writeDoubleBE(123.456, 0);
+     * buf.writeBigInt64LE(0x0102030405060708n, 0);
      *
      * console.log(buf);
-     * // Prints: <Buffer 40 5e dd 2f 1a 9f be 77>
+     * // Prints: <Buffer 08 07 06 05 04 03 02 01>
      * ```
      * @param value Number to be written to `buf`.
-     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 8`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy: `0 <= offset <= buf.length - 8`.
      * @return `offset` plus the number of bytes written.
      */
-    writeDoubleBE(value: number, offset?: number): number;
+    writeBigInt64LE(value: bigint, offset?: number): number;
     /**
-     * Writes `value` to `buf` at the specified `offset` as little-endian. Behavior is
-     * undefined when `value` is anything other than a JavaScript number.
+     * Writes `value` to `buf` at the specified `offset`. `value` must be a
+     * valid unsigned 8-bit integer. Behavior is undefined when `value` is anything
+     * other than an unsigned 8-bit integer.
+     *
+     * This function is also available under the `writeUint8` alias.
      *
      * ```js
      * import { Buffer } from 'buffer';
      *
      * const buf = Buffer.allocUnsafe(4);
      *
-     * buf.writeFloatLE(0xcafebabe, 0);
+     * buf.writeUInt8(0x3, 0);
+     * buf.writeUInt8(0x4, 1);
+     * buf.writeUInt8(0x23, 2);
+     * buf.writeUInt8(0x42, 3);
      *
      * console.log(buf);
-     * // Prints: <Buffer bb fe 4a 4f>
+     * // Prints: <Buffer 03 04 23 42>
      * ```
      * @param value Number to be written to `buf`.
-     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 1`.
      * @return `offset` plus the number of bytes written.
      */
-    writeFloatLE(value: number, offset?: number): number;
+    writeUInt8(value: number, offset?: number): number;
     /**
-     * Writes `value` to `buf` at the specified `offset` as big-endian. Behavior is
-     * undefined when `value` is anything other than a JavaScript number.
+     * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a valid unsigned 16-bit integer. Behavior is undefined when `value` is
+     * anything other than an unsigned 16-bit integer.
+     *
+     * This function is also available under the `writeUint16LE` alias.
      *
      * ```js
      * import { Buffer } from 'buffer';
      *
      * const buf = Buffer.allocUnsafe(4);
      *
-     * buf.writeFloatBE(0xcafebabe, 0);
+     * buf.writeUInt16LE(0xdead, 0);
+     * buf.writeUInt16LE(0xbeef, 2);
      *
      * console.log(buf);
-     * // Prints: <Buffer 4f 4a fe bb>
+     * // Prints: <Buffer ad de ef be>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 2`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeUInt16LE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a valid unsigned 16-bit integer. Behavior is undefined when `value`is anything other than an
+     * unsigned 16-bit integer.
+     *
+     * This function is also available under the `writeUint16BE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeUInt16BE(0xdead, 0);
+     * buf.writeUInt16BE(0xbeef, 2);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer de ad be ef>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 2`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeUInt16BE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a valid unsigned 32-bit integer. Behavior is undefined when `value` is
+     * anything other than an unsigned 32-bit integer.
+     *
+     * This function is also available under the `writeUint32LE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeUInt32LE(0xfeedface, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer ce fa ed fe>
      * ```
      * @param value Number to be written to `buf`.
      * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
      * @return `offset` plus the number of bytes written.
      */
-    writeFloatBE(value: number, offset?: number): number;
+    writeUInt32LE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a valid unsigned 32-bit integer. Behavior is undefined when `value`is anything other than an
+     * unsigned 32-bit integer.
+     *
+     * This function is also available under the `writeUint32BE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeUInt32BE(0xfeedface, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer fe ed fa ce>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeUInt32BE(value: number, offset?: number): number;
     /**
      * Writes `value` to `buf` at the specified `offset`. `value` must be a valid
      * signed 8-bit integer. Behavior is undefined when `value` is anything other than
@@ -545,6 +749,82 @@ declare module "buffer" {
      * @return `offset` plus the number of bytes written.
      */
     writeInt32BE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian. Behavior is
+     * undefined when `value` is anything other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeFloatLE(0xcafebabe, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer bb fe 4a 4f>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeFloatLE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian. Behavior is
+     * undefined when `value` is anything other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(4);
+     *
+     * buf.writeFloatBE(0xcafebabe, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 4f 4a fe bb>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 4`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeFloatBE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a JavaScript number. Behavior is undefined when `value` is anything
+     * other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(8);
+     *
+     * buf.writeDoubleLE(123.456, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 77 be 9f 1a 2f dd 5e 40>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 8`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeDoubleLE(value: number, offset?: number): number;
+    /**
+     * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a JavaScript number. Behavior is undefined when `value` is anything
+     * other than a JavaScript number.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.allocUnsafe(8);
+     *
+     * buf.writeDoubleBE(123.456, 0);
+     *
+     * console.log(buf);
+     * // Prints: <Buffer 40 5e dd 2f 1a 9f be 77>
+     * ```
+     * @param value Number to be written to `buf`.
+     * @param [offset=0] Number of bytes to skip before starting to write. Must satisfy `0 <= offset <= buf.length - 8`.
+     * @return `offset` plus the number of bytes written.
+     */
+    writeDoubleBE(value: number, offset?: number): number;
   }
   var Buffer: BufferConstructor;
   /**
