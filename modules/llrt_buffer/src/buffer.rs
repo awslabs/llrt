@@ -493,6 +493,7 @@ pub enum NumberKind {
     Float32,
     Float64,
     BigInt,
+    BigUInt,
 }
 
 impl NumberKind {
@@ -507,6 +508,7 @@ impl NumberKind {
             NumberKind::Float32 => 32,
             NumberKind::Float64 => 64,
             NumberKind::BigInt => 64,
+            NumberKind::BigUInt => 64,
         }
     }
 
@@ -537,6 +539,9 @@ fn write_buf<'js>(
             };
             let (byte_count, val) = (8, bigint.clone().to_i64().or_throw(ctx)? as u64);
             (byte_count, endian_bytes(val, endian))
+        },
+        NumberKind::BigUInt => {
+            return Err(Exception::throw_type(ctx, "Uint64 is not supported"));
         },
         NumberKind::Float32 => {
             let Some(float_val) = value.as_float() else {
@@ -648,6 +653,9 @@ fn read_buf<'js>(
                 Endian::Little => i64::from_le_bytes(bytes.try_into().unwrap()),
             };
             Value::new_big_int(ctx.clone(), value)
+        },
+        NumberKind::BigUInt => {
+            return Err(Exception::throw_type(ctx, "Uint64 is not supported"));
         },
         NumberKind::Float32 => {
             let value = match endian {
@@ -764,16 +772,24 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
         Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigInt)),
     )?;
     prototype.set(
+        "writeBigUInt64BE",
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigUInt)),
+    )?;
+    prototype.set(
         "writeBigUint64BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigInt)),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigUInt)),
     )?;
     prototype.set(
         "writeBigInt64LE",
         Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigInt)),
     )?;
     prototype.set(
+        "writeBigUInt64LE",
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigUInt)),
+    )?;
+    prototype.set(
         "writeBigUint64LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigInt)),
+        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigUInt)),
     )?;
     prototype.set(
         "writeDoubleBE",
@@ -856,16 +872,24 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
         Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigInt)),
     )?;
     prototype.set(
+        "readBigUInt64BE",
+        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigUInt)),
+    )?;
+    prototype.set(
         "readBigUint64BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigInt)),
+        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigUInt)),
     )?;
     prototype.set(
         "readBigInt64LE",
         Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigInt)),
     )?;
     prototype.set(
+        "readBigUInt64LE",
+        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigUInt)),
+    )?;
+    prototype.set(
         "readBigUint64LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigInt)),
+        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigUInt)),
     )?;
     prototype.set(
         "readDoubleBE",
