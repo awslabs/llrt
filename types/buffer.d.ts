@@ -515,6 +515,10 @@ declare module "buffer" {
      */
     writeBigInt64BE(value: bigint, offset?: number): number;
     /**
+     * @alias Buffer.writeBigUInt64BE
+     */
+    writeBigUint64BE(value: bigint, offset?: number): number;
+    /**
      * Writes `value` to `buf` at the specified `offset` as little-endian.
      *
      * `value` is interpreted and written as a two's complement signed integer.
@@ -534,6 +538,306 @@ declare module "buffer" {
      * @return `offset` plus the number of bytes written.
      */
     writeBigInt64LE(value: bigint, offset?: number): number;
+    /**
+     * @alias Buffer.writeBigUInt64LE
+     */
+    writeBigUint64LE(value: bigint, offset?: number): number;
+    /**
+     * Reads an unsigned, big-endian 64-bit integer from `buf` at the specified`offset`.
+     *
+     * This function is also available under the `readBigUint64BE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]);
+     *
+     * console.log(buf.readBigUInt64BE(0));
+     * // Prints: 4294967295n
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 8`.
+     */
+    readBigUInt64BE(offset?: number): bigint;
+    /**
+     * @alias Buffer.readBigUInt64BE
+     */
+    readBigUint64BE(offset?: number): bigint;
+    /**
+     * Reads an unsigned, little-endian 64-bit integer from `buf` at the specified`offset`.
+     *
+     * This function is also available under the `readBigUint64LE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]);
+     *
+     * console.log(buf.readBigUInt64LE(0));
+     * // Prints: 18446744069414584320n
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 8`.
+     */
+    readBigUInt64LE(offset?: number): bigint;
+    /**
+     * @alias Buffer.readBigUInt64LE
+     */
+    readBigUint64LE(offset?: number): bigint;
+    /**
+     * Reads a signed, big-endian 64-bit integer from `buf` at the specified `offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed
+     * values.
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 8`.
+     */
+    readBigInt64BE(offset?: number): bigint;
+    /**
+     * Reads a signed, little-endian 64-bit integer from `buf` at the specified`offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed
+     * values.
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy: `0 <= offset <= buf.length - 8`.
+     */
+    readBigInt64LE(offset?: number): bigint;
+    /**
+     * Reads an unsigned 8-bit integer from `buf` at the specified `offset`.
+     *
+     * This function is also available under the `readUint8` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([1, -2]);
+     *
+     * console.log(buf.readUInt8(0));
+     * // Prints: 1
+     * console.log(buf.readUInt8(1));
+     * // Prints: 254
+     * console.log(buf.readUInt8(2));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 1`.
+     */
+    readUInt8(offset?: number): number;
+    /**
+     * @alias Buffer.readUInt8
+     */
+    readUint8(offset?: number): number;
+    /**
+     * Reads an unsigned, little-endian 16-bit integer from `buf` at the specified `offset`.
+     *
+     * This function is also available under the `readUint16LE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0x12, 0x34, 0x56]);
+     *
+     * console.log(buf.readUInt16LE(0).toString(16));
+     * // Prints: 3412
+     * console.log(buf.readUInt16LE(1).toString(16));
+     * // Prints: 5634
+     * console.log(buf.readUInt16LE(2).toString(16));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 2`.
+     */
+    readUInt16LE(offset?: number): number;
+    /**
+     * @alias Buffer.readUInt16LE
+     */
+    readUint16LE(offset?: number): number;
+    /**
+     * Reads an unsigned, big-endian 16-bit integer from `buf` at the specified`offset`.
+     *
+     * This function is also available under the `readUint16BE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0x12, 0x34, 0x56]);
+     *
+     * console.log(buf.readUInt16BE(0).toString(16));
+     * // Prints: 1234
+     * console.log(buf.readUInt16BE(1).toString(16));
+     * // Prints: 3456
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 2`.
+     */
+    readUInt16BE(offset?: number): number;
+    /**
+     * @alias Buffer.readUInt16BE
+     */
+    readUint16BE(offset?: number): number;
+    /**
+     * Reads an unsigned, little-endian 32-bit integer from `buf` at the specified`offset`.
+     *
+     * This function is also available under the `readUint32LE` alias.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0x12, 0x34, 0x56, 0x78]);
+     *
+     * console.log(buf.readUInt32LE(0).toString(16));
+     * // Prints: 78563412
+     * console.log(buf.readUInt32LE(1).toString(16));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 4`.
+     */
+    readUInt32LE(offset?: number): number;
+    /**
+     * @alias Buffer.readUInt32LE
+     */
+    readUint32LE(offset?: number): number;
+    /**
+     * Reads a signed 8-bit integer from `buf` at the specified `offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed values.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([-1, 5]);
+     *
+     * console.log(buf.readInt8(0));
+     * // Prints: -1
+     * console.log(buf.readInt8(1));
+     * // Prints: 5
+     * console.log(buf.readInt8(2));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 1`.
+     */
+    readInt8(offset?: number): number;
+    /**
+     * Reads a signed, little-endian 16-bit integer from `buf` at the specified`offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed values.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0, 5]);
+     *
+     * console.log(buf.readInt16LE(0));
+     * // Prints: 1280
+     * console.log(buf.readInt16LE(1));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 2`.
+     */
+    readInt16LE(offset?: number): number;
+    /**
+     * Reads a signed, big-endian 16-bit integer from `buf` at the specified `offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed values.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0, 5]);
+     *
+     * console.log(buf.readInt16BE(0));
+     * // Prints: 5
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 2`.
+     */
+    readInt16BE(offset?: number): number;
+    /**
+     * Reads a signed, little-endian 32-bit integer from `buf` at the specified`offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed values.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0, 0, 0, 5]);
+     *
+     * console.log(buf.readInt32LE(0));
+     * // Prints: 83886080
+     * console.log(buf.readInt32LE(1));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 4`.
+     */
+    readInt32LE(offset?: number): number;
+    /**
+     * Reads a signed, big-endian 32-bit integer from `buf` at the specified `offset`.
+     *
+     * Integers read from a `Buffer` are interpreted as two's complement signed values.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([0, 0, 0, 5]);
+     *
+     * console.log(buf.readInt32BE(0));
+     * // Prints: 5
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 4`.
+     */
+    readInt32BE(offset?: number): number;
+    /**
+     * Reads a 32-bit, little-endian float from `buf` at the specified `offset`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([1, 2, 3, 4]);
+     *
+     * console.log(buf.readFloatLE(0));
+     * // Prints: 1.539989614439558e-36
+     * console.log(buf.readFloatLE(1));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 4`.
+     */
+    readFloatLE(offset?: number): number;
+    /**
+     * Reads a 32-bit, big-endian float from `buf` at the specified `offset`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([1, 2, 3, 4]);
+     *
+     * console.log(buf.readFloatBE(0));
+     * // Prints: 2.387939260590663e-38
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 4`.
+     */
+    readFloatBE(offset?: number): number;
+    /**
+     * Reads a 64-bit, little-endian double from `buf` at the specified `offset`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]);
+     *
+     * console.log(buf.readDoubleLE(0));
+     * // Prints: 5.447603722011605e-270
+     * console.log(buf.readDoubleLE(1));
+     * // Throws ERR_OUT_OF_RANGE.
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 8`.
+     */
+    readDoubleLE(offset?: number): number;
+    /**
+     * Reads a 64-bit, big-endian double from `buf` at the specified `offset`.
+     *
+     * ```js
+     * import { Buffer } from 'buffer';
+     *
+     * const buf = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]);
+     *
+     * console.log(buf.readDoubleBE(0));
+     * // Prints: 8.20788039913184e-304
+     * ```
+     * @param [offset=0] Number of bytes to skip before starting to read. Must satisfy `0 <= offset <= buf.length - 8`.
+     */
+    readDoubleBE(offset?: number): number;
     /**
      * Writes `value` to `buf` at the specified `offset`. `value` must be a
      * valid unsigned 8-bit integer. Behavior is undefined when `value` is anything
@@ -560,6 +864,10 @@ declare module "buffer" {
      */
     writeUInt8(value: number, offset?: number): number;
     /**
+     * @alias Buffer.writeUInt8
+     */
+    writeUint8(value: number, offset?: number): number;
+    /**
      * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a valid unsigned 16-bit integer. Behavior is undefined when `value` is
      * anything other than an unsigned 16-bit integer.
      *
@@ -581,6 +889,10 @@ declare module "buffer" {
      * @return `offset` plus the number of bytes written.
      */
     writeUInt16LE(value: number, offset?: number): number;
+    /**
+     * @alias Buffer.writeUInt16LE
+     */
+    writeUint16LE(value: number, offset?: number): number;
     /**
      * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a valid unsigned 16-bit integer. Behavior is undefined when `value`is anything other than an
      * unsigned 16-bit integer.
@@ -604,6 +916,10 @@ declare module "buffer" {
      */
     writeUInt16BE(value: number, offset?: number): number;
     /**
+     * @alias Buffer.writeUInt16BE
+     */
+    writeUint16BE(value: number, offset?: number): number;
+    /**
      * Writes `value` to `buf` at the specified `offset` as little-endian. The `value` must be a valid unsigned 32-bit integer. Behavior is undefined when `value` is
      * anything other than an unsigned 32-bit integer.
      *
@@ -625,6 +941,10 @@ declare module "buffer" {
      */
     writeUInt32LE(value: number, offset?: number): number;
     /**
+     * @alias Buffer.writeUInt32LE
+     */
+    writeUint32LE(value: number, offset?: number): number;
+    /**
      * Writes `value` to `buf` at the specified `offset` as big-endian. The `value` must be a valid unsigned 32-bit integer. Behavior is undefined when `value`is anything other than an
      * unsigned 32-bit integer.
      *
@@ -645,6 +965,10 @@ declare module "buffer" {
      * @return `offset` plus the number of bytes written.
      */
     writeUInt32BE(value: number, offset?: number): number;
+    /**
+     * @alias Buffer.writeUInt32BE
+     */
+    writeUint32BE(value: number, offset?: number): number;
     /**
      * Writes `value` to `buf` at the specified `offset`. `value` must be a valid
      * signed 8-bit integer. Behavior is undefined when `value` is anything other than
