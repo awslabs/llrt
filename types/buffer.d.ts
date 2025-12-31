@@ -46,6 +46,8 @@ declare module "buffer" {
     | "utf-8"
     | "utf8"
     | "unicode-1-1-utf8"
+    | "ucs2"
+    | "ucs-2"
     | "utf-16le"
     | "utf16le"
     | "utf-16"
