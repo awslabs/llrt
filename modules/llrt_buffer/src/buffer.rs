@@ -385,9 +385,27 @@ fn subarray<'js>(
     Buffer::from_array_buffer_offset_length(&ctx, array_buffer, new_offset, length)
 }
 
-fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
+fn to_string(
+    this: This<Object<'_>>,
+    ctx: Ctx,
+    encoding: Opt<String>,
+    start: Opt<i32>,
+    end: Opt<i32>,
+) -> Result<String> {
     let typed_array = TypedArray::<u8>::from_object(this.0)?;
     let bytes: &[u8] = typed_array.as_ref();
+
+    let start = start
+        .0
+        .map(|s| s.max(0) as usize)
+        .unwrap_or(0)
+        .min(bytes.len());
+    let end = end
+        .0
+        .map(|e| e.max(0) as usize)
+        .unwrap_or(bytes.len())
+        .min(bytes.len());
+    let bytes = &bytes[start..end];
 
     let encoder = Encoder::from_optional_str(encoding.as_deref()).or_throw(&ctx)?;
     encoder.encode_to_string(bytes, true).or_throw(&ctx)

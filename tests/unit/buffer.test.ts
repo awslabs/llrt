@@ -512,6 +512,48 @@ describe("toString", () => {
 
     expect(buffer.toString("hex")).toEqual(input);
   });
+
+  it("should convert buffer to hex string with hex encoding", () => {
+    const buffer = Buffer.from("Hello");
+    const hexString = buffer.toString("hex");
+
+    expect(hexString).toEqual("48656c6c6f");
+  });
+
+  it("should convert buffer to utf-8 string with start parameter", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", 7);
+
+    expect(result).toEqual("world!");
+  });
+
+  it("should convert buffer to utf-8 string with start and end parameters", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", 7, 12);
+
+    expect(result).toEqual("world");
+  });
+
+  it("should handle negative start parameter", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", -6);
+
+    expect(result).toEqual("Hello, world!");
+  });
+
+  it("should handle negative end parameter", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", 0, -1);
+
+    expect(result).toEqual("");
+  });
+
+  it("should handle both negative start and end parameters", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", -6, -1);
+
+    expect(result).toEqual("");
+  });
 });
 
 describe("write", () => {

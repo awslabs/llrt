@@ -351,15 +351,15 @@ declare module "buffer" {
       encoding?: BufferEncoding
     ): number;
     /**
-     * Decodes `buf` to a string according to the specified character encoding in`encoding`.
+     * Decodes `buf` to a string according to the specified character encoding in`encoding`. `start` and `end` may be passed to decode only a subset of `buf`.
      *
      * If `encoding` is `'utf8'` and a byte sequence in the input is not valid UTF-8,
      * then each invalid byte is replaced with the replacement character `U+FFFD`.
      *
      * ```js
-     * import { Buffer } from 'buffer';
+     * import { Buffer } from 'node:buffer';
      *
-     * const buf1 = Buffer.alloc(26);
+     * const buf1 = Buffer.allocUnsafe(26);
      *
      * for (let i = 0; i < 26; i++) {
      *   // 97 is the decimal ASCII value for 'a'.
@@ -368,15 +368,23 @@ declare module "buffer" {
      *
      * console.log(buf1.toString('utf8'));
      * // Prints: abcdefghijklmnopqrstuvwxyz
+     * console.log(buf1.toString('utf8', 0, 5));
+     * // Prints: abcde
      *
      * const buf2 = Buffer.from('tést');
      *
      * console.log(buf2.toString('hex'));
      * // Prints: 74c3a97374
+     * console.log(buf2.toString('utf8', 0, 3));
+     * // Prints: té
+     * console.log(buf2.toString(undefined, 0, 3));
+     * // Prints: té
      * ```
      * @param [encoding='utf8'] The character encoding to use.
+     * @param [start=0] The byte offset to start decoding at.
+     * @param [end=buf.length] The byte offset to stop decoding at (not inclusive).
      */
-    toString(encoding?: BufferEncoding): string;
+    toString(encoding?: BufferEncoding, start?: number, end?: number): string;
     /**
      * Copies data from a region of `buf` to a region in `target`, even if the `target`memory region overlaps with `buf`.
      *
