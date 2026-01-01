@@ -642,7 +642,7 @@ fn read_buf<'js>(
     kind: NumberKind,
 ) -> Result<Value<'js>> {
     // Retrieve the array buffer
-    let target = ObjectBytes::from(&ctx, this.0.as_inner())?;
+    let target = ObjectBytes::from(ctx, this.0.as_inner())?;
     let Some((array_buffer, _, _)) = target.get_array_buffer()? else {
         return Err(Exception::throw_message(ctx, ERROR_MSG_NOT_ARRAY_BUFFER));
     };
