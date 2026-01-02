@@ -833,24 +833,14 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
     // Set all write and read methods
     for kind in NumberKind::iter() {
         for (endian, name, alias) in kind.prototype() {
-            prototype.set(
-                ["write", name].concat(),
-                Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, *endian, *kind)),
-            )?;
-            prototype.set(
-                ["read", name].concat(),
-                Func::from(|t, c, o| read_buf(&t, &c, &o, *endian, *kind)),
-            )?;
+            let write_func = |t, c, v, o| write_buf(&t, &c, &v, &o, *endian, *kind);
+            let read_func = |t, c, o| read_buf(&t, &c, &o, *endian, *kind);
             if let Some(alias) = alias {
-                prototype.set(
-                    ["write", alias].concat(),
-                    Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, *endian, *kind)),
-                )?;
-                prototype.set(
-                    ["read", alias].concat(),
-                    Func::from(|t, c, o| read_buf(&t, &c, &o, *endian, *kind)),
-                )?;
+                prototype.set(["write", alias].concat(), Func::from(write_func))?;
+                prototype.set(["read", alias].concat(), Func::from(read_func))?;
             }
+            prototype.set(["write", name].concat(), Func::from(write_func))?;
+            prototype.set(["read", name].concat(), Func::from(read_func))?;
         }
     }
 
