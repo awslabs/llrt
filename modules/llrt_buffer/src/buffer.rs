@@ -9,6 +9,7 @@ use llrt_utils::{
         ObjectBytes,
     },
     error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
+    iterable_enum,
     primordials::Primordial,
     result::ResultExt,
 };
@@ -536,7 +537,50 @@ impl NumberKind {
             NumberKind::Int8 | NumberKind::Int16 | NumberKind::Int32
         )
     }
+
+    pub fn prototype(&self) -> &'static [(Endian, &'static str, Option<&'static str>)] {
+        match self {
+            NumberKind::Int8 => &[(Endian::Little, "Int8", None)],
+            NumberKind::UInt8 => &[(Endian::Little, "UInt8", Some("Uint8"))],
+            NumberKind::Int16 => &[
+                (Endian::Little, "Int16LE", None),
+                (Endian::Big, "Int16BE", None),
+            ],
+            NumberKind::UInt16 => &[
+                (Endian::Little, "UInt16LE", Some("Uint16LE")),
+                (Endian::Big, "UInt16BE", Some("Uint16BE")),
+            ],
+            NumberKind::Int32 => &[
+                (Endian::Little, "Int32LE", None),
+                (Endian::Big, "Int32BE", None),
+            ],
+            NumberKind::UInt32 => &[
+                (Endian::Little, "UInt32LE", Some("Uint32LE")),
+                (Endian::Big, "UInt32BE", Some("Uint32BE")),
+            ],
+            NumberKind::Float32 => &[
+                (Endian::Little, "FloatLE", None),
+                (Endian::Big, "FloatBE", None),
+            ],
+            NumberKind::Float64 => &[
+                (Endian::Little, "DoubleLE", None),
+                (Endian::Big, "DoubleBE", None),
+            ],
+            NumberKind::BigInt => &[
+                (Endian::Little, "BigInt64LE", None),
+                (Endian::Big, "BigInt64BE", None),
+            ],
+            NumberKind::BigUInt => &[
+                (Endian::Little, "BigUInt64LE", Some("BigUint64LE")),
+                (Endian::Big, "BigUInt64BE", Some("BigUint64BE")),
+            ],
+        }
+    }
 }
+
+iterable_enum!(
+    NumberKind, Int8, UInt8, Int16, UInt16, Int32, UInt32, Float32, Float64, BigInt, BigUInt
+);
 
 #[allow(clippy::too_many_arguments)]
 fn write_buf<'js>(
@@ -785,206 +829,31 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
     prototype.set("subarray", Func::from(subarray))?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
     prototype.set("write", Func::from(write))?;
-    prototype.set(
-        "writeBigInt64BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigInt)),
-    )?;
-    prototype.set(
-        "writeBigUInt64BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "writeBigUint64BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "writeBigInt64LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigInt)),
-    )?;
-    prototype.set(
-        "writeBigUInt64LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "writeBigUint64LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "writeDoubleBE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::Float64)),
-    )?;
-    prototype.set(
-        "writeDoubleLE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::Float64)),
-    )?;
-    prototype.set(
-        "writeFloatBE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::Float32)),
-    )?;
-    prototype.set(
-        "writeFloatLE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::Float32)),
-    )?;
-    prototype.set(
-        "writeInt8",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::Int8)),
-    )?;
-    prototype.set(
-        "writeInt16BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::Int16)),
-    )?;
-    prototype.set(
-        "writeInt16LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::Int16)),
-    )?;
-    prototype.set(
-        "writeInt32BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::Int32)),
-    )?;
-    prototype.set(
-        "writeInt32LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::Int32)),
-    )?;
-    prototype.set(
-        "writeUInt8",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::UInt8)),
-    )?;
-    prototype.set(
-        "writeUint8",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::UInt8)),
-    )?;
-    prototype.set(
-        "writeUInt16BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "writeUint16BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "writeUInt16LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "writeUint16LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "writeUInt32BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "writeUint32BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "writeUInt32LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "writeUint32LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "readBigInt64BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigInt)),
-    )?;
-    prototype.set(
-        "readBigUInt64BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "readBigUint64BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "readBigInt64LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigInt)),
-    )?;
-    prototype.set(
-        "readBigUInt64LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "readBigUint64LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::BigUInt)),
-    )?;
-    prototype.set(
-        "readDoubleBE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::Float64)),
-    )?;
-    prototype.set(
-        "readDoubleLE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::Float64)),
-    )?;
-    prototype.set(
-        "readFloatBE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::Float32)),
-    )?;
-    prototype.set(
-        "readFloatLE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::Float32)),
-    )?;
-    prototype.set(
-        "readInt8",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::Int8)),
-    )?;
-    prototype.set(
-        "readInt16BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::Int16)),
-    )?;
-    prototype.set(
-        "readInt16LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::Int16)),
-    )?;
-    prototype.set(
-        "readInt32BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::Int32)),
-    )?;
-    prototype.set(
-        "readInt32LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::Int32)),
-    )?;
-    prototype.set(
-        "readUInt8",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::UInt8)),
-    )?;
-    prototype.set(
-        "readUint8",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::UInt8)),
-    )?;
-    prototype.set(
-        "readUInt16BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "readUint16BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "readUInt16LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "readUint16LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::UInt16)),
-    )?;
-    prototype.set(
-        "readUInt32BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "readUint32BE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Big, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "readUInt32LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::UInt32)),
-    )?;
-    prototype.set(
-        "readUint32LE",
-        Func::from(|t, c, o| read_buf(&t, &c, &o, Endian::Little, NumberKind::UInt32)),
-    )?;
+
+    // Set all write and read methods
+    for kind in NumberKind::iter() {
+        for (endian, name, alias) in kind.prototype() {
+            prototype.set(
+                ["write", name].concat(),
+                Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, *endian, *kind)),
+            )?;
+            prototype.set(
+                ["read", name].concat(),
+                Func::from(|t, c, o| read_buf(&t, &c, &o, *endian, *kind)),
+            )?;
+            if let Some(alias) = alias {
+                prototype.set(
+                    ["write", alias].concat(),
+                    Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, *endian, *kind)),
+                )?;
+                prototype.set(
+                    ["read", alias].concat(),
+                    Func::from(|t, c, o| read_buf(&t, &c, &o, *endian, *kind)),
+                )?;
+            }
+        }
+    }
+
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 
