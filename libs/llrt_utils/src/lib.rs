@@ -23,6 +23,7 @@ pub mod primordials;
 pub mod provider;
 pub mod result;
 pub mod reuse_list;
+pub mod string;
 pub mod sysinfo;
 pub mod time;
 
