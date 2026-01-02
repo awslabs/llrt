@@ -17,8 +17,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
     prelude::{Func, Rest, This},
-    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
-    Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result,
+    TypedArray, Value,
 };
 
 #[derive(JsLifetime)]
@@ -833,14 +833,17 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
     // Set all write and read methods
     for kind in NumberKind::iter() {
         for (endian, name, alias) in kind.prototype() {
-            let write_func = |t, c, v, o| write_buf(&t, &c, &v, &o, *endian, *kind);
-            let read_func = |t, c, o| read_buf(&t, &c, &o, *endian, *kind);
+            let write_func = Function::new(ctx.clone(), |t, c, v, o| {
+                write_buf(&t, &c, &v, &o, *endian, *kind)
+            })?;
+            let read_func =
+                Function::new(ctx.clone(), |t, c, o| read_buf(&t, &c, &o, *endian, *kind))?;
             if let Some(alias) = alias {
-                prototype.set(["write", alias].concat(), Func::from(write_func))?;
-                prototype.set(["read", alias].concat(), Func::from(read_func))?;
+                prototype.set(["write", alias].concat(), write_func.clone())?;
+                prototype.set(["read", alias].concat(), read_func.clone())?;
             }
-            prototype.set(["write", name].concat(), Func::from(write_func))?;
-            prototype.set(["read", name].concat(), Func::from(read_func))?;
+            prototype.set(["write", name].concat(), write_func)?;
+            prototype.set(["read", name].concat(), read_func)?;
         }
     }
 
