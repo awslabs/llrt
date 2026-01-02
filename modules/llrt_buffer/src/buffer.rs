@@ -4,14 +4,12 @@ use std::{mem::MaybeUninit, slice};
 
 use llrt_encoding::{bytes_from_b64, bytes_to_b64_string, Encoder};
 use llrt_utils::{
-    bytes::{
-        get_array_bytes, get_coerced_string_bytes, get_start_end_indexes, get_string_bytes,
-        ObjectBytes,
-    },
+    bytes::{get_array_bytes, get_start_end_indexes, ObjectBytes},
     error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
     iterable_enum,
     primordials::Primordial,
     result::ResultExt,
+    string::{get_coerced_string, get_string},
 };
 use rquickjs::{
     atom::PredefinedAtom,
@@ -83,6 +81,20 @@ impl<'js> Buffer {
             let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
             bytes = encoder.decode(bytes).or_throw(ctx)?;
         }
+        Buffer(bytes).into_js(ctx)
+    }
+
+    fn from_string_encoding(
+        ctx: &Ctx<'js>,
+        string: String,
+        encoding: Option<String>,
+    ) -> Result<Value<'js>> {
+        let bytes = if let Some(encoding) = encoding {
+            let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
+            encoder.decode_from_string(string).or_throw(ctx)?
+        } else {
+            string.into_bytes()
+        };
         Buffer(bytes).into_js(ctx)
     }
 }
@@ -250,11 +262,10 @@ fn from<'js>(
         }
     }
 
-    // WARN: This is currently bugged for encodings that are not utf8 since we first
-    // convert to utf8 and then decode using the encoding.
+    // WARN: This is currently bugged for strings that can't be converted to utf8
     // See https://github.com/quickjs-ng/quickjs/issues/992
-    if let Some(bytes) = get_string_bytes(&value, offset, length.0)? {
-        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+    if let Some(string) = get_string(&value)? {
+        return Buffer::from_string_encoding(&ctx, string, encoding)?.into_js(&ctx);
     }
     if let Some(bytes) = get_array_bytes(&value, offset, length.0)? {
         return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
@@ -286,8 +297,8 @@ fn from<'js>(
         }
     }
 
-    if let Some(bytes) = get_coerced_string_bytes(&value, offset, length.0) {
-        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+    if let Some(string) = get_coerced_string(&value) {
+        return Buffer::from_string_encoding(&ctx, string, encoding)?.into_js(&ctx);
     }
 
     Err(Exception::throw_message(

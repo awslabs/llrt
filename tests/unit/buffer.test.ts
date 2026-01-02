@@ -287,6 +287,52 @@ describe("Buffer.from", () => {
     expect(buffer.toString()).toEqual("Hello, world!");
   });
 
+  it("should create a buffer from a single ASCII character in utf16le encoding", () => {
+    // ASCII character 'A' (U+0041) = [0x41, 0x00] in utf16le
+    const input = "A";
+    const buffer = Buffer.from(input, "utf16le");
+    expect(buffer.length).toEqual(2);
+    expect(buffer[0]).toEqual(0x41);
+    expect(buffer[1]).toEqual(0x00);
+    expect(buffer.toString("utf16le")).toEqual(input);
+  });
+
+  it("should create a buffer from multiple ASCII characters in utf16le encoding", () => {
+    const input2 = "Hello";
+    const buffer2 = Buffer.from(input2, "utf16le");
+    expect(buffer2.length).toEqual(10); // 5 characters * 2 bytes
+    expect(buffer2.toString("utf16le")).toEqual(input2);
+  });
+
+  it("should create a buffer from a Unicode BMP character in utf16le encoding", () => {
+    // Unicode BMP character '中' (U+4E2D) = [0x2D, 0x4E] in utf16le
+    const input3 = "中";
+    const buffer3 = Buffer.from(input3, "utf16le");
+    expect(buffer3.length).toEqual(2);
+    expect(buffer3[0]).toEqual(0x2d);
+    expect(buffer3[1]).toEqual(0x4e);
+    expect(buffer3.toString("utf16le")).toEqual(input3);
+  });
+
+  it("should create a buffer from an emoji (astral plane character) in utf16le encoding", () => {
+    // Emoji '😀' (U+1F600) = surrogate pair [0xD83D, 0xDE00] = [0x3D, 0xD8, 0x00, 0xDE] in utf16le
+    const input4 = "😀";
+    const buffer4 = Buffer.from(input4, "utf16le");
+    expect(buffer4.length).toEqual(4);
+    expect(buffer4[0]).toEqual(0x3d);
+    expect(buffer4[1]).toEqual(0xd8);
+    expect(buffer4[2]).toEqual(0x00);
+    expect(buffer4[3]).toEqual(0xde);
+    expect(buffer4.toString("utf16le")).toEqual(input4);
+  });
+
+  it("should fail to create a buffer from a portion of a string in utf16le encoding", () => {
+    const input4 = "🌍🌎".slice(1);
+    expect(() => Buffer.from(input4, "utf16le")).toThrow(
+      "Conversion from string failed"
+    );
+  });
+
   it("should create a buffer from a portion of an array with offset and length", () => {
     const byteArray = [65, 66, 67, 68, 69]; // ASCII values of A, B, C, D, E
     const offset = 1;

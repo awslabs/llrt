@@ -352,8 +352,7 @@ pub fn get_coerced_string_bytes(
     length: Option<usize>,
 ) -> Option<Vec<u8>> {
     if let Ok(val) = value.get::<Coerced<String>>() {
-        let string = val.to_string();
-        return Some(bytes_from_js_string(string, offset, length));
+        return Some(bytes_from_js_string(val.0, offset, length));
     };
     None
 }
