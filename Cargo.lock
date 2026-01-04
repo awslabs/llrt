@@ -2751,8 +2751,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs"
-version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#111951b1a31075bdff46684e0ff29f37ff2a04b2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c50dc6d6c587c339edb4769cf705867497a2baf0eca8b4645fa6ecd22f02c77a"
 dependencies = [
  "either",
  "indexmap",
@@ -2762,8 +2763,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-core"
-version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#111951b1a31075bdff46684e0ff29f37ff2a04b2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8bf7840285c321c3ab20e752a9afb95548c75cd7f4632a0627cea3507e310c1"
 dependencies = [
  "async-lock",
  "chrono",
@@ -2778,8 +2780,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-macro"
-version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#111951b1a31075bdff46684e0ff29f37ff2a04b2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7106215ff41a5677b104906a13e1a440b880f4b6362b5dc4f3978c267fad2b80"
 dependencies = [
  "convert_case",
  "fnv",
@@ -2796,8 +2799,9 @@ dependencies = [
 
 [[package]]
 name = "rquickjs-sys"
-version = "0.10.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git#111951b1a31075bdff46684e0ff29f37ff2a04b2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27344601ef27460e82d6a4e1ecb9e7e99f518122095f3c51296da8e9be2b9d83"
 dependencies = [
  "bindgen",
  "cc",

@@ -17,7 +17,7 @@ llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", features = [
   "bytearray-buffer",
 ], default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
+rquickjs = { version = "0.11", features = [
   "std",
 ], default-features = false }
 tokio = { version = "1", features = [
