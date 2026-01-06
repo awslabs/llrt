@@ -53,7 +53,13 @@ impl<'js> Emitter<'js> for Socket<'js> {
         self.emitter.get_event_list()
     }
 
-    fn on_event_changed(&mut self, _event: EventKey<'js>, _added: bool) -> Result<()> {
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: Class<'js, Self>,
+        _event: EventKey<'js>,
+        _added: bool,
+    ) -> Result<()> {
         Ok(())
     }
 }
