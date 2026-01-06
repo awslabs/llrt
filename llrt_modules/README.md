@@ -25,8 +25,7 @@ Check the [Compability matrix](#compatibility-matrix) for the full list.
 ```toml
 [dependencies]
 llrt_modules = { path = "llrt/llrt_modules", default-features = true } # load from local path
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
-"full-async"] }
+rquickjs = { version = "0.11", features = ["full-async"] }
 tokio = { version = "1", features = ["full"] }
 
 ```

@@ -25,7 +25,7 @@ WebCryptoAPI > should pass getPublicKey.tentative.https.any.js tests
 Error: [getPublicKey works for ECDH] promise_test: Unhandled rejection with value: object "TypeError: not a function"
 
 WebCryptoAPI > should pass historical.any.js tests
-Error: [Non-secure context window does not have access to crypto.subtle] assert_equals: expected (undefined) undefined but got (object) object "[object Object]"
+Error: [Non-secure context window does not have access to crypto.subtle] assert_equals: expected (undefined) undefined but got (object) object "[object SubtleCrypto]"
 
 WebCryptoAPI > should pass supports.tentative.https.any.js tests
 Error: [SubtleCrypto.supports method exists] assert_true: SubtleCrypto.supports should be a function expected true got false
@@ -292,7 +292,7 @@ TypeError: Error converting from js 'object' into type 'AbortSignal'
 
 
 Error: Test did not exit within 1s. It does not properly clean up created resources (servers, timeouts etc)
-    at <anonymous> (llrt:test/index:437:27)
+    at <anonymous> (llrt:test/index:448:27)
 
 
 🧪/wpt/streams.readable-byte-streams.test.js 

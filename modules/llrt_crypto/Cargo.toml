@@ -48,7 +48,7 @@ rand = { version = "0.10.0-rc.5", features = [
   "thread_rng",
 ], default-features = false }
 ring = { version = "0.17", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
+rquickjs = { version = "0.11", features = [
   "macro",
 ], default-features = false }
 

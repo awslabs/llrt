@@ -14,7 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

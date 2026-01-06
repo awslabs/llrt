@@ -18,7 +18,7 @@ llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
 llrt_stream = { version = "0.7.0-beta", path = "../llrt_stream" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 tokio = { version = "1", features = ["net"], default-features = false }
 tracing = { version = "0.1", default-features = false }
 
