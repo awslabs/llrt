@@ -4,20 +4,19 @@ use std::{mem::MaybeUninit, slice};
 
 use llrt_encoding::{bytes_from_b64, bytes_to_b64_string, Encoder};
 use llrt_utils::{
-    bytes::{
-        get_array_bytes, get_coerced_string_bytes, get_start_end_indexes, get_string_bytes,
-        ObjectBytes,
-    },
-    error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED,
+    bytes::{get_array_bytes, get_start_end_indexes, ObjectBytes},
+    error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
+    iterable_enum,
     primordials::Primordial,
     result::ResultExt,
+    string::{get_coerced_string, get_string},
 };
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
     prelude::{Func, Rest, This},
-    Array, ArrayBuffer, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
-    Value,
+    Array, ArrayBuffer, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result,
+    TypedArray, Value,
 };
 
 #[derive(JsLifetime)]
@@ -82,6 +81,20 @@ impl<'js> Buffer {
             let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
             bytes = encoder.decode(bytes).or_throw(ctx)?;
         }
+        Buffer(bytes).into_js(ctx)
+    }
+
+    fn from_string_encoding(
+        ctx: &Ctx<'js>,
+        string: String,
+        encoding: Option<String>,
+    ) -> Result<Value<'js>> {
+        let bytes = if let Some(encoding) = encoding {
+            let encoder = Encoder::from_str(&encoding).or_throw(ctx)?;
+            encoder.decode_from_string(string).or_throw(ctx)?
+        } else {
+            string.into_bytes()
+        };
         Buffer(bytes).into_js(ctx)
     }
 }
@@ -249,11 +262,10 @@ fn from<'js>(
         }
     }
 
-    // WARN: This is currently bugged for encodings that are not utf8 since we first
-    // convert to utf8 and then decode using the encoding.
+    // WARN: This is currently bugged for strings that can't be converted to utf8
     // See https://github.com/quickjs-ng/quickjs/issues/992
-    if let Some(bytes) = get_string_bytes(&value, offset, length.0)? {
-        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+    if let Some(string) = get_string(&value)? {
+        return Buffer::from_string_encoding(&ctx, string, encoding)?.into_js(&ctx);
     }
     if let Some(bytes) = get_array_bytes(&value, offset, length.0)? {
         return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
@@ -285,8 +297,8 @@ fn from<'js>(
         }
     }
 
-    if let Some(bytes) = get_coerced_string_bytes(&value, offset, length.0) {
-        return Buffer::from_encoding(&ctx, bytes, encoding)?.into_js(&ctx);
+    if let Some(string) = get_coerced_string(&value) {
+        return Buffer::from_string_encoding(&ctx, string, encoding)?.into_js(&ctx);
     }
 
     Err(Exception::throw_message(
@@ -385,9 +397,27 @@ fn subarray<'js>(
     Buffer::from_array_buffer_offset_length(&ctx, array_buffer, new_offset, length)
 }
 
-fn to_string(this: This<Object<'_>>, ctx: Ctx, encoding: Opt<String>) -> Result<String> {
+fn to_string(
+    this: This<Object<'_>>,
+    ctx: Ctx,
+    encoding: Opt<String>,
+    start: Opt<i32>,
+    end: Opt<i32>,
+) -> Result<String> {
     let typed_array = TypedArray::<u8>::from_object(this.0)?;
     let bytes: &[u8] = typed_array.as_ref();
+
+    let start = start
+        .0
+        .map(|s| s.max(0) as usize)
+        .unwrap_or(0)
+        .min(bytes.len());
+    let end = end
+        .0
+        .map(|e| e.max(0) as usize)
+        .unwrap_or(bytes.len())
+        .min(bytes.len());
+    let bytes = &bytes[start..end];
 
     let encoder = Encoder::from_optional_str(encoding.as_deref()).or_throw(&ctx)?;
     encoder.encode_to_string(bytes, true).or_throw(&ctx)
@@ -482,6 +512,87 @@ pub enum Endian {
     Big,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum NumberKind {
+    Int8,
+    UInt8,
+    Int16,
+    UInt16,
+    Int32,
+    UInt32,
+    Float32,
+    Float64,
+    BigInt,
+    BigUInt,
+}
+
+impl NumberKind {
+    pub fn bits(&self) -> u8 {
+        match self {
+            NumberKind::Int8 => 8,
+            NumberKind::UInt8 => 8,
+            NumberKind::Int16 => 16,
+            NumberKind::UInt16 => 16,
+            NumberKind::Int32 => 32,
+            NumberKind::UInt32 => 32,
+            NumberKind::Float32 => 32,
+            NumberKind::Float64 => 64,
+            NumberKind::BigInt => 64,
+            NumberKind::BigUInt => 64,
+        }
+    }
+
+    pub fn is_signed(&self) -> bool {
+        matches!(
+            self,
+            NumberKind::Int8 | NumberKind::Int16 | NumberKind::Int32
+        )
+    }
+
+    pub fn prototype(&self) -> &'static [(Endian, &'static str, Option<&'static str>)] {
+        match self {
+            NumberKind::Int8 => &[(Endian::Little, "Int8", None)],
+            NumberKind::UInt8 => &[(Endian::Little, "UInt8", Some("Uint8"))],
+            NumberKind::Int16 => &[
+                (Endian::Little, "Int16LE", None),
+                (Endian::Big, "Int16BE", None),
+            ],
+            NumberKind::UInt16 => &[
+                (Endian::Little, "UInt16LE", Some("Uint16LE")),
+                (Endian::Big, "UInt16BE", Some("Uint16BE")),
+            ],
+            NumberKind::Int32 => &[
+                (Endian::Little, "Int32LE", None),
+                (Endian::Big, "Int32BE", None),
+            ],
+            NumberKind::UInt32 => &[
+                (Endian::Little, "UInt32LE", Some("Uint32LE")),
+                (Endian::Big, "UInt32BE", Some("Uint32BE")),
+            ],
+            NumberKind::Float32 => &[
+                (Endian::Little, "FloatLE", None),
+                (Endian::Big, "FloatBE", None),
+            ],
+            NumberKind::Float64 => &[
+                (Endian::Little, "DoubleLE", None),
+                (Endian::Big, "DoubleBE", None),
+            ],
+            NumberKind::BigInt => &[
+                (Endian::Little, "BigInt64LE", None),
+                (Endian::Big, "BigInt64BE", None),
+            ],
+            NumberKind::BigUInt => &[
+                (Endian::Little, "BigUInt64LE", Some("BigUint64LE")),
+                (Endian::Big, "BigUInt64BE", Some("BigUint64BE")),
+            ],
+        }
+    }
+}
+
+iterable_enum!(
+    NumberKind, Int8, UInt8, Int16, UInt16, Int32, UInt32, Float32, Float64, BigInt, BigUInt
+);
+
 #[allow(clippy::too_many_arguments)]
 fn write_buf<'js>(
     this: &This<Object<'js>>,
@@ -489,61 +600,68 @@ fn write_buf<'js>(
     value: &Value<'js>,
     offset: &Opt<usize>,
     endian: Endian,
-    bits: u8,
-    signed: bool,
-    is_float: bool,
-    is_bigint: bool,
+    kind: NumberKind,
 ) -> Result<usize> {
     let offset = offset.0.unwrap_or_default();
 
-    // Strict type validation
-    match (is_bigint, is_float) {
-        (true, _) if value.as_big_int().is_none() => {
-            return Err(Exception::throw_type(ctx, "Expected BigInt"))
-        },
-        (_, true) if !value.is_number() => {
-            return Err(Exception::throw_type(ctx, "Expected number"))
-        },
-        _ => (),
-    }
-
     // Extract and convert value
-    let (byte_count, bytes) = if is_bigint {
-        let bigint = value.as_big_int().unwrap();
-        let (byte_count, val) = match (signed, bits) {
-            (true, 64) => (8, bigint.clone().to_i64().or_throw(ctx)? as u64),
-            (false, 64) => return Err(Exception::throw_type(ctx, "Uint64 is not supported")),
-            _ => return Err(Exception::throw_range(ctx, "Invalid BigInt size")),
-        };
-        (byte_count, endian_bytes(val, endian))
-    } else if is_float {
-        let float_val = value.as_float().unwrap();
-        match (bits, endian) {
-            (32, Endian::Big) => (4, (float_val as f32).to_bits().to_be_bytes().to_vec()),
-            (32, Endian::Little) => (4, (float_val as f32).to_bits().to_le_bytes().to_vec()),
-            (64, Endian::Big) => (8, float_val.to_bits().to_be_bytes().to_vec()),
-            (64, Endian::Little) => (8, float_val.to_bits().to_le_bytes().to_vec()),
-            _ => return Err(Exception::throw_range(ctx, "Invalid float size")),
-        }
-    } else {
-        let int_val = value.as_number().unwrap() as i64;
-        let bit_mask = (1i64 << bits) - 1;
-        let max_val = if signed {
-            (1i64 << (bits - 1)) - 1
-        } else {
-            bit_mask
-        };
-        let min_val = if signed { -max_val - 1 } else { 0 };
+    let (byte_count, bytes) = match kind {
+        NumberKind::BigInt => {
+            let Some(bigint) = value.as_big_int() else {
+                return Err(Exception::throw_type(ctx, "Expected BigInt"));
+            };
+            let (byte_count, val) = (8, bigint.clone().to_i64().or_throw(ctx)? as u64);
+            (byte_count, endian_bytes(val, endian))
+        },
+        NumberKind::BigUInt => {
+            return Err(Exception::throw_type(ctx, "Uint64 is not supported"));
+        },
+        NumberKind::Float32 => {
+            let Some(float_val) = value.as_float() else {
+                return Err(Exception::throw_type(ctx, "Expected number"));
+            };
+            match endian {
+                Endian::Big => (4, (float_val as f32).to_bits().to_be_bytes().to_vec()),
+                Endian::Little => (4, (float_val as f32).to_bits().to_le_bytes().to_vec()),
+            }
+        },
+        NumberKind::Float64 => {
+            let Some(float_val) = value.as_float() else {
+                return Err(Exception::throw_type(ctx, "Expected number"));
+            };
+            match endian {
+                Endian::Big => (8, float_val.to_bits().to_be_bytes().to_vec()),
+                Endian::Little => (8, float_val.to_bits().to_le_bytes().to_vec()),
+            }
+        },
+        NumberKind::Int8
+        | NumberKind::UInt8
+        | NumberKind::Int16
+        | NumberKind::UInt16
+        | NumberKind::Int32
+        | NumberKind::UInt32 => {
+            let Some(int_val) = value.as_number() else {
+                return Err(Exception::throw_type(ctx, "Expected number"));
+            };
+            let int_val = int_val as i64;
+            let bit_mask = (1i64 << kind.bits()) - 1;
+            let max_val = if kind.is_signed() {
+                (1i64 << (kind.bits() - 1)) - 1
+            } else {
+                bit_mask
+            };
+            let min_val = if kind.is_signed() { -max_val - 1 } else { 0 };
 
-        if int_val < min_val || int_val > max_val {
-            return Err(Exception::throw_range(ctx, "Value out of range"));
-        }
+            if int_val < min_val || int_val > max_val {
+                return Err(Exception::throw_range(ctx, "Value out of range"));
+            }
 
-        let masked = int_val & bit_mask;
-        (
-            (bits / 8) as usize,
-            shifted_bytes(masked as u64, bits, endian),
-        )
+            let masked = int_val & bit_mask;
+            (
+                (kind.bits() / 8) as usize,
+                shifted_bytes(masked as u64, kind.bits(), endian),
+            )
+        },
     };
 
     if offset >= this.0.len() || offset + byte_count > this.0.len() {
@@ -569,6 +687,107 @@ fn write_buf<'js>(
     }
 
     Ok(writable_length)
+}
+
+fn read_buf<'js>(
+    this: &This<Object<'js>>,
+    ctx: &Ctx<'js>,
+    offset: &Opt<usize>,
+    endian: Endian,
+    kind: NumberKind,
+) -> Result<Value<'js>> {
+    // Retrieve the array buffer
+    let target = ObjectBytes::from(ctx, this.0.as_inner())?;
+    let Some((array_buffer, _, _)) = target.get_array_buffer()? else {
+        return Err(Exception::throw_message(ctx, ERROR_MSG_NOT_ARRAY_BUFFER));
+    };
+    let raw = array_buffer
+        .as_raw()
+        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+        .or_throw(ctx)?;
+    let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+
+    // Enforce the bounds
+    let start = offset.0.unwrap_or_default();
+    let end = start + (kind.bits() / 8) as usize;
+    if end > raw.len {
+        return Err(Exception::throw_range(
+            ctx,
+            "The value of \"offset\" is out of range",
+        ));
+    }
+
+    let bytes = &target_bytes[start..end];
+
+    let value = match kind {
+        NumberKind::BigInt => {
+            let value = match endian {
+                Endian::Big => i64::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => i64::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_big_int(ctx.clone(), value)
+        },
+        NumberKind::BigUInt => {
+            return Err(Exception::throw_type(ctx, "Uint64 is not supported"));
+        },
+        NumberKind::Float32 => {
+            let value = match endian {
+                Endian::Big => f32::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => f32::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_float(ctx.clone(), value as f64)
+        },
+        NumberKind::Float64 => {
+            let value = match endian {
+                Endian::Big => f64::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => f64::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_float(ctx.clone(), value)
+        },
+        NumberKind::Int8 => {
+            let value = match endian {
+                Endian::Big => i8::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => i8::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_int(ctx.clone(), value as i32)
+        },
+        NumberKind::UInt8 => {
+            let value = match endian {
+                Endian::Big => u8::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => u8::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_int(ctx.clone(), value as i32)
+        },
+        NumberKind::Int16 => {
+            let value = match endian {
+                Endian::Big => i16::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => i16::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_int(ctx.clone(), value as i32)
+        },
+        NumberKind::UInt16 => {
+            let value = match endian {
+                Endian::Big => u16::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => u16::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_int(ctx.clone(), value as i32)
+        },
+        NumberKind::Int32 => {
+            let value = match endian {
+                Endian::Big => i32::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => i32::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_int(ctx.clone(), value)
+        },
+        NumberKind::UInt32 => {
+            let value = match endian {
+                Endian::Big => u32::from_be_bytes(bytes.try_into().unwrap()),
+                Endian::Little => u32::from_le_bytes(bytes.try_into().unwrap()),
+            };
+            Value::new_float(ctx.clone(), value as f64)
+        },
+    };
+    Ok(value)
 }
 
 // Pure mathematical byte generation
@@ -621,70 +840,24 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
     prototype.set("subarray", Func::from(subarray))?;
     prototype.set(PredefinedAtom::ToString, Func::from(to_string))?;
     prototype.set("write", Func::from(write))?;
-    prototype.set(
-        "writeBigInt64BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 64, true, false, true)),
-    )?;
-    prototype.set(
-        "writeBigInt64LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 64, true, false, true)),
-    )?;
-    prototype.set(
-        "writeDoubleBE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 64, true, true, false)),
-    )?;
-    prototype.set(
-        "writeDoubleLE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 64, true, true, false)),
-    )?;
-    prototype.set(
-        "writeFloatBE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 32, true, true, false)),
-    )?;
-    prototype.set(
-        "writeFloatLE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 32, true, true, false)),
-    )?;
-    prototype.set(
-        "writeInt8",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 8, true, false, false)),
-    )?;
-    prototype.set(
-        "writeInt16BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 16, true, false, false)),
-    )?;
-    prototype.set(
-        "writeInt16LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 16, true, false, false)),
-    )?;
-    prototype.set(
-        "writeInt32BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 32, true, false, false)),
-    )?;
-    prototype.set(
-        "writeInt32LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 32, true, false, false)),
-    )?;
-    prototype.set(
-        "writeUInt8",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 8, false, false, false)),
-    )?;
-    prototype.set(
-        "writeUInt16BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 16, false, false, false)),
-    )?;
-    prototype.set(
-        "writeUInt16LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 16, false, false, false)),
-    )?;
-    prototype.set(
-        "writeUInt32BE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Big, 32, false, false, false)),
-    )?;
-    prototype.set(
-        "writeUInt32LE",
-        Func::from(|t, c, v, o| write_buf(&t, &c, &v, &o, Endian::Little, 32, false, false, false)),
-    )?;
+
+    // Set all write and read methods
+    for kind in NumberKind::iter() {
+        for (endian, name, alias) in kind.prototype() {
+            let write_func = Function::new(ctx.clone(), |t, c, v, o| {
+                write_buf(&t, &c, &v, &o, *endian, *kind)
+            })?;
+            let read_func =
+                Function::new(ctx.clone(), |t, c, o| read_buf(&t, &c, &o, *endian, *kind))?;
+            if let Some(alias) = alias {
+                prototype.set(["write", alias].concat(), write_func.clone())?;
+                prototype.set(["read", alias].concat(), read_func.clone())?;
+            }
+            prototype.set(["write", name].concat(), write_func)?;
+            prototype.set(["read", name].concat(), read_func)?;
+        }
+    }
+
     //not assessable from js
     prototype.prop(PredefinedAtom::Meta, stringify!(Buffer))?;
 
@@ -1014,6 +1187,37 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, (data,)).await;
                 assert_eq!(result, "world");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_read_int_32_be() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
+                    .await
+                    .unwrap();
+
+                let data = "hello world".to_string().into_bytes();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Buffer } from 'buffer';
+
+                        export async function test(data) {
+                            const buf = Buffer.from([1, 2, 3, 4, 0, 0, 0, 0]);
+                            return buf.readInt32BE();
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<i32, _>(&ctx, &module, (data,)).await;
+                assert_eq!(result, 0x01020304);
             })
         })
         .await;

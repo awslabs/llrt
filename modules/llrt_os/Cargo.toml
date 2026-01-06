@@ -19,7 +19,7 @@ home = { version = "0.5", default-features = false }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 num_cpus = { version = "1", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
+rquickjs = { version = "0.11", features = [
   "std",
 ], default-features = false }
 
@@ -31,7 +31,7 @@ libc = { version = "0.2", default-features = false }
 users = { version = "0.11", features = ["cache"], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
-whoami = { version = "1", default-features = false }
+whoami = { version = "2", default-features = false }
 windows-registry = { version = "0.6", features = [
   "std",
 ], default-features = false }

@@ -47,10 +47,10 @@ rand = { version = "0.10.0-rc.5", features = [
   "std",
   "thread_rng",
 ], default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", features = [
+rquickjs = { version = "0.11", features = [
   "either",
   "std",
-], version = "0.10.0", default-features = false }
+], default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "sync",

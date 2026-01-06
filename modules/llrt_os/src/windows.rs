@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{
     prelude::{Opt, Rest},
@@ -54,7 +55,7 @@ pub fn get_user_info<'js>(
 
     obj.set("uid", -1)?;
     obj.set("gid", -1)?;
-    obj.set("username", whoami::username())?;
+    obj.set("username", whoami::username().or_throw(&ctx)?)?;
     obj.set("homedir", get_home_dir(ctx.clone()))?;
     obj.set("shell", Null.into_js(&ctx)?)?;
     Ok(obj)

@@ -16,5 +16,5 @@ chrono = { version = "0.4", features = ["std", "clock"], default-features = fals
 chrono-tz = { version = "0.10", default-features = false }
 iana-time-zone = "0.1"
 itoa = "1.0"
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils" }

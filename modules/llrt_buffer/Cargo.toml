@@ -14,7 +14,7 @@ path = "src/lib.rs"
 itoa = { version = "1", default-features = false }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", version = "0.10.0", features = [
+rquickjs = { version = "0.11", features = [
   "futures",
   "macro",
 ], default-features = false }
@@ -22,4 +22,4 @@ ryu = { version = "1", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["test-util"], default-features = false }
+tokio = { version = "1", features = ["full"], default-features = false }

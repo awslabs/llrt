@@ -287,6 +287,52 @@ describe("Buffer.from", () => {
     expect(buffer.toString()).toEqual("Hello, world!");
   });
 
+  it("should create a buffer from a single ASCII character in utf16le encoding", () => {
+    // ASCII character 'A' (U+0041) = [0x41, 0x00] in utf16le
+    const input = "A";
+    const buffer = Buffer.from(input, "utf16le");
+    expect(buffer.length).toEqual(2);
+    expect(buffer[0]).toEqual(0x41);
+    expect(buffer[1]).toEqual(0x00);
+    expect(buffer.toString("utf16le")).toEqual(input);
+  });
+
+  it("should create a buffer from multiple ASCII characters in utf16le encoding", () => {
+    const input2 = "Hello";
+    const buffer2 = Buffer.from(input2, "utf16le");
+    expect(buffer2.length).toEqual(10); // 5 characters * 2 bytes
+    expect(buffer2.toString("utf16le")).toEqual(input2);
+  });
+
+  it("should create a buffer from a Unicode BMP character in utf16le encoding", () => {
+    // Unicode BMP character '中' (U+4E2D) = [0x2D, 0x4E] in utf16le
+    const input3 = "中";
+    const buffer3 = Buffer.from(input3, "utf16le");
+    expect(buffer3.length).toEqual(2);
+    expect(buffer3[0]).toEqual(0x2d);
+    expect(buffer3[1]).toEqual(0x4e);
+    expect(buffer3.toString("utf16le")).toEqual(input3);
+  });
+
+  it("should create a buffer from an emoji (astral plane character) in utf16le encoding", () => {
+    // Emoji '😀' (U+1F600) = surrogate pair [0xD83D, 0xDE00] = [0x3D, 0xD8, 0x00, 0xDE] in utf16le
+    const input4 = "😀";
+    const buffer4 = Buffer.from(input4, "utf16le");
+    expect(buffer4.length).toEqual(4);
+    expect(buffer4[0]).toEqual(0x3d);
+    expect(buffer4[1]).toEqual(0xd8);
+    expect(buffer4[2]).toEqual(0x00);
+    expect(buffer4[3]).toEqual(0xde);
+    expect(buffer4.toString("utf16le")).toEqual(input4);
+  });
+
+  it("should fail to create a buffer from a portion of a string in utf16le encoding", () => {
+    const input4 = "🌍🌎".slice(1);
+    expect(() => Buffer.from(input4, "utf16le")).toThrow(
+      "Conversion from string failed"
+    );
+  });
+
   it("should create a buffer from a portion of an array with offset and length", () => {
     const byteArray = [65, 66, 67, 68, 69]; // ASCII values of A, B, C, D, E
     const offset = 1;
@@ -511,6 +557,48 @@ describe("toString", () => {
     const buffer = Buffer.from(input, "hex");
 
     expect(buffer.toString("hex")).toEqual(input);
+  });
+
+  it("should convert buffer to hex string with hex encoding", () => {
+    const buffer = Buffer.from("Hello");
+    const hexString = buffer.toString("hex");
+
+    expect(hexString).toEqual("48656c6c6f");
+  });
+
+  it("should convert buffer to utf-8 string with start parameter", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", 7);
+
+    expect(result).toEqual("world!");
+  });
+
+  it("should convert buffer to utf-8 string with start and end parameters", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", 7, 12);
+
+    expect(result).toEqual("world");
+  });
+
+  it("should handle negative start parameter", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", -6);
+
+    expect(result).toEqual("Hello, world!");
+  });
+
+  it("should handle negative end parameter", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", 0, -1);
+
+    expect(result).toEqual("");
+  });
+
+  it("should handle both negative start and end parameters", () => {
+    const buffer = Buffer.from("Hello, world!");
+    const result = buffer.toString("utf-8", -6, -1);
+
+    expect(result).toEqual("");
   });
 });
 
@@ -927,6 +1015,321 @@ describe("writeUInt32LE", () => {
     expect(() => {
       const buf = Buffer.alloc(8);
       buf.writeUInt32LE(0x01020304, 5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readBigInt64BE", () => {
+  it("should read a 64-bit signed BigInt in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(buf.readBigInt64BE()).toEqual(0x0102030405060708n);
+  });
+
+  it("should read a 64-bit signed BigInt in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(buf.readBigInt64BE(8)).toEqual(0x0102030405060708n);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(16);
+      buf.readBigInt64BE(9);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readBigInt64LE", () => {
+  it("should read a 64-bit signed BigInt in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(buf.readBigInt64LE()).toEqual(0x0102030405060708n);
+  });
+
+  it("should read a 64-bit signed BigInt in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 0, 0, 0, 0, 8, 7, 6, 5, 4, 3, 2, 1]);
+    expect(buf.readBigInt64LE(8)).toEqual(0x0102030405060708n);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(16);
+      buf.readBigInt64LE(9);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readDoubleBE", () => {
+  it("should read a 64-bit Double in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([
+      64, 94, 221, 47, 26, 159, 190, 119, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    expect(buf.readDoubleBE()).toBeCloseTo(123.456);
+  });
+
+  it("should read a 64-bit Double in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([
+      0, 0, 0, 0, 0, 0, 0, 0, 64, 94, 221, 47, 26, 159, 190, 119,
+    ]);
+    expect(buf.readDoubleBE(8)).toBeCloseTo(123.456);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(16);
+      buf.readDoubleBE(9);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readDoubleLE", () => {
+  it("should read a 64-bit Double in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([
+      119, 190, 159, 26, 47, 221, 94, 64, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    expect(buf.readDoubleLE()).toBeCloseTo(123.456);
+  });
+
+  it("should read a 64-bit Double in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([
+      0, 0, 0, 0, 0, 0, 0, 0, 119, 190, 159, 26, 47, 221, 94, 64,
+    ]);
+    expect(buf.readDoubleLE(8)).toBeCloseTo(123.456);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(16);
+      buf.readDoubleLE(9);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readFloatBE", () => {
+  it("should read a 32-bit Float in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([79, 74, 254, 187, 0, 0, 0, 0]);
+    expect(buf.readFloatBE()).toBeCloseTo(0xcafebabe, -4);
+  });
+
+  it("should read a 32-bit Float in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 79, 74, 254, 187]);
+    expect(buf.readFloatBE(4)).toBeCloseTo(0xcafebabe, -4);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.readFloatBE(5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readFloatLE", () => {
+  it("should read a 32-bit Float in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([187, 254, 74, 79, 0, 0, 0, 0]);
+    expect(buf.readFloatLE()).toBeCloseTo(0xcafebabe, -4);
+  });
+
+  it("should read a 32-bit Float in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 187, 254, 74, 79]);
+    expect(buf.readFloatLE(4)).toBeCloseTo(0xcafebabe, -4);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.readFloatLE(5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readInt8", () => {
+  it("should read a 8-bit integer from the beginning of the buffer", () => {
+    const buf = Buffer.from([1, 0]);
+    expect(buf.readInt8()).toEqual(0x01);
+  });
+
+  it("should read a 8-bit integer from the specified offset", () => {
+    const buf = Buffer.from([0, 1]);
+    expect(buf.readInt8(1)).toEqual(0x01);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(2);
+      buf.readInt8(3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readInt16BE", () => {
+  it("should read a 16-bit integer in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([1, 2, 0, 0]);
+    expect(buf.readInt16BE()).toEqual(0x0102);
+  });
+
+  it("should read a 16-bit integer in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 1, 2]);
+    expect(buf.readInt16BE(2)).toEqual(0x0102);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(4);
+      buf.readInt16BE(3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readInt16LE", () => {
+  it("should read a 16-bit integer in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([2, 1, 0, 0]);
+    expect(buf.readInt16LE()).toEqual(0x0102);
+  });
+
+  it("should read a 16-bit integer in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 2, 1]);
+    expect(buf.readInt16LE(2)).toEqual(0x0102);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(4);
+      buf.readInt16LE(3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readInt32BE", () => {
+  it("should read a 32-bit integer in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([1, 2, 3, 4, 0, 0, 0, 0]);
+    expect(buf.readInt32BE()).toEqual(0x01020304);
+  });
+
+  it("should read a 32-bit integer in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 1, 2, 3, 4]);
+    expect(buf.readInt32BE(4)).toEqual(0x01020304);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.readInt32BE(5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readInt32LE", () => {
+  it("should read a 32-bit integer in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([8, 7, 6, 5, 0, 0, 0, 0]);
+    expect(buf.readInt32LE()).toEqual(0x05060708);
+  });
+
+  it("should read a 32-bit integer in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 8, 7, 6, 5]);
+    expect(buf.readInt32LE(4)).toEqual(0x05060708);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.readInt32LE(5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readUInt8", () => {
+  it("should read an 8-bit unsigned integer from the beginning of the buffer", () => {
+    const buf = Buffer.from([2, 0]);
+    expect(buf.readUInt8()).toEqual(2);
+  });
+
+  it("should read an 8-bit unsigned integer from the specified offset", () => {
+    const buf = Buffer.from([3, 4, 35, 66]);
+    expect(buf.readUInt8(0)).toEqual(0x3);
+    expect(buf.readUInt8(1)).toEqual(0x4);
+    expect(buf.readUInt8(2)).toEqual(0x23);
+    expect(buf.readUInt8(3)).toEqual(0x42);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(2);
+      buf.readUInt8(3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readUInt16BE", () => {
+  it("should read a 16-bit unsigned integer in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([222, 173, 0, 0]);
+    expect(buf.readUInt16BE()).toEqual(0xdead);
+  });
+
+  it("should read a 16-bit unsigned integer in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 190, 239]);
+    expect(buf.readUInt16BE(2)).toEqual(0xbeef);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(4);
+      buf.readUInt16BE(3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readUInt16LE", () => {
+  it("should read a 16-bit unsigned integer in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([173, 222, 0, 0]);
+    expect(buf.readUInt16LE()).toEqual(0xdead);
+  });
+
+  it("should read a 16-bit unsigned integer in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 239, 190]);
+    expect(buf.readUInt16LE(2)).toEqual(0xbeef);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(4);
+      buf.readUInt16LE(3);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readUInt32BE", () => {
+  it("should read a 32-bit unsigned integer in big-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([254, 237, 250, 206, 0, 0, 0, 0]);
+    expect(buf.readUInt32BE()).toEqual(0xfeedface);
+  });
+
+  it("should read a 32-bit unsigned integer in big-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 254, 237, 250, 206]);
+    expect(buf.readUInt32BE(4)).toEqual(0xfeedface);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.readUInt32BE(5);
+    }).toThrow(RangeError);
+  });
+});
+
+describe("readUInt32LE", () => {
+  it("should read a 32-bit unsigned integer in little-endian format from the beginning of the buffer", () => {
+    const buf = Buffer.from([206, 250, 237, 254, 0, 0, 0, 0]);
+    expect(buf.readUInt32LE()).toEqual(0xfeedface);
+  });
+
+  it("should read a 32-bit unsigned integer in little-endian format from the specified offset", () => {
+    const buf = Buffer.from([0, 0, 0, 0, 4, 3, 2, 1]);
+    expect(buf.readUInt32LE(4)).toEqual(0x01020304);
+  });
+
+  it("should throw a RangeError if the offset is out of bounds", () => {
+    expect(() => {
+      const buf = Buffer.alloc(8);
+      buf.readUInt32LE(5);
     }).toThrow(RangeError);
   });
 });
