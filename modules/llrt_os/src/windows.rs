@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_utils::result::ResultExt;
 use once_cell::sync::Lazy;
 use rquickjs::{
     prelude::{Opt, Rest},
