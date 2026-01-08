@@ -4,25 +4,6 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
-
-x-rustcrypto-patterns: &rustcrypto_patterns
-  - "aes*"
-  - "cbc"
-  - "const-oid"
-  - "ctr"
-  - "der"
-  - "ecdsa"
-  - "elliptic-curve"
-  - "md-5"
-  - "hmac"
-  - "p256"
-  - "p384"
-  - "p521"
-  - "pkcs8"
-  - "rsa"
-  - "spki"
-  - "x25519-dalek"
-
 updates:
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
@@ -67,10 +48,25 @@ updates:
       interval: daily
     allow:
       - dependency-type: direct
-        dependency-name: *rustcrypto_patterns
     groups:
       rustcrypto:
-        patterns: *rustcrypto_patterns
+        patterns:
+          - "aes*"
+          - "cbc"
+          - "const-oid"
+          - "ctr"
+          - "der"
+          - "ecdsa"
+          - "elliptic-curve"
+          - "md-5"
+          - "hmac"
+          - "p256"
+          - "p384"
+          - "p521"
+          - "pkcs8"
+          - "rsa"
+          - "spki"
+          - "x25519-dalek"
     labels:
       - dependencies
       - rust
@@ -89,7 +85,22 @@ updates:
     allow:
       - dependency-type: direct
     ignore:
-      - dependency-name: *rustcrypto_patterns
+      - dependency-name: "aes*"
+      - dependency-name: "cbc"
+      - dependency-name: "const-oid"
+      - dependency-name: "ctr"
+      - dependency-name: "der"
+      - dependency-name: "ecdsa"
+      - dependency-name: "elliptic-curve"
+      - dependency-name: "md-5"
+      - dependency-name: "hmac"
+      - dependency-name: "p256"
+      - dependency-name: "p384"
+      - dependency-name: "p521"
+      - dependency-name: "pkcs8"
+      - dependency-name: "rsa"
+      - dependency-name: "spki"
+      - dependency-name: "x25519-dalek"
     labels:
       - dependencies
       - rust
