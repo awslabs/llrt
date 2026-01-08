@@ -4,18 +4,37 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
+
+x-rustcrypto-patterns: &rustcrypto_patterns
+  - "aes*"
+  - "cbc"
+  - "const-oid"
+  - "ctr"
+  - "der"
+  - "ecdsa"
+  - "elliptic-curve"
+  - "md-5"
+  - "hmac"
+  - "p256"
+  - "p384"
+  - "p521"
+  - "pkcs8"
+  - "rsa"
+  - "spki"
+  - "x25519-dalek"
+
 updates:
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: weekly
 
-    # Maintain dependencies for JS
+  # Maintain dependencies for JS
   - package-ecosystem: "npm"
     directory: "/" # Location of package manifests
     schedule:
-      interval: "monthly"
+      interval: monthly
     groups:
       "@types":
         patterns:
@@ -37,8 +56,57 @@ updates:
           - "minor"
           - "patch"
 
-    # Maintain dependencies for rust
-  - package-ecosystem: "cargo"
-    directory: "/" # Location of package manifests
+  #
+  # Maintain direct RustCrypto dependencies
+  # - High-frequency (daily) updates
+  # - Grouped into a single PR for easier review
+  #
+  - package-ecosystem: cargo
+    directory: "/"
     schedule:
-      interval: "weekly"
+      interval: daily
+    allow:
+      - dependency-type: direct
+        dependency-name: *rustcrypto_patterns
+    groups:
+      rustcrypto:
+        patterns: *rustcrypto_patterns
+    labels:
+      - dependencies
+      - rust
+      - rustcrypto
+    open-pull-requests-limit: 1
+
+  #
+  # Maintain other direct dependencies
+  # - Weekly updates to reduce review noise
+  # - RustCrypto crates are intentionally excluded
+  #
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-type: direct
+    ignore:
+      - dependency-name: *rustcrypto_patterns
+    labels:
+      - dependencies
+      - rust
+      - direct
+
+  #
+  # Maintain indirect (transitive) dependencies
+  # - Lockfile-only updates
+  #
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-type: indirect
+    labels:
+      - dependencies
+      - rust
+      - indirect
+    open-pull-requests-limit: 1
