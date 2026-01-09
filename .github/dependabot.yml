@@ -9,13 +9,13 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: weekly
 
-    # Maintain dependencies for JS
+  # Maintain dependencies for JS
   - package-ecosystem: "npm"
     directory: "/" # Location of package manifests
     schedule:
-      interval: "monthly"
+      interval: monthly
     groups:
       "@types":
         patterns:
@@ -37,8 +37,87 @@ updates:
           - "minor"
           - "patch"
 
-    # Maintain dependencies for rust
-  - package-ecosystem: "cargo"
-    directory: "/" # Location of package manifests
+  #
+  # Maintain direct RustCrypto dependencies
+  # - High-frequency (daily) updates
+  # - Grouped into a single PR for easier review
+  #
+  - package-ecosystem: cargo
+    directory: "/"
     schedule:
-      interval: "weekly"
+      interval: daily
+    allow:
+      - dependency-type: direct
+    groups:
+      rustcrypto:
+        patterns:
+          - "aes*"
+          - "cbc"
+          - "const-oid"
+          - "ctr"
+          - "der"
+          - "ecdsa"
+          - "elliptic-curve"
+          - "md-5"
+          - "hmac"
+          - "p256"
+          - "p384"
+          - "p521"
+          - "pkcs8"
+          - "rsa"
+          - "spki"
+          - "x25519-dalek"
+    labels:
+      - dependencies
+      - rust
+      - rustcrypto
+    open-pull-requests-limit: 1
+
+  #
+  # Maintain other direct dependencies
+  # - Weekly updates to reduce review noise
+  # - RustCrypto crates are intentionally excluded
+  #
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-type: direct
+    ignore:
+      - dependency-name: "aes*"
+      - dependency-name: "cbc"
+      - dependency-name: "const-oid"
+      - dependency-name: "ctr"
+      - dependency-name: "der"
+      - dependency-name: "ecdsa"
+      - dependency-name: "elliptic-curve"
+      - dependency-name: "md-5"
+      - dependency-name: "hmac"
+      - dependency-name: "p256"
+      - dependency-name: "p384"
+      - dependency-name: "p521"
+      - dependency-name: "pkcs8"
+      - dependency-name: "rsa"
+      - dependency-name: "spki"
+      - dependency-name: "x25519-dalek"
+    labels:
+      - dependencies
+      - rust
+      - direct
+
+  #
+  # Maintain indirect (transitive) dependencies
+  # - Lockfile-only updates
+  #
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-type: indirect
+    labels:
+      - dependencies
+      - rust
+      - indirect
+    open-pull-requests-limit: 1
