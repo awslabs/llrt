@@ -37,17 +37,11 @@ updates:
           - "minor"
           - "patch"
 
-  #
-  # Maintain direct RustCrypto dependencies
-  # - High-frequency (daily) updates
-  # - Grouped into a single PR for easier review
-  #
+  # Maintain dependencies for Rust
   - package-ecosystem: cargo
     directory: "/"
     schedule:
       interval: daily
-    allow:
-      - dependency-type: direct
     groups:
       rustcrypto:
         patterns:
@@ -67,57 +61,3 @@ updates:
           - "rsa"
           - "spki"
           - "x25519-dalek"
-    labels:
-      - dependencies
-      - rust
-      - rustcrypto
-    open-pull-requests-limit: 1
-
-  #
-  # Maintain other direct dependencies
-  # - Weekly updates to reduce review noise
-  # - RustCrypto crates are intentionally excluded
-  #
-  - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-    allow:
-      - dependency-type: direct
-    ignore:
-      - dependency-name: "aes*"
-      - dependency-name: "cbc"
-      - dependency-name: "const-oid"
-      - dependency-name: "ctr"
-      - dependency-name: "der"
-      - dependency-name: "ecdsa"
-      - dependency-name: "elliptic-curve"
-      - dependency-name: "md-5"
-      - dependency-name: "hmac"
-      - dependency-name: "p256"
-      - dependency-name: "p384"
-      - dependency-name: "p521"
-      - dependency-name: "pkcs8"
-      - dependency-name: "rsa"
-      - dependency-name: "spki"
-      - dependency-name: "x25519-dalek"
-    labels:
-      - dependencies
-      - rust
-      - direct
-
-  #
-  # Maintain indirect (transitive) dependencies
-  # - Lockfile-only updates
-  #
-  - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-    allow:
-      - dependency-type: indirect
-    labels:
-      - dependencies
-      - rust
-      - indirect
-    open-pull-requests-limit: 1
