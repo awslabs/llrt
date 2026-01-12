@@ -3568,9 +3568,9 @@ dependencies = [
 
 [[package]]
 name = "whoami"
-version = "2.0.0"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86dc1eeef7866078951fc09f1857d3d33a37432fe376d7ff45449c8bb50318c1"
+checksum = "ace4d5c7b5ab3d99629156d4e0997edbe98a4beb6d5ba99e2cae830207a81983"
 dependencies = [
  "libredox",
 ]
