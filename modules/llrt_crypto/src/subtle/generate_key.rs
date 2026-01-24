@@ -135,7 +135,8 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
                 },
                 EllipticCurve::P521 => {
                     let mut rng = rand::rng();
-                    let key = p521::SecretKey::try_from_rng(&mut rng).or_throw(ctx)?;
+                    #[allow(deprecated)]
+                    let key = p521::SecretKey::random(&mut rng);
                     let pkcs8 = key.to_pkcs8_der().or_throw(ctx)?;
                     private_key = pkcs8.as_bytes().into();
                     public_or_secret_key = key.public_key().to_sec1_bytes().into();

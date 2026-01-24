@@ -43,7 +43,7 @@ pin-project-lite = { version = "0.2", default-features = false }
 percent-encoding = { version = "2", features = [
   "std",
 ], default-features = false }
-rand = { version = "0.10.0-rc.5", features = [
+rand = { version = "0.10.0-rc.8", features = [
   "std",
   "thread_rng",
 ], default-features = false }

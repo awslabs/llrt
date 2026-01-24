@@ -4,7 +4,6 @@ use std::sync::{Arc, OnceLock};
 
 use once_cell::sync::Lazy;
 use rustls::{
-    crypto::ring,
     pki_types::{pem::PemObject, CertificateDer},
     ClientConfig, RootCertStore, SupportedProtocolVersion,
 };
@@ -59,7 +58,7 @@ pub struct BuildClientConfigOptions {
 pub fn build_client_config(
     options: BuildClientConfigOptions,
 ) -> Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>> {
-    let provider = Arc::new(ring::default_provider());
+    let provider = Arc::new(rustls_rustcrypto::provider());
     let builder = ClientConfig::builder_with_provider(provider.clone());
 
     // TLS versions

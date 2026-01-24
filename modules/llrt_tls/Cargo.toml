@@ -21,9 +21,9 @@ native-roots = ["dep:rustls-native-certs"]
 once_cell = { version = "1", features = ["std"], default-features = false }
 rustls = { version = "0.23", features = [
   "std",
-  "ring",
   "tls12",
 ], default-features = false }
+rustls-rustcrypto = { git = "https://github.com/RustCrypto/rustls-rustcrypto.git", version = "0.0.2-alpha" }
 webpki-roots = { version = "1", default-features = false, optional = true }
 rustls-native-certs = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false }
