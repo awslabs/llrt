@@ -42,7 +42,7 @@ llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rand = { version = "0.10.0-rc.5", features = [
+rand = { version = "0.10.0-rc.8", features = [
   "std",
   "std_rng",
   "thread_rng",
@@ -69,41 +69,39 @@ der = { version = "0.8.0-rc.10", features = [
   "derive",
   "alloc",
 ], default-features = false, optional = true }
-ecdsa = { version = "0.17.0-rc.9", default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.17", features = [
+ecdsa = { version = "0.17.0-rc.14", default-features = false, optional = true }
+elliptic-curve = { version = "0.14.0-rc.24", features = [
   "alloc",
 ], default-features = false, optional = true }
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
-md-5 = { version = "0.11.0-rc.3", default-features = false }
-rsa = { version = "0.10.0-rc.10", features = [
+md-5 = { version = "0.11.0-rc.4", default-features = false }
+rsa = { version = "0.10.0-rc.14", features = [
   "std",
   "sha2",
   "encoding",
-  "os_rng",
 ], default-features = false, optional = true }
-p256 = { version = "0.14.0-rc.1", features = [
+p256 = { version = "0.14.0-rc.6", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p384 = { version = "0.14.0-rc.1", features = [
+p384 = { version = "0.14.0-rc.6", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p521 = { version = "0.14.0-rc.1", features = [
+p521 = { version = "0.14.0-rc.6", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-
-pkcs8 = { version = "0.11.0-rc.8", default-features = false, features = [
+pkcs8 = { version = "0.11.0-rc.10", default-features = false, features = [
   "alloc",
 ], optional = true }
 spki = { version = "0.8.0-rc.4", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-pre.3", features = [
+x25519-dalek = { version = "3.0.0-pre.5", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
