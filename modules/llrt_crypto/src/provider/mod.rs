@@ -107,9 +107,11 @@ pub struct EcJwkExport {
     pub d: Option<Vec<u8>>,
 }
 
-pub trait SimpleDigest {
+pub trait SimpleDigest: Send {
     fn update(&mut self, data: &[u8]);
-    fn finalize(self) -> Vec<u8>;
+    fn finalize(self) -> Vec<u8>
+    where
+        Self: Sized;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -362,9 +364,11 @@ pub trait CryptoProvider {
     ) -> Result<EcJwkExport, CryptoError>;
 }
 
-pub trait HmacProvider {
+pub trait HmacProvider: Send {
     fn update(&mut self, data: &[u8]);
-    fn finalize(self) -> Vec<u8>;
+    fn finalize(self) -> Vec<u8>
+    where
+        Self: Sized;
 }
 
 #[derive(Debug)]

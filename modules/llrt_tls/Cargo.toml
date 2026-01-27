@@ -24,7 +24,6 @@ tls-graviola = ["dep:rustls", "dep:rustls-graviola"]
 
 # OpenSSL TLS backend
 tls-openssl = ["dep:openssl"]
-openssl-vendored = ["openssl?/vendored"]
 
 [dependencies]
 once_cell = { version = "1", features = ["std"], default-features = false }

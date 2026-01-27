@@ -2168,6 +2168,7 @@ dependencies = [
  "llrt_utils",
  "llrt_zlib",
  "once_cell",
+ "openssl",
  "rquickjs",
  "simd-json",
  "tokio",
@@ -2316,9 +2317,11 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "openssl",
  "rustls",
  "rustls-graviola",
  "tokio",
+ "tokio-openssl",
  "tokio-rustls",
 ]
 
@@ -3709,6 +3712,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokio-openssl"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59df6849caa43bb7567f9a36f863c447d95a11d5903c9cc334ba32576a27eadd"
+dependencies = [
+ "openssl",
+ "openssl-sys",
+ "tokio",
 ]
 
 [[package]]

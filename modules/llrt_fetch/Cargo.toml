@@ -23,9 +23,15 @@ compression-rust = ["llrt_compression/all-rust"]
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
 
-tls-ring = ["llrt_http/tls-ring", "dep:llrt_test_tls", "llrt_test_tls?/tls-ring"]
-tls-aws-lc = ["llrt_http/tls-aws-lc", "dep:llrt_test_tls", "llrt_test_tls?/tls-aws-lc"]
-tls-graviola = ["llrt_http/tls-graviola", "dep:llrt_test_tls", "llrt_test_tls?/tls-graviola"]
+tls-ring = ["llrt_http/tls-ring"]
+tls-aws-lc = ["llrt_http/tls-aws-lc"]
+tls-graviola = ["llrt_http/tls-graviola"]
+tls-openssl = ["llrt_http/tls-openssl"]
+
+# Internal testing features
+_test-tls-ring = ["tls-ring", "dep:llrt_test_tls", "llrt_test_tls/tls-ring"]
+_test-tls-aws-lc = ["tls-aws-lc", "dep:llrt_test_tls", "llrt_test_tls/tls-aws-lc"]
+_test-tls-graviola = ["tls-graviola", "dep:llrt_test_tls", "llrt_test_tls/tls-graviola"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }

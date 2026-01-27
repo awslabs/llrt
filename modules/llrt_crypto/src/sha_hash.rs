@@ -5,20 +5,19 @@ use llrt_utils::{
     iterable_enum,
     result::ResultExt,
 };
-use rquickjs::{function::Opt, prelude::This, Class, Ctx, Result, Value};
+use rquickjs::{function::Opt, prelude::This, Class, Ctx, Exception, Result, Value};
 
 use super::{encoded_bytes, CRYPTO_PROVIDER};
-use crate::provider::{CryptoProvider, HmacProvider, SimpleDigest};
+use crate::provider::{CryptoProvider, DefaultProvider, HmacProvider, SimpleDigest};
+
+type ProviderHmac = <DefaultProvider as CryptoProvider>::Hmac;
+type ProviderDigest = <DefaultProvider as CryptoProvider>::Digest;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Hmac {
     #[qjs(skip_trace)]
-    algorithm: ShaAlgorithm,
-    #[qjs(skip_trace)]
-    key: Vec<u8>,
-    #[qjs(skip_trace)]
-    data: Vec<u8>,
+    inner: Option<ProviderHmac>,
 }
 
 #[rquickjs::methods]
@@ -26,18 +25,17 @@ impl Hmac {
     #[qjs(skip)]
     pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, key_value: ObjectBytes<'js>) -> Result<Self> {
         let algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
-        let key = key_value.as_bytes(&ctx)?.to_vec();
+        let key = key_value.as_bytes(&ctx)?;
+        let hmac = CRYPTO_PROVIDER.hmac(algorithm, key);
 
-        Ok(Self {
-            algorithm,
-            key,
-            data: Vec::new(),
-        })
+        Ok(Self { inner: Some(hmac) })
     }
 
-    fn digest<'js>(&self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
-        let mut hmac = CRYPTO_PROVIDER.hmac(self.algorithm, &self.key);
-        hmac.update(&self.data);
+    fn digest<'js>(&mut self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
+        let hmac = self
+            .inner
+            .take()
+            .ok_or_else(|| Exception::throw_message(&ctx, "Digest already called"))?;
         let result = hmac.finalize();
 
         match encoding.into_inner() {
@@ -52,7 +50,11 @@ impl Hmac {
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
         let bytes = bytes.as_bytes(&ctx)?;
-        this.0.borrow_mut().data.extend_from_slice(bytes);
+        let mut borrowed = this.0.borrow_mut();
+        if let Some(ref mut hmac) = borrowed.inner {
+            hmac.update(bytes);
+        }
+        drop(borrowed);
         Ok(this.0)
     }
 }
@@ -61,9 +63,7 @@ impl Hmac {
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 pub struct Hash {
     #[qjs(skip_trace)]
-    algorithm: ShaAlgorithm,
-    #[qjs(skip_trace)]
-    data: Vec<u8>,
+    inner: Option<ProviderDigest>,
 }
 
 #[rquickjs::methods]
@@ -71,22 +71,24 @@ impl Hash {
     #[qjs(skip)]
     pub fn new(ctx: Ctx<'_>, algorithm: String) -> Result<Self> {
         let algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
+        let digest = CRYPTO_PROVIDER.digest(algorithm);
 
         Ok(Self {
-            algorithm,
-            data: Vec::new(),
+            inner: Some(digest),
         })
     }
 
     #[qjs(rename = "digest")]
-    fn hash_digest<'js>(&self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
-        let mut digest_hasher = CRYPTO_PROVIDER.digest(self.algorithm);
-        digest_hasher.update(&self.data);
-        let digest = digest_hasher.finalize();
+    fn hash_digest<'js>(&mut self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
+        let digest = self
+            .inner
+            .take()
+            .ok_or_else(|| Exception::throw_message(&ctx, "Digest already called"))?;
+        let result = digest.finalize();
 
         match encoding.0 {
-            Some(encoding) => encoded_bytes(ctx, &digest, &encoding),
-            None => bytes_to_typed_array(ctx, &digest),
+            Some(encoding) => encoded_bytes(ctx, &result, &encoding),
+            None => bytes_to_typed_array(ctx, &result),
         }
     }
 
@@ -97,7 +99,11 @@ impl Hash {
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
         let bytes = bytes.as_bytes(&ctx)?;
-        this.0.borrow_mut().data.extend_from_slice(bytes);
+        let mut borrowed = this.0.borrow_mut();
+        if let Some(ref mut digest) = borrowed.inner {
+            digest.update(bytes);
+        }
+        drop(borrowed);
         Ok(this.0)
     }
 }

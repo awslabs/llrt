@@ -131,9 +131,10 @@ jobs:
           - macos-latest
           - windows-latest
         tls:
-          - tls-ring
-          - tls-aws-lc
-          - tls-graviola
+          - ring
+          - aws-lc
+          - graviola
+          - openssl
         include:
           - os: ubuntu-latest
             platform: linux
@@ -153,4 +154,4 @@ jobs:
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
-      tls_feature: ${{ matrix.tls }}
+      crypto: ${{ matrix.tls }}

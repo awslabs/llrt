@@ -27,7 +27,7 @@ crypto-graviola-rust = ["llrt_modules/crypto-graviola-rust"]
 crypto-openssl = ["llrt_modules/crypto-openssl"]
 
 # OpenSSL vendored (builds OpenSSL from source)
-openssl-vendored = ["llrt_modules/openssl-vendored", "openssl?/vendored"]
+openssl-vendored = ["llrt_modules/openssl-vendored", "openssl/vendored"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
