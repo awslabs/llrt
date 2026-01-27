@@ -24,7 +24,7 @@ rquickjs = { version = "0.11", features = [
 ], default-features = false }
 
 # Optional
-sysinfo = { version = "0.37", default-features = false, optional = true }
+sysinfo = { version = "0.38", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }
