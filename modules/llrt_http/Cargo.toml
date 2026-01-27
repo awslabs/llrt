@@ -21,12 +21,12 @@ webpki-roots = ["llrt_tls/webpki-roots"]
 native-roots = ["llrt_tls/native-roots"]
 
 # TLS crypto backend features (rustls-based)
-tls-ring = ["llrt_tls/tls-ring", "dep:hyper-rustls", "hyper-rustls/ring", "dep:rustls"]
-tls-aws-lc = ["llrt_tls/tls-aws-lc", "dep:hyper-rustls", "hyper-rustls/aws-lc-rs", "dep:rustls"]
-tls-graviola = ["llrt_tls/tls-graviola", "dep:hyper-rustls", "dep:rustls"]
+tls-ring = ["http1", "llrt_tls/tls-ring", "dep:hyper-rustls", "hyper-rustls/ring", "dep:rustls"]
+tls-aws-lc = ["http1", "llrt_tls/tls-aws-lc", "dep:hyper-rustls", "hyper-rustls/aws-lc-rs", "dep:rustls"]
+tls-graviola = ["http1", "llrt_tls/tls-graviola", "dep:hyper-rustls", "dep:rustls"]
 
 # OpenSSL TLS backend
-tls-openssl = ["llrt_tls/tls-openssl", "dep:hyper-openssl", "dep:openssl"]
+tls-openssl = ["http1", "llrt_tls/tls-openssl", "dep:hyper-openssl", "dep:openssl"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }

@@ -477,7 +477,7 @@ impl CryptoProvider for OpenSslProvider {
                         )))
                     },
                 };
-                let tag_len = tag_length as usize;
+                let tag_len = (tag_length / 8) as usize;
                 let mut tag = vec![0u8; tag_len];
                 let ciphertext = symm::encrypt_aead(
                     cipher,
@@ -543,7 +543,7 @@ impl CryptoProvider for OpenSslProvider {
                         )))
                     },
                 };
-                let tag_len = tag_length as usize;
+                let tag_len = (tag_length / 8) as usize;
                 if data.len() < tag_len {
                     return Err(CryptoError::InvalidData(Some(
                         "Data too short for GCM tag".into(),
@@ -678,10 +678,10 @@ impl CryptoProvider for OpenSslProvider {
         let private_der = pkey
             .private_key_to_der()
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
-        let public_der = pkey
-            .public_key_to_der()
+        let public_raw = pkey
+            .raw_public_key()
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
-        Ok((private_der, public_der))
+        Ok((private_der, public_raw))
     }
 
     fn generate_x25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
