@@ -1,6 +1,4 @@
 name: Setup, Build & Test modules
-permissions:
-  contents: read
 on:
   workflow_call:
     inputs:
@@ -20,6 +18,9 @@ on:
         required: false
         type: string
         default: "ring"
+
+permissions:
+  contents: read
 
 jobs:
   build:
