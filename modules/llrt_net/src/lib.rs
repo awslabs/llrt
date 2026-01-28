@@ -28,10 +28,12 @@ mod socket;
 
 use self::{server::Server, socket::Socket};
 
-const LOCALHOST: &str = "localhost";
+/// Localhost constant shared across socket implementations
+pub const LOCALHOST: &str = "localhost";
 
-#[allow(dead_code)]
-enum ReadyState {
+/// Socket ready state, shared between net::Socket and tls::TLSSocket
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadyState {
     Opening,
     Open,
     Closed,
@@ -103,11 +105,13 @@ impl Listener {
     }
 }
 
-fn get_hostname(host: &str, port: u16) -> String {
+/// Build a hostname:port string from host and port
+pub fn get_hostname(host: &str, port: u16) -> String {
     [host, itoa::Buffer::new().format(port)].join(":")
 }
 
-fn get_address_parts(
+/// Extract address parts (ip, port, family) from a socket address result
+pub fn get_address_parts(
     ctx: &Ctx,
     addr: StdResult<SocketAddr, std::io::Error>,
 ) -> Result<(String, u16, String)> {
@@ -119,7 +123,8 @@ fn get_address_parts(
     ))
 }
 
-async fn rw_join(
+/// Wait for both readable and writable streams to complete
+pub async fn rw_join(
     ctx: &Ctx<'_>,
     readable_done: Receiver<bool>,
     writable_done: Receiver<bool>,

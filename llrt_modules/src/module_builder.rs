@@ -161,6 +161,10 @@ impl Default for ModuleBuilder {
                 .with_global(crate::modules::timers::init)
                 .with_module(crate::modules::timers::TimersModule);
         }
+        #[cfg(feature = "tls")]
+        {
+            builder = builder.with_module(crate::modules::tls::TlsModule);
+        }
         #[cfg(feature = "tty")]
         {
             builder = builder.with_module(crate::modules::tty::TtyModule);

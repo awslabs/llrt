@@ -26,6 +26,7 @@
 /// <reference types="./stream/web.d.ts" />
 /// <reference types="./timers.d.ts" />
 /// <reference types="./timezone.d.ts" />
+/// <reference types="./tls.d.ts" />
 /// <reference types="./tty.d.ts" />
 /// <reference types="./url.d.ts" />
 /// <reference types="./util.d.ts" />
