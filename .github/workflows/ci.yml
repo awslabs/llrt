@@ -37,61 +37,214 @@ jobs:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
         include:
-          - os: windows-latest
-            platform: windows
-            arch: x86_64
-            toolchain: nightly-x86_64-pc-windows-gnu
+          # Ubuntu x64
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
             toolchain: nightly
+            crypto: ring
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: nightly
+            crypto: aws-lc
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: nightly
+            crypto: graviola
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: nightly
+            crypto: openssl
+          # Ubuntu arm64
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
             toolchain: nightly
-          - os: macos-latest
+            crypto: ring
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: nightly
+            crypto: aws-lc
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: nightly
+            crypto: graviola
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: nightly
+            crypto: openssl
+          # macOS x64
+          - os: macos-13
             platform: darwin
             arch: x86_64
             toolchain: nightly
+            crypto: ring
+          - os: macos-13
+            platform: darwin
+            arch: x86_64
+            toolchain: nightly
+            crypto: aws-lc
+          - os: macos-13
+            platform: darwin
+            arch: x86_64
+            toolchain: nightly
+            crypto: graviola
+          - os: macos-13
+            platform: darwin
+            arch: x86_64
+            toolchain: nightly
+            crypto: openssl
+          # macOS arm64
           - os: macos-latest
             platform: darwin
             arch: aarch64
             toolchain: nightly
+            crypto: ring
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: nightly
+            crypto: aws-lc
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: nightly
+            crypto: graviola
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: nightly
+            crypto: openssl
+          # Windows x64 (no aws-lc, no graviola)
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            toolchain: nightly-x86_64-pc-windows-gnu
+            crypto: ring
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            toolchain: nightly-x86_64-pc-windows-gnu
+            crypto: openssl
     uses: ./.github/workflows/build.yml
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
+      crypto: ${{ matrix.crypto }}
   modules:
     needs:
       - check
     strategy:
+      fail-fast: false
       matrix:
         include:
+          # Ubuntu x64
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
             toolchain: stable
+            crypto: ring
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: stable
+            crypto: aws-lc
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: stable
+            crypto: graviola
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: stable
+            crypto: openssl
+          # Ubuntu arm64
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
             toolchain: stable
-          - os: macos-latest
+            crypto: ring
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: stable
+            crypto: aws-lc
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: stable
+            crypto: graviola
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: stable
+            crypto: openssl
+          # macOS x64
+          - os: macos-13
             platform: darwin
             arch: x86_64
             toolchain: stable
+            crypto: ring
+          - os: macos-13
+            platform: darwin
+            arch: x86_64
+            toolchain: stable
+            crypto: aws-lc
+          - os: macos-13
+            platform: darwin
+            arch: x86_64
+            toolchain: stable
+            crypto: graviola
+          - os: macos-13
+            platform: darwin
+            arch: x86_64
+            toolchain: stable
+            crypto: openssl
+          # macOS arm64
           - os: macos-latest
             platform: darwin
             arch: aarch64
             toolchain: stable
+            crypto: ring
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: stable
+            crypto: aws-lc
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: stable
+            crypto: graviola
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: stable
+            crypto: openssl
+          # Windows x64 (no aws-lc, no graviola)
           - os: windows-latest
             platform: windows
             arch: x86_64
             toolchain: stable-x86_64-pc-windows-gnu
+            crypto: ring
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            toolchain: stable-x86_64-pc-windows-gnu
+            crypto: openssl
     uses: ./.github/workflows/build-modules.yml
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
+      crypto: ${{ matrix.crypto }}

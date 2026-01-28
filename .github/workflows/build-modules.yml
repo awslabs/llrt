@@ -14,10 +14,17 @@ on:
       toolchain:
         required: true
         type: string
+      crypto:
+        required: false
+        type: string
+        default: "ring"
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: ${{ inputs.arch }}-${{ inputs.platform }}
+    name: ${{ inputs.arch }}-${{ inputs.platform }}-${{ inputs.crypto }}
     runs-on: ${{ inputs.os }}
     steps:
       - name: Checkout
@@ -26,19 +33,60 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ inputs.toolchain }}
+      - name: Map crypto feature to TLS and crypto features
+        id: features
+        shell: bash
+        run: |
+          case "${{ inputs.crypto }}" in
+            graviola)
+              echo "tls_feature=tls-graviola" >> $GITHUB_OUTPUT
+              echo "crypto_feature=crypto-graviola" >> $GITHUB_OUTPUT
+              ;;
+            ring)
+              echo "tls_feature=tls-ring" >> $GITHUB_OUTPUT
+              echo "crypto_feature=crypto-ring" >> $GITHUB_OUTPUT
+              ;;
+            openssl)
+              echo "tls_feature=tls-openssl" >> $GITHUB_OUTPUT
+              echo "crypto_feature=crypto-openssl" >> $GITHUB_OUTPUT
+              ;;
+            aws-lc)
+              echo "tls_feature=tls-aws-lc" >> $GITHUB_OUTPUT
+              echo "crypto_feature=crypto-ring" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown crypto feature: ${{ inputs.crypto }}"
+              exit 1
+              ;;
+          esac
       - name: Run build crates
         shell: bash
         env:
           RUSTFLAGS: ""
+          TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
+          CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
         run: |
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
             echo "Compiling crate: $crate"
-            cargo build -p "$crate"
+            # Use TLS feature for crates that need TLS, with --no-default-features to avoid conflicts
+            if [ "$crate" = "llrt_fetch" ] || [ "$crate" = "llrt_http" ]; then
+              cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,compression-rust,$TLS_FEATURE"
+            elif [ "$crate" = "llrt_crypto" ]; then
+              cargo build -p "$crate" --no-default-features --features "$CRYPTO_FEATURE"
+            else
+              cargo build -p "$crate"
+            fi
           done
       - name: Run build all
+        env:
+          TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
+          CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
         run: |
-          cargo build -p llrt_modules
+          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE"
       - name: Run tests all
+        env:
+          TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
+          CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
         run: |
-          cargo test -p llrt_modules
+          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE"
