@@ -18,9 +18,13 @@ declare global {
 
   /**
    * The `Body` of a {@link Response} or {@link Request}.
-   * Currently NOT a `ReadableStream`.
    */
-  type Body = QuickJS.ArrayBufferView | Blob | null;
+  type BodyInit =
+    | QuickJS.ArrayBufferView
+    | Blob
+    | string
+    | ReadableStream
+    | null;
 
   /**
    * A [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) encapsulates immutable, raw data.
@@ -152,7 +156,7 @@ declare global {
     url?: string;
     method?: string;
     signal?: AbortSignal;
-    body?: Blob;
+    body?: BodyInit;
     headers?: HeadersLike;
     agent?: Agent;
   }
@@ -199,9 +203,9 @@ declare global {
      */
     readonly signal: AbortSignal;
     /**
-     * The body content.
+     * The body content as a ReadableStream, or null if no body.
      */
-    readonly body: Body;
+    readonly body: ReadableStream<Uint8Array> | null;
     /**
      * Stores true or false to indicate whether or not the body has been used in a request yet.
      */
@@ -256,7 +260,7 @@ declare global {
     /**
      * Creates a new Response object.
      */
-    constructor(body?: Body, opts?: ResponseOpts);
+    constructor(body?: BodyInit, opts?: ResponseOpts);
 
     /**
      * The {@link Headers} object associated with the response.
@@ -284,9 +288,9 @@ declare global {
      */
     readonly redirected: boolean;
     /**
-     * The body content (NOT IMPLEMENTED YET).
+     * The body content as a ReadableStream, or null if no body.
      */
-    readonly body: undefined;
+    readonly body: ReadableStream<Uint8Array> | null;
     /**
      * Stores a boolean value that declares whether the body has been used in a response yet.
      */

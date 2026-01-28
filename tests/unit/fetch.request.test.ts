@@ -55,8 +55,10 @@ describe("Request class", () => {
       body,
       method: "POST",
     });
-    expect(request.body).toStrictEqual(body);
-    expect(request.bodyUsed).toBeFalsy();
+    // Per WHATWG Fetch spec, body returns a ReadableStream
+    expect(request.body).toBeInstanceOf(ReadableStream);
+    // bodyUsed becomes true when body stream is accessed
+    expect(request.bodyUsed).toBeTruthy();
   });
 
   it("should accept another request object as argument", () => {

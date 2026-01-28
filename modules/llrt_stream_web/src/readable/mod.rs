@@ -13,4 +13,7 @@ pub(crate) use byte_controller::{ReadableByteStreamController, ReadableStreamBYO
 pub(crate) use default_controller::ReadableStreamDefaultController;
 pub(crate) use default_reader::ReadableStreamDefaultReader;
 pub(crate) use iterator::IteratorPrimordials;
-pub(crate) use stream::{ReadableStream, ReadableStreamClass};
+pub(crate) use stream::ReadableStream;
+
+// Re-export for external use
+pub use stream::{ReadableStream as ReadableStreamStruct, ReadableStreamClass};

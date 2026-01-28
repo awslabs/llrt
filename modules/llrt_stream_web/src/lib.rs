@@ -25,6 +25,9 @@ mod readable_writable_pair;
 mod utils;
 mod writable;
 
+// Re-export ReadableStream for use by other modules (e.g., llrt_fetch)
+pub use readable::{ReadableStreamClass, ReadableStreamStruct};
+
 /// Defines web streams, which are exposed through the "stream/web" Node import, but also at the global scope
 /// Web streams consist of Readable, Writable, and Transform streams. Transform is currently unimplemented.
 ///

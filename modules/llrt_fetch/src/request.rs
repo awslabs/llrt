@@ -12,6 +12,9 @@ use rquickjs::{
     IntoJs, Null, Object, Result, TypedArray, Value,
 };
 
+use crate::body_stream::{create_value_stream, read_all_bytes_from_stream};
+use llrt_stream_web::ReadableStreamClass;
+
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
     strip_bom, Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED,
@@ -56,6 +59,7 @@ impl RequestMode {
 #[derive(rquickjs::JsLifetime)]
 enum BodyVariant<'js> {
     Provided(Option<Value<'js>>),
+    Stream(Option<ReadableStreamClass<'js>>),
     Empty,
 }
 
@@ -79,8 +83,10 @@ impl<'js> Trace<'js> for Request<'js> {
         }
         let body = self.body.read().unwrap();
         let body = &*body;
-        if let BodyVariant::Provided(Some(body)) = body {
-            body.trace(tracer);
+        match body {
+            BodyVariant::Provided(Some(body)) => body.trace(tracer),
+            BodyVariant::Stream(Some(stream)) => stream.trace(tracer),
+            _ => {},
         }
     }
 }
@@ -142,13 +148,32 @@ impl<'js> Request<'js> {
         stringify!(Request)
     }
 
-    //TODO should implement readable stream
+    /// Returns the body as a ReadableStream.
+    ///
+    /// Per WHATWG Fetch specification:
+    /// - Returns null if the body is null (empty)
+    /// - Returns a ReadableStream that yields Uint8Array chunks
     #[qjs(get)]
     fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let body = self.body.read().unwrap();
-        let body = &*body;
+        let mut body_guard = self.body.write().unwrap();
+        let body = &mut *body_guard;
         match body {
-            BodyVariant::Provided(value) => value.into_js(&ctx),
+            BodyVariant::Provided(provided) => {
+                if let Some(value) = provided.take() {
+                    create_value_stream(&ctx, value)
+                } else {
+                    // Body already consumed - return null
+                    Ok(Value::new_null(ctx))
+                }
+            },
+            BodyVariant::Stream(stream) => {
+                if let Some(s) = stream.take() {
+                    Ok(s.into_value())
+                } else {
+                    // Stream already consumed - return null
+                    Ok(Value::new_null(ctx))
+                }
+            },
             BodyVariant::Empty => Null.into_js(&ctx),
         }
     }
@@ -169,6 +194,7 @@ impl<'js> Request<'js> {
         let body = &*body;
         match body {
             BodyVariant::Provided(value) => value.is_none(),
+            BodyVariant::Stream(stream) => stream.is_none(),
             BodyVariant::Empty => false,
         }
     }
@@ -252,6 +278,7 @@ impl<'js> Request<'js> {
         let body = &*body;
         let body = match body {
             BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
+            BodyVariant::Stream(stream) => BodyVariant::Stream(stream.clone()),
             BodyVariant::Empty => BodyVariant::Empty,
         };
 
@@ -287,6 +314,13 @@ impl<'js> Request<'js> {
                     let bytes = ObjectBytes::from(ctx, &provided)?;
                     bytes.as_bytes(ctx)?.to_vec()
                 }
+            },
+            BodyVariant::Stream(stream) => {
+                let stream = stream
+                    .take()
+                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                drop(body_guard);
+                read_all_bytes_from_stream(ctx, stream).await?
             },
             BodyVariant::Empty => return Ok(None),
         };
@@ -361,7 +395,12 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 content_type = Some(MIME_TYPE_TEXT.into());
                 BodyVariant::Provided(Some(body))
             } else if let Some(obj) = body.as_object() {
-                if let Some(blob) = Class::<Blob>::from_object(obj) {
+                if let Some(stream) =
+                    Class::<llrt_stream_web::ReadableStreamStruct>::from_object(obj)
+                {
+                    // ReadableStream body - store as Stream variant
+                    BodyVariant::Stream(Some(stream))
+                } else if let Some(blob) = Class::<Blob>::from_object(obj) {
                     let blob = blob.borrow();
                     if !blob.mime_type().is_empty() {
                         content_type = Some(blob.mime_type());
