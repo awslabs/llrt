@@ -34,7 +34,7 @@ jobs:
     needs:
       - check
     strategy:
-      fail-fast: false #${{ startsWith(github.ref, 'refs/tags/') }}
+      fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
         include:
           # Ubuntu x64

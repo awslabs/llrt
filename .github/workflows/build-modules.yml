@@ -49,6 +49,7 @@ jobs:
             openssl)
               echo "tls_feature=tls-openssl" >> $GITHUB_OUTPUT
               echo "crypto_feature=crypto-openssl" >> $GITHUB_OUTPUT
+              echo "extra_features=openssl-vendored" >> $GITHUB_OUTPUT
               ;;
             aws-lc)
               echo "tls_feature=tls-aws-lc" >> $GITHUB_OUTPUT
@@ -65,6 +66,7 @@ jobs:
           RUSTFLAGS: ""
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
+          EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
@@ -83,11 +85,17 @@ jobs:
         env:
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
+          EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
-          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE"
+          FEATURES="base,$TLS_FEATURE,$CRYPTO_FEATURE"
+          [ -n "$EXTRA_FEATURES" ] && FEATURES="$FEATURES,$EXTRA_FEATURES"
+          cargo build -p llrt_modules --no-default-features --features "$FEATURES"
       - name: Run tests all
         env:
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
+          EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
-          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE"
+          FEATURES="base,$TLS_FEATURE,$CRYPTO_FEATURE"
+          [ -n "$EXTRA_FEATURES" ] && FEATURES="$FEATURES,$EXTRA_FEATURES"
+          cargo test -p llrt_modules --no-default-features --features "$FEATURES"
