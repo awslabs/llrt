@@ -6,11 +6,15 @@ use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{function::Opt, Ctx, Error, FromJs, IntoJs, Result, Value};
 use tokio::fs;
 
+use crate::security::ensure_access;
+
 pub async fn read_file(
     ctx: Ctx<'_>,
     path: String,
     options: Opt<Either<String, ReadFileOptions>>,
 ) -> Result<Value<'_>> {
+    ensure_access(&ctx, &path)?;
+
     let bytes = fs::read(&path)
         .await
         .or_throw_msg(&ctx, &["Can't read \"", &path, "\""].concat())?;
@@ -23,6 +27,8 @@ pub fn read_file_sync(
     path: String,
     options: Opt<Either<String, ReadFileOptions>>,
 ) -> Result<Value<'_>> {
+    ensure_access(&ctx, &path)?;
+
     let bytes =
         std::fs::read(&path).or_throw_msg(&ctx, &["Can't read \"", &path, "\""].concat())?;
 

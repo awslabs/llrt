@@ -7,12 +7,16 @@ use rquickjs::{function::Opt, Ctx, Error, FromJs, Result, Value};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
+use crate::security::ensure_access;
+
 pub async fn write_file<'js>(
     ctx: Ctx<'js>,
     path: String,
     data: Value<'js>,
     options: Opt<Either<String, WriteFileOptions>>,
 ) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let write_error_message = &["Can't write file \"", &path, "\""].concat();
 
     let mut file = fs::File::create(&path)
@@ -51,6 +55,8 @@ pub fn write_file_sync<'js>(
     bytes: ObjectBytes<'js>,
     options: Opt<Either<String, WriteFileOptions>>,
 ) -> Result<()> {
+    ensure_access(&ctx, &path)?;
+
     let write_error_message = &["Can't write file \"", &path, "\""].concat();
     std::fs::write(&path, bytes.as_bytes(&ctx)?).or_throw_msg(&ctx, write_error_message)?;
 

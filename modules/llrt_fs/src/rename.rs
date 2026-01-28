@@ -1,6 +1,8 @@
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result};
 
+use crate::security::ensure_access;
+
 pub(crate) fn rename_error(from: &str, to: &str) -> String {
     [
         "Can't rename file/folder from \"",
@@ -13,6 +15,9 @@ pub(crate) fn rename_error(from: &str, to: &str) -> String {
 }
 
 pub async fn rename(ctx: Ctx<'_>, old_path: String, new_path: String) -> Result<()> {
+    ensure_access(&ctx, &old_path)?;
+    ensure_access(&ctx, &new_path)?;
+
     tokio::fs::rename(&old_path, &new_path)
         .await
         .or_throw_msg(&ctx, &rename_error(&old_path, &new_path))?;
@@ -20,6 +25,9 @@ pub async fn rename(ctx: Ctx<'_>, old_path: String, new_path: String) -> Result<
 }
 
 pub fn rename_sync(ctx: Ctx<'_>, old_path: String, new_path: String) -> Result<()> {
+    ensure_access(&ctx, &old_path)?;
+    ensure_access(&ctx, &new_path)?;
+
     std::fs::rename(&old_path, &new_path)
         .or_throw_msg(&ctx, &rename_error(&old_path, &new_path))?;
     Ok(())
