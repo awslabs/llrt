@@ -69,9 +69,10 @@ jobs:
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
             echo "Compiling crate: $crate"
-            # Use TLS feature for crates that need TLS, with --no-default-features to avoid conflicts
-            if [ "$crate" = "llrt_fetch" ] || [ "$crate" = "llrt_http" ]; then
+            if [ "$crate" = "llrt_fetch" ]; then
               cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,compression-rust,$TLS_FEATURE"
+            elif [ "$crate" = "llrt_http" ]; then
+              cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,$TLS_FEATURE"
             elif [ "$crate" = "llrt_crypto" ]; then
               cargo build -p "$crate" --no-default-features --features "$CRYPTO_FEATURE"
             else
