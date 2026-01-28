@@ -1,4 +1,6 @@
 name: Setup, Build & Test modules
+permissions:
+  contents: read
 on:
   workflow_call:
     inputs:
