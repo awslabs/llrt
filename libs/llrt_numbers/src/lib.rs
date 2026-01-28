@@ -286,7 +286,7 @@ fn number_to_string<'js>(
 #[cfg(test)]
 mod test {
 
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::{float_to_string, i64_to_base_n};
 

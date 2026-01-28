@@ -22,7 +22,7 @@ memchr = { version = "2", default-features = false }
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rand = { version = "0.10.0-rc.5", features = [
+rand = { version = "0.10.0-rc.8", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }

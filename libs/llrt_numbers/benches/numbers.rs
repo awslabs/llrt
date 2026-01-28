@@ -3,7 +3,7 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use llrt_numbers::i64_to_base_n;
-use rand::Rng;
+use rand::RngExt;
 use std::{fmt::Write, hint::black_box};
 
 macro_rules! write_formatted {
