@@ -74,7 +74,7 @@ elliptic-curve = { version = "0.14.0-rc.17", features = [
   "alloc",
 ], default-features = false, optional = true }
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
-md-5 = { version = "0.11.0-rc.3", default-features = false }
+md-5 = { version = "0.11.0-rc.4", default-features = false }
 rsa = { version = "0.10.0-rc.10", features = [
   "std",
   "sha2",
@@ -97,13 +97,13 @@ p521 = { version = "0.14.0-rc.1", features = [
   "pkcs8",
 ], default-features = false, optional = true }
 
-pkcs8 = { version = "0.11.0-rc.8", default-features = false, features = [
+pkcs8 = { version = "0.11.0-rc.10", default-features = false, features = [
   "alloc",
 ], optional = true }
 spki = { version = "0.8.0-rc.4", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-pre.3", features = [
+x25519-dalek = { version = "3.0.0-pre.5", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
