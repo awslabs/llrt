@@ -1651,7 +1651,6 @@ version = "0.7.0-beta"
 dependencies = [
  "bytes",
  "chrono",
- "chrono-tz",
  "home",
  "http-body-util",
  "hyper",
@@ -1667,6 +1666,7 @@ dependencies = [
  "llrt_modules",
  "llrt_numbers",
  "llrt_test",
+ "llrt_tz",
  "llrt_utils",
  "md-5",
  "once_cell",
@@ -1868,9 +1868,9 @@ name = "llrt_intl"
 version = "0.7.0-beta"
 dependencies = [
  "chrono",
- "chrono-tz",
  "iana-time-zone",
  "itoa",
+ "llrt_tz",
  "llrt_utils",
  "rquickjs",
 ]
@@ -2129,6 +2129,16 @@ dependencies = [
  "llrt_utils",
  "rquickjs",
  "tokio",
+]
+
+[[package]]
+name = "llrt_tz"
+version = "0.7.0-beta"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "once_cell",
+ "zstd",
 ]
 
 [[package]]

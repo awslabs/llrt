@@ -16,8 +16,8 @@ pub use date_time_format::{
 };
 
 use chrono::{TimeZone, Utc};
-use chrono_tz::Tz;
 use cldr_data::get_locale_data;
+use llrt_tz::Tz;
 use pattern_formatter::{combine_datetime, format_with_pattern};
 use rquickjs::{
     function::{Constructor, Opt, This},
@@ -82,11 +82,8 @@ fn date_to_locale_string<'js>(
     // Parse options
     let (tz, opts) = parse_to_locale_string_options(&ctx, options.0)?;
 
-    let timezone = tz.unwrap_or_else(|| {
-        get_system_timezone()
-            .parse::<Tz>()
-            .unwrap_or(chrono_tz::UTC)
-    });
+    let timezone =
+        tz.unwrap_or_else(|| get_system_timezone().parse::<Tz>().unwrap_or(llrt_tz::UTC));
 
     // Convert epoch to DateTime
     let epoch_secs = (epoch_ms / 1000.0) as i64;

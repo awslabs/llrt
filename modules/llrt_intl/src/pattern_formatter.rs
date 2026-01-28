@@ -9,7 +9,7 @@
 
 use crate::cldr_data::LocaleData;
 use chrono::{DateTime, Datelike, Offset, Timelike};
-use chrono_tz::Tz;
+use llrt_tz::Tz;
 
 /// Format a DateTime using a CLDR pattern string
 pub fn format_with_pattern(

@@ -5,7 +5,7 @@
 //! This provides just enough functionality to support dayjs and similar libraries.
 
 use chrono::{DateTime, Datelike, Offset, TimeZone, Timelike, Utc};
-use chrono_tz::Tz;
+use llrt_tz::Tz;
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, Exception, Object, Result, Value,
 };
@@ -31,7 +31,7 @@ impl Default for DateTimeFormatOptions {
     fn default() -> Self {
         Self {
             locale: "en-US".to_string(),
-            timezone: chrono_tz::UTC,
+            timezone: llrt_tz::UTC,
             hour12: false,
             year: None,
             month: None,
