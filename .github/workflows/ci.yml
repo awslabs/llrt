@@ -36,6 +36,17 @@ jobs:
     strategy:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-13
+          - macos-latest
+          - windows-latest
+        crypto:
+          - ring
+          - aws-lc
+          - graviola
+          - openssl
         include:
           - os: windows-latest
             platform: windows
@@ -49,7 +60,7 @@ jobs:
             platform: linux
             arch: aarch64
             toolchain: nightly
-          - os: macos-latest
+          - os: macos-13
             platform: darwin
             arch: x86_64
             toolchain: nightly
@@ -57,12 +68,20 @@ jobs:
             platform: darwin
             arch: aarch64
             toolchain: nightly
+        exclude:
+          # aws-lc has issues on Windows
+          - os: windows-latest
+            crypto: aws-lc
+          # graviola doesn't work on Windows
+          - os: windows-latest
+            crypto: graviola
     uses: ./.github/workflows/build.yml
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
+      crypto: ${{ matrix.crypto }}
   modules:
     needs:
       - check
