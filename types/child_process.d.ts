@@ -444,4 +444,161 @@ declare module "child_process" {
     args: readonly string[],
     options: SpawnOptions
   ): ChildProcess;
+
+  interface ExecOptions extends ProcessEnvOptions {
+    /**
+     * Current working directory of the child process.
+     * @default undefined
+     */
+    cwd?: string | undefined;
+    /**
+     * Environment key-value pairs.
+     */
+    env?: Record<string, string> | undefined;
+    /**
+     * Shell to execute the command with.
+     * @default '/bin/sh' on Unix, process.env.ComSpec on Windows
+     */
+    shell?: string | undefined;
+    /**
+     * In milliseconds the maximum amount of time the process is allowed to run.
+     * @default undefined
+     */
+    timeout?: number | undefined;
+    /**
+     * Largest amount of data in bytes allowed on stdout or stderr.
+     * If exceeded, the child process is terminated and any output is truncated.
+     * @default 1024 * 1024 (1MB)
+     */
+    maxBuffer?: number | undefined;
+    /**
+     * Signal value to be used when the spawned process will be killed by timeout or buffer overflow.
+     * @default 'SIGTERM'
+     */
+    killSignal?: QuickJS.Signals | number | undefined;
+  }
+
+  interface ExecFileOptions extends ProcessEnvOptions {
+    /**
+     * Current working directory of the child process.
+     * @default undefined
+     */
+    cwd?: string | undefined;
+    /**
+     * Environment key-value pairs.
+     */
+    env?: Record<string, string> | undefined;
+    /**
+     * Shell to execute the command with. If true, uses default shell.
+     * @default false
+     */
+    shell?: boolean | string | undefined;
+    /**
+     * In milliseconds the maximum amount of time the process is allowed to run.
+     * @default undefined
+     */
+    timeout?: number | undefined;
+    /**
+     * Largest amount of data in bytes allowed on stdout or stderr.
+     * If exceeded, the child process is terminated and any output is truncated.
+     * @default 1024 * 1024 (1MB)
+     */
+    maxBuffer?: number | undefined;
+    /**
+     * Signal value to be used when the spawned process will be killed by timeout or buffer overflow.
+     * @default 'SIGTERM'
+     */
+    killSignal?: QuickJS.Signals | number | undefined;
+  }
+
+  interface ExecException extends Error {
+    cmd?: string | undefined;
+    killed?: boolean | undefined;
+    code?: number | undefined;
+    signal?: QuickJS.Signals | undefined;
+  }
+
+  type ExecCallback = (
+    error: ExecException | null,
+    stdout: string,
+    stderr: string
+  ) => void;
+
+  type ExecFileCallback = (
+    error: ExecException | null,
+    stdout: string,
+    stderr: string
+  ) => void;
+
+  /**
+   * Spawns a shell then executes the `command` within that shell, buffering any
+   * generated output. The `command` string passed to the exec function is processed
+   * directly by the shell and special characters (vary based on shell) need to be
+   * dealt with accordingly.
+   *
+   * **Never pass unsanitized user input to this function. Any input containing shell**
+   * **metacharacters may be used to trigger arbitrary command execution.**
+   *
+   * ```js
+   * const { exec } = require('child_process');
+   * exec('cat *.js missing_file | wc -l', (error, stdout, stderr) => {
+   *   if (error) {
+   *     console.error(`exec error: ${error}`);
+   *     return;
+   *   }
+   *   console.log(`stdout: ${stdout}`);
+   *   console.error(`stderr: ${stderr}`);
+   * });
+   * ```
+   *
+   * @param command The command to run, with space-separated arguments.
+   * @param callback Called with the output when process terminates.
+   */
+  function exec(command: string, callback: ExecCallback): ChildProcess;
+  function exec(
+    command: string,
+    options: ExecOptions,
+    callback: ExecCallback
+  ): ChildProcess;
+
+  /**
+   * The `child_process.execFile()` function is similar to `exec()` except
+   * that it does not spawn a shell by default. Rather, the specified executable
+   * `file` is spawned directly as a new process making it slightly more efficient
+   * than `exec()`.
+   *
+   * The same options as `exec()` are supported. Since a shell is not spawned,
+   * behaviors such as I/O redirection and file globbing are not supported.
+   *
+   * ```js
+   * const { execFile } = require('child_process');
+   * const child = execFile('node', ['--version'], (error, stdout, stderr) => {
+   *   if (error) {
+   *     throw error;
+   *   }
+   *   console.log(stdout);
+   * });
+   * ```
+   *
+   * @param file The name or path of the executable file to run.
+   * @param args List of string arguments.
+   * @param callback Called with the output when process terminates.
+   */
+  function execFile(file: string, callback: ExecFileCallback): ChildProcess;
+  function execFile(
+    file: string,
+    args: readonly string[],
+    callback: ExecFileCallback
+  ): ChildProcess;
+  function execFile(
+    file: string,
+    options: ExecFileOptions,
+    callback: ExecFileCallback
+  ): ChildProcess;
+  function execFile(
+    file: string,
+    args: readonly string[],
+    options: ExecFileOptions,
+    callback: ExecFileCallback
+  ): ChildProcess;
 }
