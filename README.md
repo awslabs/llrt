@@ -630,6 +630,40 @@ Initializes TLS connections in parallel during function init which significantly
 
 Set the TLS version to be used for network connections. By default only TLS 1.2 is enabled. TLS 1.3 can also be enabled by setting this variable to `1.3`
 
+### `HTTP_PROXY=url` / `HTTPS_PROXY=url`
+
+Configure HTTP/HTTPS proxy servers for outgoing `fetch` requests. The URL can include authentication credentials.
+
+- `HTTP_PROXY` - Proxy for HTTP requests
+- `HTTPS_PROXY` - Proxy for HTTPS requests
+- `ALL_PROXY` - Fallback proxy for both HTTP and HTTPS if specific proxy is not set
+
+Examples:
+
+```shell
+HTTP_PROXY=http://proxy.example.com:8080
+HTTPS_PROXY=http://user:password@proxy.example.com:8080
+ALL_PROXY=http://proxy.example.com:3128
+```
+
+### `NO_PROXY=hosts`
+
+Comma-separated list of hosts that should bypass the proxy. Supports:
+
+- `*` - Bypass all hosts
+- `.example.com` - Bypass subdomains only (e.g., `sub.example.com` but not `example.com`)
+- `example.com` - Bypass domain and all subdomains
+- `example.com:8080` - Bypass only when port matches (pattern without port matches any port)
+- `[::1]:8080` - IPv6 with port (use brackets)
+
+Default bypass hosts: `localhost`, `127.0.0.1`, `::1`
+
+Example:
+
+```shell
+NO_PROXY=localhost:3000,.internal.corp,api.example.com:443
+```
+
 ## Benchmark Methodology
 
 Although Init Duration [reported by Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) is commonly used to understand cold start impact on overall request latency, this metric does not include the time needed to copy code into the Lambda sandbox.

@@ -2,6 +2,7 @@ use std::convert::Infallible;
 
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
+use hyper_http_proxy::ProxyConnector;
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
@@ -12,15 +13,38 @@ use llrt_tls::TLS_CONFIG;
 use once_cell::sync::Lazy;
 use rustls::ClientConfig;
 
-use crate::{get_http_version, get_pool_idle_timeout, HttpVersion};
+use crate::{
+    get_http_version, get_pool_idle_timeout,
+    proxy::{configure_proxies, ProxyConfig, PROXY_CONFIG},
+    HttpVersion,
+};
 
-pub type HyperClient =
-    Client<HttpsConnector<HttpConnector<CachedDnsResolver>>, BoxBody<Bytes, Infallible>>;
+/// The inner HTTPS connector type (without proxy)
+pub type HttpsConnectorType = HttpsConnector<HttpConnector<CachedDnsResolver>>;
+
+/// The main HTTP client type with optional proxy support.
+/// When no proxy is configured, ProxyConnector acts as a passthrough.
+pub type HyperClient = Client<ProxyConnector<HttpsConnectorType>, BoxBody<Bytes, Infallible>>;
+
+/// Global HTTP client, lazily initialized with proxy support from environment variables.
 pub static HTTP_CLIENT: Lazy<Result<HyperClient, Box<dyn std::error::Error + Send + Sync>>> =
-    Lazy::new(|| build_client(None));
+    Lazy::new(|| {
+        let proxy_config = if PROXY_CONFIG.is_enabled() {
+            Some(&*PROXY_CONFIG)
+        } else {
+            None
+        };
+        build_client(None, proxy_config)
+    });
 
+/// Build an HTTP client with optional custom TLS config and proxy configuration.
+///
+/// # Arguments
+/// * `tls_config` - Optional custom TLS configuration. If None, uses global TLS config.
+/// * `proxy_config` - Optional proxy configuration. If None, no proxies are configured.
 pub fn build_client(
     tls_config: Option<ClientConfig>,
+    proxy_config: Option<&ProxyConfig>,
 ) -> Result<HyperClient, Box<dyn std::error::Error + Send + Sync>> {
     let pool_idle_timeout = get_pool_idle_timeout();
 
@@ -48,8 +72,16 @@ pub fn build_client(
         _ => builder.enable_http1().wrap_connector(cache_dns_connector),
     };
 
+    // Wrap the HTTPS connector with ProxyConnector
+    // When no proxies are configured, it acts as a passthrough
+    let mut proxy_connector = ProxyConnector::unsecured(https);
+
+    if let Some(proxy_config) = proxy_config {
+        configure_proxies(&mut proxy_connector, proxy_config);
+    }
+
     Ok(Client::builder(TokioExecutor::new())
         .pool_idle_timeout(pool_idle_timeout)
         .pool_timer(TokioTimer::new())
-        .build(https))
+        .build(proxy_connector))
 }

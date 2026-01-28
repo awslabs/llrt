@@ -23,11 +23,15 @@ native-roots = ["llrt_tls/native-roots"]
 [dependencies]
 bytes = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
+headers = { version = "0.4", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
 hyper-util = { version = "0.1", default-features = false }
 hyper-rustls = { version = "0.27", features = [
   "ring",
 ], default-features = false }
+hyper-http-proxy = { version = "1", default-features = false }
+percent-encoding = { version = "2", default-features = false, features = ["std"] }
+tracing = { version = "0.1", default-features = false }
 llrt_dns_cache = { version = "0.7.0-beta", path = "../../libs/llrt_dns_cache" }
 llrt_tls = { version = "0.7.0-beta", default-features = false, path = "../llrt_tls" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
