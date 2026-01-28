@@ -29,68 +29,13 @@ jobs:
           for i in {1..5}; do
             echo "console.log(123);" > "bundle/js/test$i.js"
           done
-          cargo clippy --all-targets --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring,openssl-vendored" -- -D warnings
-
+          cargo clippy --all-targets --all-features -- -D warnings
   build:
     needs:
       - check
     strategy:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
-        os:
-          - windows-latest
-          - ubuntu-latest
-          - ubuntu-24.04-arm
-          - macos-latest
-        crypto:
-          - name: default
-            features: ""
-            limited_crypto: false
-          - name: crypto-rust+tls-ring
-            features: "--no-default-features --features crypto-rust,tls-ring,macro"
-            limited_crypto: false
-          - name: crypto-rust+tls-aws-lc
-            features: "--no-default-features --features crypto-rust,tls-aws-lc,macro"
-            limited_crypto: false
-          - name: crypto-ring+tls-ring
-            features: "--no-default-features --features crypto-ring,tls-ring,macro"
-            limited_crypto: true
-          - name: crypto-ring-rust+tls-ring
-            features: "--no-default-features --features crypto-ring-rust,tls-ring,macro"
-            limited_crypto: false
-          - name: crypto-graviola+tls-graviola
-            features: "--no-default-features --features crypto-graviola,tls-graviola,macro"
-            limited_crypto: true
-          - name: crypto-graviola-rust+tls-graviola
-            features: "--no-default-features --features crypto-graviola-rust,tls-graviola,macro"
-            limited_crypto: false
-          - name: crypto-openssl+tls-openssl
-            features: "--no-default-features --features crypto-openssl,tls-openssl,macro"
-            limited_crypto: false
-        exclude:
-          # OpenSSL requires native compilation - exclude from cross-compile targets
-          - os: ubuntu-latest
-            crypto:
-              name: crypto-openssl+tls-openssl
-          - os: ubuntu-24.04-arm
-            crypto:
-              name: crypto-openssl+tls-openssl
-          - os: windows-latest
-            crypto:
-              name: crypto-openssl+tls-openssl
-          # Graviola only supports aarch64
-          - os: ubuntu-latest
-            crypto:
-              name: crypto-graviola+tls-graviola
-          - os: ubuntu-latest
-            crypto:
-              name: crypto-graviola-rust+tls-graviola
-          - os: windows-latest
-            crypto:
-              name: crypto-graviola+tls-graviola
-          - os: windows-latest
-            crypto:
-              name: crypto-graviola-rust+tls-graviola
         include:
           - os: windows-latest
             platform: windows
@@ -118,19 +63,19 @@ jobs:
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
-      cargo_features: ${{ matrix.crypto.features }}
-      limited_crypto: ${{ matrix.crypto.limited_crypto }}
-
   modules:
     needs:
       - check
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-13
           - macos-latest
           - windows-latest
-        tls:
+        crypto:
           - ring
           - aws-lc
           - graviola
@@ -138,6 +83,14 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
+            arch: x86_64
+            toolchain: stable
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: stable
+          - os: macos-13
+            platform: darwin
             arch: x86_64
             toolchain: stable
           - os: macos-latest
@@ -148,10 +101,17 @@ jobs:
             platform: windows
             arch: x86_64
             toolchain: stable-x86_64-pc-windows-gnu
+        exclude:
+          # aws-lc has issues on Windows
+          - os: windows-latest
+            crypto: aws-lc
+          # graviola doesn't work on Windows
+          - os: windows-latest
+            crypto: graviola
     uses: ./.github/workflows/build-modules.yml
     with:
       os: ${{ matrix.os }}
       platform: ${{ matrix.platform }}
       arch: ${{ matrix.arch }}
       toolchain: ${{ matrix.toolchain }}
-      crypto: ${{ matrix.tls }}
+      crypto: ${{ matrix.crypto }}

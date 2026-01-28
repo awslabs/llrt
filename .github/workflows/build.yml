@@ -18,14 +18,6 @@ on:
         required: false
         type: string
         default: "nightly"
-      cargo_features:
-        required: false
-        type: string
-        description: "Cargo features to use (e.g. --no-default-features --features crypto-ring-rust,tls-ring,macro)"
-      limited_crypto:
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -89,17 +81,11 @@ jobs:
           toolchain: ${{ inputs.toolchain }}
       - name: Run tests
         if: inputs.platform != 'windows'
-        env:
-          CARGO_FEATURES: ${{ inputs.cargo_features }}
-          LLRT_LIMITED_CRYPTO: ${{ inputs.limited_crypto && '1' || '0' }}
         run: |
           make test-ci 2>&1
       - name: Run tests on windows
         if: inputs.platform == 'windows'
         shell: msys2 {0}
-        env:
-          CARGO_FEATURES: ${{ inputs.cargo_features }}
-          LLRT_LIMITED_CRYPTO: ${{ inputs.limited_crypto && '1' || '0' }}
         run: |
           make test-ci 2>&1
       - name: Build Linux binaries
