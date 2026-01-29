@@ -79,27 +79,6 @@ jobs:
             arch: aarch64
             toolchain: nightly
             crypto: openssl
-          # macOS x64
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: nightly
-            crypto: ring
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: nightly
-            crypto: aws-lc
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: nightly
-            crypto: graviola
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: nightly
-            crypto: openssl
           # macOS arm64
           - os: macos-latest
             platform: darwin
@@ -191,27 +170,6 @@ jobs:
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
-            toolchain: stable
-            crypto: openssl
-          # macOS x64
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: stable
-            crypto: ring
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: stable
-            crypto: aws-lc
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
-            toolchain: stable
-            crypto: graviola
-          - os: macos-13
-            platform: darwin
-            arch: x86_64
             toolchain: stable
             crypto: openssl
           # macOS arm64
