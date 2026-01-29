@@ -218,8 +218,8 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 KeyKind::Public => {
                     // Handle is SEC1 uncompressed point - parse it
                     let mut bn_ctx = openssl::bn::BigNumContext::new().or_throw(ctx)?;
-                    let point =
-                        openssl::ec::EcPoint::from_bytes(&group, handle, &mut bn_ctx).or_throw(ctx)?;
+                    let point = openssl::ec::EcPoint::from_bytes(&group, handle, &mut bn_ctx)
+                        .or_throw(ctx)?;
                     let mut x = BigNum::new().or_throw(ctx)?;
                     let mut y = BigNum::new().or_throw(ctx)?;
                     point
@@ -298,8 +298,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::X25519 => {
             if key.kind == KeyKind::Private {
                 // Handle is raw 32-byte secret
-                let pkey =
-                    PKey::private_key_from_raw_bytes(handle, Id::X25519).or_throw(ctx)?;
+                let pkey = PKey::private_key_from_raw_bytes(handle, Id::X25519).or_throw(ctx)?;
                 let raw_public = pkey.raw_public_key().or_throw(ctx)?;
                 set_okp_jwk_props(name, &obj, Some(handle), &raw_public)?;
             } else {
