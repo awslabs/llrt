@@ -8,16 +8,22 @@ mod encryption;
 mod encryption_algorithm;
 #[cfg(feature = "_rustcrypto")]
 mod export_key;
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+mod export_key_openssl;
 mod generate_key;
 #[cfg(feature = "_rustcrypto")]
 mod import_key;
-#[cfg(feature = "_rustcrypto")]
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+mod import_key_openssl;
+#[cfg(any(feature = "_rustcrypto", feature = "_subtle-full"))]
 mod key_algorithm;
 mod sign;
 mod sign_algorithm;
 mod verify;
 #[cfg(feature = "_rustcrypto")]
 mod wrapping;
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+mod wrapping_openssl;
 
 pub use crypto_key::CryptoKey;
 pub use derive::subtle_derive_bits;
@@ -27,10 +33,14 @@ pub use encryption::subtle_decrypt;
 pub use encryption::subtle_encrypt;
 #[cfg(feature = "_rustcrypto")]
 pub use export_key::subtle_export_key;
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+pub use export_key_openssl::subtle_export_key;
 pub use generate_key::subtle_generate_key;
 #[cfg(feature = "_rustcrypto")]
 pub use import_key::subtle_import_key;
-#[cfg(feature = "_rustcrypto")]
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+pub use import_key_openssl::subtle_import_key;
+#[cfg(any(feature = "_rustcrypto", feature = "_subtle-full"))]
 use key_algorithm::KeyAlgorithm;
 pub use sign::subtle_sign;
 pub use verify::subtle_verify;
@@ -38,11 +48,15 @@ pub use verify::subtle_verify;
 pub use wrapping::subtle_unwrap_key;
 #[cfg(feature = "_rustcrypto")]
 pub use wrapping::subtle_wrap_key;
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+pub use wrapping_openssl::subtle_unwrap_key;
+#[cfg(all(feature = "openssl", not(feature = "_rustcrypto")))]
+pub use wrapping_openssl::subtle_wrap_key;
 
-// Stub implementations for limited crypto providers
-#[cfg(not(feature = "_rustcrypto"))]
+// Stub implementations for limited crypto providers (not openssl, not rustcrypto)
+#[cfg(not(any(feature = "_rustcrypto", feature = "_subtle-full")))]
 mod key_algorithm;
-#[cfg(not(feature = "_rustcrypto"))]
+#[cfg(not(any(feature = "_rustcrypto", feature = "_subtle-full")))]
 use key_algorithm::KeyAlgorithm;
 
 use llrt_utils::{object::ObjectExt, str_enum};
@@ -177,14 +191,14 @@ pub fn algorithm_not_supported_error<T>(ctx: &Ctx<'_>) -> Result<T> {
     Err(Exception::throw_message(ctx, "Algorithm not supported"))
 }
 
-// Stub implementations for when _rustcrypto feature is disabled
-#[cfg(not(feature = "_rustcrypto"))]
+// Stub implementations for providers without rustcrypto or openssl
+#[cfg(not(any(feature = "_rustcrypto", feature = "openssl")))]
 mod stubs;
-#[cfg(not(feature = "_rustcrypto"))]
+#[cfg(not(any(feature = "_rustcrypto", feature = "openssl")))]
 pub use stubs::subtle_export_key;
-#[cfg(not(feature = "_rustcrypto"))]
+#[cfg(not(any(feature = "_rustcrypto", feature = "openssl")))]
 pub use stubs::subtle_import_key;
-#[cfg(not(feature = "_rustcrypto"))]
+#[cfg(not(any(feature = "_rustcrypto", feature = "openssl")))]
 pub use stubs::subtle_unwrap_key;
-#[cfg(not(feature = "_rustcrypto"))]
+#[cfg(not(any(feature = "_rustcrypto", feature = "openssl")))]
 pub use stubs::subtle_wrap_key;
