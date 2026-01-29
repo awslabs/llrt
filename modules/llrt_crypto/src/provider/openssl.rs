@@ -674,7 +674,11 @@ impl CryptoProvider for OpenSslProvider {
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
         let public_sec1 = ec_key
             .public_key()
-            .to_bytes(&group, openssl::ec::PointConversionForm::UNCOMPRESSED, &mut bn_ctx)
+            .to_bytes(
+                &group,
+                openssl::ec::PointConversionForm::UNCOMPRESSED,
+                &mut bn_ctx,
+            )
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
         Ok((private_der, public_sec1))
     }
