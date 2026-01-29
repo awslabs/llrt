@@ -96,7 +96,11 @@ jobs:
               echo "cargo_features=--no-default-features --features lambda,macro,crypto-ring-rust,tls-ring" >> $GITHUB_OUTPUT
               ;;
             openssl)
-              echo "cargo_features=--no-default-features --features lambda,macro,crypto-openssl,tls-openssl,openssl-vendored" >> $GITHUB_OUTPUT
+              if [ "${{ inputs.platform }}" = "windows" ]; then
+                echo "cargo_features=--no-default-features --features lambda,macro,crypto-openssl,tls-openssl" >> $GITHUB_OUTPUT
+              else
+                echo "cargo_features=--no-default-features --features lambda,macro,crypto-openssl,tls-openssl,openssl-vendored" >> $GITHUB_OUTPUT
+              fi
               ;;
             aws-lc)
               echo "cargo_features=--no-default-features --features lambda,macro,crypto-rust,tls-aws-lc" >> $GITHUB_OUTPUT
