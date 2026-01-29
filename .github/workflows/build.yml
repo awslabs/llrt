@@ -90,20 +90,20 @@ jobs:
         run: |
           case "${{ inputs.crypto }}" in
             graviola)
-              echo "cargo_features=--no-default-features --features lambda,macro,crypto-graviola-rust,tls-graviola" >> $GITHUB_OUTPUT
+              echo "cargo_features=--no-default-features --features macro,crypto-graviola-rust,tls-graviola" >> $GITHUB_OUTPUT
               ;;
             ring)
-              echo "cargo_features=--no-default-features --features lambda,macro,crypto-ring-rust,tls-ring" >> $GITHUB_OUTPUT
+              echo "cargo_features=--no-default-features --features macro,crypto-ring-rust,tls-ring" >> $GITHUB_OUTPUT
               ;;
             openssl)
               if [ "${{ inputs.platform }}" = "windows" ]; then
-                echo "cargo_features=--no-default-features --features lambda,macro,crypto-openssl,tls-openssl" >> $GITHUB_OUTPUT
+                echo "cargo_features=--no-default-features --features macro,crypto-openssl,tls-openssl" >> $GITHUB_OUTPUT
               else
-                echo "cargo_features=--no-default-features --features lambda,macro,crypto-openssl,tls-openssl,openssl-vendored" >> $GITHUB_OUTPUT
+                echo "cargo_features=--no-default-features --features macro,crypto-openssl,tls-openssl,openssl-vendored" >> $GITHUB_OUTPUT
               fi
               ;;
             aws-lc)
-              echo "cargo_features=--no-default-features --features lambda,macro,crypto-rust,tls-aws-lc" >> $GITHUB_OUTPUT
+              echo "cargo_features=--no-default-features --features macro,crypto-rust,tls-aws-lc" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "Unknown crypto: ${{ inputs.crypto }}"
