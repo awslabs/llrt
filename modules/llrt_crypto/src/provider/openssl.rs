@@ -1169,12 +1169,19 @@ impl CryptoProvider for OpenSslProvider {
                 is_private: true,
             })
         } else {
-            let pkey = PKey::from_ec_key(pub_key)
+            // Return SEC1 uncompressed point for public key (consistent with generate_ec_key)
+            let mut ctx = openssl::bn::BigNumContext::new()
+                .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+            let sec1 = pub_key
+                .public_key()
+                .to_bytes(
+                    &group,
+                    openssl::ec::PointConversionForm::UNCOMPRESSED,
+                    &mut ctx,
+                )
                 .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
             Ok(super::EcImportResult {
-                key_data: pkey
-                    .public_key_to_der()
-                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?,
+                key_data: sec1,
                 is_private: false,
             })
         }
