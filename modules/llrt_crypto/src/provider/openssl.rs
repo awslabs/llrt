@@ -663,13 +663,20 @@ impl CryptoProvider for OpenSslProvider {
         let group = get_ec_group(curve)?;
         let ec_key = EcKey::generate(&group)
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
-        let private_der = ec_key
+        let pkey = PKey::from_ec_key(ec_key.clone())
+            .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
+        // Return PKCS#8 DER for private key (consistent with RustCrypto)
+        let private_der = pkey
             .private_key_to_der()
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
-        let public_der = ec_key
-            .public_key_to_der()
+        // Return SEC1 uncompressed point for public key (consistent with RustCrypto)
+        let mut bn_ctx = openssl::bn::BigNumContext::new()
             .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
-        Ok((private_der, public_der))
+        let public_sec1 = ec_key
+            .public_key()
+            .to_bytes(&group, openssl::ec::PointConversionForm::UNCOMPRESSED, &mut bn_ctx)
+            .map_err(|e| CryptoError::OperationFailed(Some(e.to_string().into())))?;
+        Ok((private_der, public_sec1))
     }
 
     fn generate_ed25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
