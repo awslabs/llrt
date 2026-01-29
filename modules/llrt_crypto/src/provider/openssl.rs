@@ -1219,24 +1219,18 @@ impl CryptoProvider for OpenSslProvider {
                 d: Some(ec_key.private_key().to_vec()),
             })
         } else {
-            let pkey = PKey::public_key_from_der(key_data)
-                .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-            let ec_key = pkey
-                .ec_key()
-                .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-            let mut x =
-                BigNum::new().map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-            let mut y =
-                BigNum::new().map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-            ec_key
-                .public_key()
-                .affine_coordinates(&group, &mut x, &mut y, &mut ctx)
-                .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-            Ok(super::EcJwkExport {
-                x: x.to_vec(),
-                y: y.to_vec(),
-                d: None,
-            })
+            // key_data is SEC1 uncompressed point (0x04 || x || y)
+            let coord_len = match curve {
+                EllipticCurve::P256 => 32,
+                EllipticCurve::P384 => 48,
+                EllipticCurve::P521 => 66,
+            };
+            if key_data.len() != 1 + 2 * coord_len || key_data[0] != 0x04 {
+                return Err(CryptoError::InvalidKey(None));
+            }
+            let x = key_data[1..1 + coord_len].to_vec();
+            let y = key_data[1 + coord_len..].to_vec();
+            Ok(super::EcJwkExport { x, y, d: None })
         }
     }
 
