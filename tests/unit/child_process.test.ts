@@ -218,9 +218,16 @@ describe("spawn", () => {
         const exists = process.kill(detachedPid, 0);
         console.log("Process exists check:", exists);
         expect(exists).toBe(true);
-        const killResult = process.kill(detachedPid);
-        console.log("Kill result:", killResult);
-        done();
+        process.kill(detachedPid, "SIGKILL");
+        // Wait for process to actually terminate
+        const waitForDeath = () => {
+          if (process.kill(detachedPid, 0)) {
+            setTimeout(waitForDeath, 50);
+          } else {
+            done();
+          }
+        };
+        waitForDeath();
       } catch (error) {
         done(error);
       }
