@@ -519,4 +519,19 @@ impl CryptoProvider for RingProvider {
     ) -> Result<super::EcJwkExport, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
+    fn import_okp_jwk(
+        &self,
+        _jwk: super::OkpJwkImport<'_>,
+        _is_ed25519: bool,
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
+    fn export_okp_jwk(
+        &self,
+        _key_data: &[u8],
+        _is_private: bool,
+        _is_ed25519: bool,
+    ) -> Result<super::OkpJwkExport, CryptoError> {
+        Err(CryptoError::UnsupportedAlgorithm)
+    }
 }

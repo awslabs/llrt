@@ -1239,4 +1239,77 @@ impl CryptoProvider for OpenSslProvider {
             })
         }
     }
+
+    fn import_okp_jwk(
+        &self,
+        jwk: super::OkpJwkImport<'_>,
+        is_ed25519: bool,
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        let id = if is_ed25519 { Id::ED25519 } else { Id::X25519 };
+        if let Some(d) = jwk.d {
+            // Private key
+            let pkey = PKey::private_key_from_raw_bytes(d, id)
+                .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+            if is_ed25519 {
+                // Ed25519: return PKCS8 DER
+                Ok(super::OkpImportResult {
+                    key_data: pkey
+                        .private_key_to_der()
+                        .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?,
+                    is_private: true,
+                })
+            } else {
+                // X25519: return raw bytes
+                Ok(super::OkpImportResult {
+                    key_data: d.to_vec(),
+                    is_private: true,
+                })
+            }
+        } else {
+            // Public key - store raw bytes
+            Ok(super::OkpImportResult {
+                key_data: jwk.x.to_vec(),
+                is_private: false,
+            })
+        }
+    }
+
+    fn export_okp_jwk(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+        is_ed25519: bool,
+    ) -> Result<super::OkpJwkExport, CryptoError> {
+        if is_private {
+            if is_ed25519 {
+                // Ed25519: key_data is PKCS8 DER
+                let pkey = PKey::private_key_from_der(key_data)
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+                let d = pkey
+                    .raw_private_key()
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+                let x = pkey
+                    .raw_public_key()
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+                Ok(super::OkpJwkExport { x, d: Some(d) })
+            } else {
+                // X25519: key_data is raw 32-byte secret
+                let pkey = PKey::private_key_from_raw_bytes(key_data, Id::X25519)
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+                let x = pkey
+                    .raw_public_key()
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+                Ok(super::OkpJwkExport {
+                    x,
+                    d: Some(key_data.to_vec()),
+                })
+            }
+        } else {
+            // Public key - key_data is raw bytes
+            Ok(super::OkpJwkExport {
+                x: key_data.to_vec(),
+                d: None,
+            })
+        }
+    }
 }

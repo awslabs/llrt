@@ -107,6 +107,22 @@ pub struct EcJwkExport {
     pub d: Option<Vec<u8>>,
 }
 
+/// OKP (Ed25519/X25519) JWK components for import
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct OkpJwkImport<'a> {
+    pub x: &'a [u8],         // public key
+    pub d: Option<&'a [u8]>, // private key
+}
+
+/// OKP JWK components for export
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct OkpJwkExport {
+    pub x: Vec<u8>,
+    pub d: Option<Vec<u8>>,
+}
+
 pub trait SimpleDigest: Send {
     fn update(&mut self, data: &[u8]);
     fn finalize(self) -> Vec<u8>
@@ -362,6 +378,19 @@ pub trait CryptoProvider {
         curve: EllipticCurve,
         is_private: bool,
     ) -> Result<EcJwkExport, CryptoError>;
+
+    // OKP JWK import/export
+    fn import_okp_jwk(
+        &self,
+        jwk: OkpJwkImport<'_>,
+        is_ed25519: bool,
+    ) -> Result<OkpImportResult, CryptoError>;
+    fn export_okp_jwk(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+        is_ed25519: bool,
+    ) -> Result<OkpJwkExport, CryptoError>;
 }
 
 pub trait HmacProvider: Send {
@@ -729,6 +758,21 @@ macro_rules! impl_hybrid_provider {
                 p: bool,
             ) -> Result<EcJwkExport, CryptoError> {
                 rust::RustCryptoProvider.export_ec_jwk(d, c, p)
+            }
+            fn import_okp_jwk(
+                &self,
+                j: OkpJwkImport<'_>,
+                is_ed25519: bool,
+            ) -> Result<OkpImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_okp_jwk(j, is_ed25519)
+            }
+            fn export_okp_jwk(
+                &self,
+                d: &[u8],
+                is_private: bool,
+                is_ed25519: bool,
+            ) -> Result<OkpJwkExport, CryptoError> {
+                rust::RustCryptoProvider.export_okp_jwk(d, is_private, is_ed25519)
             }
         }
     };

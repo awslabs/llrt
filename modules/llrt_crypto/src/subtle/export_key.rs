@@ -1,25 +1,20 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use der::{
-    asn1::{self, BitString, OctetStringRef},
-    Decode, Encode, SecretDocument,
-};
-use elliptic_curve::{
-    sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint},
-    AffinePoint, CurveArithmetic, FieldBytesSize,
-};
+
+//! Unified key export implementation using CryptoProvider trait.
+
 use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_utils::result::ResultExt;
-use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
-use rsa::{
-    pkcs1::DecodeRsaPrivateKey,
-    pkcs8::{AssociatedOid, DecodePrivateKey, EncodePrivateKey},
-    RsaPrivateKey,
-};
-use spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfo};
 
-use crate::subtle::CryptoKey;
+use crate::provider::CryptoProvider;
+use crate::CRYPTO_PROVIDER;
+
+use super::{
+    crypto_key::KeyKind,
+    key_algorithm::{KeyAlgorithm, KeyFormat},
+    CryptoKey,
+};
 
 pub fn algorithm_export_error<T>(ctx: &Ctx<'_>, algorithm: &str, format: &str) -> Result<T> {
     Err(Exception::throw_message(
@@ -27,12 +22,6 @@ pub fn algorithm_export_error<T>(ctx: &Ctx<'_>, algorithm: &str, format: &str) -
         &["Export of ", algorithm, " as ", format, " is not supported"].concat(),
     ))
 }
-
-use super::{
-    crypto_key::KeyKind,
-    key_algorithm::{EcAlgorithm, KeyAlgorithm, KeyFormat},
-    EllipticCurve,
-};
 
 pub enum ExportOutput<'js> {
     Bytes(Vec<u8>),
@@ -45,9 +34,7 @@ pub async fn subtle_export_key<'js>(
     key: Class<'js, CryptoKey>,
 ) -> Result<Object<'js>> {
     let key = key.borrow();
-
     let export = export_key(&ctx, format, &key)?;
-
     Ok(match export {
         ExportOutput::Bytes(bytes) => ArrayBuffer::new(ctx, bytes)?.into_object(),
         ExportOutput::Object(object) => object,
@@ -64,7 +51,7 @@ pub fn export_key<'js>(
             ctx,
             "The CryptoKey is non extractable",
         ));
-    };
+    }
     let bytes = match format {
         KeyFormat::Jwk => return Ok(ExportOutput::Object(export_jwk(ctx, key)?)),
         KeyFormat::Raw => export_raw(ctx, key),
@@ -80,51 +67,53 @@ fn export_raw(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
             ctx,
             "Private Crypto keys can't be exported as raw format",
         ));
-    };
-    if !matches!(
-        key.algorithm,
-        KeyAlgorithm::Aes { .. }
-            | KeyAlgorithm::Ec { .. }
-            | KeyAlgorithm::Hmac { .. }
-            | KeyAlgorithm::Rsa { .. }
-            | KeyAlgorithm::Ed25519
-            | KeyAlgorithm::X25519
-    ) {
-        return algorithm_export_error(ctx, &key.name, "raw");
     }
-    Ok(key.handle.to_vec())
+    match &key.algorithm {
+        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } => Ok(key.handle.to_vec()),
+        KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
+            .export_ec_public_key_sec1(&key.handle, *curve, false)
+            .or_throw(ctx),
+        KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
+            .export_okp_public_key_raw(&key.handle, false)
+            .or_throw(ctx),
+        KeyAlgorithm::X25519 => CRYPTO_PROVIDER
+            .export_okp_public_key_raw(&key.handle, false)
+            .or_throw(ctx),
+        KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
+            .export_rsa_public_key_pkcs1(&key.handle)
+            .or_throw(ctx),
+        _ => algorithm_export_error(ctx, &key.name, "raw"),
+    }
 }
 
 fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
-    let handle = key.handle.as_ref();
-
     if key.kind != KeyKind::Private {
         return Err(Exception::throw_type(
             ctx,
             "Public or Secret Crypto keys can't be exported as pkcs8 format",
         ));
     }
-
-    let bytes: Vec<u8> = match &key.algorithm {
-        KeyAlgorithm::Ec { .. } | KeyAlgorithm::Ed25519 => handle.into(),
-        KeyAlgorithm::X25519 => PrivateKeyInfoRef::new(
-            AlgorithmIdentifier {
-                oid: const_oid::db::rfc8410::ID_X_25519,
-                parameters: None,
-            },
-            OctetStringRef::new(handle).or_throw(ctx)?,
-        )
-        .to_der()
-        .or_throw(ctx)?,
-        KeyAlgorithm::Rsa { .. } => rsa_der_pkcs1_to_pkcs8(ctx, handle)?.as_bytes().to_vec(),
-        _ => return algorithm_export_error(ctx, &key.name, "pkcs8"),
-    };
-    Ok(bytes)
-}
-
-fn rsa_der_pkcs1_to_pkcs8(ctx: &Ctx, handle: &[u8]) -> Result<SecretDocument> {
-    let private_key = RsaPrivateKey::from_pkcs1_der(handle).or_throw(ctx)?;
-    private_key.to_pkcs8_der().or_throw(ctx)
+    match &key.algorithm {
+        KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
+            .export_ec_private_key_pkcs8(&key.handle, *curve)
+            .or_throw(ctx),
+        KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
+            .export_okp_private_key_pkcs8(
+                &key.handle,
+                const_oid::db::rfc8410::ID_ED_25519.as_bytes(),
+            )
+            .or_throw(ctx),
+        KeyAlgorithm::X25519 => CRYPTO_PROVIDER
+            .export_okp_private_key_pkcs8(
+                &key.handle,
+                const_oid::db::rfc8410::ID_X_25519.as_bytes(),
+            )
+            .or_throw(ctx),
+        KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
+            .export_rsa_private_key_pkcs8(&key.handle)
+            .or_throw(ctx),
+        _ => algorithm_export_error(ctx, &key.name, "pkcs8"),
+    }
 }
 
 fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
@@ -134,80 +123,28 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
             "Private or Secret Crypto keys can't be exported as spki format",
         ));
     }
-
-    let public_key_bytes = key.handle.as_ref();
-    let bytes: Vec<u8> = match &key.algorithm {
-        KeyAlgorithm::X25519 => {
-            let key_info = spki::SubjectPublicKeyInfo {
-                algorithm: spki::AlgorithmIdentifierRef {
-                    oid: const_oid::db::rfc8410::ID_X_25519,
-                    parameters: None,
-                },
-                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
-            };
-
-            key_info.to_der().unwrap()
-        },
-        KeyAlgorithm::Ec { curve, algorithm } => {
-            let alg_id = AlgorithmIdentifierOwned {
-                oid: elliptic_curve::ALGORITHM_OID,
-                parameters: Some(match curve {
-                    EllipticCurve::P256 => (&p256::NistP256::OID).into(),
-                    EllipticCurve::P384 => (&p384::NistP384::OID).into(),
-                    EllipticCurve::P521 => (&p521::NistP521::OID).into(),
-                }),
-            };
-            let alg_id = match algorithm {
-                EcAlgorithm::Ecdh => AlgorithmIdentifier {
-                    oid: const_oid::db::rfc5912::ID_EC_PUBLIC_KEY,
-                    parameters: alg_id.parameters,
-                },
-                _ => alg_id,
-            };
-
-            //unwrap ok, key is always valid after this stage
-            let key_info = SubjectPublicKeyInfo {
-                algorithm: alg_id,
-                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
-            };
-
-            key_info.to_der().unwrap()
-        },
-        KeyAlgorithm::Ed25519 => {
-            let key_info = spki::SubjectPublicKeyInfo {
-                algorithm: spki::AlgorithmIdentifierOwned {
-                    oid: const_oid::db::rfc8410::ID_ED_25519,
-                    parameters: None,
-                },
-                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
-            };
-            key_info.to_der().unwrap()
-        },
-
-        KeyAlgorithm::Rsa { .. } => {
-            //unwrap ok, key is always valid after this stage
-            let key_info = spki::SubjectPublicKeyInfo {
-                algorithm: spki::AlgorithmIdentifier {
-                    oid: const_oid::db::rfc5912::RSA_ENCRYPTION,
-                    parameters: Some(asn1::AnyRef::from(asn1::Null)),
-                },
-                subject_public_key: BitString::from_bytes(public_key_bytes).unwrap(),
-            };
-
-            key_info.to_der().unwrap()
-        },
-        _ => return algorithm_export_error(ctx, &key.name, "spki"),
-    };
-
-    Ok(bytes)
+    match &key.algorithm {
+        KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
+            .export_ec_public_key_spki(&key.handle, *curve)
+            .or_throw(ctx),
+        KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
+            .export_okp_public_key_spki(&key.handle, const_oid::db::rfc8410::ID_ED_25519.as_bytes())
+            .or_throw(ctx),
+        KeyAlgorithm::X25519 => CRYPTO_PROVIDER
+            .export_okp_public_key_spki(&key.handle, const_oid::db::rfc8410::ID_X_25519.as_bytes())
+            .or_throw(ctx),
+        KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
+            .export_rsa_public_key_spki(&key.handle)
+            .or_throw(ctx),
+        _ => algorithm_export_error(ctx, &key.name, "spki"),
+    }
 }
 
 fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
-    let name = key.name.as_ref();
-    let handle = key.handle.as_ref();
     let obj = Object::new(ctx.clone())?;
     obj.set("key_ops", key.usages())?;
     obj.set("ext", true)?;
+
     match &key.algorithm {
         KeyAlgorithm::Aes { length } => {
             let prefix = match length {
@@ -216,185 +153,75 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 256 => "A256",
                 _ => unreachable!(),
             };
-            let suffix = &name[("AES-".len())..];
-            let alg = [prefix, suffix].concat();
-
-            let k = bytes_to_b64_url_safe_string(handle);
+            let suffix = &key.name[("AES-".len())..];
             obj.set("kty", "oct")?;
-            obj.set("k", k)?;
-            obj.set("alg", alg)?
+            obj.set("k", bytes_to_b64_url_safe_string(&key.handle))?;
+            obj.set("alg", [prefix, suffix].concat())?;
         },
         KeyAlgorithm::Hmac { hash, .. } => {
-            let k = bytes_to_b64_url_safe_string(handle);
             obj.set("kty", "oct")?;
             obj.set("alg", ["HS", &hash.as_str()[4..]].concat())?;
-            obj.set("k", k)?;
+            obj.set("k", bytes_to_b64_url_safe_string(&key.handle))?;
         },
         KeyAlgorithm::Ec { curve, .. } => {
-            fn set_public_key_coords<C>(
-                obj: &Object<'_>,
-                public_key: elliptic_curve::PublicKey<C>,
-            ) -> Result<()>
-            where
-                C: CurveArithmetic,
-                AffinePoint<C>: FromEncodedPoint<C> + ToEncodedPoint<C>,
-                FieldBytesSize<C>: ModulusSize,
-            {
-                let p = public_key.to_encoded_point(false);
-                let x = p.x().unwrap().as_slice();
-                let y = p.y().unwrap().as_slice();
-                obj.set("x", bytes_to_b64_url_safe_string(x))?;
-                obj.set("y", bytes_to_b64_url_safe_string(y))?;
-                Ok(())
-            }
-
-            fn set_private_key_props<C>(
-                obj: &Object<'_>,
-                private_key: elliptic_curve::SecretKey<C>,
-            ) -> Result<()>
-            where
-                C: elliptic_curve::Curve + elliptic_curve::CurveArithmetic,
-                AffinePoint<C>: FromEncodedPoint<C> + ToEncodedPoint<C>,
-                FieldBytesSize<C>: ModulusSize,
-            {
-                let public_key = private_key.public_key();
-                set_public_key_coords(obj, public_key)?;
-                obj.set(
-                    "d",
-                    bytes_to_b64_url_safe_string(private_key.to_bytes().as_slice()),
-                )?;
-                Ok(())
-            }
-
-            match key.kind {
-                KeyKind::Public => match curve {
-                    EllipticCurve::P256 => {
-                        let public_key = p256::PublicKey::from_sec1_bytes(handle).or_throw(ctx)?;
-                        set_public_key_coords(&obj, public_key)?;
-                    },
-                    EllipticCurve::P384 => {
-                        let public_key = p384::PublicKey::from_sec1_bytes(handle).or_throw(ctx)?;
-                        set_public_key_coords(&obj, public_key)?;
-                    },
-                    EllipticCurve::P521 => {
-                        let public_key = p521::PublicKey::from_sec1_bytes(handle).or_throw(ctx)?;
-                        set_public_key_coords(&obj, public_key)?;
-                    },
-                },
-                KeyKind::Private => match curve {
-                    EllipticCurve::P256 => {
-                        let private_key = p256::SecretKey::from_pkcs8_der(handle).or_throw(ctx)?;
-                        set_private_key_props(&obj, private_key)?;
-                    },
-                    EllipticCurve::P384 => {
-                        let private_key = p384::SecretKey::from_pkcs8_der(handle).or_throw(ctx)?;
-                        set_private_key_props(&obj, private_key)?;
-                    },
-                    EllipticCurve::P521 => {
-                        let private_key = p521::SecretKey::from_pkcs8_der(handle).or_throw(ctx)?;
-                        set_private_key_props(&obj, private_key)?;
-                    },
-                },
-                _ => unreachable!(),
-            }
-
+            let jwk = CRYPTO_PROVIDER
+                .export_ec_jwk(&key.handle, *curve, key.kind == KeyKind::Private)
+                .or_throw(ctx)?;
             obj.set("kty", "EC")?;
             obj.set("crv", curve.as_str())?;
+            obj.set("x", bytes_to_b64_url_safe_string(&jwk.x))?;
+            obj.set("y", bytes_to_b64_url_safe_string(&jwk.y))?;
+            if let Some(d) = jwk.d {
+                obj.set("d", bytes_to_b64_url_safe_string(&d))?;
+            }
         },
         KeyAlgorithm::Ed25519 => {
-            if key.kind == KeyKind::Private {
-                let pki = PrivateKeyInfoRef::try_from(handle).or_throw(ctx)?;
-                let pub_key = pki.public_key.as_ref().unwrap();
-                set_okp_jwk_props(
-                    name,
-                    &obj,
-                    Some(pki.private_key.as_bytes()),
-                    pub_key.raw_bytes(),
-                )?;
-            } else {
-                set_okp_jwk_props(name, &obj, None, handle)?;
+            let jwk = CRYPTO_PROVIDER
+                .export_okp_jwk(&key.handle, key.kind == KeyKind::Private, true)
+                .or_throw(ctx)?;
+            obj.set("kty", "OKP")?;
+            obj.set("crv", "Ed25519")?;
+            obj.set("x", bytes_to_b64_url_safe_string(&jwk.x))?;
+            if let Some(d) = jwk.d {
+                obj.set("d", bytes_to_b64_url_safe_string(&d))?;
+            }
+        },
+        KeyAlgorithm::X25519 => {
+            let jwk = CRYPTO_PROVIDER
+                .export_okp_jwk(&key.handle, key.kind == KeyKind::Private, false)
+                .or_throw(ctx)?;
+            obj.set("kty", "OKP")?;
+            obj.set("crv", "X25519")?;
+            obj.set("x", bytes_to_b64_url_safe_string(&jwk.x))?;
+            if let Some(d) = jwk.d {
+                obj.set("d", bytes_to_b64_url_safe_string(&d))?;
             }
         },
         KeyAlgorithm::Rsa { hash, .. } => {
-            let (n, e) = match key.kind {
-                KeyKind::Public => {
-                    let public_key = rsa::pkcs1::RsaPublicKey::from_der(handle).or_throw(ctx)?;
-                    let n = bytes_to_b64_url_safe_string(public_key.modulus.as_bytes());
-                    let e = bytes_to_b64_url_safe_string(public_key.public_exponent.as_bytes());
-                    (n, e)
-                },
-                KeyKind::Private => {
-                    let private_key = rsa::pkcs1::RsaPrivateKey::from_der(handle).or_throw(ctx)?;
-                    let n = bytes_to_b64_url_safe_string(private_key.modulus.as_bytes());
-                    let e = bytes_to_b64_url_safe_string(private_key.public_exponent.as_bytes());
-                    let d = bytes_to_b64_url_safe_string(private_key.private_exponent.as_bytes());
-                    let p = bytes_to_b64_url_safe_string(private_key.prime1.as_bytes());
-                    let q = bytes_to_b64_url_safe_string(private_key.prime2.as_bytes());
-                    let dp = bytes_to_b64_url_safe_string(private_key.exponent1.as_bytes());
-                    let dq = bytes_to_b64_url_safe_string(private_key.exponent2.as_bytes());
-                    let qi = bytes_to_b64_url_safe_string(private_key.coefficient.as_bytes());
-                    obj.set("d", d)?;
-                    obj.set("p", p)?;
-                    obj.set("q", q)?;
-                    obj.set("dp", dp)?;
-                    obj.set("dq", dq)?;
-                    obj.set("qi", qi)?;
-                    (n, e)
-                },
-                _ => {
-                    unreachable!()
-                },
-            };
-
+            let jwk = CRYPTO_PROVIDER
+                .export_rsa_jwk(&key.handle, key.kind == KeyKind::Private)
+                .or_throw(ctx)?;
             let alg_suffix = hash.as_numeric_str();
-
-            let alg_prefix = match name {
+            let alg_prefix = match key.name.as_ref() {
                 "RSASSA-PKCS1-v1_5" => "RS",
                 "RSA-PSS" => "PS",
                 "RSA-OAEP" => "RSA-OAEP-",
                 _ => unreachable!(),
             };
-
-            let alg = [alg_prefix, alg_suffix].concat();
-
             obj.set("kty", "RSA")?;
-            obj.set("n", n)?;
-            obj.set("e", e)?;
-            obj.set("alg", alg)?;
+            obj.set("n", bytes_to_b64_url_safe_string(&jwk.n))?;
+            obj.set("e", bytes_to_b64_url_safe_string(&jwk.e))?;
+            obj.set("alg", [alg_prefix, alg_suffix].concat())?;
+            if let Some(d) = jwk.d {
+                obj.set("d", bytes_to_b64_url_safe_string(&d))?;
+                obj.set("p", bytes_to_b64_url_safe_string(&jwk.p.unwrap()))?;
+                obj.set("q", bytes_to_b64_url_safe_string(&jwk.q.unwrap()))?;
+                obj.set("dp", bytes_to_b64_url_safe_string(&jwk.dp.unwrap()))?;
+                obj.set("dq", bytes_to_b64_url_safe_string(&jwk.dq.unwrap()))?;
+                obj.set("qi", bytes_to_b64_url_safe_string(&jwk.qi.unwrap()))?;
+            }
         },
-        KeyAlgorithm::X25519 => match key.kind {
-            KeyKind::Private => {
-                let array: [u8; 32] = handle.try_into().or_throw(ctx)?;
-                let secret = x25519_dalek::StaticSecret::from(array);
-                let public_key = x25519_dalek::PublicKey::from(&secret);
-                set_okp_jwk_props(name, &obj, Some(secret.as_bytes()), public_key.as_bytes())?;
-            },
-            KeyKind::Public => {
-                let public_key = handle;
-                set_okp_jwk_props(name, &obj, None, public_key)?;
-            },
-            _ => unreachable!(),
-        },
-        //cant be exported
         _ => return algorithm_export_error(ctx, &key.name, "jwk"),
-    };
-
-    Ok(obj)
-}
-
-fn set_okp_jwk_props(
-    crv: &str,
-    obj: &Object<'_>,
-    private_key: Option<&[u8]>,
-    public_key: &[u8],
-) -> Result<()> {
-    let x = bytes_to_b64_url_safe_string(public_key);
-    obj.set("kty", "OKP")?;
-    obj.set("crv", crv)?;
-    obj.set("x", x)?;
-    if let Some(private_key) = private_key {
-        let d = bytes_to_b64_url_safe_string(private_key);
-        obj.set("d", d)?;
     }
-    Ok(())
+    Ok(obj)
 }

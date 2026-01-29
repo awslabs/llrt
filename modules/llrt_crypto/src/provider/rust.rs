@@ -1421,46 +1421,43 @@ impl CryptoProvider for RustCryptoProvider {
             EllipticCurve::P521 => 66,
         };
         if is_private {
-            // key_data is PKCS8
-            use der::Decode;
-            let pk_info = pkcs8::PrivateKeyInfoRef::from_der(key_data)
-                .map_err(|_| CryptoError::InvalidKey(None))?;
-            // Get private key bytes (skip OCTET STRING wrapper if present)
-            let priv_bytes = pk_info.private_key.as_bytes();
-            let d = if priv_bytes.len() > 2 && priv_bytes[0] == 0x04 {
-                &priv_bytes[2..]
-            } else {
-                priv_bytes
-            };
-            // Derive public key to get x, y
-            let (x, y) = match curve {
+            // key_data is PKCS8 - use elliptic_curve's SecretKey to parse it
+            let (x, y, d) = match curve {
                 EllipticCurve::P256 => {
-                    let sk =
-                        P256SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    let sk = P256SecretKey::from_pkcs8_der(key_data)
+                        .map_err(|_| CryptoError::InvalidKey(None))?;
                     let pk = sk.public_key();
                     let pt = pk.to_encoded_point(false);
-                    (pt.x().unwrap().to_vec(), pt.y().unwrap().to_vec())
+                    (
+                        pt.x().unwrap().to_vec(),
+                        pt.y().unwrap().to_vec(),
+                        sk.to_bytes().to_vec(),
+                    )
                 },
                 EllipticCurve::P384 => {
-                    let sk =
-                        P384SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    let sk = P384SecretKey::from_pkcs8_der(key_data)
+                        .map_err(|_| CryptoError::InvalidKey(None))?;
                     let pk = sk.public_key();
                     let pt = pk.to_encoded_point(false);
-                    (pt.x().unwrap().to_vec(), pt.y().unwrap().to_vec())
+                    (
+                        pt.x().unwrap().to_vec(),
+                        pt.y().unwrap().to_vec(),
+                        sk.to_bytes().to_vec(),
+                    )
                 },
                 EllipticCurve::P521 => {
-                    let sk =
-                        P521SecretKey::from_slice(d).map_err(|_| CryptoError::InvalidKey(None))?;
+                    let sk = P521SecretKey::from_pkcs8_der(key_data)
+                        .map_err(|_| CryptoError::InvalidKey(None))?;
                     let pk = sk.public_key();
                     let pt = pk.to_encoded_point(false);
-                    (pt.x().unwrap().to_vec(), pt.y().unwrap().to_vec())
+                    (
+                        pt.x().unwrap().to_vec(),
+                        pt.y().unwrap().to_vec(),
+                        sk.to_bytes().to_vec(),
+                    )
                 },
             };
-            Ok(super::EcJwkExport {
-                x,
-                y,
-                d: Some(d.to_vec()),
-            })
+            Ok(super::EcJwkExport { x, y, d: Some(d) })
         } else {
             // key_data is SEC1 uncompressed point (0x04 || x || y)
             if key_data.len() != 1 + 2 * coord_len || key_data[0] != 0x04 {
@@ -1469,6 +1466,96 @@ impl CryptoProvider for RustCryptoProvider {
             let x = key_data[1..1 + coord_len].to_vec();
             let y = key_data[1 + coord_len..].to_vec();
             Ok(super::EcJwkExport { x, y, d: None })
+        }
+    }
+
+    fn import_okp_jwk(
+        &self,
+        jwk: super::OkpJwkImport<'_>,
+        is_ed25519: bool,
+    ) -> Result<super::OkpImportResult, CryptoError> {
+        if let Some(d) = jwk.d {
+            // Private key - for Ed25519 we need PKCS8, for X25519 we store raw
+            if is_ed25519 {
+                // Ed25519: construct PKCS8 from raw private key
+                use der::{
+                    asn1::{BitStringRef, OctetStringRef},
+                    Encode,
+                };
+                let pk_info = pkcs8::PrivateKeyInfoRef {
+                    algorithm: spki::AlgorithmIdentifier {
+                        oid: const_oid::db::rfc8410::ID_ED_25519,
+                        parameters: None,
+                    },
+                    private_key: OctetStringRef::new(d)
+                        .map_err(|_| CryptoError::InvalidKey(None))?,
+                    public_key: Some(
+                        BitStringRef::from_bytes(jwk.x)
+                            .map_err(|_| CryptoError::InvalidKey(None))?,
+                    ),
+                };
+                let der = pk_info
+                    .to_der()
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
+                Ok(super::OkpImportResult {
+                    key_data: der,
+                    is_private: true,
+                })
+            } else {
+                // X25519: store raw 32-byte secret
+                Ok(super::OkpImportResult {
+                    key_data: d.to_vec(),
+                    is_private: true,
+                })
+            }
+        } else {
+            // Public key - store raw bytes
+            Ok(super::OkpImportResult {
+                key_data: jwk.x.to_vec(),
+                is_private: false,
+            })
+        }
+    }
+
+    fn export_okp_jwk(
+        &self,
+        key_data: &[u8],
+        is_private: bool,
+        is_ed25519: bool,
+    ) -> Result<super::OkpJwkExport, CryptoError> {
+        if is_private {
+            if is_ed25519 {
+                // Ed25519: key_data is PKCS8
+                use der::Decode;
+                let pk_info = pkcs8::PrivateKeyInfoRef::from_der(key_data)
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
+                let d = pk_info.private_key.as_bytes();
+                let x = pk_info
+                    .public_key
+                    .ok_or(CryptoError::InvalidKey(None))?
+                    .raw_bytes()
+                    .to_vec();
+                Ok(super::OkpJwkExport {
+                    x,
+                    d: Some(d.to_vec()),
+                })
+            } else {
+                // X25519: key_data is raw 32-byte secret
+                let secret = x25519_dalek::StaticSecret::from(
+                    <[u8; 32]>::try_from(key_data).map_err(|_| CryptoError::InvalidKey(None))?,
+                );
+                let public = x25519_dalek::PublicKey::from(&secret);
+                Ok(super::OkpJwkExport {
+                    x: public.as_bytes().to_vec(),
+                    d: Some(key_data.to_vec()),
+                })
+            }
+        } else {
+            // Public key - key_data is raw bytes
+            Ok(super::OkpJwkExport {
+                x: key_data.to_vec(),
+                d: None,
+            })
         }
     }
 }
