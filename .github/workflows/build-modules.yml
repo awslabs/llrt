@@ -33,6 +33,23 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ inputs.toolchain }}
+      - name: Install Windows OpenSSL
+        if: inputs.platform == 'windows' && inputs.crypto == 'openssl'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          path-type: inherit
+          install: >-
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-pkgconf
+      - name: Set OpenSSL env for Windows
+        if: inputs.platform == 'windows' && inputs.crypto == 'openssl'
+        shell: bash
+        run: |
+          echo "OPENSSL_DIR=D:/a/_temp/msys64/mingw64" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=D:/a/_temp/msys64/mingw64/lib" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=D:/a/_temp/msys64/mingw64/include" >> $GITHUB_ENV
       - name: Map crypto feature to TLS and crypto features
         id: features
         shell: bash
