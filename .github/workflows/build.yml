@@ -18,11 +18,15 @@ on:
         required: false
         type: string
         default: "nightly"
+      crypto:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
     runs-on: ${{ inputs.os }}
-    name: build ${{ inputs.arch }}-${{ inputs.platform }}
+    name: build ${{ inputs.arch }}-${{ inputs.platform }}${{ inputs.crypto && format('-{0}', inputs.crypto) || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -79,13 +83,44 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ inputs.toolchain }}
+      - name: Map crypto to features
+        id: features
+        if: inputs.crypto != ''
+        shell: bash
+        run: |
+          case "${{ inputs.crypto }}" in
+            graviola)
+              echo "cargo_features=--no-default-features --features macro,crypto-graviola-rust,tls-graviola" >> $GITHUB_OUTPUT
+              ;;
+            ring)
+              echo "cargo_features=--no-default-features --features macro,crypto-ring-rust,tls-ring" >> $GITHUB_OUTPUT
+              ;;
+            openssl)
+              if [ "${{ inputs.platform }}" = "windows" ]; then
+                echo "cargo_features=--no-default-features --features macro,crypto-openssl,tls-openssl" >> $GITHUB_OUTPUT
+              else
+                echo "cargo_features=--no-default-features --features macro,crypto-openssl,tls-openssl,openssl-vendored" >> $GITHUB_OUTPUT
+              fi
+              ;;
+            aws-lc)
+              echo "cargo_features=--no-default-features --features macro,crypto-rust,tls-aws-lc" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown crypto: ${{ inputs.crypto }}"
+              exit 1
+              ;;
+          esac
       - name: Run tests
         if: inputs.platform != 'windows'
+        env:
+          CARGO_FEATURES: ${{ steps.features.outputs.cargo_features }}
         run: |
           make test-ci 2>&1
       - name: Run tests on windows
         if: inputs.platform == 'windows'
         shell: msys2 {0}
+        env:
+          CARGO_FEATURES: ${{ steps.features.outputs.cargo_features }}
         run: |
           make test-ci 2>&1
       - name: Build Linux binaries

@@ -5,6 +5,10 @@ const ENCODER = new TextEncoder();
 const TEST_MESSAGE = "This is test message.";
 const ENCODED_DATA = ENCODER.encode(TEST_MESSAGE);
 
+// Limited crypto providers (crypto-ring, crypto-graviola) only support digest
+const LIMITED_CRYPTO = process.env.LLRT_LIMITED_CRYPTO === "1";
+const fullCrypto = LIMITED_CRYPTO ? describe.skip : describe;
+
 describe("SubtleCrypto digest", () => {
   it("should calculate correctly SHA-1/256/384/512 digest", async () => {
     const parameters: [string, number[]][] = [
@@ -53,7 +57,7 @@ describe("SubtleCrypto digest", () => {
   });
 });
 
-describe("SubtleCrypto generateKey/sign/verify", () => {
+fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
   // Common test parameters
   const keyLengths = [128, 192, 256];
   const hashAlgorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
@@ -281,7 +285,7 @@ describe("SubtleCrypto generateKey/sign/verify", () => {
   }, 60000);
 });
 
-describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
+fullCrypto("SubtleCrypto generateKey/encrypt/decrypt", () => {
   // Common key lengths and usages for AES algorithms
   const keyLengths = [128, 192, 256];
   const commonUsages = ["encrypt", "decrypt", "wrapKey", "unwrapKey"];
@@ -490,7 +494,7 @@ describe("SubtleCrypto generateKey/encrypt/decrypt", () => {
   }, 60000);
 });
 
-describe("SubtleCrypto deriveBits/deriveKey", () => {
+fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
   it("should be processing ECDH algorithm", async () => {
     const keyLengths = [128, 192, 256];
     const algorithms = ["AES-CBC", "AES-CTR", "AES-GCM"];
@@ -788,7 +792,7 @@ describe("SubtleCrypto deriveBits/deriveKey", () => {
   });
 });
 
-describe("SubtileCrypto import/export", () => {
+fullCrypto("SubtileCrypto import/export", () => {
   it("should export and import keys", async () => {
     // Test different key algorithms and formats
     // Define reusable constants
@@ -909,7 +913,7 @@ describe("SubtileCrypto import/export", () => {
   }, 30000);
 });
 
-describe("SubtileCrypto wrap/unwrap", () => {
+fullCrypto("SubtileCrypto wrap/unwrap", () => {
   it("should wrap and unwrap keys for all supported algorithms", async () => {
     // Test parameters
     const HASH_ALGORITHMS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
