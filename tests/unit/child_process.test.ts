@@ -185,7 +185,7 @@ describe("spawn", () => {
     await testExitCode("266", 10);
   });
 
-  it.skip("should handle detached child process termination", (done) => {
+  it("should handle detached child process termination", (done) => {
     // Use cross-platform long-running command
     const sleepCmd = IS_WINDOWS
       ? "spawn('ping', ['-n', '999', 'localhost']"
