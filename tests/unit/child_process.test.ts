@@ -206,28 +206,24 @@ describe("spawn", () => {
     let detachedPidString = "";
     parentProc.stdout.on("data", (data) => {
       detachedPidString += data.toString();
-      console.log("Got PID:", detachedPidString);
+      // Kill parent once we have the PID - parent would otherwise wait for detached child
       parentProc.kill();
     });
 
-    parentProc.on("exit", () => {
+    parentProc.on("error", (err) => {
+      done(err);
+    });
+
+    parentProc.on("close", () => {
       try {
         const detachedPid = parseInt(detachedPidString.trim());
-        console.log("Parent exited, detached PID:", detachedPid);
         expect(detachedPid).toBeGreaterThan(0);
+        // Verify detached process survived parent termination
         const exists = process.kill(detachedPid, 0);
-        console.log("Process exists check:", exists);
         expect(exists).toBe(true);
+        // Clean up the detached process
         process.kill(detachedPid, "SIGKILL");
-        // Wait for process to actually terminate
-        const waitForDeath = () => {
-          if (process.kill(detachedPid, 0)) {
-            setTimeout(waitForDeath, 50);
-          } else {
-            done();
-          }
-        };
-        waitForDeath();
+        done();
       } catch (error) {
         done(error);
       }
