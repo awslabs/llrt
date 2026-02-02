@@ -56,9 +56,9 @@ tracing = { version = "0.1", features = ["log"], default-features = false }
 zstd = { version = "0.13", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-md-5 = { version = "0.11.0-rc.3", default-features = false }
+md-5 = { version = "0.11.0-rc.4", default-features = false }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.11.0-rc.3", default-features = false }
+md-5 = { version = "0.11.0-rc.4", default-features = false }
 
 [build-dependencies]
 rquickjs = { version = "0.11", features = [
