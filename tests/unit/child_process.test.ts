@@ -113,8 +113,9 @@ describe("spawn", () => {
 
   it("should handle child process termination", (done) => {
     // Use cross-platform long-running command: Windows uses 'ping -n 999 localhost', Unix uses 'sleep 999'
-    const command = IS_WINDOWS ? "ping -n 999 localhost" : "sleep 999";
-    const child = spawn(command);
+    const child = IS_WINDOWS
+      ? spawn("ping", ["-n", "999", "localhost"])
+      : spawn("sleep", ["999"]);
 
     child.on("exit", (code, signal) => {
       try {
