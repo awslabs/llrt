@@ -757,6 +757,6 @@ class TestServer {
 }
 
 const testServer = new TestServer((globalThis as any).__testEntries, {
-  workerCount: 1,
+  workerCount: undefined,
 });
 await testServer.start();
