@@ -50,7 +50,7 @@ use rquickjs::{atom::PredefinedAtom, Ctx, Exception, Object, Result, Value};
 
 use crate::provider::{CryptoProvider, SimpleDigest};
 
-use crate::hash::HashAlgorithm;
+use crate::sha_hash::ShaAlgorithm;
 
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
@@ -68,6 +68,12 @@ impl SubtleCrypto {
         stringify!(SubtleCrypto)
     }
 }
+
+// AES variant types - only available when _rustcrypto feature is enabled
+#[cfg(feature = "_rustcrypto")]
+mod aes_variants;
+#[cfg(feature = "_rustcrypto")]
+pub use aes_variants::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EllipticCurve {
@@ -89,14 +95,14 @@ pub fn rsa_hash_digest<'a>(
     key: &'a CryptoKey,
     data: &'a [u8],
     algorithm_name: &str,
-) -> Result<(&'a HashAlgorithm, Vec<u8>)> {
+) -> Result<(&'a ShaAlgorithm, Vec<u8>)> {
     let hash = match &key.algorithm {
         KeyAlgorithm::Rsa { hash, .. } => hash,
         _ => return algorithm_mismatch_error(ctx, algorithm_name),
     };
     if !matches!(
         hash,
-        HashAlgorithm::Sha256 | HashAlgorithm::Sha384 | HashAlgorithm::Sha512
+        ShaAlgorithm::SHA256 | ShaAlgorithm::SHA384 | ShaAlgorithm::SHA512
     ) {
         return Err(Exception::throw_message(
             ctx,

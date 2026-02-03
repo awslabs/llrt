@@ -17,7 +17,7 @@ use rquickjs::{
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
-use crate::hash::HashAlgorithm;
+use crate::sha_hash::ShaAlgorithm;
 
 #[cfg(feature = "_subtle-full")]
 use super::algorithm_mismatch_error;
@@ -176,12 +176,12 @@ impl KeyUsageAlgorithm {
 #[derive(Debug, Clone)]
 pub enum KeyDerivation {
     Hkdf {
-        hash: HashAlgorithm,
+        hash: ShaAlgorithm,
         salt: Box<[u8]>,
         info: Box<[u8]>,
     },
     Pbkdf2 {
-        hash: HashAlgorithm,
+        hash: ShaAlgorithm,
         salt: Box<[u8]>,
         iterations: u32,
     },
@@ -239,13 +239,13 @@ pub enum KeyAlgorithm {
     X25519,
     Ed25519,
     Hmac {
-        hash: HashAlgorithm,
+        hash: ShaAlgorithm,
         length: u16,
     },
     Rsa {
         modulus_length: u32,
         public_exponent: Rc<Box<[u8]>>,
-        hash: HashAlgorithm,
+        hash: ShaAlgorithm,
     },
     Derive(KeyDerivation),
     HkdfImport,
@@ -737,7 +737,7 @@ fn import_rsa_key<'js>(
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
-    hash: &HashAlgorithm,
+    hash: &ShaAlgorithm,
 ) -> Result<(u32, Box<[u8]>)> {
     use crate::{
         provider::{CryptoProvider, RsaJwkImport},
@@ -878,7 +878,7 @@ fn import_symmetric_key<'js>(
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
-    hash: Option<&HashAlgorithm>,
+    hash: Option<&ShaAlgorithm>,
 ) -> Result<usize> {
     *kind = KeyKind::Secret;
 
@@ -1120,7 +1120,7 @@ fn import_okp_key<'js>(
     Ok(())
 }
 
-pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAlgorithm> {
+pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<ShaAlgorithm> {
     let hash: Value = obj.get_required("hash", "algorithm")?;
     let hash = if let Some(string) = hash.as_string() {
         string.to_string()
@@ -1132,17 +1132,17 @@ pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAl
             "hash must be a string or an object",
         ));
     }?;
-    HashAlgorithm::try_from(hash.as_str()).or_throw(ctx)
+    ShaAlgorithm::try_from(hash.as_str()).or_throw(ctx)
 }
 
-fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &HashAlgorithm) -> Result<Object<'js>> {
+fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &ShaAlgorithm) -> Result<Object<'js>> {
     let hash_obj = Object::new(ctx.clone())?;
     hash_obj.set(PredefinedAtom::Name, hash.as_str())?;
     Ok(hash_obj)
 }
 
 #[cfg(feature = "_subtle-full")]
-pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &HashAlgorithm) -> Result<T> {
+pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &ShaAlgorithm) -> Result<T> {
     Err(Exception::throw_message(
         ctx,
         &["Algorithm hash expected to be ", hash.as_str()].concat(),

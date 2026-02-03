@@ -87,7 +87,7 @@ fn sign(
 //     sign_fn: F,
 // ) -> Result<Vec<u8>>
 // where
-//     F: FnOnce(&HashAlgorithm, &[u8], &rsa::RsaPrivateKey) -> Result<Vec<u8>>,
+//     F: FnOnce(&ShaAlgorithm, &[u8], &rsa::RsaPrivateKey) -> Result<Vec<u8>>,
 // {
 //     let (hash, digest) = rsa_hash_digest(ctx, key, data, algorithm_name)?;
 

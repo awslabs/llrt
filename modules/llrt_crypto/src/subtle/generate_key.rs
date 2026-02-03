@@ -4,7 +4,7 @@ use rquickjs::{object::Property, Array, Class, Ctx, Exception, Object, Result, V
 
 use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
 
-use crate::{hash::HashAlgorithm, subtle::CryptoKey};
+use crate::{sha_hash::ShaAlgorithm, subtle::CryptoKey};
 
 use super::{
     algorithm_not_supported_error,
@@ -120,7 +120,7 @@ fn generate_symmetric_key(_ctx: &Ctx<'_>, length: usize) -> Result<Vec<u8>> {
 }
 
 #[allow(dead_code)]
-pub fn get_hash_length(ctx: &Ctx, hash: &HashAlgorithm, length: u16) -> Result<usize> {
+pub fn get_hash_length(ctx: &Ctx, hash: &ShaAlgorithm, length: u16) -> Result<usize> {
     if length == 0 {
         return Ok(hash.block_len());
     }

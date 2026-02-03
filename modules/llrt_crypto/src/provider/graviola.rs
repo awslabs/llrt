@@ -12,7 +12,7 @@ use graviola::{
 };
 
 use crate::provider::{AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest};
-use crate::hash::HashAlgorithm;
+use crate::sha_hash::ShaAlgorithm;
 use crate::subtle::EllipticCurve;
 
 pub struct GraviolaProvider;
@@ -69,20 +69,20 @@ impl CryptoProvider for GraviolaProvider {
     type Digest = GraviolaDigest;
     type Hmac = GraviolaHmac;
 
-    fn digest(&self, algorithm: HashAlgorithm) -> Self::Digest {
+    fn digest(&self, algorithm: ShaAlgorithm) -> Self::Digest {
         match algorithm {
-            HashAlgorithm::Sha256 => GraviolaDigest::Sha256(Sha256::new()),
-            HashAlgorithm::Sha384 => GraviolaDigest::Sha384(Sha384::new()),
-            HashAlgorithm::Sha512 => GraviolaDigest::Sha512(Sha512::new()),
+            ShaAlgorithm::SHA256 => GraviolaDigest::Sha256(Sha256::new()),
+            ShaAlgorithm::SHA384 => GraviolaDigest::Sha384(Sha384::new()),
+            ShaAlgorithm::SHA512 => GraviolaDigest::Sha512(Sha512::new()),
             _ => panic!("Unsupported digest algorithm for Graviola"),
         }
     }
 
-    fn hmac(&self, algorithm: HashAlgorithm, key: &[u8]) -> Self::Hmac {
+    fn hmac(&self, algorithm: ShaAlgorithm, key: &[u8]) -> Self::Hmac {
         match algorithm {
-            HashAlgorithm::Sha256 => GraviolaHmac::Sha256(Hmac::<Sha256>::new(key)),
-            HashAlgorithm::Sha384 => GraviolaHmac::Sha384(Hmac::<Sha384>::new(key)),
-            HashAlgorithm::Sha512 => GraviolaHmac::Sha512(Hmac::<Sha512>::new(key)),
+            ShaAlgorithm::SHA256 => GraviolaHmac::Sha256(Hmac::<Sha256>::new(key)),
+            ShaAlgorithm::SHA384 => GraviolaHmac::Sha384(Hmac::<Sha384>::new(key)),
+            ShaAlgorithm::SHA512 => GraviolaHmac::Sha512(Hmac::<Sha512>::new(key)),
             _ => panic!("Unsupported HMAC algorithm for Graviola"),
         }
     }
@@ -124,7 +124,7 @@ impl CryptoProvider for GraviolaProvider {
         _private_key_der: &[u8],
         _digest: &[u8],
         _salt_length: usize,
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -135,7 +135,7 @@ impl CryptoProvider for GraviolaProvider {
         _signature: &[u8],
         _digest: &[u8],
         _salt_length: usize,
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
     ) -> Result<bool, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -144,7 +144,7 @@ impl CryptoProvider for GraviolaProvider {
         &self,
         _private_key_der: &[u8],
         _digest: &[u8],
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -154,7 +154,7 @@ impl CryptoProvider for GraviolaProvider {
         _public_key_der: &[u8],
         _signature: &[u8],
         _digest: &[u8],
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
     ) -> Result<bool, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -163,7 +163,7 @@ impl CryptoProvider for GraviolaProvider {
         &self,
         _public_key_der: &[u8],
         _data: &[u8],
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
         _label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
@@ -173,7 +173,7 @@ impl CryptoProvider for GraviolaProvider {
         &self,
         _private_key_der: &[u8],
         _data: &[u8],
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
         _label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
@@ -267,7 +267,7 @@ impl CryptoProvider for GraviolaProvider {
         _salt: &[u8],
         _info: &[u8],
         _length: usize,
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -278,7 +278,7 @@ impl CryptoProvider for GraviolaProvider {
         _salt: &[u8],
         _iterations: u32,
         _length: usize,
-        _hash_alg: HashAlgorithm,
+        _hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -292,13 +292,13 @@ impl CryptoProvider for GraviolaProvider {
 
     fn generate_hmac_key(
         &self,
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
         length_bits: u16,
     ) -> Result<Vec<u8>, CryptoError> {
         let length_bytes = if length_bits == 0 {
             match hash_alg {
-                HashAlgorithm::Sha256 => 64,
-                HashAlgorithm::Sha384 | HashAlgorithm::Sha512 => 128,
+                ShaAlgorithm::SHA256 => 64,
+                ShaAlgorithm::SHA384 | ShaAlgorithm::SHA512 => 128,
                 _ => return Err(CryptoError::UnsupportedAlgorithm),
             }
         } else {
@@ -501,9 +501,9 @@ pub enum GraviolaRustDigest {
 
 #[cfg(feature = "crypto-graviola-rust")]
 impl GraviolaRustDigest {
-    pub fn new(algorithm: HashAlgorithm) -> Self {
+    pub fn new(algorithm: ShaAlgorithm) -> Self {
         match algorithm {
-            HashAlgorithm::Sha256 | HashAlgorithm::Sha384 | HashAlgorithm::Sha512 => {
+            ShaAlgorithm::SHA256 | ShaAlgorithm::SHA384 | ShaAlgorithm::SHA512 => {
                 Self::Graviola(GraviolaProvider.digest(algorithm))
             },
             _ => Self::Rust(super::rust::RustCryptoProvider.digest(algorithm)),
@@ -535,9 +535,9 @@ pub enum GraviolaRustHmac {
 
 #[cfg(feature = "crypto-graviola-rust")]
 impl GraviolaRustHmac {
-    pub fn new(algorithm: HashAlgorithm, key: &[u8]) -> Self {
+    pub fn new(algorithm: ShaAlgorithm, key: &[u8]) -> Self {
         match algorithm {
-            HashAlgorithm::Sha256 | HashAlgorithm::Sha384 | HashAlgorithm::Sha512 => {
+            ShaAlgorithm::SHA256 | ShaAlgorithm::SHA384 | ShaAlgorithm::SHA512 => {
                 Self::Graviola(GraviolaProvider.hmac(algorithm, key))
             },
             _ => Self::Rust(super::rust::RustCryptoProvider.hmac(algorithm, key)),

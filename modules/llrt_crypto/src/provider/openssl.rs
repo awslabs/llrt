@@ -18,7 +18,7 @@ use openssl::sign::{Signer, Verifier};
 use openssl::symm::{self, Cipher};
 
 use crate::provider::{AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest};
-use crate::hash::HashAlgorithm;
+use crate::sha_hash::ShaAlgorithm;
 use crate::subtle::EllipticCurve;
 
 pub struct OpenSslProvider;
@@ -71,23 +71,23 @@ impl HmacProvider for OpenSslHmac {
     }
 }
 
-fn get_message_digest(alg: HashAlgorithm) -> MessageDigest {
+fn get_message_digest(alg: ShaAlgorithm) -> MessageDigest {
     match alg {
-        HashAlgorithm::Md5 => MessageDigest::md5(),
-        HashAlgorithm::Sha1 => MessageDigest::sha1(),
-        HashAlgorithm::Sha256 => MessageDigest::sha256(),
-        HashAlgorithm::Sha384 => MessageDigest::sha384(),
-        HashAlgorithm::Sha512 => MessageDigest::sha512(),
+        ShaAlgorithm::MD5 => MessageDigest::md5(),
+        ShaAlgorithm::SHA1 => MessageDigest::sha1(),
+        ShaAlgorithm::SHA256 => MessageDigest::sha256(),
+        ShaAlgorithm::SHA384 => MessageDigest::sha384(),
+        ShaAlgorithm::SHA512 => MessageDigest::sha512(),
     }
 }
 
-fn get_md(alg: HashAlgorithm) -> &'static openssl::md::MdRef {
+fn get_md(alg: ShaAlgorithm) -> &'static openssl::md::MdRef {
     match alg {
-        HashAlgorithm::Md5 => Md::md5(),
-        HashAlgorithm::Sha1 => Md::sha1(),
-        HashAlgorithm::Sha256 => Md::sha256(),
-        HashAlgorithm::Sha384 => Md::sha384(),
-        HashAlgorithm::Sha512 => Md::sha512(),
+        ShaAlgorithm::MD5 => Md::md5(),
+        ShaAlgorithm::SHA1 => Md::sha1(),
+        ShaAlgorithm::SHA256 => Md::sha256(),
+        ShaAlgorithm::SHA384 => Md::sha384(),
+        ShaAlgorithm::SHA512 => Md::sha512(),
     }
 }
 
@@ -109,19 +109,19 @@ impl CryptoProvider for OpenSslProvider {
     type Digest = OpenSslDigest;
     type Hmac = OpenSslHmac;
 
-    fn digest(&self, algorithm: HashAlgorithm) -> Self::Digest {
+    fn digest(&self, algorithm: ShaAlgorithm) -> Self::Digest {
         let md = get_message_digest(algorithm);
         let hasher = Hasher::new(md).expect("Failed to create hasher");
         match algorithm {
-            HashAlgorithm::Md5 => OpenSslDigest::Md5(hasher),
-            HashAlgorithm::Sha1 => OpenSslDigest::Sha1(hasher),
-            HashAlgorithm::Sha256 => OpenSslDigest::Sha256(hasher),
-            HashAlgorithm::Sha384 => OpenSslDigest::Sha384(hasher),
-            HashAlgorithm::Sha512 => OpenSslDigest::Sha512(hasher),
+            ShaAlgorithm::MD5 => OpenSslDigest::Md5(hasher),
+            ShaAlgorithm::SHA1 => OpenSslDigest::Sha1(hasher),
+            ShaAlgorithm::SHA256 => OpenSslDigest::Sha256(hasher),
+            ShaAlgorithm::SHA384 => OpenSslDigest::Sha384(hasher),
+            ShaAlgorithm::SHA512 => OpenSslDigest::Sha512(hasher),
         }
     }
 
-    fn hmac(&self, algorithm: HashAlgorithm, key: &[u8]) -> Self::Hmac {
+    fn hmac(&self, algorithm: ShaAlgorithm, key: &[u8]) -> Self::Hmac {
         let md = get_message_digest(algorithm);
         let pkey = PKey::hmac(key).expect("Failed to create HMAC key");
         let signer = unsafe {
@@ -208,7 +208,7 @@ impl CryptoProvider for OpenSslProvider {
         private_key_der: &[u8],
         digest: &[u8],
         salt_length: usize,
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let rsa = Rsa::private_key_from_der(private_key_der)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
@@ -240,7 +240,7 @@ impl CryptoProvider for OpenSslProvider {
         signature: &[u8],
         digest: &[u8],
         salt_length: usize,
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
     ) -> Result<bool, CryptoError> {
         let rsa = Rsa::public_key_from_der(public_key_der)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
@@ -268,7 +268,7 @@ impl CryptoProvider for OpenSslProvider {
         &self,
         private_key_der: &[u8],
         digest: &[u8],
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let rsa = Rsa::private_key_from_der(private_key_der)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
@@ -293,7 +293,7 @@ impl CryptoProvider for OpenSslProvider {
         public_key_der: &[u8],
         signature: &[u8],
         digest: &[u8],
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
     ) -> Result<bool, CryptoError> {
         let rsa = Rsa::public_key_from_der(public_key_der)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
@@ -315,7 +315,7 @@ impl CryptoProvider for OpenSslProvider {
         &self,
         public_key_der: &[u8],
         data: &[u8],
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         let rsa = Rsa::public_key_from_der(public_key_der)
@@ -348,7 +348,7 @@ impl CryptoProvider for OpenSslProvider {
         &self,
         private_key_der: &[u8],
         data: &[u8],
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         let rsa = Rsa::private_key_from_der(private_key_der)
@@ -586,7 +586,7 @@ impl CryptoProvider for OpenSslProvider {
         salt: &[u8],
         info: &[u8],
         length: usize,
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         use openssl::pkey_ctx::HkdfMode;
         let md = get_md(hash_alg);
@@ -620,7 +620,7 @@ impl CryptoProvider for OpenSslProvider {
         salt: &[u8],
         iterations: u32,
         length: usize,
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let md = get_message_digest(hash_alg);
         let mut out = vec![0u8; length];
@@ -639,16 +639,16 @@ impl CryptoProvider for OpenSslProvider {
 
     fn generate_hmac_key(
         &self,
-        hash_alg: HashAlgorithm,
+        hash_alg: ShaAlgorithm,
         length_bits: u16,
     ) -> Result<Vec<u8>, CryptoError> {
         let length_bytes = if length_bits == 0 {
             match hash_alg {
-                HashAlgorithm::Md5 => 16,
-                HashAlgorithm::Sha1 => 20,
-                HashAlgorithm::Sha256 => 32,
-                HashAlgorithm::Sha384 => 48,
-                HashAlgorithm::Sha512 => 64,
+                ShaAlgorithm::MD5 => 16,
+                ShaAlgorithm::SHA1 => 20,
+                ShaAlgorithm::SHA256 => 32,
+                ShaAlgorithm::SHA384 => 48,
+                ShaAlgorithm::SHA512 => 64,
             }
         } else {
             (length_bits / 8) as usize

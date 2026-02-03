@@ -3,7 +3,7 @@
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{Ctx, FromJs, Result, Value};
 
-use crate::hash::HashAlgorithm;
+use crate::sha_hash::ShaAlgorithm;
 
 use super::{
     algorithm_not_supported_error, key_algorithm::extract_sha_hash, to_name_and_maybe_object,
@@ -11,7 +11,7 @@ use super::{
 
 #[derive(Debug)]
 pub enum SigningAlgorithm {
-    Ecdsa { hash: HashAlgorithm },
+    Ecdsa { hash: ShaAlgorithm },
     Ed25519,
     RsaPss { salt_length: u32 },
     RsassaPkcs1v15,
