@@ -20,7 +20,7 @@ brotli-c = ["brotlic"]
 brotli-rust = ["brotli"]
 
 flate2-c = ["flate2/zlib-ng"]
-flate2-rust = ["flate2/miniz_oxide"]
+flate2-rust = ["flate2/rust_backend"]
 
 zstd-c = ["zstd"]
 zstd-rust = ["zstd"] # No pure rust implementation exists
