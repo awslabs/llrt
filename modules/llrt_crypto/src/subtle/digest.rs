@@ -4,8 +4,8 @@ use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{ArrayBuffer, Ctx, Result, Value};
 
 use crate::{
+    hash::HashAlgorithm,
     provider::{CryptoProvider, SimpleDigest},
-    sha_hash::ShaAlgorithm,
     CRYPTO_PROVIDER,
 };
 
@@ -20,13 +20,13 @@ pub async fn subtle_digest<'js>(
         algorithm.get_required::<_, String>("name", "algorithm")?
     };
 
-    let sha_algorithm = ShaAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
-    let bytes = digest(&sha_algorithm, data.as_bytes(&ctx)?);
+    let hash_algorithm = HashAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
+    let bytes = digest(&hash_algorithm, data.as_bytes(&ctx)?);
     ArrayBuffer::new(ctx, bytes)
 }
 
-pub fn digest(sha_algorithm: &ShaAlgorithm, data: &[u8]) -> Vec<u8> {
-    let mut hasher = CRYPTO_PROVIDER.digest(*sha_algorithm);
+pub fn digest(hash_algorithm: &HashAlgorithm, data: &[u8]) -> Vec<u8> {
+    let mut hasher = CRYPTO_PROVIDER.digest(*hash_algorithm);
     hasher.update(data);
     hasher.finalize()
 }
