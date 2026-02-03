@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
@@ -164,14 +166,13 @@ pub fn encrypt_decrypt(
             match operation {
                 EncryptionOperation::Encrypt => {
                     // Pad data to multiple of 8 bytes if needed
-                    let padded_data = if !data.len().is_multiple_of(8) {
+                    let mut padded_data = Cow::Borrowed(data);
+                    if !data.len().is_multiple_of(8) {
                         let pad_len = 8 - (data.len() % 8);
                         let mut padded = data.to_vec();
                         padded.extend(std::iter::repeat_n(padding, pad_len));
-                        padded
-                    } else {
-                        data.to_vec()
-                    };
+                        padded_data = Cow::Owned(padded)
+                    }
                     CRYPTO_PROVIDER
                         .aes_kw_wrap(handle, &padded_data)
                         .or_throw(ctx)?
