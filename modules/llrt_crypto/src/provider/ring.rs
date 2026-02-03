@@ -1,8 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::hash::HashAlgorithm;
 use crate::provider::{AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest};
-use crate::sha_hash::ShaAlgorithm;
 use crate::subtle::EllipticCurve;
 use md5::{Digest, Md5 as Md5Hasher};
 use ring::{digest, hmac};
@@ -147,33 +147,33 @@ impl CryptoProvider for RingProvider {
     type Digest = RingDigestType;
     type Hmac = RingHmacType;
 
-    fn digest(&self, algorithm: ShaAlgorithm) -> Self::Digest {
+    fn digest(&self, algorithm: HashAlgorithm) -> Self::Digest {
         match algorithm {
-            ShaAlgorithm::MD5 => RingDigestType::Md5(RingMd5(Md5Hasher::new())),
-            ShaAlgorithm::SHA1 => {
+            HashAlgorithm::Md5 => RingDigestType::Md5(RingMd5(Md5Hasher::new())),
+            HashAlgorithm::Sha1 => {
                 RingDigestType::Sha1(RingDigest::new(&digest::SHA1_FOR_LEGACY_USE_ONLY))
             },
-            ShaAlgorithm::SHA256 => RingDigestType::Sha256(RingDigest::new(&digest::SHA256)),
-            ShaAlgorithm::SHA384 => RingDigestType::Sha384(RingDigest::new(&digest::SHA384)),
-            ShaAlgorithm::SHA512 => RingDigestType::Sha512(RingDigest::new(&digest::SHA512)),
+            HashAlgorithm::Sha256 => RingDigestType::Sha256(RingDigest::new(&digest::SHA256)),
+            HashAlgorithm::Sha384 => RingDigestType::Sha384(RingDigest::new(&digest::SHA384)),
+            HashAlgorithm::Sha512 => RingDigestType::Sha512(RingDigest::new(&digest::SHA512)),
         }
     }
 
-    fn hmac(&self, algorithm: ShaAlgorithm, key: &[u8]) -> Self::Hmac {
+    fn hmac(&self, algorithm: HashAlgorithm, key: &[u8]) -> Self::Hmac {
         match algorithm {
-            ShaAlgorithm::MD5 => {
+            HashAlgorithm::Md5 => {
                 panic!("HMAC-MD5 not supported by Ring provider");
             },
-            ShaAlgorithm::SHA1 => RingHmacType::Sha1(RingHmacSha1(hmac::Context::with_key(
+            HashAlgorithm::Sha1 => RingHmacType::Sha1(RingHmacSha1(hmac::Context::with_key(
                 &hmac::Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, key),
             ))),
-            ShaAlgorithm::SHA256 => RingHmacType::Sha256(RingHmacSha256(hmac::Context::with_key(
+            HashAlgorithm::Sha256 => RingHmacType::Sha256(RingHmacSha256(hmac::Context::with_key(
                 &hmac::Key::new(hmac::HMAC_SHA256, key),
             ))),
-            ShaAlgorithm::SHA384 => RingHmacType::Sha384(RingHmacSha384(hmac::Context::with_key(
+            HashAlgorithm::Sha384 => RingHmacType::Sha384(RingHmacSha384(hmac::Context::with_key(
                 &hmac::Key::new(hmac::HMAC_SHA384, key),
             ))),
-            ShaAlgorithm::SHA512 => RingHmacType::Sha512(RingHmacSha512(hmac::Context::with_key(
+            HashAlgorithm::Sha512 => RingHmacType::Sha512(RingHmacSha512(hmac::Context::with_key(
                 &hmac::Key::new(hmac::HMAC_SHA512, key),
             ))),
         }
@@ -216,7 +216,7 @@ impl CryptoProvider for RingProvider {
         _private_key_der: &[u8],
         _digest: &[u8],
         _salt_length: usize,
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -227,7 +227,7 @@ impl CryptoProvider for RingProvider {
         _signature: &[u8],
         _digest: &[u8],
         _salt_length: usize,
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -236,7 +236,7 @@ impl CryptoProvider for RingProvider {
         &self,
         _private_key_der: &[u8],
         _digest: &[u8],
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -246,7 +246,7 @@ impl CryptoProvider for RingProvider {
         _public_key_der: &[u8],
         _signature: &[u8],
         _digest: &[u8],
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -255,7 +255,7 @@ impl CryptoProvider for RingProvider {
         &self,
         _public_key_der: &[u8],
         _data: &[u8],
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
         _label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
@@ -265,7 +265,7 @@ impl CryptoProvider for RingProvider {
         &self,
         _private_key_der: &[u8],
         _data: &[u8],
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
         _label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
@@ -324,7 +324,7 @@ impl CryptoProvider for RingProvider {
         _salt: &[u8],
         _info: &[u8],
         _length: usize,
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -335,7 +335,7 @@ impl CryptoProvider for RingProvider {
         _salt: &[u8],
         _iterations: u32,
         _length: usize,
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
@@ -346,7 +346,7 @@ impl CryptoProvider for RingProvider {
 
     fn generate_hmac_key(
         &self,
-        _hash_alg: ShaAlgorithm,
+        _hash_alg: HashAlgorithm,
         _length_bits: u16,
     ) -> Result<Vec<u8>, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)

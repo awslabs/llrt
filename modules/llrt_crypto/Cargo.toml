@@ -48,7 +48,6 @@ crypto-ring-rust = ["_rustcrypto"]
 crypto-graviola = ["graviola"]
 crypto-graviola-rust = ["graviola", "_rustcrypto"]
 crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
-openssl-vendored = ["openssl-sys?/vendored", "openssl?/vendored"]
 
 [dependencies]
 crc32c = { version = "0.6", default-features = false }

@@ -35,7 +35,7 @@ mod ring;
 #[cfg(feature = "_rustcrypto")]
 mod rust;
 
-use crate::sha_hash::ShaAlgorithm;
+use crate::hash::HashAlgorithm;
 use crate::subtle::EllipticCurve;
 
 #[derive(Debug)]
@@ -144,10 +144,10 @@ pub trait CryptoProvider {
     type Hmac: HmacProvider;
 
     // Digest operations
-    fn digest(&self, algorithm: ShaAlgorithm) -> Self::Digest;
+    fn digest(&self, algorithm: HashAlgorithm) -> Self::Digest;
 
     // HMAC operations
-    fn hmac(&self, algorithm: ShaAlgorithm, key: &[u8]) -> Self::Hmac;
+    fn hmac(&self, algorithm: HashAlgorithm, key: &[u8]) -> Self::Hmac;
 
     // ECDSA operations
     fn ecdsa_sign(
@@ -179,7 +179,7 @@ pub trait CryptoProvider {
         private_key_der: &[u8],
         digest: &[u8],
         salt_length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError>;
     fn rsa_pss_verify(
         &self,
@@ -187,33 +187,33 @@ pub trait CryptoProvider {
         signature: &[u8],
         digest: &[u8],
         salt_length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError>;
     fn rsa_pkcs1v15_sign(
         &self,
         private_key_der: &[u8],
         digest: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError>;
     fn rsa_pkcs1v15_verify(
         &self,
         public_key_der: &[u8],
         signature: &[u8],
         digest: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError>;
     fn rsa_oaep_encrypt(
         &self,
         public_key_der: &[u8],
         data: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError>;
     fn rsa_oaep_decrypt(
         &self,
         private_key_der: &[u8],
         data: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError>;
 
@@ -261,7 +261,7 @@ pub trait CryptoProvider {
         salt: &[u8],
         info: &[u8],
         length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError>;
     fn pbkdf2_derive_key(
         &self,
@@ -269,13 +269,13 @@ pub trait CryptoProvider {
         salt: &[u8],
         iterations: u32,
         length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError>;
 
     fn generate_aes_key(&self, length_bits: u16) -> Result<Vec<u8>, CryptoError>;
     fn generate_hmac_key(
         &self,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
         length_bits: u16,
     ) -> Result<Vec<u8>, CryptoError>;
     fn generate_ec_key(&self, curve: EllipticCurve) -> Result<(Vec<u8>, Vec<u8>), CryptoError>; // (private, public)
@@ -470,10 +470,10 @@ macro_rules! impl_hybrid_provider {
         impl CryptoProvider for $name {
             type Digest = $digest;
             type Hmac = $hmac;
-            fn digest(&self, alg: ShaAlgorithm) -> Self::Digest {
+            fn digest(&self, alg: HashAlgorithm) -> Self::Digest {
                 $digest_fn(alg)
             }
-            fn hmac(&self, alg: ShaAlgorithm, key: &[u8]) -> Self::Hmac {
+            fn hmac(&self, alg: HashAlgorithm, key: &[u8]) -> Self::Hmac {
                 $hmac_fn(alg, key)
             }
             fn ecdsa_sign(
@@ -504,7 +504,7 @@ macro_rules! impl_hybrid_provider {
                 k: &[u8],
                 d: &[u8],
                 s: usize,
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
             ) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.rsa_pss_sign(k, d, s, a)
             }
@@ -514,7 +514,7 @@ macro_rules! impl_hybrid_provider {
                 s: &[u8],
                 d: &[u8],
                 sl: usize,
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
             ) -> Result<bool, CryptoError> {
                 rust::RustCryptoProvider.rsa_pss_verify(k, s, d, sl, a)
             }
@@ -522,7 +522,7 @@ macro_rules! impl_hybrid_provider {
                 &self,
                 k: &[u8],
                 d: &[u8],
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
             ) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.rsa_pkcs1v15_sign(k, d, a)
             }
@@ -531,7 +531,7 @@ macro_rules! impl_hybrid_provider {
                 k: &[u8],
                 s: &[u8],
                 d: &[u8],
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
             ) -> Result<bool, CryptoError> {
                 rust::RustCryptoProvider.rsa_pkcs1v15_verify(k, s, d, a)
             }
@@ -539,7 +539,7 @@ macro_rules! impl_hybrid_provider {
                 &self,
                 k: &[u8],
                 d: &[u8],
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
                 l: Option<&[u8]>,
             ) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.rsa_oaep_encrypt(k, d, a, l)
@@ -548,7 +548,7 @@ macro_rules! impl_hybrid_provider {
                 &self,
                 k: &[u8],
                 d: &[u8],
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
                 l: Option<&[u8]>,
             ) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.rsa_oaep_decrypt(k, d, a, l)
@@ -596,7 +596,7 @@ macro_rules! impl_hybrid_provider {
                 s: &[u8],
                 i: &[u8],
                 l: usize,
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
             ) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.hkdf_derive_key(k, s, i, l, a)
             }
@@ -606,14 +606,14 @@ macro_rules! impl_hybrid_provider {
                 s: &[u8],
                 i: u32,
                 l: usize,
-                a: ShaAlgorithm,
+                a: HashAlgorithm,
             ) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.pbkdf2_derive_key(p, s, i, l, a)
             }
             fn generate_aes_key(&self, b: u16) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.generate_aes_key(b)
             }
-            fn generate_hmac_key(&self, a: ShaAlgorithm, b: u16) -> Result<Vec<u8>, CryptoError> {
+            fn generate_hmac_key(&self, a: HashAlgorithm, b: u16) -> Result<Vec<u8>, CryptoError> {
                 rust::RustCryptoProvider.generate_hmac_key(a, b)
             }
             fn generate_ec_key(&self, c: EllipticCurve) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
@@ -861,7 +861,7 @@ mod tests {
     #[test]
     fn test_sha256_digest() {
         let p = provider();
-        let mut digest = p.digest(ShaAlgorithm::SHA256);
+        let mut digest = p.digest(HashAlgorithm::Sha256);
         digest.update(b"hello world");
         let result = digest.finalize();
         assert_eq!(result.len(), 32);
@@ -874,7 +874,7 @@ mod tests {
     #[test]
     fn test_sha384_digest() {
         let p = provider();
-        let mut digest = p.digest(ShaAlgorithm::SHA384);
+        let mut digest = p.digest(HashAlgorithm::Sha384);
         digest.update(b"hello world");
         let result = digest.finalize();
         assert_eq!(result.len(), 48);
@@ -883,7 +883,7 @@ mod tests {
     #[test]
     fn test_sha512_digest() {
         let p = provider();
-        let mut digest = p.digest(ShaAlgorithm::SHA512);
+        let mut digest = p.digest(HashAlgorithm::Sha512);
         digest.update(b"hello world");
         let result = digest.finalize();
         assert_eq!(result.len(), 64);
@@ -894,7 +894,7 @@ mod tests {
     fn test_hmac_sha256() {
         let p = provider();
         let key = b"secret key";
-        let mut hmac = p.hmac(ShaAlgorithm::SHA256, key);
+        let mut hmac = p.hmac(HashAlgorithm::Sha256, key);
         hmac.update(b"hello world");
         let result = hmac.finalize();
         assert_eq!(result.len(), 32);
@@ -1035,7 +1035,7 @@ mod tests {
     #[test]
     fn test_generate_hmac_key() {
         let p = provider();
-        let key = p.generate_hmac_key(ShaAlgorithm::SHA256, 256).unwrap();
+        let key = p.generate_hmac_key(HashAlgorithm::Sha256, 256).unwrap();
         assert_eq!(key.len(), 32);
     }
 
@@ -1117,7 +1117,7 @@ mod tests {
             let info = b"info";
 
             let derived = p
-                .hkdf_derive_key(ikm, salt, info, 32, ShaAlgorithm::SHA256)
+                .hkdf_derive_key(ikm, salt, info, 32, HashAlgorithm::Sha256)
                 .unwrap();
 
             assert_eq!(derived.len(), 32);
@@ -1130,7 +1130,7 @@ mod tests {
             let salt = b"salt";
 
             let derived = p
-                .pbkdf2_derive_key(password, salt, 1000, 32, ShaAlgorithm::SHA256)
+                .pbkdf2_derive_key(password, salt, 1000, 32, HashAlgorithm::Sha256)
                 .unwrap();
 
             assert_eq!(derived.len(), 32);
@@ -1142,7 +1142,7 @@ mod tests {
             let (private_key, public_key) = p.generate_ec_key(EllipticCurve::P256).unwrap();
 
             // Create a digest to sign
-            let mut digest = p.digest(ShaAlgorithm::SHA256);
+            let mut digest = p.digest(HashAlgorithm::Sha256);
             digest.update(b"message to sign");
             let hash = digest.finalize();
 
@@ -1162,7 +1162,7 @@ mod tests {
             let p = provider();
             let (private_key, public_key) = p.generate_ec_key(EllipticCurve::P384).unwrap();
 
-            let mut digest = p.digest(ShaAlgorithm::SHA384);
+            let mut digest = p.digest(HashAlgorithm::Sha384);
             digest.update(b"message to sign");
             let hash = digest.finalize();
 
@@ -1224,16 +1224,16 @@ mod tests {
             let p = provider();
             let (private_key, public_key) = p.generate_rsa_key(2048, &[1, 0, 1]).unwrap();
 
-            let mut digest = p.digest(ShaAlgorithm::SHA256);
+            let mut digest = p.digest(HashAlgorithm::Sha256);
             digest.update(b"message to sign");
             let hash = digest.finalize();
 
             let signature = p
-                .rsa_pss_sign(&private_key, &hash, 32, ShaAlgorithm::SHA256)
+                .rsa_pss_sign(&private_key, &hash, 32, HashAlgorithm::Sha256)
                 .unwrap();
 
             let valid = p
-                .rsa_pss_verify(&public_key, &signature, &hash, 32, ShaAlgorithm::SHA256)
+                .rsa_pss_verify(&public_key, &signature, &hash, 32, HashAlgorithm::Sha256)
                 .unwrap();
 
             assert!(valid);
@@ -1244,16 +1244,16 @@ mod tests {
             let p = provider();
             let (private_key, public_key) = p.generate_rsa_key(2048, &[1, 0, 1]).unwrap();
 
-            let mut digest = p.digest(ShaAlgorithm::SHA256);
+            let mut digest = p.digest(HashAlgorithm::Sha256);
             digest.update(b"message to sign");
             let hash = digest.finalize();
 
             let signature = p
-                .rsa_pkcs1v15_sign(&private_key, &hash, ShaAlgorithm::SHA256)
+                .rsa_pkcs1v15_sign(&private_key, &hash, HashAlgorithm::Sha256)
                 .unwrap();
 
             let valid = p
-                .rsa_pkcs1v15_verify(&public_key, &signature, &hash, ShaAlgorithm::SHA256)
+                .rsa_pkcs1v15_verify(&public_key, &signature, &hash, HashAlgorithm::Sha256)
                 .unwrap();
 
             assert!(valid);
@@ -1267,11 +1267,11 @@ mod tests {
             let plaintext = b"secret message";
 
             let ciphertext = p
-                .rsa_oaep_encrypt(&public_key, plaintext, ShaAlgorithm::SHA256, None)
+                .rsa_oaep_encrypt(&public_key, plaintext, HashAlgorithm::Sha256, None)
                 .unwrap();
 
             let decrypted = p
-                .rsa_oaep_decrypt(&private_key, &ciphertext, ShaAlgorithm::SHA256, None)
+                .rsa_oaep_decrypt(&private_key, &ciphertext, HashAlgorithm::Sha256, None)
                 .unwrap();
 
             assert_eq!(decrypted, plaintext);

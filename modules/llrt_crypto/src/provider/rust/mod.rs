@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+mod aes_variants;
+
 use std::num::NonZeroU32;
 
 use aes::cipher::{
@@ -54,11 +56,13 @@ use rsa::{
 use sha1::Sha1;
 
 use crate::{
+    hash::HashAlgorithm,
     provider::{AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest},
     random_byte_array,
-    sha_hash::ShaAlgorithm,
-    subtle::{AesGcmVariant, EllipticCurve},
+    subtle::EllipticCurve,
 };
+
+use aes_variants::AesGcmVariant;
 
 impl From<aes::cipher::InvalidLength> for CryptoError {
     fn from(_: aes::cipher::InvalidLength) -> Self {
@@ -141,27 +145,27 @@ impl CryptoProvider for RustCryptoProvider {
     type Digest = RustDigest;
     type Hmac = RustHmac;
 
-    fn digest(&self, algorithm: ShaAlgorithm) -> Self::Digest {
+    fn digest(&self, algorithm: HashAlgorithm) -> Self::Digest {
         match algorithm {
-            ShaAlgorithm::MD5 => RustDigest::Md5(md5::Md5::new()),
-            ShaAlgorithm::SHA1 => RustDigest::Sha1(Sha1::new()),
-            ShaAlgorithm::SHA256 => RustDigest::Sha256(Sha256::new()),
-            ShaAlgorithm::SHA384 => RustDigest::Sha384(Sha384::new()),
-            ShaAlgorithm::SHA512 => RustDigest::Sha512(Sha512::new()),
+            HashAlgorithm::Md5 => RustDigest::Md5(md5::Md5::new()),
+            HashAlgorithm::Sha1 => RustDigest::Sha1(Sha1::new()),
+            HashAlgorithm::Sha256 => RustDigest::Sha256(Sha256::new()),
+            HashAlgorithm::Sha384 => RustDigest::Sha384(Sha384::new()),
+            HashAlgorithm::Sha512 => RustDigest::Sha512(Sha512::new()),
         }
     }
 
-    fn hmac(&self, algorithm: ShaAlgorithm, key: &[u8]) -> Self::Hmac {
+    fn hmac(&self, algorithm: HashAlgorithm, key: &[u8]) -> Self::Hmac {
         match algorithm {
-            ShaAlgorithm::MD5 => panic!("HMAC-MD5 not supported"),
-            ShaAlgorithm::SHA1 => RustHmac::Sha1(HmacImpl::<Sha1>::new_from_slice(key).unwrap()),
-            ShaAlgorithm::SHA256 => {
+            HashAlgorithm::Md5 => panic!("HMAC-MD5 not supported"),
+            HashAlgorithm::Sha1 => RustHmac::Sha1(HmacImpl::<Sha1>::new_from_slice(key).unwrap()),
+            HashAlgorithm::Sha256 => {
                 RustHmac::Sha256(HmacImpl::<Sha256>::new_from_slice(key).unwrap())
             },
-            ShaAlgorithm::SHA384 => {
+            HashAlgorithm::Sha384 => {
                 RustHmac::Sha384(HmacImpl::<Sha384>::new_from_slice(key).unwrap())
             },
-            ShaAlgorithm::SHA512 => {
+            HashAlgorithm::Sha512 => {
                 RustHmac::Sha512(HmacImpl::<Sha512>::new_from_slice(key).unwrap())
             },
         }
@@ -258,20 +262,20 @@ impl CryptoProvider for RustCryptoProvider {
         private_key_der: &[u8],
         digest: &[u8],
         salt_length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
         let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
-            ShaAlgorithm::SHA256 => private_key
+            HashAlgorithm::Sha256 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha256>::new_with_salt(salt_length), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
-            ShaAlgorithm::SHA384 => private_key
+            HashAlgorithm::Sha384 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha384>::new_with_salt(salt_length), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
-            ShaAlgorithm::SHA512 => private_key
+            HashAlgorithm::Sha512 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha512>::new_with_salt(salt_length), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
             _ => Err(CryptoError::UnsupportedAlgorithm),
@@ -284,19 +288,19 @@ impl CryptoProvider for RustCryptoProvider {
         signature: &[u8],
         digest: &[u8],
         salt_length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError> {
         let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
-            ShaAlgorithm::SHA256 => Ok(public_key
+            HashAlgorithm::Sha256 => Ok(public_key
                 .verify(Pss::<Sha256>::new_with_salt(salt_length), digest, signature)
                 .is_ok()),
-            ShaAlgorithm::SHA384 => Ok(public_key
+            HashAlgorithm::Sha384 => Ok(public_key
                 .verify(Pss::<Sha384>::new_with_salt(salt_length), digest, signature)
                 .is_ok()),
-            ShaAlgorithm::SHA512 => Ok(public_key
+            HashAlgorithm::Sha512 => Ok(public_key
                 .verify(Pss::<Sha512>::new_with_salt(salt_length), digest, signature)
                 .is_ok()),
             _ => Err(CryptoError::UnsupportedAlgorithm),
@@ -307,20 +311,20 @@ impl CryptoProvider for RustCryptoProvider {
         &self,
         private_key_der: &[u8],
         digest: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
         let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
-            ShaAlgorithm::SHA256 => private_key
+            HashAlgorithm::Sha256 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha256>(), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
-            ShaAlgorithm::SHA384 => private_key
+            HashAlgorithm::Sha384 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha384>(), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
-            ShaAlgorithm::SHA512 => private_key
+            HashAlgorithm::Sha512 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha512>(), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
             _ => Err(CryptoError::UnsupportedAlgorithm),
@@ -332,19 +336,19 @@ impl CryptoProvider for RustCryptoProvider {
         public_key_der: &[u8],
         signature: &[u8],
         digest: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError> {
         let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
-            ShaAlgorithm::SHA256 => Ok(public_key
+            HashAlgorithm::Sha256 => Ok(public_key
                 .verify(Pkcs1v15Sign::new::<Sha256>(), digest, signature)
                 .is_ok()),
-            ShaAlgorithm::SHA384 => Ok(public_key
+            HashAlgorithm::Sha384 => Ok(public_key
                 .verify(Pkcs1v15Sign::new::<Sha384>(), digest, signature)
                 .is_ok()),
-            ShaAlgorithm::SHA512 => Ok(public_key
+            HashAlgorithm::Sha512 => Ok(public_key
                 .verify(Pkcs1v15Sign::new::<Sha512>(), digest, signature)
                 .is_ok()),
             _ => Err(CryptoError::UnsupportedAlgorithm),
@@ -355,7 +359,7 @@ impl CryptoProvider for RustCryptoProvider {
         &self,
         public_key_der: &[u8],
         data: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
@@ -363,7 +367,7 @@ impl CryptoProvider for RustCryptoProvider {
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
-            ShaAlgorithm::SHA1 => {
+            HashAlgorithm::Sha1 => {
                 let mut padding = Oaep::<Sha1>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -374,7 +378,7 @@ impl CryptoProvider for RustCryptoProvider {
                     .encrypt(&mut rng, padding, data)
                     .map_err(|_| CryptoError::EncryptionFailed(None))
             },
-            ShaAlgorithm::SHA256 => {
+            HashAlgorithm::Sha256 => {
                 let mut padding = Oaep::<Sha256>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -385,7 +389,7 @@ impl CryptoProvider for RustCryptoProvider {
                     .encrypt(&mut rng, padding, data)
                     .map_err(|_| CryptoError::EncryptionFailed(None))
             },
-            ShaAlgorithm::SHA384 => {
+            HashAlgorithm::Sha384 => {
                 let mut padding = Oaep::<Sha384>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -396,7 +400,7 @@ impl CryptoProvider for RustCryptoProvider {
                     .encrypt(&mut rng, padding, data)
                     .map_err(|_| CryptoError::EncryptionFailed(None))
             },
-            ShaAlgorithm::SHA512 => {
+            HashAlgorithm::Sha512 => {
                 let mut padding = Oaep::<Sha512>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -415,14 +419,14 @@ impl CryptoProvider for RustCryptoProvider {
         &self,
         private_key_der: &[u8],
         data: &[u8],
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
-            ShaAlgorithm::SHA1 => {
+            HashAlgorithm::Sha1 => {
                 let mut padding = Oaep::<Sha1>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -433,7 +437,7 @@ impl CryptoProvider for RustCryptoProvider {
                     .decrypt(padding, data)
                     .map_err(|_| CryptoError::DecryptionFailed(None))
             },
-            ShaAlgorithm::SHA256 => {
+            HashAlgorithm::Sha256 => {
                 let mut padding = Oaep::<Sha256>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -444,7 +448,7 @@ impl CryptoProvider for RustCryptoProvider {
                     .decrypt(padding, data)
                     .map_err(|_| CryptoError::DecryptionFailed(None))
             },
-            ShaAlgorithm::SHA384 => {
+            HashAlgorithm::Sha384 => {
                 let mut padding = Oaep::<Sha384>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -455,7 +459,7 @@ impl CryptoProvider for RustCryptoProvider {
                     .decrypt(padding, data)
                     .map_err(|_| CryptoError::DecryptionFailed(None))
             },
-            ShaAlgorithm::SHA512 => {
+            HashAlgorithm::Sha512 => {
                 let mut padding = Oaep::<Sha512>::new();
                 if let Some(l) = label {
                     if !l.is_empty() {
@@ -769,15 +773,15 @@ impl CryptoProvider for RustCryptoProvider {
         salt: &[u8],
         info: &[u8],
         length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         use ring::hkdf;
 
         let algorithm = match hash_alg {
-            ShaAlgorithm::SHA1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
-            ShaAlgorithm::SHA256 => hkdf::HKDF_SHA256,
-            ShaAlgorithm::SHA384 => hkdf::HKDF_SHA384,
-            ShaAlgorithm::SHA512 => hkdf::HKDF_SHA512,
+            HashAlgorithm::Sha1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
+            HashAlgorithm::Sha256 => hkdf::HKDF_SHA256,
+            HashAlgorithm::Sha384 => hkdf::HKDF_SHA384,
+            HashAlgorithm::Sha512 => hkdf::HKDF_SHA512,
             _ => return Err(CryptoError::UnsupportedAlgorithm),
         };
 
@@ -800,13 +804,13 @@ impl CryptoProvider for RustCryptoProvider {
         salt: &[u8],
         iterations: u32,
         length: usize,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let algorithm = match hash_alg {
-            ShaAlgorithm::SHA1 => pbkdf2::PBKDF2_HMAC_SHA1,
-            ShaAlgorithm::SHA256 => pbkdf2::PBKDF2_HMAC_SHA256,
-            ShaAlgorithm::SHA384 => pbkdf2::PBKDF2_HMAC_SHA384,
-            ShaAlgorithm::SHA512 => pbkdf2::PBKDF2_HMAC_SHA512,
+            HashAlgorithm::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
+            HashAlgorithm::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
+            HashAlgorithm::Sha384 => pbkdf2::PBKDF2_HMAC_SHA384,
+            HashAlgorithm::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
             _ => return Err(CryptoError::UnsupportedAlgorithm),
         };
 
@@ -826,7 +830,7 @@ impl CryptoProvider for RustCryptoProvider {
 
     fn generate_hmac_key(
         &self,
-        hash_alg: ShaAlgorithm,
+        hash_alg: HashAlgorithm,
         length_bits: u16,
     ) -> Result<Vec<u8>, CryptoError> {
         let length_bytes = if length_bits == 0 {

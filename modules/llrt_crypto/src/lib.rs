@@ -21,8 +21,7 @@ compile_error!("Features `crypto-openssl` and `crypto-graviola` are mutually exc
 compile_error!("Features `crypto-ring` and `crypto-graviola` are mutually exclusive");
 
 mod crc32;
-mod md5_hash;
-mod sha_hash;
+mod hash;
 mod subtle;
 
 mod provider;
@@ -57,8 +56,7 @@ use subtle::{
 
 use self::{
     crc32::{Crc32, Crc32c},
-    md5_hash::Md5,
-    sha_hash::{Hash, Hmac, ShaAlgorithm},
+    hash::{Hash, Hmac},
 };
 
 static CRYPTO_PROVIDER: Lazy<provider::DefaultProvider> =
@@ -292,18 +290,12 @@ impl ModuleDef for CryptoModule {
         declare.declare("createHmac")?;
         declare.declare("Crc32")?;
         declare.declare("Crc32c")?;
-        declare.declare("Md5")?;
         declare.declare("randomBytes")?;
         declare.declare("randomUUID")?;
         declare.declare("randomInt")?;
         declare.declare("randomFillSync")?;
         declare.declare("randomFill")?;
         declare.declare("getRandomValues")?;
-
-        for sha_algorithm in ShaAlgorithm::iter() {
-            let class_name = sha_algorithm.class_name();
-            declare.declare(class_name)?;
-        }
         declare.declare("crypto")?;
         declare.declare("webcrypto")?;
         declare.declare("default")?;
@@ -313,14 +305,8 @@ impl ModuleDef for CryptoModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            for sha_algorithm in ShaAlgorithm::iter() {
-                let _class_name: &str = sha_algorithm.class_name();
-                // ShaHash class removed - using Hash and Hmac instead
-            }
-
             let crypto: Object = ctx.globals().get("crypto")?;
 
-            Class::<Md5>::define(default)?;
             Class::<Crc32>::define(default)?;
             Class::<Crc32c>::define(default)?;
 

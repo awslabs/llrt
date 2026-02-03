@@ -26,7 +26,7 @@ crypto-graviola-rust = ["llrt_crypto?/crypto-graviola-rust"]
 crypto-openssl = ["llrt_crypto?/crypto-openssl"]
 
 # OpenSSL vendored (builds OpenSSL from source)
-openssl-vendored = ["llrt_crypto?/openssl-vendored", "dep:openssl", "openssl/vendored"]
+openssl-vendored = ["dep:openssl", "openssl/vendored"]
 
 base = [
   "abort",
