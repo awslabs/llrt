@@ -304,6 +304,450 @@ pub struct KeyAlgorithmWithUsages {
     pub private_usages: Vec<String>,
 }
 
+fn from_ed25519<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+    ) -> Result<Option<KeyKind>> {
+        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+            import_okp_key(
+                ctx,
+                format,
+                kind,
+                data,
+                const_oid::db::rfc8410::ID_ED_25519,
+                algorithm_name,
+            )?;
+            Ok(Some(*kind))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Sign,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::Ed25519)
+}
+
+fn from_x25519<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+    ) -> Result<Option<KeyKind>> {
+        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+            import_okp_key(
+                ctx,
+                format,
+                kind,
+                data,
+                const_oid::db::rfc8410::ID_X_25519,
+                algorithm_name,
+            )?;
+            Ok(Some(*kind))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Derive,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::X25519)
+}
+
+fn from_aes<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    obj: std::result::Result<Object<'js>, &str>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        algorithm_name: &str,
+    ) -> Result<(u16, Option<KeyKind>)> {
+        if let KeyAlgorithmMode::Import { data, format, kind } = mode {
+            let length =
+                import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
+            Ok((length, Some(*kind)))
+        } else {
+            let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
+            Ok((length, None))
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        _algorithm_name: &str,
+    ) -> Result<(u16, Option<KeyKind>)> {
+        let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
+        Ok((length, None))
+    }
+
+    let (length, key_kind) = import(ctx, mode, obj, algorithm_name)?;
+
+    if !matches!(length, 128 | 192 | 256) {
+        return Err(Exception::throw_message(
+            ctx,
+            &format!(
+                "Algorithm 'length' must be one of: 128, 192, or 256 = {}",
+                length
+            ),
+        ));
+    }
+
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        if algorithm_name == "AES-KW" {
+            KeyUsageAlgorithm::AesKw
+        } else {
+            KeyUsageAlgorithm::Symmetric
+        },
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+
+    Ok(KeyAlgorithm::Aes { length })
+}
+
+fn from_hmac<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    obj: std::result::Result<Object<'js>, &str>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    let obj = obj.or_throw(ctx)?;
+    let hash = extract_sha_hash(ctx, &obj)?;
+    let mut length: u16 = obj.get_optional("length")?.unwrap_or_default();
+
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        hash: &HashAlgorithm,
+        length: &mut u16,
+    ) -> Result<Option<KeyKind>> {
+        if let KeyAlgorithmMode::Import { data, format, kind } = mode {
+            let data_length =
+                import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(hash))?;
+            if *length == 0 {
+                *length = data_length as u16;
+            }
+            Ok(Some(*kind))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _hash: &HashAlgorithm,
+        _length: &mut u16,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, &hash, &mut length)?;
+
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Hmac,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+
+    Ok(KeyAlgorithm::Hmac { hash, length })
+}
+
+fn from_rsa<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    obj: std::result::Result<Object<'js>, &str>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    let obj = obj.or_throw(ctx)?;
+    let hash = extract_sha_hash(ctx, &obj)?;
+
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: &Object<'js>,
+        algorithm_name: &str,
+        hash: &HashAlgorithm,
+    ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
+        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
+            let (mod_length, exp) = import_rsa_key(ctx, format, kind, data, algorithm_name, hash)?;
+            Ok((mod_length, exp, Some(*kind)))
+        } else {
+            let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+            let public_exponent: TypedArray<u8> =
+                obj.get_required("publicExponent", "algorithm")?;
+            let public_exponent = public_exponent
+                .as_bytes()
+                .ok_or_else(|| Exception::throw_message(ctx, "Array buffer has been detached"))?
+                .to_owned()
+                .into_boxed_slice();
+            Ok((modulus_length, public_exponent, None))
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        obj: &Object<'js>,
+        _algorithm_name: &str,
+        _hash: &HashAlgorithm,
+    ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
+        let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+        let public_exponent: TypedArray<u8> = obj.get_required("publicExponent", "algorithm")?;
+        let public_exponent = public_exponent
+            .as_bytes()
+            .ok_or_else(|| Exception::throw_message(ctx, "Array buffer has been detached"))?
+            .to_owned()
+            .into_boxed_slice();
+        Ok((modulus_length, public_exponent, None))
+    }
+
+    let (modulus_length, public_exponent, key_kind) =
+        import(ctx, mode, &obj, algorithm_name, &hash)?;
+
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        if algorithm_name == "RSA-OAEP" {
+            KeyUsageAlgorithm::RsaOaep
+        } else {
+            KeyUsageAlgorithm::Sign
+        },
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+
+    Ok(KeyAlgorithm::Rsa {
+        modulus_length,
+        public_exponent: Rc::new(public_exponent),
+        hash,
+    })
+}
+
+fn from_hkdf<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    obj: std::result::Result<Object<'js>, &str>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        algorithm_name: &str,
+    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
+        match mode {
+            KeyAlgorithmMode::Import { format, kind, data } => {
+                import_derive_key(ctx, format, kind, data, algorithm_name)?;
+                Ok((KeyAlgorithm::HkdfImport, Some(*kind)))
+            },
+            KeyAlgorithmMode::Derive => {
+                let obj = obj.or_throw(ctx)?;
+                Ok((
+                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
+                    None,
+                ))
+            },
+            _ => algorithm_not_supported_error(ctx),
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        _algorithm_name: &str,
+    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
+        match mode {
+            KeyAlgorithmMode::Derive => {
+                let obj = obj.or_throw(ctx)?;
+                Ok((
+                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
+                    None,
+                ))
+            },
+            _ => algorithm_not_supported_error(ctx),
+        }
+    }
+
+    let (algorithm, key_kind) = import(ctx, mode, obj, algorithm_name)?;
+
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Derive,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+
+    Ok(algorithm)
+}
+
+fn from_pbkdf2<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    obj: std::result::Result<Object<'js>, &str>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        algorithm_name: &str,
+    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
+        match mode {
+            KeyAlgorithmMode::Import { format, kind, data } => {
+                import_derive_key(ctx, format, kind, data, algorithm_name)?;
+                Ok((KeyAlgorithm::Pbkdf2Import, Some(*kind)))
+            },
+            KeyAlgorithmMode::Derive => {
+                let obj = obj.or_throw(ctx)?;
+                Ok((
+                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
+                    None,
+                ))
+            },
+            _ => algorithm_not_supported_error(ctx),
+        }
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    #[inline]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        obj: std::result::Result<Object<'js>, &str>,
+        _algorithm_name: &str,
+    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
+        match mode {
+            KeyAlgorithmMode::Derive => {
+                let obj = obj.or_throw(ctx)?;
+                Ok((
+                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
+                    None,
+                ))
+            },
+            _ => algorithm_not_supported_error(ctx),
+        }
+    }
+
+    let (algorithm, key_kind) = import(ctx, mode, obj, algorithm_name)?;
+
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Derive,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+
+    Ok(algorithm)
+}
+
 impl KeyAlgorithm {
     pub fn from_js<'js>(
         ctx: &Ctx<'js>,
@@ -325,107 +769,31 @@ impl KeyAlgorithm {
         let mut private_usages = vec![];
         let algorithm_name = name.as_str();
         let algorithm = match algorithm_name {
-            "Ed25519" => {
-                #[cfg(feature = "_subtle-full")]
-                let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-                    import_okp_key(
-                        ctx,
-                        format,
-                        kind,
-                        data,
-                        const_oid::db::rfc8410::ID_ED_25519,
-                        algorithm_name,
-                    )?;
-                    Some(kind)
-                } else {
-                    None
-                };
-                #[cfg(not(feature = "_subtle-full"))]
-                let key_kind: Option<&KeyKind> = None;
-
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    KeyUsageAlgorithm::Sign,
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-                KeyAlgorithm::Ed25519
-            },
-            "X25519" => {
-                #[cfg(feature = "_subtle-full")]
-                let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-                    import_okp_key(
-                        ctx,
-                        format,
-                        kind,
-                        data,
-                        const_oid::db::rfc8410::ID_X_25519,
-                        algorithm_name,
-                    )?;
-                    Some(kind)
-                } else {
-                    None
-                };
-                #[cfg(not(feature = "_subtle-full"))]
-                let key_kind: Option<&KeyKind> = None;
-
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    KeyUsageAlgorithm::Derive,
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-                KeyAlgorithm::X25519
-            },
-            "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => {
-                #[cfg(feature = "_subtle-full")]
-                let (length, key_kind) = {
-                    let mut key_kind = None;
-                    let length = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-                        let l =
-                            import_symmetric_key(ctx, format, kind, data, algorithm_name, None)?;
-                        key_kind = Some(kind);
-                        l
-                    } else {
-                        obj.or_throw(ctx)?.get_required("length", "algorithm")?
-                    } as u16;
-                    (length, key_kind)
-                };
-                #[cfg(not(feature = "_subtle-full"))]
-                let (length, key_kind): (u16, Option<&KeyKind>) = {
-                    let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
-                    (length, None)
-                };
-
-                if !matches!(length, 128 | 192 | 256) {
-                    return Err(Exception::throw_message(
-                        ctx,
-                        &format!(
-                            "Algorithm 'length' must be one of: 128, 192, or 256 = {}",
-                            length
-                        ),
-                    ));
-                }
-
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    if name == "AES-KW" {
-                        KeyUsageAlgorithm::AesKw
-                    } else {
-                        KeyUsageAlgorithm::Symmetric
-                    },
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-
-                KeyAlgorithm::Aes { length }
-            },
+            "Ed25519" => from_ed25519(
+                ctx,
+                mode,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "X25519" => from_x25519(
+                ctx,
+                mode,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" => from_aes(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
             "ECDH" => Self::from_ec(
                 ctx,
                 mode,
@@ -437,7 +805,6 @@ impl KeyAlgorithm {
                 &mut public_usages,
                 KeyUsageAlgorithm::Derive,
             )?,
-
             "ECDSA" => Self::from_ec(
                 ctx,
                 mode,
@@ -449,162 +816,42 @@ impl KeyAlgorithm {
                 &mut public_usages,
                 KeyUsageAlgorithm::Sign,
             )?,
-            "HMAC" => {
-                let obj = obj.or_throw(ctx)?;
-                let hash = extract_sha_hash(ctx, &obj)?;
-
-                #[cfg(feature = "_subtle-full")]
-                let mut length: u16 = obj.get_optional("length")?.unwrap_or_default();
-                #[cfg(not(feature = "_subtle-full"))]
-                let length: u16 = obj.get_optional("length")?.unwrap_or_default();
-
-                #[cfg(feature = "_subtle-full")]
-                let key_kind = if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-                    let data_length =
-                        import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(&hash))?;
-                    if length == 0 {
-                        length = data_length as u16
-                    }
-                    Some(kind)
-                } else {
-                    None
-                };
-                #[cfg(not(feature = "_subtle-full"))]
-                let key_kind: Option<&KeyKind> = None;
-
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    KeyUsageAlgorithm::Hmac,
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-
-                KeyAlgorithm::Hmac { hash, length }
-            },
-            "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => {
-                let obj = obj.or_throw(ctx)?;
-                let hash = extract_sha_hash(ctx, &obj)?;
-
-                #[cfg(feature = "_subtle-full")]
-                let (modulus_length, public_exponent, key_kind) =
-                    if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-                        let (mod_length, exp) =
-                            import_rsa_key(ctx, format, kind, data, algorithm_name, &hash)?;
-                        (mod_length, exp, Some(kind))
-                    } else {
-                        let modulus_length = obj.get_required("modulusLength", "algorithm")?;
-                        let public_exponent: TypedArray<u8> =
-                            obj.get_required("publicExponent", "algorithm")?;
-                        let public_exponent = public_exponent
-                            .as_bytes()
-                            .ok_or_else(|| {
-                                Exception::throw_message(ctx, "Array buffer has been detached")
-                            })?
-                            .to_owned()
-                            .into_boxed_slice();
-                        (modulus_length, public_exponent, None)
-                    };
-
-                #[cfg(not(feature = "_subtle-full"))]
-                let (modulus_length, public_exponent, key_kind): (
-                    u32,
-                    Box<[u8]>,
-                    Option<&KeyKind>,
-                ) = {
-                    let modulus_length = obj.get_required("modulusLength", "algorithm")?;
-                    let public_exponent: TypedArray<u8> =
-                        obj.get_required("publicExponent", "algorithm")?;
-                    let public_exponent = public_exponent
-                        .as_bytes()
-                        .ok_or_else(|| {
-                            Exception::throw_message(ctx, "Array buffer has been detached")
-                        })?
-                        .to_owned()
-                        .into_boxed_slice();
-                    (modulus_length, public_exponent, None)
-                };
-
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    if name == "RSA-OAEP" {
-                        KeyUsageAlgorithm::RsaOaep
-                    } else {
-                        KeyUsageAlgorithm::Sign
-                    },
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-
-                let public_exponent = Rc::new(public_exponent);
-
-                KeyAlgorithm::Rsa {
-                    modulus_length,
-                    public_exponent,
-                    hash,
-                }
-            },
-            "HKDF" => {
-                let (algorithm, key_kind): (KeyAlgorithm, Option<&mut KeyKind>) = match mode {
-                    #[cfg(feature = "_subtle-full")]
-                    KeyAlgorithmMode::Import { format, kind, data } => {
-                        import_derive_key(ctx, format, kind, data, algorithm_name)?;
-
-                        (KeyAlgorithm::HkdfImport, Some(kind))
-                    },
-                    KeyAlgorithmMode::Derive => {
-                        let obj = obj.or_throw(ctx)?;
-                        (
-                            KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
-                            None,
-                        )
-                    },
-                    _ => {
-                        return algorithm_not_supported_error(ctx);
-                    },
-                };
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    KeyUsageAlgorithm::Derive,
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-                algorithm
-            },
-
-            "PBKDF2" => {
-                let (algorithm, key_kind): (KeyAlgorithm, Option<&mut KeyKind>) = match mode {
-                    #[cfg(feature = "_subtle-full")]
-                    KeyAlgorithmMode::Import { format, kind, data } => {
-                        import_derive_key(ctx, format, kind, data, algorithm_name)?;
-                        (KeyAlgorithm::Pbkdf2Import, Some(kind))
-                    },
-                    KeyAlgorithmMode::Derive => {
-                        let obj = obj.or_throw(ctx)?;
-                        (
-                            KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
-                            None,
-                        )
-                    },
-                    _ => {
-                        return algorithm_not_supported_error(ctx);
-                    },
-                };
-                KeyUsage::classify_and_check_usages(
-                    ctx,
-                    KeyUsageAlgorithm::Derive,
-                    &usages,
-                    &mut private_usages,
-                    &mut public_usages,
-                    key_kind.as_deref(),
-                )?;
-                algorithm
-            },
+            "HMAC" => from_hmac(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => from_rsa(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "HKDF" => from_hkdf(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "PBKDF2" => from_pbkdf2(
+                ctx,
+                mode,
+                obj,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
             _ => return algorithm_not_supported_error(ctx),
         };
 

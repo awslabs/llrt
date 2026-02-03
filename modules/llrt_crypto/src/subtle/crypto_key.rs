@@ -11,7 +11,7 @@ use rquickjs::{
 
 use super::key_algorithm::KeyAlgorithm;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum KeyKind {
     Secret,
     Private,
