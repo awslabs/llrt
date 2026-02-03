@@ -1,56 +1,14 @@
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use std::convert::Infallible;
 
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use bytes::Bytes;
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use http_body_util::combinators::BoxBody;
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::{TokioExecutor, TokioTimer},
 };
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use llrt_dns_cache::CachedDnsResolver;
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use once_cell::sync::Lazy;
 
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
 use crate::get_pool_idle_timeout;
 
 #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
@@ -148,7 +106,10 @@ mod openssl_client {
 
         let mut https = HttpsConnector::with_connector(cache_dns_connector, connector)?;
         https.set_callback(|ssl, _| {
+            #[cfg(feature = "http2")]
             ssl.set_alpn_protos(b"\x02h2\x08http/1.1")?;
+            #[cfg(not(feature = "http2"))]
+            ssl.set_alpn_protos(b"\x08http/1.1")?;
             Ok(())
         });
 

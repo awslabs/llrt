@@ -8,6 +8,12 @@ use rquickjs::{
 
 pub use self::config::*;
 
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
 mod client;
 mod config;
 
