@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 use std::sync::{Arc, OnceLock};
 
 use once_cell::sync::Lazy;
 use rustls::{
-    crypto::ring,
     pki_types::{pem::PemObject, CertificateDer},
     ClientConfig, RootCertStore, SupportedProtocolVersion,
 };
@@ -12,6 +12,22 @@ use rustls::{
 use webpki_roots::TLS_SERVER_ROOTS;
 
 use crate::no_verification::NoCertificateVerification;
+
+// Select the crypto provider based on feature flags
+#[cfg(feature = "tls-ring")]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls::crypto::ring::default_provider())
+}
+
+#[cfg(feature = "tls-aws-lc")]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+}
+
+#[cfg(feature = "tls-graviola")]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls_graviola::default_provider())
+}
 
 static EXTRA_CA_CERTS: OnceLock<Vec<CertificateDer<'static>>> = OnceLock::new();
 
@@ -59,7 +75,7 @@ pub struct BuildClientConfigOptions {
 pub fn build_client_config(
     options: BuildClientConfigOptions,
 ) -> Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>> {
-    let provider = Arc::new(ring::default_provider());
+    let provider = get_crypto_provider();
     let builder = ClientConfig::builder_with_provider(provider.clone());
 
     // TLS versions

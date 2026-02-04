@@ -521,6 +521,46 @@ make release-full-sdk
 
 You should now have a `llrt-lambda-arm64*.zip` or `llrt-lambda-x64*.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline
 
+## Crypto and TLS Backend Options
+
+LLRT supports multiple cryptographic backends for both the crypto module and TLS connections. These can be configured via Cargo features.
+
+### Crypto Provider Features
+
+| Feature                 | Description                                                       |
+| ----------------------- | ----------------------------------------------------------------- |
+| `crypto-rust` (default) | Pure Rust crypto using RustCrypto crates                          |
+| `crypto-ring`           | Ring-only crypto (limited algorithm support)                      |
+| `crypto-ring-rust`      | Ring for hashing/HMAC, RustCrypto for everything else             |
+| `crypto-graviola`       | Graviola-only crypto (limited algorithm support)                  |
+| `crypto-graviola-rust`  | Graviola for hashing/HMAC/AES-GCM, RustCrypto for everything else |
+| `crypto-openssl`        | OpenSSL-based crypto                                              |
+
+### TLS Backend Features
+
+| Feature              | Description                                   |
+| -------------------- | --------------------------------------------- |
+| `tls-ring` (default) | rustls with ring crypto                       |
+| `tls-aws-lc`         | rustls with AWS-LC crypto (optimized for AWS) |
+| `tls-graviola`       | rustls with graviola crypto                   |
+| `tls-openssl`        | OpenSSL for TLS                               |
+
+### Building with Different Backends
+
+```bash
+# Default (crypto-rust + tls-ring)
+cargo build --release
+
+# Using AWS-LC for TLS
+cargo build --release --no-default-features --features "macro,tls-aws-lc"
+
+# Using OpenSSL for both crypto and TLS
+cargo build --release --no-default-features --features "macro,crypto-openssl,tls-openssl"
+
+# Using Graviola for both crypto and TLS
+cargo build --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola"
+```
+
 ## Running Lambda emulator
 
 Please note that in order to run the example you will need:

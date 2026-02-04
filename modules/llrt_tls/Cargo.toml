@@ -12,18 +12,27 @@ name = "llrt_tls"
 path = "src/lib.rs"
 
 [features]
-default = ["webpki-roots"]
+default = ["webpki-roots", "tls-ring"]
 
 webpki-roots = ["dep:webpki-roots"]
 native-roots = ["dep:rustls-native-certs"]
+
+# TLS crypto backend features (rustls-based)
+tls-ring = ["dep:rustls", "rustls/ring"]
+tls-aws-lc = ["dep:rustls", "rustls/aws_lc_rs"]
+tls-graviola = ["dep:rustls", "dep:rustls-graviola"]
+
+# OpenSSL TLS backend
+tls-openssl = ["dep:openssl"]
 
 [dependencies]
 once_cell = { version = "1", features = ["std"], default-features = false }
 rustls = { version = "0.23", features = [
   "std",
-  "ring",
   "tls12",
-], default-features = false }
+], default-features = false, optional = true }
+rustls-graviola = { version = "0.3", optional = true }
+openssl = { version = "0.10", optional = true }
 webpki-roots = { version = "1", default-features = false, optional = true }
 rustls-native-certs = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false }

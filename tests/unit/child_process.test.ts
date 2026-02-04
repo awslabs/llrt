@@ -113,8 +113,9 @@ describe("spawn", () => {
 
   it("should handle child process termination", (done) => {
     // Use cross-platform long-running command: Windows uses 'ping -n 999 localhost', Unix uses 'sleep 999'
-    const command = IS_WINDOWS ? "ping -n 999 localhost" : "sleep 999";
-    const child = spawn(command, { shell: true });
+    const child = IS_WINDOWS
+      ? spawn("ping", ["-n", "999", "localhost"])
+      : spawn("sleep", ["999"]);
 
     child.on("exit", (code, signal) => {
       try {
@@ -206,20 +207,23 @@ describe("spawn", () => {
     let detachedPidString = "";
     parentProc.stdout.on("data", (data) => {
       detachedPidString += data.toString();
-      console.log("Got PID:", detachedPidString);
+      // Kill parent once we have the PID - parent would otherwise wait for detached child
       parentProc.kill();
     });
 
-    parentProc.on("exit", () => {
+    parentProc.on("error", (err) => {
+      done(err);
+    });
+
+    parentProc.on("close", () => {
       try {
         const detachedPid = parseInt(detachedPidString.trim());
-        console.log("Parent exited, detached PID:", detachedPid);
         expect(detachedPid).toBeGreaterThan(0);
+        // Verify detached process survived parent termination
         const exists = process.kill(detachedPid, 0);
-        console.log("Process exists check:", exists);
         expect(exists).toBe(true);
-        const killResult = process.kill(detachedPid);
-        console.log("Kill result:", killResult);
+        // Clean up the detached process
+        process.kill(detachedPid, "SIGKILL");
         done();
       } catch (error) {
         done(error);

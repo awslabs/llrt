@@ -5,12 +5,29 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro"]
+default = ["macro", "tls-ring", "crypto-rust"]
 lambda = []
 no-sdk = []
 uncompressed = []
 macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
+
+# TLS crypto backend features
+tls-ring = ["rustls/ring", "llrt_modules/tls-ring"]
+tls-aws-lc = ["rustls/aws_lc_rs", "llrt_modules/tls-aws-lc"]
+tls-graviola = ["llrt_modules/tls-graviola"]
+tls-openssl = ["llrt_modules/tls-openssl", "dep:openssl"]
+
+# Crypto provider features
+crypto-rust = ["llrt_modules/crypto-rust"]
+crypto-ring = ["llrt_modules/crypto-ring"]
+crypto-ring-rust = ["llrt_modules/crypto-ring-rust"]
+crypto-graviola = ["llrt_modules/crypto-graviola"]
+crypto-graviola-rust = ["llrt_modules/crypto-graviola-rust"]
+crypto-openssl = ["llrt_modules/crypto-openssl"]
+
+# OpenSSL vendored (builds OpenSSL from source)
+openssl-vendored = ["openssl/vendored"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
@@ -26,7 +43,7 @@ llrt_encoding = { path = "../libs/llrt_encoding" }
 llrt_hooking = { path = "../libs/llrt_hooking" }
 llrt_json = { path = "../libs/llrt_json" }
 llrt_logging = { path = "../libs/llrt_logging" }
-llrt_modules = { path = "../llrt_modules" }
+llrt_modules = { path = "../llrt_modules", default-features = false, features = ["base", "console"] }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
@@ -44,7 +61,6 @@ rquickjs = { version = "0.11", features = [
   "std",
 ], default-features = false }
 rustls = { version = "0.23", features = [
-  "ring",
   "tls12",
 ], default-features = false }
 rustls-pemfile = { version = "2", features = ["std"], default-features = false }
@@ -54,6 +70,7 @@ terminal_size = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["sync", "time"], default-features = false }
 tracing = { version = "0.1", features = ["log"], default-features = false }
 zstd = { version = "0.13", default-features = false }
+openssl = { version = "0.10", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 md-5 = { version = "0.11.0-rc.3", default-features = false }

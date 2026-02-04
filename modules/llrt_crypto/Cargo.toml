@@ -12,10 +12,20 @@ name = "llrt_crypto"
 path = "src/lib.rs"
 
 [features]
-default = ["subtle-rs"]
+default = ["crypto-rust"]
 
-subtle-rs = [
+# Internal feature: enables DER parsing for SubtleCrypto key import/export
+_subtle-full = [
   "llrt_json",
+  "spki",
+  "der",
+  "const-oid",
+  "pkcs8",
+]
+
+# Internal feature: enables RustCrypto dependencies for key import/export
+_rustcrypto = [
+  "_subtle-full",
   "aes",
   "aes-gcm",
   "aes-kw",
@@ -28,11 +38,16 @@ subtle-rs = [
   "elliptic-curve",
   "x25519-dalek",
   "ecdsa",
-  "spki",
-  "der",
-  "const-oid",
-  "pkcs8",
+  "hmac",
+  "sha1",
 ]
+
+crypto-rust = ["_rustcrypto"]
+crypto-ring = []
+crypto-ring-rust = ["_rustcrypto"]
+crypto-graviola = ["graviola"]
+crypto-graviola-rust = ["graviola", "_rustcrypto"]
+crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
 
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
@@ -48,11 +63,11 @@ rand = { version = "0.10.0-rc.5", features = [
   "thread_rng",
 ], default-features = false }
 ring = { version = "0.17", default-features = false }
-rquickjs = { version = "0.11", features = [
-  "macro",
-], default-features = false }
+rquickjs = { version = "0.11", features = ["macro"], default-features = false }
 
-# Optional
+
+# optional
+llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
 aes = { version = "0.9.0-rc.2", optional = true }
 aes-gcm = { version = "0.11.0-rc.2", features = [
   "alloc",
@@ -72,8 +87,8 @@ der = { version = "0.8.0-rc.10", features = [
 ecdsa = { version = "0.17.0-rc.9", default-features = false, optional = true }
 elliptic-curve = { version = "0.14.0-rc.17", features = [
   "alloc",
+  "sec1",
 ], default-features = false, optional = true }
-llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json", optional = true }
 md-5 = { version = "0.11.0-rc.3", default-features = false }
 rsa = { version = "0.10.0-rc.10", features = [
   "std",
@@ -107,6 +122,13 @@ x25519-dalek = { version = "3.0.0-pre.3", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
+hmac = { version = "0.13.0-rc.3", default-features = false, optional = true }
+sha1 = { version = "0.11.0-rc.3", default-features = false, optional = true }
+
+# Crypto provider dependencies
+openssl-sys = { version = "0.9", optional = true }
+openssl = { version = "0.10", optional = true }
+graviola = { version = "0.3", optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

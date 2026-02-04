@@ -301,7 +301,7 @@ async fn next_invocation<'js, 'a>(
 
     if res.status() != StatusCode::OK {
         let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
-        let res_str = String::from_utf8_lossy(&res_bytes[..]);
+        let res_str = String::from_utf8_lossy(res_bytes.as_ref());
         return Err(Exception::throw_message(
             ctx,
             &["Unexpected /invocation/next response: ", &res_str].concat(),
@@ -379,7 +379,7 @@ async fn invoke_response<'js>(
         StatusCode::ACCEPTED => Ok(()),
         _ => {
             let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
-            let res_str = String::from_utf8_lossy(&res_bytes[..]);
+            let res_str = String::from_utf8_lossy(res_bytes.as_ref());
             Err(Exception::throw_message(
                 ctx,
                 &["Unexpected /invocation/response response: ", &res_str].concat(),
@@ -544,7 +544,7 @@ async fn post_error<'js>(
     let res = client.request(req).await.or_throw(ctx)?;
     if res.status() != StatusCode::ACCEPTED {
         let res_bytes = res.collect().await.or_throw(ctx)?.to_bytes();
-        let res_str = String::from_utf8_lossy(&res_bytes[..]);
+        let res_str = String::from_utf8_lossy(res_bytes.as_ref());
         return Err(Exception::throw_message(
             ctx,
             &["Unexpected ", path, " response: ", &res_str].concat(),

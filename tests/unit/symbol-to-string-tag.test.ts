@@ -1,3 +1,5 @@
+const LIMITED_CRYPTO = process.env.LLRT_LIMITED_CRYPTO === "1";
+
 describe("Symbol.toStringTag", () => {
   describe("URL module", () => {
     it("URL should have correct Symbol.toStringTag", () => {
@@ -110,6 +112,7 @@ describe("Symbol.toStringTag", () => {
     });
 
     it("CryptoKey should have correct Symbol.toStringTag", async () => {
+      if (LIMITED_CRYPTO) return;
       const key = await crypto.subtle.generateKey(
         { name: "HMAC", hash: "SHA-256" },
         false,

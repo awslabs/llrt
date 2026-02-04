@@ -3,23 +3,46 @@
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Result,
+    Ctx, Result,
 };
 
-pub use self::agent::Agent;
-pub use self::client::*;
 pub use self::config::*;
 
-mod agent;
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
 mod client;
 mod config;
 
-// Here we should also add the http module.
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
+mod agent;
+
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
+pub use self::{agent::Agent, client::*};
 
 pub struct HttpsModule;
 
 impl ModuleDef for HttpsModule {
     fn declare(declare: &Declarations) -> Result<()> {
+        #[cfg(any(
+            feature = "tls-ring",
+            feature = "tls-aws-lc",
+            feature = "tls-graviola",
+            feature = "tls-openssl"
+        ))]
         declare.declare(stringify!(Agent))?;
         declare.declare("default")?;
         Ok(())
@@ -27,8 +50,15 @@ impl ModuleDef for HttpsModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
-            Class::<Agent>::define(default)?;
+            #[cfg(any(
+                feature = "tls-ring",
+                feature = "tls-aws-lc",
+                feature = "tls-graviola",
+                feature = "tls-openssl"
+            ))]
+            rquickjs::Class::<Agent>::define(default)?;
 
+            let _ = default;
             Ok(())
         })
     }

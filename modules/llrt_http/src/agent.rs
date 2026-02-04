@@ -1,27 +1,20 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::convert::Infallible;
-
-use bytes::Bytes;
-use http_body_util::combinators::BoxBody;
-use hyper_rustls::HttpsConnector;
-use hyper_util::client::legacy::{connect::HttpConnector, Client};
-use llrt_dns_cache::CachedDnsResolver;
 use llrt_utils::result::ResultExt;
 use llrt_utils::{any_of::AnyOf4, bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{prelude::Opt, Ctx, Error, FromJs, Result, Value};
+
+use crate::HyperClient;
 
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime, rquickjs::class::Trace)]
 pub struct Agent {
     #[qjs(skip_trace)]
-    client: Client<HttpsConnector<HttpConnector<CachedDnsResolver>>, BoxBody<Bytes, Infallible>>,
+    client: HyperClient,
 }
 
 impl Agent {
-    pub fn client(
-        &self,
-    ) -> Client<HttpsConnector<HttpConnector<CachedDnsResolver>>, BoxBody<Bytes, Infallible>> {
+    pub fn client(&self) -> HyperClient {
         self.client.clone()
     }
 }
