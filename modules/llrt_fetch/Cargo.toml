@@ -17,8 +17,8 @@ default = ["http1", "http2", "compression-c", "webpki-roots"]
 http1 = ["hyper/http1", "llrt_http/http1"]
 http2 = ["hyper/http2", "llrt_http/http2"]
 
-compression-c = ["llrt_compression/all-c"]
-compression-rust = ["llrt_compression/all-rust"]
+compression-c = ["llrt_compression/all-c", "brotlic", "flate2/zlib-ng", "zstd"]
+compression-rust = ["llrt_compression/all-rust", "brotli", "flate2/miniz_oxide", "zstd"]
 
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
@@ -29,8 +29,11 @@ tls-graviola = ["llrt_http/tls-graviola", "llrt_test_tls/tls-graviola"]
 tls-openssl = ["llrt_http/tls-openssl", "llrt_test_tls/tls-openssl"]
 
 [dependencies]
+brotli = { version = "8", features = ["std"], default-features = false, optional = true }
+brotlic = { version = "0.8", default-features = false, optional = true }
 bytes = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
+flate2 = { version = "1", default-features = false, optional = true }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
 itoa = { version = "1", default-features = false }
@@ -41,6 +44,7 @@ llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_http = { version = "0.7.0-beta", default-features = false, path = "../llrt_http" }
 llrt_json = { version = "0.7.0-beta", path = "../../libs/llrt_json" }
+llrt_stream_web = { version = "0.7.0-beta", path = "../llrt_stream_web" }
 llrt_url = { version = "0.7.0-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
@@ -54,6 +58,7 @@ rand = { version = "0.10.0", features = [
 ], default-features = false }
 rquickjs = { version = "0.11", features = [
   "either",
+  "futures",
   "std",
 ], default-features = false }
 tokio = { version = "1", features = [
@@ -61,6 +66,7 @@ tokio = { version = "1", features = [
   "sync",
 ], default-features = false }
 tracing = { version = "0.1", default-features = false }
+zstd = { version = "0.13", default-features = false, optional = true }
 
 [dev-dependencies]
 llrt_compression = { version = "0.7.0-beta", path = "../../libs/llrt_compression" }

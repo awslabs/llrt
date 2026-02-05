@@ -78,8 +78,7 @@ impl<'js> Trace<'js> for Request<'js> {
             headers.trace(tracer);
         }
         let body = self.body.read().unwrap();
-        let body = &*body;
-        if let BodyVariant::Provided(Some(body)) = body {
+        if let BodyVariant::Provided(Some(body)) = &*body {
             body.trace(tracer);
         }
     }
@@ -146,8 +145,7 @@ impl<'js> Request<'js> {
     #[qjs(get)]
     fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         let body = self.body.read().unwrap();
-        let body = &*body;
-        match body {
+        match &*body {
             BodyVariant::Provided(value) => value.into_js(&ctx),
             BodyVariant::Empty => Null.into_js(&ctx),
         }
@@ -166,8 +164,7 @@ impl<'js> Request<'js> {
     #[qjs(get)]
     fn body_used(&self) -> bool {
         let body = self.body.read().unwrap();
-        let body = &*body;
-        match body {
+        match &*body {
             BodyVariant::Provided(value) => value.is_none(),
             BodyVariant::Empty => false,
         }
@@ -247,19 +244,18 @@ impl<'js> Request<'js> {
             None
         };
 
-        //not async so should not block
-        let body = self.body.read().unwrap();
-        let body = &*body;
-        let body = match body {
+        let body_guard = self.body.read().unwrap();
+        let cloned_body = match &*body_guard {
             BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
             BodyVariant::Empty => BodyVariant::Empty,
         };
+        drop(body_guard);
 
         Ok(Self {
             url: self.url.clone(),
-            method: self.url.clone(),
+            method: self.method.clone(),
             headers,
-            body: RwLock::new(body),
+            body: RwLock::new(cloned_body),
             signal: self.signal.clone(),
             mode: self.mode.clone(),
             keepalive: self.keepalive,
@@ -269,8 +265,8 @@ impl<'js> Request<'js> {
 }
 
 impl<'js> Request<'js> {
-    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
-    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
+    #[allow(clippy::await_holding_lock)]
+    #[allow(clippy::readonly_write_lock)]
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
         let mut body_guard = self.body.write().unwrap();
         let body = &mut *body_guard;
@@ -281,8 +277,7 @@ impl<'js> Request<'js> {
                     .ok_or(Exception::throw_message(ctx, "Already read"))?;
                 drop(body_guard);
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
-                    let blob = blob.borrow();
-                    blob.get_bytes()
+                    blob.borrow().get_bytes()
                 } else {
                     let bytes = ObjectBytes::from(ctx, &provided)?;
                     bytes.as_bytes(ctx)?.to_vec()
