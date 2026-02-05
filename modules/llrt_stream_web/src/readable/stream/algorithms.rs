@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub(crate) enum StartAlgorithm<'js> {
+pub enum StartAlgorithm<'js> {
     ReturnUndefined,
     Function {
         f: Function<'js>,
@@ -37,7 +37,7 @@ impl<'js> StartAlgorithm<'js> {
 }
 
 #[derive(Trace, Clone)]
-pub(crate) enum PullAlgorithm<'js> {
+pub enum PullAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
@@ -54,7 +54,7 @@ type PullRustFunction<'js> =
     Box<dyn Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js>;
 
 impl<'js> PullAlgorithm<'js> {
-    pub(super) fn from_fn(
+    pub fn from_fn(
         f: impl Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js,
     ) -> Self {
         Self::RustFunction(Rc::new(Box::new(f)))
@@ -84,7 +84,7 @@ impl<'js> PullAlgorithm<'js> {
 }
 
 #[derive(Clone, Trace)]
-pub(crate) enum CancelAlgorithm<'js> {
+pub enum CancelAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
@@ -100,7 +100,7 @@ unsafe impl<'js> JsLifetime<'js> for CancelAlgorithm<'js> {
 type CancelRustFunction<'js> = Box<dyn FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js>;
 
 impl<'js> CancelAlgorithm<'js> {
-    pub(super) fn from_fn(f: impl FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js) -> Self {
+    pub fn from_fn(f: impl FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js) -> Self {
         Self::RustFunction(Rc::new(OnceFn::new(Box::new(f))))
     }
 
