@@ -62,7 +62,7 @@ pub struct ReadableStream<'js> {
     pub controller: ReadableStreamControllerClass<'js>,
     pub disturbed: bool,
     pub state: ReadableStreamState<'js>,
-    pub reader: Option<ReadableStreamReaderClass<'js>>,
+    pub(crate) reader: Option<ReadableStreamReaderClass<'js>>,
     pub(crate) promise_primordials: PromisePrimordials<'js>,
     pub(crate) constructor_type_error: Constructor<'js>,
     pub(crate) constructor_range_error: Constructor<'js>,

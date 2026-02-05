@@ -20,7 +20,7 @@ impl<'js> QueueWithSizes<'js> {
         }
     }
 
-    pub fn enqueue_value_with_size(
+    pub(crate) fn enqueue_value_with_size(
         &mut self,
         ctx: &Ctx<'js>,
         value: Value<'js>,
