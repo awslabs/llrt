@@ -6,7 +6,7 @@ use crate::queuing_strategy::SizeValue;
 
 /// QueueWithSize is present in readable and writable streams and abstracts away certain queue operations
 /// https://streams.spec.whatwg.org/#queue-with-sizes
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime, Trace, Default)]
 pub struct QueueWithSizes<'js> {
     pub queue: VecDeque<ValueWithSize<'js>>,
     pub queue_total_size: f64,

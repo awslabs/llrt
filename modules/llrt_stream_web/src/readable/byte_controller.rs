@@ -43,7 +43,7 @@ use crate::{
 
 #[derive(JsLifetime)]
 #[rquickjs::class]
-pub(crate) struct ReadableByteStreamController<'js> {
+pub struct ReadableByteStreamController<'js> {
     auto_allocate_chunk_size: Option<usize>,
     #[qjs(get)]
     byob_request: Option<Class<'js, ReadableStreamBYOBRequest<'js>>>,

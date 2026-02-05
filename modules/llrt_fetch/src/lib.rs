@@ -14,10 +14,10 @@ pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny
 use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 
 mod body;
+mod decompress;
 pub mod fetch;
 pub mod form_data;
 pub mod headers;
-mod incoming;
 pub mod request;
 pub mod response;
 mod security;

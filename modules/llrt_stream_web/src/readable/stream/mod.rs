@@ -32,7 +32,6 @@ use crate::{
     writable::WritableStreamOwned,
 };
 
-use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
 use pipe::StreamPipeOptions;
 use source::UnderlyingSource;
 
@@ -50,22 +49,24 @@ use rquickjs::{
     Result, Value,
 };
 
-pub(super) mod algorithms;
+pub mod algorithms;
 mod pipe;
 pub(super) mod source;
 mod tee;
 
+pub use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
+
 #[rquickjs::class]
 #[derive(JsLifetime)]
-pub(crate) struct ReadableStream<'js> {
+pub struct ReadableStream<'js> {
     pub controller: ReadableStreamControllerClass<'js>,
     pub disturbed: bool,
     pub state: ReadableStreamState<'js>,
     pub reader: Option<ReadableStreamReaderClass<'js>>,
-    pub promise_primordials: PromisePrimordials<'js>,
-    pub constructor_type_error: Constructor<'js>,
-    pub constructor_range_error: Constructor<'js>,
-    pub function_array_buffer_is_view: Function<'js>,
+    pub(crate) promise_primordials: PromisePrimordials<'js>,
+    pub(crate) constructor_type_error: Constructor<'js>,
+    pub(crate) constructor_range_error: Constructor<'js>,
+    pub(crate) function_array_buffer_is_view: Function<'js>,
 }
 
 impl<'js> Trace<'js> for ReadableStream<'js> {
@@ -716,8 +717,25 @@ impl<'js> ReadableStream<'js> {
         })
     }
 
+    /// Create a ReadableStream from Rust pull/cancel algorithms
+    pub fn from_pull_algorithm(
+        ctx: Ctx<'js>,
+        pull_algorithm: PullAlgorithm<'js>,
+        cancel_algorithm: CancelAlgorithm<'js>,
+    ) -> Result<Class<'js, Self>> {
+        Ok(Self::create_readable_stream(
+            ctx,
+            StartAlgorithm::ReturnUndefined,
+            pull_algorithm,
+            cancel_algorithm,
+            None,
+            None,
+        )?
+        .stream)
+    }
+
     // CreateReadableByteStream(startAlgorithm, pullAlgorithm, cancelAlgorithm) performs the following steps:
-    fn create_readable_byte_stream(
+    pub fn create_readable_byte_stream(
         ctx: Ctx<'js>,
         start_algorithm: StartAlgorithm<'js>,
         pull_algorithm: PullAlgorithm<'js>,

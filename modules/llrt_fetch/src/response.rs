@@ -1,37 +1,31 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, HashMap},
-    io::Read,
+    rc::Rc,
     sync::RwLock,
     time::Instant,
 };
 
 use either::Either;
 use http_body_util::BodyExt;
-use hyper::{
-    body::{Body, Incoming},
-    header::HeaderName,
-};
+use hyper::{body::Incoming, header::HeaderName};
 use llrt_abort::AbortSignal;
-use llrt_context::CtxExtension;
 use llrt_json::{parse::json_parse, stringify::json_stringify};
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
-use llrt_utils::bytes::ObjectBytes;
-use llrt_utils::{mc_oneshot, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, mc_oneshot};
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
     ArrayBuffer, Class, Coerced, Ctx, Exception, IntoJs, JsLifetime, Object, Result, TypedArray,
-    Undefined, Value,
+    Value,
 };
-use tokio::select;
 
 use super::{
     headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
-    incoming::{self, IncomingReceiver},
     strip_bom, Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON,
     MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
 };
@@ -105,16 +99,19 @@ static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
 });
 
 enum BodyVariant<'js> {
-    Incoming(Option<hyper::Response<Incoming>>),
-    Cloned(Option<hyper::Response<IncomingReceiver>>),
+    /// Raw incoming HTTP body - consumed directly for text()/json()/etc
+    Incoming(Rc<RefCell<Option<Incoming>>>, Option<String>), // body + content_encoding
+    /// User-provided body value
     Provided(Option<Value<'js>>),
+    /// Empty body
     Empty,
 }
 
 #[rquickjs::class]
 pub struct Response<'js> {
     body: RwLock<BodyVariant<'js>>,
-    content_encoding: Option<String>,
+    /// Cached ReadableStream for the body getter (created lazily)
+    body_stream: RefCell<Option<Value<'js>>>,
     method: String,
     url: String,
     start: Instant,
@@ -128,10 +125,13 @@ pub struct Response<'js> {
 impl<'js> Trace<'js> for Response<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.headers.trace(tracer);
-        let body = self.body.read().unwrap();
-        let body = &*body;
-        if let BodyVariant::Provided(Some(body)) = body {
-            body.trace(tracer);
+        if let Ok(body) = self.body.read() {
+            if let BodyVariant::Provided(Some(body)) = &*body {
+                body.trace(tracer);
+            }
+        }
+        if let Some(stream) = self.body_stream.borrow().as_ref() {
+            stream.trace(tracer);
         }
     }
 }
@@ -221,10 +221,9 @@ impl<'js> Response<'js> {
         }
         let headers = Class::instance(ctx.clone(), headers)?;
 
-        let content_encoding = headers.get("content-encoding")?;
-
         Ok(Self {
             body: RwLock::new(body),
+            body_stream: RefCell::new(None),
             method: "GET".into(),
             url,
             start: Instant::now(),
@@ -232,7 +231,6 @@ impl<'js> Response<'js> {
             status_text,
             redirected: false,
             headers,
-            content_encoding,
             abort_receiver,
         })
     }
@@ -257,10 +255,25 @@ impl<'js> Response<'js> {
         self.redirected
     }
 
-    //FIXME return readable stream when implemented
     #[qjs(get)]
-    pub fn body(&self) -> Undefined {
-        Undefined
+    pub fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        // Return cached stream if available
+        if let Some(stream) = self.body_stream.borrow().as_ref() {
+            return Ok(stream.clone());
+        }
+
+        let body_guard = self.body.read().unwrap();
+        match &*body_guard {
+            BodyVariant::Incoming(incoming, content_encoding) => {
+                let incoming = incoming.clone();
+                let content_encoding = content_encoding.clone();
+                drop(body_guard);
+                let stream = create_body_stream(&ctx, incoming, content_encoding)?;
+                *self.body_stream.borrow_mut() = Some(stream.clone());
+                Ok(stream)
+            },
+            _ => Ok(Value::new_undefined(ctx)),
+        }
     }
 
     #[qjs(get)]
@@ -291,14 +304,14 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        let body = self.body.read().unwrap();
-        let body = &*body;
-        match body {
-            BodyVariant::Incoming(response) => response.is_none(),
-            BodyVariant::Cloned(response) => response.is_none(),
-            BodyVariant::Provided(value) => value.is_none(),
-            BodyVariant::Empty => false,
+        if let Ok(body) = self.body.read() {
+            return match &*body {
+                BodyVariant::Incoming(incoming, _) => incoming.borrow().is_none(),
+                BodyVariant::Provided(value) => value.is_none(),
+                BodyVariant::Empty => false,
+            };
         }
+        false
     }
 
     pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
@@ -351,34 +364,30 @@ impl<'js> Response<'js> {
     }
 
     pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
-        //not async so should not block
-        let mut body = self.body.write().unwrap();
-        let body_mutex = &mut *body;
-        let body = match body_mutex {
-            BodyVariant::Incoming(incoming) => {
-                if let Some(response) = incoming.take() {
-                    let (head, incoming_response) = response.into_parts();
-                    let (sender, receiver) = incoming::channel(incoming_response);
-                    let response = hyper::Response::from_parts(head, receiver);
-
-                    *body_mutex = BodyVariant::Cloned(Some(response.clone()));
-
-                    ctx.spawn_exit_simple(async move {
-                        sender.process().await;
-                        Ok(())
-                    });
-                    BodyVariant::Cloned(Some(response))
-                } else {
-                    BodyVariant::Incoming(None)
+        let body = self.body.read().unwrap();
+        let cloned_body = match &*body {
+            BodyVariant::Incoming(incoming, _) => {
+                // Cannot clone if body has been consumed
+                if incoming.borrow().is_none() {
+                    return Err(Exception::throw_type(
+                        &ctx,
+                        "Cannot clone response after body has been used",
+                    ));
                 }
+                // Cannot clone incoming body - it's a stream that can only be read once
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "Cannot clone response with unconsumed body",
+                ));
             },
-            BodyVariant::Cloned(incoming) => BodyVariant::Cloned(incoming.clone()),
             BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
             BodyVariant::Empty => BodyVariant::Empty,
         };
+        drop(body);
 
         Ok(Self {
-            body: RwLock::new(body),
+            body: RwLock::new(cloned_body),
+            body_stream: RefCell::new(None),
             method: self.method.clone(),
             url: self.url.clone(),
             start: self.start,
@@ -386,7 +395,6 @@ impl<'js> Response<'js> {
             status_text: self.status_text.clone(),
             redirected: self.redirected,
             headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
-            content_encoding: self.content_encoding.clone(),
             abort_receiver: self.abort_receiver.clone(),
         })
     }
@@ -395,6 +403,7 @@ impl<'js> Response<'js> {
     fn error(ctx: Ctx<'js>) -> Result<Self> {
         Ok(Self {
             body: RwLock::new(BodyVariant::Empty),
+            body_stream: RefCell::new(None),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -402,7 +411,6 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected: false,
             headers: Class::instance(ctx.clone(), Headers::default())?,
-            content_encoding: None,
             abort_receiver: None,
         })
     }
@@ -441,7 +449,6 @@ impl<'js> Response<'js> {
         }
 
         let headers = Class::instance(ctx.clone(), headers)?;
-        let content_encoding = headers.get("content-encoding")?;
 
         let body = if let Ok(Some(v)) = json_stringify(&ctx, body) {
             BodyVariant::Provided(Some(v.into_js(&ctx)?))
@@ -451,6 +458,7 @@ impl<'js> Response<'js> {
 
         Ok(Self {
             body: RwLock::new(body),
+            body_stream: RefCell::new(None),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -458,7 +466,6 @@ impl<'js> Response<'js> {
             status_text,
             redirected: false,
             headers,
-            content_encoding,
             abort_receiver: None,
         })
     }
@@ -482,6 +489,7 @@ impl<'js> Response<'js> {
 
         Ok(Self {
             body: RwLock::new(BodyVariant::Empty),
+            body_stream: RefCell::new(None),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -489,7 +497,6 @@ impl<'js> Response<'js> {
             status_text: None,
             redirected: false,
             headers,
-            content_encoding: None,
             abort_receiver: None,
         })
     }
@@ -524,8 +531,11 @@ impl<'js> Response<'js> {
         let status = response.status();
 
         Ok(Self {
-            body: RwLock::new(BodyVariant::Incoming(Some(response))),
-            content_encoding,
+            body: RwLock::new(BodyVariant::Incoming(
+                Rc::new(RefCell::new(Some(response.into_body()))),
+                content_encoding.clone(),
+            )),
+            body_stream: RefCell::new(None),
             method,
             url,
             start,
@@ -537,74 +547,90 @@ impl<'js> Response<'js> {
         })
     }
 
-    #[allow(clippy::await_holding_lock)] //clippy complains about guard being held across await points but we drop the guard before awaiting
-    #[allow(clippy::readonly_write_lock)] //clippy complains about lock being read only but we mutate the value
+    #[allow(clippy::await_holding_lock)]
+    #[allow(clippy::readonly_write_lock)]
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        let mut body_guard = self.body.write().unwrap();
-        let body = &mut *body_guard;
-        let bytes = match body {
-            BodyVariant::Incoming(ref mut incoming) => {
-                let response = incoming
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
+        use crate::decompress::StreamingDecoder;
 
-                self.take_bytes_body(ctx, response.into_body()).await?
-            },
-            BodyVariant::Cloned(ref mut incoming) => {
-                let response = incoming
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-
-                self.take_bytes_body(ctx, response.into_body()).await?
-            },
-            BodyVariant::Provided(provided) => {
-                let provided = provided
-                    .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
-                drop(body_guard);
-                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
-                    let blob = blob.borrow();
-                    blob.get_bytes()
-                } else {
-                    let bytes = ObjectBytes::from(ctx, &provided)?;
-                    bytes.as_bytes(ctx)?.to_vec()
-                }
-            },
-            BodyVariant::Empty => return Ok(None),
-        };
-
-        Ok(Some(bytes))
-    }
-
-    async fn take_bytes_body<T>(&self, ctx: &Ctx<'js>, body: T) -> Result<Vec<u8>>
-    where
-        T: Body,
-        T::Error: std::fmt::Display,
-    {
-        let bytes = if let Some(abort_signal) = self.abort_receiver.as_ref() {
-            select! {
-                err = abort_signal.recv() => return Err(ctx.throw(err)),
-                collected_body = body.collect() => collected_body.or_throw(ctx)?.to_bytes()
+        // Check body type and get content_encoding
+        let (body_type, content_encoding) = {
+            let body_guard = self.body.read().unwrap();
+            match &*body_guard {
+                BodyVariant::Incoming(_, enc) => (1, enc.clone()),
+                BodyVariant::Provided(Some(_)) => (2, None),
+                BodyVariant::Provided(None) => {
+                    return Err(Exception::throw_message(ctx, "Already read"))
+                },
+                BodyVariant::Empty => return Ok(None),
             }
-        } else {
-            body.collect().await.or_throw(ctx)?.to_bytes()
         };
 
-        if let Some(content_encoding) = self.content_encoding.as_deref() {
-            let mut data: Vec<u8> = Vec::with_capacity(bytes.len());
-            match content_encoding {
-                "zstd" => llrt_compression::zstd::decoder(&bytes[..])?.read_to_end(&mut data)?,
-                "br" => llrt_compression::brotli::decoder(&bytes[..]).read_to_end(&mut data)?,
-                "gzip" => llrt_compression::gz::decoder(&bytes[..]).read_to_end(&mut data)?,
-                "deflate" => llrt_compression::zlib::decoder(&bytes[..]).read_to_end(&mut data)?,
-                _ => return Err(Exception::throw_message(ctx, "Unsupported encoding")),
+        if body_type == 1 {
+            // Consume Incoming body directly
+            let incoming = {
+                let body_guard = self.body.read().unwrap();
+                if let BodyVariant::Incoming(incoming, _) = &*body_guard {
+                    incoming.clone()
+                } else {
+                    return Ok(None);
+                }
             };
-            Ok(data)
-        } else {
-            Ok(bytes.to_vec())
+
+            let body = incoming
+                .borrow_mut()
+                .take()
+                .ok_or(Exception::throw_message(ctx, "Already read"))?;
+
+            // Read all frames
+            let mut bytes = Vec::new();
+            let mut body = body;
+            while let Some(frame) = body.frame().await {
+                match frame {
+                    Ok(frame) => {
+                        if let Some(data) = frame.data_ref() {
+                            bytes.extend_from_slice(data);
+                        }
+                    },
+                    Err(e) => return Err(Exception::throw_message(ctx, &e.to_string())),
+                }
+            }
+
+            // Decompress if needed
+            if let Some(encoding) = &content_encoding {
+                if let Ok(mut decoder) = StreamingDecoder::new(encoding) {
+                    let decompressed = decoder
+                        .decompress_chunk(&bytes)
+                        .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                    let remaining = decoder
+                        .finish()
+                        .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                    let mut result = decompressed;
+                    result.extend(remaining);
+                    return Ok(Some(result));
+                }
+            }
+
+            return Ok(Some(bytes));
         }
+
+        // Handle Provided case
+        let mut body_guard = self.body.write().unwrap();
+        if let BodyVariant::Provided(provided) = &mut *body_guard {
+            let provided = provided
+                .take()
+                .ok_or(Exception::throw_message(ctx, "Already read"))?;
+            drop(body_guard);
+            let bytes =
+                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
+                    blob.borrow().get_bytes()
+                } else {
+                    let obj_bytes = ObjectBytes::from(ctx, &provided)?;
+                    obj_bytes.as_bytes(ctx)?.to_vec()
+                };
+            return Ok(Some(bytes));
+        }
+
+        Ok(None)
     }
 
     fn get_headers(&self, ctx: &Ctx<'js>) -> Result<Headers> {
@@ -616,5 +642,258 @@ impl<'js> Response<'js> {
             .get_headers(ctx)?
             .iter()
             .find_map(|(k, v)| (k == key).then(|| v.to_string())))
+    }
+}
+
+fn create_body_stream<'js>(
+    ctx: &Ctx<'js>,
+    incoming: Rc<RefCell<Option<Incoming>>>,
+    content_encoding: Option<String>,
+) -> Result<Value<'js>> {
+    use crate::decompress::StreamingDecoder;
+    use llrt_stream_web::utils::promise::upon_promise_fulfilment;
+    use llrt_stream_web::{
+        readable_stream_default_controller_close_stream,
+        readable_stream_default_controller_enqueue_value, CancelAlgorithm, PullAlgorithm,
+        ReadableStream, ReadableStreamControllerClass, ReadableStreamDefaultControllerClass,
+    };
+
+    // State: body + decoder
+    struct BodyState {
+        incoming: Rc<RefCell<Option<Incoming>>>,
+        decoder: Option<StreamingDecoder>,
+    }
+
+    let decoder = content_encoding
+        .as_ref()
+        .and_then(|enc| StreamingDecoder::new(enc).ok());
+
+    let state = Rc::new(RefCell::new(BodyState { incoming, decoder }));
+
+    let pull = PullAlgorithm::from_fn(
+        move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
+            let state = state.clone();
+
+            // Get the default controller class
+            let ctrl_class: ReadableStreamDefaultControllerClass = match controller {
+                ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
+                _ => {
+                    return Err(rquickjs::Exception::throw_type(
+                        &ctx,
+                        "Expected default controller",
+                    ))
+                },
+            };
+
+            // Create a future that reads one frame
+            let future = async move {
+                let mut state_ref = state.borrow_mut();
+
+                {
+                    let mut body_opt = state_ref.incoming.borrow_mut();
+
+                    if body_opt.is_none() {
+                        return Ok::<_, rquickjs::Error>(None); // Body consumed
+                    }
+
+                    let body = body_opt.as_mut().unwrap();
+                    match body.frame().await {
+                        Some(Ok(frame)) => {
+                            if let Some(data) = frame.data_ref() {
+                                drop(body_opt);
+                                let bytes = if let Some(dec) = state_ref.decoder.as_mut() {
+                                    dec.decompress_chunk(data).unwrap_or_else(|_| data.to_vec())
+                                } else {
+                                    data.to_vec()
+                                };
+                                return Ok(Some(bytes));
+                            } else {
+                                return Ok(Some(Vec::new())); // Empty frame
+                            }
+                        },
+                        Some(Err(_)) => return Ok(None), // Error - close stream
+                        None => {
+                            // End of body - will flush decoder below
+                        },
+                    }
+                }
+
+                // End of body - flush decoder
+                let remaining = if let Some(dec) = state_ref.decoder.take() {
+                    dec.finish().unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                drop(state_ref);
+                *state.borrow().incoming.borrow_mut() = None;
+                if remaining.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(remaining))
+                }
+            };
+
+            // Convert future to promise
+            let promise = rquickjs::Promise::wrap_future(&ctx, future)?;
+
+            // Use upon_promise_fulfilment to handle the result with pure Rust API
+            let result_promise = upon_promise_fulfilment(
+                ctx.clone(),
+                promise,
+                move |ctx, result: Option<Vec<u8>>| {
+                    match result {
+                        Some(bytes) if !bytes.is_empty() => {
+                            let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
+                            readable_stream_default_controller_enqueue_value(
+                                ctx,
+                                ctrl_class.clone(),
+                                array.into_value(),
+                            )?;
+                        },
+                        Some(_) => {}, // Empty bytes - do nothing
+                        None => {
+                            // Close the stream
+                            readable_stream_default_controller_close_stream(
+                                ctx,
+                                ctrl_class.clone(),
+                            )?;
+                        },
+                    }
+                    Ok::<_, rquickjs::Error>(())
+                },
+            )?;
+
+            Ok(result_promise)
+        },
+    );
+
+    let stream = ReadableStream::from_pull_algorithm(
+        ctx.clone(),
+        pull,
+        CancelAlgorithm::ReturnPromiseUndefined,
+    )?;
+
+    Ok(stream.into_value())
+}
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::{test_async_with_opts, TestOptions};
+    use rquickjs::{CatchResultExt, Class, Function, Object, Promise};
+    use wiremock::*;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_response_stream() {
+        let mock_server = MockServer::start().await;
+        let welcome_message = "Hello, LLRT!";
+
+        Mock::given(matchers::path("some-path/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(welcome_message.to_string()))
+            .mount(&mock_server)
+            .await;
+
+        test_async_with_opts(
+            |ctx| {
+                crate::init(&ctx).unwrap();
+                Box::pin(async move {
+                    let globals = ctx.globals();
+                    let run = async {
+                        let fetch: Function = globals.get("fetch")?;
+                        let options = Object::new(ctx.clone())?;
+                        options.set("method", "GET")?;
+                        let url = format!("http://{}/some-path/", mock_server.address().clone());
+
+                        let response_promise: Promise = fetch.call((url, options.clone()))?;
+                        let response: Class<Response> = response_promise.into_future().await?;
+                        let response = response.borrow_mut();
+
+                        let response_text = response.text(ctx.clone()).await?;
+                        assert_eq!(response.status(), 200);
+                        assert_eq!(response_text, welcome_message);
+                        Ok(())
+                    };
+                    run.await.catch(&ctx).unwrap();
+                })
+            },
+            TestOptions::new().no_pending_jobs(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_response_clone_error() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(matchers::path("some-path/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("Hello".to_string()))
+            .mount(&mock_server)
+            .await;
+
+        test_async_with_opts(
+            |ctx| {
+                crate::init(&ctx).unwrap();
+                Box::pin(async move {
+                    let globals = ctx.globals();
+                    let run = async {
+                        let fetch: Function = globals.get("fetch")?;
+                        let options = Object::new(ctx.clone())?;
+                        options.set("method", "GET")?;
+                        let url = format!("http://{}/some-path/", mock_server.address().clone());
+
+                        let response_promise: Promise = fetch.call((url, options.clone()))?;
+                        let response: Class<Response> = response_promise.into_future().await?;
+                        let response = response.borrow_mut();
+
+                        // Cloning a response with unconsumed body should fail
+                        let clone_result = response.clone(ctx.clone());
+                        assert!(clone_result.is_err());
+                        Ok(())
+                    };
+                    run.await.catch(&ctx).unwrap();
+                })
+            },
+            TestOptions::new().no_pending_jobs(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_response_large_body() {
+        let mock_server = MockServer::start().await;
+        let large_body = vec![b'x'; 1024 * 1024]; // 1MB
+
+        Mock::given(matchers::path("some-path/"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(large_body.clone()))
+            .mount(&mock_server)
+            .await;
+
+        test_async_with_opts(
+            |ctx| {
+                crate::init(&ctx).unwrap();
+                Box::pin(async move {
+                    let globals = ctx.globals();
+                    let run = async {
+                        let fetch: Function = globals.get("fetch")?;
+                        let options = Object::new(ctx.clone())?;
+                        options.set("method", "GET")?;
+                        let url = format!("http://{}/some-path/", mock_server.address().clone());
+
+                        let response_promise: Promise = fetch.call((url, options.clone()))?;
+                        let response: Class<Response> = response_promise.into_future().await?;
+                        let response = response.borrow_mut();
+
+                        let response_text = response.text(ctx.clone()).await?;
+                        assert_eq!(response.status(), 200);
+                        assert_eq!(response_text.as_bytes(), large_body);
+                        Ok(())
+                    };
+                    run.await.catch(&ctx).unwrap();
+                })
+            },
+            TestOptions::new().no_pending_jobs(),
+        )
+        .await;
     }
 }
