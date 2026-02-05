@@ -18,8 +18,7 @@ use cbc::{Decryptor, Encryptor};
 use ctr::{cipher::Array, Ctr128BE, Ctr32BE, Ctr64BE};
 use der::Encode;
 use ecdsa::signature::hazmat::PrehashVerifier;
-use elliptic_curve::consts::U12;
-use elliptic_curve::sec1::ToEncodedPoint;
+use elliptic_curve::{consts::U12, sec1::ToSec1Point, Generate};
 use hmac::{Hmac as HmacImpl, Mac};
 use once_cell::sync::Lazy;
 use p256::{
@@ -851,7 +850,7 @@ impl CryptoProvider for RustCryptoProvider {
 
         match curve {
             EllipticCurve::P256 => {
-                let key = P256SecretKey::try_from_rng(&mut rng)
+                let key = P256SecretKey::try_generate_from_rng(&mut rng)
                     .map_err(|_| CryptoError::OperationFailed(None))?;
                 let pkcs8 = key
                     .to_pkcs8_der()
@@ -861,7 +860,7 @@ impl CryptoProvider for RustCryptoProvider {
                 Ok((private_key, public_key))
             },
             EllipticCurve::P384 => {
-                let key = P384SecretKey::try_from_rng(&mut rng)
+                let key = P384SecretKey::try_generate_from_rng(&mut rng)
                     .map_err(|_| CryptoError::OperationFailed(None))?;
                 let pkcs8 = key
                     .to_pkcs8_der()
@@ -871,7 +870,7 @@ impl CryptoProvider for RustCryptoProvider {
                 Ok((private_key, public_key))
             },
             EllipticCurve::P521 => {
-                let key = P521SecretKey::try_from_rng(&mut rng)
+                let key = P521SecretKey::try_generate_from_rng(&mut rng)
                     .map_err(|_| CryptoError::OperationFailed(None))?;
                 let pkcs8 = key
                     .to_pkcs8_der()
@@ -1131,24 +1130,23 @@ impl CryptoProvider for RustCryptoProvider {
         curve: EllipticCurve,
         is_private: bool,
     ) -> Result<Vec<u8>, CryptoError> {
-        use elliptic_curve::sec1::ToEncodedPoint;
         if is_private {
             // Extract public key from PKCS8 private key
             match curve {
                 EllipticCurve::P256 => {
                     let key = P256SecretKey::from_pkcs8_der(key_data)
                         .map_err(|_| CryptoError::InvalidKey(None))?;
-                    Ok(key.public_key().to_encoded_point(false).as_bytes().to_vec())
+                    Ok(key.public_key().to_sec1_point(false).as_bytes().to_vec())
                 },
                 EllipticCurve::P384 => {
                     let key = P384SecretKey::from_pkcs8_der(key_data)
                         .map_err(|_| CryptoError::InvalidKey(None))?;
-                    Ok(key.public_key().to_encoded_point(false).as_bytes().to_vec())
+                    Ok(key.public_key().to_sec1_point(false).as_bytes().to_vec())
                 },
                 EllipticCurve::P521 => {
                     let key = P521SecretKey::from_pkcs8_der(key_data)
                         .map_err(|_| CryptoError::InvalidKey(None))?;
-                    Ok(key.public_key().to_encoded_point(false).as_bytes().to_vec())
+                    Ok(key.public_key().to_sec1_point(false).as_bytes().to_vec())
                 },
             }
         } else {
@@ -1431,7 +1429,7 @@ impl CryptoProvider for RustCryptoProvider {
                     let sk = P256SecretKey::from_pkcs8_der(key_data)
                         .map_err(|_| CryptoError::InvalidKey(None))?;
                     let pk = sk.public_key();
-                    let pt = pk.to_encoded_point(false);
+                    let pt = pk.to_sec1_point(false);
                     (
                         pt.x().unwrap().to_vec(),
                         pt.y().unwrap().to_vec(),
@@ -1442,7 +1440,7 @@ impl CryptoProvider for RustCryptoProvider {
                     let sk = P384SecretKey::from_pkcs8_der(key_data)
                         .map_err(|_| CryptoError::InvalidKey(None))?;
                     let pk = sk.public_key();
-                    let pt = pk.to_encoded_point(false);
+                    let pt = pk.to_sec1_point(false);
                     (
                         pt.x().unwrap().to_vec(),
                         pt.y().unwrap().to_vec(),
@@ -1453,7 +1451,7 @@ impl CryptoProvider for RustCryptoProvider {
                     let sk = P521SecretKey::from_pkcs8_der(key_data)
                         .map_err(|_| CryptoError::InvalidKey(None))?;
                     let pk = sk.public_key();
-                    let pt = pk.to_encoded_point(false);
+                    let pt = pk.to_sec1_point(false);
                     (
                         pt.x().unwrap().to_vec(),
                         pt.y().unwrap().to_vec(),

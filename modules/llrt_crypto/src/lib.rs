@@ -39,7 +39,7 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rand::Rng;
+use rand::RngExt;
 use rquickjs::prelude::Async;
 use rquickjs::{
     atom::PredefinedAtom,

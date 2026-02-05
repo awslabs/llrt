@@ -7,7 +7,7 @@ use std::{
 
 use llrt_buffer::{Blob, File};
 use llrt_utils::{class::IteratorDef, object::map_to_entries, result::ResultExt};
-use rand::Rng;
+use rand::RngExt;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, prelude::Opt, Array, Class, Ctx, Exception, Function,
     IntoJs, JsLifetime, Result, Value,
