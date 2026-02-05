@@ -1960,7 +1960,6 @@ dependencies = [
  "phf_codegen",
  "quick-xml",
  "rand 0.10.0-rc.9",
- "ring",
  "rquickjs",
  "rustls",
  "rustls-pemfile",
@@ -2123,7 +2122,7 @@ dependencies = [
  "llrt_path",
  "llrt_test",
  "llrt_utils",
- "ring",
+ "rand 0.10.0-rc.9",
  "rquickjs",
  "tokio",
 ]

@@ -19,7 +19,10 @@ llrt_path = { version = "0.7.0-beta", path = "../llrt_path" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", features = [
   "fs",
 ], default-features = false }
-ring = { version = "0.17", default-features = false }
+rand = { version = "0.10.0-rc.9", features = [
+  "alloc",
+  "thread_rng",
+], default-features = false }
 rquickjs = { version = "0.11", features = [
   "either",
   "futures",

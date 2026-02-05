@@ -53,7 +53,6 @@ rand = { version = "0.10.0-rc.9", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }
-ring = { version = "0.17", default-features = false }
 rquickjs = { version = "0.11", features = [
   "full-async",
   "parallel",
