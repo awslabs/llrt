@@ -687,49 +687,54 @@ fn create_body_stream<'js>(
 
             // Create a future that reads one frame
             let future = async move {
-                let mut state_ref = state.borrow_mut();
-
-                {
+                // Take the body out of the RefCell to avoid holding borrow across await
+                let mut body = {
+                    let state_ref = state.borrow();
                     let mut body_opt = state_ref.incoming.borrow_mut();
-
-                    if body_opt.is_none() {
-                        return Ok::<_, rquickjs::Error>(None); // Body consumed
+                    match body_opt.take() {
+                        Some(b) => b,
+                        None => return Ok::<_, rquickjs::Error>(None), // Body consumed
                     }
-
-                    let body = body_opt.as_mut().unwrap();
-                    match body.frame().await {
-                        Some(Ok(frame)) => {
-                            if let Some(data) = frame.data_ref() {
-                                drop(body_opt);
-                                let bytes = if let Some(dec) = state_ref.decoder.as_mut() {
-                                    dec.decompress_chunk(data).unwrap_or_else(|_| data.to_vec())
-                                } else {
-                                    data.to_vec()
-                                };
-                                return Ok(Some(bytes));
-                            } else {
-                                return Ok(Some(Vec::new())); // Empty frame
-                            }
-                        },
-                        Some(Err(_)) => return Ok(None), // Error - close stream
-                        None => {
-                            // End of body - will flush decoder below
-                        },
-                    }
-                }
-
-                // End of body - flush decoder
-                let remaining = if let Some(dec) = state_ref.decoder.take() {
-                    dec.finish().unwrap_or_default()
-                } else {
-                    Vec::new()
                 };
-                drop(state_ref);
-                *state.borrow().incoming.borrow_mut() = None;
-                if remaining.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(remaining))
+
+                // Now we own the body, safe to await
+                let frame_result = body.frame().await;
+
+                // Process the frame result
+                match frame_result {
+                    Some(Ok(frame)) => {
+                        // Put body back before processing
+                        *state.borrow().incoming.borrow_mut() = Some(body);
+
+                        if let Some(data) = frame.data_ref() {
+                            let mut state_ref = state.borrow_mut();
+                            let bytes = if let Some(dec) = state_ref.decoder.as_mut() {
+                                dec.decompress_chunk(data).unwrap_or_else(|_| data.to_vec())
+                            } else {
+                                data.to_vec()
+                            };
+                            Ok(Some(bytes))
+                        } else {
+                            Ok(Some(Vec::new())) // Empty frame
+                        }
+                    },
+                    Some(Err(_)) => Ok(None), // Error - close stream
+                    None => {
+                        // End of body - flush decoder
+                        let remaining = {
+                            let mut state_ref = state.borrow_mut();
+                            if let Some(dec) = state_ref.decoder.take() {
+                                dec.finish().unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            }
+                        };
+                        if remaining.is_empty() {
+                            Ok(None)
+                        } else {
+                            Ok(Some(remaining))
+                        }
+                    },
                 }
             };
 
