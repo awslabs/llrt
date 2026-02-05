@@ -45,7 +45,7 @@ pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
 
 // typedef (ReadableStreamDefaultController or ReadableByteStreamController) ReadableStreamController;
 #[derive(JsLifetime, Clone, PartialEq, Eq)]
-pub enum ReadableStreamReaderClass<'js> {
+pub(crate) enum ReadableStreamReaderClass<'js> {
     ReadableStreamDefaultReader(ReadableStreamDefaultReaderClass<'js>),
     ReadableStreamBYOBReader(ReadableStreamBYOBReaderClass<'js>),
 }
