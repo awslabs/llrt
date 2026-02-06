@@ -119,9 +119,15 @@ describe("spawn", () => {
 
     child.on("exit", (code, signal) => {
       try {
-        // When killed by SIGKILL, code is null and signal is SIGKILL
-        expect(code).toBeNull();
-        expect(signal).toEqual("SIGKILL");
+        if (IS_WINDOWS) {
+          // Windows terminates with code 1 when killed, no signal
+          expect(code).toEqual(1);
+          expect(signal).toBeNull();
+        } else {
+          // Unix: killed by signal, code is null
+          expect(code).toBeNull();
+          expect(signal).toEqual("SIGKILL");
+        }
         done();
       } catch (error) {
         done(error);
