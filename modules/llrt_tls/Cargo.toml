@@ -12,12 +12,13 @@ name = "llrt_tls"
 path = "src/lib.rs"
 
 [features]
-default = ["webpki-roots", "tls-ring"]
+default = ["webpki-roots", "tls-rust"]
 
 webpki-roots = ["dep:webpki-roots"]
 native-roots = ["dep:rustls-native-certs"]
 
 # TLS crypto backend features (rustls-based)
+tls-rust = ["dep:rustls", "dep:rustls-rustcrypto"]
 tls-ring = ["dep:rustls", "rustls/ring"]
 tls-aws-lc = ["dep:rustls", "rustls/aws_lc_rs"]
 tls-graviola = ["dep:rustls", "dep:rustls-graviola"]
@@ -31,6 +32,7 @@ rustls = { version = "0.23", features = [
   "std",
   "tls12",
 ], default-features = false, optional = true }
+rustls-rustcrypto = { version = "0.0.2-alpha", git = "https://github.com/RustCrypto/rustls-rustcrypto.git", optional = true }
 rustls-graviola = { version = "0.3", git = "https://github.com/ctz/graviola.git", default-features = false, optional = true }
 openssl = { version = "0.10", optional = true }
 webpki-roots = { version = "1", default-features = false, optional = true }
