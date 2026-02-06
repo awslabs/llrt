@@ -43,7 +43,7 @@ LLD = $(if $(filter 1,$(LLRT_ICF)),$(eval LLD := $(_find_lld))$(LLD))
 
 linux_cargo = \
 	$(if $(LLD),LLRT_LLD='$(LLD)' LLRT_ZIG_TARGET=$(subst -unknown,,$(1)) LLRT_ZIG_SYSROOT='$(CURDIR)/target/$(1)/zig-sysroot' )\
-	cargo $(ZIGBUILD_ARG) --target $(1)\
+	cargo $(ZIGBUILD_ARG) -p llrt --target $(1)\
 	$(if $(LLD), --config 'target.$(1).linker="$(CURDIR)/scripts/lld-link.sh"')
 
 BUILD_DIR = ./target/release
@@ -117,14 +117,14 @@ llrt-linux-${1}${2}.zip: | clean-js js
 
 llrt-darwin-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-darwin-${1}${2}.zip: | clean-js js
-	cargo $$(BUILD_ARG) --target $$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))
+	cargo $$(BUILD_ARG) -p llrt --target $$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1})) $$(CARGO_FEATURES)
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_darwin_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
 # llrt-windows-arm64* is automatically generated, but not currently supported.
 llrt-windows-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-windows-${1}${2}.zip: | clean-js js
-	cargo $$(BUILD_ARG) --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))
+	cargo $$(BUILD_ARG) -p llrt --target $$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1})) $$(CARGO_FEATURES)
 	zip -j $$@ target/$$(TARGET_windows_$$(RELEASE_ARCH_NAME_${1}))/release/llrt.exe
 endef
 
@@ -133,7 +133,7 @@ $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),,ST
 $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-no-sdk,NONE)))
 
 build: js
-	cargo $(CURRENT_BUILD_ARG) --target $(CURRENT_TARGET)
+	cargo $(CURRENT_BUILD_ARG) -p llrt --target $(CURRENT_TARGET) $(CARGO_FEATURES)
 
 ifeq ($(DETECTED_OS),windows)
 stdlib:
@@ -216,6 +216,15 @@ test: export TEST_SUB_DIR = unit
 test: export LLRT_ASYNC_HOOKS = 1
 test: js
 	cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+
+tls-handshake-certs:
+	./benchmarks/tls/scripts/generate-handshake-certs.sh
+
+tls-handshake-bench:
+	cargo bench --manifest-path benchmarks/tls/handshake-bench/Cargo.toml --no-default-features --features "$(if $(TLS_HANDSHAKE_FEATURE),$(TLS_HANDSHAKE_FEATURE),tls-rust)"
+
+tls-clean:
+	rm -rf benchmarks/tls/certs/ca-rsa benchmarks/tls/certs/issued/ca-rsa benchmarks/tls/certs/scenarios
 
 setup-wpt:
 	@if [ ! -d wpt/.git ]; then \
@@ -394,11 +403,9 @@ deploy:
 
 check:
 	cargo clippy --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring,pqc,intl402" -- -D warnings
-	cargo clippy --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring" -- -D warnings
 
 test-rs:
 	cargo test --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring,pqc,intl402"
-	cargo test --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring"
 
 check-crates:
 	cargo metadata --no-deps --format-version 1 --quiet | \
@@ -408,4 +415,4 @@ check-crates:
 	  cargo check -p "$$crate"; \
 	done
 
-.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci test-e2e setup-e2e e2e-env run js run-release build release clean flame deploy
+.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci test-e2e setup-e2e e2e-env tls-handshake-certs tls-handshake-bench tls-clean run js run-release build release clean flame deploy

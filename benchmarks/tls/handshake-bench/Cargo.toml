@@ -1,0 +1,25 @@
+[package]
+name = "tls-handshake-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[features]
+default = ["tls-rust"]
+tls-rust = ["llrt_tls/tls-rust", "dep:rustls-rustcrypto"]
+tls-ring = ["llrt_tls/tls-ring", "rustls/ring"]
+tls-aws-lc = ["llrt_tls/tls-aws-lc", "rustls/aws_lc_rs"]
+tls-graviola = ["llrt_tls/tls-graviola", "dep:rustls-graviola"]
+
+[dependencies]
+criterion = { version = "0.8", default-features = false }
+llrt_tls = { path = "../../../modules/llrt_tls", default-features = false }
+rustls = { version = "0.23", features = ["std", "tls12"], default-features = false }
+rustls-graviola = { version = "0.4", default-features = false, optional = true }
+rustls-rustcrypto = { version = "0.1.0-pre.0", optional = true }
+
+[[bench]]
+name = "full_handshake"
+harness = false

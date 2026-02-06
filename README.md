@@ -557,6 +557,7 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 
 | Feature              | Description                                   |
 | -------------------- | --------------------------------------------- |
+| `tls-rust`           | rustls with RustCrypto                        |
 | `tls-ring` (default) | rustls with ring crypto                       |
 | `tls-aws-lc`         | rustls with AWS-LC crypto (optimized for AWS) |
 | `tls-graviola`       | rustls with graviola crypto                   |
@@ -565,18 +566,26 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 ### Building with Different Backends
 
 ```bash
-# Default (crypto-rust + tls-ring)
-cargo build --release
+# Default features from llrt/Cargo.toml
+cargo build -p llrt --release
 
 # Using AWS-LC for TLS
-cargo build --release --no-default-features --features "macro,tls-aws-lc"
+cargo build -p llrt --release --no-default-features --features "macro,crypto-rust,tls-aws-lc"
 
 # Using OpenSSL for both crypto and TLS
-cargo build --release --no-default-features --features "macro,crypto-openssl,tls-openssl"
+cargo build -p llrt --release --no-default-features --features "macro,crypto-openssl,tls-openssl"
 
 # Using Graviola for both crypto and TLS
-cargo build --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola"
+cargo build -p llrt --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola"
 ```
+
+For Makefile release targets, pass the same Cargo options through `CARGO_FEATURES`. For example:
+
+```bash
+make release-no-sdk CARGO_FEATURES='--no-default-features --features macro,crypto-rust,tls-ring'
+```
+
+Only one TLS backend and one crypto backend may be selected at a time. When choosing a non-default backend, use `--no-default-features` to avoid enabling it alongside the default.
 
 ## Running Lambda emulator
 
