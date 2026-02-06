@@ -49,11 +49,10 @@ llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.13", default-features = false }
 quick-xml = { version = "0.39", default-features = false }
-rand = { version = "0.10.0-rc.5", features = [
+rand = { version = "0.10.0-rc.9", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }
-ring = { version = "0.17", default-features = false }
 rquickjs = { version = "0.11", features = [
   "full-async",
   "parallel",
@@ -73,9 +72,9 @@ zstd = { version = "0.13", default-features = false }
 openssl = { version = "0.10", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-md-5 = { version = "0.11.0-rc.3", default-features = false }
+md-5 = { version = "0.11.0-rc.5", default-features = false }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-md-5 = { version = "0.11.0-rc.3", default-features = false }
+md-5 = { version = "0.11.0-rc.5", default-features = false }
 
 [build-dependencies]
 rquickjs = { version = "0.11", features = [

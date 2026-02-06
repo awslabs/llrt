@@ -4,7 +4,7 @@ use crate::chmod::{set_mode, set_mode_sync};
 
 use llrt_path::resolve_path;
 use llrt_utils::result::ResultExt;
-use ring::rand::{SecureRandom, SystemRandom};
+use rand::RngExt;
 use rquickjs::{function::Opt, Ctx, Object, Result};
 use tokio::fs;
 
@@ -53,10 +53,8 @@ fn get_params(path: &str, options: Opt<Object>) -> Result<(bool, u32, String)> {
 const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 fn random_chars(len: usize) -> String {
-    let random = SystemRandom::new();
-
     let mut bytes = vec![0u8; len];
-    random.fill(&mut bytes).unwrap();
+    rand::rng().fill(&mut bytes);
     bytes
         .iter()
         .map(|&byte| {
