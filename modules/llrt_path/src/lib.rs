@@ -96,7 +96,19 @@ pub fn dirname<'a, P: Into<Cow<'a, str>>>(path: P) -> String {
         Some(idx) => {
             let parent = &path[..idx];
             if parent.is_empty() {
-                MAIN_SEPARATOR_STR
+                // Preserve the original separator style
+                #[cfg(windows)]
+                {
+                    if path.as_bytes()[idx] == b'/' {
+                        FORWARD_SLASH_STR
+                    } else {
+                        MAIN_SEPARATOR_STR
+                    }
+                }
+                #[cfg(not(windows))]
+                {
+                    MAIN_SEPARATOR_STR
+                }
             } else {
                 parent
             }
