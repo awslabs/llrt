@@ -39,13 +39,25 @@ updates:
 
   # Maintain dependencies for Rust
   - package-ecosystem: cargo
-    versioning-strategy: lockfile-only
     directory: "/"
-    allow:
-      - dependency-type: "all"
-    groups:
-      all-deps:
-        patterns:
-          - "*"
     schedule:
       interval: daily
+    groups:
+      rustcrypto:
+        patterns:
+          - "aes*"
+          - "cbc"
+          - "const-oid"
+          - "ctr"
+          - "der"
+          - "ecdsa"
+          - "elliptic-curve"
+          - "md-5"
+          - "hmac"
+          - "p256"
+          - "p384"
+          - "p521"
+          - "pkcs8"
+          - "rsa"
+          - "spki"
+          - "x25519-dalek"
