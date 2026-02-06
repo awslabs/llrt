@@ -111,6 +111,9 @@ jobs:
             aws-lc)
               echo "cargo_features=--no-default-features --features macro,crypto-rust,tls-aws-lc" >> $GITHUB_OUTPUT
               ;;
+            rustcrypto)
+              echo "cargo_features=--no-default-features --features macro,crypto-rust,tls-rust" >> $GITHUB_OUTPUT
+              ;;
             *)
               echo "Unknown crypto: ${{ inputs.crypto }}"
               exit 1
