@@ -1,14 +1,23 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashSet, convert::Infallible, sync::Arc, time::Instant};
+use std::{
+    collections::HashSet,
+    convert::Infallible,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Instant,
+};
 
 use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, Full};
 use hyper::{header::HeaderName, Method, Request, Uri};
 use llrt_abort::AbortSignal;
+use llrt_context::CtxExtension;
 use llrt_encoding::bytes_from_b64;
 use llrt_http::Agent;
 use llrt_http::HyperClient;
+use llrt_stream_web::ReadableStream;
 use llrt_utils::{
     bytes::{bytes_to_typed_array, ObjectBytes},
     mc_oneshot,
@@ -85,6 +94,86 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
 
                 ensure_url_access(&ctx, &uri)?;
 
+                // For streaming bodies - stream from JS to hyper via channel
+                if let Some(RequestBody::Stream(stream)) = options.body {
+                    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(8);
+
+                    // Spawn stream reader in JS context
+                    ctx.spawn_exit({
+                        async move {
+                            let get_reader: Function = stream.get("getReader")?;
+                            let reader: Object = get_reader.call((This(stream.clone()),))?;
+                            let read_fn: Function = reader.get("read")?;
+
+                            loop {
+                                let promise: rquickjs::Promise =
+                                    read_fn.call((This(reader.clone()),))?;
+                                let read_result: Object = promise.into_future().await?;
+                                let done: bool = read_result.get("done").unwrap_or(true);
+                                if done {
+                                    break;
+                                }
+                                if let Ok(value) = read_result.get::<_, Value>("value") {
+                                    if let Ok(typed_array) =
+                                        rquickjs::TypedArray::<u8>::from_value(value)
+                                    {
+                                        if let Some(bytes) = typed_array.as_bytes() {
+                                            if tx.send(Bytes::copy_from_slice(bytes)).await.is_err()
+                                            {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(())
+                        }
+                    })?;
+
+                    // Build request with streaming body
+                    let stream_body = StreamingBody { rx };
+                    let mut req = Request::builder().method(method.clone()).uri(uri.clone());
+                    let mut detected_headers = HashSet::new();
+                    if let Some(headers) = &options.headers {
+                        for (header_name, value) in headers.iter() {
+                            detected_headers.insert(header_name);
+                            req = req.header(header_name, value)
+                        }
+                    }
+                    if !detected_headers.contains("user-agent") {
+                        req = req.header("user-agent", ["llrt ", VERSION].concat());
+                    }
+                    if !detected_headers.contains("accept-encoding") {
+                        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
+                    }
+                    if !detected_headers.contains("accept-language") {
+                        req = req.header("accept-language", "*");
+                    }
+                    if !detected_headers.contains("accept") {
+                        req = req.header("accept", "*/*");
+                    }
+
+                    let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
+                    let request = req.body(box_body).or_throw(&ctx)?;
+
+                    let res = client.request(request).await.or_throw(&ctx)?;
+
+                    drop(lock);
+
+                    return Response::from_incoming(
+                        ctx,
+                        res,
+                        method_string,
+                        uri.to_string(),
+                        start,
+                        false,
+                        abort_receiver,
+                        HeadersGuard::Response,
+                    );
+                }
+
+                let body = options.body;
+
                 let mut redirect_count = 0;
                 let mut response_status = 0;
                 let (res, guard) = loop {
@@ -93,7 +182,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                         &method,
                         &uri,
                         options.headers.as_ref(),
-                        options.body.as_ref(),
+                        body.as_ref(),
                         &response_status,
                         &initial_uri,
                     )?;
@@ -202,12 +291,12 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Resul
     Response::new(ctx.clone(), Opt(Some(blob)), Opt(Some(options)))
 }
 
-fn build_request(
-    ctx: &Ctx<'_>,
+fn build_request<'js>(
+    ctx: &Ctx<'js>,
     method: &hyper::Method,
     uri: &Uri,
     headers: Option<&Headers>,
-    body: Option<&BodyBytes>,
+    body: Option<&RequestBody<'js>>,
     prev_status: &u16,
     initial_uri: &Uri,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
@@ -267,13 +356,43 @@ fn build_request(
     if !detected_headers.contains("accept") {
         req = req.header("accept", "*/*");
     }
-    let body = req
-        .body(BoxBody::new(
-            body.map(|b| b.body.clone()).unwrap_or_default(),
-        ))
-        .or_throw(ctx)?;
 
-    Ok((body, guard))
+    // Build the body
+    let box_body: BoxBody<Bytes, Infallible> = match body {
+        Some(RequestBody::Static { body, .. }) => BoxBody::new(body.clone()),
+        Some(RequestBody::Stream(_)) => {
+            unreachable!("Streaming bodies should be handled before build_request")
+        },
+        None => BoxBody::new(Full::default()),
+    };
+
+    let request = req.body(box_body).or_throw(ctx)?;
+
+    Ok((request, guard))
+}
+
+struct StreamingBody {
+    rx: tokio::sync::mpsc::Receiver<Bytes>,
+}
+
+impl http_body::Body for StreamingBody {
+    type Data = Bytes;
+    type Error = Infallible;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<std::result::Result<http_body::Frame<Self::Data>, Self::Error>>> {
+        match self.rx.poll_recv(cx) {
+            Poll::Ready(Some(bytes)) => Poll::Ready(Some(Ok(http_body::Frame::data(bytes)))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.rx.is_closed() && self.rx.is_empty()
+    }
 }
 
 fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
@@ -317,17 +436,21 @@ fn is_cors_non_wildcard_request_header_name(key: &str) -> bool {
     matches!(key, "authorization")
 }
 
-struct BodyBytes<'js> {
-    #[allow(dead_code)]
-    object_bytes: ObjectBytes<'js>,
-    body: Full<Bytes>,
+enum RequestBody<'js> {
+    Static {
+        #[allow(dead_code)]
+        object_bytes: ObjectBytes<'js>,
+        body: Full<Bytes>,
+    },
+    Stream(Class<'js, ReadableStream<'js>>),
 }
-impl<'js> BodyBytes<'js> {
-    fn new(ctx: Ctx<'js>, object_bytes: ObjectBytes<'js>) -> Result<Self> {
+
+impl<'js> RequestBody<'js> {
+    fn from_bytes(ctx: Ctx<'js>, object_bytes: ObjectBytes<'js>) -> Result<Self> {
         //this is safe since we hold on to ObjectBytes
         let raw_bytes: &'static [u8] = unsafe { std::mem::transmute(object_bytes.as_bytes(&ctx)?) };
         let body = Full::from(Bytes::from_static(raw_bytes));
-        Ok(Self { object_bytes, body })
+        Ok(Self::Static { object_bytes, body })
     }
 }
 
@@ -335,7 +458,7 @@ struct FetchOptions<'js> {
     method: hyper::Method,
     url: String,
     headers: Option<Headers>,
-    body: Option<BodyBytes<'js>>,
+    body: Option<RequestBody<'js>>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     redirect: String,
     agent: Option<Class<'js, Agent>>,
@@ -395,14 +518,19 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
-                let blob = blob.borrow();
-                let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
-                ObjectBytes::from(ctx, &typed_array)?
+            // Check if body is a ReadableStream
+            if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
+                body = Some(RequestBody::Stream(stream));
             } else {
-                ObjectBytes::from(ctx, &body_opt)?
-            };
-            body = Some(BodyBytes::new(ctx.clone(), bytes)?);
+                let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
+                    let blob = blob.borrow();
+                    let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
+                    ObjectBytes::from(ctx, &typed_array)?
+                } else {
+                    ObjectBytes::from(ctx, &body_opt)?
+                };
+                body = Some(RequestBody::from_bytes(ctx.clone(), bytes)?);
+            }
         }
 
         if let Some(url_opt) =

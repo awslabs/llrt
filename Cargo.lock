@@ -1891,6 +1891,7 @@ dependencies = [
  "bytes",
  "either",
  "flate2",
+ "http-body",
  "http-body-util",
  "hyper",
  "itoa",
