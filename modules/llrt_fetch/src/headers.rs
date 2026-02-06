@@ -13,7 +13,7 @@ use llrt_utils::{
 };
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, methods, prelude::Opt, Array, Coerced, Ctx, Exception,
-    FromJs, Function, IntoJs, JsLifetime, Null, Object, Result, Symbol, Value,
+    FromJs, Function, IntoJs, Iterable, JsLifetime, Null, Object, Result, Symbol, Value,
 };
 
 const HEADERS_KEY_COOKIE: &str = "cookie";
@@ -191,12 +191,14 @@ impl Headers {
         Ok(())
     }
 
-    pub fn keys(&self) -> Vec<&str> {
-        self.headers.iter().map(|(k, _)| k.as_ref()).collect()
+    pub fn keys<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        Iterable::from(self.headers.iter().map(|(k, _)| k.to_string()).collect::<Vec<_>>())
+            .into_js(&ctx)
     }
 
-    pub fn values(&self) -> Vec<&str> {
-        self.headers.iter().map(|(_, v)| v.as_ref()).collect()
+    pub fn values<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        Iterable::from(self.headers.iter().map(|(_, v)| v.to_string()).collect::<Vec<_>>())
+            .into_js(&ctx)
     }
 
     pub fn entries<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -586,6 +588,41 @@ mod tests {
                         value
                     );
                 }
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_headers_iterators() {
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let result: bool = ctx
+                    .eval(
+                        r#"
+                        const h = new Headers([['x-first', '1'], ['x-second', '2']]);
+                        const iter = h.keys()[Symbol.iterator]();
+                        iter.next().value === 'x-first' &&
+                        iter.next().value === 'x-second' &&
+                        iter.next().done === true
+                        "#,
+                    )
+                    .unwrap();
+                assert!(result, "keys() iterator failed");
+
+                let result: bool = ctx
+                    .eval(
+                        r#"
+                        const h2 = new Headers([['x-first', '1'], ['x-second', '2']]);
+                        const iter2 = h2.values()[Symbol.iterator]();
+                        iter2.next().value === '1' &&
+                        iter2.next().value === '2' &&
+                        iter2.next().done === true
+                        "#,
+                    )
+                    .unwrap();
+                assert!(result, "values() iterator failed");
             })
         })
         .await;
