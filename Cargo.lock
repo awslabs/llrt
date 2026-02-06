@@ -36,6 +36,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f2b8006a0c83f52b62ba44a97b58bf76fe2f70a329e588f67f89691d93d498f"
 dependencies = [
  "aead",
+ "aes",
  "cipher",
  "ctr",
  "ctutils",
@@ -859,6 +860,7 @@ dependencies = [
  "group",
  "hkdf",
  "hybrid-array",
+ "pem-rfc7468",
  "pkcs8",
  "rand_core",
  "sec1",
@@ -2332,6 +2334,7 @@ dependencies = [
  "openssl",
  "rustls",
  "rustls-graviola",
+ "rustls-rustcrypto",
  "tokio",
  "tokio-openssl",
  "tokio-rustls",
@@ -2359,6 +2362,7 @@ dependencies = [
  "rustls",
  "rustls-graviola",
  "rustls-native-certs",
+ "rustls-rustcrypto",
  "tracing",
  "webpki-roots",
 ]
@@ -2729,6 +2733,12 @@ dependencies = [
  "smallvec",
  "windows-link 0.2.1",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pbkdf2"
@@ -3279,6 +3289,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be040f8b0a225e40375822a563fa9524378b9d63112f53e19ffff34df5d33fdd"
 dependencies = [
  "zeroize",
+]
+
+[[package]]
+name = "rustls-rustcrypto"
+version = "0.0.2-alpha"
+source = "git+https://github.com/RustCrypto/rustls-rustcrypto.git#7b44a2de957b6596d267a920d3aec0d4137defb1"
+dependencies = [
+ "aead",
+ "aes-gcm",
+ "chacha20poly1305",
+ "crypto-common",
+ "der",
+ "digest",
+ "ecdsa",
+ "ed25519-dalek",
+ "getrandom 0.4.2",
+ "hmac",
+ "p256",
+ "p384",
+ "paste",
+ "pkcs8",
+ "rsa",
+ "rustls",
+ "rustls-pki-types",
+ "sec1",
+ "sha2",
+ "signature",
+ "x25519-dalek",
 ]
 
 [[package]]
