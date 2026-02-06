@@ -108,11 +108,14 @@ impl Hash {
             .take()
             .ok_or_else(|| rquickjs::Exception::throw_message(&ctx, "Digest already called"))?;
         let result = digest.finalize();
-        let bytes: &[u8] = result.as_ref();
 
-        match encoding.0 {
-            Some(encoding) => encoded_bytes(ctx, bytes, &encoding),
-            None => Buffer(bytes.to_vec()).into_js(&ctx),
+        let Some(encoding) = encoding.0 else {
+            return Buffer(result).into_js(&ctx);
+        };
+
+        match encoded_bytes(&ctx, &result, &encoding)? {
+            Some(encoded) => Ok(encoded),
+            None => Buffer(result).into_js(&ctx),
         }
     }
 
@@ -156,11 +159,14 @@ impl Hmac {
             .take()
             .ok_or_else(|| rquickjs::Exception::throw_message(&ctx, "Digest already called"))?;
         let result = hmac.finalize();
-        let bytes: &[u8] = result.as_ref();
 
-        match encoding.into_inner() {
-            Some(encoding) => encoded_bytes(ctx, bytes, &encoding),
-            None => Buffer(bytes.to_vec()).into_js(&ctx),
+        let Some(encoding) = encoding.0 else {
+            return Buffer(result).into_js(&ctx);
+        };
+
+        match encoded_bytes(&ctx, &result, &encoding)? {
+            Some(encoded) => Ok(encoded),
+            None => Buffer(result).into_js(&ctx),
         }
     }
 
