@@ -5,6 +5,7 @@ use std::sync::RwLock;
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
 use llrt_json::parse::json_parse;
+use llrt_stream_web::ReadableStream;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
@@ -104,9 +105,34 @@ impl<'js> Request<'js> {
         } else if let Ok(url) = URL::from_js(&ctx, input.clone()) {
             request.url = url.to_string();
         } else if input.is_object() {
-            assign_request(&mut request, ctx.clone(), unsafe {
-                input.as_object().unwrap_unchecked()
-            })?;
+            let obj = unsafe { input.as_object().unwrap_unchecked() };
+            // Check if input is a Request - if so, transfer body (mark original as used)
+            if let Some(input_request) = Class::<Request>::from_object(obj) {
+                let input_req = input_request.borrow_mut();
+                request.url = input_req.url.clone();
+                request.method = input_req.method.clone();
+                request.mode = input_req.mode.clone();
+                request.keepalive = input_req.keepalive;
+                request.signal = input_req.signal.clone();
+                request.agent = input_req.agent.clone();
+                if let Some(headers) = &input_req.headers {
+                    request.headers = Some(Class::<Headers>::instance(
+                        ctx.clone(),
+                        headers.borrow().clone(),
+                    )?);
+                }
+                // Transfer body - take from original, marking it as used
+                let mut body_guard = input_req.body.write().unwrap();
+                if let BodyVariant::Provided(ref mut provided) = &mut *body_guard {
+                    if let Some(body_value) = provided.take() {
+                        request.body = RwLock::new(BodyVariant::Provided(Some(body_value)));
+                    }
+                }
+                drop(body_guard);
+                drop(input_req);
+            } else {
+                assign_request(&mut request, ctx.clone(), obj)?;
+            }
         }
         if let Some(options) = options.0 {
             if let Some(obj) = options.as_object() {
@@ -246,7 +272,16 @@ impl<'js> Request<'js> {
 
         let body_guard = self.body.read().unwrap();
         let cloned_body = match &*body_guard {
-            BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
+            BodyVariant::Provided(provided) => {
+                // Cannot clone if body has been consumed (bodyUsed=true)
+                if provided.is_none() {
+                    return Err(Exception::throw_type(
+                        &ctx,
+                        "Cannot clone request after body has been used",
+                    ));
+                }
+                BodyVariant::Provided(provided.clone())
+            },
             BodyVariant::Empty => BodyVariant::Empty,
         };
         drop(body_guard);
@@ -276,6 +311,15 @@ impl<'js> Request<'js> {
                     .take()
                     .ok_or(Exception::throw_message(ctx, "Already read"))?;
                 drop(body_guard);
+
+                // Check if it's a ReadableStream
+                if let Some(stream) = provided
+                    .as_object()
+                    .and_then(Class::<ReadableStream>::from_object)
+                {
+                    return collect_readable_stream(ctx, &stream).await.map(Some);
+                }
+
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     blob.borrow().get_bytes()
                 } else {
@@ -303,6 +347,40 @@ impl<'js> Request<'js> {
                 .find_map(|(k, v)| (k == key).then(|| v.to_string()))
         }))
     }
+}
+
+/// Collects all data from a ReadableStream into a Vec<u8>
+async fn collect_readable_stream<'js>(
+    _ctx: &Ctx<'js>,
+    stream: &Class<'js, ReadableStream<'js>>,
+) -> Result<Vec<u8>> {
+    use rquickjs::function::This;
+    use rquickjs::{Function, Object, Promise};
+
+    let mut result = Vec::new();
+
+    let get_reader: Function = stream.get("getReader")?;
+    let reader: Object = get_reader.call((This(stream.clone()),))?;
+    let read_fn: Function = reader.get("read")?;
+
+    loop {
+        let promise: Promise = read_fn.call((This(reader.clone()),))?;
+        let read_result: Object = promise.into_future().await?;
+
+        let done: bool = read_result.get("done").unwrap_or(true);
+        if done {
+            break;
+        }
+
+        let value: Value = read_result.get("value")?;
+        if let Ok(typed_array) = rquickjs::TypedArray::<u8>::from_value(value) {
+            if let Some(bytes) = typed_array.as_bytes() {
+                result.extend_from_slice(bytes);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'js>) -> Result<()> {
@@ -356,7 +434,27 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 content_type = Some(MIME_TYPE_TEXT.into());
                 BodyVariant::Provided(Some(body))
             } else if let Some(obj) = body.as_object() {
-                if let Some(blob) = Class::<Blob>::from_object(obj) {
+                // Check if it's a ReadableStream
+                if let Some(stream) = Class::<ReadableStream>::from_object(obj) {
+                    let stream_ref = stream.borrow();
+                    // Check if stream is disturbed
+                    if stream_ref.disturbed {
+                        return Err(Exception::throw_type(
+                            &ctx,
+                            "Cannot construct Request with a disturbed ReadableStream",
+                        ));
+                    }
+                    // Check if stream is locked (reader.is_some())
+                    let locked: bool = obj.get("locked").unwrap_or(false);
+                    drop(stream_ref);
+                    if locked {
+                        return Err(Exception::throw_type(
+                            &ctx,
+                            "Cannot construct Request with a locked ReadableStream",
+                        ));
+                    }
+                    BodyVariant::Provided(Some(body))
+                } else if let Some(blob) = Class::<Blob>::from_object(obj) {
                     let blob = blob.borrow();
                     if !blob.mime_type().is_empty() {
                         content_type = Some(blob.mime_type());

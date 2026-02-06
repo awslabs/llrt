@@ -43,6 +43,7 @@ brotlic = { version = "0.8", default-features = false, optional = true }
 bytes = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
 flate2 = { version = "1", default-features = false, optional = true }
+http-body = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
 itoa = { version = "1", default-features = false }

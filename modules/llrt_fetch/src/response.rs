@@ -13,6 +13,7 @@ use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
 use llrt_abort::AbortSignal;
 use llrt_json::{parse::json_parse, stringify::json_stringify};
+use llrt_stream_web::ReadableStream;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, mc_oneshot};
 use once_cell::sync::Lazy;
@@ -145,7 +146,7 @@ impl<'js> Response<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>, body: Opt<Value<'js>>, options: Opt<Object<'js>>) -> Result<Self> {
         let mut url = "".into();
-        let mut status = 200;
+        let mut status: u16 = 200;
         let mut headers = None;
         let mut status_text = None;
         let mut abort_receiver = None;
@@ -154,7 +155,7 @@ impl<'js> Response<'js> {
             if let Some(url_opt) = opt.get("url")? {
                 url = url_opt;
             }
-            if let Some(status_opt) = opt.get("status")? {
+            if let Some(status_opt) = opt.get::<_, Option<u16>>("status")? {
                 status = status_opt;
             }
             if let Some(headers_opt) = opt.get("headers")? {
@@ -173,6 +174,27 @@ impl<'js> Response<'js> {
             }
         }
 
+        // Validate status range (200-599 per WHATWG Fetch spec)
+        if !(200..=599).contains(&status) {
+            return Err(Exception::throw_range(
+                &ctx,
+                &format!("Invalid status code: {}", status),
+            ));
+        }
+
+        let has_body = body
+            .0
+            .as_ref()
+            .is_some_and(|b| !b.is_null() && !b.is_undefined());
+
+        // Null body status check (204, 304 per WHATWG Fetch spec)
+        if has_body && (status == 204 || status == 304) {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Response with null body status cannot have body",
+            ));
+        }
+
         let mut content_type: Option<String> = None;
 
         let body = body
@@ -182,31 +204,52 @@ impl<'js> Response<'js> {
                     None
                 } else if body.is_string() {
                     content_type = Some(MIME_TYPE_TEXT.into());
-                    Some(BodyVariant::Provided(Some(body)))
+                    Some(Ok(BodyVariant::Provided(Some(body))))
                 } else if let Some(obj) = body.as_object() {
-                    if let Some(blob) = Class::<Blob>::from_object(obj) {
+                    // Check if it's a ReadableStream
+                    if let Some(stream) = Class::<ReadableStream>::from_object(obj) {
+                        let stream_ref = stream.borrow();
+                        // Check if stream is disturbed
+                        if stream_ref.disturbed {
+                            return Some(Err(Exception::throw_type(
+                                &ctx,
+                                "Cannot construct Response with a disturbed ReadableStream",
+                            )));
+                        }
+                        // Check if stream is locked (via JS property)
+                        let locked: bool = obj.get("locked").unwrap_or(false);
+                        drop(stream_ref);
+                        if locked {
+                            return Some(Err(Exception::throw_type(
+                                &ctx,
+                                "Cannot construct Response with a locked ReadableStream",
+                            )));
+                        }
+                        Some(Ok(BodyVariant::Provided(Some(body))))
+                    } else if let Some(blob) = Class::<Blob>::from_object(obj) {
                         let blob = blob.borrow();
                         if !blob.mime_type().is_empty() {
                             content_type = Some(blob.mime_type());
                         }
-                        Some(BodyVariant::Provided(Some(body)))
+                        Some(Ok(BodyVariant::Provided(Some(body))))
                     } else if let Some(fd) = Class::<FormData>::from_object(obj) {
                         let fd = fd.borrow();
                         let (multipart_body, boundary) = fd.to_multipart_bytes(&ctx).ok()?;
                         content_type = Some([MIME_TYPE_FORM_DATA, &boundary].concat());
-                        Some(BodyVariant::Provided(Some(
+                        Some(Ok(BodyVariant::Provided(Some(
                             multipart_body.into_js(&ctx).ok()?,
-                        )))
+                        ))))
                     } else if obj.instance_of::<URLSearchParams>() {
                         content_type = Some(MIME_TYPE_FORM_URLENCODED.into());
-                        Some(BodyVariant::Provided(Some(body)))
+                        Some(Ok(BodyVariant::Provided(Some(body))))
                     } else {
-                        Some(BodyVariant::Provided(Some(body)))
+                        Some(Ok(BodyVariant::Provided(Some(body))))
                     }
                 } else {
-                    Some(BodyVariant::Provided(Some(body)))
+                    Some(Ok(BodyVariant::Provided(Some(body))))
                 }
             })
+            .transpose()?
             .unwrap_or_else(|| BodyVariant::Empty);
 
         let mut headers = headers.unwrap_or_default();
@@ -272,7 +315,12 @@ impl<'js> Response<'js> {
                 *self.body_stream.borrow_mut() = Some(stream.clone());
                 Ok(stream)
             },
-            _ => Ok(Value::new_undefined(ctx)),
+            // Per WHATWG Fetch spec, body should be null for null body responses
+            BodyVariant::Empty => Ok(Value::new_null(ctx)),
+            // For provided bodies, return null if consumed, otherwise the raw value
+            // (ideally should be a ReadableStream, but LLRT doesn't fully support that yet)
+            BodyVariant::Provided(None) => Ok(Value::new_null(ctx)),
+            BodyVariant::Provided(Some(value)) => Ok(value.clone()),
         }
     }
 
@@ -374,13 +422,38 @@ impl<'js> Response<'js> {
                         "Cannot clone response after body has been used",
                     ));
                 }
-                // Cannot clone incoming body - it's a stream that can only be read once
+                // For Incoming bodies, we need to read all data and create two Provided bodies
+                // This is a limitation - true streaming tee would require more complex implementation
                 return Err(Exception::throw_type(
                     &ctx,
-                    "Cannot clone response with unconsumed body",
+                    "Cannot clone response with unconsumed streaming body. Read the body first or use Response.clone() on responses with non-streaming bodies.",
                 ));
             },
-            BodyVariant::Provided(provided) => BodyVariant::Provided(provided.clone()),
+            BodyVariant::Provided(provided) => {
+                // Cannot clone if body has been consumed (bodyUsed=true)
+                if provided.is_none() {
+                    return Err(Exception::throw_type(
+                        &ctx,
+                        "Cannot clone response after body has been used",
+                    ));
+                }
+                // For ReadableStream bodies, check if disturbed
+                if let Some(ref value) = provided {
+                    if let Some(stream) = value
+                        .as_object()
+                        .and_then(Class::<ReadableStream>::from_object)
+                    {
+                        let stream_ref = stream.borrow();
+                        if stream_ref.disturbed {
+                            return Err(Exception::throw_type(
+                                &ctx,
+                                "Cannot clone response with disturbed body",
+                            ));
+                        }
+                    }
+                }
+                BodyVariant::Provided(provided.clone())
+            },
             BodyVariant::Empty => BodyVariant::Empty,
         };
         drop(body);
@@ -477,6 +550,15 @@ impl<'js> Response<'js> {
         status: Opt<u16>,
     ) -> Result<Self> {
         let status = status.0.unwrap_or(302_u16);
+
+        // Validate redirect status (301, 302, 303, 307, 308 per WHATWG Fetch spec)
+        if !matches!(status, 301 | 302 | 303 | 307 | 308) {
+            return Err(Exception::throw_range(
+                &ctx,
+                &format!("Invalid redirect status: {}", status),
+            ));
+        }
+
         let url = match url {
             Either::Left(url) => url.to_string(),
             Either::Right(url) => url.0,
@@ -620,6 +702,15 @@ impl<'js> Response<'js> {
                 .take()
                 .ok_or(Exception::throw_message(ctx, "Already read"))?;
             drop(body_guard);
+
+            // Check if it's a ReadableStream
+            if let Some(stream) = provided
+                .as_object()
+                .and_then(Class::<ReadableStream>::from_object)
+            {
+                return collect_readable_stream(ctx, &stream).await.map(Some);
+            }
+
             let bytes =
                 if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
                     blob.borrow().get_bytes()
@@ -643,6 +734,41 @@ impl<'js> Response<'js> {
             .iter()
             .find_map(|(k, v)| (k == key).then(|| v.to_string())))
     }
+}
+
+/// Collects all data from a ReadableStream into a Vec<u8>
+async fn collect_readable_stream<'js>(
+    _ctx: &Ctx<'js>,
+    stream: &Class<'js, ReadableStream<'js>>,
+) -> Result<Vec<u8>> {
+    use rquickjs::function::This;
+    use rquickjs::{Function, Object, Promise};
+
+    let mut result = Vec::new();
+
+    // Get a reader from the stream
+    let get_reader: Function = stream.get("getReader")?;
+    let reader: Object = get_reader.call((This(stream.clone()),))?;
+    let read_fn: Function = reader.get("read")?;
+
+    loop {
+        let promise: Promise = read_fn.call((This(reader.clone()),))?;
+        let read_result: Object = promise.into_future().await?;
+
+        let done: bool = read_result.get("done").unwrap_or(true);
+        if done {
+            break;
+        }
+
+        let value: Value = read_result.get("value")?;
+        if let Ok(typed_array) = rquickjs::TypedArray::<u8>::from_value(value) {
+            if let Some(bytes) = typed_array.as_bytes() {
+                result.extend_from_slice(bytes);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 fn create_body_stream<'js>(
