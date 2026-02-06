@@ -72,50 +72,131 @@ fn find_last_sep(path: &str) -> Option<usize> {
 
 pub fn dirname<'a, P: Into<Cow<'a, str>>>(path: P) -> String {
     let path = path.into();
-    if path.is_empty() {
-        return String::from(".");
+    let len = path.len();
+
+    if len == 0 {
+        return ".".into();
     }
+
+    let bytes = path.as_bytes();
 
     #[cfg(windows)]
     {
-        if path == MAIN_SEPARATOR_STR || path == FORWARD_SLASH_STR {
-            return path.into_owned();
+        if len == 1 {
+            return if is_sep(bytes[0]) {
+                path.into_owned()
+            } else {
+                ".".to_string()
+            };
         }
+
+        // Determine root end and search offset
+        let (root_end, offset) = if is_sep(bytes[0]) {
+            if is_sep(bytes[1]) {
+                // UNC path: \\server\share
+                parse_unc_root(bytes, len).unwrap_or((1, 1))
+            } else {
+                (1, 1)
+            }
+        } else if bytes.len() > 1 && is_drive_letter(bytes[0]) && bytes[1] == b':' {
+            let r = if len > 2 && is_sep(bytes[2]) { 3 } else { 2 };
+            (r, r)
+        } else {
+            (0, 0)
+        };
+
+        // Find last separator (skipping trailing separators)
+        let end = find_dirname_end(bytes, offset);
+
+        match end {
+            Some(e) => &path[..e],
+            None if root_end > 0 => &path[..root_end],
+            None => ".",
+        }
+        .into()
     }
+
     #[cfg(not(windows))]
     {
-        if path == MAIN_SEPARATOR_STR {
-            return path.into_owned();
+        if len == 1 {
+            return if bytes[0] == b'/' {
+                path.into_owned()
+            } else {
+                ".".into()
+            };
+        }
+
+        let has_root = bytes[0] == b'/';
+        let end = find_dirname_end(bytes, 1);
+
+        match end {
+            Some(e) if has_root && e == 1 => "//",
+            Some(e) => &path[..e],
+            None if has_root => "/",
+            None => ".",
+        }
+        .into()
+    }
+}
+
+#[cfg(windows)]
+fn is_sep(c: u8) -> bool {
+    c == b'/' || c == b'\\'
+}
+
+#[cfg(windows)]
+fn is_drive_letter(c: u8) -> bool {
+    c.is_ascii_alphabetic()
+}
+
+#[cfg(windows)]
+fn parse_unc_root(bytes: &[u8], len: usize) -> Option<(usize, usize)> {
+    let mut j = 2;
+    // Skip server name
+    while j < len && !is_sep(bytes[j]) {
+        j += 1;
+    }
+    if j >= len || j == 2 {
+        return None;
+    }
+    // Skip separators
+    while j < len && is_sep(bytes[j]) {
+        j += 1;
+    }
+    if j >= len {
+        return None;
+    }
+    let share_start = j;
+    // Skip share name
+    while j < len && !is_sep(bytes[j]) {
+        j += 1;
+    }
+    if j == share_start {
+        return None;
+    }
+    if j == len {
+        return None;
+    } // UNC root only - caller handles this
+    Some((j + 1, j + 1))
+}
+
+fn find_dirname_end(bytes: &[u8], offset: usize) -> Option<usize> {
+    let mut matched_slash = true;
+    for i in (offset..bytes.len()).rev() {
+        #[cfg(windows)]
+        let is_separator = is_sep(bytes[i]);
+        #[cfg(not(windows))]
+        let is_separator = bytes[i] == b'/';
+
+        if is_separator {
+            if !matched_slash {
+                return Some(i);
+            }
+        } else {
+            matched_slash = false;
         }
     }
-
-    let path = strip_last_sep(&path);
-    let sep_pos = find_last_sep(path);
-
-    match sep_pos {
-        Some(idx) => {
-            let parent = &path[..idx];
-            if parent.is_empty() {
-                // Preserve the original separator style
-                #[cfg(windows)]
-                {
-                    if path.as_bytes()[idx] == b'/' {
-                        FORWARD_SLASH_STR
-                    } else {
-                        MAIN_SEPARATOR_STR
-                    }
-                }
-                #[cfg(not(windows))]
-                {
-                    MAIN_SEPARATOR_STR
-                }
-            } else {
-                parent
-            }
-        },
-        None => ".",
-    }
-    .to_string()
+    None
 }
 
 pub fn name_extname(path: &str) -> (&str, &str) {
