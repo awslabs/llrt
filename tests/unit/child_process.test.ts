@@ -119,8 +119,12 @@ describe("spawn", () => {
 
     child.on("exit", (code, signal) => {
       try {
-        // When killed by SIGKILL, code is null and signal is SIGKILL on all platforms
-        expect(code).toBeNull();
+        if (IS_WINDOWS) {
+          // LLRT on Windows returns exit code 1 when killed
+          expect(code).toEqual(1);
+        } else {
+          expect(code).toBeNull();
+        }
         expect(signal).toEqual("SIGKILL");
         done();
       } catch (error) {
