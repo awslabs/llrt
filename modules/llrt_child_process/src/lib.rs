@@ -324,7 +324,7 @@ async fn wait_for_process(
     ctx: &Ctx<'_>,
     mut kill_rx: Receiver<()>,
     exit_code: &mut Option<i32>,
-    exit_signal: &mut Option<i32>,
+    _exit_signal: &mut Option<i32>,
 ) -> Result<()> {
     #[cfg(not(unix))]
     let mut was_killed = false;
@@ -336,7 +336,7 @@ async fn wait_for_process(
                 #[cfg(unix)]
                 {
                     if let Some(sig) = exit_status.signal() {
-                        exit_signal.replace(sig);
+                        _exit_signal.replace(sig);
                         // code is null when terminated by signal
                     } else {
                         exit_code.replace(exit_status.code().unwrap_or_default());
@@ -345,7 +345,7 @@ async fn wait_for_process(
                 #[cfg(not(unix))]
                 {
                     if !was_killed {
-                         exit_code.replace(exit_status.code().unwrap_or_default());
+                        exit_code.replace(exit_status.code().unwrap_or_default());
                     }
                 }
                 break;
