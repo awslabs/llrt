@@ -4,6 +4,7 @@ rustflags = [
     "-Ctarget-cpu=neoverse-n1",
     "-Zunstable-options",
     "-Cpanic=immediate-abort",
+    "-Zpanic_abort_tests",
     "-Zthreads=8",
 ]
 linker = "./linker/cc-aarch64-linux-musl"
@@ -16,6 +17,7 @@ rustflags = [
     "-Ctarget-cpu=haswell",
     "-Zunstable-options",
     "-Cpanic=immediate-abort",
+    "-Zpanic_abort_tests",
     "-Zthreads=8",
 ]
 linker = "./linker/cc-x86_64-linux-musl"

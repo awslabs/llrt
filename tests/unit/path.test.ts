@@ -68,16 +68,23 @@ describe("basename", () => {
 
 describe("dirname", () => {
   it("should return the directory path of a given path", () => {
-    expect(dirname("/foo/bar/baz.txt")).toEqual(normalizeSeparator("/foo/bar"));
-    expect(dirname("/foo/bar/baz/")).toEqual(normalizeSeparator("/foo/bar"));
-    expect(dirname("/foo/bar/baz")).toEqual(normalizeSeparator("/foo/bar"));
-    expect(dirname("/foo/bar/")).toEqual(normalizeSeparator("/foo"));
-    expect(dirname("/foo/bar")).toEqual(normalizeSeparator("/foo"));
-    expect(dirname("/foo/")).toEqual(path.sep);
-    expect(dirname("/foo")).toEqual(path.sep);
-    expect(dirname("/")).toEqual(path.sep);
+    // dirname preserves the separator style from the input
+    expect(dirname("/foo/bar/baz.txt")).toEqual("/foo/bar");
+    expect(dirname("/foo/bar/baz/")).toEqual("/foo/bar");
+    expect(dirname("/foo/bar/baz")).toEqual("/foo/bar");
+    expect(dirname("/foo/bar/")).toEqual("/foo");
+    expect(dirname("/foo/bar")).toEqual("/foo");
+    expect(dirname("/foo/")).toEqual("/");
+    expect(dirname("/foo")).toEqual("/");
+    expect(dirname("/")).toEqual("/");
     expect(dirname("baz.txt")).toEqual(".");
     expect(dirname("")).toEqual(".");
+    if (IS_WINDOWS) {
+      expect(dirname("C:\\foo\\bar\\baz.txt")).toEqual("C:\\foo\\bar");
+      expect(dirname("C:\\foo\\bar")).toEqual("C:\\foo");
+      expect(dirname("C:\\foo")).toEqual("C:\\");
+      expect(dirname("C:\\")).toEqual("C:\\");
+    }
   });
 });
 
@@ -214,12 +221,10 @@ describe("normalize", () => {
 
 describe("isAbsolute", () => {
   it("should determine if a path is absolute", () => {
-    // On Windows, paths without drive letter are not absolute
-    // e.g., "\foo\bar" is NOT absolute, but "C:\foo\bar" is
     if (IS_WINDOWS) {
       expect(isAbsolute("C:\\foo\\bar\\baz")).toEqual(true);
       expect(isAbsolute("\\\\server\\share")).toEqual(true); // UNC path
-      expect(isAbsolute("\\foo\\bar\\baz")).toEqual(false);
+      expect(isAbsolute("\\foo\\bar\\baz")).toEqual(true); // Root-relative path is absolute on Windows
       expect(isAbsolute("foo\\bar\\baz")).toEqual(false);
       expect(isAbsolute("C:\\")).toEqual(true);
       expect(isAbsolute(".")).toEqual(false);
@@ -263,14 +268,19 @@ describe("relative", () => {
   });
 
   it("should return the relative path with one non-absolute directory", () => {
-    const from = normalizeSeparator("dir1/subdir1");
-    const to = normalizeSeparator("/Users/test/dir2/subdir2");
-
-    // Calculate manually how many "../" are needed based on directory depth
-    const expected = calculateRelativeDepth(from, to);
-    const result = relative(from, to);
-
-    expect(result).toBe(expected);
+    if (IS_WINDOWS) {
+      const from = "dir1\\subdir1";
+      const to = "C:\\Users\\test\\dir2\\subdir2";
+      const expected = calculateRelativeDepth(from, to);
+      const result = relative(from, to);
+      expect(result).toBe(expected);
+    } else {
+      const from = "dir1/subdir1";
+      const to = "/Users/test/dir2/subdir2";
+      const expected = calculateRelativeDepth(from, to);
+      const result = relative(from, to);
+      expect(result).toBe(expected);
+    }
   });
 
   it('should return the relative path when "to" is a non-absolute file', () => {
@@ -304,12 +314,18 @@ describe("relative", () => {
   });
 
   it("should return the relative path between non-absolute and absolute paths", () => {
-    const from = normalizeSeparator("dir1");
-    const to = normalizeSeparator("/Users/test/dir2/file.txt");
-
-    const expected = calculateRelativeDepth(from, to);
-    const result = relative(from, to);
-
-    expect(result).toBe(expected);
+    if (IS_WINDOWS) {
+      const from = "dir1";
+      const to = "C:\\Users\\test\\dir2\\file.txt";
+      const expected = calculateRelativeDepth(from, to);
+      const result = relative(from, to);
+      expect(result).toBe(expected);
+    } else {
+      const from = "dir1";
+      const to = "/Users/test/dir2/file.txt";
+      const expected = calculateRelativeDepth(from, to);
+      const result = relative(from, to);
+      expect(result).toBe(expected);
+    }
   });
 });

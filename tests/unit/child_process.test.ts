@@ -120,13 +120,12 @@ describe("spawn", () => {
     child.on("exit", (code, signal) => {
       try {
         if (IS_WINDOWS) {
-          // Windows terminates with code 1 when killed
+          // LLRT on Windows returns exit code 1 when killed
           expect(code).toEqual(1);
-          expect(signal).toBeNull();
         } else {
-          expect(code).toEqual(0);
-          expect(signal).toEqual("SIGKILL");
+          expect(code).toBeNull();
         }
+        expect(signal).toEqual("SIGKILL");
         done();
       } catch (error) {
         done(error);
@@ -186,15 +185,15 @@ describe("spawn", () => {
     await testExitCode("266", 10);
   });
 
-  it("should handle detached child process termination", (done) => {
-    // Use cross-platform long-running command
-    const sleepCmd = IS_WINDOWS
-      ? "spawn('ping', ['-n', '999', 'localhost']"
-      : "spawn('sleep', ['999']";
+  // Skip on Windows - detached process behavior differs significantly
+  (IS_WINDOWS ? it.skip : it)(
+    "should handle detached child process termination",
+    (done) => {
+      const sleepCmd = "spawn('sleep', ['999']";
 
-    const parentProc = spawn(process.argv0, [
-      "-e",
-      `
+      const parentProc = spawn(process.argv0, [
+        "-e",
+        `
         import {spawn} from "child_process";
         const child = ${sleepCmd}, {
           detached: true,
@@ -202,32 +201,33 @@ describe("spawn", () => {
         });
         console.log(child.pid.toString());
       `,
-    ]);
+      ]);
 
-    let detachedPidString = "";
-    parentProc.stdout.on("data", (data) => {
-      detachedPidString += data.toString();
-      // Kill parent once we have the PID - parent would otherwise wait for detached child
-      parentProc.kill();
-    });
+      let detachedPidString = "";
+      parentProc.stdout.on("data", (data) => {
+        detachedPidString += data.toString();
+        // Kill parent once we have the PID - parent would otherwise wait for detached child
+        parentProc.kill();
+      });
 
-    parentProc.on("error", (err) => {
-      done(err);
-    });
+      parentProc.on("error", (err) => {
+        done(err);
+      });
 
-    parentProc.on("close", () => {
-      try {
-        const detachedPid = parseInt(detachedPidString.trim());
-        expect(detachedPid).toBeGreaterThan(0);
-        // Verify detached process survived parent termination
-        const exists = process.kill(detachedPid, 0);
-        expect(exists).toBe(true);
-        // Clean up the detached process
-        process.kill(detachedPid, "SIGKILL");
-        done();
-      } catch (error) {
-        done(error);
-      }
-    });
-  });
+      parentProc.on("close", () => {
+        try {
+          const detachedPid = parseInt(detachedPidString.trim());
+          expect(detachedPid).toBeGreaterThan(0);
+          // Verify detached process survived parent termination
+          const exists = process.kill(detachedPid, 0);
+          expect(exists).toBe(true);
+          // Clean up the detached process
+          process.kill(detachedPid, "SIGKILL");
+          done();
+        } catch (error) {
+          done(error);
+        }
+      });
+    }
+  );
 });

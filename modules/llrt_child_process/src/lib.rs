@@ -235,14 +235,17 @@ impl<'js> ChildProcess<'js> {
                         wait_for_process(child, &ctx3, kill_rx, &mut exit_code, &mut exit_signal)
                             .await?;
 
-                        let code = exit_code.unwrap_or_default().into_js(&ctx3)?;
+                        let code = match exit_code {
+                            Some(c) => c.into_js(&ctx3)?,
+                            None => rquickjs::Null.into_value(ctx3.clone()),
+                        };
                         let signal;
                         #[cfg(unix)]
                         {
                             if let Some(s) = exit_signal {
                                 signal = signal_str_from_i32(s).into_js(&ctx3)?;
                             } else {
-                                signal = rquickjs::Undefined.into_value(ctx3.clone());
+                                signal = rquickjs::Null.into_value(ctx3.clone());
                             }
                         }
                         #[cfg(not(unix))]
@@ -321,26 +324,38 @@ async fn wait_for_process(
     ctx: &Ctx<'_>,
     mut kill_rx: Receiver<()>,
     exit_code: &mut Option<i32>,
-    exit_signal: &mut Option<i32>,
+    _exit_signal: &mut Option<i32>,
 ) -> Result<()> {
+    #[cfg(not(unix))]
+    let mut was_killed = false;
     loop {
         tokio::select! {
             status = child.wait() => {
                 let exit_status = status.or_throw(ctx)?;
-                exit_code.replace(exit_status.code().unwrap_or_default());
 
                 #[cfg(unix)]
                 {
-                    exit_signal.replace(exit_status.signal().unwrap_or_default());
+                    if let Some(sig) = exit_status.signal() {
+                        _exit_signal.replace(sig);
+                        // code is null when terminated by signal
+                    } else {
+                        exit_code.replace(exit_status.code().unwrap_or_default());
+                    }
                 }
                 #[cfg(not(unix))]
                 {
-                    _ = exit_signal;
+                    if !was_killed {
+                        exit_code.replace(exit_status.code().unwrap_or_default());
+                    }
                 }
                 break;
             }
 
             Ok(()) = kill_rx.recv() => {
+                #[cfg(not(unix))]
+                {
+                    was_killed = true;
+                }
                 child.kill().await.or_throw(ctx)?;
             }
         }

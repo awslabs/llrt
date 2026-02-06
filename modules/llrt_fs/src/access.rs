@@ -50,18 +50,7 @@ fn verify_metadata(ctx: &Ctx, mode: Opt<u32>, metadata: Metadata) -> Result<()> 
                 ));
             }
         }
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::MetadataExt;
-            const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x10;
-            // Get the file attributes
-            let file_attributes = metadata.file_attributes();
-
-            // Check if the file has execute permissions
-            if file_attributes & FILE_ATTRIBUTE_DIRECTORY == 0 {
-                return Err(Exception::throw_message(ctx, "Permission denied"));
-            }
-        }
+        // On Windows, X_OK behaves like F_OK (file exists check only)
     }
 
     Ok(())
