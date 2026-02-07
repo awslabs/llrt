@@ -192,13 +192,23 @@ impl Headers {
     }
 
     pub fn keys<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        Iterable::from(self.headers.iter().map(|(k, _)| k.to_string()).collect::<Vec<_>>())
-            .into_js(&ctx)
+        Iterable::from(
+            self.headers
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect::<Vec<_>>(),
+        )
+        .into_js(&ctx)
     }
 
     pub fn values<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        Iterable::from(self.headers.iter().map(|(_, v)| v.to_string()).collect::<Vec<_>>())
-            .into_js(&ctx)
+        Iterable::from(
+            self.headers
+                .iter()
+                .map(|(_, v)| v.to_string())
+                .collect::<Vec<_>>(),
+        )
+        .into_js(&ctx)
     }
 
     pub fn entries<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
