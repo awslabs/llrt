@@ -18,9 +18,10 @@ use cbc::{Decryptor, Encryptor};
 use ctr::{cipher::Array, Ctr128BE, Ctr32BE, Ctr64BE};
 use der::Encode;
 use ecdsa::signature::hazmat::PrehashVerifier;
+use ed25519_dalek::{Signature, Signer, Verifier, VerifyingKey};
 use elliptic_curve::{consts::U12, sec1::ToSec1Point, Generate};
+use hkdf::Hkdf;
 use hmac::{Hmac as HmacImpl, Mac};
-use once_cell::sync::Lazy;
 use p256::{
     ecdsa::{
         Signature as P256Signature, SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey,
@@ -34,15 +35,13 @@ use p384::{
     SecretKey as P384SecretKey,
 };
 use p521::{
-    ecdsa::{Signature as P521Signature, VerifyingKey as P521VerifyingKey},
+    ecdsa::{
+        Signature as P521Signature, SigningKey as P521SigningKey, VerifyingKey as P521VerifyingKey,
+    },
     SecretKey as P521SecretKey,
 };
+use pbkdf2::pbkdf2;
 use pkcs8::{DecodePrivateKey, EncodePrivateKey};
-use ring::{
-    pbkdf2,
-    rand::SystemRandom,
-    signature::{Ed25519KeyPair, KeyPair, UnparsedPublicKey},
-};
 use rsa::pkcs1::{
     DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
 };
@@ -138,8 +137,6 @@ impl HmacProvider for RustHmac {
 #[derive(Default)]
 pub struct RustCryptoProvider;
 
-pub static SYSTEM_RANDOM: Lazy<SystemRandom> = Lazy::new(SystemRandom::new);
-
 impl CryptoProvider for RustCryptoProvider {
     type Digest = RustDigest;
     type Hmac = RustHmac;
@@ -198,7 +195,7 @@ impl CryptoProvider for RustCryptoProvider {
             EllipticCurve::P521 => {
                 let secret_key = P521SecretKey::from_pkcs8_der(private_key_der)
                     .map_err(|_| CryptoError::InvalidKey(None))?;
-                let signing_key = p521::ecdsa::SigningKey::from(secret_key);
+                let signing_key = P521SigningKey::from(secret_key);
                 let signature: p521::ecdsa::Signature = signing_key
                     .sign_prehash(digest)
                     .map_err(|_| CryptoError::SigningFailed(None))?;
@@ -240,10 +237,12 @@ impl CryptoProvider for RustCryptoProvider {
     }
 
     fn ed25519_sign(&self, private_key_der: &[u8], data: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        let key_pair = Ed25519KeyPair::from_pkcs8(private_key_der)
+        let signing_key = ed25519_dalek::SigningKey::from_pkcs8_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
-        let signature = key_pair.sign(data);
-        Ok(signature.as_ref().to_vec())
+        let signature = signing_key
+            .try_sign(data)
+            .map_err(|_| CryptoError::InvalidSignature(None))?;
+        Ok(signature.to_bytes().to_vec())
     }
 
     fn ed25519_verify(
@@ -252,8 +251,18 @@ impl CryptoProvider for RustCryptoProvider {
         signature: &[u8],
         data: &[u8],
     ) -> Result<bool, CryptoError> {
-        let public_key = UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
-        Ok(public_key.verify(data, signature).is_ok())
+        let public_key = VerifyingKey::from_bytes(
+            public_key_bytes
+                .try_into()
+                .map_err(|_| CryptoError::InvalidKey(None))?,
+        )
+        .map_err(|_| CryptoError::InvalidKey(None))?;
+        let signature = Signature::from_bytes(
+            signature
+                .try_into()
+                .map_err(|_| CryptoError::InvalidSignature(None))?,
+        );
+        Ok(public_key.verify(data, &signature).is_ok())
     }
 
     fn rsa_pss_sign(
@@ -774,26 +783,28 @@ impl CryptoProvider for RustCryptoProvider {
         length: usize,
         hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
-        use ring::hkdf;
-
-        let algorithm = match hash_alg {
-            HashAlgorithm::Sha1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
-            HashAlgorithm::Sha256 => hkdf::HKDF_SHA256,
-            HashAlgorithm::Sha384 => hkdf::HKDF_SHA384,
-            HashAlgorithm::Sha512 => hkdf::HKDF_SHA512,
-            _ => return Err(CryptoError::UnsupportedAlgorithm),
-        };
-
-        let salt = hkdf::Salt::new(algorithm, salt);
-        let prk = salt.extract(key);
-        let info = &[info];
-        let okm = prk
-            .expand(info, HkdfOutput(length))
-            .map_err(|_| CryptoError::DerivationFailed(None))?;
-
         let mut out = vec![0u8; length];
-        okm.fill(&mut out)
-            .map_err(|_| CryptoError::DerivationFailed(None))?;
+
+        match hash_alg {
+            HashAlgorithm::Sha1 => {
+                let prk = Hkdf::<Sha1>::new(Some(salt), key);
+                prk.expand(info, &mut out)
+            },
+            HashAlgorithm::Sha256 => {
+                let prk = Hkdf::<Sha256>::new(Some(salt), key);
+                prk.expand(info, &mut out)
+            },
+            HashAlgorithm::Sha384 => {
+                let prk = Hkdf::<Sha384>::new(Some(salt), key);
+                prk.expand(info, &mut out)
+            },
+            HashAlgorithm::Sha512 => {
+                let prk = Hkdf::<Sha512>::new(Some(salt), key);
+                prk.expand(info, &mut out)
+            },
+            _ => return Err(CryptoError::UnsupportedAlgorithm),
+        }
+        .map_err(|_| CryptoError::DerivationFailed(None))?;
         Ok(out)
     }
 
@@ -805,17 +816,24 @@ impl CryptoProvider for RustCryptoProvider {
         length: usize,
         hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
-        let algorithm = match hash_alg {
-            HashAlgorithm::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
-            HashAlgorithm::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
-            HashAlgorithm::Sha384 => pbkdf2::PBKDF2_HMAC_SHA384,
-            HashAlgorithm::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
-            _ => return Err(CryptoError::UnsupportedAlgorithm),
-        };
-
         let mut out = vec![0; length];
         let iterations = NonZeroU32::new(iterations).ok_or(CryptoError::InvalidData(None))?;
-        pbkdf2::derive(algorithm, iterations, salt, password, &mut out);
+        match hash_alg {
+            HashAlgorithm::Sha1 => {
+                pbkdf2::<HmacImpl<Sha1>>(password, salt, iterations.get(), &mut out)
+            },
+            HashAlgorithm::Sha256 => {
+                pbkdf2::<HmacImpl<Sha256>>(password, salt, iterations.get(), &mut out)
+            },
+            HashAlgorithm::Sha384 => {
+                pbkdf2::<HmacImpl<Sha384>>(password, salt, iterations.get(), &mut out)
+            },
+            HashAlgorithm::Sha512 => {
+                pbkdf2::<HmacImpl<Sha512>>(password, salt, iterations.get(), &mut out)
+            },
+            _ => return Err(CryptoError::UnsupportedAlgorithm),
+        }
+        .map_err(|_| CryptoError::InvalidLength)?;
         Ok(out)
     }
 
@@ -883,13 +901,15 @@ impl CryptoProvider for RustCryptoProvider {
     }
 
     fn generate_ed25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
-        let rng = &(*SYSTEM_RANDOM);
-        let pkcs8 =
-            Ed25519KeyPair::generate_pkcs8(rng).map_err(|_| CryptoError::OperationFailed(None))?;
-        let private_key = pkcs8.as_ref().to_vec();
-        let key_pair = Ed25519KeyPair::from_pkcs8(&private_key)
+        let mut rng = rand::rng();
+        let private_key = ed25519_dalek::SigningKey::generate(&mut rng)
+            .to_pkcs8_der()
+            .map_err(|_| CryptoError::OperationFailed(None))?
+            .as_bytes()
+            .to_vec();
+        let signing_key = ed25519_dalek::SigningKey::from_pkcs8_der(&private_key)
             .map_err(|_| CryptoError::OperationFailed(None))?;
-        let public_key = key_pair.public_key().as_ref().to_vec();
+        let public_key = signing_key.verifying_key().to_bytes().to_vec();
         Ok((private_key, public_key))
     }
 
@@ -1559,14 +1579,5 @@ impl CryptoProvider for RustCryptoProvider {
                 d: None,
             })
         }
-    }
-}
-
-// Helper struct for HKDF output length
-struct HkdfOutput(usize);
-
-impl ring::hkdf::KeyType for HkdfOutput {
-    fn len(&self) -> usize {
-        self.0
     }
 }

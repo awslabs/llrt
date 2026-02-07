@@ -17,10 +17,10 @@ default = ["crypto-rust"]
 # Internal feature: enables DER parsing for SubtleCrypto key import/export
 _subtle-full = [
   "llrt_json",
-  "spki",
-  "der",
   "const-oid",
+  "der",
   "pkcs8",
+  "spki",
 ]
 
 # Internal feature: enables RustCrypto dependencies for key import/export
@@ -31,20 +31,23 @@ _rustcrypto = [
   "aes-kw",
   "cbc",
   "ctr",
+  "ecdsa",
+  "ed25519-dalek",
+  "elliptic-curve",
+  "hkdf",
+  "hmac",
   "rsa",
   "p256",
   "p384",
   "p521",
-  "elliptic-curve",
-  "x25519-dalek",
-  "ecdsa",
-  "hmac",
+  "pbkdf2",
   "sha1",
+  "x25519-dalek",
 ]
 
 crypto-rust = ["_rustcrypto"]
-crypto-ring = []
-crypto-ring-rust = ["_rustcrypto"]
+crypto-ring = ["ring"]
+crypto-ring-rust = ["ring", "_rustcrypto"]
 crypto-graviola = ["graviola"]
 crypto-graviola-rust = ["graviola", "_rustcrypto"]
 crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
@@ -56,13 +59,13 @@ llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
 llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+md-5 = { version = "0.11.0-rc.5", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rand = { version = "0.10.0-rc.9", features = [
   "std",
   "std_rng",
   "thread_rng",
 ], default-features = false }
-ring = { version = "0.17", default-features = false }
 rquickjs = { version = "0.11", features = ["macro"], default-features = false }
 
 
@@ -85,12 +88,17 @@ der = { version = "0.8.0-rc.10", features = [
   "alloc",
 ], default-features = false, optional = true }
 ecdsa = { version = "0.17.0-rc.16", default-features = false, optional = true }
+ed25519-dalek = { version = "3.0.0-pre.6", features = [
+  "alloc",
+  "pkcs8",
+  "rand_core",
+], default-features = false, optional = true }
 elliptic-curve = { version = "0.14.0-rc.28", features = [
   "alloc",
   "sec1",
 ], default-features = false, optional = true }
+hkdf = { version = "0.13.0-rc.5", default-features = false, optional = true }
 hmac = { version = "0.13.0-rc.5", default-features = false, optional = true }
-md-5 = { version = "0.11.0-rc.5", default-features = false }
 rsa = { version = "0.10.0-rc.15", features = [
   "std",
   "sha2",
@@ -111,6 +119,7 @@ p521 = { version = "0.14.0-rc.7", features = [
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
+pbkdf2 = { version = "0.13.0-rc.9", default-features = false, optional = true }
 pkcs8 = { version = "0.11.0-rc.10", default-features = false, features = [
   "alloc",
 ], optional = true }
@@ -124,6 +133,7 @@ x25519-dalek = { version = "3.0.0-pre.6", features = [
 ], default-features = false, optional = true }
 
 # Crypto provider dependencies
+ring = { version = "0.17", default-features = false, optional = true }
 openssl-sys = { version = "0.9", optional = true }
 openssl = { version = "0.10", optional = true }
 graviola = { version = "0.3", optional = true }
