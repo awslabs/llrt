@@ -36,6 +36,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e22c0c90bbe8d4f77c3ca9ddabe41a1f8382d6fc1f7cea89459d0f320371f972"
 dependencies = [
  "aead",
+ "aes",
  "cipher",
  "ctr",
  "ghash",
@@ -340,13 +341,26 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "chacha20"
-version = "0.10.0-rc.12"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ffbe10ceec04b389b83cc78ccf09a28047d9a513b4c86db270f641d515711b9"
+checksum = "6f8d983286843e49675a4b7a2d174efe136dc93a18d69130dd18198a6c167601"
 dependencies = [
  "cfg-if",
+ "cipher",
  "cpufeatures 0.3.0",
  "rand_core 0.10.0",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.11.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c9ed179664f12fd6f155f6dd632edf5f3806d48c228c67ff78366f2a0eb6b5e"
+dependencies = [
+ "aead",
+ "chacha20",
+ "cipher",
+ "poly1305",
 ]
 
 [[package]]
@@ -877,6 +891,7 @@ dependencies = [
  "elliptic-curve",
  "rfc6979",
  "signature",
+ "spki",
  "zeroize",
 ]
 
@@ -924,6 +939,7 @@ dependencies = [
  "digest",
  "hkdf",
  "hybrid-array",
+ "pem-rfc7468",
  "pkcs8",
  "rand_core 0.10.0",
  "rustcrypto-ff",
@@ -2426,6 +2442,7 @@ dependencies = [
  "openssl",
  "rustls",
  "rustls-graviola",
+ "rustls-rustcrypto",
  "tokio",
  "tokio-openssl",
  "tokio-rustls",
@@ -2453,6 +2470,7 @@ dependencies = [
  "rustls",
  "rustls-graviola",
  "rustls-native-certs",
+ "rustls-rustcrypto",
  "tracing",
  "webpki-roots",
 ]
@@ -2797,6 +2815,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
 name = "pastey"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2954,6 +2978,16 @@ name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
+
+[[package]]
+name = "poly1305"
+version = "0.9.0-rc.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "518693a4015fbfd281debf35bcac145ba2e180ae325ec855fdb405be0b2971fb"
+dependencies = [
+ "cpufeatures 0.2.17",
+ "universal-hash",
+]
 
 [[package]]
 name = "polyval"
@@ -3428,6 +3462,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be040f8b0a225e40375822a563fa9524378b9d63112f53e19ffff34df5d33fdd"
 dependencies = [
  "zeroize",
+]
+
+[[package]]
+name = "rustls-rustcrypto"
+version = "0.0.2-alpha"
+source = "git+https://github.com/RustCrypto/rustls-rustcrypto.git#e23f9164a801b1f2ef757db3aa8a392b7ab7c9c4"
+dependencies = [
+ "aead",
+ "aes-gcm",
+ "chacha20poly1305",
+ "crypto-common",
+ "der",
+ "digest",
+ "ecdsa",
+ "ed25519-dalek",
+ "getrandom 0.4.1",
+ "hmac",
+ "p256",
+ "p384",
+ "paste",
+ "pkcs8",
+ "rsa",
+ "rustls",
+ "rustls-pki-types",
+ "sec1",
+ "sha2",
+ "signature",
+ "x25519-dalek",
 ]
 
 [[package]]
