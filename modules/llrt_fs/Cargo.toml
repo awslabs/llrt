@@ -19,7 +19,7 @@ llrt_path = { version = "0.7.0-beta", path = "../llrt_path" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", features = [
   "fs",
 ], default-features = false }
-rand = { version = "0.10.0-rc.9", features = [
+rand = { version = "0.10.0", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }
