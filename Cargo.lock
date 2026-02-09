@@ -340,9 +340,9 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "chacha20"
-version = "0.10.0-rc.12"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ffbe10ceec04b389b83cc78ccf09a28047d9a513b4c86db270f641d515711b9"
+checksum = "6f8d983286843e49675a4b7a2d174efe136dc93a18d69130dd18198a6c167601"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
@@ -1995,7 +1995,7 @@ dependencies = [
  "phf 0.13.1",
  "phf_codegen",
  "quick-xml",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "rquickjs",
  "rustls",
  "rustls-pemfile",
@@ -2043,7 +2043,7 @@ dependencies = [
  "p521",
  "pbkdf2",
  "pkcs8",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "ring",
  "rquickjs",
  "rsa",
@@ -2143,7 +2143,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "rquickjs",
  "tokio",
  "tracing",
@@ -2161,7 +2161,7 @@ dependencies = [
  "llrt_path",
  "llrt_test",
  "llrt_utils",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "rquickjs",
  "tokio",
 ]
@@ -2299,7 +2299,7 @@ dependencies = [
  "llrt_stream",
  "llrt_test",
  "llrt_utils",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "rquickjs",
  "tokio",
  "tracing",
@@ -2313,7 +2313,7 @@ dependencies = [
  "itoa",
  "llrt_test",
  "llrt_utils",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "rquickjs",
  "ryu",
 ]
@@ -2346,7 +2346,7 @@ dependencies = [
  "llrt_utils",
  "memchr",
  "once_cell",
- "rand 0.10.0-rc.9",
+ "rand 0.10.0",
  "rquickjs",
 ]
 
@@ -3103,9 +3103,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.0-rc.9"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a8cd8be2e7e2fd2ee3e09045798e65c906682ec9f16293defc4790dd775d5a3"
+checksum = "bc266eb313df6c5c09c1c7b1fbe2510961e5bcd3add930c1e31f7ed9da0feff8"
 dependencies = [
  "chacha20",
  "getrandom 0.4.1",
