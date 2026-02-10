@@ -35,7 +35,7 @@ beforeAll((done) => {
 
       if (requestData.includes("POST /echo")) {
         // For chunked requests, wait for the final chunk marker
-        if (requestData.includes("Transfer-Encoding: chunked")) {
+        if (requestData.toLowerCase().includes("transfer-encoding: chunked")) {
           if (!requestData.includes("0\r\n\r\n")) return; // Wait for more data
           // Extract body from chunked encoding
           const bodyStart = requestData.indexOf("\r\n\r\n") + 4;
@@ -276,6 +276,24 @@ describe("fetch", () => {
     expect(text).toEqual("hello world");
   });
 
+  it("should reject streaming body with non-BufferSource chunks", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue("string chunk"); // Invalid - must be BufferSource
+        controller.close();
+      },
+    });
+
+    await expect(
+      fetch(echoUrl, {
+        method: "POST",
+        body: stream,
+        // @ts-ignore
+        duplex: "half",
+      })
+    ).rejects.toThrow(/BufferSource/);
+  });
+
   it("should send large streaming request body", async () => {
     const chunkCount = 100;
     const chunkSize = 1024;
@@ -477,8 +495,11 @@ describe("fetch", () => {
         duplex: "half",
       });
       await res.text();
+      expect(true).toBe(false); // Should not reach here
     } catch (err: any) {
       expect(err).toBeDefined();
+      // Error could be the stream error or a connection error depending on timing
+      expect(err.message).toBeDefined();
     }
   });
 

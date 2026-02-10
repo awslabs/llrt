@@ -821,3 +821,30 @@ pub fn readable_stream_default_controller_close_stream<'js>(
     ReadableStreamDefaultController::readable_stream_default_controller_close(ctx, objects)?;
     Ok(())
 }
+
+/// Public API for erroring a default controller from Rust code
+pub fn readable_stream_default_controller_error_stream<'js>(
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    error: Value<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    objects.with_reader(
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_error(
+                objects,
+                error.clone(),
+            )
+        },
+        |_| panic!("Default controller must not have byob reader"),
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_error(
+                objects,
+                error.clone(),
+            )
+        },
+    )?;
+
+    Ok(())
+}

@@ -317,10 +317,24 @@ impl<'js> Response<'js> {
             },
             // Per WHATWG Fetch spec, body should be null for null body responses
             BodyVariant::Empty => Ok(Value::new_null(ctx)),
-            // For provided bodies, return null if consumed, otherwise the raw value
-            // (ideally should be a ReadableStream, but LLRT doesn't fully support that yet)
             BodyVariant::Provided(None) => Ok(Value::new_null(ctx)),
-            BodyVariant::Provided(Some(value)) => Ok(value.clone()),
+            BodyVariant::Provided(Some(value)) => {
+                // If already a ReadableStream, return it directly
+                if let Some(stream) = value
+                    .as_object()
+                    .and_then(Class::<ReadableStream>::from_object)
+                {
+                    return Ok(stream.into_value());
+                }
+
+                // Create a ReadableStream that yields the body data once
+                let body_value = value.clone();
+                drop(body_guard);
+
+                let stream = create_provided_body_stream(&ctx, body_value)?;
+                *self.body_stream.borrow_mut() = Some(stream.clone());
+                Ok(stream)
+            },
         }
     }
 
@@ -352,6 +366,21 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
+        // Check if body stream is disturbed (has been read from)
+        if let Some(stream_value) = self.body_stream.borrow().as_ref() {
+            if let Some(stream) = stream_value
+                .as_object()
+                .and_then(Class::<ReadableStream>::from_object)
+            {
+                // Check the 'disturbed' property - stream has been read from
+                if let Ok(disturbed) = stream.get::<_, bool>("disturbed") {
+                    if disturbed {
+                        return true;
+                    }
+                }
+            }
+        }
+
         if let Ok(body) = self.body.read() {
             return match &*body {
                 BodyVariant::Incoming(incoming, _) => incoming.borrow().is_none(),
@@ -437,19 +466,58 @@ impl<'js> Response<'js> {
                         "Cannot clone response after body has been used",
                     ));
                 }
-                // For ReadableStream bodies, check if disturbed
+                // For ReadableStream bodies, use tee() to create two branches
                 if let Some(ref value) = provided {
                     if let Some(stream) = value
                         .as_object()
                         .and_then(Class::<ReadableStream>::from_object)
                     {
-                        let stream_ref = stream.borrow();
-                        if stream_ref.disturbed {
+                        let disturbed: bool = stream.get("disturbed").unwrap_or(false);
+                        if disturbed {
                             return Err(Exception::throw_type(
                                 &ctx,
                                 "Cannot clone response with disturbed body",
                             ));
                         }
+                        let locked: bool = stream.get("locked").unwrap_or(false);
+                        if locked {
+                            return Err(Exception::throw_type(
+                                &ctx,
+                                "Cannot clone response with locked body",
+                            ));
+                        }
+
+                        // Use tee() to split the stream
+                        let tee_fn: rquickjs::Function = stream.get("tee")?;
+                        let branches: rquickjs::Array =
+                            tee_fn.call((rquickjs::function::This(stream.clone()),))?;
+                        let branch1: Value = branches.get(0)?;
+                        let branch2: Value = branches.get(1)?;
+
+                        // Update original body to use branch1
+                        drop(body);
+                        let mut body_write = self.body.write().unwrap();
+                        *body_write = BodyVariant::Provided(Some(branch1));
+                        // Clear cached body stream since we changed the body
+                        *self.body_stream.borrow_mut() = None;
+                        drop(body_write);
+
+                        // Return clone with branch2
+                        return Ok(Self {
+                            body: RwLock::new(BodyVariant::Provided(Some(branch2))),
+                            body_stream: RefCell::new(None),
+                            method: self.method.clone(),
+                            url: self.url.clone(),
+                            start: self.start,
+                            status: self.status,
+                            status_text: self.status_text.clone(),
+                            redirected: self.redirected,
+                            headers: Class::<Headers>::instance(
+                                ctx,
+                                self.headers.borrow().clone(),
+                            )?,
+                            abort_receiver: self.abort_receiver.clone(),
+                        });
                     }
                 }
                 BodyVariant::Provided(provided.clone())
@@ -634,30 +702,36 @@ impl<'js> Response<'js> {
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
         use crate::decompress::StreamingDecoder;
 
-        // Check body type and get content_encoding
-        let (body_type, content_encoding) = {
+        // Check if body stream is locked
+        if let Some(stream_value) = self.body_stream.borrow().as_ref() {
+            if let Some(stream) = stream_value
+                .as_object()
+                .and_then(Class::<ReadableStream>::from_object)
+            {
+                let locked: bool = stream.get("locked")?;
+                if locked {
+                    return Err(Exception::throw_type(
+                        ctx,
+                        "Cannot read body: stream is locked",
+                    ));
+                }
+            }
+        }
+
+        // Single lock acquisition to determine variant and extract Incoming if applicable
+        let incoming_data = {
             let body_guard = self.body.read().unwrap();
             match &*body_guard {
-                BodyVariant::Incoming(_, enc) => (1, enc.clone()),
-                BodyVariant::Provided(Some(_)) => (2, None),
+                BodyVariant::Incoming(incoming, enc) => Some((incoming.clone(), enc.clone())),
                 BodyVariant::Provided(None) => {
                     return Err(Exception::throw_message(ctx, "Already read"))
                 },
                 BodyVariant::Empty => return Ok(None),
+                BodyVariant::Provided(Some(_)) => None,
             }
         };
 
-        if body_type == 1 {
-            // Consume Incoming body directly
-            let incoming = {
-                let body_guard = self.body.read().unwrap();
-                if let BodyVariant::Incoming(incoming, _) = &*body_guard {
-                    incoming.clone()
-                } else {
-                    return Ok(None);
-                }
-            };
-
+        if let Some((incoming, content_encoding)) = incoming_data {
             let body = incoming
                 .borrow_mut()
                 .take()
@@ -741,34 +815,7 @@ async fn collect_readable_stream<'js>(
     _ctx: &Ctx<'js>,
     stream: &Class<'js, ReadableStream<'js>>,
 ) -> Result<Vec<u8>> {
-    use rquickjs::function::This;
-    use rquickjs::{Function, Object, Promise};
-
-    let mut result = Vec::new();
-
-    // Get a reader from the stream
-    let get_reader: Function = stream.get("getReader")?;
-    let reader: Object = get_reader.call((This(stream.clone()),))?;
-    let read_fn: Function = reader.get("read")?;
-
-    loop {
-        let promise: Promise = read_fn.call((This(reader.clone()),))?;
-        let read_result: Object = promise.into_future().await?;
-
-        let done: bool = read_result.get("done").unwrap_or(true);
-        if done {
-            break;
-        }
-
-        let value: Value = read_result.get("value")?;
-        if let Ok(typed_array) = rquickjs::TypedArray::<u8>::from_value(value) {
-            if let Some(bytes) = typed_array.as_bytes() {
-                result.extend_from_slice(bytes);
-            }
-        }
-    }
-
-    Ok(result)
+    crate::collect_readable_stream(stream).await
 }
 
 fn create_body_stream<'js>(
@@ -780,25 +827,35 @@ fn create_body_stream<'js>(
     use llrt_stream_web::utils::promise::upon_promise_fulfilment;
     use llrt_stream_web::{
         readable_stream_default_controller_close_stream,
-        readable_stream_default_controller_enqueue_value, CancelAlgorithm, PullAlgorithm,
+        readable_stream_default_controller_enqueue_value,
+        readable_stream_default_controller_error_stream, CancelAlgorithm, PullAlgorithm,
         ReadableStream, ReadableStreamControllerClass, ReadableStreamDefaultControllerClass,
     };
 
     // State: body + decoder
     struct BodyState {
-        incoming: Rc<RefCell<Option<Incoming>>>,
+        body: Option<Incoming>,
         decoder: Option<StreamingDecoder>,
+        error: Option<String>,
     }
 
     let decoder = content_encoding
         .as_ref()
         .and_then(|enc| StreamingDecoder::new(enc).ok());
 
-    let state = Rc::new(RefCell::new(BodyState { incoming, decoder }));
+    // Take the body out of the shared Rc<RefCell> once, own it in the pull state
+    let body = incoming.borrow_mut().take();
+
+    let state = Rc::new(RefCell::new(BodyState {
+        body,
+        decoder,
+        error: None,
+    }));
 
     let pull = PullAlgorithm::from_fn(
         move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
             let state = state.clone();
+            let state_for_cb = state.clone();
 
             // Get the default controller class
             let ctrl_class: ReadableStreamDefaultControllerClass = match controller {
@@ -813,24 +870,20 @@ fn create_body_stream<'js>(
 
             // Create a future that reads one frame
             let future = async move {
-                // Take the body out of the RefCell to avoid holding borrow across await
                 let mut body = {
-                    let state_ref = state.borrow();
-                    let mut body_opt = state_ref.incoming.borrow_mut();
-                    match body_opt.take() {
+                    let mut state_ref = state.borrow_mut();
+                    match state_ref.body.take() {
                         Some(b) => b,
-                        None => return Ok::<_, rquickjs::Error>(None), // Body consumed
+                        None => return Ok::<_, rquickjs::Error>(None),
                     }
                 };
 
-                // Now we own the body, safe to await
                 let frame_result = body.frame().await;
 
-                // Process the frame result
                 match frame_result {
                     Some(Ok(frame)) => {
-                        // Put body back before processing
-                        *state.borrow().incoming.borrow_mut() = Some(body);
+                        // Put body back for next pull
+                        state.borrow_mut().body = Some(body);
 
                         if let Some(data) = frame.data_ref() {
                             let mut state_ref = state.borrow_mut();
@@ -841,10 +894,13 @@ fn create_body_stream<'js>(
                             };
                             Ok(Some(bytes))
                         } else {
-                            Ok(Some(Vec::new())) // Empty frame
+                            Ok(Some(Vec::new()))
                         }
                     },
-                    Some(Err(_)) => Ok(None), // Error - close stream
+                    Some(Err(e)) => {
+                        state.borrow_mut().error = Some(e.to_string());
+                        Ok(None)
+                    },
                     None => {
                         // End of body - flush decoder
                         let remaining = {
@@ -867,7 +923,6 @@ fn create_body_stream<'js>(
             // Convert future to promise
             let promise = rquickjs::Promise::wrap_future(&ctx, future)?;
 
-            // Use upon_promise_fulfilment to handle the result with pure Rust API
             let result_promise = upon_promise_fulfilment(
                 ctx.clone(),
                 promise,
@@ -883,11 +938,21 @@ fn create_body_stream<'js>(
                         },
                         Some(_) => {}, // Empty bytes - do nothing
                         None => {
-                            // Close the stream
-                            readable_stream_default_controller_close_stream(
-                                ctx,
-                                ctrl_class.clone(),
-                            )?;
+                            // Check if this was an error or a normal close
+                            let error_msg = state_for_cb.borrow_mut().error.take();
+                            if let Some(msg) = error_msg {
+                                let error_val =
+                                    rquickjs::String::from_str(ctx.clone(), &msg)?.into_value();
+                                readable_stream_default_controller_error_stream(
+                                    ctrl_class.clone(),
+                                    error_val,
+                                )?;
+                            } else {
+                                readable_stream_default_controller_close_stream(
+                                    ctx,
+                                    ctrl_class.clone(),
+                                )?;
+                            }
                         },
                     }
                     Ok::<_, rquickjs::Error>(())
@@ -1027,4 +1092,60 @@ mod tests {
         )
         .await;
     }
+}
+
+/// Creates a ReadableStream from a provided body value (string, Blob, ArrayBuffer, etc.)
+fn create_provided_body_stream<'js>(ctx: &Ctx<'js>, body_value: Value<'js>) -> Result<Value<'js>> {
+    use llrt_stream_web::{
+        readable_stream_default_controller_close_stream,
+        readable_stream_default_controller_enqueue_value, CancelAlgorithm, PromisePrimordials,
+        PullAlgorithm, ReadableStream, ReadableStreamControllerClass,
+        ReadableStreamDefaultControllerClass,
+    };
+    use llrt_utils::{bytes::ObjectBytes, primordials::Primordial};
+
+    let body_data: Rc<RefCell<Option<Value<'js>>>> = Rc::new(RefCell::new(Some(body_value)));
+
+    let pull = PullAlgorithm::from_fn(
+        move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
+            let body_data = body_data.clone();
+
+            let ctrl_class: ReadableStreamDefaultControllerClass = match controller {
+                ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
+                _ => return Err(Exception::throw_type(&ctx, "Expected default controller")),
+            };
+
+            let data = body_data.borrow_mut().take();
+
+            if let Some(value) = data {
+                let bytes =
+                    if let Some(blob) = value.as_object().and_then(Class::<Blob>::from_object) {
+                        blob.borrow().get_bytes()
+                    } else {
+                        ObjectBytes::from(&ctx, &value)?.as_bytes(&ctx)?.to_vec()
+                    };
+
+                let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
+                readable_stream_default_controller_enqueue_value(
+                    ctx.clone(),
+                    ctrl_class.clone(),
+                    array.into_value(),
+                )?;
+                readable_stream_default_controller_close_stream(ctx.clone(), ctrl_class)?;
+            } else {
+                readable_stream_default_controller_close_stream(ctx.clone(), ctrl_class)?;
+            }
+
+            let primordials = PromisePrimordials::get(&ctx)?;
+            Ok(primordials.promise_resolved_with_undefined.clone())
+        },
+    );
+
+    let stream = ReadableStream::from_pull_algorithm(
+        ctx.clone(),
+        pull,
+        CancelAlgorithm::ReturnPromiseUndefined,
+    )?;
+
+    Ok(stream.into_value())
 }
