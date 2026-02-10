@@ -14,7 +14,8 @@ pub(crate) use byte_controller::ReadableStreamBYOBRequest;
 pub(crate) use default_controller::ReadableStreamDefaultController;
 pub use default_controller::{
     readable_stream_default_controller_close_stream,
-    readable_stream_default_controller_enqueue_value, ReadableStreamDefaultControllerClass,
+    readable_stream_default_controller_enqueue_value,
+    readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
 };
 pub(crate) use default_reader::ReadableStreamDefaultReader;
 pub(crate) use iterator::IteratorPrimordials;

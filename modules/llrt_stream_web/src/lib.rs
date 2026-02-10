@@ -28,7 +28,8 @@ mod writable;
 pub use readable::stream::ReadableStream;
 pub use readable::{
     readable_stream_default_controller_close_stream,
-    readable_stream_default_controller_enqueue_value, ReadableStreamDefaultControllerClass,
+    readable_stream_default_controller_enqueue_value,
+    readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
 };
 pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
 pub use utils::promise::PromisePrimordials;

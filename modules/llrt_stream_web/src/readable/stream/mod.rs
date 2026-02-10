@@ -202,6 +202,12 @@ impl<'js> ReadableStream<'js> {
         self.is_readable_stream_locked()
     }
 
+    // Internal property for checking if stream has been read from
+    #[qjs(get)]
+    fn disturbed(&self) -> bool {
+        self.disturbed
+    }
+
     // Promise<undefined> cancel(optional any reason);
     fn cancel(
         ctx: Ctx<'js>,
