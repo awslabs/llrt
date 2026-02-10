@@ -6,10 +6,10 @@ use std::{
 
 use llrt_utils::clone::structured_clone;
 use rquickjs::{
-    class::{OwnedBorrowMut, Trace},
+    class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
     prelude::{List, OnceFn, Opt},
-    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, Promise, Result, Value,
+    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
 use crate::{
@@ -40,6 +40,63 @@ use crate::{
     },
     utils::promise::{upon_promise, ResolveablePromise},
 };
+
+/// State for tee() operation, stored in a Class for GC tracing
+#[rquickjs::class]
+pub struct TeeState<'js> {
+    pub stream: ReadableStreamClass<'js>,
+    pub controller: Class<'js, ReadableStreamDefaultController<'js>>,
+    pub reader: Class<'js, ReadableStreamDefaultReader<'js>>,
+    pub cancel_promise: ResolveablePromise<'js>,
+    pub clone_for_branch_2: bool,
+    pub reading: Rc<AtomicBool>,
+    pub read_again: Rc<AtomicBool>,
+    pub reason_1: Rc<OnceCell<Value<'js>>>,
+    pub reason_2: Rc<OnceCell<Value<'js>>>,
+    pub branch_1: Rc<
+        OnceCell<
+            ReadableStreamClassObjects<
+                'js,
+                ReadableStreamDefaultControllerOwned<'js>,
+                UndefinedReader,
+            >,
+        >,
+    >,
+    pub branch_2: Rc<
+        OnceCell<
+            ReadableStreamClassObjects<
+                'js,
+                ReadableStreamDefaultControllerOwned<'js>,
+                UndefinedReader,
+            >,
+        >,
+    >,
+}
+
+unsafe impl<'js> JsLifetime<'js> for TeeState<'js> {
+    type Changed<'to> = TeeState<'to>;
+}
+
+impl<'js> Trace<'js> for TeeState<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.stream.trace(tracer);
+        self.controller.trace(tracer);
+        self.reader.trace(tracer);
+        self.cancel_promise.trace(tracer);
+        if let Some(r) = self.reason_1.get() {
+            r.trace(tracer);
+        }
+        if let Some(r) = self.reason_2.get() {
+            r.trace(tracer);
+        }
+        if let Some(b) = self.branch_1.get() {
+            b.trace(tracer);
+        }
+        if let Some(b) = self.branch_2.get() {
+            b.trace(tracer);
+        }
+    }
+}
 
 type ReadableStreamPair<'js> = (ReadableStreamClass<'js>, ReadableStreamClass<'js>);
 
@@ -116,69 +173,36 @@ impl<'js> ReadableStream<'js> {
         // Let startAlgorithm be an algorithm that returns undefined.
         let start_algorithm = StartAlgorithm::ReturnUndefined;
 
-        let objects_class = objects.into_inner().set_reader(reader);
+        let objects_class: ReadableStreamClassObjects<
+            'js,
+            ReadableStreamDefaultControllerOwned<'js>,
+            ReadableStreamDefaultReaderOwned<'js>,
+        > = objects.into_inner().set_reader(reader);
 
-        let pull_algorithm = PullAlgorithm::from_fn({
-            let objects_class = objects_class.clone();
-            let reason_1 = reason_1.clone();
-            let reason_2 = reason_2.clone();
-            let branch_1 = branch_1.clone();
-            let branch_2 = branch_2.clone();
-            let cancel_promise = cancel_promise.clone();
-            move |ctx: Ctx<'js>, _| {
-                let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                Self::readable_stream_default_pull_algorithm(
-                    ctx,
-                    objects,
-                    clone_for_branch_2,
-                    reading.clone(),
-                    read_again.clone(),
-                    reason_1.clone(),
-                    reason_2.clone(),
-                    branch_1.clone(),
-                    branch_2.clone(),
-                    cancel_promise.clone(),
-                )
-            }
-        });
-        let cancel_algorithm_1 = CancelAlgorithm::from_fn({
-            let objects_class = objects_class.clone();
-            let reason_1 = reason_1.clone();
-            let reason_2 = reason_2.clone();
-            let cancel_promise = cancel_promise.clone();
-            move |reason: Value<'js>| {
-                let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                Self::readable_stream_cancel_1_algorithm(
-                    reason.ctx().clone(),
-                    objects,
-                    reason_1,
-                    reason_2,
-                    cancel_promise,
-                    reason,
-                )
-            }
-        });
+        // Create TeeState to hold all JS values for GC tracing
+        let tee_state = Class::instance(
+            ctx.clone(),
+            TeeState {
+                stream: objects_class.stream.clone(),
+                controller: objects_class.controller.clone(),
+                reader: objects_class.reader.clone(),
+                cancel_promise: cancel_promise.clone(),
+                clone_for_branch_2,
+                reading: reading.clone(),
+                read_again: read_again.clone(),
+                reason_1: reason_1.clone(),
+                reason_2: reason_2.clone(),
+                branch_1: branch_1.clone(),
+                branch_2: branch_2.clone(),
+            },
+        )?;
 
-        let cancel_algorithm_2 = CancelAlgorithm::from_fn({
-            let objects_class = objects_class.clone();
-            let reason_1 = reason_1.clone();
-            let reason_2 = reason_2.clone();
-            let cancel_promise = cancel_promise.clone();
-            move |reason: Value<'js>| {
-                let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                Self::readable_stream_cancel_2_algorithm(
-                    reason.ctx().clone(),
-                    objects,
-                    reason_1,
-                    reason_2,
-                    cancel_promise,
-                    reason,
-                )
-            }
-        });
+        let pull_algorithm = PullAlgorithm::from_tee_state(tee_state.clone());
+        let cancel_algorithm_1 = CancelAlgorithm::from_tee_state_1(tee_state.clone());
+        let cancel_algorithm_2 = CancelAlgorithm::from_tee_state_2(tee_state.clone());
 
         // Set branch1 to ! CreateReadableStream(startAlgorithm, pullAlgorithm, cancel1Algorithm).
-        let branch_1 = {
+        let branch_1_objects = {
             let objects = Self::create_readable_stream(
                 ctx.clone(),
                 start_algorithm.clone(),
@@ -192,7 +216,7 @@ impl<'js> ReadableStream<'js> {
         };
 
         // Set branch2 to ! CreateReadableStream(startAlgorithm, pullAlgorithm, cancel2Algorithm).
-        let branch_2 = {
+        let branch_2_objects = {
             let objects = Self::create_readable_stream(
                 ctx.clone(),
                 start_algorithm,
@@ -215,15 +239,17 @@ impl<'js> ReadableStream<'js> {
                 .promise
                 .clone(),
             {
-                let branch_1 = branch_1.clone();
-                let branch_2 = branch_2.clone();
+                let tee_state = tee_state.clone();
+                let branch_1_objects = branch_1_objects.clone();
+                let branch_2_objects = branch_2_objects.clone();
                 move |_, result| match result {
                     Ok(()) => Ok(()),
                     // Upon rejection of reader.[[closedPromise]] with reason r,
                     Err(reason) => {
                         // Perform ! ReadableStreamDefaultControllerError(branch1.[[controller]], r).
                         let objects_1 =
-                            ReadableStreamObjects::from_class_no_reader(branch_1).refresh_reader();
+                            ReadableStreamObjects::from_class_no_reader(branch_1_objects)
+                                .refresh_reader();
                         ReadableStreamDefaultController::readable_stream_default_controller_error(
                             objects_1,
                             reason.clone(),
@@ -231,13 +257,15 @@ impl<'js> ReadableStream<'js> {
 
                         // Perform ! ReadableStreamDefaultControllerError(branch2.[[controller]], r).
                         let objects_2 =
-                            ReadableStreamObjects::from_class_no_reader(branch_2).refresh_reader();
+                            ReadableStreamObjects::from_class_no_reader(branch_2_objects)
+                                .refresh_reader();
                         ReadableStreamDefaultController::readable_stream_default_controller_error(
                             objects_2, reason,
                         )?;
                         // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
-                        if reason_1.get().is_none() || reason_2.get().is_none() {
-                            cancel_promise.resolve_undefined()?;
+                        let state = tee_state.borrow();
+                        if state.reason_1.get().is_none() || state.reason_2.get().is_none() {
+                            state.cancel_promise.resolve_undefined()?;
                         }
 
                         Ok(())
@@ -247,14 +275,100 @@ impl<'js> ReadableStream<'js> {
         )?;
 
         Ok((
-            (branch_1.stream, branch_2.stream),
+            (branch_1_objects.stream, branch_2_objects.stream),
             ReadableStreamObjects::from_class(objects_class),
         ))
     }
+}
 
+/// Pull algorithm for tee - called from PullAlgorithm::Tee
+pub fn tee_pull_algorithm<'js>(
+    ctx: Ctx<'js>,
+    state: Class<'js, TeeState<'js>>,
+) -> Result<Promise<'js>> {
+    let state_ref = state.borrow();
+    let objects_class: ReadableStreamClassObjects<
+        'js,
+        ReadableStreamDefaultControllerOwned<'js>,
+        ReadableStreamDefaultReaderOwned<'js>,
+    > = ReadableStreamClassObjects {
+        stream: state_ref.stream.clone(),
+        controller: state_ref.controller.clone(),
+        reader: state_ref.reader.clone(),
+    };
+    let objects = ReadableStreamObjects::from_class(objects_class);
+    ReadableStream::tee_pull_algorithm_impl(
+        ctx,
+        objects,
+        state_ref.clone_for_branch_2,
+        state_ref.reading.clone(),
+        state_ref.read_again.clone(),
+        state_ref.reason_1.clone(),
+        state_ref.reason_2.clone(),
+        state_ref.branch_1.clone(),
+        state_ref.branch_2.clone(),
+        state_ref.cancel_promise.clone(),
+    )
+}
+
+/// Cancel algorithm 1 for tee - called from CancelAlgorithm::Tee1
+pub fn tee_cancel_1_algorithm<'js>(
+    ctx: Ctx<'js>,
+    state: Class<'js, TeeState<'js>>,
+    reason: Value<'js>,
+) -> Result<Promise<'js>> {
+    let state_ref = state.borrow();
+    let objects_class: ReadableStreamClassObjects<
+        'js,
+        ReadableStreamDefaultControllerOwned<'js>,
+        ReadableStreamDefaultReaderOwned<'js>,
+    > = ReadableStreamClassObjects {
+        stream: state_ref.stream.clone(),
+        controller: state_ref.controller.clone(),
+        reader: state_ref.reader.clone(),
+    };
+    let objects = ReadableStreamObjects::from_class(objects_class);
+    ReadableStream::tee_cancel_1_algorithm_impl(
+        ctx,
+        objects,
+        state_ref.reason_1.clone(),
+        state_ref.reason_2.clone(),
+        state_ref.cancel_promise.clone(),
+        reason,
+    )
+}
+
+/// Cancel algorithm 2 for tee - called from CancelAlgorithm::Tee2
+pub fn tee_cancel_2_algorithm<'js>(
+    ctx: Ctx<'js>,
+    state: Class<'js, TeeState<'js>>,
+    reason: Value<'js>,
+) -> Result<Promise<'js>> {
+    let state_ref = state.borrow();
+    let objects_class: ReadableStreamClassObjects<
+        'js,
+        ReadableStreamDefaultControllerOwned<'js>,
+        ReadableStreamDefaultReaderOwned<'js>,
+    > = ReadableStreamClassObjects {
+        stream: state_ref.stream.clone(),
+        controller: state_ref.controller.clone(),
+        reader: state_ref.reader.clone(),
+    };
+    let objects = ReadableStreamObjects::from_class(objects_class);
+    ReadableStream::tee_cancel_2_algorithm_impl(
+        ctx,
+        objects,
+        state_ref.reason_1.clone(),
+        state_ref.reason_2.clone(),
+        state_ref.cancel_promise.clone(),
+        reason,
+    )
+}
+
+impl<'js> ReadableStream<'js> {
     // Let pullAlgorithm be the following steps:
     #[allow(clippy::too_many_arguments)]
-    fn readable_stream_default_pull_algorithm(
+    fn tee_pull_algorithm_impl(
         ctx: Ctx<'js>,
         mut objects: ReadableStreamDefaultControllerObjects<
             'js,
@@ -457,7 +571,7 @@ impl<'js> ReadableStream<'js> {
                                     if this.read_again.load(Ordering::Acquire) {
                                         let objects = ReadableStreamObjects::from_class(objects_class);
 
-                                        ReadableStream::readable_stream_default_pull_algorithm(
+                                        ReadableStream::tee_pull_algorithm_impl(
                                             ctx.clone(),
                                             objects,
                                             this.clone_for_branch_2,
@@ -563,7 +677,7 @@ impl<'js> ReadableStream<'js> {
     }
 
     // Let cancel1Algorithm be the following steps, taking a reason argument:
-    fn readable_stream_cancel_1_algorithm(
+    pub(crate) fn tee_cancel_1_algorithm_impl(
         ctx: Ctx<'js>,
         objects: ReadableStreamObjects<
             'js,
@@ -601,7 +715,7 @@ impl<'js> ReadableStream<'js> {
 
     // Let cancel2Algorithm be the following steps, taking a reason argument:
     #[allow(clippy::too_many_arguments)]
-    fn readable_stream_cancel_2_algorithm(
+    pub(crate) fn tee_cancel_2_algorithm_impl(
         ctx: Ctx<'js>,
         objects: ReadableStreamObjects<
             'js,
@@ -780,7 +894,7 @@ impl<'js> ReadableStream<'js> {
             move |reason: Value<'js>| {
                 let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
                 let objects = ReadableStreamObjects::from_class(objects_class).set_reader(reader);
-                Self::readable_stream_cancel_1_algorithm(
+                Self::tee_cancel_1_algorithm_impl(
                     reason.ctx().clone(),
                     objects,
                     reason_1,
@@ -800,7 +914,7 @@ impl<'js> ReadableStream<'js> {
             move |reason: Value<'js>| {
                 let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
                 let objects = ReadableStreamObjects::from_class(objects_class).set_reader(reader);
-                Self::readable_stream_cancel_2_algorithm(
+                Self::tee_cancel_2_algorithm_impl(
                     reason.ctx().clone(),
                     objects,
                     reason_1,

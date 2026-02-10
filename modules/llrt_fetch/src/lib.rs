@@ -13,7 +13,6 @@ use std::borrow::Cow;
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
 use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 
-mod body;
 mod decompress;
 pub mod fetch;
 pub mod form_data;
@@ -41,6 +40,39 @@ pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
     } else {
         cow
     }
+}
+
+/// Collects all data from a ReadableStream into a Vec<u8>
+pub(crate) async fn collect_readable_stream<'js>(
+    stream: &rquickjs::Class<'js, llrt_stream_web::ReadableStream<'js>>,
+) -> Result<Vec<u8>> {
+    use rquickjs::function::This;
+    use rquickjs::{Function, Object, Promise, Value};
+
+    let mut result = Vec::new();
+
+    let get_reader: Function = stream.get("getReader")?;
+    let reader: Object = get_reader.call((This(stream.clone()),))?;
+    let read_fn: Function = reader.get("read")?;
+
+    loop {
+        let promise: Promise = read_fn.call((This(reader.clone()),))?;
+        let read_result: Object = promise.into_future().await?;
+
+        let done: bool = read_result.get("done").unwrap_or(true);
+        if done {
+            break;
+        }
+
+        let value: Value = read_result.get("value")?;
+        if let Ok(typed_array) = rquickjs::TypedArray::<u8>::from_value(value) {
+            if let Some(bytes) = typed_array.as_bytes() {
+                result.extend_from_slice(bytes);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 pub fn init(ctx: &Ctx) -> Result<()> {

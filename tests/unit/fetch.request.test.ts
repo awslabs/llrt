@@ -49,14 +49,17 @@ describe("Request class", () => {
     expect(request.body).toEqual(null);
   });
 
-  it("should set the body to the provided value", () => {
+  it("should set the body to the provided value", async () => {
     const body = "hello world!";
     const request = new Request("https://example.com", {
       body,
       method: "POST",
     });
-    expect(request.body).toStrictEqual(body);
+    expect(request.body).toBeInstanceOf(ReadableStream);
     expect(request.bodyUsed).toBeFalsy();
+    // Read the body to verify content
+    const text = await request.text();
+    expect(text).toStrictEqual(body);
   });
 
   it("should accept another request object as argument", () => {
@@ -238,18 +241,12 @@ describe("Request class", () => {
   });
 
   // ── Unusable body: locked ──
-  // Note: LLRT returns raw value for body, not ReadableStream, so locked check doesn't apply
 
   it("should reject text() when body stream is locked by a reader", async () => {
     const req = new Request("http://localhost", {
       method: "POST",
       body: "locked",
     });
-    // LLRT returns raw value for body, not ReadableStream
-    // Skip if body doesn't have getReader
-    if (!req.body || typeof req.body.getReader !== "function") {
-      return;
-    }
     const reader = req.body.getReader();
     await expect(req.text()).rejects.toThrow();
     reader.releaseLock();
@@ -296,9 +293,7 @@ describe("Request class", () => {
       method: "POST",
       body: "text",
     });
-    expect(req.headers.get("content-type")).toEqual(
-      "text/plain;charset=UTF-8"
-    );
+    expect(req.headers.get("content-type")).toEqual("text/plain;charset=UTF-8");
   });
 
   it("should auto-set Content-Type for Blob body with type", () => {
@@ -307,9 +302,7 @@ describe("Request class", () => {
       method: "POST",
       body: blob,
     });
-    expect(req.headers.get("content-type")).toEqual(
-      "application/octet-stream"
-    );
+    expect(req.headers.get("content-type")).toEqual("application/octet-stream");
   });
 
   it("should auto-set Content-Type for URLSearchParams body", () => {
@@ -339,6 +332,53 @@ describe("Request class", () => {
       body: buf,
     });
     expect(req.headers.get("content-type")).toBeNull();
+  });
+
+  // ── Request.body returns ReadableStream ──
+
+  it("should return same ReadableStream on multiple body accesses", () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "test",
+    });
+    const body1 = req.body;
+    const body2 = req.body;
+    expect(body1).toBe(body2);
+  });
+
+  it("should return ReadableStream for FormData body", async () => {
+    const fd = new FormData();
+    fd.append("key", "value");
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: fd,
+    });
+    expect(req.body).toBeInstanceOf(ReadableStream);
+  });
+
+  it("should return ReadableStream for URLSearchParams body", async () => {
+    const params = new URLSearchParams({ foo: "bar" });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: params,
+    });
+    expect(req.body).toBeInstanceOf(ReadableStream);
+    expect(await req.text()).toEqual("foo=bar");
+  });
+
+  it("should pass through ReadableStream body unchanged", () => {
+    const stream = new ReadableStream({
+      start(c) {
+        c.close();
+      },
+    });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: stream,
+      // @ts-ignore
+      duplex: "half",
+    });
+    expect(req.body).toBe(stream);
   });
 
   // ── ReadableStream as Request body ──

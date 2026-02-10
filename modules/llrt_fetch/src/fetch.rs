@@ -25,6 +25,7 @@ use llrt_utils::{
     VERSION,
 };
 use percent_encoding::percent_decode_str;
+use rquickjs::CatchResultExt;
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
@@ -96,9 +97,11 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
 
                 // For streaming bodies - stream from JS to hyper via channel
                 if let Some(RequestBody::Stream(stream)) = options.body {
-                    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(8);
+                    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(128);
+                    let (err_tx, err_rx) = tokio::sync::oneshot::channel::<String>();
+                    let ctx2 = ctx.clone();
 
-                    // Spawn stream reader in JS context
+                    // Spawn stream reader in JS context.
                     ctx.spawn_exit({
                         async move {
                             let get_reader: Function = stream.get("getReader")?;
@@ -108,20 +111,50 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                             loop {
                                 let promise: rquickjs::Promise =
                                     read_fn.call((This(reader.clone()),))?;
-                                let read_result: Object = promise.into_future().await?;
+                                let read_result =
+                                    match promise.into_future::<Object>().await.catch(&ctx2) {
+                                        Ok(r) => r,
+                                        Err(e) => {
+                                            let msg = match e {
+                                                rquickjs::CaughtError::Exception(ex) => {
+                                                    ex.message().unwrap_or_default()
+                                                },
+                                                rquickjs::CaughtError::Value(v) => v
+                                                    .as_string()
+                                                    .and_then(|s| s.to_string().ok())
+                                                    .unwrap_or_else(|| "Stream error".into()),
+                                                rquickjs::CaughtError::Error(e) => e.to_string(),
+                                            };
+                                            let _ = err_tx.send(msg);
+                                            break;
+                                        },
+                                    };
                                 let done: bool = read_result.get("done").unwrap_or(true);
                                 if done {
                                     break;
                                 }
                                 if let Ok(value) = read_result.get::<_, Value>("value") {
-                                    if let Ok(typed_array) =
-                                        rquickjs::TypedArray::<u8>::from_value(value)
+                                    // Try TypedArray first, then ArrayBuffer
+                                    let bytes: Option<Vec<u8>> = if let Ok(typed_array) =
+                                        rquickjs::TypedArray::<u8>::from_value(value.clone())
                                     {
-                                        if let Some(bytes) = typed_array.as_bytes() {
-                                            if tx.send(Bytes::copy_from_slice(bytes)).await.is_err()
-                                            {
-                                                break;
-                                            }
+                                        typed_array.as_bytes().map(|b| b.to_vec())
+                                    } else if let Some(array_buffer) =
+                                        value.as_object().and_then(|o| o.as_array_buffer())
+                                    {
+                                        array_buffer.as_bytes().map(|b| b.to_vec())
+                                    } else {
+                                        // Invalid chunk type - error the stream
+                                        let _ = err_tx.send(
+                                            "Failed to read body: chunk is not a BufferSource"
+                                                .into(),
+                                        );
+                                        break;
+                                    };
+
+                                    if let Some(bytes) = bytes {
+                                        if tx.send(Bytes::copy_from_slice(&bytes)).await.is_err() {
+                                            break;
                                         }
                                     }
                                 }
@@ -156,7 +189,25 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                     let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
                     let request = req.body(box_body).or_throw(&ctx)?;
 
-                    let res = client.request(request).await.or_throw(&ctx)?;
+                    // Race request against stream error
+                    let request_fut = client.request(request);
+                    tokio::pin!(request_fut);
+                    let mut err_rx = std::pin::pin!(err_rx);
+                    let mut err_done = false;
+
+                    let res = loop {
+                        select! {
+                            biased;
+                            res = &mut request_fut => break res.or_throw(&ctx)?,
+                            result = &mut err_rx, if !err_done => {
+                                err_done = true;
+                                if let Ok(msg) = result {
+                                    return Err(Exception::throw_type(&ctx, &msg));
+                                }
+                                // Sender dropped without error - continue waiting for request
+                            }
+                        }
+                    };
 
                     drop(lock);
 
