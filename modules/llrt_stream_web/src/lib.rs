@@ -25,6 +25,7 @@ pub mod utils;
 mod writable;
 
 // Public API for creating streams from Rust
+pub use readable::stream::tee_readable_stream;
 pub use readable::stream::ReadableStream;
 pub use readable::{
     readable_stream_default_controller_close_stream,

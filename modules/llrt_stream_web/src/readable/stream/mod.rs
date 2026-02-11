@@ -35,6 +35,7 @@ use crate::{
 use pipe::StreamPipeOptions;
 use source::UnderlyingSource;
 
+pub use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
 use llrt_utils::{
     option::{Null, NullableOpt, Undefined},
     primordials::{BasePrimordials, Primordial},
@@ -54,7 +55,18 @@ mod pipe;
 pub(super) mod source;
 mod tee;
 
-pub use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
+/// Tee a ReadableStream into two branches. The stream must not be locked.
+pub fn tee_readable_stream<'js>(
+    ctx: Ctx<'js>,
+    stream: Class<'js, ReadableStream<'js>>,
+) -> Result<(
+    Class<'js, ReadableStream<'js>>,
+    Class<'js, ReadableStream<'js>>,
+)> {
+    let owned = OwnedBorrowMut::from_class(stream);
+    let objects = ReadableStreamObjects::from_stream(owned);
+    ReadableStream::readable_stream_tee(ctx, objects)
+}
 
 #[rquickjs::class]
 #[derive(JsLifetime)]
@@ -572,7 +584,7 @@ impl<'js> ReadableStream<'js> {
         )
     }
 
-    pub(super) fn is_readable_stream_locked(&self) -> bool {
+    pub fn is_readable_stream_locked(&self) -> bool {
         // If stream.[[reader]] is undefined, return false.
         if self.reader.is_none() {
             return false;

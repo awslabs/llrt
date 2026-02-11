@@ -40,6 +40,7 @@ impl<'js> StartAlgorithm<'js> {
 type PullRustFn<'js> =
     Box<dyn Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js>;
 
+#[allow(private_interfaces)]
 pub enum PullAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
@@ -95,7 +96,7 @@ impl<'js> PullAlgorithm<'js> {
         Self::RustFunction(Rc::new(Box::new(f)))
     }
 
-    pub fn from_tee_state(state: Class<'js, TeeState<'js>>) -> Self {
+    pub(super) fn from_tee_state(state: Class<'js, TeeState<'js>>) -> Self {
         Self::Tee(state)
     }
 
@@ -127,6 +128,7 @@ impl<'js> PullAlgorithm<'js> {
 
 type CancelRustFn<'js> = Box<dyn FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js>;
 
+#[allow(private_interfaces)]
 pub enum CancelAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
@@ -182,11 +184,11 @@ impl<'js> CancelAlgorithm<'js> {
         Self::RustFunction(Rc::new(RefCell::new(Some(Box::new(f)))))
     }
 
-    pub fn from_tee_state_1(state: Class<'js, TeeState<'js>>) -> Self {
+    pub(super) fn from_tee_state_1(state: Class<'js, TeeState<'js>>) -> Self {
         Self::Tee1(state)
     }
 
-    pub fn from_tee_state_2(state: Class<'js, TeeState<'js>>) -> Self {
+    pub(super) fn from_tee_state_2(state: Class<'js, TeeState<'js>>) -> Self {
         Self::Tee2(state)
     }
 
