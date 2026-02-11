@@ -13,7 +13,9 @@ use either::Either;
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
 use llrt_abort::AbortSignal;
+use llrt_context::CtxExtension;
 use llrt_json::{parse::json_parse, stringify::json_stringify};
+use llrt_stream_web::utils::promise::ResolveablePromise;
 use llrt_stream_web::ReadableStream;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, mc_oneshot};
@@ -29,9 +31,8 @@ use rquickjs::{
 use llrt_stream_web::{
     readable_stream_default_controller_close_stream,
     readable_stream_default_controller_enqueue_value,
-    readable_stream_default_controller_error_stream, utils::promise::upon_promise_fulfilment,
-    CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass,
-    ReadableStreamDefaultControllerClass,
+    readable_stream_default_controller_error_stream, CancelAlgorithm, PullAlgorithm,
+    ReadableStreamControllerClass, ReadableStreamDefaultControllerClass,
 };
 
 use super::{
@@ -807,28 +808,19 @@ fn create_body_stream<'js>(
     struct BodyState {
         body: Option<Incoming>,
         decoder: Option<StreamingDecoder>,
-        error: Option<String>,
     }
 
     let decoder = content_encoding
         .as_ref()
         .and_then(|enc| StreamingDecoder::new(enc).ok());
 
-    // Take the body out of the shared Rc<RefCell> once, own it in the pull state
     let body = incoming.borrow_mut().take();
-
-    let state = Rc::new(RefCell::new(BodyState {
-        body,
-        decoder,
-        error: None,
-    }));
+    let state = Rc::new(RefCell::new(BodyState { body, decoder }));
 
     let pull = PullAlgorithm::from_fn(
         move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
             let state = state.clone();
-            let state_for_cb = state.clone();
 
-            // Get the default controller class
             let ctrl_class: ReadableStreamDefaultControllerClass = match controller {
                 ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
                 _ => {
@@ -839,98 +831,91 @@ fn create_body_stream<'js>(
                 },
             };
 
-            // Create a future that reads one frame
-            let future = async move {
-                let mut body = {
-                    let mut state_ref = state.borrow_mut();
-                    match state_ref.body.take() {
-                        Some(b) => b,
-                        None => return Ok::<_, rquickjs::Error>(None),
-                    }
-                };
+            // Create a single resolveable promise
+            let resolveable = ResolveablePromise::new(&ctx)?;
+            let promise = resolveable.promise.clone();
 
-                let frame_result = body.frame().await;
-
-                match frame_result {
-                    Some(Ok(frame)) => {
-                        // Put body back for next pull
-                        state.borrow_mut().body = Some(body);
-
-                        if let Some(data) = frame.data_ref() {
-                            let mut state_ref = state.borrow_mut();
-                            let bytes = if let Some(dec) = state_ref.decoder.as_mut() {
-                                dec.decompress_chunk(data).unwrap_or_else(|_| data.to_vec())
-                            } else {
-                                data.to_vec()
-                            };
-                            Ok(Some(bytes))
-                        } else {
-                            Ok(Some(Vec::new()))
+            // Spawn the async work
+            let _ = ctx.clone().spawn_exit(async move {
+                let result: std::result::Result<Option<Vec<u8>>, String> = async {
+                    let mut body = {
+                        let mut state_ref = state.borrow_mut();
+                        match state_ref.body.take() {
+                            Some(b) => b,
+                            None => return Ok(None),
                         }
-                    },
-                    Some(Err(e)) => {
-                        state.borrow_mut().error = Some(e.to_string());
-                        Ok(None)
-                    },
-                    None => {
-                        // End of body - flush decoder
-                        let remaining = {
-                            let mut state_ref = state.borrow_mut();
-                            if let Some(dec) = state_ref.decoder.take() {
-                                dec.finish().unwrap_or_default()
+                    };
+
+                    let frame_result = body.frame().await;
+
+                    match frame_result {
+                        Some(Ok(frame)) => {
+                            if let Some(data) = frame.data_ref() {
+                                let mut state_ref = state.borrow_mut();
+                                let bytes = if let Some(dec) = state_ref.decoder.as_mut() {
+                                    dec.decompress_chunk(data).unwrap_or_else(|_| data.to_vec())
+                                } else {
+                                    data.to_vec()
+                                };
+                                state_ref.body = Some(body);
+                                Ok(Some(bytes))
                             } else {
-                                Vec::new()
+                                state.borrow_mut().body = Some(body);
+                                Ok(Some(Vec::new()))
                             }
-                        };
-                        if remaining.is_empty() {
-                            Ok(None)
-                        } else {
-                            Ok(Some(remaining))
-                        }
+                        },
+                        Some(Err(e)) => Err(e.to_string()),
+                        None => {
+                            // EOF - flush decoder
+                            let remaining = {
+                                let mut state_ref = state.borrow_mut();
+                                if let Some(dec) = state_ref.decoder.take() {
+                                    dec.finish().unwrap_or_default()
+                                } else {
+                                    Vec::new()
+                                }
+                            };
+                            if remaining.is_empty() {
+                                Ok(None)
+                            } else {
+                                Ok(Some(remaining))
+                            }
+                        },
+                    }
+                }
+                .await;
+
+                // Now enqueue/close and resolve the promise
+                match result {
+                    Ok(Some(bytes)) if !bytes.is_empty() => {
+                        let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
+                        readable_stream_default_controller_enqueue_value(
+                            ctx.clone(),
+                            ctrl_class.clone(),
+                            array.into_value(),
+                        )?;
+                    },
+                    Ok(Some(_)) => {}, // Empty
+                    Ok(None) => {
+                        readable_stream_default_controller_close_stream(
+                            ctx.clone(),
+                            ctrl_class.clone(),
+                        )?;
+                    },
+                    Err(msg) => {
+                        let error_val = rquickjs::String::from_str(ctx.clone(), &msg)?.into_value();
+                        readable_stream_default_controller_error_stream(
+                            ctrl_class.clone(),
+                            error_val,
+                        )?;
                     },
                 }
-            };
 
-            // Convert future to promise
-            let promise = rquickjs::Promise::wrap_future(&ctx, future)?;
+                resolveable.resolve_undefined()?;
+                Ok(())
+            });
 
-            let result_promise = upon_promise_fulfilment(
-                ctx.clone(),
-                promise,
-                move |ctx, result: Option<Vec<u8>>| {
-                    match result {
-                        Some(bytes) if !bytes.is_empty() => {
-                            let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
-                            readable_stream_default_controller_enqueue_value(
-                                ctx,
-                                ctrl_class.clone(),
-                                array.into_value(),
-                            )?;
-                        },
-                        Some(_) => {}, // Empty bytes - do nothing
-                        None => {
-                            // Check if this was an error or a normal close
-                            let error_msg = state_for_cb.borrow_mut().error.take();
-                            if let Some(msg) = error_msg {
-                                let error_val =
-                                    rquickjs::String::from_str(ctx.clone(), &msg)?.into_value();
-                                readable_stream_default_controller_error_stream(
-                                    ctrl_class.clone(),
-                                    error_val,
-                                )?;
-                            } else {
-                                readable_stream_default_controller_close_stream(
-                                    ctx,
-                                    ctrl_class.clone(),
-                                )?;
-                            }
-                        },
-                    }
-                    Ok::<_, rquickjs::Error>(())
-                },
-            )?;
-
-            Ok(result_promise)
+            Ok(promise)
         },
     );
 

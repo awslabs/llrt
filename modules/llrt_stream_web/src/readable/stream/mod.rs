@@ -739,12 +739,22 @@ impl<'js> ReadableStream<'js> {
         pull_algorithm: PullAlgorithm<'js>,
         cancel_algorithm: CancelAlgorithm<'js>,
     ) -> Result<Class<'js, Self>> {
+        Self::from_pull_algorithm_with_options(ctx, pull_algorithm, cancel_algorithm, None)
+    }
+
+    /// Create a ReadableStream from Rust pull/cancel algorithms with custom highWaterMark
+    pub fn from_pull_algorithm_with_options(
+        ctx: Ctx<'js>,
+        pull_algorithm: PullAlgorithm<'js>,
+        cancel_algorithm: CancelAlgorithm<'js>,
+        high_water_mark: Option<f64>,
+    ) -> Result<Class<'js, Self>> {
         Ok(Self::create_readable_stream(
             ctx,
             StartAlgorithm::ReturnUndefined,
             pull_algorithm,
             cancel_algorithm,
-            None,
+            high_water_mark,
             None,
         )?
         .stream)
