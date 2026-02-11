@@ -20,10 +20,11 @@ llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-f
 rquickjs = { version = "0.11", features = [
     "std",
 ], default-features = false }
-tokio = { version = "1", features = ["process"], default-features = false }
+tokio = { version = "1", features = ["process", "time"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
+tokio = { version = "1", features = ["rt"] }
