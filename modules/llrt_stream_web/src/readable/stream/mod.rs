@@ -372,11 +372,9 @@ impl<'js> ReadableStream<'js> {
         ctx: Ctx<'js>,
         stream: This<OwnedBorrowMut<'js, Self>>,
     ) -> Result<List<(Class<'js, Self>, Class<'js, Self>)>> {
-        // Return ? ReadableStreamTee(this, false).
         Ok(List(Self::readable_stream_tee(
             ctx,
             ReadableStreamObjects::from_stream(stream.0),
-            false,
         )?))
     }
 
