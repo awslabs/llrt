@@ -1,19 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, rc::Rc, sync::RwLock};
+use std::{cell::RefCell, sync::RwLock};
 
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
 use llrt_json::parse::json_parse;
-use llrt_stream_web::{
-    readable_stream_default_controller_close_stream,
-    readable_stream_default_controller_enqueue_value, CancelAlgorithm, PullAlgorithm,
-    ReadableStream, ReadableStreamControllerClass, ReadableStreamDefaultControllerClass,
-};
+use llrt_stream_web::ReadableStream;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
-use llrt_utils::{
-    bytes::ObjectBytes, object::ObjectExt, primordials::Primordial, result::ResultExt,
-};
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs,
     IntoJs, Null, Object, Result, TypedArray, Value,
@@ -202,7 +196,7 @@ impl<'js> Request<'js> {
                 let body_value = value.clone();
                 drop(body_guard);
 
-                let stream = create_body_stream(&ctx, body_value)?;
+                let stream = crate::create_body_value_stream(&ctx, body_value)?;
                 *self.body_stream.borrow_mut() = Some(stream.clone());
                 Ok(stream)
             },
@@ -332,42 +326,21 @@ impl<'js> Request<'js> {
                         .as_object()
                         .and_then(Class::<ReadableStream>::from_object)
                     {
-                        let disturbed: bool = stream.get("disturbed").unwrap_or(false);
-                        if disturbed {
-                            return Err(Exception::throw_type(
-                                &ctx,
-                                "Cannot clone request with disturbed body",
-                            ));
-                        }
-                        let locked: bool = stream.get("locked").unwrap_or(false);
-                        if locked {
-                            return Err(Exception::throw_type(
-                                &ctx,
-                                "Cannot clone request with locked body",
-                            ));
-                        }
-
-                        // Use tee() to split the stream
-                        let tee_fn: rquickjs::Function = stream.get("tee")?;
-                        let branches: rquickjs::Array =
-                            tee_fn.call((rquickjs::function::This(stream.clone()),))?;
-                        let branch1: Value = branches.get(0)?;
-                        let branch2: Value = branches.get(1)?;
+                        let (branch1, branch2) =
+                            crate::tee_stream_for_clone(&ctx, &stream, "request")?;
 
                         // Update original body to use branch1
                         drop(body_guard);
                         let mut body_write = self.body.write().unwrap();
-                        *body_write = BodyVariant::Provided(Some(branch1));
-                        // Clear cached body stream since we changed the body
+                        *body_write = BodyVariant::Provided(Some(branch1.into_value()));
                         *self.body_stream.borrow_mut() = None;
                         drop(body_write);
 
-                        // Return clone with branch2
                         return Ok(Self {
                             url: self.url.clone(),
                             method: self.method.clone(),
                             headers,
-                            body: RwLock::new(BodyVariant::Provided(Some(branch2))),
+                            body: RwLock::new(BodyVariant::Provided(Some(branch2.into_value()))),
                             body_stream: RefCell::new(None),
                             signal: self.signal.clone(),
                             mode: self.mode.clone(),
@@ -402,16 +375,11 @@ impl<'js> Request<'js> {
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
         // Check if body stream is locked (user got a reader from req.body)
         if let Some(stream_val) = self.body_stream.borrow().as_ref() {
-            if let Some(_stream) = stream_val
+            if let Some(stream) = stream_val
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                let locked: bool = stream_val
-                    .as_object()
-                    .unwrap()
-                    .get("locked")
-                    .unwrap_or(false);
-                if locked {
+                if stream.borrow().is_readable_stream_locked() {
                     return Err(Exception::throw_type(
                         ctx,
                         "Cannot read body: stream is locked",
@@ -528,22 +496,19 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 // Check if it's a ReadableStream
                 if let Some(stream) = Class::<ReadableStream>::from_object(body_obj) {
                     let stream_ref = stream.borrow();
-                    // Check if stream is disturbed
                     if stream_ref.disturbed {
                         return Err(Exception::throw_type(
                             &ctx,
                             "Cannot construct Request with a disturbed ReadableStream",
                         ));
                     }
-                    // Check if stream is locked (reader.is_some())
-                    let locked: bool = body_obj.get("locked").unwrap_or(false);
-                    drop(stream_ref);
-                    if locked {
+                    if stream_ref.is_readable_stream_locked() {
                         return Err(Exception::throw_type(
                             &ctx,
                             "Cannot construct Request with a locked ReadableStream",
                         ));
                     }
+                    drop(stream_ref);
                     BodyVariant::Provided(Some(body))
                 } else if let Some(blob) = Class::<Blob>::from_object(body_obj) {
                     let blob = blob.borrow();
@@ -599,57 +564,4 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
 
     Ok(())
-}
-
-/// Creates a ReadableStream from a body value (string, Blob, ArrayBuffer, etc.)
-fn create_body_stream<'js>(ctx: &Ctx<'js>, body_value: Value<'js>) -> Result<Value<'js>> {
-    use llrt_stream_web::utils::promise::PromisePrimordials;
-
-    let body_data: Rc<RefCell<Option<Value<'js>>>> = Rc::new(RefCell::new(Some(body_value)));
-
-    let pull = PullAlgorithm::from_fn(
-        move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
-            let body_data = body_data.clone();
-
-            let ctrl_class: ReadableStreamDefaultControllerClass = match controller {
-                ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
-                _ => return Err(Exception::throw_type(&ctx, "Expected default controller")),
-            };
-
-            // Take body data (only yields once)
-            let data = body_data.borrow_mut().take();
-
-            if let Some(value) = data {
-                // Convert to bytes synchronously
-                let bytes =
-                    if let Some(blob) = value.as_object().and_then(Class::<Blob>::from_object) {
-                        blob.borrow().get_bytes()
-                    } else {
-                        ObjectBytes::from(&ctx, &value)?.as_bytes(&ctx)?.to_vec()
-                    };
-
-                let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
-                readable_stream_default_controller_enqueue_value(
-                    ctx.clone(),
-                    ctrl_class.clone(),
-                    array.into_value(),
-                )?;
-                readable_stream_default_controller_close_stream(ctx.clone(), ctrl_class)?;
-            } else {
-                readable_stream_default_controller_close_stream(ctx.clone(), ctrl_class)?;
-            }
-
-            // Return resolved promise
-            let primordials = PromisePrimordials::get(&ctx)?;
-            Ok(primordials.promise_resolved_with_undefined.clone())
-        },
-    );
-
-    let stream = ReadableStream::from_pull_algorithm(
-        ctx.clone(),
-        pull,
-        CancelAlgorithm::ReturnPromiseUndefined,
-    )?;
-
-    Ok(stream.into_value())
 }
