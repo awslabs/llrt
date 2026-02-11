@@ -88,7 +88,9 @@ impl StreamingDecoder {
                 .into_inner()
                 .map_err(|e| io::Error::other(e.to_string())),
             #[cfg(all(not(feature = "compression-c"), feature = "compression-rust"))]
-            Self::Brotli(decoder) => Ok(decoder.into_inner()),
+            Self::Brotli(decoder) => decoder
+                .into_inner()
+                .map_err(|_| io::Error::other("brotli decompression failed")),
         }
     }
 }
