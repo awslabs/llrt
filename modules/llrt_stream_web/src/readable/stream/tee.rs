@@ -42,16 +42,16 @@ use crate::{
 
 /// State for tee() operation, stored in a Class for GC tracing
 #[rquickjs::class]
-pub struct TeeState<'js> {
-    pub stream: ReadableStreamClass<'js>,
-    pub controller: Class<'js, ReadableStreamDefaultController<'js>>,
-    pub reader: Class<'js, ReadableStreamDefaultReader<'js>>,
-    pub cancel_promise: ResolveablePromise<'js>,
-    pub reading: Rc<AtomicBool>,
-    pub read_again: Rc<AtomicBool>,
-    pub reason_1: Rc<OnceCell<Value<'js>>>,
-    pub reason_2: Rc<OnceCell<Value<'js>>>,
-    pub branch_1: Rc<
+pub(crate) struct TeeState<'js> {
+    pub(super) stream: ReadableStreamClass<'js>,
+    pub(super) controller: Class<'js, ReadableStreamDefaultController<'js>>,
+    pub(super) reader: Class<'js, ReadableStreamDefaultReader<'js>>,
+    pub(super) cancel_promise: ResolveablePromise<'js>,
+    pub(super) reading: Rc<AtomicBool>,
+    pub(super) read_again: Rc<AtomicBool>,
+    pub(super) reason_1: Rc<OnceCell<Value<'js>>>,
+    pub(super) reason_2: Rc<OnceCell<Value<'js>>>,
+    pub(super) branch_1: Rc<
         OnceCell<
             ReadableStreamClassObjects<
                 'js,
@@ -60,7 +60,7 @@ pub struct TeeState<'js> {
             >,
         >,
     >,
-    pub branch_2: Rc<
+    pub(super) branch_2: Rc<
         OnceCell<
             ReadableStreamClassObjects<
                 'js,
@@ -469,7 +469,7 @@ pub fn tee_cancel_algorithm<'js>(
 
 impl<'js> ReadableStream<'js> {
     // Cancel algorithm for tee - handles both branches
-    pub(crate) fn tee_cancel_algorithm_impl(
+    fn tee_cancel_algorithm_impl(
         ctx: Ctx<'js>,
         objects: ReadableStreamObjects<
             'js,
