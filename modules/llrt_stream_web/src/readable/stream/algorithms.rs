@@ -215,10 +215,10 @@ impl<'js> CancelAlgorithm<'js> {
                 f(reason)
             },
             CancelAlgorithm::Tee1(state) => {
-                crate::readable::stream::tee::tee_cancel_1_algorithm(ctx, state.clone(), reason)
+                crate::readable::stream::tee::tee_cancel_algorithm(ctx, state.clone(), reason, 0)
             },
             CancelAlgorithm::Tee2(state) => {
-                crate::readable::stream::tee::tee_cancel_2_algorithm(ctx, state.clone(), reason)
+                crate::readable::stream::tee::tee_cancel_algorithm(ctx, state.clone(), reason, 1)
             },
         }
     }
