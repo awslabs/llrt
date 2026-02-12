@@ -4,8 +4,7 @@
 //! Minimal Intl.DateTimeFormat implementation for timezone support.
 //! This provides just enough functionality to support dayjs and similar libraries.
 
-use chrono::{DateTime, Datelike, Offset, TimeZone, Timelike, Utc};
-use chrono_tz::Tz;
+use jiff::{tz::TimeZone, Timestamp, Zoned};
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, Exception, Object, Result, Value,
 };
@@ -14,7 +13,7 @@ use rquickjs::{
 #[derive(Clone, Debug)]
 pub struct DateTimeFormatOptions {
     pub locale: String,
-    pub timezone: Tz,
+    pub timezone: TimeZone,
     pub hour12: bool,
     pub year: Option<String>,
     pub month: Option<String>,
@@ -31,7 +30,7 @@ impl Default for DateTimeFormatOptions {
     fn default() -> Self {
         Self {
             locale: "en-US".to_string(),
-            timezone: chrono_tz::UTC,
+            timezone: TimeZone::UTC,
             hour12: false,
             year: None,
             month: None,
@@ -70,7 +69,7 @@ impl FormatPart {
 
 /// Format a number with optional zero-padding
 #[inline]
-fn format_number(value: u32, two_digit: bool) -> String {
+fn format_number(value: i16, two_digit: bool) -> String {
     let mut buf = itoa::Buffer::new();
     if two_digit && value < 10 {
         let mut result = String::with_capacity(2);
@@ -84,20 +83,20 @@ fn format_number(value: u32, two_digit: bool) -> String {
 
 /// Format a number component based on option style
 #[inline]
-fn format_component(value: u32, style: Option<&str>) -> String {
+fn format_component(value: i16, style: Option<&str>) -> String {
     let two_digit = matches!(style, Some("2-digit"));
     format_number(value, two_digit)
 }
 
-/// Build format parts from a DateTime in pure Rust
-fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) -> Vec<FormatPart> {
+/// Build format parts from a Zoned datetime in pure Rust
+fn build_format_parts(local_dt: &Zoned, options: &DateTimeFormatOptions) -> Vec<FormatPart> {
     let mut parts = Vec::with_capacity(16);
 
     // Month
     if let Some(ref month_opt) = options.month {
         parts.push(FormatPart::new(
             "month",
-            format_component(local_dt.month(), Some(month_opt)),
+            format_component(local_dt.month().into(), Some(month_opt)),
         ));
         parts.push(FormatPart::literal("/"));
     }
@@ -106,7 +105,7 @@ fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) 
     if let Some(ref day_opt) = options.day {
         parts.push(FormatPart::new(
             "day",
-            format_component(local_dt.day(), Some(day_opt)),
+            format_component(local_dt.day().into(), Some(day_opt)),
         ));
         parts.push(FormatPart::literal("/"));
     }
@@ -114,7 +113,7 @@ fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) 
     // Year
     if let Some(ref year_opt) = options.year {
         let year_val = if year_opt == "2-digit" {
-            format_number((local_dt.year() % 100) as u32, true)
+            format_number(local_dt.year() % 100, true)
         } else {
             let mut buf = itoa::Buffer::new();
             buf.format(local_dt.year()).to_string()
@@ -145,7 +144,7 @@ fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) 
 
         parts.push(FormatPart::new(
             "hour",
-            format_component(hour_val, options.hour.as_deref()),
+            format_component(hour_val.into(), options.hour.as_deref()),
         ));
 
         if options.minute.is_some() || options.second.is_some() {
@@ -157,7 +156,7 @@ fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) 
     if options.minute.is_some() {
         parts.push(FormatPart::new(
             "minute",
-            format_component(local_dt.minute(), options.minute.as_deref()),
+            format_component(local_dt.minute().into(), options.minute.as_deref()),
         ));
 
         if options.second.is_some() {
@@ -169,7 +168,7 @@ fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) 
     if options.second.is_some() {
         parts.push(FormatPart::new(
             "second",
-            format_component(local_dt.second(), options.second.as_deref()),
+            format_component(local_dt.second().into(), options.second.as_deref()),
         ));
     }
 
@@ -194,11 +193,11 @@ fn build_format_parts(local_dt: &DateTime<Tz>, options: &DateTimeFormatOptions) 
 }
 
 /// Format timezone name based on style option
-fn format_timezone_name(local_dt: &DateTime<Tz>, timezone: &Tz, style: &str) -> String {
+fn format_timezone_name(local_dt: &Zoned, timezone: &TimeZone, style: &str) -> String {
     match style {
         "short" | "shortOffset" => {
-            let offset = local_dt.offset().fix();
-            let total_secs = offset.local_minus_utc();
+            let offset = local_dt.offset();
+            let total_secs = offset.seconds();
             let hours = total_secs / 3600;
             let mins = (total_secs % 3600).abs() / 60;
 
@@ -222,8 +221,8 @@ fn format_timezone_name(local_dt: &DateTime<Tz>, timezone: &Tz, style: &str) -> 
 
             result
         },
-        "long" => timezone.name().to_string(),
-        _ => timezone.name().to_string(),
+        "long" => timezone.iana_name().unwrap_or_default().into(),
+        _ => timezone.iana_name().unwrap_or_default().into(),
     }
 }
 
@@ -253,7 +252,7 @@ fn parts_to_string(parts: &[FormatPart]) -> String {
 fn parse_epoch_ms<'js>(ctx: &Ctx<'js>, date: Opt<Value<'js>>) -> Result<f64> {
     if let Some(date_val) = date.into_inner() {
         if date_val.is_undefined() {
-            Ok(Utc::now().timestamp_millis() as f64)
+            Ok(Timestamp::now().as_millisecond() as f64)
         } else if let Some(num) = date_val.as_number() {
             Ok(num)
         } else {
@@ -263,21 +262,15 @@ fn parse_epoch_ms<'js>(ctx: &Ctx<'js>, date: Opt<Value<'js>>) -> Result<f64> {
                 .map_err(|_| Exception::throw_type(ctx, "Invalid date"))
         }
     } else {
-        Ok(Utc::now().timestamp_millis() as f64)
+        Ok(Timestamp::now().as_millisecond() as f64)
     }
 }
 
-/// Convert epoch milliseconds to DateTime in the specified timezone
-fn epoch_to_datetime(ctx: &Ctx<'_>, epoch_ms: f64, timezone: &Tz) -> Result<DateTime<Tz>> {
-    let epoch_secs = (epoch_ms / 1000.0) as i64;
-    let epoch_nanos = ((epoch_ms % 1000.0) * 1_000_000.0) as u32;
-
-    let utc_dt = Utc
-        .timestamp_opt(epoch_secs, epoch_nanos)
-        .single()
-        .ok_or_else(|| Exception::throw_range(ctx, "Invalid timestamp"))?;
-
-    Ok(utc_dt.with_timezone(timezone))
+/// Convert epoch milliseconds to Zoned datetime in the specified timezone
+fn epoch_to_datetime(ctx: &Ctx<'_>, epoch_ms: f64, timezone: &TimeZone) -> Result<Zoned> {
+    let utc_dt = Timestamp::from_millisecond(epoch_ms as i64)
+        .map_err(|_| Exception::throw_range(ctx, "Invalid timestamp"))?;
+    Ok(utc_dt.to_zoned(timezone.clone()))
 }
 
 /// Minimal Intl.DateTimeFormat implementation
@@ -311,7 +304,7 @@ impl DateTimeFormat {
         if let Some(options_obj) = options.into_inner() {
             // timeZone
             if let Ok(tz_val) = options_obj.get::<_, String>("timeZone") {
-                opts.timezone = tz_val.parse().map_err(|_| {
+                opts.timezone = TimeZone::get(&tz_val).map_err(|_| {
                     Exception::throw_range(&ctx, &["Invalid time zone: ", &tz_val].concat())
                 })?;
             }
@@ -374,12 +367,15 @@ impl DateTimeFormat {
     /// Return resolved options
     #[qjs(rename = "resolvedOptions")]
     pub fn resolved_options<'js>(&self, ctx: Ctx<'js>) -> Result<Object<'js>> {
-        let obj = Object::new(ctx)?;
+        let obj = Object::new(ctx.clone())?;
 
         obj.set("locale", self.options.locale.as_str())?;
         obj.set("calendar", "gregory")?;
         obj.set("numberingSystem", "latn")?;
-        obj.set("timeZone", self.options.timezone.name())?;
+        obj.set(
+            "timeZone",
+            self.options.timezone.iana_name().unwrap_or_default(),
+        )?;
 
         if self.options.hour.is_some() {
             obj.set("hour12", self.options.hour12)?;
@@ -421,26 +417,19 @@ impl DateTimeFormat {
 }
 
 /// Get the system's default timezone
-pub fn get_system_timezone() -> String {
-    iana_time_zone::get_timezone().unwrap_or_else(|_| "UTC".to_string())
+pub fn get_system_timezone() -> TimeZone {
+    TimeZone::system()
 }
 
 /// Format a date in the specified timezone using locale options.
 /// This is used to implement Date.prototype.toLocaleString with timezone support.
 pub fn format_date_in_timezone(
     epoch_ms: f64,
-    timezone: &Tz,
+    timezone: &TimeZone,
     options: &ToLocaleStringOptions,
 ) -> String {
-    let epoch_secs = (epoch_ms / 1000.0) as i64;
-    let epoch_nanos = ((epoch_ms % 1000.0) * 1_000_000.0) as u32;
-
-    let utc_dt = match Utc.timestamp_opt(epoch_secs, epoch_nanos).single() {
-        Some(dt) => dt,
-        None => return String::new(),
-    };
-
-    let local_dt = utc_dt.with_timezone(timezone);
+    let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+    let local_dt = utc_dt.to_zoned(timezone.clone());
 
     // Format as MM/DD/YYYY, HH:MM:SS AM/PM (en-US style)
     let month = local_dt.month();
@@ -536,14 +525,14 @@ pub struct ToLocaleStringOptions {
 pub fn parse_to_locale_string_options<'js>(
     ctx: &Ctx<'js>,
     options: Option<Object<'js>>,
-) -> Result<(Option<Tz>, ToLocaleStringOptions)> {
-    let mut tz: Option<Tz> = None;
+) -> Result<(Option<TimeZone>, ToLocaleStringOptions)> {
+    let mut tz: Option<TimeZone> = None;
     let mut opts = ToLocaleStringOptions::default();
 
     if let Some(options_obj) = options {
         // Parse timeZone
         if let Ok(tz_val) = options_obj.get::<_, String>("timeZone") {
-            tz = Some(tz_val.parse().map_err(|_| {
+            tz = Some(TimeZone::get(&tz_val).map_err(|_| {
                 Exception::throw_range(ctx, &["Invalid time zone: ", &tz_val].concat())
             })?);
         }
@@ -571,6 +560,7 @@ pub fn parse_to_locale_string_options<'js>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::tz::TimeZone;
 
     #[test]
     fn test_format_number() {
@@ -590,12 +580,11 @@ mod tests {
 
     #[test]
     fn test_build_format_parts_date_only() {
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
         // 2024-03-15 10:30:45 UTC
         let epoch_ms = 1710499845000.0;
-        let epoch_secs = (epoch_ms / 1000.0) as i64;
-        let utc_dt = Utc.timestamp_opt(epoch_secs, 0).unwrap();
-        let local_dt = utc_dt.with_timezone(&tz);
+        let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+        let local_dt = utc_dt.to_zoned(tz);
 
         let options = DateTimeFormatOptions {
             year: Some("numeric".to_string()),
@@ -619,12 +608,11 @@ mod tests {
 
     #[test]
     fn test_build_format_parts_time_only() {
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
         // 2024-03-15 10:30:45 UTC
         let epoch_ms = 1710498645000.0;
-        let epoch_secs = (epoch_ms / 1000.0) as i64;
-        let utc_dt = Utc.timestamp_opt(epoch_secs, 0).unwrap();
-        let local_dt = utc_dt.with_timezone(&tz);
+        let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+        let local_dt = utc_dt.to_zoned(tz);
 
         let options = DateTimeFormatOptions {
             hour: Some("2-digit".to_string()),
@@ -645,12 +633,11 @@ mod tests {
 
     #[test]
     fn test_build_format_parts_12hour() {
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
         // 2024-03-15 14:30:00 UTC (2 PM)
         let epoch_ms = 1710514200000.0;
-        let epoch_secs = (epoch_ms / 1000.0) as i64;
-        let utc_dt = Utc.timestamp_opt(epoch_secs, 0).unwrap();
-        let local_dt = utc_dt.with_timezone(&tz);
+        let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+        let local_dt = utc_dt.to_zoned(tz);
 
         let options = DateTimeFormatOptions {
             hour: Some("numeric".to_string()),
@@ -668,12 +655,11 @@ mod tests {
 
     #[test]
     fn test_build_format_parts_midnight_12hour() {
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
         // 2024-03-15 00:30:00 UTC (12:30 AM)
         let epoch_ms = 1710463800000.0;
-        let epoch_secs = (epoch_ms / 1000.0) as i64;
-        let utc_dt = Utc.timestamp_opt(epoch_secs, 0).unwrap();
-        let local_dt = utc_dt.with_timezone(&tz);
+        let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+        let local_dt = utc_dt.to_zoned(tz);
 
         let options = DateTimeFormatOptions {
             hour: Some("numeric".to_string()),
@@ -691,12 +677,11 @@ mod tests {
 
     #[test]
     fn test_format_timezone_name_short() {
-        let tz: Tz = "America/New_York".parse().unwrap();
+        let tz = TimeZone::get("America/New_York").unwrap();
         // Summer time (EDT = UTC-4)
         let epoch_ms = 1720000000000.0; // July 2024
-        let epoch_secs = (epoch_ms / 1000.0) as i64;
-        let utc_dt = Utc.timestamp_opt(epoch_secs, 0).unwrap();
-        let local_dt = utc_dt.with_timezone(&tz);
+        let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+        let local_dt = utc_dt.to_zoned(tz.clone());
 
         let result = format_timezone_name(&local_dt, &tz, "short");
         assert_eq!(result, "GMT-4");
@@ -704,11 +689,10 @@ mod tests {
 
     #[test]
     fn test_format_timezone_name_long() {
-        let tz: Tz = "America/New_York".parse().unwrap();
+        let tz = TimeZone::get("America/New_York").unwrap();
         let epoch_ms = 1720000000000.0;
-        let epoch_secs = (epoch_ms / 1000.0) as i64;
-        let utc_dt = Utc.timestamp_opt(epoch_secs, 0).unwrap();
-        let local_dt = utc_dt.with_timezone(&tz);
+        let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
+        let local_dt = utc_dt.to_zoned(tz.clone());
 
         let result = format_timezone_name(&local_dt, &tz, "long");
         assert_eq!(result, "America/New_York");
@@ -731,7 +715,7 @@ mod tests {
     fn test_format_date_in_timezone() {
         // 2024-03-15 14:30:45 UTC
         let epoch_ms = 1710513045000.0;
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
 
         let opts = ToLocaleStringOptions {
             hour12: true,
@@ -752,7 +736,7 @@ mod tests {
     fn test_format_date_in_timezone_with_tz() {
         // 2024-03-15 14:30:45 UTC -> 10:30:45 AM EDT (UTC-4)
         let epoch_ms = 1710513045000.0;
-        let tz: Tz = "America/New_York".parse().unwrap();
+        let tz = TimeZone::get("America/New_York").unwrap();
 
         let opts = ToLocaleStringOptions {
             hour12: true,
@@ -766,7 +750,7 @@ mod tests {
     fn test_format_date_midnight() {
         // 2024-03-15 00:00:00 UTC
         let epoch_ms = 1710460800000.0;
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
 
         let opts = ToLocaleStringOptions {
             hour12: true,
@@ -787,7 +771,7 @@ mod tests {
     fn test_format_date_noon() {
         // 2024-03-15 12:00:00 UTC
         let epoch_ms = 1710504000000.0;
-        let tz: Tz = "UTC".parse().unwrap();
+        let tz = TimeZone::get("UTC").unwrap();
 
         let opts = ToLocaleStringOptions {
             hour12: true,

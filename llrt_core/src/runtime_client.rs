@@ -9,13 +9,13 @@ use std::{
     time::Instant,
 };
 
-use chrono::Utc;
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{
     header::{HeaderMap, CONTENT_TYPE},
     http::header::HeaderName,
     Request, StatusCode,
 };
+use jiff::Timestamp;
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
@@ -323,8 +323,8 @@ async fn next_invocation<'js, 'a>(
         .or_throw(ctx)?;
 
     let get_remaining_time_in_millis = Func::from(move || {
-        let now = Utc::now();
-        deadline_ms - now.timestamp_millis()
+        let now = Timestamp::now();
+        deadline_ms - now.as_millisecond()
     });
     let get_remaining_time_in_millis = get_remaining_time_in_millis
         .into_js(ctx)?

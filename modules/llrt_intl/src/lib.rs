@@ -15,9 +15,8 @@ pub use date_time_format::{
     DateTimeFormatOptions, ToLocaleStringOptions,
 };
 
-use chrono::{TimeZone, Utc};
-use chrono_tz::Tz;
 use cldr_data::get_locale_data;
+use jiff::Timestamp;
 use pattern_formatter::{combine_datetime, format_with_pattern};
 use rquickjs::{
     function::{Constructor, Opt, This},
@@ -82,22 +81,12 @@ fn date_to_locale_string<'js>(
     // Parse options
     let (tz, opts) = parse_to_locale_string_options(&ctx, options.0)?;
 
-    let timezone = tz.unwrap_or_else(|| {
-        get_system_timezone()
-            .parse::<Tz>()
-            .unwrap_or(chrono_tz::UTC)
-    });
+    let timezone = tz.unwrap_or_else(get_system_timezone);
 
     // Convert epoch to DateTime
-    let epoch_secs = (epoch_ms / 1000.0) as i64;
-    let epoch_nanos = ((epoch_ms % 1000.0) * 1_000_000.0) as u32;
-
-    let utc_dt = match Utc.timestamp_opt(epoch_secs, epoch_nanos).single() {
-        Some(dt) => dt,
-        None => return Ok(String::new()),
-    };
-
-    let local_dt = utc_dt.with_timezone(&timezone);
+    let utc_dt = Timestamp::from_millisecond(epoch_ms as i64)
+        .map_err(|_| Exception::throw_range(&ctx, "Invalid timestamp"))?;
+    let local_dt = utc_dt.to_zoned(timezone);
 
     // Determine hour12 setting - use locale default if not explicitly set
     let hour12 = if opts.hour12_set {
@@ -210,19 +199,19 @@ fn get_time_pattern<'a>(style: &str, locale_data: &'a cldr_data::LocaleData) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::tz::TimeZone;
 
     #[test]
     fn test_system_timezone() {
         let tz = get_system_timezone();
-        assert!(!tz.is_empty());
-        // Should be a valid IANA timezone
-        assert!(tz.parse::<Tz>().is_ok());
+        assert!(tz.iana_name().is_some());
     }
 
     #[test]
     fn test_system_timezone_parseable() {
-        let tz_str = get_system_timezone();
-        let tz: Tz = tz_str.parse().expect("System timezone should be valid");
-        assert!(!tz.name().is_empty());
+        let tz = get_system_timezone();
+        let tz_str = tz.iana_name().unwrap();
+        let tz = TimeZone::get(tz_str).expect("System timezone should be valid");
+        let _zoned = Timestamp::now().to_zoned(tz);
     }
 }
