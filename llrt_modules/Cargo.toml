@@ -71,9 +71,7 @@ dgram = ["llrt_dgram"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
-fetch = ["llrt_fetch", "llrt_fetch?/http1", "llrt_fetch?/http2", "llrt_fetch?/webpki-roots"]
-compression-c = ["llrt_fetch?/compression-c"]
-compression-rust = ["llrt_fetch?/compression-rust"]
+fetch = ["llrt_fetch", "llrt_fetch?/http1", "llrt_fetch?/http2", "llrt_fetch?/compression-c", "llrt_fetch?/webpki-roots"]
 fs = ["llrt_fs"]
 https = [
   "llrt_http",
