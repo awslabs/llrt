@@ -68,6 +68,7 @@ base = [
   "zlib",
 ]
 
+
 # Modules
 abort = ["llrt_abort"]
 assert = ["llrt_assert"]
@@ -87,8 +88,11 @@ fetch = [
   "llrt_fetch?/compression-c",
   "llrt_fetch?/webpki-roots",
 ]
-compression-c = ["llrt_fetch?/compression-c"]
-compression-rust = ["llrt_fetch?/compression-rust"]
+compression-c = ["llrt_fetch?/compression-c", "llrt_zlib?/compression-c"]
+compression-rust = [
+  "llrt_fetch?/compression-rust",
+  "llrt_zlib?/compression-rust",
+]
 fs = ["llrt_fs"]
 https = [
   "llrt_http",
