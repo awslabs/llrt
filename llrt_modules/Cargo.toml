@@ -72,8 +72,8 @@ dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
 fetch = ["llrt_fetch", "llrt_fetch?/http1", "llrt_fetch?/http2", "llrt_fetch?/webpki-roots"]
-compression-c = ["llrt_fetch?/compression-c"]
-compression-rust = ["llrt_fetch?/compression-rust"]
+compression-c = ["llrt_fetch?/compression-c", "llrt_zlib?/compression-c"]
+compression-rust = ["llrt_fetch?/compression-rust", "llrt_zlib?/compression-rust"]
 fs = ["llrt_fs"]
 https = [
   "llrt_http",
@@ -138,7 +138,7 @@ llrt_tty = { version = "0.7.0-beta", path = "../modules/llrt_tty", optional = tr
 llrt_url = { version = "0.7.0-beta", path = "../modules/llrt_url", optional = true }
 openssl = { version = "0.10", optional = true }
 llrt_util = { version = "0.7.0-beta", path = "../modules/llrt_util", optional = true }
-llrt_zlib = { version = "0.7.0-beta", path = "../modules/llrt_zlib", optional = true }
+llrt_zlib = { version = "0.7.0-beta", path = "../modules/llrt_zlib", default-features = false, optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../libs/llrt_test" }
