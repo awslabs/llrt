@@ -50,6 +50,7 @@ jobs:
           echo "OPENSSL_DIR=D:/a/_temp/msys64/mingw64" >> $GITHUB_ENV
           echo "OPENSSL_LIB_DIR=D:/a/_temp/msys64/mingw64/lib" >> $GITHUB_ENV
           echo "OPENSSL_INCLUDE_DIR=D:/a/_temp/msys64/mingw64/include" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C link-arg=-llegacy_stdio_definitions" >> $GITHUB_ENV
       - name: Map crypto feature to TLS and crypto features
         id: features
         shell: bash
