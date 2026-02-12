@@ -274,15 +274,12 @@ pub fn combine_datetime(date: &str, time: &str, pattern: &str) -> String {
 mod tests {
     use super::*;
     use crate::cldr_data::get_locale_data;
-    use jiff::{civil::Date, tz::TimeZone, Zoned};
+    use jiff::{civil, tz::TimeZone, Zoned};
 
     fn make_dt(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8) -> Zoned {
-        let tz = TimeZone::get("UTC").unwrap();
-
-        Date::new(year, month, day)
-            .unwrap()
+        civil::date(year, month, day)
             .at(hour, min, sec, 0)
-            .to_zoned(tz)
+            .to_zoned(TimeZone::UTC)
             .unwrap()
     }
 
