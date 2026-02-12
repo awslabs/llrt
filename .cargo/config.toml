@@ -23,9 +23,6 @@ rustflags = [
 linker = "./linker/cc-x86_64-linux-musl"
 ar = "./linker/ar"
 
-[target.x86_64-pc-windows-gnu]
-rustflags = ["-Clink-arg=-lmsvcrt"]
-
 [env]
 CC_aarch64_apple_darwin = "/usr/bin/clang"
 CC_x86_64_apple_darwin = "/usr/bin/clang"

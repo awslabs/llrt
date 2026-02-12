@@ -106,7 +106,7 @@ jobs:
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
           EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
-          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
+          cargo build -p llrt_modules --no-default-features --features "base,compression-rust,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
       - name: Run tests all
         shell: bash
         env:
@@ -114,4 +114,4 @@ jobs:
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
           EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
-          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
+          cargo test -p llrt_modules --no-default-features --features "base,compression-rust,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
