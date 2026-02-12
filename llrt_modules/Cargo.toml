@@ -87,6 +87,8 @@ fetch = [
   "llrt_fetch?/compression-c",
   "llrt_fetch?/webpki-roots",
 ]
+compression-c = ["llrt_fetch?/compression-c"]
+compression-rust = ["llrt_fetch?/compression-rust"]
 fs = ["llrt_fs"]
 https = [
   "llrt_http",
