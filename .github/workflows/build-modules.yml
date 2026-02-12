@@ -93,6 +93,9 @@ jobs:
         run: |
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
+            if [ "$crate" = "llrt_modules" ]; then
+              continue
+            fi
             echo "Compiling crate: $crate"
             if [ "$crate" = "llrt_fetch" ]; then
               cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,compression-rust,$TLS_FEATURE"
