@@ -416,11 +416,6 @@ impl DateTimeFormat {
     }
 }
 
-/// Get the system's default timezone
-pub fn get_system_timezone() -> TimeZone {
-    TimeZone::system()
-}
-
 /// Format a date in the specified timezone using locale options.
 /// This is used to implement Date.prototype.toLocaleString with timezone support.
 pub fn format_date_in_timezone(

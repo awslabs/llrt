@@ -11,12 +11,12 @@ mod date_time_format;
 mod pattern_formatter;
 
 pub use date_time_format::{
-    format_date_in_timezone, get_system_timezone, parse_to_locale_string_options, DateTimeFormat,
-    DateTimeFormatOptions, ToLocaleStringOptions,
+    format_date_in_timezone, parse_to_locale_string_options, DateTimeFormat, DateTimeFormatOptions,
+    ToLocaleStringOptions,
 };
 
 use cldr_data::get_locale_data;
-use jiff::Timestamp;
+use jiff::{tz::TimeZone, Timestamp};
 use pattern_formatter::{combine_datetime, format_with_pattern};
 use rquickjs::{
     function::{Constructor, Opt, This},
@@ -81,7 +81,7 @@ fn date_to_locale_string<'js>(
     // Parse options
     let (tz, opts) = parse_to_locale_string_options(&ctx, options.0)?;
 
-    let timezone = tz.unwrap_or_else(get_system_timezone);
+    let timezone = tz.unwrap_or(TimeZone::system());
 
     // Convert epoch to DateTime
     let utc_dt = Timestamp::from_millisecond(epoch_ms as i64)
@@ -193,25 +193,5 @@ fn get_time_pattern<'a>(style: &str, locale_data: &'a cldr_data::LocaleData) -> 
         "medium" => locale_data.time_formats.medium,
         "short" => locale_data.time_formats.short,
         _ => locale_data.time_formats.medium,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use jiff::tz::TimeZone;
-
-    #[test]
-    fn test_system_timezone() {
-        let tz = get_system_timezone();
-        assert!(tz.iana_name().is_some());
-    }
-
-    #[test]
-    fn test_system_timezone_parseable() {
-        let tz = get_system_timezone();
-        let tz_str = tz.iana_name().unwrap();
-        let tz = TimeZone::get(tz_str).expect("System timezone should be valid");
-        let _zoned = Timestamp::now().to_zoned(tz);
     }
 }
