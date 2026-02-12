@@ -79,7 +79,6 @@ jobs:
               exit 1
               ;;
           esac
-          echo "compression_feature=compression-rust" >> $GITHUB_OUTPUT
       - name: Run build crates
         shell: bash
         env:
@@ -106,15 +105,13 @@ jobs:
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
           EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
-          COMPRESSION_FEATURE: ${{ steps.features.outputs.compression_feature }}
         run: |
-          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE,$COMPRESSION_FEATURE$EXTRA_FEATURES"
+          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
       - name: Run tests all
         shell: bash
         env:
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
           EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
-          COMPRESSION_FEATURE: ${{ steps.features.outputs.compression_feature }}
         run: |
-          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE,$COMPRESSION_FEATURE$EXTRA_FEATURES"
+          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
