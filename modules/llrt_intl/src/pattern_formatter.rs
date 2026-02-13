@@ -49,7 +49,7 @@ pub fn format_with_pattern(
             },
             'd' => {
                 let count = 1 + consume_same(&mut chars, ch);
-                format_day(&mut result, dt.day(), count);
+                format_number(&mut result, dt.day(), count);
             },
             'E' | 'e' | 'c' => {
                 let count = 1 + consume_same(&mut chars, ch);
@@ -85,10 +85,10 @@ pub fn format_with_pattern(
                         1..=12 => hour,
                         _ => hour - 12,
                     };
-                    format_number(&mut result, hour12.into(), count);
+                    format_number(&mut result, hour12, count);
                 } else {
                     // 24-hour format (0-23)
-                    format_number(&mut result, hour.into(), count);
+                    format_number(&mut result, hour, count);
                 }
             },
             'H' => {
@@ -102,19 +102,19 @@ pub fn format_with_pattern(
                         1..=12 => hour,
                         _ => hour - 12,
                     };
-                    format_number(&mut result, hour12.into(), count);
+                    format_number(&mut result, hour12, count);
                 } else {
                     // 24-hour format (0-23)
-                    format_number(&mut result, hour.into(), count);
+                    format_number(&mut result, hour, count);
                 }
             },
             'm' => {
                 let count = 1 + consume_same(&mut chars, ch);
-                format_number(&mut result, dt.minute().into(), count);
+                format_number(&mut result, dt.minute(), count);
             },
             's' => {
                 let count = 1 + consume_same(&mut chars, ch);
-                format_number(&mut result, dt.second().into(), count);
+                format_number(&mut result, dt.second(), count);
             },
             'z' => {
                 let count = 1 + consume_same(&mut chars, ch);
@@ -207,11 +207,6 @@ fn format_month(result: &mut String, month: i8, width: usize, locale_data: &Loca
     }
 }
 
-/// Format day based on pattern width
-fn format_day(result: &mut String, day: i8, width: usize) {
-    format_number(result, day.into(), width);
-}
-
 /// Format weekday based on pattern width
 fn format_weekday(result: &mut String, weekday: usize, width: usize, locale_data: &LocaleData) {
     match width {
@@ -227,7 +222,7 @@ fn format_weekday(result: &mut String, weekday: usize, width: usize, locale_data
 }
 
 /// Format a number with optional zero-padding
-fn format_number(result: &mut String, value: i16, min_width: usize) {
+fn format_number(result: &mut String, value: i8, min_width: usize) {
     let mut buf = itoa::Buffer::new();
     let s = buf.format(value);
     if min_width >= 2 && s.len() < min_width {
