@@ -83,7 +83,7 @@ const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
 ctr = { version = "0.10.0-rc.3", default-features = false, optional = true }
-der = { version = "0.8.0-rc.12", features = [
+der = { version = "0.8", features = [
   "derive",
   "alloc",
 ], default-features = false, optional = true }
