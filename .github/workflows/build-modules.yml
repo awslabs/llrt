@@ -44,6 +44,11 @@ jobs:
           update: true
           path-type: inherit
           install: mingw-w64-x86_64-perl
+      - name: Set MinGW Perl for OpenSSL build (Windows)
+        if: inputs.platform == 'windows' && inputs.crypto == 'openssl'
+        shell: bash
+        run: |
+          echo "PERL=D:/a/_temp/msys64/mingw64/bin/perl" >> $GITHUB_ENV
       - name: Map crypto feature to TLS and crypto features
         id: features
         shell: bash
