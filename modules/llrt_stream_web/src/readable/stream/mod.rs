@@ -32,10 +32,10 @@ use crate::{
     writable::WritableStreamOwned,
 };
 
-use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
 use pipe::StreamPipeOptions;
 use source::UnderlyingSource;
 
+pub use algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm};
 use llrt_utils::{
     option::{Null, NullableOpt, Undefined},
     primordials::{BasePrimordials, Primordial},
@@ -50,22 +50,35 @@ use rquickjs::{
     Result, Value,
 };
 
-pub(super) mod algorithms;
+pub mod algorithms;
 mod pipe;
 pub(super) mod source;
 mod tee;
 
+/// Tee a ReadableStream into two branches. The stream must not be locked.
+pub fn tee_readable_stream<'js>(
+    ctx: Ctx<'js>,
+    stream: Class<'js, ReadableStream<'js>>,
+) -> Result<(
+    Class<'js, ReadableStream<'js>>,
+    Class<'js, ReadableStream<'js>>,
+)> {
+    let owned = OwnedBorrowMut::from_class(stream);
+    let objects = ReadableStreamObjects::from_stream(owned);
+    ReadableStream::readable_stream_tee(ctx, objects)
+}
+
 #[rquickjs::class]
 #[derive(JsLifetime)]
-pub(crate) struct ReadableStream<'js> {
+pub struct ReadableStream<'js> {
     pub controller: ReadableStreamControllerClass<'js>,
     pub disturbed: bool,
     pub state: ReadableStreamState<'js>,
-    pub reader: Option<ReadableStreamReaderClass<'js>>,
-    pub promise_primordials: PromisePrimordials<'js>,
-    pub constructor_type_error: Constructor<'js>,
-    pub constructor_range_error: Constructor<'js>,
-    pub function_array_buffer_is_view: Function<'js>,
+    pub(crate) reader: Option<ReadableStreamReaderClass<'js>>,
+    pub(crate) promise_primordials: PromisePrimordials<'js>,
+    pub(crate) constructor_type_error: Constructor<'js>,
+    pub(crate) constructor_range_error: Constructor<'js>,
+    pub(crate) function_array_buffer_is_view: Function<'js>,
 }
 
 impl<'js> Trace<'js> for ReadableStream<'js> {
@@ -199,6 +212,12 @@ impl<'js> ReadableStream<'js> {
     fn locked(&self) -> bool {
         // Return ! IsReadableStreamLocked(this).
         self.is_readable_stream_locked()
+    }
+
+    // Internal property for checking if stream has been read from
+    #[qjs(get)]
+    fn disturbed(&self) -> bool {
+        self.disturbed
     }
 
     // Promise<undefined> cancel(optional any reason);
@@ -365,11 +384,9 @@ impl<'js> ReadableStream<'js> {
         ctx: Ctx<'js>,
         stream: This<OwnedBorrowMut<'js, Self>>,
     ) -> Result<List<(Class<'js, Self>, Class<'js, Self>)>> {
-        // Return ? ReadableStreamTee(this, false).
         Ok(List(Self::readable_stream_tee(
             ctx,
             ReadableStreamObjects::from_stream(stream.0),
-            false,
         )?))
     }
 
@@ -567,7 +584,7 @@ impl<'js> ReadableStream<'js> {
         )
     }
 
-    pub(super) fn is_readable_stream_locked(&self) -> bool {
+    pub fn is_readable_stream_locked(&self) -> bool {
         // If stream.[[reader]] is undefined, return false.
         if self.reader.is_none() {
             return false;
@@ -716,8 +733,35 @@ impl<'js> ReadableStream<'js> {
         })
     }
 
+    /// Create a ReadableStream from Rust pull/cancel algorithms
+    pub fn from_pull_algorithm(
+        ctx: Ctx<'js>,
+        pull_algorithm: PullAlgorithm<'js>,
+        cancel_algorithm: CancelAlgorithm<'js>,
+    ) -> Result<Class<'js, Self>> {
+        Self::from_pull_algorithm_with_options(ctx, pull_algorithm, cancel_algorithm, None)
+    }
+
+    /// Create a ReadableStream from Rust pull/cancel algorithms with custom highWaterMark
+    pub fn from_pull_algorithm_with_options(
+        ctx: Ctx<'js>,
+        pull_algorithm: PullAlgorithm<'js>,
+        cancel_algorithm: CancelAlgorithm<'js>,
+        high_water_mark: Option<f64>,
+    ) -> Result<Class<'js, Self>> {
+        Ok(Self::create_readable_stream(
+            ctx,
+            StartAlgorithm::ReturnUndefined,
+            pull_algorithm,
+            cancel_algorithm,
+            high_water_mark,
+            None,
+        )?
+        .stream)
+    }
+
     // CreateReadableByteStream(startAlgorithm, pullAlgorithm, cancelAlgorithm) performs the following steps:
-    fn create_readable_byte_stream(
+    pub fn create_readable_byte_stream(
         ctx: Ctx<'js>,
         start_algorithm: StartAlgorithm<'js>,
         pull_algorithm: PullAlgorithm<'js>,

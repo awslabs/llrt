@@ -42,7 +42,7 @@ llrt_encoding = { path = "../libs/llrt_encoding" }
 llrt_hooking = { path = "../libs/llrt_hooking" }
 llrt_json = { path = "../libs/llrt_json" }
 llrt_logging = { path = "../libs/llrt_logging" }
-llrt_modules = { path = "../llrt_modules", default-features = false, features = ["base", "console"] }
+llrt_modules = { path = "../llrt_modules", default-features = false, features = ["base", "console", "compression-c"] }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
