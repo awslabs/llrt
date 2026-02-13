@@ -36,6 +36,14 @@ jobs:
         if: inputs.crypto == 'openssl'
         run: |
           echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+      - name: Install Perl for OpenSSL build (Windows)
+        if: inputs.platform == 'windows' && inputs.crypto == 'openssl'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          path-type: inherit
+          install: mingw-w64-x86_64-perl
       - name: Map crypto feature to TLS and crypto features
         id: features
         shell: bash
