@@ -3,8 +3,10 @@
 
 //! LLRT timezone module providing timezone offset calculations.
 
-use chrono::{Offset, TimeZone, Utc};
-use chrono_tz::Tz;
+use jiff::{
+    tz::{TimeZone, TimeZoneDatabase},
+    Timestamp,
+};
 use rquickjs::{
     atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
@@ -18,17 +20,14 @@ use crate::libs::utils::module::{export_default, ModuleInfo};
 /// Returns a positive value for timezones ahead of UTC (e.g., +60 for UTC+1)
 /// and a negative value for timezones behind UTC (e.g., -420 for UTC-7).
 fn get_offset(ctx: Ctx<'_>, timezone: String, epoch_ms: f64) -> Result<i32> {
-    let tz: Tz = timezone
-        .parse()
+    let tz = TimeZone::get(timezone.as_str())
         .map_err(|_| Exception::throw_type(&ctx, &format!("Invalid timezone: {}", timezone)))?;
 
-    let epoch_secs = (epoch_ms / 1000.0) as i64;
-    let naive = Utc.timestamp_opt(epoch_secs, 0).single().ok_or_else(|| {
+    let naive = Timestamp::from_millisecond(epoch_ms as i64).map_err(|_| {
         Exception::throw_range(&ctx, &format!("Invalid epoch milliseconds: {}", epoch_ms))
     })?;
 
-    let local = naive.with_timezone(&tz);
-    let offset = local.offset().fix().local_minus_utc();
+    let offset = tz.to_offset(naive).seconds();
 
     // Return offset in minutes (positive = ahead of UTC, negative = behind)
     Ok(offset / 60)
@@ -36,11 +35,11 @@ fn get_offset(ctx: Ctx<'_>, timezone: String, epoch_ms: f64) -> Result<i32> {
 
 /// List all available IANA timezone names.
 fn list_timezones(ctx: Ctx<'_>) -> Result<Array<'_>> {
-    let timezones = chrono_tz::TZ_VARIANTS;
+    let timezones = TimeZoneDatabase::from_env();
     let array = Array::new(ctx.clone())?;
 
-    for (i, tz) in timezones.iter().enumerate() {
-        array.set(i, tz.name())?;
+    for (i, tz) in timezones.available().enumerate() {
+        array.set(i, tz.as_str())?;
     }
 
     Ok(array)

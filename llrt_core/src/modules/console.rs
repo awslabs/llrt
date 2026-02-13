@@ -9,7 +9,7 @@ use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
@@ -192,8 +192,8 @@ fn write_lambda_log<'js>(
         is_newline = false;
     }
 
-    let current_time: DateTime<Utc> = Utc::now();
-    let formatted_time = current_time.format(time_format);
+    let current_time = Timestamp::now();
+    let formatted_time = current_time.strftime(time_format);
     let request_id = runtime_client::LAMBDA_REQUEST_ID.read().unwrap();
 
     if is_json_log_format {

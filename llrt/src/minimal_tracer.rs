@@ -7,7 +7,7 @@ use std::{
     write,
 };
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tracing::{field::Visit, Id, Level, Subscriber};
 use tracing_core::{span, Field};
 
@@ -135,10 +135,9 @@ impl Subscriber for MinimalTracer {
         let mut visitor = StringVisitor::new(&mut text);
         event.record(&mut visitor);
 
-        let current_time: DateTime<Utc> = Utc::now();
-        let timestamp = current_time.format("%Y-%m-%dT%H:%M:%S%.3fZ");
+        let timestamp = Timestamp::now();
 
-        println!("{timestamp} {level} {target}: {text}");
+        println!("{timestamp:.3} {level} {target}: {text}");
     }
 
     fn enter(&self, _span: &span::Id) {}

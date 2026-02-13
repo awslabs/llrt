@@ -30,12 +30,12 @@ crypto-openssl = ["llrt_core/crypto-openssl"]
 openssl-vendored = ["llrt_core/openssl-vendored"]
 
 [dependencies]
-chrono = { version = "0.4", features = ["std"], default-features = false }
 constcat = { version = "0.6", default-features = false }
 crossterm = { version = "0.29", features = [
   "events",
   "windows",
 ], default-features = false }
+jiff = { version = "0.2" }
 llrt_core = { path = "../llrt_core", default-features = false }
 tokio = { version = "1", features = [
   "macros",

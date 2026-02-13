@@ -12,9 +12,7 @@ name = "llrt_intl"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = { version = "0.4", features = ["std", "clock"], default-features = false }
-chrono-tz = { version = "0.10", default-features = false }
-iana-time-zone = "0.1"
 itoa = "1.0"
+jiff = { version = "0.2" }
 rquickjs = { version = "0.11", default-features = false }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils" }

@@ -8,12 +8,11 @@
 //! https://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
 
 use crate::cldr_data::LocaleData;
-use chrono::{DateTime, Datelike, Offset, Timelike};
-use chrono_tz::Tz;
+use jiff::Zoned;
 
-/// Format a DateTime using a CLDR pattern string
+/// Format a Zoned datetime using a CLDR pattern string
 pub fn format_with_pattern(
-    dt: &DateTime<Tz>,
+    dt: &Zoned,
     pattern: &str,
     locale_data: &LocaleData,
     hour12_override: Option<bool>,
@@ -46,17 +45,17 @@ pub fn format_with_pattern(
             },
             'M' | 'L' => {
                 let count = 1 + consume_same(&mut chars, ch);
-                format_month(&mut result, dt.month() as usize, count, locale_data);
+                format_month(&mut result, dt.month(), count, locale_data);
             },
             'd' => {
                 let count = 1 + consume_same(&mut chars, ch);
-                format_day(&mut result, dt.day(), count);
+                format_number(&mut result, dt.day(), count);
             },
             'E' | 'e' | 'c' => {
                 let count = 1 + consume_same(&mut chars, ch);
                 format_weekday(
                     &mut result,
-                    dt.weekday().num_days_from_sunday() as usize,
+                    dt.weekday().to_sunday_zero_offset() as usize,
                     count,
                     locale_data,
                 );
@@ -163,7 +162,7 @@ fn consume_same(chars: &mut std::iter::Peekable<std::str::Chars>, ch: char) -> u
 }
 
 /// Format year based on pattern width
-fn format_year(result: &mut String, year: i32, width: usize) {
+fn format_year(result: &mut String, year: i16, width: usize) {
     let mut buf = itoa::Buffer::new();
     if width == 2 {
         // 2-digit year
@@ -178,7 +177,7 @@ fn format_year(result: &mut String, year: i32, width: usize) {
 }
 
 /// Format month based on pattern width
-fn format_month(result: &mut String, month: usize, width: usize, locale_data: &LocaleData) {
+fn format_month(result: &mut String, month: i8, width: usize, locale_data: &LocaleData) {
     match width {
         1 => {
             // Numeric, no padding
@@ -196,21 +195,16 @@ fn format_month(result: &mut String, month: usize, width: usize, locale_data: &L
         3 => {
             // Abbreviated
             if (1..=12).contains(&month) {
-                result.push_str(locale_data.months_abbr[month - 1]);
+                result.push_str(locale_data.months_abbr[month as usize - 1]);
             }
         },
         _ => {
             // Wide (4+)
             if (1..=12).contains(&month) {
-                result.push_str(locale_data.months_wide[month - 1]);
+                result.push_str(locale_data.months_wide[month as usize - 1]);
             }
         },
     }
-}
-
-/// Format day based on pattern width
-fn format_day(result: &mut String, day: u32, width: usize) {
-    format_number(result, day, width);
 }
 
 /// Format weekday based on pattern width
@@ -228,7 +222,7 @@ fn format_weekday(result: &mut String, weekday: usize, width: usize, locale_data
 }
 
 /// Format a number with optional zero-padding
-fn format_number(result: &mut String, value: u32, min_width: usize) {
+fn format_number(result: &mut String, value: i8, min_width: usize) {
     let mut buf = itoa::Buffer::new();
     let s = buf.format(value);
     if min_width >= 2 && s.len() < min_width {
@@ -240,15 +234,14 @@ fn format_number(result: &mut String, value: u32, min_width: usize) {
 }
 
 /// Format timezone
-fn format_timezone(result: &mut String, dt: &DateTime<Tz>, width: usize) {
-    let offset = dt.offset().fix();
-    let total_secs = offset.local_minus_utc();
+fn format_timezone(result: &mut String, dt: &Zoned, width: usize) {
+    let total_secs = dt.offset().seconds();
     let hours = total_secs / 3600;
     let mins = (total_secs % 3600).abs() / 60;
 
     if width >= 4 {
         // Long form: timezone name
-        result.push_str(dt.timezone().name());
+        result.push_str(dt.time_zone().iana_name().unwrap_or_default());
     } else {
         // Short form: GMT offset
         result.push_str("GMT");
@@ -276,13 +269,13 @@ pub fn combine_datetime(date: &str, time: &str, pattern: &str) -> String {
 mod tests {
     use super::*;
     use crate::cldr_data::get_locale_data;
-    use chrono::{TimeZone, Utc};
+    use jiff::{civil, tz::TimeZone, Zoned};
 
-    fn make_dt(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> DateTime<Tz> {
-        let tz: Tz = "UTC".parse().unwrap();
-        Utc.with_ymd_and_hms(year, month, day, hour, min, sec)
+    fn make_dt(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8) -> Zoned {
+        civil::date(year, month, day)
+            .at(hour, min, sec, 0)
+            .to_zoned(TimeZone::UTC)
             .unwrap()
-            .with_timezone(&tz)
     }
 
     #[test]
