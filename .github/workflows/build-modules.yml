@@ -57,12 +57,17 @@ jobs:
           msystem: MINGW64
           update: true
           path-type: inherit
-          install: mingw-w64-x86_64-perl
-      - name: Set MinGW Perl for OpenSSL build (Windows)
+          install: >-
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-pkgconf
+      - name: Set OpenSSL env for Windows
         if: inputs.platform == 'windows' && inputs.crypto == 'openssl'
         shell: bash
         run: |
-          echo "PERL=D:/a/_temp/msys64/mingw64/bin/perl" >> $GITHUB_ENV
+          echo "OPENSSL_DIR=D:/a/_temp/msys64/mingw64" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=D:/a/_temp/msys64/mingw64/lib" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=D:/a/_temp/msys64/mingw64/include" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${RUSTFLAGS} -C link-arg=-lucrt" >> $GITHUB_ENV
       - name: Map crypto feature to TLS and crypto features
         id: features
         shell: bash
@@ -79,7 +84,9 @@ jobs:
             openssl)
               echo "tls_feature=tls-openssl" >> $GITHUB_OUTPUT
               echo "crypto_feature=crypto-openssl" >> $GITHUB_OUTPUT
-              echo "extra_features=,openssl-vendored" >> $GITHUB_OUTPUT
+              if [ "${{ inputs.platform }}" != "windows" ]; then
+                echo "extra_features=,openssl-vendored" >> $GITHUB_OUTPUT
+              fi
               ;;
             aws-lc)
               echo "tls_feature=tls-aws-lc" >> $GITHUB_OUTPUT
@@ -98,6 +105,7 @@ jobs:
       - name: Run build crates
         shell: bash
         env:
+          RUSTFLAGS: ""
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
         run: |
