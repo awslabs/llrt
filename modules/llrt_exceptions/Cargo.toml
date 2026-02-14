@@ -11,7 +11,5 @@ name = "llrt_exceptions"
 path = "src/lib.rs"
 
 [dependencies]
-rquickjs = { version = "0.11", features = [
-    "macro",
-], default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }

@@ -15,7 +15,6 @@ bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
 rquickjs = { version = "0.11", features = [
-  "array-buffer",
   "macro",
 ], default-features = false }
 tokio = { version = "1", features = ["sync"], default-features = false }

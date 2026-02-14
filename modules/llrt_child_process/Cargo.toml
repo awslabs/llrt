@@ -17,9 +17,7 @@ llrt_context = { version = "0.7.0-beta", path = "../../libs/llrt_context" }
 llrt_events = { version = "0.7.0-beta", path = "../llrt_events" }
 llrt_stream = { version = "0.7.0-beta", path = "../llrt_stream" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { version = "0.11", features = [
-    "std",
-], default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 tokio = { version = "1", features = ["process"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]

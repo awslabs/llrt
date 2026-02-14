@@ -12,7 +12,5 @@ path = "src/lib.rs"
 
 [dependencies]
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { version = "0.11", features = [
-    "macro",
-], default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 tracing = { version = "0.1", default-features = false }
