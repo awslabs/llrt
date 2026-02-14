@@ -16,7 +16,6 @@ llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.11", features = [
   "futures",
-  "macro",
 ], default-features = false }
 ryu = { version = "1", default-features = false }
 

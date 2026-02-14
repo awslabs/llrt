@@ -12,7 +12,7 @@ name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "compression-c", "webpki-roots"]
+default = ["http1", "http2", "compression-c", "webpki-roots", "tls-ring"]
 
 http1 = ["hyper/http1", "llrt_http/http1"]
 http2 = ["hyper/http2", "llrt_http/http2"]
@@ -52,10 +52,7 @@ rand = { version = "0.10.0", features = [
   "std",
   "thread_rng",
 ], default-features = false }
-rquickjs = { version = "0.11", features = [
-  "either",
-  "std",
-], default-features = false }
+rquickjs = { version = "0.11", default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "sync",
