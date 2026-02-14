@@ -5,7 +5,7 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro", "tls-ring", "crypto-rust"]
+default = ["macro", "tls-rust", "crypto-rust"]
 lambda = []
 no-sdk = []
 uncompressed = []
@@ -13,6 +13,7 @@ macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
 
 # TLS crypto backend features
+tls-rust = ["llrt_modules/tls-rust"]
 tls-ring = ["rustls/ring", "llrt_modules/tls-ring"]
 tls-aws-lc = ["rustls/aws_lc_rs", "llrt_modules/tls-aws-lc"]
 tls-graviola = ["llrt_modules/tls-graviola"]
