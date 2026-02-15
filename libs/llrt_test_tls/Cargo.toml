@@ -28,7 +28,7 @@ http = { version = "1", default-features = false }
 rustls = { version = "0.23", features = [
   "tls12",
 ], default-features = false }
-rustls-graviola = { version = "0.3", optional = true }
+rustls-graviola = { version = "0.3", git="https://github.com/ctz/graviola.git", default-features = false, optional = true }
 openssl = { version = "0.10", optional = true }
 tokio-openssl = { version = "0.6", optional = true }
 tokio = { version = "1", features = ["net", "fs", "rt", "macros"], default-features = false }
