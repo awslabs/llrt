@@ -136,7 +136,7 @@ x25519-dalek = { version = "3.0.0-pre.6", features = [
 ring = { version = "0.17", default-features = false, optional = true }
 openssl-sys = { version = "0.9", optional = true }
 openssl = { version = "0.10", optional = true }
-graviola = { version = "0.3", optional = true }
+graviola = { version = "0.3", git="https://github.com/ctz/graviola.git", optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
