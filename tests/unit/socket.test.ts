@@ -53,14 +53,20 @@ describe("createServer and connect", () => {
 
 describe("error handling", () => {
   it("should handle connection error", (done) => {
-    const nonExistentPort = 9999;
-    const client = net
-      .connect(nonExistentPort, "localhost")
-      .on("error", (error) => {
-        expect(error).toBeInstanceOf(Error);
-        client.end();
-        done(); // Test passes if an error event is emitted
+    // Bind and immediately close a server to get a guaranteed-refused port
+    const tmp = net.createServer();
+    tmp.listen(0, () => {
+      const port = (tmp.address() as any).port;
+      tmp.close(() => {
+        const client = net
+          .connect(port, "127.0.0.1")
+          .on("error", (error) => {
+            expect(error).toBeInstanceOf(Error);
+            client.destroy();
+            done();
+          });
       });
+    });
   });
 
   it("should handle server destroy", (done) => {
