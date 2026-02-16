@@ -14,8 +14,8 @@ use std::{
     result::Result as StdResult,
 };
 
-use jwalk::WalkDir;
 use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime, WriteOptions};
+use walkdir::WalkDir;
 
 const BUNDLE_JS_DIR: &str = "../bundle/js";
 
