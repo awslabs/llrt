@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_buffer::Buffer;
-use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
+use llrt_utils::{bytes::ObjectBytes, iterable_enum, result::ResultExt};
 use rquickjs::{
     class::Trace, function::Opt, prelude::This, Class, Ctx, IntoJs, JsLifetime, Result, Value,
 };
@@ -18,6 +18,8 @@ pub enum HashAlgorithm {
     Sha384,
     Sha512,
 }
+
+iterable_enum!(HashAlgorithm, Md5, Sha1, Sha256, Sha384, Sha512);
 
 impl TryFrom<&str> for HashAlgorithm {
     type Error = String;
@@ -39,6 +41,16 @@ impl TryFrom<&str> for HashAlgorithm {
 }
 
 impl HashAlgorithm {
+    pub fn class_name(&self) -> &'static str {
+        match self {
+            HashAlgorithm::Md5 => "Md5",
+            HashAlgorithm::Sha1 => "Sha1",
+            HashAlgorithm::Sha256 => "Sha256",
+            HashAlgorithm::Sha384 => "Sha384",
+            HashAlgorithm::Sha512 => "Sha512",
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             HashAlgorithm::Md5 => "MD5",
