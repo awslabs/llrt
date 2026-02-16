@@ -43,7 +43,7 @@ use rand::RngExt;
 use rquickjs::prelude::Async;
 use rquickjs::{
     atom::PredefinedAtom,
-    function::Opt,
+    function::{Constructor, Opt},
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Rest},
     Class, Ctx, Error, Exception, Function, IntoJs, Null, Object, Result, Value,
@@ -56,7 +56,7 @@ use subtle::{
 
 use self::{
     crc32::{Crc32, Crc32c},
-    hash::{Hash, Hmac},
+    hash::{Hash, HashAlgorithm, Hmac},
 };
 
 static CRYPTO_PROVIDER: Lazy<provider::DefaultProvider> =
@@ -296,6 +296,11 @@ impl ModuleDef for CryptoModule {
         declare.declare("randomFillSync")?;
         declare.declare("randomFill")?;
         declare.declare("getRandomValues")?;
+
+        for algorithm in HashAlgorithm::iter() {
+            declare.declare(algorithm.class_name())?;
+        }
+
         declare.declare("crypto")?;
         declare.declare("webcrypto")?;
         declare.declare("default")?;
@@ -305,6 +310,18 @@ impl ModuleDef for CryptoModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
+            for algorithm in HashAlgorithm::iter() {
+                let class_name: &str = algorithm.class_name();
+                let algo_name = String::from(algorithm.as_str());
+
+                let ctor =
+                    Constructor::new_class::<Hash, _, _>(ctx.clone(), move |ctx: Ctx<'_>| {
+                        Hash::new(ctx, algo_name.clone())
+                    })?;
+
+                default.set(class_name, ctor)?;
+            }
+
             let crypto: Object = ctx.globals().get("crypto")?;
 
             Class::<Crc32>::define(default)?;
