@@ -198,11 +198,13 @@ class TestAgent {
     timeout?: number
   ) {
     const hooks: MaybeAsyncFunction[] = [];
-    while (testSuite) {
-      if (testSuite[hook]) {
-        hooks.unshift(...testSuite[hook]!);
+    const walkParents = hook === "beforeEach" || hook === "afterEach";
+    let current: TestSuite | undefined = testSuite;
+    while (current) {
+      if (current[hook]) {
+        hooks.unshift(...current[hook]!);
       }
-      testSuite = testSuite.parent!;
+      current = walkParents ? current.parent : undefined;
     }
     for (const fn of hooks) {
       await this.executeAsyncOrCallbackFn(fn, timeout);
@@ -418,6 +420,42 @@ class TestAgent {
 
     await this.complete();
   }
+  async runSuite(suite: TestSuite, started: number) {
+    await this.runHook(suite, "beforeAll", suite.timeout);
+    await this.runTests(suite, suite.tests);
+    for (const child of suite.suites ?? []) {
+      if (
+        child.skip ||
+        (this.onlyCount > 0 && !child.only && !child.containsOnly)
+      ) {
+        continue;
+      }
+      const childStarted = performance.now();
+      await this.sendMessage("start", {
+        desc: child.desc,
+        isSuite: true,
+        started: childStarted,
+        timeout: child.timeout,
+      });
+      try {
+        await this.runSuite(child, childStarted);
+        await this.sendMessage("end", {
+          isSuite: true,
+          started: childStarted,
+          ended: performance.now(),
+        });
+      } catch (error: any) {
+        await this.sendMessage("error", {
+          error,
+          started,
+          ended: performance.now(),
+          workerId: this.workerId,
+        });
+      }
+    }
+    await this.runHook(suite, "afterAll", suite.timeout);
+  }
+
   async runRootSuite() {
     const testSuite = this.rootSuite;
     const started = performance.now();
@@ -430,49 +468,7 @@ class TestAgent {
         timeout: testSuite.timeout,
       });
 
-      await this.runHook(testSuite, "beforeAll", testSuite.timeout);
-
-      await this.runTests(testSuite, testSuite.tests);
-      const stack = [...testSuite.suites];
-      while (stack.length > 0) {
-        const suite = stack.shift()!;
-        if (
-          suite.skip ||
-          (this.onlyCount > 0 && !suite.only && !suite.containsOnly)
-        ) {
-          continue;
-        }
-        const suiteStarted = performance.now();
-        await this.sendMessage("start", {
-          desc: suite.desc,
-          isSuite: true,
-          started: suiteStarted,
-          timeout: suite.timeout,
-        });
-
-        try {
-          await this.runHook(suite, "beforeEach");
-          await this.runTests(suite, suite.tests);
-          await this.runHook(suite, "afterEach");
-          await this.sendMessage("end", {
-            isSuite: true,
-            started: suiteStarted,
-            ended: performance.now(),
-          });
-        } catch (error: any) {
-          await this.sendMessage("error", {
-            error,
-            started,
-            ended: performance.now(),
-            workerId: this.workerId,
-          });
-        }
-
-        if (suite.suites) {
-          stack.unshift(...suite.suites);
-        }
-      }
-      await this.runHook(testSuite, "afterAll", testSuite.timeout);
+      await this.runSuite(testSuite, started);
       await this.sendMessage("end", {
         isSuite: true,
         started,
