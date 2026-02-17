@@ -314,10 +314,13 @@ impl ModuleDef for CryptoModule {
                 let class_name: &str = algorithm.class_name();
                 let algo_name = String::from(algorithm.as_str());
 
-                let ctor =
-                    Constructor::new_class::<Hash, _, _>(ctx.clone(), move |ctx: Ctx<'_>| {
-                        Hash::new(ctx, algo_name.clone())
-                    })?;
+                let ctor = Constructor::new_class::<Hash, _, _>(
+                    ctx.clone(),
+                    move |ctx: Ctx<'js>, secret: Opt<ObjectBytes<'js>>| match secret.0 {
+                        Some(secret) => Hash::new_hmac(ctx, algo_name.clone(), secret),
+                        None => Hash::new(ctx, algo_name.clone()),
+                    },
+                )?;
 
                 default.set(class_name, ctor)?;
             }

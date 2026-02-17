@@ -99,15 +99,47 @@ type ProviderHmac = <crate::provider::DefaultProvider as CryptoProvider>::Hmac;
 #[rquickjs::class]
 pub struct Hash {
     #[qjs(skip_trace)]
-    inner: Option<ProviderDigest>,
+    digest: Option<ProviderDigest>,
+    #[qjs(skip_trace)]
+    hmac: Option<ProviderHmac>,
 }
 
 impl Hash {
     pub fn new(ctx: Ctx<'_>, algorithm: String) -> Result<Self> {
         let algorithm = HashAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
         Ok(Self {
-            inner: Some(CRYPTO_PROVIDER.digest(algorithm)),
+            digest: Some(CRYPTO_PROVIDER.digest(algorithm)),
+            hmac: None,
         })
+    }
+
+    pub fn new_hmac<'js>(
+        ctx: Ctx<'js>,
+        algorithm: String,
+        secret: ObjectBytes<'js>,
+    ) -> Result<Self> {
+        let algorithm = HashAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
+        let key = secret.as_bytes(&ctx)?;
+        Ok(Self {
+            digest: None,
+            hmac: Some(CRYPTO_PROVIDER.hmac(algorithm, key)),
+        })
+    }
+
+    fn do_update(&mut self, data: &[u8]) {
+        if let Some(ref mut d) = self.digest {
+            d.update(data);
+        } else if let Some(ref mut h) = self.hmac {
+            h.update(data);
+        }
+    }
+
+    fn do_finalize(&mut self) -> Option<Vec<u8>> {
+        if let Some(d) = self.digest.take() {
+            Some(d.finalize())
+        } else {
+            self.hmac.take().map(|h| h.finalize())
+        }
     }
 }
 
@@ -115,11 +147,9 @@ impl Hash {
 impl Hash {
     #[qjs(rename = "digest")]
     fn hash_digest<'js>(&mut self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
-        let digest = self
-            .inner
-            .take()
+        let result = self
+            .do_finalize()
             .ok_or_else(|| rquickjs::Exception::throw_message(&ctx, "Digest already called"))?;
-        let result = digest.finalize();
 
         let Some(encoding) = encoding.0 else {
             return Buffer(result).into_js(&ctx);
@@ -138,11 +168,7 @@ impl Hash {
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
         let bytes = bytes.as_bytes(&ctx)?;
-        let mut borrowed = this.0.borrow_mut();
-        if let Some(ref mut digest) = borrowed.inner {
-            digest.update(bytes);
-        }
-        drop(borrowed);
+        this.0.borrow_mut().do_update(bytes);
         Ok(this.0)
     }
 }
@@ -151,35 +177,21 @@ impl Hash {
 #[rquickjs::class]
 pub struct Hmac {
     #[qjs(skip_trace)]
-    inner: Option<ProviderHmac>,
+    hash: Hash,
 }
 
 impl Hmac {
     pub fn new<'js>(ctx: Ctx<'js>, algorithm: String, key_value: ObjectBytes<'js>) -> Result<Self> {
-        let algorithm = HashAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
-        let key = key_value.as_bytes(&ctx)?;
-        let hmac = CRYPTO_PROVIDER.hmac(algorithm, key);
-        Ok(Self { inner: Some(hmac) })
+        Ok(Self {
+            hash: Hash::new_hmac(ctx, algorithm, key_value)?,
+        })
     }
 }
 
 #[rquickjs::methods]
 impl Hmac {
     fn digest<'js>(&mut self, ctx: Ctx<'js>, encoding: Opt<String>) -> Result<Value<'js>> {
-        let hmac = self
-            .inner
-            .take()
-            .ok_or_else(|| rquickjs::Exception::throw_message(&ctx, "Digest already called"))?;
-        let result = hmac.finalize();
-
-        let Some(encoding) = encoding.0 else {
-            return Buffer(result).into_js(&ctx);
-        };
-
-        match encoded_bytes(&ctx, &result, &encoding)? {
-            Some(encoded) => Ok(encoded),
-            None => Buffer(result).into_js(&ctx),
-        }
+        self.hash.hash_digest(ctx, encoding)
     }
 
     fn update<'js>(
@@ -188,11 +200,7 @@ impl Hmac {
         bytes: ObjectBytes<'js>,
     ) -> Result<Class<'js, Self>> {
         let bytes = bytes.as_bytes(&ctx)?;
-        let mut borrowed = this.0.borrow_mut();
-        if let Some(ref mut hmac) = borrowed.inner {
-            hmac.update(bytes);
-        }
-        drop(borrowed);
+        this.0.borrow_mut().hash.do_update(bytes);
         Ok(this.0)
     }
 }
