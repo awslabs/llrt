@@ -1,7 +1,7 @@
 [package]
 name = "llrt_string_decoder"
 description = "LLRT Module string_decoder"
-version = "0.7.0-beta"
+version = "0.8.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -12,9 +12,9 @@ name = "llrt_string_decoder"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_buffer = { version = "0.7.0-beta", path = "../llrt_buffer" }
-llrt_encoding = { version = "0.7.0-beta", path = "../../libs/llrt_encoding" }
-llrt_utils = { version = "0.7.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_buffer = { version = "0.8.0-beta", path = "../llrt_buffer" }
+llrt_encoding = { version = "0.8.0-beta", path = "../../libs/llrt_encoding" }
+llrt_utils = { version = "0.8.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.11", default-features = false }
 
 [dev-dependencies]
