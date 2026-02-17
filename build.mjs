@@ -252,7 +252,8 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     const { hostname, protocol, pathname, search } = endpoint.url;
     const [bucket, host] = hostname.split(".s3.");
     if (host) {
-      const newHref = `${protocol}//s3.${host}/${bucket}${pathname}${
+      const path = pathname === "/" ? "" : pathname;
+      const newHref = `${protocol}//s3.${host}/${bucket}${path}${
         search ? `?${search}` : ""
       }`;
       endpoint.url.href = newHref;
