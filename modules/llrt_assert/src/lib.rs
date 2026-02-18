@@ -29,6 +29,7 @@ fn ok(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
         | Type::Constructor
         | Type::Exception
         | Type::Function
+        | Type::Proxy
         | Type::Symbol
         | Type::Object => {
             return Ok(());

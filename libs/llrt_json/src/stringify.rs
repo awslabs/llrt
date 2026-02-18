@@ -133,7 +133,11 @@ fn run_to_json<'js>(
 
     //only preserve indentation if we're returning nested data
     let indentation = context.indentation.and_then(|indentation| {
-        matches!(val.type_of(), Type::Object | Type::Array | Type::Exception).then_some(indentation)
+        matches!(
+            val.type_of(),
+            Type::Object | Type::Array | Type::Exception | Type::Proxy
+        )
+        .then_some(indentation)
     });
 
     append_value(
@@ -438,7 +442,7 @@ fn iterate<'js>(
     let ctx = context.ctx;
     let indentation = context.indentation;
     match elem.type_of() {
-        Type::Object | Type::Exception => {
+        Type::Object | Type::Exception | Type::Proxy => {
             let js_object = unsafe { elem.as_object().unwrap_unchecked() };
             if js_object.contains_key(PredefinedAtom::ToJSON)? {
                 return run_to_json(context, js_object);
@@ -461,8 +465,25 @@ fn iterate<'js>(
 
             value_written = false;
 
-            for key in js_object.keys::<String>() {
-                let key = key?;
+            // Collect keys: js_object.keys() uses JS_GetOwnPropertyNames which can fail for
+            // Proxy objects. Fall back to Object.keys() in that case.
+            let keys: Vec<String> = {
+                let collected: Vec<String> = js_object.keys::<String>().flatten().collect();
+                if collected.is_empty() {
+                    // Clear any pending exception and try Object.keys() for Proxy support
+                    ctx.catch();
+                    ctx.globals()
+                        .get::<_, Object>("Object")
+                        .ok()
+                        .and_then(|o| o.get::<_, Function>("keys").ok())
+                        .and_then(|f| f.call::<_, Vec<String>>((js_object.clone(),)).ok())
+                        .unwrap_or_default()
+                } else {
+                    collected
+                }
+            };
+
+            for key in keys {
                 let val = js_object.get(&key)?;
 
                 add_comma = append_value(
