@@ -74,6 +74,7 @@ impl ModuleDef for StreamWebModule {
         Ok(())
     }
 
+    #[inline]
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             Class::<ReadableStream>::define(default)?;
