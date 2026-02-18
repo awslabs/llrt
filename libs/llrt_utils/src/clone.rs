@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt, This},
-    Array, ArrayBuffer, Ctx, Function, IntoJs, Null, Object, Result, Type, Value,
+    Array, ArrayBuffer, Ctx, Exception, Function, IntoJs, Null, Object, Result, Type, Value,
 };
 
 use super::{
@@ -79,6 +79,12 @@ pub fn structured_clone<'js>(
                     }
                 }
                 match value.type_of() {
+                    Type::Proxy => {
+                        return Err(Exception::throw_type(
+                            ctx,
+                            "A Proxy value could not be cloned",
+                        ));
+                    },
                     Type::Object => {
                         if check_circular(
                             &mut tape,

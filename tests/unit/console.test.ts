@@ -166,6 +166,17 @@ it("should log complex object", () => {
   );
 });
 
+it("should log Proxy object", () => {
+  const target = { a: 1, b: "foo" };
+  const proxy = new Proxy(target, {
+    set(t, p, v) {
+      t[p] = v;
+      return true;
+    },
+  });
+  expect(util.format(proxy)).toEqual(`{\n  a: 1,\n  b: 'foo'\n}`);
+});
+
 it("should log Headers", () => {
   const headers = new Headers();
   headers.append("foo", "bar");

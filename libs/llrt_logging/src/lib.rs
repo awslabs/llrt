@@ -455,7 +455,7 @@ fn format_raw_inner<'js>(
             result.push('}');
             return Ok(());
         },
-        Type::Array | Type::Object | Type::Exception => {
+        Type::Array | Type::Object | Type::Exception | Type::Proxy => {
             let hash = hash::default_hash(&value);
             if visited.contains(&hash) {
                 if color_enabled {
@@ -661,10 +661,71 @@ fn write_object<'js>(
     let mut keys = obj.keys();
     let mut filter_functions = false;
     if !is_array && keys.len() == 0 {
+        // Clear any pending exception from JS_GetOwnPropertyNames (e.g. on Proxy objects)
+        let ctx = obj.ctx();
+        ctx.catch();
+        // Try Object.keys() which correctly handles Proxy objects
+        let proxy_keys: Option<Vec<String>> = ctx
+            .globals()
+            .get::<_, Object>("Object")
+            .ok()
+            .and_then(|o| o.get::<_, Function>("keys").ok())
+            .and_then(|f| f.call::<_, Vec<String>>((obj.clone(),)).ok());
+        if let Some(pk) = proxy_keys {
+            if !pk.is_empty() {
+                let apply_indentation = depth < 2;
+                let mut first = false;
+                let length = pk.len();
+                for (i, key) in pk.iter().enumerate() {
+                    let value: Value = obj.get::<&str, _>(key.as_str())?;
+                    let numeric_key = key.parse::<f64>().is_ok();
+                    write_sep(result, first, apply_indentation, options.newline);
+                    if apply_indentation {
+                        push_indentation(result, depth + 1);
+                    }
+                    if depth > MAX_INDENTATION_LEVEL - 1 {
+                        result.push(SPACING);
+                    }
+                    format_raw_string_inner(
+                        result,
+                        key.clone(),
+                        numeric_key,
+                        numeric_key & color_enabled,
+                    );
+                    if numeric_key && color_enabled {
+                        Color::reset(result);
+                    }
+                    result.push(':');
+                    result.push(SPACING);
+                    format_raw_inner(result, value, options, visited, depth + 1)?;
+                    first = true;
+                    if i > 99 {
+                        result.push_str("... ");
+                        let mut buffer = itoa::Buffer::new();
+                        result.push_str(buffer.format(length - i));
+                        result.push_str(" more items");
+                        break;
+                    }
+                }
+                if first {
+                    if apply_indentation {
+                        result.push(if options.newline {
+                            NEWLINE
+                        } else {
+                            CARRIAGE_RETURN
+                        });
+                        push_indentation(result, depth);
+                    } else {
+                        result.push(SPACING);
+                    }
+                }
+                result.push('}');
+                return Ok(());
+            }
+        }
         if let Some(proto) = obj.get_prototype() {
             if proto != options.object_prototype {
                 keys = proto.own_keys(options.object_filter);
-
                 filter_functions = true;
             }
         }
