@@ -1,7 +1,7 @@
 [package]
 name = "llrt_intl"
 description = "LLRT Intl module - minimal internationalization support"
-version = "0.8.0-beta"
+version = "0.8.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -15,4 +15,4 @@ path = "src/lib.rs"
 itoa = "1.0"
 jiff = { version = "0.2" }
 rquickjs = { version = "0.11", default-features = false }
-llrt_utils = { version = "0.8.0-beta", path = "../../libs/llrt_utils" }
+llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils" }

@@ -1,7 +1,7 @@
 [package]
 name = "llrt_http"
 description = "LLRT Module http & https"
-version = "0.8.0-beta"
+version = "0.8.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -21,24 +21,51 @@ webpki-roots = ["llrt_tls/webpki-roots"]
 native-roots = ["llrt_tls/native-roots"]
 
 # TLS crypto backend features (rustls-based)
-tls-ring = ["http1", "llrt_tls/tls-ring", "dep:hyper-rustls", "hyper-rustls/ring", "dep:rustls"]
-tls-aws-lc = ["http1", "llrt_tls/tls-aws-lc", "dep:hyper-rustls", "hyper-rustls/aws-lc-rs", "dep:rustls"]
-tls-graviola = ["http1", "llrt_tls/tls-graviola", "dep:hyper-rustls", "dep:rustls"]
+tls-ring = [
+  "http1",
+  "llrt_tls/tls-ring",
+  "dep:hyper-rustls",
+  "hyper-rustls/ring",
+  "dep:rustls",
+]
+tls-aws-lc = [
+  "http1",
+  "llrt_tls/tls-aws-lc",
+  "dep:hyper-rustls",
+  "hyper-rustls/aws-lc-rs",
+  "dep:rustls",
+]
+tls-graviola = [
+  "http1",
+  "llrt_tls/tls-graviola",
+  "dep:hyper-rustls",
+  "dep:rustls",
+]
 
 # OpenSSL TLS backend
-tls-openssl = ["http1", "llrt_tls/tls-openssl", "dep:hyper-openssl", "dep:openssl"]
+tls-openssl = [
+  "http1",
+  "llrt_tls/tls-openssl",
+  "dep:hyper-openssl",
+  "dep:openssl",
+]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
-hyper-util = { version = "0.1", features = ["client-legacy", "tokio"], default-features = false }
+hyper-util = { version = "0.1", features = [
+  "client-legacy",
+  "tokio",
+], default-features = false }
 hyper-rustls = { version = "0.27", default-features = false, optional = true }
-hyper-openssl = { version = "0.10", features = ["client-legacy"], optional = true }
+hyper-openssl = { version = "0.10", features = [
+  "client-legacy",
+], optional = true }
 openssl = { version = "0.10", optional = true }
-llrt_dns_cache = { version = "0.8.0-beta", path = "../../libs/llrt_dns_cache" }
-llrt_tls = { version = "0.8.0-beta", default-features = false, path = "../llrt_tls" }
-llrt_utils = { version = "0.8.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_dns_cache = { version = "0.8.1-beta", path = "../../libs/llrt_dns_cache" }
+llrt_tls = { version = "0.8.1-beta", default-features = false, path = "../llrt_tls" }
+llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.11", features = [
   "either",
