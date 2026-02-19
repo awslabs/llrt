@@ -13,8 +13,16 @@ lambda = ["base"]
 
 # TLS crypto backend features
 tls-ring = ["llrt_http?/tls-ring", "llrt_tls?/tls-ring", "llrt_fetch?/tls-ring"]
-tls-aws-lc = ["llrt_http?/tls-aws-lc", "llrt_tls?/tls-aws-lc", "llrt_fetch?/tls-aws-lc"]
-tls-graviola = ["llrt_http?/tls-graviola", "llrt_tls?/tls-graviola", "llrt_fetch?/tls-graviola"]
+tls-aws-lc = [
+  "llrt_http?/tls-aws-lc",
+  "llrt_tls?/tls-aws-lc",
+  "llrt_fetch?/tls-aws-lc",
+]
+tls-graviola = [
+  "llrt_http?/tls-graviola",
+  "llrt_tls?/tls-graviola",
+  "llrt_fetch?/tls-graviola",
+]
 tls-openssl = ["llrt_http?/tls-openssl", "llrt_tls?/tls-openssl"]
 
 # Crypto provider features
@@ -71,7 +79,17 @@ dgram = ["llrt_dgram"]
 dns = ["llrt_dns"]
 events = ["llrt_events"]
 exceptions = ["llrt_exceptions"]
-fetch = ["llrt_fetch", "llrt_fetch?/http1", "llrt_fetch?/http2", "llrt_fetch?/compression-c", "llrt_fetch?/webpki-roots"]
+fetch = [
+  "llrt_fetch",
+  "llrt_fetch?/http1",
+  "llrt_fetch?/http2",
+  "llrt_fetch?/webpki-roots",
+]
+compression-c = ["llrt_fetch?/compression-c", "llrt_zlib?/compression-c"]
+compression-rust = [
+  "llrt_fetch?/compression-rust",
+  "llrt_zlib?/compression-rust",
+]
 fs = ["llrt_fs"]
 https = [
   "llrt_http",

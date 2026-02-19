@@ -4,12 +4,11 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use llrt_utils::clone::structured_clone;
 use rquickjs::{
-    class::{OwnedBorrowMut, Trace},
+    class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
-    prelude::{List, OnceFn, Opt},
-    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, Promise, Result, Value,
+    prelude::{List, OnceFn},
+    ArrayBuffer, Class, Ctx, Error, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
 use crate::{
@@ -41,20 +40,73 @@ use crate::{
     utils::promise::{upon_promise, ResolveablePromise},
 };
 
+/// State for tee() operation, stored in a Class for GC tracing
+#[rquickjs::class]
+pub(crate) struct TeeState<'js> {
+    pub(super) stream: ReadableStreamClass<'js>,
+    pub(super) controller: Class<'js, ReadableStreamDefaultController<'js>>,
+    pub(super) reader: Class<'js, ReadableStreamDefaultReader<'js>>,
+    pub(super) cancel_promise: ResolveablePromise<'js>,
+    pub(super) reading: Rc<AtomicBool>,
+    pub(super) read_again: Rc<AtomicBool>,
+    pub(super) reason_1: Rc<OnceCell<Value<'js>>>,
+    pub(super) reason_2: Rc<OnceCell<Value<'js>>>,
+    pub(super) branch_1: Rc<
+        OnceCell<
+            ReadableStreamClassObjects<
+                'js,
+                ReadableStreamDefaultControllerOwned<'js>,
+                UndefinedReader,
+            >,
+        >,
+    >,
+    pub(super) branch_2: Rc<
+        OnceCell<
+            ReadableStreamClassObjects<
+                'js,
+                ReadableStreamDefaultControllerOwned<'js>,
+                UndefinedReader,
+            >,
+        >,
+    >,
+}
+
+unsafe impl<'js> JsLifetime<'js> for TeeState<'js> {
+    type Changed<'to> = TeeState<'to>;
+}
+
+impl<'js> Trace<'js> for TeeState<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.stream.trace(tracer);
+        self.controller.trace(tracer);
+        self.reader.trace(tracer);
+        self.cancel_promise.trace(tracer);
+        if let Some(r) = self.reason_1.get() {
+            r.trace(tracer);
+        }
+        if let Some(r) = self.reason_2.get() {
+            r.trace(tracer);
+        }
+        if let Some(b) = self.branch_1.get() {
+            b.trace(tracer);
+        }
+        if let Some(b) = self.branch_2.get() {
+            b.trace(tracer);
+        }
+    }
+}
+
 type ReadableStreamPair<'js> = (ReadableStreamClass<'js>, ReadableStreamClass<'js>);
 
 impl<'js> ReadableStream<'js> {
     pub(super) fn readable_stream_tee<C: ReadableStreamController<'js>>(
         ctx: Ctx<'js>,
         objects: ReadableStreamObjects<'js, C, UndefinedReader>,
-        clone_for_branch_2: bool,
     ) -> Result<ReadableStreamPair<'js>> {
         let (streams, _) = objects.with_controller(
             ctx,
             |ctx, objects| {
-                // Return ? ReadableStreamDefaultTee(stream, cloneForBranch2).
-                let (streams, objects) =
-                    Self::readable_stream_default_tee(ctx, objects, clone_for_branch_2)?;
+                let (streams, objects) = Self::readable_stream_default_tee(ctx, objects)?;
                 Ok((streams, objects.clear_reader()))
             },
             |ctx, objects| {
@@ -69,7 +121,6 @@ impl<'js> ReadableStream<'js> {
     fn readable_stream_default_tee(
         ctx: Ctx<'js>,
         mut objects: ReadableStreamDefaultControllerObjects<'js, UndefinedReader>,
-        clone_for_branch_2: bool,
     ) -> Result<(
         ReadableStreamPair<'js>,
         ReadableStreamDefaultControllerObjects<'js, ReadableStreamDefaultReaderOwned<'js>>,
@@ -116,69 +167,35 @@ impl<'js> ReadableStream<'js> {
         // Let startAlgorithm be an algorithm that returns undefined.
         let start_algorithm = StartAlgorithm::ReturnUndefined;
 
-        let objects_class = objects.into_inner().set_reader(reader);
+        let objects_class: ReadableStreamClassObjects<
+            'js,
+            ReadableStreamDefaultControllerOwned<'js>,
+            ReadableStreamDefaultReaderOwned<'js>,
+        > = objects.into_inner().set_reader(reader);
 
-        let pull_algorithm = PullAlgorithm::from_fn({
-            let objects_class = objects_class.clone();
-            let reason_1 = reason_1.clone();
-            let reason_2 = reason_2.clone();
-            let branch_1 = branch_1.clone();
-            let branch_2 = branch_2.clone();
-            let cancel_promise = cancel_promise.clone();
-            move |ctx: Ctx<'js>, _| {
-                let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                Self::readable_stream_default_pull_algorithm(
-                    ctx,
-                    objects,
-                    clone_for_branch_2,
-                    reading.clone(),
-                    read_again.clone(),
-                    reason_1.clone(),
-                    reason_2.clone(),
-                    branch_1.clone(),
-                    branch_2.clone(),
-                    cancel_promise.clone(),
-                )
-            }
-        });
-        let cancel_algorithm_1 = CancelAlgorithm::from_fn({
-            let objects_class = objects_class.clone();
-            let reason_1 = reason_1.clone();
-            let reason_2 = reason_2.clone();
-            let cancel_promise = cancel_promise.clone();
-            move |reason: Value<'js>| {
-                let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                Self::readable_stream_cancel_1_algorithm(
-                    reason.ctx().clone(),
-                    objects,
-                    reason_1,
-                    reason_2,
-                    cancel_promise,
-                    reason,
-                )
-            }
-        });
+        // Create TeeState to hold all JS values for GC tracing
+        let tee_state = Class::instance(
+            ctx.clone(),
+            TeeState {
+                stream: objects_class.stream.clone(),
+                controller: objects_class.controller.clone(),
+                reader: objects_class.reader.clone(),
+                cancel_promise: cancel_promise.clone(),
+                reading: reading.clone(),
+                read_again: read_again.clone(),
+                reason_1: reason_1.clone(),
+                reason_2: reason_2.clone(),
+                branch_1: branch_1.clone(),
+                branch_2: branch_2.clone(),
+            },
+        )?;
 
-        let cancel_algorithm_2 = CancelAlgorithm::from_fn({
-            let objects_class = objects_class.clone();
-            let reason_1 = reason_1.clone();
-            let reason_2 = reason_2.clone();
-            let cancel_promise = cancel_promise.clone();
-            move |reason: Value<'js>| {
-                let objects = ReadableStreamObjects::from_class(objects_class.clone());
-                Self::readable_stream_cancel_2_algorithm(
-                    reason.ctx().clone(),
-                    objects,
-                    reason_1,
-                    reason_2,
-                    cancel_promise,
-                    reason,
-                )
-            }
-        });
+        let pull_algorithm = PullAlgorithm::from_tee_state(tee_state.clone());
+        let cancel_algorithm_1 = CancelAlgorithm::from_tee_state_1(tee_state.clone());
+        let cancel_algorithm_2 = CancelAlgorithm::from_tee_state_2(tee_state.clone());
 
         // Set branch1 to ! CreateReadableStream(startAlgorithm, pullAlgorithm, cancel1Algorithm).
-        let branch_1 = {
+        let branch_1_objects = {
             let objects = Self::create_readable_stream(
                 ctx.clone(),
                 start_algorithm.clone(),
@@ -192,7 +209,7 @@ impl<'js> ReadableStream<'js> {
         };
 
         // Set branch2 to ! CreateReadableStream(startAlgorithm, pullAlgorithm, cancel2Algorithm).
-        let branch_2 = {
+        let branch_2_objects = {
             let objects = Self::create_readable_stream(
                 ctx.clone(),
                 start_algorithm,
@@ -215,15 +232,17 @@ impl<'js> ReadableStream<'js> {
                 .promise
                 .clone(),
             {
-                let branch_1 = branch_1.clone();
-                let branch_2 = branch_2.clone();
+                let tee_state = tee_state.clone();
+                let branch_1_objects = branch_1_objects.clone();
+                let branch_2_objects = branch_2_objects.clone();
                 move |_, result| match result {
                     Ok(()) => Ok(()),
                     // Upon rejection of reader.[[closedPromise]] with reason r,
                     Err(reason) => {
                         // Perform ! ReadableStreamDefaultControllerError(branch1.[[controller]], r).
                         let objects_1 =
-                            ReadableStreamObjects::from_class_no_reader(branch_1).refresh_reader();
+                            ReadableStreamObjects::from_class_no_reader(branch_1_objects)
+                                .refresh_reader();
                         ReadableStreamDefaultController::readable_stream_default_controller_error(
                             objects_1,
                             reason.clone(),
@@ -231,13 +250,15 @@ impl<'js> ReadableStream<'js> {
 
                         // Perform ! ReadableStreamDefaultControllerError(branch2.[[controller]], r).
                         let objects_2 =
-                            ReadableStreamObjects::from_class_no_reader(branch_2).refresh_reader();
+                            ReadableStreamObjects::from_class_no_reader(branch_2_objects)
+                                .refresh_reader();
                         ReadableStreamDefaultController::readable_stream_default_controller_error(
                             objects_2, reason,
                         )?;
                         // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
-                        if reason_1.get().is_none() || reason_2.get().is_none() {
-                            cancel_promise.resolve_undefined()?;
+                        let state = tee_state.borrow();
+                        if state.reason_1.get().is_none() || state.reason_2.get().is_none() {
+                            state.cancel_promise.resolve_undefined()?;
                         }
 
                         Ok(())
@@ -247,393 +268,242 @@ impl<'js> ReadableStream<'js> {
         )?;
 
         Ok((
-            (branch_1.stream, branch_2.stream),
+            (branch_1_objects.stream, branch_2_objects.stream),
             ReadableStreamObjects::from_class(objects_class),
         ))
     }
+}
 
-    // Let pullAlgorithm be the following steps:
-    #[allow(clippy::too_many_arguments)]
-    fn readable_stream_default_pull_algorithm(
-        ctx: Ctx<'js>,
-        mut objects: ReadableStreamDefaultControllerObjects<
-            'js,
-            ReadableStreamDefaultReaderOwned<'js>,
-        >,
-        clone_for_branch_2: bool,
-        reading: Rc<AtomicBool>,
-        read_again: Rc<AtomicBool>,
-        reason_1: Rc<OnceCell<Value<'js>>>,
-        reason_2: Rc<OnceCell<Value<'js>>>,
-        branch_1: Rc<
-            OnceCell<
-                ReadableStreamClassObjects<
-                    'js,
-                    ReadableStreamDefaultControllerOwned<'js>,
-                    UndefinedReader,
-                >,
-            >,
-        >,
-        branch_2: Rc<
-            OnceCell<
-                ReadableStreamClassObjects<
-                    'js,
-                    ReadableStreamDefaultControllerOwned<'js>,
-                    UndefinedReader,
-                >,
-            >,
-        >,
-        cancel_promise: ResolveablePromise<'js>,
-    ) -> Result<Promise<'js>> {
-        // If reading is true,
-        if reading.load(Ordering::Acquire) {
-            // Set readAgain to true.
-            read_again.store(true, Ordering::Release);
+/// Pull algorithm for tee - called from PullAlgorithm::Tee
+pub fn tee_pull_algorithm<'js>(
+    ctx: Ctx<'js>,
+    state: Class<'js, TeeState<'js>>,
+) -> Result<Promise<'js>> {
+    let state_ref = state.borrow();
 
-            // Return a promise resolved with undefined.
-            return Ok(objects
-                .stream
-                .promise_primordials
-                .promise_resolved_with_undefined
-                .clone());
-        }
-
-        // Set reading to true.
-        reading.store(true, Ordering::Release);
-
-        #[derive(Clone)]
-        struct ReadRequest<'js> {
-            clone_for_branch_2: bool,
-            reading: Rc<AtomicBool>,
-            read_again: Rc<AtomicBool>,
-            reason_1: Rc<OnceCell<Value<'js>>>,
-            reason_2: Rc<OnceCell<Value<'js>>>,
-            branch_1: Rc<
-                OnceCell<
-                    ReadableStreamClassObjects<
-                        'js,
-                        ReadableStreamDefaultControllerOwned<'js>,
-                        UndefinedReader,
-                    >,
-                >,
-            >,
-            branch_2: Rc<
-                OnceCell<
-                    ReadableStreamClassObjects<
-                        'js,
-                        ReadableStreamDefaultControllerOwned<'js>,
-                        UndefinedReader,
-                    >,
-                >,
-            >,
-            cancel_promise: ResolveablePromise<'js>,
-        }
-
-        impl<'js> Trace<'js> for ReadRequest<'js> {
-            fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
-                if let Some(r) = self.reason_1.get() {
-                    r.trace(tracer)
-                }
-                if let Some(r) = self.reason_2.get() {
-                    r.trace(tracer)
-                }
-                if let Some(b) = self.branch_1.get() {
-                    b.trace(tracer)
-                }
-                if let Some(b) = self.branch_2.get() {
-                    b.trace(tracer)
-                }
-                self.cancel_promise.trace(tracer);
-            }
-        }
-
-        // Let readRequest be a read request with the following items:
-        impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
-            fn chunk_steps(
-                &self,
-                objects: ReadableStreamDefaultReaderObjects<'js>,
-                chunk: Value<'js>,
-            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
-                let ctx = chunk.ctx().clone();
-                let this = self.clone();
-
-                objects
-                    .with_assert_default_controller(
-                        |objects| {
-                            let objects_class = objects.into_inner();
-                            // Queue a microtask to perform the following steps:
-                            let f = {
-                                let ctx = ctx.clone();
-                                let objects_class = objects_class.clone();
-                                move || -> Result<()> {
-                                    // Set readAgain to false.
-                                    this.read_again.store(false, Ordering::Release);
-
-                                    // Let chunk1 and chunk2 be chunk.
-                                    let chunk_1 = chunk.clone();
-                                    let chunk_2 = chunk.clone();
-
-                                    // If canceled2 is false and cloneForBranch2 is true,
-                                    let chunk_2 = if this.reason_2.get().is_none() && this.clone_for_branch_2 {
-                                        // Let cloneResult be StructuredClone(chunk2).
-                                        let clone_result: Result<Value<'_>> = structured_clone(&ctx, chunk_2, Opt(None));
-                                        match clone_result {
-                                            // If cloneResult is an abrupt completion,
-                                            Err(Error::Exception) => {
-                                                let clone_result = ctx.catch();
-                                                let objects_1 = ReadableStreamObjects::from_class(
-                                                    this.branch_1.get().cloned().expect(
-                                                        "canceled1 set without branch1 being initialised",
-                                                    ),
-                                                ).refresh_reader();
-
-                                                // Perform ! ReadableStreamDefaultControllerError(branch1.[[controller]], cloneResult.[[Value]]).
-                                                ReadableStreamDefaultController::readable_stream_default_controller_error(
-                                                    objects_1,
-                                                    clone_result.clone(),
-                                                )?;
-
-                                                let objects_2 = ReadableStreamObjects::from_class(
-                                                    this.branch_2.get().cloned().clone().expect(
-                                                        "canceled2 set without branch2 being initialised",
-                                                    ),
-                                                ).refresh_reader();
-
-                                                // Perform ! ReadableStreamDefaultControllerError(branch2.[[controller]], cloneResult.[[Value]]).
-                                                ReadableStreamDefaultController::readable_stream_default_controller_error(
-                                                    objects_2,
-                                                    clone_result.clone(),
-                                                )?;
-
-                                                // Resolve cancelPromise with ! ReadableStreamCancel(stream, cloneResult.[[Value]]).
-                                                let (promise, _) =
-                                                    ReadableStream::readable_stream_cancel(
-                                                        ctx,
-                                                        ReadableStreamObjects::from_class(objects_class),
-                                                        clone_result,
-                                                    )?;
-                                                this.cancel_promise.resolve(promise)?;
-                                                // Return.
-                                                return Ok(());
-                                            },
-                                            Ok(clone_result) => {
-                                                // Otherwise, set chunk2 to cloneResult.[[Value]].
-                                                clone_result
-                                            },
-                                            Err(err) => return Err(err),
-                                        }
-                                    } else {
-                                        chunk_2
-                                    };
-
-                                    // If canceled1 is false, perform ! ReadableStreamDefaultControllerEnqueue(branch1.[[controller]], chunk1).
-                                    if this.reason_1.get().is_none() {
-                                        let objects_1 = ReadableStreamObjects::from_class(
-                                            this.branch_1
-                                                .get()
-                                                .cloned()
-                                                .expect("canceled1 set without branch1 being initialised"),
-                                        ).refresh_reader();
-
-                                        ReadableStreamDefaultController::readable_stream_default_controller_enqueue(ctx.clone(), objects_1, chunk_1)?;
-                                    }
-
-                                    // If canceled2 is false, perform ! ReadableStreamDefaultControllerEnqueue(branch2.[[controller]], chunk2).
-                                    if this.reason_2.get().is_none() {
-                                        let objects_2 = ReadableStreamObjects::from_class(
-                                            this.branch_2
-                                                .get()
-                                                .cloned()
-                                                .expect("canceled2 set without branch2 being initialised"),
-                                        ).refresh_reader();
-
-                                        ReadableStreamDefaultController::readable_stream_default_controller_enqueue(ctx.clone(), objects_2, chunk_2)?;
-                                    }
-
-                                    // Set reading to false.
-                                    this.reading.store(false, Ordering::Release);
-
-                                    // If readAgain is true, perform pullAlgorithm.
-                                    if this.read_again.load(Ordering::Acquire) {
-                                        let objects = ReadableStreamObjects::from_class(objects_class);
-
-                                        ReadableStream::readable_stream_default_pull_algorithm(
-                                            ctx.clone(),
-                                            objects,
-                                            this.clone_for_branch_2,
-                                            this.reading.clone(),
-                                            this.read_again.clone(),
-                                            this.reason_1.clone(),
-                                            this.reason_2.clone(),
-                                            this.branch_1.clone(),
-                                            this.branch_2.clone(),
-                                            this.cancel_promise.clone(),
-                                        )?;
-                                    }
-
-                                    Ok(())
-                                }
-                            };
-
-                            let () = Function::new(ctx, OnceFn::new(f))?.defer(())?;
-
-
-                            Ok(ReadableStreamObjects::from_class(objects_class))
-                        },
-                    )
-            }
-
-            fn close_steps(
-                &self,
-                ctx: &Ctx<'js>,
-                objects: ReadableStreamDefaultReaderObjects<'js>,
-            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
-                // Set reading to false.
-                self.reading.store(false, Ordering::Release);
-                // If canceled1 is false, perform ! ReadableStreamDefaultControllerClose(branch1.[[controller]]).
-                if self.reason_1.get().is_none() {
-                    let objects = ReadableStreamObjects::from_class(
-                        self.branch_1
-                            .get()
-                            .expect("close called without branch1 being initialised")
-                            .clone(),
-                    )
-                    .refresh_reader();
-
-                    ReadableStreamDefaultController::readable_stream_default_controller_close(
-                        ctx.clone(),
-                        objects,
-                    )?;
-                }
-                // If canceled2 is false, perform ! ReadableStreamDefaultControllerClose(branch2.[[controller]]).
-                if self.reason_2.get().is_none() {
-                    let objects = ReadableStreamObjects::from_class(
-                        self.branch_2
-                            .get()
-                            .expect("close called without branch2 being initialised")
-                            .clone(),
-                    )
-                    .refresh_reader();
-
-                    ReadableStreamDefaultController::readable_stream_default_controller_close(
-                        ctx.clone(),
-                        objects,
-                    )?;
-                }
-                // If canceled1 is false or canceled2 is false, resolve cancelPromise with undefined.
-                if self.reason_1.get().is_none() || self.reason_2.get().is_none() {
-                    self.cancel_promise.resolve_undefined()?
-                }
-                Ok(objects)
-            }
-
-            fn error_steps(
-                &self,
-                objects: ReadableStreamDefaultReaderObjects<'js>,
-                _: Value<'js>,
-            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
-                // Set reading to false.
-                self.reading.store(false, Ordering::Release);
-                Ok(objects)
-            }
-        }
-
-        // Perform ! ReadableStreamDefaultReaderRead(reader, readRequest).
-        objects = ReadableStreamDefaultReader::readable_stream_default_reader_read(
-            &ctx,
-            objects,
-            ReadRequest {
-                clone_for_branch_2,
-                reading,
-                read_again,
-                reason_1,
-                reason_2,
-                branch_1,
-                branch_2,
-                cancel_promise,
-            },
-        )?;
-
-        // Return a promise resolved with undefined.
-        Ok(objects
+    // If reading is true, set readAgain to true and return resolved promise
+    if state_ref.reading.load(Ordering::Acquire) {
+        state_ref.read_again.store(true, Ordering::Release);
+        return Ok(state_ref
             .stream
+            .borrow()
             .promise_primordials
             .promise_resolved_with_undefined
-            .clone())
+            .clone());
     }
 
-    // Let cancel1Algorithm be the following steps, taking a reason argument:
-    fn readable_stream_cancel_1_algorithm(
+    // Set reading to true
+    state_ref.reading.store(true, Ordering::Release);
+
+    let objects_class: ReadableStreamClassObjects<
+        'js,
+        ReadableStreamDefaultControllerOwned<'js>,
+        ReadableStreamDefaultReaderOwned<'js>,
+    > = ReadableStreamClassObjects {
+        stream: state_ref.stream.clone(),
+        controller: state_ref.controller.clone(),
+        reader: state_ref.reader.clone(),
+    };
+    drop(state_ref);
+
+    let mut objects = ReadableStreamObjects::from_class(objects_class.clone());
+
+    // ReadRequest that just holds TeeState
+    #[derive(Clone)]
+    struct TeeReadRequest<'js>(Class<'js, TeeState<'js>>);
+
+    impl<'js> Trace<'js> for TeeReadRequest<'js> {
+        fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+            self.0.trace(tracer);
+        }
+    }
+
+    impl<'js> ReadableStreamReadRequest<'js> for TeeReadRequest<'js> {
+        fn chunk_steps(
+            &self,
+            objects: ReadableStreamDefaultReaderObjects<'js>,
+            chunk: Value<'js>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+            let ctx = chunk.ctx().clone();
+            let state = self.0.clone();
+
+            objects.with_assert_default_controller(|objects| {
+                let objects_class = objects.into_inner();
+                let f = {
+                    let ctx = ctx.clone();
+                    let _objects_class = objects_class.clone();
+                    move || -> Result<()> {
+                        let s = state.borrow();
+                        s.read_again.store(false, Ordering::Release);
+
+                        let chunk_1 = chunk.clone();
+                        let chunk_2 = chunk;
+
+                        if s.reason_1.get().is_none() {
+                            let objects_1 = ReadableStreamObjects::from_class(
+                                s.branch_1.get().cloned().expect("branch1 not set"),
+                            )
+                            .refresh_reader();
+                            ReadableStreamDefaultController::readable_stream_default_controller_enqueue(
+                                ctx.clone(),
+                                objects_1,
+                                chunk_1,
+                            )?;
+                        }
+
+                        if s.reason_2.get().is_none() {
+                            let objects_2 = ReadableStreamObjects::from_class(
+                                s.branch_2.get().cloned().expect("branch2 not set"),
+                            )
+                            .refresh_reader();
+                            ReadableStreamDefaultController::readable_stream_default_controller_enqueue(
+                                ctx.clone(),
+                                objects_2,
+                                chunk_2,
+                            )?;
+                        }
+
+                        s.reading.store(false, Ordering::Release);
+
+                        if s.read_again.load(Ordering::Acquire) {
+                            drop(s);
+                            tee_pull_algorithm(ctx, state)?;
+                        }
+
+                        Ok(())
+                    }
+                };
+
+                let () = Function::new(ctx, OnceFn::new(f))?.defer(())?;
+                Ok(ReadableStreamObjects::from_class(objects_class))
+            })
+        }
+
+        fn close_steps(
+            &self,
+            ctx: &Ctx<'js>,
+            objects: ReadableStreamDefaultReaderObjects<'js>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+            let s = self.0.borrow();
+            s.reading.store(false, Ordering::Release);
+
+            if s.reason_1.get().is_none() {
+                let objects_1 = ReadableStreamObjects::from_class(
+                    s.branch_1.get().cloned().expect("branch1 not set"),
+                )
+                .refresh_reader();
+                ReadableStreamDefaultController::readable_stream_default_controller_close(
+                    ctx.clone(),
+                    objects_1,
+                )?;
+            }
+
+            if s.reason_2.get().is_none() {
+                let objects_2 = ReadableStreamObjects::from_class(
+                    s.branch_2.get().cloned().expect("branch2 not set"),
+                )
+                .refresh_reader();
+                ReadableStreamDefaultController::readable_stream_default_controller_close(
+                    ctx.clone(),
+                    objects_2,
+                )?;
+            }
+
+            if s.reason_1.get().is_none() || s.reason_2.get().is_none() {
+                s.cancel_promise.resolve_undefined()?;
+            }
+
+            Ok(objects)
+        }
+
+        fn error_steps(
+            &self,
+            objects: ReadableStreamDefaultReaderObjects<'js>,
+            _e: Value<'js>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+            self.0.borrow().reading.store(false, Ordering::Release);
+            Ok(objects)
+        }
+    }
+
+    objects = ReadableStreamDefaultReader::readable_stream_default_reader_read(
+        &ctx,
+        objects,
+        TeeReadRequest(state),
+    )?;
+
+    Ok(objects
+        .stream
+        .promise_primordials
+        .promise_resolved_with_undefined
+        .clone())
+}
+
+/// Cancel algorithm for tee - called from CancelAlgorithm::Tee1/Tee2
+pub fn tee_cancel_algorithm<'js>(
+    ctx: Ctx<'js>,
+    state: Class<'js, TeeState<'js>>,
+    reason: Value<'js>,
+    branch: usize,
+) -> Result<Promise<'js>> {
+    let state_ref = state.borrow();
+    let objects_class: ReadableStreamClassObjects<
+        'js,
+        ReadableStreamDefaultControllerOwned<'js>,
+        ReadableStreamDefaultReaderOwned<'js>,
+    > = ReadableStreamClassObjects {
+        stream: state_ref.stream.clone(),
+        controller: state_ref.controller.clone(),
+        reader: state_ref.reader.clone(),
+    };
+    let objects = ReadableStreamObjects::from_class(objects_class);
+    ReadableStream::tee_cancel_algorithm_impl(
+        ctx,
+        objects,
+        [&state_ref.reason_1, &state_ref.reason_2],
+        state_ref.cancel_promise.clone(),
+        reason,
+        branch,
+    )
+}
+
+impl<'js> ReadableStream<'js> {
+    // Cancel algorithm for tee - handles both branches
+    fn tee_cancel_algorithm_impl(
         ctx: Ctx<'js>,
         objects: ReadableStreamObjects<
             'js,
             impl ReadableStreamController<'js>,
             impl ReadableStreamReader<'js>,
         >,
-        reason_1: Rc<OnceCell<Value<'js>>>,
-        reason_2: Rc<OnceCell<Value<'js>>>,
+        reasons: [&Rc<OnceCell<Value<'js>>>; 2],
         cancel_promise: ResolveablePromise<'js>,
         reason: Value<'js>,
+        branch: usize,
     ) -> Result<Promise<'js>> {
-        // Set canceled1 to true.
-        // Set reason1 to reason.
-        reason_1
-            .set(reason.clone())
-            .expect("First tee stream already has a cancel reason");
+        let other = 1 - branch;
 
-        // If canceled2 is true,
-        if let Some(reason_2) = reason_2.get().cloned() {
-            // Let compositeReason be ! CreateArrayFromList(« reason1, reason2 »).
-            let composite_reason = List((reason, reason_2));
-            // Let cancelResult be ! ReadableStreamCancel(stream, compositeReason).
+        // Set canceled[branch] to true, set reason[branch] to reason
+        reasons[branch]
+            .set(reason.clone())
+            .expect("tee stream already has a cancel reason");
+
+        // If other branch is also canceled
+        if let Some(other_reason) = reasons[other].get().cloned() {
+            // CreateArrayFromList with reasons in correct order
+            let composite_reason = if branch == 0 {
+                List((reason, other_reason))
+            } else {
+                List((other_reason, reason))
+            };
             let (cancel_result, _) = ReadableStream::readable_stream_cancel(
                 ctx.clone(),
                 objects,
                 composite_reason.into_js(&ctx)?,
             )?;
-            // Resolve cancelPromise with cancelResult.
             cancel_promise.resolve(cancel_result)?;
         }
 
-        // Return cancelPromise.
-        Ok(cancel_promise.promise)
-    }
-
-    // Let cancel2Algorithm be the following steps, taking a reason argument:
-    #[allow(clippy::too_many_arguments)]
-    fn readable_stream_cancel_2_algorithm(
-        ctx: Ctx<'js>,
-        objects: ReadableStreamObjects<
-            'js,
-            impl ReadableStreamController<'js>,
-            impl ReadableStreamReader<'js>,
-        >,
-        reason_1: Rc<OnceCell<Value<'js>>>,
-        reason_2: Rc<OnceCell<Value<'js>>>,
-        cancel_promise: ResolveablePromise<'js>,
-        reason: Value<'js>,
-    ) -> Result<Promise<'js>> {
-        // Set canceled2 to true.
-        // Set reason2 to reason.
-        reason_2
-            .set(reason.clone())
-            .expect("Second tee stream already has a cancel reason");
-
-        // If canceled1 is true,
-        if let Some(reason_1) = reason_1.get().cloned() {
-            // Let compositeReason be ! CreateArrayFromList(« reason1, reason2 »).
-            let composite_reason = List((reason_1, reason));
-            // Let cancelResult be ! ReadableStreamCancel(stream, compositeReason).
-            let (cancel_result, _) = ReadableStream::readable_stream_cancel(
-                ctx.clone(),
-                objects,
-                composite_reason.into_js(&ctx)?,
-            )?;
-            // Resolve cancelPromise with cancelResult.
-            let () = cancel_promise.resolve(cancel_result)?;
-        }
-
-        // Return cancelPromise.
         Ok(cancel_promise.promise)
     }
 
@@ -780,13 +650,13 @@ impl<'js> ReadableStream<'js> {
             move |reason: Value<'js>| {
                 let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
                 let objects = ReadableStreamObjects::from_class(objects_class).set_reader(reader);
-                Self::readable_stream_cancel_1_algorithm(
+                Self::tee_cancel_algorithm_impl(
                     reason.ctx().clone(),
                     objects,
-                    reason_1,
-                    reason_2,
+                    [&reason_1, &reason_2],
                     cancel_promise,
                     reason,
+                    0,
                 )
             }
         });
@@ -800,13 +670,13 @@ impl<'js> ReadableStream<'js> {
             move |reason: Value<'js>| {
                 let reader = ReadableStreamReaderOwned::from_class(reader.borrow().clone());
                 let objects = ReadableStreamObjects::from_class(objects_class).set_reader(reader);
-                Self::readable_stream_cancel_2_algorithm(
+                Self::tee_cancel_algorithm_impl(
                     reason.ctx().clone(),
                     objects,
-                    reason_1,
-                    reason_2,
+                    [&reason_1, &reason_2],
                     cancel_promise,
                     reason,
+                    1,
                 )
             }
         });

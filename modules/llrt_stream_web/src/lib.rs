@@ -4,8 +4,8 @@ use llrt_utils::{
 };
 use queuing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
 use readable::{
-    ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader,
-    ReadableStreamBYOBRequest, ReadableStreamDefaultController, ReadableStreamDefaultReader,
+    ReadableByteStreamController, ReadableStreamBYOBReader, ReadableStreamBYOBRequest,
+    ReadableStreamDefaultController, ReadableStreamDefaultReader,
 };
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -15,15 +15,25 @@ use writable::{WritableStream, WritableStreamDefaultController, WritableStreamDe
 
 use crate::{
     readable::{ArrayConstructorPrimordials, IteratorPrimordials},
-    utils::promise::PromisePrimordials,
     writable::WritableStreamDefaultControllerPrimordials,
 };
 
 mod queuing_strategy;
-mod readable;
+pub mod readable;
 mod readable_writable_pair;
-mod utils;
+pub mod utils;
 mod writable;
+
+// Public API for creating streams from Rust
+pub use readable::stream::tee_readable_stream;
+pub use readable::stream::ReadableStream;
+pub use readable::{
+    readable_stream_default_controller_close_stream,
+    readable_stream_default_controller_enqueue_value,
+    readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
+};
+pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
+pub use utils::promise::PromisePrimordials;
 
 /// Defines web streams, which are exposed through the "stream/web" Node import, but also at the global scope
 /// Web streams consist of Readable, Writable, and Transform streams. Transform is currently unimplemented.
@@ -111,7 +121,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = &ctx.globals();
 
     BasePrimordials::init(ctx)?;
-    PromisePrimordials::init(ctx)?;
+    utils::promise::PromisePrimordials::init(ctx)?;
     ArrayConstructorPrimordials::init(ctx)?;
     WritableStreamDefaultControllerPrimordials::init(ctx)?;
     IteratorPrimordials::init(ctx)?;

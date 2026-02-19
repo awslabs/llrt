@@ -35,7 +35,7 @@ use crate::{
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
-pub(crate) struct ReadableStreamDefaultController<'js> {
+pub struct ReadableStreamDefaultController<'js> {
     cancel_algorithm: Option<CancelAlgorithm<'js>>,
     close_requested: bool,
     pull_again: bool,
@@ -48,7 +48,7 @@ pub(crate) struct ReadableStreamDefaultController<'js> {
     pub(super) stream: ReadableStreamClass<'js>,
 }
 
-pub(super) type ReadableStreamDefaultControllerClass<'js> =
+pub type ReadableStreamDefaultControllerClass<'js> =
     Class<'js, ReadableStreamDefaultController<'js>>;
 pub(super) type ReadableStreamDefaultControllerOwned<'js> =
     OwnedBorrowMut<'js, ReadableStreamDefaultController<'js>>;
@@ -764,4 +764,87 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamDefaultControllerOwned
     }
 
     fn release_steps(&mut self) {}
+}
+
+/// Public API for enqueuing data into a default controller from Rust code
+pub fn readable_stream_default_controller_enqueue_value<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    chunk: Value<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    if !objects
+        .controller
+        .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
+    {
+        return Ok(()); // Silently ignore if can't enqueue
+    }
+
+    objects.with_reader(
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_enqueue(
+                ctx.clone(),
+                objects,
+                chunk.clone(),
+            )
+        },
+        |_| panic!("Default controller must not have byob reader"),
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_enqueue(
+                ctx.clone(),
+                objects,
+                chunk.clone(),
+            )
+        },
+    )?;
+
+    Ok(())
+}
+
+/// Public API for closing a default controller from Rust code
+pub fn readable_stream_default_controller_close_stream<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableStreamDefaultControllerClass<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    if !objects
+        .controller
+        .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
+    {
+        return Ok(()); // Silently ignore if can't close
+    }
+
+    ReadableStreamDefaultController::readable_stream_default_controller_close(ctx, objects)?;
+    Ok(())
+}
+
+/// Public API for erroring a default controller from Rust code
+pub fn readable_stream_default_controller_error_stream<'js>(
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    error: Value<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    objects.with_reader(
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_error(
+                objects,
+                error.clone(),
+            )
+        },
+        |_| panic!("Default controller must not have byob reader"),
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_error(
+                objects,
+                error.clone(),
+            )
+        },
+    )?;
+
+    Ok(())
 }
