@@ -575,11 +575,6 @@ async function loadShims() {
     loadShim(/stringHasher.js/, "string-hasher.js"),
     loadShim(/@smithy\/util-base64/, "@smithy/util-base64.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "mnemonist/lru-cache.js"),
-    loadShim(
-      /create-read-stream-on-buffer\.browser\.js/,
-      "create-read-stream.js"
-    ),
-    loadShim(/isStreaming.js/, "is-streaming.js"),
   ]);
 }
 

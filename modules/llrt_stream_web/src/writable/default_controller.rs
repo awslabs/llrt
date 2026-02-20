@@ -14,6 +14,8 @@ use rquickjs::{
 
 use crate::{
     queuing_strategy::{SizeAlgorithm, SizeValue},
+    transform::controller::TransformStreamDefaultControllerClass,
+    transform::stream::TransformStreamClass,
     utils::{
         class_from_owned_borrow_mut,
         promise::{promise_resolved_with, upon_promise, PromisePrimordials},
@@ -34,15 +36,15 @@ use crate::{
 #[rquickjs::class]
 #[derive(JsLifetime, Trace)]
 pub(crate) struct WritableStreamDefaultController<'js> {
-    abort_algorithm: Option<AbortAlgorithm<'js>>,
-    close_algorithm: Option<CloseAlgorithm<'js>>,
+    abort_algorithm: Option<WritableAbortAlgorithm<'js>>,
+    close_algorithm: Option<WritableCloseAlgorithm<'js>>,
     container: QueueWithSizes<'js>,
     pub(super) started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
     pub(super) abort_controller: Class<'js, AbortController<'js>>,
     pub(super) stream: WritableStreamClass<'js>,
-    write_algorithm: Option<WriteAlgorithm<'js>>,
+    write_algorithm: Option<WritableWriteAlgorithm<'js>>,
 
     primordials: WritableStreamDefaultControllerPrimordials<'js>,
 }
@@ -66,38 +68,38 @@ impl<'js> WritableStreamDefaultController<'js> {
             // « controller », exception behavior "rethrow", and callback this value underlyingSink.
             underlying_sink_dict
                 .start
-                .map(|f| StartAlgorithm::Function {
+                .map(|f| WritableStartAlgorithm::Function {
                     f,
                     underlying_sink: underlying_sink.clone(),
                 })
-                .unwrap_or(StartAlgorithm::ReturnUndefined),
+                .unwrap_or(WritableStartAlgorithm::ReturnUndefined),
             // If underlyingSinkDict["write"] exists, then set writeAlgorithm to an algorithm which takes an argument chunk and returns the result of invoking underlyingSinkDict["write"] with argument list
             // « chunk, controller » and callback this value underlyingSink.
             underlying_sink_dict
                 .write
-                .map(|f| WriteAlgorithm::Function {
+                .map(|f| WritableWriteAlgorithm::Function {
                     f,
                     underlying_sink: underlying_sink.clone(),
                 })
-                .unwrap_or(WriteAlgorithm::ReturnPromiseUndefined),
+                .unwrap_or(WritableWriteAlgorithm::ReturnPromiseUndefined),
             // If underlyingSinkDict["close"] exists, then set closeAlgorithm to an algorithm which returns the result of invoking underlyingSinkDict["close"] with argument list
             // «» and callback this value underlyingSink.
             underlying_sink_dict
                 .close
-                .map(|f| CloseAlgorithm::Function {
+                .map(|f| WritableCloseAlgorithm::Function {
                     f,
                     underlying_sink: underlying_sink.clone(),
                 })
-                .unwrap_or(CloseAlgorithm::ReturnPromiseUndefined),
+                .unwrap_or(WritableCloseAlgorithm::ReturnPromiseUndefined),
             // If underlyingSinkDict["abort"] exists, then set abortAlgorithm to an algorithm which takes an argument reason and returns the result of invoking underlyingSinkDict["abort"] with argument list
             // « reason » and callback this value underlyingSink.
             underlying_sink_dict
                 .abort
-                .map(|f| AbortAlgorithm::Function {
+                .map(|f| WritableAbortAlgorithm::Function {
                     f,
                     underlying_sink: underlying_sink.clone(),
                 })
-                .unwrap_or(AbortAlgorithm::ReturnPromiseUndefined),
+                .unwrap_or(WritableAbortAlgorithm::ReturnPromiseUndefined),
         );
 
         // Perform ? SetUpWritableStreamDefaultController(stream, controller, startAlgorithm, writeAlgorithm, closeAlgorithm, abortAlgorithm, highWaterMark, sizeAlgorithm).
@@ -114,13 +116,13 @@ impl<'js> WritableStreamDefaultController<'js> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn set_up_writable_stream_default_controller(
+    pub(crate) fn set_up_writable_stream_default_controller(
         ctx: Ctx<'js>,
         stream: WritableStreamOwned<'js>,
-        start_algorithm: StartAlgorithm<'js>,
-        write_algorithm: WriteAlgorithm<'js>,
-        close_algorithm: CloseAlgorithm<'js>,
-        abort_algorithm: AbortAlgorithm<'js>,
+        start_algorithm: WritableStartAlgorithm<'js>,
+        write_algorithm: WritableWriteAlgorithm<'js>,
+        close_algorithm: WritableCloseAlgorithm<'js>,
+        abort_algorithm: WritableAbortAlgorithm<'js>,
         high_water_mark: f64,
         size_algorithm: SizeAlgorithm<'js>,
     ) -> Result<()> {
@@ -591,7 +593,7 @@ impl<'js> WritableStreamDefaultController<'js> {
     fn start_algorithm(
         ctx: Ctx<'js>,
         objects: WritableStreamObjects<'js, UndefinedWriter>,
-        start_algorithm: StartAlgorithm<'js>,
+        start_algorithm: WritableStartAlgorithm<'js>,
     ) -> Result<(Value<'js>, WritableStreamClassObjects<'js, UndefinedWriter>)> {
         let objects_class = objects.into_inner();
 
@@ -706,39 +708,45 @@ impl<'js> WritableStreamDefaultController<'js> {
 }
 
 #[derive(Clone)]
-enum StartAlgorithm<'js> {
+pub(crate) enum WritableStartAlgorithm<'js> {
     ReturnUndefined,
     Function {
         f: Function<'js>,
         underlying_sink: Null<Undefined<Object<'js>>>,
     },
+    Transform(Promise<'js>),
 }
 
-impl<'js> StartAlgorithm<'js> {
+impl<'js> WritableStartAlgorithm<'js> {
     fn call(
         &self,
         ctx: Ctx<'js>,
         controller: WritableStreamDefaultControllerClass<'js>,
     ) -> Result<Value<'js>> {
         match self {
-            StartAlgorithm::ReturnUndefined => Ok(Value::new_undefined(ctx.clone())),
-            StartAlgorithm::Function { f, underlying_sink } => {
+            WritableStartAlgorithm::ReturnUndefined => Ok(Value::new_undefined(ctx.clone())),
+            WritableStartAlgorithm::Function { f, underlying_sink } => {
                 f.call::<_, Value>((This(underlying_sink.clone()), controller))
             },
+            WritableStartAlgorithm::Transform(promise) => Ok(promise.clone().into_value()),
         }
     }
 }
 
 #[derive(JsLifetime, Trace, Clone)]
-enum WriteAlgorithm<'js> {
+pub(crate) enum WritableWriteAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_sink: Null<Undefined<Object<'js>>>,
     },
+    Transform {
+        stream: TransformStreamClass<'js>,
+        controller: TransformStreamDefaultControllerClass<'js>,
+    },
 }
 
-impl<'js> WriteAlgorithm<'js> {
+impl<'js> WritableWriteAlgorithm<'js> {
     fn call(
         &self,
         ctx: &Ctx<'js>,
@@ -747,56 +755,75 @@ impl<'js> WriteAlgorithm<'js> {
         chunk: Value<'js>,
     ) -> Result<Promise<'js>> {
         match self {
-            WriteAlgorithm::ReturnPromiseUndefined => {
+            WritableWriteAlgorithm::ReturnPromiseUndefined => {
                 Ok(promise_primordials.promise_resolved_with_undefined.clone())
             },
-            WriteAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
+            WritableWriteAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
                 promise_primordials,
                 f.call::<_, Value>((This(underlying_sink.clone()), chunk, controller)),
+            ),
+            WritableWriteAlgorithm::Transform {
+                stream,
+                controller: ts_controller,
+            } => crate::transform::stream::sink_write_algorithm(
+                ctx.clone(),
+                stream,
+                ts_controller,
+                chunk,
             ),
         }
     }
 }
 
 #[derive(JsLifetime, Trace, Clone)]
-enum CloseAlgorithm<'js> {
+pub(crate) enum WritableCloseAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_sink: Null<Undefined<Object<'js>>>,
     },
+    Transform {
+        stream: TransformStreamClass<'js>,
+        controller: TransformStreamDefaultControllerClass<'js>,
+    },
 }
 
-impl<'js> CloseAlgorithm<'js> {
+impl<'js> WritableCloseAlgorithm<'js> {
     fn call(
         &self,
         ctx: &Ctx<'js>,
         promise_primordials: &PromisePrimordials<'js>,
     ) -> Result<Promise<'js>> {
         match self {
-            CloseAlgorithm::ReturnPromiseUndefined => {
+            WritableCloseAlgorithm::ReturnPromiseUndefined => {
                 Ok(promise_primordials.promise_resolved_with_undefined.clone())
             },
-            CloseAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
+            WritableCloseAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
                 promise_primordials,
                 f.call::<_, Value>((This(underlying_sink.clone()),)),
             ),
+            WritableCloseAlgorithm::Transform { stream, controller } => {
+                crate::transform::stream::sink_close_algorithm(ctx.clone(), stream, controller)
+            },
         }
     }
 }
 
 #[derive(JsLifetime, Trace, Clone)]
-enum AbortAlgorithm<'js> {
+pub(crate) enum WritableAbortAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_sink: Null<Undefined<Object<'js>>>,
     },
+    Transform {
+        controller: TransformStreamDefaultControllerClass<'js>,
+    },
 }
 
-impl<'js> AbortAlgorithm<'js> {
+impl<'js> WritableAbortAlgorithm<'js> {
     fn call(
         &self,
         ctx: &Ctx<'js>,
@@ -804,14 +831,17 @@ impl<'js> AbortAlgorithm<'js> {
         reason: Value<'js>,
     ) -> Result<Promise<'js>> {
         match self {
-            AbortAlgorithm::ReturnPromiseUndefined => {
+            WritableAbortAlgorithm::ReturnPromiseUndefined => {
                 Ok(promise_primordials.promise_resolved_with_undefined.clone())
             },
-            AbortAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
+            WritableAbortAlgorithm::Function { f, underlying_sink } => promise_resolved_with(
                 ctx,
                 promise_primordials,
                 f.call::<_, Value>((This(underlying_sink.clone()), reason)),
             ),
+            WritableAbortAlgorithm::Transform { controller } => {
+                crate::transform::stream::sink_abort_algorithm(ctx.clone(), controller, reason)
+            },
         }
     }
 }

@@ -352,7 +352,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         }
     }
 
-    fn readable_stream_default_controller_get_desired_size(
+    pub(crate) fn readable_stream_default_controller_get_desired_size(
         &self,
         stream: &ReadableStream<'js>,
     ) -> Null<f64> {

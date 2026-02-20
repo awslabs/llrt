@@ -674,7 +674,7 @@ impl<'js> ReadableStream<'js> {
     }
 
     // CreateReadableStream(startAlgorithm, pullAlgorithm, cancelAlgorithm[, highWaterMark, [, sizeAlgorithm]]) performs the following steps:
-    fn create_readable_stream(
+    pub(crate) fn create_readable_stream(
         ctx: Ctx<'js>,
         start_algorithm: StartAlgorithm<'js>,
         pull_algorithm: PullAlgorithm<'js>,

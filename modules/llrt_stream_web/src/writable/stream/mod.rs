@@ -199,6 +199,60 @@ impl<'js> WritableStream<'js> {
 }
 
 impl<'js> WritableStream<'js> {
+    /// Create a WritableStream for use by TransformStream with properly traced algorithm variants
+    pub(crate) fn create_for_transform(
+        ctx: Ctx<'js>,
+        start_promise: Promise<'js>,
+        ts_stream: crate::transform::stream::TransformStreamClass<'js>,
+        ts_controller: crate::transform::controller::TransformStreamDefaultControllerClass<'js>,
+        high_water_mark: f64,
+        size_algorithm: crate::queuing_strategy::SizeAlgorithm<'js>,
+    ) -> Result<WritableStreamClass<'js>> {
+        use crate::utils::promise::PromisePrimordials;
+        use llrt_utils::primordials::{BasePrimordials, Primordial};
+        use std::collections::VecDeque;
+
+        let stream_class = Class::instance(
+            ctx.clone(),
+            Self {
+                state: WritableStreamState::Writable,
+                writer: None,
+                controller: None,
+                in_flight_write_request: None,
+                close_request: None,
+                in_flight_close_request: None,
+                pending_abort_request: None,
+                write_requests: VecDeque::new(),
+                backpressure: false,
+                constructor_type_error: BasePrimordials::get(&ctx)?.constructor_type_error.clone(),
+                promise_primordials: PromisePrimordials::get(&ctx)?.clone(),
+            },
+        )?;
+
+        let stream = OwnedBorrowMut::from_class(stream_class.clone());
+
+        WritableStreamDefaultController::set_up_writable_stream_default_controller(
+            ctx,
+            stream,
+            super::WritableStartAlgorithm::Transform(start_promise),
+            super::WritableWriteAlgorithm::Transform {
+                stream: ts_stream.clone(),
+                controller: ts_controller.clone(),
+            },
+            super::WritableCloseAlgorithm::Transform {
+                stream: ts_stream,
+                controller: ts_controller.clone(),
+            },
+            super::WritableAbortAlgorithm::Transform {
+                controller: ts_controller,
+            },
+            high_water_mark,
+            size_algorithm,
+        )?;
+
+        Ok(stream_class)
+    }
+
     pub(crate) fn is_writable_stream_locked(&self) -> bool {
         if self.writer.is_none() {
             // If stream.[[writer]] is undefined, return false.

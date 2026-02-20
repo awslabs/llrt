@@ -175,7 +175,7 @@ impl<'js, T: ReadableStreamReader<'js>> ReadableStreamReader<'js> for Option<T> 
 }
 
 #[derive(Clone, Trace)]
-pub(super) struct UndefinedReader;
+pub(crate) struct UndefinedReader;
 
 impl<'js> ReadableStreamReader<'js> for UndefinedReader {
     type Class = UndefinedReader;

@@ -33,12 +33,12 @@ pub(super) type ReadableStreamBYOBObjects<'js> = ReadableStreamObjects<
     ReadableStreamBYOBReaderOwned<'js>,
 >;
 
-pub(super) struct ReadableStreamClassObjects<
+pub(crate) struct ReadableStreamClassObjects<
     'js,
     C: ReadableStreamController<'js>,
     R: ReadableStreamReader<'js>,
 > {
-    pub(super) stream: ReadableStreamClass<'js>,
+    pub(crate) stream: ReadableStreamClass<'js>,
     pub(super) controller: C::Class,
     pub(super) reader: R::Class,
 }
