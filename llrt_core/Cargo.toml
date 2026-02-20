@@ -1,6 +1,6 @@
 [package]
 name = "llrt_core"
-version = "0.8.0-beta"
+version = "0.8.1-beta"
 edition = "2021"
 license-file = "LICENSE"
 
@@ -42,7 +42,10 @@ llrt_encoding = { path = "../libs/llrt_encoding" }
 llrt_hooking = { path = "../libs/llrt_hooking" }
 llrt_json = { path = "../libs/llrt_json" }
 llrt_logging = { path = "../libs/llrt_logging" }
-llrt_modules = { path = "../llrt_modules", default-features = false, features = ["base", "console"] }
+llrt_modules = { path = "../llrt_modules", default-features = false, features = [
+  "base",
+  "console",
+] }
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
@@ -57,9 +60,7 @@ rquickjs = { version = "0.11", features = [
   "parallel",
   "rust-alloc",
 ], default-features = false }
-rustls = { version = "0.23", features = [
-  "tls12",
-], default-features = false }
+rustls = { version = "0.23", features = ["tls12"], default-features = false }
 rustls-pemfile = { version = "2", features = ["std"], default-features = false }
 ryu = { version = "1", default-features = false }
 simd-json = { version = "0.17", default-features = false }

@@ -17,6 +17,7 @@
   - Transitioned from `chrono/chrono-tz` to `jiff` (@nabetti1720)
 
 ### Fixes
+  - Fix Proxy object handling JSON and console modules
   - Fix S3 endpoint resolution issue in new SDK version (@richarddavison)
   - Fix suite hook handling in TestAgent (@richarddavison)
   - Handle secret param in Hash constructors for SDK signing (@richarddavison)
@@ -47,4 +48,4 @@
 Thanks for all the reports and contributors
 
 Full list of changes:
-https://github.com/awslabs/llrt/compare/v0.7.0-beta...v0.8.0-beta
+https://github.com/awslabs/llrt/compare/v0.7.0-beta...v0.8.1-beta
