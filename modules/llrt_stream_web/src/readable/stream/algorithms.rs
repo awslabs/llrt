@@ -49,6 +49,7 @@ pub enum PullAlgorithm<'js> {
     },
     RustFunction(Rc<PullRustFn<'js>>),
     Tee(Class<'js, TeeState<'js>>),
+    Transform(crate::transform::stream::TransformStreamClass<'js>),
 }
 
 impl<'js> Clone for PullAlgorithm<'js> {
@@ -64,6 +65,7 @@ impl<'js> Clone for PullAlgorithm<'js> {
             },
             Self::RustFunction(rc) => Self::RustFunction(rc.clone()),
             Self::Tee(state) => Self::Tee(state.clone()),
+            Self::Transform(stream) => Self::Transform(stream.clone()),
         }
     }
 }
@@ -81,6 +83,7 @@ impl<'js> Trace<'js> for PullAlgorithm<'js> {
             },
             Self::RustFunction(_) => {},
             Self::Tee(state) => state.trace(tracer),
+            Self::Transform(stream) => stream.trace(tracer),
         }
     }
 }
@@ -122,6 +125,9 @@ impl<'js> PullAlgorithm<'js> {
             PullAlgorithm::Tee(state) => {
                 crate::readable::stream::tee::tee_pull_algorithm(ctx, state.clone())
             },
+            PullAlgorithm::Transform(stream) => {
+                crate::transform::stream::source_pull_algorithm(ctx, stream)
+            },
         }
     }
 }
@@ -138,6 +144,10 @@ pub enum CancelAlgorithm<'js> {
     RustFunction(Rc<RefCell<Option<CancelRustFn<'js>>>>),
     Tee1(Class<'js, TeeState<'js>>),
     Tee2(Class<'js, TeeState<'js>>),
+    Transform {
+        stream: crate::transform::stream::TransformStreamClass<'js>,
+        controller: crate::transform::controller::TransformStreamDefaultControllerClass<'js>,
+    },
 }
 
 impl<'js> Clone for CancelAlgorithm<'js> {
@@ -154,6 +164,10 @@ impl<'js> Clone for CancelAlgorithm<'js> {
             Self::RustFunction(rc) => Self::RustFunction(rc.clone()),
             Self::Tee1(state) => Self::Tee1(state.clone()),
             Self::Tee2(state) => Self::Tee2(state.clone()),
+            Self::Transform { stream, controller } => Self::Transform {
+                stream: stream.clone(),
+                controller: controller.clone(),
+            },
         }
     }
 }
@@ -171,6 +185,10 @@ impl<'js> Trace<'js> for CancelAlgorithm<'js> {
             },
             Self::RustFunction(_) => {},
             Self::Tee1(state) | Self::Tee2(state) => state.trace(tracer),
+            Self::Transform { stream, controller } => {
+                stream.trace(tracer);
+                controller.trace(tracer);
+            },
         }
     }
 }
@@ -221,6 +239,9 @@ impl<'js> CancelAlgorithm<'js> {
             },
             CancelAlgorithm::Tee2(state) => {
                 crate::readable::stream::tee::tee_cancel_algorithm(ctx, state.clone(), reason, 1)
+            },
+            CancelAlgorithm::Transform { stream, controller } => {
+                crate::transform::stream::source_cancel_algorithm(ctx, stream, controller, reason)
             },
         }
     }

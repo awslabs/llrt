@@ -15,12 +15,14 @@ use writable::{WritableStream, WritableStreamDefaultController, WritableStreamDe
 
 use crate::{
     readable::{ArrayConstructorPrimordials, IteratorPrimordials},
+    transform::{TransformStream, TransformStreamDefaultController},
     writable::WritableStreamDefaultControllerPrimordials,
 };
 
 mod queuing_strategy;
 pub mod readable;
 mod readable_writable_pair;
+mod transform;
 pub mod utils;
 mod writable;
 
@@ -77,6 +79,9 @@ impl ModuleDef for StreamWebModule {
         declare.declare(stringify!(WritableStreamDefaultWriter))?;
         declare.declare(stringify!(WritableStreamDefaultController))?;
 
+        declare.declare(stringify!(TransformStream))?;
+        declare.declare(stringify!(TransformStreamDefaultController))?;
+
         declare.declare(stringify!(ByteLengthQueuingStrategy))?;
         declare.declare(stringify!(CountQueuingStrategy))?;
 
@@ -100,6 +105,9 @@ impl ModuleDef for StreamWebModule {
 
             Class::<ByteLengthQueuingStrategy>::define(default)?;
             Class::<CountQueuingStrategy>::define(default)?;
+
+            Class::<TransformStream>::define(default)?;
+            Class::<TransformStreamDefaultController>::define(default)?;
 
             Ok(())
         })?;
@@ -142,6 +150,9 @@ pub fn init(ctx: &Ctx) -> Result<()> {
 
     // This is exposed globally by Node even though its not in the min-common-api
     Class::<WritableStreamDefaultWriter>::define(globals)?;
+
+    Class::<TransformStream>::define(globals)?;
+    Class::<TransformStreamDefaultController>::define(globals)?;
 
     Ok(())
 }
