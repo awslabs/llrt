@@ -82,6 +82,8 @@ const ES_BUILD_OPTIONS = {
     "node:events",
     "fs",
     "node:fs",
+    "module",
+    "node:module",
     "net",
     "node:net",
     "os",
