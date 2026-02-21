@@ -80,6 +80,13 @@ impl ModuleHookState<'_> {
 
 pub struct ModuleModule;
 
+fn create_require(ctx: Ctx<'_>) -> Result<Value<'_>> {
+    ctx.globals()
+        .get::<_, Function>("require")
+        .map(|f| f.into())
+        .map_err(|_| Exception::throw_reference(&ctx, "create_require is not supported"))
+}
+
 fn is_builtin(ctx: Ctx<'_>, name: String) -> Result<bool> {
     let module_list = ctx
         .userdata::<ModuleNames>()
@@ -120,7 +127,7 @@ impl ModuleDef for ModuleModule {
                 .map_or_else(HashSet::new, |v| v.get_list());
 
             default.set("builtinModules", module_list)?;
-            default.set("createRequire", Func::from(require::require))?;
+            default.set("createRequire", Func::from(create_require))?;
             default.set("isBuiltin", Func::from(is_builtin))?;
             default.set("registerHooks", Func::from(register_hooks))?;
 
