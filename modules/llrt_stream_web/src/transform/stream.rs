@@ -44,10 +44,11 @@ impl<'js> TransformStream<'js> {
         readable_strategy: Opt<Undefined<QueuingStrategy<'js>>>,
     ) -> Result<Class<'js, Self>> {
         let transformer_obj = transformer.0.and_then(|u| u.0);
-        let transformer_dict = match transformer_obj {
-            Some(ref obj) => Transformer::from_object(obj.clone())?,
-            None => Transformer::default(),
-        };
+        let transformer_dict = transformer_obj
+            .as_ref()
+            .map(|obj| Transformer::from_object(obj.clone()))
+            .transpose()?
+            .unwrap_or_default();
 
         if transformer_dict.readable_type {
             return Err(Exception::throw_range(
@@ -87,27 +88,29 @@ impl<'js> TransformStream<'js> {
         stream_class.borrow_mut().backpressure_change_promise = Some(bp_promise);
 
         // Build controller algorithms
-        let transform_algorithm = match transformer_dict.transform {
-            Some(f) => TransformAlgorithm::Function {
+        let transform_algorithm = transformer_dict
+            .transform
+            .map(|f| TransformAlgorithm::Function {
                 f,
                 transformer: transformer_obj.clone(),
-            },
-            None => TransformAlgorithm::Identity,
-        };
-        let flush_algorithm = match transformer_dict.flush {
-            Some(f) => FlushAlgorithm::Function {
+            })
+            .unwrap_or(TransformAlgorithm::Identity);
+
+        let flush_algorithm = transformer_dict
+            .flush
+            .map(|f| FlushAlgorithm::Function {
                 f,
                 transformer: transformer_obj.clone(),
-            },
-            None => FlushAlgorithm::Noop,
-        };
-        let cancel_algorithm = match transformer_dict.cancel {
-            Some(f) => TsCancelAlgorithm::Function {
+            })
+            .unwrap_or(FlushAlgorithm::Noop);
+
+        let cancel_algorithm = transformer_dict
+            .cancel
+            .map(|f| TsCancelAlgorithm::Function {
                 f,
                 transformer: transformer_obj.clone(),
-            },
-            None => TsCancelAlgorithm::Noop,
-        };
+            })
+            .unwrap_or(TsCancelAlgorithm::Noop);
 
         // Create controller
         let controller_class = Class::instance(
@@ -162,15 +165,15 @@ impl<'js> TransformStream<'js> {
         if let Some(start_fn) = transformer_dict.start {
             match start_fn.call::<_, Value>((This(transformer_obj), controller_class)) {
                 Ok(val) => {
-                    start_promise.resolve(val);
+                    start_promise.resolve(val)?;
                 },
                 Err(_) => {
                     let err = ctx.catch();
-                    start_promise.reject(err);
+                    start_promise.reject(err)?;
                 },
             }
         } else {
-            start_promise.resolve_undefined();
+            start_promise.resolve_undefined()?;
         }
 
         Ok(stream_class)
@@ -251,23 +254,23 @@ pub(crate) fn sink_close_algorithm<'js>(
                     let mut stream = sc.borrow_mut();
                     // Resolve any pending backpressure promise to break the cycle
                     if let Some(ref bp) = stream.backpressure_change_promise {
-                        let _ = bp.resolve_undefined();
+                        bp.resolve_undefined()?;
                     }
                     stream.backpressure_change_promise = None;
-                    if let Some(ref readable) = stream.readable {
-                        if let Some(controller_class) = {
-                            let r = readable.borrow();
-                            match &r.controller {
-                                crate::readable::ReadableStreamControllerClass::ReadableStreamDefaultController(c) => Some(c.clone()),
-                                _ => None,
-                            }
-                        } {
-                            let _ =
-                                crate::readable::readable_stream_default_controller_close_stream(
-                                    ctx.clone(),
-                                    controller_class,
-                                );
+                    let readable_controller = stream.readable.as_ref().and_then(|readable| {
+                        let r = readable.borrow();
+                        if let crate::readable::ReadableStreamControllerClass::ReadableStreamDefaultController(c) = &r.controller {
+                            Some(c.clone())
+                        } else {
+                            None
                         }
+                    });
+                    drop(stream);
+                    if let Some(c) = readable_controller {
+                        crate::readable::readable_stream_default_controller_close_stream(
+                            ctx.clone(),
+                            c,
+                        )?;
                     }
                     Ok(Value::new_undefined(ctx))
                 },
@@ -310,7 +313,7 @@ pub(crate) fn source_pull_algorithm<'js>(
     let mut stream = stream_class.borrow_mut();
 
     if let Some(ref old_bp) = stream.backpressure_change_promise {
-        old_bp.resolve_undefined();
+        old_bp.resolve_undefined()?;
     }
 
     let new_bp = ResolveablePromise::new(&ctx)?;
@@ -336,7 +339,7 @@ pub(crate) fn source_cancel_algorithm<'js>(
         cancel_promise,
         move |ctx, result| {
             cc.borrow_mut().clear_algorithms();
-            controller::transform_stream_error_writable_and_unblock_write(&sc, reason);
+            controller::transform_stream_error_writable_and_unblock_write(&sc, reason)?;
             match result {
                 Ok(_) => Ok(Value::new_undefined(ctx)),
                 Err(r) => Err(ctx.throw(r)),

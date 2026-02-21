@@ -151,15 +151,12 @@ pub(super) fn transform_stream_default_controller_enqueue<'js>(
         let readable = readable_class.borrow();
         let c = controller_class.borrow();
         let desired = c.readable_stream_default_controller_get_desired_size(&readable);
-        match desired.0 {
-            Some(size) => size <= 0.0,
-            None => true,
-        }
+        desired.0.is_none_or(|size| size <= 0.0)
     };
 
     let current_bp = stream_class.borrow().backpressure;
     if has_backpressure != current_bp {
-        transform_stream_set_backpressure(stream_class, true);
+        transform_stream_set_backpressure(stream_class, true)?;
     }
 
     Ok(())
@@ -175,7 +172,7 @@ pub(super) fn transform_stream_default_controller_terminate<'js>(
     readable_stream_default_controller_close_stream(ctx.clone(), controller_class)?;
 
     let error = ctx.eval::<Value, _>("new TypeError('TransformStream terminated')")?;
-    transform_stream_error_writable_and_unblock_write(stream_class, error);
+    transform_stream_error_writable_and_unblock_write(stream_class, error)?;
     Ok(())
 }
 
@@ -188,33 +185,35 @@ pub(super) fn transform_stream_error<'js>(
         .ok_or_else(|| Exception::throw_type(&ctx, "readable controller not available"))?;
 
     readable_stream_default_controller_error_stream(controller_class, e.clone())?;
-    transform_stream_error_writable_and_unblock_write(stream_class, e);
+    transform_stream_error_writable_and_unblock_write(stream_class, e)?;
     Ok(())
 }
 
 pub(super) fn transform_stream_error_writable_and_unblock_write<'js>(
     stream_class: &TransformStreamClass<'js>,
     _e: Value<'js>,
-) {
+) -> Result<()> {
     let stream = stream_class.borrow_mut();
     if let Some(ref controller_class) = stream.controller {
         controller_class.borrow_mut().clear_algorithms();
     }
     if stream.backpressure {
         drop(stream);
-        transform_stream_set_backpressure(stream_class, false);
+        transform_stream_set_backpressure(stream_class, false)?;
     }
+    Ok(())
 }
 
 pub(super) fn transform_stream_set_backpressure<'js>(
     stream_class: &TransformStreamClass<'js>,
     backpressure: bool,
-) {
+) -> Result<()> {
     let mut stream = stream_class.borrow_mut();
     if let Some(ref bp_promise) = stream.backpressure_change_promise {
-        bp_promise.resolve_undefined();
+        bp_promise.resolve_undefined()?;
     }
     stream.backpressure = backpressure;
+    Ok(())
 }
 
 pub(super) fn transform_stream_default_controller_perform_transform<'js>(

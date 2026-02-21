@@ -19,7 +19,7 @@ use crate::{
     utils::promise::{PromisePrimordials, ResolveablePromise},
 };
 
-pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
+pub(crate) trait ReadableStreamReader<'js>: Sized + 'js {
     type Class: Clone + Trace<'js>;
 
     fn with_reader<C>(
@@ -73,7 +73,7 @@ impl<'js> From<ReadableStreamBYOBReaderClass<'js>> for ReadableStreamReaderClass
     }
 }
 
-pub(super) enum ReadableStreamReaderOwned<'js> {
+pub(crate) enum ReadableStreamReaderOwned<'js> {
     ReadableStreamDefaultReader(ReadableStreamDefaultReaderOwned<'js>),
     ReadableStreamBYOBReader(ReadableStreamBYOBReaderOwned<'js>),
 }

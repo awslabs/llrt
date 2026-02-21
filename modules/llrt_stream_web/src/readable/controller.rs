@@ -13,7 +13,7 @@ use crate::readable::{
     reader::ReadableStreamReader,
 };
 
-pub(super) trait ReadableStreamController<'js>: Sized {
+pub(crate) trait ReadableStreamController<'js>: Sized {
     type Class: Clone + Trace<'js>;
 
     fn with_controller<C, O>(
@@ -69,7 +69,7 @@ impl<'js> IntoJs<'js> for ReadableStreamControllerClass<'js> {
     }
 }
 
-pub(super) enum ReadableStreamControllerOwned<'js> {
+pub(crate) enum ReadableStreamControllerOwned<'js> {
     ReadableStreamDefaultController(ReadableStreamDefaultControllerOwned<'js>),
     ReadableStreamByteController(ReadableByteStreamControllerOwned<'js>),
 }

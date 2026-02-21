@@ -307,7 +307,7 @@ impl<'js> ReadableStreamReader<'js> for ReadableStreamDefaultReaderOwned<'js> {
     }
 }
 
-pub(super) trait ReadableStreamDefaultReaderOrUndefined<'js>:
+pub(crate) trait ReadableStreamDefaultReaderOrUndefined<'js>:
     ReadableStreamReader<'js>
 {
 }
@@ -321,7 +321,7 @@ impl<'js> ReadableStreamDefaultReaderOrUndefined<'js>
 
 impl ReadableStreamDefaultReaderOrUndefined<'_> for UndefinedReader {}
 
-pub(super) trait ReadableStreamReadRequest<'js>: Trace<'js> {
+pub(crate) trait ReadableStreamReadRequest<'js>: Trace<'js> {
     fn chunk_steps_typed<C: ReadableStreamController<'js>>(
         &self,
         objects: ReadableStreamDefaultReaderObjects<'js, C>,
