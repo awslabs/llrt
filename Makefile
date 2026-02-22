@@ -266,7 +266,7 @@ deploy:
 	cd example/infrastructure && yarn deploy --require-approval never
 
 check:
-	cargo clippy --all-targets --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring" -- -D warnings
+	cargo clippy --no-default-features --all-targets --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-rust" -- -D warnings
 
 check-crates:
 	cargo metadata --no-deps --format-version 1 --quiet | \

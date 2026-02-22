@@ -8,21 +8,14 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["base", "console", "tls-ring", "crypto-rust"]
+default = ["base", "console", "tls-rust", "crypto-rust"]
 lambda = ["base"]
 
 # TLS crypto backend features
+tls-rust = ["llrt_http?/tls-rust", "llrt_tls?/tls-rust", "llrt_fetch?/tls-rust"]
 tls-ring = ["llrt_http?/tls-ring", "llrt_tls?/tls-ring", "llrt_fetch?/tls-ring"]
-tls-aws-lc = [
-  "llrt_http?/tls-aws-lc",
-  "llrt_tls?/tls-aws-lc",
-  "llrt_fetch?/tls-aws-lc",
-]
-tls-graviola = [
-  "llrt_http?/tls-graviola",
-  "llrt_tls?/tls-graviola",
-  "llrt_fetch?/tls-graviola",
-]
+tls-aws-lc = ["llrt_http?/tls-aws-lc", "llrt_tls?/tls-aws-lc", "llrt_fetch?/tls-aws-lc"]
+tls-graviola = ["llrt_http?/tls-graviola", "llrt_tls?/tls-graviola", "llrt_fetch?/tls-graviola"]
 tls-openssl = ["llrt_http?/tls-openssl", "llrt_tls?/tls-openssl"]
 
 # Crypto provider features
