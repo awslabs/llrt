@@ -16,12 +16,15 @@ pub use date_time_format::{
 };
 
 use cldr_data::get_locale_data;
-use jiff::{tz::TimeZone, Timestamp};
+use jiff::{
+    tz::{TimeZone, TimeZoneDatabase},
+    Timestamp,
+};
 use pattern_formatter::{combine_datetime, format_with_pattern};
 use rquickjs::{
     function::{Constructor, Opt, This},
     prelude::Func,
-    Class, Coerced, Ctx, Exception, Object, Result, Value,
+    Array, Class, Coerced, Ctx, Exception, Object, Result, Value,
 };
 
 /// Initialize the Intl global object with DateTimeFormat
@@ -30,6 +33,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     // Create Intl object
     let intl = Object::new(ctx.clone())?;
+    intl.set("supportedValuesOf", Func::from(supported_values_of))?;
 
     // Add DateTimeFormat constructor
     Class::<DateTimeFormat>::define(&intl)?;
@@ -194,4 +198,25 @@ fn get_time_pattern<'a>(style: &str, locale_data: &'a cldr_data::LocaleData) -> 
         "short" => locale_data.time_formats.short,
         _ => locale_data.time_formats.medium,
     }
+}
+
+fn supported_values_of<'js>(ctx: Ctx<'js>, key: String) -> Result<Array<'js>> {
+    let array = Array::new(ctx.clone())?;
+    match key.as_ref() {
+        "timeZone" => {
+            let timezones = TimeZoneDatabase::from_env();
+
+            for (i, tz) in timezones.available().enumerate() {
+                array.set(i, tz.as_str())?;
+            }
+        },
+        _ => {
+            return Err(Exception::throw_range(
+                &ctx,
+                "Unknown key for Intl.supportedValuesOf",
+            ))
+        },
+    }
+
+    Ok(array)
 }
