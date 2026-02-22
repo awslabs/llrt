@@ -5,7 +5,9 @@ use std::io::{stderr, stdout, IsTerminal, Write};
 use llrt_logging::{build_formatted_string, FormatOptions, NEWLINE};
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
+    atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
+    object::Property,
     prelude::{Func, Rest},
     Class, Ctx, Object, Result, Value,
 };
@@ -143,7 +145,9 @@ impl From<ConsoleModule> for ModuleInfo<ConsoleModule> {
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
 
-    let console = Object::new(ctx.clone())?;
+    // NOTE: Console must be created from an empty object with no prototype.
+    // https://console.spec.whatwg.org/#console-namespace
+    let console = ctx.eval::<Object, &str>("Object.create({})")?;
 
     console.set("assert", Func::from(log_assert))?;
     console.set("clear", Func::from(clear))?;
@@ -153,8 +157,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     console.set("log", Func::from(log))?;
     console.set("trace", Func::from(log_trace))?;
     console.set("warn", Func::from(log_warn))?;
+    console.prop(
+        PredefinedAtom::SymbolToStringTag,
+        Property::from("console").configurable(),
+    )?;
 
-    globals.set("console", console)?;
+    globals.prop("console", Property::from(console).writable().configurable())?;
 
     Ok(())
 }
