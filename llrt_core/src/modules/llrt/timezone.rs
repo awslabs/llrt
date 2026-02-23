@@ -3,15 +3,12 @@
 
 //! LLRT timezone module providing timezone offset calculations.
 
-use jiff::{
-    tz::{TimeZone, TimeZoneDatabase},
-    Timestamp,
-};
+use jiff::{tz::TimeZone, Timestamp};
 use rquickjs::{
     atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    Array, Ctx, Exception, Object, Result,
+    Ctx, Exception, Object, Result,
 };
 
 use crate::libs::utils::module::{export_default, ModuleInfo};
@@ -32,24 +29,10 @@ fn get_offset(ctx: Ctx<'_>, timezone: String, epoch_ms: f64) -> Result<i32> {
     // Return offset in minutes (positive = ahead of UTC, negative = behind)
     Ok(offset / 60)
 }
-
-/// List all available IANA timezone names.
-fn list_timezones(ctx: Ctx<'_>) -> Result<Array<'_>> {
-    let timezones = TimeZoneDatabase::from_env();
-    let array = Array::new(ctx.clone())?;
-
-    for (i, tz) in timezones.available().enumerate() {
-        array.set(i, tz.as_str())?;
-    }
-
-    Ok(array)
-}
-
 fn timezone_object<'js>(ctx: &Ctx<'js>) -> Result<Object<'js>> {
     let timezone = Object::new(ctx.clone())?;
 
     timezone.set("getOffset", Func::from(get_offset))?;
-    timezone.set("list", Func::from(list_timezones))?;
     timezone.set(PredefinedAtom::SymbolToStringTag, "Timezone")?;
 
     Ok(timezone)
