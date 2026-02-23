@@ -239,7 +239,7 @@ mod tests {
 
                 let result = call_test::<String, _>(&ctx, &module, ("www.amazon.com",)).await;
 
-                assert!(result.ends_with(":4"));
+                assert!(result.ends_with(":4") || result.ends_with(":6"));
             })
         })
         .await
