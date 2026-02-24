@@ -11,6 +11,8 @@ pub trait ResultExt<T> {
     fn or_throw_range(self, ctx: &Ctx, msg: &str) -> Result<T>;
     fn or_throw_type(self, ctx: &Ctx, msg: &str) -> Result<T>;
     fn or_throw(self, ctx: &Ctx) -> Result<T>;
+    fn map_err_range(self, ctx: &Ctx) -> Result<T>;
+    fn map_err_type(self, ctx: &Ctx) -> Result<T>;
 }
 
 pub trait OptionExt<T> {
@@ -61,6 +63,14 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
     fn or_throw(self, ctx: &Ctx) -> Result<T> {
         self.map_err(|err| Exception::throw_message(ctx, &err.to_string()))
     }
+
+    fn map_err_range(self, ctx: &Ctx) -> Result<T> {
+        self.map_err(|err| Exception::throw_range(ctx, &err.to_string()))
+    }
+
+    fn map_err_type(self, ctx: &Ctx) -> Result<T> {
+        self.map_err(|err| Exception::throw_type(ctx, &err.to_string()))
+    }
 }
 
 impl<T> ResultExt<T> for Option<T> {
@@ -78,6 +88,14 @@ impl<T> ResultExt<T> for Option<T> {
 
     fn or_throw(self, ctx: &Ctx) -> Result<T> {
         self.ok_or_else(|| Exception::throw_message(ctx, "Value is not present"))
+    }
+
+    fn map_err_range(self, ctx: &Ctx) -> Result<T> {
+        self.ok_or_else(|| Exception::throw_range(ctx, "Value is not present"))
+    }
+
+    fn map_err_type(self, ctx: &Ctx) -> Result<T> {
+        self.ok_or_else(|| Exception::throw_type(ctx, "Value is not present"))
     }
 }
 

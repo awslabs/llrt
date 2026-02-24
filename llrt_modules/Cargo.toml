@@ -50,6 +50,7 @@ base = [
   "fetch",
   "fs",
   "https",
+  "intl",
   "navigator",
   "net",
   "os",
@@ -58,8 +59,8 @@ base = [
   "process",
   "stream-web",
   "string-decoder",
+  "temporal",
   "timers",
-  "intl",
   "tls",
   "tty",
   "url",
@@ -93,6 +94,7 @@ https = [
   "llrt_http?/http1",
   "llrt_http?/http2",
 ]
+intl = ["llrt_intl"]
 navigator = ["llrt_navigator"]
 net = ["llrt_net"]
 os = ["llrt_os"]
@@ -101,8 +103,8 @@ process = ["llrt_process"]
 perf-hooks = ["llrt_perf_hooks"]
 stream-web = ["llrt_stream_web"]
 string-decoder = ["llrt_string_decoder"]
+temporal = ["llrt_temporal"]
 timers = ["llrt_timers"]
-intl = ["llrt_intl"]
 tls = ["llrt_tls"]
 tty = ["llrt_tty"]
 url = ["llrt_url"]
@@ -135,6 +137,7 @@ llrt_exceptions = { version = "0.8.1-beta", path = "../modules/llrt_exceptions",
 llrt_fetch = { version = "0.8.1-beta", path = "../modules/llrt_fetch", default-features = false, optional = true }
 llrt_fs = { version = "0.8.1-beta", path = "../modules/llrt_fs", optional = true }
 llrt_http = { version = "0.8.1-beta", path = "../modules/llrt_http", default-features = false, optional = true }
+llrt_intl = { version = "0.8.1-beta", path = "../modules/llrt_intl", optional = true }
 llrt_navigator = { version = "0.8.1-beta", path = "../modules/llrt_navigator", optional = true }
 llrt_net = { version = "0.8.1-beta", path = "../modules/llrt_net", optional = true }
 llrt_os = { version = "0.8.1-beta", path = "../modules/llrt_os", default-features = false, optional = true }
@@ -143,8 +146,8 @@ llrt_process = { version = "0.8.1-beta", path = "../modules/llrt_process", optio
 llrt_perf_hooks = { version = "0.8.1-beta", path = "../modules/llrt_perf_hooks", optional = true }
 llrt_stream_web = { version = "0.8.1-beta", path = "../modules/llrt_stream_web", optional = true }
 llrt_string_decoder = { version = "0.8.1-beta", path = "../modules/llrt_string_decoder", optional = true }
+llrt_temporal = { version = "0.8.1-beta", path = "../modules/llrt_temporal", optional = true }
 llrt_timers = { version = "0.8.1-beta", path = "../modules/llrt_timers", optional = true }
-llrt_intl = { version = "0.8.1-beta", path = "../modules/llrt_intl", optional = true }
 llrt_tls = { version = "0.8.1-beta", path = "../modules/llrt_tls", default-features = false, optional = true }
 llrt_tty = { version = "0.8.1-beta", path = "../modules/llrt_tty", optional = true }
 llrt_url = { version = "0.8.1-beta", path = "../modules/llrt_url", optional = true }

@@ -2025,6 +2025,7 @@ dependencies = [
  "llrt_process",
  "llrt_stream_web",
  "llrt_string_decoder",
+ "llrt_temporal",
  "llrt_test",
  "llrt_timers",
  "llrt_tls",
@@ -2164,6 +2165,15 @@ dependencies = [
  "llrt_utils",
  "rquickjs",
  "tokio",
+]
+
+[[package]]
+name = "llrt_temporal"
+version = "0.8.1-beta"
+dependencies = [
+ "jiff",
+ "llrt_utils",
+ "rquickjs",
 ]
 
 [[package]]

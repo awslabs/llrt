@@ -104,85 +104,87 @@ The test runner also has support for filters. Using filters is as simple as addi
 > [!NOTE]
 > LLRT only support a fraction of the Node.js APIs. It is **NOT** a drop in replacement for Node.js, nor will it ever be. Below is a high level overview of partially supported APIs and modules. For more details consult the [API](API.md) documentation
 
-| [Node.js API](https://nodejs.org/api/index.html) | Node.js | LLRT   |
-| ------------------------------------------------ | ------- | ------ |
-| node:assert                                      | ✔︎     | ✔︎️⚠️ |
-| node:async_hooks                                 | ✔︎     | ✔︎️⚠️ |
-| node:buffer                                      | ✔︎     | ✔︎️⚠️ |
-| node:child_process                               | ✔︎     | ✔︎⚠️  |
-| node:cluster                                     | ✔︎     | ✘      |
-| node:console                                     | ✔︎     | ✔︎⚠️  |
-| node:crypto                                      | ✔︎     | ✔︎⚠️  |
-| node:dgram                                       | ✔︎     | ✘      |
-| node:diagnostics_channel                         | ✔︎     | ✘      |
-| node:dns                                         | ✔︎     | ✔︎⚠️  |
-| node:events                                      | ✔︎     | ✔︎⚠️  |
-| node:fs                                          | ✔︎     | ✔︎⚠️  |
-| node:fs/promises                                 | ✔︎     | ✔︎⚠️  |
-| node:http                                        | ✔︎     | ✘⏱    |
-| node:http2                                       | ✔︎     | ✘      |
-| node:https                                       | ✔︎     | ✘⏱    |
-| node:inspector                                   | ✔︎     | ✘      |
-| node:inspector/promises                          | ✔︎     | ✘      |
-| node:module                                      | ✔︎     | ✔︎⚠️  |
-| node:net                                         | ✔︎     | ✔︎⚠️  |
-| node:os                                          | ✔︎     | ✔︎⚠️  |
-| node:path                                        | ✔︎     | ✔︎⚠️  |
-| node:perf_hooks                                  | ✔︎     | ✔︎⚠️  |
-| node:process                                     | ✔︎     | ✔︎⚠️  |
-| node:querystring                                 | ✔︎     | ✘      |
-| node:readline                                    | ✔︎     | ✘      |
-| node:readline/promises                           | ✔︎     | ✘      |
-| node:repl                                        | ✔︎     | ✘      |
-| node:sqlite                                      | ✔︎     | ✘      |
-| node:stream                                      | ✔︎     | ✔︎\*  |
-| node:stream/promises                             | ✔︎     | ✔︎\*  |
-| node:stream/web                                  | ✔︎     | ✔︎⚠️  |
-| node:string_decoder                              | ✔︎     | ✔︎    |
-| node:test                                        | ✔︎     | ✘      |
-| node:timers                                      | ✔︎     | ✔︎⚠️  |
-| node:tls                                         | ✔︎     | ✘⏱    |
-| node:tty                                         | ✔︎     | ✔︎⚠️  |
-| node:url                                         | ✔︎     | ✔︎⚠️  |
-| node:util                                        | ✔︎     | ✔︎⚠️  |
-| node:v8                                          | ✔︎     | ✘\*\*  |
-| node:vm                                          | ✔︎     | ✘      |
-| node:wasi                                        | ✔︎     | ✘      |
-| node:worker_threads                              | ✔︎     | ✘      |
-| node:zlib                                        | ✔︎     | ✔︎⚠️  |
+| [Node.js API](https://nodejs.org/api/index.html) | Node.js | LLRT  |
+| ------------------------------------------------ | ------- | ----- |
+| node:assert                                      | ✔︎       | ✔︎️⚠️   |
+| node:async_hooks                                 | ✔︎       | ✔︎️⚠️   |
+| node:buffer                                      | ✔︎       | ✔︎️⚠️   |
+| node:child_process                               | ✔︎       | ✔︎⚠️   |
+| node:cluster                                     | ✔︎       | ✘     |
+| node:console                                     | ✔︎       | ✔︎⚠️   |
+| node:crypto                                      | ✔︎       | ✔︎⚠️   |
+| node:dgram                                       | ✔︎       | ✘     |
+| node:diagnostics_channel                         | ✔︎       | ✘     |
+| node:dns                                         | ✔︎       | ✔︎⚠️   |
+| node:events                                      | ✔︎       | ✔︎⚠️   |
+| node:fs                                          | ✔︎       | ✔︎⚠️   |
+| node:fs/promises                                 | ✔︎       | ✔︎⚠️   |
+| node:http                                        | ✔︎       | ✘⏱    |
+| node:http2                                       | ✔︎       | ✘     |
+| node:https                                       | ✔︎       | ✘⏱    |
+| node:inspector                                   | ✔︎       | ✘     |
+| node:inspector/promises                          | ✔︎       | ✘     |
+| node:module                                      | ✔︎       | ✔︎⚠️   |
+| node:net                                         | ✔︎       | ✔︎⚠️   |
+| node:os                                          | ✔︎       | ✔︎⚠️   |
+| node:path                                        | ✔︎       | ✔︎⚠️   |
+| node:perf_hooks                                  | ✔︎       | ✔︎⚠️   |
+| node:process                                     | ✔︎       | ✔︎⚠️   |
+| node:querystring                                 | ✔︎       | ✘     |
+| node:readline                                    | ✔︎       | ✘     |
+| node:readline/promises                           | ✔︎       | ✘     |
+| node:repl                                        | ✔︎       | ✘     |
+| node:sqlite                                      | ✔︎       | ✘     |
+| node:stream                                      | ✔︎       | ✔︎\*   |
+| node:stream/promises                             | ✔︎       | ✔︎\*   |
+| node:stream/web                                  | ✔︎       | ✔︎⚠️   |
+| node:string_decoder                              | ✔︎       | ✔︎     |
+| node:test                                        | ✔︎       | ✘     |
+| node:timers                                      | ✔︎       | ✔︎⚠️   |
+| node:tls                                         | ✔︎       | ✘⏱    |
+| node:tty                                         | ✔︎       | ✔︎⚠️   |
+| node:url                                         | ✔︎       | ✔︎⚠️   |
+| node:util                                        | ✔︎       | ✔︎⚠️   |
+| node:v8                                          | ✔︎       | ✘\*\* |
+| node:vm                                          | ✔︎       | ✘     |
+| node:wasi                                        | ✔︎       | ✘     |
+| node:worker_threads                              | ✔︎       | ✘     |
+| node:zlib                                        | ✔︎       | ✔︎⚠️   |
 
 | [LLRT API](https://github.com/awslabs/llrt/blob/main/API.md) | Node.js | LLRT |
 | ------------------------------------------------------------ | ------- | ---- |
-| llrt:hex                                                     | ✘       | ✔︎  |
-| llrt:qjs                                                     | ✘       | ✔︎  |
-| llrt:util                                                    | ✘       | ✔︎  |
-| llrt:xml                                                     | ✘       | ✔︎  |
+| llrt:hex                                                     | ✘       | ✔︎    |
+| llrt:qjs                                                     | ✘       | ✔︎    |
+| llrt:util                                                    | ✘       | ✔︎    |
+| llrt:xml                                                     | ✘       | ✔︎    |
 
-| [Web Platform API](https://min-common-api.proposal.wintertc.org/) | LLRT  |
-| ----------------------------------------------------------------- | ----- |
+| [Web Platform API](https://min-common-api.proposal.wintertc.org/) | LLRT |
+| ----------------------------------------------------------------- | ---- |
 | COMPRESSION                                                       | ✘⏱   |
-| CONSOLE                                                           | ✔︎⚠️ |
-| DOM                                                               | ✔︎⚠️ |
-| ECMASCRIPT                                                        | ✔︎⚠️ |
-| ENCODING                                                          | ✔︎⚠️ |
-| FETCH                                                             | ✔︎⚠️ |
-| FILEAPI                                                           | ✔︎⚠️ |
-| HR-TIME                                                           | ✔︎   |
-| HTML                                                              | ✔︎⚠️ |
-| STREAMS                                                           | ✔︎⚠️ |
-| URL                                                               | ✔︎   |
+| CONSOLE                                                           | ✔︎⚠️  |
+| DOM                                                               | ✔︎⚠️  |
+| ECMASCRIPT                                                        | ✔︎⚠️  |
+| ENCODING                                                          | ✔︎⚠️  |
+| FETCH                                                             | ✔︎⚠️  |
+| FILEAPI                                                           | ✔︎⚠️  |
+| HR-TIME                                                           | ✔︎    |
+| HTML                                                              | ✔︎⚠️  |
+| STREAMS                                                           | ✔︎⚠️  |
+| URL                                                               | ✔︎    |
 | URLPATTERN                                                        | ✘⏱   |
-| WASM-JS-API-2                                                     | ✘     |
-| WASM-WEB-API-2                                                    | ✘     |
-| WEBCRYPTO                                                         | ✔︎⚠️ |
-| WEBIDL                                                            | ✔︎⚠️ |
-| XHR                                                               | ✔︎⚠️ |
+| WASM-JS-API-2                                                     | ✘    |
+| WASM-WEB-API-2                                                    | ✘    |
+| WEBCRYPTO                                                         | ✔︎⚠️  |
+| WEBIDL                                                            | ✔︎⚠️  |
+| XHR                                                               | ✔︎⚠️  |
 
 | Other features | LLRT |
 | -------------- | ---- |
-| async/await    | ✔︎  |
-| esm            | ✔︎  |
-| cjs            | ✔︎  |
+| async/await    | ✔︎    |
+| esm            | ✔︎    |
+| cjs            | ✔︎    |
+| Intl           | ✔︎⚠️  |
+| Temporal       | ✔︎⚠️  |
 
 _⚠️ = partially supported in LLRT_<br />
 _⏱ = planned partial support_<br />
@@ -278,120 +280,120 @@ The relationship between the supported packages for each bundle type is as follo
 
 | Analytics                            | no-sdk | std-sdk | full-sdk |
 | ------------------------------------ | ------ | ------- | -------- |
-| @aws-sdk/client-athena               |        |         | ✔︎      |
-| @aws-sdk/client-firehose             |        |         | ✔︎      |
-| @aws-sdk/client-glue                 |        |         | ✔︎      |
-| @aws-sdk/client-kinesis              |        |         | ✔︎      |
-| @aws-sdk/client-opensearch           |        |         | ✔︎      |
-| @aws-sdk/client-opensearchserverless |        |         | ✔︎      |
+| @aws-sdk/client-athena               |        |         | ✔︎        |
+| @aws-sdk/client-firehose             |        |         | ✔︎        |
+| @aws-sdk/client-glue                 |        |         | ✔︎        |
+| @aws-sdk/client-kinesis              |        |         | ✔︎        |
+| @aws-sdk/client-opensearch           |        |         | ✔︎        |
+| @aws-sdk/client-opensearchserverless |        |         | ✔︎        |
 
 | Application integration     | no-sdk | std-sdk | full-sdk |
 | --------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-eventbridge |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-scheduler   |        |         | ✔︎      |
-| @aws-sdk/client-sfn         |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-sns         |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-sqs         |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-eventbridge |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-scheduler   |        |         | ✔︎        |
+| @aws-sdk/client-sfn         |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-sns         |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-sqs         |        | ✔︎       | ✔︎        |
 
 | Business applications | no-sdk | std-sdk | full-sdk |
 | --------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-ses   |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-sesv2 |        |         | ✔︎      |
+| @aws-sdk/client-ses   |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-sesv2 |        |         | ✔︎        |
 
 | Compute services             | no-sdk | std-sdk | full-sdk |
 | ---------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-auto-scaling |        |         | ✔︎      |
-| @aws-sdk/client-batch        |        |         | ✔︎      |
-| @aws-sdk/client-ec2          |        |         | ✔︎      |
-| @aws-sdk/client-lambda       |        |         | ✔︎      |
+| @aws-sdk/client-auto-scaling |        |         | ✔︎        |
+| @aws-sdk/client-batch        |        |         | ✔︎        |
+| @aws-sdk/client-ec2          |        |         | ✔︎        |
+| @aws-sdk/client-lambda       |        |         | ✔︎        |
 
 | Containers                       | no-sdk | std-sdk | full-sdk |
 | -------------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-ecr              |        |         | ✔︎      |
-| @aws-sdk/client-ecs              |        |         | ✔︎      |
-| @aws-sdk/client-eks              |        |         | ✔︎      |
-| @aws-sdk/client-servicediscovery |        |         | ✔︎      |
+| @aws-sdk/client-ecr              |        |         | ✔︎        |
+| @aws-sdk/client-ecs              |        |         | ✔︎        |
+| @aws-sdk/client-eks              |        |         | ✔︎        |
+| @aws-sdk/client-servicediscovery |        |         | ✔︎        |
 
 | Databases                        | no-sdk | std-sdk | full-sdk |
 | -------------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-dynamodb         |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-dynamodb-streams |        |         | ✔︎      |
-| @aws-sdk/client-elasticache      |        |         | ✔︎      |
-| @aws-sdk/client-rds              |        |         | ✔︎      |
-| @aws-sdk/client-rds-data         |        |         | ✔︎      |
+| @aws-sdk/client-dynamodb         |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-dynamodb-streams |        |         | ✔︎        |
+| @aws-sdk/client-elasticache      |        |         | ✔︎        |
+| @aws-sdk/client-rds              |        |         | ✔︎        |
+| @aws-sdk/client-rds-data         |        |         | ✔︎        |
 
 | Developer tools      | no-sdk | std-sdk | full-sdk |
 | -------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-xray |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-xray |        | ✔︎       | ✔︎        |
 
 | Front-end web and mobile services | no-sdk | std-sdk | full-sdk |
 | --------------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-amplify           |        |         | ✔︎      |
-| @aws-sdk/client-appsync           |        |         | ✔︎      |
-| @aws-sdk/client-location          |        |         | ✔︎      |
+| @aws-sdk/client-amplify           |        |         | ✔︎        |
+| @aws-sdk/client-appsync           |        |         | ✔︎        |
+| @aws-sdk/client-location          |        |         | ✔︎        |
 
 | Machine Learning (ML) and Artificial Intelligence (AI) | no-sdk | std-sdk | full-sdk |
 | ------------------------------------------------------ | ------ | ------- | -------- |
-| @aws-sdk/client-bedrock                                |        |         | ✔︎      |
-| @aws-sdk/client-bedrock-runtime                        |        |         | ✔︎      |
-| @aws-sdk/client-bedrock-agent                          |        |         | ✔︎      |
-| @aws-sdk/client-bedrock-agent-runtime                  |        |         | ✔︎      |
-| @aws-sdk/client-polly                                  |        |         | ✔︎      |
-| @aws-sdk/client-rekognition                            |        |         | ✔︎      |
-| @aws-sdk/client-textract                               |        |         | ✔︎      |
-| @aws-sdk/client-translate                              |        |         | ✔︎      |
+| @aws-sdk/client-bedrock                                |        |         | ✔︎        |
+| @aws-sdk/client-bedrock-runtime                        |        |         | ✔︎        |
+| @aws-sdk/client-bedrock-agent                          |        |         | ✔︎        |
+| @aws-sdk/client-bedrock-agent-runtime                  |        |         | ✔︎        |
+| @aws-sdk/client-polly                                  |        |         | ✔︎        |
+| @aws-sdk/client-rekognition                            |        |         | ✔︎        |
+| @aws-sdk/client-textract                               |        |         | ✔︎        |
+| @aws-sdk/client-translate                              |        |         | ✔︎        |
 
 | Management and governance         | no-sdk | std-sdk | full-sdk |
 | --------------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-appconfig         |        |         | ✔︎      |
-| @aws-sdk/client-appconfigdata     |        |         | ✔︎      |
-| @aws-sdk/client-cloudformation    |        |         | ✔︎      |
-| @aws-sdk/client-cloudwatch        |        |         | ✔︎      |
-| @aws-sdk/client-cloudwatch-events |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-cloudwatch-logs   |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-service-catalog   |        |         | ✔︎      |
-| @aws-sdk/client-ssm               |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-appconfig         |        |         | ✔︎        |
+| @aws-sdk/client-appconfigdata     |        |         | ✔︎        |
+| @aws-sdk/client-cloudformation    |        |         | ✔︎        |
+| @aws-sdk/client-cloudwatch        |        |         | ✔︎        |
+| @aws-sdk/client-cloudwatch-events |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-cloudwatch-logs   |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-service-catalog   |        |         | ✔︎        |
+| @aws-sdk/client-ssm               |        | ✔︎       | ✔︎        |
 
 | Media                        | no-sdk | std-sdk | full-sdk |
 | ---------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-mediaconvert |        |         | ✔︎      |
+| @aws-sdk/client-mediaconvert |        |         | ✔︎        |
 
 | Networking and content delivery           | no-sdk | std-sdk | full-sdk |
 | ----------------------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-api-gateway               |        |         | ✔︎      |
-| @aws-sdk/client-apigatewayv2              |        |         | ✔︎      |
-| @aws-sdk/client-elastic-load-balancing-v2 |        |         | ✔︎      |
+| @aws-sdk/client-api-gateway               |        |         | ✔︎        |
+| @aws-sdk/client-apigatewayv2              |        |         | ✔︎        |
+| @aws-sdk/client-elastic-load-balancing-v2 |        |         | ✔︎        |
 
 | Security, identity, and compliance        | no-sdk | std-sdk | full-sdk |
 | ----------------------------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-acm                       |        |         | ✔︎      |
-| @aws-sdk/client-cognito-identity          |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-cognito-identity-provider |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-iam                       |        |         | ✔︎      |
-| @aws-sdk/client-kms                       |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-secrets-manager           |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-sso                       |        |         | ✔︎      |
-| @aws-sdk/client-sso-admin                 |        |         | ✔︎      |
-| @aws-sdk/client-sso-oidc                  |        |         | ✔︎      |
-| @aws-sdk/client-sts                       |        | ✔︎     | ✔︎      |
-| @aws-sdk/client-verifiedpermissions       |        |         | ✔︎      |
+| @aws-sdk/client-acm                       |        |         | ✔︎        |
+| @aws-sdk/client-cognito-identity          |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-cognito-identity-provider |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-iam                       |        |         | ✔︎        |
+| @aws-sdk/client-kms                       |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-secrets-manager           |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-sso                       |        |         | ✔︎        |
+| @aws-sdk/client-sso-admin                 |        |         | ✔︎        |
+| @aws-sdk/client-sso-oidc                  |        |         | ✔︎        |
+| @aws-sdk/client-sts                       |        | ✔︎       | ✔︎        |
+| @aws-sdk/client-verifiedpermissions       |        |         | ✔︎        |
 
 | Storage             | no-sdk | std-sdk | full-sdk |
 | ------------------- | ------ | ------- | -------- |
-| @aws-sdk/client-efs |        |         | ✔︎      |
-| @aws-sdk/client-s3  |        | ✔︎     | ✔︎      |
+| @aws-sdk/client-efs |        |         | ✔︎        |
+| @aws-sdk/client-s3  |        | ✔︎       | ✔︎        |
 
 | Other bundled packages           | no-sdk | std-sdk | full-sdk |
 | -------------------------------- | ------ | ------- | -------- |
-| @aws-crypto                      |        | ✔︎     | ✔︎      |
-| @aws-sdk/credential-providers    |        | ✔︎     | ✔︎      |
-| @aws-sdk/lib-dynamodb            |        | ✔︎     | ✔︎      |
-| @aws-sdk/lib-storage             |        | ✔︎     | ✔︎      |
-| @aws-sdk/s3-presigned-post       |        | ✔︎     | ✔︎      |
-| @aws-sdk/s3-request-presigner    |        | ✔︎     | ✔︎      |
-| @aws-sdk/util-dynamodb           |        | ✔︎     | ✔︎      |
-| @aws-sdk/util-user-agent-browser |        | ✔︎     | ✔︎      |
-| @smithy                          |        | ✔︎     | ✔︎      |
+| @aws-crypto                      |        | ✔︎       | ✔︎        |
+| @aws-sdk/credential-providers    |        | ✔︎       | ✔︎        |
+| @aws-sdk/lib-dynamodb            |        | ✔︎       | ✔︎        |
+| @aws-sdk/lib-storage             |        | ✔︎       | ✔︎        |
+| @aws-sdk/s3-presigned-post       |        | ✔︎       | ✔︎        |
+| @aws-sdk/s3-request-presigner    |        | ✔︎       | ✔︎        |
+| @aws-sdk/util-dynamodb           |        | ✔︎       | ✔︎        |
+| @aws-sdk/util-user-agent-browser |        | ✔︎       | ✔︎        |
+| @smithy                          |        | ✔︎       | ✔︎        |
 
 > [!IMPORTANT]
 > LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
