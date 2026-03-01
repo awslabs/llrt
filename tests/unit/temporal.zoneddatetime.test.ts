@@ -122,6 +122,11 @@ describe("Temporal.ZonedDateTime", () => {
       expect(typeof zdt.epochNanoseconds).toBe("number");
       // expect(zdt.epochNanoseconds).toBeGreaterThan(0n);
       expect(zdt.epochNanoseconds).toBeGreaterThan(0);
+
+      expect(zdt.dayOfYear).toBe(1);
+      expect(zdt.daysInMonth).toBe(31);
+      expect(zdt.daysInYear).toBe(366);
+      expect(zdt.inLeapYear).toBe(true);
     });
 
     it("has correct toStringTag", () => {
