@@ -158,6 +158,11 @@ impl Instant {
         Ok(Self { inner: ts })
     }
 
+    pub fn now() -> Self {
+        let ts = Timestamp::now();
+        Self { inner: ts }
+    }
+
     pub fn timestamp(&self) -> Timestamp {
         self.inner
     }

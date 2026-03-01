@@ -6,23 +6,18 @@ mod now;
 mod utils;
 pub mod zoned_date_time;
 
-use rquickjs::{atom::PredefinedAtom, prelude::Func, Class, Ctx, Exception, Object, Result, Value};
+use rquickjs::{Class, Ctx, Exception, Object, Result, Value};
 
 use crate::duration::Duration;
 use crate::instant::Instant;
 use crate::zoned_date_time::ZonedDateTime;
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
-    let now = Object::new(ctx.clone())?;
-    now.set("instant", Func::from(now::instant))?;
-    now.set("zonedDateTimeISO", Func::from(now::zoned_datetime_iso))?;
-    now.set(PredefinedAtom::SymbolToStringTag, "Temporal.Now")?;
-
     let temporal = Object::new(ctx.clone())?;
     Class::<Duration>::define(&temporal)?;
     Class::<Instant>::define(&temporal)?;
     Class::<ZonedDateTime>::define(&temporal)?;
-    temporal.set("Now", now)?;
+    temporal.set("Now", now::define_object(ctx)?)?;
 
     ctx.globals().set("Temporal", temporal)?;
     Ok(())
