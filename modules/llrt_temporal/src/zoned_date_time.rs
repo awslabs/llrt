@@ -124,6 +124,21 @@ impl ZonedDateTime {
     }
 
     #[qjs(get)]
+    fn day_of_year(&self) -> i16 {
+        self.inner.day_of_year()
+    }
+
+    #[qjs(get)]
+    fn days_in_month(&self) -> i8 {
+        self.inner.days_in_month()
+    }
+
+    #[qjs(get)]
+    fn days_in_year(&self) -> i16 {
+        self.inner.days_in_year()
+    }
+
+    #[qjs(get)]
     fn epoch_milliseconds(&self) -> i64 {
         self.inner.timestamp().as_millisecond()
     }
@@ -136,6 +151,11 @@ impl ZonedDateTime {
     #[qjs(get)]
     fn hour(&self) -> i8 {
         self.inner.hour()
+    }
+
+    #[qjs(get)]
+    fn in_leap_year(&self) -> bool {
+        self.inner.in_leap_year()
     }
 
     #[qjs(get)]
