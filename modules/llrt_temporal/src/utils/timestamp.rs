@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use jiff::{civil::Date, Timestamp};
-use llrt_utils::result::ResultExt;
+use llrt_utils::result::{By, ResultExt};
 use rquickjs::{Ctx, Object, Result};
 
 pub trait TimestampExt {
@@ -15,9 +15,9 @@ impl TimestampExt for Timestamp {
 }
 
 fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Timestamp> {
-    let year = obj.get::<_, i16>("year").map_err_range(ctx)?;
-    let month = obj.get::<_, i8>("month").map_err_range(ctx)?;
-    let day = obj.get::<_, i8>("day").map_err_range(ctx)?;
+    let year = obj.get::<_, i16>("year").or_throw_by(ctx, By::Range)?;
+    let month = obj.get::<_, i8>("month").or_throw_by(ctx, By::Range)?;
+    let day = obj.get::<_, i8>("day").or_throw_by(ctx, By::Range)?;
 
     let hour = obj.get::<_, i8>("hour").unwrap_or_default();
     let minute = obj.get::<_, i8>("minute").unwrap_or_default();
@@ -28,9 +28,9 @@ fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Timestamp> {
     let nanos = obj.get::<_, i32>("nanosecond").unwrap_or_default();
     let subsec_ns = nanos + micros * 1_000 + millis * 1_000_000;
 
-    let date = Date::new(year, month, day).map_err_range(ctx)?;
+    let date = Date::new(year, month, day).or_throw_by(ctx, By::Range)?;
     let dt = date.at(hour, minute, second, subsec_ns);
 
-    let ts = dt.in_tz("UTC").map_err_range(ctx)?;
+    let ts = dt.in_tz("UTC").or_throw_by(ctx, By::Range)?;
     Ok(ts.timestamp())
 }
