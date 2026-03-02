@@ -18,6 +18,6 @@ pub(crate) fn define_object<'a>(ctx: &Ctx<'a>) -> Result<Object<'a>> {
 }
 
 fn zoned_datetime_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTime> {
-    let ts = Instant::now().timestamp();
+    let ts = Instant::now().into_inner();
     ZonedDateTime::from_timestamp(&ctx, &ts, &timezone)
 }

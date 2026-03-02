@@ -3,7 +3,7 @@
 use std::{cmp::Ordering, str::FromStr};
 
 use jiff::{Span, Timestamp, Zoned};
-use llrt_utils::result::ResultExt;
+use llrt_utils::result::{By, ResultExt};
 use rquickjs::Class;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, Ctx, Exception, JsLifetime, Object, Result, Value,
@@ -29,7 +29,6 @@ impl Instant {
         Self::from_epoch_nanoseconds(ctx, nanos)
     }
 
-    // ---------------------- Static methods ----------------------
     #[qjs(static)]
     fn compare(instant1: Self, instant2: Self) -> i8 {
         match instant1.inner.cmp(&instant2.inner) {
@@ -46,9 +45,6 @@ impl Instant {
                 return Ok(cls.borrow().clone());
             }
             return Self::from_object(&ctx, obj);
-        }
-        if let Some(num) = info.as_number() {
-            return Self::from_nanosecond(&ctx, num as i128);
         }
         if let Some(str) = info.as_string().and_then(|s| s.to_string().ok()) {
             return Self::from_str(&ctx, &str);
@@ -71,10 +67,9 @@ impl Instant {
         Self::from_nanosecond(&ctx, nanos)
     }
 
-    // ---------------------- Instance methods ----------------------
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let ts = self.inner.checked_add(span).map_err_range(&ctx)?;
+        let ts = self.inner.checked_add(span).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: ts })
     }
 
@@ -88,7 +83,7 @@ impl Instant {
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let ts = self.inner.checked_sub(span).map_err_range(&ctx)?;
+        let ts = self.inner.checked_sub(span).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: ts })
     }
 
@@ -120,7 +115,6 @@ impl Instant {
         ))
     }
 
-    // ---------------------- Instance properties ----------------------
     #[qjs(get)]
     fn epoch_milliseconds(&self) -> i64 {
         self.inner.as_millisecond()
@@ -143,13 +137,13 @@ impl Instant {
         Self { inner: ts }
     }
 
-    pub fn from_nanosecond(ctx: &Ctx<'_>, ns: i128) -> Result<Self> {
-        let ts = Timestamp::from_nanosecond(ns).map_err_range(ctx)?;
+    fn from_nanosecond(ctx: &Ctx<'_>, ns: i128) -> Result<Self> {
+        let ts = Timestamp::from_nanosecond(ns).or_throw_by(ctx, By::Range)?;
         Ok(Self { inner: ts })
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let ts = Timestamp::from_str(str).map_err_range(ctx)?;
+        let ts = Timestamp::from_str(str).or_throw_by(ctx, By::Range)?;
         Ok(Self { inner: ts })
     }
 
@@ -163,7 +157,7 @@ impl Instant {
         Self { inner: ts }
     }
 
-    pub fn timestamp(&self) -> Timestamp {
+    pub fn into_inner(&self) -> Timestamp {
         self.inner
     }
 }

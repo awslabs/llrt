@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use jiff::{Timestamp, Zoned};
-use llrt_utils::result::ResultExt;
+use llrt_utils::result::{By, ResultExt};
 use rquickjs::{Ctx, Exception, Object, Result, Value};
 
 use super::timestamp::TimestampExt;
@@ -26,29 +26,40 @@ impl ZonedExt for Zoned {
 
 fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
     let ts = Timestamp::from_object(ctx, obj)?;
-    let tz = obj.get::<_, String>("timeZone").map_err_type(ctx)?;
-    ts.in_tz(&tz).map_err_range(ctx)
+    let tz = obj
+        .get::<_, String>("timeZone")
+        .or_throw_by(ctx, By::Type)?;
+    ts.in_tz(&tz).or_throw_by(ctx, By::Range)
 }
 
 fn into_zoned(ctx: &Ctx<'_>, zoned: &Zoned, obj: &Object<'_>) -> Result<Zoned> {
     let mut zoned = zoned.with();
-
-    macro_rules! apply {
-        ($key:literal, $ty:ty, $method:ident) => {
-            if let Ok(v) = obj.get::<_, $ty>($key) {
-                zoned = zoned.$method(v);
-            }
-        };
+    if let Ok(v) = obj.get::<_, i8>("day") {
+        zoned = zoned.day(v);
     }
-
-    apply!("day", i8, day);
-    apply!("hour", i8, hour);
-    apply!("microsecond", i16, microsecond);
-    apply!("millisecond", i16, millisecond);
-    apply!("minute", i8, minute);
-    apply!("month", i8, month);
-    apply!("nanosecond", i16, nanosecond);
-    apply!("second", i8, second);
-    apply!("year", i16, year);
-    zoned.build().map_err_range(ctx)
+    if let Ok(v) = obj.get::<_, i8>("hour") {
+        zoned = zoned.hour(v);
+    }
+    if let Ok(v) = obj.get::<_, i16>("microsecond") {
+        zoned = zoned.microsecond(v);
+    }
+    if let Ok(v) = obj.get::<_, i16>("millisecond") {
+        zoned = zoned.millisecond(v);
+    }
+    if let Ok(v) = obj.get::<_, i8>("minute") {
+        zoned = zoned.minute(v);
+    }
+    if let Ok(v) = obj.get::<_, i8>("month") {
+        zoned = zoned.month(v);
+    }
+    if let Ok(v) = obj.get::<_, i16>("nanosecond") {
+        zoned = zoned.nanosecond(v);
+    }
+    if let Ok(v) = obj.get::<_, i8>("second") {
+        zoned = zoned.second(v);
+    }
+    if let Ok(v) = obj.get::<_, i16>("year") {
+        zoned = zoned.year(v);
+    }
+    zoned.build().or_throw_by(ctx, By::Range)
 }

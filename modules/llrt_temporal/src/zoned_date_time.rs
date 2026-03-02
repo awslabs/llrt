@@ -3,7 +3,7 @@
 use std::{cmp::Ordering, str::FromStr};
 
 use jiff::{Span, Timestamp, Zoned};
-use llrt_utils::result::ResultExt;
+use llrt_utils::result::{By, ResultExt};
 use rquickjs::Object;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, Class, Ctx, Exception, JsLifetime, Result, Value,
@@ -29,7 +29,6 @@ impl ZonedDateTime {
         Self::from_epoch_nanoseconds(&ctx, &nanos, &tz)
     }
 
-    // ---------------------- Static methods ----------------------
     #[qjs(static)]
     fn compare(datetime1: Self, datetime2: Self) -> i8 {
         match datetime1.inner.cmp(&datetime2.inner) {
@@ -47,9 +46,6 @@ impl ZonedDateTime {
             }
             return Self::from_object(&ctx, obj);
         }
-        if let Some(num) = info.as_number() {
-            return Self::from_nanosecond(&ctx, num as i128, &None);
-        }
         if let Some(str) = info.as_string().and_then(|s| s.to_string().ok()) {
             return Self::from_str(&ctx, &str);
         }
@@ -59,10 +55,9 @@ impl ZonedDateTime {
         ))
     }
 
-    // ---------------------- Instance methods ----------------------
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let zoned = self.inner.checked_add(span).map_err_range(&ctx)?;
+        let zoned = self.inner.checked_add(span).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: zoned })
     }
 
@@ -76,7 +71,7 @@ impl ZonedDateTime {
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let zoned = self.inner.checked_sub(span).map_err_range(&ctx)?;
+        let zoned = self.inner.checked_sub(span).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: zoned })
     }
 
@@ -113,11 +108,10 @@ impl ZonedDateTime {
     }
 
     fn with_time_zone(&self, ctx: Ctx<'_>, tz: String) -> Result<Self> {
-        let zoned = self.inner.in_tz(&tz).map_err_range(&ctx)?;
+        let zoned = self.inner.in_tz(&tz).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: zoned })
     }
 
-    // ---------------------- Instance properties ----------------------
     #[qjs(get)]
     fn day(&self) -> i8 {
         self.inner.day()
@@ -224,18 +218,18 @@ impl ZonedDateTime {
     }
 
     fn from_nanosecond(ctx: &Ctx<'_>, ns: i128, tz: &Option<String>) -> Result<Self> {
-        let ts = Timestamp::from_nanosecond(ns).map_err_range(ctx)?;
+        let ts = Timestamp::from_nanosecond(ns).or_throw_by(ctx, By::Range)?;
         Self::from_timestamp(ctx, &ts, tz)
     }
 
     pub fn from_timestamp(ctx: &Ctx<'_>, ts: &Timestamp, tz: &Option<String>) -> Result<Self> {
         let tz = tz.as_deref().unwrap_or("UTC");
-        let zoned = ts.in_tz(tz).map_err_range(ctx)?;
+        let zoned = ts.in_tz(tz).or_throw_by(ctx, By::Range)?;
         Ok(Self { inner: zoned })
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let zoned = Zoned::from_str(str).map_err_range(ctx)?;
+        let zoned = Zoned::from_str(str).or_throw_by(ctx, By::Range)?;
         Ok(Self { inner: zoned })
     }
 

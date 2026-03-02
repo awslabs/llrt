@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 
 use jiff::Span;
-use llrt_utils::result::ResultExt;
+use llrt_utils::result::{By, ResultExt};
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, Class, Ctx, Exception, JsLifetime, Object, Result, Value,
 };
@@ -24,7 +24,6 @@ impl Duration {
         Ok(Self { inner: Span::new() })
     }
 
-    // ---------------------- Static methods ----------------------
     #[qjs(static)]
     fn compare(ctx: Ctx<'_>, duration1: Self, duration2: Self) -> Result<i8> {
         match duration1.inner.compare(duration2.inner).or_throw(&ctx)? {
@@ -51,7 +50,6 @@ impl Duration {
         ))
     }
 
-    // ---------------------- Instance methods ----------------------
     fn abs(&self) -> Self {
         let span = self.inner.abs();
         Self { inner: span }
@@ -59,7 +57,7 @@ impl Duration {
 
     fn add(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &other)?;
-        let span = self.inner.checked_add(span).map_err_range(&ctx)?;
+        let span = self.inner.checked_add(span).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: span })
     }
 
@@ -70,7 +68,7 @@ impl Duration {
 
     fn subtract(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &other)?;
-        let span = self.inner.checked_sub(span).map_err_range(&ctx)?;
+        let span = self.inner.checked_sub(span).or_throw_by(&ctx, By::Range)?;
         Ok(Self { inner: span })
     }
 
@@ -98,7 +96,6 @@ impl Duration {
         Ok(Self { inner: span })
     }
 
-    // ---------------------- Instance properties ----------------------
     #[qjs(get)]
     fn blank(&self) -> bool {
         self.inner.signum() == 0
@@ -167,13 +164,8 @@ impl Duration {
 
 impl Duration {
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        if let Ok(span) = str.parse() {
-            return Ok(Self { inner: span });
-        }
-        Err(Exception::throw_range(
-            ctx,
-            "Invalid ISO 8601 duration format",
-        ))
+        let span = str.parse().or_throw_by(ctx, By::Range)?;
+        Ok(Self { inner: span })
     }
 
     fn from_object(ctx: &Ctx<'_>, object: &Object<'_>) -> Result<Self> {
