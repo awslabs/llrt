@@ -57,6 +57,8 @@ mod modules {
     pub use llrt_stream_web as stream_web;
     #[cfg(feature = "string-decoder")]
     pub use llrt_string_decoder as string_decoder;
+    #[cfg(feature = "temporal")]
+    pub use llrt_temporal as temporal;
     #[cfg(feature = "timers")]
     pub use llrt_timers as timers;
     #[cfg(feature = "tls")]

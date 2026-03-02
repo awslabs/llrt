@@ -1,0 +1,17 @@
+[package]
+name = "llrt_temporal"
+description = "LLRT Module temporal"
+version = "0.8.1-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "README.md"
+
+[lib]
+name = "llrt_temporal"
+path = "src/lib.rs"
+
+[dependencies]
+jiff = { version = "0.2" }
+llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { version = "0.11", features = ["macro"], default-features = false }

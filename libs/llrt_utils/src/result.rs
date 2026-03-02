@@ -6,11 +6,21 @@ use std::{fmt::Write, result::Result as StdResult};
 
 use rquickjs::{Ctx, Exception, Result};
 
+pub enum By {
+    Internal,
+    Message,
+    Range,
+    Reference,
+    Syntax,
+    Type,
+}
+
 pub trait ResultExt<T> {
     fn or_throw_msg(self, ctx: &Ctx, msg: &str) -> Result<T>;
     fn or_throw_range(self, ctx: &Ctx, msg: &str) -> Result<T>;
     fn or_throw_type(self, ctx: &Ctx, msg: &str) -> Result<T>;
     fn or_throw(self, ctx: &Ctx) -> Result<T>;
+    fn or_throw_by(self, ctx: &Ctx, by: By) -> Result<T>;
 }
 
 pub trait OptionExt<T> {
@@ -61,6 +71,17 @@ impl<T, E: std::fmt::Display> ResultExt<T> for StdResult<T, E> {
     fn or_throw(self, ctx: &Ctx) -> Result<T> {
         self.map_err(|err| Exception::throw_message(ctx, &err.to_string()))
     }
+
+    fn or_throw_by(self, ctx: &Ctx, by: By) -> Result<T> {
+        match by {
+            By::Internal => self.map_err(|err| Exception::throw_internal(ctx, &err.to_string())),
+            By::Message => self.map_err(|err| Exception::throw_message(ctx, &err.to_string())),
+            By::Range => self.map_err(|err| Exception::throw_range(ctx, &err.to_string())),
+            By::Reference => self.map_err(|err| Exception::throw_reference(ctx, &err.to_string())),
+            By::Syntax => self.map_err(|err| Exception::throw_syntax(ctx, &err.to_string())),
+            By::Type => self.map_err(|err| Exception::throw_type(ctx, &err.to_string())),
+        }
+    }
 }
 
 impl<T> ResultExt<T> for Option<T> {
@@ -78,6 +99,18 @@ impl<T> ResultExt<T> for Option<T> {
 
     fn or_throw(self, ctx: &Ctx) -> Result<T> {
         self.ok_or_else(|| Exception::throw_message(ctx, "Value is not present"))
+    }
+
+    fn or_throw_by(self, ctx: &Ctx, kind: By) -> Result<T> {
+        let msg = "Value is not present";
+        match kind {
+            By::Internal => self.ok_or_else(|| Exception::throw_internal(ctx, msg)),
+            By::Message => self.ok_or_else(|| Exception::throw_message(ctx, msg)),
+            By::Range => self.ok_or_else(|| Exception::throw_range(ctx, msg)),
+            By::Reference => self.ok_or_else(|| Exception::throw_reference(ctx, msg)),
+            By::Syntax => self.ok_or_else(|| Exception::throw_syntax(ctx, msg)),
+            By::Type => self.ok_or_else(|| Exception::throw_type(ctx, msg)),
+        }
     }
 }
 
