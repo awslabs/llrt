@@ -12,7 +12,7 @@ name = "llrt_http"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "webpki-roots", "tls-ring"]
+default = ["http1", "http2", "webpki-roots", "tls-rust"]
 
 http1 = ["hyper/http1", "hyper-rustls?/http1", "hyper-util/http1"]
 http2 = ["hyper/http2", "hyper-rustls?/http2", "hyper-util/http2"]
@@ -21,34 +21,13 @@ webpki-roots = ["llrt_tls/webpki-roots"]
 native-roots = ["llrt_tls/native-roots"]
 
 # TLS crypto backend features (rustls-based)
-tls-ring = [
-  "http1",
-  "llrt_tls/tls-ring",
-  "dep:hyper-rustls",
-  "hyper-rustls/ring",
-  "dep:rustls",
-]
-tls-aws-lc = [
-  "http1",
-  "llrt_tls/tls-aws-lc",
-  "dep:hyper-rustls",
-  "hyper-rustls/aws-lc-rs",
-  "dep:rustls",
-]
-tls-graviola = [
-  "http1",
-  "llrt_tls/tls-graviola",
-  "dep:hyper-rustls",
-  "dep:rustls",
-]
+tls-rust = ["http1", "llrt_tls/tls-rust", "dep:hyper-rustls", "dep:rustls"]
+tls-ring = ["http1", "llrt_tls/tls-ring", "dep:hyper-rustls", "hyper-rustls/ring", "dep:rustls"]
+tls-aws-lc = ["http1", "llrt_tls/tls-aws-lc", "dep:hyper-rustls", "hyper-rustls/aws-lc-rs", "dep:rustls"]
+tls-graviola = ["http1", "llrt_tls/tls-graviola", "dep:hyper-rustls", "dep:rustls"]
 
 # OpenSSL TLS backend
-tls-openssl = [
-  "http1",
-  "llrt_tls/tls-openssl",
-  "dep:hyper-openssl",
-  "dep:openssl",
-]
+tls-openssl = ["http1", "llrt_tls/tls-openssl", "dep:hyper-openssl", "dep:openssl"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
