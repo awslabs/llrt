@@ -33,6 +33,7 @@ members = [
   "modules/llrt_stream",
   "modules/llrt_stream_web",
   "modules/llrt_string_decoder",
+  "modules/llrt_temporal",
   "modules/llrt_timers",
   "modules/llrt_tls",
   "modules/llrt_tty",

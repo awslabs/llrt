@@ -117,6 +117,10 @@ impl Default for ModuleBuilder {
                 .with_module(crate::modules::fs::FsPromisesModule)
                 .with_module(crate::modules::fs::FsModule);
         }
+        #[cfg(feature = "intl")]
+        {
+            builder = builder.with_global(crate::modules::intl::init);
+        }
         #[cfg(feature = "navigator")]
         {
             builder = builder.with_global(crate::modules::navigator::init);
@@ -155,6 +159,10 @@ impl Default for ModuleBuilder {
         {
             builder = builder.with_module(crate::modules::string_decoder::StringDecoderModule);
         }
+        #[cfg(feature = "temporal")]
+        {
+            builder = builder.with_global(crate::modules::temporal::init);
+        }
         #[cfg(feature = "timers")]
         {
             builder = builder
@@ -180,10 +188,6 @@ impl Default for ModuleBuilder {
         #[cfg(feature = "zlib")]
         {
             builder = builder.with_module(crate::modules::zlib::ZlibModule);
-        }
-        #[cfg(feature = "intl")]
-        {
-            builder = builder.with_global(crate::modules::intl::init);
         }
 
         builder
