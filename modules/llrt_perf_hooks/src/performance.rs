@@ -58,7 +58,7 @@ impl<'js> Performance<'js> {
     fn now() -> f64 {
         let now = time::now_nanos();
         let started = time::origin_nanos();
-        let elapsed = now.checked_sub(started).unwrap_or_default();
+        let elapsed = now.saturating_sub(started);
 
         (elapsed as f64) / 1e6
     }
