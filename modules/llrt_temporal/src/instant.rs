@@ -3,7 +3,7 @@
 use std::{cmp::Ordering, str::FromStr};
 
 use jiff::{Span, Timestamp, Zoned};
-use llrt_utils::result::{By, ResultExt};
+use llrt_utils::result::ResultExt;
 use rquickjs::Class;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, Ctx, Exception, JsLifetime, Object, Result, Value,
@@ -69,7 +69,7 @@ impl Instant {
 
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let ts = self.inner.checked_add(span).or_throw_by(&ctx, By::Range)?;
+        let ts = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: ts })
     }
 
@@ -83,7 +83,7 @@ impl Instant {
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let ts = self.inner.checked_sub(span).or_throw_by(&ctx, By::Range)?;
+        let ts = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: ts })
     }
 
@@ -138,12 +138,12 @@ impl Instant {
     }
 
     fn from_nanosecond(ctx: &Ctx<'_>, ns: i128) -> Result<Self> {
-        let ts = Timestamp::from_nanosecond(ns).or_throw_by(ctx, By::Range)?;
+        let ts = Timestamp::from_nanosecond(ns).or_throw_range(ctx, "")?;
         Ok(Self { inner: ts })
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let ts = Timestamp::from_str(str).or_throw_by(ctx, By::Range)?;
+        let ts = Timestamp::from_str(str).or_throw_range(ctx, "")?;
         Ok(Self { inner: ts })
     }
 

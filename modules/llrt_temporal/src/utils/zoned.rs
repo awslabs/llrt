@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use jiff::{Timestamp, Zoned};
-use llrt_utils::result::{By, ResultExt};
+use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Object, Result, Value};
 
 use super::timestamp::TimestampExt;
@@ -27,10 +27,8 @@ impl ZonedExt for Zoned {
 
 fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
     let ts = Timestamp::from_object(ctx, obj)?;
-    let tz = obj
-        .get::<_, String>("timeZone")
-        .or_throw_by(ctx, By::Type)?;
-    ts.in_tz(&tz).or_throw_by(ctx, By::Range)
+    let tz = obj.get::<_, String>("timeZone").or_throw_type(ctx, "")?;
+    ts.in_tz(&tz).or_throw_range(ctx, "")
 }
 
 fn into_zoned(ctx: &Ctx<'_>, zoned: &Zoned, obj: &Object<'_>) -> Result<Zoned> {
@@ -62,5 +60,5 @@ fn into_zoned(ctx: &Ctx<'_>, zoned: &Zoned, obj: &Object<'_>) -> Result<Zoned> {
     if let Ok(v) = obj.get::<_, i16>("year") {
         zoned = zoned.year(v);
     }
-    zoned.build().or_throw_by(ctx, By::Range)
+    zoned.build().or_throw_range(ctx, "")
 }

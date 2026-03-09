@@ -3,7 +3,7 @@
 use std::{cmp::Ordering, str::FromStr};
 
 use jiff::{Span, Timestamp, Zoned};
-use llrt_utils::result::{By, ResultExt};
+use llrt_utils::result::ResultExt;
 use rquickjs::Object;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, Class, Ctx, Exception, JsLifetime, Result, Value,
@@ -57,7 +57,7 @@ impl ZonedDateTime {
 
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let zoned = self.inner.checked_add(span).or_throw_by(&ctx, By::Range)?;
+        let zoned = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: zoned })
     }
 
@@ -71,7 +71,7 @@ impl ZonedDateTime {
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &duration)?;
-        let zoned = self.inner.checked_sub(span).or_throw_by(&ctx, By::Range)?;
+        let zoned = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: zoned })
     }
 
@@ -108,7 +108,7 @@ impl ZonedDateTime {
     }
 
     fn with_time_zone(&self, ctx: Ctx<'_>, tz: String) -> Result<Self> {
-        let zoned = self.inner.in_tz(&tz).or_throw_by(&ctx, By::Range)?;
+        let zoned = self.inner.in_tz(&tz).or_throw_range(&ctx, "")?;
         Ok(Self { inner: zoned })
     }
 
@@ -218,18 +218,18 @@ impl ZonedDateTime {
     }
 
     fn from_nanosecond(ctx: &Ctx<'_>, ns: i128, tz: &Option<String>) -> Result<Self> {
-        let ts = Timestamp::from_nanosecond(ns).or_throw_by(ctx, By::Range)?;
+        let ts = Timestamp::from_nanosecond(ns).or_throw_range(ctx, "")?;
         Self::from_timestamp(ctx, &ts, tz)
     }
 
     pub fn from_timestamp(ctx: &Ctx<'_>, ts: &Timestamp, tz: &Option<String>) -> Result<Self> {
         let tz = tz.as_deref().unwrap_or("UTC");
-        let zoned = ts.in_tz(tz).or_throw_by(ctx, By::Range)?;
+        let zoned = ts.in_tz(tz).or_throw_range(ctx, "")?;
         Ok(Self { inner: zoned })
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let zoned = Zoned::from_str(str).or_throw_by(ctx, By::Range)?;
+        let zoned = Zoned::from_str(str).or_throw_range(ctx, "")?;
         Ok(Self { inner: zoned })
     }
 

@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 
 use jiff::Span;
-use llrt_utils::result::{By, ResultExt};
+use llrt_utils::result::ResultExt;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, Class, Ctx, Exception, JsLifetime, Object, Result, Value,
 };
@@ -57,7 +57,7 @@ impl Duration {
 
     fn add(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &other)?;
-        let span = self.inner.checked_add(span).or_throw_by(&ctx, By::Range)?;
+        let span = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: span })
     }
 
@@ -68,7 +68,7 @@ impl Duration {
 
     fn subtract(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
         let span = Span::from_value(&ctx, &other)?;
-        let span = self.inner.checked_sub(span).or_throw_by(&ctx, By::Range)?;
+        let span = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: span })
     }
 
@@ -164,7 +164,7 @@ impl Duration {
 
 impl Duration {
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let span = str.parse().or_throw_by(ctx, By::Range)?;
+        let span = str.parse().or_throw_range(ctx, "")?;
         Ok(Self { inner: span })
     }
 
