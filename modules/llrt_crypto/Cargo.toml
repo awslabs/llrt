@@ -72,11 +72,11 @@ aes-gcm = { version = "0.11.0-rc.3", features = [
 aes-kw = { version = "0.3.0-rc.2", features = [
   "oid",
 ], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.3", features = ["alloc"], optional = true }
+cbc = { version = "0.2.0-rc.4", features = ["alloc"], optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
-ctr = { version = "0.10.0-rc.3", default-features = false, optional = true }
+ctr = { version = "0.10.0-rc.4", default-features = false, optional = true }
 der = { version = "0.8", features = [
   "derive",
   "alloc",
@@ -93,7 +93,7 @@ elliptic-curve = { version = "0.14.0-rc.28", features = [
 ], default-features = false, optional = true }
 hkdf = { version = "0.13.0-rc.5", default-features = false, optional = true }
 hmac = { version = "0.13.0-rc.5", default-features = false, optional = true }
-rsa = { version = "0.10.0-rc.15", features = [
+rsa = { version = "0.10.0-rc.16", features = [
   "std",
   "sha2",
   "encoding",
