@@ -7,19 +7,17 @@ use jiff::{RoundMode, Unit};
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Exception, Result, Value};
 
-trait RoundBuilder: Sized {
+pub(crate) trait RoundBuilder: Sized {
     fn new() -> Self;
     fn smallest(self, unit: Unit) -> Self;
     fn mode(self, mode: RoundMode) -> Self;
     fn increment(self, increment: i64) -> Self;
-    fn parse_unit(ctx: &Ctx, unit: &str) -> Result<Unit>;
 }
 
 pub(crate) struct RoundOption<T> {
     inner: T,
 }
 
-#[allow(private_bounds)]
 impl<T: RoundBuilder> RoundOption<T> {
     pub(crate) fn from_value(ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Self> {
         if let Some(obj) = value.as_object() {
@@ -45,7 +43,16 @@ impl<T: RoundBuilder> RoundOption<T> {
     }
 
     fn from(ctx: &Ctx, unit: &str, mode: Option<String>, increment: Option<i64>) -> Result<T> {
-        let unit = T::parse_unit(ctx, unit)?;
+        let unit = match unit {
+            "day" => Unit::Day,
+            "hour" => Unit::Hour,
+            "minute" => Unit::Minute,
+            "second" => Unit::Second,
+            "millisecond" => Unit::Millisecond,
+            "microsecond" => Unit::Microsecond,
+            "nanosecond" => Unit::Nanosecond,
+            _ => return Err(Exception::throw_type(ctx, "smallestUnit is invalid")),
+        };
 
         let mode = match mode.unwrap_or_else(|| "halfExpand".into()).as_ref() {
             "ceil" => RoundMode::Ceil,
