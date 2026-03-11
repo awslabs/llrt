@@ -41,6 +41,7 @@ jobs:
           update: true
           path-type: inherit
           install: >-
+            mingw-w64-x86_64-gcc
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-pkgconf
       - name: Set OpenSSL env for Windows
