@@ -27,8 +27,7 @@ jobs:
     name: ${{ inputs.arch }}-${{ inputs.platform }}-${{ inputs.crypto }}
     runs-on: ${{ inputs.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -41,6 +40,7 @@ jobs:
           update: true
           path-type: inherit
           install: >-
+            mingw-w64-x86_64-gcc
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-pkgconf
       - name: Set OpenSSL env for Windows
@@ -79,6 +79,11 @@ jobs:
               exit 1
               ;;
           esac
+          if [ "${{ inputs.platform }}" = "windows" ]; then
+            echo "compression_feature=compression-rust" >> $GITHUB_OUTPUT
+          else
+            echo "compression_feature=compression-c" >> $GITHUB_OUTPUT
+          fi
       - name: Run build crates
         shell: bash
         env:
@@ -88,6 +93,9 @@ jobs:
         run: |
           crates=$(cargo metadata --no-deps --format-version 1 --quiet | jq -r '.packages[] | select(.manifest_path | contains("modules/")) | .name')
           for crate in $crates; do
+            if [ "$crate" = "llrt_modules" ]; then
+              continue
+            fi
             echo "Compiling crate: $crate"
             if [ "$crate" = "llrt_fetch" ]; then
               cargo build -p "$crate" --no-default-features --features "http1,http2,webpki-roots,compression-rust,$TLS_FEATURE"
@@ -104,14 +112,16 @@ jobs:
         env:
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
+          COMPRESSION_FEATURE: ${{ steps.features.outputs.compression_feature }}
           EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
-          cargo build -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
+          cargo build -p llrt_modules --no-default-features --features "base,$COMPRESSION_FEATURE,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
       - name: Run tests all
         shell: bash
         env:
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
+          COMPRESSION_FEATURE: ${{ steps.features.outputs.compression_feature }}
           EXTRA_FEATURES: ${{ steps.features.outputs.extra_features }}
         run: |
-          cargo test -p llrt_modules --no-default-features --features "base,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
+          cargo test -p llrt_modules --no-default-features --features "base,$COMPRESSION_FEATURE,$TLS_FEATURE,$CRYPTO_FEATURE$EXTRA_FEATURES"
