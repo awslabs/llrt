@@ -36,7 +36,7 @@ fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt<'_>> {
     let now = time::now_nanos();
     let started = time::origin_nanos();
 
-    let elapsed = now.checked_sub(started).unwrap_or_default();
+    let elapsed = now.saturating_sub(started);
 
     BigInt::from_u64(ctx, elapsed)
 }
@@ -44,7 +44,7 @@ fn hr_time_big_int(ctx: Ctx<'_>) -> Result<BigInt<'_>> {
 fn hr_time(ctx: Ctx<'_>) -> Result<Array<'_>> {
     let now = time::now_nanos();
     let started = time::origin_nanos();
-    let elapsed = now.checked_sub(started).unwrap_or_default();
+    let elapsed = now.saturating_sub(started);
 
     let seconds = elapsed / 1_000_000_000;
     let remaining_nanos = elapsed % 1_000_000_000;

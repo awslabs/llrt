@@ -1,7 +1,7 @@
 [package]
 name = "llrt_crypto"
 description = "LLRT Module crypto"
-version = "0.8.0-beta"
+version = "0.8.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -15,13 +15,7 @@ path = "src/lib.rs"
 default = ["crypto-rust"]
 
 # Internal feature: enables DER parsing for SubtleCrypto key import/export
-_subtle-full = [
-  "llrt_json",
-  "const-oid",
-  "der",
-  "pkcs8",
-  "spki",
-]
+_subtle-full = ["llrt_json", "const-oid", "der", "pkcs8", "spki"]
 
 # Internal feature: enables RustCrypto dependencies for key import/export
 _rustcrypto = [
@@ -55,10 +49,10 @@ crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
 crc32fast = { version = "1", default-features = false }
-llrt_buffer = { version = "0.8.0-beta", path = "../llrt_buffer" }
-llrt_context = { version = "0.8.0-beta", path = "../../libs/llrt_context" }
-llrt_encoding = { version = "0.8.0-beta", path = "../../libs/llrt_encoding" }
-llrt_utils = { version = "0.8.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_buffer = { version = "0.8.1-beta", path = "../llrt_buffer" }
+llrt_context = { version = "0.8.1-beta", path = "../../libs/llrt_context" }
+llrt_encoding = { version = "0.8.1-beta", path = "../../libs/llrt_encoding" }
+llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
 md-5 = { version = "0.11.0-rc.5", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rand = { version = "0.10.0", features = [
@@ -70,7 +64,7 @@ rquickjs = { version = "0.11", default-features = false }
 
 
 # optional
-llrt_json = { version = "0.8.0-beta", path = "../../libs/llrt_json", optional = true }
+llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json", optional = true }
 aes = { version = "0.9.0-rc.4", optional = true }
 aes-gcm = { version = "0.11.0-rc.3", features = [
   "alloc",
@@ -136,7 +130,7 @@ x25519-dalek = { version = "3.0.0-pre.6", features = [
 ring = { version = "0.17", default-features = false, optional = true }
 openssl-sys = { version = "0.9", optional = true }
 openssl = { version = "0.10", optional = true }
-graviola = { version = "0.3", git="https://github.com/ctz/graviola.git", optional = true }
+graviola = { version = "0.3", git = "https://github.com/ctz/graviola.git", optional = true }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

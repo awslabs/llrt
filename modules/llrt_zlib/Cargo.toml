@@ -1,7 +1,7 @@
 [package]
 name = "llrt_zlib"
 description = "LLRT Module zlib"
-version = "0.8.0-beta"
+version = "0.8.1-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -27,13 +27,11 @@ compression-rust = [
 ]
 
 [dependencies]
-llrt_buffer = { version = "0.8.0-beta", path = "../llrt_buffer" }
-llrt_compression = { version = "0.8.0-beta", path = "../../libs/llrt_compression", default-features = false }
-llrt_context = { version = "0.8.0-beta", path = "../../libs/llrt_context" }
-llrt_utils = { version = "0.8.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { version = "0.11", features = [
-  "std",
-], default-features = false }
+llrt_buffer = { version = "0.8.1-beta", path = "../llrt_buffer" }
+llrt_compression = { version = "0.8.1-beta", path = "../../libs/llrt_compression", default-features = false }
+llrt_context = { version = "0.8.1-beta", path = "../../libs/llrt_context" }
+llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
+rquickjs = { version = "0.11", features = ["std"], default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
