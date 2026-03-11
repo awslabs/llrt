@@ -10,6 +10,7 @@ use rquickjs::{
 };
 
 use crate::duration::Duration;
+use crate::utils::round::timestamp::TimestampRoundOption;
 use crate::utils::{span::SpanExt, timestamp::TimestampExt};
 use crate::zoned_date_time::ZonedDateTime;
 
@@ -75,6 +76,13 @@ impl Instant {
 
     fn equals(&self, other: Self) -> bool {
         self.inner == other.inner
+    }
+
+    fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {
+        let round = TimestampRoundOption::from_value(&ctx, &options)?;
+        let round = round.into_inner();
+        let ts = self.inner.round(round).or_throw_range(&ctx, "")?;
+        Ok(Self { inner: ts })
     }
 
     fn since(&self, other: Self) -> Duration {

@@ -38,6 +38,37 @@ describe("Temporal.ZonedDateTime", () => {
       expect(z1.equals(same)).toBe(true);
     });
 
+    it("round() supports various forms, roundingMode, and roundingIncrement", () => {
+      const zFrac = z1.add({ milliseconds: 500 });
+      const rounded = zFrac.round({ smallestUnit: "second" });
+      expect(rounded.second).toBe(1);
+      expect(rounded.offset).toBe("+00:00");
+      expect(rounded.timeZoneId).toBe("UTC");
+
+      const truncated = zFrac.round({
+        smallestUnit: "second",
+        roundingMode: "trunc",
+      });
+      expect(truncated.second).toBe(0);
+
+      const zMulti = z1.add({ minutes: 7, seconds: 15 });
+      const str = zMulti.round("minute");
+      expect(str.minute).toBe(7);
+      expect(str.second).toBe(0);
+
+      const inc = zMulti.round({
+        smallestUnit: "minute",
+        roundingIncrement: 15,
+      });
+      expect(inc.minute).toBe(0);
+
+      const incHour = zMulti.round({
+        smallestUnit: "hour",
+        roundingIncrement: 2,
+      });
+      expect(incHour.hour).toBe(12);
+    });
+
     it("since() returns correct duration", () => {
       const d = z2.since(z1);
 
