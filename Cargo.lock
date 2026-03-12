@@ -1077,7 +1077,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 [[package]]
 name = "graviola"
 version = "0.3.0"
-source = "git+https://github.com/ctz/graviola.git#e8fe1ada66f13af3441d74fd990e3f83cc3e8526"
+source = "git+https://github.com/ctz/graviola.git#d49db59778bbcfae851715a6245a34a430d2781d"
 dependencies = [
  "cfg-if",
  "getrandom 0.3.4",
@@ -3046,7 +3046,7 @@ dependencies = [
 [[package]]
 name = "rustls-graviola"
 version = "0.3.3"
-source = "git+https://github.com/ctz/graviola.git#e8fe1ada66f13af3441d74fd990e3f83cc3e8526"
+source = "git+https://github.com/ctz/graviola.git#d49db59778bbcfae851715a6245a34a430d2781d"
 dependencies = [
  "graviola",
  "rustls",
