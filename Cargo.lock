@@ -1077,7 +1077,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 [[package]]
 name = "graviola"
 version = "0.3.0"
-source = "git+https://github.com/ctz/graviola.git#e8fe1ada66f13af3441d74fd990e3f83cc3e8526"
+source = "git+https://github.com/ctz/graviola.git#d49db59778bbcfae851715a6245a34a430d2781d"
 dependencies = [
  "cfg-if",
  "getrandom 0.3.4",
@@ -2456,9 +2456,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.111"
+version = "0.9.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82cab2d520aa75e3c58898289429321eb788c3106963d0dc886ec7a5f4adc321"
+checksum = "57d55af3b3e226502be1526dfdba67ab0e9c96fc293004e79576b2b9edb0dbdb"
 dependencies = [
  "cc",
  "libc",
@@ -3046,7 +3046,7 @@ dependencies = [
 [[package]]
 name = "rustls-graviola"
 version = "0.3.3"
-source = "git+https://github.com/ctz/graviola.git#e8fe1ada66f13af3441d74fd990e3f83cc3e8526"
+source = "git+https://github.com/ctz/graviola.git#d49db59778bbcfae851715a6245a34a430d2781d"
 dependencies = [
  "graviola",
  "rustls",

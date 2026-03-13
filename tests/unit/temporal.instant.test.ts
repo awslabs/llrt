@@ -38,6 +38,28 @@ describe("Temporal.Instant", () => {
       expect(inst.epochNanoseconds).toBe(1_609_459_260_000_000_000);
     });
 
+    it("round() supports various forms, roundingMode, and roundingIncrement", () => {
+      const inst1 = inst.add({ milliseconds: 500 });
+      const rounded1 = inst1.round({ smallestUnit: "second" });
+      expect(rounded1.epochMilliseconds).toBe(2000);
+
+      const truncated1 = inst1.round({
+        smallestUnit: "second",
+        roundingMode: "trunc",
+      });
+      expect(truncated1.epochMilliseconds).toBe(1000);
+
+      const inst2 = inst.add({ milliseconds: 122450 });
+      const asString = inst2.round("second");
+      expect(asString.epochMilliseconds).toBe(123000);
+
+      const inc = inst2.round({
+        smallestUnit: "second",
+        roundingIncrement: 30,
+      });
+      expect(inc.epochMilliseconds).toBe(120000);
+    });
+
     it("since() returns correct duration", () => {
       const insta = Temporal.Instant.fromEpochMilliseconds(5000);
       const instb = Temporal.Instant.fromEpochMilliseconds(2000);
