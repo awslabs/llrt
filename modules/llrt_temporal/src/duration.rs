@@ -1,18 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::cmp::Ordering;
+use std::{cmp::Ordering, str::FromStr};
 
 use jiff::Span;
 use llrt_utils::result::ResultExt;
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, Class, Ctx, Exception, JsLifetime, Object, Result, Value,
+    atom::PredefinedAtom, class::Trace, prelude::Rest, Class, Ctx, Exception, JsLifetime, Object,
+    Result, Value,
 };
 
+use crate::utils::date::fill_duration_from_iter as fill_date_from_iter;
 use crate::utils::span::SpanExt;
+use crate::utils::time::fill_duration_from_iter as fill_time_from_iter;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
-pub struct Duration {
+pub(crate) struct Duration {
     #[qjs(skip_trace)]
     inner: Span,
 }
@@ -20,8 +23,9 @@ pub struct Duration {
 #[rquickjs::methods(rename_all = "camelCase")]
 impl Duration {
     #[qjs(constructor)]
-    fn new() -> Result<Self> {
-        Ok(Self { inner: Span::new() })
+    fn new<'js>(ctx: Ctx<'js>, args: Rest<Value<'js>>) -> Result<Self> {
+        let obj = Self::fill_object(&ctx, &args)?;
+        Self::from_object(&ctx, &obj)
     }
 
     #[qjs(static)]
@@ -92,7 +96,7 @@ impl Duration {
     }
 
     fn with(&self, ctx: Ctx<'_>, info: Value<'_>) -> Result<Self> {
-        let span = self.inner.with(&ctx, &info)?;
+        let span = self.inner.span_with(&ctx, &info)?;
         Ok(Self { inner: span })
     }
 
@@ -163,17 +167,25 @@ impl Duration {
 }
 
 impl Duration {
+    fn fill_object<'js>(ctx: &Ctx<'js>, args: &Rest<Value<'js>>) -> Result<Object<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        let mut iter = args.0.iter().cloned();
+        fill_date_from_iter(&obj, &mut iter)?;
+        fill_time_from_iter(&obj, &mut iter)?;
+        Ok(obj)
+    }
+
+    fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
+        let span = Span::from_object(ctx, obj)?;
+        Ok(Self { inner: span })
+    }
+
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let span = str.parse().or_throw_range(ctx, "")?;
+        let span = Span::from_str(str).or_throw_range(ctx, "")?;
         Ok(Self { inner: span })
     }
 
-    fn from_object(ctx: &Ctx<'_>, object: &Object<'_>) -> Result<Self> {
-        let span = Span::from_object(ctx, object)?;
-        Ok(Self { inner: span })
-    }
-
-    pub fn from_span(span: Span) -> Self {
+    pub(crate) fn new_object(span: Span) -> Self {
         Self { inner: span }
     }
 }

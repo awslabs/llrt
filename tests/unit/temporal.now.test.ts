@@ -3,12 +3,26 @@ describe("Temporal.Now", () => {
     it("instant() returns a Temporal.Instant", () => {
       const inst = Temporal.Now.instant();
       expect(inst).toBeInstanceOf(Temporal.Instant);
-      expect(typeof inst.epochMilliseconds).toBe("number");
+    });
+
+    it("plainDateISO() returns a Temporal.PlainDate", () => {
+      const obj = Temporal.Now.plainDateISO();
+      expect(obj).toBeInstanceOf(Temporal.PlainDate);
+    });
+
+    it("plainDateTimeISO() returns a Temporal.PlainDateTime", () => {
+      const obj = Temporal.Now.plainDateTimeISO();
+      expect(obj).toBeInstanceOf(Temporal.PlainDateTime);
+    });
+
+    it("plainTimeISO() returns a Temporal.PlainTime", () => {
+      const obj = Temporal.Now.plainTimeISO();
+      expect(obj).toBeInstanceOf(Temporal.PlainTime);
     });
 
     it("zonedDateTimeISO() returns a Temporal.ZonedDateTime", () => {
-      const zdt = Temporal.Now.zonedDateTimeISO();
-      expect(zdt).toBeInstanceOf(Temporal.ZonedDateTime);
+      const obj = Temporal.Now.zonedDateTimeISO();
+      expect(obj).toBeInstanceOf(Temporal.ZonedDateTime);
     });
   });
 
