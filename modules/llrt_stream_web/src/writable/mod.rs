@@ -5,7 +5,9 @@ mod stream;
 mod writer;
 
 pub(crate) use default_controller::{
+    WritableAbortAlgorithm, WritableCloseAlgorithm, WritableStartAlgorithm,
     WritableStreamDefaultController, WritableStreamDefaultControllerPrimordials,
+    WritableWriteAlgorithm,
 };
 pub(crate) use default_writer::{WritableStreamDefaultWriter, WritableStreamDefaultWriterOwned};
 pub(crate) use objects::{WritableStreamClassObjects, WritableStreamObjects};
