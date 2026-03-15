@@ -15,6 +15,8 @@
 
 [createHook](https://nodejs.org/api/async_hooks.html#async_hookscreatehookcallbacks)
 
+[currentId](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncid)
+
 [executionAsyncId](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncid)
 
 [triggerAsyncId](https://nodejs.org/api/async_hooks.html#async_hookstriggerasyncid)
@@ -60,6 +62,38 @@
 ### Prototype methods
 
 [copy](https://nodejs.org/api/buffer.html#bufcopytarget-targetstart-sourcestart-sourceend)
+
+[readBigInt64BE](https://nodejs.org/api/buffer.html#bufreadbigint64beoffset)
+
+[readBigInt64LE](https://nodejs.org/api/buffer.html#bufreadbigint64leoffset)
+
+[readDoubleBE](https://nodejs.org/api/buffer.html#bufreaddoublebeoffset)
+
+[readDoubleLE](https://nodejs.org/api/buffer.html#bufreaddoubleleoffset)
+
+[readFloatBE](https://nodejs.org/api/buffer.html#bufreadfloatbeoffset)
+
+[readFloatLE](https://nodejs.org/api/buffer.html#bufreadfloatleoffset)
+
+[readInt8](https://nodejs.org/api/buffer.html#bufreadint8offset)
+
+[readInt16BE](https://nodejs.org/api/buffer.html#bufreadint16beoffset)
+
+[readInt16LE](https://nodejs.org/api/buffer.html#bufreadint16leoffset)
+
+[readInt32BE](https://nodejs.org/api/buffer.html#bufreadint32beoffset)
+
+[readInt32LE](https://nodejs.org/api/buffer.html#bufreadint32leoffset)
+
+[readUInt8](https://nodejs.org/api/buffer.html#bufreaduint8offset)
+
+[readUInt16BE](https://nodejs.org/api/buffer.html#bufreaduint16beoffset)
+
+[readUInt16LE](https://nodejs.org/api/buffer.html#bufreaduint16leoffset)
+
+[readUInt32BE](https://nodejs.org/api/buffer.html#bufreaduint32beoffset)
+
+[readUInt32LE](https://nodejs.org/api/buffer.html#bufreaduint32leoffset)
 
 [subarray](https://nodejs.org/api/buffer.html#bufsubarraystart-end)
 
@@ -138,6 +172,18 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [webcrypto](https://nodejs.org/api/crypto.html#cryptowebcrypto)
 
+### LLRT specific hash classes
+
+Lightweight and fast hash classes for LLRT.
+
+- `Md5`
+- `Sha1`
+- `Sha256`
+- `Sha384`
+- `Sha512`
+- `Crc32`
+- `Crc32c`
+
 ## crypto.subtle
 
 [subtle.decrypt](https://nodejs.org/api/webcrypto.html#subtledecryptalgorithm-key-data)
@@ -188,6 +234,10 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [accessSync](https://nodejs.org/api/fs.html#fsaccesssyncpath-mode)
 
+[constants](https://nodejs.org/api/fs.html#file-access-constants)
+
+[lstatSync](https://nodejs.org/api/fs.html#fslstatsyncpath-options)
+
 [mkdirSync](https://nodejs.org/api/fs.html#fsmkdirsyncpath-options)
 
 [mkdtempSync](https://nodejs.org/api/fs.html#fsmkdtempsyncprefix-options)
@@ -216,9 +266,13 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [constants](https://nodejs.org/api/fs.html#file-access-constants)
 
+[lstat](https://nodejs.org/api/fs.html#fspromiseslstatpath-options)
+
 [mkdir](https://nodejs.org/api/fs.html#fsmkdirpath-options-callback)
 
 [mkdtemp](https://nodejs.org/api/fs.html#fsmkdtempprefix-options-callback)
+
+[open](https://nodejs.org/api/fs.html#fspromisesopenpath-flags-mode)
 
 [readdir](https://nodejs.org/api/fs.html#fspromisesreaddirpath-options)
 
@@ -237,6 +291,10 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 [rename](https://nodejs.org/api/fs.html#fspromisesrenameoldpath-newpath)
 
 [symlink](https://nodejs.org/api/fs.html#fspromisessymlinktarget-path-type)
+
+## https
+
+[Agent](https://nodejs.org/api/https.html#class-httpsagent)
 
 ## module
 
@@ -329,7 +387,87 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [parse](https://nodejs.org/api/path.html#pathparsepath)
 
+[relative](https://nodejs.org/api/path.html#pathrelativefrom-to)
+
 [resolve](https://nodejs.org/api/path.html#pathresolvepaths)
+
+## perf_hooks
+
+_performance is available globally_
+
+[performance.now](https://nodejs.org/api/perf_hooks.html#performancenow)
+
+## process
+
+_process is available globally_
+
+[arch](https://nodejs.org/api/process.html#processarch)
+
+[argv](https://nodejs.org/api/process.html#processargv)
+
+[argv0](https://nodejs.org/api/process.html#processargv0)
+
+[cwd](https://nodejs.org/api/process.html#processcwd)
+
+[env](https://nodejs.org/api/process.html#processenv)
+
+[exit](https://nodejs.org/api/process.html#processexitcode)
+
+[exitCode](https://nodejs.org/api/process.html#processexitcode-1)
+
+[getegid](https://nodejs.org/api/process.html#processgetegid)
+
+[geteuid](https://nodejs.org/api/process.html#processgeteuid)
+
+[getgid](https://nodejs.org/api/process.html#processgetgid)
+
+[getuid](https://nodejs.org/api/process.html#processgetuid)
+
+[hrtime](https://nodejs.org/api/process.html#processhrtime)
+
+[id](https://nodejs.org/api/process.html#processpid)
+
+[kill](https://nodejs.org/api/process.html#processkillpid-signal)
+
+[platform](https://nodejs.org/api/process.html#processplatform)
+
+[release](https://nodejs.org/api/process.html#processrelease)
+
+[setegid](https://nodejs.org/api/process.html#processsetegidgid)
+
+[seteuid](https://nodejs.org/api/process.html#processseteuiduid)
+
+[setgid](https://nodejs.org/api/process.html#processsetgidgid)
+
+[setuid](https://nodejs.org/api/process.html#processsetuiduid)
+
+[version](https://nodejs.org/api/process.html#processversion)
+
+[versions](https://nodejs.org/api/process.html#processversions)
+
+## stream
+
+[Duplex](https://nodejs.org/api/stream.html#class-streamduplex)
+
+[PassThrough](https://nodejs.org/api/stream.html#class-streampassthrough)
+
+[Readable](https://nodejs.org/api/stream.html#class-streamreadable)
+
+[Stream](https://nodejs.org/api/stream.html#class-stream)
+
+[Transform](https://nodejs.org/api/stream.html#class-streamtransform)
+
+[Writable](https://nodejs.org/api/stream.html#class-streamwritable)
+
+[finished](https://nodejs.org/api/stream.html#streamfinishedstream-options-callback)
+
+[pipeline](https://nodejs.org/api/stream.html#streampipelinestreams-callback)
+
+## stream/promises
+
+[finished](https://nodejs.org/api/stream.html#streamfinishedstream-options-callback)
+
+[pipeline](https://nodejs.org/api/stream.html#streampipelinestreams-callback)
 
 ## string_decoder
 
@@ -350,6 +488,10 @@ _Also available globally_
 [setInterval](https://nodejs.org/api/timers.html#setintervalcallback-delay-args)
 
 [setTimeout](https://nodejs.org/api/timers.html#settimeoutcallback-delay-args)
+
+## tty
+
+[isatty](https://nodejs.org/api/tty.html#ttyisattyfd)
 
 ## url
 
@@ -589,9 +731,23 @@ export function ComputeMemoryUsage(): MemoryInfo;
 
 ## llrt:xml
 
-A lightweight and fast XML parser
+A lightweight and fast XML parser and builder
 
 ```typescript
+export class XmlText {
+  constructor(text: string);
+  toString(): string;
+}
+
+export class XmlNode {
+  constructor(name: string);
+  withName(name: string): this;
+  addAttribute(name: string, value: string): this;
+  addChildNode(node: XmlNode | XmlText): this;
+  removeAttribute(name: string): this;
+  toString(): string;
+}
+
 type XmlParserOptions = {
     ignoreAttributes?: boolean;
     attributeNamePrefix?: string;
@@ -602,8 +758,17 @@ type XmlParserOptions = {
 export class XMLParser(options?: XmlParserOptions){
     parse(xml:string):object
 }
-
 ```
+
+
+## llrt:util
+
+```typescript
+export function dimensions(): [number, number];
+export function load(path: string): any;
+export function print(value: any): void;
+```
+
 
 # Web Platform API
 
