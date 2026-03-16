@@ -23,7 +23,7 @@ describe("Temporal.Instant", () => {
 
     it("add() increments by duration", () => {
       const later = inst.add(dur);
-      expect(later.epochMilliseconds).toBe(2000);
+      expect(later.epochMilliseconds).toBe(2000n);
     });
 
     it("equals() and compare() behave as expected", () => {
@@ -35,29 +35,29 @@ describe("Temporal.Instant", () => {
     it("fromEpochNanoseconds() creates from nanoseconds", () => {
       const inst =
         Temporal.Instant.fromEpochNanoseconds(1_609_459_260_000_000_000);
-      expect(inst.epochNanoseconds).toBe(1_609_459_260_000_000_000);
+      expect(inst.epochNanoseconds).toBe(1_609_459_260_000_000_000n);
     });
 
     it("round() supports various forms, roundingMode, and roundingIncrement", () => {
       const inst1 = inst.add({ milliseconds: 500 });
       const rounded1 = inst1.round({ smallestUnit: "second" });
-      expect(rounded1.epochMilliseconds).toBe(2000);
+      expect(rounded1.epochMilliseconds).toBe(2000n);
 
       const truncated1 = inst1.round({
         smallestUnit: "second",
         roundingMode: "trunc",
       });
-      expect(truncated1.epochMilliseconds).toBe(1000);
+      expect(truncated1.epochMilliseconds).toBe(1000n);
 
       const inst2 = inst.add({ milliseconds: 122450 });
       const asString = inst2.round("second");
-      expect(asString.epochMilliseconds).toBe(123000);
+      expect(asString.epochMilliseconds).toBe(123000n);
 
       const inc = inst2.round({
         smallestUnit: "second",
         roundingIncrement: 30,
       });
-      expect(inc.epochMilliseconds).toBe(120000);
+      expect(inc.epochMilliseconds).toBe(120000n);
     });
 
     it("since() returns correct duration", () => {
@@ -79,7 +79,7 @@ describe("Temporal.Instant", () => {
 
     it("subtract() decrements by duration", () => {
       const earlier = inst.subtract(dur);
-      expect(earlier.epochMilliseconds).toBe(0);
+      expect(earlier.epochMilliseconds).toBe(0n);
     });
 
     it("toZonedDateTimeISO() converts to ZonedDateTime", () => {
@@ -119,12 +119,10 @@ describe("Temporal.Instant", () => {
     const inst = Temporal.Instant.fromEpochMilliseconds(1_609_459_260_000);
 
     it("reports epochMilliseconds and epochNanoseconds", () => {
-      expect(typeof inst.epochMilliseconds).toBe("number");
-      expect(inst.epochMilliseconds).toBe(1609459260000);
-      // expect(typeof zdt.epochNanoseconds).toBe("BigInt");
-      expect(typeof inst.epochNanoseconds).toBe("number");
-      // expect(inst.epochNanoseconds).toBe(1609459260000000000n);
-      expect(inst.epochNanoseconds).toBe(1609459260000000000);
+      expect(typeof inst.epochMilliseconds).toBe("bigint");
+      expect(inst.epochMilliseconds).toBe(1609459260000n);
+      expect(typeof inst.epochNanoseconds).toBe("bigint");
+      expect(inst.epochNanoseconds).toBe(1609459260000000000n);
     });
 
     it("has correct toStringTag", () => {
