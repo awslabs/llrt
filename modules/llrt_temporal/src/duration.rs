@@ -39,19 +39,7 @@ impl Duration {
 
     #[qjs(static)]
     fn from(ctx: Ctx<'_>, info: Value<'_>) -> Result<Self> {
-        if let Some(obj) = info.as_object() {
-            if let Some(cls) = Class::<Self>::from_object(obj) {
-                return Ok(cls.borrow().clone());
-            }
-            return Self::from_object(&ctx, obj);
-        }
-
-        let str = info
-            .as_string()
-            .and_then(|s| s.to_string().ok())
-            .or_throw_type(&ctx, "Cannot convert value to string")?;
-
-        Self::from_str(&ctx, &str)
+        Self::from_value(&ctx, &info)
     }
 
     fn abs(&self) -> Self {
@@ -60,7 +48,8 @@ impl Duration {
     }
 
     fn add(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &other)?;
+        let duration = Self::from_value(&ctx, &other)?;
+        let span = duration.into_inner();
         let span = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: span })
     }
@@ -71,7 +60,8 @@ impl Duration {
     }
 
     fn subtract(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &other)?;
+        let duration = Self::from_value(&ctx, &other)?;
+        let span = duration.into_inner();
         let span = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: span })
     }
@@ -180,9 +170,25 @@ impl Duration {
         Ok(Self { inner: span })
     }
 
-    fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let span = Span::from_str(str).or_throw_range(ctx, "")?;
+    pub(crate) fn from_value(ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Self> {
+        if let Some(obj) = value.as_object() {
+            if let Some(cls) = Class::<Self>::from_object(obj) {
+                return Ok(cls.borrow().clone());
+            }
+            return Self::from_object(ctx, obj);
+        }
+
+        let str = value
+            .as_string()
+            .and_then(|s| s.to_string().ok())
+            .or_throw_type(ctx, "Cannot convert value to string")?;
+
+        let span = Span::from_str(&str).or_throw_range(ctx, "")?;
         Ok(Self { inner: span })
+    }
+
+    pub(crate) fn into_inner(self) -> Span {
+        self.inner
     }
 
     pub(crate) fn new_object(span: Span) -> Self {

@@ -4,7 +4,7 @@ use std::{cmp::Ordering, str::FromStr};
 
 use jiff::{
     civil::{Date, DateTime},
-    Span, Timestamp,
+    Timestamp,
 };
 use llrt_utils::result::ResultExt;
 use rquickjs::{
@@ -17,7 +17,6 @@ use rquickjs::{
 use crate::duration::Duration;
 use crate::plain_date_time::PlainDateTime;
 use crate::utils::date::{fill_from_iter, DateExt};
-use crate::utils::span::SpanExt;
 use crate::zoned_date_time::ZonedDateTime;
 
 use super::{extract_time, extract_time_and_timezone};
@@ -72,7 +71,8 @@ impl PlainDate {
     }
 
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let zoned = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: zoned })
     }
@@ -86,7 +86,8 @@ impl PlainDate {
     }
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let date = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: date })
     }

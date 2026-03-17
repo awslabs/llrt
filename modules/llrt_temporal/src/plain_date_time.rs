@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{civil::DateTime, Span, Timestamp};
+use jiff::{civil::DateTime, Timestamp};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -16,7 +16,6 @@ use crate::plain_time::PlainTime;
 use crate::utils::date::fill_from_iter as fill_date_from_iter;
 use crate::utils::date_time::DateTimeExt;
 use crate::utils::round::date_time::DateTimeRoundOption;
-use crate::utils::span::SpanExt;
 use crate::utils::time::fill_from_iter as fill_time_from_iter;
 use crate::zoned_date_time::ZonedDateTime;
 use crate::{duration::Duration, extract_time};
@@ -63,7 +62,8 @@ impl PlainDateTime {
     }
 
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let dt = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: dt })
     }
@@ -84,7 +84,8 @@ impl PlainDateTime {
     }
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let dt = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: dt })
     }

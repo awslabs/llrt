@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Span, Timestamp, Zoned};
+use jiff::{Timestamp, Zoned};
 use llrt_utils::result::ResultExt;
 use rquickjs::Object;
 use rquickjs::{
@@ -16,7 +16,7 @@ use crate::plain_date::PlainDate;
 use crate::plain_date_time::PlainDateTime;
 use crate::plain_time::PlainTime;
 use crate::utils::round::zoned::ZonedRoundOption;
-use crate::utils::{span::SpanExt, zoned::ZonedExt};
+use crate::utils::zoned::ZonedExt;
 
 use super::extract_bigint_or_number;
 
@@ -61,7 +61,8 @@ impl ZonedDateTime {
     }
 
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let zoned = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: zoned })
     }
@@ -96,7 +97,8 @@ impl ZonedDateTime {
     }
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let zoned = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: zoned })
     }
@@ -174,16 +176,15 @@ impl ZonedDateTime {
     }
 
     #[qjs(get)]
-    fn epoch_milliseconds<'js>(&self, ctx: Ctx<'js>) -> Result<BigInt<'js>> {
-        let ms = self.inner.timestamp().as_millisecond();
-        BigInt::from_i64(ctx.clone(), ms)
+    fn epoch_milliseconds(&self) -> i64 {
+        self.inner.timestamp().as_millisecond()
     }
 
     #[qjs(get)]
     fn epoch_nanoseconds<'js>(&self, ctx: Ctx<'js>) -> Result<BigInt<'js>> {
         let ns = self.inner.timestamp().as_nanosecond();
         let ns = ns.try_into().or_throw_range(&ctx, "")?;
-        BigInt::from_i64(ctx.clone(), ns)
+        BigInt::from_i64(ctx, ns)
     }
 
     #[qjs(get)]

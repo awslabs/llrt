@@ -2,17 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Span, Timestamp, Zoned};
+use jiff::{Timestamp, Zoned};
 use llrt_utils::result::ResultExt;
-use rquickjs::Class;
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, prelude::Opt, BigInt, Ctx, Exception, JsLifetime, Result,
-    Value,
+    atom::PredefinedAtom, class::Trace, prelude::Opt, BigInt, Class, Ctx, Exception, JsLifetime,
+    Result, Value,
 };
 
 use crate::duration::Duration;
 use crate::utils::round::timestamp::TimestampRoundOption;
-use crate::utils::span::SpanExt;
 use crate::zoned_date_time::ZonedDateTime;
 
 use super::extract_bigint_or_number;
@@ -69,7 +67,8 @@ impl Instant {
     }
 
     fn add(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let ts = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: ts })
     }
@@ -90,7 +89,8 @@ impl Instant {
     }
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
-        let span = Span::from_value(&ctx, &duration)?;
+        let duration = Duration::from_value(&ctx, &duration)?;
+        let span = duration.into_inner();
         let ts = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
         Ok(Self { inner: ts })
     }
@@ -125,16 +125,15 @@ impl Instant {
     }
 
     #[qjs(get)]
-    fn epoch_milliseconds<'js>(&self, ctx: Ctx<'js>) -> Result<BigInt<'js>> {
-        let ms = self.inner.as_millisecond();
-        BigInt::from_i64(ctx.clone(), ms)
+    fn epoch_milliseconds(&self) -> i64 {
+        self.inner.as_millisecond()
     }
 
     #[qjs(get)]
     fn epoch_nanoseconds<'js>(&self, ctx: Ctx<'js>) -> Result<BigInt<'js>> {
         let ns = self.inner.as_nanosecond();
         let ns = ns.try_into().or_throw_range(&ctx, "")?;
-        BigInt::from_i64(ctx.clone(), ns)
+        BigInt::from_i64(ctx, ns)
     }
 
     #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
