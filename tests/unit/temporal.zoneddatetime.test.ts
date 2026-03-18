@@ -206,8 +206,8 @@ describe("Temporal.ZonedDateTime", () => {
       expect(zdt.millisecond).toBe(0);
       expect(zdt.offset).toBe("+00:00");
 
-      expect(typeof zdt.epochMilliseconds).toBe("bigint");
-      expect(zdt.epochMilliseconds).toBeGreaterThan(0n);
+      expect(typeof zdt.epochMilliseconds).toBe("number");
+      expect(zdt.epochMilliseconds).toBeGreaterThan(0);
       expect(typeof zdt.epochNanoseconds).toBe("bigint");
       expect(zdt.epochNanoseconds).toBeGreaterThan(0n);
 

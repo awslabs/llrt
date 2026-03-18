@@ -5,20 +5,11 @@ use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Object, Result, Value};
 
 pub trait SpanExt {
-    fn from_value(ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Span>;
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Span>;
     fn span_with(self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Span>;
 }
 
 impl SpanExt for Span {
-    fn from_value(ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Self> {
-        let obj = value
-            .as_object()
-            .or_throw_type(ctx, "Cannot convert value to object")?;
-
-        into_span(ctx, None, obj)
-    }
-
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
         into_span(ctx, None, obj)
     }
