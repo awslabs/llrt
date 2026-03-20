@@ -240,6 +240,10 @@ impl PlainDateTime {
         Ok(zdt.to_plain_date_time())
     }
 
+    pub(crate) fn into_inner(self) -> DateTime {
+        self.inner
+    }
+
     pub(crate) fn new_object(dt: DateTime) -> Self {
         Self { inner: dt }
     }

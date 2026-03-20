@@ -203,6 +203,10 @@ impl PlainDate {
         Ok(zdt.to_plain_date())
     }
 
+    pub(crate) fn into_inner(self) -> Date {
+        self.inner
+    }
+
     pub(crate) fn new_object(date: Date) -> Self {
         Self { inner: date }
     }

@@ -12,7 +12,7 @@ describe("Constructor", () => {
 });
 
 describe("Static methods", () => {
-  describe("Temporal.Instant.prototype.compare()", () => {
+  describe("Temporal.Instant.compare()", () => {
     it("Using Temporal.Instant.compare()", () => {
       const instant1 = Temporal.Instant.from("2021-08-01T12:34:56Z");
       const instant2 = Temporal.Instant.from("2021-08-01T12:34:56Z");
@@ -22,9 +22,24 @@ describe("Static methods", () => {
       const instant3 = Temporal.Instant.from("2021-08-01T13:34:56Z");
       expect(Temporal.Instant.compare(instant1, instant3)).toBe(-1);
     });
+
+    it("Sorting an array of instants", () => {
+      const instants = [
+        Temporal.Instant.from("2021-08-01T12:34:56Z"),
+        Temporal.Instant.from("2021-08-01T12:34:56+01:00"),
+        Temporal.Instant.from("2021-08-01T12:34:56-01:00"),
+      ];
+
+      instants.sort(Temporal.Instant.compare);
+      expect(instants.map((instant) => instant.toString())).toStrictEqual([
+        "2021-08-01T11:34:56Z",
+        "2021-08-01T12:34:56Z",
+        "2021-08-01T13:34:56Z",
+      ]);
+    });
   });
 
-  describe("Temporal.Instant.prototype.from()", () => {
+  describe("Temporal.Instant.from()", () => {
     it("Creating an instant from a string", () => {
       const instant = Temporal.Instant.from("1970-01-01T00Z");
       expect(instant.toString()).toBe("1970-01-01T00:00:00Z");
@@ -37,6 +52,12 @@ describe("Static methods", () => {
         "1970-01-01T00+08:00[America/New_York]"
       );
       expect(instant3.toString()).toBe("1969-12-31T16:00:00Z");
+    });
+
+    it("Creating an instant from another instant", () => {
+      const instant = Temporal.Instant.from("1970-01-01T00Z");
+      const instant2 = Temporal.Instant.from(instant);
+      expect(instant2.toString()).toBe("1970-01-01T00:00:00Z");
     });
   });
 
@@ -125,6 +146,28 @@ describe("Instance methods", () => {
   });
 
   describe("Temporal.Instant.prototype.since()", () => {
+    it.skip("Using since()", () => {
+      const lastUpdated = Temporal.Instant.fromEpochMilliseconds(1735235418000);
+      const now = Temporal.Now.instant();
+      const duration = now.since(lastUpdated, { smallestUnit: "minute" });
+      console.log(`Last updated ${duration.toLocaleString("en-US")} ago`);
+    });
+
+    it.skip("Balancing the resulting duration", () => {
+      const lastUpdated = Temporal.Instant.fromEpochMilliseconds(1735235418000);
+      const now = Temporal.Now.instant();
+      const duration = now.since(lastUpdated, { smallestUnit: "minutes" });
+      const roundedDuration = duration.round({
+        largestUnit: "years",
+        // Use the ISO calendar; you can convert to another calendar using
+        // withCalendar()
+        relativeTo: now.toZonedDateTimeISO("UTC"),
+      });
+      console.log(
+        `Last updated ${roundedDuration.toLocaleString("en-US")} ago`
+      );
+    });
+
     it("since() returns correct duration", () => {
       const insta = Temporal.Instant.fromEpochMilliseconds(5000);
       const instb = Temporal.Instant.fromEpochMilliseconds(2000);
@@ -157,6 +200,7 @@ describe("Instance methods", () => {
       const instant = Temporal.Instant.fromEpochMilliseconds(1627821296000);
       const instantStr = instant.toJSON();
       expect(instantStr).toBe("2021-08-01T12:34:56Z");
+      const _ = Temporal.Instant.from(instantStr);
     });
   });
 
@@ -175,10 +219,24 @@ describe("Instance methods", () => {
       expect(zonedDateTime.toString()).toBe(
         "2021-08-01T08:34:56.123456789-04:00[America/New_York]"
       );
+
+      const localDateTime = instant.toZonedDateTimeISO(
+        Temporal.Now.timeZoneId()
+      );
+      console.log(localDateTime.toString()); // This instant in your timezone
     });
   });
 
   describe("Temporal.Instant.prototype.until()", () => {
+    it.skip("Using until()", () => {
+      const launch = Temporal.Instant.fromEpochMilliseconds(2051222400000);
+      const now = Temporal.Now.instant();
+      const duration = now.until(launch, { smallestUnit: "minutes" });
+      console.log(
+        `It will be ${duration.toLocaleString("en-US")} until the launch`
+      );
+    });
+
     it("until() returns correct duration", () => {
       const insta = Temporal.Instant.fromEpochMilliseconds(1000);
       const instb = Temporal.Instant.fromEpochMilliseconds(4000);
@@ -198,12 +256,19 @@ describe("Instance methods", () => {
   });
 
   describe("Temporal.Instant.prototype.valueOf()", () => {
-    it("valueOf() throws a TypeError", () => {
-      const inst = Temporal.Instant.fromEpochMilliseconds(0);
+    it("Arithmetic and comparison operations on Temporal.Instant", () => {
+      const instant1 = Temporal.Instant.fromEpochMilliseconds(0);
+      const instant2 = Temporal.Instant.fromEpochMilliseconds(1000);
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-        +inst;
+        instant1 > instant2; // TypeError: can't convert Instant to primitive type
       }).toThrow();
+      expect(instant1.epochNanoseconds > instant2.epochNanoseconds).toBe(false);
+      expect(Temporal.Instant.compare(instant1, instant2)).toBe(-1);
+
+      expect(() => {
+        instant2 - instant1; // TypeError: can't convert Instant to primitive type
+      }).toThrow();
+      expect(instant2.since(instant1).toString()).toBe("PT1S");
     });
   });
 });
