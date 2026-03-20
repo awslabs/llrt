@@ -1,3 +1,133 @@
+describe("Constructor", () => {
+  describe("Temporal.ZonedDateTime()", () => {
+    it("Using Temporal.ZonedDateTime()", () => {
+      const zdt = new Temporal.ZonedDateTime(0n, "America/New_York");
+      expect(zdt.toString()).toBe(
+        "1969-12-31T19:00:00-05:00[America/New_York]"
+      );
+    });
+  });
+});
+
+describe("Static methods", () => {
+  describe("Temporal.ZonedDateTime.compare()", () => {
+    it("Using Temporal.ZonedDateTime.compare()", () => {
+      const dt1 = Temporal.ZonedDateTime.from(
+        "2021-08-01T01:00:00[Europe/London]"
+      );
+      const dt2 = Temporal.ZonedDateTime.from(
+        "2021-08-02T00:00:00[Europe/London]"
+      );
+      expect(Temporal.ZonedDateTime.compare(dt1, dt2)).toBe(-1);
+
+      const dt3 = Temporal.ZonedDateTime.from(
+        "2021-08-01T00:00:00[Europe/London]"
+      );
+      expect(Temporal.ZonedDateTime.compare(dt1, dt3)).toBe(1);
+    });
+
+    it("Sorting an array of date-times #1", () => {
+      const dateTimes = [
+        Temporal.ZonedDateTime.from("2021-08-01T00:00:00[America/New_York]"),
+        Temporal.ZonedDateTime.from("2021-08-01T00:00:00[Asia/Hong_Kong]"),
+        Temporal.ZonedDateTime.from("2021-08-01T00:00:00[Europe/London]"),
+      ];
+
+      dateTimes.sort(Temporal.ZonedDateTime.compare);
+      expect(dateTimes.map((d) => d.toString())).toStrictEqual([
+        "2021-08-01T00:00:00+08:00[Asia/Hong_Kong]",
+        "2021-08-01T00:00:00+01:00[Europe/London]",
+        "2021-08-01T00:00:00-04:00[America/New_York]",
+      ]);
+    });
+
+    it("Sorting an array of date-times #2", () => {
+      const dateTimes = [
+        Temporal.ZonedDateTime.from("2021-08-01T00:00:00[America/New_York]"),
+        Temporal.ZonedDateTime.from("2021-08-01T00:00:00[Asia/Hong_Kong]"),
+        Temporal.ZonedDateTime.from("2021-08-01T00:00:00[Europe/London]"),
+      ];
+
+      dateTimes.sort((a, b) =>
+        Temporal.PlainDateTime.compare(a.toPlainDateTime(), b.toPlainDateTime())
+      );
+      expect(dateTimes.map((d) => d.toString())).toStrictEqual([
+        "2021-08-01T00:00:00-04:00[America/New_York]",
+        "2021-08-01T00:00:00+08:00[Asia/Hong_Kong]",
+        "2021-08-01T00:00:00+01:00[Europe/London]",
+      ]);
+    });
+  });
+
+  describe("Temporal.ZonedDateTime.from()", () => {
+    it("Creating a ZonedDateTime from an object", () => {
+      // Year + month + day + hour + minute + second
+      const zdt = Temporal.ZonedDateTime.from({
+        timeZone: "America/New_York",
+        year: 2021,
+        month: 7,
+        day: 1,
+        hour: 12,
+        minute: 34,
+        second: 56,
+      });
+      expect(zdt.toString()).toBe(
+        "2021-07-01T12:34:56-04:00[America/New_York]"
+      );
+    });
+
+    it("Creating a ZonedDateTime from a string", () => {
+      // const zdt = Temporal.ZonedDateTime.from(
+      //   "2021-07-01T12:34:56-04:00[America/New_York]",
+      // );
+      // expect(zdt.toLocaleString()); // "7/1/2021, 12:34:56 PM EDT" (assuming en-US locale)
+
+      // Time given as UTC, and converted to local
+      const zdt2 = Temporal.ZonedDateTime.from(
+        "2021-07-01T12:34:56Z[America/New_York]"
+      );
+      expect(zdt2.toString()).toBe(
+        "2021-07-01T08:34:56-04:00[America/New_York]"
+      );
+    });
+
+    it("Creating a ZonedDateTime from an ISO 8601 / RFC 3339 string", () => {
+      const isoString = "2021-07-01T12:34:56+02:00";
+      const instant = Temporal.Instant.from(isoString);
+      const zdt = instant.toZonedDateTimeISO("America/New_York");
+      expect(zdt.toString()).toBe(
+        "2021-07-01T06:34:56-04:00[America/New_York]"
+      );
+    });
+
+    it("Local time disambiguation", () => {
+      const localTimeNotExist = "2024-03-10T02:05:00[America/New_York]";
+      // For non-existent times, "compatible" is equivalent to "later"
+      const zdt = Temporal.ZonedDateTime.from(localTimeNotExist);
+      expect(zdt.toString()).toBe(
+        "2024-03-10T03:05:00-04:00[America/New_York]"
+      );
+
+      // const zdt2 = Temporal.ZonedDateTime.from(localTimeNotExist, {
+      //   disambiguation: "earlier",
+      // });
+      // expect(zdt2.toString()).toBe("2024-03-10T01:05:00-05:00[America/New_York]");
+
+      const localTimeAmbiguous = "2024-11-03T01:05:00[America/New_York]";
+      // For ambiguous times, "compatible" is equivalent to "earlier"
+      const zdt3 = Temporal.ZonedDateTime.from(localTimeAmbiguous);
+      expect(zdt3.toString()).toBe(
+        "2024-11-03T01:05:00-04:00[America/New_York]"
+      );
+
+      // const zdt4 = Temporal.ZonedDateTime.from(localTimeAmbiguous, {
+      //   disambiguation: "later",
+      // });
+      // expect(zdt4.toString()).toBe("2024-11-03T01:05:00-05:00[America/New_York]");
+    });
+  });
+});
+
 describe("Temporal.ZonedDateTime", () => {
   describe("creation and parsing", () => {
     it("can be created from an RFC 9557 string", () => {

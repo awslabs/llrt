@@ -2,16 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::Span;
+use jiff::{Span, SpanCompare};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, prelude::Rest, Class, Ctx, Exception, JsLifetime, Object,
-    Result, Value,
+    atom::PredefinedAtom,
+    class::Trace,
+    prelude::{Opt, Rest},
+    Class, Ctx, Exception, JsLifetime, Object, Result, Value,
 };
 
 use crate::utils::date::fill_duration_from_iter as fill_date_from_iter;
+use crate::utils::round::span::SpanRoundOption;
 use crate::utils::span::SpanExt;
 use crate::utils::time::fill_duration_from_iter as fill_time_from_iter;
+use crate::utils::total::span::SpanTotalOption;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
@@ -29,8 +33,9 @@ impl Duration {
     }
 
     #[qjs(static)]
-    fn compare(ctx: Ctx<'_>, duration1: Self, duration2: Self) -> Result<i8> {
-        match duration1.inner.compare(duration2.inner).or_throw(&ctx)? {
+    fn compare(ctx: Ctx<'_>, duration1: Self, duration2: Self, opt: Opt<Value<'_>>) -> Result<i8> {
+        let sc = Self::into_span_compare(&duration2.inner, &opt);
+        match duration1.inner.compare(sc).or_throw_range(&ctx, "")? {
             Ordering::Less => Ok(-1),
             Ordering::Equal => Ok(0),
             Ordering::Greater => Ok(1),
@@ -59,6 +64,13 @@ impl Duration {
         Self { inner: span }
     }
 
+    fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {
+        let round = SpanRoundOption::from_value(&ctx, &options)?;
+        let round = round.into_inner();
+        let dt = self.inner.round(round).or_throw_range(&ctx, "")?;
+        Ok(Self { inner: dt })
+    }
+
     fn subtract(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
         let duration = Self::from_value(&ctx, &other)?;
         let span = duration.into_inner();
@@ -76,6 +88,13 @@ impl Duration {
     #[qjs(rename = PredefinedAtom::ToString)]
     fn to_string(&self) -> String {
         self.inner.to_string()
+    }
+
+    fn total(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<f64> {
+        let total = SpanTotalOption::from_value(&ctx, &options)?;
+        let total = total.into_inner();
+        let num = self.inner.total(total).or_throw_range(&ctx, "")?;
+        Ok(num)
     }
 
     fn value_of(&self, ctx: Ctx<'_>) -> Result<()> {
@@ -189,6 +208,10 @@ impl Duration {
 
     pub(crate) fn into_inner(self) -> Span {
         self.inner
+    }
+
+    fn into_span_compare<'a>(span: &Span, value: &Opt<Value<'a>>) -> SpanCompare<'a> {
+        Span::into_span_compare(span, value)
     }
 
     pub(crate) fn new_object(span: Span) -> Self {
