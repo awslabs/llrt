@@ -11,7 +11,8 @@ name = "llrt_test_tls"
 path = "src/lib.rs"
 
 [features]
-default = ["tls-ring"]
+default = ["tls-rust"]
+tls-rust = ["dep:rustls-rustcrypto"]
 tls-ring = ["rustls/ring"]
 tls-aws-lc = ["rustls/aws_lc_rs"]
 tls-graviola = ["dep:rustls-graviola"]
@@ -26,6 +27,7 @@ hyper-util = { version = "0.1", features = [
 ], default-features = false }
 http = { version = "1", default-features = false }
 rustls = { version = "0.23", features = ["tls12"], default-features = false }
+rustls-rustcrypto = { version = "0.0.2-alpha", git = "https://github.com/RustCrypto/rustls-rustcrypto.git", optional = true }
 rustls-graviola = { version = "0.3", git = "https://github.com/ctz/graviola.git", default-features = false, optional = true }
 openssl = { version = "0.10", optional = true }
 tokio-openssl = { version = "0.6", optional = true }
