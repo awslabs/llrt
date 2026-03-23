@@ -347,16 +347,24 @@ async fn illegal_constructor() {
     test_async_with(|ctx| {
         crate::init(&ctx).unwrap();
         Box::pin(async move {
-            eval_async(&ctx, r#"
+            eval_async(
+                &ctx,
+                r#"
                 try {
                     new TransformStreamDefaultController();
                     throw new Error("should have thrown");
                 } catch (e) {
                     if (!(e instanceof TypeError)) throw new Error("expected TypeError, got " + e);
                 }
-            "#).unwrap().into_future::<()>().await.unwrap();
+            "#,
+            )
+            .unwrap()
+            .into_future::<()>()
+            .await
+            .unwrap();
         })
-    }).await;
+    })
+    .await;
 }
 
 #[tokio::test]
