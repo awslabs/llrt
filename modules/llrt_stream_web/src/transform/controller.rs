@@ -193,14 +193,16 @@ pub(super) fn transform_stream_error_writable_and_unblock_write<'js>(
     stream_class: &TransformStreamClass<'js>,
     _e: Value<'js>,
 ) -> Result<()> {
-    let stream = stream_class.borrow_mut();
+    let mut stream = stream_class.borrow_mut();
     if let Some(ref controller_class) = stream.controller {
         controller_class.borrow_mut().clear_algorithms();
     }
-    if stream.backpressure {
-        drop(stream);
-        transform_stream_set_backpressure(stream_class, false)?;
+    // Always resolve and clear backpressure promise to break reference cycles
+    if let Some(ref bp) = stream.backpressure_change_promise {
+        bp.resolve_undefined()?;
     }
+    stream.backpressure_change_promise = None;
+    stream.backpressure = false;
     Ok(())
 }
 
