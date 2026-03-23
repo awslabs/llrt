@@ -49,14 +49,17 @@ describe("Request class", () => {
     expect(request.body).toEqual(null);
   });
 
-  it("should set the body to the provided value", () => {
+  it("should set the body to the provided value", async () => {
     const body = "hello world!";
     const request = new Request("https://example.com", {
       body,
       method: "POST",
     });
-    expect(request.body).toStrictEqual(body);
+    expect(request.body).toBeInstanceOf(ReadableStream);
     expect(request.bodyUsed).toBeFalsy();
+    // Read the body to verify content
+    const text = await request.text();
+    expect(text).toStrictEqual(body);
   });
 
   it("should accept another request object as argument", () => {
@@ -165,5 +168,271 @@ describe("Request class", () => {
   it("should ignore request options which are not an object", async () => {
     const request = new Request("http://localhost", undefined);
     expect(request instanceof Request).toBeTruthy();
+  });
+
+  // ── Body with GET/HEAD should throw ──
+
+  it("should throw when body is set with GET method", () => {
+    expect(() => {
+      new Request("http://localhost", { method: "GET", body: "data" });
+    }).toThrow();
+  });
+
+  it("should throw when body is set with HEAD method", () => {
+    expect(() => {
+      new Request("http://localhost", { method: "HEAD", body: "data" });
+    }).toThrow();
+  });
+
+  it("should allow body with PUT method", () => {
+    const req = new Request("http://localhost", {
+      method: "PUT",
+      body: "data",
+    });
+    expect(req.method).toEqual("PUT");
+  });
+
+  it("should allow body with PATCH method", () => {
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      body: "data",
+    });
+    expect(req.method).toEqual("PATCH");
+  });
+
+  it("should allow body with DELETE method", () => {
+    const req = new Request("http://localhost", {
+      method: "DELETE",
+      body: "data",
+    });
+    expect(req.method).toEqual("DELETE");
+  });
+
+  // ── Body transfer from another Request ──
+
+  it("should mark original body as used when constructing from another Request", async () => {
+    const original = new Request("http://localhost", {
+      method: "POST",
+      body: "transferred",
+    });
+    const derived = new Request(original);
+    expect(original.bodyUsed).toBeTruthy();
+    expect(await derived.text()).toEqual("transferred");
+  });
+
+  it("should throw when reading body of a transferred Request", async () => {
+    const original = new Request("http://localhost", {
+      method: "POST",
+      body: "transferred",
+    });
+    new Request(original);
+    await expect(original.text()).rejects.toThrow();
+  });
+
+  // ── Unusable body: disturbed ──
+
+  it("should reject json() after text() has been called", async () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: JSON.stringify({ a: 1 }),
+    });
+    await req.text();
+    await expect(req.json()).rejects.toThrow();
+  });
+
+  // ── Unusable body: locked ──
+
+  it("should reject text() when body stream is locked by a reader", async () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "locked",
+    });
+    const reader = req.body.getReader();
+    await expect(req.text()).rejects.toThrow();
+    reader.releaseLock();
+  });
+
+  // ── clone() edge cases ──
+
+  it("should throw when cloning a Request with used body", async () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "data",
+    });
+    await req.text();
+    expect(() => req.clone()).toThrow();
+  });
+
+  it("should independently consume cloned Request bodies", async () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "clone test",
+    });
+    const cloned = req.clone();
+    expect(await req.text()).toEqual("clone test");
+    expect(await cloned.text()).toEqual("clone test");
+  });
+
+  // ── Null body consumption ──
+
+  it("should return empty string from text() on GET request (null body)", async () => {
+    const req = new Request("http://localhost");
+    expect(await req.text()).toEqual("");
+  });
+
+  it("should return empty ArrayBuffer from arrayBuffer() on GET request", async () => {
+    const req = new Request("http://localhost");
+    const buf = await req.arrayBuffer();
+    expect(buf.byteLength).toEqual(0);
+  });
+
+  // ── Content-Type auto-setting ──
+
+  it("should auto-set Content-Type for string body", () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "text",
+    });
+    expect(req.headers.get("content-type")).toEqual("text/plain;charset=UTF-8");
+  });
+
+  it("should auto-set Content-Type for Blob body with type", () => {
+    const blob = new Blob(["data"], { type: "application/octet-stream" });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: blob,
+    });
+    expect(req.headers.get("content-type")).toEqual("application/octet-stream");
+  });
+
+  it("should auto-set Content-Type for URLSearchParams body", () => {
+    const params = new URLSearchParams({ a: "1" });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: params,
+    });
+    expect(req.headers.get("content-type")).toEqual(
+      "application/x-www-form-urlencoded;charset=UTF-8"
+    );
+  });
+
+  it("should not override explicit Content-Type header", () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "text",
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(req.headers.get("content-type")).toEqual("application/json");
+  });
+
+  it("should not set Content-Type for ArrayBuffer body", () => {
+    const buf = new ArrayBuffer(4);
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: buf,
+    });
+    expect(req.headers.get("content-type")).toBeNull();
+  });
+
+  // ── Request.body returns ReadableStream ──
+
+  it("should return same ReadableStream on multiple body accesses", () => {
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: "test",
+    });
+    const body1 = req.body;
+    const body2 = req.body;
+    expect(body1).toBe(body2);
+  });
+
+  it("should return ReadableStream for FormData body", async () => {
+    const fd = new FormData();
+    fd.append("key", "value");
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: fd,
+    });
+    expect(req.body).toBeInstanceOf(ReadableStream);
+  });
+
+  it("should return ReadableStream for URLSearchParams body", async () => {
+    const params = new URLSearchParams({ foo: "bar" });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: params,
+    });
+    expect(req.body).toBeInstanceOf(ReadableStream);
+    expect(await req.text()).toEqual("foo=bar");
+  });
+
+  it("should pass through ReadableStream body unchanged", () => {
+    const stream = new ReadableStream({
+      start(c) {
+        c.close();
+      },
+    });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: stream,
+      // @ts-ignore
+      duplex: "half",
+    });
+    expect(req.body).toBe(stream);
+  });
+
+  // ── ReadableStream as Request body ──
+
+  it("should accept ReadableStream as body with POST and duplex half", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("stream body"));
+        controller.close();
+      },
+    });
+    const req = new Request("http://localhost", {
+      method: "POST",
+      body: stream,
+      // @ts-ignore
+      duplex: "half",
+    });
+    expect(await req.text()).toEqual("stream body");
+  });
+
+  it("should reject disturbed ReadableStream as Request body", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data"));
+        controller.close();
+      },
+    });
+    const reader = stream.getReader();
+    await reader.read();
+    reader.releaseLock();
+    expect(() => {
+      new Request("http://localhost", {
+        method: "POST",
+        body: stream,
+        // @ts-ignore
+        duplex: "half",
+      });
+    }).toThrow();
+  });
+
+  it("should reject locked ReadableStream as Request body", () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+    stream.getReader(); // locks
+    expect(() => {
+      new Request("http://localhost", {
+        method: "POST",
+        body: stream,
+        // @ts-ignore
+        duplex: "half",
+      });
+    }).toThrow();
   });
 });
