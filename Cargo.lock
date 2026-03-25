@@ -1620,6 +1620,7 @@ dependencies = [
  "constcat",
  "crossterm",
  "jiff",
+ "libc",
  "llrt_core",
  "llrt_test",
  "snmalloc-rs",

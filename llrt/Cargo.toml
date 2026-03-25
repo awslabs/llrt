@@ -50,6 +50,9 @@ snmalloc-rs = { version = "0.7", features = [
   "lto",
 ], default-features = false }
 
+[target.'cfg(target_env = "musl")'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 llrt_test = { version = "0.8.1-beta", path = "../libs/llrt_test" }
 
