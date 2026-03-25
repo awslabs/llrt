@@ -45,7 +45,7 @@ tracing = { version = "0.1", features = ["log"], default-features = false }
 tracing-core = { version = "0.1", default-features = false }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-snmalloc-rs = { version = "0.3", features = [
+snmalloc-rs = { version = "0.7", features = [
   "default",
   "lto",
 ], default-features = false }
