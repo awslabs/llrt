@@ -48,6 +48,70 @@ use crate::base::{async_with, CatchResultExt};
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
+// snmalloc 0.7 uses C++ thread_local destructors via __cxa_thread_atexit_impl
+// which is unavailable in musl static builds. This fallback uses a pthread TLS
+// key to run registered destructors when a thread exits.
+#[cfg(target_env = "musl")]
+#[no_mangle]
+pub unsafe extern "C" fn __cxa_thread_atexit_impl(
+    dtor: unsafe extern "C" fn(*mut std::ffi::c_void),
+    obj: *mut std::ffi::c_void,
+    _dso_symbol: *mut std::ffi::c_void,
+) -> std::ffi::c_int {
+    use std::ffi::c_void;
+    use std::ptr;
+    use std::sync::Once;
+
+    type Dtor = unsafe extern "C" fn(*mut c_void);
+    type DtorList = Vec<(Dtor, *mut c_void)>;
+
+    static INIT: Once = Once::new();
+    static mut KEY: libc::pthread_key_t = 0;
+
+    unsafe extern "C" fn run_dtors(ptr: *mut c_void) {
+        let mut current = ptr;
+
+        // required by POSIX: destructors may re-register new ones
+        while !current.is_null() {
+            let list = Box::from_raw(current as *mut DtorList);
+
+            libc::pthread_setspecific(KEY, ptr::null_mut());
+
+            for &(dtor, obj) in list.iter().rev() {
+                dtor(obj);
+            }
+
+            current = libc::pthread_getspecific(KEY);
+        }
+    }
+
+    INIT.call_once(|| unsafe {
+        let rc = libc::pthread_key_create(&raw mut KEY, Some(run_dtors));
+        if rc != 0 {
+            std::process::abort();
+        }
+    });
+
+    let ptr = libc::pthread_getspecific(KEY);
+
+    let mut list: Box<DtorList> = if ptr.is_null() {
+        Box::new(Vec::new())
+    } else {
+        Box::from_raw(ptr as *mut DtorList)
+    };
+
+    list.push((dtor, obj));
+
+    let rc = libc::pthread_setspecific(KEY, Box::into_raw(list) as *mut c_void);
+
+    if rc != 0 {
+        // if this fails, we must not leak the list but we no longer own the pointer after into_raw. Best recovery is abort (matches libc fatal behavior).
+        std::process::abort();
+    }
+
+    0
+}
+
 #[tokio::main]
 async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
     let now = Instant::now();
