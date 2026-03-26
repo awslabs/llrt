@@ -1076,7 +1076,8 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 [[package]]
 name = "graviola"
 version = "0.3.4"
-source = "git+https://github.com/ctz/graviola.git#38a5e5ace4fd808ee49825b3bc2129d85a3542eb"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4387e0458389da24c6fe732531e65595c7c4a32b027f98f4789e512e28224465"
 dependencies = [
  "cfg-if",
  "getrandom 0.3.4",
@@ -3051,7 +3052,8 @@ dependencies = [
 [[package]]
 name = "rustls-graviola"
 version = "0.3.4"
-source = "git+https://github.com/ctz/graviola.git#38a5e5ace4fd808ee49825b3bc2129d85a3542eb"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "323c712e50c59ceb2ba9ad4d79dcfd3e0046a082d61efa87fcdf8f59af04473c"
 dependencies = [
  "graviola",
  "rustls",
