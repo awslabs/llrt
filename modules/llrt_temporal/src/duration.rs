@@ -12,10 +12,10 @@ use rquickjs::{
 };
 
 use crate::utils::date::fill_duration_from_iter as fill_date_from_iter;
-use crate::utils::round::span::SpanRoundOption;
+use crate::utils::span::round::SpanRoundOption;
+use crate::utils::span::total::SpanTotalOption;
 use crate::utils::span::SpanExt;
 use crate::utils::time::fill_duration_from_iter as fill_time_from_iter;
-use crate::utils::total::span::SpanTotalOption;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
