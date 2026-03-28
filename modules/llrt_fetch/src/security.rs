@@ -58,6 +58,9 @@ fn url_match(list: &[Uri], uri: &Uri) -> bool {
     let host = uri.host().unwrap_or_default();
     let port = uri.port_u16().unwrap_or(80);
     list.iter().any(|entry| {
-        host.ends_with(entry.host().unwrap_or_default()) && entry.port_u16().unwrap_or(80) == port
+        let entry_host = entry.host().unwrap_or_default();
+        let port_match = entry.port_u16().unwrap_or(80) == port;
+        let host_match = host == entry_host || host.ends_with(&format!(".{}", entry_host));
+        port_match && host_match
     })
 }
