@@ -1,12 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub mod round;
-
 use jiff::civil::Time;
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Object, Result, Value};
 
-pub trait TimeExt {
+pub(crate) trait TimeExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Time>;
     fn time_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Time>;
 }

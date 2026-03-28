@@ -1,14 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub mod round;
-
 use jiff::{civil::DateTime, Zoned};
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Object, Result, Value};
 
-use crate::utils::date_time::DateTimeExt;
+use super::date_time::DateTimeExt;
 
-pub trait ZonedExt {
+pub(crate) trait ZonedExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned>;
     fn zoned_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Zoned>;
 }
