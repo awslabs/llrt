@@ -11,7 +11,7 @@ use rquickjs::{
 
 use crate::duration::Duration;
 use crate::plain_date_time::PlainDateTime;
-use crate::utils::round::time::TimeRoundOption;
+use crate::utils::time::round::TimeRoundOption;
 use crate::utils::time::{fill_from_iter, TimeExt};
 use crate::zoned_date_time::ZonedDateTime;
 

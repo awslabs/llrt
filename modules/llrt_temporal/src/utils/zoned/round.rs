@@ -1,12 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use jiff::{civil::DateTimeRound, RoundMode, Unit};
+use jiff::{RoundMode, Unit, ZonedRound};
 
-use super::{RoundBuilder, RoundOption};
+use crate::utils::{RoundBuilder, RoundOption};
 
-impl RoundBuilder for DateTimeRound {
+impl RoundBuilder for ZonedRound {
     fn new() -> Self {
-        DateTimeRound::new()
+        ZonedRound::new()
     }
 
     fn smallest(self, unit: Unit) -> Self {
@@ -22,4 +22,4 @@ impl RoundBuilder for DateTimeRound {
     }
 }
 
-pub(crate) type DateTimeRoundOption = RoundOption<DateTimeRound>;
+pub(crate) type ZonedRoundOption = RoundOption<ZonedRound>;

@@ -1,5 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+pub mod round;
+pub mod total;
+
 use jiff::{Span, SpanCompare, SpanRelativeTo};
 use llrt_utils::result::ResultExt;
 use rquickjs::{prelude::Opt, Class, Ctx, Object, Result, Value};
