@@ -117,7 +117,7 @@ pbkdf2 = { version = "0.13.0-rc.10", default-features = false, optional = true }
 pkcs8 = { version = "0.11.0-rc.11", default-features = false, features = [
   "alloc",
 ], optional = true }
-sha1 = { version = "0.11.0-rc.5", default-features = false, optional = true }
+sha1 = { version = "0.11.0", default-features = false, optional = true }
 spki = { version = "0.8.0-rc.4", features = [
   "alloc",
 ], default-features = false, optional = true }
