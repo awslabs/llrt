@@ -1,3 +1,17 @@
+describe("JSON import()", () => {
+  it("should parse escaped characters via import()", async () => {
+    const mod = await import("./fixtures/escaped.json");
+    expect(mod.default).toStrictEqual({
+      quote: '"hello"',
+      backslash: "a\\b",
+      tab: "a\tb",
+      newline: "a\nb",
+      mixed: '"it\\s\\nalive"',
+      nested: { key: 'val"ue' },
+    });
+  });
+});
+
 describe("JSON Parsing", () => {
   it("should parse valid JSON", () => {
     const parsedData = JSON.parse('{"key": "value"}');
