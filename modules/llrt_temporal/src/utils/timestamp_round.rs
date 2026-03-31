@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use jiff::{RoundMode, TimestampRound, Unit};
 
-use crate::utils::{RoundBuilder, RoundOption};
+use super::{RoundBuilder, RoundOption};
 
 impl RoundBuilder for TimestampRound {
     fn new() -> Self {

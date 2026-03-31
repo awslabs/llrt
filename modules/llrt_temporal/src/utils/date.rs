@@ -4,7 +4,7 @@ use jiff::civil::Date;
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Object, Result, Value};
 
-pub trait DateExt {
+pub(crate) trait DateExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Date>;
     fn date_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Date>;
 }

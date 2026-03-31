@@ -1,7 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub mod round;
-
 use jiff::civil::{Date, DateTime, Time};
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Object, Result, Value};
@@ -9,7 +7,7 @@ use rquickjs::{Ctx, Object, Result, Value};
 use super::date::DateExt;
 use super::time::TimeExt;
 
-pub trait DateTimeExt {
+pub(crate) trait DateTimeExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<DateTime>;
     fn date_time_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<DateTime>;
 }

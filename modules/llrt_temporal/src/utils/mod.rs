@@ -2,10 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pub mod date;
 pub mod date_time;
+pub mod date_time_round;
 pub mod span;
+pub mod span_round;
+pub mod span_total;
 pub mod time;
-pub mod timestamp;
+pub mod time_round;
+pub mod timestamp_round;
 pub mod zoned;
+pub mod zoned_round;
 
 use jiff::{RoundMode, Unit};
 use llrt_utils::result::ResultExt;
@@ -54,7 +59,7 @@ impl<T: RoundBuilder> RoundOption<T> {
     }
 }
 
-pub(crate) fn get_unit(ctx: &Ctx, unit: &str) -> Result<Unit> {
+pub(super) fn get_unit(ctx: &Ctx, unit: &str) -> Result<Unit> {
     let unit = match unit {
         "day" => Unit::Day,
         "hour" => Unit::Hour,
@@ -68,7 +73,7 @@ pub(crate) fn get_unit(ctx: &Ctx, unit: &str) -> Result<Unit> {
     Ok(unit)
 }
 
-pub(crate) fn get_duration_unit(ctx: &Ctx, unit: &Option<String>) -> Result<Option<Unit>> {
+pub(super) fn get_duration_unit(ctx: &Ctx, unit: &Option<String>) -> Result<Option<Unit>> {
     let Some(unit) = unit else {
         return Ok(None);
     };
@@ -88,7 +93,7 @@ pub(crate) fn get_duration_unit(ctx: &Ctx, unit: &Option<String>) -> Result<Opti
     Ok(Some(unit))
 }
 
-pub(crate) fn get_round_mode(ctx: &Ctx, mode: &Option<String>) -> Result<RoundMode> {
+pub(super) fn get_round_mode(ctx: &Ctx, mode: &Option<String>) -> Result<RoundMode> {
     let mode = match mode.clone().unwrap_or_else(|| "halfExpand".into()).as_ref() {
         "ceil" => RoundMode::Ceil,
         "floor" => RoundMode::Floor,
