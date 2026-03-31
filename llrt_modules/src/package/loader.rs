@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{fs::File, io::Read};
 
+use llrt_json::escape::escape_json_string;
 use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use tracing::trace;
 
@@ -82,13 +83,12 @@ impl PackageLoader {
         if !from_cjs_import {
             if normalized_name.ends_with(".json") {
                 let mut file = File::open(path)?;
-                let prefix = "export default JSON.parse(`";
-                let suffix = "`);";
-                let mut json = String::with_capacity(prefix.len() + suffix.len());
-                json.push_str(prefix);
-                file.read_to_string(&mut json)?;
-                json.push_str(suffix);
-
+                let mut contents = Vec::new();
+                file.read_to_end(&mut contents)?;
+                let mut json = String::with_capacity(contents.len() + 40);
+                json.push_str("export default JSON.parse(\"");
+                escape_json_string(&mut json, &contents);
+                json.push_str("\");");
                 return Ok((Module::declare(ctx, path, json)?, None));
             }
             if is_cjs || normalized_name.ends_with(".cjs") {

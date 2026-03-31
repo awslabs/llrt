@@ -1,0 +1,8 @@
+{
+  "quote": "\"hello\"",
+  "backslash": "a\\b",
+  "tab": "a\tb",
+  "newline": "a\nb",
+  "mixed": "\"it\\s\\nalive\"",
+  "nested": { "key": "val\"ue" }
+}
