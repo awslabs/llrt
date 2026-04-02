@@ -212,7 +212,7 @@ async fn async_transform() {
                 r#"
                 const ts = new TransformStream({
                     async transform(chunk, controller) {
-                        await new Promise(r => setTimeout(r, 1));
+                        await new Promise(r => r());
                         controller.enqueue(chunk * 2);
                     }
                 });
