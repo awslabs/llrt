@@ -35,6 +35,7 @@ pub use readable::{
     readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
 };
 pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
+pub use readable::{NativePull, NativePullFn};
 pub use utils::promise::PromisePrimordials;
 
 /// Defines web streams, which are exposed through the "stream/web" Node import, but also at the global scope

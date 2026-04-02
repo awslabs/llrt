@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::task::Poll;
 
 use rquickjs::class::Tracer;
 use rquickjs::prelude::This;
@@ -10,10 +11,11 @@ use rquickjs::{
 };
 use rquickjs::{IntoJs, JsLifetime, Object};
 
+use crate::utils::promise;
 use crate::{
     readable::{
         byob_reader::ReadableStreamBYOBReaderOwned,
-        controller::ReadableStreamController,
+        controller::{ReadableStreamController, ReadableStreamControllerClass},
         objects::{ReadableStreamDefaultReaderObjects, ReadableStreamObjects},
         reader::{
             ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned,
@@ -27,13 +29,25 @@ use crate::{
     },
 };
 
+use crate::readable::default_controller::NativePull;
+
 #[derive(Trace)]
 #[rquickjs::class]
 pub(crate) struct ReadableStreamDefaultReader<'js> {
     pub(super) generic: ReadableStreamGenericReader<'js>,
     pub(super) read_requests: VecDeque<Box<dyn ReadableStreamReadRequest<'js> + 'js>>,
+    /// Cached native_pull from controller — avoids re-checking every read()
+    #[qjs(skip_trace)]
+    cached_native_pull: Option<NativePull<'js>>,
+    /// Pre-created {done: true} result for EOF — avoids Object creation
+    #[qjs(skip_trace)]
+    done_result: Option<Value<'js>>,
 }
 
+
+impl<'js> Drop for ReadableStreamDefaultReader<'js> {
+    fn drop(&mut self) { self.cached_native_pull = None; }
+}
 pub(crate) type ReadableStreamDefaultReaderClass<'js> =
     Class<'js, ReadableStreamDefaultReader<'js>>;
 pub(crate) type ReadableStreamDefaultReaderOwned<'js> =
@@ -115,6 +129,8 @@ impl<'js> ReadableStreamDefaultReader<'js> {
                 generic,
                 // Set reader.[[readRequests]] to a new empty list.
                 read_requests: VecDeque::new(),
+                cached_native_pull: None,
+                done_result: None,
             },
         )?;
 
@@ -154,14 +170,105 @@ impl<'js> ReadableStreamDefaultReader<'js> {
         Ok(reader)
     }
 
-    fn read(ctx: Ctx<'js>, reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
+    fn read(ctx: Ctx<'js>, mut reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
         if reader.generic.stream.is_none() {
-            // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
             return promise_rejected_with_constructor(
                 &reader.generic.constructor_type_error,
                 &reader.generic.promise_primordials,
                 "Cannot read from a stream using a released reader",
             );
+        }
+
+        // Native pull fast-path with caching
+        let np = if let Some(ref np) = reader.cached_native_pull {
+            Some(np.clone())
+        } else if let Some(stream_class) = &reader.generic.stream {
+            let np = {
+                let stream = stream_class.borrow();
+                if matches!(stream.state, ReadableStreamState::Readable) {
+                    match &stream.controller {
+                        ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl) => {
+                            ctrl.borrow().native_pull.clone()
+                        },
+                        _ => None,
+                    }
+                } else { None }
+            };
+            if let Some(ref v) = np {
+                reader.cached_native_pull = Some(v.clone());
+            }
+            np
+        } else { None };
+
+        if let Some(np) = np {
+            let can_use = if let Some(stream_class) = &reader.generic.stream {
+                let stream = stream_class.borrow();
+                matches!(stream.state, ReadableStreamState::Readable) && {
+                    match &stream.controller {
+                        ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl) => {
+                            let c = ctrl.borrow();
+                            c.container.queue.is_empty() && !c.pulling
+                        },
+                        _ => false,
+                    }
+                }
+            } else { false };
+
+            if can_use {
+                if let Some(sc) = &reader.generic.stream {
+                    sc.borrow_mut().disturbed = true;
+                }
+                let pull_ref = np.0.borrow();
+                if let Some(f) = pull_ref.as_ref() {
+                    let mut fut = f(ctx.clone());
+                    let waker = std::task::Waker::noop();
+                    let mut poll_cx = std::task::Context::from_waker(&waker);
+                    match fut.as_mut().poll(&mut poll_cx) {
+                        std::task::Poll::Ready(Ok(Some(chunk))) => {
+                            drop(pull_ref);
+                            let p = reader.generic.promise_primordials.clone();
+                            // Hot path: create {value, done:false} with minimal JS ops
+                            let obj = Object::new(ctx.clone())?;
+                            obj.set("value", chunk)?;
+                            obj.set("done", false)?;
+                            return crate::utils::promise::promise_resolved_with(&ctx, &p, Ok(obj.into_value()));
+                        },
+                        std::task::Poll::Ready(Ok(None)) => {
+                            drop(pull_ref);
+                            reader.cached_native_pull = None;
+                            let p = reader.generic.promise_primordials.clone();
+                            // Cache the done result
+                            let done_val = if let Some(ref v) = reader.done_result {
+                                v.clone()
+                            } else {
+                                let obj = Object::new(ctx.clone())?;
+                                obj.set("done", true)?;
+                                let v = obj.into_value();
+                                reader.done_result = Some(v.clone());
+                                v
+                            };
+                            return crate::utils::promise::promise_resolved_with(&ctx, &p, Ok(done_val));
+                        },
+                        std::task::Poll::Ready(Err(e)) => {
+                            drop(pull_ref);
+                            reader.cached_native_pull = None;
+                            return Err(e);
+                        },
+                        std::task::Poll::Pending => {
+                            drop(pull_ref);
+                            let ret = Promise::wrap_future(&ctx, async move {
+                                match fut.await {
+                                    Ok(Some(chunk)) => Ok(ReadableStreamReadResult { value: Some(chunk), done: false }),
+                                    Ok(None) => Ok(ReadableStreamReadResult { value: None, done: true }),
+                                    Err(e) => Err(e),
+                                }
+                            })?;
+                            return Ok(ret);
+                        },
+                    }
+                }
+                drop(pull_ref);
+            }
         }
 
         let objects = ReadableStreamObjects::from_default_reader(reader.0);
@@ -228,9 +335,9 @@ impl<'js> ReadableStreamDefaultReader<'js> {
         Ok(promise.promise)
     }
 
-    fn release_lock(reader: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
+    fn release_lock(mut reader: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
+        reader.cached_native_pull = None;
         if reader.generic.stream.is_none() {
-            // If this.[[stream]] is undefined, return.
             return Ok(());
         }
 
@@ -248,9 +355,10 @@ impl<'js> ReadableStreamDefaultReader<'js> {
 
     fn cancel(
         ctx: Ctx<'js>,
-        reader: This<OwnedBorrowMut<'js, Self>>,
+        mut reader: This<OwnedBorrowMut<'js, Self>>,
         reason: Opt<Value<'js>>,
     ) -> Result<Promise<'js>> {
+        reader.cached_native_pull = None;
         if reader.generic.stream.is_none() {
             // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
             return promise_rejected_with_constructor(

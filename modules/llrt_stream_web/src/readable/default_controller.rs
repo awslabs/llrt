@@ -5,6 +5,25 @@ use rquickjs::{
     prelude::{Opt, This},
     Class, Ctx, Error, Exception, JsLifetime, Object, Promise, Result, Value,
 };
+use std::{cell::RefCell, future, pin::Pin, rc::Rc};
+
+/// Native async pull: returns Ok(Some(chunk)) or Ok(None) for EOF.
+pub type NativePullFn<'js> = dyn Fn(Ctx<'js>) -> Pin<Box<dyn future::Future<Output = Result<Option<Value<'js>>>> + 'js>>
+    + 'js;
+
+/// Wrapper satisfying JsLifetime/Trace.
+pub struct NativePull<'js>(pub Rc<RefCell<Option<Box<NativePullFn<'js>>>>>);
+impl<'js> Clone for NativePull<'js> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+unsafe impl<'js> JsLifetime<'js> for NativePull<'js> {
+    type Changed<'to> = NativePull<'to>;
+}
+impl<'js> Trace<'js> for NativePull<'js> {
+    fn trace<'a>(&self, _: rquickjs::class::Tracer<'a, 'js>) {}
+}
 
 use crate::{
     queuing_strategy::{SizeAlgorithm, SizeValue},
@@ -40,12 +59,19 @@ pub struct ReadableStreamDefaultController<'js> {
     close_requested: bool,
     pull_again: bool,
     pull_algorithm: Option<PullAlgorithm<'js>>,
-    pulling: bool,
-    container: QueueWithSizes<'js>,
+    pub(crate) pulling: bool,
+    pub(crate) container: QueueWithSizes<'js>,
     started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
     pub(super) stream: ReadableStreamClass<'js>,
+    pub native_pull: Option<NativePull<'js>>,
+}
+
+impl<'js> Drop for ReadableStreamDefaultController<'js> {
+    fn drop(&mut self) {
+        self.native_pull = None;
+    }
 }
 
 pub type ReadableStreamDefaultControllerClass<'js> =
@@ -138,6 +164,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
             pull_algorithm: Some(pull_algorithm),
             // Set controller.[[cancelAlgorithm]] to cancelAlgorithm.
             cancel_algorithm: Some(cancel_algorithm),
+            native_pull: None,
         };
 
         let controller_class = Class::instance(ctx.clone(), controller)?;
@@ -337,6 +364,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         self.pull_algorithm = None;
         self.cancel_algorithm = None;
         self.strategy_size_algorithm = None;
+        self.native_pull = None;
     }
 
     fn readable_stream_default_controller_can_close_or_enqueue(

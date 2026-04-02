@@ -29,6 +29,7 @@ pub mod headers;
 pub mod request;
 pub mod response;
 mod security;
+pub mod utils;
 
 const MIME_TYPE_FORM_URLENCODED: &str = "application/x-www-form-urlencoded;charset=UTF-8";
 const MIME_TYPE_TEXT: &str = "text/plain;charset=UTF-8";

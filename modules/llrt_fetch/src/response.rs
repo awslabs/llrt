@@ -8,7 +8,8 @@ use std::{
     time::Instant,
 };
 
-use crate::decompress::StreamingDecoder;
+use crate::{decompress::StreamingDecoder, utils::BodyDrain};
+use bytes::Bytes;
 use either::Either;
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
@@ -823,30 +824,80 @@ async fn collect_readable_stream<'js>(
     crate::collect_readable_stream(stream).await
 }
 
+/// Read one or more frames from the body, coalescing buffered frames into a single Vec.
+/// Returns Ok(Some(bytes)) for data, Ok(None) for EOF.
+async fn read_body_chunk(
+    body: &mut Incoming,
+    decoder: &RefCell<Option<StreamingDecoder>>,
+    has_decoder: bool,
+) -> std::result::Result<Option<Vec<u8>>, String> {
+    // 1. Get the first frame (the only async part)
+    let first_frame = match body.frame().await {
+        Some(Ok(frame)) => frame,
+        Some(Err(e)) => return Err(e.to_string()),
+        None => {
+            let remaining = decoder.borrow_mut().take().and_then(|dec| {
+                let r = dec.finish().unwrap_or_default();
+                (!r.is_empty()).then_some(r)
+            });
+            return Ok(remaining);
+        },
+    };
+
+    // 2. Extract initial data
+    let Ok(first_data) = first_frame.into_data() else {
+        return Ok(None);
+    };
+
+    // 3. Process data (Borrow RefCell once)
+    let mut dec_guard = has_decoder.then(|| decoder.borrow_mut());
+    let mut result_buffer = Vec::with_capacity(first_data.len());
+
+    let mut process_and_extend = |bytes: &mut Vec<u8>, data: Bytes| {
+        if let Some(Some(dec)) = dec_guard.as_mut().map(|g| g.as_mut()) {
+            bytes.extend_from_slice(
+                &dec.decompress_chunk(&data)
+                    .unwrap_or_else(|_| data.to_vec()),
+            );
+        } else {
+            bytes.extend_from_slice(&data);
+        }
+    };
+
+    process_and_extend(&mut result_buffer, first_data);
+
+    // 4. Drain all other ready frames without yielding
+    body.drain_ready(|data| {
+        process_and_extend(&mut result_buffer, data);
+    });
+
+    Ok(if result_buffer.is_empty() {
+        None
+    } else {
+        Some(result_buffer)
+    })
+}
 fn create_body_stream<'js>(
     ctx: &Ctx<'js>,
     incoming: Rc<RefCell<Option<Incoming>>>,
     content_encoding: Option<String>,
 ) -> Result<Value<'js>> {
-    // State: keep incoming in Rc<RefCell> so take_bytes can still access it if
-    // the stream was never pulled from
-    struct BodyState {
-        incoming: Rc<RefCell<Option<Incoming>>>,
-        decoder: Option<StreamingDecoder>,
-    }
-
+    let has_decoder = content_encoding
+        .as_ref()
+        .is_some_and(|enc| !matches!(enc.as_str(), "" | "identity"));
     let decoder = content_encoding
         .as_ref()
         .and_then(|enc| StreamingDecoder::new(enc).ok());
+    let decoder_state: Rc<RefCell<Option<StreamingDecoder>>> = Rc::new(RefCell::new(decoder));
 
-    let state = Rc::new(RefCell::new(BodyState {
-        incoming: incoming.clone(),
-        decoder,
-    }));
+    // Clones for native_pull (pull closure moves the originals)
+    let incoming_for_native = incoming.clone();
+    let decoder_for_native = decoder_state.clone();
 
     let pull = PullAlgorithm::from_fn(
         move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
-            let state = state.clone();
+            let incoming = incoming.clone();
+            let decoder_state = decoder_state.clone();
 
             let ctrl_class: ReadableStreamDefaultControllerClass = match controller {
                 ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
@@ -858,89 +909,41 @@ fn create_body_stream<'js>(
                 },
             };
 
-            // Create a single resolveable promise
             let resolveable = ResolveablePromise::new(&ctx)?;
             let promise = resolveable.promise.clone();
 
-            // Spawn the async work
-            let _ = ctx.clone().spawn_exit(async move {
-                let result: std::result::Result<Option<Vec<u8>>, String> = async {
-                    // Take the body out for this frame, put it back after
-                    let mut body = {
-                        let state_ref = state.borrow();
-                        let mut incoming_ref = state_ref.incoming.borrow_mut();
-                        incoming_ref
-                            .take()
-                            .ok_or_else(|| "Body already consumed".to_string())?
-                    };
-
-                    let frame_result = body.frame().await;
-
-                    match frame_result {
-                        Some(Ok(frame)) => {
-                            if let Some(data) = frame.data_ref() {
-                                let mut state_ref = state.borrow_mut();
-                                let bytes = if let Some(dec) = state_ref.decoder.as_mut() {
-                                    dec.decompress_chunk(data).unwrap_or_else(|_| data.to_vec())
-                                } else {
-                                    data.to_vec()
-                                };
-                                // Put body back
-                                *state_ref.incoming.borrow_mut() = Some(body);
-                                Ok(Some(bytes))
-                            } else {
-                                // Put body back
-                                *state.borrow().incoming.borrow_mut() = Some(body);
-                                Ok(Some(Vec::new()))
-                            }
-                        },
-                        Some(Err(e)) => Err(e.to_string()),
-                        None => {
-                            // EOF - flush decoder
-                            let remaining = {
-                                let mut state_ref = state.borrow_mut();
-                                if let Some(dec) = state_ref.decoder.take() {
-                                    dec.finish().unwrap_or_default()
-                                } else {
-                                    Vec::new()
-                                }
-                            };
-                            if remaining.is_empty() {
-                                Ok(None)
-                            } else {
-                                Ok(Some(remaining))
-                            }
-                        },
-                    }
-                }
-                .await;
-
-                // Now enqueue/close and resolve the promise
-                match result {
-                    Ok(Some(bytes)) if !bytes.is_empty() => {
-                        let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
+            let ctx2 = ctx.clone();
+            ctx.spawn_exit_simple(async move {
+                let mut body = match incoming.borrow_mut().take() {
+                    Some(b) => b,
+                    None => {
+                        readable_stream_default_controller_close_stream(ctx2, ctrl_class)?;
+                        resolveable.resolve_undefined()?;
+                        return Ok(());
+                    },
+                };
+                match read_body_chunk(&mut body, &decoder_state, has_decoder).await {
+                    Ok(Some(bytes)) => {
+                        *incoming.borrow_mut() = Some(body);
+                        let array = TypedArray::<u8>::new(ctx2.clone(), bytes)?;
                         readable_stream_default_controller_enqueue_value(
-                            ctx.clone(),
-                            ctrl_class.clone(),
+                            ctx2,
+                            ctrl_class,
                             array.into_value(),
                         )?;
                     },
-                    Ok(Some(_)) => {}, // Empty
+                    Ok(None) if incoming.borrow().is_none() => {
+                        // Body was never taken — EOF from frame
+                        readable_stream_default_controller_close_stream(ctx2, ctrl_class)?;
+                    },
                     Ok(None) => {
-                        readable_stream_default_controller_close_stream(
-                            ctx.clone(),
-                            ctrl_class.clone(),
-                        )?;
+                        *incoming.borrow_mut() = Some(body);
                     },
                     Err(msg) => {
-                        let error_val = rquickjs::String::from_str(ctx.clone(), &msg)?.into_value();
-                        readable_stream_default_controller_error_stream(
-                            ctrl_class.clone(),
-                            error_val,
-                        )?;
+                        let v = rquickjs::String::from_str(ctx2.clone(), &msg)?.into_value();
+                        readable_stream_default_controller_error_stream(ctrl_class, v)?;
                     },
                 }
-
                 resolveable.resolve_undefined()?;
                 Ok(())
             });
@@ -954,6 +957,38 @@ fn create_body_stream<'js>(
         pull,
         CancelAlgorithm::ReturnPromiseUndefined,
     )?;
+
+    // Set native_pull on controller for reader.read() fast-path
+    {
+        let incoming2 = incoming_for_native;
+        let state2 = decoder_for_native;
+        let np: Box<llrt_stream_web::NativePullFn> = Box::new(move |ctx| {
+            let incoming = incoming2.clone();
+            let state = state2.clone();
+            Box::pin(async move {
+                let mut body = match incoming.borrow_mut().take() {
+                    Some(b) => b,
+                    None => return Ok(None),
+                };
+                match read_body_chunk(&mut body, &state, has_decoder).await {
+                    Ok(Some(bytes)) => {
+                        *incoming.borrow_mut() = Some(body);
+                        let a = TypedArray::<u8>::new(ctx, bytes)?;
+                        Ok(Some(a.into_value()))
+                    },
+                    Ok(None) => Ok(None),
+                    Err(msg) => Err(Exception::throw_message(&ctx, &msg)),
+                }
+            })
+        });
+        let s = stream.borrow();
+        if let ReadableStreamControllerClass::ReadableStreamDefaultController(ref ctrl) =
+            s.controller
+        {
+            ctrl.borrow_mut().native_pull =
+                Some(llrt_stream_web::NativePull(Rc::new(RefCell::new(Some(np)))));
+        }
+    }
 
     Ok(stream.into_value())
 }
