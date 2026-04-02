@@ -16,6 +16,7 @@ use writable::{WritableStream, WritableStreamDefaultController, WritableStreamDe
 use crate::{
     readable::{ArrayConstructorPrimordials, IteratorPrimordials},
     transform::{TransformStream, TransformStreamDefaultController},
+    utils::promise::PromisePrimordials,
     writable::WritableStreamDefaultControllerPrimordials,
 };
 
@@ -36,7 +37,6 @@ pub use readable::{
 };
 pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
 pub use readable::{NativePull, NativePullFn};
-pub use utils::promise::PromisePrimordials;
 
 /// Defines web streams, which are exposed through the "stream/web" Node import, but also at the global scope
 /// Web streams consist of Readable, Writable, and Transform streams. Transform is currently unimplemented.
@@ -130,7 +130,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = &ctx.globals();
 
     BasePrimordials::init(ctx)?;
-    utils::promise::PromisePrimordials::init(ctx)?;
+    PromisePrimordials::init(ctx)?;
     ArrayConstructorPrimordials::init(ctx)?;
     WritableStreamDefaultControllerPrimordials::init(ctx)?;
     IteratorPrimordials::init(ctx)?;
