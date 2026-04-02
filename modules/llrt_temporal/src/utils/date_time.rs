@@ -7,7 +7,7 @@ use rquickjs::{Ctx, Object, Result, Value};
 use super::date::DateExt;
 use super::time::TimeExt;
 
-pub trait DateTimeExt {
+pub(crate) trait DateTimeExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<DateTime>;
     fn date_time_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<DateTime>;
 }

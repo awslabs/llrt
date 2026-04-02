@@ -11,8 +11,8 @@ use rquickjs::{
 
 use crate::duration::Duration;
 use crate::plain_date_time::PlainDateTime;
-use crate::utils::round::time::TimeRoundOption;
 use crate::utils::time::{fill_from_iter, TimeExt};
+use crate::utils::time_round::TimeRoundOption;
 use crate::zoned_date_time::ZonedDateTime;
 
 #[derive(Clone, JsLifetime, Trace)]

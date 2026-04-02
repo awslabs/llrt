@@ -15,8 +15,8 @@ use crate::instant::Instant;
 use crate::plain_date::PlainDate;
 use crate::plain_date_time::PlainDateTime;
 use crate::plain_time::PlainTime;
-use crate::utils::round::zoned::ZonedRoundOption;
 use crate::utils::zoned::ZonedExt;
+use crate::utils::zoned_round::ZonedRoundOption;
 
 use super::extract_bigint_or_number;
 

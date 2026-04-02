@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Span, SpanCompare};
+use jiff::{Span, SpanCompare, SpanRound, SpanTotal};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -12,10 +12,10 @@ use rquickjs::{
 };
 
 use crate::utils::date::fill_duration_from_iter as fill_date_from_iter;
-use crate::utils::round::span::SpanRoundOption;
 use crate::utils::span::SpanExt;
+use crate::utils::span_round::SpanRoundExt;
+use crate::utils::span_total::SpanTotalExt;
 use crate::utils::time::fill_duration_from_iter as fill_time_from_iter;
-use crate::utils::total::span::SpanTotalOption;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
@@ -65,10 +65,9 @@ impl Duration {
     }
 
     fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {
-        let round = SpanRoundOption::from_value(&ctx, &options)?;
-        let round = round.into_inner();
-        let dt = self.inner.round(round).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: dt })
+        let round = SpanRound::from_value(&ctx, &options)?;
+        let span = self.inner.round(round).or_throw_range(&ctx, "")?;
+        Ok(Self { inner: span })
     }
 
     fn subtract(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<Self> {
@@ -91,8 +90,7 @@ impl Duration {
     }
 
     fn total(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<f64> {
-        let total = SpanTotalOption::from_value(&ctx, &options)?;
-        let total = total.into_inner();
+        let total = SpanTotal::from_value(&ctx, &options)?;
         let num = self.inner.total(total).or_throw_range(&ctx, "")?;
         Ok(num)
     }

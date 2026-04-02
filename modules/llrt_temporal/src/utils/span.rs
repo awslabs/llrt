@@ -8,11 +8,10 @@ use crate::plain_date::PlainDate;
 use crate::plain_date_time::PlainDateTime;
 use crate::zoned_date_time::ZonedDateTime;
 
-pub trait SpanExt {
+pub(crate) trait SpanExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Span>;
     fn span_with(self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Span>;
     fn into_span_compare<'a>(span: &Span, value: &Opt<Value<'a>>) -> SpanCompare<'a>;
-    fn into_span_relative_to<'a>(value: &Option<Value<'a>>) -> Option<SpanRelativeTo<'a>>;
 }
 
 impl SpanExt for Span {
@@ -34,33 +33,12 @@ impl SpanExt for Span {
         };
         if let Some(object) = value.as_object() {
             if let Ok(v) = object.get::<_, Value>("relativeTo") {
-                if let Some(relative) = Self::into_span_relative_to(&Some(v)) {
+                if let Some(relative) = into_span_relative_to(&Some(v)) {
                     return (span, relative).into();
                 }
             }
         }
         span.into()
-    }
-
-    fn into_span_relative_to<'a>(value: &Option<Value<'a>>) -> Option<SpanRelativeTo<'a>> {
-        let Some(value) = value else {
-            return None;
-        };
-        if let Some(obj) = value.as_object() {
-            if let Some(cls) = Class::<PlainDate>::from_object(obj) {
-                let pd = cls.borrow().clone();
-                return Some(pd.into_inner().into());
-            }
-            if let Some(cls) = Class::<PlainDateTime>::from_object(obj) {
-                let pdt = cls.borrow().clone();
-                return Some(pdt.into_inner().into());
-            }
-            if let Some(cls) = Class::<ZonedDateTime>::from_object(obj) {
-                let zdt = cls.borrow().clone();
-                return Some(zdt.into_inner().datetime().into());
-            }
-        }
-        None
     }
 }
 
@@ -97,4 +75,25 @@ fn into_span(ctx: &Ctx<'_>, span: Option<Span>, obj: &Object<'_>) -> Result<Span
         span = span.try_years(v).or_throw_range(ctx, "")?;
     }
     Ok(span)
+}
+
+pub(super) fn into_span_relative_to<'a>(value: &Option<Value<'a>>) -> Option<SpanRelativeTo<'a>> {
+    let Some(value) = value else {
+        return None;
+    };
+    if let Some(obj) = value.as_object() {
+        if let Some(cls) = Class::<PlainDate>::from_object(obj) {
+            let pd = cls.borrow().clone();
+            return Some(pd.into_inner().into());
+        }
+        if let Some(cls) = Class::<PlainDateTime>::from_object(obj) {
+            let pdt = cls.borrow().clone();
+            return Some(pdt.into_inner().into());
+        }
+        if let Some(cls) = Class::<ZonedDateTime>::from_object(obj) {
+            let zdt = cls.borrow().clone();
+            return Some(zdt.into_inner().datetime().into());
+        }
+    }
+    None
 }

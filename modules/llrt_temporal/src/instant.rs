@@ -10,7 +10,7 @@ use rquickjs::{
 };
 
 use crate::duration::Duration;
-use crate::utils::round::timestamp::TimestampRoundOption;
+use crate::utils::timestamp_round::TimestampRoundOption;
 use crate::zoned_date_time::ZonedDateTime;
 
 use super::extract_bigint_or_number;
