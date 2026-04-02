@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::task::Poll;
 
 use rquickjs::class::Tracer;
 use rquickjs::prelude::This;
@@ -11,7 +10,6 @@ use rquickjs::{
 };
 use rquickjs::{IntoJs, JsLifetime, Object};
 
-use crate::utils::promise;
 use crate::{
     readable::{
         byob_reader::ReadableStreamBYOBReaderOwned,
@@ -39,14 +37,15 @@ pub(crate) struct ReadableStreamDefaultReader<'js> {
     /// Cached native_pull from controller — avoids re-checking every read()
     #[qjs(skip_trace)]
     cached_native_pull: Option<NativePull<'js>>,
-    /// Pre-created {done: true} result for EOF — avoids Object creation
+    /// Pre-created {done: true} result for EOF
     #[qjs(skip_trace)]
     done_result: Option<Value<'js>>,
 }
 
-
 impl<'js> Drop for ReadableStreamDefaultReader<'js> {
-    fn drop(&mut self) { self.cached_native_pull = None; }
+    fn drop(&mut self) {
+        self.cached_native_pull = None;
+    }
 }
 pub(crate) type ReadableStreamDefaultReaderClass<'js> =
     Class<'js, ReadableStreamDefaultReader<'js>>;
@@ -171,6 +170,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
     }
 
     fn read(ctx: Ctx<'js>, mut reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
+        // 1. Guard against released readers immediately
         if reader.generic.stream.is_none() {
             return promise_rejected_with_constructor(
                 &reader.generic.constructor_type_error,
@@ -179,112 +179,120 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             );
         }
 
-        // Native pull fast-path with caching
-        let np = if let Some(ref np) = reader.cached_native_pull {
-            Some(np.clone())
-        } else if let Some(stream_class) = &reader.generic.stream {
-            let np = {
-                let stream = stream_class.borrow();
-                if matches!(stream.state, ReadableStreamState::Readable) {
-                    match &stream.controller {
-                        ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl) => {
-                            ctrl.borrow().native_pull.clone()
-                        },
-                        _ => None,
+        let mut fast_path_future = None;
+        let mut native_pull_to_cache = None;
+
+        // 2. Evaluate Native Pull fast-path conditions in an isolated scope
+        {
+            let stream_class = reader.generic.stream.as_ref().unwrap();
+            let stream = stream_class.borrow();
+
+            if matches!(stream.state, ReadableStreamState::Readable) {
+                if let ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl) =
+                    &stream.controller
+                {
+                    let c = ctrl.borrow();
+
+                    if c.container.queue.is_empty() && !c.pulling {
+                        // Retrieve and cache the native pull
+                        let np = reader
+                            .cached_native_pull
+                            .clone()
+                            .or_else(|| c.native_pull.clone());
+
+                        if let Some(np) = np {
+                            let pull_ref = np.0.borrow();
+                            if let Some(f) = pull_ref.as_ref() {
+                                fast_path_future = Some(f(ctx.clone()));
+                            }
+                            drop(pull_ref);
+                            native_pull_to_cache = Some(np);
+                        }
                     }
-                } else { None }
-            };
-            if let Some(ref v) = np {
-                reader.cached_native_pull = Some(v.clone());
+                }
             }
-            np
-        } else { None };
+        } // All borrows (stream, c, pull_ref) safely drop here.
 
-        if let Some(np) = np {
-            let can_use = if let Some(stream_class) = &reader.generic.stream {
-                let stream = stream_class.borrow();
-                matches!(stream.state, ReadableStreamState::Readable) && {
-                    match &stream.controller {
-                        ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl) => {
-                            let c = ctrl.borrow();
-                            c.container.queue.is_empty() && !c.pulling
-                        },
-                        _ => false,
-                    }
-                }
-            } else { false };
+        if let Some(np) = native_pull_to_cache {
+            reader.cached_native_pull = Some(np);
+        }
 
-            if can_use {
-                if let Some(sc) = &reader.generic.stream {
-                    sc.borrow_mut().disturbed = true;
-                }
-                let pull_ref = np.0.borrow();
-                if let Some(f) = pull_ref.as_ref() {
-                    let mut fut = f(ctx.clone());
-                    let waker = std::task::Waker::noop();
-                    let mut poll_cx = std::task::Context::from_waker(&waker);
-                    match fut.as_mut().poll(&mut poll_cx) {
-                        std::task::Poll::Ready(Ok(Some(chunk))) => {
-                            drop(pull_ref);
-                            let p = reader.generic.promise_primordials.clone();
-                            // Hot path: create {value, done:false} with minimal JS ops
-                            let obj = Object::new(ctx.clone())?;
-                            obj.set("value", chunk)?;
-                            obj.set("done", false)?;
-                            return crate::utils::promise::promise_resolved_with(&ctx, &p, Ok(obj.into_value()));
-                        },
-                        std::task::Poll::Ready(Ok(None)) => {
-                            drop(pull_ref);
-                            reader.cached_native_pull = None;
-                            let p = reader.generic.promise_primordials.clone();
-                            // Cache the done result
-                            let done_val = if let Some(ref v) = reader.done_result {
-                                v.clone()
-                            } else {
-                                let obj = Object::new(ctx.clone())?;
-                                obj.set("done", true)?;
-                                let v = obj.into_value();
-                                reader.done_result = Some(v.clone());
-                                v
-                            };
-                            return crate::utils::promise::promise_resolved_with(&ctx, &p, Ok(done_val));
-                        },
-                        std::task::Poll::Ready(Err(e)) => {
-                            drop(pull_ref);
-                            reader.cached_native_pull = None;
-                            return Err(e);
-                        },
-                        std::task::Poll::Pending => {
-                            drop(pull_ref);
-                            let ret = Promise::wrap_future(&ctx, async move {
-                                match fut.await {
-                                    Ok(Some(chunk)) => Ok(ReadableStreamReadResult { value: Some(chunk), done: false }),
-                                    Ok(None) => Ok(ReadableStreamReadResult { value: None, done: true }),
-                                    Err(e) => Err(e),
-                                }
-                            })?;
-                            return Ok(ret);
-                        },
-                    }
-                }
-                drop(pull_ref);
+        // 3. Execute fast-path if available
+        if let Some(mut fut) = fast_path_future {
+            reader
+                .generic
+                .stream
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .disturbed = true;
+
+            let waker = std::task::Waker::noop();
+            let mut poll_cx = std::task::Context::from_waker(waker);
+
+            match fut.as_mut().poll(&mut poll_cx) {
+                std::task::Poll::Ready(Ok(Some(chunk))) => {
+                    let p = reader.generic.promise_primordials.clone();
+                    // Hot path: create {value, done:false} with minimal JS ops
+                    let obj = Object::new(ctx.clone())?;
+                    obj.set("value", chunk)?;
+                    obj.set("done", false)?;
+
+                    return crate::utils::promise::promise_resolved_with(
+                        &ctx,
+                        &p,
+                        Ok(obj.into_value()),
+                    );
+                },
+                std::task::Poll::Ready(Ok(None)) => {
+                    reader.cached_native_pull = None;
+                    let p = reader.generic.promise_primordials.clone();
+
+                    // Cache the done result
+                    let done_val = if let Some(ref v) = reader.done_result {
+                        v.clone()
+                    } else {
+                        let obj = Object::new(ctx.clone())?;
+                        obj.set("done", true)?;
+                        let v = obj.into_value();
+                        reader.done_result = Some(v.clone());
+                        v
+                    };
+
+                    return crate::utils::promise::promise_resolved_with(&ctx, &p, Ok(done_val));
+                },
+                std::task::Poll::Ready(Err(e)) => {
+                    reader.cached_native_pull = None;
+                    return Err(e);
+                },
+                std::task::Poll::Pending => {
+                    return Promise::wrap_future(&ctx, async move {
+                        match fut.await {
+                            Ok(Some(chunk)) => Ok(ReadableStreamReadResult {
+                                value: Some(chunk),
+                                done: false,
+                            }),
+                            Ok(None) => Ok(ReadableStreamReadResult {
+                                value: None,
+                                done: true,
+                            }),
+                            Err(e) => Err(e),
+                        }
+                    });
+                },
             }
         }
 
+        // 4. Standard Fallback Path
         let objects = ReadableStreamObjects::from_default_reader(reader.0);
-
-        // Let promise be a new promise.
         let promise = ResolveablePromise::new(&ctx)?;
 
-        // Let readRequest be a new read request with the following items:
         #[derive(Trace)]
         struct ReadRequest<'js> {
             promise: ResolveablePromise<'js>,
         }
 
         impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
-            // chunk steps, given chunk
-            // Resolve promise with «[ "value" → chunk, "done" → false ]».
             fn chunk_steps(
                 &self,
                 objects: ReadableStreamDefaultReaderObjects<'js>,
@@ -294,12 +302,9 @@ impl<'js> ReadableStreamDefaultReader<'js> {
                     value: Some(chunk),
                     done: false,
                 })?;
-
                 Ok(objects)
             }
 
-            // close steps
-            // Resolve promise with «[ "value" → undefined, "done" → true ]».
             fn close_steps(
                 &self,
                 _: &Ctx<'js>,
@@ -322,7 +327,6 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             }
         }
 
-        // Perform ! ReadableStreamDefaultReaderRead(this, readRequest).
         Self::readable_stream_default_reader_read(
             &ctx,
             objects,
@@ -331,7 +335,6 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             },
         )?;
 
-        // Return promise.
         Ok(promise.promise)
     }
 

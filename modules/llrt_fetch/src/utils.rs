@@ -12,7 +12,7 @@ pub trait BodyDrain: Body<Data = Bytes> + Unpin {
         F: FnMut(Bytes),
     {
         let waker = Waker::noop();
-        let mut cx = Context::from_waker(&waker);
+        let mut cx = Context::from_waker(waker);
 
         while let Poll::Ready(Some(Ok(frame))) = Pin::new(&mut *self).poll_frame(&mut cx) {
             if let Ok(data) = frame.into_data() {
