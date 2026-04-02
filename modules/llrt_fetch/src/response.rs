@@ -8,7 +8,7 @@ use std::{
     time::Instant,
 };
 
-use crate::{decompress::StreamingDecoder, utils::BodyDrain};
+use crate::{collect_readable_stream, decompress::StreamingDecoder, utils::BodyDrain};
 use bytes::Bytes;
 use either::Either;
 use http_body_util::BodyExt;
@@ -380,11 +380,8 @@ impl<'js> Response<'js> {
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                // Check the 'disturbed' property - stream has been read from
-                if let Ok(disturbed) = stream.get::<_, bool>("disturbed") {
-                    if disturbed {
-                        return true;
-                    }
+                if stream.borrow().disturbed {
+                    return true;
                 }
             }
         }
@@ -788,7 +785,7 @@ impl<'js> Response<'js> {
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                return collect_readable_stream(ctx, &stream).await.map(Some);
+                return collect_readable_stream(&stream).await.map(Some);
             }
 
             let bytes =
@@ -814,14 +811,6 @@ impl<'js> Response<'js> {
             .iter()
             .find_map(|(k, v)| (k == key).then(|| v.to_string())))
     }
-}
-
-/// Collects all data from a ReadableStream into a Vec<u8>
-async fn collect_readable_stream<'js>(
-    _ctx: &Ctx<'js>,
-    stream: &Class<'js, ReadableStream<'js>>,
-) -> Result<Vec<u8>> {
-    crate::collect_readable_stream(stream).await
 }
 
 /// Read one or more frames from the body, coalescing buffered frames into a single Vec.

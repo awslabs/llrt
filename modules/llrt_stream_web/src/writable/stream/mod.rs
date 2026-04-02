@@ -208,10 +208,6 @@ impl<'js> WritableStream<'js> {
         high_water_mark: f64,
         size_algorithm: crate::queuing_strategy::SizeAlgorithm<'js>,
     ) -> Result<WritableStreamClass<'js>> {
-        use crate::utils::promise::PromisePrimordials;
-        use llrt_utils::primordials::{BasePrimordials, Primordial};
-        use std::collections::VecDeque;
-
         let stream_class = Class::instance(
             ctx.clone(),
             Self {

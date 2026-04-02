@@ -221,10 +221,8 @@ impl<'js> Request<'js> {
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                if let Ok(disturbed) = stream.get::<_, bool>("disturbed") {
-                    if disturbed {
-                        return true;
-                    }
+                if stream.borrow().disturbed {
+                    return true;
                 }
             }
         }

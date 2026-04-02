@@ -3,23 +3,25 @@
 use llrt_buffer::Blob;
 use llrt_http::HTTP_CLIENT;
 use llrt_utils::{
+    bytes::ObjectBytes,
     class::CustomInspectExtension,
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
-use rquickjs::{Class, Ctx, Result};
+use rquickjs::{
+    prelude::This, Class, Ctx, Exception, Function, Object, Promise, Result, TypedArray, Value,
+};
 use std::borrow::Cow;
 
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
 use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 use llrt_stream_web::{
     readable_stream_default_controller_close_stream,
-    readable_stream_default_controller_enqueue_value, CancelAlgorithm, PromisePrimordials,
-    PullAlgorithm, ReadableStream, ReadableStreamControllerClass,
+    readable_stream_default_controller_enqueue_value, utils::promise::PromisePrimordials,
+    CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamControllerClass,
     ReadableStreamDefaultControllerClass,
 };
-use llrt_utils::bytes::ObjectBytes;
-use rquickjs::{Exception, TypedArray};
+
 use std::{cell::RefCell, rc::Rc};
 
 mod decompress;
@@ -46,8 +48,6 @@ pub(crate) fn tee_stream_for_clone<'js>(
     Class<'js, llrt_stream_web::ReadableStream<'js>>,
     Class<'js, llrt_stream_web::ReadableStream<'js>>,
 )> {
-    use rquickjs::Exception;
-
     {
         let stream_ref = stream.borrow();
         if stream_ref.disturbed {
@@ -144,9 +144,6 @@ pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
 pub(crate) async fn collect_readable_stream<'js>(
     stream: &rquickjs::Class<'js, llrt_stream_web::ReadableStream<'js>>,
 ) -> Result<Vec<u8>> {
-    use rquickjs::function::This;
-    use rquickjs::{Function, Object, Promise, Value};
-
     let mut result = Vec::new();
 
     let get_reader: Function = stream.get("getReader")?;

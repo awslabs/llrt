@@ -247,8 +247,6 @@ impl<'js> ReadableStreamDefaultReader<'js> {
                 std::task::Poll::Ready(Ok(None)) => {
                     reader.cached_native_pull = None;
                     let p = reader.generic.promise_primordials.clone();
-
-                    // Cache the done result
                     let done_val = if let Some(ref v) = reader.done_result {
                         v.clone()
                     } else {
@@ -258,7 +256,21 @@ impl<'js> ReadableStreamDefaultReader<'js> {
                         reader.done_result = Some(v.clone());
                         v
                     };
-
+                    // Extract controller before dropping reader borrow
+                    let ctrl_class = reader.generic.stream.as_ref().and_then(|sc| {
+                        let stream = sc.borrow();
+                        match &stream.controller {
+                            ReadableStreamControllerClass::ReadableStreamDefaultController(
+                                ctrl,
+                            ) => Some(ctrl.clone()),
+                            _ => None,
+                        }
+                    });
+                    drop(reader);
+                    // Close stream to trigger clear_algorithms and free native_pull
+                    if let Some(ctrl) = ctrl_class {
+                        let _ = crate::readable::default_controller::readable_stream_default_controller_close_stream(ctx.clone(), ctrl);
+                    }
                     return crate::utils::promise::promise_resolved_with(&ctx, &p, Ok(done_val));
                 },
                 std::task::Poll::Ready(Err(e)) => {
