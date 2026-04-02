@@ -450,7 +450,7 @@ impl<'js> Response<'js> {
     pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
         let body = self.body.read().unwrap();
         let cloned_body = match &*body {
-            BodyVariant::Incoming(incoming, _) => {
+            BodyVariant::Incoming(incoming, content_encoding) => {
                 // Cannot clone if body has been consumed
                 if incoming.borrow().is_none() {
                     return Err(Exception::throw_type(
@@ -458,10 +458,32 @@ impl<'js> Response<'js> {
                         "Cannot clone response after body has been used",
                     ));
                 }
-                return Err(Exception::throw_type(
-                    &ctx,
-                    "Cannot clone response with unconsumed streaming body. Read the body first or use Response.clone() on responses with non-streaming bodies.",
-                ));
+
+                // Convert to stream first, then tee
+                let stream_val =
+                    create_body_stream(&ctx, incoming.clone(), content_encoding.clone())?;
+                let stream = Class::<ReadableStream>::from_value(&stream_val)?;
+                let (branch1, branch2) = crate::tee_stream_for_clone(&ctx, &stream, "response")?;
+
+                // Update self to use branch1
+                drop(body);
+                let mut body_write = self.body.write().unwrap();
+                *body_write = BodyVariant::Provided(Some(branch1.into_value()));
+                *self.body_stream.borrow_mut() = None;
+                drop(body_write);
+
+                return Ok(Self {
+                    body: RwLock::new(BodyVariant::Provided(Some(branch2.into_value()))),
+                    body_stream: RefCell::new(None),
+                    method: self.method.clone(),
+                    url: self.url.clone(),
+                    start: self.start,
+                    status: self.status,
+                    status_text: self.status_text.clone(),
+                    redirected: self.redirected,
+                    headers: Class::<Headers>::instance(ctx, self.headers.borrow().clone())?,
+                    abort_receiver: self.abort_receiver.clone(),
+                });
             },
             BodyVariant::Provided(provided) => {
                 // Cannot clone if body has been consumed (bodyUsed=true)
@@ -684,16 +706,17 @@ impl<'js> Response<'js> {
     #[allow(clippy::await_holding_lock)]
     #[allow(clippy::readonly_write_lock)]
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        // Check if body stream is locked
+        // Check if body stream is locked or disturbed
         if let Some(stream_value) = self.body_stream.borrow().as_ref() {
             if let Some(stream) = stream_value
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                if stream.borrow().is_readable_stream_locked() {
+                let stream_ref = stream.borrow();
+                if stream_ref.is_readable_stream_locked() || stream_ref.disturbed {
                     return Err(Exception::throw_type(
                         ctx,
-                        "Cannot read body: stream is locked",
+                        "Cannot read body: stream is locked or disturbed",
                     ));
                 }
             }
@@ -718,33 +741,34 @@ impl<'js> Response<'js> {
                 .take()
                 .ok_or(Exception::throw_message(ctx, "Already read"))?;
 
-            // Read all frames
+            // Read and decompress frames incrementally
             let mut bytes = Vec::new();
+            let mut decoder = content_encoding
+                .as_deref()
+                .and_then(|enc| StreamingDecoder::new(enc).ok());
             let mut body = body;
             while let Some(frame) = body.frame().await {
                 match frame {
                     Ok(frame) => {
                         if let Some(data) = frame.data_ref() {
-                            bytes.extend_from_slice(data);
+                            if let Some(dec) = &mut decoder {
+                                let decompressed = dec
+                                    .decompress_chunk(data)
+                                    .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                                bytes.extend_from_slice(&decompressed);
+                            } else {
+                                bytes.extend_from_slice(data);
+                            }
                         }
                     },
                     Err(e) => return Err(Exception::throw_message(ctx, &e.to_string())),
                 }
             }
-
-            // Decompress if needed
-            if let Some(encoding) = &content_encoding {
-                if let Ok(mut decoder) = StreamingDecoder::new(encoding) {
-                    let decompressed = decoder
-                        .decompress_chunk(&bytes)
-                        .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
-                    let remaining = decoder
-                        .finish()
-                        .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
-                    let mut result = decompressed;
-                    result.extend(remaining);
-                    return Ok(Some(result));
-                }
+            if let Some(dec) = decoder {
+                let remaining = dec
+                    .finish()
+                    .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                bytes.extend_from_slice(&remaining);
             }
 
             return Ok(Some(bytes));
@@ -804,9 +828,10 @@ fn create_body_stream<'js>(
     incoming: Rc<RefCell<Option<Incoming>>>,
     content_encoding: Option<String>,
 ) -> Result<Value<'js>> {
-    // State: body + decoder
+    // State: keep incoming in Rc<RefCell> so take_bytes can still access it if
+    // the stream was never pulled from
     struct BodyState {
-        body: Option<Incoming>,
+        incoming: Rc<RefCell<Option<Incoming>>>,
         decoder: Option<StreamingDecoder>,
     }
 
@@ -814,8 +839,10 @@ fn create_body_stream<'js>(
         .as_ref()
         .and_then(|enc| StreamingDecoder::new(enc).ok());
 
-    let body = incoming.borrow_mut().take();
-    let state = Rc::new(RefCell::new(BodyState { body, decoder }));
+    let state = Rc::new(RefCell::new(BodyState {
+        incoming: incoming.clone(),
+        decoder,
+    }));
 
     let pull = PullAlgorithm::from_fn(
         move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
@@ -838,12 +865,13 @@ fn create_body_stream<'js>(
             // Spawn the async work
             let _ = ctx.clone().spawn_exit(async move {
                 let result: std::result::Result<Option<Vec<u8>>, String> = async {
+                    // Take the body out for this frame, put it back after
                     let mut body = {
-                        let mut state_ref = state.borrow_mut();
-                        match state_ref.body.take() {
-                            Some(b) => b,
-                            None => return Ok(None),
-                        }
+                        let state_ref = state.borrow();
+                        let mut incoming_ref = state_ref.incoming.borrow_mut();
+                        incoming_ref
+                            .take()
+                            .ok_or_else(|| "Body already consumed".to_string())?
                     };
 
                     let frame_result = body.frame().await;
@@ -857,10 +885,12 @@ fn create_body_stream<'js>(
                                 } else {
                                     data.to_vec()
                                 };
-                                state_ref.body = Some(body);
+                                // Put body back
+                                *state_ref.incoming.borrow_mut() = Some(body);
                                 Ok(Some(bytes))
                             } else {
-                                state.borrow_mut().body = Some(body);
+                                // Put body back
+                                *state.borrow().incoming.borrow_mut() = Some(body);
                                 Ok(Some(Vec::new()))
                             }
                         },
@@ -985,6 +1015,7 @@ mod tests {
 
         test_async_with_opts(
             |ctx| {
+                llrt_stream_web::init(&ctx).unwrap();
                 crate::init(&ctx).unwrap();
                 Box::pin(async move {
                     let globals = ctx.globals();
@@ -998,9 +1029,92 @@ mod tests {
                         let response: Class<Response> = response_promise.into_future().await?;
                         let response = response.borrow_mut();
 
-                        // Cloning a response with unconsumed body should fail
+                        // Cloning a response with unconsumed Incoming body should work via tee
+                        let cloned = response.clone(ctx.clone())?;
+                        let text1 = response.text(ctx.clone()).await?;
+                        let text2 = cloned.text(ctx.clone()).await?;
+                        assert_eq!(text1, "Hello");
+                        assert_eq!(text2, "Hello");
+
+                        // Cloning after body is consumed should fail
                         let clone_result = response.clone(ctx.clone());
                         assert!(clone_result.is_err());
+                        Ok(())
+                    };
+                    run.await.catch(&ctx).unwrap();
+                })
+            },
+            TestOptions::new().no_pending_jobs(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_response_compressed_body_stream() {
+        use std::io::Read;
+
+        let mock_server = MockServer::start().await;
+        let message = "Hello, compressed stream!";
+
+        let mut gzip_data: Vec<u8> = Vec::new();
+        llrt_compression::gz::encoder(
+            message.as_bytes(),
+            llrt_compression::gz::Compression::default(),
+        )
+        .read_to_end(&mut gzip_data)
+        .unwrap();
+
+        Mock::given(matchers::path("compressed/"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .append_header("content-encoding", "gzip")
+                    .set_body_raw(gzip_data, "text/plain"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        test_async_with_opts(
+            |ctx| {
+                llrt_stream_web::init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
+                Box::pin(async move {
+                    let globals = ctx.globals();
+                    let run = async {
+                        let fetch: Function = globals.get("fetch")?;
+                        let options = Object::new(ctx.clone())?;
+                        options.set("method", "GET")?;
+                        let url = format!("http://{}/compressed/", mock_server.address().clone());
+
+                        let response_promise: Promise = fetch.call((url, options))?;
+                        let response: Class<Response> = response_promise.into_future().await?;
+                        let response = response.borrow();
+
+                        // Read via body ReadableStream (not text())
+                        let body_stream = response.body(ctx.clone())?;
+                        let body_obj = body_stream.as_object().unwrap();
+                        let get_reader: Function = body_obj.get("getReader")?;
+                        let reader: Object =
+                            get_reader.call((rquickjs::function::This(body_obj.clone()),))?;
+                        let read_fn: Function = reader.get("read")?;
+
+                        let mut result = Vec::new();
+                        loop {
+                            let promise: Promise =
+                                read_fn.call((rquickjs::function::This(reader.clone()),))?;
+                            let chunk: Object = promise.into_future().await?;
+                            let done: bool = chunk.get("done").unwrap_or(true);
+                            if done {
+                                break;
+                            }
+                            let value: rquickjs::Value = chunk.get("value")?;
+                            if let Ok(ta) = rquickjs::TypedArray::<u8>::from_value(value) {
+                                if let Some(bytes) = ta.as_bytes() {
+                                    result.extend_from_slice(bytes);
+                                }
+                            }
+                        }
+
+                        assert_eq!(String::from_utf8(result).unwrap(), message);
                         Ok(())
                     };
                     run.await.catch(&ctx).unwrap();

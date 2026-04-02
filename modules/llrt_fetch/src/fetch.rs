@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{
     collections::HashSet,
-    convert::Infallible,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -32,6 +31,7 @@ use rquickjs::{
     prelude::{Async, Func},
     Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
 };
+use std::convert::Infallible;
 use tokio::{select, sync::Semaphore};
 
 use super::{
@@ -198,7 +198,6 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                     let res = loop {
                         select! {
                             biased;
-                            res = &mut request_fut => break res.or_throw(&ctx)?,
                             result = &mut err_rx, if !err_done => {
                                 err_done = true;
                                 if let Ok(msg) = result {
@@ -206,6 +205,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                                 }
                                 // Sender dropped without error - continue waiting for request
                             }
+                            res = &mut request_fut => break res.or_throw(&ctx)?,
                         }
                     };
 

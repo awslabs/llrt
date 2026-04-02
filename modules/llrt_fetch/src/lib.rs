@@ -86,18 +86,24 @@ pub(crate) fn create_body_value_stream<'js>(
             let data = body_data.borrow_mut().take();
 
             if let Some(value) = data {
-                let bytes =
-                    if let Some(blob) = value.as_object().and_then(Class::<Blob>::from_object) {
+                // If already a TypedArray<u8>, enqueue directly without copying
+                let array = if rquickjs::TypedArray::<u8>::from_value(value.clone()).is_ok() {
+                    value
+                } else {
+                    let bytes = if let Some(blob) =
+                        value.as_object().and_then(Class::<Blob>::from_object)
+                    {
                         blob.borrow().get_bytes()
                     } else {
                         ObjectBytes::from(&ctx, &value)?.as_bytes(&ctx)?.to_vec()
                     };
+                    TypedArray::<u8>::new(ctx.clone(), bytes)?.into_value()
+                };
 
-                let array = TypedArray::<u8>::new(ctx.clone(), bytes)?;
                 readable_stream_default_controller_enqueue_value(
                     ctx.clone(),
                     ctrl_class.clone(),
-                    array.into_value(),
+                    array,
                 )?;
                 readable_stream_default_controller_close_stream(ctx.clone(), ctrl_class)?;
             } else {

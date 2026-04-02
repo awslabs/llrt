@@ -538,9 +538,11 @@ describe("fetch", () => {
       method: "POST",
       body: "clone me",
     });
-    // Note: LLRT doesn't support cloning responses with unconsumed Incoming bodies
-    // (would require stream teeing). This tests the current behavior.
-    expect(() => res.clone()).toThrow();
+    const res2 = res.clone();
+    const text1 = await res.text();
+    const text2 = await res2.text();
+    expect(text1).toEqual("clone me");
+    expect(text2).toEqual("clone me");
   });
 
   it("should read fetched response body as different types", async () => {

@@ -373,16 +373,17 @@ impl<'js> Request<'js> {
     #[allow(clippy::await_holding_lock)]
     #[allow(clippy::readonly_write_lock)]
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        // Check if body stream is locked (user got a reader from req.body)
+        // Check if body stream is locked or disturbed
         if let Some(stream_val) = self.body_stream.borrow().as_ref() {
             if let Some(stream) = stream_val
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                if stream.borrow().is_readable_stream_locked() {
+                let stream_ref = stream.borrow();
+                if stream_ref.is_readable_stream_locked() || stream_ref.disturbed {
                     return Err(Exception::throw_type(
                         ctx,
-                        "Cannot read body: stream is locked",
+                        "Cannot read body: stream is locked or disturbed",
                     ));
                 }
             }
