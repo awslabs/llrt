@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::borrow::Cow;
 
-use rquickjs::{loader::Resolver, Ctx, Error, Result};
+use rquickjs::{
+    loader::{ImportAttributes, Resolver},
+    Ctx, Error, Result,
+};
 use tracing::trace;
 
 use crate::modules::path;
@@ -14,7 +17,13 @@ pub struct EmbeddedResolver;
 
 #[allow(clippy::manual_strip)]
 impl Resolver for EmbeddedResolver {
-    fn resolve(&mut self, _ctx: &Ctx, base: &str, name: &str) -> Result<String> {
+    fn resolve(
+        &mut self,
+        _ctx: &Ctx,
+        base: &str,
+        name: &str,
+        _attr: Option<ImportAttributes>,
+    ) -> Result<String> {
         let name = name.trim_start_matches(CJS_IMPORT_PREFIX);
         let name = name.trim_start_matches("node:").trim_end_matches("/");
 

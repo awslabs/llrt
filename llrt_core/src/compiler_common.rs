@@ -9,6 +9,7 @@ impl rquickjs::loader::Loader for DummyLoader {
         &mut self,
         ctx: &rquickjs::Ctx<'js>,
         name: &str,
+        _attributes: Option<rquickjs::loader::ImportAttributes<'js>>,
     ) -> rquickjs::Result<rquickjs::Module<'js, rquickjs::module::Declared>> {
         rquickjs::module::Module::declare(ctx.clone(), name, "")
     }
@@ -22,6 +23,7 @@ impl rquickjs::loader::Resolver for DummyResolver {
         _ctx: &rquickjs::Ctx<'_>,
         _base: &str,
         name: &str,
+        _attributes: Option<rquickjs::loader::ImportAttributes<'_>>,
     ) -> rquickjs::Result<String> {
         Ok(name.into())
     }

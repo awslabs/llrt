@@ -15,7 +15,10 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Resolver, Ctx, Error, Function, Result};
+use rquickjs::{
+    loader::{ImportAttributes, Resolver},
+    Ctx, Error, Function, Result,
+};
 use simd_json::{derived::ValueObjectAccessAsScalar, BorrowedValue};
 use tracing::trace;
 
@@ -90,7 +93,13 @@ pub struct PackageResolver;
 
 #[allow(clippy::manual_strip)]
 impl Resolver for PackageResolver {
-    fn resolve(&mut self, ctx: &Ctx, base: &str, name: &str) -> Result<String> {
+    fn resolve(
+        &mut self,
+        ctx: &Ctx,
+        base: &str,
+        name: &str,
+        _attr: Option<ImportAttributes>,
+    ) -> Result<String> {
         if name.starts_with(CJS_IMPORT_PREFIX) {
             return Ok(name.to_string());
         }

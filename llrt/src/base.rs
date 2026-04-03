@@ -17,6 +17,6 @@ pub use llrt_core::VERSION;
 // rquickjs components
 #[allow(unused_imports)]
 pub use llrt_core::{
-    async_with, atom::PredefinedAtom, context::EvalOptions, function::Rest, runtime_client,
-    AsyncContext, CatchResultExt, Ctx, Error, Object, Promise,
+    atom::PredefinedAtom, context::EvalOptions, function::Rest, runtime_client, AsyncContext,
+    CatchResultExt, Ctx, Error, Object, Promise,
 };

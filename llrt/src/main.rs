@@ -42,7 +42,7 @@ use crate::base::{
 };
 
 // rquickjs components
-use crate::base::{async_with, CatchResultExt};
+use crate::base::CatchResultExt;
 
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]
@@ -182,12 +182,13 @@ async fn start_runtime(vm: &Vm) {
         vm.run_file(filename, true, true).await;
     }
 
-    async_with!(vm.ctx => |ctx|{
-        if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
-            print_error_and_exit(&ctx, err)
-        }
-    })
-    .await;
+    vm.ctx
+        .async_with(async |ctx| {
+            if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
+                print_error_and_exit(&ctx, err)
+            }
+        })
+        .await;
 }
 
 async fn start_cli(vm: &Vm) {

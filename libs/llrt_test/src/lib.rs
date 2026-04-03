@@ -4,9 +4,8 @@ use std::{
 };
 
 use rquickjs::{
-    async_with,
     function::IntoArgs,
-    loader::{BuiltinLoader, Resolver},
+    loader::{BuiltinLoader, ImportAttributes, Resolver},
     markers::ParallelSend,
     module::{Evaluated, ModuleDef},
     promise::MaybePromise,
@@ -23,7 +22,13 @@ pub async fn given_file(content: &str) -> PathBuf {
 struct TestResolver;
 
 impl Resolver for TestResolver {
-    fn resolve(&mut self, _ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
+    fn resolve(
+        &mut self,
+        _ctx: &Ctx<'_>,
+        base: &str,
+        name: &str,
+        _attributes: Option<ImportAttributes<'_>>,
+    ) -> Result<String> {
         if !name.starts_with(".") {
             return Ok(name.into());
         }
@@ -76,10 +81,7 @@ where
 {
     let (rt, ctx) = given_runtime().await;
 
-    async_with!(ctx => |ctx| {
-        func(ctx).await
-    })
-    .await;
+    ctx.async_with(async |ctx| func(ctx).await).await;
 
     if options.no_pending_jobs {
         assert!(!rt.is_job_pending().await);

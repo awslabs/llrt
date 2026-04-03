@@ -3,7 +3,10 @@
 use std::{fs::File, io::Read};
 
 use llrt_json::escape::escape_json_string;
-use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
+use rquickjs::{
+    loader::{ImportAttributes, Loader},
+    Ctx, Function, Module, Object, Result, Value,
+};
 use tracing::trace;
 
 use crate::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
@@ -72,7 +75,11 @@ impl PackageLoader {
         (false, false, name, name)
     }
 
-    fn load_module<'js>(name: &str, ctx: &Ctx<'js>) -> Result<(Module<'js>, Option<String>)> {
+    fn load_module<'js>(
+        name: &str,
+        ctx: &Ctx<'js>,
+        attr: &Option<ImportAttributes<'js>>,
+    ) -> Result<(Module<'js>, Option<String>)> {
         let ctx = ctx.clone();
 
         let (from_cjs_import, is_cjs, normalized_name, path) = Self::normalize_name(name);
@@ -81,7 +88,12 @@ impl PackageLoader {
 
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
-            if normalized_name.ends_with(".json") {
+            let attr_json = attr
+                .clone()
+                .and_then(|v| v.get_type().ok().flatten())
+                .is_some_and(|v| v == "json");
+
+            if normalized_name.ends_with(".json") && attr_json {
                 let mut file = File::open(path)?;
                 let mut contents = Vec::new();
                 file.read_to_end(&mut contents)?;
@@ -110,9 +122,14 @@ impl PackageLoader {
 }
 
 impl Loader for PackageLoader {
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+    fn load<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        attr: Option<ImportAttributes<'js>>,
+    ) -> Result<Module<'js>> {
         trace!("Try load '{}'", name);
-        let (module, url) = Self::load_module(name, ctx)?;
+        let (module, url) = Self::load_module(name, ctx, &attr)?;
         if let Some(url) = url {
             let meta: Object = module.meta()?;
             meta.prop("url", url)?;
