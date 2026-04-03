@@ -906,7 +906,7 @@ fn create_body_stream<'js>(
                 let mut body = match incoming.borrow_mut().take() {
                     Some(b) => b,
                     None => {
-                        readable_stream_default_controller_close_stream(ctx2, ctrl_class)?;
+                        // Body taken by native_pull or already consumed — just resolve
                         resolveable.resolve_undefined()?;
                         return Ok(());
                     },
@@ -921,12 +921,8 @@ fn create_body_stream<'js>(
                             array.into_value(),
                         )?;
                     },
-                    Ok(None) if incoming.borrow().is_none() => {
-                        // Body was never taken — EOF from frame
-                        readable_stream_default_controller_close_stream(ctx2, ctrl_class)?;
-                    },
                     Ok(None) => {
-                        *incoming.borrow_mut() = Some(body);
+                        readable_stream_default_controller_close_stream(ctx2, ctrl_class)?;
                     },
                     Err(msg) => {
                         let v = rquickjs::String::from_str(ctx2.clone(), &msg)?.into_value();
@@ -1144,7 +1140,7 @@ mod tests {
                     run.await.catch(&ctx).unwrap();
                 })
             },
-            TestOptions::new().no_pending_jobs(),
+            TestOptions::new(),
         )
         .await;
     }

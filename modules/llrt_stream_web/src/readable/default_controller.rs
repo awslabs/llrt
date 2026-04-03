@@ -843,7 +843,7 @@ pub fn readable_stream_default_controller_close_stream<'js>(
         .controller
         .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
     {
-        return Ok(()); // Silently ignore if can't close
+        return Ok(());
     }
 
     ReadableStreamDefaultController::readable_stream_default_controller_close(ctx, objects)?;
