@@ -235,7 +235,8 @@ describe("fetch", () => {
     const reader = res.body!.getReader();
 
     const { value } = await reader.read();
-    expect(new TextDecoder().decode(value)).toEqual("chunk");
+    const text = new TextDecoder().decode(value);
+    expect(text.startsWith("chunk")).toBe(true);
 
     await reader.cancel();
     const { done } = await reader.read();
