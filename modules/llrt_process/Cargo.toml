@@ -12,7 +12,12 @@ path = "src/lib.rs"
 
 [dependencies]
 llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_stream = { version = "0.8.1-beta", path = "../llrt_stream" }
+llrt_context = { version = "0.8.1-beta", path = "../../libs/llrt_context" }
+llrt_events = { version = "0.8.1-beta", path = "../llrt_events" }
+llrt_tty = { version = "0.8.1-beta", path = "../llrt_tty" }
 rquickjs = { version = "0.11", features = ["std"], default-features = false }
+tokio = { version = "1", features = ["io-std", "fs"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }

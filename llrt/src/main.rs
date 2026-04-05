@@ -18,34 +18,36 @@ mod minimal_tracer;
 mod repl;
 
 use constcat::concat;
-use llrt_core::modules::process::EXIT_CODE;
 use minimal_tracer::MinimalTracer;
 use tracing::trace;
 
+#[cfg(feature = "process")]
+use llrt_core::modules::process::{run_exit_listeners, EXIT_CODE};
+
 #[cfg(not(feature = "lambda"))]
 use crate::base::compiler::compile_file;
+#[cfg(feature = "https")]
+use crate::base::runtime_client;
+#[cfg(feature = "https")]
+use crate::base::{
+    async_with, environment::ENV_LLRT_REGISTER_HOOKS, libs::logging::print_error_and_exit,
+    CatchResultExt,
+};
 use crate::base::{
     bytecode::BYTECODE_EXT,
-    environment::ENV_LLRT_REGISTER_HOOKS,
-    libs::{
-        logging::print_error_and_exit,
-        utils::{
-            fs::DirectoryWalker,
-            io::{is_supported_ext, SUPPORTED_EXTENSIONS},
-            sysinfo::{ARCH, PLATFORM},
-        },
+    libs::utils::{
+        fs::DirectoryWalker,
+        io::{is_supported_ext, SUPPORTED_EXTENSIONS},
+        sysinfo::{ARCH, PLATFORM},
     },
     modules::path::name_extname,
-    #[cfg(feature = "https")]
-    runtime_client,
     vm::Vm,
     VERSION,
 };
 
-// rquickjs components
-use crate::base::{async_with, CatchResultExt};
-
-#[cfg(not(target_os = "windows"))]
+// Use snmalloc on Linux where the system allocator is slower for small allocations.
+// macOS's allocator is well-optimised (especially on arm64) so we fall back to it there.
+#[cfg(target_os = "linux")]
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
@@ -117,7 +119,7 @@ pub unsafe extern "C" fn __cxa_thread_atexit_impl(
 async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
     let now = Instant::now();
 
-    MinimalTracer::register()?;
+    MinimalTracer::register().map_err(|e| e.to_string())?;
     trace!("Started runtime");
 
     let vm = Vm::new().await?;
@@ -125,16 +127,50 @@ async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
 
     if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
         #[cfg(feature = "https")]
-        start_runtime(&vm).await;
+        {
+            start_runtime(&vm).await;
+            vm.idle().await?;
+            // Fire process.on('exit') listeners before the runtime is freed,
+            // matching the behaviour of the CLI path below.
+            #[cfg(feature = "process")]
+            vm.run_with(|ctx| {
+                run_exit_listeners(ctx);
+                Ok(())
+            })
+            .await;
+            #[cfg(feature = "process")]
+            return Ok(ExitCode::from(EXIT_CODE.load(Ordering::Relaxed)));
+            #[cfg(not(feature = "process"))]
+            return Ok(ExitCode::SUCCESS);
+        }
         #[cfg(not(feature = "https"))]
-        eprintln!("llrt: Lambda runtime requires the 'https' feature");
+        {
+            eprintln!("Lambda runtime requires the 'https' feature.");
+            return Ok(ExitCode::FAILURE);
+        }
     } else {
         start_cli(&vm).await;
     }
 
+    // Let the event loop drain completely — this runs the module body,
+    // resolves all promises (including top-level await), and processes
+    // any remaining microtasks.
     vm.idle().await?;
 
-    Ok(ExitCode::from(EXIT_CODE.load(Ordering::Relaxed)))
+    // Now that the script has fully executed, drain and fire any registered
+    // process.on('exit') listeners before the QuickJS runtime is freed.
+    // process.exit() drains them itself; this handles natural termination.
+    #[cfg(feature = "process")]
+    vm.run_with(|ctx| {
+        run_exit_listeners(ctx);
+        Ok(())
+    })
+    .await;
+
+    #[cfg(feature = "process")]
+    return Ok(ExitCode::from(EXIT_CODE.load(Ordering::Relaxed)));
+    #[cfg(not(feature = "process"))]
+    Ok(ExitCode::SUCCESS)
 }
 
 pub const VERSION_STRING: &str = concat!("LLRT v", VERSION, " (", PLATFORM, ", ", ARCH, ")");

@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 use std::env;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Mutex;
 
+use llrt_tty::{ReadStream, WriteStream};
 use llrt_utils::signals;
 
 use llrt_utils::primordials::{BasePrimordials, Primordial};
@@ -21,10 +23,51 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::{Accessor, Property},
     prelude::Func,
-    Array, BigInt, Ctx, Error, Function, IntoJs, Object, Result, Value,
+    Array, BigInt, Class, Ctx, Error, Function, IntoJs, Object, Persistent, Result, Value,
 };
 
 pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
+
+/// Drain EXIT_LISTENERS and invoke each callback with the current exit code.
+/// Must be called while a live `Ctx` is available (before the runtime is freed).
+/// This is called from `main` for natural (non-`process.exit()`) termination.
+pub fn run_exit_listeners(ctx: &Ctx<'_>) {
+    let code = EXIT_CODE.load(Ordering::Relaxed);
+    let listeners: Vec<ExitListener> = {
+        let mut guard = EXIT_LISTENERS.lock().unwrap_or_else(|e| e.into_inner());
+        std::mem::take(&mut guard.0)
+    };
+    for listener in listeners {
+        if let Ok(f) = listener.func.restore(ctx) {
+            if let Err(err) = f.call::<(u32,), ()>((code as u32,)) {
+                eprintln!("process exit listener error: {err}");
+            }
+        }
+    }
+}
+
+// Exit listeners are stored on the Rust side so they are not reachable from
+// arbitrary JS code via `globalThis`. `Persistent<Function>` keeps the JS
+// function alive across GC cycles.
+//
+// SAFETY: rquickjs runs a single JS context per process and never moves
+// JSRuntime/JSContext pointers across threads. The Mutex ensures exclusive
+// access, so the raw pointer fields inside Persistent<Function> are only
+// ever touched from the thread that holds the lock — the same thread that
+// owns the JS context.
+struct ExitListener {
+    func: Persistent<Function<'static>>,
+    /// If true, the listener should fire at most once across multiple drain calls.
+    /// Currently, exit drains the entire Vec so this is always honoured naturally,
+    /// but the flag is kept for future signal-handler support.
+    _once: bool,
+}
+
+struct ExitListeners(Vec<ExitListener>);
+unsafe impl Send for ExitListeners {}
+unsafe impl Sync for ExitListeners {}
+
+static EXIT_LISTENERS: Mutex<ExitListeners> = Mutex::new(ExitListeners(Vec::new()));
 
 fn cwd(ctx: Ctx<'_>) -> Result<String> {
     env::current_dir()
@@ -74,11 +117,32 @@ fn to_exit_code(ctx: &Ctx<'_>, code: &Value<'_>) -> Result<Option<u8>> {
 }
 
 fn exit(ctx: Ctx<'_>, code: Value<'_>) -> Result<()> {
-    let code = match to_exit_code(&ctx, &code)? {
+    let exit_code = match to_exit_code(&ctx, &code)? {
         Some(code) => code,
         None => EXIT_CODE.load(Ordering::Relaxed),
     };
-    std::process::exit(code.into())
+
+    // Store the exit code before running listeners so that process.exitCode
+    // returns the correct value if a listener reads it during execution.
+    EXIT_CODE.store(exit_code, Ordering::Relaxed);
+
+    // Drain and call all registered exit listeners. We drain rather than iterate
+    // so that each listener is dropped (and GC-released) after it runs. Errors
+    // from individual listeners are printed to stderr so all listeners run
+    // regardless, matching Node.js behaviour.
+    let listeners: Vec<ExitListener> = {
+        let mut guard = EXIT_LISTENERS.lock().unwrap_or_else(|e| e.into_inner());
+        std::mem::take(&mut guard.0)
+    };
+    for listener in listeners {
+        if let Ok(f) = listener.func.restore(&ctx) {
+            if let Err(err) = f.call::<(u32,), ()>((exit_code as u32,)) {
+                eprintln!("process exit listener error: {err}");
+            }
+        }
+    }
+
+    std::process::exit(exit_code.into())
 }
 
 fn env_proxy_setter<'js>(
@@ -139,8 +203,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     // Node.js version - Set for compatibility with some Node.js packages (e.g. cls-hooked).
     process_versions.set("node", "0.0.0")?;
 
-    let hr_time = Function::new(ctx.clone(), hr_time)?;
-    hr_time.set("bigint", Func::from(hr_time_big_int))?;
+    let hr_time_fn = Function::new(ctx.clone(), hr_time)?;
+    hr_time_fn.set("bigint", Func::from(hr_time_big_int))?;
 
     let release = Object::new(ctx.clone())?;
     release.prop("name", Property::from("llrt").enumerable())?;
@@ -167,7 +231,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     process.set("argv", args)?;
     process.set("platform", PLATFORM)?;
     process.set("arch", ARCH)?;
-    process.set("hrtime", hr_time)?;
+    process.set("hrtime", hr_time_fn)?;
     process.set("release", release)?;
     process.set("version", VERSION)?;
     process.set("versions", process_versions)?;
@@ -211,6 +275,101 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         process.set("setegid", Func::from(setegid))?;
     }
 
+    // ── stdio streams ──────────────────────────────────────────────────────
+    // WriteStream and ReadStream use synchronous libc writes so output is
+    // immediately visible even when process.exit() is called right after.
+    // WriteStream also exposes .columns / .rows / .isTTY / .setRawMode().
+    // The constructors are intentionally NOT registered on globalThis —
+    // they are internal implementation details exposed only via process.stdin/
+    // stdout/stderr.
+
+    let stdout_stream = Class::instance(ctx.clone(), WriteStream::new(1))?;
+    process.set("stdout", stdout_stream)?;
+
+    let stderr_stream = Class::instance(ctx.clone(), WriteStream::new(2))?;
+    process.set("stderr", stderr_stream)?;
+
+    let stdin_stream = Class::instance(ctx.clone(), ReadStream::new(0))?;
+    process.set("stdin", stdin_stream)?;
+
+    // ── process.on / process.off ───────────────────────────────────────────
+    // Exit listeners are stored in a Rust-side static Vec (EXIT_LISTENERS) so
+    // they are invisible to JS code and cannot be tampered with via globalThis.
+    // All event-registration methods return the process object for chaining,
+    // matching the Node.js EventEmitter contract.
+
+    // process.on / process.addListener — persists the listener for every exit.
+    fn on_fn<'js>(ctx: Ctx<'js>, event: String, cb: Function<'js>) -> Result<Value<'js>> {
+        if event == "exit" {
+            let mut guard = EXIT_LISTENERS.lock().unwrap_or_else(|e| e.into_inner());
+            // Warn at Node.js default max-listener threshold.
+            if guard.0.len() >= 128 {
+                eprintln!(
+                    "process: MaxListenersExceededWarning: Possible memory leak detected. \
+                     {} exit listeners added. Use process.off() to remove listeners.",
+                    guard.0.len() + 1
+                );
+            }
+            guard.0.push(ExitListener {
+                func: Persistent::save(&ctx, cb),
+                _once: false,
+            });
+        }
+        // Other events (SIGINT, uncaughtException, etc.) are silently accepted.
+        // Return the process object so callers can chain: process.on(...).on(...)
+        ctx.globals().get("process")
+    }
+    let process_on = Function::new(ctx.clone(), on_fn)?;
+    process.set("on", process_on.clone())?;
+    process.set("addListener", process_on)?;
+
+    // process.once — registers a listener that fires at most once.
+    // The `once` flag is stored alongside the Persistent<Function> in the
+    // ExitListener struct so no wrapper closure (and no nested Persistent) is
+    // needed — avoiding the JS GC leak that a nested Persistent would cause.
+    fn once_fn<'js>(ctx: Ctx<'js>, event: String, cb: Function<'js>) -> Result<Value<'js>> {
+        if event == "exit" {
+            let mut guard = EXIT_LISTENERS.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.0.len() >= 128 {
+                eprintln!(
+                    "process: MaxListenersExceededWarning: Possible memory leak detected. \
+                     {} exit listeners added. Use process.off() to remove listeners.",
+                    guard.0.len() + 1
+                );
+            }
+            guard.0.push(ExitListener {
+                func: Persistent::save(&ctx, cb),
+                _once: true,
+            });
+        }
+        ctx.globals().get("process")
+    }
+    process.set("once", Function::new(ctx.clone(), once_fn)?)?;
+
+    // process.off / process.removeListener — removes the first listener whose
+    // JS identity (raw JSValue pointer) matches `cb`.
+    fn off_fn<'js>(ctx: Ctx<'js>, event: String, cb: Function<'js>) -> Result<Value<'js>> {
+        if event == "exit" {
+            let mut guard = EXIT_LISTENERS.lock().unwrap_or_else(|e| e.into_inner());
+
+            let cb_val: Value<'js> = cb.into_value();
+            if let Some(idx) = guard.0.iter().position(|listener: &ExitListener| {
+                listener
+                    .func
+                    .clone()
+                    .restore(&ctx)
+                    .map(|f| f.into_value() == cb_val)
+                    .unwrap_or(false)
+            }) {
+                guard.0.remove(idx);
+            }
+        }
+        ctx.globals().get("process")
+    }
+    let process_off = Function::new(ctx.clone(), off_fn)?;
+    process.set("removeListener", process_off.clone())?;
+    process.set("off", process_off)?;
+
     globals.set("process", process)?;
 
     Ok(())
@@ -234,6 +393,14 @@ impl ModuleDef for ProcessModule {
         declare.declare("exitCode")?;
         declare.declare("exit")?;
         declare.declare("kill")?;
+        declare.declare("stdout")?;
+        declare.declare("stderr")?;
+        declare.declare("stdin")?;
+        declare.declare("on")?;
+        declare.declare("once")?;
+        declare.declare("addListener")?;
+        declare.declare("removeListener")?;
+        declare.declare("off")?;
 
         #[cfg(unix)]
         {
@@ -284,16 +451,21 @@ mod tests {
 
     use super::*;
 
+    async fn setup(ctx: &Ctx<'_>) {
+        time::init();
+        init(ctx).unwrap();
+        ModuleEvaluator::eval_rust::<ProcessModule>(ctx.clone(), "process")
+            .await
+            .unwrap();
+    }
+
+    // ── hrtime (pre-existing) ─────────────────────────────────────────────────
+
     #[tokio::test]
     async fn test_hr_time() {
-        time::init();
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<ProcessModule>(ctx.clone(), "process")
-                    .await
-                    .unwrap();
-
+                setup(&ctx).await;
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -304,7 +476,6 @@ mod tests {
                             // TODO: Delaying with setTimeout
                             for(let i=0; i < (1<<20); i++){}
                             return hrtime()
-
                         }
                     "#,
                 )
@@ -321,14 +492,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_hr_time_bigint() {
-        time::init();
         test_async_with(|ctx| {
             Box::pin(async move {
-                init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<ProcessModule>(ctx.clone(), "process")
-                    .await
-                    .unwrap();
-
+                setup(&ctx).await;
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test",
@@ -339,7 +505,6 @@ mod tests {
                             // TODO: Delaying with setTimeout
                             for(let i=0; i < (1<<20); i++){}
                             return hrtime.bigint()
-
                         }
                     "#,
                 )
