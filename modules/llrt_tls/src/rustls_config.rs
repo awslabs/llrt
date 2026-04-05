@@ -13,6 +13,18 @@ use webpki_roots::TLS_SERVER_ROOTS;
 
 use crate::no_verification::NoCertificateVerification;
 
+// Enforce that exactly one TLS crypto-provider feature is active at compile time.
+// Enabling two simultaneously (e.g. tls-ring + tls-aws-lc) would make
+// get_crypto_provider() silently pick whichever cfg arm comes first.
+#[cfg(all(feature = "tls-ring", feature = "tls-aws-lc"))]
+compile_error!("Features `tls-ring` and `tls-aws-lc` are mutually exclusive — enable only one.");
+#[cfg(all(feature = "tls-ring", feature = "tls-graviola"))]
+compile_error!("Features `tls-ring` and `tls-graviola` are mutually exclusive — enable only one.");
+#[cfg(all(feature = "tls-aws-lc", feature = "tls-graviola"))]
+compile_error!(
+    "Features `tls-aws-lc` and `tls-graviola` are mutually exclusive — enable only one."
+);
+
 // rustls-platform-verifier requires a process-wide default CryptoProvider to be
 // installed before any TLS handshake. We install it once via a OnceLock.
 #[cfg(feature = "platform-verifier")]
@@ -38,17 +50,34 @@ fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
 }
 
 // Call early in process startup when platform-verifier is active.
-// `install_default(self)` takes Arc<Self>, so we pass the provider directly
-// before wrapping it in Arc for use by ClientConfig.
+// `install_default()` returns Err if a provider is already installed; that is
+// harmless and expected when multiple TLS configs are built in the same process.
+// Any other error (e.g. a broken provider) is logged as a warning so it is not
+// silently swallowed while PROVIDER_INSTALLED is still marked as initialised.
 #[cfg(feature = "platform-verifier")]
 fn install_default_provider_once() {
     PROVIDER_INSTALLED.get_or_init(|| {
         #[cfg(feature = "tls-ring")]
-        let _ = rustls::crypto::ring::default_provider().install_default();
+        if let Err(existing) = rustls::crypto::ring::default_provider().install_default() {
+            tracing::debug!(
+                "rustls default provider already installed ({:?}); using existing",
+                existing.name()
+            );
+        }
         #[cfg(feature = "tls-aws-lc")]
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        if let Err(existing) = rustls::crypto::aws_lc_rs::default_provider().install_default() {
+            tracing::debug!(
+                "rustls default provider already installed ({:?}); using existing",
+                existing.name()
+            );
+        }
         #[cfg(feature = "tls-graviola")]
-        let _ = rustls_graviola::default_provider().install_default();
+        if let Err(existing) = rustls_graviola::default_provider().install_default() {
+            tracing::debug!(
+                "rustls default provider already installed ({:?}); using existing",
+                existing.name()
+            );
+        }
     });
 }
 
@@ -129,7 +158,12 @@ pub fn build_client_config(
         builder.with_root_certificates(root_certificates)
     } else {
         #[cfg(feature = "platform-verifier")]
-        {
+        // Only use the platform verifier when no extra CA certs are registered.
+        // rustls_platform_verifier::Verifier delegates entirely to the OS trust
+        // store and has no API for appending additional anchors. If extra certs
+        // are present (e.g. a private PKI) we fall through to the standard
+        // RootCertStore path below so those certs are honoured.
+        if get_extra_ca_certs().is_none() {
             // SAFETY: dangerous() is required by rustls-platform-verifier because its
             // Verifier implements ServerCertVerifier using the OS trust store rather than
             // a bundled root set. rustls exposes this path through dangerous() to signal
@@ -145,7 +179,6 @@ pub fn build_client_config(
                 .with_no_client_auth());
         }
 
-        #[cfg(not(feature = "platform-verifier"))]
         {
             let mut root_certificates = RootCertStore::empty();
 

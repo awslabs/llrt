@@ -5,7 +5,7 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro", "tls-ring", "crypto-rust"]
+default = ["macro", "tls-ring", "crypto-rust", "webpki-roots", "abort", "assert", "async-hooks", "buffer", "child-process", "console", "crypto", "dgram", "dns", "events", "exceptions", "fetch-c-http2", "fs", "https-http2", "intl", "navigator", "net", "os", "path", "perf-hooks", "process", "stream-web", "string-decoder", "temporal", "timers", "tls", "tty", "url", "util", "zlib"]
 lambda = []
 no-sdk = []
 uncompressed = []
@@ -28,6 +28,50 @@ crypto-openssl = ["llrt_modules/crypto-openssl"]
 
 # OpenSSL vendored (builds OpenSSL from source)
 openssl-vendored = ["openssl/vendored"]
+
+# Certificate verification backends (pick one)
+webpki-roots = ["llrt_modules/webpki-roots"]
+native-roots = ["llrt_modules/native-roots"]
+platform-verifier = ["llrt_modules/platform-verifier"]
+
+# Optional modules
+abort = ["llrt_modules/abort"]
+assert = ["llrt_modules/assert"]
+async-hooks = ["llrt_modules/async-hooks"]
+buffer = ["llrt_modules/buffer"]
+child-process = ["llrt_modules/child-process"]
+console = ["llrt_modules/console"]
+crypto = ["llrt_modules/crypto"]
+dgram = ["llrt_modules/dgram"]
+dns = ["llrt_modules/dns"]
+events = ["llrt_modules/events"]
+exceptions = ["llrt_modules/exceptions"]
+fetch = ["llrt_modules/fetch"]
+fetch-c = ["fetch", "llrt_modules/fetch-c"]
+fetch-rust = ["fetch", "llrt_modules/fetch-rust"]
+fetch-http2 = ["fetch", "llrt_modules/fetch-http2"]
+fetch-c-http2 = ["fetch-c", "fetch-http2"]
+fetch-rust-http2 = ["fetch-rust", "fetch-http2"]
+fs = ["llrt_modules/fs"]
+https = ["llrt_modules/https"]
+https-http1 = ["https"]
+https-http2 = ["https", "llrt_modules/https-http2"]
+intl = ["llrt_modules/intl"]
+navigator = ["llrt_modules/navigator"]
+net = ["llrt_modules/net"]
+os = ["llrt_modules/os"]
+path = ["llrt_modules/path"]
+perf-hooks = ["llrt_modules/perf-hooks"]
+process = ["llrt_modules/process"]
+stream-web = ["llrt_modules/stream-web"]
+string-decoder = ["llrt_modules/string-decoder"]
+temporal = ["llrt_modules/temporal"]
+timers = ["llrt_modules/timers"]
+tls = ["llrt_modules/tls"]
+tty = ["llrt_modules/tty"]
+url = ["llrt_modules/url"]
+util = ["llrt_modules/util"]
+zlib = ["llrt_modules/zlib"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
@@ -67,7 +111,7 @@ simd-json = { version = "0.17", default-features = false }
 terminal_size = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["sync", "time"], default-features = false }
 tracing = { version = "0.1", features = ["log"], default-features = false }
-zstd = { version = "0.13", default-features = false }
+zstd = { version = "0.13", features = ["thin"], default-features = false }
 openssl = { version = "0.10", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]

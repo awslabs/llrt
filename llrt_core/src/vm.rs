@@ -7,6 +7,8 @@ use rquickjs::{
     CatchResultExt, Ctx, Error, Result, Value,
 };
 
+#[cfg(feature = "https")]
+use crate::http;
 use crate::libs::{
     context::set_spawn_error_handler,
     hooking::HOOKING_MODE,
@@ -20,12 +22,11 @@ use crate::libs::{
     },
 };
 use crate::modules::{
-    async_hooks::promise_hook_tracker,
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
     package::{loader::PackageLoader, resolver::PackageResolver},
 };
-use crate::{environment, http, security};
+use crate::{environment, security};
 
 pub struct Vm {
     pub runtime: AsyncRuntime,
@@ -79,6 +80,7 @@ impl Vm {
         vm_options: VmOptions,
     ) -> StdResult<Self, Box<dyn std::error::Error + Send + Sync>> {
         time::init();
+        #[cfg(feature = "https")]
         http::init()?;
         security::init()?;
 
@@ -132,7 +134,10 @@ impl Vm {
         .await?;
 
         if HOOKING_MODE.to_owned() {
-            runtime.set_promise_hook(Some(promise_hook_tracker())).await;
+            #[cfg(feature = "async-hooks")]
+            runtime
+                .set_promise_hook(Some(crate::modules::async_hooks::promise_hook_tracker()))
+                .await;
         }
 
         Ok(Vm { runtime, ctx })
@@ -192,7 +197,7 @@ impl Vm {
         .await;
     }
 
-    pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
+    pub async fn idle(&self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
         Ok(())
     }

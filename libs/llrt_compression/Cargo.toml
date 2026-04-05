@@ -32,4 +32,4 @@ brotli = { version = "8", features = [
     "std",
 ], default-features = false, optional = true }
 flate2 = { version = "1", default-features = false, optional = true }
-zstd = { version = "0.13", default-features = false, optional = true }
+zstd = { version = "0.13", features = ["thin"], default-features = false, optional = true }

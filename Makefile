@@ -103,6 +103,21 @@ $(foreach target,$(RELEASE_TARGETS),$(eval $(call release_template,$(target),-no
 build: js
 	cargo $(BUILD_ARG) --target $(CURRENT_TARGET)
 
+# Minimal build for CLI use-cases (no intl, dgram, dns, net, https, async-hooks, child-process, worker-threads, etc.)
+CLI_FEATURES = macro,tls-ring,crypto-rust,platform-verifier,abort,buffer,console,crypto,events,exceptions,fetch-rust,fs,os,path,process,stream-web,string-decoder,timers,tty,url,util
+build-cli: js
+	cargo $(BUILD_ARG) --target $(CURRENT_TARGET) --no-default-features --features "$(CLI_FEATURES)"
+
+# CLI build with fetch but no crypto/stream-web
+CLI_FETCH_FEATURES = macro,tls-ring,crypto-rust,platform-verifier,abort,buffer,console,events,exceptions,fetch-rust,fs,os,path,process,string-decoder,timers,tty,url,util
+build-cli-fetch: js
+	cargo $(BUILD_ARG) --target $(CURRENT_TARGET) --no-default-features --features "$(CLI_FETCH_FEATURES)"
+
+# Ultra-minimal build with no networking at all — pure terminal rendering
+CLI_OFFLINE_FEATURES = macro,abort,buffer,console,events,exceptions,fs,os,path,process,string-decoder,timers,tty,url,util
+build-cli-offline: js
+	cargo $(BUILD_ARG) --target $(CURRENT_TARGET) --no-default-features --features "$(CLI_OFFLINE_FEATURES)"
+
 ifeq ($(DETECTED_OS),windows)
 stdlib:
 	rustup toolchain install $(RUST_VERSION) --target $(TARGET_windows_x86_64)

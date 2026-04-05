@@ -112,13 +112,13 @@ impl EmbeddedLoader {
 
         let (_, _, normalized_name, path) = Self::normalize_name(name);
 
-        #[cfg(feature = "lambda")]
+        #[cfg(all(feature = "lambda", feature = "https"))]
         #[cfg(test)]
         init_client_connection(&ctx, path)?;
 
         if let Some(bytes) = BYTECODE_CACHE.get(path) {
             #[cfg(not(test))]
-            #[cfg(feature = "lambda")]
+            #[cfg(all(feature = "lambda", feature = "https"))]
             init_client_connection(&ctx, path)?;
 
             trace!("Loading embedded module: {}\n", path);
@@ -151,7 +151,7 @@ impl Loader for EmbeddedLoader {
 }
 
 #[cfg(test)]
-#[cfg(feature = "lambda")]
+#[cfg(all(feature = "lambda", feature = "https"))]
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use crate::runtime_client::{check_client_inited, mark_client_inited};
     use rquickjs::qjs;
@@ -170,7 +170,7 @@ fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
 }
 
 #[cfg(not(test))]
-#[cfg(feature = "lambda")]
+#[cfg(all(feature = "lambda", feature = "https"))]
 fn init_client_connection(ctx: &Ctx<'_>, specifier: &str) -> Result<()> {
     use std::{
         env,

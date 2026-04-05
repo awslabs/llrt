@@ -36,6 +36,7 @@ use crate::base::{
         },
     },
     modules::path::name_extname,
+    #[cfg(feature = "https")]
     runtime_client,
     vm::Vm,
     VERSION,
@@ -123,7 +124,10 @@ async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
     trace!("Initialized VM in {}ms", now.elapsed().as_millis());
 
     if env::var("AWS_LAMBDA_RUNTIME_API").is_ok() && env::var("_HANDLER").is_ok() {
-        start_runtime(&vm).await
+        #[cfg(feature = "https")]
+        start_runtime(&vm).await;
+        #[cfg(not(feature = "https"))]
+        eprintln!("llrt: Lambda runtime requires the 'https' feature");
     } else {
         start_cli(&vm).await;
     }
@@ -177,6 +181,7 @@ Options:
     );
 }
 
+#[cfg(feature = "https")]
 async fn start_runtime(vm: &Vm) {
     if let Ok(filename) = env::var(ENV_LLRT_REGISTER_HOOKS) {
         vm.run_file(filename, true, true).await;

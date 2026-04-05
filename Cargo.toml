@@ -45,6 +45,12 @@ members = [
   "llrt",
 ]
 
+[profile.bloaty]
+inherits = "release"
+debug = true
+lto = true
+strip = false
+
 [profile.flame]
 inherits = "release"
 strip = false

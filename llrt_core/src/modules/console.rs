@@ -27,6 +27,7 @@ use crate::libs::{
         module::{export_default, ModuleInfo},
     },
 };
+#[cfg(feature = "https")]
 use crate::runtime_client;
 
 static AWS_LAMBDA_MODE: AtomicBool = AtomicBool::new(false);
@@ -194,7 +195,10 @@ fn write_lambda_log<'js>(
 
     let current_time = Timestamp::now();
     let formatted_time = current_time.strftime(time_format);
+    #[cfg(feature = "https")]
     let request_id = runtime_client::LAMBDA_REQUEST_ID.read().unwrap();
+    #[cfg(not(feature = "https"))]
+    let request_id: Option<String> = None;
 
     if is_json_log_format {
         result.push('{');

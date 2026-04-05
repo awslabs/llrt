@@ -9,9 +9,11 @@ pub mod bytecode;
 pub mod compiler;
 mod compiler_common;
 pub mod environment;
+#[cfg(feature = "https")]
 mod http;
 pub mod libs;
 pub mod modules;
+#[cfg(feature = "https")]
 pub mod runtime_client;
 mod security;
 pub mod vm;

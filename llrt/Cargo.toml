@@ -5,7 +5,7 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro", "tls-ring", "crypto-rust"]
+default = ["macro", "tls-ring", "crypto-rust", "process"]
 macro = ["llrt_core/macro"]
 lambda = ["llrt_core/lambda"]
 no-sdk = ["llrt_core/no-sdk"]
@@ -28,6 +28,54 @@ crypto-openssl = ["llrt_core/crypto-openssl"]
 
 # OpenSSL vendored (builds OpenSSL from source)
 openssl-vendored = ["llrt_core/openssl-vendored"]
+
+# Module feature forwarding
+https = ["llrt_core/https"]
+https-http1 = ["https", "llrt_core/https-http1"]
+https-http2 = ["https", "llrt_core/https-http2"]
+process = ["llrt_core/process"]
+
+# Certificate verification backend forwarding
+webpki-roots = ["llrt_core/webpki-roots"]
+native-roots = ["llrt_core/native-roots"]
+platform-verifier = ["llrt_core/platform-verifier"]
+
+# Fetch variants
+fetch = ["llrt_core/fetch"]
+fetch-c = ["llrt_core/fetch-c"]
+fetch-rust = ["llrt_core/fetch-rust"]
+fetch-http2 = ["llrt_core/fetch-http2"]
+fetch-c-http2 = ["llrt_core/fetch-c-http2"]
+fetch-rust-http2 = ["llrt_core/fetch-rust-http2"]
+
+# Individual module features
+abort = ["llrt_core/abort"]
+assert = ["llrt_core/assert"]
+async-hooks = ["llrt_core/async-hooks"]
+buffer = ["llrt_core/buffer"]
+child-process = ["llrt_core/child-process"]
+console = ["llrt_core/console"]
+crypto = ["llrt_core/crypto"]
+dgram = ["llrt_core/dgram"]
+dns = ["llrt_core/dns"]
+events = ["llrt_core/events"]
+exceptions = ["llrt_core/exceptions"]
+fs = ["llrt_core/fs"]
+intl = ["llrt_core/intl"]
+navigator = ["llrt_core/navigator"]
+net = ["llrt_core/net"]
+os = ["llrt_core/os"]
+path = ["llrt_core/path"]
+perf-hooks = ["llrt_core/perf-hooks"]
+stream-web = ["llrt_core/stream-web"]
+string-decoder = ["llrt_core/string-decoder"]
+temporal = ["llrt_core/temporal"]
+timers = ["llrt_core/timers"]
+tls = ["llrt_core/tls"]
+tty = ["llrt_core/tty"]
+url = ["llrt_core/url"]
+util = ["llrt_core/util"]
+zlib = ["llrt_core/zlib"]
 
 [dependencies]
 constcat = { version = "0.6", default-features = false }
