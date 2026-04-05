@@ -45,8 +45,20 @@ fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     {
         return Arc::new(rustls_graviola::default_provider());
     }
+    #[cfg(not(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")))]
+    compile_error!(
+        "No TLS crypto provider feature enabled — enable one of: tls-ring, tls-aws-lc, tls-graviola"
+    );
+
+    // Safety: one of the cfg arms above always executes a `return` when a provider
+    // feature is enabled.  The compile_error! above ensures this is unreachable at
+    // compile time when no provider feature is enabled.
     #[allow(unreachable_code)]
-    panic!("No TLS crypto provider feature enabled (tls-ring / tls-aws-lc / tls-graviola)");
+    {
+        unreachable!(
+            "No TLS crypto provider feature enabled (tls-ring / tls-aws-lc / tls-graviola)"
+        )
+    }
 }
 
 // Call early in process startup when platform-verifier is active.
