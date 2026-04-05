@@ -16,7 +16,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Accessor,
     prelude::Func,
-    Ctx, Error, Exception, Function, JsLifetime, Object, Result, Value,
+    Ctx, Error, Exception, Function, JsLifetime, Module, Object, Result, Value,
 };
 
 pub mod loader;
@@ -76,6 +76,15 @@ impl ModuleHookState<'_> {
     fn new() -> Self {
         Self { hooks: Vec::new() }
     }
+}
+
+#[derive(Default)]
+pub(crate) struct ModuleCache<'js> {
+    pub(crate) esm: HashMap<Rc<str>, Module<'js>>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for ModuleCache<'js> {
+    type Changed<'to> = ModuleCache<'to>;
 }
 
 pub struct ModuleModule;
@@ -152,6 +161,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
 
     let _ = ctx.store_userdata(RefCell::new(RequireState::default()));
     let _ = ctx.store_userdata(RefCell::new(ModuleHookState::default()));
+    let _ = ctx.store_userdata(RefCell::new(ModuleCache::default()));
 
     let exports_accessor = Accessor::new(
         |ctx| {
