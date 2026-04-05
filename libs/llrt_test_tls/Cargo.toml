@@ -19,9 +19,10 @@ tls-openssl = ["dep:openssl", "dep:tokio-openssl"]
 
 [dependencies]
 http-body-util = { version = "0.1", default-features = false }
-hyper = { version = "1", features = ["server"], default-features = false }
+hyper = { version = "1", features = ["server", "http1"], default-features = false }
 hyper-util = { version = "0.1", features = [
-  "server-auto",
+  "server",
+  "http1",
   "tokio",
 ], default-features = false }
 http = { version = "1", default-features = false }

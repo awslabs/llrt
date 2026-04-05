@@ -13,20 +13,43 @@ use webpki_roots::TLS_SERVER_ROOTS;
 
 use crate::no_verification::NoCertificateVerification;
 
-// Select the crypto provider based on feature flags
-#[cfg(feature = "tls-ring")]
+// rustls-platform-verifier requires a process-wide default CryptoProvider to be
+// installed before any TLS handshake. We install it once via a OnceLock.
+#[cfg(feature = "platform-verifier")]
+static PROVIDER_INSTALLED: OnceLock<()> = OnceLock::new();
+
+// Select the crypto provider based on feature flags. Only one tls-* feature
+// should be active at a time, enforced by the workspace default features.
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
-    Arc::new(rustls::crypto::ring::default_provider())
+    #[cfg(feature = "tls-ring")]
+    {
+        return Arc::new(rustls::crypto::ring::default_provider());
+    }
+    #[cfg(feature = "tls-aws-lc")]
+    {
+        return Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    }
+    #[cfg(feature = "tls-graviola")]
+    {
+        return Arc::new(rustls_graviola::default_provider());
+    }
+    #[allow(unreachable_code)]
+    panic!("No TLS crypto provider feature enabled (tls-ring / tls-aws-lc / tls-graviola)");
 }
 
-#[cfg(feature = "tls-aws-lc")]
-fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
-    Arc::new(rustls::crypto::aws_lc_rs::default_provider())
-}
-
-#[cfg(feature = "tls-graviola")]
-fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
-    Arc::new(rustls_graviola::default_provider())
+// Call early in process startup when platform-verifier is active.
+// `install_default(self)` takes Arc<Self>, so we pass the provider directly
+// before wrapping it in Arc for use by ClientConfig.
+#[cfg(feature = "platform-verifier")]
+fn install_default_provider_once() {
+    PROVIDER_INSTALLED.get_or_init(|| {
+        #[cfg(feature = "tls-ring")]
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        #[cfg(feature = "tls-aws-lc")]
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        #[cfg(feature = "tls-graviola")]
+        let _ = rustls_graviola::default_provider().install_default();
+    });
 }
 
 static EXTRA_CA_CERTS: OnceLock<Vec<CertificateDer<'static>>> = OnceLock::new();
@@ -75,8 +98,12 @@ pub struct BuildClientConfigOptions {
 pub fn build_client_config(
     options: BuildClientConfigOptions,
 ) -> Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "platform-verifier")]
+    install_default_provider_once();
+
     let provider = get_crypto_provider();
-    let builder = ClientConfig::builder_with_provider(provider.clone());
+
+    let builder = ClientConfig::builder_with_provider(Arc::clone(&provider));
 
     // TLS versions
     let builder = match get_tls_versions() {
@@ -86,6 +113,10 @@ pub fn build_client_config(
 
     // Certificate verification
     let builder = if !options.reject_unauthorized {
+        // SAFETY: dangerous() bypasses certificate verification. This is intentional
+        // and explicitly requested by the caller via `rejectUnauthorized: false`.
+        // The NoCertificateVerification verifier is only used when the JS caller
+        // opts out of verification — it must never be used as a default.
         builder
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoCertificateVerification::new(provider)))
@@ -97,32 +128,52 @@ pub fn build_client_config(
         }
         builder.with_root_certificates(root_certificates)
     } else {
-        let mut root_certificates = RootCertStore::empty();
-
-        #[cfg(feature = "webpki-roots")]
+        #[cfg(feature = "platform-verifier")]
         {
-            for cert in TLS_SERVER_ROOTS.iter().cloned() {
-                root_certificates.roots.push(cert)
-            }
+            // SAFETY: dangerous() is required by rustls-platform-verifier because its
+            // Verifier implements ServerCertVerifier using the OS trust store rather than
+            // a bundled root set. rustls exposes this path through dangerous() to signal
+            // that the caller is responsible for ensuring the verifier is trustworthy.
+            // rustls_platform_verifier::Verifier delegates to SecTrustEvaluateWithError
+            // (macOS/iOS), NSS (Linux), or SChannel (Windows) — it is not bypassing
+            // verification, it is replacing it with the platform-native mechanism.
+            return Ok(builder
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(
+                    rustls_platform_verifier::Verifier::new(),
+                ))
+                .with_no_client_auth());
         }
-        #[cfg(feature = "native-roots")]
+
+        #[cfg(not(feature = "platform-verifier"))]
         {
-            let load_results = rustls_native_certs::load_native_certs();
-            for cert in load_results.certs {
-                // Continue on parsing errors, as native stores often include ancient or syntactically
-                // invalid certificates, like root certificates without any X509 extensions.
-                // Inspiration: https://github.com/rustls/rustls/blob/633bf4ba9d9521a95f68766d04c22e2b01e68318/rustls/src/anchors.rs#L105-L112
-                if let Err(err) = root_certificates.add(cert) {
-                    tracing::debug!("rustls failed to parse DER certificate: {err:?}");
+            let mut root_certificates = RootCertStore::empty();
+
+            #[cfg(feature = "webpki-roots")]
+            {
+                for cert in TLS_SERVER_ROOTS.iter().cloned() {
+                    root_certificates.roots.push(cert)
                 }
             }
-        }
+            #[cfg(feature = "native-roots")]
+            {
+                let load_results = rustls_native_certs::load_native_certs();
+                for cert in load_results.certs {
+                    // Continue on parsing errors, as native stores often include ancient or syntactically
+                    // invalid certificates, like root certificates without any X509 extensions.
+                    // Inspiration: https://github.com/rustls/rustls/blob/633bf4ba9d9521a95f68766d04c22e2b01e68318/rustls/src/anchors.rs#L105-L112
+                    if let Err(err) = root_certificates.add(cert) {
+                        tracing::debug!("rustls failed to parse DER certificate: {err:?}");
+                    }
+                }
+            }
 
-        if let Some(extra_ca_certs) = get_extra_ca_certs() {
-            root_certificates.add_parsable_certificates(extra_ca_certs);
-        }
+            if let Some(extra_ca_certs) = get_extra_ca_certs() {
+                root_certificates.add_parsable_certificates(extra_ca_certs);
+            }
 
-        builder.with_root_certificates(root_certificates)
+            builder.with_root_certificates(root_certificates)
+        }
     };
 
     Ok(builder.with_no_client_auth())

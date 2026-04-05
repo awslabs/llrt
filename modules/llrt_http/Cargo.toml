@@ -19,6 +19,7 @@ http2 = ["hyper/http2", "hyper-rustls?/http2", "hyper-util/http2"]
 
 webpki-roots = ["llrt_tls/webpki-roots"]
 native-roots = ["llrt_tls/native-roots"]
+platform-verifier = ["llrt_tls/platform-verifier"]
 
 # TLS crypto backend features (rustls-based)
 tls-ring = [

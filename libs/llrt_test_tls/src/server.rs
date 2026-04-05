@@ -7,6 +7,13 @@ use std::sync::Arc;
     feature = "tls-graviola",
     feature = "tls-openssl"
 ))]
+use hyper::server::conn::http1::Builder;
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
 use hyper::service::service_fn;
 #[cfg(any(
     feature = "tls-ring",
@@ -14,14 +21,7 @@ use hyper::service::service_fn;
     feature = "tls-graviola",
     feature = "tls-openssl"
 ))]
-use hyper_util::rt::{TokioExecutor, TokioIo};
-#[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
-))]
-use hyper_util::server::conn::auto::Builder;
+use hyper_util::rt::TokioIo;
 #[cfg(any(
     feature = "tls-ring",
     feature = "tls-aws-lc",
@@ -67,7 +67,7 @@ pub(super) async fn run(
         .with_safe_default_protocol_versions()?
         .with_no_client_auth()
         .with_single_cert(cert_chain, certs.server_key)?;
-    server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
+    server_config.alpn_protocols = vec![b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     let tls_acceptor = TlsAcceptor::from(Arc::new(server_config));
 
     let service = service_fn(crate::api::echo);
@@ -87,7 +87,7 @@ pub(super) async fn run(
                 },
             };
 
-            let http_server = Builder::new(TokioExecutor::new());
+            let http_server = Builder::new();
             let conn = http_server.serve_connection(TokioIo::new(tls_stream), service);
             tokio::pin!(conn);
 
@@ -129,7 +129,7 @@ pub(super) async fn run(
     let root_cert = openssl::x509::X509::from_der(certs.root_cert.as_ref())?;
     builder.add_extra_chain_cert(root_cert)?;
 
-    builder.set_alpn_protos(b"\x02h2\x08http/1.1\x08http/1.0")?;
+    builder.set_alpn_protos(b"\x08http/1.1\x08http/1.0")?;
 
     let acceptor = builder.build();
     let service = service_fn(crate::api::echo);
@@ -163,7 +163,7 @@ pub(super) async fn run(
                 },
             };
 
-            let http_server = Builder::new(TokioExecutor::new());
+            let http_server = Builder::new();
             let conn = http_server.serve_connection(TokioIo::new(tls_stream), service);
             tokio::pin!(conn);
 

@@ -22,6 +22,7 @@ compression-rust = ["llrt_compression/all-rust"]
 
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
+platform-verifier = ["llrt_http/platform-verifier"]
 
 tls-ring = ["llrt_http/tls-ring", "llrt_test_tls/tls-ring"]
 tls-aws-lc = ["llrt_http/tls-aws-lc", "llrt_test_tls/tls-aws-lc"]
