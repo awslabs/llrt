@@ -11,6 +11,7 @@ use std::{
 use crate::{collect_readable_stream, decompress::StreamingDecoder, utils::BodyDrain};
 use bytes::Bytes;
 use either::Either;
+use http_body::Body as _;
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
 use llrt_abort::AbortSignal;
@@ -947,31 +948,119 @@ fn create_body_stream<'js>(
     {
         let incoming2 = incoming_for_native;
         let state2 = decoder_for_native;
-        let np: Box<llrt_stream_web::NativePullFn> = Box::new(move |ctx| {
-            let incoming = incoming2.clone();
-            let state = state2.clone();
-            Box::pin(async move {
-                let mut body = match incoming.borrow_mut().take() {
-                    Some(b) => b,
-                    None => return Ok(None),
-                };
-                match read_body_chunk(&mut body, &state, has_decoder).await {
-                    Ok(Some(bytes)) => {
-                        *incoming.borrow_mut() = Some(body);
-                        let a = TypedArray::<u8>::new(ctx, bytes)?;
-                        Ok(Some(a.into_value()))
+        let np: Rc<llrt_stream_web::NativePullFn> = Rc::new(move |ctx: &rquickjs::Ctx<'js>| {
+            let mut body = match incoming2.borrow_mut().take() {
+                Some(b) => b,
+                None => return Ok(llrt_stream_web::NativePullResult::Eof),
+            };
+
+            let waker = std::task::Waker::noop();
+            let mut poll_cx = std::task::Context::from_waker(waker);
+
+            use llrt_stream_web::NativePullResult;
+            use std::task::Poll;
+
+            loop {
+                match std::pin::Pin::new(&mut body).poll_frame(&mut poll_cx) {
+                    Poll::Ready(Some(Ok(frame))) => {
+                        let Ok(first_data) = frame.into_data() else {
+                            continue; // Skip non-data frames (trailers), poll again
+                        };
+
+                        let mut total_len = first_data.len();
+                        let mut extras = Vec::new();
+                        body.drain_ready(|data| {
+                            total_len += data.len();
+                            extras.push(data);
+                        });
+
+                        *incoming2.borrow_mut() = Some(body);
+
+                        let mut chunk = if extras.is_empty() {
+                            None
+                        } else {
+                            let mut buf = Vec::with_capacity(total_len);
+                            buf.extend_from_slice(&first_data);
+                            for e in &extras {
+                                buf.extend_from_slice(e);
+                            }
+                            Some(buf)
+                        };
+
+                        if has_decoder {
+                            if let Some(d) = state2.borrow_mut().as_mut() {
+                                let slice = chunk.as_deref().unwrap_or(&first_data);
+                                match d.decompress_chunk(slice) {
+                                    Ok(decompressed) => chunk = Some(decompressed),
+                                    Err(e) => {
+                                        return Err(Exception::throw_message(ctx, &e.to_string()))
+                                    },
+                                }
+                            }
+                        }
+
+                        let val = match chunk {
+                            Some(buf) => TypedArray::<u8>::new(ctx.clone(), buf)?.into_value(),
+                            None => {
+                                TypedArray::<u8>::new_copy(ctx.clone(), &first_data)?.into_value()
+                            },
+                        };
+
+                        return Ok(NativePullResult::Ready(val));
                     },
-                    Ok(None) => Ok(None),
-                    Err(msg) => Err(Exception::throw_message(&ctx, &msg)),
+                    Poll::Ready(Some(Err(e))) => {
+                        return Err(Exception::throw_message(ctx, &e.to_string()))
+                    },
+                    Poll::Ready(None) => {
+                        if has_decoder {
+                            if let Some(dec) = state2.borrow_mut().take() {
+                                match dec.finish() {
+                                    Ok(remaining) if !remaining.is_empty() => {
+                                        let val = TypedArray::<u8>::new(ctx.clone(), remaining)?
+                                            .into_value();
+                                        return Ok(NativePullResult::Ready(val));
+                                    },
+                                    Err(e) => {
+                                        return Err(Exception::throw_message(ctx, &e.to_string()))
+                                    },
+                                    _ => {},
+                                }
+                            }
+                        }
+                        return Ok(NativePullResult::Eof);
+                    },
+                    Poll::Pending => {
+                        *incoming2.borrow_mut() = Some(body);
+
+                        let incoming = incoming2.clone();
+                        let state = state2.clone();
+                        let ctx = ctx.clone();
+
+                        let fut = async move {
+                            let Some(mut body) = incoming.borrow_mut().take() else {
+                                return Ok(None);
+                            };
+
+                            match read_body_chunk(&mut body, &state, has_decoder).await {
+                                Ok(Some(chunk)) => {
+                                    *incoming.borrow_mut() = Some(body);
+                                    Ok(Some(TypedArray::<u8>::new(ctx, chunk)?.into_value()))
+                                },
+                                Ok(None) => Ok(None),
+                                Err(msg) => Err(Exception::throw_message(&ctx, &msg)),
+                            }
+                        };
+
+                        return Ok(NativePullResult::Pending(Box::pin(fut)));
+                    },
                 }
-            })
+            }
         });
         let s = stream.borrow();
         if let ReadableStreamControllerClass::ReadableStreamDefaultController(ref ctrl) =
             s.controller
         {
-            ctrl.borrow_mut().native_pull =
-                Some(llrt_stream_web::NativePull(Rc::new(RefCell::new(Some(np)))));
+            ctrl.borrow_mut().native_pull = Some(llrt_stream_web::NativePull(np));
         }
     }
 

@@ -5,14 +5,23 @@ use rquickjs::{
     prelude::{Opt, This},
     Class, Ctx, Error, Exception, JsLifetime, Object, Promise, Result, Value,
 };
-use std::{cell::RefCell, future, pin::Pin, rc::Rc};
+use std::{future, pin::Pin, rc::Rc};
 
 /// Native async pull: returns Ok(Some(chunk)) or Ok(None) for EOF.
-pub type NativePullFn<'js> = dyn Fn(Ctx<'js>) -> Pin<Box<dyn future::Future<Output = Result<Option<Value<'js>>>> + 'js>>
-    + 'js;
+/// Result of a native pull: data ready, EOF, or need async.
+pub enum NativePullResult<'js> {
+    /// Data chunk ready synchronously
+    Ready(Value<'js>),
+    /// EOF — no more data
+    Eof,
+    /// Need async — returns a future for the pending case
+    Pending(Pin<Box<dyn future::Future<Output = Result<Option<Value<'js>>>> + 'js>>),
+}
+
+pub type NativePullFn<'js> = dyn Fn(&Ctx<'js>) -> Result<NativePullResult<'js>> + 'js;
 
 /// Wrapper satisfying JsLifetime/Trace.
-pub struct NativePull<'js>(pub Rc<RefCell<Option<Box<NativePullFn<'js>>>>>);
+pub struct NativePull<'js>(pub Rc<NativePullFn<'js>>);
 impl<'js> Clone for NativePull<'js> {
     fn clone(&self) -> Self {
         Self(self.0.clone())

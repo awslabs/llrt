@@ -36,7 +36,7 @@ pub use readable::{
     readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
 };
 pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
-pub use readable::{NativePull, NativePullFn};
+pub use readable::{NativePull, NativePullFn, NativePullResult};
 
 /// Defines web streams, which are exposed through the "stream/web" Node import, but also at the global scope
 /// Web streams consist of Readable, Writable, and Transform streams. Transform is currently unimplemented.

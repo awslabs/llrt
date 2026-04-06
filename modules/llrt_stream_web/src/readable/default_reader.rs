@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::task::Poll;
 
 use rquickjs::class::Tracer;
 use rquickjs::prelude::This;
@@ -12,6 +11,7 @@ use rquickjs::{
 use rquickjs::{IntoJs, JsLifetime, Object};
 
 use crate::utils::promise::promise_resolved_with;
+
 use crate::{
     readable::{
         byob_reader::ReadableStreamBYOBReaderOwned,
@@ -157,13 +157,14 @@ impl<'js> ReadableStreamDefaultReader<'js> {
         Ok(reader)
     }
 
-    fn read(ctx: Ctx<'js>, reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Promise<'js>> {
+    fn read(ctx: Ctx<'js>, reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Value<'js>> {
         let Some(stream_class) = &reader.generic.stream else {
             return promise_rejected_with_constructor(
                 &reader.generic.constructor_type_error,
                 &reader.generic.promise_primordials,
                 "Cannot read from a stream using a released reader",
-            );
+            )
+            .map(|p| p.into_value());
         };
 
         let native_pull = {
@@ -185,39 +186,36 @@ impl<'js> ReadableStreamDefaultReader<'js> {
 
         if let Some(np) = native_pull {
             stream_class.borrow_mut().disturbed = true;
-            let fut_opt = {
-                let pull_ref = np.0.borrow();
-                pull_ref.as_ref().map(|f| f(ctx.clone()))
+            use crate::readable::default_controller::NativePullResult;
+
+            let promise = match (np.0)(&ctx)? {
+                NativePullResult::Ready(chunk) => promise_resolved_with(
+                    &ctx,
+                    &reader.generic.promise_primordials,
+                    Ok(ReadableStreamReadResult {
+                        value: Some(chunk),
+                        done: false,
+                    }
+                    .into_js(&ctx)?),
+                )?,
+                NativePullResult::Eof => promise_resolved_with(
+                    &ctx,
+                    &reader.generic.promise_primordials,
+                    Ok(ReadableStreamReadResult {
+                        value: None,
+                        done: true,
+                    }
+                    .into_js(&ctx)?),
+                )?,
+                NativePullResult::Pending(fut) => Promise::wrap_future(&ctx, async move {
+                    fut.await.map(|chunk| ReadableStreamReadResult {
+                        done: chunk.is_none(),
+                        value: chunk,
+                    })
+                })?,
             };
 
-            if let Some(mut fut) = fut_opt {
-                let waker = std::task::Waker::noop();
-                let mut poll_cx = std::task::Context::from_waker(waker);
-
-                match fut.as_mut().poll(&mut poll_cx) {
-                    Poll::Ready(Ok(chunk)) => {
-                        let result = ReadableStreamReadResult {
-                            done: chunk.is_none(),
-                            value: chunk, // Automatically handles Some(val) or None
-                        };
-                        return promise_resolved_with(
-                            &ctx,
-                            &reader.generic.promise_primordials,
-                            Ok(result.into_js(&ctx)?),
-                        );
-                    },
-                    Poll::Ready(Err(e)) => return Err(e),
-                    Poll::Pending => {
-                        return Promise::wrap_future(&ctx, async move {
-                            // 5. Simplify the async inner match using `.map()`
-                            fut.await.map(|chunk| ReadableStreamReadResult {
-                                done: chunk.is_none(),
-                                value: chunk,
-                            })
-                        });
-                    },
-                }
-            }
+            return Ok(promise.into_value());
         }
 
         let objects = ReadableStreamObjects::from_default_reader(reader.0);
@@ -271,7 +269,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             },
         )?;
 
-        Ok(promise.promise)
+        Ok(promise.promise.into_value())
     }
 
     fn release_lock(reader: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
