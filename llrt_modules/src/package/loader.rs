@@ -5,7 +5,7 @@ use std::{fs::File, io::Read};
 use llrt_json::escape::escape_json_string;
 use rquickjs::{
     loader::{ImportAttributes, Loader},
-    Ctx, Function, Module, Object, Result, Value,
+    Ctx, Exception, Function, Module, Object, Result, Value,
 };
 use tracing::trace;
 
@@ -88,12 +88,17 @@ impl PackageLoader {
 
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
-            let attr_json = attr
-                .clone()
-                .and_then(|v| v.get_type().ok().flatten())
-                .is_some_and(|v| v == "json");
+            if normalized_name.ends_with(".json") {
+                let attr_json = attr
+                    .clone()
+                    .and_then(|v| v.get_type().ok().flatten())
+                    .is_some_and(|v| v == "json");
 
-            if normalized_name.ends_with(".json") && attr_json {
+                if !attr_json {
+                    let msg = ["'", path, "' needs an import attribute of 'type: json'"].concat();
+                    return Err(Exception::throw_type(&ctx, &msg));
+                }
+
                 let mut file = File::open(path)?;
                 let mut contents = Vec::new();
                 file.read_to_end(&mut contents)?;

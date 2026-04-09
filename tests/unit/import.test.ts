@@ -8,7 +8,7 @@ describe("import", () => {
   });
 
   it("should import a json file (absolute path)", async () => {
-    const mod = await import(`${CWD}/package.json`);
+    const mod = await import(`${CWD}/package.json`, { with: { type: "json" } });
 
     expect(mod.default.private).toEqual(true);
   });
@@ -20,13 +20,15 @@ describe("import", () => {
   });
 
   it("should import a json file (relative path)", async () => {
-    const mod = await import("../../fixtures/package.json");
+    const mod = await import("../../fixtures/package.json", {
+      with: { type: "json" },
+    });
 
     expect(mod.default.private).toEqual(true);
   });
 
   it("should import a json file (path unspecified)", async () => {
-    const mod = await import("package.json");
+    const mod = await import("package.json", { with: { type: "json" } });
 
     expect(mod.default.private).toEqual(true);
   });
