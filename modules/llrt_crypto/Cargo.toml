@@ -87,7 +87,7 @@ ed25519-dalek = { version = "3.0.0-pre.6", features = [
   "pkcs8",
   "rand_core",
 ], default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.29", features = [
+elliptic-curve = { version = "0.14.0-rc.30", features = [
   "alloc",
   "sec1",
 ], default-features = false, optional = true }
