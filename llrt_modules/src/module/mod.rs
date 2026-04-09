@@ -159,9 +159,9 @@ impl From<ModuleModule> for ModuleInfo<ModuleModule> {
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = ctx.globals();
 
-    let _ = ctx.store_userdata(RefCell::new(RequireState::default()));
-    let _ = ctx.store_userdata(RefCell::new(ModuleHookState::default()));
-    let _ = ctx.store_userdata(RefCell::new(ModuleCache::default()));
+    ctx.store_userdata(RefCell::new(RequireState::default()))?;
+    ctx.store_userdata(RefCell::new(ModuleHookState::default()))?;
+    ctx.store_userdata(RefCell::new(ModuleCache::default()))?;
 
     let exports_accessor = Accessor::new(
         |ctx| {

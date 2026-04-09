@@ -3,6 +3,7 @@
 use std::{cell::RefCell, fs::File, io::Read};
 
 use llrt_json::escape::escape_json_string;
+use llrt_utils::result::ResultExt;
 use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
 use tracing::trace;
 
@@ -101,7 +102,7 @@ impl PackageLoader {
         let path = path::resolve_path([path].iter())?;
         let path = path.as_str();
 
-        let binding = ctx.userdata::<RefCell<ModuleCache>>().unwrap();
+        let binding = ctx.userdata::<RefCell<ModuleCache>>().or_throw(&ctx)?;
 
         let module = if let Some(module) = {
             let cache = binding.borrow();
