@@ -5,15 +5,15 @@ use std::io::{self, Write};
 
 /// Streaming decompressor that maintains state across chunks
 pub enum StreamingDecoder {
-    #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+    #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
     Gzip(flate2::write::GzDecoder<Vec<u8>>),
-    #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+    #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
     Deflate(flate2::write::ZlibDecoder<Vec<u8>>),
-    #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+    #[cfg(any(feature = "zstd-c", feature = "zstd-rust"))]
     Zstd(zstd::stream::write::Decoder<'static, Vec<u8>>),
-    #[cfg(feature = "compression-c")]
+    #[cfg(feature = "brotli-c")]
     Brotli(brotlic::DecompressorWriter<Vec<u8>>),
-    #[cfg(all(not(feature = "compression-c"), feature = "compression-rust"))]
+    #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
     Brotli(brotli::DecompressorWriter<Vec<u8>>),
     Identity,
 }
@@ -21,15 +21,15 @@ pub enum StreamingDecoder {
 impl StreamingDecoder {
     pub fn new(encoding: &str) -> io::Result<Self> {
         match encoding {
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
             "gzip" => Ok(Self::Gzip(flate2::write::GzDecoder::new(Vec::new()))),
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
             "deflate" => Ok(Self::Deflate(flate2::write::ZlibDecoder::new(Vec::new()))),
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "zstd-c", feature = "zstd-rust"))]
             "zstd" => Ok(Self::Zstd(zstd::stream::write::Decoder::new(Vec::new())?)),
-            #[cfg(feature = "compression-c")]
+            #[cfg(feature = "brotli-c")]
             "br" => Ok(Self::Brotli(brotlic::DecompressorWriter::new(Vec::new()))),
-            #[cfg(all(not(feature = "compression-c"), feature = "compression-rust"))]
+            #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
             "br" => Ok(Self::Brotli(brotli::DecompressorWriter::new(
                 Vec::new(),
                 8_096,
@@ -46,25 +46,25 @@ impl StreamingDecoder {
     pub fn decompress_chunk(&mut self, input: &[u8]) -> io::Result<Vec<u8>> {
         match self {
             Self::Identity => Ok(input.to_vec()),
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
             Self::Gzip(decoder) => {
                 decoder.write_all(input)?;
                 decoder.flush()?;
                 Ok(std::mem::take(decoder.get_mut()))
             },
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
             Self::Deflate(decoder) => {
                 decoder.write_all(input)?;
                 decoder.flush()?;
                 Ok(std::mem::take(decoder.get_mut()))
             },
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "zstd-c", feature = "zstd-rust"))]
             Self::Zstd(decoder) => {
                 decoder.write_all(input)?;
                 decoder.flush()?;
                 Ok(std::mem::take(decoder.get_mut()))
             },
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "brotli-c", feature = "brotli-rust"))]
             Self::Brotli(decoder) => {
                 decoder.write_all(input)?;
                 decoder.flush()?;
@@ -77,17 +77,17 @@ impl StreamingDecoder {
     pub fn finish(self) -> io::Result<Vec<u8>> {
         match self {
             Self::Identity => Ok(Vec::new()),
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
             Self::Gzip(decoder) => decoder.finish(),
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
             Self::Deflate(decoder) => decoder.finish(),
-            #[cfg(any(feature = "compression-c", feature = "compression-rust"))]
+            #[cfg(any(feature = "zstd-c", feature = "zstd-rust"))]
             Self::Zstd(decoder) => Ok(decoder.into_inner()),
-            #[cfg(feature = "compression-c")]
+            #[cfg(feature = "brotli-c")]
             Self::Brotli(decoder) => decoder
                 .into_inner()
                 .map_err(|e| io::Error::other(e.to_string())),
-            #[cfg(all(not(feature = "compression-c"), feature = "compression-rust"))]
+            #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
             Self::Brotli(decoder) => decoder
                 .into_inner()
                 .map_err(|_| io::Error::other("brotli decompression failed")),

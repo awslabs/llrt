@@ -8,13 +8,14 @@ use std::{
     time::Instant,
 };
 
-use crate::{collect_readable_stream, decompress::StreamingDecoder, utils::BodyDrain};
+use crate::{collect_readable_stream, utils::BodyDrain};
 use bytes::Bytes;
 use either::Either;
 use http_body::Body as _;
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, header::HeaderName};
 use llrt_abort::AbortSignal;
+use llrt_compression::streaming::StreamingDecoder;
 use llrt_context::CtxExtension;
 use llrt_json::{parse::json_parse, stringify::json_stringify};
 use llrt_stream_web::utils::promise::ResolveablePromise;

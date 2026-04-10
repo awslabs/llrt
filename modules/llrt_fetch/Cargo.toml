@@ -17,13 +17,8 @@ default = ["http1", "http2", "compression-c", "webpki-roots", "tls-ring"]
 http1 = ["hyper/http1", "llrt_http/http1"]
 http2 = ["hyper/http2", "llrt_http/http2"]
 
-compression-c = ["llrt_compression/all-c", "brotlic", "flate2/zlib-ng", "zstd"]
-compression-rust = [
-  "llrt_compression/all-rust",
-  "brotli",
-  "flate2/miniz_oxide",
-  "zstd",
-]
+compression-c = ["llrt_compression/all-c"]
+compression-rust = ["llrt_compression/all-rust"]
 
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
@@ -36,13 +31,8 @@ tls-openssl = ["llrt_http/tls-openssl", "llrt_test_tls/tls-openssl"]
 [dependencies]
 
 rquickjs = { version = "0.11", default-features = false }
-brotli = { version = "8", features = [
-  "std",
-], default-features = false, optional = true }
-brotlic = { version = "0.8", default-features = false, optional = true }
 bytes = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
-flate2 = { version = "1", default-features = false, optional = true }
 http-body = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
@@ -71,7 +61,6 @@ tokio = { version = "1", features = [
   "sync",
 ], default-features = false }
 tracing = { version = "0.1", default-features = false }
-zstd = { version = "0.13", default-features = false, optional = true }
 
 [dev-dependencies]
 llrt_compression = { version = "0.8.1-beta", path = "../../libs/llrt_compression" }

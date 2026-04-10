@@ -24,7 +24,6 @@ use llrt_stream_web::{
 
 use std::{cell::RefCell, rc::Rc};
 
-mod decompress;
 pub mod fetch;
 pub mod form_data;
 pub mod headers;

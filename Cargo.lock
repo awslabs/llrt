@@ -1887,11 +1887,8 @@ dependencies = [
 name = "llrt_fetch"
 version = "0.8.1-beta"
 dependencies = [
- "brotli",
- "brotlic",
  "bytes",
  "either",
- "flate2",
  "http-body",
  "http-body-util",
  "hyper",
@@ -1916,7 +1913,6 @@ dependencies = [
  "tokio",
  "tracing",
  "wiremock",
- "zstd",
 ]
 
 [[package]]
