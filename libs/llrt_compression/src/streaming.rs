@@ -3,6 +3,9 @@
 
 use std::io::{self, Write};
 
+#[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
+use brotli as brotlic;
+
 /// Streaming decompressor that maintains state across chunks
 pub enum StreamingDecoder {
     #[cfg(any(feature = "flate2-c", feature = "flate2-rust"))]
@@ -11,10 +14,8 @@ pub enum StreamingDecoder {
     Deflate(flate2::write::ZlibDecoder<Vec<u8>>),
     #[cfg(any(feature = "zstd-c", feature = "zstd-rust"))]
     Zstd(zstd::stream::write::Decoder<'static, Vec<u8>>),
-    #[cfg(feature = "brotli-c")]
+    #[cfg(any(feature = "brotli-c", feature = "brotli-rust"))]
     Brotli(brotlic::DecompressorWriter<Vec<u8>>),
-    #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
-    Brotli(brotli::DecompressorWriter<Vec<u8>>),
     Identity,
 }
 
@@ -30,7 +31,7 @@ impl StreamingDecoder {
             #[cfg(feature = "brotli-c")]
             "br" => Ok(Self::Brotli(brotlic::DecompressorWriter::new(Vec::new()))),
             #[cfg(all(not(feature = "brotli-c"), feature = "brotli-rust"))]
-            "br" => Ok(Self::Brotli(brotli::DecompressorWriter::new(
+            "br" => Ok(Self::Brotli(brotlic::DecompressorWriter::new(
                 Vec::new(),
                 8_096,
             ))),
