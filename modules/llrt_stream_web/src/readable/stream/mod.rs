@@ -55,7 +55,7 @@ mod pipe;
 pub(super) mod source;
 mod tee;
 
-/// Tee a ReadableStream into two branches. The stream must not be locked.
+/// Tee a ReadableStream into two branches. The stream must not be locked or disturbed.
 pub fn tee_readable_stream<'js>(
     ctx: Ctx<'js>,
     stream: Class<'js, ReadableStream<'js>>,
@@ -63,6 +63,21 @@ pub fn tee_readable_stream<'js>(
     Class<'js, ReadableStream<'js>>,
     Class<'js, ReadableStream<'js>>,
 )> {
+    {
+        let stream_ref = stream.borrow();
+        if stream_ref.disturbed {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Cannot tee a disturbed ReadableStream",
+            ));
+        }
+        if stream_ref.is_readable_stream_locked() {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Cannot tee a locked ReadableStream",
+            ));
+        }
+    }
     let owned = OwnedBorrowMut::from_class(stream);
     let objects = ReadableStreamObjects::from_stream(owned);
     ReadableStream::readable_stream_tee(ctx, objects)

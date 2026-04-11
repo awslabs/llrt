@@ -179,6 +179,7 @@ declare global {
     body?: BodyInit;
     headers?: HeadersLike;
     agent?: Agent;
+    duplex?: "half";
   }
 
   type RequestCache = "no-store";

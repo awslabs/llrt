@@ -12,6 +12,7 @@ use crate::{
         ReadableStream,
     },
     utils::promise::ResolveablePromise,
+    writable::WritableStream,
 };
 
 use super::{
@@ -26,7 +27,7 @@ use super::{
 #[derive(JsLifetime, Trace)]
 pub(crate) struct TransformStream<'js> {
     pub(super) readable: Option<Class<'js, ReadableStream<'js>>>,
-    pub(super) writable: Option<Class<'js, crate::writable::WritableStream<'js>>>,
+    pub(super) writable: Option<Class<'js, WritableStream<'js>>>,
     pub(super) controller: Option<TransformStreamDefaultControllerClass<'js>>,
     pub(super) backpressure: bool,
     pub(super) backpressure_change_promise: Option<ResolveablePromise<'js>>,
@@ -129,7 +130,7 @@ impl<'js> TransformStream<'js> {
         let start_promise = ResolveablePromise::new(&ctx)?;
 
         // --- Create writable side with properly traced algorithm variants ---
-        let writable_class = crate::writable::WritableStream::create_for_transform(
+        let writable_class = WritableStream::create_for_transform(
             ctx.clone(),
             start_promise.promise.clone(),
             stream_class.clone(),
@@ -185,7 +186,7 @@ impl<'js> TransformStream<'js> {
     }
 
     #[qjs(get)]
-    fn writable(&self) -> Option<Class<'js, crate::writable::WritableStream<'js>>> {
+    fn writable(&self) -> Option<Class<'js, WritableStream<'js>>> {
         self.writable.clone()
     }
 }

@@ -1,17 +1,5 @@
-use std::collections::VecDeque;
-
-use rquickjs::class::Tracer;
-use rquickjs::prelude::This;
-use rquickjs::{
-    class::{OwnedBorrowMut, Trace},
-    methods,
-    prelude::Opt,
-    Class, Ctx, Exception, Promise, Result, Value,
-};
-use rquickjs::{IntoJs, JsLifetime, Object};
-
+use crate::readable::default_controller::{NativePull, NativePullResult};
 use crate::utils::promise::promise_resolved_with;
-
 use crate::{
     readable::{
         byob_reader::ReadableStreamBYOBReaderOwned,
@@ -21,13 +9,20 @@ use crate::{
             ReadableStreamGenericReader, ReadableStreamReader, ReadableStreamReaderOwned,
             UndefinedReader,
         },
-        stream::{ReadableStreamOwned, ReadableStreamState},
+        stream::{ReadableStream, ReadableStreamOwned, ReadableStreamState},
     },
     utils::{
-        promise::{promise_rejected_with_constructor, ResolveablePromise},
+        promise::{promise_rejected_with_constructor, PromisePrimordials, ResolveablePromise},
         UnwrapOrUndefined,
     },
 };
+use rquickjs::{
+    class::{OwnedBorrowMut, Trace, Tracer},
+    methods,
+    prelude::{Opt, This},
+    Class, Ctx, Exception, IntoJs, JsLifetime, Object, Promise, Result, Value,
+};
+use std::collections::VecDeque;
 
 #[derive(Trace)]
 #[rquickjs::class]
@@ -158,6 +153,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
     }
 
     fn read(ctx: Ctx<'js>, reader: This<OwnedBorrowMut<'js, Self>>) -> Result<Value<'js>> {
+        // If this.[[stream]] is undefined, return a promise rejected with a TypeError exception.
         let Some(stream_class) = &reader.generic.stream else {
             return promise_rejected_with_constructor(
                 &reader.generic.constructor_type_error,
@@ -167,113 +163,20 @@ impl<'js> ReadableStreamDefaultReader<'js> {
             .map(|p| p.into_value());
         };
 
-        let native_pull = {
-            let stream = stream_class.borrow();
-            match &stream.controller {
-                ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl)
-                    if matches!(stream.state, ReadableStreamState::Readable) =>
-                {
-                    let c = ctrl.borrow();
-                    if c.container.queue.is_empty() && !c.pulling {
-                        c.native_pull.clone()
-                    } else {
-                        None
-                    }
-                },
-                _ => None,
-            }
-        };
+        // Fast-path: if the controller has a native_pull and the queue is empty,
+        // bypass the full spec algorithm and read directly.
+        let native_pull = try_get_native_pull(stream_class);
 
         if let Some(np) = native_pull {
-            stream_class.borrow_mut().disturbed = true;
-            use crate::readable::default_controller::NativePullResult;
-
-            let promise = match (np.0)(&ctx)? {
-                NativePullResult::Ready(chunk) => promise_resolved_with(
-                    &ctx,
-                    &reader.generic.promise_primordials,
-                    Ok(ReadableStreamReadResult {
-                        value: Some(chunk),
-                        done: false,
-                    }
-                    .into_js(&ctx)?),
-                )?,
-                NativePullResult::Eof => promise_resolved_with(
-                    &ctx,
-                    &reader.generic.promise_primordials,
-                    Ok(ReadableStreamReadResult {
-                        value: None,
-                        done: true,
-                    }
-                    .into_js(&ctx)?),
-                )?,
-                NativePullResult::Pending(fut) => Promise::wrap_future(&ctx, async move {
-                    fut.await.map(|chunk| ReadableStreamReadResult {
-                        done: chunk.is_none(),
-                        value: chunk,
-                    })
-                })?,
-            };
-
-            return Ok(promise.into_value());
+            return read_native(&ctx, stream_class, &np, &reader.generic.promise_primordials);
         }
 
-        let objects = ReadableStreamObjects::from_default_reader(reader.0);
-        let promise = ResolveablePromise::new(&ctx)?;
-
-        #[derive(Trace)]
-        struct ReadRequest<'js> {
-            promise: ResolveablePromise<'js>,
-        }
-
-        impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
-            fn chunk_steps(
-                &self,
-                objects: ReadableStreamDefaultReaderObjects<'js>,
-                chunk: Value<'js>,
-            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
-                self.promise.resolve(ReadableStreamReadResult {
-                    value: Some(chunk),
-                    done: false,
-                })?;
-                Ok(objects)
-            }
-
-            fn close_steps(
-                &self,
-                _: &Ctx<'js>,
-                objects: ReadableStreamDefaultReaderObjects<'js>,
-            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
-                self.promise.resolve(ReadableStreamReadResult {
-                    value: None,
-                    done: true,
-                })?;
-                Ok(objects)
-            }
-
-            fn error_steps(
-                &self,
-                objects: ReadableStreamDefaultReaderObjects<'js>,
-                e: Value<'js>,
-            ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
-                self.promise.reject(e)?;
-                Ok(objects)
-            }
-        }
-
-        Self::readable_stream_default_reader_read(
-            &ctx,
-            objects,
-            ReadRequest {
-                promise: promise.clone(),
-            },
-        )?;
-
-        Ok(promise.promise.into_value())
+        read_default(&ctx, reader.0)
     }
 
     fn release_lock(reader: This<OwnedBorrowMut<'js, Self>>) -> Result<()> {
         if reader.generic.stream.is_none() {
+            // If this.[[stream]] is undefined, return.
             return Ok(());
         }
 
@@ -348,6 +251,137 @@ impl<'js> ReadableStreamReader<'js> for ReadableStreamDefaultReaderOwned<'js> {
             _ => None,
         }
     }
+}
+
+/// Check if the stream's controller has a native_pull fast-path available.
+fn try_get_native_pull<'js>(
+    stream_class: &Class<'js, ReadableStream<'js>>,
+) -> Option<NativePull<'js>> {
+    let stream = stream_class.borrow();
+
+    // Early exit if state is not Readable
+    if !matches!(stream.state, ReadableStreamState::Readable) {
+        return None;
+    }
+
+    let ReadableStreamControllerClass::ReadableStreamDefaultController(ctrl) = &stream.controller
+    else {
+        return None;
+    };
+
+    let ctrl = ctrl.borrow();
+
+    if ctrl.container.queue.is_empty() && !ctrl.pulling {
+        ctrl.native_pull.clone()
+    } else {
+        None
+    }
+}
+
+/// Read using the native_pull fast-path, bypassing the full spec algorithm.
+fn read_native<'js>(
+    ctx: &Ctx<'js>,
+    stream_class: &Class<'js, ReadableStream<'js>>,
+    np: &NativePull<'js>,
+    primordials: &PromisePrimordials<'js>,
+) -> Result<Value<'js>> {
+    stream_class.borrow_mut().disturbed = true;
+
+    let promise = match (np.0)(ctx)? {
+        NativePullResult::Ready(chunk) => promise_resolved_with(
+            ctx,
+            primordials,
+            Ok(ReadableStreamReadResult {
+                value: Some(chunk),
+                done: false,
+            }
+            .into_js(ctx)?),
+        )?,
+        NativePullResult::Eof => promise_resolved_with(
+            ctx,
+            primordials,
+            Ok(ReadableStreamReadResult {
+                value: None,
+                done: true,
+            }
+            .into_js(ctx)?),
+        )?,
+        NativePullResult::Pending(fut) => Promise::wrap_future(ctx, async move {
+            fut.await.map(|chunk| ReadableStreamReadResult {
+                done: chunk.is_none(),
+                value: chunk,
+            })
+        })?,
+    };
+
+    Ok(promise.into_value())
+}
+
+/// Read using the standard spec algorithm (ReadableStreamDefaultReaderRead).
+fn read_default<'js>(
+    ctx: &Ctx<'js>,
+    reader: OwnedBorrowMut<'js, ReadableStreamDefaultReader<'js>>,
+) -> Result<Value<'js>> {
+    let objects = ReadableStreamObjects::from_default_reader(reader);
+    // Let promise be a new promise.
+    let promise = ResolveablePromise::new(ctx)?;
+
+    // Let readRequest be a new read request with the following items:
+    #[derive(Trace)]
+    struct ReadRequest<'js> {
+        promise: ResolveablePromise<'js>,
+    }
+
+    impl<'js> ReadableStreamReadRequest<'js> for ReadRequest<'js> {
+        // chunk steps, given chunk
+        // Resolve promise with «[ "value" → chunk, "done" → false ]».
+        fn chunk_steps(
+            &self,
+            objects: ReadableStreamDefaultReaderObjects<'js>,
+            chunk: Value<'js>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+            self.promise.resolve(ReadableStreamReadResult {
+                value: Some(chunk),
+                done: false,
+            })?;
+            Ok(objects)
+        }
+
+        // close steps
+        // Resolve promise with «[ "value" → undefined, "done" → true ]».
+        fn close_steps(
+            &self,
+            _: &Ctx<'js>,
+            objects: ReadableStreamDefaultReaderObjects<'js>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+            self.promise.resolve(ReadableStreamReadResult {
+                value: None,
+                done: true,
+            })?;
+            Ok(objects)
+        }
+
+        fn error_steps(
+            &self,
+            objects: ReadableStreamDefaultReaderObjects<'js>,
+            e: Value<'js>,
+        ) -> Result<ReadableStreamDefaultReaderObjects<'js>> {
+            self.promise.reject(e)?;
+            Ok(objects)
+        }
+    }
+
+    // Perform ! ReadableStreamDefaultReaderRead(this, readRequest).
+    ReadableStreamDefaultReader::readable_stream_default_reader_read(
+        ctx,
+        objects,
+        ReadRequest {
+            promise: promise.clone(),
+        },
+    )?;
+
+    // Return promise.
+    Ok(promise.promise.into_value())
 }
 
 pub(crate) trait ReadableStreamDefaultReaderOrUndefined<'js>:

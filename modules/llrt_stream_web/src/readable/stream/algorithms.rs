@@ -7,6 +7,10 @@ use rquickjs::{
 
 use crate::{
     readable::controller::ReadableStreamControllerClass,
+    transform::{
+        controller::TransformStreamDefaultControllerClass,
+        stream::{self as transform_stream, TransformStreamClass},
+    },
     utils::promise::{promise_resolved_with, PromisePrimordials},
 };
 
@@ -41,6 +45,7 @@ type PullRustFn<'js> =
     Box<dyn Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js>;
 
 #[allow(private_interfaces)]
+#[derive(Clone)]
 pub enum PullAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
@@ -49,25 +54,7 @@ pub enum PullAlgorithm<'js> {
     },
     RustFunction(Rc<PullRustFn<'js>>),
     Tee(Class<'js, TeeState<'js>>),
-    Transform(crate::transform::stream::TransformStreamClass<'js>),
-}
-
-impl<'js> Clone for PullAlgorithm<'js> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::ReturnPromiseUndefined => Self::ReturnPromiseUndefined,
-            Self::Function {
-                f,
-                underlying_source,
-            } => Self::Function {
-                f: f.clone(),
-                underlying_source: underlying_source.clone(),
-            },
-            Self::RustFunction(rc) => Self::RustFunction(rc.clone()),
-            Self::Tee(state) => Self::Tee(state.clone()),
-            Self::Transform(stream) => Self::Transform(stream.clone()),
-        }
-    }
+    Transform(TransformStreamClass<'js>),
 }
 
 impl<'js> Trace<'js> for PullAlgorithm<'js> {
@@ -126,7 +113,7 @@ impl<'js> PullAlgorithm<'js> {
                 crate::readable::stream::tee::tee_pull_algorithm(ctx, state.clone())
             },
             PullAlgorithm::Transform(stream) => {
-                crate::transform::stream::source_pull_algorithm(ctx, stream)
+                transform_stream::source_pull_algorithm(ctx, stream)
             },
         }
     }
@@ -145,8 +132,8 @@ pub enum CancelAlgorithm<'js> {
     Tee1(Class<'js, TeeState<'js>>),
     Tee2(Class<'js, TeeState<'js>>),
     Transform {
-        stream: crate::transform::stream::TransformStreamClass<'js>,
-        controller: crate::transform::controller::TransformStreamDefaultControllerClass<'js>,
+        stream: TransformStreamClass<'js>,
+        controller: TransformStreamDefaultControllerClass<'js>,
     },
 }
 
@@ -241,7 +228,7 @@ impl<'js> CancelAlgorithm<'js> {
                 crate::readable::stream::tee::tee_cancel_algorithm(ctx, state.clone(), reason, 1)
             },
             CancelAlgorithm::Transform { stream, controller } => {
-                crate::transform::stream::source_cancel_algorithm(ctx, stream, controller, reason)
+                transform_stream::source_cancel_algorithm(ctx, stream, controller, reason)
             },
         }
     }

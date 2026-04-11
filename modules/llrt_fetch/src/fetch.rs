@@ -1,13 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    collections::HashSet,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-    time::Instant,
-};
-
 use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, Full};
 use hyper::{header::HeaderName, Method, Request, Uri};
@@ -24,14 +16,21 @@ use llrt_utils::{
     VERSION,
 };
 use percent_encoding::percent_decode_str;
-use rquickjs::CatchResultExt;
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::{Async, Func},
-    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
+    CatchResultExt, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result,
+    Value,
 };
-use std::convert::Infallible;
+use std::{
+    collections::HashSet,
+    convert::Infallible,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Instant,
+};
 use tokio::{select, sync::Semaphore};
 
 use super::{
@@ -64,7 +63,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
             let options = get_fetch_options(&ctx, resource, args);
 
             async move {
-                let lock = connections.acquire().await;
+                let _lock = connections.acquire().await;
                 let options = options?;
 
                 let client = options
@@ -97,186 +96,36 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
 
                 // For streaming bodies - stream from JS to hyper via channel
                 if let Some(RequestBody::Stream(stream)) = options.body {
-                    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(128);
-                    let (err_tx, err_rx) = tokio::sync::oneshot::channel::<String>();
-                    let ctx2 = ctx.clone();
-
-                    // Spawn stream reader in JS context.
-                    ctx.spawn_exit({
-                        async move {
-                            let get_reader: Function = stream.get("getReader")?;
-                            let reader: Object = get_reader.call((This(stream.clone()),))?;
-                            let read_fn: Function = reader.get("read")?;
-
-                            loop {
-                                let promise: rquickjs::Promise =
-                                    read_fn.call((This(reader.clone()),))?;
-                                let read_result =
-                                    match promise.into_future::<Object>().await.catch(&ctx2) {
-                                        Ok(r) => r,
-                                        Err(e) => {
-                                            let msg = match e {
-                                                rquickjs::CaughtError::Exception(ex) => {
-                                                    ex.message().unwrap_or_default()
-                                                },
-                                                rquickjs::CaughtError::Value(v) => v
-                                                    .as_string()
-                                                    .and_then(|s| s.to_string().ok())
-                                                    .unwrap_or_else(|| "Stream error".into()),
-                                                rquickjs::CaughtError::Error(e) => e.to_string(),
-                                            };
-                                            let _ = err_tx.send(msg);
-                                            break;
-                                        },
-                                    };
-                                let done: bool = read_result.get("done").unwrap_or(true);
-                                if done {
-                                    break;
-                                }
-                                if let Ok(value) = read_result.get::<_, Value>("value") {
-                                    // Try TypedArray first, then ArrayBuffer
-                                    let bytes: Option<Vec<u8>> = if let Ok(typed_array) =
-                                        rquickjs::TypedArray::<u8>::from_value(value.clone())
-                                    {
-                                        typed_array.as_bytes().map(|b| b.to_vec())
-                                    } else if let Some(array_buffer) =
-                                        value.as_object().and_then(|o| o.as_array_buffer())
-                                    {
-                                        array_buffer.as_bytes().map(|b| b.to_vec())
-                                    } else {
-                                        // Invalid chunk type - error the stream
-                                        let _ = err_tx.send(
-                                            "Failed to read body: chunk is not a BufferSource"
-                                                .into(),
-                                        );
-                                        break;
-                                    };
-
-                                    if let Some(bytes) = bytes {
-                                        if tx.send(Bytes::copy_from_slice(&bytes)).await.is_err() {
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            Ok(())
-                        }
-                    })?;
-
-                    // Build request with streaming body
-                    let stream_body = StreamingBody { rx };
-                    let mut req = Request::builder().method(method.clone()).uri(uri.clone());
-                    let mut detected_headers = HashSet::new();
-                    if let Some(headers) = &options.headers {
-                        for (header_name, value) in headers.iter() {
-                            detected_headers.insert(header_name);
-                            req = req.header(header_name, value)
-                        }
-                    }
-                    if !detected_headers.contains("user-agent") {
-                        req = req.header("user-agent", ["llrt ", VERSION].concat());
-                    }
-                    if !detected_headers.contains("accept-encoding") {
-                        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
-                    }
-                    if !detected_headers.contains("accept-language") {
-                        req = req.header("accept-language", "*");
-                    }
-                    if !detected_headers.contains("accept") {
-                        req = req.header("accept", "*/*");
-                    }
-
-                    let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
-                    let request = req.body(box_body).or_throw(&ctx)?;
-
-                    // Race request against stream error
-                    let request_fut = client.request(request);
-                    tokio::pin!(request_fut);
-                    let mut err_rx = std::pin::pin!(err_rx);
-                    let mut err_done = false;
-
-                    let res = loop {
-                        select! {
-                            biased;
-                            result = &mut err_rx, if !err_done => {
-                                err_done = true;
-                                if let Ok(msg) = result {
-                                    return Err(Exception::throw_type(&ctx, &msg));
-                                }
-                                // Sender dropped without error - continue waiting for request
-                            }
-                            res = &mut request_fut => break res.or_throw(&ctx)?,
-                        }
-                    };
-
-                    drop(lock);
-
-                    return Response::from_incoming(
-                        ctx,
-                        res,
+                    return send_stream(
+                        &ctx,
+                        &client,
+                        stream,
+                        method,
                         method_string,
-                        uri.to_string(),
+                        uri,
+                        options.headers.as_ref(),
                         start,
-                        false,
                         abort_receiver,
-                        HeadersGuard::Response,
-                    );
+                    )
+                    .await;
                 }
 
                 let body = options.body;
 
-                let mut redirect_count = 0;
-                let mut response_status = 0;
-                let (res, guard) = loop {
-                    let (req, guard) = build_request(
-                        &ctx,
-                        &method,
-                        &uri,
-                        options.headers.as_ref(),
-                        body.as_ref(),
-                        &response_status,
-                        &initial_uri,
-                    )?;
+                let res = send(
+                    &ctx,
+                    &client,
+                    method,
+                    &mut uri,
+                    &initial_uri,
+                    options.headers.as_ref(),
+                    body.as_ref(),
+                    abort_receiver.as_ref(),
+                    &options.redirect,
+                )
+                .await?;
 
-                    let res = if let Some(abort_receiver) = &abort_receiver {
-                        select! {
-                            res = client.request(req) => res.or_throw(&ctx)?,
-                            reason = abort_receiver.recv() => return Err(ctx.throw(reason))
-                        }
-                    } else {
-                        client.request(req).await.or_throw(&ctx)?
-                    };
-
-                    let status = res.status();
-                    if status.is_redirection() {
-                        match res.headers().get(HeaderName::from_static("location")) {
-                            Some(location_headers) => {
-                                if let Ok(location_str) = location_headers.to_str() {
-                                    uri = location_str.parse().or_throw(&ctx)?;
-                                    ensure_url_access(&ctx, &uri)?;
-                                }
-                            },
-                            None => break (res, guard),
-                        };
-                    } else {
-                        break (res, guard);
-                    };
-
-                    if options.redirect == "manual" {
-                        break (res, guard);
-                    } else if options.redirect == "error" {
-                        return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
-                    }
-
-                    redirect_count += 1;
-                    if redirect_count >= MAX_REDIRECT_COUNT {
-                        return Err(Exception::throw_message(&ctx, "Max retries exceeded"));
-                    }
-
-                    response_status = res.status().as_u16();
-                };
-
-                drop(lock);
+                let (res, redirected, guard) = res;
 
                 Response::from_incoming(
                     ctx,
@@ -284,7 +133,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                     method_string,
                     uri.to_string(),
                     start,
-                    !matches!(redirect_count, 0),
+                    redirected,
                     abort_receiver,
                     guard,
                 )
@@ -292,6 +141,210 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
         })),
     )?;
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn send_stream<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    stream: Class<'js, ReadableStream<'js>>,
+    method: Method,
+    method_string: String,
+    uri: Uri,
+    headers: Option<&Headers>,
+    start: Instant,
+    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+) -> Result<Response<'js>> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(128);
+    let (err_tx, err_rx) = tokio::sync::oneshot::channel::<String>();
+    let ctx2 = ctx.clone();
+
+    // Spawn stream reader in JS context
+    ctx.spawn_exit_simple({
+        async move {
+            let get_reader: Function = stream.get("getReader")?;
+            let reader: Object = get_reader.call((This(stream.clone()),))?;
+            let read_fn: Function = reader.get("read")?;
+
+            loop {
+                let promise: rquickjs::Promise = read_fn.call((This(reader.clone()),))?;
+                let read_result = match promise.into_future::<Object>().await.catch(&ctx2) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let msg = match e {
+                            rquickjs::CaughtError::Exception(ex) => {
+                                ex.message().unwrap_or_default()
+                            },
+                            rquickjs::CaughtError::Value(v) => v
+                                .as_string()
+                                .and_then(|s| s.to_string().ok())
+                                .unwrap_or_else(|| "Stream error".into()),
+                            rquickjs::CaughtError::Error(e) => e.to_string(),
+                        };
+                        let _ = err_tx.send(msg);
+                        break;
+                    },
+                };
+                let done: bool = read_result.get("done").unwrap_or(true);
+                if done {
+                    break;
+                }
+                if let Ok(value) = read_result.get::<_, Value>("value") {
+                    // Try TypedArray first, then ArrayBuffer
+                    let bytes: Option<Vec<u8>> = if let Ok(typed_array) =
+                        rquickjs::TypedArray::<u8>::from_value(value.clone())
+                    {
+                        typed_array.as_bytes().map(|b| b.to_vec())
+                    } else if let Some(array_buffer) =
+                        value.as_object().and_then(|o| o.as_array_buffer())
+                    {
+                        array_buffer.as_bytes().map(|b| b.to_vec())
+                    } else {
+                        let _ =
+                            err_tx.send("Failed to read body: chunk is not a BufferSource".into());
+                        break;
+                    };
+
+                    if let Some(bytes) = bytes {
+                        if tx.send(Bytes::copy_from_slice(&bytes)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    });
+
+    // Build request with streaming body
+    let stream_body = StreamingBody { rx };
+    let mut req = Request::builder().method(method.clone()).uri(uri.clone());
+    let mut detected_headers = HashSet::new();
+    if let Some(headers) = headers {
+        for (header_name, value) in headers.iter() {
+            detected_headers.insert(header_name);
+            req = req.header(header_name, value)
+        }
+    }
+    apply_default_headers(&mut req, &detected_headers);
+
+    let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
+    let request = req.body(box_body).or_throw(ctx)?;
+
+    // Race request against stream error
+    let request_fut = client.request(request);
+    tokio::pin!(request_fut);
+    let mut err_rx = std::pin::pin!(err_rx);
+    let mut err_done = false;
+
+    let res = loop {
+        select! {
+            biased;
+            result = &mut err_rx, if !err_done => {
+                err_done = true;
+                if let Ok(msg) = result {
+                    return Err(Exception::throw_type(ctx, &msg));
+                }
+            }
+            res = &mut request_fut => break res.or_throw(ctx)?,
+        }
+    };
+
+    Response::from_incoming(
+        ctx.clone(),
+        res,
+        method_string,
+        uri.to_string(),
+        start,
+        false,
+        abort_receiver,
+        HeadersGuard::Response,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn send<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    method: Method,
+    uri: &mut Uri,
+    initial_uri: &Uri,
+    headers: Option<&Headers>,
+    body: Option<&RequestBody<'js>>,
+    abort_receiver: Option<&mc_oneshot::Receiver<Value<'js>>>,
+    redirect: &str,
+) -> Result<(hyper::Response<hyper::body::Incoming>, bool, HeadersGuard)> {
+    let mut redirect_count = 0;
+    let mut response_status = 0;
+
+    let (res, guard) = loop {
+        let (req, guard) = build_request(
+            ctx,
+            &method,
+            uri,
+            headers,
+            body,
+            &response_status,
+            initial_uri,
+        )?;
+
+        let res = if let Some(abort_receiver) = abort_receiver {
+            select! {
+                res = client.request(req) => res.or_throw(ctx)?,
+                reason = abort_receiver.recv() => return Err(ctx.throw(reason))
+            }
+        } else {
+            client.request(req).await.or_throw(ctx)?
+        };
+
+        let status = res.status();
+        if status.is_redirection() {
+            match res.headers().get(HeaderName::from_static("location")) {
+                Some(location_headers) => {
+                    if let Ok(location_str) = location_headers.to_str() {
+                        *uri = location_str.parse().or_throw(ctx)?;
+                        ensure_url_access(ctx, uri)?;
+                    }
+                },
+                None => break (res, guard),
+            };
+        } else {
+            break (res, guard);
+        };
+
+        if redirect == "manual" {
+            break (res, guard);
+        } else if redirect == "error" {
+            return Err(Exception::throw_message(ctx, "Unexpected redirect"));
+        }
+
+        redirect_count += 1;
+        if redirect_count >= MAX_REDIRECT_COUNT {
+            return Err(Exception::throw_message(ctx, "Max retries exceeded"));
+        }
+
+        response_status = res.status().as_u16();
+    };
+
+    Ok((res, redirect_count > 0, guard))
+}
+
+fn apply_default_headers(
+    req: &mut hyper::http::request::Builder,
+    detected_headers: &HashSet<&str>,
+) {
+    if !detected_headers.contains("user-agent") {
+        *req = std::mem::take(req).header("user-agent", ["llrt ", VERSION].concat());
+    }
+    if !detected_headers.contains("accept-encoding") {
+        *req = std::mem::take(req).header("accept-encoding", "zstd, br, gzip, deflate");
+    }
+    if !detected_headers.contains("accept-language") {
+        *req = std::mem::take(req).header("accept-language", "*");
+    }
+    if !detected_headers.contains("accept") {
+        *req = std::mem::take(req).header("accept", "*/*");
+    }
 }
 
 fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Result<Response<'js>> {
@@ -395,24 +448,13 @@ fn build_request<'js>(
         }
     }
 
-    if !detected_headers.contains("user-agent") {
-        req = req.header("user-agent", ["llrt ", VERSION].concat());
-    }
-    if !detected_headers.contains("accept-encoding") {
-        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
-    }
-    if !detected_headers.contains("accept-language") {
-        req = req.header("accept-language", "*");
-    }
-    if !detected_headers.contains("accept") {
-        req = req.header("accept", "*/*");
-    }
+    apply_default_headers(&mut req, &detected_headers);
 
     // Build the body
     let box_body: BoxBody<Bytes, Infallible> = match body {
         Some(RequestBody::Static { body, .. }) => BoxBody::new(body.clone()),
         Some(RequestBody::Stream(_)) => {
-            unreachable!("Streaming bodies should be handled before build_request")
+            unreachable!("Streaming bodies are handled by send_stream")
         },
         None => BoxBody::new(Full::default()),
     };

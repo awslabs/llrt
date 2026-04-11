@@ -375,7 +375,6 @@ describe("Request class", () => {
     const req = new Request("http://localhost", {
       method: "POST",
       body: stream,
-      // @ts-ignore
       duplex: "half",
     });
     expect(req.body).toBe(stream);
@@ -393,7 +392,6 @@ describe("Request class", () => {
     const req = new Request("http://localhost", {
       method: "POST",
       body: stream,
-      // @ts-ignore
       duplex: "half",
     });
     expect(await req.text()).toEqual("stream body");
@@ -413,7 +411,6 @@ describe("Request class", () => {
       new Request("http://localhost", {
         method: "POST",
         body: stream,
-        // @ts-ignore
         duplex: "half",
       });
     }).toThrow();
@@ -430,7 +427,6 @@ describe("Request class", () => {
       new Request("http://localhost", {
         method: "POST",
         body: stream,
-        // @ts-ignore
         duplex: "half",
       });
     }).toThrow();

@@ -1,7 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, sync::RwLock};
-
+use super::{
+    headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
+    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_OCTET_STREAM,
+    MIME_TYPE_TEXT,
+};
+use crate::body_helpers::strip_bom;
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
 use llrt_json::parse::json_parse;
@@ -12,12 +16,7 @@ use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs,
     IntoJs, Null, Object, Result, TypedArray, Value,
 };
-
-use super::{
-    headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
-    strip_bom, Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED,
-    MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
-};
+use std::sync::RwLock;
 
 #[derive(Clone, Default, PartialEq)]
 pub enum RequestMode {
@@ -67,7 +66,7 @@ pub struct Request<'js> {
     method: String,
     headers: Option<Class<'js, Headers>>,
     body: RwLock<BodyVariant<'js>>,
-    body_stream: RefCell<Option<Value<'js>>>,
+    body_stream: RwLock<Option<Value<'js>>>,
     signal: Option<Class<'js, AbortSignal<'js>>>,
     mode: RequestMode,
     keepalive: bool,
@@ -83,7 +82,7 @@ impl<'js> Trace<'js> for Request<'js> {
         if let BodyVariant::Provided(Some(body)) = &*body {
             body.trace(tracer);
         }
-        if let Some(stream) = self.body_stream.borrow().as_ref() {
+        if let Some(stream) = self.body_stream.read().unwrap().as_ref() {
             stream.trace(tracer);
         }
     }
@@ -98,7 +97,7 @@ impl<'js> Request<'js> {
             method: "GET".into(),
             headers: None,
             body: RwLock::new(BodyVariant::Empty),
-            body_stream: RefCell::new(None),
+            body_stream: RwLock::new(None),
             signal: None,
             mode: RequestMode::Cors,
             keepalive: false,
@@ -110,7 +109,7 @@ impl<'js> Request<'js> {
         } else if let Ok(url) = URL::from_js(&ctx, input.clone()) {
             request.url = url.to_string();
         } else if input.is_object() {
-            let obj = unsafe { input.as_object().unwrap_unchecked() };
+            let obj = input.as_object().expect("input is an object");
             // Check if input is a Request - if so, transfer body (mark original as used)
             if let Some(input_request) = Class::<Request>::from_object(obj) {
                 let input_req = input_request.borrow_mut();
@@ -134,6 +133,11 @@ impl<'js> Request<'js> {
                     }
                 }
                 drop(body_guard);
+                // Transfer cached body stream if present
+                let stream = input_req.body_stream.write().unwrap().take();
+                if stream.is_some() {
+                    *request.body_stream.write().unwrap() = stream;
+                }
                 drop(input_req);
             } else {
                 assign_request(&mut request, ctx.clone(), obj)?;
@@ -175,7 +179,7 @@ impl<'js> Request<'js> {
     #[qjs(get)]
     fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         // Return cached stream if available
-        if let Some(stream) = self.body_stream.borrow().as_ref() {
+        if let Some(stream) = self.body_stream.read().unwrap().as_ref() {
             return Ok(stream.clone());
         }
 
@@ -196,8 +200,8 @@ impl<'js> Request<'js> {
                 let body_value = value.clone();
                 drop(body_guard);
 
-                let stream = crate::create_body_value_stream(&ctx, body_value)?;
-                *self.body_stream.borrow_mut() = Some(stream.clone());
+                let stream = crate::body_helpers::create_body_value_stream(&ctx, body_value)?;
+                *self.body_stream.write().unwrap() = Some(stream.clone());
                 Ok(stream)
             },
         }
@@ -215,16 +219,8 @@ impl<'js> Request<'js> {
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        // Check if body stream is disturbed (has been read from)
-        if let Some(stream_value) = self.body_stream.borrow().as_ref() {
-            if let Some(stream) = stream_value
-                .as_object()
-                .and_then(Class::<ReadableStream>::from_object)
-            {
-                if stream.borrow().disturbed {
-                    return true;
-                }
-            }
+        if crate::body_helpers::is_body_stream_disturbed(&self.body_stream) {
+            return true;
         }
 
         let body = self.body.read().unwrap();
@@ -311,43 +307,39 @@ impl<'js> Request<'js> {
         let body_guard = self.body.read().unwrap();
         let cloned_body = match &*body_guard {
             BodyVariant::Provided(provided) => {
-                // Cannot clone if body has been consumed (bodyUsed=true)
-                if provided.is_none() {
+                let Some(provided) = provided else {
                     return Err(Exception::throw_type(
                         &ctx,
                         "Cannot clone request after body has been used",
                     ));
-                }
+                };
                 // For ReadableStream bodies, use tee() to create two branches
-                if let Some(ref value) = provided {
-                    if let Some(stream) = value
-                        .as_object()
-                        .and_then(Class::<ReadableStream>::from_object)
-                    {
-                        let (branch1, branch2) =
-                            crate::tee_stream_for_clone(&ctx, &stream, "request")?;
+                if let Some(stream) = provided
+                    .as_object()
+                    .and_then(Class::<ReadableStream>::from_object)
+                {
+                    let (branch1, branch2) =
+                        llrt_stream_web::tee_readable_stream(ctx.clone(), stream.clone())?;
 
-                        // Update original body to use branch1
-                        drop(body_guard);
-                        let mut body_write = self.body.write().unwrap();
-                        *body_write = BodyVariant::Provided(Some(branch1.into_value()));
-                        *self.body_stream.borrow_mut() = None;
-                        drop(body_write);
+                    // Update original body to use branch1
+                    drop(body_guard);
+                    let mut body_write = self.body.write().unwrap();
+                    *body_write = BodyVariant::Provided(Some(branch1.into_value()));
+                    *self.body_stream.write().unwrap() = None;
 
-                        return Ok(Self {
-                            url: self.url.clone(),
-                            method: self.method.clone(),
-                            headers,
-                            body: RwLock::new(BodyVariant::Provided(Some(branch2.into_value()))),
-                            body_stream: RefCell::new(None),
-                            signal: self.signal.clone(),
-                            mode: self.mode.clone(),
-                            keepalive: self.keepalive,
-                            agent: self.agent.clone(),
-                        });
-                    }
+                    return Ok(Self {
+                        url: self.url.clone(),
+                        method: self.method.clone(),
+                        headers,
+                        body: RwLock::new(BodyVariant::Provided(Some(branch2.into_value()))),
+                        body_stream: RwLock::new(None),
+                        signal: self.signal.clone(),
+                        mode: self.mode.clone(),
+                        keepalive: self.keepalive,
+                        agent: self.agent.clone(),
+                    });
                 }
-                BodyVariant::Provided(provided.clone())
+                BodyVariant::Provided(Some(provided.clone()))
             },
             BodyVariant::Empty => BodyVariant::Empty,
         };
@@ -358,7 +350,7 @@ impl<'js> Request<'js> {
             method: self.method.clone(),
             headers,
             body: RwLock::new(cloned_body),
-            body_stream: RefCell::new(None),
+            body_stream: RwLock::new(None),
             signal: self.signal.clone(),
             mode: self.mode.clone(),
             keepalive: self.keepalive,
@@ -371,19 +363,12 @@ impl<'js> Request<'js> {
     #[allow(clippy::await_holding_lock)]
     #[allow(clippy::readonly_write_lock)]
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        // Check if body stream is locked or disturbed
-        if let Some(stream_val) = self.body_stream.borrow().as_ref() {
+        if let Some(stream_val) = self.body_stream.read().unwrap().as_ref() {
             if let Some(stream) = stream_val
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                let stream_ref = stream.borrow();
-                if stream_ref.is_readable_stream_locked() || stream_ref.disturbed {
-                    return Err(Exception::throw_type(
-                        ctx,
-                        "Cannot read body: stream is locked or disturbed",
-                    ));
-                }
+                crate::body_helpers::validate_stream_usable(ctx, &stream, "read body")?;
             }
         }
 
@@ -438,7 +423,7 @@ async fn collect_readable_stream<'js>(
     _ctx: &Ctx<'js>,
     stream: &Class<'js, ReadableStream<'js>>,
 ) -> Result<Vec<u8>> {
-    crate::collect_readable_stream(stream).await
+    crate::body_helpers::collect_readable_stream(stream).await
 }
 
 fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'js>) -> Result<()> {
@@ -494,20 +479,11 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
             } else if let Some(body_obj) = body.as_object() {
                 // Check if it's a ReadableStream
                 if let Some(stream) = Class::<ReadableStream>::from_object(body_obj) {
-                    let stream_ref = stream.borrow();
-                    if stream_ref.disturbed {
-                        return Err(Exception::throw_type(
-                            &ctx,
-                            "Cannot construct Request with a disturbed ReadableStream",
-                        ));
-                    }
-                    if stream_ref.is_readable_stream_locked() {
-                        return Err(Exception::throw_type(
-                            &ctx,
-                            "Cannot construct Request with a locked ReadableStream",
-                        ));
-                    }
-                    drop(stream_ref);
+                    crate::body_helpers::validate_stream_usable(
+                        &ctx,
+                        &stream,
+                        "construct Request",
+                    )?;
                     BodyVariant::Provided(Some(body))
                 } else if let Some(blob) = Class::<Blob>::from_object(body_obj) {
                     let blob = blob.borrow();

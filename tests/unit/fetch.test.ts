@@ -269,7 +269,6 @@ describe("fetch", () => {
     const res = await fetch(echoUrl, {
       method: "POST",
       body: stream,
-      // @ts-ignore - duplex is required for streaming bodies per spec
       duplex: "half",
     });
 
@@ -289,7 +288,6 @@ describe("fetch", () => {
       fetch(echoUrl, {
         method: "POST",
         body: stream,
-        // @ts-ignore
         duplex: "half",
       })
     ).rejects.toThrow(/BufferSource/);
@@ -315,7 +313,6 @@ describe("fetch", () => {
     const res = await fetch(echoUrl, {
       method: "POST",
       body: stream,
-      // @ts-ignore
       duplex: "half",
     });
 
@@ -471,7 +468,6 @@ describe("fetch", () => {
       const res = await fetch(echoUrl, {
         method: "POST",
         body: stream,
-        // @ts-ignore
         duplex: "half",
       });
       expect(res.status).toEqual(200);
@@ -492,7 +488,6 @@ describe("fetch", () => {
       const res = await fetch(echoUrl, {
         method: "POST",
         body: stream,
-        // @ts-ignore
         duplex: "half",
       });
       await res.text();
@@ -515,7 +510,6 @@ describe("fetch", () => {
     const res = await fetch(echoUrl, {
       method: "POST",
       body: stream,
-      // @ts-ignore
       duplex: "half",
     });
 
