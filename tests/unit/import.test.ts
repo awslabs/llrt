@@ -8,7 +8,15 @@ describe("import", () => {
   });
 
   it("should import a json file (absolute path)", async () => {
-    const mod = await import(`${CWD}/package.json`, { with: { type: "json" } });
+    async function importThatAvoidsTranspilation(path: string) {
+      const fn = new Function(
+        "path",
+        'return import(path, {with: { type: "json" }});'
+      );
+      return fn(path);
+    }
+
+    const mod = await importThatAvoidsTranspilation(`${CWD}/package.json`);
 
     expect(mod.default.private).toEqual(true);
   });
