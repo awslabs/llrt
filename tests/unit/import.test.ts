@@ -52,4 +52,8 @@ describe("import", () => {
       normalizedUrl.endsWith("/bundle/js/__tests__/unit/import.test.js")
     ).toEqual(true);
   });
+
+  it("regression testing for issue #1492", async () => {
+    await import(`${CWD}/fixtures/test1492/index.js`);
+  });
 });

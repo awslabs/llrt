@@ -1,15 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{fs::File, io::Read};
+use std::{cell::RefCell, fs::File, io::Read};
 
 use llrt_json::escape::escape_json_string;
+use llrt_utils::result::ResultExt;
 use rquickjs::{
     loader::{ImportAttributes, Loader},
     Ctx, Exception, Function, Module, Object, Result, Value,
 };
 use tracing::trace;
 
-use crate::{CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
+use crate::modules::path;
+use crate::{module::ModuleCache, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
 
 #[derive(Debug, Default)]
 pub struct PackageLoader;
@@ -76,15 +78,13 @@ impl PackageLoader {
     }
 
     fn load_module<'js>(
-        name: &str,
         ctx: &Ctx<'js>,
+        name: &str,
         attr: &Option<ImportAttributes<'js>>,
     ) -> Result<(Module<'js>, Option<String>)> {
         let ctx = ctx.clone();
 
         let (from_cjs_import, is_cjs, normalized_name, path) = Self::normalize_name(name);
-
-        trace!("+- Loading module: {}\n", normalized_name);
 
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
@@ -106,23 +106,46 @@ impl PackageLoader {
                 json.push_str("export default JSON.parse(\"");
                 escape_json_string(&mut json, &contents);
                 json.push_str("\");");
+                trace!("+- Loading module as json: {}\n", normalized_name);
                 return Ok((Module::declare(ctx, path, json)?, None));
             }
             if is_cjs || normalized_name.ends_with(".cjs") {
                 let url = ["file://", path].concat();
+                trace!("+- Loading cjs module: {}\n", normalized_name);
                 return Ok((Self::load_cjs_module(path, ctx)?, Some(url)));
             }
         }
 
-        let bytes = std::fs::read(path)?;
-        let mut bytes: &[u8] = &bytes;
+        let path = path::resolve_path([path].iter())?;
+        let path = path.as_str();
 
-        if !from_cjs_import && bytes.starts_with(b"#!") {
-            bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
-        }
+        let binding = ctx.userdata::<RefCell<ModuleCache>>().or_throw(&ctx)?;
 
-        let url = ["file://", path].concat();
-        Ok((Module::declare(ctx, normalized_name, bytes)?, Some(url)))
+        let module = if let Some(module) = {
+            let cache = binding.borrow();
+            cache.esm.get(path).cloned()
+        } {
+            trace!("+- Loading esm module via cache: {}\n", path);
+            (module, None)
+        } else {
+            let bytes = std::fs::read(path)?;
+            let mut bytes: &[u8] = &bytes;
+
+            if !from_cjs_import && bytes.starts_with(b"#!") {
+                bytes = bytes.splitn(2, |&c| c == b'\n').nth(1).unwrap_or(bytes);
+            }
+
+            let module = Module::declare(ctx.clone(), normalized_name, bytes)?;
+            {
+                let mut cache = binding.borrow_mut();
+                cache.esm.insert(path.into(), module.clone());
+            }
+
+            trace!("+- Loading esm module: {}\n", path);
+            (module, Some(["file://", path].concat()))
+        };
+
+        Ok(module)
     }
 }
 
@@ -134,7 +157,7 @@ impl Loader for PackageLoader {
         attr: Option<ImportAttributes<'js>>,
     ) -> Result<Module<'js>> {
         trace!("Try load '{}'", name);
-        let (module, url) = Self::load_module(name, ctx, &attr)?;
+        let (module, url) = Self::load_module(ctx, name, &attr)?;
         if let Some(url) = url {
             let meta: Object = module.meta()?;
             meta.prop("url", url)?;
