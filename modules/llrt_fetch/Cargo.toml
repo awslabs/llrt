@@ -29,8 +29,6 @@ tls-graviola = ["llrt_http/tls-graviola", "llrt_test_tls/tls-graviola"]
 tls-openssl = ["llrt_http/tls-openssl", "llrt_test_tls/tls-openssl"]
 
 [dependencies]
-
-rquickjs = { version = "0.11", default-features = false }
 bytes = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
 http-body = { version = "1", default-features = false }
@@ -56,10 +54,7 @@ rand = { version = "0.10.1", features = [
   "std",
   "thread_rng",
 ], default-features = false }
-<<<<<<< feat/fetch-body-streams
-=======
 rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
->>>>>>> main
 tokio = { version = "1", features = [
   "macros",
   "sync",
