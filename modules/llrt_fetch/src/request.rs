@@ -247,7 +247,11 @@ impl<'js> Request<'js> {
 
     pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(String::from_utf8_lossy(&strip_bom(bytes)).to_string());
+            let bytes = strip_bom(bytes);
+            return match String::from_utf8(bytes.into()) {
+                Ok(s) => Ok(s),
+                Err(e) => Ok(String::from_utf8_lossy(e.as_bytes()).into_owned()),
+            };
         }
         Ok("".into())
     }

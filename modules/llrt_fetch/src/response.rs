@@ -7,7 +7,6 @@ use super::{
 };
 use crate::body_helpers::strip_bom;
 use crate::{body_helpers::collect_readable_stream, utils::BodyDrain};
-use bytes::Bytes;
 use either::Either;
 use http_body::Body as _;
 use http_body_util::BodyExt;
@@ -406,7 +405,12 @@ impl<'js> Response<'js> {
 
     pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
         if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(String::from_utf8_lossy(&strip_bom(bytes)).to_string());
+            let bytes = strip_bom(bytes);
+            // Fast path: try zero-copy UTF-8 conversion first
+            return match String::from_utf8(bytes.into()) {
+                Ok(s) => Ok(s),
+                Err(e) => Ok(String::from_utf8_lossy(e.as_bytes()).into_owned()),
+            };
         }
         Ok("".into())
     }
@@ -705,23 +709,78 @@ impl<'js> Response<'js> {
     #[allow(clippy::await_holding_lock)]
     #[allow(clippy::readonly_write_lock)]
     async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
-        // Check if body stream is locked or disturbed
+        // Fast path: if no stream was ever created, skip all stream checks
+        // and take the incoming body directly without cloning Arc/String.
+        let body_stream_exists = self.body_stream.read().unwrap().is_some();
+
+        if !body_stream_exists {
+            let mut body_guard = self.body.write().unwrap();
+            match &mut *body_guard {
+                BodyVariant::Incoming(incoming, enc) => {
+                    let body = incoming
+                        .write()
+                        .unwrap()
+                        .take()
+                        .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                    let encoding = enc.take();
+                    drop(body_guard);
+
+                    let has_decoder = encoding
+                        .as_deref()
+                        .is_some_and(|e| !matches!(e, "" | "identity"));
+
+                    if !has_decoder {
+                        let collected = body
+                            .collect()
+                            .await
+                            .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                        return Ok(Some(collected.to_bytes().into()));
+                    }
+
+                    let collected = body
+                        .collect()
+                        .await
+                        .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                    let raw = collected.to_bytes();
+                    if let Some(mut dec) = encoding
+                        .as_deref()
+                        .and_then(|enc| StreamingDecoder::new(enc).ok())
+                    {
+                        let mut decompressed = dec
+                            .decompress_chunk(&raw)
+                            .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                        let remaining = dec
+                            .finish()
+                            .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+                        if !remaining.is_empty() {
+                            decompressed.extend_from_slice(&remaining);
+                        }
+                        return Ok(Some(decompressed));
+                    }
+                    return Ok(Some(raw.into()));
+                },
+                BodyVariant::Empty => return Ok(None),
+                BodyVariant::Provided(None) => {
+                    return Err(Exception::throw_message(ctx, "Already read"))
+                },
+                BodyVariant::Provided(Some(_)) => {
+                    // Fall through to take_provided
+                    drop(body_guard);
+                    return take_provided(ctx, &self.body).await;
+                },
+            }
+        }
+
+        // Slow path: stream was accessed, need to check if it's locked/disturbed
         if let Some(stream_value) = self.body_stream.read().unwrap().as_ref() {
             if let Some(stream) = stream_value
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                let stream_ref = stream.borrow();
-                if stream_ref.is_readable_stream_locked() || stream_ref.disturbed {
-                    return Err(Exception::throw_type(
-                        ctx,
-                        "Cannot read body: stream is locked or disturbed",
-                    ));
-                }
+                crate::body_helpers::validate_stream_usable(ctx, &stream, "read body")?;
             }
         }
 
-        // Single lock acquisition to determine variant and extract data
         let incoming_data = {
             let body_guard = self.body.read().unwrap();
             match &*body_guard {
@@ -765,34 +824,38 @@ async fn take_incoming<'js>(
         .take()
         .ok_or(Exception::throw_message(ctx, "Already read"))?;
 
-    let mut bytes = Vec::new();
-    let mut decoder = content_encoding.and_then(|enc| StreamingDecoder::new(enc).ok());
-    let mut body = body;
-    while let Some(frame) = body.frame().await {
-        match frame {
-            Ok(frame) => {
-                if let Some(data) = frame.data_ref() {
-                    if let Some(dec) = &mut decoder {
-                        let decompressed = dec
-                            .decompress_chunk(data)
-                            .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
-                        bytes.extend_from_slice(&decompressed);
-                    } else {
-                        bytes.extend_from_slice(data);
-                    }
-                }
-            },
-            Err(e) => return Err(Exception::throw_message(ctx, &e.to_string())),
-        }
+    let has_decoder = content_encoding.is_some_and(|e| !matches!(e, "" | "identity"));
+
+    if !has_decoder {
+        // Fast path: collect entire body at once — http-body-util handles
+        // internal buffering efficiently and avoids per-frame async overhead.
+        let collected = body
+            .collect()
+            .await
+            .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+        return Ok(Some(collected.to_bytes().into()));
     }
-    if let Some(dec) = decoder {
+
+    // Decompression path: collect raw bytes then decompress in one shot
+    let collected = body
+        .collect()
+        .await
+        .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
+    let raw = collected.to_bytes();
+    if let Some(mut dec) = content_encoding.and_then(|enc| StreamingDecoder::new(enc).ok()) {
+        let mut decompressed = dec
+            .decompress_chunk(&raw)
+            .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
         let remaining = dec
             .finish()
             .map_err(|e| Exception::throw_message(ctx, &e.to_string()))?;
-        bytes.extend_from_slice(&remaining);
+        if !remaining.is_empty() {
+            decompressed.extend_from_slice(&remaining);
+        }
+        return Ok(Some(decompressed));
     }
 
-    Ok(Some(bytes))
+    Ok(Some(raw.into()))
 }
 
 /// Consume a user-provided body value.
@@ -853,27 +916,35 @@ async fn read_body_chunk(
         return Ok(None);
     };
 
-    // 3. Process data
-    let mut dec_guard = has_decoder.then(|| decoder.write().unwrap());
+    // 3. Accumulate into buffer, draining all synchronously-ready frames
     let mut result_buffer = Vec::with_capacity(first_data.len());
+    let mut dec_guard = has_decoder.then(|| decoder.write().unwrap());
+    let mut error: Option<String> = None;
 
-    let mut process_and_extend = |bytes: &mut Vec<u8>, data: Bytes| {
-        if let Some(Some(dec)) = dec_guard.as_mut().map(|g| g.as_mut()) {
-            bytes.extend_from_slice(
-                &dec.decompress_chunk(&data)
-                    .unwrap_or_else(|_| data.to_vec()),
-            );
-        } else {
-            bytes.extend_from_slice(&data);
-        }
-    };
+    // Inline helper: decompress or copy data into result_buffer
+    macro_rules! process {
+        ($data:expr) => {
+            if error.is_none() {
+                if let Some(Some(dec)) = dec_guard.as_mut().map(|g| g.as_mut()) {
+                    match dec.decompress_chunk(&$data) {
+                        Ok(decompressed) => result_buffer.extend_from_slice(&decompressed),
+                        Err(e) => error = Some(e.to_string()),
+                    }
+                } else {
+                    result_buffer.extend_from_slice(&$data);
+                }
+            }
+        };
+    }
 
-    process_and_extend(&mut result_buffer, first_data);
+    process!(first_data);
+    body.drain_ready(|data| process!(data));
 
-    // 4. Drain all other ready frames without yielding
-    body.drain_ready(|data| {
-        process_and_extend(&mut result_buffer, data);
-    });
+    drop(dec_guard);
+
+    if let Some(e) = error {
+        return Err(e);
+    }
 
     Ok(if result_buffer.is_empty() {
         None
@@ -970,21 +1041,22 @@ fn create_body_stream<'js>(
         let incoming2 = incoming_for_native;
         let state2 = decoder_for_native;
         let np: Rc<llrt_stream_web::NativePullFn> = Rc::new(move |ctx: &rquickjs::Ctx<'js>| {
-            let mut body = match incoming2.write().unwrap().take() {
-                Some(b) => b,
-                None => return Ok(llrt_stream_web::NativePullResult::Eof),
+            let mut guard = incoming2.write().unwrap();
+            let Some(body) = guard.as_mut() else {
+                return Ok(llrt_stream_web::NativePullResult::Eof);
             };
 
             let waker = Waker::noop();
             let mut poll_cx = Context::from_waker(waker);
 
             loop {
-                match Pin::new(&mut body).poll_frame(&mut poll_cx) {
+                match Pin::new(&mut *body).poll_frame(&mut poll_cx) {
                     Poll::Ready(Some(Ok(frame))) => {
                         let Ok(first_data) = frame.into_data() else {
-                            continue; // Skip non-data frames (trailers), poll again
+                            continue;
                         };
 
+                        // Drain any additional synchronously-ready frames
                         let mut total_len = first_data.len();
                         let mut extras = Vec::new();
                         body.drain_ready(|data| {
@@ -992,7 +1064,7 @@ fn create_body_stream<'js>(
                             extras.push(data);
                         });
 
-                        *incoming2.write().unwrap() = Some(body);
+                        drop(guard);
 
                         let mut chunk = if extras.is_empty() {
                             None
@@ -1027,9 +1099,12 @@ fn create_body_stream<'js>(
                         return Ok(NativePullResult::Ready(val));
                     },
                     Poll::Ready(Some(Err(e))) => {
-                        return Err(Exception::throw_message(ctx, &e.to_string()))
+                        *guard = None;
+                        return Err(Exception::throw_message(ctx, &e.to_string()));
                     },
                     Poll::Ready(None) => {
+                        *guard = None; // Release the body to free the HTTP connection
+                        drop(guard);
                         if has_decoder {
                             if let Some(dec) = state2.write().unwrap().take() {
                                 match dec.finish() {
@@ -1048,7 +1123,7 @@ fn create_body_stream<'js>(
                         return Ok(NativePullResult::Eof);
                     },
                     Poll::Pending => {
-                        *incoming2.write().unwrap() = Some(body);
+                        drop(guard);
 
                         let incoming = incoming2.clone();
                         let state = state2.clone();

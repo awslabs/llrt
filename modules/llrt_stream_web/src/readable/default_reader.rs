@@ -1,5 +1,4 @@
 use crate::readable::default_controller::{NativePull, NativePullResult};
-use crate::utils::promise::promise_resolved_with;
 use crate::{
     readable::{
         byob_reader::ReadableStreamBYOBReaderOwned,
@@ -12,11 +11,15 @@ use crate::{
         stream::{ReadableStream, ReadableStreamOwned, ReadableStreamState},
     },
     utils::{
-        promise::{promise_rejected_with_constructor, PromisePrimordials, ResolveablePromise},
+        promise::{
+            promise_rejected_with_constructor, promise_resolved_with, PromisePrimordials,
+            ResolveablePromise,
+        },
         UnwrapOrUndefined,
     },
 };
 use rquickjs::{
+    atom::PredefinedAtom,
     class::{OwnedBorrowMut, Trace, Tracer},
     methods,
     prelude::{Opt, This},
@@ -124,6 +127,7 @@ impl<'js> ReadableStreamDefaultReader<'js> {
         mut objects: ReadableStreamDefaultReaderObjects<'js, C>,
     ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>> {
         // Clear cached native_pull to release captured resources
+        objects.reader.read_requests.clear();
         // Perform ! ReadableStreamReaderGenericRelease(reader).
         objects
             .reader
@@ -164,11 +168,10 @@ impl<'js> ReadableStreamDefaultReader<'js> {
         };
 
         // Fast-path: if the controller has a native_pull and the queue is empty,
-        // bypass the full spec algorithm and read directly.
-        let native_pull = try_get_native_pull(stream_class);
-
-        if let Some(np) = native_pull {
-            return read_native(&ctx, stream_class, &np, &reader.generic.promise_primordials);
+        // bypass the full spec algorithm and read directly without promise wrapping.
+        if let Some(np) = try_get_native_pull(stream_class) {
+            stream_class.borrow_mut().disturbed = true;
+            return read_native(&ctx, &np, &reader.generic.promise_primordials);
         }
 
         read_default(&ctx, reader.0)
@@ -281,40 +284,39 @@ fn try_get_native_pull<'js>(
 /// Read using the native_pull fast-path, bypassing the full spec algorithm.
 fn read_native<'js>(
     ctx: &Ctx<'js>,
-    stream_class: &Class<'js, ReadableStream<'js>>,
     np: &NativePull<'js>,
     primordials: &PromisePrimordials<'js>,
 ) -> Result<Value<'js>> {
-    stream_class.borrow_mut().disturbed = true;
-
-    let promise = match (np.0)(ctx)? {
-        NativePullResult::Ready(chunk) => promise_resolved_with(
-            ctx,
-            primordials,
-            Ok(ReadableStreamReadResult {
+    match (np.0)(ctx)? {
+        // Synchronous data — wrap in a resolved promise to satisfy the spec
+        // (reader.read() must always return a Promise).
+        NativePullResult::Ready(chunk) => {
+            let result = ReadableStreamReadResult {
                 value: Some(chunk),
                 done: false,
             }
-            .into_js(ctx)?),
-        )?,
-        NativePullResult::Eof => promise_resolved_with(
-            ctx,
-            primordials,
-            Ok(ReadableStreamReadResult {
+            .into_js(ctx)?;
+            promise_resolved_with(ctx, primordials, Ok(result)).map(|p| p.into_value())
+        },
+        NativePullResult::Eof => {
+            let result = ReadableStreamReadResult {
                 value: None,
                 done: true,
             }
-            .into_js(ctx)?),
-        )?,
-        NativePullResult::Pending(fut) => Promise::wrap_future(ctx, async move {
-            fut.await.map(|chunk| ReadableStreamReadResult {
-                done: chunk.is_none(),
-                value: chunk,
-            })
-        })?,
-    };
-
-    Ok(promise.into_value())
+            .into_js(ctx)?;
+            promise_resolved_with(ctx, primordials, Ok(result)).map(|p| p.into_value())
+        },
+        // Async data — must return a promise
+        NativePullResult::Pending(fut) => {
+            let promise = Promise::wrap_future(ctx, async move {
+                fut.await.map(|chunk| ReadableStreamReadResult {
+                    done: chunk.is_none(),
+                    value: chunk,
+                })
+            })?;
+            Ok(promise.into_value())
+        },
+    }
 }
 
 /// Read using the standard spec algorithm (ReadableStreamDefaultReaderRead).
@@ -530,7 +532,7 @@ pub(super) struct ReadableStreamReadResult<'js> {
 impl<'js> IntoJs<'js> for ReadableStreamReadResult<'js> {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let obj = Object::new(ctx.clone())?;
-        obj.set("value", self.value)?;
+        obj.set(PredefinedAtom::Value, self.value)?;
         obj.set("done", self.done)?;
         Ok(obj.into_value())
     }
