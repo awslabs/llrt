@@ -23,8 +23,7 @@ use crate::base::libs::{
 };
 // rquickjs components
 use crate::base::{
-    async_with, AsyncContext, CatchResultExt, Ctx, Error, EvalOptions, Object, PredefinedAtom,
-    Promise, Rest,
+    AsyncContext, CatchResultExt, Ctx, Error, EvalOptions, Object, PredefinedAtom, Promise, Rest,
 };
 
 use crate::VERSION_STRING;
@@ -59,9 +58,11 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
 
 pub(crate) async fn run_repl(ctx: &AsyncContext) {
     let is_tty = stdout().is_terminal();
-    async_with!(ctx => |ctx| {
-
-        println!("Welcome to {}\nType \".exit\" or Ctrl+C or Ctrl+D to exit", VERSION_STRING);
+    ctx.async_with(async |ctx| {
+        println!(
+            "Welcome to {}\nType \".exit\" or Ctrl+C or Ctrl+D to exit",
+            VERSION_STRING
+        );
 
         let history_file = if cfg!(windows) {
             env::var("APPDATA")
@@ -77,7 +78,6 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
 
         //initialize history
         let mut history: VecDeque<String> = if let Some(ref history_file) = history_file {
-
             if let Some(parent) = history_file.parent() {
                 fs::create_dir_all(parent).or_throw(&ctx)?;
             }
@@ -98,7 +98,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
         let mut history_index = history.len();
         let mut cursor_pos = 0;
 
-        println!("");
+        println!();
 
         let exit_repl = || {
             execute!(
@@ -131,7 +131,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
             {
                 #[cfg(windows)]
                 if kind == event::KeyEventKind::Release {
-                  continue;
+                    continue;
                 }
                 match code {
                     KeyCode::Enter => {
@@ -144,7 +144,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
                             }
                             execute!(stdout(), cursor::MoveToColumn(0))?;
                             disable_raw_mode()?;
-                            let output = process_input(&ctx, &cmd,is_tty).await;
+                            let output = process_input(&ctx, &cmd, is_tty).await;
                             println!("{output}");
                             enable_raw_mode()?;
 
@@ -174,23 +174,23 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
                         }
                     },
                     KeyCode::Down => {
-                        let history_len =  history.len();
-                        if  history_len > 0 {
+                        let history_len = history.len();
+                        if history_len > 0 {
                             match history_index.cmp(&(history_len - 1)) {
-                                    std::cmp::Ordering::Less => {
-                                        added_input_chars = false;
-                                        history_index += 1;
-                                        current_input = history[history_index].clone();
-                                        cursor_pos = current_input.len();
-                                    }
-                                    std::cmp::Ordering::Equal => {
-                                        added_input_chars = false;
-                                        history_index = history_len;
-                                        current_input.clear();
-                                        cursor_pos = 0;
-                                    }
-                                    _ => {}
-                                }
+                                std::cmp::Ordering::Less => {
+                                    added_input_chars = false;
+                                    history_index += 1;
+                                    current_input = history[history_index].clone();
+                                    cursor_pos = current_input.len();
+                                },
+                                std::cmp::Ordering::Equal => {
+                                    added_input_chars = false;
+                                    history_index = history_len;
+                                    current_input.clear();
+                                    cursor_pos = 0;
+                                },
+                                _ => {},
+                            }
                         }
                     },
                     KeyCode::Left => {
@@ -223,7 +223,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
 
         disable_raw_mode()?;
 
-        Ok::<_,Error>(())
+        Ok::<_, Error>(())
     })
     .await
     .expect("Failed to run REPL")

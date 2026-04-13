@@ -8,7 +8,7 @@ use std::{
 
 use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{
-    loader::Resolver,
+    loader::{ImportAttributes, Resolver},
     prelude::{Func, Opt},
     Ctx, Error, Object, Result, Value,
 };
@@ -32,7 +32,13 @@ impl ModuleResolver {
 }
 
 impl Resolver for ModuleResolver {
-    fn resolve(&mut self, ctx: &Ctx<'_>, base: &str, name: &str) -> Result<String> {
+    fn resolve(
+        &mut self,
+        ctx: &Ctx<'_>,
+        base: &str,
+        name: &str,
+        _attr: Option<ImportAttributes<'_>>,
+    ) -> Result<String> {
         let name = name.trim_start_matches(CJS_IMPORT_PREFIX);
         let name = name.trim_start_matches("node:").trim_end_matches("/");
 

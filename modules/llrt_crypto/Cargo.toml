@@ -55,28 +55,28 @@ llrt_encoding = { version = "0.8.1-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
 md-5 = { version = "0.11.0", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rand = { version = "0.10.0", features = [
+rand = { version = "0.10.1", features = [
   "std",
   "std_rng",
   "thread_rng",
 ], default-features = false }
-rquickjs = { version = "0.11", default-features = false }
+rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
 
 
 # optional
 llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json", optional = true }
-aes = { version = "0.9.0-rc.4", optional = true }
+aes = { version = "0.9.0", optional = true }
 aes-gcm = { version = "0.11.0-rc.3", features = [
   "alloc",
 ], default-features = false, optional = true }
-aes-kw = { version = "0.3.0-rc.2", features = [
+aes-kw = { version = "0.3.0", features = [
   "oid",
 ], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.4", features = ["alloc"], optional = true }
+cbc = { version = "0.2.0", features = ["alloc"], optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
-ctr = { version = "0.10.0-rc.4", default-features = false, optional = true }
+ctr = { version = "0.10.0", default-features = false, optional = true }
 der = { version = "0.8", features = [
   "derive",
   "alloc",
@@ -87,7 +87,7 @@ ed25519-dalek = { version = "3.0.0-pre.6", features = [
   "pkcs8",
   "rand_core",
 ], default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.29", features = [
+elliptic-curve = { version = "0.14.0-rc.30", features = [
   "alloc",
   "sec1",
 ], default-features = false, optional = true }
@@ -118,7 +118,7 @@ pkcs8 = { version = "0.11.0-rc.11", default-features = false, features = [
   "alloc",
 ], optional = true }
 sha1 = { version = "0.11.0", default-features = false, optional = true }
-spki = { version = "0.8.0-rc.4", features = [
+spki = { version = "0.8.0", features = [
   "alloc",
 ], default-features = false, optional = true }
 x25519-dalek = { version = "3.0.0-pre.6", features = [

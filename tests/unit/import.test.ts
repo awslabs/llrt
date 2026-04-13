@@ -8,7 +8,15 @@ describe("import", () => {
   });
 
   it("should import a json file (absolute path)", async () => {
-    const mod = await import(`${CWD}/package.json`);
+    async function importThatAvoidsTranspilation(path: string) {
+      const fn = new Function(
+        "path",
+        'return import(path, {with: { type: "json" }});'
+      );
+      return fn(path);
+    }
+
+    const mod = await importThatAvoidsTranspilation(`${CWD}/package.json`);
 
     expect(mod.default.private).toEqual(true);
   });
@@ -20,13 +28,15 @@ describe("import", () => {
   });
 
   it("should import a json file (relative path)", async () => {
-    const mod = await import("../../fixtures/package.json");
+    const mod = await import("../../fixtures/package.json", {
+      with: { type: "json" },
+    });
 
     expect(mod.default.private).toEqual(true);
   });
 
   it("should import a json file (path unspecified)", async () => {
-    const mod = await import("package.json");
+    const mod = await import("package.json", { with: { type: "json" } });
 
     expect(mod.default.private).toEqual(true);
   });
@@ -41,5 +51,9 @@ describe("import", () => {
     expect(
       normalizedUrl.endsWith("/bundle/js/__tests__/unit/import.test.js")
     ).toEqual(true);
+  });
+
+  it("regression testing for issue #1492", async () => {
+    await import(`${CWD}/fixtures/test1492/index.js`);
   });
 });

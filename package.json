@@ -90,7 +90,7 @@
     "@types/chai": "5.2.3",
     "@types/jest": "30.0.0",
     "@types/readable-stream": "4.0.23",
-    "esbuild": "0.27.3",
+    "esbuild": "0.27.4",
     "esbuild-plugins-node-modules-polyfill": "1.8.1",
     "prettier": "3.8.1",
     "pretty-format": "30.2.0",
@@ -99,7 +99,7 @@
     "readable-stream": "4.7.0",
     "stream-browserify": "3.0.0",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3",
+    "typescript": "6.0.2",
     "vitest": "4.0.18"
   },
   "packageManager": "yarn@1.22.22"
