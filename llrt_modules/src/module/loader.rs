@@ -8,7 +8,7 @@ use std::{
 
 use llrt_utils::{any_of::AnyOf2, bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
-    loader::Loader,
+    loader::{ImportAttributes, Loader},
     module::ModuleDef,
     prelude::{Func, Opt},
     Ctx, Error, Module, Object, Result, Value,
@@ -43,7 +43,12 @@ impl ModuleLoader {
 }
 
 impl Loader for ModuleLoader {
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+    fn load<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        _attr: Option<ImportAttributes<'js>>,
+    ) -> Result<Module<'js>> {
         trace!("Try load '{}'", name);
         let (short_circuit, next_load, source) = module_hook_load(ctx, name)?;
 

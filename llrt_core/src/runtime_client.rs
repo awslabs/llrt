@@ -598,7 +598,7 @@ fn get_header_value(headers: &HeaderMap, header: &HeaderName) -> StdResult<Strin
 mod tests {
 
     use hyper::header::CONTENT_TYPE;
-    use rquickjs::{async_with, CatchResultExt};
+    use rquickjs::CatchResultExt;
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use crate::runtime_client::{
@@ -670,11 +670,17 @@ mod tests {
                 iterations: 10,
             };
 
-            async_with!(vm.ctx => |ctx|{
-                ctx.globals().set("__MOCK_ENDPOINT", ["http://",runtime_api].concat()).unwrap();
-                runtime_client::start_with_cfg(&ctx,mock_config).await.catch(&ctx).unwrap()
-            })
-            .await;
+            vm.ctx
+                .async_with(async |ctx| {
+                    ctx.globals()
+                        .set("__MOCK_ENDPOINT", ["http://", runtime_api].concat())
+                        .unwrap();
+                    runtime_client::start_with_cfg(&ctx, mock_config)
+                        .await
+                        .catch(&ctx)
+                        .unwrap()
+                })
+                .await;
         }
 
         run_with_handler(&vm, "../fixtures/handler.handler", &runtime_api).await;

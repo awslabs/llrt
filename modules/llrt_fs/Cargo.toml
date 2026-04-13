@@ -23,7 +23,7 @@ rand = { version = "0.10.0", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }
-rquickjs = { version = "0.11", features = ["either"], default-features = false }
+rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", features = ["either"], default-features = false }
 tokio = { version = "1", features = [
   "fs",
   "io-util",

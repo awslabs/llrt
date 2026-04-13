@@ -55,7 +55,7 @@ rand = { version = "0.10.0", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }
-rquickjs = { version = "0.11", features = [
+rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", features = [
   "futures",
   "parallel",
   "rust-alloc",
@@ -76,7 +76,7 @@ md-5 = { version = "0.11.0", default-features = false }
 md-5 = { version = "0.11.0", default-features = false }
 
 [build-dependencies]
-rquickjs = { version = "0.11", default-features = false }
+rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
 phf_codegen = { version = "0.13", default-features = false }
 llrt_build = { path = "../libs/llrt_build" }
 uuid = { version = "1", features = ["v4"], default-features = false }
