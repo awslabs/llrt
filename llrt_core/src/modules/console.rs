@@ -360,9 +360,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     let globals = ctx.globals();
 
-    // NOTE: Console must be created from an empty object with no prototype.
-    // https://console.spec.whatwg.org/#console-namespace
-    let console = ctx.eval::<Object, &str>("Object.create({})")?;
+    let proto = Object::new(ctx.clone())?;
+    let console = Object::new_proto(ctx.clone(), Some(&proto))?;
 
     console.set("assert", Func::from(log_assert))?;
     console.set("clear", Func::from(clear))?;
