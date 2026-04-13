@@ -4,7 +4,10 @@ use std::{cell::RefCell, fs::File, io::Read};
 
 use llrt_json::escape::escape_json_string;
 use llrt_utils::result::ResultExt;
-use rquickjs::{loader::Loader, Ctx, Function, Module, Object, Result, Value};
+use rquickjs::{
+    loader::{ImportAttributes, Loader},
+    Ctx, Exception, Function, Module, Object, Result, Value,
+};
 use tracing::trace;
 
 use crate::modules::path;
@@ -74,7 +77,11 @@ impl PackageLoader {
         (false, false, name, name)
     }
 
-    fn load_module<'js>(ctx: &Ctx<'js>, name: &str) -> Result<(Module<'js>, Option<String>)> {
+    fn load_module<'js>(
+        ctx: &Ctx<'js>,
+        name: &str,
+        attr: &Option<ImportAttributes<'js>>,
+    ) -> Result<(Module<'js>, Option<String>)> {
         let ctx = ctx.clone();
 
         let (from_cjs_import, is_cjs, normalized_name, path) = Self::normalize_name(name);
@@ -82,6 +89,16 @@ impl PackageLoader {
         //json files can never be from CJS imports as they are handled by require
         if !from_cjs_import {
             if normalized_name.ends_with(".json") {
+                let attr_json = attr
+                    .clone()
+                    .and_then(|v| v.get_type().ok().flatten())
+                    .is_some_and(|v| v == "json");
+
+                if !attr_json {
+                    let msg = ["'", path, "' needs an import attribute of 'type: json'"].concat();
+                    return Err(Exception::throw_type(&ctx, &msg));
+                }
+
                 let mut file = File::open(path)?;
                 let mut contents = Vec::new();
                 file.read_to_end(&mut contents)?;
@@ -133,9 +150,14 @@ impl PackageLoader {
 }
 
 impl Loader for PackageLoader {
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+    fn load<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        attr: Option<ImportAttributes<'js>>,
+    ) -> Result<Module<'js>> {
         trace!("Try load '{}'", name);
-        let (module, url) = Self::load_module(ctx, name)?;
+        let (module, url) = Self::load_module(ctx, name, &attr)?;
         if let Some(url) = url {
             let meta: Object = module.meta()?;
             meta.prop("url", url)?;

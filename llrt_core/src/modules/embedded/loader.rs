@@ -3,7 +3,10 @@
 use std::{io, result::Result as StdResult};
 
 use once_cell::sync::Lazy;
-use rquickjs::{loader::Loader, Ctx, Error, Module, Object, Result};
+use rquickjs::{
+    loader::{ImportAttributes, Loader},
+    Ctx, Error, Module, Object, Result,
+};
 use tracing::trace;
 use zstd::{bulk::Decompressor, dict::DecoderDictionary};
 
@@ -139,7 +142,12 @@ impl EmbeddedLoader {
 }
 
 impl Loader for EmbeddedLoader {
-    fn load<'js>(&mut self, ctx: &Ctx<'js>, name: &str) -> Result<Module<'js>> {
+    fn load<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        _attr: Option<ImportAttributes<'js>>,
+    ) -> Result<Module<'js>> {
         let (module, url) = Self::load_module(name, ctx)?;
         if let Some(url) = url {
             let meta: Object = module.meta()?;

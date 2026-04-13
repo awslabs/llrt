@@ -14,7 +14,7 @@ path = "src/lib.rs"
 itoa = { version = "1", default-features = false }
 llrt_encoding = { version = "0.8.1-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { version = "0.11", features = [
+rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", features = [
   "futures",
 ], default-features = false }
 ryu = { version = "1", default-features = false }
