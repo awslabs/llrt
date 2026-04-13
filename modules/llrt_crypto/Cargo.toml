@@ -65,18 +65,18 @@ rquickjs = { version = "0.11", default-features = false }
 
 # optional
 llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json", optional = true }
-aes = { version = "0.9.0-rc.4", optional = true }
+aes = { version = "0.9.0", optional = true }
 aes-gcm = { version = "0.11.0-rc.3", features = [
   "alloc",
 ], default-features = false, optional = true }
-aes-kw = { version = "0.3.0-rc.2", features = [
+aes-kw = { version = "0.3.0", features = [
   "oid",
 ], default-features = false, optional = true }
-cbc = { version = "0.2.0-rc.4", features = ["alloc"], optional = true }
+cbc = { version = "0.2.0", features = ["alloc"], optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
-ctr = { version = "0.10.0-rc.4", default-features = false, optional = true }
+ctr = { version = "0.10.0", default-features = false, optional = true }
 der = { version = "0.8", features = [
   "derive",
   "alloc",
