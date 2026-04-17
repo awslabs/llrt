@@ -1,6 +1,5 @@
 use llrt_abort::{AbortController, AbortSignal};
 use llrt_utils::{
-    object::CreateSymbol,
     option::{Null, Undefined},
     primordials::Primordial,
 };
@@ -857,7 +856,7 @@ impl<'js> Primordial<'js> for WritableStreamDefaultControllerPrimordials<'js> {
         Self: Sized,
     {
         Ok(Self {
-            close_sentinel: Symbol::for_description(ctx, "close sentinel")?,
+            close_sentinel: Symbol::new_global(ctx.clone(), "close sentinel")?,
         })
     }
 }

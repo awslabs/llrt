@@ -133,7 +133,7 @@ impl<'js> Socket<'js> {
         callback: Opt<Function<'js>>,
     ) -> Result<()> {
         if let Some(cb) = callback.0 {
-            Self::add_event_listener_str(This(this.clone()), &ctx, "end", cb, true, true)?;
+            Self::add_event_listener_str(this.clone(), &ctx, "end", cb, true, true)?;
         }
 
         //ReadableStream::destroy(This(this.clone()), ctx.clone())?;
@@ -255,14 +255,7 @@ impl<'js> Socket<'js> {
         let this2 = this.clone();
 
         if let Some(listener) = listener {
-            Socket::add_event_listener_str(
-                This(this.clone()),
-                &ctx,
-                "connect",
-                listener,
-                false,
-                true,
-            )?;
+            Socket::add_event_listener_str(this.clone(), &ctx, "connect", listener, false, true)?;
         }
 
         ctx.clone().spawn_exit(async move {
@@ -295,7 +288,7 @@ impl<'js> Socket<'js> {
                     unreachable!()
                 }?;
 
-                Socket::emit_str(This(this2.clone()), &ctx3, "connect", vec![], false)?;
+                Socket::emit_str(this2.clone(), &ctx3, "connect", vec![], false)?;
 
                 let had_error = rw_join(&ctx3, readable_done, writable_done).await?;
 

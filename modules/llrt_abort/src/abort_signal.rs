@@ -66,7 +66,7 @@ impl<'js> AbortSignal<'js> {
         ctx: Ctx<'js>,
         listener: Function<'js>,
     ) -> Result<()> {
-        Self::add_event_listener_str(this, &ctx, "abort", listener, false, false)?;
+        Self::add_event_listener_str(this.0, &ctx, "abort", listener, false, false)?;
         Ok(())
     }
 
@@ -75,7 +75,7 @@ impl<'js> AbortSignal<'js> {
         ctx: Ctx<'js>,
         listener: Function<'js>,
     ) -> Result<()> {
-        Self::remove_event_listener_str(this, &ctx, "abort", listener)?;
+        Self::remove_event_listener_str(this.0, &ctx, "abort", listener)?;
         Ok(())
     }
 
@@ -116,7 +116,7 @@ impl<'js> AbortSignal<'js> {
         for signal in signal_instances {
             let signal_instance_2 = new_signal_instance.clone();
             Self::add_event_listener_str(
-                This(signal),
+                signal,
                 &ctx,
                 "abort",
                 Function::new(
@@ -174,7 +174,7 @@ impl<'js> AbortSignal<'js> {
         borrow.reason = Some(reason.clone());
         borrow.sender.send(reason);
         drop(borrow);
-        Self::emit_str(this, &ctx, "abort", vec![], false)?;
+        Self::emit_str(this.0, &ctx, "abort", vec![], false)?;
         Ok(())
     }
 

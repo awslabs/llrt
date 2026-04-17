@@ -15,7 +15,7 @@ use std::{
 use llrt_json::stringify::json_stringify;
 use llrt_numbers::float_to_string;
 use llrt_utils::{
-    class::get_class_name,
+    class::{get_class_name, CUSTOM_INSPECT_SYMBOL_DESCRIPTION},
     error::ErrorExtensions,
     hash,
     primordials::{BasePrimordials, Primordial},
@@ -161,7 +161,8 @@ impl<'js> FormatOptions<'js> {
 
         let object_filter = Filter::new().private().string().symbol();
 
-        let custom_inspect_symbol = primordials.symbol_custom_inspect.clone();
+        let custom_inspect_symbol =
+            Symbol::new_global(ctx.clone(), CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
         let number_function = primordials.constructor_number.deref().clone();
 
         let options = FormatOptions {

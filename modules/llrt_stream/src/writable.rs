@@ -288,7 +288,7 @@ where
                 drop(writer);
 
                 if !is_destroyed {
-                    Self::emit_str(This(this2), &ctx3, "finish", vec![], false)?;
+                    Self::emit_str(this2, &ctx3, "finish", vec![], false)?;
                 }
 
                 if let Some(error_value) = error_value{

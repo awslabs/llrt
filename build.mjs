@@ -147,6 +147,7 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/querystring-parser",
   "@smithy/service-error-classification",
   "@smithy/signature-v4",
+  "@smithy/signature-v4a",
   "@smithy/smithy-client",
   "@smithy/types",
   "@smithy/url-parser",
@@ -638,10 +639,33 @@ async function buildSdks() {
   await Promise.all([
     esbuild.build({
       entryPoints: sdkEntryPoints,
-      plugins: [AWS_SDK_PLUGIN, esbuildShimPlugin([[/^bowser$/]])],
+      plugins: [
+        AWS_SDK_PLUGIN,
+        esbuildShimPlugin([[/^bowser$/]]),
+        {
+          name: "llrt-stream-compat",
+          setup(build) {
+            build.onResolve(
+              { filter: /getAwsChunkedEncodingStream/ },
+              (args) => {
+                if (args.importer.includes("@smithy")) {
+                  return {
+                    path: path.resolve(
+                      "shims/@smithy/getAwsChunkedEncodingStream.js"
+                    ),
+                  };
+                }
+              }
+            );
+          },
+        },
+      ],
       alias: {
         "@aws-sdk/util-utf8-browser": "@smithy/util-utf8",
         "@aws-sdk/util-utf8": "@smithy/util-utf8",
+        "@aws-sdk/signature-v4-multi-region": path.resolve(
+          "shims/@aws-sdk/signature-v4-multi-region.js"
+        ),
         "@smithy/md5-js": "crypto",
         "fast-xml-parser": "llrt:xml",
         "xml-parser.browser": "xml-parser",

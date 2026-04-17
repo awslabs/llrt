@@ -170,7 +170,7 @@ impl<'js> Socket<'js> {
                 trace!("UDP socket bound to {}", local_addr);
 
                 // Emit 'listening' event
-                Self::emit_str(This(socket_class.clone()), &ctx, "listening", vec![], false)?;
+                Self::emit_str(socket_class.clone(), &ctx, "listening", vec![], false)?;
 
                 // Start receiver loop
                 let recv_started = receiver_running
@@ -208,7 +208,7 @@ impl<'js> Socket<'js> {
 
                                                 let info_val: Value = info.into();
                                                 Self::emit_str(
-                                                    This(recv_class.clone()),
+                                                    recv_class.clone(),
                                                     &recv_ctx,
                                                     "message",
                                                     vec![data, info_val],
@@ -352,7 +352,7 @@ impl<'js> Socket<'js> {
         }
 
         if let Some(cb) = callback {
-            Self::add_event_listener_str(This(this.clone()), &ctx, "listening", cb, true, true)?;
+            Self::add_event_listener_str(this.clone(), &ctx, "listening", cb, true, true)?;
         }
 
         let bind_addr = [&address, ":", &port.to_string()].concat();
@@ -486,7 +486,7 @@ impl<'js> Socket<'js> {
         }
 
         if let Some(cb) = callback.0 {
-            Self::add_event_listener_str(This(this.clone()), &ctx, "close", cb, true, true)?;
+            Self::add_event_listener_str(this.clone(), &ctx, "close", cb, true, true)?;
         }
 
         // Drop the socket and clear send channel
@@ -499,7 +499,7 @@ impl<'js> Socket<'js> {
         // Emit close event directly (don't rely on sender loop which may not have started)
         let this_clone = this.0.clone();
         ctx.clone().spawn_exit(async move {
-            Self::emit_str(This(this_clone), &ctx, "close", vec![], false)?;
+            Self::emit_str(this_clone, &ctx, "close", vec![], false)?;
             Ok(())
         })?;
 

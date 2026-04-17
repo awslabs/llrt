@@ -18,13 +18,22 @@ use llrt_utils::{
 use rquickjs::Exception;
 use rquickjs::{
     convert::Coerced,
+    function::Args,
     module::{Declarations, Exports, ModuleDef},
     object::{Accessor, Property},
-    prelude::Func,
+    prelude::{Func, Rest},
     Array, BigInt, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
 
 pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
+
+fn next_tick<'js>(ctx: Ctx<'js>, cb: Function<'js>, args: Rest<Value<'js>>) -> Result<()> {
+    let mut js_args = Args::new(ctx, args.len());
+    for arg in args.0 {
+        js_args.push_arg(arg)?;
+    }
+    cb.defer_arg(js_args)
+}
 
 fn cwd(ctx: Ctx<'_>) -> Result<String> {
     env::current_dir()
@@ -211,6 +220,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         process.set("setegid", Func::from(setegid))?;
     }
 
+    process.set("nextTick", Func::from(next_tick))?;
+
     globals.set("process", process)?;
 
     Ok(())
@@ -234,6 +245,7 @@ impl ModuleDef for ProcessModule {
         declare.declare("exitCode")?;
         declare.declare("exit")?;
         declare.declare("kill")?;
+        declare.declare("nextTick")?;
 
         #[cfg(unix)]
         {

@@ -395,13 +395,21 @@ The relationship between the supported packages for each bundle type is as follo
 | @aws-sdk/util-user-agent-browser |        | ✔︎       | ✔︎        |
 | @smithy                          |        | ✔︎       | ✔︎        |
 
-> [!IMPORTANT]
-> LLRT currently does not support returning streams from SDK responses. Use `response.Body.transformToString();` or `response.Body.transformToByteArray();` as shown below.
+> [!TIP]
+> LLRT now supports streaming SDK responses (since version 0.9). You can consume response bodies as streams or use the convenience methods:
 >
 > ```javascript
 > const response = await client.send(command);
-> // or 'transformToByteArray()'
+>
+> // Option 1: Stream the response body
+> for await (const chunk of response.Body) {
+>   // process chunk
+> }
+>
+> // Option 2: Collect as string or bytes
 > const str = await response.Body.transformToString();
+> // or
+> const bytes = await response.Body.transformToByteArray();
 > ```
 
 ## Running TypeScript with LLRT

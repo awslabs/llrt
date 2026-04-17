@@ -3,7 +3,7 @@
 use std::result::Result as StdResult;
 
 use llrt_events::Emitter;
-use rquickjs::{prelude::This, Class, Ctx, IntoJs, Result, Value};
+use rquickjs::{Class, Ctx, IntoJs, Result, Value};
 use tokio::sync::broadcast::error::RecvError;
 
 pub mod readable;
@@ -26,18 +26,12 @@ where
     Self: Emitter<'js>,
 {
     fn emit_close(this: Class<'js, Self>, ctx: &Ctx<'js>, had_error: bool) -> Result<()> {
-        Self::emit_str(
-            This(this),
-            ctx,
-            "close",
-            vec![had_error.into_js(ctx)?],
-            false,
-        )
+        Self::emit_str(this, ctx, "close", vec![had_error.into_js(ctx)?], false)
     }
 
     #[allow(dead_code)]
     fn emit_end(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
-        Self::emit_str(This(this), ctx, "end", vec![], false)
+        Self::emit_str(this, ctx, "end", vec![], false)
     }
 }
 

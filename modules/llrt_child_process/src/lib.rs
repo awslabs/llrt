@@ -254,7 +254,7 @@ impl<'js> ChildProcess<'js> {
                         }
 
                         ChildProcess::emit_str(
-                            This(instance2.clone()),
+                            instance2.clone(),
                             &ctx3,
                             "exit",
                             vec![code.clone(), signal.clone()],
@@ -276,7 +276,7 @@ impl<'js> ChildProcess<'js> {
                         ReadableStream::drain(stderr_instance, &ctx3)?;
 
                         ChildProcess::emit_str(
-                            This(instance2.clone()),
+                            instance2.clone(),
                             &ctx3,
                             "close",
                             vec![code, signal],
@@ -304,13 +304,7 @@ impl<'js> ChildProcess<'js> {
                     }
 
                     let ex = Exception::from_message(ctx3.clone(), &err_message)?;
-                    ChildProcess::emit_str(
-                        This(instance3),
-                        &ctx3,
-                        "error",
-                        vec![ex.into()],
-                        false,
-                    )?;
+                    ChildProcess::emit_str(instance3, &ctx3, "error", vec![ex.into()], false)?;
                     Ok(())
                 })?;
             },

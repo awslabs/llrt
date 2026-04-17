@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
     atom::PredefinedAtom, class::JsClass, object::Accessor, prelude::This, Array, Class, Ctx,
-    Function, Object, Result, Value,
+    Function, Object, Result, Symbol, Value,
 };
-
-use crate::primordials::{BasePrimordials, Primordial};
 
 use super::{object::ObjectExt, result::OptionExt};
 
@@ -63,9 +61,8 @@ where
 {
     fn define_with_custom_inspect(globals: &Object<'js>) -> Result<()> {
         Self::define(globals)?;
-        let custom_inspect_symbol = BasePrimordials::get(globals.ctx())?
-            .symbol_custom_inspect
-            .clone();
+        let custom_inspect_symbol =
+            Symbol::new_global(globals.ctx().clone(), CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
         if let Some(proto) = Class::<C>::prototype(globals.ctx())? {
             proto.prop(
                 custom_inspect_symbol,

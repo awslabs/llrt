@@ -1,6 +1,7 @@
 // From https://github.com/aws/aws-sdk-js-v3/blob/89f97b5cea8052510471cdad69acced9f5be60d1/clients/client-s3/test/e2e/S3.e2e.spec.ts#L15
 
-import { S3, SelectObjectContentEventStream } from "@aws-sdk/client-s3";
+import { S3 } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
 const Bucket = process?.env?.AWS_SMOKE_TEST_BUCKET;
 const mrapArn = process?.env?.AWS_SMOKE_TEST_MRAP_ARN;
 
@@ -9,38 +10,59 @@ let Key = `${Date.now()}`;
 describe("@aws-sdk/client-s3", () => {
   const client = new S3();
 
-  // TODO Stream is not yet supported
-  describe.skip("PutObject", () => {
+  describe("PutObject", () => {
     beforeAll(() => {
       Key = `${Date.now()}`;
     });
     afterAll(async () => {
       await client.deleteObject({ Bucket, Key });
     });
-    it("should succeed with Node.js readable stream body", async () => {
+
+    it("should succeed with Node.js Readable body", async () => {
       const length = 10 * 1000; // 10KB
       const chunkSize = 10;
-      const { Readable } = require("stream");
       let sizeLeft = length;
       const inputStream = new Readable({
         read() {
           if (sizeLeft <= 0) {
-            this.push(null); //end stream;
+            this.push(null);
             return;
           }
-          let chunk = "";
-          for (let i = 0; i < Math.min(sizeLeft, chunkSize); i++) {
-            chunk += "x";
-          }
+          const chunk = "x".repeat(Math.min(sizeLeft, chunkSize));
           this.push(chunk);
           sizeLeft -= chunk.length;
         },
       });
-      inputStream.size = length; // This is required
+      inputStream.size = length;
       const result = await client.putObject({
         Bucket,
         Key,
         Body: inputStream,
+      });
+      expect(result.$metadata.httpStatusCode).toEqual(200);
+    });
+
+    it("should succeed with web ReadableStream body", async () => {
+      const length = 10 * 1000; // 10KB
+      const chunkSize = 10;
+      let sizeLeft = length;
+      const encoder = new TextEncoder();
+      const inputStream = new ReadableStream({
+        pull(controller) {
+          if (sizeLeft <= 0) {
+            controller.close();
+            return;
+          }
+          const chunk = "x".repeat(Math.min(sizeLeft, chunkSize));
+          controller.enqueue(encoder.encode(chunk));
+          sizeLeft -= chunk.length;
+        },
+      });
+      const result = await client.putObject({
+        Bucket,
+        Key,
+        Body: inputStream,
+        ContentLength: length,
       });
       expect(result.$metadata.httpStatusCode).toEqual(200);
     });
@@ -211,52 +233,38 @@ describe("@aws-sdk/client-s3", () => {
     });
   });
 
-  // TODO Stream is not yet supported
-  describe.skip("selectObjectContent", () => {
-    const csvFile = `user_name,age
-jsrocks,13
-node4life,22
-esfuture,29`;
+  describe("streamingResponse", () => {
+    const body = "x".repeat(10000);
     beforeAll(async () => {
       Key = `${Date.now()}`;
-      await client.putObject({ Bucket, Key, Body: csvFile });
+      await client.putObject({ Bucket, Key, Body: body });
     });
     afterAll(async () => {
       await client.deleteObject({ Bucket, Key });
     });
-    it("should succeed", async () => {
-      const { Payload } = await client.selectObjectContent({
-        Bucket,
-        Key,
-        ExpressionType: "SQL",
-        Expression:
-          "SELECT user_name FROM S3Object WHERE cast(age as int) > 20",
-        InputSerialization: {
-          CSV: {
-            FileHeaderInfo: "USE",
-            RecordDelimiter: "\n",
-            FieldDelimiter: ",",
-          },
-        },
-        OutputSerialization: {
-          CSV: {},
-        },
-      });
-
-      const events: SelectObjectContentEventStream[] = [];
-      for await (const event of Payload!) {
-        events.push(event);
+    it("should stream GetObject body", async () => {
+      const result = await client.getObject({ Bucket, Key });
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of result.Body) {
+        chunks.push(chunk);
       }
-      expect(events.length).toEqual(3);
-      expect(new TextDecoder().decode(events[0].Records?.Payload)).toEqual(
-        "node4life\nesfuture\n"
-      );
-      // expect(events[1].Stats?.Details).toBeDefined();
-      // expect(events[2].End).toBeDefined();
+      const total = chunks.reduce((sum, c) => sum + c.length, 0);
+      expect(total).toEqual(body.length);
+    });
+
+    it("should read GetObject body via Node.js Readable", async () => {
+      const result = await client.getObject({ Bucket, Key });
+      const nodeStream = Readable.fromWeb(result.Body);
+      const chunks: Buffer[] = [];
+      for await (const chunk of nodeStream) {
+        chunks.push(chunk);
+      }
+      const total = chunks.reduce((sum, c) => sum + c.length, 0);
+      expect(total).toEqual(body.length);
     });
   });
 
-  describe.skip("Multi-region access point", () => {
+  describe("Multi-region access point", () => {
     // TODO FB
     beforeAll(async () => {
       Key = `${Date.now()}`;
