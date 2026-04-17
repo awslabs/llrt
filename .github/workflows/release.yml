@@ -56,7 +56,7 @@ jobs:
           chmod 755 ./llrt-container-x64*
           chmod 755 ./llrt-container-arm64*
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: ./CHANGELOG.md
           preserve_order: true
