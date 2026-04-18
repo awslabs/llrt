@@ -165,13 +165,11 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
                             added_input_chars = false;
                         }
                     },
-                    KeyCode::Up => {
-                        if !history.is_empty() && history_index > 0 {
-                            added_input_chars = false;
-                            history_index -= 1;
-                            current_input = history[history_index].clone();
-                            cursor_pos = current_input.len();
-                        }
+                    KeyCode::Up if !history.is_empty() && history_index > 0 => {
+                        added_input_chars = false;
+                        history_index -= 1;
+                        current_input = history[history_index].clone();
+                        cursor_pos = current_input.len();
                     },
                     KeyCode::Down => {
                         let history_len = history.len();
@@ -196,16 +194,12 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
                     KeyCode::Left => {
                         cursor_pos = cursor_pos.saturating_sub(1);
                     },
-                    KeyCode::Right => {
-                        if cursor_pos < current_input.len() {
-                            cursor_pos += 1;
-                        }
+                    KeyCode::Right if cursor_pos < current_input.len() => {
+                        cursor_pos += 1;
                     },
-                    KeyCode::Backspace => {
-                        if cursor_pos > 0 {
-                            current_input.remove(cursor_pos - 1);
-                            cursor_pos -= 1;
-                        }
+                    KeyCode::Backspace if cursor_pos > 0 => {
+                        current_input.remove(cursor_pos - 1);
+                        cursor_pos -= 1;
                     },
                     KeyCode::Char(c) => {
                         if modifiers == KeyModifiers::CONTROL && (c == 'c' || c == 'd') {
