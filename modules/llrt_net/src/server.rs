@@ -104,7 +104,7 @@ impl<'js> Server<'js> {
 
         if let Some(connection_listener) = connection_listener {
             Self::add_event_listener_str(
-                This(instance.clone()),
+                instance.clone(),
                 &ctx,
                 "connection",
                 connection_listener,
@@ -207,14 +207,7 @@ impl<'js> Server<'js> {
         }
 
         if let Some(callback) = callback {
-            Self::add_event_listener_str(
-                This(this.clone()),
-                &ctx,
-                "listening",
-                callback,
-                true,
-                true,
-            )?;
+            Self::add_event_listener_str(this.clone(), &ctx, "listening", callback, true, true)?;
         }
 
         let ctx2 = ctx.clone();
@@ -234,7 +227,7 @@ impl<'js> Server<'js> {
                 },
             };
 
-            Self::emit_str(This(this.clone()), &ctx2, "listening", vec![], false)?;
+            Self::emit_str(this.clone(), &ctx2, "listening", vec![], false)?;
 
             let notify = Arc::new(Notify::new());
             let close_notify = notify.notified();
@@ -270,7 +263,7 @@ impl<'js> Server<'js> {
             already_running.store(false, Ordering::Relaxed);
             should_close.store(false, Ordering::Relaxed);
 
-            Self::emit_str(this, &ctx2, "close", vec![], false)?;
+            Self::emit_str(this.0, &ctx2, "close", vec![], false)?;
 
             Ok(())
         })?;
@@ -281,7 +274,7 @@ impl<'js> Server<'js> {
     fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, cb: Opt<Function<'js>>) -> Result<()> {
         trace!("Closing server");
         if let Some(cb) = cb.0 {
-            Self::add_event_listener_str(This(this.clone()), &ctx, "close", cb, true, true)?;
+            Self::add_event_listener_str(this.clone(), &ctx, "close", cb, true, true)?;
         }
         let borrow = this.borrow_mut();
         borrow.should_close.store(true, Ordering::Relaxed);
@@ -356,7 +349,7 @@ impl<'js> Server<'js> {
 
             let socket_instance2 = socket_instance.clone().into_value();
             Self::emit_str(
-                This(this.clone()),
+                this.clone(),
                 &ctx,
                 "connection",
                 vec![socket_instance2],

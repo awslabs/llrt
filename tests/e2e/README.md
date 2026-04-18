@@ -6,46 +6,44 @@ By leveraging vitest's integration with Typescript, these tests can easily be ex
 
 The goal is to have a suite of integration tests that provide confidence the code will work correctly regardless of whether LLRT or native Node.js is used as the runtime. Running the tests in different environments ensures compatibility and consistent behavior.
 
-## Integration test Prerequisites
+## Running E2E tests
 
-Certain resources need to be created to make sure the integration test has backend resources to test against. Follow steps bellow to create them and make them available through env variables:
+The simplest way to run the E2E tests is:
 
-1. Deploy a CloudFormation stack called `LlrtReleaseIntegTestResourcesStack` using the provided template. This will create the necessary resources for the tests:
+```shell
+make test-e2e
+```
+
+This will:
+
+1. Deploy the CloudFormation stack with required AWS resources (S3 bucket, Cognito Identity Pool, MRAP)
+2. Export environment variables from the stack outputs and AWS credentials
+3. Build the JS bundles
+4. Run the tests
+
+### Prerequisites
+
+- AWS CLI configured with valid credentials
+- `jq` is **not** required — the Makefile handles environment setup automatically
+
+### Manual setup
+
+If you prefer to set up manually:
+
+1. Deploy the CloudFormation stack:
 
    ```shell
-   aws cloudformation deploy --stack-name LLRTReleaseIntegTestResourcesStack --template-file ./IntegTestResourcesStack.template.yml --capabilities CAPABILITY_IAM
+   make setup-e2e
    ```
 
-2. If you have `jq` [installed](https://jqlang.github.io/jq/), you can use the command below to export env variables for ressources that will be used during the E2E tests.
+2. Export environment variables:
 
    ```shell
-   $(aws cloudformation describe-stacks --stack-name LLRTReleaseIntegTestResourcesStack --query "Stacks[*].Outputs[*].{OutputKey: OutputKey, OutputValue: OutputValue}" | jq -r '.[0][] | "export \(.OutputKey|gsub("(?<x>(?!^)|\b[a-zA-Z][a-z]*)(?<y>[A-Z][a-z]*|\\d+)";"\(.x)_\(.y)")| ascii_upcase )=\(.OutputValue)"')
+   eval $(make e2e-env)
    ```
 
-   If `jq` is not available, look at the CloudFormation `Outputs` and manually export the variables:
-
-   - AWS_SMOKE_TEST_BUCKET
-   - AWS_SMOKE_TEST_IDENTITY_POOL_ID
-   - AWS_SMOKE_TEST_MRAP_ARN
-
-3. Export your AWS credentials and Region:
+3. Run a specific test (assuming LLRT is already built):
 
    ```shell
-   export AWS_ACCESS_KEY_ID=XXX
-   export AWS_SECRET_ACCESS_KEY=YYY
-   export AWS_REGION=ZZZ
-   ```
-
-4. Run the integration tests:
-
-   This will build and run all integration tests
-
-   ```shell
-   make test-ci
-   ```
-
-   Assuming you already have a binary built for LLRT, this will run a specific integration tests (e.g.: `s3.e2e.test.ts`)
-
-   ```shell
-   make bundle/js/%.js && target/debug/llrt  test s3.e2e.test
+   make bundle/js/%.js && target/debug/llrt test s3.e2e.test
    ```

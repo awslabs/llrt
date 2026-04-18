@@ -31,6 +31,7 @@ tls-openssl = ["llrt_http/tls-openssl", "llrt_test_tls/tls-openssl"]
 [dependencies]
 bytes = { version = "1", default-features = false }
 either = { version = "1", default-features = false }
+http-body = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
 itoa = { version = "1", default-features = false }
@@ -43,6 +44,7 @@ llrt_http = { version = "0.8.1-beta", default-features = false, path = "../llrt_
 llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json" }
 llrt_url = { version = "0.8.1-beta", path = "../llrt_url" }
 llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_stream_web = { version = "0.8.1-beta", path = "../llrt_stream_web" }
 once_cell = { version = "1", features = ["std"], default-features = false }
 pin-project-lite = { version = "0.2", default-features = false }
 percent-encoding = { version = "2", features = [

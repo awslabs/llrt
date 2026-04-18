@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::libs::utils::primordials::{BasePrimordials, Primordial};
+use llrt_utils::class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION;
 use rquickjs::{
     atom::PredefinedAtom, function::This, object::Accessor, Array, Ctx, Function, Object, Result,
-    Value,
+    Symbol, Value,
 };
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
     let primordials = BasePrimordials::get(ctx)?;
-    let custom_inspect_symbol = primordials.symbol_custom_inspect.clone();
+    let custom_inspect_symbol = Symbol::new_global(ctx.clone(), CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
 
     // Map
     primordials

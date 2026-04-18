@@ -147,6 +147,7 @@ const ADDITIONAL_PACKAGES = [
   "@smithy/querystring-parser",
   "@smithy/service-error-classification",
   "@smithy/signature-v4",
+  "@smithy/signature-v4a",
   "@smithy/smithy-client",
   "@smithy/types",
   "@smithy/url-parser",
@@ -577,15 +578,6 @@ async function loadShims() {
     loadShim(/stringHasher.js/, "string-hasher.js"),
     loadShim(/@smithy\/util-base64/, "@smithy/util-base64.js"),
     loadShim(/mnemonist\/lru-cache\.js/, "mnemonist/lru-cache.js"),
-    loadShim(/collect-stream-body\.js/, "collect-stream-body.js"),
-    loadShim(/sdk-stream-mixin.browser\.js/, "sdk-stream-mixin.js"),
-    loadShim(/stream-collector\.js/, "stream-collector.js"),
-    loadShim(/splitStream\.browser\.js/, "@smithy/split-stream.js"),
-    loadShim(
-      /create-read-stream-on-buffer\.browser\.js/,
-      "create-read-stream.js"
-    ),
-    loadShim(/isStreaming.js/, "is-streaming.js"),
   ]);
 }
 
@@ -647,10 +639,33 @@ async function buildSdks() {
   await Promise.all([
     esbuild.build({
       entryPoints: sdkEntryPoints,
-      plugins: [AWS_SDK_PLUGIN, esbuildShimPlugin([[/^bowser$/]])],
+      plugins: [
+        AWS_SDK_PLUGIN,
+        esbuildShimPlugin([[/^bowser$/]]),
+        {
+          name: "llrt-stream-compat",
+          setup(build) {
+            build.onResolve(
+              { filter: /getAwsChunkedEncodingStream/ },
+              (args) => {
+                if (args.importer.includes("@smithy")) {
+                  return {
+                    path: path.resolve(
+                      "shims/@smithy/getAwsChunkedEncodingStream.js"
+                    ),
+                  };
+                }
+              }
+            );
+          },
+        },
+      ],
       alias: {
         "@aws-sdk/util-utf8-browser": "@smithy/util-utf8",
         "@aws-sdk/util-utf8": "@smithy/util-utf8",
+        "@aws-sdk/signature-v4-multi-region": path.resolve(
+          "shims/@aws-sdk/signature-v4-multi-region.js"
+        ),
         "@smithy/md5-js": "crypto",
         "fast-xml-parser": "llrt:xml",
         "xml-parser.browser": "xml-parser",

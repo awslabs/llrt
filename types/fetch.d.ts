@@ -18,9 +18,33 @@ declare global {
 
   /**
    * The `Body` of a {@link Response} or {@link Request}.
-   * Currently NOT a `ReadableStream`.
    */
-  type Body = QuickJS.ArrayBufferView | Blob | null;
+  type BodyInit =
+    | ReadableStream<Uint8Array>
+    | QuickJS.ArrayBufferView
+    | Blob
+    | FormData
+    | URLSearchParams
+    | string
+    | null;
+
+  /**
+   * Provides a way to construct a set of key/value pairs representing form fields and their values.
+   */
+  class FormData implements Iterable<[string, string | File]> {
+    constructor();
+    append(name: string, value: string | Blob | File): void;
+    delete(name: string): void;
+    get(name: string): string | File | null;
+    getAll(name: string): (string | File)[];
+    has(name: string): boolean;
+    set(name: string, value: string | Blob | File): void;
+    keys(): IterableIterator<string>;
+    values(): IterableIterator<string | File>;
+    entries(): IterableIterator<[string, string | File]>;
+    forEach(callbackfn: (value: string | File, key: string) => void): void;
+    [Symbol.iterator](): Iterator<[string, string | File]>;
+  }
 
   /**
    * A [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) encapsulates immutable, raw data.
@@ -152,14 +176,15 @@ declare global {
     url?: string;
     method?: string;
     signal?: AbortSignal;
-    body?: Blob;
+    body?: BodyInit;
     headers?: HeadersLike;
     agent?: Agent;
+    duplex?: "half";
   }
 
-  type RequestCache = "no-cache";
+  type RequestCache = "no-store";
 
-  type RequestMode = "navigate";
+  type RequestMode = "cors" | "navigate" | "no-cors" | "same-origin";
 
   /**
    * The Request interface of the Fetch API represents a resource request.
@@ -199,9 +224,9 @@ declare global {
      */
     readonly signal: AbortSignal;
     /**
-     * The body content.
+     * The body content as a {@link ReadableStream}, or `null` if the body is empty.
      */
-    readonly body: Body;
+    readonly body: ReadableStream<Uint8Array> | null;
     /**
      * Stores true or false to indicate whether or not the body has been used in a request yet.
      */
@@ -222,6 +247,10 @@ declare global {
      * Returns a promise that resolves with a {@link Uint8Array} representation of the request body.
      */
     readonly bytes: () => Promise<Uint8Array>;
+    /**
+     * Returns a promise that resolves with a {@link FormData} representation of the request body.
+     */
+    readonly formData: () => Promise<FormData>;
     /**
      * Returns a promise that resolves with the result of parsing the request body as JSON.
      */
@@ -256,7 +285,7 @@ declare global {
     /**
      * Creates a new Response object.
      */
-    constructor(body?: Body, opts?: ResponseOpts);
+    constructor(body?: BodyInit, opts?: ResponseOpts);
 
     /**
      * The {@link Headers} object associated with the response.
@@ -284,9 +313,9 @@ declare global {
      */
     readonly redirected: boolean;
     /**
-     * The body content (NOT IMPLEMENTED YET).
+     * The body content as a {@link ReadableStream}, or `null` if the body is empty.
      */
-    readonly body: undefined;
+    readonly body: ReadableStream<Uint8Array> | null;
     /**
      * Stores a boolean value that declares whether the body has been used in a response yet.
      */
@@ -299,6 +328,14 @@ declare global {
      * Returns a promise that resolves with a {@link Blob} representation of the response body.
      */
     readonly blob: () => Promise<Blob>;
+    /**
+     * Returns a promise that resolves with a {@link Uint8Array} representation of the response body.
+     */
+    readonly bytes: () => Promise<Uint8Array>;
+    /**
+     * Returns a promise that resolves with a {@link FormData} representation of the response body.
+     */
+    readonly formData: () => Promise<FormData>;
     /**
      * Returns a promise that resolves with the result of parsing the response body text as JSON.
      */

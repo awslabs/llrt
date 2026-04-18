@@ -215,12 +215,39 @@ tidyup-wpt:
 	| sed -E '/^ ?[^ ]/s|^.*__tests__/|🧪/|' \
 	> wpt_errors.txt
 
+E2E_STACK_NAME := LLRTReleaseIntegTestResourcesStack
+E2E_TEMPLATE := tests/e2e/IntegTestResourcesStack.template.yml
+
+setup-e2e:
+	@echo "Deploying $(E2E_STACK_NAME)..."
+	aws cloudformation deploy \
+		--stack-name $(E2E_STACK_NAME) \
+		--template-file $(E2E_TEMPLATE) \
+		--capabilities CAPABILITY_IAM \
+		--no-fail-on-empty-changeset
+	@echo "Stack ready. Export env vars with:"
+	@echo '  eval $$(make e2e-env)'
+
+E2E_OUTPUTS := \
+	AwsSmokeTestBucket:AWS_SMOKE_TEST_BUCKET \
+	AwsSmokeTestIdentityPoolId:AWS_SMOKE_TEST_IDENTITY_POOL_ID \
+	AwsSmokeTestMrapArn:AWS_SMOKE_TEST_MRAP_ARN
+
+e2e-env:
+	@outputs=$$(aws cloudformation describe-stacks --stack-name $(E2E_STACK_NAME) \
+		--query 'Stacks[0].Outputs[].[OutputKey,OutputValue]' --output text); \
+	for mapping in $(E2E_OUTPUTS); do \
+		echo "$$outputs" | sed -n "s/^$${mapping%%:*}\t/export $${mapping##*:}=/p"; \
+	done; \
+	echo "export AWS_REGION=$$(aws cloudformation describe-stacks --stack-name $(E2E_STACK_NAME) --query 'Stacks[0].StackId' --output text | cut -d: -f4)"; \
+	aws configure export-credentials --format env-no-export 2>/dev/null | sed 's/^/export /'
+
 test-e2e: export JS_MINIFY = 0
 test-e2e: export TEST_TIMEOUT = 60000
 test-e2e: export SDK_BUNDLE_MODE = STD
 test-e2e: export TEST_SUB_DIR = e2e
-test-e2e: js
-	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+test-e2e: setup-e2e js
+	eval $$($(MAKE) e2e-env) && cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) s3
 
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
@@ -279,4 +306,4 @@ check-crates:
 	  cargo check -p "$$crate"; \
 	done
 
-.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci run js run-release build release clean flame deploy
+.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci test-e2e setup-e2e e2e-env run js run-release build release clean flame deploy

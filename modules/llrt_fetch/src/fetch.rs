@@ -1,14 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashSet, convert::Infallible, sync::Arc, time::Instant};
-
 use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, Full};
 use hyper::{header::HeaderName, Method, Request, Uri};
 use llrt_abort::AbortSignal;
+use llrt_context::CtxExtension;
 use llrt_encoding::bytes_from_b64;
 use llrt_http::Agent;
 use llrt_http::HyperClient;
+use llrt_stream_web::ReadableStream;
 use llrt_utils::{
     bytes::{bytes_to_typed_array, ObjectBytes},
     mc_oneshot,
@@ -20,7 +20,16 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::{Async, Func},
-    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result, Value,
+    CatchResultExt, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result,
+    Value,
+};
+use std::{
+    collections::HashSet,
+    convert::Infallible,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Instant,
 };
 use tokio::{select, sync::Semaphore};
 
@@ -54,7 +63,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
             let options = get_fetch_options(&ctx, resource, args);
 
             async move {
-                let lock = connections.acquire().await;
+                let _lock = connections.acquire().await;
                 let options = options?;
 
                 let client = options
@@ -85,58 +94,38 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
 
                 ensure_url_access(&ctx, &uri)?;
 
-                let mut redirect_count = 0;
-                let mut response_status = 0;
-                let (res, guard) = loop {
-                    let (req, guard) = build_request(
+                // For streaming bodies - stream from JS to hyper via channel
+                if let Some(RequestBody::Stream(stream)) = options.body {
+                    return send_stream(
                         &ctx,
-                        &method,
-                        &uri,
+                        &client,
+                        stream,
+                        method,
+                        method_string,
+                        uri,
                         options.headers.as_ref(),
-                        options.body.as_ref(),
-                        &response_status,
-                        &initial_uri,
-                    )?;
+                        start,
+                        abort_receiver,
+                    )
+                    .await;
+                }
 
-                    let res = if let Some(abort_receiver) = &abort_receiver {
-                        select! {
-                            res = client.request(req) => res.or_throw(&ctx)?,
-                            reason = abort_receiver.recv() => return Err(ctx.throw(reason))
-                        }
-                    } else {
-                        client.request(req).await.or_throw(&ctx)?
-                    };
+                let body = options.body;
 
-                    let status = res.status();
-                    if status.is_redirection() {
-                        match res.headers().get(HeaderName::from_static("location")) {
-                            Some(location_headers) => {
-                                if let Ok(location_str) = location_headers.to_str() {
-                                    uri = location_str.parse().or_throw(&ctx)?;
-                                    ensure_url_access(&ctx, &uri)?;
-                                }
-                            },
-                            None => break (res, guard),
-                        };
-                    } else {
-                        break (res, guard);
-                    };
+                let res = send(
+                    &ctx,
+                    &client,
+                    method,
+                    &mut uri,
+                    &initial_uri,
+                    options.headers.as_ref(),
+                    body.as_ref(),
+                    abort_receiver.as_ref(),
+                    &options.redirect,
+                )
+                .await?;
 
-                    if options.redirect == "manual" {
-                        break (res, guard);
-                    } else if options.redirect == "error" {
-                        return Err(Exception::throw_message(&ctx, "Unexpected redirect"));
-                    }
-
-                    redirect_count += 1;
-                    if redirect_count >= MAX_REDIRECT_COUNT {
-                        return Err(Exception::throw_message(&ctx, "Max retries exceeded"));
-                    }
-
-                    response_status = res.status().as_u16();
-                };
-
-                drop(lock);
+                let (res, redirected, guard) = res;
 
                 Response::from_incoming(
                     ctx,
@@ -144,7 +133,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                     method_string,
                     uri.to_string(),
                     start,
-                    !matches!(redirect_count, 0),
+                    redirected,
                     abort_receiver,
                     guard,
                 )
@@ -152,6 +141,210 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
         })),
     )?;
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn send_stream<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    stream: Class<'js, ReadableStream<'js>>,
+    method: Method,
+    method_string: String,
+    uri: Uri,
+    headers: Option<&Headers>,
+    start: Instant,
+    abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+) -> Result<Response<'js>> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(128);
+    let (err_tx, err_rx) = tokio::sync::oneshot::channel::<String>();
+    let ctx2 = ctx.clone();
+
+    // Spawn stream reader in JS context
+    ctx.spawn_exit_simple({
+        async move {
+            let get_reader: Function = stream.get("getReader")?;
+            let reader: Object = get_reader.call((This(stream.clone()),))?;
+            let read_fn: Function = reader.get("read")?;
+
+            loop {
+                let promise: rquickjs::Promise = read_fn.call((This(reader.clone()),))?;
+                let read_result = match promise.into_future::<Object>().await.catch(&ctx2) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let msg = match e {
+                            rquickjs::CaughtError::Exception(ex) => {
+                                ex.message().unwrap_or_default()
+                            },
+                            rquickjs::CaughtError::Value(v) => v
+                                .as_string()
+                                .and_then(|s| s.to_string().ok())
+                                .unwrap_or_else(|| "Stream error".into()),
+                            rquickjs::CaughtError::Error(e) => e.to_string(),
+                        };
+                        let _ = err_tx.send(msg);
+                        break;
+                    },
+                };
+                let done: bool = read_result.get("done").unwrap_or(true);
+                if done {
+                    break;
+                }
+                if let Ok(value) = read_result.get::<_, Value>("value") {
+                    // Try TypedArray first, then ArrayBuffer
+                    let bytes: Option<Vec<u8>> = if let Ok(typed_array) =
+                        rquickjs::TypedArray::<u8>::from_value(value.clone())
+                    {
+                        typed_array.as_bytes().map(|b| b.to_vec())
+                    } else if let Some(array_buffer) =
+                        value.as_object().and_then(|o| o.as_array_buffer())
+                    {
+                        array_buffer.as_bytes().map(|b| b.to_vec())
+                    } else {
+                        let _ =
+                            err_tx.send("Failed to read body: chunk is not a BufferSource".into());
+                        break;
+                    };
+
+                    if let Some(bytes) = bytes {
+                        if tx.send(Bytes::copy_from_slice(&bytes)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    });
+
+    // Build request with streaming body
+    let stream_body = StreamingBody { rx };
+    let mut req = Request::builder().method(method.clone()).uri(uri.clone());
+    let mut detected_headers = HashSet::new();
+    if let Some(headers) = headers {
+        for (header_name, value) in headers.iter() {
+            detected_headers.insert(header_name);
+            req = req.header(header_name, value)
+        }
+    }
+    apply_default_headers(&mut req, &detected_headers);
+
+    let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
+    let request = req.body(box_body).or_throw(ctx)?;
+
+    // Race request against stream error
+    let request_fut = client.request(request);
+    tokio::pin!(request_fut);
+    let mut err_rx = std::pin::pin!(err_rx);
+    let mut err_done = false;
+
+    let res = loop {
+        select! {
+            biased;
+            result = &mut err_rx, if !err_done => {
+                err_done = true;
+                if let Ok(msg) = result {
+                    return Err(Exception::throw_type(ctx, &msg));
+                }
+            }
+            res = &mut request_fut => break res.or_throw(ctx)?,
+        }
+    };
+
+    Response::from_incoming(
+        ctx.clone(),
+        res,
+        method_string,
+        uri.to_string(),
+        start,
+        false,
+        abort_receiver,
+        HeadersGuard::Response,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn send<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    method: Method,
+    uri: &mut Uri,
+    initial_uri: &Uri,
+    headers: Option<&Headers>,
+    body: Option<&RequestBody<'js>>,
+    abort_receiver: Option<&mc_oneshot::Receiver<Value<'js>>>,
+    redirect: &str,
+) -> Result<(hyper::Response<hyper::body::Incoming>, bool, HeadersGuard)> {
+    let mut redirect_count = 0;
+    let mut response_status = 0;
+
+    let (res, guard) = loop {
+        let (req, guard) = build_request(
+            ctx,
+            &method,
+            uri,
+            headers,
+            body,
+            &response_status,
+            initial_uri,
+        )?;
+
+        let res = if let Some(abort_receiver) = abort_receiver {
+            select! {
+                res = client.request(req) => res.or_throw(ctx)?,
+                reason = abort_receiver.recv() => return Err(ctx.throw(reason))
+            }
+        } else {
+            client.request(req).await.or_throw(ctx)?
+        };
+
+        let status = res.status();
+        if status.is_redirection() {
+            match res.headers().get(HeaderName::from_static("location")) {
+                Some(location_headers) => {
+                    if let Ok(location_str) = location_headers.to_str() {
+                        *uri = location_str.parse().or_throw(ctx)?;
+                        ensure_url_access(ctx, uri)?;
+                    }
+                },
+                None => break (res, guard),
+            };
+        } else {
+            break (res, guard);
+        };
+
+        if redirect == "manual" {
+            break (res, guard);
+        } else if redirect == "error" {
+            return Err(Exception::throw_message(ctx, "Unexpected redirect"));
+        }
+
+        redirect_count += 1;
+        if redirect_count >= MAX_REDIRECT_COUNT {
+            return Err(Exception::throw_message(ctx, "Max retries exceeded"));
+        }
+
+        response_status = res.status().as_u16();
+    };
+
+    Ok((res, redirect_count > 0, guard))
+}
+
+fn apply_default_headers(
+    req: &mut hyper::http::request::Builder,
+    detected_headers: &HashSet<&str>,
+) {
+    if !detected_headers.contains("user-agent") {
+        *req = std::mem::take(req).header("user-agent", ["llrt ", VERSION].concat());
+    }
+    if !detected_headers.contains("accept-encoding") {
+        *req = std::mem::take(req).header("accept-encoding", "zstd, br, gzip, deflate");
+    }
+    if !detected_headers.contains("accept-language") {
+        *req = std::mem::take(req).header("accept-language", "*");
+    }
+    if !detected_headers.contains("accept") {
+        *req = std::mem::take(req).header("accept", "*/*");
+    }
 }
 
 fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Result<Response<'js>> {
@@ -202,12 +395,12 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Resul
     Response::new(ctx.clone(), Opt(Some(blob)), Opt(Some(options)))
 }
 
-fn build_request(
-    ctx: &Ctx<'_>,
+fn build_request<'js>(
+    ctx: &Ctx<'js>,
     method: &hyper::Method,
     uri: &Uri,
     headers: Option<&Headers>,
-    body: Option<&BodyBytes>,
+    body: Option<&RequestBody<'js>>,
     prev_status: &u16,
     initial_uri: &Uri,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
@@ -255,25 +448,44 @@ fn build_request(
         }
     }
 
-    if !detected_headers.contains("user-agent") {
-        req = req.header("user-agent", ["llrt ", VERSION].concat());
-    }
-    if !detected_headers.contains("accept-encoding") {
-        req = req.header("accept-encoding", "zstd, br, gzip, deflate");
-    }
-    if !detected_headers.contains("accept-language") {
-        req = req.header("accept-language", "*");
-    }
-    if !detected_headers.contains("accept") {
-        req = req.header("accept", "*/*");
-    }
-    let body = req
-        .body(BoxBody::new(
-            body.map(|b| b.body.clone()).unwrap_or_default(),
-        ))
-        .or_throw(ctx)?;
+    apply_default_headers(&mut req, &detected_headers);
 
-    Ok((body, guard))
+    // Build the body
+    let box_body: BoxBody<Bytes, Infallible> = match body {
+        Some(RequestBody::Static { body, .. }) => BoxBody::new(body.clone()),
+        Some(RequestBody::Stream(_)) => {
+            unreachable!("Streaming bodies are handled by send_stream")
+        },
+        None => BoxBody::new(Full::default()),
+    };
+
+    let request = req.body(box_body).or_throw(ctx)?;
+
+    Ok((request, guard))
+}
+
+struct StreamingBody {
+    rx: tokio::sync::mpsc::Receiver<Bytes>,
+}
+
+impl http_body::Body for StreamingBody {
+    type Data = Bytes;
+    type Error = Infallible;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<std::result::Result<http_body::Frame<Self::Data>, Self::Error>>> {
+        match self.rx.poll_recv(cx) {
+            Poll::Ready(Some(bytes)) => Poll::Ready(Some(Ok(http_body::Frame::data(bytes)))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.rx.is_closed() && self.rx.is_empty()
+    }
 }
 
 fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
@@ -317,17 +529,21 @@ fn is_cors_non_wildcard_request_header_name(key: &str) -> bool {
     matches!(key, "authorization")
 }
 
-struct BodyBytes<'js> {
-    #[allow(dead_code)]
-    object_bytes: ObjectBytes<'js>,
-    body: Full<Bytes>,
+enum RequestBody<'js> {
+    Static {
+        #[allow(dead_code)]
+        object_bytes: ObjectBytes<'js>,
+        body: Full<Bytes>,
+    },
+    Stream(Class<'js, ReadableStream<'js>>),
 }
-impl<'js> BodyBytes<'js> {
-    fn new(ctx: Ctx<'js>, object_bytes: ObjectBytes<'js>) -> Result<Self> {
+
+impl<'js> RequestBody<'js> {
+    fn from_bytes(ctx: Ctx<'js>, object_bytes: ObjectBytes<'js>) -> Result<Self> {
         //this is safe since we hold on to ObjectBytes
         let raw_bytes: &'static [u8] = unsafe { std::mem::transmute(object_bytes.as_bytes(&ctx)?) };
         let body = Full::from(Bytes::from_static(raw_bytes));
-        Ok(Self { object_bytes, body })
+        Ok(Self::Static { object_bytes, body })
     }
 }
 
@@ -335,7 +551,7 @@ struct FetchOptions<'js> {
     method: hyper::Method,
     url: String,
     headers: Option<Headers>,
-    body: Option<BodyBytes<'js>>,
+    body: Option<RequestBody<'js>>,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     redirect: String,
     agent: Option<Class<'js, Agent>>,
@@ -395,14 +611,19 @@ fn get_fetch_options<'js>(
         if let Some(body_opt) =
             get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
         {
-            let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
-                let blob = blob.borrow();
-                let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
-                ObjectBytes::from(ctx, &typed_array)?
+            // Check if body is a ReadableStream
+            if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
+                body = Some(RequestBody::Stream(stream));
             } else {
-                ObjectBytes::from(ctx, &body_opt)?
-            };
-            body = Some(BodyBytes::new(ctx.clone(), bytes)?);
+                let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
+                    let blob = blob.borrow();
+                    let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
+                    ObjectBytes::from(ctx, &typed_array)?
+                } else {
+                    ObjectBytes::from(ctx, &body_opt)?
+                };
+                body = Some(RequestBody::from_bytes(ctx.clone(), bytes)?);
+            }
         }
 
         if let Some(url_opt) =

@@ -3,10 +3,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use llrt_utils::{
-    object::CreateSymbol,
-    primordials::{BasePrimordials, Primordial},
-};
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 use rquickjs::{
     atom::PredefinedAtom,
     class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
@@ -569,7 +566,7 @@ impl<'js> Primordial<'js> for IteratorPrimordials<'js> {
             .expect("async iterator prototype not found");
 
         Ok(Self {
-            end_of_iteration: Symbol::for_description(ctx, "async iterator end of iteration")?,
+            end_of_iteration: Symbol::new_global(ctx.clone(), "async iterator end of iteration")?,
             sync_to_async_iterator,
             async_iterator_prototype,
         })
@@ -653,7 +650,7 @@ mod tests {
                 Value::new_int(ctx.clone(), 123),
                 Value::new_float(ctx.clone(), 1.5),
                 rquickjs::String::from_str(ctx.clone(), "abc")?.into_value(),
-                Symbol::for_description(&ctx, "def")?.into_value(),
+                Symbol::new_global(ctx.clone(), "def")?.into_value(),
                 BigInt::from_i64(ctx.clone(), 123456)?.into_value(),
                 Object::new(ctx.clone())?.into_value(),
             ];

@@ -5,6 +5,34 @@ use rquickjs::{
     prelude::{Opt, This},
     Class, Ctx, Error, Exception, JsLifetime, Object, Promise, Result, Value,
 };
+use std::{future, pin::Pin, rc::Rc};
+
+/// Native async pull: returns Ok(Some(chunk)) or Ok(None) for EOF.
+/// Result of a native pull: data ready, EOF, or need async.
+pub enum NativePullResult<'js> {
+    /// Data chunk ready synchronously
+    Ready(Value<'js>),
+    /// EOF — no more data
+    Eof,
+    /// Need async — returns a future for the pending case
+    Pending(Pin<Box<dyn future::Future<Output = Result<Option<Value<'js>>>> + 'js>>),
+}
+
+pub type NativePullFn<'js> = dyn Fn(&Ctx<'js>) -> Result<NativePullResult<'js>> + 'js;
+
+/// Wrapper satisfying JsLifetime/Trace.
+pub struct NativePull<'js>(pub Rc<NativePullFn<'js>>);
+impl<'js> Clone for NativePull<'js> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+unsafe impl<'js> JsLifetime<'js> for NativePull<'js> {
+    type Changed<'to> = NativePull<'to>;
+}
+impl<'js> Trace<'js> for NativePull<'js> {
+    fn trace<'a>(&self, _: rquickjs::class::Tracer<'a, 'js>) {}
+}
 
 use crate::{
     queuing_strategy::{SizeAlgorithm, SizeValue},
@@ -35,20 +63,27 @@ use crate::{
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
-pub(crate) struct ReadableStreamDefaultController<'js> {
+pub struct ReadableStreamDefaultController<'js> {
     cancel_algorithm: Option<CancelAlgorithm<'js>>,
     close_requested: bool,
     pull_again: bool,
     pull_algorithm: Option<PullAlgorithm<'js>>,
-    pulling: bool,
-    container: QueueWithSizes<'js>,
+    pub(crate) pulling: bool,
+    pub(crate) container: QueueWithSizes<'js>,
     started: bool,
     strategy_hwm: f64,
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
     pub(super) stream: ReadableStreamClass<'js>,
+    pub native_pull: Option<NativePull<'js>>,
 }
 
-pub(super) type ReadableStreamDefaultControllerClass<'js> =
+impl<'js> Drop for ReadableStreamDefaultController<'js> {
+    fn drop(&mut self) {
+        self.native_pull = None;
+    }
+}
+
+pub type ReadableStreamDefaultControllerClass<'js> =
     Class<'js, ReadableStreamDefaultController<'js>>;
 pub(super) type ReadableStreamDefaultControllerOwned<'js> =
     OwnedBorrowMut<'js, ReadableStreamDefaultController<'js>>;
@@ -138,6 +173,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
             pull_algorithm: Some(pull_algorithm),
             // Set controller.[[cancelAlgorithm]] to cancelAlgorithm.
             cancel_algorithm: Some(cancel_algorithm),
+            native_pull: None,
         };
 
         let controller_class = Class::instance(ctx.clone(), controller)?;
@@ -337,6 +373,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         self.pull_algorithm = None;
         self.cancel_algorithm = None;
         self.strategy_size_algorithm = None;
+        self.native_pull = None;
     }
 
     fn readable_stream_default_controller_can_close_or_enqueue(
@@ -352,7 +389,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         }
     }
 
-    fn readable_stream_default_controller_get_desired_size(
+    pub(crate) fn readable_stream_default_controller_get_desired_size(
         &self,
         stream: &ReadableStream<'js>,
     ) -> Null<f64> {
@@ -764,4 +801,87 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamDefaultControllerOwned
     }
 
     fn release_steps(&mut self) {}
+}
+
+/// Public API for enqueuing data into a default controller from Rust code
+pub fn readable_stream_default_controller_enqueue_value<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    chunk: Value<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    if !objects
+        .controller
+        .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
+    {
+        return Ok(()); // Silently ignore if can't enqueue
+    }
+
+    objects.with_reader(
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_enqueue(
+                ctx.clone(),
+                objects,
+                chunk.clone(),
+            )
+        },
+        |_| panic!("Default controller must not have byob reader"),
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_enqueue(
+                ctx.clone(),
+                objects,
+                chunk.clone(),
+            )
+        },
+    )?;
+
+    Ok(())
+}
+
+/// Public API for closing a default controller from Rust code
+pub fn readable_stream_default_controller_close_stream<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableStreamDefaultControllerClass<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    if !objects
+        .controller
+        .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
+    {
+        return Ok(());
+    }
+
+    ReadableStreamDefaultController::readable_stream_default_controller_close(ctx, objects)?;
+    Ok(())
+}
+
+/// Public API for erroring a default controller from Rust code
+pub fn readable_stream_default_controller_error_stream<'js>(
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    error: Value<'js>,
+) -> Result<()> {
+    let objects =
+        ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
+
+    objects.with_reader(
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_error(
+                objects,
+                error.clone(),
+            )
+        },
+        |_| panic!("Default controller must not have byob reader"),
+        |objects| {
+            ReadableStreamDefaultController::readable_stream_default_controller_error(
+                objects,
+                error.clone(),
+            )
+        },
+    )?;
+
+    Ok(())
 }

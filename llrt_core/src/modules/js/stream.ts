@@ -28,8 +28,108 @@ Stream.finished = finished;
 Stream.pipeline = pipeline;
 Stream.Stream = Stream;
 
-// old-style streams.  Note that the pipe method (the only relevant
-// part of this class) is overridden in the Readable class.
+// Web stream adapters — bridge bundled Node.js streams to native web streams
+const enc = new TextEncoder();
+
+Readable.toWeb = function (readable: any) {
+  const iterator = readable[Symbol.asyncIterator]();
+  return new ReadableStream({
+    async pull(controller: any) {
+      const { value, done } = await iterator.next();
+      if (done) {
+        controller.close();
+      } else {
+        controller.enqueue(
+          typeof value === "string" ? enc.encode(value) : value
+        );
+      }
+    },
+    cancel(reason: any) {
+      readable.destroy(reason);
+    },
+  });
+};
+
+Readable.fromWeb = function (readableStream: any, options?: any) {
+  const reader = readableStream.getReader();
+  return new Readable({
+    ...options,
+    async read() {
+      const { value, done } = await reader.read();
+      this.push(done ? null : value);
+    },
+  });
+};
+
+Writable.toWeb = function (writable: any) {
+  return new WritableStream({
+    write(chunk: any) {
+      return new Promise<void>((resolve) => {
+        if (!writable.write(chunk)) {
+          writable.once("drain", resolve);
+        } else {
+          resolve();
+        }
+      });
+    },
+    close() {
+      return new Promise<void>((resolve) => {
+        writable.end(resolve);
+      });
+    },
+    abort(reason: any) {
+      writable.destroy(reason);
+    },
+  });
+};
+
+Writable.fromWeb = function (writableStream: any, options?: any) {
+  const writer = writableStream.getWriter();
+  return new Writable({
+    ...options,
+    async write(chunk: any, _encoding: any, callback: any) {
+      try {
+        await writer.write(chunk);
+        callback();
+      } catch (e) {
+        callback(e);
+      }
+    },
+    final(callback: any) {
+      writer.close().then(callback, callback);
+    },
+  });
+};
+
+Duplex.toWeb = function (duplex: any) {
+  return {
+    readable: Readable.toWeb(duplex),
+    writable: Writable.toWeb(duplex),
+  };
+};
+
+Duplex.fromWeb = function (pair: any, options?: any) {
+  const reader = pair.readable.getReader();
+  const writer = pair.writable.getWriter();
+  return new Duplex({
+    ...options,
+    async read() {
+      const { value, done } = await reader.read();
+      this.push(done ? null : value);
+    },
+    async write(chunk: any, _encoding: any, callback: any) {
+      try {
+        await writer.write(chunk);
+        callback();
+      } catch (e) {
+        callback(e);
+      }
+    },
+    final(callback: any) {
+      writer.close().then(callback, callback);
+    },
+  });
+};
 
 function Stream(this: any) {
   EE.call(this);

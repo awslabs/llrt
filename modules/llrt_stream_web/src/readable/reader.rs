@@ -19,7 +19,7 @@ use crate::{
     utils::promise::{PromisePrimordials, ResolveablePromise},
 };
 
-pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
+pub(crate) trait ReadableStreamReader<'js>: Sized + 'js {
     type Class: Clone + Trace<'js>;
 
     fn with_reader<C>(
@@ -45,7 +45,7 @@ pub(super) trait ReadableStreamReader<'js>: Sized + 'js {
 
 // typedef (ReadableStreamDefaultController or ReadableByteStreamController) ReadableStreamController;
 #[derive(JsLifetime, Clone, PartialEq, Eq)]
-pub enum ReadableStreamReaderClass<'js> {
+pub(crate) enum ReadableStreamReaderClass<'js> {
     ReadableStreamDefaultReader(ReadableStreamDefaultReaderClass<'js>),
     ReadableStreamBYOBReader(ReadableStreamBYOBReaderClass<'js>),
 }
@@ -73,7 +73,7 @@ impl<'js> From<ReadableStreamBYOBReaderClass<'js>> for ReadableStreamReaderClass
     }
 }
 
-pub(super) enum ReadableStreamReaderOwned<'js> {
+pub(crate) enum ReadableStreamReaderOwned<'js> {
     ReadableStreamDefaultReader(ReadableStreamDefaultReaderOwned<'js>),
     ReadableStreamBYOBReader(ReadableStreamBYOBReaderOwned<'js>),
 }
@@ -175,7 +175,7 @@ impl<'js, T: ReadableStreamReader<'js>> ReadableStreamReader<'js> for Option<T> 
 }
 
 #[derive(Clone, Trace)]
-pub(super) struct UndefinedReader;
+pub(crate) struct UndefinedReader;
 
 impl<'js> ReadableStreamReader<'js> for UndefinedReader {
     type Class = UndefinedReader;
@@ -224,19 +224,26 @@ impl<'js> From<ReadableStreamBYOBReaderOwned<'js>> for ReadableStreamReaderOwned
     }
 }
 
-#[derive(JsLifetime, Trace)]
+#[derive(JsLifetime)]
 pub struct ReadableStreamGenericReader<'js> {
     pub(super) closed_promise: ResolveablePromise<'js>,
     pub(super) stream: Option<ReadableStreamClass<'js>>,
-
-    #[qjs(skip_trace)]
     pub(super) promise_primordials: PromisePrimordials<'js>,
-    #[qjs(skip_trace)]
     pub(super) constructor_type_error: Constructor<'js>,
-    #[qjs(skip_trace)]
     pub(super) constructor_range_error: Constructor<'js>,
-    #[qjs(skip_trace)]
     pub(super) function_array_buffer_is_view: Function<'js>,
+}
+
+impl<'js> Trace<'js> for ReadableStreamGenericReader<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.closed_promise.trace(tracer);
+        self.stream.trace(tracer);
+        self.promise_primordials.trace(tracer);
+        // Constructor and Function are persistent - trace their underlying values
+        self.constructor_type_error.as_value().trace(tracer);
+        self.constructor_range_error.as_value().trace(tracer);
+        self.function_array_buffer_is_view.as_value().trace(tracer);
+    }
 }
 
 impl<'js> ReadableStreamGenericReader<'js> {

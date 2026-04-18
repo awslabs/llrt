@@ -203,7 +203,7 @@ where
                         vec![]
                     },
                 };
-                Self::emit_str(This(this), ctx, listener, args, false)?;
+                Self::emit_str(this, ctx, listener, args, false)?;
             }
         }
         Ok(())
@@ -281,7 +281,7 @@ where
                                         }
 
                                         Self::emit_str(
-                                            This(this2.clone()),
+                                            this2.clone(),
                                             &ctx3,
                                             "data",
                                             vec![Buffer(buffer.clone()).into_js(&ctx3)?],
@@ -297,7 +297,7 @@ where
 
                                         let write_buffer_future = ba_buffer.write(&mut buffer);
                                         Self::emit_str(
-                                            This(this2.clone()),
+                                            this2.clone(),
                                             &ctx3,
                                             "readable",
                                             vec![],
@@ -350,7 +350,7 @@ where
 
                 if !is_destroyed {
                     on_end();
-                    Self::emit_str(This(this2), &ctx3, "end", vec![], false)?;
+                    Self::emit_str(this2.clone(), &ctx3, "end", vec![], false)?;
                 }
 
                 if let Some(error_value) = error_value{

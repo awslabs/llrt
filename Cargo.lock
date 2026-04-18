@@ -1898,6 +1898,7 @@ version = "0.8.1-beta"
 dependencies = [
  "bytes",
  "either",
+ "http-body",
  "http-body-util",
  "hyper",
  "itoa",
@@ -1908,6 +1909,7 @@ dependencies = [
  "llrt_encoding",
  "llrt_http",
  "llrt_json",
+ "llrt_stream_web",
  "llrt_test",
  "llrt_test_tls",
  "llrt_url",
@@ -2922,7 +2924,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#dbdc016f040ae5f95fe4a3583426c001b3c1e137"
+source = "git+https://github.com/DelSkayn/rquickjs#5dcebf0e1e4f242de4b98208c328bf69eb4ac1e6"
 dependencies = [
  "either",
  "rquickjs-core",
@@ -2932,7 +2934,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#dbdc016f040ae5f95fe4a3583426c001b3c1e137"
+source = "git+https://github.com/DelSkayn/rquickjs#5dcebf0e1e4f242de4b98208c328bf69eb4ac1e6"
 dependencies = [
  "async-lock",
  "either",
@@ -2944,7 +2946,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#dbdc016f040ae5f95fe4a3583426c001b3c1e137"
+source = "git+https://github.com/DelSkayn/rquickjs#5dcebf0e1e4f242de4b98208c328bf69eb4ac1e6"
 dependencies = [
  "convert_case",
  "fnv",
@@ -2960,7 +2962,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#dbdc016f040ae5f95fe4a3583426c001b3c1e137"
+source = "git+https://github.com/DelSkayn/rquickjs#5dcebf0e1e4f242de4b98208c328bf69eb4ac1e6"
 dependencies = [
  "bindgen",
  "cc",

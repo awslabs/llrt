@@ -1,18 +1,23 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use llrt_utils::option::{Null, Undefined};
-use rquickjs::prelude::OnceFn;
 use rquickjs::{
-    class::Trace, prelude::This, Ctx, Function, JsLifetime, Object, Promise, Result, Value,
+    class::Trace, prelude::This, Class, Ctx, Function, JsLifetime, Object, Promise, Result, Value,
 };
 
 use crate::{
     readable::controller::ReadableStreamControllerClass,
+    transform::{
+        controller::TransformStreamDefaultControllerClass,
+        stream::{self as transform_stream, TransformStreamClass},
+    },
     utils::promise::{promise_resolved_with, PromisePrimordials},
 };
 
+use super::tee::TeeState;
+
 #[derive(Clone)]
-pub(crate) enum StartAlgorithm<'js> {
+pub enum StartAlgorithm<'js> {
     ReturnUndefined,
     Function {
         f: Function<'js>,
@@ -36,28 +41,53 @@ impl<'js> StartAlgorithm<'js> {
     }
 }
 
-#[derive(Trace, Clone)]
-pub(crate) enum PullAlgorithm<'js> {
+type PullRustFn<'js> =
+    Box<dyn Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js>;
+
+#[allow(private_interfaces)]
+#[derive(Clone)]
+pub enum PullAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_source: Null<Undefined<Object<'js>>>,
     },
-    RustFunction(#[qjs(skip_trace)] Rc<PullRustFunction<'js>>),
+    RustFunction(Rc<PullRustFn<'js>>),
+    Tee(Class<'js, TeeState<'js>>),
+    Transform(TransformStreamClass<'js>),
+}
+
+impl<'js> Trace<'js> for PullAlgorithm<'js> {
+    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+        match self {
+            Self::ReturnPromiseUndefined => {},
+            Self::Function {
+                f,
+                underlying_source,
+            } => {
+                f.trace(tracer);
+                underlying_source.trace(tracer);
+            },
+            Self::RustFunction(_) => {},
+            Self::Tee(state) => state.trace(tracer),
+            Self::Transform(stream) => stream.trace(tracer),
+        }
+    }
 }
 
 unsafe impl<'js> JsLifetime<'js> for PullAlgorithm<'js> {
     type Changed<'to> = PullAlgorithm<'to>;
 }
 
-type PullRustFunction<'js> =
-    Box<dyn Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js>;
-
 impl<'js> PullAlgorithm<'js> {
-    pub(super) fn from_fn(
+    pub fn from_fn(
         f: impl Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js,
     ) -> Self {
         Self::RustFunction(Rc::new(Box::new(f)))
+    }
+
+    pub(super) fn from_tee_state(state: Class<'js, TeeState<'js>>) -> Self {
+        Self::Tee(state)
     }
 
     pub(crate) fn call(
@@ -79,29 +109,92 @@ impl<'js> PullAlgorithm<'js> {
                 f.call::<_, Value>((This(underlying_source.clone()), controller)),
             ),
             PullAlgorithm::RustFunction(f) => f(ctx, controller),
+            PullAlgorithm::Tee(state) => {
+                crate::readable::stream::tee::tee_pull_algorithm(ctx, state.clone())
+            },
+            PullAlgorithm::Transform(stream) => {
+                transform_stream::source_pull_algorithm(ctx, stream)
+            },
         }
     }
 }
 
-#[derive(Clone, Trace)]
-pub(crate) enum CancelAlgorithm<'js> {
+type CancelRustFn<'js> = Box<dyn FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js>;
+
+#[allow(private_interfaces)]
+pub enum CancelAlgorithm<'js> {
     ReturnPromiseUndefined,
     Function {
         f: Function<'js>,
         underlying_source: Null<Undefined<Object<'js>>>,
     },
-    RustFunction(#[qjs(skip_trace)] Rc<OnceFn<CancelRustFunction<'js>>>),
+    RustFunction(Rc<RefCell<Option<CancelRustFn<'js>>>>),
+    Tee1(Class<'js, TeeState<'js>>),
+    Tee2(Class<'js, TeeState<'js>>),
+    Transform {
+        stream: TransformStreamClass<'js>,
+        controller: TransformStreamDefaultControllerClass<'js>,
+    },
+}
+
+impl<'js> Clone for CancelAlgorithm<'js> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::ReturnPromiseUndefined => Self::ReturnPromiseUndefined,
+            Self::Function {
+                f,
+                underlying_source,
+            } => Self::Function {
+                f: f.clone(),
+                underlying_source: underlying_source.clone(),
+            },
+            Self::RustFunction(rc) => Self::RustFunction(rc.clone()),
+            Self::Tee1(state) => Self::Tee1(state.clone()),
+            Self::Tee2(state) => Self::Tee2(state.clone()),
+            Self::Transform { stream, controller } => Self::Transform {
+                stream: stream.clone(),
+                controller: controller.clone(),
+            },
+        }
+    }
+}
+
+impl<'js> Trace<'js> for CancelAlgorithm<'js> {
+    fn trace<'a>(&self, tracer: rquickjs::class::Tracer<'a, 'js>) {
+        match self {
+            Self::ReturnPromiseUndefined => {},
+            Self::Function {
+                f,
+                underlying_source,
+            } => {
+                f.trace(tracer);
+                underlying_source.trace(tracer);
+            },
+            Self::RustFunction(_) => {},
+            Self::Tee1(state) | Self::Tee2(state) => state.trace(tracer),
+            Self::Transform { stream, controller } => {
+                stream.trace(tracer);
+                controller.trace(tracer);
+            },
+        }
+    }
 }
 
 unsafe impl<'js> JsLifetime<'js> for CancelAlgorithm<'js> {
     type Changed<'to> = CancelAlgorithm<'to>;
 }
 
-type CancelRustFunction<'js> = Box<dyn FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js>;
-
 impl<'js> CancelAlgorithm<'js> {
-    pub(super) fn from_fn(f: impl FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js) -> Self {
-        Self::RustFunction(Rc::new(OnceFn::new(Box::new(f))))
+    pub fn from_fn(f: impl FnOnce(Value<'js>) -> Result<Promise<'js>> + 'js) -> Self {
+        Self::RustFunction(Rc::new(RefCell::new(Some(Box::new(f)))))
+    }
+
+    pub(super) fn from_tee_state_1(state: Class<'js, TeeState<'js>>) -> Self {
+        Self::Tee1(state)
+    }
+
+    pub(super) fn from_tee_state_2(state: Class<'js, TeeState<'js>>) -> Self {
+        Self::Tee2(state)
     }
 
     pub(crate) fn call(
@@ -119,11 +212,23 @@ impl<'js> CancelAlgorithm<'js> {
                 underlying_source,
             } => {
                 let result: Result<Value> = f.call((This(underlying_source.clone()), reason));
-                let promise = promise_resolved_with(&ctx, promise_primordials, result);
-                promise
+                promise_resolved_with(&ctx, promise_primordials, result)
             },
             CancelAlgorithm::RustFunction(f) => {
-                f.take().expect("cancel algorithm must only be called once")(reason)
+                let f = f
+                    .borrow_mut()
+                    .take()
+                    .expect("cancel algorithm must only be called once");
+                f(reason)
+            },
+            CancelAlgorithm::Tee1(state) => {
+                crate::readable::stream::tee::tee_cancel_algorithm(ctx, state.clone(), reason, 0)
+            },
+            CancelAlgorithm::Tee2(state) => {
+                crate::readable::stream::tee::tee_cancel_algorithm(ctx, state.clone(), reason, 1)
+            },
+            CancelAlgorithm::Transform { stream, controller } => {
+                transform_stream::source_cancel_algorithm(ctx, stream, controller, reason)
             },
         }
     }
