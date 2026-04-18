@@ -95,11 +95,11 @@ async fn lookup_host(
     match order {
         LookupOrder::Verbatim => Ok(addrs),
         LookupOrder::Ipv4First => {
-            addrs.sort_by(|a, b| a.family.cmp(&b.family));
+            addrs.sort_by_key(|a| a.family);
             Ok(addrs)
         },
         LookupOrder::Ipv6First => {
-            addrs.sort_by(|a, b| b.family.cmp(&a.family));
+            addrs.sort_by_key(|b| std::cmp::Reverse(b.family));
             Ok(addrs)
         },
     }

@@ -834,71 +834,56 @@ fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
                 i += 1;
             },
             // 2-byte UTF-8 sequence
-            0xC0..=0xDF => {
-                if i + 1 < bytes.len() {
-                    let next = bytes[i + 1];
-                    if (next & 0xC0) == 0x80 {
-                        let code_point = ((current as u32 & 0x1F) << 6) | (next as u32 & 0x3F);
-                        if let Some(c) = char::from_u32(code_point) {
-                            result.push(c);
-                        } else {
-                            result.push('�');
-                        }
-                        i += 2;
+            0xC0..=0xDF if i + 1 < bytes.len() => {
+                let next = bytes[i + 1];
+                if (next & 0xC0) == 0x80 {
+                    let code_point = ((current as u32 & 0x1F) << 6) | (next as u32 & 0x3F);
+                    if let Some(c) = char::from_u32(code_point) {
+                        result.push(c);
                     } else {
                         result.push('�');
-                        i += 1;
                     }
+                    i += 2;
                 } else {
                     result.push('�');
                     i += 1;
                 }
             },
             // 3-byte UTF-8 sequence
-            0xE0..=0xEF => {
-                if i + 2 < bytes.len() {
-                    let next1 = bytes[i + 1];
-                    let next2 = bytes[i + 2];
-                    if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 {
-                        let code_point = ((current as u32 & 0x0F) << 12)
-                            | ((next1 as u32 & 0x3F) << 6)
-                            | (next2 as u32 & 0x3F);
-                        if let Some(c) = char::from_u32(code_point) {
-                            result.push(c);
-                        } else {
-                            result.push('�');
-                        }
-                        i += 3;
+            0xE0..=0xEF if i + 2 < bytes.len() => {
+                let next1 = bytes[i + 1];
+                let next2 = bytes[i + 2];
+                if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 {
+                    let code_point = ((current as u32 & 0x0F) << 12)
+                        | ((next1 as u32 & 0x3F) << 6)
+                        | (next2 as u32 & 0x3F);
+                    if let Some(c) = char::from_u32(code_point) {
+                        result.push(c);
                     } else {
                         result.push('�');
-                        i += 1;
                     }
+                    i += 3;
                 } else {
                     result.push('�');
                     i += 1;
                 }
             },
             // 4-byte UTF-8 sequence
-            0xF0..=0xF7 => {
-                if i + 3 < bytes.len() {
-                    let next1 = bytes[i + 1];
-                    let next2 = bytes[i + 2];
-                    let next3 = bytes[i + 3];
-                    if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 && (next3 & 0xC0) == 0x80 {
-                        let code_point = ((current as u32 & 0x07) << 18)
-                            | ((next1 as u32 & 0x3F) << 12)
-                            | ((next2 as u32 & 0x3F) << 6)
-                            | (next3 as u32 & 0x3F);
-                        if let Some(c) = char::from_u32(code_point) {
-                            result.push(c);
-                        } else {
-                            result.push('�');
-                        }
-                        i += 4;
+            0xF0..=0xF7 if i + 3 < bytes.len() => {
+                let next1 = bytes[i + 1];
+                let next2 = bytes[i + 2];
+                let next3 = bytes[i + 3];
+                if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 && (next3 & 0xC0) == 0x80 {
+                    let code_point = ((current as u32 & 0x07) << 18)
+                        | ((next1 as u32 & 0x3F) << 12)
+                        | ((next2 as u32 & 0x3F) << 6)
+                        | (next3 as u32 & 0x3F);
+                    if let Some(c) = char::from_u32(code_point) {
+                        result.push(c);
                     } else {
                         result.push('�');
-                        i += 1;
                     }
+                    i += 4;
                 } else {
                     result.push('�');
                     i += 1;
