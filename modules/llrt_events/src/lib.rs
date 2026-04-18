@@ -79,6 +79,7 @@ fn class_to_obj<'js, C: JsClass<'js>>(class: Class<'js, C>) -> Result<Object<'js
 /// Resolve the event list from a JS object. For native Emitter classes,
 /// reads from the native struct. For plain JS objects (e.g. stream.js Readable),
 /// lazily creates and stores a native EventEmitter as a hidden property.
+#[allow(clippy::arc_with_non_send_sync)]
 pub fn resolve_events<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<Events<'js>> {
     // Try native EventEmitter first
     if let Some(class) = Class::<EventEmitter>::from_object(obj) {
