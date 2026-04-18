@@ -9,20 +9,14 @@ use rquickjs::{
 
 fn ok(ctx: Ctx, value: Value, message: Opt<Value>) -> Result<()> {
     match value.type_of() {
-        Type::Bool => {
-            if value.as_bool().unwrap() {
-                return Ok(());
-            }
+        Type::Bool if value.as_bool().unwrap() => {
+            return Ok(());
         },
-        Type::Float | Type::Int => {
-            if value.as_number().unwrap() != 0.0 {
-                return Ok(());
-            }
+        Type::Float | Type::Int if value.as_number().unwrap() != 0.0 => {
+            return Ok(());
         },
-        Type::String => {
-            if !value.as_string().unwrap().to_string().unwrap().is_empty() {
-                return Ok(());
-            }
+        Type::String if !value.as_string().unwrap().to_string().unwrap().is_empty() => {
+            return Ok(());
         },
         Type::Array
         | Type::BigInt

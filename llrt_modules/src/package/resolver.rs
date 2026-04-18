@@ -478,10 +478,7 @@ fn load_node_modules<'a>(
         let str_dir = dir.to_string_lossy();
         if let Some(dirs) = cache.get(str_dir.as_ref()) {
             if let Some(dirs) = dirs {
-                results
-                    .0
-                    .borrow_mut()
-                    .extend(dirs.0.borrow().clone().into_iter());
+                results.0.borrow_mut().extend(dirs.0.borrow().clone());
             }
             last_found_index = i;
 
