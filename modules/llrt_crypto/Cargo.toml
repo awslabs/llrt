@@ -93,7 +93,7 @@ elliptic-curve = { version = "0.14.0-rc.30", features = [
 ], default-features = false, optional = true }
 hkdf = { version = "0.13.0", default-features = false, optional = true }
 hmac = { version = "0.13.0-rc.6", default-features = false, optional = true }
-rsa = { version = "0.10.0-rc.17", features = [
+rsa = { version = "0.10.0-rc.18", features = [
   "std",
   "sha2",
   "encoding",
