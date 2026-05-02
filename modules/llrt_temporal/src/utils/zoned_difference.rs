@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use jiff::{Unit, Zoned, ZonedDifference};
+use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result, Value};
 
 use crate::utils::{get_duration_unit, get_round_mode};
@@ -26,8 +27,12 @@ impl<'a> ZonedDifferenceExt<'a> for ZonedDifference<'a> {
             );
         }
 
-        let unit = value.as_string().and_then(|s| s.to_string().ok());
-        into_zoned_deffierence(ctx.clone(), zoned, None, None, None, unit)
+        let unit = value
+            .as_string()
+            .and_then(|s| s.to_string().ok())
+            .or_throw_type(ctx, "Cannot convert value to string")?;
+
+        into_zoned_deffierence(ctx.clone(), zoned, None, None, None, Some(unit))
     }
 }
 
