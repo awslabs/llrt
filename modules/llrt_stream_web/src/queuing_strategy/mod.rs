@@ -177,8 +177,6 @@ pub(super) enum NativeSizeFunction {
 impl<'js> JsClass<'js> for NativeSizeFunction {
     const NAME: &'static str = "NativeSizeFunction";
 
-    const CALLABLE: bool = true;
-
     type Mutable = Readable;
 
     fn prototype(ctx: &Ctx<'js>) -> Result<Option<Object<'js>>> {
