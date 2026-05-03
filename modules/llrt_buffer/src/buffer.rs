@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{mem::MaybeUninit, slice};
 
-use llrt_encoding::{bytes_from_b64, bytes_to_b64_string, Encoder};
+use llrt_encoding::Encoder;
 use llrt_utils::{
     bytes::{get_array_bytes, get_start_end_indexes, ObjectBytes},
     error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
@@ -15,8 +15,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
     prelude::{Func, Rest, This},
-    Array, ArrayBuffer, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result,
-    TypedArray, Value,
+    Array, ArrayBuffer, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Value,
 };
 
 #[derive(JsLifetime)]
@@ -864,43 +864,6 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
     ctx.globals().set(stringify!(Buffer), constructor)?;
 
     Ok(())
-}
-
-pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::String<'_>> {
-    let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
-    // Convert bytes to Latin-1 string where each byte becomes a character with that code point.
-    // This matches the WHATWG spec: atob returns a "binary string" where each character's
-    // code point is 0-255, directly representing one byte of data.
-    let str: String = vec.iter().map(|&b| b as char).collect();
-    rquickjs::String::from_str(ctx, &str)
-}
-
-pub fn btoa(ctx: Ctx<'_>, value: Coerced<String>) -> Result<String> {
-    // Per WHATWG spec, btoa() treats input as a "binary string" where each character
-    // must have a code point 0-255. Characters > 255 cause InvalidCharacterError.
-    let s: &str = value.as_str();
-
-    // Fast path: ASCII is a 1:1 mapping to bytes 0-127 (SIMD optimized)
-    if s.is_ascii() {
-        return Ok(bytes_to_b64_string(s.as_bytes()));
-    }
-
-    // Slow path: Check for Latin-1 (0-255)
-    let bytes: Vec<u8> = s
-        .chars()
-        .map(|c| {
-            let code_point = c as u32;
-            if code_point > 255 {
-                Err(Exception::throw_message(
-                    &ctx,
-                    "Invalid character: btoa() argument contains character with code point > 255",
-                ))
-            } else {
-                Ok(code_point as u8)
-            }
-        })
-        .collect::<Result<Vec<u8>>>()?;
-    Ok(bytes_to_b64_string(&bytes))
 }
 
 #[cfg(test)]
