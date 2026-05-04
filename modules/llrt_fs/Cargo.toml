@@ -31,7 +31,7 @@ tokio = { version = "1", features = [
 ], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
-junction = "1"
+junction = "2"
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
