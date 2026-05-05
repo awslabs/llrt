@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Timestamp, Zoned};
+use jiff::{Timestamp, Zoned, ZonedDifference};
 use llrt_utils::result::ResultExt;
 use rquickjs::Object;
 use rquickjs::{
@@ -16,6 +16,7 @@ use crate::plain_date::PlainDate;
 use crate::plain_date_time::PlainDateTime;
 use crate::plain_time::PlainTime;
 use crate::utils::zoned::ZonedExt;
+use crate::utils::zoned_difference::ZonedDifferenceExt;
 use crate::utils::zoned_round::ZonedRoundOption;
 
 use super::extract_bigint_or_number;
@@ -68,7 +69,7 @@ impl ZonedDateTime {
     }
 
     fn equals(&self, other: Self) -> bool {
-        self.inner == other.inner
+        self.inner == other.inner && self.inner.time_zone() == other.inner.time_zone()
     }
 
     #[qjs(rename = "getTimeZoneTransition")]
@@ -92,8 +93,14 @@ impl ZonedDateTime {
         Ok(Self { inner: zoned })
     }
 
-    fn since(&self, other: Self) -> Duration {
-        Duration::new_object(self.inner.clone() - other.inner)
+    fn since(&self, ctx: Ctx<'_>, other: &Self, opt: Opt<Value<'_>>) -> Result<Duration> {
+        let span = if let Some(ref opt) = opt.0 {
+            let diff = ZonedDifference::from_value(&ctx, &other.inner, opt)?;
+            self.inner.since(diff).or_throw_range(&ctx, "")?
+        } else {
+            self.inner.clone() - other.inner.clone()
+        };
+        Ok(Duration::new_object(span))
     }
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
@@ -134,8 +141,14 @@ impl ZonedDateTime {
         self.inner.to_string()
     }
 
-    fn until(&self, other: Self) -> Duration {
-        Duration::new_object(other.inner - self.inner.clone())
+    fn until(&self, ctx: Ctx<'_>, other: &Self, opt: Opt<Value<'_>>) -> Result<Duration> {
+        let span = if let Some(ref opt) = opt.0 {
+            let diff = ZonedDifference::from_value(&ctx, &other.inner, opt)?;
+            self.inner.until(diff).or_throw_range(&ctx, "")?
+        } else {
+            other.inner.clone() - self.inner.clone()
+        };
+        Ok(Duration::new_object(span))
     }
 
     fn value_of(&self, ctx: Ctx<'_>) -> Result<()> {
