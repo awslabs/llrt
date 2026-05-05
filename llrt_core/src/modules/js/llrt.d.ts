@@ -1,8 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-declare module "hex" {
-  export const decode: (text: string) => Uint8Array;
-  export const encode: (bytes: Uint8Array) => string;
+declare module "codec" {
+  export function decodeFromBase64(value: string): Uint8Array;
+  export function encodeToBase64(
+    value: string | Array | ArrayBuffer | Uint8Array
+  ): string;
+  export function decodeFromHex(value: string): Uint8Array;
+  export function encodeToHex(
+    value: string | Array | ArrayBuffer | Uint8Array
+  ): string;
 }
 
 declare module "xml" {
@@ -73,38 +79,4 @@ declare module "qjs" {
     binary_object_size: number;
   }
   function ComputeMemoryUsage(): MemoryInfo;
-}
-
-declare module "llrt:timezone" {
-  interface Timezone {
-    /**
-     * Get the UTC offset in minutes for a timezone at a given time.
-     *
-     * @param timezone - IANA timezone name (e.g., "America/Denver", "Asia/Tokyo")
-     * @param epochMs - Unix timestamp in milliseconds
-     * @returns UTC offset in minutes (positive = ahead of UTC, negative = behind)
-     *
-     * @example
-     * // Get current offset for Denver (handles DST automatically)
-     * const offset = Timezone.getOffset("America/Denver", Date.now());
-     * // Returns -420 (UTC-7) in winter, -360 (UTC-6) in summer
-     */
-    getOffset(timezone: string, epochMs: number): number;
-
-    /**
-     * List all available IANA timezone names.
-     *
-     * @returns Array of timezone names
-     *
-     * @example
-     * const zones = Timezone.list();
-     * // ["Africa/Abidjan", "Africa/Accra", ..., "Pacific/Wallis"]
-     */
-    list(): string[];
-
-    readonly [Symbol.toStringTag]: "Timezone";
-  }
-
-  export const Timezone: Timezone;
-  export default { Timezone: Timezone };
 }

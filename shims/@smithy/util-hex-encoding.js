@@ -1,4 +1,4 @@
-import { encode, decode } from "llrt:hex";
+import { decodeFromHex, encodeToHex } from "llrt:codec";
 
-export const fromHex = decode;
-export const toHex = encode;
+export const fromHex = decodeFromHex;
+export const toHex = encodeToHex;
