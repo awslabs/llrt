@@ -153,7 +153,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 
 | [LLRT API](https://github.com/awslabs/llrt/blob/main/API.md) | Node.js | LLRT |
 | ------------------------------------------------------------ | ------- | ---- |
-| llrt:hex                                                     | ✘       | ✔︎    |
+| llrt:codec                                                   | ✘       | ✔︎    |
 | llrt:qjs                                                     | ✘       | ✔︎    |
 | llrt:util                                                    | ✘       | ✔︎    |
 | llrt:xml                                                     | ✘       | ✔︎    |
