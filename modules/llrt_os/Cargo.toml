@@ -22,7 +22,7 @@ once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", features = ["std"], default-features = false }
 
 # Optional
-sysinfo = { version = "0.38", default-features = false, optional = true }
+sysinfo = { version = "0.39", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }
