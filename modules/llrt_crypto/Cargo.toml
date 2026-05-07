@@ -82,7 +82,7 @@ der = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
 ecdsa = { version = "0.17.0-rc.17", default-features = false, optional = true }
-ed25519-dalek = { version = "3.0.0-pre.6", features = [
+ed25519-dalek = { version = "3.0.0-pre.7", features = [
   "alloc",
   "pkcs8",
   "rand_core",
