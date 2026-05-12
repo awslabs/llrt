@@ -10,6 +10,7 @@ pub mod time;
 pub mod time_round;
 pub mod timestamp_round;
 pub mod zoned;
+pub mod zoned_difference;
 pub mod zoned_round;
 
 use jiff::{RoundMode, Unit};

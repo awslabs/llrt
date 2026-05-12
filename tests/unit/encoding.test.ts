@@ -17,16 +17,6 @@ describe("llrt:hex", () => {
   });
 });
 
-describe("atoa & btoa", () => {
-  it("btoa/atob", () => {
-    const text = "Hello, world!";
-    const encodedData = btoa(text);
-    expect(encodedData).toEqual("SGVsbG8sIHdvcmxkIQ==");
-    const decodedData = atob(encodedData);
-    expect(decodedData).toEqual(text);
-  });
-});
-
 describe("TextDecoder", () => {
   it("should be able to decode UTF-16LE labels", () => {
     const ary_u8 = new Uint8Array([

@@ -9,7 +9,7 @@ use rquickjs::{
     function::Constructor,
     module::{Declarations, Exports, ModuleDef},
     prelude::Func,
-    Class, Ctx, Object, Result,
+    Class, Ctx, Function, IntoJs, Object, Result,
 };
 
 pub use self::array_buffer_view::*;
@@ -42,10 +42,13 @@ impl ModuleDef for BufferModule {
         constants.set("MAX_LENGTH", u32::MAX)?; // For QuickJS
         constants.set("MAX_STRING_LENGTH", (1 << 30) - 1)?; // For QuickJS
 
+        let atob: Function = ctx.globals().get("atob")?;
+        let btoa: Function = ctx.globals().get("btoa")?;
+
         export_default(ctx, exports, |default| {
             default.set(stringify!(Buffer), buf)?;
-            default.set("atob", Func::from(atob))?;
-            default.set("btoa", Func::from(btoa))?;
+            default.set("atob", atob.into_js(ctx)?)?;
+            default.set("btoa", btoa.into_js(ctx)?)?;
             default.set("constants", constants)?;
             Ok(())
         })?;
@@ -92,10 +95,6 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
 
     //init primordials
     let _ = BufferPrimordials::get(ctx)?;
-
-    // Conversion
-    globals.set("atob", Func::from(atob))?;
-    globals.set("btoa", Func::from(btoa))?;
 
     Ok(())
 }

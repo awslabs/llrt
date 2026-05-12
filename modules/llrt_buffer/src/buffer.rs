@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{mem::MaybeUninit, slice};
 
-use llrt_encoding::{bytes_from_b64, bytes_to_b64_string, Encoder};
+use llrt_encoding::Encoder;
 use llrt_utils::{
     bytes::{get_array_bytes, get_start_end_indexes, ObjectBytes},
     error_messages::{ERROR_MSG_ARRAY_BUFFER_DETACHED, ERROR_MSG_NOT_ARRAY_BUFFER},
@@ -15,8 +15,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Constructor, Opt},
     prelude::{Func, Rest, This},
-    Array, ArrayBuffer, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result,
-    TypedArray, Value,
+    Array, ArrayBuffer, Ctx, Exception, Function, IntoJs, JsLifetime, Object, Result, TypedArray,
+    Value,
 };
 
 #[derive(JsLifetime)]
@@ -866,235 +866,11 @@ pub(crate) fn set_prototype<'js>(ctx: &Ctx<'js>, constructor: Object<'js>) -> Re
     Ok(())
 }
 
-pub fn atob(ctx: Ctx<'_>, encoded_value: Coerced<String>) -> Result<rquickjs::String<'_>> {
-    let vec = bytes_from_b64(encoded_value.as_bytes()).or_throw(&ctx)?;
-    // Convert bytes to Latin-1 string where each byte becomes a character with that code point.
-    // This matches the WHATWG spec: atob returns a "binary string" where each character's
-    // code point is 0-255, directly representing one byte of data.
-    let str: String = vec.iter().map(|&b| b as char).collect();
-    rquickjs::String::from_str(ctx, &str)
-}
-
-pub fn btoa(ctx: Ctx<'_>, value: Coerced<String>) -> Result<String> {
-    // Per WHATWG spec, btoa() treats input as a "binary string" where each character
-    // must have a code point 0-255. Characters > 255 cause InvalidCharacterError.
-    let s: &str = value.as_str();
-
-    // Fast path: ASCII is a 1:1 mapping to bytes 0-127 (SIMD optimized)
-    if s.is_ascii() {
-        return Ok(bytes_to_b64_string(s.as_bytes()));
-    }
-
-    // Slow path: Check for Latin-1 (0-255)
-    let bytes: Vec<u8> = s
-        .chars()
-        .map(|c| {
-            let code_point = c as u32;
-            if code_point > 255 {
-                Err(Exception::throw_message(
-                    &ctx,
-                    "Invalid character: btoa() argument contains character with code point > 255",
-                ))
-            } else {
-                Ok(code_point as u8)
-            }
-        })
-        .collect::<Result<Vec<u8>>>()?;
-    Ok(bytes_to_b64_string(&bytes))
-}
-
 #[cfg(test)]
 mod tests {
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
 
     use crate::BufferModule;
-
-    #[tokio::test]
-    async fn test_atob() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                crate::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
-                    .await
-                    .unwrap();
-
-                let data = "aGVsbG8gd29ybGQ=".to_string();
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { atob } from 'buffer';
-
-                        export async function test(data) {
-                            return atob(data);
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
-                assert_eq!(result, "hello world");
-            })
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_atob_high_bytes() {
-        // Test that atob correctly decodes bytes 128-255 as Latin-1 characters
-        // (each byte becomes a character with that code point)
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                crate::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { atob } from 'buffer';
-
-                        export async function test() {
-                            // Test individual high-byte values
-                            // gA== decodes to byte 0x80 (128)
-                            // /w== decodes to byte 0xFF (255)
-                            const test128 = atob("gA==");
-                            const test255 = atob("/w==");
-
-                            // Each decoded byte should become a character
-                            // with that exact code point
-                            if (test128.charCodeAt(0) !== 128) {
-                                return `byte 128 failed: got ${test128.charCodeAt(0)}`;
-                            }
-                            if (test255.charCodeAt(0) !== 255) {
-                                return `byte 255 failed: got ${test255.charCodeAt(0)}`;
-                            }
-
-                            // Test all bytes 128-255 to ensure none are corrupted
-                            // Create base64 for bytes 128-255 and verify roundtrip
-                            const highBytes = new Uint8Array(128);
-                            for (let i = 0; i < 128; i++) {
-                                highBytes[i] = 128 + i;
-                            }
-                            const base64 = Buffer.from(highBytes).toString("base64");
-                            const decoded = atob(base64);
-
-                            for (let i = 0; i < 128; i++) {
-                                const expected = 128 + i;
-                                const actual = decoded.charCodeAt(i);
-                                if (actual !== expected) {
-                                    return `byte ${expected} failed: got ${actual}`;
-                                }
-                            }
-
-                            return "ok";
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-                assert_eq!(result, "ok");
-            })
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_btoa() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                crate::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
-                    .await
-                    .unwrap();
-
-                let data = "hello world".to_string();
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { btoa } from 'buffer';
-
-                        export async function test(data) {
-                            return btoa(data);
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, (data,)).await;
-                assert_eq!(result, "aGVsbG8gd29ybGQ=");
-            })
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_btoa_high_bytes() {
-        // Test that btoa correctly encodes Latin-1 characters (code points 128-255)
-        // as single bytes per WHATWG spec (not UTF-8 encoded)
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                crate::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<BufferModule>(ctx.clone(), "buffer")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { btoa, atob } from 'buffer';
-
-                        export async function test() {
-                            // Test byte 255 (0xFF): should encode as single byte
-                            // btoa(String.fromCharCode(255)) should give "/w==" not "w78="
-                            const char255 = String.fromCharCode(255);
-                            const encoded255 = btoa(char255);
-                            if (encoded255 !== "/w==") {
-                                return `byte 255 encoding failed: got ${encoded255}, expected /w==`;
-                            }
-
-                            // Test byte 128 (0x80): should encode as single byte
-                            const char128 = String.fromCharCode(128);
-                            const encoded128 = btoa(char128);
-                            if (encoded128 !== "gA==") {
-                                return `byte 128 encoding failed: got ${encoded128}, expected gA==`;
-                            }
-
-                            // Test roundtrip for all bytes 0-255
-                            for (let i = 0; i <= 255; i++) {
-                                const char = String.fromCharCode(i);
-                                const encoded = btoa(char);
-                                const decoded = atob(encoded);
-                                if (decoded.charCodeAt(0) !== i || decoded.length !== 1) {
-                                    return `roundtrip failed for byte ${i}`;
-                                }
-                            }
-
-                            // Test that characters > 255 throw
-                            try {
-                                btoa("€"); // U+20AC
-                                return "btoa should have thrown for euro sign";
-                            } catch (e) {
-                                // Expected
-                            }
-
-                            return "ok";
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-                assert_eq!(result, "ok");
-            })
-        })
-        .await;
-    }
 
     #[tokio::test]
     async fn test_subarray() {

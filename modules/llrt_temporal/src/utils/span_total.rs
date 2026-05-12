@@ -19,8 +19,12 @@ impl<'a> SpanTotalExt<'a> for SpanTotal<'a> {
             return into_span_total(ctx, &relative_to, &unit);
         }
 
-        let unit = value.as_string().and_then(|s| s.to_string().ok());
-        into_span_total(ctx, &None, &unit)
+        let unit = value
+            .as_string()
+            .and_then(|s| s.to_string().ok())
+            .or_throw_type(ctx, "Cannot convert value to string")?;
+
+        into_span_total(ctx, &None, &Some(unit))
     }
 }
 
