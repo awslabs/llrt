@@ -891,7 +891,10 @@ impl CryptoProvider for OpenSslProvider {
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
         let bn = BigNum::from_slice(data)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
-        let ec_key = EcKey::from_private_components(&group, &bn, group.generator())
+        let generator = group
+            .generator_opt()
+            .ok_or_else(|| CryptoError::InvalidKey(Some("EC group has no generator".into())))?;
+        let ec_key = EcKey::from_private_components(&group, &bn, generator)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
         let pkey = PKey::from_ec_key(ec_key)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
