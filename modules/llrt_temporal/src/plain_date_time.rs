@@ -209,8 +209,8 @@ impl PlainDateTime {
         self.inner.year()
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    fn to_string_tag() -> &'static str {
         "Temporal.PlainDateTime"
     }
 }

@@ -347,7 +347,7 @@ impl<'js> ReadableStreamGenericReader<'js> {
 }
 
 impl<'js> ReadableStreamReaderClass<'js> {
-    pub(super) fn acquire_readable_stream_default_reader(
+    pub fn acquire_readable_stream_default_reader(
         ctx: Ctx<'js>,
         stream: ReadableStreamOwned<'js>,
     ) -> Result<(

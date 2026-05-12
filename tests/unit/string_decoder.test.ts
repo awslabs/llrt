@@ -175,11 +175,11 @@ describe("basic", () => {
     decoder = new StringDecoder("utf16le");
     expect(decoder.write(Buffer.from("3DD8", "hex"))).toEqual("");
     expect(decoder.write(Buffer.from("4D", "hex"))).toEqual("");
-    expect(decoder.end()).toEqual("\uFFFD");
+    expect(decoder.end()).toEqual("\uFFFD\uFFFD");
 
     decoder = new StringDecoder("utf16le");
     expect(decoder.write(Buffer.from("3DD84D", "hex"))).toEqual("");
-    expect(decoder.end()).toEqual("\ufffd");
+    expect(decoder.end()).toEqual("\ufffd\ufffd");
   });
 
   it("utf16le regression", () => {
@@ -278,14 +278,24 @@ describe("end", () => {
       Buffer.of(0x4d, 0xdc),
       "\uFFFD\uFFFD"
     );
-    testEnd("utf16le", Buffer.of(0x3d, 0xd8, 0x4d), Buffer.of(), "\uFFFD");
+    testEnd(
+      "utf16le",
+      Buffer.of(0x3d, 0xd8, 0x4d),
+      Buffer.of(),
+      "\uFFFD\uFFFD"
+    );
     testEnd(
       "utf16le",
       Buffer.of(0x3d, 0xd8, 0x4d),
       Buffer.of(0x61, 0x00),
-      "\uFFFDa"
+      "\uFFFD\uFFFDa"
     );
-    testEnd("utf16le", Buffer.of(0x3d, 0xd8, 0x4d), Buffer.of(0xdc), "\uFFFD");
+    testEnd(
+      "utf16le",
+      Buffer.of(0x3d, 0xd8, 0x4d),
+      Buffer.of(0xdc),
+      "\uFFFD\uFFFD"
+    );
     testEnd(
       "utf16le",
       Buffer.of(0x3d, 0xd8, 0x4d, 0xdc),

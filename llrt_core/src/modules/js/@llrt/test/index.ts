@@ -280,15 +280,18 @@ class TestServer {
       });
     });
     proc.on("exit", (code) => {
-      if (code != 0) {
-        this.handleError(
-          TestServer.ERROR_CODE_PROCESS_ERROR,
-          new Error("Worker process exited with a non-zero exit code"),
-          {
-            id,
-            ended: performance.now(),
-          }
-        );
+      workerData.childProc = null;
+      if (!workerData.completed) {
+        if (code != 0) {
+          this.handleError(
+            TestServer.ERROR_CODE_PROCESS_ERROR,
+            new Error("Worker process exited with a non-zero exit code"),
+            {
+              id,
+              ended: performance.now(),
+            }
+          );
+        }
         this.handleWorkerCompleted(id);
       }
     });
@@ -471,6 +474,7 @@ class TestServer {
         try {
           workerData.childProc?.kill();
         } catch {}
+        shutdownOrPrint();
       }, 1000);
 
       workerData.childProc?.once("exit", () => {
@@ -486,10 +490,7 @@ class TestServer {
   shutdown() {
     this.shutdownPending = false;
     this.server?.close(() => {
-      //XXX force exit on windows
-      if (IS_WINDOWS) {
-        process.exit(0);
-      }
+      process.exit(0);
     });
   }
   handleTestError(workerId: number, error: any, ended: number) {
@@ -640,9 +641,8 @@ class TestServer {
     if (!overflow) {
       suffix = suffix.slice(0, -2);
     }
-    const elapsed = Math.floor(progressbarWidth * progress);
-    const remaining = progressbarWidth - elapsed;
-
+    const elapsed = Math.max(0, Math.floor(progressbarWidth * progress) || 0);
+    const remaining = Math.max(0, progressbarWidth - elapsed);
     message += spinnerFrame;
     if (showProgressBarDesc) {
       message += Color.CYAN_BOLD(TestServer.TESTING_TEXT);

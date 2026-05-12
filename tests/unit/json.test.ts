@@ -366,7 +366,9 @@ describe("JSON Stringified", () => {
     const text =
       "[A-Za-z\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u02b8\u0300-\u0590\u0900-\u1fff\u200e\u2c00-\ud801\ud804-\ud839\ud83c-\udbff\uf900-\ufb1c\ufe00-\ufe6f\ufefd-\uffff]";
 
-    const json = JSON.stringify(text);
-    expect(json).toEqual(`"${text}"`);
+    // Round-trip: stringify + parse should recover the original string,
+    // including any lone surrogate halves (which the stringifier escapes as
+    // `\uXXXX` per the JSON spec).
+    expect(JSON.parse(JSON.stringify(text))).toEqual(text);
   });
 });

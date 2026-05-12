@@ -1,38 +1,15 @@
+import { runSuite } from "./_harness-util.js";
 import { runTestDynamic } from "./encoding.harness.js";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const SKIP_FILES = [
+runSuite(import.meta.url, runTestDynamic, [
   "idlharness.any.js", // ReferenceError: idl_test is not defined
   "iso-2022-jp-decoder.any.js", // The "iso-2022-jp" encoding is not supported
   "replacement-encodings.any.js", // ReferenceError: promise_test is not defined
   "unsupported-encodings.any.js", // ReferenceError: promise_test is not defined
-];
-
-const __filename = fileURLToPath(import.meta.url);
-const basename = path.basename(__filename);
-const subDir = basename
-  .replace(/\.test\.[jt]s$/, "")
-  .split(".")
-  .join(path.sep);
-
-const CWD = process.cwd();
-const baseDir = path.join(CWD, "wpt");
-const targetDir = path.join(baseDir, subDir);
-
-const testFiles = fs
-  .readdirSync(targetDir)
-  .filter((file) => file.endsWith(".any.js"));
-
-describe(subDir, () => {
-  for (const file of testFiles) {
-    if (!SKIP_FILES.includes(file)) {
-      it(`should pass ${file} tests`, (done) => {
-        const filePath = path.join(targetDir, file);
-        const sourceCode = fs.readFileSync(filePath, "utf8");
-        runTestDynamic(sourceCode, done);
-      });
-    }
-  }
-});
+  "textdecoder-eof.any.js", // The "Big5" encoding is not supported
+  "textdecoder-fatal-single-byte.any.js", // The "IBM866" encoding is not supported
+  "textdecoder-labels.any.js", // IBM866 / legacy encodings
+  "textdecoder-mistakes.any.js", // legacy single-byte encodings
+  "textencoder-constructor-non-utf.any.js", // IBM866 / legacy encodings
+  "encodeInto.any.js", // needs MessageChannel for the detached-buffer test
+]);

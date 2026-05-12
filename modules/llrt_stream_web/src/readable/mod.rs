@@ -11,6 +11,10 @@ pub mod stream;
 pub(crate) use byob_reader::{ArrayConstructorPrimordials, ReadableStreamBYOBReader};
 pub use byte_controller::ReadableByteStreamController;
 pub(crate) use byte_controller::ReadableStreamBYOBRequest;
+pub use byte_controller::{
+    readable_byte_stream_controller_close_stream, readable_byte_stream_controller_enqueue_bytes,
+    readable_byte_stream_controller_enqueue_bytes_borrowed, ReadableByteStreamControllerClass,
+};
 pub(crate) use default_controller::ReadableStreamDefaultController;
 pub use default_controller::{
     readable_stream_default_controller_close_stream,

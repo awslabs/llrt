@@ -7,7 +7,7 @@ use llrt_utils::{
 use rquickjs::{
     atom::PredefinedAtom,
     class::JsClass,
-    function::{Constructor, Opt},
+    function::{Constructor, Func, Opt},
     object::Property,
     prelude::This,
     Class, Coerced, Ctx, Exception, IntoJs, Object, Result, Value,
@@ -104,13 +104,15 @@ where
 #[rquickjs::methods]
 impl DOMException {
     #[qjs(constructor)]
-    pub fn new(
-        ctx: Ctx<'_>,
-        this: This<Value<'_>>,
+    pub fn new<'js>(
+        ctx: Ctx<'js>,
+        this: This<Value<'js>>,
         message: Opt<Undefined<Coerced<String>>>,
         name: Opt<Undefined<Coerced<String>>>,
     ) -> Result<Self> {
-        if this.0.is_undefined() {
+        // When called with `new`, rquickjs passes the constructor function
+        // as `this`. Without `new` this is undefined or the global object.
+        if this.0.as_function().is_none() {
             return Err(Exception::throw_type(
                 &ctx,
                 "Cannot call the DOMException constructor without 'new'",
@@ -166,8 +168,8 @@ impl DOMException {
         self.stack.clone()
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(DOMException)
     }
 }
@@ -288,8 +290,28 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     }
 
     let dom_ex_proto = Class::<DOMException>::prototype(ctx)?.unwrap();
-    let error_prototype = &BasePrimordials::get(ctx)?.prototype_error;
-    dom_ex_proto.set_prototype(Some(error_prototype))?;
+    let primordials = BasePrimordials::get(ctx)?;
+    dom_ex_proto.set_prototype(Some(&primordials.prototype_error))?;
+
+    // `Error.isError(v)` only returns `true` for objects with QuickJS's
+    // `[[ErrorData]]` internal slot (class id `JS_CLASS_ERROR`). There is
+    // no public rquickjs API to tag a class-derived instance with that
+    // slot, so we replace `Error.isError` with a version that also
+    // recognizes `DOMException` instances via `instanceof`.
+    primordials
+        .constructor_error
+        .set("isError", Func::from(is_error))?;
 
     Ok(())
+}
+
+fn is_error<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
+    if value.is_error() {
+        return Ok(true);
+    }
+    let Some(obj) = value.as_object() else {
+        return Ok(false);
+    };
+    let dom_exception: Value = ctx.globals().get(DOMException::NAME)?;
+    Ok(obj.is_instance_of(&dom_exception))
 }

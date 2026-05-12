@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::result::ResultExt;
+use llrt_utils::{bytes::get_lossy_string, result::ResultExt};
 use rquickjs::{
     atom::PredefinedAtom, function::Opt, Ctx, Exception, Object, Result, TypedArray, Value,
 };
@@ -27,16 +27,16 @@ impl TextEncoder {
         "utf-8"
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(TextEncoder)
     }
 
     pub fn encode<'js>(&self, ctx: Ctx<'js>, string: Opt<Value<'js>>) -> Result<Value<'js>> {
         if let Some(string) = string.0 {
-            if let Some(string) = string.as_string() {
-                let string = string.to_string()?;
-                return TypedArray::new(ctx.clone(), string.as_bytes())
+            if string.is_string() {
+                let s = get_lossy_string(string)?;
+                return TypedArray::new(ctx.clone(), s.as_bytes())
                     .map(|m: TypedArray<'_, u8>| m.into_value());
             } else if !string.is_undefined() {
                 return Err(Exception::throw_message(
@@ -52,9 +52,14 @@ impl TextEncoder {
     pub fn encode_into<'js>(
         &self,
         ctx: Ctx<'js>,
-        src: String,
+        src: Value<'js>,
         dst: Value<'js>,
     ) -> Result<Object<'js>> {
+        if !src.is_string() {
+            return Err(Exception::throw_type(&ctx, "src must be a string"));
+        }
+        let src = get_lossy_string(src)?;
+        let src = src.as_str();
         if let Ok(typed_array) = TypedArray::<u8>::from_value(dst) {
             let dst_length = typed_array.len();
             let dst_offset: usize = typed_array.get("byteOffset")?;

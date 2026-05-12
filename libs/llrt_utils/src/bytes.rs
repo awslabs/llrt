@@ -1,14 +1,101 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::rc::Rc;
+use std::{mem, rc::Rc, slice};
 
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Constructor,
-    ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Result, TypedArray,
-    Value,
+    qjs, ArrayBuffer, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
+    TypedArray, Value,
 };
+
+/// Convert a JS string value to a Rust `String`, replacing invalid UTF-8 /
+/// lone UTF-16 surrogates with U+FFFD. Use this instead of `JsString::to_string`
+/// when the caller must not fail on ill-formed strings (e.g. USV conversion).
+pub fn get_lossy_string(string_value: Value) -> Result<String> {
+    if !string_value.is_string() {
+        return Err(Error::FromJs {
+            from: "Value",
+            to: "JSString",
+            message: Some("Value is not a string".into()),
+        });
+    }
+
+    let mut len = mem::MaybeUninit::uninit();
+    let ctx_ptr = string_value.ctx().as_raw().as_ptr();
+    let ptr = unsafe { qjs::JS_ToCStringLen(ctx_ptr, len.as_mut_ptr(), string_value.as_raw()) };
+    if ptr.is_null() {
+        return Err(Error::Unknown);
+    }
+    let len = unsafe { len.assume_init() };
+    let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr as _, len as _) };
+    let string = replace_invalid_utf8_and_utf16(bytes);
+    unsafe { qjs::JS_FreeCString(ctx_ptr, ptr) };
+    Ok(string)
+}
+
+fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(bytes.len());
+    let mut i = 0;
+
+    while i < bytes.len() {
+        let current = bytes[i];
+        match current {
+            0x00..=0x7F => {
+                result.push(current as char);
+                i += 1;
+            },
+            0xC0..=0xDF if i + 1 < bytes.len() => {
+                let next = bytes[i + 1];
+                if (next & 0xC0) == 0x80 {
+                    let code_point = ((current as u32 & 0x1F) << 6) | (next as u32 & 0x3F);
+                    result.push(char::from_u32(code_point).unwrap_or('\u{FFFD}'));
+                    i += 2;
+                } else {
+                    result.push('\u{FFFD}');
+                    i += 1;
+                }
+            },
+            0xE0..=0xEF if i + 2 < bytes.len() => {
+                let next1 = bytes[i + 1];
+                let next2 = bytes[i + 2];
+                if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 {
+                    let code_point = ((current as u32 & 0x0F) << 12)
+                        | ((next1 as u32 & 0x3F) << 6)
+                        | (next2 as u32 & 0x3F);
+                    result.push(char::from_u32(code_point).unwrap_or('\u{FFFD}'));
+                    i += 3;
+                } else {
+                    result.push('\u{FFFD}');
+                    i += 1;
+                }
+            },
+            0xF0..=0xF7 if i + 3 < bytes.len() => {
+                let next1 = bytes[i + 1];
+                let next2 = bytes[i + 2];
+                let next3 = bytes[i + 3];
+                if (next1 & 0xC0) == 0x80 && (next2 & 0xC0) == 0x80 && (next3 & 0xC0) == 0x80 {
+                    let code_point = ((current as u32 & 0x07) << 18)
+                        | ((next1 as u32 & 0x3F) << 12)
+                        | ((next2 as u32 & 0x3F) << 6)
+                        | (next3 as u32 & 0x3F);
+                    result.push(char::from_u32(code_point).unwrap_or('\u{FFFD}'));
+                    i += 4;
+                } else {
+                    result.push('\u{FFFD}');
+                    i += 1;
+                }
+            },
+            _ => {
+                result.push('\u{FFFD}');
+                i += 1;
+            },
+        }
+    }
+
+    result
+}
 
 use crate::{error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED, result::ResultExt};
 
@@ -24,7 +111,7 @@ pub enum ObjectBytes<'js> {
     I64Array(TypedArray<'js, i64>),
     F32Array(TypedArray<'js, f32>),
     F64Array(TypedArray<'js, f64>),
-    DataView(ArrayBuffer<'js>),
+    DataView(ArrayBuffer<'js>, usize, usize), // buffer, offset, length
     Vec(Vec<u8>),
 }
 
@@ -46,7 +133,7 @@ impl<'js> Trace<'js> for ObjectBytes<'js> {
             ObjectBytes::I64Array(a) => a.trace(tracer),
             ObjectBytes::F32Array(a) => a.trace(tracer),
             ObjectBytes::F64Array(a) => a.trace(tracer),
-            ObjectBytes::DataView(d) => d.trace(tracer),
+            ObjectBytes::DataView(d, _, _) => d.trace(tracer),
             ObjectBytes::Vec(v) => v.trace(tracer),
         }
     }
@@ -65,7 +152,7 @@ impl<'js> IntoJs<'js> for ObjectBytes<'js> {
             ObjectBytes::I64Array(a) => a.into_js(ctx),
             ObjectBytes::F32Array(a) => a.into_js(ctx),
             ObjectBytes::F64Array(a) => a.into_js(ctx),
-            ObjectBytes::DataView(d) => {
+            ObjectBytes::DataView(d, _, _) => {
                 let ctor: Constructor = ctx.globals().get(PredefinedAtom::DataView)?;
                 ctor.construct((d,))
             },
@@ -135,6 +222,14 @@ impl<'js> ObjectBytes<'js> {
         self.as_bytes_inner().or_throw(ctx)
     }
 
+    /// Returns the underlying bytes, or `None` if the buffer is detached.
+    /// Unlike [`as_bytes`], does not raise a JS exception — useful when the
+    /// caller needs to distinguish detachment from other errors (e.g.
+    /// WebIDL-style "treat detached BufferSource as empty").
+    pub fn as_bytes_opt(&self) -> Option<&[u8]> {
+        self.as_bytes_inner().ok()
+    }
+
     fn as_bytes_inner(&self) -> std::result::Result<&[u8], Rc<str>> {
         match self {
             ObjectBytes::U8Array(array) => array.as_bytes(),
@@ -147,7 +242,9 @@ impl<'js> ObjectBytes<'js> {
             ObjectBytes::I64Array(array) => array.as_bytes(),
             ObjectBytes::F32Array(array) => array.as_bytes(),
             ObjectBytes::F64Array(array) => array.as_bytes(),
-            ObjectBytes::DataView(array_buffer) => array_buffer.as_bytes(),
+            ObjectBytes::DataView(array_buffer, offset, length) => array_buffer
+                .as_bytes()
+                .map(|b| &b[*offset..*offset + *length]),
             ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
         }
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.into())
@@ -171,7 +268,8 @@ impl<'js> ObjectBytes<'js> {
         }
         //second most common
         if let Some(array_buffer) = ArrayBuffer::from_object(obj.clone()) {
-            return Ok(Some(ObjectBytes::DataView(array_buffer)));
+            let len = array_buffer.len();
+            return Ok(Some(ObjectBytes::DataView(array_buffer, 0, len)));
         }
 
         if let Ok(typed_array) = TypedArray::<i8>::from_object(obj.clone()) {
@@ -211,7 +309,13 @@ impl<'js> ObjectBytes<'js> {
         }
 
         if let Ok(array_buffer) = obj.get::<_, ArrayBuffer>("buffer") {
-            return Ok(Some(ObjectBytes::DataView(array_buffer)));
+            let byte_offset: usize = obj.get("byteOffset").unwrap_or(0);
+            let byte_length: usize = obj.get("byteLength").unwrap_or_else(|_| array_buffer.len());
+            return Ok(Some(ObjectBytes::DataView(
+                array_buffer,
+                byte_offset,
+                byte_length,
+            )));
         }
 
         Ok(None)
@@ -219,7 +323,9 @@ impl<'js> ObjectBytes<'js> {
 
     pub fn get_array_buffer(&self) -> Result<Option<(ArrayBuffer<'js>, usize, usize)>> {
         let buffer = match self {
-            ObjectBytes::DataView(array_buffer) => (array_buffer.clone(), array_buffer.len(), 0),
+            ObjectBytes::DataView(array_buffer, offset, length) => {
+                (array_buffer.clone(), *length, *offset)
+            },
             ObjectBytes::U8Array(typed_array) => {
                 let byte_length = typed_array.len();
                 (
@@ -368,8 +474,8 @@ pub fn get_string_bytes(
     offset: usize,
     length: Option<usize>,
 ) -> Result<Option<Vec<u8>>> {
-    if let Some(val) = value.as_string() {
-        let string = val.to_string()?;
+    if value.is_string() {
+        let string = get_lossy_string(value.clone())?;
         return Ok(Some(bytes_from_js_string(string, offset, length)));
     }
     Ok(None)

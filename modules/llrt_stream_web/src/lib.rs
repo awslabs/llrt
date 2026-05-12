@@ -28,12 +28,17 @@ pub mod utils;
 mod writable;
 
 // Public API for creating streams from Rust
+pub use readable::stream::lock_readable_stream;
 pub use readable::stream::tee_readable_stream;
+pub use readable::stream::try_sync_drain_closed_stream;
 pub use readable::stream::ReadableStream;
 pub use readable::{
+    readable_byte_stream_controller_close_stream, readable_byte_stream_controller_enqueue_bytes,
+    readable_byte_stream_controller_enqueue_bytes_borrowed,
     readable_stream_default_controller_close_stream,
     readable_stream_default_controller_enqueue_value,
-    readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
+    readable_stream_default_controller_error_stream, ReadableByteStreamControllerClass,
+    ReadableStreamDefaultControllerClass,
 };
 pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
 pub use readable::{NativePull, NativePullFn, NativePullResult};

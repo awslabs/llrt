@@ -15,9 +15,9 @@ describe("Request class", () => {
     expect(request.mode).toEqual("cors");
   });
 
-  it("should set the cache to no-store by default", () => {
+  it("should set the cache to default by default", () => {
     const request = new Request("https://example.com");
-    expect(request.cache).toEqual("no-store");
+    expect(request.cache).toEqual("default");
   });
 
   it("should set the bodyUsed to false by default", () => {

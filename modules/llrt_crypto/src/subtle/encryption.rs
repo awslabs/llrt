@@ -19,7 +19,7 @@ use super::{
 pub async fn subtle_decrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: EncryptionAlgorithm,
-    key: Class<'js, CryptoKey>,
+    key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let key = key.borrow();
@@ -38,7 +38,7 @@ pub async fn subtle_decrypt<'js>(
 pub async fn subtle_encrypt<'js>(
     ctx: Ctx<'js>,
     algorithm: EncryptionAlgorithm,
-    key: Class<'js, CryptoKey>,
+    key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
 ) -> Result<ArrayBuffer<'js>> {
     let key = key.borrow();
