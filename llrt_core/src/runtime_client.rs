@@ -495,10 +495,7 @@ async fn post_error<'js>(
                 .unwrap_or(None)
                 .unwrap_or(String::from("Error"));
 
-            let mut str = String::with_capacity(100);
-            str.push_str(&error_name);
-            str.push_str(": ");
-            str.push_str(&ex.message().unwrap_or_default());
+            let message = ex.message().unwrap_or_default();
 
             error_type = Some(error_name);
 
@@ -506,7 +503,7 @@ async fn post_error<'js>(
                 replace_newline_with_carriage_return(&mut stack);
                 error_stack = Some(stack);
             }
-            str
+            message
         },
         CaughtError::Value(value) => {
             let log_msg = format_values(ctx, Rest(vec![value.clone()]), false, true)
