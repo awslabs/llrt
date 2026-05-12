@@ -2,28 +2,38 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::uninlined_format_args)]
 
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::HashSet, rc::Rc};
 
-use hyper::HeaderMap;
+use hyper::{
+    header::{
+        ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_REQUEST_HEADERS,
+        ACCESS_CONTROL_REQUEST_METHOD, CONNECTION, CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_TYPE,
+        COOKIE, DATE, EXPECT, HOST, ORIGIN, REFERER, SET_COOKIE, TE, TRAILER, TRANSFER_ENCODING,
+        UPGRADE, VIA,
+    },
+    HeaderMap,
+};
 use llrt_utils::{
-    class::{CustomInspect, IteratorDef},
-    object::map_to_entries,
+    class::CustomInspect,
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, methods, prelude::Opt, Array, Coerced, Ctx, Exception,
-    FromJs, Function, IntoJs, Iterable, JsLifetime, Null, Object, Result, Symbol, Value,
+    atom::PredefinedAtom, class::Trace, methods, prelude::Opt, prelude::This, Array, Class, Ctx,
+    Exception, Function, IntoJs, JsLifetime, Null, Object, Result, Symbol, Value,
 };
-
-const HEADERS_KEY_COOKIE: &str = "cookie";
-const HEADERS_KEY_SET_COOKIE: &str = "set-cookie";
-pub const HEADERS_KEY_CONTENT_TYPE: &str = "content-type";
 
 type ImmutableString = Rc<str>;
 
+/// ASCII-lowercase the key in place (HTTP headers are ASCII-only) and wrap in `Rc<str>`,
+/// saving one allocation vs `key.to_lowercase().into()`.
+fn lower_key(mut key: String) -> ImmutableString {
+    key.make_ascii_lowercase();
+    key.into()
+}
+
 // https://fetch.spec.whatwg.org/#concept-headers-guard
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub enum HeadersGuard {
     #[default]
     None,
@@ -39,7 +49,7 @@ pub struct Headers {
     #[qjs(skip_trace)]
     headers: Vec<(ImmutableString, ImmutableString)>,
     #[qjs(skip_trace)]
-    guard: HeadersGuard,
+    pub(crate) guard: HeadersGuard,
 }
 
 #[methods(rename_all = "camelCase")]
@@ -60,13 +70,40 @@ impl Headers {
     }
 
     pub fn append<'js>(&mut self, ctx: Ctx<'js>, key: String, value: Value<'js>) -> Result<()> {
-        let key: ImmutableString = key.to_lowercase().into();
+        let key = lower_key(key);
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
+        if self.guard == HeadersGuard::Immutable {
+            return Err(Exception::throw_type(&ctx, "Headers are immutable"));
+        }
+        if matches!(
+            self.guard,
+            HeadersGuard::Request | HeadersGuard::RequestNoCors
+        ) && is_forbidden_request_header(&key)
+        {
+            return Ok(());
+        }
+        if self.guard == HeadersGuard::Response && key.as_ref() == SET_COOKIE.as_str() {
+            return Ok(());
+        }
 
         let mut value = coerce_to_string(&ctx, value)?;
+        // Reject values containing null bytes or bare CR/LF;
+        // `normalize_header_value_inplace` silently strips them, but
+        // `header-setcookie` expects a TypeError for such values.
+        if value.contains('\0') || has_bare_cr_lf(&value) {
+            return Err(Exception::throw_type(&ctx, "Invalid header value"));
+        }
         normalize_header_value_inplace(&ctx, &mut value)?;
+        // Value-based forbidden header check (must run after value normalisation).
+        if matches!(
+            self.guard,
+            HeadersGuard::Request | HeadersGuard::RequestNoCors
+        ) && is_forbidden_method_override(&key, &value)
+        {
+            return Ok(());
+        }
         if self.guard == HeadersGuard::RequestNoCors {
             let val = value.split(',').next().unwrap_or("").trim();
             if !is_cors_safelisted_request_header(&key, val) {
@@ -82,18 +119,17 @@ impl Headers {
         }
 
         let str_key = key.as_ref();
-        if str_key == HEADERS_KEY_SET_COOKIE {
-            return {
-                self.headers.push((key, value.into()));
-                Ok(())
-            };
+        if str_key == SET_COOKIE.as_str() {
+            self.headers.push((key, value.into()));
+            return Ok(());
         }
         if let Some((_, existing_value)) = self.headers.iter_mut().find(|(k, _)| k == &key) {
             let mut new_value = String::with_capacity(existing_value.len() + 2 + value.len());
             new_value.push_str(existing_value);
-            match str_key {
-                HEADERS_KEY_COOKIE => new_value.push_str("; "),
-                _ => new_value.push_str(", "),
+            if str_key == COOKIE.as_str() {
+                new_value.push_str("; ");
+            } else {
+                new_value.push_str(", ");
             }
             new_value.push_str(&value);
             *existing_value = new_value.into();
@@ -104,12 +140,12 @@ impl Headers {
     }
 
     pub fn get<'js>(&self, ctx: Ctx<'js>, key: String) -> Result<Value<'js>> {
-        let key: ImmutableString = key.to_lowercase().into();
+        let key = lower_key(key);
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
 
-        if key.as_ref() == HEADERS_KEY_SET_COOKIE {
+        if key.as_ref() == SET_COOKIE.as_str() {
             let result: Vec<&str> = self
                 .headers
                 .iter()
@@ -132,7 +168,7 @@ impl Headers {
         self.headers
             .iter()
             .filter_map(|(k, v)| {
-                if k.as_ref() == HEADERS_KEY_SET_COOKIE {
+                if k.as_ref() == SET_COOKIE.as_str() {
                     Some(v.as_ref())
                 } else {
                     None
@@ -142,7 +178,7 @@ impl Headers {
     }
 
     pub fn has<'js>(&self, ctx: Ctx<'js>, key: String) -> Result<bool> {
-        let key: ImmutableString = key.to_lowercase().into();
+        let key = lower_key(key);
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
@@ -151,13 +187,40 @@ impl Headers {
     }
 
     pub fn set<'js>(&mut self, ctx: Ctx<'js>, key: String, value: Value<'js>) -> Result<()> {
-        let key: ImmutableString = key.to_lowercase().into();
+        let key = lower_key(key);
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
         }
+        if self.guard == HeadersGuard::Immutable {
+            return Err(Exception::throw_type(&ctx, "Headers are immutable"));
+        }
+        if matches!(
+            self.guard,
+            HeadersGuard::Request | HeadersGuard::RequestNoCors
+        ) && is_forbidden_request_header(&key)
+        {
+            return Ok(());
+        }
+        if self.guard == HeadersGuard::Response && key.as_ref() == SET_COOKIE.as_str() {
+            return Ok(());
+        }
 
         let mut value = coerce_to_string(&ctx, value)?;
+        // Reject values containing null bytes or bare CR/LF;
+        // `normalize_header_value_inplace` silently strips them, but
+        // `header-setcookie` expects a TypeError for such values.
+        if value.contains('\0') || has_bare_cr_lf(&value) {
+            return Err(Exception::throw_type(&ctx, "Invalid header value"));
+        }
         normalize_header_value_inplace(&ctx, &mut value)?;
+        // Value-based forbidden header check (must run after value normalisation).
+        if matches!(
+            self.guard,
+            HeadersGuard::Request | HeadersGuard::RequestNoCors
+        ) && is_forbidden_method_override(&key, &value)
+        {
+            return Ok(());
+        }
         if self.guard == HeadersGuard::RequestNoCors {
             let val = value.split(',').next().unwrap_or("").trim();
             if !is_cors_safelisted_request_header(&key, val) {
@@ -169,66 +232,82 @@ impl Headers {
             return Err(Exception::throw_type(&ctx, "Invalid value of key"));
         }
 
-        if key.as_ref() == HEADERS_KEY_SET_COOKIE {
+        if key.as_ref() == SET_COOKIE.as_str() {
             self.headers.retain(|(k, _)| k != &key);
             self.headers.push((key, value.into()));
         } else {
             match self.headers.iter_mut().find(|(k, _)| k == &key) {
                 Some((_, existing_value)) => *existing_value = value.into(),
-                None => self.headers.push((key, value.into())),
+                None => {
+                    self.headers.push((key, value.into()));
+                },
             }
         }
         Ok(())
     }
 
     pub fn delete<'js>(&mut self, ctx: Ctx<'js>, key: String) -> Result<()> {
-        let key: ImmutableString = key.to_lowercase().into();
+        let key = lower_key(key);
         if !is_http_header_name(&key) {
             return Err(Exception::throw_type(&ctx, "Invalid key"));
+        }
+        if self.guard == HeadersGuard::Immutable {
+            return Err(Exception::throw_type(&ctx, "Headers are immutable"));
+        }
+        if matches!(
+            self.guard,
+            HeadersGuard::Request | HeadersGuard::RequestNoCors
+        ) && is_forbidden_request_header(&key)
+        {
+            return Ok(());
+        }
+        if self.guard == HeadersGuard::Response && key.as_ref() == SET_COOKIE.as_str() {
+            return Ok(());
         }
 
         self.headers.retain(|(k, _)| k != &key);
         Ok(())
     }
 
-    pub fn keys<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        Iterable::from(
-            self.headers
-                .iter()
-                .map(|(k, _)| k.to_string())
-                .collect::<Vec<_>>(),
-        )
-        .into_js(&ctx)
+    pub fn keys<'js>(
+        this: This<Class<'js, Headers>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, HeadersIter<'js>>> {
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Keys)
     }
 
-    pub fn values<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        Iterable::from(
-            self.headers
-                .iter()
-                .map(|(_, v)| v.to_string())
-                .collect::<Vec<_>>(),
-        )
-        .into_js(&ctx)
+    pub fn values<'js>(
+        this: This<Class<'js, Headers>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, HeadersIter<'js>>> {
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Values)
     }
 
-    pub fn entries<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
+    pub fn entries<'js>(
+        this: This<Class<'js, Headers>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, HeadersIter<'js>>> {
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Entries)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
-    pub fn iterator<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
+    pub fn iterator<'js>(
+        this: This<Class<'js, Headers>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, HeadersIter<'js>>> {
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Entries)
     }
 
-    pub fn for_each(&self, callback: Function<'_>) -> Result<()> {
-        for (k, v) in &self.headers {
-            () = callback.call((v.as_ref(), k.as_ref()))?;
+    pub fn for_each<'js>(this: This<Class<'js, Headers>>, callback: Function<'js>) -> Result<()> {
+        let sorted = this.0.borrow().sorted_entries();
+        for (k, v) in &sorted {
+            () = callback.call((v.as_ref(), k.as_ref(), this.0.clone()))?;
         }
         Ok(())
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(Headers)
     }
 }
@@ -238,8 +317,32 @@ impl Headers {
         self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 
+    /// `has()` for Rust callers who already know the key is lowercase ASCII.
+    /// Avoids the `String` → `Rc<str>` allocation of the JS-exposed `has`.
+    pub(crate) fn contains_lower(&self, key: &str) -> bool {
+        self.headers.iter().any(|(k, _)| k.as_ref() == key)
+    }
+
+    /// Returns the sorted header list per the Fetch spec.
+    /// Non-set-cookie headers are combined and sorted alphabetically.
+    /// Set-cookie headers are kept separate in insertion order at their
+    /// alphabetical position.
+    fn sorted_entries(&self) -> Vec<(ImmutableString, ImmutableString)> {
+        let mut result: Vec<(ImmutableString, ImmutableString)> =
+            Vec::with_capacity(self.headers.len());
+        let mut seen = HashSet::with_capacity(self.headers.len());
+
+        for (k, v) in &self.headers {
+            if k.as_ref() == SET_COOKIE.as_str() || seen.insert(k.clone()) {
+                result.push((k.clone(), v.clone()));
+            }
+        }
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+        result
+    }
+
     pub fn from_http_headers(header_map: &HeaderMap, guard: HeadersGuard) -> Result<Self> {
-        let mut headers = Vec::new();
+        let mut headers = Vec::with_capacity(header_map.keys_len());
         for (n, v) in header_map.iter() {
             headers.push((
                 n.as_str().into(),
@@ -256,16 +359,82 @@ impl Headers {
         }
 
         if let Some(obj) = value.as_object() {
-            if obj.contains_key(Symbol::iterator(ctx.clone()))? {
+            if obj
+                .get::<_, Value>(Symbol::iterator(ctx.clone()))?
+                .is_function()
+            {
                 let array: Array = BasePrimordials::get(ctx)?
                     .function_array_from
                     .call((value,))?;
                 return Self::from_array(ctx, array, guard);
-            } else if obj.instance_of::<Headers>() {
-                return Headers::from_js(ctx, value);
             } else {
-                let map: BTreeMap<String, Coerced<String>> = value.get().unwrap_or_default();
-                return Ok(Self::from_map(ctx, map, guard));
+                // WebIDL record conversion: enumerate own enumerable string
+                // properties using the same trap ordering as Reflect.ownKeys +
+                // getOwnPropertyDescriptor + Reflect.get (Proxy-safe).
+                let reflect: Object = ctx.globals().get("Reflect")?;
+                let own_keys: rquickjs::Function = reflect.get("ownKeys")?;
+                let gopd: rquickjs::Function = reflect.get("getOwnPropertyDescriptor")?;
+                let reflect_get: rquickjs::Function = reflect.get("get")?;
+                let keys: Array = own_keys.call((obj.clone(),))?;
+                let mut headers: Vec<(ImmutableString, ImmutableString)> =
+                    Vec::with_capacity(keys.len());
+                for i in 0..keys.len() {
+                    let key_val: Value = keys.get(i)?;
+                    let key_str = if let Some(s) = key_val.as_string() {
+                        Some(s.to_string()?)
+                    } else {
+                        None
+                    };
+                    // Per WebIDL record conversion: always call getOwnPropertyDescriptor,
+                    // then filter by enumerable. ToString(symbol) throws only for enumerable symbol keys.
+                    let desc_key: Value = key_val.clone();
+                    let desc: Value = gopd.call((obj.clone(), desc_key))?;
+                    let Some(desc) = desc.as_object() else {
+                        continue;
+                    };
+                    if !desc.get::<_, bool>("enumerable").unwrap_or(false) {
+                        continue;
+                    }
+                    if key_val.is_symbol() {
+                        return Err(Exception::throw_type(
+                            ctx,
+                            "Cannot convert a Symbol value to a string",
+                        ));
+                    }
+                    let Some(key) = key_str else {
+                        continue;
+                    };
+                    let mut k_lower = key;
+                    k_lower.make_ascii_lowercase();
+                    if !is_http_header_name(&k_lower) {
+                        return Err(Exception::throw_type(ctx, "Invalid header name"));
+                    }
+                    if matches!(guard, HeadersGuard::Request | HeadersGuard::RequestNoCors)
+                        && is_forbidden_request_header(&k_lower)
+                    {
+                        continue;
+                    }
+                    let raw_value: Value = reflect_get.call((obj.clone(), key_val))?;
+                    let mut value = coerce_to_string(ctx, raw_value)?;
+                    let _ = normalize_header_value_inplace(ctx, &mut value);
+                    if !is_http_header_value(&value) {
+                        return Err(Exception::throw_type(ctx, "Invalid header value"));
+                    }
+                    if matches!(guard, HeadersGuard::Request | HeadersGuard::RequestNoCors)
+                        && is_forbidden_method_override(&k_lower, &value)
+                    {
+                        continue;
+                    }
+                    if guard == HeadersGuard::RequestNoCors
+                        && !is_cors_safelisted_request_header(&k_lower, &value)
+                    {
+                        continue;
+                    }
+                    let lower_key: ImmutableString = k_lower.into();
+                    headers.push((lower_key, value.into()));
+                }
+                headers.sort_by(|a, b| a.0.cmp(&b.0));
+                return Ok(Self { headers, guard });
             }
         }
 
@@ -275,28 +444,8 @@ impl Headers {
         })
     }
 
-    pub fn from_map(
-        ctx: &Ctx<'_>,
-        map: BTreeMap<String, Coerced<String>>,
-        guard: HeadersGuard,
-    ) -> Self {
-        let headers = map
-            .into_iter()
-            .filter_map(|(k, v)| {
-                if !is_http_header_name(&k) {
-                    return None;
-                }
-                let mut value = v.0;
-                let _ = normalize_header_value_inplace(ctx, &mut value);
-                Some((k.to_lowercase().into(), value.into()))
-            })
-            .collect::<Vec<(Rc<str>, Rc<str>)>>();
-
-        Self { headers, guard }
-    }
-
     fn from_array<'js>(ctx: &Ctx<'js>, array: Array<'js>, guard: HeadersGuard) -> Result<Self> {
-        let mut headers: Vec<(ImmutableString, ImmutableString)> = Vec::new();
+        let mut headers: Vec<(ImmutableString, ImmutableString)> = Vec::with_capacity(array.len());
 
         for entry in array.into_iter().flatten() {
             if let Some(array_entry) = entry.as_array() {
@@ -304,10 +453,16 @@ impl Headers {
                     return Err(Exception::throw_type(ctx, "Header arrays are not paired"));
                 }
 
-                let raw_key = array_entry.get::<String>(0)?.to_lowercase();
-                let key: Rc<str> = ImmutableString::from(raw_key.clone());
-                if !is_http_header_name(&key) {
+                let mut raw_key = array_entry.get::<String>(0)?;
+                raw_key.make_ascii_lowercase();
+                if !is_http_header_name(&raw_key) {
                     return Err(Exception::throw_type(ctx, "Invalid key"));
+                }
+                // Skip forbidden headers
+                if matches!(guard, HeadersGuard::Request | HeadersGuard::RequestNoCors)
+                    && is_forbidden_request_header(&raw_key)
+                {
+                    continue;
                 }
 
                 let raw_value = array_entry.get::<Value>(1)?;
@@ -316,22 +471,40 @@ impl Headers {
                     return Err(Exception::throw_type(ctx, "Invalid value of key"));
                 }
 
-                if raw_key == HEADERS_KEY_SET_COOKIE {
+                if matches!(guard, HeadersGuard::Request | HeadersGuard::RequestNoCors)
+                    && is_forbidden_method_override(&raw_key, &value)
+                {
+                    continue;
+                }
+
+                // Skip non-safelisted headers in no-cors mode
+                if guard == HeadersGuard::RequestNoCors
+                    && !is_cors_safelisted_request_header(&raw_key, &value)
+                {
+                    continue;
+                }
+
+                if raw_key == SET_COOKIE.as_str() {
+                    let key: ImmutableString = raw_key.into();
                     headers.push((key, value));
                     continue;
                 }
 
-                if let Some((_, existing_value)) = headers.iter_mut().find(|(k, _)| *k == key) {
+                if let Some((_, existing_value)) =
+                    headers.iter_mut().find(|(k, _)| k.as_ref() == raw_key)
+                {
                     let mut new_value = existing_value.to_string();
 
-                    match raw_key.as_str() {
-                        HEADERS_KEY_COOKIE => new_value.push_str("; "),
-                        _ => new_value.push_str(", "),
+                    if raw_key.as_str() == COOKIE.as_str() {
+                        new_value.push_str("; ");
+                    } else {
+                        new_value.push_str(", ");
                     }
 
                     new_value.push_str(&value);
                     *existing_value = ImmutableString::from(new_value);
                 } else {
+                    let key: ImmutableString = raw_key.into();
                     headers.push((key, value));
                 }
             }
@@ -343,11 +516,65 @@ impl Headers {
     }
 }
 
-impl<'js> IteratorDef<'js> for Headers {
-    fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        map_to_entries(
-            &ctx,
-            self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref())),
+#[derive(Clone, Copy)]
+enum HeadersIterKind {
+    Keys,
+    Values,
+    Entries,
+}
+
+#[derive(Trace, JsLifetime)]
+#[rquickjs::class]
+pub struct HeadersIter<'js> {
+    headers: Class<'js, Headers>,
+    #[qjs(skip_trace)]
+    index: usize,
+    #[qjs(skip_trace)]
+    kind: HeadersIterKind,
+}
+
+#[rquickjs::methods]
+impl<'js> HeadersIter<'js> {
+    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        // Re-read on every next() — WPT expects the iterator to observe
+        // mutations made during iteration (insertions, deletions).
+        let sorted = self.headers.borrow().sorted_entries();
+
+        if self.index < sorted.len() {
+            let (k, v) = &sorted[self.index];
+            self.index += 1;
+            obj.set("done", false)?;
+            match self.kind {
+                HeadersIterKind::Keys => obj.set("value", k.as_ref())?,
+                HeadersIterKind::Values => obj.set("value", v.as_ref())?,
+                HeadersIterKind::Entries => {
+                    let entry = Array::new(ctx)?;
+                    entry.set(0, k.as_ref())?;
+                    entry.set(1, v.as_ref())?;
+                    obj.set("value", entry)?;
+                },
+            }
+        } else {
+            obj.set("done", true)?;
+        }
+        Ok(obj)
+    }
+}
+
+impl<'js> HeadersIter<'js> {
+    fn create(
+        ctx: &Ctx<'js>,
+        headers: Class<'js, Headers>,
+        kind: HeadersIterKind,
+    ) -> Result<Class<'js, Self>> {
+        Class::instance(
+            ctx.clone(),
+            Self {
+                headers,
+                index: 0,
+                kind,
+            },
         )
     }
 }
@@ -375,14 +602,66 @@ fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
     } else if let Some(s) = value.as_string() {
         s.to_string()
     } else {
-        // fallback: try JSON.stringify or [object Object]
+        // `new String(value)` returns a boxed String object; unwrap to primitive.
         let base_primordials = BasePrimordials::get(ctx)?;
-        base_primordials.constructor_string.construct((value,))
+        let obj: Object = base_primordials.constructor_string.construct((value,))?;
+        let value_of: Function = obj.get("valueOf")?;
+        let prim: Value = value_of.call((This(obj),))?;
+        match prim.into_string() {
+            Some(s) => s.to_string(),
+            None => Ok(String::new()),
+        }
     }
 }
 
 // 3.2.6.  Field Value Components
 // https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6
+
+fn is_forbidden_request_header(name: &str) -> bool {
+    name == ACCEPT_CHARSET
+        || name == ACCEPT_ENCODING
+        || name == ACCESS_CONTROL_REQUEST_HEADERS
+        || name == ACCESS_CONTROL_REQUEST_METHOD
+        || name == CONNECTION
+        || name == CONTENT_LENGTH
+        || name == COOKIE
+        || name == "cookie2"
+        || name == DATE
+        || name == "dnt"
+        || name == EXPECT
+        || name == HOST
+        || name == "keep-alive"
+        || name == ORIGIN
+        || name == REFERER
+        || name == SET_COOKIE
+        || name == TE
+        || name == TRAILER
+        || name == TRANSFER_ENCODING
+        || name == UPGRADE
+        || name == VIA
+        || name.starts_with("proxy-")
+        || name.starts_with("sec-")
+}
+
+/// Per Fetch spec, `x-http-method`, `x-http-method-override`, `x-method-override`
+/// with a value that parses to a forbidden method (CONNECT/TRACE/TRACK, case-
+/// insensitive) count as forbidden headers too.
+fn is_forbidden_method_override(name: &str, value: &str) -> bool {
+    if !matches!(
+        name,
+        "x-http-method" | "x-http-method-override" | "x-method-override"
+    ) {
+        return false;
+    }
+    value
+        .split(|c: char| c == ',' || c.is_ascii_whitespace())
+        .any(|tok| {
+            matches!(
+                tok.to_ascii_uppercase().as_str(),
+                "CONNECT" | "TRACE" | "TRACK"
+            )
+        })
+}
 fn is_http_header_name(name: &str) -> bool {
     if name.is_empty() {
         return false;
@@ -397,13 +676,18 @@ fn is_http_header_name(name: &str) -> bool {
     })
 }
 
+/// Check for bare CR or LF in the interior of the value (not leading/trailing)
+fn has_bare_cr_lf(value: &str) -> bool {
+    let trimmed = value.trim_matches(|c: char| c == ' ' || c == '\t' || c == '\n' || c == '\r');
+    trimmed.bytes().any(|b| b == b'\n' || b == b'\r')
+}
 fn is_http_header_value(value: &str) -> bool {
     value.chars().all(|c| {
-        c == '\t'                // HTAB
-        || c == ' '              // SP
-        || (('\u{21}'..='\u{7E}').contains(&c)) // VCHAR range
-        || c == '\u{0C}'         // Form Feed
-        || c == '\u{00A0}' // NBSP
+        let cp = c as u32;
+        cp == 0x09                          // HTAB
+        || cp == 0x0C                       // Form Feed
+        || (0x20..=0x7E).contains(&cp)      // SP + VCHAR
+        || (0x80..=0xFF).contains(&cp) // obs-text
     })
 }
 
@@ -471,20 +755,27 @@ pub fn is_cors_safelisted_request_header(key: &str, value: &str) -> bool {
         return false;
     }
 
-    match key.to_ascii_lowercase().as_str() {
-        "accept" => !contains_cors_unsafe_request_header_byte(value),
-        "accept-language" | "content-language" => is_cors_safelisted_field_value(value),
-        "content-type" => {
-            if contains_cors_unsafe_request_header_byte(value) {
-                return false;
-            }
-            let mime_type = value.split(';').next().unwrap_or("").trim();
-            matches!(
-                mime_type.to_ascii_lowercase().as_str(),
-                "application/x-www-form-urlencoded" | "multipart/form-data" | "text/plain" | ""
-            )
-        },
-        _ => false,
+    if key.eq_ignore_ascii_case(ACCEPT.as_str()) {
+        !contains_cors_unsafe_request_header_byte(value)
+    } else if key.eq_ignore_ascii_case(ACCEPT_LANGUAGE.as_str())
+        || key.eq_ignore_ascii_case(CONTENT_LANGUAGE.as_str())
+    {
+        is_cors_safelisted_field_value(value)
+    } else if key.eq_ignore_ascii_case(CONTENT_TYPE.as_str()) {
+        if contains_cors_unsafe_request_header_byte(value) {
+            return false;
+        }
+        let mime_type = value.split(';').next().unwrap_or("").trim();
+        [
+            "application/x-www-form-urlencoded",
+            "multipart/form-data",
+            "text/plain",
+            "",
+        ]
+        .iter()
+        .any(|c| mime_type.eq_ignore_ascii_case(c))
+    } else {
+        false
     }
 }
 

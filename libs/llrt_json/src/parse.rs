@@ -15,6 +15,16 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
     let tape = match simd_json::to_tape(&mut json) {
         Ok(tape) => tape,
         Err(err) => {
+            // simd_json is strict about lone / unpaired surrogate escapes
+            // (`\uXXXX` where XXXX is a surrogate code point). Fall back to
+            // QuickJS's native `JSON.parse`, which is more permissive and is
+            // needed for spec compliance with content that round-trips
+            // through `JSON.stringify` of strings containing lone surrogates.
+            if err.character() == Some('u') {
+                if let Ok(value) = ctx.json_parse(json.as_slice()) {
+                    return Ok(value);
+                }
+            }
             let mut itoa = itoa::Buffer::new();
             let mut error_msg = String::with_capacity(256);
             let json_length = json.len();
@@ -32,7 +42,7 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
                 error_msg.push(char);
                 error_msg.push_str("')");
             }
-            return Err(Exception::throw_message(ctx, &error_msg));
+            return Err(Exception::throw_syntax(ctx, &error_msg));
         },
     };
     let tape = tape.0;

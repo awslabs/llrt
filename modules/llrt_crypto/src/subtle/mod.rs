@@ -63,8 +63,8 @@ impl SubtleCrypto {
         Err(Exception::throw_type(&ctx, "Illegal constructor"))
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(SubtleCrypto)
     }
 }
@@ -168,7 +168,9 @@ pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>, expected_algorithm: &str) -> R
 }
 
 pub fn algorithm_not_supported_error<T>(ctx: &Ctx<'_>) -> Result<T> {
-    Err(Exception::throw_message(ctx, "Algorithm not supported"))
+    let ctor: rquickjs::function::Constructor = ctx.globals().get("DOMException")?;
+    let exc: Value = ctor.construct(("Algorithm not supported", "NotSupportedError"))?;
+    Err(ctx.throw(exc))
 }
 
 // Stub implementations for providers without _subtle-full

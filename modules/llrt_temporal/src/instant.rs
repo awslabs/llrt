@@ -136,8 +136,8 @@ impl Instant {
         BigInt::from_i64(ctx, ns)
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    fn to_string_tag() -> &'static str {
         "Temporal.Instant"
     }
 }

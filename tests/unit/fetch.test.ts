@@ -276,10 +276,10 @@ describe("fetch", () => {
     expect(text).toEqual("hello world");
   });
 
-  it("should reject streaming body with non-BufferSource chunks", async () => {
+  it("should reject streaming body with non-Uint8Array chunks", async () => {
     const stream = new ReadableStream({
       start(controller) {
-        controller.enqueue("string chunk"); // Invalid - must be BufferSource
+        controller.enqueue("string chunk"); // Invalid - must be Uint8Array per spec
         controller.close();
       },
     });
@@ -290,7 +290,7 @@ describe("fetch", () => {
         body: stream,
         duplex: "half",
       })
-    ).rejects.toThrow(/BufferSource/);
+    ).rejects.toThrow(/Uint8Array/);
   });
 
   it("should send large streaming request body", async () => {

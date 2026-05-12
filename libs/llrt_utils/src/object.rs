@@ -106,7 +106,7 @@ impl<'js> Proxy<'js> {
         Ok(Self { target, options })
     }
 
-    pub fn setter<T, P>(&self, setter: Func<T, P>) -> Result<()>
+    pub fn setter<T, P: 'js>(&self, setter: Func<T, P>) -> Result<()>
     where
         T: IntoJsFunc<'js, P> + 'js,
     {
@@ -114,7 +114,7 @@ impl<'js> Proxy<'js> {
         Ok(())
     }
 
-    pub fn getter<T, P>(&self, getter: Func<T, P>) -> Result<()>
+    pub fn getter<T, P: 'js>(&self, getter: Func<T, P>) -> Result<()>
     where
         T: IntoJsFunc<'js, P> + 'js,
     {

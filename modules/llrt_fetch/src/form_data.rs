@@ -1,10 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    io::Write,
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, io::Write, rc::Rc};
 
+use hyper::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use llrt_buffer::{Blob, File};
 use llrt_utils::{class::IteratorDef, object::map_to_entries, result::ResultExt};
 use rand::RngExt;
@@ -13,57 +11,75 @@ use rquickjs::{
     IntoJs, JsLifetime, Result, Value,
 };
 
-#[derive(Clone)]
-enum FormValue {
+#[derive(Clone, Trace, JsLifetime)]
+enum FormValue<'js> {
     Text(String),
-    File(File),
-    Blob(Blob),
+    File(#[qjs(skip_trace)] File<'js>),
+    Blob(#[qjs(skip_trace)] Blob<'js>),
 }
 
-impl<'js> IntoJs<'js> for FormValue {
+impl<'js> IntoJs<'js> for FormValue<'js> {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         match self {
             FormValue::Text(s) => s.into_js(ctx),
-            FormValue::File(f) => f.clone().into_js(ctx),
-            FormValue::Blob(b) => b.clone().into_js(ctx),
+            FormValue::File(f) => f.into_js(ctx),
+            FormValue::Blob(b) => b.into_js(ctx),
         }
+    }
+}
+
+#[derive(Clone, Default)]
+struct FormEntries<'js>(Vec<(String, FormValue<'js>)>);
+
+unsafe impl<'js> JsLifetime<'js> for FormEntries<'js> {
+    type Changed<'to> = FormEntries<'to>;
+}
+
+impl<'js> std::ops::Deref for FormEntries<'js> {
+    type Target = Vec<(String, FormValue<'js>)>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'js> std::ops::DerefMut for FormEntries<'js> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
 #[derive(Clone, Trace, JsLifetime, Default)]
 #[rquickjs::class]
-pub struct FormData {
+pub struct FormData<'js> {
     #[qjs(skip_trace)]
-    entries: Arc<Mutex<Vec<(String, FormValue)>>>,
+    entries: Rc<RefCell<FormEntries<'js>>>,
 }
 
-impl<'js> IteratorDef<'js> for FormData {
+impl<'js> IteratorDef<'js> for FormData<'js> {
     fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        let entries = self.entries.lock().or_throw(&ctx)?;
-        map_to_entries(&ctx, entries.clone())
+        let entries = self.entries.borrow();
+        map_to_entries(&ctx, entries.0.clone())
     }
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
-impl<'js> FormData {
+impl<'js> FormData<'js> {
     #[qjs(constructor)]
     pub fn new(_form: Opt<Value<'js>>, _submitter: Opt<Value<'js>>) -> Self {
-        Self {
-            entries: Arc::new(Mutex::new(Vec::new())),
-        }
+        Self::default()
     }
 
     pub fn append(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let mut entries = self.entries.lock().or_throw(&ctx)?;
+        let mut entries = self.entries.borrow_mut();
 
         if let Some(obj) = value.clone().into_object() {
             if let Some(f) = Class::<File>::from_object(&obj) {
-                let file = f.borrow().to_owned();
+                let file = f.borrow().clone();
                 entries.push((name, FormValue::File(file)));
                 return Ok(());
             }
             if let Some(b) = Class::<Blob>::from_object(&obj) {
-                let blob = b.borrow().to_owned();
+                let blob = b.borrow().clone();
                 entries.push((name, FormValue::Blob(blob)));
                 return Ok(());
             }
@@ -79,7 +95,7 @@ impl<'js> FormData {
     }
 
     pub fn get(&self, ctx: Ctx<'js>, name: String) -> Result<Option<Value<'js>>> {
-        let entries = self.entries.lock().or_throw(&ctx)?;
+        let entries = self.entries.borrow();
         for (k, v) in entries.iter().rev() {
             if *k == name {
                 return Ok(v.clone().into_js(&ctx).ok());
@@ -89,8 +105,7 @@ impl<'js> FormData {
     }
 
     pub fn get_all(&self, ctx: Ctx<'js>, name: String) -> Result<Vec<Value<'js>>> {
-        let entries = self.entries.lock().or_throw(&ctx)?;
-
+        let entries = self.entries.borrow();
         Ok(entries
             .iter()
             .filter(|(k, _)| *k == name)
@@ -98,24 +113,23 @@ impl<'js> FormData {
             .collect())
     }
 
-    pub fn has(&self, ctx: Ctx<'js>, name: String) -> Result<bool> {
-        let entries = self.entries.lock().or_throw(&ctx)?;
-
+    pub fn has(&self, _ctx: Ctx<'js>, name: String) -> Result<bool> {
+        let entries = self.entries.borrow();
         Ok(entries.iter().any(|(n, _)| n == &name))
     }
 
     pub fn set(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let mut entries = self.entries.lock().or_throw(&ctx)?;
+        let mut entries = self.entries.borrow_mut();
         entries.retain(|(k, _)| *k != name);
 
         if let Some(obj) = value.clone().into_object() {
             if let Some(f) = Class::<File>::from_object(&obj) {
-                let file = f.borrow().to_owned();
+                let file = f.borrow().clone();
                 entries.push((name, FormValue::File(file)));
                 return Ok(());
             }
             if let Some(b) = Class::<Blob>::from_object(&obj) {
-                let blob = b.borrow().to_owned();
+                let blob = b.borrow().clone();
                 entries.push((name, FormValue::Blob(blob)));
                 return Ok(());
             }
@@ -130,26 +144,25 @@ impl<'js> FormData {
         Err(Exception::throw_type(&ctx, "Invalid FormData value type"))
     }
 
-    pub fn delete(&self, ctx: Ctx<'js>, name: String) -> Result<()> {
-        let mut entries = self.entries.lock().or_throw(&ctx)?;
-
-        entries.retain(|(k, _)| *k != name);
+    pub fn delete(&self, _ctx: Ctx<'js>, name: String) -> Result<()> {
+        self.entries.borrow_mut().retain(|(k, _)| *k != name);
         Ok(())
     }
 
-    pub fn keys(&self, ctx: Ctx<'js>) -> Result<Vec<String>> {
-        let entries = self.entries.lock().or_throw(&ctx)?;
-
-        Ok(entries.iter().map(|(k, _)| k.clone()).collect())
+    pub fn keys(&self, _ctx: Ctx<'js>) -> Result<Vec<String>> {
+        Ok(self
+            .entries
+            .borrow()
+            .iter()
+            .map(|(k, _)| k.clone())
+            .collect())
     }
 
     pub fn values(&self, ctx: Ctx<'js>) -> Result<Vec<Value<'js>>> {
-        let ctx2 = ctx.clone();
-        let entries = self.entries.lock().or_throw(&ctx)?;
-
+        let entries = self.entries.borrow();
         Ok(entries
             .iter()
-            .filter_map(|(_, v)| v.clone().into_js(&ctx2).ok())
+            .filter_map(|(_, v)| v.clone().into_js(&ctx).ok())
             .collect())
     }
 
@@ -163,32 +176,27 @@ impl<'js> FormData {
     }
 
     pub fn for_each(&self, ctx: Ctx<'js>, callback: Function<'js>) -> Result<()> {
-        let entries = self.entries.lock().or_throw(&ctx)?;
-
-        for (name, value) in entries.iter() {
-            let val = value.clone().into_js(&ctx)?;
-            () = callback.call((val, name.clone()))?;
+        let entries = self.entries.borrow().0.clone();
+        for (name, value) in entries.into_iter() {
+            let val = value.into_js(&ctx)?;
+            () = callback.call((val, name))?;
         }
-
         Ok(())
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(FormData)
     }
 }
 
-impl FormData {
+impl<'js> FormData<'js> {
     #[allow(private_interfaces)]
-    pub fn iter<'js>(&self, ctx: &Ctx<'js>) -> Result<impl Iterator<Item = (String, FormValue)>> {
-        let entries = self.entries.lock().or_throw(ctx)?;
-        let entries = entries.clone();
-
-        Ok(entries.into_iter())
+    pub fn iter(&self) -> Vec<(String, FormValue<'js>)> {
+        self.entries.borrow().0.clone()
     }
 
-    pub fn from_multipart_bytes<'js>(
+    pub fn from_multipart_bytes(
         ctx: &Ctx<'js>,
         content_type: &str,
         bytes: Vec<u8>,
@@ -240,7 +248,7 @@ impl FormData {
                     in_headers = false;
                 } else {
                     current_headers.push(line_str.to_string());
-                    if line_str.to_lowercase().starts_with("content-disposition") {
+                    if starts_with_ignore_case(&line_str, CONTENT_DISPOSITION.as_str()) {
                         for seg in line_str.split(';') {
                             let seg = seg.trim();
                             if let Some(n) = seg.strip_prefix("name=") {
@@ -249,7 +257,7 @@ impl FormData {
                                 filename = Some(f.trim_matches('"').into());
                             }
                         }
-                    } else if line_str.to_lowercase().starts_with("content-type") {
+                    } else if starts_with_ignore_case(&line_str, CONTENT_TYPE.as_str()) {
                         if let Some(ct) = line_str.split(':').nth(1) {
                             mime_type = Some(ct.trim().into());
                         }
@@ -262,14 +270,18 @@ impl FormData {
         }
 
         Ok(Self {
-            entries: Arc::new(Mutex::new(entries)),
+            entries: Rc::new(RefCell::new(FormEntries(entries))),
         })
     }
 
-    pub fn to_multipart_bytes<'js>(&self, ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
+    pub fn to_multipart_bytes(&self, _ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
         let boundary = generate_boundary();
         let mut body = Vec::new();
-        let entries = self.entries.lock().or_throw(ctx)?;
+        let entries = self.entries.borrow();
+        if entries.is_empty() {
+            // Empty FormData serialises to an empty body in browsers.
+            return Ok((body, boundary));
+        }
 
         for (name, value) in entries.iter() {
             match value {
@@ -282,22 +294,23 @@ impl FormData {
                 FormValue::File(file) => {
                     let filename = file.name().clone();
                     let content_type = file.mime_type().clone();
-                    let bytes = file.get_blob().get_bytes();
+                    let blob = file.get_blob();
+                    let bytes = blob.as_bytes();
                     write!(
                         body,
                         "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n"
                     )?;
-                    body.extend_from_slice(&bytes);
+                    body.extend_from_slice(bytes);
                     body.extend_from_slice(b"\r\n");
                 },
                 FormValue::Blob(blob) => {
-                    let bytes = blob.get_bytes();
+                    let bytes = blob.as_bytes();
                     let content_type = blob.mime_type();
                     write!(
                         body,
                         "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"blob\"\r\nContent-Type: {content_type}\r\n\r\n"
                     )?;
-                    body.extend_from_slice(&bytes);
+                    body.extend_from_slice(bytes);
                     body.extend_from_slice(b"\r\n");
                 },
             }
@@ -329,4 +342,9 @@ fn generate_boundary() -> String {
         .collect();
 
     ["----WebKitFormBoundary", &rand_string].concat()
+}
+
+fn starts_with_ignore_case(haystack: &str, needle: &str) -> bool {
+    haystack.len() >= needle.len()
+        && haystack.as_bytes()[..needle.len()].eq_ignore_ascii_case(needle.as_bytes())
 }
