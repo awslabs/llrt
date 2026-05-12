@@ -495,11 +495,6 @@ async fn post_error<'js>(
                 .unwrap_or(None)
                 .unwrap_or(String::from("Error"));
 
-            // Node's Lambda runtime exposes the error class as `errorType`
-            // and the bare message as `errorMessage`. Previously the message
-            // was prefixed with "{name}: " which broke parsers expecting the
-            // Node shape (#1519). Set errorType separately and use only the
-            // message text here.
             let message = ex.message().unwrap_or_default();
 
             error_type = Some(error_name);
