@@ -385,7 +385,7 @@ mod tests {
         let mut input = b"abcdef".to_vec(); // 6 bytes
         input.extend_from_slice(&[0xED, 0xA0, 0x80]); // U+D800, ends at index 9
         input.extend_from_slice(b"xyz123456789");
-        let expected = format!("abcdef\\ud800xyz123456789");
+        let expected = "abcdef\\ud800xyz123456789";
         assert_eq!(escape_json(&input), expected);
     }
 

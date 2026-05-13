@@ -1163,9 +1163,11 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
-
+                    let response_text: String =
+                        Response::text(This(response.clone()), ctx.clone())?
+                            .into_future()
+                            .await?;
+                    let response = response.borrow();
                     assert_eq!(response.status(), 200);
                     assert_eq!(
                         response.url(),
@@ -1242,8 +1244,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 
@@ -1255,8 +1258,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 
@@ -1268,8 +1272,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 
@@ -1281,8 +1286,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 

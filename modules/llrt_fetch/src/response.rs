@@ -1335,7 +1335,7 @@ fn create_body_stream<'js>(
 #[cfg(test)]
 mod tests {
     use llrt_test::{test_async_with_opts, TestOptions};
-    use rquickjs::{CatchResultExt, Class, Function, Object, Promise};
+    use rquickjs::{prelude::This, CatchResultExt, Class, Function, Object, Promise};
     use wiremock::*;
 
     use super::*;
@@ -1363,10 +1363,12 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
 
-                        let response_text = response.text(ctx.clone()).await?;
-                        assert_eq!(response.status(), 200);
+                        let response_text: String =
+                            Response::text(This(response.clone()), ctx.clone())?
+                                .into_future()
+                                .await?;
+                        assert_eq!(response.borrow().status(), 200);
                         assert_eq!(response_text, welcome_message);
                         Ok(())
                     };
@@ -1401,17 +1403,21 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
 
                         // Cloning a response with unconsumed Incoming body should work via tee
-                        let cloned = response.clone(ctx.clone())?;
-                        let text1 = response.text(ctx.clone()).await?;
-                        let text2 = cloned.text(ctx.clone()).await?;
+                        let cloned = response.borrow().clone(ctx.clone())?;
+                        let cloned = Class::instance(ctx.clone(), cloned)?;
+                        let text1: String = Response::text(This(response.clone()), ctx.clone())?
+                            .into_future()
+                            .await?;
+                        let text2: String = Response::text(This(cloned), ctx.clone())?
+                            .into_future()
+                            .await?;
                         assert_eq!(text1, "Hello");
                         assert_eq!(text2, "Hello");
 
                         // Cloning after body is consumed should fail
-                        let clone_result = response.clone(ctx.clone());
+                        let clone_result = response.borrow().clone(ctx.clone());
                         assert!(clone_result.is_err());
                         Ok(())
                     };
@@ -1522,10 +1528,12 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
 
-                        let response_text = response.text(ctx.clone()).await?;
-                        assert_eq!(response.status(), 200);
+                        let response_text: String =
+                            Response::text(This(response.clone()), ctx.clone())?
+                                .into_future()
+                                .await?;
+                        assert_eq!(response.borrow().status(), 200);
                         assert_eq!(response_text.as_bytes(), large_body);
                         Ok(())
                     };
