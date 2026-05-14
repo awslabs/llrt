@@ -13,7 +13,7 @@ use super::key_algorithm;
 pub async fn subtle_export_key<'js>(
     ctx: Ctx<'js>,
     _format: key_algorithm::KeyFormat,
-    _key: rquickjs::Class<'js, CryptoKey>,
+    _key: rquickjs::Class<'js, CryptoKey<'js>>,
 ) -> Result<Object<'js>> {
     Err(Exception::throw_message(
         &ctx,
@@ -28,7 +28,7 @@ pub async fn subtle_import_key<'js>(
     _algorithm: Value<'js>,
     _extractable: bool,
     _key_usages: rquickjs::Array<'js>,
-) -> Result<rquickjs::Class<'js, CryptoKey>> {
+) -> Result<rquickjs::Class<'js, CryptoKey<'js>>> {
     Err(Exception::throw_message(
         &ctx,
         "importKey is not supported with this crypto provider",
@@ -38,8 +38,8 @@ pub async fn subtle_import_key<'js>(
 pub async fn subtle_wrap_key<'js>(
     ctx: Ctx<'js>,
     _format: key_algorithm::KeyFormat,
-    _key: rquickjs::Class<'js, CryptoKey>,
-    _wrapping_key: rquickjs::Class<'js, CryptoKey>,
+    _key: rquickjs::Class<'js, CryptoKey<'js>>,
+    _wrapping_key: rquickjs::Class<'js, CryptoKey<'js>>,
     _wrap_algo: encryption_algorithm::EncryptionAlgorithm,
 ) -> Result<rquickjs::ArrayBuffer<'js>> {
     Err(Exception::throw_message(
@@ -51,12 +51,12 @@ pub async fn subtle_wrap_key<'js>(
 pub async fn subtle_unwrap_key<'js>(
     _format: key_algorithm::KeyFormat,
     wrapped_key: rquickjs::ArrayBuffer<'js>,
-    _unwrapping_key: rquickjs::Class<'js, CryptoKey>,
+    _unwrapping_key: rquickjs::Class<'js, CryptoKey<'js>>,
     _unwrap_algo: encryption_algorithm::EncryptionAlgorithm,
     _unwrapped_key_algo: Value<'js>,
     _extractable: bool,
     _key_usages: rquickjs::Array<'js>,
-) -> Result<rquickjs::Class<'js, CryptoKey>> {
+) -> Result<rquickjs::Class<'js, CryptoKey<'js>>> {
     let ctx = wrapped_key.ctx().clone();
     Err(Exception::throw_message(
         &ctx,
