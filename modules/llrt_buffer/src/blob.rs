@@ -110,25 +110,12 @@ impl<'js> Blob<'js> {
 
     #[qjs(rename = "arrayBuffer")]
     pub async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        // Spec (File API §8.5): each call returns a *fresh, mutable*
-        // ArrayBuffer containing a copy of the blob's bytes. Verified
-        // against Node 24 — `await blob.arrayBuffer() === await
-        // blob.arrayBuffer()` is `false`, and writing to the returned
-        // buffer doesn't leak back into the blob. We deliberately copy
-        // here even though the underlying allocation is right next to us;
-        // that's what makes the consumer-mutation isolation work without
-        // relying on the immutable-ArrayBuffer mechanism (which would
-        // observably fail consumer writes that the spec requires to
-        // succeed). The zero-copy fast paths are `.stream()` and
-        // `.slice()`; this method is the "I want owned mutable bytes"
-        // path and pays the memcpy on purpose.
+        //should be mutable according to spec, thus copy is required
         ArrayBuffer::new_copy(ctx, self.as_bytes())
     }
 
     pub async fn bytes(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        // Same rationale as `array_buffer`: spec requires a fresh
-        // Uint8Array whose buffer is a fresh mutable copy. Build the
-        // backing ArrayBuffer with `new_copy` first, then wrap.
+        //should be mutable according to spec, thus copy is required
         let ab = ArrayBuffer::new_copy(ctx, self.as_bytes())?;
         TypedArray::<u8>::from_arraybuffer(ab).map(|t| t.into_value())
     }
@@ -154,18 +141,12 @@ impl<'js> Blob<'js> {
         } else {
             len.min(end as usize)
         };
-        // Zero-copy: new Blob's `data` is an immutable shared view
-        // into `self.data[start..end]`.
         let data = shared_array_buffer_view(&ctx, &self.data, start, end.saturating_sub(start))?;
         let mime_type = content_type.0.map(normalize_type).unwrap_or_default();
         Ok(Blob { mime_type, data })
     }
 
     pub fn stream(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        // Zero-copy: enqueue an immutable shared view of `self.data`.
-        // Immutability prevents consumers from mutating or transferring
-        // the chunk buffer, which would otherwise corrupt or detach the
-        // Blob.
         let data = self.data.clone();
         let pull = PullAlgorithm::from_fn_once(
             move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
