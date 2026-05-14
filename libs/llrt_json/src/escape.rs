@@ -68,26 +68,14 @@ fn process_byte(
     start: &mut usize,
     len: usize,
 ) {
-    // Do the escape-table check first. Bytes in the "simple" escape set
-    // ({<32, 34, 92}) give `c < ESCAPE_LEN` and go through the fast
-    // emit path. For those bytes we can entirely skip the 0xED surrogate
-    // check (since JSON_ESCAPE_CHARS[0xED] == ESCAPE_LEN, a byte that
-    // satisfies `c < ESCAPE_LEN` is guaranteed not to be 0xED).
+    // Fast path for simple escapes ({<32, 34, 92}); 0xED is filtered out here
+    // because JSON_ESCAPE_CHARS[0xED] == ESCAPE_LEN.
     let c = JSON_ESCAPE_CHARS[byte as usize] as usize;
     if c < ESCAPE_LEN {
-        // SAFETY: `c < ESCAPE_LEN == JSON_ESCAPE_QUOTES.len()` was just
-        // checked on the line above, so indexing is in-bounds.
+        // SAFETY: c < JSON_ESCAPE_QUOTES.len(); start <= i <= bytes.len().
         let esc = unsafe { JSON_ESCAPE_QUOTES.get_unchecked(c) }.as_bytes();
-        // SAFETY: the invariant `*start <= *i` is maintained throughout
-        // (`start` is only ever set to a position <= the current `i`),
-        // and `*i` is always in-bounds for `bytes`.
         let pending = unsafe { bytes.get_unchecked(*start..*i) };
-        // Unified write: one reserve + two direct memcpys. When pending is
-        // empty the first copy is a 0-byte no-op, leaving the second copy
-        // to write the escape verbatim. Branch-free across escape density.
-        //
-        // SAFETY: `pending` is a slice of the input which is valid
-        // UTF-8/WTF-8; `esc` is a 'static ASCII escape sequence.
+        // Branch-free flush: one reserve + two memcpys (pending may be empty).
         unsafe {
             let vec = result.as_mut_vec();
             let total = pending.len() + esc.len();
@@ -103,12 +91,10 @@ fn process_byte(
         return;
     }
 
-    // Not a simple escape. If it's a WTF-8 lone surrogate (0xED followed
-    // by 0xA0..=0xBF 0x80..=0xBF), emit the \uXXXX form. Otherwise this
-    // is a pass-through byte (most common case on non-ASCII text).
+    // WTF-8 lone surrogate (0xED A0..BF 80..BF) -> \uXXXX. Otherwise pass through.
     if byte == 0xED && *i + 2 < len && (bytes[*i + 1] & 0xF0) >= 0xA0 {
         if *start < *i {
-            // SAFETY: same invariant as above — `*start <= *i <= len`.
+            // SAFETY: start <= i <= len; bytes through i are valid UTF-8/WTF-8.
             result.push_str(unsafe {
                 std::str::from_utf8_unchecked(bytes.get_unchecked(*start..*i))
             });
@@ -120,20 +106,13 @@ fn process_byte(
     *i += 1;
 }
 
+/// SWAR escape-byte detector: sets the high bit of each byte in the returned
+/// u64 for any input byte matching `< 32 || == 34 || == 92 || == 0xED`. May
+/// produce false positives (caller's `process_byte` re-validates via the
+/// escape table). Little-endian load so byte k -> bit (k*8); recover via
+/// `trailing_zeros() / 8`.
 #[inline(always)]
 fn chunk_escape_mask(chunk: &[u8; 8]) -> u64 {
-    // Byte-parallel (SWAR) escape-byte detector. For each byte matching
-    // `< 32 || == 34 || == 92 || == 0xED`, the high bit of that byte in
-    // the returned u64 is set. Other bits are garbage.
-    //
-    // `from_le_bytes` makes byte 0 of the chunk map to the low 8 bits of
-    // the u64 regardless of platform endianness, so callers can use
-    // `trailing_zeros() / 8` to recover the byte index.
-    //
-    // Each sub-check's pre-`& HIGH` value has meaningful bits only in the
-    // high bit of each byte (the low bits are garbage). Since we only ever
-    // inspect the high bits, we can OR the sub-checks first and apply
-    // `& HIGH` once at the end.
     const ONES: u64 = 0x0101_0101_0101_0101;
     const HIGH: u64 = 0x8080_8080_8080_8080;
     let x = u64::from_le_bytes(*chunk);
@@ -155,66 +134,32 @@ fn chunk_escape_mask(chunk: &[u8; 8]) -> u64 {
 
 /// Append a JSON-escaped form of `bytes` to `result`.
 ///
-/// Accepts valid UTF-8 or WTF-8 input (the latter is the encoding QuickJS
-/// uses for JS strings that contain lone surrogates).
-///
-/// Algorithm:
-///   1. A 64-byte outer stride. Each iteration runs **eight independent
-///      8-byte SWAR checks** (`chunk_escape_mask`) so the CPU can issue
-///      all eight dependency chains in parallel and loop overhead is
-///      amortized across 64 bytes of clean input.
-///   2. If all eight masks are zero, advance `i` by 64 and continue —
-///      nothing is copied until either an escape or the final flush.
-///   3. Dirty halves are handled by `process_dirty_half`, which walks the
-///      mask bits via `trailing_zeros` to jump directly to each byte
-///      needing an escape, skipping the clean bytes between them.
-///   4. The 0..=63-byte tail is swept with the same 8-byte SWAR in 8-byte
-///      increments, then the final 0..=7 bytes fall through to the plain
-///      byte-by-byte `process_byte`.
-///
-/// The SWAR `chunk_escape_mask` may report **false positives** (byte 32
-/// preceded by byte <32, byte 35 after byte 34, etc. — see the `hasless`
-/// formula's borrow-propagation caveat). `process_byte` absorbs those
-/// safely via its `c < ESCAPE_LEN` guard and they cost only a table
-/// lookup each.
+/// Accepts UTF-8 or WTF-8 (QuickJS uses WTF-8 for JS strings with lone
+/// surrogates). Scans 64 bytes at a time as 8x 8-byte SWAR masks; clean
+/// strides are skipped without copying, dirty halves jump byte-to-byte via
+/// `trailing_zeros`. The trailing <64 bytes are swept the same way and the
+/// final <8 fall through to `process_byte`.
 #[inline(always)]
 pub fn escape_json_string_simple(result: &mut String, bytes: &[u8]) {
     let len = bytes.len();
     let mut start = 0;
     let mut i = 0;
-    // Reserve output capacity. Headroom depends on input size because
-    // escape density can expand output dramatically for small inputs
-    // (e.g., an 18-byte all-control-character string becomes 108 bytes of
-    // \uXXXX escapes). For large inputs escape density is typically <<25%,
-    // so a smaller headroom keeps waste bounded. The reserve is a no-op
-    // when `result` already has sufficient capacity (common stringify-
-    // accumulator case).
+    // Headroom: small strings can expand up to 6x (all-control to \uXXXX);
+    // larger inputs see <25% density in practice. No-op when `result` is
+    // already pre-sized (common stringify-accumulator case).
     let headroom = if len < 128 {
-        // Small string: reserve up to 6x (covers the worst case of
-        // all-control-chars becoming \uXXXX).
         len * 5 + 16
     } else {
-        // Larger string: escape density is bounded in practice.
         len / 4 + 16
     };
     result.reserve(len + headroom);
 
-    // Scan in 64-byte strides running eight independent 8-byte SWARs per
-    // iteration: the CPU issues many dependency chains in parallel, and
-    // loop overhead is amortized across 64 bytes of clean input. 128-byte
-    // stride is marginally faster but doubles the unrolled code size, so
-    // 64 is the simplicity/perf sweet spot.
-    //
-    // `process_byte` may advance `i` by 3 on a WTF-8 surrogate escape;
-    // that puts it at most 2 bytes into the next 8-byte region, never
-    // beyond it, so iteration stays in lockstep with `i`.
     let (chunks64, tail) = bytes.as_chunks::<64>();
 
     let mut base = 0usize;
     for chunk64 in chunks64 {
-        // Manually unrolled: LLVM doesn't reliably fold const offsets when
-        // iterating over a fixed-size array here, even with #[inline(always)]
-        // on the callee. Keeping 8 independent dependency chains visible.
+        // Hand-unrolled to keep 8 independent SWAR dependency chains visible;
+        // LLVM doesn't reliably do this from a fixed-size array loop.
         macro_rules! mask_at {
             ($off:expr) => {
                 chunk_escape_mask((&chunk64[$off..$off + 8]).try_into().unwrap())
@@ -248,8 +193,7 @@ pub fn escape_json_string_simple(result: &mut String, bytes: &[u8]) {
         base += 64;
     }
 
-    // Tail is 0..=63 bytes. Sweep any remaining 8-byte sub-chunks via
-    // SWAR, then fall through to byte-by-byte for the final 0..=7.
+    // 0..=63-byte tail: SWAR-sweep 8-byte sub-chunks, then byte-by-byte for <8.
     let (sub_chunks, _sub_tail) = tail.as_chunks::<8>();
     for (k, sub) in sub_chunks.iter().enumerate() {
         let mask = chunk_escape_mask(sub);
@@ -280,11 +224,10 @@ fn process_dirty_half(
         *i = (*i).max(half_end);
         return;
     }
-    // Invariant at entry: `*i` is in `[half_start, half_start + 2]` (up to
-    // 2 bytes consumed by a surrogate straddling the previous half). Drop
-    // mask bits for those already-consumed positions.
+    // A surrogate from the previous half may have consumed up to 2 bytes
+    // into this one; drop mask bits for those positions.
     let mut m = mask & (!0u64 << ((*i - half_start) * 8));
-    // Fast path: exactly one dirty byte. Skip the mask-clearing shuffle.
+    // Single-bit fast path skips the loop's mask-clearing shift.
     if m.count_ones() == 1 {
         *i = half_start + (m.trailing_zeros() as usize) / 8;
         process_byte(result, bytes, bytes[*i], i, start, len);
@@ -294,10 +237,8 @@ fn process_dirty_half(
     while m != 0 {
         *i = half_start + (m.trailing_zeros() as usize) / 8;
         process_byte(result, bytes, bytes[*i], i, start, len);
+        // checked_shl handles consumed >= 8 (shift >= 64) by zeroing m.
         let consumed = *i - half_start;
-        // Branch-free overshift-safe shift: `checked_shl` returns None when
-        // consumed >= 8 (shift >= 64), which `.unwrap_or(0)` turns into a
-        // zero mask that ends the loop cleanly on the next iteration.
         m &= (!0u64).checked_shl((consumed as u32) * 8).unwrap_or(0);
     }
     *i = (*i).max(half_end);
