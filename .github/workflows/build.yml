@@ -83,6 +83,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ inputs.toolchain }}
+          cache-bin: false
       - name: Map crypto to features
         id: features
         if: inputs.crypto != ''
