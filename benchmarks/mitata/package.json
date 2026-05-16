@@ -1,9 +1,0 @@
-{
-  "name": "@benchimarks/mitata",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "devDependencies": {
-    "mitata": "1.0.34"
-  }
-}
