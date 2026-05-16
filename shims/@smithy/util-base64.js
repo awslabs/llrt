@@ -1,2 +1,4 @@
-export const fromBase64 = (input) => Buffer.from(input, "base64");
-export const toBase64 = (input) => Buffer.from(input).toString("base64");
+import { decodeFromBase64, encodeToBase64 } from "llrt:codec";
+
+export const fromBase64 = decodeFromBase64;
+export const toBase64 = encodeToBase64;

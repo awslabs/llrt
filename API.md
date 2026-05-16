@@ -574,13 +574,17 @@ _Also available globally_
 
 # LLRT API
 
-## llrt:hex
+## llrt:codec
 
 ```typescript
-export function encode(
+export function decodeFromBase64(value: string): Uint8Array;
+export function encodeToBase64(
   value: string | Array | ArrayBuffer | Uint8Array
 ): string;
-export function decode(value: string): Uint8Array;
+export function decodeFromHex(value: string): Uint8Array;
+export function encodeToHex(
+  value: string | Array | ArrayBuffer | Uint8Array
+): string;
 ```
 
 ## llrt:timezone
@@ -760,7 +764,6 @@ export class XMLParser(options?: XmlParserOptions){
 }
 ```
 
-
 ## llrt:util
 
 ```typescript
@@ -768,7 +771,6 @@ export function dimensions(): [number, number];
 export function load(path: string): any;
 export function print(value: any): void;
 ```
-
 
 # Web Platform API
 
