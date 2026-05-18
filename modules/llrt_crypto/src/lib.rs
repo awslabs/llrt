@@ -238,8 +238,8 @@ impl Crypto {
         Err(Exception::throw_type(&ctx, "Illegal constructor"))
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(Crypto)
     }
 }

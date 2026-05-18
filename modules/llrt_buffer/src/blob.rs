@@ -2,8 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::ops::RangeInclusive;
 
+use llrt_stream_web::{
+    readable_byte_stream_controller_close_stream,
+    readable_byte_stream_controller_enqueue_bytes_borrowed, utils::promise::PromisePrimordials,
+    CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamControllerClass,
+};
 use llrt_utils::{
-    bytes::ObjectBytes,
+    array_buffer::shared_array_buffer_view,
+    bytes::{get_lossy_string, ObjectBytes},
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
@@ -29,9 +35,10 @@ const LINE_ENDING: &[u8] = b"\n";
 
 #[rquickjs::class]
 #[derive(Trace, Clone, rquickjs::JsLifetime)]
-pub struct Blob {
-    #[qjs(skip_trace)]
-    data: Vec<u8>,
+pub struct Blob<'js> {
+    /// Bytes live in a JS-owned `ArrayBuffer` so `.arrayBuffer()` / `.bytes()`
+    /// / `.stream()` can hand out refcount-bumped views without copying.
+    data: ArrayBuffer<'js>,
     mime_type: String,
 }
 
@@ -49,13 +56,9 @@ fn normalize_type(mut mime_type: String) -> String {
 }
 
 #[rquickjs::methods]
-impl Blob {
+impl<'js> Blob<'js> {
     #[qjs(constructor)]
-    pub fn new<'js>(
-        ctx: Ctx<'js>,
-        parts: Opt<Value<'js>>,
-        options: Opt<Value<'js>>,
-    ) -> Result<Self> {
+    pub fn new(ctx: Ctx<'js>, parts: Opt<Value<'js>>, options: Opt<Value<'js>>) -> Result<Self> {
         let mut endings = EndingType::Transparent;
         let mut mime_type = String::new();
 
@@ -79,11 +82,14 @@ impl Blob {
             }
         }
 
-        let data = if let Some(parts) = parts.0 {
+        let bytes = if let Some(parts) = parts.0 {
             bytes_from_parts(&ctx, parts, endings)?
         } else {
             Vec::new()
         };
+        // Transfer Vec ownership to JS — QuickJS calls the drop callback when
+        // the ArrayBuffer is GC'd, so no extra Rust-side copy.
+        let data = ArrayBuffer::new(ctx, bytes)?;
 
         Ok(Self { data, mime_type })
     }
@@ -99,62 +105,117 @@ impl Blob {
     }
 
     pub async fn text(&self) -> String {
-        String::from_utf8_lossy(&self.data).to_string()
+        String::from_utf8_lossy(self.as_bytes()).to_string()
     }
 
     #[qjs(rename = "arrayBuffer")]
-    pub async fn array_buffer<'js>(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        ArrayBuffer::new(ctx, self.data.to_vec())
+    pub async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+        //should be mutable according to spec, thus copy is required
+        ArrayBuffer::new_copy(ctx, self.as_bytes())
     }
 
-    pub async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        TypedArray::new(ctx, self.data.to_vec()).map(|m| m.into_value())
+    pub async fn bytes(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        //should be mutable according to spec, thus copy is required
+        let ab = ArrayBuffer::new_copy(ctx, self.as_bytes())?;
+        TypedArray::<u8>::from_arraybuffer(ab).map(|t| t.into_value())
     }
 
-    pub fn slice(&self, start: Opt<isize>, end: Opt<isize>, content_type: Opt<String>) -> Blob {
+    pub fn slice(
+        &self,
+        ctx: Ctx<'js>,
+        start: Opt<isize>,
+        end: Opt<isize>,
+        content_type: Opt<String>,
+    ) -> Result<Blob<'js>> {
+        let bytes = self.as_bytes();
+        let len = bytes.len();
         let start = start.0.unwrap_or_default();
         let start = if start < 0 {
-            (self.data.len() as isize + start).max(0) as usize
+            (len as isize + start).max(0) as usize
         } else {
-            self.data.len().min(start as usize)
+            len.min(start as usize)
         };
         let end = end.0.unwrap_or_default();
         let end = if end < 0 {
-            (self.data.len() as isize + end).max(0) as usize
+            (len as isize + end).max(0) as usize
         } else {
-            self.data.len().min(end as usize)
+            len.min(end as usize)
         };
-        let data = &self.data[start..end];
+        let data = shared_array_buffer_view(&ctx, &self.data, start, end.saturating_sub(start))?;
         let mime_type = content_type.0.map(normalize_type).unwrap_or_default();
-
-        Blob {
-            mime_type,
-            data: data.to_vec(),
-        }
+        Ok(Blob { mime_type, data })
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    pub fn stream(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let data = self.data.clone();
+        let pull = PullAlgorithm::from_fn_once(
+            move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
+                let ctrl = match controller {
+                    ReadableStreamControllerClass::ReadableStreamByteController(c) => c,
+                    _ => return Err(Exception::throw_type(&ctx, "Expected byte controller")),
+                };
+                let len = data.len();
+                if len != 0 {
+                    let view = shared_array_buffer_view(&ctx, &data, 0, len)?;
+                    readable_byte_stream_controller_enqueue_bytes_borrowed(
+                        ctx.clone(),
+                        ctrl.clone(),
+                        view,
+                    )?;
+                }
+                readable_byte_stream_controller_close_stream(ctx.clone(), ctrl)?;
+                Ok(PromisePrimordials::get(&ctx)?
+                    .promise_resolved_with_undefined
+                    .clone())
+            },
+        );
+        // Byte-source stream so callers can use `getReader({ mode: 'byob' })`.
+        // Matches spec: Blob.stream() returns a `type: "bytes"` ReadableStream.
+        let stream = ReadableStream::from_byte_pull_algorithm(
+            ctx,
+            pull,
+            CancelAlgorithm::ReturnPromiseUndefined,
+        )?;
+        Ok(stream.into_value())
+    }
+
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(Blob)
     }
-}
 
-impl Blob {
-    pub fn from_bytes(data: Vec<u8>, content_type: Option<String>) -> Self {
-        let mime_type = content_type.map(normalize_type).unwrap_or_default();
-        Self { mime_type, data }
-    }
-
-    pub fn get_bytes(&self) -> Vec<u8> {
-        self.data.clone()
-    }
-
-    //FIXME: cant use procedural macro for Symbol rename + static, see https://github.com/DelSkayn/rquickjs/issues/315
-    pub fn has_instance(value: Value<'_>) -> bool {
+    #[qjs(static, rename = PredefinedAtom::SymbolHasInstance)]
+    pub fn has_instance(value: Value<'js>) -> bool {
         if let Some(obj) = value.as_object() {
             return obj.instance_of::<Self>() || obj.instance_of::<File>();
         }
         false
+    }
+}
+
+impl<'js> Blob<'js> {
+    pub fn from_bytes(ctx: &Ctx<'js>, data: Vec<u8>, content_type: Option<String>) -> Result<Self> {
+        let mime_type = content_type.map(normalize_type).unwrap_or_default();
+        let data = ArrayBuffer::new(ctx.clone(), data)?;
+        Ok(Self { mime_type, data })
+    }
+
+    pub fn get_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    /// Zero-copy access to the underlying `ArrayBuffer`. Cloning the handle is
+    /// cheap (it's a JS-refcount bump); no bytes are copied. Useful for
+    /// consumers that want to pass the Blob body on to hyper via
+    /// `ObjectBytes::DataView` without the `get_bytes()` allocation.
+    pub fn array_buffer_ref(&self) -> ArrayBuffer<'js> {
+        self.data.clone()
+    }
+
+    /// Borrow the underlying bytes directly. Returns `&[]` if the ArrayBuffer
+    /// has been detached (shouldn't happen in normal blob flow).
+    pub fn as_bytes(&self) -> &[u8] {
+        self.data.as_bytes().unwrap_or(&[])
     }
 }
 
@@ -187,14 +248,15 @@ fn bytes_from_parts<'js>(
         }
         if let Some(object) = elem.as_object() {
             if let Some(x) = Class::<Blob>::from_object(object) {
-                data.extend_from_slice(&x.borrow().data);
+                data.extend_from_slice(x.borrow().as_bytes());
                 continue;
             }
             if let Some(x) = Class::<File>::from_object(object) {
                 let file = x.borrow();
                 let end = Some(file.size().try_into().or_throw(ctx)?);
                 let mime_type = Some(file.mime_type());
-                data.extend_from_slice(&file.slice(Opt(Some(0)), Opt(end), Opt(mime_type)).data);
+                let sub = file.slice(ctx.clone(), Opt(Some(0)), Opt(end), Opt(mime_type))?;
+                data.extend_from_slice(sub.as_bytes());
                 continue;
             }
             if let Ok(x) = ObjectBytes::from(ctx, object) {
@@ -211,7 +273,11 @@ fn bytes_from_parts<'js>(
             }
         }
 
-        let string = Coerced::<String>::from_js(ctx, elem)?.0;
+        let string = if elem.is_string() {
+            get_lossy_string(elem)?
+        } else {
+            Coerced::<String>::from_js(ctx, elem)?.0
+        };
         if let EndingType::Transparent = endings {
             data.extend_from_slice(string.as_bytes());
         } else {

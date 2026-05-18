@@ -5,10 +5,8 @@ use llrt_utils::{
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
-    atom::PredefinedAtom,
     function::Constructor,
     module::{Declarations, Exports, ModuleDef},
-    prelude::Func,
     Class, Ctx, Function, IntoJs, Object, Result,
 };
 
@@ -82,13 +80,7 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
     BufferPrimordials::init(ctx)?;
 
     // Blob
-    if let Some(constructor) = Class::<Blob>::create_constructor(ctx)? {
-        constructor.prop(
-            PredefinedAtom::SymbolHasInstance,
-            Func::from(Blob::has_instance),
-        )?;
-        globals.set(stringify!(Blob), constructor)?;
-    }
+    Class::<Blob>::define(&globals)?;
 
     // File
     Class::<File>::define(&globals)?;

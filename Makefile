@@ -181,17 +181,23 @@ test: export LLRT_ASYNC_HOOKS = 1
 test: js
 	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
-init-wpt:
+setup-wpt:
+	@if [ ! -d wpt/.git ]; then \
+		git submodule add --force -b master https://github.com/web-platform-tests/wpt wpt 2>/dev/null || \
+		git submodule update --init wpt; \
+	fi
 	cd wpt && \
 	git sparse-checkout init --no-cone && \
 	git sparse-checkout set \
 		/README.md \
+		/common \
 		/console \
 		/docs \
 		/encoding \
 		/FileAPI \
 		/fetch \
 		/hr-time \
+		/resources \
 		/streams \
 		/tools \
 		/url \
@@ -199,20 +205,51 @@ init-wpt:
 		/webidl \
 		/wpt \
 		/xhr
+	@$(MAKE) setup-wpt-hosts
 
-update-wpt:
+setup-wpt-hosts:
+	@if grep -q 'web-platform.test' /etc/hosts 2>/dev/null; then exit 0; fi; \
+	if [ -n "$$CI" ]; then \
+		./wpt/wpt make-hosts-file | sudo tee -a /etc/hosts; \
+	else \
+		echo ""; \
+		echo "WPT requires entries in /etc/hosts that are not yet present."; \
+		echo "Run: ./wpt/wpt make-hosts-file | sudo tee -a /etc/hosts"; \
+		echo ""; \
+		printf "Add now? [y/N] "; \
+		read -r answer; \
+		if [ "$$answer" = "y" ] || [ "$$answer" = "Y" ]; then \
+			./wpt/wpt make-hosts-file | sudo tee -a /etc/hosts; \
+		else \
+			echo "Skipped."; \
+		fi; \
+	fi
+
+update-wpt: setup-wpt
 	( cd wpt && git fetch origin master && git reset --hard FETCH_HEAD && git log -1 --oneline > ../tests/wpt/revision )
 
 test-wpt: export JS_MINIFY = 0
 test-wpt: export TEST_SUB_DIR = wpt
-test-wpt: js
-	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"
-	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp
+test-wpt: setup-wpt js
+	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \
+	trap 'kill $$WPT_PID 2>/dev/null' EXIT; \
+	for i in $$(seq 1 30); do \
+		curl -sf http://web-platform.test:8000/ >/dev/null 2>&1 && break; \
+		if ! kill -0 $$WPT_PID 2>/dev/null; then \
+			echo "WPT server exited unexpectedly:"; cat wpt_server.log; exit 1; \
+		fi; \
+		sleep 1; \
+	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
+	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp; \
+	STATUS=$$?; \
+	kill $$WPT_PID 2>/dev/null; \
+	exit $$STATUS
 
 tidyup-wpt:
 	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
 	| sed '1,/^$$/d' \
-	| sed -E '/^ ?[^ ]/s|^.*__tests__/|🧪/|' \
+	| sed -E '/^ ?[^ ]/s|^.*__tests__/|test/|' \
 	> wpt_errors.txt
 
 E2E_STACK_NAME := LLRTReleaseIntegTestResourcesStack

@@ -38,11 +38,12 @@ pub(super) enum IteratorKind {
     Async,
 }
 
+#[derive(Trace)]
 pub(super) struct IteratorRecord<'js> {
     pub(super) iterator: Object<'js>,
     next_method: Function<'js>,
+    #[qjs(skip_trace)]
     done: AtomicBool,
-
     sync_to_async_iterator: Function<'js>,
 }
 
@@ -274,6 +275,21 @@ impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
         let return_fn: Function<'js> = proto.get("return")?;
         return_fn.set_name("return")?;
         return_fn.set_length(1)?;
+        // Make `next` and `return` enumerable per WebIDL (rquickjs defaults to
+        // non-enumerable, but the async-iterator.any.js WPT tests check this).
+        let define_property: Function<'js> = ctx
+            .globals()
+            .get::<_, Object<'js>>("Object")?
+            .get("defineProperty")?;
+        for name in ["next", "return"] {
+            let value: Value<'js> = proto.get(name)?;
+            let desc = Object::new(ctx.clone())?;
+            desc.set("value", value)?;
+            desc.set("writable", true)?;
+            desc.set("enumerable", true)?;
+            desc.set("configurable", true)?;
+            define_property.call::<_, ()>((proto.clone(), name, desc))?;
+        }
         Ok(Some(proto))
     }
     fn constructor(ctx: &Ctx<'js>) -> Result<Option<Constructor<'js>>> {

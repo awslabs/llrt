@@ -1,65 +1,31 @@
-import resourcesIdlharness from "./resources/idlharness.js";
-import resourcesTestharness from "./resources/testharness.js";
+import { makeRunner } from "./_harness-util.js";
 
-import commonGc from "./common/gc.js";
-import commonSubsetTests from "./common/subset-tests.js";
+// Encodings llrt actually supports. The raw WPT encodings.js lists every
+// encoding in the spec; we filter to the supported subset so tests don't
+// blow up on encodings we intentionally don't implement.
+const SUPPORTED = new Set([
+  "UTF-8",
+  "windows-1252",
+  "replacement",
+  "UTF-16BE",
+  "UTF-16LE",
+]);
 
-import encodings from "./encoding/resources/encodings.js";
-import encodingDecodingHelpers from "./encoding/resources/decoding-helpers.js";
-
-export const runTestDynamic = (testSource, done) => {
-  const context = {
-    createBuffer: (type, length) => new self[type](length),
-    encodings_table: encodings,
-    setTimeout: setTimeout,
-    DOMException: DOMException,
-    location: {},
-  };
-
-  resourcesIdlharness(context);
-  resourcesTestharness(context);
-
-  commonGc(context);
-  commonSubsetTests(context);
-
-  encodingDecodingHelpers(context);
-
-  context.setup({
-    explicit_done: true,
-    debug: process.env.DEBUG !== undefined,
-  });
-
-  globalThis.gc = globalThis.__gc;
-
-  context.add_completion_callback((tests, status, assertions) => {
-    if (
-      tests.filter(
-        ({ name, status }) => !(name === "Loading data..." && status === 0)
-      ).length === 0
-    ) {
-      done(new Error("No tests were executed!"));
+export const runTestDynamic = makeRunner({
+  context: () => ({
+    scripts: [
+      "encoding/resources/encodings.js",
+      "encoding/resources/decoding-helpers.js",
+    ],
+  }),
+  postSetup(context) {
+    if (Array.isArray(context.encodings_table)) {
+      context.encodings_table = context.encodings_table
+        .map((s) => ({
+          ...s,
+          encodings: s.encodings.filter((e) => SUPPORTED.has(e.name)),
+        }))
+        .filter((s) => s.encodings.length > 0);
     }
-    const failure = tests.find((test) => test.status !== 0);
-    if (failure) {
-      const message = `[${failure.name}] ${failure.message || String(failure)}`;
-      done(message);
-      return;
-    }
-    done();
-  });
-
-  wrapTestSuite(testSource)(context);
-
-  context.done();
-};
-
-function wrapTestSuite(sourceCode) {
-  return new Function(
-    "context",
-    `
-      with (context) {
-        ${sourceCode}
-      }
-    `
-  );
-}
+  },
+});

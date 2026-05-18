@@ -1,3 +1,5 @@
+use std::future::Future;
+
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
@@ -9,20 +11,44 @@ use crate::{
     CRYPTO_PROVIDER,
 };
 
-pub async fn subtle_digest<'js>(
+use super::algorithm_not_supported_error;
+
+pub fn subtle_digest<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
     data: ObjectBytes<'js>,
-) -> Result<ArrayBuffer<'js>> {
-    let algorithm = if let Some(algorithm) = algorithm.as_string() {
-        algorithm.to_string().or_throw(&ctx)?
-    } else {
-        algorithm.get_required::<_, String>("name", "algorithm")?
-    };
+) -> impl Future<Output = Result<ArrayBuffer<'js>>> + 'js {
+    // Snapshot inputs synchronously so mutating/detaching the buffer after the call can't affect the result (WPT digest.https.any.js).
+    let prepared = prepare_digest(&ctx, algorithm, data);
 
-    let hash_algorithm = HashAlgorithm::try_from(algorithm.as_str()).or_throw(&ctx)?;
-    let bytes = digest(&hash_algorithm, data.as_bytes(&ctx)?);
-    ArrayBuffer::new(ctx, bytes)
+    async move {
+        let (hash_algorithm, input) = prepared?;
+        let bytes = digest(&hash_algorithm, &input);
+        ArrayBuffer::new(ctx, bytes)
+    }
+}
+
+fn prepare_digest<'js>(
+    ctx: &Ctx<'js>,
+    algorithm: Value<'js>,
+    data: ObjectBytes<'js>,
+) -> Result<(HashAlgorithm, Vec<u8>)> {
+    let algorithm = if let Some(s) = algorithm.as_string() {
+        s.to_string().or_throw(ctx)?
+    } else if let Some(name) = algorithm.get_optional::<_, String>("name")? {
+        name
+    } else {
+        return Err(rquickjs::Exception::throw_type(
+            ctx,
+            "Algorithm 'name' property required",
+        ));
+    };
+    let hash_algorithm = match HashAlgorithm::try_from(algorithm.as_str()) {
+        Ok(h) => h,
+        Err(_) => return algorithm_not_supported_error(ctx),
+    };
+    let input = data.as_bytes_opt().map(<[u8]>::to_vec).unwrap_or_default();
+    Ok((hash_algorithm, input))
 }
 
 pub fn digest(hash_algorithm: &HashAlgorithm, data: &[u8]) -> Vec<u8> {

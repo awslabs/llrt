@@ -10,17 +10,16 @@ use super::blob::Blob;
 
 #[rquickjs::class]
 #[derive(Trace, Clone, rquickjs::JsLifetime)]
-pub struct File {
-    #[qjs(skip_trace)]
-    blob: Blob,
+pub struct File<'js> {
+    blob: Blob<'js>,
     filename: String,
     last_modified: i64,
 }
 
 #[rquickjs::methods]
-impl File {
+impl<'js> File<'js> {
     #[qjs(constructor)]
-    fn new<'js>(
+    fn new(
         ctx: Ctx<'js>,
         data: Value<'js>,
         filename: Coerced<String>,
@@ -69,8 +68,14 @@ impl File {
         self.last_modified
     }
 
-    pub fn slice(&self, start: Opt<isize>, end: Opt<isize>, content_type: Opt<String>) -> Blob {
-        self.blob.slice(start, end, content_type)
+    pub fn slice(
+        &self,
+        ctx: Ctx<'js>,
+        start: Opt<isize>,
+        end: Opt<isize>,
+        content_type: Opt<String>,
+    ) -> Result<Blob<'js>> {
+        self.blob.slice(ctx, start, end, content_type)
     }
 
     pub async fn text(&mut self) -> String {
@@ -78,21 +83,22 @@ impl File {
     }
 
     #[qjs(rename = "arrayBuffer")]
-    pub async fn array_buffer<'js>(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
+    pub async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
         self.blob.array_buffer(ctx).await
     }
 
-    pub async fn bytes<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+    pub async fn bytes(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
         self.blob.bytes(ctx).await
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(File)
     }
 }
-impl File {
-    pub fn from_bytes<'js>(
+
+impl<'js> File<'js> {
+    pub fn from_bytes(
         ctx: &Ctx<'js>,
         data: Vec<u8>,
         filename: String,
@@ -118,7 +124,7 @@ impl File {
         })
     }
 
-    pub fn get_blob(&self) -> Blob {
+    pub fn get_blob(&self) -> Blob<'js> {
         self.blob.clone()
     }
 }

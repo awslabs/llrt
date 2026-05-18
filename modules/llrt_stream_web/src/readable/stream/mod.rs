@@ -55,6 +55,65 @@ mod pipe;
 pub(super) mod source;
 mod tee;
 
+/// Acquire a default reader for the stream, locking it. Subsequent
+/// `getReader()` calls from JS will throw per spec.
+pub fn lock_readable_stream<'js>(
+    ctx: Ctx<'js>,
+    stream: Class<'js, ReadableStream<'js>>,
+) -> Result<()> {
+    let owned = rquickjs::class::OwnedBorrowMut::from_class(stream);
+    super::reader::ReadableStreamReaderClass::acquire_readable_stream_default_reader(ctx, owned)?;
+    Ok(())
+}
+
+/// Fast-path drain for a default-controller ReadableStream whose queue holds
+/// all the data synchronously (e.g. the stream was enqueued in `start()` and
+/// then closed). Bypasses the JS reader + Promise machinery, so user code
+/// that poisons `Object.prototype.then` cannot swap the streamed chunks
+/// (WPT `response-stream-with-broken-then`).
+///
+/// Returns `Some(chunks)` if the fast path applied, `None` otherwise (stream
+/// locked, disturbed, has pending pull, byte controller, not yet closed,
+/// etc). Sets `disturbed = true` on success.
+pub fn try_sync_drain_closed_stream<'js>(
+    stream: &Class<'js, ReadableStream<'js>>,
+) -> Option<Vec<rquickjs::Value<'js>>> {
+    use super::controller::ReadableStreamControllerClass;
+    use super::default_controller::ReadableStreamDefaultController;
+    use super::stream::ReadableStreamState;
+    use rquickjs::class::OwnedBorrowMut;
+
+    let mut stream_ref = stream.try_borrow_mut().ok()?;
+    if stream_ref.disturbed || stream_ref.is_readable_stream_locked() {
+        return None;
+    }
+    // Stream state must be Readable (not Errored). Closed would also be OK
+    // but then the queue should already be empty.
+    if !matches!(stream_ref.state, ReadableStreamState::Readable) {
+        return None;
+    }
+    let controller_class = match &stream_ref.controller {
+        ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c.clone(),
+        _ => return None,
+    };
+    let mut controller: OwnedBorrowMut<'js, ReadableStreamDefaultController<'js>> =
+        OwnedBorrowMut::try_from_class(controller_class).ok()?;
+    // Only fast-path when close has been requested — otherwise there could
+    // be more data coming via `pull()` that we'd miss.
+    if !controller.close_requested {
+        return None;
+    }
+    let mut chunks = Vec::with_capacity(controller.container.queue.len());
+    while !controller.container.queue.is_empty() {
+        chunks.push(controller.container.dequeue_value());
+    }
+    stream_ref.disturbed = true;
+    // Transition the stream to Closed now that its queue is drained, so that
+    // later consumers see a consistent state.
+    stream_ref.state = ReadableStreamState::Closed;
+    Some(chunks)
+}
+
 /// Tee a ReadableStream into two branches. The stream must not be locked or disturbed.
 pub fn tee_readable_stream<'js>(
     ctx: Ctx<'js>,
@@ -190,8 +249,13 @@ impl<'js> ReadableStream<'js> {
                     high_water_mark,
                 )?;
             },
-            // Otherwise,
-            None => {
+            // Otherwise (no type, or "owning" which we treat as a default
+            // controller that also accepts the `transfer` enqueue option):
+            None | Some(ReadableStreamType::Owning) => {
+                let is_owning_type = matches!(
+                    underlying_source_dict.r#type,
+                    Some(ReadableStreamType::Owning)
+                );
                 // Let sizeAlgorithm be ! ExtractSizeAlgorithm(strategy).
                 let size_algorithm =
                     QueuingStrategy::extract_size_algorithm(queuing_strategy.as_ref());
@@ -208,6 +272,7 @@ impl<'js> ReadableStream<'js> {
                     underlying_source_dict,
                     high_water_mark,
                     size_algorithm,
+                    is_owning_type,
                 )?;
             },
         }
@@ -738,6 +803,7 @@ impl<'js> ReadableStream<'js> {
                 cancel_algorithm,
                 high_water_mark,
                 size_algorithm,
+                false, // not owning-type; Rust-side streams never set it
             )?;
 
         // Return stream.
@@ -773,6 +839,25 @@ impl<'js> ReadableStream<'js> {
             None,
         )?
         .stream)
+    }
+
+    /// Create a byte-source ReadableStream (i.e. `type: "bytes"`) from Rust
+    /// pull/cancel algorithms. BYOB readers can attach to the returned
+    /// stream, and the pull algorithm receives a byte controller so it can
+    /// enqueue `Uint8Array` chunks that stream directly into BYOB reads
+    /// without copying.
+    pub fn from_byte_pull_algorithm(
+        ctx: Ctx<'js>,
+        pull_algorithm: PullAlgorithm<'js>,
+        cancel_algorithm: CancelAlgorithm<'js>,
+    ) -> Result<Class<'js, Self>> {
+        let (stream, _controller) = Self::create_readable_byte_stream(
+            ctx,
+            StartAlgorithm::ReturnUndefined,
+            pull_algorithm,
+            cancel_algorithm,
+        )?;
+        Ok(stream)
     }
 
     // CreateReadableByteStream(startAlgorithm, pullAlgorithm, cancelAlgorithm) performs the following steps:
@@ -907,18 +992,25 @@ impl<'js> ReadableStream<'js> {
                 // Let iterator be iteratorRecord.[[Iterator]].
 
                 // Let returnMethod be GetMethod(iterator, "return").
-                let return_method: Function<'js> = match iterator.get(PredefinedAtom::Return) {
-                    // If returnMethod is an abrupt completion, return a promise rejected with returnMethod.[[Value]].
+                let return_method_val: Value<'js> = match iterator.get(PredefinedAtom::Return) {
                     Err(Error::Exception) => {
                         return promise_rejected_catch(&ctx, &promise_primordials);
                     },
                     Err(err) => return Err(err),
-                    Ok(None) => {
+                    Ok(val) => val,
+                };
+
+                let return_method: Function<'js> =
+                    if return_method_val.is_undefined() || return_method_val.is_null() {
                         // If returnMethod.[[Value]] is undefined, return a promise resolved with undefined.
                         return Ok(promise_primordials.promise_resolved_with_undefined.clone());
-                    },
-                    Ok(Some(return_method)) => return_method,
-                };
+                    } else if let Some(func) = return_method_val.as_function() {
+                        func.clone()
+                    } else {
+                        // returnMethod is not callable — reject with TypeError
+                        let _ = Exception::throw_type(&ctx, "return is not a function");
+                        return promise_rejected_catch(&ctx, &promise_primordials);
+                    };
 
                 // Let returnResult be Call(returnMethod.[[Value]], iterator, « reason »).
                 let return_result: Result<Value<'js>> =
@@ -972,9 +1064,10 @@ impl<'js> ReadableStream<'js> {
     }
 }
 
-// enum ReadableStreamType { "bytes" };
+// enum ReadableStreamType { "bytes", "owning" };
 enum ReadableStreamType {
     Bytes,
+    Owning,
 }
 
 impl<'js> FromJs<'js> for ReadableStreamType {
@@ -983,6 +1076,7 @@ impl<'js> FromJs<'js> for ReadableStreamType {
 
         match Coerced::<String>::from_js(ctx, value)?.as_str() {
             "bytes" => Ok(Self::Bytes),
+            "owning" => Ok(Self::Owning),
             _ => Err(Error::new_from_js(typ.as_str(), "ReadableStreamType")),
         }
     }

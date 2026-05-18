@@ -6,7 +6,7 @@ use llrt_utils::str_enum;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
-    Ctx, Exception, Result, Value,
+    Ctx, Exception, IntoJs, Object, Result, Value,
 };
 
 use super::key_algorithm::KeyAlgorithm;
@@ -22,16 +22,18 @@ str_enum!(KeyKind,Secret => "secret", Private => "private", Public => "public");
 
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime)]
-pub struct CryptoKey {
+pub struct CryptoKey<'js> {
     pub kind: KeyKind,
     pub extractable: bool,
     pub algorithm: KeyAlgorithm,
     pub name: Box<str>,
     pub usages: Vec<String>,
     pub handle: Rc<[u8]>,
+    algorithm_cache: Option<Object<'js>>,
+    usages_cache: Option<Value<'js>>,
 }
 
-impl CryptoKey {
+impl<'js> CryptoKey<'js> {
     pub fn new<N, H>(
         kind: KeyKind,
         name: N,
@@ -51,16 +53,25 @@ impl CryptoKey {
             name: name.into(),
             usages,
             handle: handle.into(),
+            algorithm_cache: None,
+            usages_cache: None,
         }
     }
 }
 
-impl<'js> Trace<'js> for CryptoKey {
-    fn trace<'a>(&self, _: Tracer<'a, 'js>) {}
+impl<'js> Trace<'js> for CryptoKey<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        if let Some(cached) = &self.algorithm_cache {
+            cached.trace(tracer);
+        }
+        if let Some(cached) = &self.usages_cache {
+            cached.trace(tracer);
+        }
+    }
 }
 
 #[rquickjs::methods]
-impl CryptoKey {
+impl<'js> CryptoKey<'js> {
     #[qjs(constructor)]
     fn constructor(ctx: Ctx<'_>) -> Result<Self> {
         Err(Exception::throw_type(&ctx, "Illegal constructor"))
@@ -76,25 +87,33 @@ impl CryptoKey {
         self.extractable
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(CryptoKey)
     }
 
     #[qjs(get)]
-    pub fn algorithm<'js>(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.algorithm
-            .as_object(&ctx, self.name.as_ref())
-            .map(|a| a.into_value())
+    pub fn algorithm(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(cached) = &self.algorithm_cache {
+            return Ok(cached.clone().into_value());
+        }
+        let obj = self.algorithm.as_object(&ctx, self.name.as_ref())?;
+        self.algorithm_cache = Some(obj.clone());
+        Ok(obj.into_value())
     }
 
     #[qjs(get)]
-    pub fn usages(&self) -> Vec<String> {
-        self.usages.clone()
+    pub fn usages(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if let Some(cached) = &self.usages_cache {
+            return Ok(cached.clone());
+        }
+        let arr = self.usages.clone().into_js(&ctx)?;
+        self.usages_cache = Some(arr.clone());
+        Ok(arr)
     }
 }
 
-impl CryptoKey {
+impl<'js> CryptoKey<'js> {
     pub fn check_validity(&self, usage: &str) -> std::result::Result<(), String> {
         for key in self.usages.iter() {
             if key == usage {

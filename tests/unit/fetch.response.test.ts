@@ -2,7 +2,7 @@ describe("Response class", () => {
   it("should construct a new Response object with default values", () => {
     const response = new Response();
     expect(response.status).toEqual(200);
-    expect(response.statusText).toEqual("OK");
+    expect(response.statusText).toEqual("");
     expect(response.headers instanceof Headers).toBeTruthy();
     expect(response.body).toEqual(null);
     expect(response.redirected).toBeFalsy();
@@ -136,9 +136,7 @@ describe("Response class", () => {
     const res = Response.json(json);
 
     expect(res.status).toEqual(200);
-    expect(res.headers.get("content-type")).toEqual(
-      "application/json;charset=UTF-8"
-    );
+    expect(res.headers.get("content-type")).toEqual("application/json");
     expect(await res.json()).toEqual(json);
   });
 
@@ -147,9 +145,7 @@ describe("Response class", () => {
     const res = Response.json(json);
 
     expect(res.status).toEqual(200);
-    expect(res.headers.get("content-type")).toEqual(
-      "application/json;charset=UTF-8"
-    );
+    expect(res.headers.get("content-type")).toEqual("application/json");
     expect(await res.text()).toEqual(JSON.stringify(json));
   });
 
@@ -161,9 +157,7 @@ describe("Response class", () => {
     });
     expect(res.status).toEqual(307);
     expect(res.statusText).toEqual("Temporary Redirect");
-    expect(res.headers.get("content-type")).toEqual(
-      "application/json;charset=UTF-8"
-    );
+    expect(res.headers.get("content-type")).toEqual("application/json");
     expect(await res.text()).toEqual(JSON.stringify(json));
   });
 

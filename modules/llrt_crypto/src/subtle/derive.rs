@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::result::ResultExt;
-use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
+use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, FromJs, Result, Value};
 
 use crate::{provider::CryptoProvider, subtle::CryptoKey, CRYPTO_PROVIDER};
 
@@ -16,10 +16,12 @@ use super::{
 
 pub async fn subtle_derive_bits<'js>(
     ctx: Ctx<'js>,
-    algorithm: DeriveAlgorithm,
-    base_key: Class<'js, CryptoKey>,
+    algorithm: Value<'js>,
+    base_key: Class<'js, CryptoKey<'js>>,
     length: u32,
 ) -> Result<ArrayBuffer<'js>> {
+    // Normalize inside async body so WebIDL errors reject the Promise instead of throwing sync.
+    let algorithm = DeriveAlgorithm::from_js(&ctx, algorithm)?;
     let base_key = base_key.borrow();
     base_key.check_validity("deriveBits").or_throw(&ctx)?;
 
@@ -92,12 +94,14 @@ fn derive_bits(
 
 pub async fn subtle_derive_key<'js>(
     ctx: Ctx<'js>,
-    algorithm: DeriveAlgorithm,
-    base_key: Class<'js, CryptoKey>,
+    algorithm: Value<'js>,
+    base_key: Class<'js, CryptoKey<'js>>,
     derived_key_algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
-) -> Result<Class<'js, CryptoKey>> {
+) -> Result<Class<'js, CryptoKey<'js>>> {
+    // Normalize inside async body so WebIDL errors reject the Promise instead of throwing sync.
+    let algorithm = DeriveAlgorithm::from_js(&ctx, algorithm)?;
     let KeyAlgorithmWithUsages {
         algorithm: derived_key_algorithm,
         name,

@@ -65,7 +65,7 @@ use crate::{
 #[rquickjs::class]
 pub struct ReadableStreamDefaultController<'js> {
     cancel_algorithm: Option<CancelAlgorithm<'js>>,
-    close_requested: bool,
+    pub(super) close_requested: bool,
     pull_again: bool,
     pull_algorithm: Option<PullAlgorithm<'js>>,
     pub(crate) pulling: bool,
@@ -75,6 +75,12 @@ pub struct ReadableStreamDefaultController<'js> {
     strategy_size_algorithm: Option<SizeAlgorithm<'js>>,
     pub(super) stream: ReadableStreamClass<'js>,
     pub native_pull: Option<NativePull<'js>>,
+    /// Whether this stream was created with `{type: 'owning'}`. Owning streams
+    /// accept a non-empty `transfer` array in `controller.enqueue` and
+    /// structurally transfer each buffer before queueing; non-owning streams
+    /// throw when a non-empty `transfer` list is provided.
+    #[qjs(skip_trace)]
+    pub(super) is_owning_type: bool,
 }
 
 impl<'js> Drop for ReadableStreamDefaultController<'js> {
@@ -96,6 +102,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         underlying_source_dict: UnderlyingSource<'js>,
         high_water_mark: f64,
         size_algorithm: SizeAlgorithm<'js>,
+        is_owning_type: bool,
     ) -> Result<()> {
         let (start_algorithm, pull_algorithm, cancel_algorithm) = (
             // If underlyingSourceDict["start"] exists, then set startAlgorithm to an algorithm which returns the result of invoking underlyingSourceDict["start"] with argument list
@@ -136,11 +143,13 @@ impl<'js> ReadableStreamDefaultController<'js> {
             cancel_algorithm,
             high_water_mark,
             size_algorithm,
+            is_owning_type,
         )?;
 
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn set_up_readable_stream_default_controller(
         ctx: Ctx<'js>,
         stream: ReadableStreamOwned<'js>,
@@ -149,6 +158,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
         cancel_algorithm: CancelAlgorithm<'js>,
         high_water_mark: f64,
         size_algorithm: SizeAlgorithm<'js>,
+        is_owning_type: bool,
     ) -> Result<Class<'js, Self>> {
         let (stream_class, mut stream) = class_from_owned_borrow_mut(stream);
 
@@ -174,6 +184,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
             // Set controller.[[cancelAlgorithm]] to cancelAlgorithm.
             cancel_algorithm: Some(cancel_algorithm),
             native_pull: None,
+            is_owning_type,
         };
 
         let controller_class = Class::instance(ctx.clone(), controller)?;
@@ -641,12 +652,38 @@ impl<'js> ReadableStreamDefaultController<'js> {
         Ok(())
     }
 
-    // undefined enqueue(optional any chunk);
+    // undefined enqueue(optional any chunk, optional ReadableStreamEnqueueOptions options = {});
     fn enqueue(
         ctx: Ctx<'js>,
         controller: This<OwnedBorrowMut<'js, Self>>,
         chunk: Opt<Value<'js>>,
+        options: Opt<Value<'js>>,
     ) -> Result<()> {
+        // Handle the `transfer` option per the `type: 'owning'` ReadableStream
+        // proposal (WPT `streams/readable-streams/owning-type`). The option
+        // is only meaningful on owning-type streams; any other stream throws
+        // `TypeError` if the caller passes a non-empty transfer list.
+        //
+        // WebIDL getter semantics apply: property access must propagate.
+        let mut transfer_list: Option<rquickjs::Array<'js>> = None;
+        if let Some(opts) = options.0.as_ref().and_then(|v| v.as_object()) {
+            transfer_list = opts.get::<_, Option<rquickjs::Array<'js>>>("transfer")?;
+        }
+        let has_transfer_items = transfer_list.as_ref().is_some_and(|arr| !arr.is_empty());
+        if has_transfer_items && !controller.is_owning_type {
+            return Err(Exception::throw_type(&ctx, "transfer list is not empty"));
+        }
+        // Detach each buffer in the transfer list (owning-type streams). Uses
+        // JS `ArrayBuffer.prototype.transfer()` which returns a new buffer
+        // with the same bytes and detaches the original. We re-bind the
+        // chunk to the new buffer if it was the same reference.
+        let chunk_value = chunk.0.clone().unwrap_or_undefined(&ctx);
+        let transferred_chunk = if has_transfer_items && controller.is_owning_type {
+            transfer_owning_chunk(&ctx, chunk_value.clone(), &transfer_list.unwrap())?
+        } else {
+            chunk_value
+        };
+
         let objects = ReadableStreamObjects::from_default_controller(controller.0);
 
         // If ! ReadableStreamDefaultControllerCanCloseOrEnqueue(this) is false, throw a TypeError exception.
@@ -666,7 +703,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
                 Self::readable_stream_default_controller_enqueue(
                     ctx.clone(),
                     objects,
-                    chunk.0.clone().unwrap_or_undefined(&ctx),
+                    transferred_chunk.clone(),
                 )
             },
             |_| panic!("Default controller must not have byob reader"),
@@ -675,7 +712,7 @@ impl<'js> ReadableStreamDefaultController<'js> {
                 Self::readable_stream_default_controller_enqueue(
                     ctx.clone(),
                     objects,
-                    chunk.0.clone().unwrap_or_undefined(&ctx),
+                    transferred_chunk.clone(),
                 )
             },
         )?;
@@ -884,4 +921,39 @@ pub fn readable_stream_default_controller_error_stream<'js>(
     )?;
 
     Ok(())
+}
+
+/// Structurally transfer each `ArrayBuffer` in `transfer_list` (detaches the
+/// original) and, if `chunk` references the same buffer, rebind it to the
+/// transferred copy. Called for `controller.enqueue(chunk, { transfer })` on
+/// `type: 'owning'` ReadableStreams.
+fn transfer_owning_chunk<'js>(
+    ctx: &Ctx<'js>,
+    chunk: Value<'js>,
+    transfer_list: &rquickjs::Array<'js>,
+) -> Result<Value<'js>> {
+    use rquickjs::ArrayBuffer;
+    let mut chunk_replacement: Option<Value<'js>> = None;
+    for v in transfer_list.iter::<Value<'js>>() {
+        let v = v?;
+        let Some(ab) = ArrayBuffer::from_value(v.clone()) else {
+            return Err(rquickjs::Exception::throw_type(
+                ctx,
+                "transfer list item is not an ArrayBuffer",
+            ));
+        };
+        // JS object identity: if this transfer-list entry IS the chunk
+        // itself, record that we need to replace the chunk with the
+        // transferred copy. Compare before calling transfer() (which
+        // detaches the buffer).
+        let is_chunk = chunk == v;
+        // Use JS `ArrayBuffer.prototype.transfer()` which returns a new
+        // buffer of the same byteLength and detaches the original.
+        let transfer_fn: rquickjs::Function<'js> = ab.as_object().get("transfer")?;
+        let new_buf: Value<'js> = transfer_fn.call((rquickjs::function::This(ab.clone()),))?;
+        if is_chunk && chunk_replacement.is_none() {
+            chunk_replacement = Some(new_buf);
+        }
+    }
+    Ok(chunk_replacement.unwrap_or(chunk))
 }
