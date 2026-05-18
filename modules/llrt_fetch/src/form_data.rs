@@ -95,21 +95,30 @@ impl<'js> FormData<'js> {
     }
 
     pub fn get(&self, ctx: Ctx<'js>, name: String) -> Result<Option<Value<'js>>> {
-        let entries = self.entries.borrow();
-        for (k, v) in entries.iter().rev() {
-            if *k == name {
-                return Ok(v.clone().into_js(&ctx).ok());
-            }
+        let value = self
+            .entries
+            .borrow()
+            .iter()
+            .rev()
+            .find(|(k, _)| *k == name)
+            .map(|(_, v)| v.clone());
+        match value {
+            Some(v) => Ok(v.into_js(&ctx).ok()),
+            None => Ok(None),
         }
-        Ok(None)
     }
 
     pub fn get_all(&self, ctx: Ctx<'js>, name: String) -> Result<Vec<Value<'js>>> {
-        let entries = self.entries.borrow();
-        Ok(entries
+        let values: Vec<FormValue<'js>> = self
+            .entries
+            .borrow()
             .iter()
             .filter(|(k, _)| *k == name)
-            .filter_map(|(_, v)| v.clone().into_js(&ctx).ok())
+            .map(|(_, v)| v.clone())
+            .collect();
+        Ok(values
+            .into_iter()
+            .filter_map(|v| v.into_js(&ctx).ok())
             .collect())
     }
 
@@ -159,10 +168,15 @@ impl<'js> FormData<'js> {
     }
 
     pub fn values(&self, ctx: Ctx<'js>) -> Result<Vec<Value<'js>>> {
-        let entries = self.entries.borrow();
-        Ok(entries
+        let values: Vec<FormValue<'js>> = self
+            .entries
+            .borrow()
             .iter()
-            .filter_map(|(_, v)| v.clone().into_js(&ctx).ok())
+            .map(|(_, v)| v.clone())
+            .collect();
+        Ok(values
+            .into_iter()
+            .filter_map(|v| v.into_js(&ctx).ok())
             .collect())
     }
 
