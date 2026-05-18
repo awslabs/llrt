@@ -20,11 +20,7 @@ pub async fn subtle_derive_bits<'js>(
     base_key: Class<'js, CryptoKey<'js>>,
     length: u32,
 ) -> Result<ArrayBuffer<'js>> {
-    // Per WebIDL, a method returning a Promise must convert any synchronous
-    // exceptions during argument processing (including algorithm
-    // normalization) into a rejected promise. `rquickjs::Async` extracts
-    // params *before* the async body, so we pull `algorithm` in as a raw
-    // `Value` and normalize it inside the body.
+    // Normalize inside async body so WebIDL errors reject the Promise instead of throwing sync.
     let algorithm = DeriveAlgorithm::from_js(&ctx, algorithm)?;
     let base_key = base_key.borrow();
     base_key.check_validity("deriveBits").or_throw(&ctx)?;
@@ -104,8 +100,7 @@ pub async fn subtle_derive_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
-    // See note on `subtle_derive_bits`: algorithm normalization errors must
-    // surface as a rejected promise, not a synchronous throw.
+    // Normalize inside async body so WebIDL errors reject the Promise instead of throwing sync.
     let algorithm = DeriveAlgorithm::from_js(&ctx, algorithm)?;
     let KeyAlgorithmWithUsages {
         algorithm: derived_key_algorithm,

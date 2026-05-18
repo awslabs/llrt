@@ -29,9 +29,6 @@ pub struct CryptoKey<'js> {
     pub name: Box<str>,
     pub usages: Vec<String>,
     pub handle: Rc<[u8]>,
-    // WebCrypto requires `key.algorithm` and `key.usages` getters to return
-    // the *same* object across calls (tested by
-    // `crypto_key_cached_slots.https.any.js`).
     algorithm_cache: Option<Object<'js>>,
     usages_cache: Option<Value<'js>>,
 }
