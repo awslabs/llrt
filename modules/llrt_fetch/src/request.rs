@@ -6,7 +6,7 @@ use super::{
     MIME_TYPE_TEXT,
 };
 use crate::body_helpers::strip_bom;
-use hyper::header::CONTENT_TYPE;
+use hyper::{header::CONTENT_TYPE, Method};
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
 use llrt_json::parse::json_parse;
@@ -69,7 +69,7 @@ pub(crate) enum BodyTaken<'js> {
 #[derive(rquickjs::JsLifetime)]
 pub struct Request<'js> {
     url: String,
-    method: String,
+    method: Method,
     headers: Option<Class<'js, Headers>>,
     body: RwLock<BodyVariant<'js>>,
     body_stream: RwLock<Option<Value<'js>>>,
@@ -115,7 +115,7 @@ impl<'js> Request<'js> {
         }
         let mut request = Self {
             url: "".into(),
-            method: "GET".into(),
+            method: Method::GET,
             headers: None,
             body: RwLock::new(BodyVariant::Empty),
             body_stream: RwLock::new(None),
@@ -188,7 +188,7 @@ impl<'js> Request<'js> {
         }
         // Validate: GET/HEAD requests cannot have a body (even when the body
         // was inherited from an input Request).
-        if matches!(request.method.as_str(), "GET" | "HEAD") {
+        if matches!(request.method, Method::GET | Method::HEAD) {
             let has_body = matches!(
                 &*request.body.read().unwrap(),
                 BodyVariant::Provided(Some(_))
@@ -258,7 +258,7 @@ impl<'js> Request<'js> {
 
     #[qjs(get)]
     fn method(&self) -> &str {
-        &self.method
+        self.method.as_str()
     }
 
     #[qjs(get)]
@@ -660,18 +660,10 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
         request.url = url;
     }
     if let Some(method) = obj.get_optional::<_, String>("method")? {
-        // Validate HTTP token per RFC 7230 (no whitespace, CTLs or separators)
-        if method.is_empty()
-            || !method.bytes().all(|b| {
-                matches!(b,
-                b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' | b'-' | b'.'
-                | b'^' | b'_' | b'`' | b'|' | b'~' | b'0'..=b'9' | b'A'..=b'Z' | b'a'..=b'z')
-            })
-        {
-            return Err(Exception::throw_type(&ctx, "Invalid HTTP method name"));
-        }
         let method = method.to_ascii_uppercase();
-        if let "CONNECT" | "TRACE" | "TRACK" = method.as_str() {
+        let method = Method::from_bytes(method.as_bytes())
+            .map_err(|_| Exception::throw_type(&ctx, "Invalid HTTP method name"))?;
+        if matches!(method.as_str(), "CONNECT" | "TRACE" | "TRACK") {
             return Err(Exception::throw_type(&ctx, "This method is not allowed."));
         }
         request.method = method;
@@ -683,7 +675,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 "Cannot construct a Request with a RequestInit whose mode member is set as 'navigate'.",
             ));
         }
-        if mode == "no-cors" && !matches!(request.method.as_str(), "GET" | "HEAD" | "POST") {
+        if mode == "no-cors" && !matches!(request.method, Method::GET | Method::HEAD | Method::POST) {
             return Err(Exception::throw_type(
                 &ctx,
                 "'no-cors' mode requires the method to be GET, HEAD, or POST",
@@ -795,7 +787,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
 
     if let Some(body) = obj.get_optional::<_, Value>("body")? {
         if !body.is_undefined() && !body.is_null() {
-            if let "GET" | "HEAD" = request.method.as_str() {
+            if matches!(request.method, Method::GET | Method::HEAD) {
                 return Err(Exception::throw_type(
                     &ctx,
                     "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
