@@ -144,12 +144,7 @@ impl From<ConsoleModule> for ModuleInfo<ConsoleModule> {
     }
 }
 
-/// Sets up the global `console` object with the correct property descriptors,
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
-    // Per-context console state (counters/timers). Silently ignore the
-    // `Err` variant from `store_userdata` — it only returns `Err` when the
-    // userdata is currently being accessed, which is impossible here since
-    // `init` runs before any console method is registered.
     let _ = ctx.store_userdata(ConsoleState::default());
 
     let globals = ctx.globals();
@@ -179,10 +174,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Per-context state for the `console.count()` / `console.time()` families.
-/// Stored in `Ctx::userdata` so two contexts in the same runtime don't share
-/// timers and counters (a `thread_local!` would conflate them on worker
-/// runtimes that run multiple contexts on the same OS thread).
 #[derive(Default)]
 struct ConsoleState {
     counters: RefCell<HashMap<String, u32>>,
@@ -191,17 +182,6 @@ struct ConsoleState {
 
 unsafe impl<'js> rquickjs::JsLifetime<'js> for ConsoleState {
     type Changed<'to> = ConsoleState;
-}
-
-fn with_state<R>(ctx: &Ctx<'_>, f: impl FnOnce(&ConsoleState) -> R) -> R {
-    // `init_console` stores a `ConsoleState` before any console.count/time
-    // method can be called, so the guard is always present. If a caller
-    // somehow runs these functions before init, fall back to a transient
-    // state (matches previous `thread_local!` behaviour of starting fresh).
-    match ctx.userdata::<ConsoleState>() {
-        Some(guard) => f(&guard),
-        None => f(&ConsoleState::default()),
-    }
 }
 
 fn get_label(label: Opt<Coerced<String>>) -> String {
@@ -213,30 +193,33 @@ fn get_label(label: Opt<Coerced<String>>) -> String {
 
 fn console_count(ctx: Ctx<'_>, label: Opt<Coerced<String>>) {
     let label = get_label(label);
-    with_state(&ctx, |state| {
-        let mut map = state.counters.borrow_mut();
-        let count = map.entry(label.clone()).or_insert(0);
-        *count += 1;
-        let _ = writeln!(stdout(), "{}: {}", label, count);
-    });
+    let Some(state) = ctx.userdata::<ConsoleState>() else {
+        return;
+    };
+    let mut map = state.counters.borrow_mut();
+    let count = map.entry(label.clone()).or_insert(0);
+    *count += 1;
+    let _ = writeln!(stdout(), "{}: {}", label, count);
 }
 
 fn console_count_reset(ctx: Ctx<'_>, label: Opt<Coerced<String>>) {
     let label = get_label(label);
-    with_state(&ctx, |state| {
-        state.counters.borrow_mut().remove(&label);
-    });
+    let Some(state) = ctx.userdata::<ConsoleState>() else {
+        return;
+    };
+    state.counters.borrow_mut().remove(&label);
 }
 
 fn console_time(ctx: Ctx<'_>, label: Opt<Coerced<String>>) {
     let label = get_label(label);
-    with_state(&ctx, |state| {
-        state
-            .timers
-            .borrow_mut()
-            .entry(label)
-            .or_insert_with(std::time::Instant::now);
-    });
+    let Some(state) = ctx.userdata::<ConsoleState>() else {
+        return;
+    };
+    state
+        .timers
+        .borrow_mut()
+        .entry(label)
+        .or_insert_with(std::time::Instant::now);
 }
 
 fn console_time_log<'js>(
@@ -245,14 +228,15 @@ fn console_time_log<'js>(
     args: Rest<Value<'js>>,
 ) -> Result<()> {
     let label = get_label(label);
-    let elapsed = with_state(&ctx, |state| {
-        state
-            .timers
-            .borrow()
-            .get(&label)
-            .map(|start| start.elapsed().as_millis())
-    });
-    let Some(elapsed) = elapsed else {
+    let Some(state) = ctx.userdata::<ConsoleState>() else {
+        return Ok(());
+    };
+    let Some(elapsed) = state
+        .timers
+        .borrow()
+        .get(&label)
+        .map(|start| start.elapsed().as_millis())
+    else {
         return Ok(());
     };
     let _ = write!(stdout(), "{}: {}ms", label, elapsed);
@@ -269,13 +253,14 @@ fn console_time_log<'js>(
 
 fn console_time_end(ctx: Ctx<'_>, label: Opt<Coerced<String>>) {
     let label = get_label(label);
-    let elapsed = with_state(&ctx, |state| {
-        state
-            .timers
-            .borrow_mut()
-            .remove(&label)
-            .map(|start| start.elapsed().as_millis())
-    });
+    let Some(state) = ctx.userdata::<ConsoleState>() else {
+        return;
+    };
+    let elapsed = state
+        .timers
+        .borrow_mut()
+        .remove(&label)
+        .map(|start| start.elapsed().as_millis());
     if let Some(elapsed) = elapsed {
         let _ = writeln!(stdout(), "{}: {}ms", label, elapsed);
     }
