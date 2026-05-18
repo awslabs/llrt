@@ -675,7 +675,8 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 "Cannot construct a Request with a RequestInit whose mode member is set as 'navigate'.",
             ));
         }
-        if mode == "no-cors" && !matches!(request.method, Method::GET | Method::HEAD | Method::POST) {
+        if mode == "no-cors" && !matches!(request.method, Method::GET | Method::HEAD | Method::POST)
+        {
             return Err(Exception::throw_type(
                 &ctx,
                 "'no-cors' mode requires the method to be GET, HEAD, or POST",

@@ -7,15 +7,17 @@ use llrt_buffer::{Blob, File};
 use llrt_utils::{class::IteratorDef, object::map_to_entries, result::ResultExt};
 use rand::RngExt;
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, prelude::Opt, Array, Class, Ctx, Exception, Function,
-    IntoJs, JsLifetime, Result, Value,
+    atom::PredefinedAtom,
+    class::{Trace, Tracer},
+    prelude::Opt,
+    Array, Class, Ctx, Exception, Function, IntoJs, JsLifetime, Result, Value,
 };
 
 #[derive(Clone, Trace, JsLifetime)]
 enum FormValue<'js> {
     Text(String),
-    File(#[qjs(skip_trace)] File<'js>),
-    Blob(#[qjs(skip_trace)] Blob<'js>),
+    File(File<'js>),
+    Blob(Blob<'js>),
 }
 
 impl<'js> IntoJs<'js> for FormValue<'js> {
@@ -30,6 +32,12 @@ impl<'js> IntoJs<'js> for FormValue<'js> {
 
 #[derive(Clone, Default)]
 struct FormEntries<'js>(Vec<(String, FormValue<'js>)>);
+
+impl<'js> Trace<'js> for FormEntries<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        self.0.trace(tracer);
+    }
+}
 
 unsafe impl<'js> JsLifetime<'js> for FormEntries<'js> {
     type Changed<'to> = FormEntries<'to>;
@@ -48,11 +56,18 @@ impl<'js> std::ops::DerefMut for FormEntries<'js> {
     }
 }
 
-#[derive(Clone, Trace, JsLifetime, Default)]
+#[derive(Clone, JsLifetime, Default)]
 #[rquickjs::class]
 pub struct FormData<'js> {
-    #[qjs(skip_trace)]
     entries: Rc<RefCell<FormEntries<'js>>>,
+}
+
+impl<'js> Trace<'js> for FormData<'js> {
+    fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
+        if let Ok(entries) = self.entries.try_borrow() {
+            entries.trace(tracer);
+        }
+    }
 }
 
 impl<'js> IteratorDef<'js> for FormData<'js> {
@@ -70,28 +85,9 @@ impl<'js> FormData<'js> {
     }
 
     pub fn append(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let mut entries = self.entries.borrow_mut();
-
-        if let Some(obj) = value.clone().into_object() {
-            if let Some(f) = Class::<File>::from_object(&obj) {
-                let file = f.borrow().clone();
-                entries.push((name, FormValue::File(file)));
-                return Ok(());
-            }
-            if let Some(b) = Class::<Blob>::from_object(&obj) {
-                let blob = b.borrow().clone();
-                entries.push((name, FormValue::Blob(blob)));
-                return Ok(());
-            }
-        }
-
-        if let Some(s) = value.as_string() {
-            let str = s.to_string().or_throw(&ctx)?;
-            entries.push((name, FormValue::Text(str)));
-            return Ok(());
-        }
-
-        Err(Exception::throw_type(&ctx, "Invalid FormData value type"))
+        let entry = value_to_form_entry(&ctx, name, value)?;
+        self.entries.borrow_mut().push(entry);
+        Ok(())
     }
 
     pub fn get(&self, ctx: Ctx<'js>, name: String) -> Result<Option<Value<'js>>> {
@@ -128,29 +124,11 @@ impl<'js> FormData<'js> {
     }
 
     pub fn set(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
+        let entry = value_to_form_entry(&ctx, name, value)?;
         let mut entries = self.entries.borrow_mut();
-        entries.retain(|(k, _)| *k != name);
-
-        if let Some(obj) = value.clone().into_object() {
-            if let Some(f) = Class::<File>::from_object(&obj) {
-                let file = f.borrow().clone();
-                entries.push((name, FormValue::File(file)));
-                return Ok(());
-            }
-            if let Some(b) = Class::<Blob>::from_object(&obj) {
-                let blob = b.borrow().clone();
-                entries.push((name, FormValue::Blob(blob)));
-                return Ok(());
-            }
-        }
-
-        if let Ok(s) = value.try_into_string() {
-            let string = s.to_string().or_throw(&ctx)?;
-            entries.push((name, FormValue::Text(string)));
-            return Ok(());
-        }
-
-        Err(Exception::throw_type(&ctx, "Invalid FormData value type"))
+        entries.retain(|(k, _)| *k != entry.0);
+        entries.push(entry);
+        Ok(())
     }
 
     pub fn delete(&self, _ctx: Ctx<'js>, name: String) -> Result<()> {
@@ -334,6 +312,25 @@ impl<'js> FormData<'js> {
 
         Ok((body, boundary))
     }
+}
+
+fn value_to_form_entry<'js>(
+    ctx: &Ctx<'js>,
+    name: String,
+    value: Value<'js>,
+) -> Result<(String, FormValue<'js>)> {
+    if let Some(obj) = value.as_object() {
+        if let Some(f) = Class::<File>::from_object(obj) {
+            return Ok((name, FormValue::File(f.borrow().clone())));
+        }
+        if let Some(b) = Class::<Blob>::from_object(obj) {
+            return Ok((name, FormValue::Blob(b.borrow().clone())));
+        }
+    }
+    if let Some(s) = value.as_string() {
+        return Ok((name, FormValue::Text(s.to_string().or_throw(ctx)?)));
+    }
+    Err(Exception::throw_type(ctx, "Invalid FormData value type"))
 }
 
 fn extract_boundary(content_type: &str) -> Option<String> {
