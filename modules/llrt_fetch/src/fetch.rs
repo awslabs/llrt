@@ -294,6 +294,22 @@ async fn send_stream<'js>(
     )
 }
 
+async fn dispatch<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    req: Request<BoxBody<Bytes, Infallible>>,
+    abort_receiver: Option<&mc_oneshot::Receiver<Value<'js>>>,
+) -> Result<hyper::Response<hyper::body::Incoming>> {
+    if let Some(abort_receiver) = abort_receiver {
+        select! {
+            res = client.request(req) => res.or_throw_type(ctx, "Fetch failed"),
+            reason = abort_receiver.recv() => Err(ctx.throw(reason)),
+        }
+    } else {
+        client.request(req).await.or_throw_type(ctx, "Fetch failed")
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn send<'js>(
     ctx: &Ctx<'js>,
@@ -320,29 +336,15 @@ async fn send<'js>(
             initial_uri,
         )?;
 
-        let res = if let Some(abort_receiver) = abort_receiver {
-            select! {
-                res = client.request(req) => res.or_throw_type(ctx, "Fetch failed")?,
-                reason = abort_receiver.recv() => return Err(ctx.throw(reason))
-            }
-        } else {
-            client
-                .request(req)
-                .await
-                .or_throw_type(ctx, "Fetch failed")?
-        };
+        let res = dispatch(ctx, client, req, abort_receiver).await?;
 
         let status = res.status();
 
-        // Per WHATWG Fetch spec §4.5 step 15.4 (HTTP-network-or-cache fetch):
-        // a 421 Misdirected Request on a non-streaming, non-keepalive request
-        // triggers a single retry on a newly-opened connection (WPT
-        // `request-upload.any.js` "POST with text body on 421 response").
+        // Per WHATWG Fetch §4.5 step 15.4: 421 on a non-GET/HEAD request retries once on a fresh connection.
         if status.as_u16() == 421 && !matches!(method, Method::GET | Method::HEAD) {
             drop(res);
-            // Force a new connection: open a fresh hyper client whose pool
-            // can't share TCP conns with the global one.
-            let fresh = llrt_http::build_client(None)
+            // Force a new connection: open a new hyper client whose pool can't share TCP conns with the global one.
+            let new_client = llrt_http::build_client(None)
                 .or_throw_type(ctx, "Fetch failed: could not build retry client")?;
             let (req, _) = build_request(
                 ctx,
@@ -353,17 +355,7 @@ async fn send<'js>(
                 &response_status,
                 initial_uri,
             )?;
-            let retried = if let Some(abort_receiver) = abort_receiver {
-                select! {
-                    res = fresh.request(req) => res.or_throw_type(ctx, "Fetch failed")?,
-                    reason = abort_receiver.recv() => return Err(ctx.throw(reason))
-                }
-            } else {
-                fresh
-                    .request(req)
-                    .await
-                    .or_throw_type(ctx, "Fetch failed")?
-            };
+            let retried = dispatch(ctx, &new_client, req, abort_receiver).await?;
             break (retried, guard);
         }
 
@@ -529,7 +521,7 @@ fn build_request<'js>(
 
     // `Content-Length: 0` is sent for POST/PUT/PATCH requests with no body.
     if body.is_none()
-        && matches!(method.as_str(), "POST" | "PUT" | "PATCH")
+        && matches!(*method, Method::POST | Method::PUT | Method::PATCH)
         && !detected_headers.contains(CONTENT_LENGTH.as_str())
     {
         req = req.header(CONTENT_LENGTH, "0");
