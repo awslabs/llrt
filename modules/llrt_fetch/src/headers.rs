@@ -368,27 +368,26 @@ impl Headers {
                     .call((value,))?;
                 return Self::from_array(ctx, array, guard);
             } else {
-                // WebIDL record conversion: enumerate own enumerable string
-                // properties using the same trap ordering as Reflect.ownKeys +
-                // getOwnPropertyDescriptor + Reflect.get (Proxy-safe).
-                let reflect: Object = ctx.globals().get("Reflect")?;
-                let own_keys: rquickjs::Function = reflect.get("ownKeys")?;
-                let gopd: rquickjs::Function = reflect.get("getOwnPropertyDescriptor")?;
-                let reflect_get: rquickjs::Function = reflect.get("get")?;
-                let keys: Array = own_keys.call((obj.clone(),))?;
+                // WebIDL record conversion: keys via Reflect.ownKeys (preserves
+                // Symbols, unlike rquickjs's Atom-based iterator which stringifies
+                // them), then per-key gopd → enumerable check → get. Ordering
+                // matters for Proxy traps (WPT headers-record.any.js).
+                let (get_own_property_desc_fn, own_keys_fn) = {
+                    let primordials = BasePrimordials::get(ctx)?;
+                    let get_own_property_desc_fn =
+                        &primordials.function_get_own_property_descriptor;
+                    let own_keys_fn = &primordials.function_reflect_own_keys;
+                    (get_own_property_desc_fn.clone(), own_keys_fn.clone())
+                };
+
+                let keys: Array = own_keys_fn.call((obj.clone(),))?;
+
                 let mut headers: Vec<(ImmutableString, ImmutableString)> =
                     Vec::with_capacity(keys.len());
                 for i in 0..keys.len() {
                     let key_val: Value = keys.get(i)?;
-                    let key_str = if let Some(s) = key_val.as_string() {
-                        Some(s.to_string()?)
-                    } else {
-                        None
-                    };
-                    // Per WebIDL record conversion: always call getOwnPropertyDescriptor,
-                    // then filter by enumerable. ToString(symbol) throws only for enumerable symbol keys.
-                    let desc_key: Value = key_val.clone();
-                    let desc: Value = gopd.call((obj.clone(), desc_key))?;
+                    let desc: Value =
+                        get_own_property_desc_fn.call((obj.clone(), key_val.clone()))?;
                     let Some(desc) = desc.as_object() else {
                         continue;
                     };
@@ -401,7 +400,7 @@ impl Headers {
                             "Cannot convert a Symbol value to a string",
                         ));
                     }
-                    let Some(key) = key_str else {
+                    let Some(key) = key_val.as_string().map(|s| s.to_string()).transpose()? else {
                         continue;
                     };
                     let mut k_lower = key;
@@ -414,7 +413,7 @@ impl Headers {
                     {
                         continue;
                     }
-                    let raw_value: Value = reflect_get.call((obj.clone(), key_val))?;
+                    let raw_value: Value = obj.get(key_val)?;
                     let mut value = coerce_to_string(ctx, raw_value)?;
                     let _ = normalize_header_value_inplace(ctx, &mut value);
                     if !is_http_header_value(&value) {
@@ -430,8 +429,7 @@ impl Headers {
                     {
                         continue;
                     }
-                    let lower_key: ImmutableString = k_lower.into();
-                    headers.push((lower_key, value.into()));
+                    headers.push((k_lower.into(), value.into()));
                 }
                 headers.sort_by(|a, b| a.0.cmp(&b.0));
                 return Ok(Self { headers, guard });
