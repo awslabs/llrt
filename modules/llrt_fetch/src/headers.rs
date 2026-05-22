@@ -19,8 +19,9 @@ use llrt_utils::{
     result::ResultExt,
 };
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, methods, prelude::Opt, prelude::This, Array, Class, Ctx,
-    Exception, Function, IntoJs, JsLifetime, Null, Object, Result, Symbol, Value,
+    atom::PredefinedAtom, class::Trace, convert::Coerced, methods, prelude::Opt, prelude::This,
+    Array, Class, Ctx, Exception, FromJs, Function, IntoJs, JsLifetime, Null, Object, Result,
+    Symbol, Value,
 };
 
 type ImmutableString = Rc<str>;
@@ -391,7 +392,10 @@ impl Headers {
                     let Some(desc) = desc.as_object() else {
                         continue;
                     };
-                    if !desc.get::<_, bool>("enumerable").unwrap_or(false) {
+                    if !desc
+                        .get::<_, bool>(PredefinedAtom::Enumerable)
+                        .unwrap_or(false)
+                    {
                         continue;
                     }
                     if key_val.is_symbol() {
@@ -600,15 +604,7 @@ fn coerce_to_string<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<String> {
     } else if let Some(s) = value.as_string() {
         s.to_string()
     } else {
-        // `new String(value)` returns a boxed String object; unwrap to primitive.
-        let base_primordials = BasePrimordials::get(ctx)?;
-        let obj: Object = base_primordials.constructor_string.construct((value,))?;
-        let value_of: Function = obj.get("valueOf")?;
-        let prim: Value = value_of.call((This(obj),))?;
-        match prim.into_string() {
-            Some(s) => s.to_string(),
-            None => Ok(String::new()),
-        }
+        Coerced::<String>::from_js(ctx, value).map(|c| c.0)
     }
 }
 
