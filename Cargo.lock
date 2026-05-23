@@ -1874,6 +1874,7 @@ dependencies = [
  "llrt_build",
  "memchr",
  "phf",
+ "rquickjs",
 ]
 
 [[package]]
