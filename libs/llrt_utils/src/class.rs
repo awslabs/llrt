@@ -1,11 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use rquickjs::{
-    atom::PredefinedAtom, class::JsClass, object::Accessor, prelude::This, Array, Class, Ctx,
-    Function, Object, Result, Symbol, Value,
+    atom::PredefinedAtom, class::JsClass, object::Accessor, object::Property, prelude::This, Array,
+    Class, Ctx, Function, Object, Result, Symbol, Value,
 };
 
-use super::{object::ObjectExt, result::OptionExt};
+use super::{
+    object::ObjectExt,
+    primordials::{BasePrimordials, Primordial},
+    result::OptionExt,
+};
 
 pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
 
@@ -67,6 +71,42 @@ where
             proto.prop(
                 custom_inspect_symbol,
                 Accessor::from(|this: This<Class<'js, C>>, ctx| this.borrow().custom_inspect(ctx)),
+            )?;
+        }
+        Ok(())
+    }
+}
+
+/// Register a class as a WebIDL pair iterator: registers it on the globals,
+/// removes the constructor (it's not exposed to JS), wires its prototype to
+/// inherit from `%IteratorPrototype%` (so it's iterable and stringifies as
+/// `[object Iterator]`), and re-defines `next` as enumerable per WebIDL.
+///
+/// The class must declare a `next(&mut self, ctx) -> Result<Object>` method
+/// via `#[rquickjs::methods]`.
+pub trait WebIdlIteratorExtension<'js> {
+    fn define_as_webidl_iterator(globals: &Object<'js>, name: &str) -> Result<()>;
+}
+
+impl<'js, C> WebIdlIteratorExtension<'js> for Class<'js, C>
+where
+    C: JsClass<'js> + 'js,
+{
+    fn define_as_webidl_iterator(globals: &Object<'js>, name: &str) -> Result<()> {
+        let ctx = globals.ctx();
+        Self::define(globals)?;
+        // Iterator class is not exposed to JS.
+        globals.remove(name)?;
+        if let Some(proto) = Class::<C>::prototype(ctx)? {
+            let iterator_proto = BasePrimordials::get(ctx)?.prototype_iterator.clone();
+            proto.set_prototype(Some(&iterator_proto))?;
+            let next_fn: Function = proto.get("next")?;
+            proto.prop(
+                "next",
+                Property::from(next_fn)
+                    .writable()
+                    .enumerable()
+                    .configurable(),
             )?;
         }
         Ok(())

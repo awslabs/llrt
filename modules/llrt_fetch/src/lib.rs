@@ -10,7 +10,7 @@ use self::{
 use llrt_buffer::Blob;
 use llrt_http::HTTP_CLIENT;
 use llrt_utils::{
-    class::CustomInspectExtension,
+    class::{CustomInspectExtension, WebIdlIteratorExtension},
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
@@ -46,32 +46,7 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define_with_custom_inspect(&globals)?;
 
-    // Set up HeadersIter prototype chain:
-    // iter -> HeadersIter.prototype -> %IteratorPrototype%
-    // And make `next` enumerable on the prototype per WebIDL.
-    Class::<HeadersIter>::define(&globals)?;
-    if let Some(proto) = Class::<HeadersIter>::prototype(ctx)? {
-        // Get %IteratorPrototype% via [][Symbol.iterator]().__proto__.__proto__
-        let array_iter_proto: rquickjs::Object =
-            ctx.eval("Object.getPrototypeOf(Object.getPrototypeOf([][Symbol.iterator]()))")?;
-        proto.set_prototype(Some(&array_iter_proto))?;
-
-        // Make `next` enumerable via defineProperty (rquickjs's `prop()` helper
-        // doesn't carry HAS_ENUMERABLE, so the enumerable flag is ignored).
-        globals.set("__headersIterProto", proto.clone())?;
-        let _ = ctx.eval::<(), _>(
-            r#"(() => {
-                const p = globalThis.__headersIterProto;
-                const v = p.next;
-                Object.defineProperty(p, 'next', {
-                    value: v, writable: true, enumerable: true, configurable: true
-                });
-            })()"#,
-        );
-        globals.remove("__headersIterProto")?;
-    }
-    // Remove HeadersIter from globals (it's an internal class)
-    globals.remove("HeadersIter")?;
+    Class::<HeadersIter>::define_as_webidl_iterator(&globals, stringify!(HeadersIter))?;
 
     Ok(())
 }

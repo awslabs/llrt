@@ -725,7 +725,7 @@ fn read_buf<'js>(
                 Endian::Big => i64::from_be_bytes(bytes.try_into().unwrap()),
                 Endian::Little => i64::from_le_bytes(bytes.try_into().unwrap()),
             };
-            Value::new_big_int(ctx.clone(), value)
+            Value::new_big_int(ctx.clone(), value)?
         },
         NumberKind::BigUInt => {
             return Err(Exception::throw_type(ctx, "Uint64 is not supported"));

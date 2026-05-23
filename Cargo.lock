@@ -2966,7 +2966,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#6083f9287179e67fb939802d1fc084ff589faf3b"
+source = "git+https://github.com/DelSkayn/rquickjs#193e4d8ad4efab5320e47247897b257657b99d21"
 dependencies = [
  "either",
  "rquickjs-core",
@@ -2976,7 +2976,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#6083f9287179e67fb939802d1fc084ff589faf3b"
+source = "git+https://github.com/DelSkayn/rquickjs#193e4d8ad4efab5320e47247897b257657b99d21"
 dependencies = [
  "async-lock",
  "either",
@@ -2988,7 +2988,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#6083f9287179e67fb939802d1fc084ff589faf3b"
+source = "git+https://github.com/DelSkayn/rquickjs#193e4d8ad4efab5320e47247897b257657b99d21"
 dependencies = [
  "convert_case",
  "fnv",
@@ -3004,7 +3004,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs#6083f9287179e67fb939802d1fc084ff589faf3b"
+source = "git+https://github.com/DelSkayn/rquickjs#193e4d8ad4efab5320e47247897b257657b99d21"
 dependencies = [
  "bindgen",
  "cc",
