@@ -16,3 +16,10 @@ memchr = { version = "2", default-features = false }
 
 [build-dependencies]
 llrt_build = { version = "0.8.1-beta", path = "../llrt_build" }
+
+[dev-dependencies]
+criterion = { version = "0.8", default-features = false }
+
+[[bench]]
+name = "encoding"
+harness = false

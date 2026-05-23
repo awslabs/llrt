@@ -1869,6 +1869,7 @@ name = "llrt_encoding"
 version = "0.8.1-beta"
 dependencies = [
  "base64-simd",
+ "criterion",
  "hex-simd",
  "llrt_build",
  "memchr",
