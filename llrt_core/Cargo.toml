@@ -83,5 +83,23 @@ uuid = { version = "1", features = ["v4"], default-features = false }
 walkdir = { version = "2", default-features = false }
 
 [dev-dependencies]
-wiremock = { version = "0.6", default-features = false }
+criterion = { version = "0.8", default-features = false }
 llrt_test = { path = "../libs/llrt_test" }
+rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
+wiremock = { version = "0.6", default-features = false }
+
+[[bench]]
+name = "decode_from_base64"
+harness = false
+
+[[bench]]
+name = "decode_from_hex"
+harness = false
+
+[[bench]]
+name = "encode_to_base64"
+harness = false
+
+[[bench]]
+name = "encode_to_hex"
+harness = false

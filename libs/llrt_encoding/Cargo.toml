@@ -14,25 +14,5 @@ hex-simd = { version = "0.8", features = ["alloc"], default-features = false }
 phf = { version = "0.13", features = ["macros"], default-features = false }
 memchr = { version = "2", default-features = false }
 
-[dev-dependencies]
-criterion = { version = "0.8", default-features = false }
-rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
-
 [build-dependencies]
 llrt_build = { version = "0.8.1-beta", path = "../llrt_build" }
-
-[[bench]]
-name = "decode_from_base64"
-harness = false
-
-[[bench]]
-name = "decode_from_hex"
-harness = false
-
-[[bench]]
-name = "encode_to_base64"
-harness = false
-
-[[bench]]
-name = "encode_to_hex"
-harness = false
