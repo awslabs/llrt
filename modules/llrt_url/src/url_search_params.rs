@@ -1,6 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use llrt_utils::{
     bytes::get_lossy_string,
@@ -395,8 +399,7 @@ impl<'js> URLSearchParams {
         // the *last* value wins. Preserve original iteration order for keys
         // that were only seen once.
         let mut order: Vec<String> = Vec::with_capacity(raw_pairs.len());
-        let mut map: std::collections::HashMap<String, String> =
-            std::collections::HashMap::with_capacity(raw_pairs.len());
+        let mut map: HashMap<String, String> = HashMap::with_capacity(raw_pairs.len());
         for (k, v) in raw_pairs {
             if !map.contains_key(&k) {
                 order.push(k.clone());
