@@ -1,8 +1,8 @@
 use std::any::type_name;
 
 use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Function, JsLifetime,
-    Object, Result,
+    atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Exception, Function,
+    JsLifetime, Object, Result,
 };
 
 use crate::result::ResultExt;
@@ -130,9 +130,7 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
         let prototype_iterator = array_iter
             .get_prototype()
             .and_then(|p| p.get_prototype())
-            .ok_or_else(|| {
-                rquickjs::Exception::throw_internal(ctx, "missing %IteratorPrototype%")
-            })?;
+            .ok_or_else(|| Exception::throw_internal(ctx, "missing %IteratorPrototype%"))?;
 
         Ok(Self {
             constructor_map,

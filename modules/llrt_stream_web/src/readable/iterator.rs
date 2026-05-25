@@ -6,7 +6,10 @@ use std::{
 use llrt_utils::primordials::{BasePrimordials, Primordial};
 use rquickjs::{
     atom::PredefinedAtom,
-    class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
+    class::{
+        impl_::{CloneTrait, CloneWrapper},
+        JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer,
+    },
     function::Constructor,
     methods,
     prelude::{Opt, This},
@@ -301,20 +304,19 @@ impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
 impl<'js> IntoJs<'js> for ReadableStreamAsyncIterator<'js> {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let cls = Class::<Self>::instance(ctx.clone(), self)?;
-        rquickjs::IntoJs::into_js(cls, ctx)
+        IntoJs::into_js(cls, ctx)
     }
 }
 
 impl<'js> FromJs<'js> for ReadableStreamAsyncIterator<'js>
 where
-    for<'a> rquickjs::class::impl_::CloneWrapper<'a, Self>:
-        rquickjs::class::impl_::CloneTrait<Self>,
+    for<'a> CloneWrapper<'a, Self>: CloneTrait<Self>,
 {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         use rquickjs::class::impl_::CloneTrait;
         let value = Class::<Self>::from_js(ctx, value)?;
         let borrow = value.try_borrow()?;
-        Ok(rquickjs::class::impl_::CloneWrapper(&*borrow).wrap_clone())
+        Ok(CloneWrapper(&*borrow).wrap_clone())
     }
 }
 

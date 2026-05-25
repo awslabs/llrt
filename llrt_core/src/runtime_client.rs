@@ -19,7 +19,7 @@ use jiff::Timestamp;
 use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom, function::Rest, prelude::Func, promise::Promise, qjs, CatchResultExt,
-    CaughtError, Ctx, Exception, Function, IntoJs, Module, Object, Result, Value,
+    CaughtError, Ctx, Exception, Function, IntoJs, Module, Object, Result, Undefined, Value,
 };
 use tracing::info;
 
@@ -334,12 +334,12 @@ async fn next_invocation<'js, 'a>(
     let client_context = if let Some(json) = headers.get(&HEADER_CLIENT_CONTEXT) {
         json_parse(ctx, json.as_bytes())
     } else {
-        rquickjs::Undefined.into_js(ctx)
+        Undefined.into_js(ctx)
     }?;
     let cognito_identity_json = if let Some(json) = headers.get(&HEADER_COGNITO_IDENTITY) {
         json_parse(ctx, json.as_bytes())
     } else {
-        rquickjs::Undefined.into_js(ctx)
+        Undefined.into_js(ctx)
     }?;
     let context = LambdaContext {
         aws_request_id: get_header_value(headers, &HEADER_REQUEST_ID).or_throw(ctx)?,

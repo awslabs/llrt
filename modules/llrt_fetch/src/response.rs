@@ -31,8 +31,9 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
-    TypedArray, Value,
+    prelude::This,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Promise,
+    Result, TypedArray, Value,
 };
 use std::{
     pin::Pin,
@@ -415,14 +416,11 @@ impl<'js> Response<'js> {
         false
     }
 
-    pub(crate) fn text(
-        this: rquickjs::prelude::This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-    ) -> Result<rquickjs::Promise<'js>> {
+    pub(crate) fn text(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let class = this.0.clone();
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = class.borrow().take_bytes(&ctx_clone).await?;
             match bytes_opt {
                 Some(bytes) => {
@@ -437,14 +435,11 @@ impl<'js> Response<'js> {
         })
     }
 
-    pub(crate) fn json(
-        this: rquickjs::prelude::This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-    ) -> Result<rquickjs::Promise<'js>> {
+    pub(crate) fn json(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let class = this.0.clone();
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = class.borrow().take_bytes(&ctx_clone).await?;
             match bytes_opt {
                 Some(bytes) => json_parse(&ctx_clone, strip_bom(bytes)),
@@ -453,14 +448,11 @@ impl<'js> Response<'js> {
         })
     }
 
-    fn array_buffer(
-        this: rquickjs::prelude::This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-    ) -> Result<rquickjs::Promise<'js>> {
+    fn array_buffer(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let class = this.0.clone();
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes = class
                 .borrow()
                 .take_bytes(&ctx_clone)
@@ -470,14 +462,11 @@ impl<'js> Response<'js> {
         })
     }
 
-    fn bytes(
-        this: rquickjs::prelude::This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-    ) -> Result<rquickjs::Promise<'js>> {
+    fn bytes(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let class = this.0.clone();
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes = class
                 .borrow()
                 .take_bytes(&ctx_clone)
@@ -487,10 +476,7 @@ impl<'js> Response<'js> {
         })
     }
 
-    fn blob(
-        this: rquickjs::prelude::This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-    ) -> Result<rquickjs::Promise<'js>> {
+    fn blob(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let mime_type = this
             .0
@@ -498,7 +484,7 @@ impl<'js> Response<'js> {
             .get_header_value(&ctx, CONTENT_TYPE.as_str())?;
         let class = this.0.clone();
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes = class
                 .borrow()
                 .take_bytes(&ctx_clone)
@@ -508,10 +494,7 @@ impl<'js> Response<'js> {
         })
     }
 
-    fn form_data(
-        this: rquickjs::prelude::This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-    ) -> Result<rquickjs::Promise<'js>> {
+    fn form_data(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let mime_type = this
             .0
@@ -520,7 +503,7 @@ impl<'js> Response<'js> {
             .unwrap_or(MIME_TYPE_OCTET_STREAM.into());
         let class = this.0.clone();
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let is_multipart = mime_type.starts_with("multipart/form-data");
             let is_urlencoded =
                 mime_type.starts_with(MIME_TYPE_FORM_URLENCODED.split(';').next().unwrap_or(""));

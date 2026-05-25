@@ -6,11 +6,14 @@ use llrt_utils::{
 };
 use rquickjs::{
     atom::PredefinedAtom,
-    class::JsClass,
+    class::{
+        impl_::{CloneTrait, CloneWrapper},
+        JsClass,
+    },
     function::{Constructor, Func, Opt},
     object::Property,
     prelude::This,
-    Class, Coerced, Ctx, Exception, IntoJs, Object, Result, Value,
+    Class, Coerced, Ctx, Exception, FromJs, IntoJs, Object, Result, Value,
 };
 
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -84,17 +87,15 @@ impl<'js> JsClass<'js> for DOMException {
 impl<'js> IntoJs<'js> for DOMException {
     fn into_js(self, ctx: &rquickjs::Ctx<'js>) -> Result<Value<'js>> {
         let cls = Class::<Self>::instance(ctx.clone(), self)?;
-        rquickjs::IntoJs::into_js(cls, ctx)
+        IntoJs::into_js(cls, ctx)
     }
 }
 
-impl<'js> rquickjs::FromJs<'js> for DOMException
+impl<'js> FromJs<'js> for DOMException
 where
-    for<'a> rquickjs::class::impl_::CloneWrapper<'a, Self>:
-        rquickjs::class::impl_::CloneTrait<Self>,
+    for<'a> CloneWrapper<'a, Self>: CloneTrait<Self>,
 {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
-        use rquickjs::class::impl_::{CloneTrait, CloneWrapper};
         let value = Class::<Self>::from_js(ctx, value)?;
         let borrow = value.try_borrow()?;
         Ok(CloneWrapper(&*borrow).wrap_clone())

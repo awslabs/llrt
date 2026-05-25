@@ -14,8 +14,8 @@ use llrt_stream_web::ReadableStream;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception,
-    FromJs, IntoJs, Null, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, ArrayBuffer, Class, Coerced,
+    Ctx, Exception, FromJs, IntoJs, Null, Object, Promise, Result, TypedArray, Value,
 };
 use std::sync::RwLock;
 
@@ -99,7 +99,7 @@ impl<'js> Request<'js> {
     #[qjs(constructor)]
     pub fn new(
         ctx: Ctx<'js>,
-        this: rquickjs::prelude::This<Value<'js>>,
+        this: This<Value<'js>>,
         input: Value<'js>,
         options: Opt<Value<'js>>,
     ) -> Result<Self> {
@@ -107,7 +107,7 @@ impl<'js> Request<'js> {
         // `this`. When called without `new`, `this` is undefined (strict) or
         // the global object (sloppy). WPT's request-error.any.js requires
         // `Request("...")` to throw TypeError.
-        if this.0.as_function().is_none() {
+        if this.as_function().is_none() {
             return Err(Exception::throw_type(
                 &ctx,
                 "Failed to construct 'Request': Please use the 'new' operator",
@@ -385,13 +385,13 @@ impl<'js> Request<'js> {
         self.agent.clone()
     }
 
-    pub fn text(&self, ctx: Ctx<'js>) -> Result<rquickjs::Promise<'js>> {
+    pub fn text(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         let body = match self.take_body_sync(&ctx) {
             Ok(b) => b,
             Err(e) => return reject_with_error(&ctx, e),
         };
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 let bytes = strip_bom(bytes);
@@ -404,13 +404,13 @@ impl<'js> Request<'js> {
         })
     }
 
-    pub fn json(&self, ctx: Ctx<'js>) -> Result<rquickjs::Promise<'js>> {
+    pub fn json(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         let body = match self.take_body_sync(&ctx) {
             Ok(b) => b,
             Err(e) => return reject_with_error(&ctx, e),
         };
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 return json_parse(&ctx_clone, strip_bom(bytes));
@@ -419,13 +419,13 @@ impl<'js> Request<'js> {
         })
     }
 
-    fn array_buffer(&self, ctx: Ctx<'js>) -> Result<rquickjs::Promise<'js>> {
+    fn array_buffer(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         let body = match self.take_body_sync(&ctx) {
             Ok(b) => b,
             Err(e) => return reject_with_error(&ctx, e),
         };
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 return ArrayBuffer::new(ctx_clone, bytes);
@@ -434,13 +434,13 @@ impl<'js> Request<'js> {
         })
     }
 
-    fn bytes(&self, ctx: Ctx<'js>) -> Result<rquickjs::Promise<'js>> {
+    fn bytes(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         let body = match self.take_body_sync(&ctx) {
             Ok(b) => b,
             Err(e) => return reject_with_error(&ctx, e),
         };
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 return TypedArray::new(ctx_clone, bytes).map(|m| m.into_value());
@@ -449,14 +449,14 @@ impl<'js> Request<'js> {
         })
     }
 
-    fn blob(&self, ctx: Ctx<'js>) -> Result<rquickjs::Promise<'js>> {
+    fn blob(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         let mime_type = self.get_header_value(&ctx, CONTENT_TYPE.as_str())?;
         let body = match self.take_body_sync(&ctx) {
             Ok(b) => b,
             Err(e) => return reject_with_error(&ctx, e),
         };
         let ctx_clone = ctx.clone();
-        rquickjs::Promise::wrap_future(&ctx, async move {
+        Promise::wrap_future(&ctx, async move {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             let bytes = bytes_opt.unwrap_or_default();
             Blob::from_bytes(&ctx_clone, bytes, mime_type)
@@ -614,7 +614,7 @@ async fn collect_readable_stream<'js>(
     crate::body_helpers::collect_readable_stream(stream).await
 }
 
-fn reject_with_error<'js>(ctx: &Ctx<'js>, err: rquickjs::Error) -> Result<rquickjs::Promise<'js>> {
+fn reject_with_error<'js>(ctx: &Ctx<'js>, err: rquickjs::Error) -> Result<Promise<'js>> {
     // Turn a synchronous throw into a rejected Promise. Extract the actual
     // JS exception value from the Ctx's pending-exception slot so that the
     // caller sees a real TypeError (or whatever) object — not an uninitialized

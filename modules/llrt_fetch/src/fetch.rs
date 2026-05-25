@@ -22,8 +22,8 @@ use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::{Async, Func},
-    CatchResultExt, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result,
-    Value,
+    CatchResultExt, CaughtError, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object,
+    Result, Value,
 };
 use std::{
     collections::HashSet,
@@ -209,14 +209,12 @@ async fn send_stream<'js>(
                     Ok(r) => r,
                     Err(e) => {
                         let msg = match e {
-                            rquickjs::CaughtError::Exception(ex) => {
-                                ex.message().unwrap_or_default()
-                            },
-                            rquickjs::CaughtError::Value(v) => v
+                            CaughtError::Exception(ex) => ex.message().unwrap_or_default(),
+                            CaughtError::Value(v) => v
                                 .as_string()
                                 .and_then(|s| s.to_string().ok())
                                 .unwrap_or_else(|| "Stream error".into()),
-                            rquickjs::CaughtError::Error(e) => e.to_string(),
+                            CaughtError::Error(e) => e.to_string(),
                         };
                         let _ = err_tx.send(msg);
                         break;

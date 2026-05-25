@@ -1,6 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::module::{export_default, ModuleInfo};
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
+use rquickjs::Class;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     Ctx, Result,
@@ -56,7 +63,7 @@ impl ModuleDef for HttpsModule {
                 feature = "tls-graviola",
                 feature = "tls-openssl"
             ))]
-            rquickjs::Class::<Agent>::define(default)?;
+            Class::<Agent>::define(default)?;
 
             let _ = default;
             Ok(())
