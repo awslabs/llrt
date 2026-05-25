@@ -16,6 +16,7 @@ pub enum Encoder {
 }
 
 const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
+    "buffer" => Encoder::Utf8,
     "hex" => Encoder::Hex,
     "base64" => Encoder::Base64,
     "unicode-1-1-utf-8" => Encoder::Utf8,
