@@ -22,7 +22,7 @@ simd-json = { version = "0.17", features = [
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
 llrt_test = { version = "0.8.1-beta", path = "../llrt_test" }
-tokio = { version = "1", features = ["test-util"], default-features = false }
+tokio = { version = "1", features = ["test-util", "macros"], default-features = false }
 
 [build-dependencies]
 llrt_build = { version = "0.8.1-beta", path = "../llrt_build" }
