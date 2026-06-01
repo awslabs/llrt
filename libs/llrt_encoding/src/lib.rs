@@ -157,6 +157,14 @@ pub fn bytes_from_b64<'a, T: Into<Cow<'a, [u8]>>>(base64_bytes: T) -> Result<Vec
     base64_simd::forgiving_decode_to_vec(&bytes).map_err(|e| e.to_string())
 }
 
+/// Strict standard-base64 decode (single SIMD pass): rejects url-safe chars,
+/// whitespace and bad padding, matching @smithy/util-base64 semantics.
+pub fn bytes_from_b64_strict(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    base64_simd::STANDARD
+        .decode_to_vec(bytes)
+        .map_err(|e| e.to_string())
+}
+
 pub fn bytes_to_b64_string(bytes: &[u8]) -> String {
     base64_simd::STANDARD.encode_to_string(bytes)
 }
@@ -230,5 +238,20 @@ pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Resul
         Ok(String::from_utf16_lossy(&data16))
     } else {
         String::from_utf16(&data16).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn b64_strict_matches_smithy_semantics() {
+        // canonical decodes
+        assert_eq!(bytes_from_b64_strict(b"SGVsbG8=").unwrap(), b"Hello");
+        // url-safe, whitespace, bad-padding are rejected (like @smithy/util-base64)
+        assert!(bytes_from_b64_strict(b"-_8=").is_err());
+        assert!(bytes_from_b64_strict(b"SGVs bG8=").is_err());
+        assert!(bytes_from_b64_strict(b"SGVsbG8").is_err());
     }
 }

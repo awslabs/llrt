@@ -89,17 +89,5 @@ rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", def
 wiremock = { version = "0.6", default-features = false }
 
 [[bench]]
-name = "decode_from_base64"
-harness = false
-
-[[bench]]
-name = "decode_from_hex"
-harness = false
-
-[[bench]]
-name = "encode_to_base64"
-harness = false
-
-[[bench]]
-name = "encode_to_hex"
+name = "codec"
 harness = false
