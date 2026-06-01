@@ -1801,6 +1801,14 @@
     "@types/node" "*"
     jest-regex-util "30.0.1"
 
+"@jest/pattern@30.4.0":
+  version "30.4.0"
+  resolved "https://registry.yarnpkg.com/@jest/pattern/-/pattern-30.4.0.tgz#fcb519eeacc25caa3768f787595a27afa15302ae"
+  integrity sha512-RAWn3+f9u8BsHijKJ71uHcFp6vmyEt6VvoWXkl6hKF3qVIuWNmudVjg12DlBPGup/frIl5UcUlH5HfEuvHpEXg==
+  dependencies:
+    "@types/node" "*"
+    jest-regex-util "30.4.0"
+
 "@jest/schemas@30.0.1":
   version "30.0.1"
   resolved "https://registry.yarnpkg.com/@jest/schemas/-/schemas-30.0.1.tgz#27c00d707d480ece0c19126af97081a1af3bc46e"
@@ -1812,6 +1820,13 @@
   version "30.0.5"
   resolved "https://registry.yarnpkg.com/@jest/schemas/-/schemas-30.0.5.tgz#7bdf69fc5a368a5abdb49fd91036c55225846473"
   integrity sha512-DmdYgtezMkh3cpU8/1uyXakv3tJRcmcXxBOcO0tbaozPwpmh4YMsnWrQm9ZmZMfa5ocbxzbFk6O4bDPEc/iAnA==
+  dependencies:
+    "@sinclair/typebox" "^0.34.0"
+
+"@jest/schemas@30.4.1":
+  version "30.4.1"
+  resolved "https://registry.yarnpkg.com/@jest/schemas/-/schemas-30.4.1.tgz#c3703fdd71357e2c83aa59bd38469e60a11529c6"
+  integrity sha512-i6b4qw5qnP8c5FEeBJg/uZQ4ddrkN6Ca8qISJh0pr7a5hfn3h3v5x60BEbOC7OYAGZNMs1LfFLwnW2CuK8F57Q==
   dependencies:
     "@sinclair/typebox" "^0.34.0"
 
@@ -1828,13 +1843,13 @@
     "@types/yargs" "^17.0.33"
     chalk "^4.1.2"
 
-"@jest/types@30.3.0":
-  version "30.3.0"
-  resolved "https://registry.yarnpkg.com/@jest/types/-/types-30.3.0.tgz#cada800d323cb74945c24ac74615fdb312a6c85f"
-  integrity sha512-JHm87k7bA33hpBngtU8h6UBub/fqqA9uXfw+21j5Hmk7ooPHlboRNxHq0JcMtC+n8VJGP1mcfnD3Mk+XKe1oSw==
+"@jest/types@30.4.1":
+  version "30.4.1"
+  resolved "https://registry.yarnpkg.com/@jest/types/-/types-30.4.1.tgz#f79b647a85cb2ff4a90cc55984b31dae820db1f7"
+  integrity sha512-f1x/vJXIfjOlEmejYpbkbgw1gOqpPECwMvMEtBqe47j7H2Hg8h8w3o3ikhSXq3MI15kg+oQ0exWO0uCtTNJLoQ==
   dependencies:
-    "@jest/pattern" "30.0.1"
-    "@jest/schemas" "30.0.5"
+    "@jest/pattern" "30.4.0"
+    "@jest/schemas" "30.4.1"
     "@types/istanbul-lib-coverage" "^2.0.6"
     "@types/istanbul-reports" "^3.0.4"
     "@types/node" "*"
@@ -2915,6 +2930,11 @@ jest-regex-util@30.0.1:
   version "30.0.1"
   resolved "https://registry.yarnpkg.com/jest-regex-util/-/jest-regex-util-30.0.1.tgz#f17c1de3958b67dfe485354f5a10093298f2a49b"
   integrity sha512-jHEQgBXAgc+Gh4g0p3bCevgRCVRkB4VB70zhoAE48gxeSr1hfUOsM/C2WoJgVL7Eyg//hudYENbm3Ne+/dRVVA==
+
+jest-regex-util@30.4.0:
+  version "30.4.0"
+  resolved "https://registry.yarnpkg.com/jest-regex-util/-/jest-regex-util-30.4.0.tgz#f75ccc43857633df2563a03588b5cb45c7c2941b"
+  integrity sha512-mWlvLviKIgIQ8VCuM1xRdD0TWp3zlzionlmDBjuXVBs+VkmXq6FgW9T4Emr7oGz/Rk6feDCGyiugolcQEyp3mg==
 
 jest-util@30.0.2:
   version "30.0.2"
