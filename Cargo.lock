@@ -20,9 +20,9 @@ dependencies = [
 
 [[package]]
 name = "aes"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66bd29a732b644c0431c6140f370d097879203d79b80c94a6747ba0872adaef8"
+checksum = "f1fc76eaeac4c9164506c466d4ffdd8ec9d0c5bf57ee97177c4d8eceb3a0e138"
 dependencies = [
  "cipher",
  "cpubits",
@@ -44,9 +44,9 @@ dependencies = [
 
 [[package]]
 name = "aes-kw"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40e4645e6ea320665abf87e13821f9a37ab204b34bcb18e34e7d1dcf2366516e"
+checksum = "41ac571010bd60765c56085a4f1d412012a9be2663b1a2f2b19b49318653fd0d"
 dependencies = [
  "aes",
  "const-oid",
