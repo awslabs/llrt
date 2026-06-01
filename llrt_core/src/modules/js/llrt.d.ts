@@ -1,8 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-declare module "hex" {
-  export const decode: (text: string) => Uint8Array;
-  export const encode: (bytes: Uint8Array) => string;
+declare module "codec" {
+  export function decodeFromBase64(value: string): Uint8Array;
+  export function encodeToBase64(
+    value: string | Array | ArrayBuffer | Uint8Array
+  ): string;
+  export function decodeFromHex(value: string): Uint8Array;
+  export function encodeToHex(
+    value: string | Array | ArrayBuffer | Uint8Array
+  ): string;
 }
 
 declare module "xml" {

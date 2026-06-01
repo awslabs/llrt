@@ -1784,6 +1784,7 @@ name = "llrt_core"
 version = "0.8.1-beta"
 dependencies = [
  "bytes",
+ "criterion",
  "home",
  "http-body-util",
  "hyper",
