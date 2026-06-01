@@ -1,42 +1,86 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{mem, rc::Rc, slice};
+use std::{rc::Rc, slice};
 
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Constructor,
-    qjs, ArrayBuffer, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
+    ArrayBuffer, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
     TypedArray, Value,
 };
 
-/// Convert a JS string value to a Rust `String`, replacing invalid UTF-8 /
-/// lone UTF-16 surrogates with U+FFFD. Use this instead of `JsString::to_string`
-/// when the caller must not fail on ill-formed strings (e.g. USV conversion).
+/// Convert a JS string to a `String`, replacing lone UTF-16 surrogates
+/// with U+FFFD per WHATWG USVString. Use when ill-formed strings must
+/// not fail.
+//
+// SAFETY (module-wide): QuickJS only emits valid WTF-8, so any run
+// without 0xED is valid strict UTF-8.
 pub fn get_lossy_string(string_value: Value) -> Result<String> {
-    if !string_value.is_string() {
-        return Err(Error::FromJs {
-            from: "Value",
-            to: "JSString",
-            message: Some("Value is not a string".into()),
-        });
-    }
+    let js_str = string_value.into_string().ok_or_else(|| Error::FromJs {
+        from: "Value",
+        to: "JSString",
+        message: Some("Value is not a string".into()),
+    })?;
+    let cstr = js_str.to_cstring()?;
+    let bytes = unsafe { slice::from_raw_parts(cstr.as_ptr() as *const u8, cstr.len()) };
 
-    let mut len = mem::MaybeUninit::uninit();
-    let ctx_ptr = string_value.ctx().as_raw().as_ptr();
-    let ptr = unsafe { qjs::JS_ToCStringLen(ctx_ptr, len.as_mut_ptr(), string_value.as_raw()) };
-    if ptr.is_null() {
-        return Err(Error::Unknown);
-    }
-    let len = unsafe { len.assume_init() };
-    let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr as _, len as _) };
-    let string = replace_invalid_utf8_and_utf16(bytes);
-    unsafe { qjs::JS_FreeCString(ctx_ptr, ptr) };
-    Ok(string)
+    let first = match memchr::memchr(0xED, bytes) {
+        None => return Ok(unsafe { String::from_utf8_unchecked(bytes.to_vec()) }),
+        Some(idx) => idx,
+    };
+    let mut result = String::with_capacity(bytes.len());
+    result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[..first]) });
+    qjs_substitute_into(&bytes[first..], &mut result);
+    Ok(result)
 }
 
-fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
+fn qjs_substitute_into(bytes: &[u8], result: &mut String) {
+    let mut start = 0;
+    while start < bytes.len() {
+        let next_ed = match memchr::memchr(0xED, &bytes[start..]) {
+            None => {
+                result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..]) });
+                return;
+            },
+            Some(rel) => start + rel,
+        };
+        if next_ed > start {
+            result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[start..next_ed]) });
+        }
+        if next_ed + 3 > bytes.len() {
+            replace_invalid_utf8_and_utf16_into(&bytes[next_ed..], result);
+            return;
+        }
+        let b1 = bytes[next_ed + 1];
+        let b2 = bytes[next_ed + 2];
+        if (b1 & 0xC0) != 0x80 || (b2 & 0xC0) != 0x80 {
+            replace_invalid_utf8_and_utf16_into(&bytes[next_ed..], result);
+            return;
+        }
+        if (b1 & 0xE0) == 0xA0 {
+            result.push('\u{FFFD}');
+        } else {
+            result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[next_ed..next_ed + 3]) });
+        }
+        start = next_ed + 3;
+    }
+}
+
+#[doc(hidden)]
+pub fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
+    let err = match simdutf8::compat::from_utf8(bytes) {
+        Ok(s) => return s.to_owned(),
+        Err(e) => e,
+    };
+    let valid_up_to = err.valid_up_to();
     let mut result = String::with_capacity(bytes.len());
+    result.push_str(unsafe { std::str::from_utf8_unchecked(&bytes[..valid_up_to]) });
+    replace_invalid_utf8_and_utf16_into(&bytes[valid_up_to..], &mut result);
+    result
+}
+
+fn replace_invalid_utf8_and_utf16_into(bytes: &[u8], result: &mut String) {
     let mut i = 0;
 
     while i < bytes.len() {
@@ -93,8 +137,83 @@ fn replace_invalid_utf8_and_utf16(bytes: &[u8]) -> String {
             },
         }
     }
+}
 
-    result
+#[cfg(test)]
+mod replace_invalid_utf8_tests {
+    use super::replace_invalid_utf8_and_utf16;
+
+    fn cases() -> Vec<(&'static str, Vec<u8>, &'static str)> {
+        vec![
+            ("empty", vec![], ""),
+            ("ascii", b"hello world".to_vec(), "hello world"),
+            (
+                "ascii_with_control",
+                vec![b'a', 0x00, b'b', 0x7f, b'c'],
+                "a\u{0}b\u{7f}c",
+            ),
+            ("two_byte_latin1", vec![0xC3, 0xA9], "\u{00E9}"),
+            ("three_byte_cjk", vec![0xE4, 0xB8, 0x96], "\u{4e16}"),
+            ("four_byte_emoji", vec![0xF0, 0x9F, 0xA6, 0x80], "\u{1f980}"),
+            ("lone_high_surrogate", vec![0xED, 0xA0, 0xBD], "\u{FFFD}"),
+            ("lone_low_surrogate", vec![0xED, 0xB0, 0x80], "\u{FFFD}"),
+            (
+                "surrogate_pair_in_wtf8",
+                vec![0xED, 0xA0, 0xBD, 0xED, 0xB2, 0xA9],
+                "\u{FFFD}\u{FFFD}",
+            ),
+            ("stray_continuation", vec![0x80], "\u{FFFD}"),
+            ("truncated_two_byte", vec![0xC3], "\u{FFFD}"),
+            ("truncated_three_byte", vec![0xE0, 0xA0], "\u{FFFD}\u{FFFD}"),
+            (
+                "truncated_four_byte",
+                vec![0xF0, 0x9F, 0xA6],
+                "\u{FFFD}\u{FFFD}\u{FFFD}",
+            ),
+            (
+                "two_byte_bad_continuation",
+                vec![0xC3, 0x20, b'a'],
+                "\u{FFFD} a",
+            ),
+            (
+                "three_byte_bad_continuation",
+                vec![0xE4, 0xB8, 0x20, b'a'],
+                "\u{FFFD}\u{FFFD} a",
+            ),
+            ("high_byte_above_f7", vec![0xF8, b'a'], "\u{FFFD}a"),
+            (
+                "mixed_valid_and_invalid",
+                {
+                    let mut v = b"hello ".to_vec();
+                    v.extend_from_slice(&[0xED, 0xA0, 0xBD]);
+                    v.extend_from_slice(" world".as_bytes());
+                    v
+                },
+                "hello \u{FFFD} world",
+            ),
+            (
+                "long_ascii",
+                b"the quick brown fox jumps over the lazy dog".repeat(20),
+                &*Box::leak(
+                    "the quick brown fox jumps over the lazy dog"
+                        .repeat(20)
+                        .into_boxed_str(),
+                ),
+            ),
+        ]
+    }
+
+    #[test]
+    fn matches_contract() {
+        for (name, input, expected) in cases() {
+            let got = replace_invalid_utf8_and_utf16(&input);
+            assert_eq!(
+                got, expected,
+                "case `{}`: got {:?}, expected {:?}",
+                name, got, expected
+            );
+        }
+    }
 }
 
 use crate::{error_messages::ERROR_MSG_ARRAY_BUFFER_DETACHED, result::ResultExt};
