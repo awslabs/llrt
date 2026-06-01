@@ -29,7 +29,9 @@ const ASCII: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234
 
 fn random_bytes(len: usize) -> Vec<u8> {
     let mut rng = rand::rng();
-    (0..len).map(|_| ASCII[rng.random_range(0..ASCII.len())]).collect()
+    (0..len)
+        .map(|_| ASCII[rng.random_range(0..ASCII.len())])
+        .collect()
 }
 
 fn new_ctx() -> Context {
@@ -75,7 +77,9 @@ fn bench(
         group.throughput(Throughput::Bytes(len as u64));
 
         ctx.with(|ctx| {
-            let decl = Module::declare(ctx.clone(), "bench", src).catch(&ctx).unwrap();
+            let decl = Module::declare(ctx.clone(), "bench", src)
+                .catch(&ctx)
+                .unwrap();
             let (module, promise) = decl.eval().catch(&ctx).unwrap();
             promise.finish::<()>().catch(&ctx).unwrap();
             let master_fn: Function = module.get("master").unwrap();
@@ -85,7 +89,11 @@ fn bench(
                 b.iter(|| master_fn.call::<_, usize>(()).expect("master call failed"))
             });
             group.bench_function(format!("builtin/{len}"), |b| {
-                b.iter(|| builtin_fn.call::<_, usize>(()).expect("builtin call failed"))
+                b.iter(|| {
+                    builtin_fn
+                        .call::<_, usize>(())
+                        .expect("builtin call failed")
+                })
             });
             group.bench_function(format!("codec/{len}"), |b| {
                 b.iter(|| codec_fn.call::<_, usize>(()).expect("codec call failed"))
@@ -100,47 +108,69 @@ fn bench(
 
 fn encode_base64(c: &mut Criterion) {
     bench(
-        c, "encode_base64",
+        c,
+        "encode_base64",
         |b| format!("new Uint8Array({:?})", b),
         "Buffer.from(seed).toString('base64')",
-        "seed.toBase64()", "encodeToBase64(seed)",
+        "seed.toBase64()",
+        "encodeToBase64(seed)",
         |b| b.to_vec(),
-        |b| { black_box(bytes_to_b64(b)); },
+        |b| {
+            black_box(bytes_to_b64(b));
+        },
     );
 }
 
 fn decode_base64(c: &mut Criterion) {
     bench(
-        c, "decode_base64",
+        c,
+        "decode_base64",
         |b| format!("'{}'", bytes_to_b64_string(b)),
         "Buffer.from(seed, 'base64')",
-        "Uint8Array.fromBase64(seed)", "decodeFromBase64(seed)",
+        "Uint8Array.fromBase64(seed)",
+        "decodeFromBase64(seed)",
         |b| bytes_to_b64_string(b).into_bytes(),
-        |b| { black_box(bytes_from_b64_strict(b).unwrap()); },
+        |b| {
+            black_box(bytes_from_b64_strict(b).unwrap());
+        },
     );
 }
 
 fn encode_hex(c: &mut Criterion) {
     bench(
-        c, "encode_hex",
+        c,
+        "encode_hex",
         |b| format!("new Uint8Array({:?})", b),
         "Buffer.from(seed).toString('hex')",
-        "seed.toHex()", "encodeToHex(seed)",
+        "seed.toHex()",
+        "encodeToHex(seed)",
         |b| b.to_vec(),
-        |b| { black_box(bytes_to_hex(b)); },
+        |b| {
+            black_box(bytes_to_hex(b));
+        },
     );
 }
 
 fn decode_hex(c: &mut Criterion) {
     bench(
-        c, "decode_hex",
+        c,
+        "decode_hex",
         |b| format!("'{}'", bytes_to_hex_string(b)),
         "Buffer.from(seed, 'hex')",
-        "Uint8Array.fromHex(seed)", "decodeFromHex(seed)",
+        "Uint8Array.fromHex(seed)",
+        "decodeFromHex(seed)",
         |b| bytes_to_hex_string(b).into_bytes(),
-        |b| { black_box(bytes_from_hex(b).unwrap()); },
+        |b| {
+            black_box(bytes_from_hex(b).unwrap());
+        },
     );
 }
 
-criterion_group!(benches, encode_base64, decode_base64, encode_hex, decode_hex);
+criterion_group!(
+    benches,
+    encode_base64,
+    decode_base64,
+    encode_hex,
+    decode_hex
+);
 criterion_main!(benches);
