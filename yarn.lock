@@ -12,21 +12,21 @@
   resolved "https://registry.yarnpkg.com/@aws-cdk/asset-node-proxy-agent-v6/-/asset-node-proxy-agent-v6-2.1.1.tgz#184f980024d67ad60bdc52ab88c59c73fa070346"
   integrity sha512-We4bmHaowOPHr+IQR4/FyTGjRfjgBj4ICMjtqmJeBDWad3Q/6St12NT07leNtyuukv2qMhtSZJQorD8KpKTwRA==
 
-"@aws-cdk/cloud-assembly-api@^2.2.2":
-  version "2.2.2"
-  resolved "https://registry.yarnpkg.com/@aws-cdk/cloud-assembly-api/-/cloud-assembly-api-2.2.2.tgz#79001c2af7a21fba3ced65042fdffb4fff7a1978"
-  integrity sha512-iiypKqfpHMqQ9z6Nwxx42Ha4NCevLVDQ8sphIbqHxSJE5kDe/DCzvh8b2HtlAshWjo44HMhYdfKNLR96S3T4sA==
+"@aws-cdk/cloud-assembly-api@^2.2.4":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/cloud-assembly-api/-/cloud-assembly-api-2.2.5.tgz#049be7f61ac2022321d6acf4faeb38ee181533bf"
+  integrity sha512-RrjdgAgOjc0rMSGhMmIq1IKRI2lSYEK5XLu+863pQjecxNaNQkrQCyI62Z3JClFnQnjBeFSfDoY78apS9Aa9tA==
   dependencies:
-    jsonschema "~1.4.1"
-    semver "^7.7.4"
+    jsonschema "^1.5.0"
+    semver "^7.8.0"
 
-"@aws-cdk/cloud-assembly-schema@^53.18.0":
-  version "53.20.0"
-  resolved "https://registry.yarnpkg.com/@aws-cdk/cloud-assembly-schema/-/cloud-assembly-schema-53.20.0.tgz#3010aa1ab429a1ba2d42e2cf449496e115a8d629"
-  integrity sha512-4kLAUO+I8b4nlk1Z2P4n3Ye8UtqCiXk0kJMLUThBnyHLbdz06rwAb+qlb9WZOie7NtPluemVS243ifcBh/NVsQ==
+"@aws-cdk/cloud-assembly-schema@^53.25.0":
+  version "53.28.0"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/cloud-assembly-schema/-/cloud-assembly-schema-53.28.0.tgz#b7e344f0058b63b1dea8a6563999f20f3c899b4e"
+  integrity sha512-pZS+9bLGv2tCqcgxfA0WD3XjcqT3yE4ICvKeJEicw6aTdCxBl8FQ/AUsorY/6f2JrMS3kUQgvhXxA30MWcji0A==
   dependencies:
-    jsonschema "~1.4.1"
-    semver "^7.7.4"
+    jsonschema "^1.5.0"
+    semver "^7.8.0"
 
 "@aws-crypto/crc32@5.2.0":
   version "5.2.0"
@@ -2354,15 +2354,15 @@ available-typed-arrays@^1.0.7:
   dependencies:
     possible-typed-array-names "^1.0.0"
 
-aws-cdk-lib@2.252.0:
-  version "2.252.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.252.0.tgz#4bfee375e85a8a999d7a1f324c38ab01508a508d"
-  integrity sha512-bRLyTtJxhVgsx2JrL2B/KYYWf+Rg0s68UgQp+VRZK0h5fXeaPqDVEJGPMr7FiOgrmYwEadjfbxsTsZKNAloAvg==
+aws-cdk-lib@2.257.0:
+  version "2.257.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.257.0.tgz#0354efdbc7a236e5e4ca5c3288e71ee4a766da0a"
+  integrity sha512-GoHfWklrBJcMwLtDlY64pvaT7cD2KyDXC8sik89DR6jHl6nQsBtYTKSJCM+C/k4jgXaecbv8myNX75FySejq0A==
   dependencies:
     "@aws-cdk/asset-awscli-v1" "2.2.273"
     "@aws-cdk/asset-node-proxy-agent-v6" "^2.1.1"
-    "@aws-cdk/cloud-assembly-api" "^2.2.2"
-    "@aws-cdk/cloud-assembly-schema" "^53.18.0"
+    "@aws-cdk/cloud-assembly-api" "^2.2.4"
+    "@aws-cdk/cloud-assembly-schema" "^53.25.0"
     "@balena/dockerignore" "^1.0.2"
     case "1.6.3"
     fs-extra "^11.3.3"
@@ -2375,10 +2375,10 @@ aws-cdk-lib@2.252.0:
     table "^6.9.0"
     yaml "1.10.3"
 
-aws-cdk@2.1120.0:
-  version "2.1120.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1120.0.tgz#3939e24323a81ca5bfa203aa7c09953f637debc8"
-  integrity sha512-vDVa0IX0FhizARdY/GLSParFglKbdHCIhM8IDmynrAv9w8uLLljzWMeLUOhC1XpMErDZ/npYEihAOjfKxTaMIw==
+aws-cdk@2.1125.0:
+  version "2.1125.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1125.0.tgz#78760747560f38beb2cb6eb4599ae44a90c32e8b"
+  integrity sha512-QAvsE2XQMcyNOjMMqAS7eDADR9t6vcFcMQvhOmtLfDqgfJXSyTkHvzM5zgwZCdJ4FNqWr5Y/zXvL1Cv5ECKXwQ==
 
 aws-sdk@2.1693.0:
   version "2.1693.0"
@@ -2957,11 +2957,6 @@ jsonschema@^1.5.0:
   resolved "https://registry.yarnpkg.com/jsonschema/-/jsonschema-1.5.0.tgz#f6aceb1ab9123563dd901d05f81f9d4883d3b7d8"
   integrity sha512-K+A9hhqbn0f3pJX17Q/7H6yQfD/5OXgdrR5UE12gMXCiN9D5Xq2o5mddV2QEcX/bjla99ASsAAQUyMCCRWAEhw==
 
-jsonschema@~1.4.1:
-  version "1.4.1"
-  resolved "https://registry.yarnpkg.com/jsonschema/-/jsonschema-1.4.1.tgz#cc4c3f0077fb4542982973d8a083b6b34f482dab"
-  integrity sha512-S6cATIPVv1z0IlxdN+zUk5EPjkGCdnhN4wVSBlvoUO1tOLJootbo9CquNJmbIh4yikWHiUedhRYrNPn1arpEmQ==
-
 lightningcss-android-arm64@1.32.0:
   version "1.32.0"
   resolved "https://registry.yarnpkg.com/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz#f033885116dfefd9c6f54787523e3514b61e1968"
@@ -3413,10 +3408,10 @@ scheduler@^0.27.0:
   resolved "https://registry.yarnpkg.com/scheduler/-/scheduler-0.27.0.tgz#0c4ef82d67d1e5c1e359e8fc76d3a87f045fe5bd"
   integrity sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==
 
-semver@^7.7.4:
-  version "7.7.4"
-  resolved "https://registry.yarnpkg.com/semver/-/semver-7.7.4.tgz#28464e36060e991fa7a11d0279d2d3f3b57a7e8a"
-  integrity sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==
+semver@^7.7.4, semver@^7.8.0:
+  version "7.8.1"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-7.8.1.tgz#bf4970b5e70fda0686363cc18bfe8805d5ed957e"
+  integrity sha512-rkVq3IXh+4FDGch+KwzX3aV9W3kO54GyEgpvBzSyctDA6Xtd7RJQV1xmXbeQp5v7+VzLOfVqiutSE6GICgPFvg==
 
 set-function-length@^1.2.1:
   version "1.2.2"
