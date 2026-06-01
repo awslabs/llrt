@@ -408,6 +408,7 @@ describe("Buffer.isEncoding", () => {
     expect(Buffer.isEncoding("utf8")).toEqual(true);
     expect(Buffer.isEncoding("hex")).toEqual(true);
     expect(Buffer.isEncoding("base64")).toEqual(true);
+    expect(Buffer.isEncoding("buffer")).toEqual(true);
   });
 
   it("should return false when input is not a valid encoding name", () => {
@@ -415,6 +416,25 @@ describe("Buffer.isEncoding", () => {
     expect(Buffer.isEncoding(undefined as unknown as string)).toEqual(false);
     expect(Buffer.isEncoding(null as unknown as string)).toEqual(false);
     expect(Buffer.isEncoding("utf8/8")).toEqual(false);
+  });
+
+  it("should accept 'buffer' encoding in Buffer.from and stream writes", async () => {
+    const buf = Buffer.from("hello", "buffer");
+    expect(buf.toString()).toEqual("hello");
+
+    const { Writable } = await import("stream");
+    const seen: string[] = [];
+    const w = new Writable({
+      write(chunk, encoding, cb) {
+        seen.push(`${chunk.toString()}|${encoding}`);
+        cb();
+      },
+    });
+    await new Promise<void>((resolve) => {
+      w.write("a");
+      w.end("b", () => resolve());
+    });
+    expect(seen).toEqual(["a|buffer", "b|buffer"]);
   });
 });
 

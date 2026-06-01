@@ -1,6 +1,7 @@
 use rquickjs::{
     class::{JsCell, JsClass, Readable, Trace},
     function::{Constructor, Params},
+    prelude::This,
     Class, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result, Value,
 };
 
@@ -92,7 +93,9 @@ impl<'js> SizeAlgorithm<'js> {
             | Self::SizeFunction(SizeFunction::Native(NativeSizeFunction::Count)) => {
                 Ok(SizeValue::Native(1.0))
             },
-            Self::SizeFunction(SizeFunction::Js(ref f)) => f.call((chunk.clone(),)),
+            Self::SizeFunction(SizeFunction::Js(ref f)) => {
+                f.call((This(Value::new_undefined(ctx.clone())), chunk.clone()))
+            },
             Self::SizeFunction(SizeFunction::Native(NativeSizeFunction::ByteLength)) => {
                 let size = byte_length_queueing_strategy_size_function(&ctx, &chunk)?;
                 SizeValue::from_js(&ctx, size)
@@ -176,6 +179,8 @@ pub(super) enum NativeSizeFunction {
 
 impl<'js> JsClass<'js> for NativeSizeFunction {
     const NAME: &'static str = "NativeSizeFunction";
+
+    const KIND: rquickjs::class::ClassKind = rquickjs::class::ClassKind::Callable;
 
     type Mutable = Readable;
 

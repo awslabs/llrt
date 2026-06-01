@@ -1,8 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use llrt_utils::{
+    bytes::get_lossy_string,
     class::IteratorDef,
     primordials::{BasePrimordials, Primordial},
 };
@@ -52,7 +57,7 @@ impl<'js> URLSearchParams {
     pub fn new(ctx: Ctx<'js>, init: Opt<Value<'js>>) -> Result<Self> {
         if let Some(init) = init.into_inner() {
             if init.is_string() {
-                let string: String = Coerced::from_js(&ctx, init)?.0;
+                let string = get_lossy_string(init)?;
                 return Ok(Self::from_str(string));
             } else if init.is_array() {
                 return Self::from_array(&ctx, unsafe { init.into_array().unwrap_unchecked() });
@@ -76,8 +81,8 @@ impl<'js> URLSearchParams {
         self.url.borrow().query_pairs().count()
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(URLSearchParams)
     }
 
@@ -92,6 +97,7 @@ impl<'js> URLSearchParams {
             .borrow_mut()
             .query_pairs_mut()
             .append_pair(key.as_str(), value.as_str());
+        self.sync_query();
     }
 
     pub fn delete(&mut self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) {
@@ -123,6 +129,7 @@ impl<'js> URLSearchParams {
         } else {
             self.url.borrow_mut().set_query(None);
         }
+        self.sync_query();
     }
 
     pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -213,12 +220,18 @@ impl<'js> URLSearchParams {
             .query_pairs_mut()
             .clear()
             .extend_pairs(new_query_pairs);
+        self.sync_query();
     }
 
     pub fn sort(&mut self) {
         let mut new_pairs: Vec<(String, String)> =
             self.url.borrow().query_pairs().into_owned().collect();
-        new_pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
+        new_pairs.sort_by(|(a, _), (b, _)| {
+            // Spec requires sorting by UTF-16 code units
+            let a_utf16 = a.encode_utf16();
+            let b_utf16 = b.encode_utf16();
+            a_utf16.cmp(b_utf16)
+        });
 
         if new_pairs.is_empty() {
             self.url.borrow_mut().set_query(None);
@@ -229,6 +242,7 @@ impl<'js> URLSearchParams {
                 .clear()
                 .extend_pairs(new_pairs);
         }
+        self.sync_query();
     }
 
     pub fn to_string(&self) -> String {
@@ -273,6 +287,19 @@ impl<'js> URLSearchParams {
 }
 
 impl<'js> URLSearchParams {
+    /// Re-serialize the query string with proper percent-encoding.
+    /// The url crate doesn't encode commas, so we rebuild the query
+    /// using form_urlencoded::byte_serialize after each mutation.
+    fn sync_query(&self) {
+        let query = self.to_string();
+        let mut url = self.url.borrow_mut();
+        if query.is_empty() {
+            url.set_query(None);
+        } else {
+            url.set_query(Some(&query));
+        }
+    }
+
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(query: String) -> Self {
         let query = if !query.starts_with('?') {
@@ -298,7 +325,7 @@ impl<'js> URLSearchParams {
         }
     }
 
-    pub fn from_array(ctx: &Ctx<'js>, array: Array) -> Result<Self> {
+    pub fn from_array(ctx: &Ctx<'js>, array: Array<'js>) -> Result<Self> {
         let mut url: Url = "http://example.com".parse().unwrap();
         let query_pairs: Vec<(String, String)> = array
             .into_iter()
@@ -306,11 +333,19 @@ impl<'js> URLSearchParams {
                 if let Ok(value) = value {
                     if let Some(pair) = value.as_array() {
                         if pair.len() == 2 {
-                            if let Ok(key) = pair.get::<Coerced<String>>(0) {
-                                if let Ok(value) = pair.get::<Coerced<String>>(1) {
-                                    return Ok((key.to_string(), value.to_string()));
-                                }
-                            }
+                            let key_val: Value = pair.get(0)?;
+                            let val_val: Value = pair.get(1)?;
+                            let key = if key_val.is_string() {
+                                get_lossy_string(key_val)?
+                            } else {
+                                Coerced::<String>::from_js(ctx, key_val)?.0
+                            };
+                            let value = if val_val.is_string() {
+                                get_lossy_string(val_val)?
+                            } else {
+                                Coerced::<String>::from_js(ctx, val_val)?.0
+                            };
+                            return Ok((key, value));
                         }
                     }
                 };
@@ -340,16 +375,43 @@ impl<'js> URLSearchParams {
         }
 
         let mut url: Url = "http://example.com".parse().unwrap();
-        let query_pairs: Vec<(String, String)> = object
+        let raw_pairs: Vec<(String, String)> = object
             .keys::<Value<'js>>()
             .map(|key| {
                 let key = key?;
-                let key_string: String = Coerced::from_js(ctx, key.clone())?.0;
-                let value: String = object.get::<_, Coerced<String>>(key)?.0;
+                let key_string = if key.is_string() {
+                    get_lossy_string(key.clone())?
+                } else {
+                    Coerced::<String>::from_js(ctx, key.clone())?.0
+                };
+                let value_val: Value = object.get(key)?;
+                let value = if value_val.is_string() {
+                    get_lossy_string(value_val)?
+                } else {
+                    Coerced::<String>::from_js(ctx, value_val)?.0
+                };
                 Ok((key_string, value))
             })
-            .collect::<Result<Vec<_>>>()?
+            .collect::<Result<Vec<_>>>()?;
+
+        // WebIDL record conversion: when multiple input keys normalise to the
+        // same string (e.g. two different lone surrogates both map to U+FFFD),
+        // the *last* value wins. Preserve original iteration order for keys
+        // that were only seen once.
+        let mut order: Vec<String> = Vec::with_capacity(raw_pairs.len());
+        let mut map: HashMap<String, String> = HashMap::with_capacity(raw_pairs.len());
+        for (k, v) in raw_pairs {
+            if !map.contains_key(&k) {
+                order.push(k.clone());
+            }
+            map.insert(k, v);
+        }
+        let query_pairs: Vec<(String, String)> = order
             .into_iter()
+            .map(|k| {
+                let v = map.remove(&k).unwrap_or_default();
+                (k, v)
+            })
             .collect();
 
         url.query_pairs_mut().extend_pairs(query_pairs);

@@ -43,6 +43,7 @@ llrt_encoding = { version = "0.8.1-beta", path = "../../libs/llrt_encoding" }
 llrt_http = { version = "0.8.1-beta", default-features = false, path = "../llrt_http" }
 llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json" }
 llrt_url = { version = "0.8.1-beta", path = "../llrt_url" }
+url = { version = "2", features = ["std"], default-features = false }
 llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
 llrt_stream_web = { version = "0.8.1-beta", path = "../llrt_stream_web" }
 once_cell = { version = "1", features = ["std"], default-features = false }
@@ -50,6 +51,7 @@ pin-project-lite = { version = "0.2", default-features = false }
 percent-encoding = { version = "2", features = [
   "std",
 ], default-features = false }
+sha2 = { version = "0.10", default-features = false }
 rand = { version = "0.10.1", features = [
   "std",
   "thread_rng",

@@ -144,14 +144,14 @@ impl<'js> AbortSignal<'js> {
         self.aborted
     }
 
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
+        stringify!(AbortSignal)
+    }
+
     #[qjs(get)]
     pub fn reason(&self) -> Option<Value<'js>> {
         self.reason.clone()
-    }
-
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
-        stringify!(AbortSignal)
     }
 
     #[qjs(set, rename = "reason")]

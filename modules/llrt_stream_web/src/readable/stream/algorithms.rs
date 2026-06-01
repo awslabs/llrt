@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use llrt_utils::option::{Null, Undefined};
+use llrt_utils::primordials::Primordial;
 use rquickjs::{
     class::Trace, prelude::This, Class, Ctx, Function, JsLifetime, Object, Promise, Result, Value,
 };
@@ -84,6 +85,37 @@ impl<'js> PullAlgorithm<'js> {
         f: impl Fn(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js,
     ) -> Self {
         Self::RustFunction(Rc::new(Box::new(f)))
+    }
+
+    /// Wrap a one-shot pull closure. Subsequent invocations after the first
+    /// resolve with `undefined` without calling `f` again — useful for
+    /// streams that enqueue their whole payload in one go and then close.
+    pub fn from_fn_once(
+        f: impl FnOnce(Ctx<'js>, ReadableStreamControllerClass<'js>) -> Result<Promise<'js>> + 'js,
+    ) -> Self {
+        type OnceSlot<'js> = Rc<
+            RefCell<
+                Option<
+                    Box<
+                        dyn FnOnce(
+                                Ctx<'js>,
+                                ReadableStreamControllerClass<'js>,
+                            ) -> Result<Promise<'js>>
+                            + 'js,
+                    >,
+                >,
+            >,
+        >;
+        let slot: OnceSlot<'js> = Rc::new(RefCell::new(Some(Box::new(f))));
+        Self::from_fn(move |ctx, ctrl| {
+            if let Some(f) = slot.borrow_mut().take() {
+                f(ctx, ctrl)
+            } else {
+                Ok(PromisePrimordials::get(&ctx)?
+                    .promise_resolved_with_undefined
+                    .clone())
+            }
+        })
     }
 
     pub(super) fn from_tee_state(state: Class<'js, TeeState<'js>>) -> Self {

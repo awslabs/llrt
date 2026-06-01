@@ -45,7 +45,6 @@ use crate::{
 #[rquickjs::class]
 pub struct ReadableByteStreamController<'js> {
     auto_allocate_chunk_size: Option<usize>,
-    #[qjs(get)]
     byob_request: Option<Class<'js, ReadableStreamBYOBRequest<'js>>>,
     cancel_algorithm: Option<CancelAlgorithm<'js>>,
     close_requested: bool,
@@ -82,8 +81,7 @@ impl<'js> Trace<'js> for ReadableByteStreamController<'js> {
     }
 }
 
-pub(crate) type ReadableByteStreamControllerClass<'js> =
-    Class<'js, ReadableByteStreamController<'js>>;
+pub type ReadableByteStreamControllerClass<'js> = Class<'js, ReadableByteStreamController<'js>>;
 pub(crate) type ReadableByteStreamControllerOwned<'js> =
     OwnedBorrowMut<'js, ReadableByteStreamController<'js>>;
 
@@ -543,8 +541,43 @@ impl<'js> ReadableByteStreamController<'js> {
     pub(super) fn readable_byte_stream_controller_enqueue<R: ReadableStreamReader<'js>>(
         ctx: &Ctx<'js>,
         // Let stream be controller.[[stream]].
+        objects: ReadableByteStreamObjects<'js, R>,
+        chunk: ViewBytes<'js>,
+    ) -> Result<ReadableByteStreamObjects<'js, R>> {
+        Self::readable_byte_stream_controller_enqueue_impl(
+            ctx, objects, chunk, /*skip_transfer=*/ false,
+        )
+    }
+
+    /// Like [`readable_byte_stream_controller_enqueue`] but skips the
+    /// spec-mandated `TransferArrayBuffer(chunk)` step on the incoming
+    /// chunk. Used by producers that already own the backing allocation
+    /// and want to hand it to the stream without QuickJS copying or
+    /// detaching it (e.g. `Blob.stream()`, where the backing
+    /// `ArrayBuffer` must survive multiple `.stream()` calls).
+    ///
+    /// Safety vs. correctness: the chunk we enqueue is NOT detached from
+    /// the producer's perspective, so both producer and consumer see the
+    /// same underlying bytes. This matches the existing non-isolation
+    /// behaviour of `Blob.arrayBuffer()` / `Blob.bytes()`, which already
+    /// return handles that alias the blob's storage. Pending BYOB
+    /// transfers of reader-provided buffers are unaffected — those are
+    /// separate buffers and still use spec-mandated transfer.
+    pub(super) fn readable_byte_stream_controller_enqueue_borrowed<R: ReadableStreamReader<'js>>(
+        ctx: &Ctx<'js>,
+        objects: ReadableByteStreamObjects<'js, R>,
+        chunk: ViewBytes<'js>,
+    ) -> Result<ReadableByteStreamObjects<'js, R>> {
+        Self::readable_byte_stream_controller_enqueue_impl(
+            ctx, objects, chunk, /*skip_transfer=*/ true,
+        )
+    }
+
+    fn readable_byte_stream_controller_enqueue_impl<R: ReadableStreamReader<'js>>(
+        ctx: &Ctx<'js>,
         mut objects: ReadableByteStreamObjects<'js, R>,
         chunk: ViewBytes<'js>,
+        skip_transfer: bool,
     ) -> Result<ReadableByteStreamObjects<'js, R>> {
         // If controller.[[closeRequested]] is true or stream.[[state]] is not "readable", return.
         if objects.controller.close_requested
@@ -565,7 +598,15 @@ impl<'js> ReadableByteStreamController<'js> {
         ))?;
 
         // Let transferredBuffer be ? TransferArrayBuffer(buffer).
-        let transferred_buffer = transfer_array_buffer(buffer)?;
+        // (When `skip_transfer` is true, the caller guarantees that the
+        // buffer is already owned exclusively by the stream for the
+        // purposes of this enqueue — see
+        // `readable_byte_stream_controller_enqueue_borrowed`.)
+        let transferred_buffer = if skip_transfer {
+            buffer
+        } else {
+            transfer_array_buffer(buffer)?
+        };
 
         // If controller.[[pendingPullIntos]] is not empty,
         // Let firstPendingPullInto be controller.[[pendingPullIntos]][0].
@@ -748,6 +789,8 @@ impl<'js> ReadableByteStreamController<'js> {
     fn readable_byte_stream_controller_shift_pending_pull_into(
         &mut self,
     ) -> PullIntoDescriptor<'js> {
+        // Invalidate byobRequest since the first pending pull-into is being removed
+        self.readable_byte_stream_controller_invalidate_byob_request();
         // Let descriptor be controller.[[pendingPullIntos]][0].
         // Remove descriptor from controller.[[pendingPullIntos]].
         // Return descriptor.
@@ -1605,15 +1648,29 @@ impl<'js> ReadableByteStreamController<'js> {
         Err(Exception::throw_type(&ctx, "Illegal constructor"))
     }
 
-    // readonly attribute unrestricted double? desiredSize;
-    #[qjs(get)]
-    fn byob_request(
+    // readonly attribute ReadableStreamBYOBRequest? byobRequest;
+    #[qjs(get, rename = "byobRequest")]
+    fn byob_request_getter(
         ctx: Ctx<'js>,
-        controller: This<OwnedBorrowMut<'js, Self>>,
+        controller: This<Class<'js, Self>>,
     ) -> Result<Null<Class<'js, ReadableStreamBYOBRequest<'js>>>> {
-        let (request, _) =
-            Self::readable_byte_stream_controller_get_byob_request(ctx, controller.0)?;
-        Ok(request)
+        // Use `try_borrow_mut` so that reentrant access during enqueue
+        // (e.g. via a patched `Object.prototype.then` getter, WPT
+        // `readable-byte-streams/patched-global`) doesn't hard-error with
+        // "can't borrow" when the outer enqueue already holds the mut
+        // borrow. If the controller IS currently borrowed, we can still
+        // answer correctly by reading the state via an immutable try_borrow;
+        // materialization is only needed when state is consistent.
+        if let Ok(owned) = rquickjs::class::OwnedBorrowMut::try_from_class(controller.0.clone()) {
+            let (request, _) = Self::readable_byte_stream_controller_get_byob_request(ctx, owned)?;
+            return Ok(request);
+        }
+        // Reentrant access mid-enqueue: can't acquire immutable borrow
+        // either (because enqueue holds mut). Return null — the spec's
+        // observable state during this transient window is that the
+        // byob request has been invalidated (the enqueue path clears it
+        // as pull-into descriptors are filled).
+        Ok(Null(None))
     }
 
     // readonly attribute unrestricted double? desiredSize;
@@ -2037,5 +2094,76 @@ fn copy_data_block_bytes(
 
     to_slice[to_index..to_index + count]
         .copy_from_slice(&from_slice[from_index..from_index + count]);
+    Ok(())
+}
+
+/// Public API for enqueuing a `Uint8Array` (built from the caller-supplied
+/// `ArrayBuffer`) into a byte stream controller from Rust code. Used by
+/// byte-source streams created via `ReadableStream::from_byte_pull_algorithm`.
+pub fn readable_byte_stream_controller_enqueue_bytes<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableByteStreamControllerClass<'js>,
+    buffer: ArrayBuffer<'js>,
+) -> Result<()> {
+    readable_byte_stream_controller_enqueue_bytes_inner(ctx, controller, buffer, false)
+}
+
+/// Zero-copy variant of [`readable_byte_stream_controller_enqueue_bytes`]:
+/// the incoming `ArrayBuffer` is NOT transferred/detached before being
+/// queued. The producer keeps the buffer alive through the stream's
+/// `'js` queue entry, so consumers get a `Uint8Array` that views directly
+/// into the producer's storage.
+///
+/// Only call this when the caller can guarantee the backing allocation
+/// won't be mutated out from under readers (e.g. `Blob.stream()`, where
+/// the blob's `ArrayBuffer` is never written after construction). For the
+/// normal spec-compliant flow that detaches the source, use
+/// [`readable_byte_stream_controller_enqueue_bytes`].
+pub fn readable_byte_stream_controller_enqueue_bytes_borrowed<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableByteStreamControllerClass<'js>,
+    buffer: ArrayBuffer<'js>,
+) -> Result<()> {
+    readable_byte_stream_controller_enqueue_bytes_inner(ctx, controller, buffer, true)
+}
+
+fn readable_byte_stream_controller_enqueue_bytes_inner<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableByteStreamControllerClass<'js>,
+    buffer: ArrayBuffer<'js>,
+    skip_transfer: bool,
+) -> Result<()> {
+    let byte_length = buffer.len();
+    if byte_length == 0 {
+        return Ok(());
+    }
+    let view = rquickjs::TypedArray::<u8>::from_arraybuffer(buffer)?;
+    let borrow = OwnedBorrowMut::from_class(controller);
+    let chunk = ViewBytes::from_value(
+        &ctx,
+        &borrow.function_array_buffer_is_view,
+        Some(&view.into_value()),
+    )?;
+    let objects = ReadableStreamObjects::from_byte_controller(borrow).refresh_reader();
+    if skip_transfer {
+        ReadableByteStreamController::readable_byte_stream_controller_enqueue_borrowed(
+            &ctx, objects, chunk,
+        )?;
+    } else {
+        ReadableByteStreamController::readable_byte_stream_controller_enqueue(
+            &ctx, objects, chunk,
+        )?;
+    }
+    Ok(())
+}
+
+/// Public API for closing a byte stream controller from Rust code.
+pub fn readable_byte_stream_controller_close_stream<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableByteStreamControllerClass<'js>,
+) -> Result<()> {
+    let borrow = OwnedBorrowMut::from_class(controller);
+    let objects = ReadableStreamObjects::from_byte_controller(borrow).refresh_reader();
+    ReadableByteStreamController::readable_byte_stream_controller_close(ctx, objects)?;
     Ok(())
 }

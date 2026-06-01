@@ -31,7 +31,7 @@ pub enum ExportOutput<'js> {
 pub async fn subtle_export_key<'js>(
     ctx: Ctx<'js>,
     format: KeyFormat,
-    key: Class<'js, CryptoKey>,
+    key: Class<'js, CryptoKey<'js>>,
 ) -> Result<Object<'js>> {
     let key = key.borrow();
     let export = export_key(&ctx, format, &key)?;
@@ -142,7 +142,7 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
 
 fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
     let obj = Object::new(ctx.clone())?;
-    obj.set("key_ops", key.usages())?;
+    obj.set("key_ops", key.usages.clone())?;
     obj.set("ext", true)?;
 
     match &key.algorithm {

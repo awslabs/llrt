@@ -16,6 +16,7 @@ pub enum Encoder {
 }
 
 const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
+    "buffer" => Encoder::Utf8,
     "hex" => Encoder::Hex,
     "base64" => Encoder::Base64,
     "unicode-1-1-utf-8" => Encoder::Utf8,
@@ -226,9 +227,16 @@ pub fn bytes_to_utf16_string(bytes: &[u8], endian: Endian, lossy: bool) -> Resul
             .collect(),
     };
 
-    if lossy {
-        Ok(String::from_utf16_lossy(&data16))
+    let mut result = if lossy {
+        String::from_utf16_lossy(&data16)
     } else {
-        String::from_utf16(&data16).map_err(|e| e.to_string())
+        String::from_utf16(&data16).map_err(|e| e.to_string())?
+    };
+
+    // Odd trailing byte in lossy mode produces a replacement character
+    if lossy && !bytes.len().is_multiple_of(2) {
+        result.push('\u{FFFD}');
     }
+
+    Ok(result)
 }

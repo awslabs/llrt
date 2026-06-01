@@ -1,11 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use super::{
-    headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
+    headers::{Headers, HeadersGuard},
     Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_OCTET_STREAM,
     MIME_TYPE_TEXT,
 };
 use crate::body_helpers::strip_bom;
+use hyper::{header::CONTENT_TYPE, Method};
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
 use llrt_json::parse::json_parse;
@@ -13,8 +14,8 @@ use llrt_stream_web::ReadableStream;
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Ctx, Exception, FromJs,
-    IntoJs, Null, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, ArrayBuffer, Class, Coerced,
+    Ctx, Exception, FromJs, IntoJs, Null, Object, Promise, Result, TypedArray, Value,
 };
 use std::sync::RwLock;
 
@@ -31,12 +32,12 @@ impl TryFrom<String> for RequestMode {
     type Error = String;
 
     fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
-        Ok(match s.to_ascii_lowercase().as_str() {
+        Ok(match s.as_str() {
             "cors" => RequestMode::Cors,
             "no-cors" => RequestMode::NoCors,
             "same-origin" => RequestMode::SameOrigin,
             "navigate" => RequestMode::Navigate,
-            _ => return Err(["Invalid requrest mode: ", s.as_str()].concat()),
+            _ => return Err(["Invalid request mode: ", s.as_str()].concat()),
         })
     }
 }
@@ -59,11 +60,16 @@ enum BodyVariant<'js> {
     Empty,
 }
 
+pub(crate) enum BodyTaken<'js> {
+    Bytes(Vec<u8>),
+    Stream(Class<'js, ReadableStream<'js>>),
+}
+
 #[rquickjs::class]
 #[derive(rquickjs::JsLifetime)]
 pub struct Request<'js> {
     url: String,
-    method: String,
+    method: Method,
     headers: Option<Class<'js, Headers>>,
     body: RwLock<BodyVariant<'js>>,
     body_stream: RwLock<Option<Value<'js>>>,
@@ -91,10 +97,25 @@ impl<'js> Trace<'js> for Request<'js> {
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Request<'js> {
     #[qjs(constructor)]
-    pub fn new(ctx: Ctx<'js>, input: Value<'js>, options: Opt<Value<'js>>) -> Result<Self> {
+    pub fn new(
+        ctx: Ctx<'js>,
+        this: This<Value<'js>>,
+        input: Value<'js>,
+        options: Opt<Value<'js>>,
+    ) -> Result<Self> {
+        // When called with `new`, rquickjs passes the constructor function as
+        // `this`. When called without `new`, `this` is undefined (strict) or
+        // the global object (sloppy). WPT's request-error.any.js requires
+        // `Request("...")` to throw TypeError.
+        if this.as_function().is_none() {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Failed to construct 'Request': Please use the 'new' operator",
+            ));
+        }
         let mut request = Self {
             url: "".into(),
-            method: "GET".into(),
+            method: Method::GET,
             headers: None,
             body: RwLock::new(BodyVariant::Empty),
             body_stream: RwLock::new(None),
@@ -104,15 +125,44 @@ impl<'js> Request<'js> {
             agent: None,
         };
 
+        // If the input is a Request, we may need to tee its body at the very
+        // end so construction failures (e.g. GET with body) don't leave the
+        // input disturbed. This holds the input request and whether init.body
+        // overrides the body.
+        let mut input_request_to_disturb: Option<(Class<'js, Request<'js>>, bool)> = None;
+
         if input.is_string() {
-            request.url = input.get()?;
+            let s: String = input.get()?;
+            // Validate as a URL; accept relative URLs against a generic base.
+            if !s.is_empty() {
+                let base = url::Url::parse("http://llrt.local/").expect("static base URL");
+                let parsed = base
+                    .join(&s)
+                    .map_err(|_| Exception::throw_type(&ctx, "Invalid URL"))?;
+                if !parsed.username().is_empty() || parsed.password().is_some() {
+                    return Err(Exception::throw_type(&ctx, "URL must not have credentials"));
+                }
+            }
+            request.url = s;
         } else if let Ok(url) = URL::from_js(&ctx, input.clone()) {
             request.url = url.to_string();
         } else if input.is_object() {
             let obj = input.as_object().expect("input is an object");
             // Check if input is a Request - if so, transfer body (mark original as used)
             if let Some(input_request) = Class::<Request>::from_object(obj) {
-                let input_req = input_request.borrow_mut();
+                let input_req = input_request.borrow();
+                let init_overrides_body = options
+                    .0
+                    .as_ref()
+                    .and_then(|v| v.as_object())
+                    .and_then(|o| o.get::<_, Value>("body").ok())
+                    .is_some_and(|v| !v.is_undefined() && !v.is_null());
+                if !init_overrides_body && is_unusable_body(&input_req) {
+                    return Err(Exception::throw_type(
+                        &ctx,
+                        "Cannot construct a Request from a disturbed or locked body",
+                    ));
+                }
                 request.url = input_req.url.clone();
                 request.method = input_req.method.clone();
                 request.mode = input_req.mode.clone();
@@ -125,20 +175,8 @@ impl<'js> Request<'js> {
                         headers.borrow().clone(),
                     )?);
                 }
-                // Transfer body - take from original, marking it as used
-                let mut body_guard = input_req.body.write().unwrap();
-                if let BodyVariant::Provided(ref mut provided) = &mut *body_guard {
-                    if let Some(body_value) = provided.take() {
-                        request.body = RwLock::new(BodyVariant::Provided(Some(body_value)));
-                    }
-                }
-                drop(body_guard);
-                // Transfer cached body stream if present
-                let stream = input_req.body_stream.write().unwrap().take();
-                if stream.is_some() {
-                    *request.body_stream.write().unwrap() = stream;
-                }
                 drop(input_req);
+                input_request_to_disturb = Some((input_request, init_overrides_body));
             } else {
                 assign_request(&mut request, ctx.clone(), obj)?;
             }
@@ -148,8 +186,65 @@ impl<'js> Request<'js> {
                 assign_request(&mut request, ctx.clone(), obj)?;
             }
         }
+        // Validate: GET/HEAD requests cannot have a body (even when the body
+        // was inherited from an input Request).
+        if matches!(request.method, Method::GET | Method::HEAD) {
+            let has_body = matches!(
+                &*request.body.read().unwrap(),
+                BodyVariant::Provided(Some(_))
+            ) || input_request_to_disturb.as_ref().is_some_and(
+                |(r, override_body)| {
+                    !override_body
+                        && matches!(
+                            &*r.borrow().body.read().unwrap(),
+                            BodyVariant::Provided(Some(_))
+                        )
+                },
+            );
+            if has_body {
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
+                ));
+            }
+        }
+        // Now that all validation has passed, disturb the input's body (if it
+        // was a Request). The input's body field is cleared (marking bodyUsed
+        // = true) while its cached body_stream is preserved so that the input's
+        // `body` getter keeps returning the same object it did before.
+        if let Some((input_request, init_overrides_body)) = input_request_to_disturb {
+            let input_req = input_request.borrow();
+            if let Ok(body_value) = input_req.body(ctx.clone()) {
+                if let Some(stream) = body_value
+                    .as_object()
+                    .and_then(Class::<ReadableStream>::from_object)
+                {
+                    let is_unusable =
+                        stream.borrow().is_readable_stream_locked() || stream.borrow().disturbed;
+                    if !is_unusable {
+                        let (_b1, branch2) =
+                            llrt_stream_web::tee_readable_stream(ctx.clone(), stream)?;
+                        if !init_overrides_body {
+                            *request.body.write().unwrap() =
+                                BodyVariant::Provided(Some(branch2.into_value()));
+                        }
+                    }
+                }
+            }
+            // Mark input's body as consumed without clearing the cached stream
+            // reference, so `bodyRequest.body === originalBody` still holds.
+            *input_req.body.write().unwrap() = BodyVariant::Provided(None);
+            drop(input_req);
+        }
         if request.headers.is_none() {
-            let headers = Class::instance(ctx, Headers::default())?;
+            let guard = if request.mode == RequestMode::NoCors {
+                HeadersGuard::RequestNoCors
+            } else {
+                HeadersGuard::Request
+            };
+            let mut default_headers = Headers::default();
+            default_headers.guard = guard;
+            let headers = Class::instance(ctx, default_headers)?;
             request.headers = Some(headers);
         }
 
@@ -157,13 +252,13 @@ impl<'js> Request<'js> {
     }
 
     #[qjs(get)]
-    fn url(&self) -> String {
-        self.url.clone()
+    fn url(&self) -> &str {
+        &self.url
     }
 
     #[qjs(get)]
-    fn method(&self) -> String {
-        self.method.clone()
+    fn method(&self) -> &str {
+        self.method.as_str()
     }
 
     #[qjs(get)]
@@ -171,8 +266,8 @@ impl<'js> Request<'js> {
         self.headers.clone()
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(Request)
     }
 
@@ -236,8 +331,53 @@ impl<'js> Request<'js> {
     }
 
     #[qjs(get)]
+    fn destination(&self) -> &'static str {
+        ""
+    }
+
+    #[qjs(get)]
+    fn referrer(&self) -> &'static str {
+        "about:client"
+    }
+
+    #[qjs(get, rename = "referrerPolicy")]
+    fn referrer_policy(&self) -> &'static str {
+        ""
+    }
+
+    #[qjs(get)]
+    fn credentials(&self) -> &'static str {
+        "same-origin"
+    }
+
+    #[qjs(get)]
+    fn integrity(&self) -> &'static str {
+        ""
+    }
+
+    #[qjs(get)]
+    fn redirect(&self) -> &'static str {
+        "follow"
+    }
+
+    #[qjs(get, rename = "isReloadNavigation")]
+    fn is_reload_navigation(&self) -> bool {
+        false
+    }
+
+    #[qjs(get, rename = "isHistoryNavigation")]
+    fn is_history_navigation(&self) -> bool {
+        false
+    }
+
+    #[qjs(get)]
+    fn duplex(&self) -> &'static str {
+        "half"
+    }
+
+    #[qjs(get)]
     fn cache(&self) -> &'static str {
-        "no-store"
+        "default"
     }
 
     #[qjs(get)]
@@ -245,60 +385,111 @@ impl<'js> Request<'js> {
         self.agent.clone()
     }
 
-    pub async fn text(&mut self, ctx: Ctx<'js>) -> Result<String> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let bytes = strip_bom(bytes);
-            return match String::from_utf8(bytes.into()) {
-                Ok(s) => Ok(s),
-                Err(e) => Ok(String::from_utf8_lossy(e.as_bytes()).into_owned()),
-            };
-        }
-        Ok("".into())
+    pub fn text(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        let body = match self.take_body_sync(&ctx) {
+            Ok(b) => b,
+            Err(e) => return reject_with_error(&ctx, e),
+        };
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
+            if let Some(bytes) = bytes_opt {
+                let bytes = strip_bom(bytes);
+                return Result::<String>::Ok(match String::from_utf8(bytes.into()) {
+                    Ok(s) => s,
+                    Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+                });
+            }
+            Ok(String::new())
+        })
     }
 
-    pub async fn json(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, strip_bom(bytes));
-        }
-        Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
+    pub fn json(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        let body = match self.take_body_sync(&ctx) {
+            Ok(b) => b,
+            Err(e) => return reject_with_error(&ctx, e),
+        };
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
+            if let Some(bytes) = bytes_opt {
+                return json_parse(&ctx_clone, strip_bom(bytes));
+            }
+            Err(Exception::throw_syntax(&ctx_clone, "JSON input is empty"))
+        })
     }
 
-    async fn array_buffer(&mut self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return ArrayBuffer::new(ctx, bytes);
-        }
-        ArrayBuffer::new(ctx, Vec::<u8>::new())
+    fn array_buffer(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        let body = match self.take_body_sync(&ctx) {
+            Ok(b) => b,
+            Err(e) => return reject_with_error(&ctx, e),
+        };
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
+            if let Some(bytes) = bytes_opt {
+                return ArrayBuffer::new(ctx_clone, bytes);
+            }
+            ArrayBuffer::new(ctx_clone, Vec::<u8>::new())
+        })
     }
 
-    async fn bytes(&mut self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return TypedArray::new(ctx, bytes).map(|m| m.into_value());
-        }
-        TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
+    fn bytes(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        let body = match self.take_body_sync(&ctx) {
+            Ok(b) => b,
+            Err(e) => return reject_with_error(&ctx, e),
+        };
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
+            if let Some(bytes) = bytes_opt {
+                return TypedArray::new(ctx_clone, bytes).map(|m| m.into_value());
+            }
+            TypedArray::new(ctx_clone, Vec::<u8>::new()).map(|m| m.into_value())
+        })
     }
 
-    async fn blob(&mut self, ctx: Ctx<'js>) -> Result<Blob> {
-        let mime_type = self.get_header_value(&ctx, HEADERS_KEY_CONTENT_TYPE)?;
-
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(bytes, mime_type));
-        }
-        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
+    fn blob(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        let mime_type = self.get_header_value(&ctx, CONTENT_TYPE.as_str())?;
+        let body = match self.take_body_sync(&ctx) {
+            Ok(b) => b,
+            Err(e) => return reject_with_error(&ctx, e),
+        };
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
+            let bytes = bytes_opt.unwrap_or_default();
+            Blob::from_bytes(&ctx_clone, bytes, mime_type)
+        })
     }
 
-    async fn form_data(&self, ctx: Ctx<'js>) -> Result<FormData> {
+    async fn form_data(&self, ctx: Ctx<'js>) -> Result<FormData<'js>> {
         let mime_type = self
-            .get_header_value(&ctx, HEADERS_KEY_CONTENT_TYPE)?
+            .get_header_value(&ctx, CONTENT_TYPE.as_str())?
             .unwrap_or(MIME_TYPE_OCTET_STREAM.into());
 
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
+        let is_multipart = mime_type.starts_with("multipart/form-data");
+        let is_urlencoded =
+            mime_type.starts_with(MIME_TYPE_FORM_URLENCODED.split(';').next().unwrap_or(""));
+        if !is_multipart && !is_urlencoded {
+            return Err(Exception::throw_type(
+                &ctx,
+                "formData: invalid Content-Type",
+            ));
+        }
+
+        if let Some(bytes) = resolve_body_taken(&ctx, self.take_body_sync(&ctx)?).await? {
             let form_data = FormData::from_multipart_bytes(&ctx, &mime_type, bytes)?;
             return Ok(form_data);
+        }
+        // Empty body: reject only for multipart (parser requires boundary).
+        if is_multipart {
+            return Err(Exception::throw_type(&ctx, "formData: body is empty"));
         }
         Ok(FormData::default())
     }
 
-    fn clone(&mut self, ctx: Ctx<'js>) -> Result<Self> {
+    fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
         let headers = if let Some(headers) = &self.headers {
             Some(Class::<Headers>::instance(
                 ctx.clone(),
@@ -364,9 +555,9 @@ impl<'js> Request<'js> {
 }
 
 impl<'js> Request<'js> {
-    #[allow(clippy::await_holding_lock)]
-    #[allow(clippy::readonly_write_lock)]
-    async fn take_bytes(&self, ctx: &Ctx<'js>) -> Result<Option<Vec<u8>>> {
+    /// Synchronously takes the body (marking bodyUsed) and returns either
+    /// ready bytes or a ReadableStream to be consumed asynchronously.
+    pub(crate) fn take_body_sync(&self, ctx: &Ctx<'js>) -> Result<Option<BodyTaken<'js>>> {
         if let Some(stream_val) = self.body_stream.read().unwrap().as_ref() {
             if let Some(stream) = stream_val
                 .as_object()
@@ -377,48 +568,41 @@ impl<'js> Request<'js> {
         }
 
         let mut body_guard = self.body.write().unwrap();
-        let body = &mut *body_guard;
-        let bytes = match body {
+        match &mut *body_guard {
             BodyVariant::Provided(provided) => {
                 let provided = provided
                     .take()
-                    .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                    .ok_or(Exception::throw_type(ctx, "Body is already read"))?;
                 drop(body_guard);
 
-                // Check if it's a ReadableStream
                 if let Some(stream) = provided
                     .as_object()
                     .and_then(Class::<ReadableStream>::from_object)
                 {
-                    return collect_readable_stream(ctx, &stream).await.map(Some);
+                    return Ok(Some(BodyTaken::Stream(stream)));
                 }
 
-                if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
-                    blob.borrow().get_bytes()
-                } else {
-                    let bytes = ObjectBytes::from(ctx, &provided)?;
-                    bytes.as_bytes(ctx)?.to_vec()
-                }
+                let bytes =
+                    if let Some(blob) = provided.as_object().and_then(Class::<Blob>::from_object) {
+                        blob.borrow().get_bytes()
+                    } else {
+                        let bytes = ObjectBytes::from(ctx, &provided)?;
+                        bytes.as_bytes(ctx)?.to_vec()
+                    };
+                Ok(Some(BodyTaken::Bytes(bytes)))
             },
-            BodyVariant::Empty => return Ok(None),
+            BodyVariant::Empty => Ok(None),
+        }
+    }
+
+    fn get_header_value(&self, _ctx: &Ctx<'js>, key: &str) -> Result<Option<String>> {
+        let Some(headers) = self.headers.as_ref() else {
+            return Ok(None);
         };
-
-        Ok(Some(bytes))
-    }
-
-    fn get_headers(&self, ctx: &Ctx<'js>) -> Result<Option<Headers>> {
-        self.headers()
-            .map(|headers| Headers::from_js(ctx, headers.into_value()))
-            .transpose()
-            .or_throw(ctx)
-    }
-
-    fn get_header_value(&self, ctx: &Ctx<'js>, key: &str) -> Result<Option<String>> {
-        Ok(self.get_headers(ctx)?.and_then(|headers| {
-            headers
-                .iter()
-                .find_map(|(k, v)| (k == key).then(|| v.to_string()))
-        }))
+        Ok(headers
+            .borrow()
+            .iter()
+            .find_map(|(k, v)| (k == key).then(|| v.to_string())))
     }
 }
 
@@ -430,19 +614,153 @@ async fn collect_readable_stream<'js>(
     crate::body_helpers::collect_readable_stream(stream).await
 }
 
+fn reject_with_error<'js>(ctx: &Ctx<'js>, err: rquickjs::Error) -> Result<Promise<'js>> {
+    // Turn a synchronous throw into a rejected Promise. Extract the actual
+    // JS exception value from the Ctx's pending-exception slot so that the
+    // caller sees a real TypeError (or whatever) object — not an uninitialized
+    // value (which `promise_rejects_js` checks for in WPT).
+    use llrt_stream_web::utils::promise::{promise_rejected_with, PromisePrimordials};
+    use llrt_utils::primordials::Primordial;
+    let _ = err; // err is `Error::Exception`; the real value is in ctx.catch().
+    let exception_value = ctx.catch();
+    let primordials = PromisePrimordials::get(ctx)?;
+    promise_rejected_with(&primordials, exception_value)
+}
+
+async fn resolve_body_taken<'js>(
+    ctx: &Ctx<'js>,
+    body: Option<BodyTaken<'js>>,
+) -> Result<Option<Vec<u8>>> {
+    match body {
+        None => Ok(None),
+        Some(BodyTaken::Bytes(bytes)) => Ok(Some(bytes)),
+        Some(BodyTaken::Stream(stream)) => collect_readable_stream(ctx, &stream).await.map(Some),
+    }
+}
+
+/// True if the request's body has been disturbed (read from) or locked.
+/// Covers both cases that disqualify `new Request(existingReq)`.
+fn is_unusable_body(req: &Request<'_>) -> bool {
+    if req.body_used() {
+        return true;
+    }
+    if let Some(stream_val) = req.body_stream.read().unwrap().as_ref() {
+        if let Some(stream) = stream_val
+            .as_object()
+            .and_then(Class::<ReadableStream>::from_object)
+        {
+            return stream.borrow().is_readable_stream_locked();
+        }
+    }
+    false
+}
+
 fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'js>) -> Result<()> {
     if let Some(url) = obj.get_optional("url")? {
         request.url = url;
     }
     if let Some(method) = obj.get_optional::<_, String>("method")? {
         let method = method.to_ascii_uppercase();
-        if let "CONNECT" | "TRACE" | "TRACK" = method.as_str() {
+        let method = Method::from_bytes(method.as_bytes())
+            .map_err(|_| Exception::throw_type(&ctx, "Invalid HTTP method name"))?;
+        if matches!(method.as_str(), "CONNECT" | "TRACE" | "TRACK") {
             return Err(Exception::throw_type(&ctx, "This method is not allowed."));
         }
         request.method = method;
     }
     if let Some(mode) = obj.get_optional::<_, String>("mode")? {
-        request.mode = mode.try_into().or_throw(&ctx)?;
+        if mode == "navigate" {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Cannot construct a Request with a RequestInit whose mode member is set as 'navigate'.",
+            ));
+        }
+        if mode == "no-cors" && !matches!(request.method, Method::GET | Method::HEAD | Method::POST)
+        {
+            return Err(Exception::throw_type(
+                &ctx,
+                "'no-cors' mode requires the method to be GET, HEAD, or POST",
+            ));
+        }
+        if let Some(cache) = obj.get_optional::<_, String>("cache")? {
+            if cache == "only-if-cached" && mode != "same-origin" {
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "Cache mode 'only-if-cached' requires mode to be 'same-origin'.",
+                ));
+            }
+        }
+        request.mode = mode
+            .try_into()
+            .or_throw_type(&ctx, "Invalid request mode")?;
+    }
+    if let Some(referrer) = obj.get_optional::<_, String>("referrer")? {
+        if !referrer.is_empty() && referrer != "about:client" {
+            // Must be a valid URL
+            if !llrt_url::url_class::URL::is_valid(&referrer) {
+                return Err(Exception::throw_type(&ctx, "Referrer is not a valid URL."));
+            }
+        }
+    }
+    if let Some(rp) = obj.get_optional::<_, String>("referrerPolicy")? {
+        if !matches!(
+            rp.as_str(),
+            "" | "no-referrer"
+                | "no-referrer-when-downgrade"
+                | "same-origin"
+                | "origin"
+                | "strict-origin"
+                | "origin-when-cross-origin"
+                | "strict-origin-when-cross-origin"
+                | "unsafe-url"
+        ) {
+            return Err(Exception::throw_type(&ctx, "Invalid referrerPolicy"));
+        }
+    }
+    if let Some(credentials) = obj.get_optional::<_, String>("credentials")? {
+        if !matches!(credentials.as_str(), "omit" | "same-origin" | "include") {
+            return Err(Exception::throw_type(&ctx, "Invalid credentials"));
+        }
+    }
+    if let Some(cache) = obj.get_optional::<_, String>("cache")? {
+        if !matches!(
+            cache.as_str(),
+            "default" | "no-store" | "reload" | "no-cache" | "force-cache" | "only-if-cached"
+        ) {
+            return Err(Exception::throw_type(&ctx, "Invalid cache mode"));
+        }
+    }
+    if let Some(redirect) = obj.get_optional::<_, String>("redirect")? {
+        if !matches!(redirect.as_str(), "follow" | "error" | "manual") {
+            return Err(Exception::throw_type(&ctx, "Invalid redirect mode"));
+        }
+    }
+    if let Some(duplex) = obj.get_optional::<_, Value>("duplex")? {
+        if !duplex.is_undefined() && !duplex.is_null() {
+            let d: String = duplex.get()?;
+            if !matches!(d.as_str(), "half" | "full") {
+                return Err(Exception::throw_type(&ctx, "Invalid duplex"));
+            }
+            if d == "full" {
+                return Err(Exception::throw_type(
+                    &ctx,
+                    "duplex 'full' is not supported",
+                ));
+            }
+        }
+    }
+    if let Some(priority) = obj.get_optional::<_, Value>("priority")? {
+        if !priority.is_undefined() && !priority.is_null() {
+            let p: String = priority.get()?;
+            if !matches!(p.as_str(), "high" | "low" | "auto") {
+                return Err(Exception::throw_type(&ctx, "Invalid priority"));
+            }
+        }
+    }
+    if let Some(window) = obj.get_optional::<_, Value>("window")? {
+        if !window.is_null() {
+            return Err(Exception::throw_type(&ctx, "window must be null"));
+        }
     }
     if let Some(keepalive) = obj.get_optional::<_, Value>("keepalive")? {
         request.keepalive = if let Some(b) = keepalive.as_bool() {
@@ -470,7 +788,7 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
 
     if let Some(body) = obj.get_optional::<_, Value>("body")? {
         if !body.is_undefined() && !body.is_null() {
-            if let "GET" | "HEAD" = request.method.as_str() {
+            if matches!(request.method, Method::GET | Method::HEAD) {
                 return Err(Exception::throw_type(
                     &ctx,
                     "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
@@ -483,11 +801,31 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
             } else if let Some(body_obj) = body.as_object() {
                 // Check if it's a ReadableStream
                 if let Some(stream) = Class::<ReadableStream>::from_object(body_obj) {
+                    // Per spec, `duplex` must be "half" when body is a stream.
+                    // Skip when the init object is itself a Request (body comes
+                    // from the Request's body getter, not a user-supplied stream).
+                    let is_request_init = Class::<Request>::from_object(obj).is_some();
+                    if !is_request_init {
+                        let duplex: Option<String> = obj.get_optional("duplex")?;
+                        if duplex.as_deref() != Some("half") {
+                            return Err(Exception::throw_type(
+                                &ctx,
+                                "Request with stream body requires duplex: 'half'",
+                            ));
+                        }
+                    }
+                    if request.keepalive {
+                        return Err(Exception::throw_type(
+                            &ctx,
+                            "keepalive requests cannot have a streaming body",
+                        ));
+                    }
                     crate::body_helpers::validate_stream_usable(
                         &ctx,
                         &stream,
                         "construct Request",
                     )?;
+                    *request.body_stream.write().unwrap() = Some(body.clone());
                     BodyVariant::Provided(Some(body))
                 } else if let Some(blob) = Class::<Blob>::from_object(body_obj) {
                     let blob = blob.borrow();
@@ -503,8 +841,18 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 } else if body_obj.instance_of::<URLSearchParams>() {
                     content_type = Some(MIME_TYPE_FORM_URLENCODED.into());
                     BodyVariant::Provided(Some(body))
-                } else {
+                } else if ArrayBuffer::from_value(body.clone()).is_some()
+                    || body_obj.get::<_, Value>("buffer").is_ok_and(|b| {
+                        b.as_object()
+                            .is_some_and(|o| ArrayBuffer::from_object(o.clone()).is_some())
+                    })
+                {
                     BodyVariant::Provided(Some(body))
+                } else {
+                    // WebIDL: fall back to stringifying the value (USVString body).
+                    let s: String = Coerced::from_js(&ctx, body.clone())?.0;
+                    content_type = Some(MIME_TYPE_TEXT.into());
+                    BodyVariant::Provided(Some(s.into_js(&ctx)?))
                 }
             } else {
                 BodyVariant::Provided(Some(body))
@@ -525,11 +873,11 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
                 .unwrap_or_else(|| Null.into_js(&ctx).unwrap()),
             guard,
         )?;
-        if !headers.has(ctx.clone(), HEADERS_KEY_CONTENT_TYPE.into())? {
+        if !headers.contains_lower(CONTENT_TYPE.as_str()) {
             if let Some(value) = content_type {
                 headers.set(
                     ctx.clone(),
-                    HEADERS_KEY_CONTENT_TYPE.into(),
+                    CONTENT_TYPE.as_str().into(),
                     value.into_js(&ctx)?,
                 )?;
             }

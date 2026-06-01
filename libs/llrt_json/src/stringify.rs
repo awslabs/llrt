@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{collections::HashSet, mem, rc::Rc, slice};
+use std::{collections::HashSet, rc::Rc};
 
 use rquickjs::{
-    atom::PredefinedAtom, function::This, qjs, Ctx, Error, Exception, Function, Object, Result,
-    Type, Value,
+    atom::PredefinedAtom, function::This, qjs, Ctx, Exception, Function, Object, Result, Type,
+    Value,
 };
 
 use crate::escape::escape_json_string;
@@ -288,19 +288,8 @@ fn write_primitive2<'js>(
             }
         },
         Type::String => {
-            let js_string = unsafe { value.as_string().unwrap_unchecked() };
-            let mut len = mem::MaybeUninit::uninit();
-            let ctx_ptr = js_string.ctx().as_raw().as_ptr();
-            let ptr =
-                unsafe { qjs::JS_ToCStringLen(ctx_ptr, len.as_mut_ptr(), js_string.as_raw()) };
-            if ptr.is_null() {
-                return Err(Error::Unknown);
-            }
-            let len = unsafe { len.assume_init() };
-            let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr as _, len as _) };
-            let raw_string = unsafe { str::from_utf8_unchecked(bytes) };
-            write_string(context.result, raw_string);
-            unsafe { qjs::JS_FreeCString(js_string.ctx().as_raw().as_ptr(), ptr) };
+            let js_string = unsafe { value.as_string().unwrap_unchecked() }.clone();
+            write_string(context.result, js_string.to_cstring()?.as_str());
         },
         _ => return Ok(PrimitiveStatus::Iterate(new_value)),
     }

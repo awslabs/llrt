@@ -7,7 +7,7 @@ use rquickjs::{
     function::Constructor,
     prelude::{IntoArg, OnceFn, This},
     promise::PromiseState,
-    Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Promise, Result, Value,
+    Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Object, Promise, Result, Value,
 };
 
 pub fn promise_rejected_with<'js>(
@@ -58,6 +58,7 @@ pub struct PromisePrimordials<'js> {
     pub promise_reject: Function<'js>,
     pub promise_all: Function<'js>,
     pub promise_resolved_with_undefined: Promise<'js>,
+    pub promise_prototype_then: Function<'js>,
 }
 
 impl<'js> Trace<'js> for PromisePrimordials<'js> {
@@ -67,6 +68,7 @@ impl<'js> Trace<'js> for PromisePrimordials<'js> {
         self.promise_reject.trace(tracer);
         self.promise_all.trace(tracer);
         self.promise_resolved_with_undefined.trace(tracer);
+        self.promise_prototype_then.trace(tracer);
     }
 }
 
@@ -79,6 +81,9 @@ impl<'js> Primordial<'js> for PromisePrimordials<'js> {
         let promise_resolve: Function<'js> = promise_constructor.get("resolve")?;
         let promise_reject: Function<'js> = promise_constructor.get("reject")?;
         let promise_all: Function<'js> = promise_constructor.get("all")?;
+        let promise_prototype_then: Function<'js> = promise_constructor
+            .get::<_, Object>("prototype")?
+            .get("then")?;
 
         let promise_resolved_with_undefined = promise_resolve.call((
             This(promise_constructor.clone()),
@@ -91,6 +96,7 @@ impl<'js> Primordial<'js> for PromisePrimordials<'js> {
             promise_reject,
             promise_all,
             promise_resolved_with_undefined,
+            promise_prototype_then,
         })
     }
 }
@@ -101,14 +107,18 @@ pub fn upon_promise<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
     promise: Promise<'js>,
     then: impl FnOnce(Ctx<'js>, std::result::Result<Input, Value<'js>>) -> Result<Output> + 'js,
 ) -> Result<Promise<'js>> {
-    let then = Rc::new(Cell::new(Some(then)));
-    let then2 = then.clone();
-    promise.then()?.call((
-        This(promise.clone()),
+    let promise_then = PromisePrimordials::get(&ctx)?
+        .promise_prototype_then
+        .clone();
+    let then_cb = Rc::new(Cell::new(Some(then)));
+    let then_cb2 = then_cb.clone();
+    promise_then.call((
+        This(promise),
         Function::new(
             ctx.clone(),
             OnceFn::new(move |ctx, input| {
-                then.take()
+                then_cb
+                    .take()
                     .expect("Promise.then should only call either resolve or reject")(
                     ctx,
                     Ok(input),
@@ -118,7 +128,7 @@ pub fn upon_promise<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
         Function::new(
             ctx,
             OnceFn::new(move |ctx, e: Value<'js>| {
-                then2
+                then_cb2
                     .take()
                     .expect("Promise.then should only call either resolve or reject")(
                     ctx, Err(e)
@@ -133,10 +143,10 @@ pub fn upon_promise_fulfilment<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js
     promise: Promise<'js>,
     then: impl FnOnce(Ctx<'js>, Input) -> Result<Output> + 'js,
 ) -> Result<Promise<'js>> {
-    promise.then()?.call((
-        This(promise.clone()),
-        Function::new(ctx.clone(), OnceFn::new(then)),
-    ))
+    let promise_then = PromisePrimordials::get(&ctx)?
+        .promise_prototype_then
+        .clone();
+    promise_then.call((This(promise), Function::new(ctx.clone(), OnceFn::new(then))))
 }
 
 #[derive(Debug, JsLifetime, Clone)]

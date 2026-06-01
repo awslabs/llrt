@@ -1,8 +1,8 @@
 use std::any::type_name;
 
 use rquickjs::{
-    atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Function, JsLifetime,
-    Object, Result,
+    atom::PredefinedAtom, function::Constructor, runtime::UserDataGuard, Ctx, Exception, Function,
+    JsLifetime, Object, Result,
 };
 
 use crate::result::ResultExt;
@@ -37,8 +37,10 @@ pub struct BasePrimordials<'js> {
     pub function_array_from: Function<'js>,
     pub function_array_buffer_is_view: Function<'js>,
     pub function_get_own_property_descriptor: Function<'js>,
+    pub function_reflect_own_keys: Function<'js>,
     pub function_parse_int: Function<'js>,
     pub function_parse_float: Function<'js>,
+    pub prototype_iterator: Object<'js>,
 }
 
 pub trait Primordial<'js>
@@ -116,6 +118,20 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
 
         let constructor_string: Constructor = globals.get(PredefinedAtom::String)?;
 
+        let reflect: Object = globals.get("Reflect")?;
+        let function_reflect_own_keys: Function = reflect.get("ownKeys")?;
+
+        // Walk to %IteratorPrototype% via an array iterator.
+        let array = rquickjs::Array::new(ctx.clone())?;
+        let iter_fn: Function = array
+            .as_object()
+            .get(rquickjs::atom::PredefinedAtom::SymbolIterator)?;
+        let array_iter: Object = iter_fn.call((rquickjs::function::This(array),))?;
+        let prototype_iterator = array_iter
+            .get_prototype()
+            .and_then(|p| p.get_prototype())
+            .ok_or_else(|| Exception::throw_internal(ctx, "missing %IteratorPrototype%"))?;
+
         Ok(Self {
             constructor_map,
             constructor_set,
@@ -140,8 +156,10 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
             function_array_from,
             function_array_buffer_is_view,
             function_get_own_property_descriptor,
+            function_reflect_own_keys,
             function_parse_float,
             function_parse_int,
+            prototype_iterator,
         })
     }
 }

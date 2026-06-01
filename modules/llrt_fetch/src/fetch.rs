@@ -2,26 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, Full};
-use hyper::{header::HeaderName, Method, Request, Uri};
+use hyper::{
+    header::{
+        ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, AUTHORIZATION, CONTENT_ENCODING,
+        CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_TYPE, LOCATION, ORIGIN,
+        USER_AGENT,
+    },
+    Method, Request, Uri,
+};
 use llrt_abort::AbortSignal;
 use llrt_context::CtxExtension;
 use llrt_encoding::bytes_from_b64;
 use llrt_http::Agent;
 use llrt_http::HyperClient;
 use llrt_stream_web::ReadableStream;
-use llrt_utils::{
-    bytes::{bytes_to_typed_array, ObjectBytes},
-    mc_oneshot,
-    result::ResultExt,
-    VERSION,
-};
+use llrt_utils::{bytes::ObjectBytes, mc_oneshot, result::ResultExt, VERSION};
 use percent_encoding::percent_decode_str;
 use rquickjs::{
     atom::PredefinedAtom,
     function::{Opt, This},
     prelude::{Async, Func},
-    CatchResultExt, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object, Result,
-    Value,
+    CatchResultExt, CaughtError, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Object,
+    Result, Value,
 };
 use std::{
     collections::HashSet,
@@ -34,11 +36,13 @@ use std::{
 use tokio::{select, sync::Semaphore};
 
 use super::{
+    form_data::FormData,
     headers::{Headers, HeadersGuard},
     response::Response,
     security::ensure_url_access,
-    Blob,
+    Blob, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_TEXT,
 };
+use llrt_url::url_search_params::URLSearchParams;
 
 // https://fetch.spec.whatwg.org/#port-blocking
 const BLOCKED_PORTS: [u16; 83] = [
@@ -111,6 +115,11 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                 }
 
                 let body = options.body;
+                let integrity_entries = options
+                    .integrity
+                    .as_deref()
+                    .map(crate::integrity::parse_integrity)
+                    .unwrap_or_default();
 
                 let res = send(
                     &ctx,
@@ -126,6 +135,34 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                 .await?;
 
                 let (res, redirected, guard) = res;
+
+                // Subresource Integrity check: if integrity metadata was
+                // provided and at least one entry parsed, buffer the body,
+                // hash, and reject with TypeError on mismatch. The
+                // verified bytes are then surfaced as the Response body.
+                if !integrity_entries.is_empty() {
+                    use http_body_util::BodyExt;
+                    let (parts, body) = res.into_parts();
+                    let collected = body.collect().await.or_throw_type(&ctx, "Fetch failed")?;
+                    let bytes = collected.to_bytes().to_vec();
+                    if !crate::integrity::verify(&integrity_entries, &bytes) {
+                        return Err(Exception::throw_type(
+                            &ctx,
+                            "Failed integrity metadata check",
+                        ));
+                    }
+                    return Response::from_verified_bytes(
+                        ctx,
+                        parts,
+                        bytes,
+                        method_string,
+                        uri.to_string(),
+                        start,
+                        redirected,
+                        abort_receiver,
+                        guard,
+                    );
+                }
 
                 Response::from_incoming(
                     ctx,
@@ -172,14 +209,12 @@ async fn send_stream<'js>(
                     Ok(r) => r,
                     Err(e) => {
                         let msg = match e {
-                            rquickjs::CaughtError::Exception(ex) => {
-                                ex.message().unwrap_or_default()
-                            },
-                            rquickjs::CaughtError::Value(v) => v
+                            CaughtError::Exception(ex) => ex.message().unwrap_or_default(),
+                            CaughtError::Value(v) => v
                                 .as_string()
                                 .and_then(|s| s.to_string().ok())
                                 .unwrap_or_else(|| "Stream error".into()),
-                            rquickjs::CaughtError::Error(e) => e.to_string(),
+                            CaughtError::Error(e) => e.to_string(),
                         };
                         let _ = err_tx.send(msg);
                         break;
@@ -190,23 +225,18 @@ async fn send_stream<'js>(
                     break;
                 }
                 if let Ok(value) = read_result.get::<_, Value>("value") {
-                    // Try TypedArray first, then ArrayBuffer
-                    let bytes: Option<Vec<u8>> = if let Ok(typed_array) =
-                        rquickjs::TypedArray::<u8>::from_value(value.clone())
-                    {
-                        typed_array.as_bytes().map(|b| b.to_vec())
-                    } else if let Some(array_buffer) =
-                        value.as_object().and_then(|o| o.as_array_buffer())
-                    {
-                        array_buffer.as_bytes().map(|b| b.to_vec())
-                    } else {
-                        let _ =
-                            err_tx.send("Failed to read body: chunk is not a BufferSource".into());
-                        break;
+                    // Per fetch spec, stream chunks must be Uint8Array. Anything
+                    // else (ArrayBuffer, Blob, String, null, etc.) is an error.
+                    let bytes = match rquickjs::TypedArray::<u8>::from_value(value) {
+                        Ok(typed_array) => typed_array.as_bytes().map(Bytes::copy_from_slice),
+                        Err(_) => {
+                            let _ = err_tx
+                                .send("Failed to read body: chunk is not a Uint8Array".into());
+                            break;
+                        },
                     };
-
                     if let Some(bytes) = bytes {
-                        if tx.send(Bytes::copy_from_slice(&bytes)).await.is_err() {
+                        if tx.send(bytes).await.is_err() {
                             break;
                         }
                     }
@@ -262,6 +292,22 @@ async fn send_stream<'js>(
     )
 }
 
+async fn dispatch<'js>(
+    ctx: &Ctx<'js>,
+    client: &HyperClient,
+    req: Request<BoxBody<Bytes, Infallible>>,
+    abort_receiver: Option<&mc_oneshot::Receiver<Value<'js>>>,
+) -> Result<hyper::Response<hyper::body::Incoming>> {
+    if let Some(abort_receiver) = abort_receiver {
+        select! {
+            res = client.request(req) => res.or_throw_type(ctx, "Fetch failed"),
+            reason = abort_receiver.recv() => Err(ctx.throw(reason)),
+        }
+    } else {
+        client.request(req).await.or_throw_type(ctx, "Fetch failed")
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn send<'js>(
     ctx: &Ctx<'js>,
@@ -288,18 +334,31 @@ async fn send<'js>(
             initial_uri,
         )?;
 
-        let res = if let Some(abort_receiver) = abort_receiver {
-            select! {
-                res = client.request(req) => res.or_throw(ctx)?,
-                reason = abort_receiver.recv() => return Err(ctx.throw(reason))
-            }
-        } else {
-            client.request(req).await.or_throw(ctx)?
-        };
+        let res = dispatch(ctx, client, req, abort_receiver).await?;
 
         let status = res.status();
+
+        // Per WHATWG Fetch §4.5 step 15.4: 421 on a non-GET/HEAD request retries once on a fresh connection.
+        if status.as_u16() == 421 && !matches!(method, Method::GET | Method::HEAD) {
+            drop(res);
+            // Force a new connection: open a new hyper client whose pool can't share TCP conns with the global one.
+            let new_client = llrt_http::build_client(None)
+                .or_throw_type(ctx, "Fetch failed: could not build retry client")?;
+            let (req, _) = build_request(
+                ctx,
+                &method,
+                uri,
+                headers,
+                body,
+                &response_status,
+                initial_uri,
+            )?;
+            let retried = dispatch(ctx, &new_client, req, abort_receiver).await?;
+            break (retried, guard);
+        }
+
         if status.is_redirection() {
-            match res.headers().get(HeaderName::from_static("location")) {
+            match res.headers().get(&LOCATION) {
                 Some(location_headers) => {
                     if let Ok(location_str) = location_headers.to_str() {
                         *uri = location_str.parse().or_throw(ctx)?;
@@ -333,17 +392,17 @@ fn apply_default_headers(
     req: &mut hyper::http::request::Builder,
     detected_headers: &HashSet<&str>,
 ) {
-    if !detected_headers.contains("user-agent") {
-        *req = std::mem::take(req).header("user-agent", ["llrt ", VERSION].concat());
+    if !detected_headers.contains(USER_AGENT.as_str()) {
+        *req = std::mem::take(req).header(USER_AGENT, ["llrt ", VERSION].concat());
     }
-    if !detected_headers.contains("accept-encoding") {
-        *req = std::mem::take(req).header("accept-encoding", "zstd, br, gzip, deflate");
+    if !detected_headers.contains(ACCEPT_ENCODING.as_str()) {
+        *req = std::mem::take(req).header(ACCEPT_ENCODING, "zstd, br, gzip, deflate");
     }
-    if !detected_headers.contains("accept-language") {
-        *req = std::mem::take(req).header("accept-language", "*");
+    if !detected_headers.contains(ACCEPT_LANGUAGE.as_str()) {
+        *req = std::mem::take(req).header(ACCEPT_LANGUAGE, "*");
     }
-    if !detected_headers.contains("accept") {
-        *req = std::mem::take(req).header("accept", "*/*");
+    if !detected_headers.contains(ACCEPT.as_str()) {
+        *req = std::mem::take(req).header(ACCEPT, "*/*");
     }
 }
 
@@ -383,14 +442,16 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Resul
         data.as_bytes().into()
     };
 
-    let blob = Blob::from_bytes(body, Some(content_type.clone())).into_js(ctx)?;
+    let blob = Blob::from_bytes(ctx, body, Some(content_type.clone()))?.into_js(ctx)?;
 
     let headers = Object::new(ctx.clone())?;
-    headers.set("content-type", content_type)?;
+    headers.set(CONTENT_TYPE.as_str(), content_type)?;
 
     let options = Object::new(ctx.clone())?;
     options.set("url", data_url)?;
     options.set("headers", headers)?;
+    // data: URL spec requires "OK" reason phrase.
+    options.set("statusText", "OK")?;
 
     Response::new(ctx.clone(), Opt(Some(blob)), Opt(Some(options)))
 }
@@ -417,11 +478,7 @@ fn build_request<'js>(
     }
 
     let same_origin = is_same_origin(uri, initial_uri);
-    let guard = if same_origin {
-        HeadersGuard::Response
-    } else {
-        HeadersGuard::Immutable
-    };
+    let guard = HeadersGuard::Immutable;
 
     let change_method = should_change_method(*prev_status, method);
 
@@ -430,6 +487,7 @@ fn build_request<'js>(
     } else {
         (method.clone(), body)
     };
+    let is_get_or_head = matches!(method_to_use, Method::GET | Method::HEAD);
 
     let mut req = Request::builder().method(method_to_use).uri(uri.clone());
 
@@ -449,6 +507,23 @@ fn build_request<'js>(
     }
 
     apply_default_headers(&mut req, &detected_headers);
+
+    // Per spec, the Origin header is included for non-CORS-safelisted methods
+    // (anything other than GET/HEAD). Browsers compute origin from the caller;
+    // here we approximate with the initial request URI's origin.
+    if !is_get_or_head && !detected_headers.contains(ORIGIN.as_str()) {
+        if let Some(origin) = uri_origin(initial_uri) {
+            req = req.header(ORIGIN, origin);
+        }
+    }
+
+    // `Content-Length: 0` is sent for POST/PUT/PATCH requests with no body.
+    if body.is_none()
+        && matches!(*method, Method::POST | Method::PUT | Method::PATCH)
+        && !detected_headers.contains(CONTENT_LENGTH.as_str())
+    {
+        req = req.header(CONTENT_LENGTH, "0");
+    }
 
     // Build the body
     let box_body: BoxBody<Bytes, Infallible> = match body {
@@ -494,6 +569,23 @@ fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
         && is_same_port(uri, initial_uri)
 }
 
+fn uri_origin(uri: &Uri) -> Option<String> {
+    let scheme = uri.scheme_str()?;
+    let authority = uri.authority()?;
+    let host = authority.host();
+    let default_port = matches!(
+        (scheme, authority.port_u16()),
+        (_, None) | ("http", Some(80)) | ("https", Some(443))
+    );
+    if default_port {
+        Some([scheme, "://", host].concat())
+    } else {
+        let mut buf = itoa::Buffer::new();
+        let port_str = buf.format(authority.port_u16().unwrap());
+        Some([scheme, "://", host, ":", port_str].concat())
+    }
+}
+
 fn is_same_scheme(uri: &Uri, initial_uri: &Uri) -> bool {
     uri.scheme() == initial_uri.scheme()
 }
@@ -519,14 +611,14 @@ fn should_change_method(prev_status: u16, method: &Method) -> bool {
 }
 
 fn is_request_body_header_name(key: &str) -> bool {
-    matches!(
-        key,
-        "content-encoding" | "content-language" | "content-location" | "content-type"
-    )
+    key == CONTENT_ENCODING
+        || key == CONTENT_LANGUAGE
+        || key == CONTENT_LOCATION
+        || key == CONTENT_TYPE
 }
 
 fn is_cors_non_wildcard_request_header_name(key: &str) -> bool {
-    matches!(key, "authorization")
+    key == AUTHORIZATION
 }
 
 enum RequestBody<'js> {
@@ -555,6 +647,7 @@ struct FetchOptions<'js> {
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
     redirect: String,
     agent: Option<Class<'js, Agent>>,
+    integrity: Option<String>,
 }
 
 fn get_fetch_options<'js>(
@@ -590,39 +683,128 @@ fn get_fetch_options<'js>(
     }
 
     if resource_opts.is_some() || arg_opts.is_some() {
+        if let Some(priority) =
+            get_option::<Value>("priority", arg_opts.as_ref(), resource_opts.as_ref())?
+        {
+            if !priority.is_undefined() && !priority.is_null() {
+                let p: String = priority.get()?;
+                if !matches!(p.as_str(), "high" | "low" | "auto") {
+                    return Err(Exception::throw_type(ctx, "Invalid priority"));
+                }
+            }
+        }
         if let Some(method_opt) =
             get_option::<String>("method", arg_opts.as_ref(), resource_opts.as_ref())?
         {
             method = Some(match method_opt.as_str() {
-                "GET" => Ok(hyper::Method::GET),
-                "POST" => Ok(hyper::Method::POST),
-                "PUT" => Ok(hyper::Method::PUT),
-                "CONNECT" => Ok(hyper::Method::CONNECT),
-                "HEAD" => Ok(hyper::Method::HEAD),
-                "PATCH" => Ok(hyper::Method::PATCH),
-                "DELETE" => Ok(hyper::Method::DELETE),
-                _ => Err(Exception::throw_type(
-                    ctx,
-                    &["Invalid HTTP method: ", &method_opt].concat(),
-                )),
-            }?);
+                "GET" => hyper::Method::GET,
+                "POST" => hyper::Method::POST,
+                "PUT" => hyper::Method::PUT,
+                "CONNECT" => hyper::Method::CONNECT,
+                "HEAD" => hyper::Method::HEAD,
+                "PATCH" => hyper::Method::PATCH,
+                "DELETE" => hyper::Method::DELETE,
+                "OPTIONS" => hyper::Method::OPTIONS,
+                other => hyper::Method::from_bytes(other.as_bytes()).map_err(|_| {
+                    Exception::throw_type(ctx, &["Invalid HTTP method: ", other].concat())
+                })?,
+            });
         }
 
-        if let Some(body_opt) =
-            get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
-        {
-            // Check if body is a ReadableStream
-            if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
-                body = Some(RequestBody::Stream(stream));
-            } else {
-                let bytes = if let Ok(blob) = Class::<Blob>::from_value(&body_opt) {
-                    let blob = blob.borrow();
-                    let typed_array = bytes_to_typed_array(ctx.clone(), &blob.get_bytes())?;
-                    ObjectBytes::from(ctx, &typed_array)?
+        // If the resource is a Request and init didn't override `body`,
+        // take the body natively so that `request.bodyUsed` flips to true
+        // synchronously per spec (otherwise `request.arrayBuffer()` etc. still
+        // return the body after `fetch(request)`).
+        let init_has_body = arg_opts
+            .as_ref()
+            .and_then(|o| o.get::<_, Value>("body").ok())
+            .is_some_and(|v| !v.is_undefined() && !v.is_null());
+        if !init_has_body {
+            if let Some(req_obj) = resource_opts.as_ref() {
+                if let Some(req) = Class::<crate::Request>::from_object(req_obj) {
+                    use crate::request::BodyTaken;
+                    if let Some(taken) = req.borrow().take_body_sync(ctx)? {
+                        body = Some(match taken {
+                            BodyTaken::Stream(stream) => RequestBody::Stream(stream),
+                            BodyTaken::Bytes(bytes) => {
+                                RequestBody::from_bytes(ctx.clone(), ObjectBytes::Vec(bytes))?
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        if body.is_none() {
+            if let Some(body_opt) =
+                get_option::<Value>("body", arg_opts.as_ref(), resource_opts.as_ref())?
+            {
+                if !body_opt.is_undefined() && !body_opt.is_null() {
+                    if let Some(m) = &method {
+                        if *m == hyper::Method::GET || *m == hyper::Method::HEAD {
+                            return Err(Exception::throw_type(
+                                ctx,
+                                "Request with GET/HEAD method cannot have body.",
+                            ));
+                        }
+                    }
+                }
+                // Check if body is a ReadableStream
+                if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
+                    // Per WHATWG Fetch spec, streaming request bodies on HTTP/1.x
+                    // require explicit `duplex: 'half'` (the client needs to know
+                    // it can't wait for the whole request before reading the
+                    // response). WPT `request-upload.any.js` "Streaming upload
+                    // shouldn't work on Http/1.1" expects rejection when duplex
+                    // is not set.
+                    let duplex: Option<String> =
+                        get_option::<String>("duplex", arg_opts.as_ref(), resource_opts.as_ref())?;
+                    if duplex.as_deref() != Some("half") {
+                        return Err(Exception::throw_type(
+                            ctx,
+                            "Request with stream body requires duplex: 'half'",
+                        ));
+                    }
+                    body = Some(RequestBody::Stream(stream));
                 } else {
-                    ObjectBytes::from(ctx, &body_opt)?
-                };
-                body = Some(RequestBody::from_bytes(ctx.clone(), bytes)?);
+                    let (bytes, default_ct) = if let Ok(blob) = Class::<Blob>::from_value(&body_opt)
+                    {
+                        let blob_ref = blob.borrow();
+                        let mime = blob_ref.mime_type();
+                        let ct = if mime.is_empty() { None } else { Some(mime) };
+                        // Zero-copy: borrow the Blob's ArrayBuffer instead of
+                        // materialising a Vec. `RequestBody::from_bytes` holds
+                        // the `ObjectBytes` alive for the duration of the
+                        // request, keeping the ArrayBuffer pinned.
+                        let ab = blob_ref.array_buffer_ref();
+                        let len = ab.len();
+                        (ObjectBytes::DataView(ab, 0, len), ct)
+                    } else if body_opt.is_string() {
+                        (
+                            ObjectBytes::from(ctx, &body_opt)?,
+                            Some(MIME_TYPE_TEXT.into()),
+                        )
+                    } else if let Ok(fd) = Class::<FormData>::from_value(&body_opt) {
+                        let (parts, boundary) = fd.borrow().to_multipart_bytes(ctx)?;
+                        let ct = [MIME_TYPE_FORM_DATA, &boundary].concat();
+                        (ObjectBytes::Vec(parts), Some(ct))
+                    } else if let Ok(usp) = Class::<URLSearchParams>::from_value(&body_opt) {
+                        (
+                            ObjectBytes::Vec(usp.borrow().to_string().into_bytes()),
+                            Some(MIME_TYPE_FORM_URLENCODED.into()),
+                        )
+                    } else {
+                        (ObjectBytes::from(ctx, &body_opt)?, None)
+                    };
+                    body = Some(RequestBody::from_bytes(ctx.clone(), bytes)?);
+                    if let Some(ct) = default_ct {
+                        let hdrs = headers.get_or_insert_with(Headers::default);
+                        if !hdrs.contains_lower(CONTENT_TYPE.as_str()) {
+                            let v: Value = ct.into_js(ctx)?;
+                            hdrs.set(ctx.clone(), CONTENT_TYPE.as_str().into(), v)?;
+                        }
+                    }
+                }
             }
         }
 
@@ -664,6 +846,12 @@ fn get_fetch_options<'js>(
         }
     }
 
+    // Per WHATWG Fetch spec, integrity is a stringified SRI (subresource
+    // integrity) metadata. After the response body is received, the fetch
+    // machinery verifies one of the listed hashes matches; on failure the
+    // returned promise rejects with a TypeError.
+    let integrity = get_option::<String>("integrity", arg_opts.as_ref(), resource_opts.as_ref())?;
+
     let url = match url {
         Some(url) => url,
         None => return Err(Exception::throw_reference(ctx, "Missing required url")),
@@ -677,6 +865,7 @@ fn get_fetch_options<'js>(
         abort_receiver,
         redirect,
         agent,
+        integrity,
     })
 }
 
@@ -964,9 +1153,11 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
-
+                    let response_text: String =
+                        Response::text(This(response.clone()), ctx.clone())?
+                            .into_future()
+                            .await?;
+                    let response = response.borrow();
                     assert_eq!(response.status(), 200);
                     assert_eq!(
                         response.url(),
@@ -1043,8 +1234,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 
@@ -1056,8 +1248,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 
@@ -1069,8 +1262,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 
@@ -1082,8 +1276,9 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
-                    let response = response.borrow_mut();
-                    let response_text = response.text(ctx.clone()).await?;
+                    let response_text: String = Response::text(This(response), ctx.clone())?
+                        .into_future()
+                        .await?;
 
                     assert_eq!(response_text, welcome_message);
 

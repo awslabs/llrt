@@ -6,7 +6,10 @@ use std::{
 use llrt_utils::primordials::{BasePrimordials, Primordial};
 use rquickjs::{
     atom::PredefinedAtom,
-    class::{JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer},
+    class::{
+        impl_::{CloneTrait, CloneWrapper},
+        JsClass, OwnedBorrow, OwnedBorrowMut, Trace, Tracer,
+    },
     function::Constructor,
     methods,
     prelude::{Opt, This},
@@ -38,11 +41,12 @@ pub(super) enum IteratorKind {
     Async,
 }
 
+#[derive(Trace)]
 pub(super) struct IteratorRecord<'js> {
     pub(super) iterator: Object<'js>,
     next_method: Function<'js>,
+    #[qjs(skip_trace)]
     done: AtomicBool,
-
     sync_to_async_iterator: Function<'js>,
 }
 
@@ -274,6 +278,21 @@ impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
         let return_fn: Function<'js> = proto.get("return")?;
         return_fn.set_name("return")?;
         return_fn.set_length(1)?;
+        // Make `next` and `return` enumerable per WebIDL (rquickjs defaults to
+        // non-enumerable, but the async-iterator.any.js WPT tests check this).
+        let define_property: Function<'js> = ctx
+            .globals()
+            .get::<_, Object<'js>>("Object")?
+            .get("defineProperty")?;
+        for name in ["next", "return"] {
+            let value: Value<'js> = proto.get(name)?;
+            let desc = Object::new(ctx.clone())?;
+            desc.set("value", value)?;
+            desc.set("writable", true)?;
+            desc.set("enumerable", true)?;
+            desc.set("configurable", true)?;
+            define_property.call::<_, ()>((proto.clone(), name, desc))?;
+        }
         Ok(Some(proto))
     }
     fn constructor(ctx: &Ctx<'js>) -> Result<Option<Constructor<'js>>> {
@@ -285,20 +304,19 @@ impl<'js> JsClass<'js> for ReadableStreamAsyncIterator<'js> {
 impl<'js> IntoJs<'js> for ReadableStreamAsyncIterator<'js> {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let cls = Class::<Self>::instance(ctx.clone(), self)?;
-        rquickjs::IntoJs::into_js(cls, ctx)
+        IntoJs::into_js(cls, ctx)
     }
 }
 
 impl<'js> FromJs<'js> for ReadableStreamAsyncIterator<'js>
 where
-    for<'a> rquickjs::class::impl_::CloneWrapper<'a, Self>:
-        rquickjs::class::impl_::CloneTrait<Self>,
+    for<'a> CloneWrapper<'a, Self>: CloneTrait<Self>,
 {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         use rquickjs::class::impl_::CloneTrait;
         let value = Class::<Self>::from_js(ctx, value)?;
         let borrow = value.try_borrow()?;
-        Ok(rquickjs::class::impl_::CloneWrapper(&*borrow).wrap_clone())
+        Ok(CloneWrapper(&*borrow).wrap_clone())
     }
 }
 

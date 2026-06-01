@@ -1,16 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use super::{
-    headers::{Headers, HeadersGuard, HEADERS_KEY_CONTENT_TYPE},
-    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON,
+    headers::{Headers, HeadersGuard},
+    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON_STATIC,
     MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
 };
-use crate::body_helpers::strip_bom;
+use crate::body_helpers::{self, strip_bom};
 use crate::{body_helpers::collect_readable_stream, utils::BodyDrain};
 use either::Either;
 use http_body::Body as _;
 use http_body_util::BodyExt;
-use hyper::{body::Incoming, header::HeaderName};
+use hyper::{
+    body::Incoming,
+    header::{CONTENT_ENCODING, CONTENT_TYPE, LOCATION},
+};
 use llrt_abort::AbortSignal;
 use llrt_compression::streaming::StreamingDecoder;
 use llrt_context::CtxExtension;
@@ -24,90 +27,24 @@ use llrt_stream_web::{
 };
 use llrt_url::{url_class::URL, url_search_params::URLSearchParams};
 use llrt_utils::{bytes::ObjectBytes, mc_oneshot};
-use once_cell::sync::Lazy;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Opt,
-    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
-    TypedArray, Value,
+    prelude::This,
+    ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Promise,
+    Result, TypedArray, Value,
 };
 use std::{
-    collections::{BTreeMap, HashMap},
     pin::Pin,
     rc::Rc,
-    sync::{Arc, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock,
+    },
     task::{Context, Poll, Waker},
     time::Instant,
 };
-
-static STATUS_TEXTS: Lazy<HashMap<u16, &'static str>> = Lazy::new(|| {
-    let mut map = HashMap::new();
-    map.insert(100, "Continue");
-    map.insert(101, "Switching Protocols");
-    map.insert(102, "Processing");
-    map.insert(103, "Early Hints");
-    map.insert(200, "OK");
-    map.insert(201, "Created");
-    map.insert(202, "Accepted");
-    map.insert(203, "Non-Authoritative Information");
-    map.insert(204, "No Content");
-    map.insert(205, "Reset Content");
-    map.insert(206, "Partial Content");
-    map.insert(207, "Multi-Status");
-    map.insert(208, "Already Reported");
-    map.insert(226, "IM Used");
-    map.insert(300, "Multiple Choices");
-    map.insert(301, "Moved Permanently");
-    map.insert(302, "Found");
-    map.insert(303, "See Other");
-    map.insert(304, "Not Modified");
-    map.insert(305, "Use Proxy");
-    map.insert(307, "Temporary Redirect");
-    map.insert(308, "Permanent Redirect");
-    map.insert(400, "Bad Request");
-    map.insert(401, "Unauthorized");
-    map.insert(402, "Payment Required");
-    map.insert(403, "Forbidden");
-    map.insert(404, "Not Found");
-    map.insert(405, "Method Not Allowed");
-    map.insert(406, "Not Acceptable");
-    map.insert(407, "Proxy Authentication Required");
-    map.insert(408, "Request Timeout");
-    map.insert(409, "Conflict");
-    map.insert(410, "Gone");
-    map.insert(411, "Length Required");
-    map.insert(412, "Precondition Failed");
-    map.insert(413, "Payload Too Large");
-    map.insert(414, "URI Too Long");
-    map.insert(415, "Unsupported Media Type");
-    map.insert(416, "Range Not Satisfiable");
-    map.insert(417, "Expectation Failed");
-    map.insert(418, "I'm a teapot");
-    map.insert(421, "Misdirected Request");
-    map.insert(422, "Unprocessable Content");
-    map.insert(423, "Locked");
-    map.insert(424, "Failed Dependency");
-    map.insert(425, "Too Early");
-    map.insert(426, "Upgrade Required");
-    map.insert(428, "Precondition Required");
-    map.insert(429, "Too Many Requests");
-    map.insert(431, "Request Header Fields Too Large");
-    map.insert(451, "Unavailable For Legal Reasons");
-    map.insert(500, "Internal Server Error");
-    map.insert(501, "Not Implemented");
-    map.insert(502, "Bad Gateway");
-    map.insert(503, "Service Unavailable");
-    map.insert(504, "Gateway Timeout");
-    map.insert(505, "HTTP Version Not Supported");
-    map.insert(506, "Variant Also Negotiates");
-    map.insert(507, "Insufficient Storage");
-    map.insert(508, "Loop Detected");
-    map.insert(510, "Not Extended");
-    map.insert(511, "Network Authentication Required");
-
-    map
-});
 
 /// A validated HTTP status code (200-599 per WHATWG Fetch spec).
 #[derive(Clone, Copy)]
@@ -115,7 +52,7 @@ struct StatusCode(u16);
 
 impl StatusCode {
     fn is_null_body(self) -> bool {
-        self.0 == 204 || self.0 == 304
+        matches!(self.0, 101 | 103 | 204 | 205 | 304)
     }
 }
 
@@ -138,6 +75,34 @@ impl From<StatusCode> for u16 {
     }
 }
 
+/// Validate reason-phrase per RFC 9110: HTAB / SP / VCHAR / obs-text (no CR/LF).
+/// Mark a Response's body as consumed (unless it has a null body, in which
+/// case `bodyUsed` must stay false per spec). If there is a cached body
+/// stream, lock it by acquiring a reader so subsequent `getReader()` calls
+/// throw synchronously.
+fn mark_consumed<'js>(response: &Class<'js, Response<'js>>) {
+    let resp = response.borrow();
+    let is_null_body = matches!(&*resp.body.read().unwrap(), BodyVariant::Empty);
+    if !is_null_body {
+        resp.body_consumed.store(true, Ordering::Release);
+    }
+}
+
+fn is_valid_reason_phrase(s: &str) -> bool {
+    s.chars().all(|c| {
+        let cp = c as u32;
+        cp == 0x09 || (0x20..=0x7E).contains(&cp) || (0x80..=0xFF).contains(&cp)
+    })
+}
+
+/// Cheap sanity check for a path-relative URL (`/foo`) used by
+/// `Response.redirect`. Real resolution needs a base URL, which we don't
+/// always have — but WPT expects `Response.redirect("/")` to succeed with
+/// the path going straight into the `Location` header.
+fn looks_like_relative_url(s: &str) -> bool {
+    s.starts_with('/') && !s.contains(['\r', '\n', '\t', ' '])
+}
+
 enum BodyVariant<'js> {
     /// Raw incoming HTTP body - consumed directly for text()/json()/etc
     Incoming(Arc<RwLock<Option<Incoming>>>, Option<String>), // body + content_encoding
@@ -152,6 +117,7 @@ pub struct Response<'js> {
     body: RwLock<BodyVariant<'js>>,
     /// Cached ReadableStream for the body getter (created lazily)
     body_stream: RwLock<Option<Value<'js>>>,
+    body_consumed: AtomicBool,
     method: String,
     url: String,
     start: Instant,
@@ -206,7 +172,10 @@ impl<'js> Response<'js> {
                     HeadersGuard::Response,
                 )?);
             }
-            if let Some(status_text_opt) = opt.get("statusText")? {
+            if let Some(status_text_opt) = opt.get::<_, Option<String>>("statusText")? {
+                if !is_valid_reason_phrase(&status_text_opt) {
+                    return Err(Exception::throw_type(&ctx, "Invalid statusText"));
+                }
                 status_text = Some(status_text_opt);
             }
 
@@ -229,6 +198,7 @@ impl<'js> Response<'js> {
         }
 
         let mut content_type: Option<String> = None;
+        let response_body_stream: RwLock<Option<Value<'js>>> = RwLock::new(None);
 
         let body = body
             .0
@@ -241,13 +211,14 @@ impl<'js> Response<'js> {
                 } else if let Some(obj) = body.as_object() {
                     // Check if it's a ReadableStream
                     if let Some(stream) = Class::<ReadableStream>::from_object(obj) {
-                        if let Err(e) = crate::body_helpers::validate_stream_usable(
+                        if let Err(e) = body_helpers::validate_stream_usable(
                             &ctx,
                             &stream,
                             "construct Response",
                         ) {
                             return Some(Err(e));
                         }
+                        *response_body_stream.write().unwrap() = Some(body.clone());
                         Some(Ok(BodyVariant::Provided(Some(body))))
                     } else if let Some(blob) = Class::<Blob>::from_object(obj) {
                         let blob = blob.borrow();
@@ -275,12 +246,16 @@ impl<'js> Response<'js> {
             .transpose()?
             .unwrap_or_else(|| BodyVariant::Empty);
 
-        let mut headers = headers.unwrap_or_default();
-        if !headers.has(ctx.clone(), HEADERS_KEY_CONTENT_TYPE.into())? {
+        let mut headers = headers.unwrap_or_else(|| {
+            let mut h = Headers::default();
+            h.guard = HeadersGuard::Response;
+            h
+        });
+        if !headers.contains_lower(CONTENT_TYPE.as_str()) {
             if let Some(value) = content_type {
                 headers.set(
                     ctx.clone(),
-                    HEADERS_KEY_CONTENT_TYPE.into(),
+                    CONTENT_TYPE.as_str().into(),
                     value.into_js(&ctx)?,
                 )?;
             }
@@ -289,7 +264,8 @@ impl<'js> Response<'js> {
 
         Ok(Self {
             body: RwLock::new(body),
-            body_stream: RwLock::new(None),
+            body_stream: response_body_stream,
+            body_consumed: AtomicBool::new(false),
             method: "GET".into(),
             url,
             start: Instant::now(),
@@ -307,8 +283,8 @@ impl<'js> Response<'js> {
     }
 
     #[qjs(get)]
-    pub fn url(&self) -> String {
-        self.url.clone()
+    pub fn url(&self) -> &str {
+        &self.url
     }
 
     #[qjs(get)]
@@ -323,6 +299,28 @@ impl<'js> Response<'js> {
 
     #[qjs(get)]
     pub fn body(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        // If a consume method was called, expose a disturbed stream so
+        // subsequent `.body.getReader()` and similar throw synchronously.
+        if self.body_consumed.load(Ordering::Acquire) {
+            if let Some(stream_val) = self.body_stream.read().unwrap().as_ref() {
+                // If the cached stream is already locked or disturbed we can
+                // return it directly; otherwise replace it with a disturbed
+                // stream.
+                if let Some(stream) = stream_val
+                    .as_object()
+                    .and_then(Class::<ReadableStream>::from_object)
+                {
+                    let s = stream.borrow();
+                    if s.disturbed || s.is_readable_stream_locked() {
+                        return Ok(stream_val.clone());
+                    }
+                }
+            }
+            let stream = body_helpers::create_disturbed_stream(&ctx)?;
+            *self.body_stream.write().unwrap() = Some(stream.clone());
+            return Ok(stream);
+        }
+
         // Return cached stream if available
         if let Some(stream) = self.body_stream.read().unwrap().as_ref() {
             return Ok(stream.clone());
@@ -331,6 +329,13 @@ impl<'js> Response<'js> {
         let body_guard = self.body.read().unwrap();
         match &*body_guard {
             BodyVariant::Incoming(incoming, content_encoding) => {
+                // If body has already been consumed, create a disturbed stream
+                if incoming.read().unwrap().is_none() {
+                    drop(body_guard);
+                    let stream = body_helpers::create_disturbed_stream(&ctx)?;
+                    *self.body_stream.write().unwrap() = Some(stream.clone());
+                    return Ok(stream);
+                }
                 let incoming = incoming.clone();
                 let content_encoding = content_encoding.clone();
                 drop(body_guard);
@@ -340,7 +345,12 @@ impl<'js> Response<'js> {
             },
             // Per WHATWG Fetch spec, body should be null for null body responses
             BodyVariant::Empty => Ok(Value::new_null(ctx)),
-            BodyVariant::Provided(None) => Ok(Value::new_null(ctx)),
+            BodyVariant::Provided(None) => {
+                drop(body_guard);
+                let stream = body_helpers::create_disturbed_stream(&ctx)?;
+                *self.body_stream.write().unwrap() = Some(stream.clone());
+                Ok(stream)
+            },
             BodyVariant::Provided(Some(value)) => {
                 // If already a ReadableStream, return it directly
                 if let Some(stream) = value
@@ -354,7 +364,7 @@ impl<'js> Response<'js> {
                 let body_value = value.clone();
                 drop(body_guard);
 
-                let stream = crate::body_helpers::create_body_value_stream(&ctx, body_value)?;
+                let stream = body_helpers::create_body_value_stream(&ctx, body_value)?;
                 *self.body_stream.write().unwrap() = Some(stream.clone());
                 Ok(stream)
             },
@@ -368,28 +378,31 @@ impl<'js> Response<'js> {
 
     #[qjs(get, rename = "type")]
     fn response_type(&self) -> &'js str {
-        match &self.status {
-            0 => "error",
-            _ => "basic",
+        if self.status == 0 {
+            "error"
+        } else if self.url.is_empty() {
+            "default"
+        } else {
+            "basic"
         }
     }
 
-    #[qjs(get, rename = PredefinedAtom::SymbolToStringTag)]
-    pub fn to_string_tag(&self) -> &'static str {
+    #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
+    pub fn to_string_tag() -> &'static str {
         stringify!(Response)
     }
 
     #[qjs(get)]
-    fn status_text(&self) -> String {
-        if let Some(text) = &self.status_text {
-            return text.to_string();
-        }
-        STATUS_TEXTS.get(&self.status).unwrap_or(&"").to_string()
+    fn status_text(&self) -> &str {
+        self.status_text.as_deref().unwrap_or("")
     }
 
     #[qjs(get)]
     fn body_used(&self) -> bool {
-        if crate::body_helpers::is_body_stream_disturbed(&self.body_stream) {
+        if self.body_consumed.load(Ordering::Acquire) {
+            return true;
+        }
+        if body_helpers::is_body_stream_disturbed(&self.body_stream) {
             return true;
         }
 
@@ -403,58 +416,118 @@ impl<'js> Response<'js> {
         false
     }
 
-    pub(crate) async fn text(&self, ctx: Ctx<'js>) -> Result<String> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let bytes = strip_bom(bytes);
-            // Fast path: try zero-copy UTF-8 conversion first
-            return match String::from_utf8(bytes.into()) {
-                Ok(s) => Ok(s),
-                Err(e) => Ok(String::from_utf8_lossy(e.as_bytes()).into_owned()),
-            };
-        }
-        Ok("".into())
+    pub(crate) fn text(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        mark_consumed(&this.0);
+        let class = this.0.clone();
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = class.borrow().take_bytes(&ctx_clone).await?;
+            match bytes_opt {
+                Some(bytes) => {
+                    let bytes = strip_bom(bytes);
+                    Result::<String>::Ok(match String::from_utf8(bytes.into()) {
+                        Ok(s) => s,
+                        Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+                    })
+                },
+                None => Ok(String::new()),
+            }
+        })
     }
 
-    pub(crate) async fn json(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return json_parse(&ctx, strip_bom(bytes));
-        }
-        Err(Exception::throw_syntax(&ctx, "JSON input is empty"))
+    pub(crate) fn json(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        mark_consumed(&this.0);
+        let class = this.0.clone();
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes_opt = class.borrow().take_bytes(&ctx_clone).await?;
+            match bytes_opt {
+                Some(bytes) => json_parse(&ctx_clone, strip_bom(bytes)),
+                None => Err(Exception::throw_syntax(&ctx_clone, "JSON input is empty")),
+            }
+        })
     }
 
-    async fn array_buffer(&self, ctx: Ctx<'js>) -> Result<ArrayBuffer<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return ArrayBuffer::new(ctx, bytes);
-        }
-        ArrayBuffer::new(ctx, Vec::<u8>::new())
+    fn array_buffer(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        mark_consumed(&this.0);
+        let class = this.0.clone();
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes = class
+                .borrow()
+                .take_bytes(&ctx_clone)
+                .await?
+                .unwrap_or_default();
+            ArrayBuffer::new(ctx_clone, bytes)
+        })
     }
 
-    async fn bytes(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return TypedArray::new(ctx, bytes).map(|m| m.into_value());
-        }
-        TypedArray::new(ctx, Vec::<u8>::new()).map(|m| m.into_value())
+    fn bytes(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        mark_consumed(&this.0);
+        let class = this.0.clone();
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes = class
+                .borrow()
+                .take_bytes(&ctx_clone)
+                .await?
+                .unwrap_or_default();
+            TypedArray::new(ctx_clone, bytes).map(|m| m.into_value())
+        })
     }
 
-    async fn blob(&self, ctx: Ctx<'js>) -> Result<Blob> {
-        let mime_type = self.get_header_value(&ctx, HEADERS_KEY_CONTENT_TYPE)?;
-
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            return Ok(Blob::from_bytes(bytes, mime_type));
-        }
-        Ok(Blob::from_bytes(Vec::<u8>::new(), mime_type))
+    fn blob(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        mark_consumed(&this.0);
+        let mime_type = this
+            .0
+            .borrow()
+            .get_header_value(&ctx, CONTENT_TYPE.as_str())?;
+        let class = this.0.clone();
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let bytes = class
+                .borrow()
+                .take_bytes(&ctx_clone)
+                .await?
+                .unwrap_or_default();
+            Blob::from_bytes(&ctx_clone, bytes, mime_type)
+        })
     }
 
-    async fn form_data(&self, ctx: Ctx<'js>) -> Result<FormData> {
-        let mime_type = self
-            .get_header_value(&ctx, HEADERS_KEY_CONTENT_TYPE)?
+    fn form_data(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
+        mark_consumed(&this.0);
+        let mime_type = this
+            .0
+            .borrow()
+            .get_header_value(&ctx, CONTENT_TYPE.as_str())?
             .unwrap_or(MIME_TYPE_OCTET_STREAM.into());
+        let class = this.0.clone();
+        let ctx_clone = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let is_multipart = mime_type.starts_with("multipart/form-data");
+            let is_urlencoded =
+                mime_type.starts_with(MIME_TYPE_FORM_URLENCODED.split(';').next().unwrap_or(""));
 
-        if let Some(bytes) = self.take_bytes(&ctx).await? {
-            let form_data = FormData::from_multipart_bytes(&ctx, &mime_type, bytes)?;
-            return Ok(form_data);
-        }
-        Ok(FormData::default())
+            // Consume the body first so stream errors propagate before the
+            // content-type check (matching spec order).
+            let bytes = class.borrow().take_bytes(&ctx_clone).await?;
+
+            if !is_multipart && !is_urlencoded {
+                return Err(Exception::throw_type(
+                    &ctx_clone,
+                    "formData: invalid Content-Type",
+                ));
+            }
+
+            if let Some(bytes) = bytes {
+                let form_data = FormData::from_multipart_bytes(&ctx_clone, &mime_type, bytes)?;
+                return Ok(form_data);
+            }
+            if is_multipart {
+                return Err(Exception::throw_type(&ctx_clone, "formData: body is empty"));
+            }
+            Ok(FormData::default())
+        })
     }
 
     pub(crate) fn clone(&self, ctx: Ctx<'js>) -> Result<Self> {
@@ -485,6 +558,7 @@ impl<'js> Response<'js> {
                 return Ok(Self {
                     body: RwLock::new(BodyVariant::Provided(Some(branch2.into_value()))),
                     body_stream: RwLock::new(None),
+                    body_consumed: AtomicBool::new(false),
                     method: self.method.clone(),
                     url: self.url.clone(),
                     start: self.start,
@@ -519,6 +593,7 @@ impl<'js> Response<'js> {
                     return Ok(Self {
                         body: RwLock::new(BodyVariant::Provided(Some(branch2.into_value()))),
                         body_stream: RwLock::new(None),
+                        body_consumed: AtomicBool::new(false),
                         method: self.method.clone(),
                         url: self.url.clone(),
                         start: self.start,
@@ -538,6 +613,7 @@ impl<'js> Response<'js> {
         Ok(Self {
             body: RwLock::new(cloned_body),
             body_stream: RwLock::new(None),
+            body_consumed: AtomicBool::new(false),
             method: self.method.clone(),
             url: self.url.clone(),
             start: self.start,
@@ -551,35 +627,51 @@ impl<'js> Response<'js> {
 
     #[qjs(static)]
     fn error(ctx: Ctx<'js>) -> Result<Self> {
+        let mut headers = Headers::default();
+        headers.guard = HeadersGuard::Immutable;
         Ok(Self {
             body: RwLock::new(BodyVariant::Empty),
             body_stream: RwLock::new(None),
+            body_consumed: AtomicBool::new(false),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
             status: 0,
             status_text: None,
             redirected: false,
-            headers: Class::instance(ctx.clone(), Headers::default())?,
+            headers: Class::instance(ctx.clone(), headers)?,
             abort_receiver: None,
         })
     }
 
     #[qjs(static, rename = "json")]
-    fn json_static(ctx: Ctx<'js>, body: Value<'js>, options: Opt<Object<'js>>) -> Result<Self> {
+    fn json_static(ctx: Ctx<'js>, body: Value<'js>, options: Opt<Value<'js>>) -> Result<Self> {
+        let options: Option<Object<'js>> =
+            options
+                .0
+                .and_then(|v| if v.is_object() { v.into_object() } else { None });
         let mut status = 200;
         let mut status_text = None;
 
-        if let Some(ref opt) = options.0 {
-            if let Some(status_opt) = opt.get("status")? {
-                status = status_opt;
+        if let Some(ref opt) = options {
+            if let Some(status_opt) = opt.get::<_, Option<StatusCode>>("status")? {
+                if status_opt.is_null_body() {
+                    return Err(Exception::throw_type(
+                        &ctx,
+                        "Response.json cannot have a null body status",
+                    ));
+                }
+                status = status_opt.0;
             }
-            if let Some(status_text_opt) = opt.get("statusText")? {
+            if let Some(status_text_opt) = opt.get::<_, Option<String>>("statusText")? {
+                if !is_valid_reason_phrase(&status_text_opt) {
+                    return Err(Exception::throw_type(&ctx, "Invalid statusText"));
+                }
                 status_text = Some(status_text_opt);
             }
         }
 
-        let mut headers = if let Some(ref opt) = options.0 {
+        let mut headers = if let Some(ref opt) = options {
             let head = if let Some(headers_opt) = opt.get("headers")? {
                 headers_opt
             } else {
@@ -590,25 +682,30 @@ impl<'js> Response<'js> {
             Headers::from_value(&ctx, Value::new_null(ctx.clone()), HeadersGuard::Response)?
         };
 
-        if !headers.has(ctx.clone(), "content-type".into())? {
+        if !headers.contains_lower(CONTENT_TYPE.as_str()) {
             headers.append(
                 ctx.clone(),
-                "content-type".into(),
-                MIME_TYPE_JSON.into_js(&ctx)?,
+                CONTENT_TYPE.as_str().into(),
+                MIME_TYPE_JSON_STATIC.into_js(&ctx)?,
             )?;
         }
 
         let headers = Class::instance(ctx.clone(), headers)?;
 
-        let body = if let Ok(Some(v)) = json_stringify(&ctx, body) {
-            BodyVariant::Provided(Some(v.into_js(&ctx)?))
-        } else {
-            return Err(Exception::throw_type(&ctx, "Failed to convert JSON string"));
+        let body = match json_stringify(&ctx, body)? {
+            Some(v) => {
+                // Store as bytes so serialisation preserves lone surrogates as
+                // `\uXXXX` escapes produced by json_stringify.
+                let bytes = v.into_bytes();
+                BodyVariant::Provided(Some(TypedArray::new(ctx.clone(), bytes)?.into_value()))
+            },
+            None => return Err(Exception::throw_type(&ctx, "Failed to convert JSON string")),
         };
 
         Ok(Self {
             body: RwLock::new(body),
             body_stream: RwLock::new(None),
+            body_consumed: AtomicBool::new(false),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -640,15 +737,23 @@ impl<'js> Response<'js> {
             Either::Left(url) => url.to_string(),
             Either::Right(url) => url.0,
         };
+        // Validate URL per WHATWG Fetch spec. We accept relative URLs too
+        // (a bare path like `"/"` is legal per spec when parsed against the
+        // current settings object's API base URL); only reject values that
+        // clearly aren't URL-shaped.
+        if !URL::is_valid(&url) && !looks_like_relative_url(&url) {
+            return Err(Exception::throw_type(&ctx, "Invalid redirect URL"));
+        }
 
-        let mut header = BTreeMap::new();
-        header.insert("location".to_string(), Coerced(url));
-        let headers = Headers::from_map(&ctx, header, HeadersGuard::Response);
+        let mut headers = Headers::default();
+        headers.guard = HeadersGuard::Response;
+        headers.append(ctx.clone(), LOCATION.as_str().into(), url.into_js(&ctx)?)?;
         let headers = Class::instance(ctx.clone(), headers)?;
 
         Ok(Self {
             body: RwLock::new(BodyVariant::Empty),
             body_stream: RwLock::new(None),
+            body_consumed: AtomicBool::new(false),
             method: "".into(),
             url: "".into(),
             start: Instant::now(),
@@ -676,9 +781,7 @@ impl<'js> Response<'js> {
         let response_headers = response.headers();
 
         let mut content_encoding = None;
-        if let Some(content_encoding_header) =
-            response_headers.get(HeaderName::from_static("content-encoding"))
-        {
+        if let Some(content_encoding_header) = response_headers.get(&CONTENT_ENCODING) {
             if let Ok(content_encoding_header) = content_encoding_header.to_str() {
                 content_encoding = Some(content_encoding_header.to_owned())
             }
@@ -688,13 +791,67 @@ impl<'js> Response<'js> {
         let headers = Class::instance(ctx.clone(), headers)?;
 
         let status = response.status();
+        let is_null_body = matches!(status.as_u16(), 101 | 103 | 204 | 205 | 304)
+            || method.eq_ignore_ascii_case("HEAD");
+
+        let body = if is_null_body {
+            BodyVariant::Empty
+        } else {
+            BodyVariant::Incoming(
+                Arc::new(RwLock::new(Some(response.into_body()))),
+                content_encoding,
+            )
+        };
 
         Ok(Self {
-            body: RwLock::new(BodyVariant::Incoming(
-                Arc::new(RwLock::new(Some(response.into_body()))),
-                content_encoding.clone(),
-            )),
+            body: RwLock::new(body),
             body_stream: RwLock::new(None),
+            body_consumed: AtomicBool::new(false),
+            method,
+            url,
+            start,
+            status: status.as_u16(),
+            status_text: None,
+            redirected,
+            headers,
+            abort_receiver,
+        })
+    }
+
+    /// Build a Response from pre-fetched + integrity-verified bytes. Used by
+    /// the fetch path when `integrity:` metadata is set — the body has been
+    /// collected and hashed already, so we embed the bytes as a Provided
+    /// body (avoiding the Incoming streaming path that would re-decompress).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_verified_bytes(
+        ctx: Ctx<'js>,
+        parts: hyper::http::response::Parts,
+        bytes: Vec<u8>,
+        method: String,
+        url: String,
+        start: Instant,
+        redirected: bool,
+        abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+        guard: HeadersGuard,
+    ) -> Result<Self> {
+        let headers = Headers::from_http_headers(&parts.headers, guard)?;
+        let headers = Class::instance(ctx.clone(), headers)?;
+
+        let status = parts.status;
+        let is_null_body = matches!(status.as_u16(), 101 | 103 | 204 | 205 | 304)
+            || method.eq_ignore_ascii_case("HEAD");
+
+        let body = if is_null_body {
+            BodyVariant::Empty
+        } else {
+            let ab = rquickjs::ArrayBuffer::new_copy(ctx.clone(), &bytes)?;
+            BodyVariant::Provided(Some(ab.into_value()))
+        };
+
+        Ok(Self {
+            body: RwLock::new(body),
+            body_stream: RwLock::new(None),
+            body_consumed: AtomicBool::new(false),
             method,
             url,
             start,
@@ -721,7 +878,7 @@ impl<'js> Response<'js> {
                         .write()
                         .unwrap()
                         .take()
-                        .ok_or(Exception::throw_message(ctx, "Already read"))?;
+                        .ok_or(Exception::throw_type(ctx, "Body is already read"))?;
                     let encoding = enc.take();
                     drop(body_guard);
 
@@ -761,7 +918,7 @@ impl<'js> Response<'js> {
                 },
                 BodyVariant::Empty => return Ok(None),
                 BodyVariant::Provided(None) => {
-                    return Err(Exception::throw_message(ctx, "Already read"))
+                    return Err(Exception::throw_type(ctx, "Body is already read"))
                 },
                 BodyVariant::Provided(Some(_)) => {
                     // Fall through to take_provided
@@ -777,7 +934,7 @@ impl<'js> Response<'js> {
                 .as_object()
                 .and_then(Class::<ReadableStream>::from_object)
             {
-                crate::body_helpers::validate_stream_usable(ctx, &stream, "read body")?;
+                body_helpers::validate_stream_usable(ctx, &stream, "read body")?;
             }
         }
 
@@ -786,7 +943,7 @@ impl<'js> Response<'js> {
             match &*body_guard {
                 BodyVariant::Incoming(incoming, enc) => Some((incoming.clone(), enc.clone())),
                 BodyVariant::Provided(None) => {
-                    return Err(Exception::throw_message(ctx, "Already read"))
+                    return Err(Exception::throw_type(ctx, "Body is already read"))
                 },
                 BodyVariant::Empty => return Ok(None),
                 BodyVariant::Provided(Some(_)) => None,
@@ -800,13 +957,10 @@ impl<'js> Response<'js> {
         take_provided(ctx, &self.body).await
     }
 
-    fn get_headers(&self, ctx: &Ctx<'js>) -> Result<Headers> {
-        Headers::from_value(ctx, self.headers().as_value().clone(), HeadersGuard::None)
-    }
-
-    fn get_header_value(&self, ctx: &Ctx<'js>, key: &str) -> Result<Option<String>> {
+    fn get_header_value(&self, _ctx: &Ctx<'js>, key: &str) -> Result<Option<String>> {
         Ok(self
-            .get_headers(ctx)?
+            .headers
+            .borrow()
             .iter()
             .find_map(|(k, v)| (k == key).then(|| v.to_string())))
     }
@@ -822,7 +976,7 @@ async fn take_incoming<'js>(
         .write()
         .unwrap()
         .take()
-        .ok_or(Exception::throw_message(ctx, "Already read"))?;
+        .ok_or(Exception::throw_type(ctx, "Body is already read"))?;
 
     let has_decoder = content_encoding.is_some_and(|e| !matches!(e, "" | "identity"));
 
@@ -873,7 +1027,7 @@ async fn take_provided<'js>(
         }
     };
 
-    let provided = provided.ok_or(Exception::throw_message(ctx, "Already read"))?;
+    let provided = provided.ok_or(Exception::throw_type(ctx, "Body is already read"))?;
 
     if let Some(stream) = provided
         .as_object()
@@ -952,6 +1106,7 @@ async fn read_body_chunk(
         Some(result_buffer)
     })
 }
+
 fn create_body_stream<'js>(
     ctx: &Ctx<'js>,
     incoming: Arc<RwLock<Option<Incoming>>>,
@@ -1163,7 +1318,7 @@ fn create_body_stream<'js>(
 #[cfg(test)]
 mod tests {
     use llrt_test::{test_async_with_opts, TestOptions};
-    use rquickjs::{CatchResultExt, Class, Function, Object, Promise};
+    use rquickjs::{prelude::This, CatchResultExt, Class, Function, Object, Promise};
     use wiremock::*;
 
     use super::*;
@@ -1191,10 +1346,12 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
 
-                        let response_text = response.text(ctx.clone()).await?;
-                        assert_eq!(response.status(), 200);
+                        let response_text: String =
+                            Response::text(This(response.clone()), ctx.clone())?
+                                .into_future()
+                                .await?;
+                        assert_eq!(response.borrow().status(), 200);
                         assert_eq!(response_text, welcome_message);
                         Ok(())
                     };
@@ -1229,17 +1386,21 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
 
                         // Cloning a response with unconsumed Incoming body should work via tee
-                        let cloned = response.clone(ctx.clone())?;
-                        let text1 = response.text(ctx.clone()).await?;
-                        let text2 = cloned.text(ctx.clone()).await?;
+                        let cloned = response.borrow().clone(ctx.clone())?;
+                        let cloned = Class::instance(ctx.clone(), cloned)?;
+                        let text1: String = Response::text(This(response.clone()), ctx.clone())?
+                            .into_future()
+                            .await?;
+                        let text2: String = Response::text(This(cloned), ctx.clone())?
+                            .into_future()
+                            .await?;
                         assert_eq!(text1, "Hello");
                         assert_eq!(text2, "Hello");
 
                         // Cloning after body is consumed should fail
-                        let clone_result = response.clone(ctx.clone());
+                        let clone_result = response.borrow().clone(ctx.clone());
                         assert!(clone_result.is_err());
                         Ok(())
                     };
@@ -1350,10 +1511,12 @@ mod tests {
 
                         let response_promise: Promise = fetch.call((url, options.clone()))?;
                         let response: Class<Response> = response_promise.into_future().await?;
-                        let response = response.borrow_mut();
 
-                        let response_text = response.text(ctx.clone()).await?;
-                        assert_eq!(response.status(), 200);
+                        let response_text: String =
+                            Response::text(This(response.clone()), ctx.clone())?
+                                .into_future()
+                                .await?;
+                        assert_eq!(response.borrow().status(), 200);
                         assert_eq!(response_text.as_bytes(), large_body);
                         Ok(())
                     };
