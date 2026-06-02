@@ -152,6 +152,23 @@ describe("fetch", () => {
     await Promise.all(new Array(10).fill(0).map(() => fetch(url)));
   });
 
+  // Regression test for https://github.com/awslabs/llrt/issues/1482:
+  // a connection failure must reject with exactly `TypeError: Failed to fetch`
+  // so the AWS SDK retry middleware classifies it as a transient error.
+  it("should reject connection failures with TypeError: Failed to fetch", async () => {
+    // Port 65000 is unused, so the connection is refused immediately.
+    await expect(fetch("http://127.0.0.1:65000")).rejects.toThrow(
+      new TypeError("Failed to fetch")
+    );
+    try {
+      await fetch("http://127.0.0.1:65000");
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(TypeError);
+      expect(err.message).toEqual("Failed to fetch");
+      expect(err.cause).toBeDefined(); // underlying error preserved for diagnostics
+    }
+  });
+
   it("is not allowed to fetch", async () => {
     const deniedUrl = new URL("https://www.amazon.com");
     const { stdout, stderr } = await spawnAndCollectOutput(deniedUrl, {
