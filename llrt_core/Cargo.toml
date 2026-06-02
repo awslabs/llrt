@@ -55,7 +55,7 @@ rand = { version = "0.10.1", features = [
   "alloc",
   "thread_rng",
 ], default-features = false }
-rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", features = [
+rquickjs = { version = "0.12", features = [
   "futures",
   "parallel",
   "rust-alloc",
@@ -76,7 +76,7 @@ md-5 = { version = "0.11.0", default-features = false }
 md-5 = { version = "0.11.0", default-features = false }
 
 [build-dependencies]
-rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
+rquickjs = { version = "0.12", default-features = false }
 phf_codegen = { version = "0.13", default-features = false }
 llrt_build = { path = "../libs/llrt_build" }
 uuid = { version = "1", features = ["v4"], default-features = false }
@@ -85,7 +85,7 @@ walkdir = { version = "2", default-features = false }
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
 llrt_test = { path = "../libs/llrt_test" }
-rquickjs = { version = "0.11", git = "https://github.com/DelSkayn/rquickjs", default-features = false }
+rquickjs = { version = "0.12", default-features = false }
 wiremock = { version = "0.6", default-features = false }
 
 [[bench]]
