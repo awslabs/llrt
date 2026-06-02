@@ -4,7 +4,7 @@ export const stringHasher = async (checksumAlgorithmFn, body) => {
 
   if (body instanceof Blob) {
     const arrayBuffer = await body.arrayBuffer();
-    hash.update(arrayBuffer);
+    hash.update(new Uint8Array(arrayBuffer));
   } else {
     hash.update(toUint8Array(body || ""));
   }
