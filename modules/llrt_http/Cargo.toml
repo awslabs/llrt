@@ -12,7 +12,7 @@ name = "llrt_http"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "webpki-roots", "tls-ring"]
+default = ["http1", "webpki-roots", "tls-ring"]
 
 http1 = ["hyper/http1", "hyper-rustls?/http1", "hyper-util/http1"]
 http2 = ["hyper/http2", "hyper-rustls?/http2", "hyper-util/http2"]

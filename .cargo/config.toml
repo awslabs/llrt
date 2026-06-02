@@ -1,3 +1,21 @@
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-Zunstable-options",
+    "-Cpanic=immediate-abort",
+    "-Zpanic_abort_tests",
+    "-Zthreads=8",
+    "-Zfmt-debug=none",
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-Zunstable-options",
+    "-Cpanic=immediate-abort",
+    "-Zpanic_abort_tests",
+    "-Zthreads=8",
+    "-Zfmt-debug=none",
+]
+
 [target.aarch64-unknown-linux-musl]
 rustflags = [
     "-Ctarget-feature=+lse,+crt-static",
@@ -31,3 +49,4 @@ CXX_x86_64_apple_darwin = "/usr/bin/clang"
 
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc", "std", "panic_abort"]
+build-std-features = ["optimize_for_size"]

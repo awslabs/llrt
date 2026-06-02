@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 
+default-members = ["llrt"]
+
 members = [
   "libs/llrt_build",
   "libs/llrt_compression",
