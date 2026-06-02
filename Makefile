@@ -183,9 +183,11 @@ test: js
 
 setup-wpt:
 	@if [ ! -d wpt/.git ]; then \
-		git submodule add --force -b master https://github.com/web-platform-tests/wpt wpt 2>/dev/null || \
-		git submodule update --init wpt; \
+		echo "Cloning WPT (shallow, master HEAD only — this may take a few minutes)..."; \
+		git submodule add --force --depth 1 -b master --progress https://github.com/web-platform-tests/wpt wpt || \
+		git submodule update --init --depth 1 --progress wpt; \
 	fi
+	@echo "Configuring sparse-checkout..."
 	cd wpt && \
 	git sparse-checkout init --no-cone && \
 	git sparse-checkout set \
@@ -231,13 +233,16 @@ update-wpt: setup-wpt
 test-wpt: export JS_MINIFY = 0
 test-wpt: export TEST_SUB_DIR = wpt
 test-wpt: setup-wpt js
+	@echo "Starting WPT server (logs: wpt_server.log)..."
 	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \
 	trap 'kill $$WPT_PID 2>/dev/null' EXIT; \
+	printf "Waiting for http://web-platform.test:8000/ "; \
 	for i in $$(seq 1 30); do \
-		curl -sf http://web-platform.test:8000/ >/dev/null 2>&1 && break; \
+		curl -sf http://web-platform.test:8000/ >/dev/null 2>&1 && { echo " ready."; break; }; \
 		if ! kill -0 $$WPT_PID 2>/dev/null; then \
 			echo "WPT server exited unexpectedly:"; cat wpt_server.log; exit 1; \
 		fi; \
+		printf "."; \
 		sleep 1; \
 	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
