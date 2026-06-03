@@ -310,7 +310,10 @@ async fn dispatch<'js>(
             reason = abort_receiver.recv() => Err(ctx.throw(reason)),
         }
     } else {
-        client.request(req).await.map_err(|e| throw_fetch_failed(ctx, e))
+        client
+            .request(req)
+            .await
+            .map_err(|e| throw_fetch_failed(ctx, e))
     }
 }
 
