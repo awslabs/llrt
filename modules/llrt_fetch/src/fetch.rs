@@ -16,7 +16,13 @@ use llrt_encoding::bytes_from_b64;
 use llrt_http::Agent;
 use llrt_http::HyperClient;
 use llrt_stream_web::ReadableStream;
-use llrt_utils::{bytes::ObjectBytes, mc_oneshot, result::ResultExt, VERSION};
+use llrt_utils::{
+    bytes::ObjectBytes,
+    mc_oneshot,
+    primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
+    VERSION,
+};
 use percent_encoding::percent_decode_str;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -300,12 +306,35 @@ async fn dispatch<'js>(
 ) -> Result<hyper::Response<hyper::body::Incoming>> {
     if let Some(abort_receiver) = abort_receiver {
         select! {
-            res = client.request(req) => res.or_throw_type(ctx, "Fetch failed"),
+            res = client.request(req) => res.map_err(|e| throw_fetch_failed(ctx, e)),
             reason = abort_receiver.recv() => Err(ctx.throw(reason)),
         }
     } else {
-        client.request(req).await.or_throw_type(ctx, "Fetch failed")
+        client
+            .request(req)
+            .await
+            .map_err(|e| throw_fetch_failed(ctx, e))
     }
+}
+
+// Per WHATWG Fetch, a network/connection failure rejects with exactly
+// `TypeError: Failed to fetch`. The AWS SDK retry classifier
+// (@smithy/service-error-classification) only retries a TypeError whose
+// `message` matches that string exactly (and `instanceof TypeError`), so we
+// build a real TypeError and attach the hyper error as `cause` for diagnostics.
+fn throw_fetch_failed(ctx: &Ctx<'_>, err: impl std::fmt::Display) -> rquickjs::Error {
+    match new_type_error(ctx, err) {
+        Ok(value) => ctx.throw(value),
+        Err(_) => Exception::throw_type(ctx, "Failed to fetch"),
+    }
+}
+
+fn new_type_error<'js>(ctx: &Ctx<'js>, err: impl std::fmt::Display) -> Result<Value<'js>> {
+    let obj: Object = BasePrimordials::get(ctx)?
+        .constructor_type_error
+        .construct(("Failed to fetch",))?;
+    obj.set("cause", err.to_string())?;
+    Ok(obj.into_value())
 }
 
 #[allow(clippy::too_many_arguments)]
