@@ -51,7 +51,7 @@ pin-project-lite = { version = "0.2", default-features = false }
 percent-encoding = { version = "2", features = [
   "std",
 ], default-features = false }
-sha2 = { version = "0.10", default-features = false }
+sha2 = { version = "0.11", default-features = false }
 rand = { version = "0.10.1", features = [
   "std",
   "thread_rng",
