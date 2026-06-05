@@ -227,3 +227,36 @@ describe("random", () => {
     );
   });
 });
+
+describe("string-hasher shim", () => {
+  // Mirrors shims/string-hasher.js
+  const stringHasher = async (checksumAlgorithmFn: any, body: any) => {
+    const hash = new checksumAlgorithmFn();
+    if (body instanceof Blob) {
+      hash.update(new Uint8Array(await body.arrayBuffer()));
+    } else {
+      hash.update(body);
+    }
+    return hash.digest();
+  };
+
+  class SumHasher {
+    sum = 0;
+    update(data: any) {
+      for (let i = 0; i < data.length; i++)
+        this.sum = (this.sum + data[i]) & 0xff;
+    }
+    digest() {
+      return this.sum;
+    }
+  }
+
+  it("hashes a Blob body to the same digest as the raw bytes", async () => {
+    const bytes = new TextEncoder().encode("hello world checksum test");
+    const expected = await stringHasher(SumHasher, bytes);
+    const fromBlob = await stringHasher(SumHasher, new Blob([bytes]));
+
+    expect(fromBlob).toEqual(expected);
+    expect(fromBlob).not.toEqual(0); // would be 0 with the old ArrayBuffer bug
+  });
+});
