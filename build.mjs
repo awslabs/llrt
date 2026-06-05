@@ -121,48 +121,34 @@ const SDK_DATA = await parseSdkData();
 
 const ADDITIONAL_PACKAGES = [
   "@aws-sdk/core",
+  "@aws-sdk/core/account-id-endpoint",
+  "@aws-sdk/core/client",
+  "@aws-sdk/core/protocols",
+  "@aws-sdk/core/util",
   "@aws-sdk/credential-providers",
   "@aws-sdk/s3-presigned-post",
   "@aws-sdk/s3-request-presigner",
   "@aws-sdk/util-dynamodb",
-  "@aws-sdk/util-user-agent-browser",
-  "@smithy/config-resolver",
   "@smithy/core",
-  "@smithy/eventstream-codec",
-  "@smithy/eventstream-serde-browser",
-  "@smithy/eventstream-serde-config-resolver",
-  "@smithy/eventstream-serde-universal",
+  "@smithy/core/cbor",
+  "@smithy/core/checksum",
+  "@smithy/core/client",
+  "@smithy/core/config",
+  "@smithy/core/endpoints",
+  "@smithy/core/event-streams",
+  "@smithy/core/protocols",
+  "@smithy/core/retry",
+  "@smithy/core/schema",
+  "@smithy/core/serde",
+  "@smithy/core/transport",
   "@smithy/fetch-http-handler",
-  "@smithy/invalid-dependency",
   "@smithy/is-array-buffer",
   "@smithy/middleware-compression",
-  "@smithy/middleware-content-length",
-  "@smithy/middleware-endpoint",
-  "@smithy/middleware-retry",
-  "@smithy/middleware-serde",
-  "@smithy/middleware-stack",
-  "@smithy/property-provider",
-  "@smithy/protocol-http",
-  "@smithy/querystring-builder",
-  "@smithy/querystring-parser",
-  "@smithy/service-error-classification",
   "@smithy/signature-v4",
   "@smithy/signature-v4a",
-  "@smithy/smithy-client",
   "@smithy/types",
-  "@smithy/url-parser",
-  "@smithy/util-base64",
-  "@smithy/util-body-length-browser",
-  "@smithy/util-config-provider",
-  "@smithy/util-defaults-mode-browser",
-  "@smithy/util-endpoints",
   "@smithy/util-hex-encoding",
-  "@smithy/util-middleware",
-  "@smithy/util-retry",
-  "@smithy/util-stream",
-  "@smithy/util-uri-escape",
   "@smithy/util-utf8",
-  "@smithy/util-waiter",
 ];
 
 const REPLACEMENT_PACKAGES = {
@@ -239,37 +225,102 @@ const awsJsonSharedCommand = (name, input, context, request) => {
   return buildHttpRpcRequest(context, headers, "/", undefined, body);
 };
 
+function partitionDnsSuffix(region) {
+  if (region.startsWith("cn-")) return ["aws-cn", "amazonaws.com.cn"];
+  if (region.startsWith("us-gov-")) return ["aws-us-gov", "amazonaws.com"];
+  if (region.startsWith("us-iso-")) return ["aws-iso", "c2s.ic.gov"];
+  if (region.startsWith("us-isob-")) return ["aws-iso-b", "sc2s.sgov.gov"];
+  return ["aws", "amazonaws.com"];
+}
+
 function defaultEndpointResolver(endpointParams, context = {}) {
-  const paramsKey = calculateEndpointCacheKey(endpointParams);
-  let endpoint = ENDPOINT_CACHE[paramsKey];
-  if (!endpoint) {
-    endpoint = resolveEndpoint(ruleSet, {
-      endpointParams,
-      logger: context.logger,
-      serviceName,
-    });
-    ENDPOINT_CACHE[paramsKey] = endpoint;
-  }
+  const {
+    Region: region,
+    Endpoint: customEndpoint,
+    Bucket: bucket,
+    UseFIPS: useFips,
+    UseDualStack: useDualStack,
+    Accelerate: accelerate,
+    ForcePathStyle: forcePathStyle,
+  } = endpointParams;
 
-  if (serviceName === "s3") {
-    const { hostname, protocol, pathname, search } = endpoint.url;
-    const [bucket, host] = hostname.split(".s3.");
-    if (host) {
-      const path = pathname === "/" ? "" : pathname;
-      const newHref = `${protocol}//s3.${host}/${bucket}${path}${
-        search ? `?${search}` : ""
-      }`;
-      endpoint.url.href = newHref;
+  const isS3 = serviceName === "s3";
+  const authSchemes = isS3
+    ? [
+        {
+          disableDoubleEncoding: true,
+          name: "sigv4",
+          signingName,
+          signingRegion: region,
+        },
+      ]
+    : undefined;
+  const properties = authSchemes ? { authSchemes } : {};
+
+  if (customEndpoint) {
+    const url = new URL(customEndpoint);
+    if (isS3 && bucket && !forcePathStyle) {
+      const path = url.pathname === "/" ? "" : url.pathname;
+      url.href = `${url.protocol}//${url.host}/${bucket}${path}${url.search}`;
     }
+    return { url, properties, headers: {} };
   }
 
-  return endpoint;
+  if (!region) {
+    throw new Error("@llrt/endpoint-resolver: Region is missing");
+  }
+
+  const [, dnsSuffix] = partitionDnsSuffix(region);
+
+  if (isS3 && typeof bucket === "string" && bucket.startsWith("arn:")) {
+    const resource = bucket.split("accesspoint/")[1];
+    if (resource && resource.endsWith(".mrap") && !resource.includes("/")) {
+      const alias = resource.slice(0, -".mrap".length);
+      return {
+        url: new URL(`https://${alias}.mrap.accesspoint.s3-global.${dnsSuffix}/`),
+        properties: {
+          authSchemes: [
+            {
+              disableDoubleEncoding: true,
+              name: "sigv4a",
+              signingName,
+              signingRegionSet: ["*"],
+            },
+          ],
+        },
+        headers: {},
+      };
+    }
+    throw new Error(
+      `@llrt/endpoint-resolver: unsupported S3 ARN bucket "${bucket}". ` +
+        "Only multi-region access point (.mrap) ARNs are supported."
+    );
+  }
+
+  if (isS3 && accelerate) {
+    throw new Error(
+      "@llrt/endpoint-resolver: S3 transfer acceleration is not supported."
+    );
+  }
+
+  let host = serviceName;
+  if (useFips) host += "-fips";
+  if (useDualStack) host += ".dualstack";
+  host += `.${region}.${dnsSuffix}`;
+
+  const url = new URL(`https://${host}/`);
+
+  if (isS3 && bucket) {
+    url.href = `https://${host}/${bucket}`;
+  }
+
+  return { url, properties, headers: {} };
 }
 
 const WRAPPERS = [
   {
     name: "resolveDefaultsModeConfig",
-    filter: /resolveDefaultsModeConfig.js$/,
+    filter: /resolveDefaultsModeConfig(\.browser|\.native)?\.js$/,
     wrapper: resolveDefaultsModeConfigWrapper,
   },
 ];
@@ -432,9 +483,9 @@ const AWS_SDK_PLUGIN = {
     build.onLoad({ filter: /.*/, namespace: "sdk-utils-ns" }, (args) => {
       let contents = "";
 
-      contents += `import { Command as $Command } from "@smithy/smithy-client";\n`;
-      contents += `import { getEndpointPlugin } from "@smithy/middleware-endpoint";\n`;
-      contents += `import { getSerdePlugin } from "@smithy/middleware-serde";\n`;
+      contents += `import { Command as $Command } from "@smithy/core/client";\n`;
+      contents += `import { getEndpointPlugin } from "@smithy/core/endpoints";\n`;
+      contents += `import { getSerdePlugin } from "@smithy/core/serde";\n`;
       contents += `import { SMITHY_CONTEXT_KEY } from "@smithy/types";\n`;
       contents += `export ${executeClientCommand.toString()}\n`;
       contents += `const ${ENDPOINT_CACHE_KEY_LOOKUP_NAME} = ${JSON.stringify(
@@ -452,21 +503,29 @@ const AWS_SDK_PLUGIN = {
     build.onLoad(
       { filter: /endpoint\/endpointResolver\.js$/ },
       async ({ path: filePath }) => {
-        let source = (await fs.readFile(filePath)).toString();
-        source = source.replace(
-          /export const defaultEndpointResolver =.*?};/s,
-          ""
-        );
-        let contents = `import { ${calculateEndpointCacheKey.name} } from "${SDK_UTILS_PACKAGE}"\n`;
-        contents += source;
-        const serviceName = path
-          .resolve(filePath, "../../../")
-          .split("/")
-          .pop()
-          .substring("client-".length);
-        contents += `const serviceName = "${serviceName}";\n`;
-        contents += `const ENDPOINT_CACHE = {};\n`;
-        contents += `export ${defaultEndpointResolver.toString()}`;
+        const clientDir = path.resolve(filePath, "../../../").split("/").pop();
+        const sdk = clientDir.substring("client-".length);
+
+        const serviceEndpoints = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
+        const serviceName =
+          (serviceEndpoints && serviceEndpoints[0]) || sdk;
+
+        let signingName = sdk;
+        try {
+          const paramsSource = (
+            await fs.readFile(path.join(path.dirname(filePath), "EndpointParameters.js"))
+          ).toString();
+          const m = paramsSource.match(/defaultSigningName:\s*"([^"]*)"/);
+          if (m) {
+            signingName = m[1];
+          }
+        } catch {}
+
+        let contents = "";
+        contents += `const serviceName = ${JSON.stringify(serviceName)};\n`;
+        contents += `const signingName = ${JSON.stringify(signingName)};\n`;
+        contents += `export ${partitionDnsSuffix.toString()}\n`;
+        contents += `export ${defaultEndpointResolver.toString()}\n`;
 
         return {
           contents,
@@ -667,6 +726,9 @@ async function buildSdks() {
           "shims/@aws-sdk/signature-v4-multi-region.js"
         ),
         "@smithy/md5-js": "crypto",
+        "@aws-sdk/credential-providers": path.dirname(
+          require.resolve("@aws-sdk/credential-providers/package.json")
+        ) + "/dist-es/index.browser.js",
         "fast-xml-parser": "llrt:xml",
         "xml-parser.browser": "xml-parser",
       },

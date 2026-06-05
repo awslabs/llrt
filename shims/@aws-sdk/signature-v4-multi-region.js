@@ -1,11 +1,13 @@
-import { SignatureV4S3Express } from "@aws-sdk/middleware-sdk-s3";
 import { SignatureV4a } from "@smithy/signature-v4a";
 
-export const signatureV4CrtContainer = { CrtSignerV4: null };
+export { SignatureV4SignWithCredentials } from "../../node_modules/@aws-sdk/signature-v4-multi-region/dist-es/SignatureV4SignWithCredentials";
+export { signatureV4CrtContainer } from "../../node_modules/@aws-sdk/signature-v4-multi-region/dist-es/signature-v4-crt-container";
+
+import { SignatureV4SignWithCredentials } from "../../node_modules/@aws-sdk/signature-v4-multi-region/dist-es/SignatureV4SignWithCredentials";
 
 export class SignatureV4MultiRegion {
   constructor(options) {
-    this.sigv4Signer = new SignatureV4S3Express(options);
+    this.sigv4Signer = new SignatureV4SignWithCredentials(options);
     this.signerOptions = options;
   }
 
@@ -47,7 +49,6 @@ export class SignatureV4MultiRegion {
     return this.sigv4aSigner;
   }
 
-  // Keep backward compat with SDK internals
   getSigv4aSigner() {
     return this._getSigv4aSigner();
   }
