@@ -31,6 +31,7 @@ type SuiteResult = TestProps & {
   tests: TestResult[];
   children: SuiteResult[];
   parent: SuiteResult | null;
+  error?: Error | null;
 };
 
 type RootSuite = TestProps & {
@@ -414,6 +415,14 @@ class TestServer {
           const test = workerData.currentTest!;
           test.ended = ended;
           test.success = true;
+          // A test has completed successfully; clear the reference so a later
+          // suite-level hook failure (e.g. a child suite's beforeAll) is not
+          // misattributed to this passing test.
+          workerData.currentTest = null;
+          // Clear captured output so stderr/stdout from this passing test does
+          // not leak into a later failure's report.
+          workerData.stdErrBuffer.clear();
+          workerData.stdOutBuffer.clear();
         }
 
         workerData.currentPath.pop();
@@ -495,13 +504,6 @@ class TestServer {
   }
   handleTestError(workerId: number, error: any, ended: number) {
     const workerData = this.workerData[workerId];
-    const test = workerData.currentTest || {
-      desc: "",
-      success: false,
-      started: 0,
-      ended: 0,
-      error,
-    };
     workerData.success = false;
     const results = this.results.get(workerData.file!);
     if (results) {
@@ -518,9 +520,22 @@ class TestServer {
     workerData.stdOutBuffer.clear();
     this.filesFailed.set(workerData.file!, testFailures);
     this.totalFailed++;
-    test.ended = ended;
-    test.error = error;
-    test.success = false;
+
+    const test = workerData.currentTest;
+    if (test) {
+      // The error occurred inside a running test.
+      test.ended = ended;
+      test.error = error;
+      test.success = false;
+      workerData.currentTest = null;
+    } else if (workerData.result) {
+      // No test is running, so the error came from a suite-level hook
+      // (e.g. beforeAll/afterAll). Mark the currently-open suite as failed
+      // instead of misattributing it to a previously passing test.
+      workerData.result.ended = ended;
+      workerData.result.error = error;
+      workerData.result.success = false;
+    }
     workerData.currentPath.pop();
   }
 
@@ -726,6 +741,9 @@ class TestServer {
     const results = result.children;
     for (let result of results) {
       output += `${indent}${Color.BOLD(result.desc)} ${Color.DIM(TestServer.elapsed(result))}\n`;
+      if (result.error) {
+        output += this.formattedError(result.error) + "\n";
+      }
       output += this.printSuiteResult(result, depth + 1);
     }
     return output;
