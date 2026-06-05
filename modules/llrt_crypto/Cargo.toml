@@ -87,7 +87,7 @@ ed25519-dalek = { version = "3.0.0-pre.7", features = [
   "pkcs8",
   "rand_core",
 ], default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.30", features = [
+elliptic-curve = { version = "0.14.0-rc.33", features = [
   "alloc",
   "sec1",
 ], default-features = false, optional = true }
@@ -98,17 +98,17 @@ rsa = { version = "0.10.0-rc.18", features = [
   "sha2",
   "encoding",
 ], default-features = false, optional = true }
-p256 = { version = "0.14.0-rc.9", features = [
+p256 = { version = "0.14.0-rc.10", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p384 = { version = "0.14.0-rc.9", features = [
+p384 = { version = "0.14.0-rc.10", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p521 = { version = "0.14.0-rc.9", features = [
+p521 = { version = "0.14.0-rc.10", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
