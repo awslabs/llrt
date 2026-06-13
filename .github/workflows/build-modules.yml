@@ -52,6 +52,14 @@ jobs:
           echo "OPENSSL_DIR=D:/a/_temp/msys64/mingw64" >> $GITHUB_ENV
           echo "OPENSSL_LIB_DIR=D:/a/_temp/msys64/mingw64/lib" >> $GITHUB_ENV
           echo "OPENSSL_INCLUDE_DIR=D:/a/_temp/msys64/mingw64/include" >> $GITHUB_ENV
+          # Put the MSYS2 mingw64 toolchain first on PATH so the linker driver
+          # (x86_64-w64-mingw32-gcc), its crt2.o, and the openssl libs in
+          # OPENSSL_LIB_DIR all come from the same mingw-w64 runtime. Otherwise the
+          # cargo steps (run in Git Bash) pick up the runner's preinstalled
+          # C:\mingw64 gcc, whose crt2.o references _gnu_exception_handler /
+          # __mingw_oldexcpt_handler symbols that are absent from the MSYS2
+          # libmingw32/libmingwex pulled in via OPENSSL_LIB_DIR, breaking the link.
+          echo "D:/a/_temp/msys64/mingw64/bin" >> $GITHUB_PATH
       - name: Map crypto feature to TLS and crypto features
         id: features
         shell: bash
