@@ -1085,16 +1085,6 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
 name = "graviola"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4387e0458389da24c6fe732531e65595c7c4a32b027f98f4789e512e28224465"
-dependencies = [
- "cfg-if",
- "getrandom 0.3.4",
-]
-
-[[package]]
-name = "graviola"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d69e628911b4c2cfce86c4cd15e2870a8e0f7c40a7fef14c89c64b6d09dc"
@@ -1830,7 +1820,7 @@ dependencies = [
  "ecdsa",
  "ed25519-dalek",
  "elliptic-curve",
- "graviola 0.3.4",
+ "graviola",
  "hkdf",
  "hmac",
  "llrt_buffer",
@@ -3076,7 +3066,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf5d0a370be690f7f1aa4e1b912fde3f5f9a5c53285062fd2d6ac1a52ab3e883"
 dependencies = [
- "graviola 0.4.0",
+ "graviola",
  "rustls",
 ]
 
