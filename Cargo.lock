@@ -584,9 +584,9 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
 name = "crypto-bigint"
-version = "0.7.2"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9b6a7421484856c90cb2e996b91068d608539bb4e6f0a111b16d70678824d09"
+checksum = "97bb4a855e3b10f84c4e7e895a7de01db7f9a7b7eb7f73ed9773fd52ac686451"
 dependencies = [
  "cpubits",
  "ctutils",
@@ -746,9 +746,9 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "ecdsa"
-version = "0.17.0-rc.19"
+version = "0.17.0-rc.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fcddae1289a08e614a83d155a070f54c1803196e92089b8299e2738eb74d3e4"
+checksum = "0f7195c1205cec99025b3004e8034e1ddc12746333aa0a3945df7f9b80882ca2"
 dependencies = [
  "der",
  "digest",
@@ -792,9 +792,9 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
 name = "elliptic-curve"
-version = "0.14.0-rc.34"
+version = "0.14.0-rc.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88a44d097c9f3e494ddc19f77af5aab89f0b3b2652cde370ec8c6064faca5bd2"
+checksum = "51c58d86e2f3cebbf2dfd94c4bf049585c7def71058ba506bfdafcb57652a34b"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -1270,9 +1270,9 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "hybrid-array"
-version = "0.4.8"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8655f91cd07f2b9d0c24137bd650fe69617773435ee5ec83022377777ce65ef1"
+checksum = "9155a582abd142abc056962c29e3ce5ff2ad5469f4246b537ed42c5deba857da"
 dependencies = [
  "subtle",
  "typenum",
@@ -2513,9 +2513,9 @@ checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 
 [[package]]
 name = "p256"
-version = "0.14.0-rc.11"
+version = "0.14.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04cfbd444125de5ec2af6c4bc081d932e2ca90497cbd0300f7c862133ea6e27b"
+checksum = "fc7d8ed70255af8fecea30f284e523066cb19918cb2b4c17f41f78cda3291d64"
 dependencies = [
  "ecdsa",
  "elliptic-curve",
@@ -2526,9 +2526,9 @@ dependencies = [
 
 [[package]]
 name = "p384"
-version = "0.14.0-rc.11"
+version = "0.14.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f97421b5d7307a188830f1fc45688ee3ae7daae97c479019ccc795e78b4ac3b2"
+checksum = "563b53b275b129c6f070e538bf0845f8e6abd0b5ffeb3f53f1d6ea5f8dbb3b2c"
 dependencies = [
  "ecdsa",
  "elliptic-curve",
@@ -2540,9 +2540,9 @@ dependencies = [
 
 [[package]]
 name = "p521"
-version = "0.14.0-rc.11"
+version = "0.14.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4323647435663d109522b3dcd60e277a2515040bd200e6504abd4b50bd939373"
+checksum = "71bed4316a8e79ff1f728527a4334da0c57256ed7ca8b34c2297d9cc34e70511"
 dependencies = [
  "base16ct",
  "ecdsa",
@@ -2760,9 +2760,9 @@ dependencies = [
 
 [[package]]
 name = "primefield"
-version = "0.14.0-rc.11"
+version = "0.14.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1d7e42f46a29abc16fb621a3466ee453358ebaae48a9e515f287e0af052ed8f"
+checksum = "8675564771a62f69a0af716b03e89b917b963c7b173b5855575e84fd4f605ca0"
 dependencies = [
  "crypto-bigint",
  "crypto-common",
@@ -2774,11 +2774,12 @@ dependencies = [
 
 [[package]]
 name = "primeorder"
-version = "0.14.0-rc.11"
+version = "0.14.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1576f33b3071d61b06389caf381238dd95ccd2519cd04d788cd52450462eab4"
+checksum = "44545bd63647ac77eaed1589000a031632b0f7175e2c1cc48778787e9783baaf"
 dependencies = [
  "elliptic-curve",
+ "primefield",
 ]
 
 [[package]]
@@ -3597,9 +3598,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "typenum"
-version = "1.19.0"
+version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "unicode-ident"
