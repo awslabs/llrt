@@ -49,7 +49,7 @@ llrt_modules = { path = "../llrt_modules", default-features = false, features = 
 llrt_numbers = { path = "../libs/llrt_numbers" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
-phf = { version = "0.13", default-features = false }
+phf = { version = "0.14", default-features = false }
 quick-xml = { version = "0.40", default-features = false }
 rand = { version = "0.10.1", features = [
   "alloc",
