@@ -77,7 +77,7 @@ md-5 = { version = "0.11.0", default-features = false }
 
 [build-dependencies]
 rquickjs = { version = "0.12", default-features = false }
-phf_codegen = { version = "0.13", default-features = false }
+phf_codegen = { version = "0.14", default-features = false }
 llrt_build = { path = "../libs/llrt_build" }
 uuid = { version = "1", features = ["v4"], default-features = false }
 walkdir = { version = "2", default-features = false }
