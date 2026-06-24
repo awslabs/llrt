@@ -5,7 +5,22 @@ on:
       - "v*.*.*"
 
 jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify tag matches crate version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          crate="$(grep -m1 '^version' llrt/Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          echo "Tag version:   $tag"
+          echo "Crate version: $crate"
+          if [ "$tag" != "$crate" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match crate version $crate in llrt/Cargo.toml. Bump the version before tagging the release."
+            exit 1
+          fi
   build:
+    needs: verify-version
     strategy:
       fail-fast: ${{ startsWith(github.ref, 'refs/tags/') }}
       matrix:
