@@ -170,6 +170,12 @@ describe("Request class", () => {
     expect(request instanceof Request).toBeTruthy();
   });
 
+  it("should throw when constructed with an empty-string URL", () => {
+    expect(() => {
+      new Request("");
+    }).toThrow();
+  });
+
   // ── Body with GET/HEAD should throw ──
 
   it("should throw when body is set with GET method", () => {

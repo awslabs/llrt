@@ -134,14 +134,15 @@ impl<'js> Request<'js> {
         if input.is_string() {
             let s: String = input.get()?;
             // Validate as a URL; accept relative URLs against a generic base.
-            if !s.is_empty() {
-                let base = url::Url::parse("http://llrt.local/").expect("static base URL");
-                let parsed = base
-                    .join(&s)
-                    .map_err(|_| Exception::throw_type(&ctx, "Invalid URL"))?;
-                if !parsed.username().is_empty() || parsed.password().is_some() {
-                    return Err(Exception::throw_type(&ctx, "URL must not have credentials"));
-                }
+            if s.is_empty() {
+                return Err(Exception::throw_type(&ctx, "Invalid URL"));
+            }
+            let base = url::Url::parse("http://llrt.local/").expect("static base URL");
+            let parsed = base
+                .join(&s)
+                .map_err(|_| Exception::throw_type(&ctx, "Invalid URL"))?;
+            if !parsed.username().is_empty() || parsed.password().is_some() {
+                return Err(Exception::throw_type(&ctx, "URL must not have credentials"));
             }
             request.url = s;
         } else if let Ok(url) = URL::from_js(&ctx, input.clone()) {
