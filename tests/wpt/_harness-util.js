@@ -92,18 +92,18 @@ function attachCompletion(context, done) {
 // Resolve a `// META: script=...` path against `testDir` first (for same-dir
 // helpers), then the `wpt/` root (for paths starting with `/`).
 export function loadMetaScripts(source, testDir) {
-    let out = "";
-    if (!testDir) return out;
-    for (const [, rel] of source.matchAll(/\/\/\s*META:\s*script=(.+)/g)) {
-        const trimmed = rel.trim();
-        for (const base of [testDir, WPT_DIR]) {
-            try {
-                out += fs.readFileSync(path.resolve(base, trimmed), "utf8") + "\n";
-                break;
-            } catch {}
-        }
+  let out = "";
+  if (!testDir) return out;
+  for (const [, rel] of source.matchAll(/\/\/\s*META:\s*script=(.+)/g)) {
+    const trimmed = rel.trim();
+    for (const base of [testDir, WPT_DIR]) {
+      try {
+        out += fs.readFileSync(path.resolve(base, trimmed), "utf8") + "\n";
+        break;
+      } catch {}
     }
-    return out;
+  }
+  return out;
 }
 
 // Build a `runTestDynamic(source, done, ctx?)` from a declarative harness
@@ -111,16 +111,16 @@ export function loadMetaScripts(source, testDir) {
 // `config.postSetup(context, ctx)` runs after creation, `config.wrap(source,
 // ctx)` can transform source and return `[source, extraScripts]`.
 export function makeRunner(config) {
-    return (source, done, ctx = {}) => {
-        const context = createContext(config.context ? config.context(ctx) : {});
-        config.postSetup?.(context, ctx);
-        attachCompletion(context, done);
-        const [src, extras = ""] = config.wrap
-            ? config.wrap(source, ctx)
-            : [source, loadMetaScripts(source, ctx.testDir)];
-        wrapTestSuite(src, extras)(context);
-        context.done();
-    };
+  return (source, done, ctx = {}) => {
+    const context = createContext(config.context ? config.context(ctx) : {});
+    config.postSetup?.(context, ctx);
+    attachCompletion(context, done);
+    const [src, extras = ""] = config.wrap
+      ? config.wrap(source, ctx)
+      : [source, loadMetaScripts(source, ctx.testDir)];
+    wrapTestSuite(src, extras)(context);
+    context.done();
+  };
 }
 
 // Drives a `describe(subDir) { it(file) { run(file) } }` block by walking
@@ -134,6 +134,7 @@ export function runSuite(metaUrl, harness, skipFiles = []) {
     .join(path.sep);
   const targetDir = path.join(WPT_DIR, subDir);
   const skip = (f) =>
+    /\.tentative\./.test(f) ||
     skipFiles.some((s) => (s instanceof RegExp ? s.test(f) : s === f));
   const testFiles = fs
     .readdirSync(targetDir)
