@@ -237,13 +237,13 @@ test-wpt: setup-wpt js
 	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \
 	trap 'kill $$WPT_PID 2>/dev/null' EXIT; \
 	printf "Waiting for http://web-platform.test:8000/ "; \
-	for i in $$(seq 1 30); do \
-		curl -sf http://web-platform.test:8000/ >/dev/null 2>&1 && { echo " ready."; break; }; \
+	for i in $$(seq 1 150); do \
+		curl -sf --connect-timeout 1 http://web-platform.test:8000/ >/dev/null 2>&1 && { echo " ready."; break; }; \
 		if ! kill -0 $$WPT_PID 2>/dev/null; then \
 			echo "WPT server exited unexpectedly:"; cat wpt_server.log; exit 1; \
 		fi; \
 		printf "."; \
-		sleep 1; \
+		sleep 0.2; \
 	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
 	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp; \
