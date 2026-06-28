@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Checkout WPT submodule
+        run: git submodule update --init --checkout --depth 1 --force wpt
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
