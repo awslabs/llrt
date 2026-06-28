@@ -57,7 +57,7 @@ jobs:
         with:
           toolchain: stable
       - name: Run WPT
-        run: make test-wpt
+        run: make check-wpt
   build:
     needs:
       - check

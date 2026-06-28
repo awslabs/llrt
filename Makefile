@@ -255,7 +255,28 @@ tidyup-wpt:
 	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
 	| sed '1,/^$$/d' \
 	| sed -E '/^ ?[^ ]/s|^.*__tests__/|test/|' \
+	| sed -E '/^----- LAST STDERR: -----$$/,/^$$/d' \
 	> wpt_errors.txt
+
+# Run the WPT suite and compare the normalised failure report against the
+# committed baseline (wpt_errors.txt). Fails if they differ in either
+# direction: a new failure is a regression; a disappeared failure means a
+# test now passes and the baseline is stale. To accept the changes, run
+# `make test-wpt` and commit the updated wpt_errors.txt.
+check-wpt:
+	@cp wpt_errors.txt wpt_errors.baseline 2>/dev/null || : > wpt_errors.baseline
+	@$(MAKE) test-wpt || true
+	@$(MAKE) tidyup-wpt
+	@if diff -ua wpt_errors.baseline wpt_errors.txt; then \
+		rm -f wpt_errors.baseline; \
+		echo "WPT results match the committed baseline."; \
+	else \
+		rm -f wpt_errors.baseline; \
+		echo ""; \
+		echo "WPT results differ from the committed baseline (diff above)."; \
+		echo "If the change is intended, commit the updated wpt_errors.txt."; \
+		exit 1; \
+	fi
 
 E2E_STACK_NAME := LLRTReleaseIntegTestResourcesStack
 E2E_TEMPLATE := tests/e2e/IntegTestResourcesStack.template.yml

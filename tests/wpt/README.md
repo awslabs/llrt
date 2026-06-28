@@ -42,11 +42,38 @@ sparse-checkout. Output is post-processed into `wpt_errors.txt`.
 
 Other targets:
 
-| target       | what it does                                             |
-| ------------ | -------------------------------------------------------- |
-| `setup-wpt`  | init the submodule, set up sparse-checkout, `/etc/hosts` |
-| `update-wpt` | pull upstream master into the `wpt/` submodule           |
-| `tidyup-wpt` | strip ANSI + normalise paths in the error report         |
+| target       | what it does                                                  |
+| ------------ | ------------------------------------------------------------- |
+| `setup-wpt`  | init the submodule, set up sparse-checkout, `/etc/hosts`      |
+| `update-wpt` | pull upstream master into the `wpt/` submodule                |
+| `tidyup-wpt` | strip ANSI + normalise paths/noise in the error report        |
+| `check-wpt`  | run the suite and diff results against the committed baseline |
+
+## Regression baseline
+
+`wpt_errors.txt` is committed as the expected-failures baseline: the normalised
+list of WPT sub-tests that currently fail (paths are stabilised and the
+non-deterministic GC-warning blocks are stripped, so it diffs cleanly across
+machines and CI).
+
+`make check-wpt` runs the suite, regenerates the report, and diffs it against
+the committed `wpt_errors.txt`. It fails on **any** difference:
+
+- a **new** failure is a regression — fix the code; or
+- a **disappeared** failure means a test now passes — the baseline is stale.
+
+CI runs `make check-wpt`, so the build goes red whenever results drift from the
+baseline. To accept an intended change (a fix that makes tests pass, or a newly
+accepted failure), regenerate and commit the baseline:
+
+```sh
+make test-wpt    # or check-wpt; both refresh wpt_errors.txt
+git add wpt_errors.txt
+```
+
+The per-suite `skipFiles` lists (in each `*.test.ts`) still exist for whole
+files that should not run at all (e.g. tentative specs); the baseline covers
+everything that runs but fails.
 
 Running a single `.test.js` directly (skipping `make`):
 
@@ -115,8 +142,10 @@ separators. `performance-timeline.test.ts` → `wpt/performance-timeline/`,
 make test-wpt
 ```
 
-New failures show up in `wpt_errors.txt`. Add them to the `skipFiles` list
-with a one-line reason as you decide to fix, defer, or skip them.
+New failures show up as additions in the `make check-wpt` diff against the
+committed `wpt_errors.txt` baseline. Decide whether to fix the code, add the
+whole file to `skipFiles` (with a one-line reason), or accept the failure by
+committing the updated baseline.
 
 ## Updating WPT
 
@@ -127,8 +156,9 @@ make test-wpt
 
 `update-wpt` fetches the latest `master` for the submodule. New tests in the
 already-checked-out categories appear automatically on the next run; pre-existing
-tests that have changed may start passing or failing differently. Compare the
-new `wpt_errors.txt` against the last committed one to see what moved.
+tests that have changed may start passing or failing differently. Run
+`make check-wpt` to see what moved relative to the committed baseline, then
+commit the updated `wpt_errors.txt` if the changes are expected.
 
 ## Debugging
 
