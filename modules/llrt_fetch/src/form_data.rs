@@ -4,20 +4,22 @@ use std::{cell::RefCell, io::Write, rc::Rc};
 
 use hyper::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use llrt_buffer::{Blob, File};
-use llrt_utils::{class::IteratorDef, object::map_to_entries, result::ResultExt};
+use llrt_utils::{class::CustomInspect, result::ResultExt};
 use rand::RngExt;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
-    prelude::Opt,
-    Array, Class, Ctx, Exception, Function, IntoJs, JsLifetime, Result, Value,
+    prelude::{Opt, This},
+    Array, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, JsLifetime, Object, Result,
+    Type, Value,
 };
+
+use crate::IteratorKind;
 
 #[derive(Clone, Trace, JsLifetime)]
 enum FormValue<'js> {
     Text(String),
-    File(File<'js>),
-    Blob(Blob<'js>),
+    File(Value<'js>),
 }
 
 impl<'js> IntoJs<'js> for FormValue<'js> {
@@ -25,7 +27,6 @@ impl<'js> IntoJs<'js> for FormValue<'js> {
         match self {
             FormValue::Text(s) => s.into_js(ctx),
             FormValue::File(f) => f.into_js(ctx),
-            FormValue::Blob(b) => b.into_js(ctx),
         }
     }
 }
@@ -70,37 +71,40 @@ impl<'js> Trace<'js> for FormData<'js> {
     }
 }
 
-impl<'js> IteratorDef<'js> for FormData<'js> {
-    fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        let entries = self.entries.borrow();
-        map_to_entries(&ctx, entries.0.clone())
-    }
-}
-
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> FormData<'js> {
     #[qjs(constructor)]
-    pub fn new(_form: Opt<Value<'js>>, _submitter: Opt<Value<'js>>) -> Self {
-        Self::default()
+    pub fn new(ctx: Ctx<'js>, form: Opt<Value<'js>>, _submitter: Opt<Value<'js>>) -> Result<Self> {
+        if let Some(obj) = form.0 {
+            if matches!(obj.type_of(), Type::Null | Type::String) {
+                return Err(Exception::throw_type(&ctx, "Invalid type"));
+            };
+        }
+        Ok(Self::default())
     }
 
-    pub fn append(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let entry = value_to_form_entry(&ctx, name, value)?;
+    pub fn append(
+        &self,
+        ctx: Ctx<'js>,
+        name: String,
+        value: Value<'js>,
+        filename: Opt<String>,
+    ) -> Result<()> {
+        let entry = value_to_form_entry(&ctx, name, value, filename)?;
         self.entries.borrow_mut().push(entry);
         Ok(())
     }
 
-    pub fn get(&self, ctx: Ctx<'js>, name: String) -> Result<Option<Value<'js>>> {
+    pub fn get(&self, ctx: Ctx<'js>, name: String) -> Result<Value<'js>> {
         let value = self
             .entries
             .borrow()
             .iter()
-            .rev()
             .find(|(k, _)| *k == name)
             .map(|(_, v)| v.clone());
         match value {
-            Some(v) => Ok(v.into_js(&ctx).ok()),
-            None => Ok(None),
+            Some(v) => v.into_js(&ctx),
+            None => Ok(Value::new_null(ctx)),
         }
     }
 
@@ -123,8 +127,14 @@ impl<'js> FormData<'js> {
         Ok(entries.iter().any(|(n, _)| n == &name))
     }
 
-    pub fn set(&self, ctx: Ctx<'js>, name: String, value: Value<'js>) -> Result<()> {
-        let entry = value_to_form_entry(&ctx, name, value)?;
+    pub fn set(
+        &self,
+        ctx: Ctx<'js>,
+        name: String,
+        value: Value<'js>,
+        filename: Opt<String>,
+    ) -> Result<()> {
+        let entry = value_to_form_entry(&ctx, name, value, filename)?;
         let mut entries = self.entries.borrow_mut();
         entries.retain(|(k, _)| *k != entry.0);
         entries.push(entry);
@@ -135,43 +145,39 @@ impl<'js> FormData<'js> {
         self.entries.borrow_mut().retain(|(k, _)| *k != name);
         Ok(())
     }
-
-    pub fn keys(&self, _ctx: Ctx<'js>) -> Result<Vec<String>> {
-        Ok(self
-            .entries
-            .borrow()
-            .iter()
-            .map(|(k, _)| k.clone())
-            .collect())
+    pub fn keys(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::create(&ctx, this.0, IteratorKind::Keys)
     }
 
-    pub fn values(&self, ctx: Ctx<'js>) -> Result<Vec<Value<'js>>> {
-        let values: Vec<FormValue<'js>> = self
-            .entries
-            .borrow()
-            .iter()
-            .map(|(_, v)| v.clone())
-            .collect();
-        Ok(values
-            .into_iter()
-            .filter_map(|v| v.into_js(&ctx).ok())
-            .collect())
+    pub fn values(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::create(&ctx, this.0, IteratorKind::Values)
     }
 
-    pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
+    pub fn entries(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::create(&ctx, this.0, IteratorKind::Entries)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
-    pub fn iterator(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
+    pub fn iterator(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::create(&ctx, this.0, IteratorKind::Entries)
     }
 
-    pub fn for_each(&self, ctx: Ctx<'js>, callback: Function<'js>) -> Result<()> {
-        let entries = self.entries.borrow().0.clone();
-        for (name, value) in entries.into_iter() {
-            let val = value.into_js(&ctx)?;
-            () = callback.call((val, name))?;
+    pub fn for_each(this: This<Class<'js, FormData<'js>>>, callback: Function<'js>) -> Result<()> {
+        let sorted = this.0.borrow().iter();
+        for (k, v) in &sorted {
+            () = callback.call((v.clone(), k.clone(), this.0.clone()))?;
         }
         Ok(())
     }
@@ -219,7 +225,10 @@ impl<'js> FormData<'js> {
                     let data = std::mem::take(&mut current_data);
                     if let Some(filename) = filename.take() {
                         let file = File::from_bytes(ctx, data, filename, mime_type)?;
-                        entries.push((name.take().or_throw(ctx)?, FormValue::File(file)));
+                        entries.push((
+                            name.take().or_throw(ctx)?,
+                            FormValue::File(file.into_js(ctx)?),
+                        ));
                     } else {
                         let text = String::from_utf8_lossy(&data).into_owned();
                         entries.push((name.take().or_throw(ctx)?, FormValue::Text(text)));
@@ -266,7 +275,7 @@ impl<'js> FormData<'js> {
         })
     }
 
-    pub fn to_multipart_bytes(&self, _ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
+    pub fn to_multipart_bytes(&self, ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
         let boundary = generate_boundary();
         let mut body = Vec::new();
         let entries = self.entries.borrow();
@@ -284,6 +293,7 @@ impl<'js> FormData<'js> {
                     )?;
                 },
                 FormValue::File(file) => {
+                    let file = File::from_js(ctx, file.clone())?;
                     let filename = file.name().clone();
                     let content_type = file.mime_type().clone();
                     let blob = file.get_blob();
@@ -291,16 +301,6 @@ impl<'js> FormData<'js> {
                     write!(
                         body,
                         "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n"
-                    )?;
-                    body.extend_from_slice(bytes);
-                    body.extend_from_slice(b"\r\n");
-                },
-                FormValue::Blob(blob) => {
-                    let bytes = blob.as_bytes();
-                    let content_type = blob.mime_type();
-                    write!(
-                        body,
-                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"blob\"\r\nContent-Type: {content_type}\r\n\r\n"
                     )?;
                     body.extend_from_slice(bytes);
                     body.extend_from_slice(b"\r\n");
@@ -318,17 +318,30 @@ fn value_to_form_entry<'js>(
     ctx: &Ctx<'js>,
     name: String,
     value: Value<'js>,
+    filename: Opt<String>,
 ) -> Result<(String, FormValue<'js>)> {
     if let Some(obj) = value.as_object() {
-        if let Some(f) = Class::<File>::from_object(obj) {
-            return Ok((name, FormValue::File(f.borrow().clone())));
+        if Class::<File>::from_object(obj).is_some() {
+            if let Some(filename) = filename.0 {
+                let mut file = File::from_js(ctx, value)?;
+                file.set_filename(filename);
+                return Ok((name, FormValue::File(file.into_js(ctx)?)));
+            } else {
+                return Ok((name, FormValue::File(value)));
+            }
         }
         if let Some(b) = Class::<Blob>::from_object(obj) {
-            return Ok((name, FormValue::Blob(b.borrow().clone())));
+            let blob = b.borrow().clone();
+            let filename = filename.0.unwrap_or("blob".into());
+            let file = File::from_bytes(ctx, blob.get_bytes(), filename, Some(blob.mime_type()))?;
+            return Ok((name, FormValue::File(file.into_js(ctx)?)));
         }
     }
     if let Some(s) = value.as_string() {
         return Ok((name, FormValue::Text(s.to_string().or_throw(ctx)?)));
+    }
+    if let Ok(Coerced(s)) = Coerced::<String>::from_js(ctx, value.clone()) {
+        return Ok((name, FormValue::Text(s)));
     }
     Err(Exception::throw_type(ctx, "Invalid FormData value type"))
 }
@@ -358,4 +371,64 @@ fn generate_boundary() -> String {
 fn starts_with_ignore_case(haystack: &str, needle: &str) -> bool {
     haystack.len() >= needle.len()
         && haystack.as_bytes()[..needle.len()].eq_ignore_ascii_case(needle.as_bytes())
+}
+
+#[derive(Trace, JsLifetime)]
+#[rquickjs::class]
+pub struct FormDataIter<'js> {
+    fd: Class<'js, FormData<'js>>,
+    #[qjs(skip_trace)]
+    index: usize,
+    #[qjs(skip_trace)]
+    kind: IteratorKind,
+}
+
+#[rquickjs::methods]
+impl<'js> FormDataIter<'js> {
+    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        // Re-read on every next() — WPT expects the iterator to observe
+        // mutations made during iteration (insertions, deletions).
+        let sorted = self.fd.borrow().iter();
+
+        if self.index < sorted.len() {
+            let (k, v) = &sorted[self.index];
+            self.index += 1;
+            obj.set("done", false)?;
+            match self.kind {
+                IteratorKind::Keys => obj.set("value", k)?,
+                IteratorKind::Values => obj.set("value", v.clone().into_js(&ctx)?)?,
+                IteratorKind::Entries => {
+                    let entry = Array::new(ctx.clone())?;
+                    entry.set(0, k)?;
+                    entry.set(1, v.clone().into_js(&ctx)?)?;
+                    obj.set("value", entry)?;
+                },
+            }
+        } else {
+            obj.set("done", true)?;
+        }
+        Ok(obj)
+    }
+}
+
+impl<'js> FormDataIter<'js> {
+    fn create(
+        ctx: &Ctx<'js>,
+        fd: Class<'js, FormData<'js>>,
+        kind: IteratorKind,
+    ) -> Result<Class<'js, Self>> {
+        Class::instance(ctx.clone(), Self { fd, index: 0, kind })
+    }
+}
+
+impl<'js> CustomInspect<'js> for FormData<'js> {
+    fn custom_inspect(&self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let obj = Object::new(ctx.clone())?;
+        for (k, v) in self.entries.borrow().iter() {
+            obj.set(k, v.clone().into_js(&ctx)?)?;
+        }
+
+        Ok(obj)
+    }
 }
