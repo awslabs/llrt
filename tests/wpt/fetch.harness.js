@@ -26,31 +26,44 @@ const TEMPLATES = [
 const substitute = (s) =>
   TEMPLATES.reduce((acc, [re, v]) => acc.replace(re, v), s);
 
+function rewriteUrl(url) {
+  if (typeof url !== "string") return url;
+  let absolute = url;
+  if (url.startsWith("../") || url.startsWith("./")) {
+    absolute = new URL(url, LOCATION.href).href;
+  } else if (url.startsWith("/") || url == "") {
+    absolute = new URL(url, LOCATION.origin).href;
+  } else if (
+    !url.includes("://") &&
+    !url.startsWith("data:") &&
+    !url.startsWith("about:") &&
+    !url.startsWith("blob:")
+  ) {
+    absolute = LOCATION.href + url;
+  }
+  return absolute;
+}
+
 function makeFetch() {
   const upstream = globalThis.fetch;
   return (url, option) => {
     // `url` may be a Request or URL object — pass it through unchanged and
     // only rewrite when it's an actual string path (the harness's relative /
     // bare-name affordance).
-    if (typeof url !== "string") {
-      return upstream(url, option);
-    }
-    let absolute = url;
-    if (url.startsWith("../") || url.startsWith("./")) {
-      absolute = new URL(url, LOCATION.href).href;
-    } else if (url.startsWith("/")) {
-      absolute = new URL(url, LOCATION.origin).href;
-    } else if (
-      !url.includes("://") &&
-      !url.startsWith("data:") &&
-      !url.startsWith("about:") &&
-      !url.startsWith("blob:")
-    ) {
-      absolute = LOCATION.href + url;
-    }
-    return upstream(absolute, option);
+    return upstream(rewriteUrl(url), option);
   };
 }
+
+const UpstreamRequest = globalThis.Request;
+
+function WrappedRequest(input, options) {
+  if (!(this instanceof WrappedRequest)) {
+    throw new TypeError("Constructor Request requires 'new'");
+  }
+  return new UpstreamRequest(rewriteUrl(input), options);
+}
+
+WrappedRequest.prototype = UpstreamRequest.prototype;
 
 export const runTestDynamic = makeRunner({
   context: () => ({
@@ -59,6 +72,7 @@ export const runTestDynamic = makeRunner({
       location: LOCATION,
       RESOURCES_DIR: "../resources/",
       fetch: makeFetch(),
+      Request: WrappedRequest,
     },
     scripts: [
       "encoding/resources/encodings.js",
