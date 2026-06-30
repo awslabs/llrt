@@ -106,13 +106,7 @@ impl<'js> File<'js> {
     ) -> Result<Self> {
         let options = Opt(Some({
             let obj = Object::new(ctx.clone())?;
-            obj.set(
-                "type",
-                mime_type
-                    .clone()
-                    .unwrap_or("application/octet-stream".into())
-                    .into_js(ctx)?,
-            )?;
+            obj.set("type", mime_type.clone().unwrap_or("".into()).into_js(ctx)?)?;
             obj.into_js(ctx)?
         }));
         let blob = Blob::new(ctx.clone(), Opt(Some(data.into_js(ctx)?)), options)?;
@@ -126,5 +120,9 @@ impl<'js> File<'js> {
 
     pub fn get_blob(&self) -> Blob<'js> {
         self.blob.clone()
+    }
+
+    pub fn set_filename(&mut self, filename: String) {
+        self.filename = filename;
     }
 }
