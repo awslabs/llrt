@@ -94,7 +94,7 @@
     "esbuild": "0.28.1",
     "esbuild-plugins-node-modules-polyfill": "1.8.1",
     "prettier": "3.8.3",
-    "pretty-format": "30.3.0",
+    "pretty-format": "30.4.1",
     "pretty-quick": "4.2.2",
     "pure-http": "4.0.2",
     "readable-stream": "4.7.0",
