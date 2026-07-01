@@ -4,17 +4,15 @@ use std::{cell::RefCell, io::Write, rc::Rc};
 
 use hyper::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use llrt_buffer::{Blob, File};
-use llrt_utils::{class::CustomInspect, result::ResultExt};
+use llrt_utils::{class::CustomInspect, object::map_to_entries, result::ResultExt};
 use rand::RngExt;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     prelude::{Opt, This},
-    Array, Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, JsLifetime, Object, Result,
+    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Iterable, JsLifetime, Object, Result,
     Type, Value,
 };
-
-use crate::IteratorKind;
 
 #[derive(Clone, Trace, JsLifetime)]
 enum FormValue<'js> {
@@ -145,33 +143,42 @@ impl<'js> FormData<'js> {
         self.entries.borrow_mut().retain(|(k, _)| *k != name);
         Ok(())
     }
-    pub fn keys(
-        this: This<Class<'js, FormData<'js>>>,
-        ctx: Ctx<'js>,
-    ) -> Result<Class<'js, FormDataIter<'js>>> {
-        FormDataIter::create(&ctx, this.0, IteratorKind::Keys)
+
+    pub fn keys(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let keys: Vec<String> = self
+            .entries
+            .borrow()
+            .iter()
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        Iterable::from(keys).into_js(&ctx)
     }
 
-    pub fn values(
-        this: This<Class<'js, FormData<'js>>>,
-        ctx: Ctx<'js>,
-    ) -> Result<Class<'js, FormDataIter<'js>>> {
-        FormDataIter::create(&ctx, this.0, IteratorKind::Values)
+    pub fn values(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let values: Vec<FormValue<'js>> = self
+            .entries
+            .borrow()
+            .iter()
+            .map(|(_, v)| v.clone())
+            .collect();
+
+        Iterable::from(values).into_js(&ctx)
     }
 
-    pub fn entries(
-        this: This<Class<'js, FormData<'js>>>,
-        ctx: Ctx<'js>,
-    ) -> Result<Class<'js, FormDataIter<'js>>> {
-        FormDataIter::create(&ctx, this.0, IteratorKind::Entries)
+    pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let entries = self.entries.borrow();
+        let array = map_to_entries(&ctx, entries.0.clone())?;
+
+        Iterable::from(array).into_js(&ctx)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
-    pub fn iterator(
-        this: This<Class<'js, FormData<'js>>>,
-        ctx: Ctx<'js>,
-    ) -> Result<Class<'js, FormDataIter<'js>>> {
-        FormDataIter::create(&ctx, this.0, IteratorKind::Entries)
+    pub fn iterator(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let entries = self.entries.borrow();
+        let array = map_to_entries(&ctx, entries.0.clone())?;
+
+        Iterable::from(array).into_js(&ctx)
     }
 
     pub fn for_each(this: This<Class<'js, FormData<'js>>>, callback: Function<'js>) -> Result<()> {
@@ -371,55 +378,6 @@ fn generate_boundary() -> String {
 fn starts_with_ignore_case(haystack: &str, needle: &str) -> bool {
     haystack.len() >= needle.len()
         && haystack.as_bytes()[..needle.len()].eq_ignore_ascii_case(needle.as_bytes())
-}
-
-#[derive(Trace, JsLifetime)]
-#[rquickjs::class]
-pub struct FormDataIter<'js> {
-    fd: Class<'js, FormData<'js>>,
-    #[qjs(skip_trace)]
-    index: usize,
-    #[qjs(skip_trace)]
-    kind: IteratorKind,
-}
-
-#[rquickjs::methods]
-impl<'js> FormDataIter<'js> {
-    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
-        let obj = Object::new(ctx.clone())?;
-        // Re-read on every next() — WPT expects the iterator to observe
-        // mutations made during iteration (insertions, deletions).
-        let sorted = self.fd.borrow().iter();
-
-        if self.index < sorted.len() {
-            let (k, v) = &sorted[self.index];
-            self.index += 1;
-            obj.set("done", false)?;
-            match self.kind {
-                IteratorKind::Keys => obj.set("value", k)?,
-                IteratorKind::Values => obj.set("value", v.clone().into_js(&ctx)?)?,
-                IteratorKind::Entries => {
-                    let entry = Array::new(ctx.clone())?;
-                    entry.set(0, k)?;
-                    entry.set(1, v.clone().into_js(&ctx)?)?;
-                    obj.set("value", entry)?;
-                },
-            }
-        } else {
-            obj.set("done", true)?;
-        }
-        Ok(obj)
-    }
-}
-
-impl<'js> FormDataIter<'js> {
-    fn create(
-        ctx: &Ctx<'js>,
-        fd: Class<'js, FormData<'js>>,
-        kind: IteratorKind,
-    ) -> Result<Class<'js, Self>> {
-        Class::instance(ctx.clone(), Self { fd, index: 0, kind })
-    }
 }
 
 impl<'js> CustomInspect<'js> for FormData<'js> {

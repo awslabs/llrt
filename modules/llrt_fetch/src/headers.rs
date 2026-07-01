@@ -24,8 +24,6 @@ use rquickjs::{
     Symbol, Value,
 };
 
-use crate::IteratorKind;
-
 type ImmutableString = Rc<str>;
 
 /// ASCII-lowercase the key in place (HTTP headers are ASCII-only) and wrap in `Rc<str>`,
@@ -276,21 +274,21 @@ impl Headers {
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, IteratorKind::Keys)
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Keys)
     }
 
     pub fn values<'js>(
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, IteratorKind::Values)
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Values)
     }
 
     pub fn entries<'js>(
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, IteratorKind::Entries)
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Entries)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
@@ -298,7 +296,7 @@ impl Headers {
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, IteratorKind::Entries)
+        HeadersIter::create(&ctx, this.0, HeadersIterKind::Entries)
     }
 
     pub fn for_each<'js>(this: This<Class<'js, Headers>>, callback: Function<'js>) -> Result<()> {
@@ -520,6 +518,13 @@ impl Headers {
     }
 }
 
+#[derive(Clone, Copy)]
+enum HeadersIterKind {
+    Keys,
+    Values,
+    Entries,
+}
+
 #[derive(Trace, JsLifetime)]
 #[rquickjs::class]
 pub struct HeadersIter<'js> {
@@ -527,7 +532,7 @@ pub struct HeadersIter<'js> {
     #[qjs(skip_trace)]
     index: usize,
     #[qjs(skip_trace)]
-    kind: IteratorKind,
+    kind: HeadersIterKind,
 }
 
 #[rquickjs::methods]
@@ -543,9 +548,9 @@ impl<'js> HeadersIter<'js> {
             self.index += 1;
             obj.set("done", false)?;
             match self.kind {
-                IteratorKind::Keys => obj.set("value", k.as_ref())?,
-                IteratorKind::Values => obj.set("value", v.as_ref())?,
-                IteratorKind::Entries => {
+                HeadersIterKind::Keys => obj.set("value", k.as_ref())?,
+                HeadersIterKind::Values => obj.set("value", v.as_ref())?,
+                HeadersIterKind::Entries => {
                     let entry = Array::new(ctx)?;
                     entry.set(0, k.as_ref())?;
                     entry.set(1, v.as_ref())?;
@@ -563,7 +568,7 @@ impl<'js> HeadersIter<'js> {
     fn create(
         ctx: &Ctx<'js>,
         headers: Class<'js, Headers>,
-        kind: IteratorKind,
+        kind: HeadersIterKind,
     ) -> Result<Class<'js, Self>> {
         Class::instance(
             ctx.clone(),
