@@ -54,9 +54,7 @@ describe("FormData class", () => {
     fd.append("a", "1");
     fd.append("b", "2");
 
-    const keys = fd.keys();
-    expect(keys).toContain("a");
-    expect(keys).toContain("b");
+    expect([...fd.keys()]).toEqual(["a", "b"]);
   });
 
   it("should return all values with values()", () => {
@@ -64,9 +62,7 @@ describe("FormData class", () => {
     fd.append("a", "apple");
     fd.append("b", "banana");
 
-    const values = fd.values();
-    expect(values).toContain("apple");
-    expect(values).toContain("banana");
+    expect([...fd.values()]).toEqual(["apple", "banana"]);
   });
 
   it("should iterate entries() properly", () => {
@@ -74,8 +70,7 @@ describe("FormData class", () => {
     fd.append("x", "100");
     fd.append("y", "200");
 
-    const collected = Array.from(fd.entries());
-    expect(collected).toEqual([
+    expect([...fd.entries()]).toEqual([
       ["x", "100"],
       ["y", "200"],
     ]);

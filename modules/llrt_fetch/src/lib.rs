@@ -40,11 +40,10 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     //init eagerly
     fetch::init(HTTP_CLIENT.as_ref().or_throw(ctx)?.clone(), &globals)?;
 
-    Class::<FormData>::define(&globals)?;
-
     Class::<Request>::define(&globals)?;
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define_with_custom_inspect(&globals)?;
+    Class::<FormData>::define_with_custom_inspect(&globals)?;
 
     Class::<HeadersIter>::define_as_webidl_iterator(&globals, stringify!(HeadersIter))?;
 
