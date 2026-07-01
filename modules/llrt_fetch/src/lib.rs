@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
 use self::{
-    form_data::{FormData, FormDataIter},
+    form_data::FormData,
     headers::{Headers, HeadersIter},
     request::Request,
     response::Response,
@@ -32,13 +32,6 @@ const MIME_TYPE_JSON_STATIC: &str = "application/json";
 const MIME_TYPE_FORM_DATA: &str = "multipart/form-data; boundary=";
 const MIME_TYPE_OCTET_STREAM: &str = "application/octet-stream";
 
-#[derive(Clone, Copy)]
-pub(crate) enum IteratorKind {
-    Keys,
-    Values,
-    Entries,
-}
-
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = ctx.globals();
 
@@ -53,7 +46,6 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     Class::<FormData>::define_with_custom_inspect(&globals)?;
 
     Class::<HeadersIter>::define_as_webidl_iterator(&globals, stringify!(HeadersIter))?;
-    Class::<FormDataIter>::define_as_webidl_iterator(&globals, stringify!(FormDataIter))?;
 
     Ok(())
 }
