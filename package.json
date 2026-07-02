@@ -92,7 +92,7 @@
     "@types/jest": "30.0.0",
     "@types/readable-stream": "4.0.23",
     "esbuild": "0.28.1",
-    "esbuild-plugins-node-modules-polyfill": "1.8.1",
+    "esbuild-plugins-node-modules-polyfill": "1.8.2",
     "prettier": "3.8.3",
     "pretty-format": "30.4.1",
     "pretty-quick": "4.2.2",
