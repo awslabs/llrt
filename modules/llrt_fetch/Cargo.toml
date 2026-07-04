@@ -52,7 +52,7 @@ percent-encoding = { version = "2", features = [
   "std",
 ], default-features = false }
 sha2 = { version = "0.11", default-features = false }
-rand = { version = "0.10.1", features = [
+rand = { version = "0.10", features = [
   "std",
   "thread_rng",
 ], default-features = false }
