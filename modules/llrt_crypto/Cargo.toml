@@ -66,7 +66,7 @@ rquickjs = { version = "0.12", default-features = false }
 # optional
 llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json", optional = true }
 aes = { version = "0.9", optional = true }
-aes-gcm = { version = "0.11.0-rc.4", features = [
+aes-gcm = { version = "0.11", features = [
   "alloc",
 ], default-features = false, optional = true }
 aes-kw = { version = "0.3", features = [
@@ -81,47 +81,47 @@ der = { version = "0.8", features = [
   "derive",
   "alloc",
 ], default-features = false, optional = true }
-ecdsa = { version = "0.17.0-rc.18", default-features = false, optional = true }
-ed25519-dalek = { version = "3.0.0-pre.7", features = [
+ecdsa = { version = "0.17", default-features = false, optional = true }
+ed25519-dalek = { version = "3.0.0-rc.1", features = [
   "alloc",
   "pkcs8",
   "rand_core",
 ], default-features = false, optional = true }
-elliptic-curve = { version = "0.14.0-rc.33", features = [
+elliptic-curve = { version = "0.14", features = [
   "alloc",
   "sec1",
 ], default-features = false, optional = true }
-hkdf = { version = "0.13.0", default-features = false, optional = true }
-hmac = { version = "0.13.0-rc.6", default-features = false, optional = true }
+hkdf = { version = "0.13", default-features = false, optional = true }
+hmac = { version = "0.13", default-features = false, optional = true }
 rsa = { version = "0.10.0-rc.18", features = [
   "std",
   "sha2",
   "encoding",
 ], default-features = false, optional = true }
-p256 = { version = "0.14.0-rc.10", features = [
+p256 = { version = "0.14", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p384 = { version = "0.14.0-rc.10", features = [
+p384 = { version = "0.14.0-rc.15", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p521 = { version = "0.14.0-rc.10", features = [
+p521 = { version = "0.14.0-rc.15", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
 pbkdf2 = { version = "0.13", default-features = false, optional = true }
-pkcs8 = { version = "0.11.0-rc.11", default-features = false, features = [
+pkcs8 = { version = "0.11", default-features = false, features = [
   "alloc",
 ], optional = true }
 sha1 = { version = "0.11", default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-pre.6", features = [
+x25519-dalek = { version = "3.0.0-rc.1", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
