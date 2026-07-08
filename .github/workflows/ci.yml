@@ -5,6 +5,9 @@ on:
       - "main"
   pull_request:
 
+permissions:
+  contents: read
+
 # Only run on the latest ref
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
