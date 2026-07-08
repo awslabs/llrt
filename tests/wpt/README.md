@@ -38,7 +38,8 @@ make test-wpt
 
 This starts the WPT server in the background and runs the suite. `setup-wpt`
 runs first if needed, initialising the `wpt/` submodule and configuring
-sparse-checkout. Output is post-processed into `wpt_errors.txt`.
+sparse-checkout. The full run is printed to the console and distilled into the
+sorted failing-test list `wpt_errors.txt`.
 
 Other targets:
 
@@ -46,7 +47,6 @@ Other targets:
 | ------------ | ------------------------------------------------------------- |
 | `setup-wpt`  | init the submodule, set up sparse-checkout, `/etc/hosts`      |
 | `update-wpt` | pull upstream master into the `wpt/` submodule                |
-| `tidyup-wpt` | reduce the run to a sorted list of failing test files          |
 | `check-wpt`  | run the suite and diff results against the committed baseline |
 
 ## Regression baseline

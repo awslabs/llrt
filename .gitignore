@@ -26,6 +26,5 @@ node_modules
 
 tests/wpt/revision
 /wpt
-wpt_errors.tmp
 wpt_errors.baseline
 wpt_server.log

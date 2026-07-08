@@ -246,26 +246,22 @@ test-wpt: setup-wpt js
 		sleep 0.2; \
 	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
-	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp; \
-	STATUS=$$?; \
-	kill $$WPT_PID 2>/dev/null; \
-	exit $$STATUS
+	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2>&1 \
+		| tee /dev/stderr \
+		| sed -E 's/\x1b\[[0-9;]*m//g' \
+		| grep -aoE '[^ ]+ > should pass [^ ]+ tests' \
+		| LC_ALL=C sort -u \
+		> wpt_errors.txt; \
+	kill $$WPT_PID 2>/dev/null
 
-tidyup-wpt:
-	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
-	| grep -aoE '[^ ]+ > should pass [^ ]+ tests' \
-	| LC_ALL=C sort -u \
-	> wpt_errors.txt
-
-# Run the WPT suite and compare the failing-test list against the committed
-# baseline (wpt_errors.txt). Fails if they differ in either direction: a new
-# failure is a regression; a disappeared failure means a test now passes and
-# the baseline is stale. On a mismatch the regenerated wpt_errors.txt is left
-# in place, so to accept the change just `git add wpt_errors.txt` and commit.
+# Run the WPT suite and compare the failing-test list (wpt_errors.txt, written
+# by test-wpt) against the committed baseline. Fails on any difference: a new
+# entry is a regression; a removed entry means a test now passes and the
+# baseline is stale. On a mismatch the regenerated wpt_errors.txt is left in
+# place, so to accept the change just `git add wpt_errors.txt` and commit.
 check-wpt:
 	@cp wpt_errors.txt wpt_errors.baseline 2>/dev/null || : > wpt_errors.baseline
-	@$(MAKE) test-wpt || true
-	@$(MAKE) tidyup-wpt
+	@$(MAKE) test-wpt
 	@if diff -ua wpt_errors.baseline wpt_errors.txt; then \
 		rm -f wpt_errors.baseline; \
 		echo "WPT results match the committed baseline."; \
