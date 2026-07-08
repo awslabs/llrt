@@ -46,15 +46,19 @@ Other targets:
 | ------------ | ------------------------------------------------------------- |
 | `setup-wpt`  | init the submodule, set up sparse-checkout, `/etc/hosts`      |
 | `update-wpt` | pull upstream master into the `wpt/` submodule                |
-| `tidyup-wpt` | strip ANSI + normalise paths/noise in the error report        |
+| `tidyup-wpt` | reduce the run to a sorted list of failing test files          |
 | `check-wpt`  | run the suite and diff results against the committed baseline |
 
 ## Regression baseline
 
-`wpt_errors.txt` is committed as the expected-failures baseline: the normalised
-list of WPT sub-tests that currently fail (paths are stabilised and the
-non-deterministic GC-warning blocks are stripped, so it diffs cleanly across
-machines and CI).
+`wpt_errors.txt` is committed as the expected-failures baseline: the sorted,
+de-duplicated list of WPT test files that currently fail (just the
+`suite > should pass <file>.any.js tests` identifiers — no error messages,
+stack traces, or version strings, so it stays stable across machines and CI).
+The runner reports one result per `.any.js` file (it stops a file at its first
+failing sub-test), so file identity is the reliable signal; the raw messages
+vary by environment (`"Failed to fetch"` vs `"client error (Connect)"`, absolute
+stack-trace paths, etc.) and would cause false diffs.
 
 `make check-wpt` runs the suite, regenerates the report, and diffs it against
 the committed `wpt_errors.txt`. It fails on **any** difference:
@@ -67,7 +71,7 @@ baseline. To accept an intended change (a fix that makes tests pass, or a newly
 accepted failure), regenerate and commit the baseline:
 
 ```sh
-make test-wpt    # or check-wpt; both refresh wpt_errors.txt
+make check-wpt   # regenerates wpt_errors.txt (left in place on mismatch)
 git add wpt_errors.txt
 ```
 

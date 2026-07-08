@@ -253,16 +253,15 @@ test-wpt: setup-wpt js
 
 tidyup-wpt:
 	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
-	| sed '1,/^$$/d' \
-	| sed -E '/^ ?[^ ]/s|^.*__tests__/|test/|' \
-	| sed -E '/^----- LAST STDERR: -----$$/,/^$$/d' \
+	| grep -aoE '[^ ]+ > should pass [^ ]+ tests' \
+	| LC_ALL=C sort -u \
 	> wpt_errors.txt
 
-# Run the WPT suite and compare the normalised failure report against the
-# committed baseline (wpt_errors.txt). Fails if they differ in either
-# direction: a new failure is a regression; a disappeared failure means a
-# test now passes and the baseline is stale. To accept the changes, run
-# `make test-wpt` and commit the updated wpt_errors.txt.
+# Run the WPT suite and compare the failing-test list against the committed
+# baseline (wpt_errors.txt). Fails if they differ in either direction: a new
+# failure is a regression; a disappeared failure means a test now passes and
+# the baseline is stale. On a mismatch the regenerated wpt_errors.txt is left
+# in place, so to accept the change just `git add wpt_errors.txt` and commit.
 check-wpt:
 	@cp wpt_errors.txt wpt_errors.baseline 2>/dev/null || : > wpt_errors.baseline
 	@$(MAKE) test-wpt || true
@@ -274,7 +273,7 @@ check-wpt:
 		rm -f wpt_errors.baseline; \
 		echo ""; \
 		echo "WPT results differ from the committed baseline (diff above)."; \
-		echo "If the change is intended, commit the updated wpt_errors.txt."; \
+		echo "If the change is intended, commit the regenerated wpt_errors.txt."; \
 		exit 1; \
 	fi
 
