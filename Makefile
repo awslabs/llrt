@@ -246,12 +246,7 @@ test-wpt: setup-wpt js
 		sleep 0.2; \
 	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
-	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2>&1 \
-		| tee /dev/stderr \
-		| sed -E 's/\x1b\[[0-9;]*m//g' \
-		| grep -aoE '[^ ]+ > should pass [^ ]+ tests' \
-		| LC_ALL=C sort -u \
-		> wpt_errors.txt; \
+	TEST_REPORT_FILE=wpt_errors.txt cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
 	kill $$WPT_PID 2>/dev/null
 
 # Run the WPT suite and compare the failing-test list (wpt_errors.txt, written
