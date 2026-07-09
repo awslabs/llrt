@@ -715,7 +715,8 @@ class TestServer {
       const lines: string[] = [];
       for (let [, testFailure] of sortedFilesFailed) {
         for (let failure of testFailure) {
-          lines.push(failure.desc.join(" > "));
+          const id = failure.desc.join(" > ");
+          if (id) lines.push(id);
         }
       }
       lines.sort();
