@@ -5,6 +5,9 @@ on:
       - "main"
   pull_request:
 
+permissions:
+  contents: read
+
 # Only run on the latest ref
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -30,6 +33,34 @@ jobs:
             echo "console.log(123);" > "bundle/js/test$i.js"
           done
           cargo clippy --all-targets -- -D warnings
+  wpt:
+    needs:
+      - check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Checkout WPT submodule
+        run: git submodule update --init --checkout --depth 1 --force wpt
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: yarn
+          node-version: lts/*
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install make nodejs
+      - name: Install JavaScript dependencies
+        run: |
+          corepack enable
+          yarn
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run WPT
+        run: make check-wpt
   build:
     needs:
       - check

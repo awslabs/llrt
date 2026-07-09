@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import net from "node:net";
 import os from "node:os";
+import { writeFileSync } from "node:fs";
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import { SocketReqMsg } from "./shared";
@@ -699,13 +700,31 @@ class TestServer {
     output += ` ${Color.DIM(TestServer.elapsed({ started: this.started, ended }))}\n`;
     output += `${this.totalSuccess} passed, ${this.totalFailed} failed, ${this.totalSkipped} skipped, ${this.totalTests} tests\n`;
     console.log(output);
+
+    const sortedFilesFailed = new Map(
+      Array.from(this.filesFailed.entries()).sort(([keyA], [keyB]) =>
+        keyA.localeCompare(keyB)
+      )
+    );
+
+    // Write the sorted list of failing-test identifiers to a report file,
+    // used as a stable regression baseline (see `make check-wpt`). Written
+    // even when everything passes, so an emptied baseline still matches.
+    const reportFile = (process.env as any).TEST_REPORT_FILE;
+    if (reportFile) {
+      const lines: string[] = [];
+      for (let [, testFailure] of sortedFilesFailed) {
+        for (let failure of testFailure) {
+          const id = failure.desc.join(" > ");
+          if (id) lines.push(id);
+        }
+      }
+      lines.sort();
+      writeFileSync(reportFile, lines.map((l) => l + "\n").join(""));
+    }
+
     if (this.totalFailed > 0) {
       output = "";
-      const sortedFilesFailed = new Map(
-        Array.from(this.filesFailed.entries()).sort(([keyA], [keyB]) =>
-          keyA.localeCompare(keyB)
-        )
-      );
       for (let [file, testFailure] of sortedFilesFailed) {
         output += `\n${Color.RED_BACKGROUND(` ${file} `)}\n`;
 

@@ -237,25 +237,36 @@ test-wpt: setup-wpt js
 	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \
 	trap 'kill $$WPT_PID 2>/dev/null' EXIT; \
 	printf "Waiting for http://web-platform.test:8000/ "; \
-	for i in $$(seq 1 30); do \
-		curl -sf http://web-platform.test:8000/ >/dev/null 2>&1 && { echo " ready."; break; }; \
+	for i in $$(seq 1 150); do \
+		curl -sf --connect-timeout 1 http://web-platform.test:8000/ >/dev/null 2>&1 && { echo " ready."; break; }; \
 		if ! kill -0 $$WPT_PID 2>/dev/null; then \
 			echo "WPT server exited unexpectedly:"; cat wpt_server.log; exit 1; \
 		fi; \
 		printf "."; \
-		sleep 1; \
+		sleep 0.2; \
 	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
-	cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) 2> wpt_errors.tmp; \
-	STATUS=$$?; \
-	kill $$WPT_PID 2>/dev/null; \
-	exit $$STATUS
+	TEST_REPORT_FILE=wpt_errors.txt cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
+	kill $$WPT_PID 2>/dev/null
 
-tidyup-wpt:
-	sed -E 's/\x1b\[[0-9;]*m//g' wpt_errors.tmp \
-	| sed '1,/^$$/d' \
-	| sed -E '/^ ?[^ ]/s|^.*__tests__/|test/|' \
-	> wpt_errors.txt
+# Run the WPT suite and compare the failing-test list (wpt_errors.txt, written
+# by test-wpt) against the committed baseline. Fails on any difference: a new
+# entry is a regression; a removed entry means a test now passes and the
+# baseline is stale. On a mismatch the regenerated wpt_errors.txt is left in
+# place, so to accept the change just `git add wpt_errors.txt` and commit.
+check-wpt:
+	@cp wpt_errors.txt wpt_errors.baseline 2>/dev/null || : > wpt_errors.baseline
+	@$(MAKE) test-wpt
+	@if diff -ua wpt_errors.baseline wpt_errors.txt; then \
+		rm -f wpt_errors.baseline; \
+		echo "WPT results match the committed baseline."; \
+	else \
+		rm -f wpt_errors.baseline; \
+		echo ""; \
+		echo "WPT results differ from the committed baseline (diff above)."; \
+		echo "If the change is intended, commit the regenerated wpt_errors.txt."; \
+		exit 1; \
+	fi
 
 E2E_STACK_NAME := LLRTReleaseIntegTestResourcesStack
 E2E_TEMPLATE := tests/e2e/IntegTestResourcesStack.template.yml
