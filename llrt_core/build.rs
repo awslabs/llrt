@@ -183,10 +183,7 @@ fn generate_bytecode_cache(out_dir: &str) -> StdResult<(), Box<dyn Error>> {
 
             info!("Done!");
 
-            ph_map.entry(
-                module_name,
-                format!("include_bytes!(\"{}\")", &lrt_filename),
-            );
+            ph_map.entry(module_name, format!("include_bytes!(\"{}\")", lrt_filename));
         }
 
         StdResult::<_, Box<dyn Error>>::Ok(())
