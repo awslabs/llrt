@@ -1,16 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
-use self::{
-    form_data::FormData,
-    headers::{Headers, HeadersIter},
-    request::Request,
-    response::Response,
-};
+use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 use llrt_buffer::Blob;
 use llrt_http::HTTP_CLIENT;
 use llrt_utils::{
-    class::{CustomInspectExtension, WebIdlIteratorExtension},
+    class::CustomInspectExtension,
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
@@ -44,8 +39,6 @@ pub fn init(ctx: &Ctx) -> Result<()> {
     Class::<Response>::define(&globals)?;
     Class::<Headers>::define_with_custom_inspect(&globals)?;
     Class::<FormData>::define_with_custom_inspect(&globals)?;
-
-    Class::<HeadersIter>::define_as_webidl_iterator(&globals, stringify!(HeadersIter))?;
 
     Ok(())
 }

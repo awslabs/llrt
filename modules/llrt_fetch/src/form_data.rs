@@ -4,14 +4,17 @@ use std::{cell::RefCell, io::Write, rc::Rc};
 
 use hyper::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use llrt_buffer::{Blob, File};
-use llrt_utils::{class::CustomInspect, object::map_to_entries, result::ResultExt};
+use llrt_utils::{
+    class::{iterator_result, live_iterator, CustomInspect, IterKind},
+    result::ResultExt,
+};
 use rand::RngExt;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     prelude::{Opt, This},
-    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, Iterable, JsLifetime, Object, Result,
-    Type, Value,
+    Class, Coerced, Ctx, Exception, FromJs, Function, IntoJs, JsLifetime, Object, Result, Type,
+    Value,
 };
 
 #[derive(Clone, Trace, JsLifetime)]
@@ -144,47 +147,49 @@ impl<'js> FormData<'js> {
         Ok(())
     }
 
-    pub fn keys(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let keys: Vec<String> = self
-            .entries
-            .borrow()
-            .iter()
-            .map(|(k, _)| k.clone())
-            .collect();
-
-        Iterable::from(keys).into_js(&ctx)
+    pub fn keys(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::new(&ctx, this.0, IterKind::Keys)
     }
 
-    pub fn values(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let values: Vec<FormValue<'js>> = self
-            .entries
-            .borrow()
-            .iter()
-            .map(|(_, v)| v.clone())
-            .collect();
-
-        Iterable::from(values).into_js(&ctx)
+    pub fn values(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::new(&ctx, this.0, IterKind::Values)
     }
 
-    pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let entries = self.entries.borrow();
-        let array = map_to_entries(&ctx, entries.0.clone())?;
-
-        Iterable::from(array).into_js(&ctx)
+    pub fn entries(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::new(&ctx, this.0, IterKind::Entries)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
-    pub fn iterator(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let entries = self.entries.borrow();
-        let array = map_to_entries(&ctx, entries.0.clone())?;
-
-        Iterable::from(array).into_js(&ctx)
+    pub fn iterator(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, FormDataIter<'js>>> {
+        FormDataIter::new(&ctx, this.0, IterKind::Entries)
     }
 
-    pub fn for_each(this: This<Class<'js, FormData<'js>>>, callback: Function<'js>) -> Result<()> {
-        let sorted = this.0.borrow().iter();
-        for (k, v) in &sorted {
-            () = callback.call((v.clone(), k.clone(), this.0.clone()))?;
+    pub fn for_each(
+        this: This<Class<'js, FormData<'js>>>,
+        ctx: Ctx<'js>,
+        callback: Function<'js>,
+    ) -> Result<()> {
+        // Re-read each index so the callback's mutations are observed.
+        let mut index = 0;
+        loop {
+            let entry = this.0.borrow().entries.borrow().get(index).cloned();
+            let Some((name, value)) = entry else {
+                break;
+            };
+            () = callback.call((value.into_js(&ctx)?, name, this.0.clone()))?;
+            index += 1;
         }
         Ok(())
     }
@@ -319,6 +324,58 @@ impl<'js> FormData<'js> {
 
         Ok((body, boundary))
     }
+
+    fn read_entry(&self, index: usize, ctx: &Ctx<'js>) -> Result<Option<(Value<'js>, Value<'js>)>> {
+        match self.entries.borrow().get(index).cloned() {
+            Some((name, value)) => Ok(Some((name.into_js(ctx)?, value.into_js(ctx)?))),
+            None => Ok(None),
+        }
+    }
+}
+
+/// Live iterator over a [`FormData`]. Re-reads on each `next()` so mutations
+/// during iteration are observed.
+#[derive(Trace, JsLifetime)]
+#[rquickjs::class]
+pub struct FormDataIter<'js> {
+    form_data: Class<'js, FormData<'js>>,
+    #[qjs(skip_trace)]
+    index: usize,
+    #[qjs(skip_trace)]
+    kind: IterKind,
+}
+
+impl<'js> FormDataIter<'js> {
+    fn new(
+        ctx: &Ctx<'js>,
+        form_data: Class<'js, FormData<'js>>,
+        kind: IterKind,
+    ) -> Result<Class<'js, Self>> {
+        live_iterator(
+            ctx,
+            Self {
+                form_data,
+                index: 0,
+                kind,
+            },
+        )
+    }
+}
+
+#[rquickjs::methods]
+impl<'js> FormDataIter<'js> {
+    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let entry = self.form_data.borrow().read_entry(self.index, &ctx)?;
+        if entry.is_some() {
+            self.index += 1;
+        }
+        iterator_result(&ctx, self.kind, entry)
+    }
+
+    #[qjs(rename = PredefinedAtom::SymbolIterator)]
+    fn iter(this: This<Class<'js, Self>>) -> Class<'js, Self> {
+        this.0
+    }
 }
 
 fn value_to_form_entry<'js>(
@@ -388,5 +445,120 @@ impl<'js> CustomInspect<'js> for FormData<'js> {
         }
 
         Ok(obj)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::test_async_with;
+    use rquickjs::CatchResultExt;
+
+    async fn assert_eval(src: &'static str, expected: &'static str) {
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let value = ctx.eval::<String, _>(src).catch(&ctx).unwrap();
+                assert_eq!(value, expected);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_iterate_entries() {
+        assert_eval(
+            r#"
+            const fd = new FormData();
+            fd.append("a", "1");
+            fd.append("b", "2");
+            fd.append("a", "3");
+            const out = [];
+            for (const [name, value] of fd) out.push(`${name}=${value}`);
+            out.join("&")
+        "#,
+            "a=1&b=2&a=3",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_keys_values_live() {
+        assert_eval(
+            r#"
+            const fd = new FormData();
+            fd.append("a", "1");
+            fd.append("b", "2");
+            const k = [...fd.keys()].join(",");
+            const v = [...fd.values()].join(",");
+            `${k}|${v}`
+        "#,
+            "a,b|1,2",
+        )
+        .await;
+    }
+
+    // wpt iteration.any.js: deleting the current/later entry skips it.
+    #[tokio::test]
+    async fn test_iterate_live_delete() {
+        assert_eval(
+            r#"
+            const fd = new FormData();
+            fd.append("foo", "0");
+            fd.append("baz", "1");
+            fd.append("BAR", "2");
+            const keys = [];
+            for (const [name] of fd) {
+                keys.push(name);
+                fd.delete("baz");
+            }
+            keys.join(",")
+        "#,
+            "foo,BAR",
+        )
+        .await;
+    }
+
+    // wpt iteration.any.js: deleting an already-seen entry skips the next one.
+    #[tokio::test]
+    async fn test_iterate_live_delete_earlier() {
+        assert_eval(
+            r#"
+            const fd = new FormData();
+            fd.append("foo", "0");
+            fd.append("baz", "1");
+            fd.append("BAR", "2");
+            fd.append("quux", "3");
+            const keys = [];
+            for (const [name] of fd) {
+                keys.push(name);
+                if (name === "baz") fd.delete("foo");
+            }
+            keys.join(",")
+        "#,
+            "foo,baz,quux",
+        )
+        .await;
+    }
+
+    // wpt iteration.any.js: appending during iteration reaches the new entry.
+    #[tokio::test]
+    async fn test_iterate_live_append() {
+        assert_eval(
+            r#"
+            const fd = new FormData();
+            fd.append("foo", "0");
+            fd.append("baz", "1");
+            fd.append("BAR", "2");
+            fd.append("quux", "3");
+            const keys = [];
+            for (const [name] of fd) {
+                keys.push(name);
+                if (name === "baz") fd.append("X-yZ", "4");
+            }
+            keys.join(",")
+        "#,
+            "foo,baz,BAR,quux,X-yZ",
+        )
+        .await;
     }
 }

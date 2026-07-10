@@ -13,18 +13,65 @@ use super::{
 
 pub static CUSTOM_INSPECT_SYMBOL_DESCRIPTION: &str = "llrt.inspect.custom";
 
-pub trait IteratorDef<'js>
-where
-    Self: 'js + JsClass<'js> + Sized,
-{
-    fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>>;
+/// Which view an iterator yields: `keys()`, `values()`, or `entries()`.
+#[derive(Clone, Copy)]
+pub enum IterKind {
+    Keys,
+    Values,
+    Entries,
+}
 
-    fn js_iterator(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        let value = self.js_entries(ctx)?;
-        let obj = value.as_object();
-        let values_fn: Function = obj.get(PredefinedAtom::Values)?;
-        values_fn.call((This(value),))
+/// Wrap an entry into a `{ value, done }` iterator result. `None` means done.
+pub fn iterator_result<'js>(
+    ctx: &Ctx<'js>,
+    kind: IterKind,
+    entry: Option<(Value<'js>, Value<'js>)>,
+) -> Result<Object<'js>> {
+    let obj = Object::new(ctx.clone())?;
+    match entry {
+        Some((key, value)) => {
+            obj.set(PredefinedAtom::Done, false)?;
+            match kind {
+                IterKind::Keys => obj.set(PredefinedAtom::Value, key)?,
+                IterKind::Values => obj.set(PredefinedAtom::Value, value)?,
+                IterKind::Entries => {
+                    let entry = Array::new(ctx.clone())?;
+                    entry.set(0, key)?;
+                    entry.set(1, value)?;
+                    obj.set(PredefinedAtom::Value, entry)?;
+                },
+            }
+        },
+        None => obj.set(PredefinedAtom::Done, true)?,
     }
+    Ok(obj)
+}
+
+/// Create a WebIDL iterator instance, wiring its prototype the first time:
+/// the prototype inherits `%IteratorPrototype%` (so it's tagged
+/// `[object Iterator]`) and `next` becomes enumerable. Idempotent — later
+/// calls skip the setup — so callers just build iterators and never register
+/// anything separately.
+pub fn live_iterator<'js, C>(ctx: &Ctx<'js>, iter: C) -> Result<Class<'js, C>>
+where
+    C: JsClass<'js> + 'js,
+{
+    let instance = Class::<C>::instance(ctx.clone(), iter)?;
+    if let Some(proto) = Class::<C>::prototype(ctx)? {
+        let iterator_proto = &BasePrimordials::get(ctx)?.prototype_iterator;
+        if proto.get_prototype().as_ref() != Some(iterator_proto) {
+            proto.set_prototype(Some(iterator_proto))?;
+            let next_fn: Function = proto.get("next")?;
+            proto.prop(
+                "next",
+                Property::from(next_fn)
+                    .writable()
+                    .enumerable()
+                    .configurable(),
+            )?;
+        }
+    }
+    Ok(instance)
 }
 
 pub fn get_class_name(value: &Value) -> Result<Option<String>> {
@@ -71,42 +118,6 @@ where
             proto.prop(
                 custom_inspect_symbol,
                 Accessor::from(|this: This<Class<'js, C>>, ctx| this.borrow().custom_inspect(ctx)),
-            )?;
-        }
-        Ok(())
-    }
-}
-
-/// Register a class as a WebIDL pair iterator: registers it on the globals,
-/// removes the constructor (it's not exposed to JS), wires its prototype to
-/// inherit from `%IteratorPrototype%` (so it's iterable and stringifies as
-/// `[object Iterator]`), and re-defines `next` as enumerable per WebIDL.
-///
-/// The class must declare a `next(&mut self, ctx) -> Result<Object>` method
-/// via `#[rquickjs::methods]`.
-pub trait WebIdlIteratorExtension<'js> {
-    fn define_as_webidl_iterator(globals: &Object<'js>, name: &str) -> Result<()>;
-}
-
-impl<'js, C> WebIdlIteratorExtension<'js> for Class<'js, C>
-where
-    C: JsClass<'js> + 'js,
-{
-    fn define_as_webidl_iterator(globals: &Object<'js>, name: &str) -> Result<()> {
-        let ctx = globals.ctx();
-        Self::define(globals)?;
-        // Iterator class is not exposed to JS.
-        globals.remove(name)?;
-        if let Some(proto) = Class::<C>::prototype(ctx)? {
-            let iterator_proto = BasePrimordials::get(ctx)?.prototype_iterator.clone();
-            proto.set_prototype(Some(&iterator_proto))?;
-            let next_fn: Function = proto.get("next")?;
-            proto.prop(
-                "next",
-                Property::from(next_fn)
-                    .writable()
-                    .enumerable()
-                    .configurable(),
             )?;
         }
         Ok(())

@@ -8,12 +8,12 @@ use std::{
 
 use llrt_utils::{
     bytes::get_lossy_string,
-    class::IteratorDef,
+    class::{iterator_result, live_iterator, IterKind},
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, Array, Class, Coerced, Ctx, Exception,
-    FromJs, Function, IntoJs, Null, Object, Result, Symbol, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, Array, Class, Coerced, Ctx,
+    Exception, FromJs, Function, IntoJs, Null, Object, Result, Symbol, Value,
 };
 use url::Url;
 
@@ -132,16 +132,34 @@ impl<'js> URLSearchParams {
         self.sync_query();
     }
 
-    pub fn entries(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
-        self.js_iterator(ctx)
+    pub fn entries(
+        this: This<Class<'js, URLSearchParams>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, URLSearchParamsIter<'js>>> {
+        URLSearchParamsIter::new(&ctx, this.0, IterKind::Entries)
     }
 
-    pub fn for_each(&self, callback: Function<'js>) -> Result<()> {
-        self.url
-            .borrow()
-            .query_pairs()
-            .into_owned()
-            .try_for_each(|(k, v)| callback.call((v, k)))?;
+    pub fn for_each(
+        this: This<Class<'js, URLSearchParams>>,
+        callback: Function<'js>,
+    ) -> Result<()> {
+        // Re-read each index so the callback's mutations are observed.
+        let mut index = 0;
+        loop {
+            let pair = this
+                .0
+                .borrow()
+                .url
+                .borrow()
+                .query_pairs()
+                .nth(index)
+                .map(|(k, v)| (k.to_string(), v.to_string()));
+            let Some((k, v)) = pair else {
+                break;
+            };
+            () = callback.call((v, k, this.0.clone()))?;
+            index += 1;
+        }
         Ok(())
     }
 
@@ -177,12 +195,11 @@ impl<'js> URLSearchParams {
         })
     }
 
-    pub fn keys(&mut self) -> Vec<String> {
-        self.url
-            .borrow()
-            .query_pairs()
-            .map(|(k, _)| k.to_string())
-            .collect()
+    pub fn keys(
+        this: This<Class<'js, URLSearchParams>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, URLSearchParamsIter<'js>>> {
+        URLSearchParamsIter::new(&ctx, this.0, IterKind::Keys)
     }
 
     pub fn set(&mut self, key: Coerced<String>, value: Coerced<String>) {
@@ -266,27 +283,36 @@ impl<'js> URLSearchParams {
         )
     }
 
-    pub fn values(&mut self) -> Vec<String> {
-        self.url
-            .borrow()
-            .query_pairs()
-            .map(|(_, v)| v.to_string())
-            .collect()
+    pub fn values(
+        this: This<Class<'js, URLSearchParams>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, URLSearchParamsIter<'js>>> {
+        URLSearchParamsIter::new(&ctx, this.0, IterKind::Values)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
-    pub fn iterator(&self, ctx: Ctx<'js>) -> Result<Class<'js, URLSearchParamsIter>> {
-        Class::instance(
-            ctx,
-            URLSearchParamsIter {
-                index: 0,
-                params: self.clone(),
-            },
-        )
+    pub fn iterator(
+        this: This<Class<'js, URLSearchParams>>,
+        ctx: Ctx<'js>,
+    ) -> Result<Class<'js, URLSearchParamsIter<'js>>> {
+        URLSearchParamsIter::new(&ctx, this.0, IterKind::Entries)
     }
 }
 
 impl<'js> URLSearchParams {
+    fn read_entry(&self, index: usize, ctx: &Ctx<'js>) -> Result<Option<(Value<'js>, Value<'js>)>> {
+        let pair = self
+            .url
+            .borrow()
+            .query_pairs()
+            .nth(index)
+            .map(|(k, v)| (k.to_string(), v.to_string()));
+        match pair {
+            Some((k, v)) => Ok(Some((k.into_js(ctx)?, v.into_js(ctx)?))),
+            None => Ok(None),
+        }
+    }
+
     /// Re-serialize the query string with proper percent-encoding.
     /// The url crate doesn't encode commas, so we rebuild the query
     /// using form_urlencoded::byte_serialize after each mutation.
@@ -422,45 +448,48 @@ impl<'js> URLSearchParams {
     }
 }
 
+/// Live iterator over a [`URLSearchParams`]. Re-reads on each `next()` so
+/// mutations during iteration are observed.
 #[derive(Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
-pub struct URLSearchParamsIter {
-    params: URLSearchParams,
-    index: u32,
+pub struct URLSearchParamsIter<'js> {
+    params: Class<'js, URLSearchParams>,
+    #[qjs(skip_trace)]
+    index: usize,
+    #[qjs(skip_trace)]
+    kind: IterKind,
 }
 
-#[rquickjs::methods]
-impl<'js> URLSearchParamsIter {
-    pub fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
-        let obj = Object::new(ctx.clone())?;
-        let value = (*self.params.url.borrow())
-            .query_pairs()
-            .nth(self.index as _)
-            .map(|(k, v)| vec![k.to_string(), v.to_string()]);
-
-        if let Some(value) = value {
-            obj.set("done", false)?;
-            obj.set("value", value)?;
-        } else {
-            obj.set("done", true)?;
-        }
-
-        self.index += 1;
-
-        Ok(obj)
+impl<'js> URLSearchParamsIter<'js> {
+    fn new(
+        ctx: &Ctx<'js>,
+        params: Class<'js, URLSearchParams>,
+        kind: IterKind,
+    ) -> Result<Class<'js, Self>> {
+        live_iterator(
+            ctx,
+            Self {
+                params,
+                index: 0,
+                kind,
+            },
+        )
     }
 }
 
-impl<'js> IteratorDef<'js> for URLSearchParams {
-    fn js_entries(&self, ctx: Ctx<'js>) -> Result<Array<'js>> {
-        let array = Array::new(ctx.clone())?;
-        for (idx, (key, value)) in self.url.borrow().query_pairs().into_owned().enumerate() {
-            let entry = Array::new(ctx.clone())?;
-            entry.set(0, key)?;
-            entry.set(1, value)?;
-            array.set(idx, entry)?;
+#[rquickjs::methods]
+impl<'js> URLSearchParamsIter<'js> {
+    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let entry = self.params.borrow().read_entry(self.index, &ctx)?;
+        if entry.is_some() {
+            self.index += 1;
         }
-        Ok(array)
+        iterator_result(&ctx, self.kind, entry)
+    }
+
+    #[qjs(rename = PredefinedAtom::SymbolIterator)]
+    fn iter(this: This<Class<'js, Self>>) -> Class<'js, Self> {
+        this.0
     }
 }
 
@@ -482,10 +511,15 @@ mod tests {
 
     use super::*;
 
+    fn setup(ctx: &rquickjs::Ctx) {
+        BasePrimordials::init(ctx).unwrap();
+        Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+    }
+
     #[tokio::test]
     async fn test_basic() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -511,7 +545,7 @@ mod tests {
     #[tokio::test]
     async fn test_iterate() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -535,9 +569,81 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_iterate_live_delete() {
+        // Deleting the current/later entry during iteration skips it.
+        test_sync_with(|ctx| {
+            setup(&ctx);
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams("foo=0&baz=1&BAR=2");
+                const keys = [];
+                for (const [name] of params) {
+                    keys.push(name);
+                    params.delete("baz");
+                }
+                keys.join(",")
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "foo,BAR");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_iterate_live_append() {
+        // Appending during iteration causes the new pair to be reached.
+        test_sync_with(|ctx| {
+            setup(&ctx);
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams("foo=0&baz=1");
+                const keys = [];
+                for (const [name] of params) {
+                    keys.push(name);
+                    if (name === "baz") params.append("end", "9");
+                }
+                keys.join(",")
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "foo,baz,end");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_iterate_keys_values_live() {
+        // keys()/values() must also be live index-based iterators.
+        test_sync_with(|ctx| {
+            setup(&ctx);
+            let result = ctx
+                .eval::<String, _>(
+                    r#"
+                const params = new URLSearchParams("a=1&b=2&c=3");
+                const k = [...params.keys()].join(",");
+                const v = [...params.values()].join(",");
+                `${k}|${v}`
+            "#,
+                )
+                .catch(&ctx)
+                .unwrap();
+            assert_eq!(result, "a,b,c|1,2,3");
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
     async fn test_iterate_entries() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -563,7 +669,7 @@ mod tests {
     #[tokio::test]
     async fn test_iterate_keys() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -589,7 +695,7 @@ mod tests {
     #[tokio::test]
     async fn test_iterate_values() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -615,7 +721,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_string() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -634,7 +740,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_string_url() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -653,7 +759,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_object() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -672,7 +778,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_array() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -691,8 +797,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_iterator() {
         test_sync_with(|ctx| {
-            BasePrimordials::init(&ctx)?;
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -715,7 +820,7 @@ mod tests {
     #[tokio::test]
     async fn test_size() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<usize, _>(
                     r#"
@@ -737,7 +842,7 @@ mod tests {
     #[tokio::test]
     async fn test_set() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -760,7 +865,7 @@ mod tests {
     #[tokio::test]
     async fn test_get() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -782,7 +887,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_missing() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<bool, _>(
                     r#"
@@ -804,7 +909,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_all() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -826,7 +931,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_all_missing() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -848,7 +953,7 @@ mod tests {
     #[tokio::test]
     async fn test_has() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<bool, _>(
                     r#"
@@ -870,7 +975,7 @@ mod tests {
     #[tokio::test]
     async fn test_has_value() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<bool, _>(
                     r#"
@@ -892,7 +997,7 @@ mod tests {
     #[tokio::test]
     async fn test_has_not() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<bool, _>(
                     r#"
@@ -914,7 +1019,7 @@ mod tests {
     #[tokio::test]
     async fn test_sort() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"
@@ -937,7 +1042,7 @@ mod tests {
     #[tokio::test]
     async fn test_for_each() {
         test_sync_with(|ctx| {
-            Class::<URLSearchParams>::define(&ctx.globals()).unwrap();
+            setup(&ctx);
             let result = ctx
                 .eval::<String, _>(
                     r#"

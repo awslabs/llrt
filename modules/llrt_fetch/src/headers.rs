@@ -14,7 +14,7 @@ use hyper::{
     HeaderMap,
 };
 use llrt_utils::{
-    class::CustomInspect,
+    class::{iterator_result, live_iterator, CustomInspect, IterKind},
     primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
@@ -274,21 +274,21 @@ impl Headers {
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, HeadersIterKind::Keys)
+        HeadersIter::new(&ctx, this.0, IterKind::Keys)
     }
 
     pub fn values<'js>(
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, HeadersIterKind::Values)
+        HeadersIter::new(&ctx, this.0, IterKind::Values)
     }
 
     pub fn entries<'js>(
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, HeadersIterKind::Entries)
+        HeadersIter::new(&ctx, this.0, IterKind::Entries)
     }
 
     #[qjs(rename = PredefinedAtom::SymbolIterator)]
@@ -296,7 +296,7 @@ impl Headers {
         this: This<Class<'js, Headers>>,
         ctx: Ctx<'js>,
     ) -> Result<Class<'js, HeadersIter<'js>>> {
-        HeadersIter::create(&ctx, this.0, HeadersIterKind::Entries)
+        HeadersIter::new(&ctx, this.0, IterKind::Entries)
     }
 
     pub fn for_each<'js>(this: This<Class<'js, Headers>>, callback: Function<'js>) -> Result<()> {
@@ -340,6 +340,17 @@ impl Headers {
         }
         result.sort_by(|a, b| a.0.cmp(&b.0));
         result
+    }
+
+    fn read_entry<'js>(
+        &self,
+        index: usize,
+        ctx: &Ctx<'js>,
+    ) -> Result<Option<(Value<'js>, Value<'js>)>> {
+        match self.sorted_entries().get(index) {
+            Some((k, v)) => Ok(Some((k.as_ref().into_js(ctx)?, v.as_ref().into_js(ctx)?))),
+            None => Ok(None),
+        }
     }
 
     pub fn from_http_headers(header_map: &HeaderMap, guard: HeadersGuard) -> Result<Self> {
@@ -518,13 +529,8 @@ impl Headers {
     }
 }
 
-#[derive(Clone, Copy)]
-enum HeadersIterKind {
-    Keys,
-    Values,
-    Entries,
-}
-
+/// Live iterator over a [`Headers`]. Re-reads on each `next()` so mutations
+/// during iteration are observed.
 #[derive(Trace, JsLifetime)]
 #[rquickjs::class]
 pub struct HeadersIter<'js> {
@@ -532,52 +538,39 @@ pub struct HeadersIter<'js> {
     #[qjs(skip_trace)]
     index: usize,
     #[qjs(skip_trace)]
-    kind: HeadersIterKind,
-}
-
-#[rquickjs::methods]
-impl<'js> HeadersIter<'js> {
-    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
-        let obj = Object::new(ctx.clone())?;
-        // Re-read on every next() — WPT expects the iterator to observe
-        // mutations made during iteration (insertions, deletions).
-        let sorted = self.headers.borrow().sorted_entries();
-
-        if self.index < sorted.len() {
-            let (k, v) = &sorted[self.index];
-            self.index += 1;
-            obj.set("done", false)?;
-            match self.kind {
-                HeadersIterKind::Keys => obj.set("value", k.as_ref())?,
-                HeadersIterKind::Values => obj.set("value", v.as_ref())?,
-                HeadersIterKind::Entries => {
-                    let entry = Array::new(ctx)?;
-                    entry.set(0, k.as_ref())?;
-                    entry.set(1, v.as_ref())?;
-                    obj.set("value", entry)?;
-                },
-            }
-        } else {
-            obj.set("done", true)?;
-        }
-        Ok(obj)
-    }
+    kind: IterKind,
 }
 
 impl<'js> HeadersIter<'js> {
-    fn create(
+    fn new(
         ctx: &Ctx<'js>,
         headers: Class<'js, Headers>,
-        kind: HeadersIterKind,
+        kind: IterKind,
     ) -> Result<Class<'js, Self>> {
-        Class::instance(
-            ctx.clone(),
+        live_iterator(
+            ctx,
             Self {
                 headers,
                 index: 0,
                 kind,
             },
         )
+    }
+}
+
+#[rquickjs::methods]
+impl<'js> HeadersIter<'js> {
+    fn next(&mut self, ctx: Ctx<'js>) -> Result<Object<'js>> {
+        let entry = self.headers.borrow().read_entry(self.index, &ctx)?;
+        if entry.is_some() {
+            self.index += 1;
+        }
+        iterator_result(&ctx, self.kind, entry)
+    }
+
+    #[qjs(rename = PredefinedAtom::SymbolIterator)]
+    fn iter(this: This<Class<'js, Self>>) -> Class<'js, Self> {
+        this.0
     }
 }
 
