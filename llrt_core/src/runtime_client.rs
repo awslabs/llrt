@@ -421,7 +421,7 @@ async fn start_process_events<'js>(
         .await
         {
             if request_id.is_empty() {
-                return Err(err)?;
+                return Err(err);
             }
 
             let err = CaughtError::from_error(ctx, err);
@@ -489,7 +489,7 @@ async fn post_error<'js>(
     let mut error_stack = None;
     let mut error_type = None;
     let error_msg = match error {
-        CaughtError::Error(err) => format!("Error: {:?}", &err),
+        CaughtError::Error(err) => format!("Error: {:?}", err),
         CaughtError::Exception(ex) => {
             let error_name = get_class_name(ex)
                 .unwrap_or(None)
