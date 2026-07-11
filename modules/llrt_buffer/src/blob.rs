@@ -10,18 +10,44 @@ use llrt_stream_web::{
 use llrt_utils::{
     array_buffer::shared_array_buffer_view,
     bytes::{get_lossy_string, ObjectBytes},
-    primordials::{BasePrimordials, Primordial},
+    primordials::Primordial,
     result::ResultExt,
+    string::get_coerced_defined_string,
 };
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, Array, ArrayBuffer, Class, Coerced, Ctx,
-    Exception, FromJs, Result, Symbol, TypedArray, Value,
+    atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, Array, ArrayBuffer, Class,
+    Coerced, Ctx, Exception, FromJs, IntoJs, JsIterator, Result, TypedArray, Value,
 };
 
 use super::file::File;
 
-static CONSTRUCT_ERROR: &str =
-    "Failed to construct 'Blob': The provided value cannot be converted to a sequence.";
+struct ArrayPartsIter<'js> {
+    array: Array<'js>,
+    index: usize,
+}
+
+impl<'js> ArrayPartsIter<'js> {
+    fn new(array: Array<'js>) -> Self {
+        Self { array, index: 0 }
+    }
+}
+
+impl<'js> Iterator for ArrayPartsIter<'js> {
+    type Item = Result<Value<'js>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let len: usize = match self.array.as_object().get("length") {
+            Ok(v) => v,
+            Err(e) => return Some(Err(e)),
+        };
+        if self.index >= len {
+            return None;
+        }
+        let result = self.array.get(self.index);
+        self.index += 1;
+        Some(result)
+    }
+}
 
 enum EndingType {
     Native,
@@ -58,40 +84,20 @@ fn normalize_type(mut mime_type: String) -> String {
 #[rquickjs::methods]
 impl<'js> Blob<'js> {
     #[qjs(constructor)]
-    pub fn new(ctx: Ctx<'js>, parts: Opt<Value<'js>>, options: Opt<Value<'js>>) -> Result<Self> {
-        let mut endings = EndingType::Transparent;
-        let mut mime_type = String::new();
-
-        if let Some(opts) = options.0 {
-            if let Some(v) = opts.as_object() {
-                if let Some(x) = v.get::<_, Option<Coerced<String>>>("type")? {
-                    mime_type = normalize_type(x.to_string());
-                }
-                if let Some(Coerced(endings_opt)) =
-                    v.get::<_, Option<Coerced<String>>>("endings")?
-                {
-                    if endings_opt == "native" {
-                        endings = EndingType::Native;
-                    } else if endings_opt != "transparent" {
-                        return Err(Exception::throw_type(
-                            &ctx,
-                            r#"expected 'endings' to be either 'transparent' or 'native'"#,
-                        ));
-                    }
-                }
-            }
+    pub fn new(
+        ctx: Ctx<'js>,
+        this: This<Value<'js>>,
+        parts: Opt<Value<'js>>,
+        options: Opt<Value<'js>>,
+    ) -> Result<Self> {
+        if this.as_function().is_none() {
+            return Err(Exception::throw_type(
+                &ctx,
+                "Failed to construct 'Blob': Please use the 'new' operator",
+            ));
         }
 
-        let bytes = if let Some(parts) = parts.0 {
-            bytes_from_parts(&ctx, parts, endings)?
-        } else {
-            Vec::new()
-        };
-        // Transfer Vec ownership to JS — QuickJS calls the drop callback when
-        // the ArrayBuffer is GC'd, so no extra Rust-side copy.
-        let data = ArrayBuffer::new(ctx, bytes)?;
-
-        Ok(Self { data, mime_type })
+        Self::from_parts(ctx, parts, options)
     }
 
     #[qjs(get)]
@@ -123,27 +129,13 @@ impl<'js> Blob<'js> {
     pub fn slice(
         &self,
         ctx: Ctx<'js>,
-        start: Opt<isize>,
-        end: Opt<isize>,
-        content_type: Opt<String>,
+        start: Opt<Value<'js>>,
+        end: Opt<Value<'js>>,
+        content_type: Opt<Value<'js>>,
     ) -> Result<Blob<'js>> {
-        let bytes = self.as_bytes();
-        let len = bytes.len();
-        let start = start.0.unwrap_or_default();
-        let start = if start < 0 {
-            (len as isize + start).max(0) as usize
-        } else {
-            len.min(start as usize)
-        };
-        let end = end.0.unwrap_or_default();
-        let end = if end < 0 {
-            (len as isize + end).max(0) as usize
-        } else {
-            len.min(end as usize)
-        };
-        let data = shared_array_buffer_view(&ctx, &self.data, start, end.saturating_sub(start))?;
-        let mime_type = content_type.0.map(normalize_type).unwrap_or_default();
-        Ok(Blob { mime_type, data })
+        let start = start.0.and_then(|v| v.as_number()).map(clamp_long_long);
+        let end = end.0.and_then(|v| v.as_number()).map(clamp_long_long);
+        Self::slice_blob(self, &ctx, start, end, content_type.0)
     }
 
     pub fn stream(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
@@ -191,6 +183,34 @@ impl<'js> Blob<'js> {
         }
         false
     }
+
+    #[qjs(skip)]
+    pub fn slice_blob(
+        &self,
+        ctx: &Ctx<'js>,
+        start: Option<isize>,
+        end: Option<isize>,
+        content_type: Option<Value<'js>>,
+    ) -> Result<Blob<'js>> {
+        let bytes = self.as_bytes();
+        let len = bytes.len();
+        let start = start.unwrap_or_default();
+        let start = if start < 0 {
+            (len as isize + start).max(0) as usize
+        } else {
+            len.min(start as usize)
+        };
+        let end = end.unwrap_or(len as isize);
+        let end = if end < 0 {
+            (len as isize + end).max(0) as usize
+        } else {
+            len.min(end as usize)
+        };
+        let data = shared_array_buffer_view(ctx, &self.data, start, end.saturating_sub(start))?;
+        let mime_type = get_coerced_defined_string(&content_type);
+        let mime_type = mime_type.map(normalize_type).unwrap_or_default();
+        Ok(Blob { mime_type, data })
+    }
 }
 
 impl<'js> Blob<'js> {
@@ -198,6 +218,40 @@ impl<'js> Blob<'js> {
         let mime_type = content_type.map(normalize_type).unwrap_or_default();
         let data = ArrayBuffer::new(ctx.clone(), data)?;
         Ok(Self { mime_type, data })
+    }
+
+    pub fn from_parts(
+        ctx: Ctx<'js>,
+        parts: Opt<Value<'js>>,
+        options: Opt<Value<'js>>,
+    ) -> Result<Self> {
+        let mut endings = EndingType::Transparent;
+        let mut mime_type = String::new();
+
+        if let Some(options) = options.0 {
+            if let Some(opts) = options.as_object() {
+                if let Some(x) = opts.get::<_, Option<Coerced<String>>>("type")? {
+                    mime_type = normalize_type(x.to_string());
+                }
+
+                if opts.contains_key("endings")? {
+                    if let Some(parsed) = parse_endings(&ctx, opts.get("endings")?)? {
+                        endings = parsed;
+                    }
+                }
+            }
+        }
+
+        let bytes = if let Some(parts) = parts.0 {
+            bytes_from_parts(&ctx, parts, endings)?
+        } else {
+            Vec::new()
+        };
+        // Transfer Vec ownership to JS — QuickJS calls the drop callback when
+        // the ArrayBuffer is GC'd, so no extra Rust-side copy.
+        let data = ArrayBuffer::new(ctx, bytes)?;
+
+        Ok(Self { data, mime_type })
     }
 
     pub fn get_bytes(&self) -> Vec<u8> {
@@ -224,22 +278,23 @@ fn bytes_from_parts<'js>(
     parts: Value<'js>,
     endings: EndingType,
 ) -> Result<Vec<u8>> {
-    let array = if let Some(obj) = parts.as_object() {
-        if obj.contains_key(Symbol::iterator(ctx.clone()))? {
-            BasePrimordials::get(ctx)?
-                .function_array_from
-                .call((parts.clone(),))?
-        } else {
-            parts
-                .into_array()
-                .ok_or_else(|| Exception::throw_type(ctx, CONSTRUCT_ERROR))?
-        }
-    } else {
-        return Err(Exception::throw_type(ctx, CONSTRUCT_ERROR));
-    };
+    if parts.is_undefined() {
+        return Ok(Vec::new());
+    }
 
+    if let Some(array) = parts.clone().into_array() {
+        return process_parts(ctx, ArrayPartsIter::new(array), endings);
+    }
+
+    process_parts(ctx, JsIterator::from_js(ctx, parts)?, endings)
+}
+
+fn process_parts<'js, I>(ctx: &Ctx<'js>, iter: I, endings: EndingType) -> Result<Vec<u8>>
+where
+    I: IntoIterator<Item = Result<Value<'js>>>,
+{
     let mut data = Vec::new();
-    for elem in array.iter::<Value>() {
+    for elem in iter {
         let elem = elem?;
         if let Some(arr) = elem.as_array() {
             let string = array_to_string(arr)?;
@@ -254,7 +309,7 @@ fn bytes_from_parts<'js>(
             if let Some(x) = Class::<File>::from_object(object) {
                 let file = x.borrow();
                 let end = Some(file.size().try_into().or_throw(ctx)?);
-                let mime_type = Some(file.mime_type());
+                let mime_type = Some(file.mime_type().into_js(ctx)?);
                 let sub = file.slice(ctx.clone(), Opt(Some(0)), Opt(end), Opt(mime_type))?;
                 data.extend_from_slice(sub.as_bytes());
                 continue;
@@ -319,6 +374,23 @@ fn bytes_from_parts<'js>(
     Ok(data)
 }
 
+fn parse_endings<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Option<EndingType>> {
+    if value.is_undefined() {
+        return Ok(None);
+    }
+    let endings = match Coerced::<String>::from_js(ctx, value)?.0.as_str() {
+        "transparent" => Some(EndingType::Transparent),
+        "native" => Some(EndingType::Native),
+        _ => {
+            return Err(Exception::throw_type(
+                ctx,
+                r#"expected 'endings' to be either 'transparent' or 'native'"#,
+            ));
+        },
+    };
+    Ok(endings)
+}
+
 fn array_to_string(array: &Array) -> Result<String> {
     let mut itoa_buffer = itoa::Buffer::new();
     let mut ryu_buffer = ryu::Buffer::new();
@@ -341,4 +413,12 @@ fn array_to_string(array: &Array) -> Result<String> {
         .collect::<Result<Vec<_>>>()?;
 
     Ok(parts.join(","))
+}
+
+fn clamp_long_long(value: f64) -> isize {
+    if value.is_nan() {
+        return 0;
+    }
+    let rounded = value.round_ties_even();
+    rounded.clamp(isize::MIN as f64, isize::MAX as f64) as isize
 }

@@ -15,3 +15,12 @@ pub fn get_coerced_string(value: &Value<'_>) -> Option<String> {
     };
     None
 }
+
+pub fn get_coerced_defined_string<'js>(value: &Option<Value<'js>>) -> Option<String> {
+    if let Some(value) = value {
+        if !value.is_undefined() {
+            return get_coerced_string(value);
+        }
+    };
+    None
+}
