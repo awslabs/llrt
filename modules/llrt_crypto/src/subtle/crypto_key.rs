@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::rc::Rc;
 
-use llrt_utils::str_enum;
+use llrt_utils::{clone::StructuredClone, str_enum};
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
-    Ctx, Exception, IntoJs, Object, Result, Value,
+    Class, Ctx, Exception, IntoJs, Object, Result, Value,
 };
 
 use super::key_algorithm::KeyAlgorithm;
@@ -67,6 +67,25 @@ impl<'js> Trace<'js> for CryptoKey<'js> {
         if let Some(cached) = &self.usages_cache {
             cached.trace(tracer);
         }
+    }
+}
+
+impl<'js> StructuredClone<'js> for CryptoKey<'js> {
+    fn structured_clone(&self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        Ok(Class::instance(
+            ctx.clone(),
+            CryptoKey {
+                kind: self.kind,
+                extractable: self.extractable,
+                algorithm: self.algorithm.clone(),
+                name: self.name.clone(),
+                usages: self.usages.clone(),
+                handle: self.handle.clone(),
+                algorithm_cache: None,
+                usages_cache: None,
+            },
+        )?
+        .into_value())
     }
 }
 

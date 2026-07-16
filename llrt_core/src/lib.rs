@@ -6,6 +6,7 @@
 
 pub mod builtins_inspect;
 pub mod bytecode;
+mod clone;
 pub mod compiler;
 mod compiler_common;
 pub mod environment;
