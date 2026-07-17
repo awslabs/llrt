@@ -33,7 +33,7 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init --checkout
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: yarn
           node-version: lts/*
