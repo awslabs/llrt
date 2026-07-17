@@ -61,9 +61,9 @@ where
         let iterator_proto = &BasePrimordials::get(ctx)?.prototype_iterator;
         if proto.get_prototype().as_ref() != Some(iterator_proto) {
             proto.set_prototype(Some(iterator_proto))?;
-            let next_fn: Function = proto.get("next")?;
+            let next_fn: Function = proto.get(PredefinedAtom::Next)?;
             proto.prop(
-                "next",
+                PredefinedAtom::Next,
                 Property::from(next_fn)
                     .writable()
                     .enumerable()

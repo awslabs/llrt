@@ -36,7 +36,7 @@ impl<'js> Iterator for ArrayPartsIter<'js> {
     type Item = Result<Value<'js>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let len: usize = match self.array.as_object().get("length") {
+        let len: usize = match self.array.as_object().get(PredefinedAtom::Length) {
             Ok(v) => v,
             Err(e) => return Some(Err(e)),
         };
