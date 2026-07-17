@@ -14,7 +14,6 @@ use crate::libs::{
     logging::print_error_and_exit,
     numbers,
     utils::{
-        clone::structured_clone,
         primordials::{BasePrimordials, Primordial},
         time,
     },
@@ -25,7 +24,7 @@ use crate::modules::{
     module_builder::ModuleBuilder,
     package::{loader::PackageLoader, resolver::PackageResolver},
 };
-use crate::{environment, http, security};
+use crate::{clone::structured_clone, environment, http, security};
 
 pub struct Vm {
     pub runtime: AsyncRuntime,
