@@ -39,7 +39,7 @@ impl<'js> File<'js> {
             }
         }
 
-        let blob = Blob::new(ctx, Opt(Some(data)), options)?;
+        let blob = Blob::from_parts(ctx, Opt(Some(data)), options)?;
 
         Ok(Self {
             blob,
@@ -73,9 +73,9 @@ impl<'js> File<'js> {
         ctx: Ctx<'js>,
         start: Opt<isize>,
         end: Opt<isize>,
-        content_type: Opt<String>,
+        content_type: Opt<Value<'js>>,
     ) -> Result<Blob<'js>> {
-        self.blob.slice(ctx, start, end, content_type)
+        self.blob.slice_blob(&ctx, start.0, end.0, content_type.0)
     }
 
     pub async fn text(&mut self) -> String {
@@ -109,7 +109,7 @@ impl<'js> File<'js> {
             obj.set("type", mime_type.clone().unwrap_or("".into()).into_js(ctx)?)?;
             obj.into_js(ctx)?
         }));
-        let blob = Blob::new(ctx.clone(), Opt(Some(data.into_js(ctx)?)), options)?;
+        let blob = Blob::from_parts(ctx.clone(), Opt(Some(data.into_js(ctx)?)), options)?;
 
         Ok(Self {
             blob,

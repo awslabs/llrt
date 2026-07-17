@@ -10,6 +10,7 @@ use llrt_utils::{
     bytes::get_lossy_string,
     class::{iterator_result, live_iterator, IterKind},
     primordials::{BasePrimordials, Primordial},
+    string::get_coerced_defined_string,
 };
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, Array, Class, Coerced, Ctx,
@@ -100,12 +101,12 @@ impl<'js> URLSearchParams {
         self.sync_query();
     }
 
-    pub fn delete(&mut self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) {
+    pub fn delete(&mut self, key: Coerced<String>, value: Opt<Value<'js>>) {
         convert_trailing_space(&mut self.url.borrow_mut());
 
         let key = key.0;
 
-        let value = get_coerced_string_value(&ctx, value);
+        let value = get_coerced_defined_string(&value.0);
 
         let new_pairs: Vec<_> = self
             .url
@@ -184,8 +185,8 @@ impl<'js> URLSearchParams {
             .collect()
     }
 
-    pub fn has(&self, ctx: Ctx<'js>, key: Coerced<String>, value: Opt<Value<'js>>) -> bool {
-        let value = get_coerced_string_value(&ctx, value);
+    pub fn has(&self, key: Coerced<String>, value: Opt<Value<'js>>) -> bool {
+        let value = get_coerced_defined_string(&value.0);
         let key = key.0;
         self.url.borrow().query_pairs().any(|(k, v)| {
             if let Some(value) = value.as_ref() {
@@ -491,17 +492,6 @@ impl<'js> URLSearchParamsIter<'js> {
     fn iter(this: This<Class<'js, Self>>) -> Class<'js, Self> {
         this.0
     }
-}
-
-fn get_coerced_string_value<'js>(ctx: &Ctx<'js>, value: Opt<Value<'js>>) -> Option<String> {
-    if let Some(value) = value.0 {
-        if !value.is_undefined() {
-            if let Ok(value) = Coerced::<String>::from_js(ctx, value) {
-                return Some(value.0);
-            }
-        }
-    };
-    None
 }
 
 #[cfg(test)]
