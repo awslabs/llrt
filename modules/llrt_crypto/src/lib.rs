@@ -31,6 +31,7 @@ use std::slice;
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string};
+use llrt_exceptions::{DOMException, QuotaExceededError};
 use llrt_utils::{
     bytes::{get_start_end_indexes, ObjectBytes},
     error::ErrorExtensions,
@@ -162,9 +163,15 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
     if let Some(object_bytes) = ObjectBytes::from_array_buffer(&obj)? {
         if matches!(
             object_bytes,
-            ObjectBytes::F64Array(_) | ObjectBytes::F32Array(_)
+            ObjectBytes::F64Array(_)
+                | ObjectBytes::F32Array(_)
+                | ObjectBytes::F16Array(_)
+                | ObjectBytes::DataView(_, _, _)
         ) {
-            return Err(Exception::throw_message(&ctx, "Unsupported TypedArray"));
+            return Err(DOMException::type_mismatch_error(
+                &ctx,
+                "getRandomValues requires an integer TypedArray",
+            ));
         }
 
         let (array_buffer, source_length, source_offset) = object_bytes
@@ -176,9 +183,9 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             .or_throw(&ctx)?;
 
         if source_length > 0x10000 {
-            return Err(Exception::throw_message(
+            return Err(QuotaExceededError::quota_exceeded_error(
                 &ctx,
-                "QuotaExceededError: The requested length exceeds 65,536 bytes",
+                "The requested length exceeds 65,536 bytes",
             ));
         }
 

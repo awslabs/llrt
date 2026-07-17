@@ -1,5 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+mod quota_exceeded_error;
+
+use core::fmt;
+use std::fmt::Debug;
+
 use llrt_utils::{
     option::Undefined,
     primordials::{BasePrimordials, Primordial},
@@ -8,20 +13,33 @@ use rquickjs::{
     atom::PredefinedAtom,
     class::{
         impl_::{CloneTrait, CloneWrapper},
-        JsClass,
+        JsClass, Trace,
     },
-    function::{Constructor, Func, Opt},
+    function::{Constructor, Opt},
     object::Property,
-    prelude::This,
-    Class, Coerced, Ctx, Exception, FromJs, IntoJs, Object, Result, Value,
+    prelude::{Func, This},
+    qjs, Class, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result, Value,
 };
 
-#[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
+pub use crate::quota_exceeded_error::QuotaExceededError;
+use crate::DOMExceptionName::{NotSupportedError, OperationError, TypeMismatchError};
+
+#[derive(Trace, JsLifetime, Debug)]
 pub struct DOMException {
     name: String,
     message: String,
     stack: String,
     code: u8,
+}
+
+impl fmt::Display for DOMException {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DOMException")
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .field("stack", &self.stack())
+            .finish()
+    }
 }
 
 fn add_constants(obj: &Object<'_>) -> Result<()> {
@@ -175,6 +193,43 @@ impl DOMException {
     }
 }
 
+impl<'js> DOMException {
+    fn create(
+        ctx: &Ctx<'js>,
+        name: DOMExceptionName,
+        message: impl Into<String>,
+    ) -> Result<Value<'js>> {
+        let exception = Self::new_with_name(ctx, name, message.into())?;
+        let ctor: Constructor = ctx.globals().get("DOMException")?;
+        ctor.construct((exception.message, exception.name))
+    }
+
+    fn throw_value(ctx: &Ctx<'js>, value: Value<'js>) -> Error {
+        unsafe {
+            let dup = qjs::JS_DupValue(ctx.as_raw().as_ptr(), value.as_raw());
+            qjs::JS_Throw(ctx.as_raw().as_ptr(), dup);
+        }
+        Error::Exception
+    }
+
+    fn create_error(ctx: &Ctx<'js>, name: DOMExceptionName, message: impl Into<String>) -> Error {
+        let value = Self::create(ctx, name, message).expect("failed to create DOMException");
+        Self::throw_value(ctx, value)
+    }
+
+    pub fn not_supported_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
+        Self::create_error(ctx, NotSupportedError, message)
+    }
+
+    pub fn type_mismatch_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
+        Self::create_error(ctx, TypeMismatchError, message)
+    }
+
+    pub fn operation_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
+        Self::create_error(ctx, OperationError, message)
+    }
+}
+
 macro_rules! create_dom_exception {
     ($name:ident, $($variant:ident),+ $(,)?) => {
         #[derive(Debug)]
@@ -294,6 +349,17 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let primordials = BasePrimordials::get(ctx)?;
     dom_ex_proto.set_prototype(Some(&primordials.prototype_error))?;
 
+    if let Some(constructor) = Class::<QuotaExceededError>::create_constructor(ctx)? {
+        // the wpt tests expect this particular property descriptor
+        globals.prop(
+            QuotaExceededError::NAME,
+            Property::from(constructor).writable().configurable(),
+        )?;
+    }
+
+    let qee_ex_proto = Class::<QuotaExceededError>::prototype(ctx)?.unwrap();
+    qee_ex_proto.set_prototype(Some(&primordials.prototype_error))?;
+
     // `Error.isError(v)` only returns `true` for objects with QuickJS's
     // `[[ErrorData]]` internal slot (class id `JS_CLASS_ERROR`). There is
     // no public rquickjs API to tag a class-derived instance with that
@@ -314,5 +380,9 @@ fn is_error<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
         return Ok(false);
     };
     let dom_exception: Value = ctx.globals().get(DOMException::NAME)?;
-    Ok(obj.is_instance_of(&dom_exception))
+    if obj.is_instance_of(&dom_exception) {
+        return Ok(true);
+    }
+    let quota_exceeded_error: Value = ctx.globals().get(QuotaExceededError::NAME)?;
+    Ok(obj.is_instance_of(&quota_exceeded_error))
 }
