@@ -31,7 +31,7 @@ use std::slice;
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string};
-use llrt_exceptions::{DOMException, QuotaExceededError};
+use llrt_exceptions::DOMException;
 use llrt_utils::{
     bytes::{get_start_end_indexes, ObjectBytes},
     error::ErrorExtensions,
@@ -183,7 +183,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             .or_throw(&ctx)?;
 
         if source_length > 0x10000 {
-            return Err(QuotaExceededError::quota_exceeded_error(
+            return Err(DOMException::quota_exceeded_error(
                 &ctx,
                 "The requested length exceeds 65,536 bytes",
             ));

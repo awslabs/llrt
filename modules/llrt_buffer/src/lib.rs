@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{
     module::{export_default, ModuleInfo},
+    object::define_subclass,
     primordials::{BasePrimordials, Primordial},
 };
 use rquickjs::{
-    function::Constructor,
+    function::{Args, Constructor, Rest},
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Function, IntoJs, Object, Result,
+    Class, Ctx, Function, IntoJs, Object, Result, Value,
 };
 
 pub use self::array_buffer_view::*;
@@ -68,13 +69,21 @@ pub fn init<'js>(ctx: &Ctx<'js>) -> Result<()> {
     let globals = ctx.globals();
     BasePrimordials::init(ctx)?;
 
-    // Buffer
-    let buffer = ctx.eval::<Object<'js>, &str>(concat!(
-        "class ",
+    // Buffer extends the native Uint8Array: it forwards construction to the
+    // Uint8Array constructor and inherits its static and prototype members.
+    let uint8array = BasePrimordials::get(ctx)?.constructor_uint8array.clone();
+    let buffer_ctor = define_subclass(
+        ctx,
         stringify!(Buffer),
-        " extends Uint8Array {}\n",
-        stringify!(Buffer),
-    ))?;
+        &uint8array,
+        |ctx: Ctx<'js>, args: Rest<Value<'js>>| {
+            let uint8array = &BasePrimordials::get(&ctx)?.constructor_uint8array;
+            let mut ctor_args = Args::new(ctx.clone(), args.0.len());
+            ctor_args.push_args(args.0)?;
+            ctor_args.construct::<Value>(uint8array)
+        },
+    )?;
+    let buffer: Object = buffer_ctor.into_value().into_object().unwrap();
     set_prototype(ctx, buffer)?;
 
     BufferPrimordials::init(ctx)?;
