@@ -14,8 +14,9 @@ fs = ["tokio/fs"]
 bytearray-buffer = ["tokio/sync"]
 
 [dependencies]
+half = { version = "2", default-features= false }
 memchr = { version = "2", default-features = false, features = ["std"] }
-rquickjs = { version = "0.12", features = ["macro"], default-features = false }
+rquickjs = { version = "0.12", features = ["half", "macro"], default-features = false }
 simdutf8 = { version = "0.1", default-features = false, features = ["std", "aarch64_neon"] }
 tokio = { version = "1", features = ["sync"], default-features = false }
 tracing = { version = "0.1", default-features = false }

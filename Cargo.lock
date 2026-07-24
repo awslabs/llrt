@@ -1868,6 +1868,7 @@ dependencies = [
  "llrt_buffer",
  "llrt_context",
  "llrt_encoding",
+ "llrt_exceptions",
  "llrt_json",
  "llrt_test",
  "llrt_utils",
@@ -2343,6 +2344,7 @@ dependencies = [
 name = "llrt_utils"
 version = "0.8.1-beta"
 dependencies = [
+ "half",
  "libc",
  "llrt_build",
  "llrt_test",
@@ -3032,6 +3034,7 @@ checksum = "d9334dd11023d5ae6c751f64496510a576208802ed1d022ef94afa7639c2c55e"
 dependencies = [
  "async-lock",
  "either",
+ "half",
  "hashbrown 0.17.0",
  "relative-path",
  "rquickjs-sys",

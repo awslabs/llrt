@@ -222,9 +222,7 @@ describe("random", () => {
     } catch (ex: any) {
       errorMessage = ex.message;
     }
-    expect(errorMessage).toEqual(
-      "QuotaExceededError: The requested length exceeds 65,536 bytes"
-    );
+    expect(errorMessage).toEqual("The requested length exceeds 65,536 bytes");
   });
 });
 

@@ -62,6 +62,7 @@ export function createContext({ extras = {}, scripts = [] } = {}) {
     createBuffer: (type, length) => new self[type](length),
     setTimeout,
     DOMException,
+    QuotaExceededError,
     location: {},
     ...extras,
   };

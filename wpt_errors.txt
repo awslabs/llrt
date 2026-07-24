@@ -1,5 +1,4 @@
 FileAPI/blob > should pass Blob-constructor.any.js tests
-WebCryptoAPI > should pass getRandomValues.any.js tests
 WebCryptoAPI > should pass historical.any.js tests
 fetch/api/basic > should pass conditional-get.any.js tests
 fetch/api/basic > should pass header-value-combining.any.js tests

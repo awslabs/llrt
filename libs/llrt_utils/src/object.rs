@@ -3,8 +3,12 @@
 use std::collections::BTreeMap;
 
 use rquickjs::{
-    atom::PredefinedAtom, function::IntoJsFunc, prelude::Func, Array, Coerced, Ctx, Error,
-    Exception, FromJs, IntoAtom, IntoJs, Object, Result, Undefined, Value,
+    atom::PredefinedAtom,
+    function::{Constructor, IntoJsFunc},
+    object::Property,
+    prelude::Func,
+    Array, Coerced, Ctx, Error, Exception, FromJs, IntoAtom, IntoJs, Object, Result, Undefined,
+    Value,
 };
 
 use crate::primordials::{BasePrimordials, Primordial};
@@ -144,4 +148,23 @@ pub fn object_from_entries<'js>(ctx: &Ctx<'js>, array: Array<'js>) -> Result<Obj
         }
     }
     Ok(obj)
+}
+
+/// Build a constructor that behaves like `class Name extends Parent`
+pub fn define_subclass<'js, F, P>(
+    ctx: &Ctx<'js>,
+    name: &str,
+    parent: &Constructor<'js>,
+    construct: F,
+) -> Result<Constructor<'js>>
+where
+    F: IntoJsFunc<'js, P> + 'js,
+{
+    let parent_proto: Object = parent.get(PredefinedAtom::Prototype)?;
+    let proto = Object::new(ctx.clone())?;
+    proto.set_prototype(Some(&parent_proto))?;
+    let constructor = Constructor::new_prototype(ctx, proto, construct)?;
+    constructor.set_prototype(parent.as_object())?;
+    constructor.prop(PredefinedAtom::Name, Property::from(name).configurable())?;
+    Ok(constructor)
 }
