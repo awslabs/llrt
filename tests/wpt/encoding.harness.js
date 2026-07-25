@@ -1,4 +1,4 @@
-import { makeRunner } from "./_harness-util.js";
+import { makeRunner } from "./_harness-wpt.js";
 
 // Encodings llrt actually supports. The raw WPT encodings.js lists every
 // encoding in the spec; we filter to the supported subset so tests don't

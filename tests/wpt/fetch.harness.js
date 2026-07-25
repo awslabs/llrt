@@ -1,4 +1,4 @@
-import { makeRunner, loadMetaScripts } from "./_harness-util.js";
+import { makeRunner, loadMetaScripts } from "./_harness-wpt.js";
 
 const LOCATION = {
   href: "http://web-platform.test:8000/fetch/api/resources/",

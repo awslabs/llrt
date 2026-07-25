@@ -12,6 +12,14 @@ streams/piping > should pass throwing-options.any.js tests
 streams/transferable > should pass transform-stream-members.any.js tests
 streams/transform-streams > should pass strategies.any.js tests
 streams/transform-streams > should pass terminate.any.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime > should pass canonicalize-calendar.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime > should pass construct-non-utc-non-iso.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime > should pass links.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass argument-propertybag-timezone-string-datetime.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass disregards-calendar-if-exact-times-equal.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass exhaustive.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass infinity-throws-rangeerror.js tests
+third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass sub-minute-offset.js tests
 url > should pass IdnaTestV2.any.js tests
 url > should pass url-constructor.any.js tests
 url > should pass url-setters.any.js tests

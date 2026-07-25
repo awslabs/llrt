@@ -79,12 +79,13 @@ export function createContext({ extras = {}, scripts = [] } = {}) {
   return context;
 }
 
-function attachCompletion(context, done, ctx = {}) {
+function attachCompletion(context, done, ctx = {}, { allowNoTests = false } = {}) {
   context.add_completion_callback((tests) => {
     const real = tests.filter(
       ({ name, status }) => !(name === "Loading data..." && status === 0)
     );
-    if (real.length === 0) return done(new Error("No tests were executed!"));
+    if (!allowNoTests && real.length === 0)
+      return done(new Error("No tests were executed!"));
     const failure = real.find((t) => {
       if (t.status === 0) return false;
       if (ctx.skipErrors && ctx.skipErrors.length > 0) {
@@ -112,7 +113,7 @@ export function loadMetaScripts(source, testDir) {
       try {
         out += fs.readFileSync(path.resolve(base, trimmed), "utf8") + "\n";
         break;
-      } catch {}
+      } catch { }
     }
   }
   return out;
@@ -122,11 +123,11 @@ export function loadMetaScripts(source, testDir) {
 // config. `config.context(ctx)` returns the per-test context options,
 // `config.postSetup(context, ctx)` runs after creation, `config.wrap(source,
 // ctx)` can transform source and return `[source, extraScripts]`.
-export function makeRunner(config) {
+export function makeRunner(config, options = {}) {
   return (source, done, ctx = {}) => {
     const context = createContext(config.context ? config.context(ctx) : {});
     config.postSetup?.(context, ctx);
-    attachCompletion(context, done, ctx);
+    attachCompletion(context, done, ctx, options);
     const [src, extras = ""] = config.wrap
       ? config.wrap(source, ctx)
       : [source, loadMetaScripts(source, ctx.testDir)];
@@ -138,13 +139,15 @@ export function makeRunner(config) {
 // Drives a `describe(subDir) { it(file) { run(file) } }` block by walking
 // `wpt/<subDir>/` for `.any.js` files. `metaUrl` is the test module's
 // `import.meta.url` (so we can derive `subDir` from its filename).
-export function runSuite(metaUrl, harness, skipFiles = []) {
-  const basename = path.basename(fileURLToPath(metaUrl));
-  const subDir = basename
-    .replace(/\.test\.[jt]s$/, "")
-    .split(".")
-    .join(path.sep);
-  const targetDir = path.join(WPT_DIR, subDir);
+export function runSuite(
+  metaUrl,
+  harness,
+  skipFiles = [],
+  { filePattern, subDir } = {}
+) {
+  const finalSubDir = subDir ?? deriveDefaultSubDir(metaUrl);
+  const finalPattern = filePattern ?? /\.any\.js$/;
+  const targetDir = path.join(WPT_DIR, finalSubDir);
 
   const matchesFile = (file, pattern) => {
     if (typeof pattern === "string") return pattern === file;
@@ -157,9 +160,9 @@ export function runSuite(metaUrl, harness, skipFiles = []) {
     skipFiles.some((s) => !Array.isArray(s) && matchesFile(f, s));
   const testFiles = fs
     .readdirSync(targetDir)
-    .filter((f) => f.endsWith(".any.js") && !skip(f));
+    .filter((f) => finalPattern.test(f) && !skip(f));
 
-  describe(subDir, () => {
+  describe(finalSubDir, () => {
     for (const file of testFiles) {
       it(`should pass ${file} tests`, (done) => {
         const source = fs.readFileSync(path.join(targetDir, file), "utf8");
@@ -177,4 +180,12 @@ export function runSuite(metaUrl, harness, skipFiles = []) {
       });
     }
   });
+}
+
+function deriveDefaultSubDir(metaUrl) {
+  const basename = path.basename(fileURLToPath(metaUrl));
+  return basename
+    .replace(/\.test\.[jt]s$/, "")
+    .split(".")
+    .join(path.sep);
 }

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { makeRunner } from "./_harness-util.js";
+import { makeRunner } from "./_harness-wpt.js";
 
 const WPT_URL_RESOURCES = path.join(process.cwd(), "wpt", "url", "resources");
 

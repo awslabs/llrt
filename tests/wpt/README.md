@@ -6,29 +6,36 @@ WebCrypto, …) against the upstream conformance suite.
 
 ## Layout
 
-- `wpt/` (repo root) — sparse-checkout of upstream WPT. All test files, support
-  scripts (`resources/testharness.js`, `common/gc.js`, …), and test data
-  (`url/resources/urltestdata.json`, …) are consumed from here. **Do not copy
-  these files into `tests/wpt/`** — they must stay in sync with upstream via
-  `make update-wpt`.
-- `tests/wpt/*.test.ts` — per-category entry points. Each is a one-liner that
-  calls `runSuite(import.meta.url, harness, skipFiles)` which walks
-  `wpt/<category>/` for `.any.js` files and drives each through the harness.
-- `tests/wpt/*.harness.js` — per-category harness built with `makeRunner({…})`.
-  Declares which WPT support scripts to load, plus any extras (a `fetch` shim,
-  a `location`, etc.) the tests in that category need.
-- `tests/wpt/_harness-util.js` — the shared machinery:
-  - `loadWptScript(rel, ctx)` — read + compile + run a WPT script into a `ctx`
-    (scripts are cached so each is compiled once per process).
+- `wpt/` — sparse-checkout of upstream WPT. Test files, support scripts, and data
+  are consumed from here. **Do not copy `wpt/` files into `tests/wpt/`**;
+  keep them in sync with upstream via `make update-wpt`.
+- `tests/wpt/*.test.ts` — per-category entry points.
+  Each is a thin one-liner that calls `runSuite(import.meta.url, harness,
+skipFiles)` and drives the matching `wpt/...` suite through the harness.
+- `tests/wpt/*.harness.js` — per-category harness definitions built with
+  `makeRunner({ ... })`.
+  These declare which WPT support scripts to load and any category-specific
+  environment extras (`fetch`, `location`, etc.).
+- `tests/wpt/_harness-wpt.js` — WPT-specific wrapper around the shared harness.
+  It derives the `wpt/<category>/` path from the wrapper filename and exports
+  `loadMetaScripts()` for harnesses that need META script support.
+- `tests/wpt/third_party/test262/_harness-test262.js` — test262-specific wrapper.
+  It maps wrapper files under `tests/wpt/third_party/test262/...` into
+  `wpt/third_party/test262/test/...` and runs `.js` sources rather than
+  `.any.js`.
+- `tests/wpt/_harness-util.js` — shared harness machinery imported by the
+  wrappers, not directly by `.test.ts` entry points.
+  It provides:
+  - `loadWptScript(rel, ctx)` — read and compile a WPT support script into a
+    context, cached per process.
   - `wrapTestSuite(src)` — compile a WPT test body with `with (context)` so
-    bare `assert_true`/`promise_test`/… resolve; honours `'use strict'`.
-  - `createContext({extras, scripts})` — fresh context preloaded with
-    `resources/idlharness.js`, `resources/testharness.js`, `common/gc.js`,
-    `common/subset-tests.js`, plus the category's extra scripts.
-  - `makeRunner({context, postSetup, wrap})` — build a harness's
-    `runTestDynamic(source, done, ctx)`.
-  - `runSuite(metaUrl, harness, skipFiles?)` — `describe/it` driver. `skipFiles`
-    accepts strings or `RegExp`s.
+    bare testharness APIs resolve; honours `'use strict'`.
+  - `createContext({extras, scripts})` — build a fresh context with standard
+    WPT helpers plus category-specific extras.
+  - `makeRunner({context, postSetup, wrap})` — produce `runTestDynamic(source,
+done, ctx)`.
+  - `runSuite(metaUrl, harness, skipFiles?)` — `describe`/`it` driver for a
+    WPT directory.
 
 ## Running WPTs
 
@@ -139,6 +146,10 @@ runSuite(import.meta.url, runTestDynamic, [
 The filename determines the directory walked under `wpt/`: dots become path
 separators. `performance-timeline.test.ts` → `wpt/performance-timeline/`,
 `fetch.api.basic.test.ts` → `wpt/fetch/api/basic/`.
+
+For `third_party/test262`, wrappers under `tests/wpt/third_party/test262/...` are
+mapped into `wpt/third_party/test262/test/...` by the `tests/wpt/third_party/
+test262/_harness-test262.js` helper.
 
 ### 4. Run the new suite
 
