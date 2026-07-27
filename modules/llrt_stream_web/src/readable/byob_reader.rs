@@ -484,7 +484,7 @@ impl<'js> ViewBytes<'js> {
             ObjectBytes::F16Array(_) => 2,
             ObjectBytes::F32Array(_) => 4,
             ObjectBytes::F64Array(_) => 8,
-            ObjectBytes::U8ClampedArray(_, _, _) => 1,
+            ObjectBytes::U8ClampedArray(_) => 1,
             ObjectBytes::DataView(_, _, _) => 1,
             ObjectBytes::Vec(_) => {
                 panic!("invariant broken; ViewBytes may not contain ObjectBytes::Vec")
@@ -566,7 +566,7 @@ impl<'js> ArrayConstructorPrimordials<'js> {
             ObjectBytes::F16Array(_) => self.constructor_f16array.clone(),
             ObjectBytes::F32Array(_) => self.constructor_f32array.clone(),
             ObjectBytes::F64Array(_) => self.constructor_f64array.clone(),
-            ObjectBytes::U8ClampedArray(_, _, _) => self.constructor_uint8clampedarray.clone(),
+            ObjectBytes::U8ClampedArray(_) => self.constructor_uint8clampedarray.clone(),
             ObjectBytes::DataView(_, _, _) => self.constructor_data_view.clone(),
             ObjectBytes::Vec(_) => {
                 panic!("invariant broken; ViewBytes may not contain ObjectBytes::Vec")
