@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{rc::Rc, slice};
 
+use half::f16;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Constructor,
     ArrayBuffer, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
-    TypedArray, Value,
+    TypedArray, U8Clamped, Value,
 };
 
 /// Convert a JS string to a `String`, replacing lone UTF-16 surrogates
@@ -228,8 +229,10 @@ pub enum ObjectBytes<'js> {
     I32Array(TypedArray<'js, i32>),
     U64Array(TypedArray<'js, u64>),
     I64Array(TypedArray<'js, i64>),
+    F16Array(TypedArray<'js, f16>),
     F32Array(TypedArray<'js, f32>),
     F64Array(TypedArray<'js, f64>),
+    U8ClampedArray(TypedArray<'js, U8Clamped>),
     DataView(ArrayBuffer<'js>, usize, usize), // buffer, offset, length
     Vec(Vec<u8>),
 }
@@ -250,9 +253,11 @@ impl<'js> Trace<'js> for ObjectBytes<'js> {
             ObjectBytes::I32Array(a) => a.trace(tracer),
             ObjectBytes::U64Array(a) => a.trace(tracer),
             ObjectBytes::I64Array(a) => a.trace(tracer),
+            ObjectBytes::F16Array(a) => a.trace(tracer),
             ObjectBytes::F32Array(a) => a.trace(tracer),
             ObjectBytes::F64Array(a) => a.trace(tracer),
-            ObjectBytes::DataView(d, _, _) => d.trace(tracer),
+            ObjectBytes::U8ClampedArray(a) => a.trace(tracer),
+            ObjectBytes::DataView(ab, _, _) => ab.trace(tracer),
             ObjectBytes::Vec(v) => v.trace(tracer),
         }
     }
@@ -269,11 +274,13 @@ impl<'js> IntoJs<'js> for ObjectBytes<'js> {
             ObjectBytes::I32Array(a) => a.into_js(ctx),
             ObjectBytes::U64Array(a) => a.into_js(ctx),
             ObjectBytes::I64Array(a) => a.into_js(ctx),
+            ObjectBytes::F16Array(a) => a.into_js(ctx),
             ObjectBytes::F32Array(a) => a.into_js(ctx),
             ObjectBytes::F64Array(a) => a.into_js(ctx),
-            ObjectBytes::DataView(d, _, _) => {
+            ObjectBytes::U8ClampedArray(a) => a.into_js(ctx),
+            ObjectBytes::DataView(ab, _, _) => {
                 let ctor: Constructor = ctx.globals().get(PredefinedAtom::DataView)?;
-                ctor.construct((d,))
+                ctor.construct((ab,))
             },
             ObjectBytes::Vec(v) => v.into_js(ctx),
         }
@@ -359,11 +366,13 @@ impl<'js> ObjectBytes<'js> {
             ObjectBytes::I32Array(array) => array.as_bytes(),
             ObjectBytes::U64Array(array) => array.as_bytes(),
             ObjectBytes::I64Array(array) => array.as_bytes(),
+            ObjectBytes::F16Array(array) => array.as_bytes(),
             ObjectBytes::F32Array(array) => array.as_bytes(),
             ObjectBytes::F64Array(array) => array.as_bytes(),
-            ObjectBytes::DataView(array_buffer, offset, length) => array_buffer
-                .as_bytes()
-                .map(|b| &b[*offset..*offset + *length]),
+            ObjectBytes::U8ClampedArray(array) => array.as_bytes(),
+            ObjectBytes::DataView(ab, offset, length) => {
+                ab.as_bytes().map(|b| &b[*offset..*offset + *length])
+            },
             ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
         }
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.into())
@@ -419,6 +428,10 @@ impl<'js> ObjectBytes<'js> {
             return Ok(Some(ObjectBytes::I64Array(typed_array)));
         }
 
+        if let Ok(typed_array) = TypedArray::<f16>::from_object(obj.clone()) {
+            return Ok(Some(ObjectBytes::F16Array(typed_array)));
+        }
+
         if let Ok(typed_array) = TypedArray::<f32>::from_object(obj.clone()) {
             return Ok(Some(ObjectBytes::F32Array(typed_array)));
         }
@@ -427,14 +440,14 @@ impl<'js> ObjectBytes<'js> {
             return Ok(Some(ObjectBytes::F64Array(typed_array)));
         }
 
-        if let Ok(array_buffer) = obj.get::<_, ArrayBuffer>("buffer") {
-            let byte_offset: usize = obj.get("byteOffset").unwrap_or(0);
-            let byte_length: usize = obj.get("byteLength").unwrap_or_else(|_| array_buffer.len());
-            return Ok(Some(ObjectBytes::DataView(
-                array_buffer,
-                byte_offset,
-                byte_length,
-            )));
+        if let Ok(typed_array) = TypedArray::<U8Clamped>::from_object(obj.clone()) {
+            return Ok(Some(ObjectBytes::U8ClampedArray(typed_array)));
+        }
+
+        if let Ok(ab) = obj.get::<_, ArrayBuffer>("buffer") {
+            let offset: usize = obj.get("byteOffset").unwrap_or(0);
+            let length: usize = obj.get("byteLength").unwrap_or_else(|_| ab.len());
+            return Ok(Some(ObjectBytes::DataView(ab, offset, length)));
         }
 
         Ok(None)
@@ -442,9 +455,6 @@ impl<'js> ObjectBytes<'js> {
 
     pub fn get_array_buffer(&self) -> Result<Option<(ArrayBuffer<'js>, usize, usize)>> {
         let buffer = match self {
-            ObjectBytes::DataView(array_buffer, offset, length) => {
-                (array_buffer.clone(), *length, *offset)
-            },
             ObjectBytes::U8Array(typed_array) => {
                 let byte_length = typed_array.len();
                 (
@@ -509,6 +519,14 @@ impl<'js> ObjectBytes<'js> {
                     typed_array.get("byteOffset")?,
                 )
             },
+            ObjectBytes::F16Array(typed_array) => {
+                let byte_length = typed_array.len() * 2;
+                (
+                    typed_array.arraybuffer()?,
+                    byte_length,
+                    typed_array.get("byteOffset")?,
+                )
+            },
             ObjectBytes::F32Array(typed_array) => {
                 let byte_length = typed_array.len() * 4;
                 (
@@ -524,6 +542,17 @@ impl<'js> ObjectBytes<'js> {
                     byte_length,
                     typed_array.get("byteOffset")?,
                 )
+            },
+            ObjectBytes::U8ClampedArray(typed_array) => {
+                let byte_length = typed_array.len();
+                (
+                    typed_array.arraybuffer()?,
+                    byte_length,
+                    typed_array.get("byteOffset")?,
+                )
+            },
+            ObjectBytes::DataView(array_buffer, offset, length) => {
+                (array_buffer.clone(), *length, *offset)
             },
             _ => return Ok(None),
         };
