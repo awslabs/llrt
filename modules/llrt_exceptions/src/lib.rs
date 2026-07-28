@@ -22,6 +22,22 @@ use rquickjs::{
 
 use crate::DOMExceptionName::{NotSupportedError, OperationError, TypeMismatchError};
 
+#[derive(JsLifetime)]
+struct ExceptionPrimordials<'js> {
+    constructor_dom_exception: Constructor<'js>,
+    constructor_quota_exceeded_error: Constructor<'js>,
+}
+
+impl<'js> Primordial<'js> for ExceptionPrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self> {
+        let globals = ctx.globals();
+        Ok(Self {
+            constructor_dom_exception: globals.get(DOMException::NAME)?,
+            constructor_quota_exceeded_error: globals.get("QuotaExceededError")?,
+        })
+    }
+}
+
 #[derive(Trace, JsLifetime, Debug)]
 pub struct DOMException {
     name: String,
@@ -197,9 +213,12 @@ impl<'js> DOMException {
         name: DOMExceptionName,
         message: impl Into<String>,
     ) -> Result<Value<'js>> {
-        let exception = Self::new_with_name(ctx, name, message.into())?;
-        let ctor: Constructor = ctx.globals().get("DOMException")?;
-        ctor.construct((exception.message, exception.name))
+        let primordials = ExceptionPrimordials::get(ctx)?;
+        let ctor = match name {
+            DOMExceptionName::QuotaExceededError => &primordials.constructor_quota_exceeded_error,
+            _ => &primordials.constructor_dom_exception,
+        };
+        ctor.construct((message.into(), name.as_str()))
     }
 
     fn throw_value(ctx: &Ctx<'js>, value: Value<'js>) -> Error {
@@ -228,18 +247,11 @@ impl<'js> DOMException {
     }
 
     pub fn quota_exceeded_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
-        let value = Self::create_quota_exceeded(ctx, message.into())
-            .expect("failed to create QuotaExceededError");
-        Self::throw_value(ctx, value)
-    }
-
-    fn create_quota_exceeded(ctx: &Ctx<'js>, message: String) -> Result<Value<'js>> {
-        let ctor: Constructor = ctx.globals().get("QuotaExceededError")?;
-        ctor.construct((message,))
+        Self::create_error(ctx, DOMExceptionName::QuotaExceededError, message)
     }
 
     fn define_quota_exceeded_error(ctx: &Ctx<'js>) -> Result<()> {
-        let dom_exception: Constructor = ctx.globals().get(DOMException::NAME)?;
+        let dom_exception: Constructor = ctx.globals().get(Self::NAME)?;
         let quota_exceeded_error = define_subclass(
             ctx,
             "QuotaExceededError",
@@ -249,7 +261,7 @@ impl<'js> DOMException {
                     Some(Undefined(Some(m))) => m.0,
                     _ => String::new(),
                 };
-                DOMException::new_with_name(&ctx, DOMExceptionName::QuotaExceededError, message)
+                Self::new_with_name(&ctx, DOMExceptionName::QuotaExceededError, message)
             },
         )?;
         let null = Value::new_null(ctx.clone());
@@ -384,10 +396,10 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     }
 
     let dom_ex_proto = Class::<DOMException>::prototype(ctx)?.unwrap();
-    let primordials = BasePrimordials::get(ctx)?;
-    dom_ex_proto.set_prototype(Some(&primordials.prototype_error))?;
+    dom_ex_proto.set_prototype(Some(&BasePrimordials::get(ctx)?.prototype_error))?;
 
     DOMException::define_quota_exceeded_error(ctx)?;
+    ExceptionPrimordials::init(ctx)?;
 
     // `Error.isError(v)` only returns `true` for objects with QuickJS's
     // `[[ErrorData]]` internal slot (class id `JS_CLASS_ERROR`). There is
@@ -395,7 +407,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     // slot, so we replace `Error.isError` with a version that also
     // recognizes `DOMException` instances (and its subclasses) via
     // `instanceof`.
-    primordials
+    BasePrimordials::get(ctx)?
         .constructor_error
         .set("isError", Func::from(is_error))?;
 
