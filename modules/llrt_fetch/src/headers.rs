@@ -611,8 +611,6 @@ fn is_forbidden_request_header(name: &str) -> bool {
         || name == ACCESS_CONTROL_REQUEST_METHOD
         || name == CONNECTION
         || name == CONTENT_LENGTH
-        || name == COOKIE
-        || name == "cookie2"
         || name == DATE
         || name == "dnt"
         || name == EXPECT
