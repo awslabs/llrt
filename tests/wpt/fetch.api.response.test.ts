@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-wpt.js";
-import { runTestDynamic } from "./fetch.harness.js";
+import { runSuite, runTestDynamic } from "./fetch.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "response-blob-realm.any.js", // requires Window

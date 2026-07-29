@@ -1,6 +1,9 @@
-import { makeRunner } from "../_harness-test262.js";
+import {
+  makeRunnerTest262 as makeRunner,
+  runSuiteTest262 as runSuite,
+} from "../../_harness-util.js";
 
-export const runTestDynamic = makeRunner({
+const runTestDynamic = makeRunner({
   context: () => ({
     scripts: [
       "third_party/test262/harness/assert.js",
@@ -15,3 +18,5 @@ export const runTestDynamic = makeRunner({
     context.Test262Error.prototype.name = "Test262Error";
   },
 });
+
+export { runSuite, runTestDynamic };

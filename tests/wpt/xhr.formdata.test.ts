@@ -1,4 +1,3 @@
-import { runSuite } from "./_harness-wpt.js";
-import { runTestDynamic } from "./xhr-harness.js";
+import { runSuite, runTestDynamic } from "./xhr-harness.js";
 
 runSuite(import.meta.url, runTestDynamic);

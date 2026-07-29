@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-wpt.js";
-import { runTestDynamic } from "./fetch.harness.js";
+import { runSuite, runTestDynamic } from "./fetch.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "request-forbidden-headers.any.js", // ReferenceError: promise_test is not defined

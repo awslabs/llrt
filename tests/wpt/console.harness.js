@@ -1,5 +1,10 @@
-import { makeRunner } from "./_harness-wpt.js";
+import {
+  makeRunnerWPT as makeRunner,
+  runSuiteWPT as runSuite,
+} from "./_harness-util.js";
 
-export const runTestDynamic = makeRunner({
+const runTestDynamic = makeRunner({
   context: () => ({ scripts: ["encoding/resources/encodings.js"] }),
 });
+
+export { runSuite, runTestDynamic };

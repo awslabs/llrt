@@ -16,13 +16,6 @@ skipFiles)` and drives the matching `wpt/...` suite through the harness.
   `makeRunner({ ... })`.
   These declare which WPT support scripts to load and any category-specific
   environment extras (`fetch`, `location`, etc.).
-- `tests/wpt/_harness-wpt.js` — WPT-specific wrapper around the shared harness.
-  It derives the `wpt/<category>/` path from the wrapper filename and exports
-  `loadMetaScripts()` for harnesses that need META script support.
-- `tests/wpt/third_party/test262/_harness-test262.js` — test262-specific wrapper.
-  It maps wrapper files under `tests/wpt/third_party/test262/...` into
-  `wpt/third_party/test262/test/...` and runs `.js` sources rather than
-  `.any.js`.
 - `tests/wpt/_harness-util.js` — shared harness machinery imported by the
   wrappers, not directly by `.test.ts` entry points.
   It provides:
@@ -111,7 +104,10 @@ make setup-wpt    # or: cd wpt && git sparse-checkout reapply
 Create `tests/wpt/performance-timeline.harness.js`:
 
 ```js
-import { makeRunner } from "./_harness-util.js";
+import {
+  makeRunnerWPT as makeRunner,
+  runSuiteWPT as runSuite,
+} from "./_harness-util.js";
 
 export const runTestDynamic = makeRunner({
   context: () => ({
@@ -123,6 +119,8 @@ export const runTestDynamic = makeRunner({
     ],
   }),
 });
+
+export { runSuite, runTestDynamic };
 ```
 
 If tests need custom globals (e.g. a `fetch` shim, a `location` object,
@@ -134,8 +132,7 @@ category-specific overrides of `self.X` after setup), use `extras` and
 Create `tests/wpt/performance-timeline.test.ts`:
 
 ```ts
-import { runSuite } from "./_harness-util.js";
-import { runTestDynamic } from "./performance-timeline.harness.js";
+import { runSuite, runTestDynamic } from "./performance-timeline.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   // "known-to-fail.any.js", // reason
@@ -147,9 +144,8 @@ The filename determines the directory walked under `wpt/`: dots become path
 separators. `performance-timeline.test.ts` → `wpt/performance-timeline/`,
 `fetch.api.basic.test.ts` → `wpt/fetch/api/basic/`.
 
-For `third_party/test262`, wrappers under `tests/wpt/third_party/test262/...` are
-mapped into `wpt/third_party/test262/test/...` by the `tests/wpt/third_party/
-test262/_harness-test262.js` helper.
+`makeRunner` and `runSuite` are provided for both WPT and Test262.
+Please re-export and use the appropriate ones depending on the tests you wish to run.
 
 ### 4. Run the new suite
 

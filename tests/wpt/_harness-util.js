@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const CWD = process.cwd();
 const WPT_DIR = path.join(CWD, "wpt");
+const TEST_DIR = path.join(CWD, "bundle", "js", "__tests__", "wpt");
 
 // Compile a WPT support script into a reusable `(self) => void` function.
 // `with (self)` lets `self.Foo = …; Foo` work (see idlharness.js); the
@@ -123,7 +124,7 @@ export function loadMetaScripts(source, testDir) {
 // config. `config.context(ctx)` returns the per-test context options,
 // `config.postSetup(context, ctx)` runs after creation, `config.wrap(source,
 // ctx)` can transform source and return `[source, extraScripts]`.
-export function makeRunner(config, options = {}) {
+function baseRunner(config, options = {}) {
   return (source, done, ctx = {}) => {
     const context = createContext(config.context ? config.context(ctx) : {});
     config.postSetup?.(context, ctx);
@@ -139,7 +140,7 @@ export function makeRunner(config, options = {}) {
 // Drives a `describe(subDir) { it(file) { run(file) } }` block by walking
 // `wpt/<subDir>/` for `.any.js` files. `metaUrl` is the test module's
 // `import.meta.url` (so we can derive `subDir` from its filename).
-export function runSuite(
+function baseRunSuite(
   metaUrl,
   harness,
   skipFiles = [],
@@ -188,4 +189,44 @@ function deriveDefaultSubDir(metaUrl) {
     .replace(/\.test\.[jt]s$/, "")
     .split(".")
     .join(path.sep);
+}
+
+export function makeRunnerWPT(config) {
+  return baseRunner(config);
+}
+
+export function runSuiteWPT(metaUrl, harness, skipFiles = []) {
+  return baseRunSuite(metaUrl, harness, skipFiles, {
+    filePattern: /\.any\.js$/,
+    subDir: deriveSubDir(metaUrl),
+  });
+}
+
+export function deriveSubDir(metaUrl) {
+  const metaPath = fileURLToPath(metaUrl);
+  const relativePath = path.relative(TEST_DIR, metaPath);
+
+  const match = relativePath.match(/^(.+)\.test\.[jt]s$/);
+
+  return path.join(...match[1].split("."));
+}
+
+export function makeRunnerTest262(config) {
+  return baseRunner(config, { allowNoTests: true });
+}
+
+export function runSuiteTest262(metaUrl, harness, skipFiles = []) {
+  return baseRunSuite(metaUrl, harness, skipFiles, {
+    filePattern: /\.js$/,
+    subDir: deriveTest262SubDir(metaUrl),
+  });
+}
+
+function deriveTest262SubDir(metaUrl) {
+  const metaPath = fileURLToPath(metaUrl);
+  const relativePath = path.relative(TEST_DIR, metaPath);
+
+  const match = relativePath.match(/^test262[\\/](.+)\.test\.[jt]s$/);
+
+  return path.join("third_party", "test262", "test", ...match[1].split("."));
 }

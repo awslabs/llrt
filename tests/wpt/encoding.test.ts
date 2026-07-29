@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-wpt.js";
-import { runTestDynamic } from "./encoding.harness.js";
+import { runSuite, runTestDynamic } from "./encoding.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "idlharness.any.js", // ReferenceError: idl_test is not defined

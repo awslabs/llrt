@@ -1,4 +1,7 @@
-import { makeRunner } from "./_harness-wpt.js";
+import {
+  makeRunnerWPT as makeRunner,
+  runSuiteWPT as runSuite,
+} from "./_harness-util.js";
 
 // Encodings llrt actually supports. The raw WPT encodings.js lists every
 // encoding in the spec; we filter to the supported subset so tests don't
@@ -11,7 +14,7 @@ const SUPPORTED = new Set([
   "UTF-16LE",
 ]);
 
-export const runTestDynamic = makeRunner({
+const runTestDynamic = makeRunner({
   context: () => ({
     scripts: [
       "encoding/resources/encodings.js",
@@ -29,3 +32,5 @@ export const runTestDynamic = makeRunner({
     }
   },
 });
+
+export { runSuite, runTestDynamic };

@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-wpt.js";
-import { runTestDynamic } from "./streams.harness.js";
+import { runSuite, runTestDynamic } from "./streams.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "non-transferable-buffers.any.js", // SKIP: WebAssembly support is pending
