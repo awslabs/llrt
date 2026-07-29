@@ -15,7 +15,7 @@ use rquickjs::{
         JsClass, Trace,
     },
     function::{Constructor, Opt},
-    object::Property,
+    object::{Accessor, Property},
     prelude::{Func, This},
     qjs, Class, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result, Value,
 };
@@ -51,7 +51,7 @@ impl fmt::Display for DOMException {
         f.debug_struct("DOMException")
             .field("name", &self.name())
             .field("message", &self.message())
-            .field("stack", &self.stack())
+            .field("stack", &self.stack)
             .finish()
     }
 }
@@ -194,11 +194,6 @@ impl DOMException {
     #[qjs(get, enumerable, configurable)]
     pub fn code(&self) -> u8 {
         self.code
-    }
-
-    #[qjs(get)]
-    fn stack(&self) -> String {
-        self.stack.clone()
     }
 
     #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
@@ -411,7 +406,43 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         .constructor_error
         .set("isError", Func::from(is_error))?;
 
+    define_error_stack_accessor(ctx)?;
+
     Ok(())
+}
+
+// https://tc39.es/proposal-error-stack-accessor/ moves `stack` to an accessor
+// on `Error.prototype`, so DOMException inherits it instead of exposing its own.
+// QuickJS still gives plain Error instances an own `stack` data property, which
+// shadows this accessor, so the getter only runs for DOMException instances.
+fn define_error_stack_accessor<'js>(ctx: &Ctx<'js>) -> Result<()> {
+    let prototype_error = BasePrimordials::get(ctx)?.prototype_error.clone();
+    prototype_error.prop(
+        PredefinedAtom::Stack,
+        Accessor::new(
+            |this: This<Value<'js>>| -> Result<String> {
+                let stack = Class::<DOMException>::from_value(&this.0)
+                    .ok()
+                    .map(|cls| cls.borrow().stack.clone());
+                Ok(stack.unwrap_or_default())
+            },
+            |ctx: Ctx<'js>, this: This<Value<'js>>, value: Value<'js>| -> Result<()> {
+                // SetterThatIgnoresPrototypeProperties: never install on the
+                // home object itself.
+                let Some(obj) = this.0.as_object() else {
+                    return Ok(());
+                };
+                if *obj == BasePrimordials::get(&ctx)?.prototype_error {
+                    return Ok(());
+                }
+                obj.prop(
+                    PredefinedAtom::Stack,
+                    Property::from(value).writable().enumerable().configurable(),
+                )
+            },
+        )
+        .configurable(),
+    )
 }
 
 fn is_error<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {

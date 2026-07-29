@@ -15,4 +15,3 @@ streams/transform-streams > should pass terminate.any.js tests
 url > should pass IdnaTestV2.any.js tests
 url > should pass url-constructor.any.js tests
 url > should pass url-setters.any.js tests
-webidl/ecmascript-binding/es-exceptions > should pass DOMException-stack-accessor.any.js tests
