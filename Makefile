@@ -236,15 +236,21 @@ test-wpt: setup-wpt js
 	@echo "Starting WPT server (logs: wpt_server.log)..."
 	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \
 	trap 'kill $$WPT_PID 2>/dev/null' EXIT; \
-	printf "Waiting for http://web-platform.test:8000/ "; \
-	for i in $$(seq 1 150); do \
-		curl -sf --connect-timeout 1 http://web-platform.test:8000/ >/dev/null 2>&1 && { echo " ready."; break; }; \
-		if ! kill -0 $$WPT_PID 2>/dev/null; then \
-			echo "WPT server exited unexpectedly:"; cat wpt_server.log; exit 1; \
-		fi; \
-		printf "."; \
-		sleep 0.2; \
-	done || { echo "WPT server failed to start:"; cat wpt_server.log; kill $$WPT_PID 2>/dev/null; exit 1; }; \
+	for url in http://web-platform.test:8000/ \
+	           http://www1.web-platform.test:8000/ \
+	           https://web-platform.test:8443/; do \
+		printf "Waiting for %s " "$$url"; \
+		ready=; \
+		for i in $$(seq 1 150); do \
+			curl -sfk --connect-timeout 1 "$$url" >/dev/null 2>&1 && { ready=1; echo " ready."; break; }; \
+			if ! kill -0 $$WPT_PID 2>/dev/null; then \
+				echo "WPT server exited unexpectedly:"; cat wpt_server.log; exit 1; \
+			fi; \
+			printf "."; \
+			sleep 0.2; \
+		done; \
+		[ -n "$$ready" ] || { echo " timeout."; cat wpt_server.log; exit 1; }; \
+	done; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
 	TEST_REPORT_FILE=wpt_errors.txt cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
 	kill $$WPT_PID 2>/dev/null
