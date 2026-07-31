@@ -117,6 +117,38 @@ describe("random", () => {
     });
   });
 
+  it("should fill only the requested view range for a typed array with a non-zero byteOffset", () => {
+    const backing = new ArrayBuffer(64);
+    const view = new Uint8Array(backing, 16, 32);
+    view.fill(0);
+    randomFillSync(view, 20);
+    // Bytes before the fill offset must remain untouched.
+    for (let i = 0; i < 20; i++) {
+      expect(view[i]).toEqual(0);
+    }
+    // The rest of the backing buffer (outside the view) must be untouched too.
+    const full = new Uint8Array(backing);
+    for (let i = 0; i < 16; i++) {
+      expect(full[i]).toEqual(0);
+    }
+  });
+
+  it("should throw a RangeError instead of crashing when offset exceeds the view length", () => {
+    const backing = new ArrayBuffer(64);
+    const view = new Uint8Array(backing, 16, 32);
+    expect(() => {
+      randomFillSync(view, 100);
+    }).toThrow(RangeError);
+  });
+
+  it("should throw a RangeError instead of crashing when size + offset exceeds the view length", () => {
+    const backing = new ArrayBuffer(64);
+    const view = new Uint8Array(backing, 16, 32);
+    expect(() => {
+      randomFillSync(view, 0, 100);
+    }).toThrow(RangeError);
+  });
+
   it("should generate a random UUID using randomUUID", () => {
     const uuid = randomUUID();
     expect(uuid.length).toEqual(36);

@@ -149,11 +149,30 @@ fn random_fill_sync<'js>(
             .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
             .or_throw(&ctx)?;
 
+        if offset > source_length {
+            return Err(Exception::throw_range(
+                &ctx,
+                "The value of \"offset\" is out of range",
+            ));
+        }
+        if let Some(size) = size.0 {
+            if offset + size > source_length {
+                return Err(Exception::throw_range(
+                    &ctx,
+                    "The value of \"size + offset\" is out of range",
+                ));
+            }
+        }
+
         let (start, end) = get_start_end_indexes(source_length, size.0, offset);
 
-        let bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), source_length) };
+        // SAFETY: source_offset..+source_length stays in the backing buffer;
+        // start/end are clamped to it above.
+        let bytes = unsafe {
+            slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
+        };
 
-        rand::rng().fill(&mut bytes[start + source_offset..end - source_offset]);
+        rand::rng().fill(&mut bytes[start..end]);
     }
 
     Ok(obj)
