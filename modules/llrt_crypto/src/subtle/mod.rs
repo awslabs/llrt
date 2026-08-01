@@ -15,6 +15,7 @@ mod import_key;
 mod key_algorithm;
 mod sign;
 mod sign_algorithm;
+mod util;
 mod verify;
 #[cfg(feature = "_subtle-full")]
 mod wrapping;
@@ -45,6 +46,7 @@ mod key_algorithm;
 #[cfg(not(feature = "_subtle-full"))]
 use key_algorithm::KeyAlgorithm;
 
+use llrt_exceptions::DOMException;
 use llrt_utils::{object::ObjectExt, str_enum};
 use rquickjs::{atom::PredefinedAtom, Ctx, Exception, Object, Result, Value};
 
@@ -160,17 +162,27 @@ pub fn to_name_and_maybe_object<'js, 'a>(
     Ok((name, obj))
 }
 
+pub fn normalize_algorithm_name(name: &str) -> String {
+    let name = name.trim().to_ascii_uppercase();
+    match name.as_str() {
+        "ED25519" => "Ed25519".to_string(),
+        "RSASSA-PKCS1-V1_5" => "RSASSA-PKCS1-v1_5".to_string(),
+        _ => name,
+    }
+}
+
 pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>, expected_algorithm: &str) -> Result<T> {
-    Err(Exception::throw_message(
+    Err(DOMException::type_mismatch_error(
         ctx,
-        &["Key algorithm must be ", expected_algorithm].concat(),
+        ["Key algorithm must be ", expected_algorithm].concat(),
     ))
 }
 
 pub fn algorithm_not_supported_error<T>(ctx: &Ctx<'_>) -> Result<T> {
-    let ctor: rquickjs::function::Constructor = ctx.globals().get("DOMException")?;
-    let exc: Value = ctor.construct(("Algorithm not supported", "NotSupportedError"))?;
-    Err(ctx.throw(exc))
+    Err(DOMException::not_supported_error(
+        ctx,
+        "Algorithm not supported",
+    ))
 }
 
 // Stub implementations for providers without _subtle-full

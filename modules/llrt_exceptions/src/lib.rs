@@ -20,8 +20,6 @@ use rquickjs::{
     qjs, Class, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result, Value,
 };
 
-use crate::DOMExceptionName::{NotSupportedError, OperationError, TypeMismatchError};
-
 #[derive(JsLifetime)]
 struct ExceptionPrimordials<'js> {
     constructor_dom_exception: Constructor<'js>,
@@ -230,19 +228,23 @@ impl<'js> DOMException {
     }
 
     pub fn not_supported_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
-        Self::create_error(ctx, NotSupportedError, message)
+        Self::create_error(ctx, DOMExceptionName::NotSupportedError, message)
     }
 
     pub fn type_mismatch_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
-        Self::create_error(ctx, TypeMismatchError, message)
+        Self::create_error(ctx, DOMExceptionName::TypeMismatchError, message)
     }
 
     pub fn operation_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
-        Self::create_error(ctx, OperationError, message)
+        Self::create_error(ctx, DOMExceptionName::OperationError, message)
     }
 
     pub fn quota_exceeded_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
         Self::create_error(ctx, DOMExceptionName::QuotaExceededError, message)
+    }
+
+    pub fn data_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
+        Self::create_error(ctx, DOMExceptionName::DataError, message)
     }
 
     fn define_quota_exceeded_error(ctx: &Ctx<'js>) -> Result<()> {

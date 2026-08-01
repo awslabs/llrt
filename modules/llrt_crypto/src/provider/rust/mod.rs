@@ -55,7 +55,9 @@ use sha1::Sha1;
 
 use crate::{
     hash::HashAlgorithm,
-    provider::{AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest},
+    provider::{
+        parse_rsa_public_exponent, AesMode, CryptoError, CryptoProvider, HmacProvider, SimpleDigest,
+    },
     random_byte_array,
     subtle::EllipticCurve,
 };
@@ -928,16 +930,7 @@ impl CryptoProvider for RustCryptoProvider {
         modulus_length: u32,
         public_exponent: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
-        let exponent: u64 = match public_exponent {
-            [0x01, 0x00, 0x01] => 65537,
-            [0x03] => 3,
-            bytes
-                if bytes.ends_with(&[0x03]) && bytes[..bytes.len() - 1].iter().all(|&b| b == 0) =>
-            {
-                3
-            },
-            _ => return Err(CryptoError::InvalidData(None)),
-        };
+        let exponent = parse_rsa_public_exponent(public_exponent)?;
 
         let exp = BoxedUint::from(exponent);
         let mut rng = rand::rng();
