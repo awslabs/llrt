@@ -2210,10 +2210,10 @@
   dependencies:
     csstype "^3.2.2"
 
-"@types/readable-stream@4.0.23":
-  version "4.0.23"
-  resolved "https://registry.yarnpkg.com/@types/readable-stream/-/readable-stream-4.0.23.tgz#fcd0f7472f45ceb43154f08f0083ccd1c76e53ce"
-  integrity sha512-wwXrtQvbMHxCbBgjHaMGEmImFTQxxpfMOR/ZoQnXxB1woqkUbdLGFDgauo00Py9IudiaqSeiBiulSV9i6XIPig==
+"@types/readable-stream@4.0.24":
+  version "4.0.24"
+  resolved "https://registry.yarnpkg.com/@types/readable-stream/-/readable-stream-4.0.24.tgz#7b2431bfc1367d05c53598ad36094b044726d442"
+  integrity sha512-NRvUNC/JFGPJvqdAfEve8oginbM6V08u5NzLWpG8MwA2kTPOLnqk+wpwuPT+mp3aUsxyuT6m2gnrPuHYCruzEg==
   dependencies:
     "@types/node" "*"
 
