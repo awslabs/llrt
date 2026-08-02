@@ -5,7 +5,10 @@
 use std::rc::Rc;
 
 #[cfg(feature = "_subtle-full")]
-use der::{asn1::OctetStringRef, Decode, Encode};
+use der::{
+    asn1::{OctetString, OctetStringRef},
+    Decode, Encode,
+};
 #[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_exceptions::DOMException;
@@ -1399,7 +1402,8 @@ fn import_okp_key<'js>(
         KeyFormatData::Pkcs8(object_bytes) => {
             let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            *data = object_bytes.into_bytes(ctx)?;
+            let private_key = OctetString::from_der(pkcs8.private_key.as_bytes()).or_throw(ctx)?;
+            *data = private_key.as_bytes().to_vec();
             *kind = KeyKind::Private;
         },
     };
@@ -1418,7 +1422,14 @@ pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAl
             "hash must be a string or an object",
         ));
     }?;
-    HashAlgorithm::try_from(hash.as_str())
+    let hash = hash.as_str();
+    if !matches!(hash, "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512") {
+        return Err(DOMException::not_supported_error(
+            ctx,
+            "Unsupported hash algorithm",
+        ));
+    };
+    HashAlgorithm::try_from(hash)
         .map_err(NotSupportedError)
         .or_throw_dom(ctx, "")
 }

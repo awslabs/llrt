@@ -6,9 +6,7 @@
 
 use rquickjs::{Ctx, Exception, Object, Result, Value};
 
-use super::crypto_key::CryptoKey;
-use super::encryption_algorithm;
-use super::key_algorithm;
+use super::{crypto_key::CryptoKey, encryption_algorithm, key_algorithm};
 
 pub async fn subtle_export_key<'js>(
     ctx: Ctx<'js>,

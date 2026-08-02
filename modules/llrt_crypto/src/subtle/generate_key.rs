@@ -3,13 +3,11 @@
 use llrt_exceptions::DOMException;
 use rquickjs::{object::Property, Array, Class, Ctx, Object, Result, Value};
 
-use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
-
-use crate::{hash::HashAlgorithm, subtle::CryptoKey};
+use crate::{hash::HashAlgorithm, provider::CryptoProvider, CRYPTO_PROVIDER};
 
 use super::{
     algorithm_not_supported_error,
-    crypto_key::KeyKind,
+    crypto_key::{CryptoKey, KeyKind},
     key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages},
     util::ResultDomExt,
 };

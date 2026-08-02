@@ -3,10 +3,8 @@
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Array, Class, Ctx, FromJs, Result, Value};
 
-use crate::subtle::CryptoKey;
-
 use super::{
-    crypto_key::KeyKind,
+    crypto_key::{CryptoKey, KeyKind},
     key_algorithm::{
         KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormat, KeyFormatData,
     },

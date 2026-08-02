@@ -26,6 +26,7 @@ impl IntoDomException for CryptoError {
             | CryptoError::DerivationFailed(_)
             | CryptoError::EncryptionFailed(_)
             | CryptoError::DecryptionFailed(_) => DOMException::operation_error(ctx, message),
+            CryptoError::InvalidAccess(_) => DOMException::invalid_access_error(ctx, message),
         }
     }
 }

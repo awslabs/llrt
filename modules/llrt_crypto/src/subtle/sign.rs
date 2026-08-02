@@ -4,10 +4,10 @@ use crate::provider::{CryptoProvider, HmacProvider};
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rquickjs::{ArrayBuffer, Class, Ctx, Result};
 
-use crate::{subtle::CryptoKey, CRYPTO_PROVIDER};
+use crate::CRYPTO_PROVIDER;
 
 use super::{
-    algorithm_mismatch_error, key_algorithm::KeyAlgorithm, rsa_hash_digest,
+    algorithm_mismatch_error, crypto_key::CryptoKey, key_algorithm::KeyAlgorithm, rsa_hash_digest,
     sign_algorithm::SigningAlgorithm,
 };
 

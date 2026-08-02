@@ -414,6 +414,7 @@ pub enum CryptoError {
     DerivationFailed(Option<Box<str>>),
     EncryptionFailed(Option<Box<str>>),
     DecryptionFailed(Option<Box<str>>),
+    InvalidAccess(Option<Box<str>>),
 }
 
 impl std::fmt::Display for CryptoError {
@@ -438,6 +439,8 @@ impl std::fmt::Display for CryptoError {
             CryptoError::EncryptionFailed(Some(msg)) => write!(f, "Encryption failed: {}", msg),
             CryptoError::DecryptionFailed(None) => write!(f, "Decryption failed"),
             CryptoError::DecryptionFailed(Some(msg)) => write!(f, "Decryption failed: {}", msg),
+            CryptoError::InvalidAccess(None) => write!(f, "Invalid access"),
+            CryptoError::InvalidAccess(Some(msg)) => write!(f, "Invalid access: {}", msg),
         }
     }
 }
