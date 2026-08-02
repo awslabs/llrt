@@ -18,14 +18,14 @@ use rquickjs::{
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
-use crate::{hash::HashAlgorithm, subtle::normalize_algorithm_name};
+use crate::{hash::HashAlgorithm, provider::parse_rsa_public_exponent};
 
 #[cfg(feature = "_subtle-full")]
 use super::algorithm_mismatch_error;
 use super::{
     algorithm_not_supported_error,
     crypto_key::KeyKind,
-    to_name_and_maybe_object,
+    normalize_algorithm_name, to_name_and_maybe_object,
     util::{NotSupportedError, ResultDomExt},
     EllipticCurve,
 };
@@ -572,8 +572,6 @@ fn from_rsa<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    use crate::provider::parse_rsa_public_exponent;
-
     let obj = obj.or_throw(ctx)?;
     let hash = extract_sha_hash(ctx, &obj)?;
     let is_generate = mode == KeyAlgorithmMode::Generate;
