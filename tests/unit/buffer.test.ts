@@ -474,6 +474,47 @@ describe("copy", () => {
     expect(bufSrc.copy(bufDest, 5, 10, 9)).toEqual(0);
     expect(bufDest.toString()).toEqual("**************************");
   });
+
+  it("should return 0 and not modify the destination buffer when targetStart is out of range, instead of crashing", () => {
+    const bufSrc = Buffer.from("hello world");
+    const bufDest = Buffer.alloc(4);
+    expect(bufSrc.copy(bufDest, 100, 0, 5)).toEqual(0);
+    expect(bufDest.toString()).toEqual("\u0000\u0000\u0000\u0000");
+  });
+
+  it("should throw a RangeError instead of crashing when sourceStart is out of range", () => {
+    const bufSrc = Buffer.from("hello world");
+    const bufDest = Buffer.alloc(4);
+    expect(() => {
+      bufSrc.copy(bufDest, 0, 1000);
+    }).toThrow(RangeError);
+  });
+
+  it("should clamp sourceEnd to the source buffer's length instead of throwing", () => {
+    const bufSrc = Buffer.from("hello");
+    const bufDest = Buffer.alloc(10);
+    expect(bufSrc.copy(bufDest, 0, 0, 1000)).toEqual(5);
+    expect(bufDest.toString("utf8", 0, 5)).toEqual("hello");
+  });
+
+  it("should copy into the destination view's actual location, not its backing buffer's start", () => {
+    const backing = new ArrayBuffer(64);
+    const bufSrc = Buffer.from([1, 2, 3, 4, 5]);
+    const target = Buffer.from(backing, 40, 10);
+    expect(bufSrc.copy(target, 0, 0, 5)).toEqual(5);
+    const full = new Uint8Array(backing);
+    expect(Array.from(full.slice(0, 5))).toEqual([0, 0, 0, 0, 0]);
+    expect(Array.from(full.slice(40, 45))).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("should bound the copy to the destination view's own length, not its backing buffer's length", () => {
+    const backing = new ArrayBuffer(20);
+    const view = new Uint8Array(backing, 0, 5);
+    const bufSrc = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(bufSrc.copy(view, 0, 0, 10)).toEqual(5);
+    const full = new Uint8Array(backing);
+    expect(Array.from(full.slice(5, 10))).toEqual([0, 0, 0, 0, 0]);
+  });
 });
 
 describe("subarray", () => {
@@ -681,6 +722,42 @@ describe("write", () => {
     const buf2 = Buffer.alloc(15);
     expect(buf2.write("68656c6c6f", 9, 12, "hex")).toEqual(5);
     expect(buf2.toString("utf8").substring(9, 12)).toEqual("hel");
+  });
+
+  it("should default the writable length to the remaining space when only an offset is given", () => {
+    const buf = Buffer.alloc(10);
+    expect(buf.write("hello world", 5)).toEqual(5);
+    expect(buf.toString()).toEqual("\u0000\u0000\u0000\u0000\u0000hello");
+  });
+
+  it("should write nothing when offset equals the buffer's length", () => {
+    const buf = Buffer.alloc(4);
+    expect(buf.write("x", 4)).toEqual(0);
+  });
+
+  it("should throw a RangeError instead of crashing when offset is out of range", () => {
+    const buf = Buffer.alloc(4);
+    expect(() => {
+      buf.write("hello world", 100);
+    }).toThrow(RangeError);
+  });
+
+  it("should write into a view's actual location, not its backing buffer's start", () => {
+    const backing = new ArrayBuffer(64);
+    const view = Buffer.from(backing, 40, 10);
+    expect(view.write("HELLO")).toEqual(5);
+    const full = new Uint8Array(backing);
+    expect(Array.from(full.slice(0, 5))).toEqual([0, 0, 0, 0, 0]);
+    expect(Array.from(full.slice(40, 45))).toEqual([72, 69, 76, 76, 79]);
+  });
+
+  it("should write into a subarray's actual location, not its backing buffer's start", () => {
+    const backing = new ArrayBuffer(64);
+    const view = Buffer.from(backing).subarray(40, 50);
+    expect(view.write("HELLO")).toEqual(5);
+    const full = new Uint8Array(backing);
+    expect(Array.from(full.slice(0, 5))).toEqual([0, 0, 0, 0, 0]);
+    expect(Array.from(full.slice(40, 45))).toEqual([72, 69, 76, 76, 79]);
   });
 });
 
@@ -907,6 +984,16 @@ describe("writeInt32BE", () => {
       const buf = Buffer.alloc(8);
       buf.writeInt32BE(0x01020304, 5);
     }).toThrow(RangeError);
+  });
+
+  it("should write into a view's actual location, not its backing buffer's start", () => {
+    const backing = new ArrayBuffer(64);
+    const view = Buffer.from(backing, 40, 10);
+    expect(view.writeInt32BE(0x11223344, 0)).toEqual(4);
+    const full = new Uint8Array(backing);
+    expect(Array.from(full.slice(0, 4))).toEqual([0, 0, 0, 0]);
+    expect(Array.from(full.slice(40, 44))).toEqual([0x11, 0x22, 0x33, 0x44]);
+    expect(view.readInt32BE(0)).toEqual(0x11223344);
   });
 });
 

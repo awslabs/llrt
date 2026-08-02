@@ -37,6 +37,28 @@ impl<'js> Primordial<'js> for BufferPrimordials<'js> {
 
 pub struct Buffer(pub Vec<u8>);
 
+fn resolve_view_bytes<'js>(
+    ctx: &Ctx<'js>,
+    array_buffer: ArrayBuffer<'js>,
+    byte_length: usize,
+    byte_offset: usize,
+) -> Result<&'js mut [u8]> {
+    let raw = array_buffer
+        .as_raw()
+        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
+        .or_throw(ctx)?;
+
+    if byte_offset > raw.len || byte_length > raw.len - byte_offset {
+        return Err(Exception::throw_range(
+            ctx,
+            "The value of \"byteOffset\" is out of range",
+        ));
+    }
+
+    // SAFETY: bounds checked above.
+    Ok(unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr().add(byte_offset), byte_length) })
+}
+
 impl<'js> IntoJs<'js> for Buffer {
     fn into_js(self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
         let array_buffer = ArrayBuffer::new(ctx.clone(), self.0)?;
@@ -337,27 +359,37 @@ fn copy<'js>(
     let source_start = args_iter.next().unwrap_or_default();
     let source_end = args_iter.next().unwrap_or_else(|| this.0.len());
 
+    let source_bytes = ObjectBytes::from(&ctx, this.0.as_inner())?;
+    let source_bytes = source_bytes.as_bytes(&ctx)?;
+
+    if source_start > source_bytes.len() {
+        return Err(Exception::throw_range(
+            &ctx,
+            "The value of \"sourceStart\" is out of range",
+        ));
+    }
+
+    // sourceEnd is clamped (not an error), unlike sourceStart above.
+    let source_end = source_end.min(source_bytes.len());
+
     let mut copyable_length = 0;
 
     if source_start >= source_end {
         return Ok(copyable_length);
     }
 
-    let source_bytes = ObjectBytes::from(&ctx, this.0.as_inner())?;
-    let source_bytes = source_bytes.as_bytes(&ctx)?;
+    if let Some((array_buffer, target_byte_length, target_byte_offset)) =
+        target.get_array_buffer()?
+    {
+        let target_bytes =
+            resolve_view_bytes(&ctx, array_buffer, target_byte_length, target_byte_offset)?;
 
-    if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
-        let raw = array_buffer
-            .as_raw()
-            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            .or_throw(&ctx)?;
+        if target_start <= target_bytes.len() {
+            copyable_length = (source_end - source_start).min(target_bytes.len() - target_start);
 
-        let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
-
-        copyable_length = (source_end - source_start).min(raw.len - target_start);
-
-        target_bytes[target_start..target_start + copyable_length]
-            .copy_from_slice(&source_bytes[source_start..source_start + copyable_length]);
+            target_bytes[target_start..target_start + copyable_length]
+                .copy_from_slice(&source_bytes[source_start..source_start + copyable_length]);
+        }
     }
 
     Ok(copyable_length)
@@ -429,19 +461,17 @@ fn write<'js>(
     string: String,
     args: Rest<Value<'js>>,
 ) -> Result<usize> {
-    let (offset, length, encoding) = get_write_parameters(&args, this.0.len())?;
+    let (offset, length, encoding) = get_write_parameters(&ctx, &args, this.0.len())?;
 
     let target = ObjectBytes::from(&ctx, this.0.as_inner())?;
 
     let mut writable_length = 0;
 
-    if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
-        let raw = array_buffer
-            .as_raw()
-            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            .or_throw(&ctx)?;
-
-        let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+    if let Some((array_buffer, target_byte_length, target_byte_offset)) =
+        target.get_array_buffer()?
+    {
+        let target_bytes =
+            resolve_view_bytes(&ctx, array_buffer, target_byte_length, target_byte_offset)?;
 
         let encoder = Encoder::from_str(&encoding).or_throw(&ctx)?;
 
@@ -460,7 +490,11 @@ fn write<'js>(
     Ok(writable_length)
 }
 
-fn get_write_parameters(args: &Rest<Value<'_>>, len: usize) -> Result<(usize, usize, String)> {
+fn get_write_parameters<'js>(
+    ctx: &Ctx<'js>,
+    args: &Rest<Value<'js>>,
+    len: usize,
+) -> Result<(usize, usize, String)> {
     let mut offset = 0;
     let mut length = len;
     let mut encoding = "utf8".to_owned();
@@ -470,6 +504,13 @@ fn get_write_parameters(args: &Rest<Value<'_>>, len: usize) -> Result<(usize, us
             return Ok((0, len, s.to_string()?));
         }
         offset = v1.as_int().unwrap_or(0) as usize;
+        if offset > len {
+            return Err(Exception::throw_range(
+                ctx,
+                "The value of \"offset\" is out of range",
+            ));
+        }
+        length = len - offset;
     }
 
     if let Some(v2) = args.0.get(1) {
@@ -674,13 +715,11 @@ fn write_buf<'js>(
     let target = ObjectBytes::from(ctx, this.0.as_inner())?;
     let mut writable_length = 0;
 
-    if let Some((array_buffer, _, _)) = target.get_array_buffer()? {
-        let raw = array_buffer
-            .as_raw()
-            .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-            .or_throw(ctx)?;
-
-        let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+    if let Some((array_buffer, target_byte_length, target_byte_offset)) =
+        target.get_array_buffer()?
+    {
+        let target_bytes =
+            resolve_view_bytes(ctx, array_buffer, target_byte_length, target_byte_offset)?;
 
         writable_length = offset + bytes.len();
         target_bytes[offset..writable_length].copy_from_slice(&bytes);
@@ -698,19 +737,17 @@ fn read_buf<'js>(
 ) -> Result<Value<'js>> {
     // Retrieve the array buffer
     let target = ObjectBytes::from(ctx, this.0.as_inner())?;
-    let Some((array_buffer, _, _)) = target.get_array_buffer()? else {
+    let Some((array_buffer, target_byte_length, target_byte_offset)) = target.get_array_buffer()?
+    else {
         return Err(Exception::throw_message(ctx, ERROR_MSG_NOT_ARRAY_BUFFER));
     };
-    let raw = array_buffer
-        .as_raw()
-        .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
-        .or_throw(ctx)?;
-    let target_bytes = unsafe { slice::from_raw_parts_mut(raw.ptr.as_ptr(), raw.len) };
+    let target_bytes =
+        resolve_view_bytes(ctx, array_buffer, target_byte_length, target_byte_offset)?;
 
     // Enforce the bounds
     let start = offset.0.unwrap_or_default();
     let end = start + (kind.bits() / 8) as usize;
-    if end > raw.len {
+    if end > target_bytes.len() {
         return Err(Exception::throw_range(
             ctx,
             "The value of \"offset\" is out of range",
