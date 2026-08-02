@@ -444,6 +444,17 @@ impl std::fmt::Display for CryptoError {
 
 impl std::error::Error for CryptoError {}
 
+pub fn parse_rsa_public_exponent(public_exponent: &[u8]) -> Result<u64, CryptoError> {
+    match public_exponent {
+        [0x01, 0x00, 0x01] => Ok(65537),
+        [0x03] => Ok(3),
+        bytes if bytes.ends_with(&[0x03]) && bytes[..bytes.len() - 1].iter().all(|&b| b == 0) => {
+            Ok(3)
+        },
+        _ => Err(CryptoError::OperationFailed(None)),
+    }
+}
+
 #[cfg(feature = "crypto-openssl")]
 pub type DefaultProvider = openssl::OpenSslProvider;
 

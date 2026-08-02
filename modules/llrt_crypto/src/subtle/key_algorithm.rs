@@ -8,6 +8,7 @@ use std::rc::Rc;
 use der::{asn1::OctetStringRef, Decode, Encode};
 #[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
+use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
 #[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
@@ -17,12 +18,16 @@ use rquickjs::{
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 
-use crate::hash::HashAlgorithm;
+use crate::{hash::HashAlgorithm, provider::parse_rsa_public_exponent};
 
 #[cfg(feature = "_subtle-full")]
 use super::algorithm_mismatch_error;
 use super::{
-    algorithm_not_supported_error, crypto_key::KeyKind, to_name_and_maybe_object, EllipticCurve,
+    algorithm_not_supported_error,
+    crypto_key::KeyKind,
+    normalize_algorithm_name, to_name_and_maybe_object,
+    util::{NotSupportedError, ResultDomExt},
+    EllipticCurve,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -86,7 +91,7 @@ impl KeyUsage {
             let usage = KeyUsage::try_from(value.as_str()).or_throw(ctx)?;
             let usage = usage.mask();
             if allowed_usages & usage != usage {
-                return Err(Exception::throw_message(
+                return Err(Exception::throw_syntax(
                     ctx,
                     &["Invalid key usage '", &value, "'"].concat(),
                 ));
@@ -105,15 +110,11 @@ impl KeyUsage {
         *private_usages = generated_private_usages;
         *public_usages = generated_public_usages;
 
-        if !has_any_usages {
-            return Err(Exception::throw_message(ctx, "Key usages empty"));
-        }
-
-        if private_usages_mask > 0 && private_usages.is_empty() {
-            return Err(Exception::throw_message(
-                ctx,
-                "No required private key usages provided",
-            ));
+        if !has_any_usages
+            && key_usage_algorithm.requires_non_empty_usages()
+            && !matches!(kind, Some(KeyKind::Public))
+        {
+            return Err(Exception::throw_syntax(ctx, "Key usages empty"));
         }
 
         if private_usages != public_usages {
@@ -126,7 +127,7 @@ impl KeyUsage {
             };
 
             if !valid_usage {
-                return Err(Exception::throw_message(ctx, "Invalid key usage"));
+                return Err(Exception::throw_syntax(ctx, "Invalid key usage"));
             }
         }
 
@@ -151,11 +152,12 @@ pub enum KeyUsageAlgorithm {
 
     Hmac = (KeyUsage::Sign.mask()) | (KeyUsage::Verify.mask()),
 
-    //two mask algorithms (asymmetric) - use high bits as for private, low bits for public
-    //HKDF, PBKDF2, X25519
-    Derive = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 8)
-        | KeyUsage::DeriveKey.mask()
-        | KeyUsage::DeriveBits.mask(),
+    // asymmetric derive algorithms - use high bits as private usages
+    // ECDH/X25519
+    DeriveAsymmetric = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 8),
+
+    // HKDF/PBKDF2
+    DeriveSymmetric = KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask(),
 
     RsaOaep = ((KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask()) << 8) //private
     | KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask(), //public
@@ -170,6 +172,19 @@ impl KeyUsageAlgorithm {
         let private_mask = value >> 8;
         let public_mask = value & 0xFF;
         (private_mask, public_mask)
+    }
+
+    fn requires_non_empty_usages(self) -> bool {
+        matches!(
+            self,
+            Self::Symmetric
+                | Self::AesKw
+                | Self::Hmac
+                | Self::DeriveAsymmetric
+                | Self::DeriveSymmetric
+                | Self::Sign
+                | Self::RsaOaep
+        )
     }
 }
 
@@ -273,13 +288,14 @@ impl<'js> FromJs<'js> for KeyFormat {
                 _ => {},
             };
         }
-        Err(Exception::throw_message(
+        Err(DOMException::not_supported_error(
             ctx,
             "Key import/export format must be 'jwk','raw','spki' or 'pkcs8'",
         ))
     }
 }
 
+#[derive(PartialEq)]
 pub enum KeyFormatData<'js> {
     Jwk(Object<'js>),
     Raw(ObjectBytes<'js>),
@@ -287,6 +303,7 @@ pub enum KeyFormatData<'js> {
     Pkcs8(ObjectBytes<'js>),
 }
 
+#[derive(PartialEq)]
 pub enum KeyAlgorithmMode<'a, 'js> {
     Import {
         format: KeyFormatData<'js>,
@@ -399,7 +416,7 @@ fn from_x25519<'js>(
     let key_kind = import(ctx, mode, algorithm_name)?;
     KeyUsage::classify_and_check_usages(
         ctx,
-        KeyUsageAlgorithm::Derive,
+        KeyUsageAlgorithm::DeriveAsymmetric,
         usages,
         private_usages,
         public_usages,
@@ -450,9 +467,9 @@ fn from_aes<'js>(
     let (length, key_kind) = import(ctx, mode, obj, algorithm_name)?;
 
     if !matches!(length, 128 | 192 | 256) {
-        return Err(Exception::throw_message(
+        return Err(DOMException::operation_error(
             ctx,
-            &format!(
+            format!(
                 "Algorithm 'length' must be one of: 128, 192, or 256 = {}",
                 length
             ),
@@ -486,7 +503,18 @@ fn from_hmac<'js>(
 ) -> Result<KeyAlgorithm> {
     let obj = obj.or_throw(ctx)?;
     let hash = extract_sha_hash(ctx, &obj)?;
-    let mut length: u16 = obj.get_optional("length")?.unwrap_or_default();
+    if !matches!(
+        hash,
+        HashAlgorithm::Sha1 | HashAlgorithm::Sha256 | HashAlgorithm::Sha384 | HashAlgorithm::Sha512
+    ) {
+        return Err(DOMException::not_supported_error(
+            ctx,
+            "Unsupported HMAC hash algorithm",
+        ));
+    }
+    let mut length: u16 = obj
+        .get_optional("length")?
+        .unwrap_or_else(|| (hash.block_len() * 8) as u16);
 
     #[cfg(feature = "_subtle-full")]
     #[inline]
@@ -546,6 +574,7 @@ fn from_rsa<'js>(
 ) -> Result<KeyAlgorithm> {
     let obj = obj.or_throw(ctx)?;
     let hash = extract_sha_hash(ctx, &obj)?;
+    let is_generate = mode == KeyAlgorithmMode::Generate;
 
     #[cfg(feature = "_subtle-full")]
     #[inline]
@@ -565,7 +594,9 @@ fn from_rsa<'js>(
                 obj.get_required("publicExponent", "algorithm")?;
             let public_exponent = public_exponent
                 .as_bytes()
-                .ok_or_else(|| Exception::throw_message(ctx, "Array buffer has been detached"))?
+                .ok_or_else(|| {
+                    DOMException::not_supported_error(ctx, "Array buffer has been detached")
+                })?
                 .to_owned()
                 .into_boxed_slice();
             Ok((modulus_length, public_exponent, None))
@@ -585,7 +616,9 @@ fn from_rsa<'js>(
         let public_exponent: TypedArray<u8> = obj.get_required("publicExponent", "algorithm")?;
         let public_exponent = public_exponent
             .as_bytes()
-            .ok_or_else(|| Exception::throw_message(ctx, "Array buffer has been detached"))?
+            .ok_or_else(|| {
+                DOMException::not_supported_error(ctx, "Array buffer has been detached")
+            })?
             .to_owned()
             .into_boxed_slice();
         Ok((modulus_length, public_exponent, None))
@@ -593,6 +626,10 @@ fn from_rsa<'js>(
 
     let (modulus_length, public_exponent, key_kind) =
         import(ctx, mode, &obj, algorithm_name, &hash)?;
+
+    if is_generate {
+        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx, "")?;
+    }
 
     KeyUsage::classify_and_check_usages(
         ctx,
@@ -671,7 +708,7 @@ fn from_hkdf<'js>(
 
     KeyUsage::classify_and_check_usages(
         ctx,
-        KeyUsageAlgorithm::Derive,
+        KeyUsageAlgorithm::DeriveSymmetric,
         usages,
         private_usages,
         public_usages,
@@ -738,7 +775,7 @@ fn from_pbkdf2<'js>(
 
     KeyUsage::classify_and_check_usages(
         ctx,
-        KeyUsageAlgorithm::Derive,
+        KeyUsageAlgorithm::DeriveSymmetric,
         usages,
         private_usages,
         public_usages,
@@ -758,16 +795,17 @@ impl KeyAlgorithm {
         // When _subtle-full is not enabled, Import mode is not supported
         #[cfg(not(feature = "_subtle-full"))]
         if matches!(mode, KeyAlgorithmMode::Import { .. }) {
-            return Err(Exception::throw_message(
+            return Err(DOMException::not_supported_error(
                 ctx,
                 "Key import is not supported with this crypto provider",
             ));
         }
 
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
+        let name = normalize_algorithm_name(&name);
         let mut public_usages = vec![];
         let mut private_usages = vec![];
-        let algorithm_name = name.as_str();
+        let algorithm_name = name.as_ref();
         let algorithm = match algorithm_name {
             "Ed25519" => from_ed25519(
                 ctx,
@@ -803,7 +841,7 @@ impl KeyAlgorithm {
                 &usages,
                 &mut private_usages,
                 &mut public_usages,
-                KeyUsageAlgorithm::Derive,
+                KeyUsageAlgorithm::DeriveAsymmetric,
             )?,
             "ECDSA" => Self::from_ec(
                 ctx,
@@ -931,7 +969,9 @@ impl KeyAlgorithm {
     ) -> Result<KeyAlgorithm> {
         let obj = obj.or_throw(ctx)?;
         let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
-        let curve = EllipticCurve::try_from(curve_name.as_str()).or_throw(ctx)?;
+        let curve = EllipticCurve::try_from(curve_name.as_str())
+            .map_err(NotSupportedError)
+            .or_throw_dom(ctx, "")?;
 
         #[cfg(feature = "_subtle-full")]
         let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
@@ -968,9 +1008,9 @@ fn import_derive_key<'js>(
         *data = object_bytes.into_bytes(ctx)?;
         *kind = KeyKind::Secret;
     } else {
-        return Err(Exception::throw_message(
+        return Err(DOMException::not_supported_error(
             ctx,
-            &[algorithm_name, " only supports 'raw' import format"].concat(),
+            [algorithm_name, " only supports 'raw' import format"].concat(),
         ));
     }
 
@@ -1148,10 +1188,9 @@ fn import_symmetric_key<'js>(
                     //AES - A256KW, A256GCM, A256CRT, A512CBC etc
                     ("A", None) => {
                         //extract AES-{suffix}
-                        let (_, name_suffix) = algorithm_name.split_once("-").unwrap_or_default();
                         let aes_variant = &alg[4..];
 
-                        if aes_variant != name_suffix {
+                        if !algorithm_name.ends_with(aes_variant) {
                             return algorithm_mismatch_error(ctx, algorithm_name);
                         }
                     },
@@ -1216,9 +1255,9 @@ fn import_ec_key<'js>(
 
             let jwk_crv: String = object.get_required("crv", "keyData")?;
             if curve_name != jwk_crv {
-                return Err(Exception::throw_type(
+                return Err(DOMException::not_supported_error(
                     ctx,
-                    &["Key is using a ", curve_name].concat(),
+                    ["Key is using a ", curve_name].concat(),
                 ));
             }
 
@@ -1342,9 +1381,9 @@ fn import_okp_key<'js>(
         KeyFormatData::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
             if bytes.len() != 32 {
-                return Err(Exception::throw_type(
+                return Err(DOMException::not_supported_error(
                     ctx,
-                    &[algorithm_name, " keys must be 32 bytes long"].concat(),
+                    [algorithm_name, " keys must be 32 bytes long"].concat(),
                 ));
             }
             *data = bytes;
@@ -1374,12 +1413,14 @@ pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAl
     } else if let Some(obj) = hash.into_object() {
         obj.get_required("name", "hash")
     } else {
-        return Err(Exception::throw_message(
+        return Err(DOMException::not_supported_error(
             ctx,
             "hash must be a string or an object",
         ));
     }?;
-    HashAlgorithm::try_from(hash.as_str()).or_throw(ctx)
+    HashAlgorithm::try_from(hash.as_str())
+        .map_err(NotSupportedError)
+        .or_throw_dom(ctx, "")
 }
 
 fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &HashAlgorithm) -> Result<Object<'js>> {
@@ -1390,8 +1431,8 @@ fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &HashAlgorithm) -> Result<Objec
 
 #[cfg(feature = "_subtle-full")]
 pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &HashAlgorithm) -> Result<T> {
-    Err(Exception::throw_message(
+    Err(DOMException::type_mismatch_error(
         ctx,
-        &["Algorithm hash expected to be ", hash.as_str()].concat(),
+        ["Algorithm hash expected to be ", hash.as_str()].concat(),
     ))
 }

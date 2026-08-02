@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use rquickjs::{object::Property, Array, Class, Ctx, Exception, Object, Result, Value};
+use llrt_exceptions::DOMException;
+use rquickjs::{object::Property, Array, Class, Ctx, Object, Result, Value};
 
 use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
 
@@ -10,12 +11,13 @@ use super::{
     algorithm_not_supported_error,
     crypto_key::KeyKind,
     key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages},
+    util::ResultDomExt,
 };
 
 pub async fn subtle_generate_key<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
-    extractable: bool,
+    extractable: Value<'js>,
     key_usages: Array<'js>,
 ) -> Result<Value<'js>> {
     let KeyAlgorithmWithUsages {
@@ -26,6 +28,10 @@ pub async fn subtle_generate_key<'js>(
     } = KeyAlgorithm::from_js(&ctx, KeyAlgorithmMode::Generate, algorithm, key_usages)?;
 
     let (private_key, public_or_secret_key) = generate_key(&ctx, &key_algorithm)?;
+
+    let Some(extractable) = extractable.as_bool() else {
+        return Err(DOMException::not_supported_error(&ctx, "Invalid parameter"));
+    };
 
     if matches!(
         key_algorithm,
@@ -62,7 +68,7 @@ pub async fn subtle_generate_key<'js>(
         CryptoKey::new(
             KeyKind::Public,
             name,
-            extractable,
+            true,
             key_algorithm,
             public_usages,
             public_or_secret_key,
@@ -79,37 +85,33 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
     match algorithm {
         KeyAlgorithm::Aes { length } => {
             // Default to AES-256
-            let key = CRYPTO_PROVIDER.generate_aes_key(*length).map_err(|e| {
-                Exception::throw_message(ctx, &format!("AES key generation failed: {}", e))
-            })?;
+            let key = CRYPTO_PROVIDER
+                .generate_aes_key(*length)
+                .or_throw_dom(ctx, "AES key generation failed")?;
             Ok((vec![], key))
         },
         KeyAlgorithm::Hmac { hash, length } => {
             let key = CRYPTO_PROVIDER
                 .generate_hmac_key(*hash, *length)
-                .map_err(|e| {
-                    Exception::throw_message(ctx, &format!("HMAC key generation failed: {}", e))
-                })?;
+                .or_throw_dom(ctx, "HMAC key generation failed")?;
             Ok((vec![], key))
         },
-        KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER.generate_ec_key(*curve).map_err(|e| {
-            Exception::throw_message(ctx, &format!("EC key generation failed: {}", e))
-        }),
-        KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER.generate_ed25519_key().map_err(|e| {
-            Exception::throw_message(ctx, &format!("Ed25519 key generation failed: {}", e))
-        }),
-        KeyAlgorithm::X25519 => CRYPTO_PROVIDER.generate_x25519_key().map_err(|e| {
-            Exception::throw_message(ctx, &format!("X25519 key generation failed: {}", e))
-        }),
+        KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
+            .generate_ec_key(*curve)
+            .or_throw_dom(ctx, "EC key generation failed"),
+        KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
+            .generate_ed25519_key()
+            .or_throw_dom(ctx, "Ed25519 key generation failed"),
+        KeyAlgorithm::X25519 => CRYPTO_PROVIDER
+            .generate_x25519_key()
+            .or_throw_dom(ctx, "X25519 key generation failed"),
         KeyAlgorithm::Rsa {
             modulus_length,
             public_exponent,
             ..
         } => CRYPTO_PROVIDER
             .generate_rsa_key(*modulus_length, public_exponent.as_ref())
-            .map_err(|e| {
-                Exception::throw_message(ctx, &format!("RSA key generation failed: {}", e))
-            }),
+            .or_throw_dom(ctx, "RSA key generation failed"),
         _ => algorithm_not_supported_error(ctx),
     }
 }
@@ -126,7 +128,10 @@ pub fn get_hash_length(ctx: &Ctx, hash: &HashAlgorithm, length: u16) -> Result<u
     }
 
     if !length.is_multiple_of(8) || (length / 8) as usize > 128 {
-        return Err(Exception::throw_message(ctx, "Invalid HMAC key length"));
+        return Err(DOMException::not_supported_error(
+            ctx,
+            "Invalid HMAC key length",
+        ));
     }
 
     Ok((length / 8) as usize)
