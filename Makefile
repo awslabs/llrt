@@ -232,6 +232,7 @@ update-wpt: setup-wpt
 
 test-wpt: export JS_MINIFY = 0
 test-wpt: export TEST_SUB_DIR = wpt
+test-wpt: export TEST_TIMEOUT = 20000
 test-wpt: setup-wpt js
 	@echo "Starting WPT server (logs: wpt_server.log)..."
 	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \

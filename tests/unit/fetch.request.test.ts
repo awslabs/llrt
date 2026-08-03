@@ -437,4 +437,13 @@ describe("Request class", () => {
       });
     }).toThrow();
   });
+
+  it("should preserve Cookie headers when initializing a Request and setting on request.headers", () => {
+    const req = new Request("https://example.com", {
+      headers: { cookie: "foo=bar" },
+    });
+    expect(req.headers.get("cookie")).toEqual("foo=bar");
+    req.headers.append("cookie", "baz=qux");
+    expect(req.headers.get("cookie")).toEqual("foo=bar; baz=qux");
+  });
 });

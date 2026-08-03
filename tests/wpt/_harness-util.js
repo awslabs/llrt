@@ -79,13 +79,24 @@ export function createContext({ extras = {}, scripts = [] } = {}) {
   return context;
 }
 
-function attachCompletion(context, done) {
+function attachCompletion(context, done, ctx = {}) {
   context.add_completion_callback((tests) => {
     const real = tests.filter(
       ({ name, status }) => !(name === "Loading data..." && status === 0)
     );
     if (real.length === 0) return done(new Error("No tests were executed!"));
-    const failure = real.find((t) => t.status !== 0);
+    const failure = real.find((t) => {
+      if (t.status === 0) return false;
+      if (ctx.skipErrors && ctx.skipErrors.length > 0) {
+        const errStr = `[${t.name}] ${t.message || String(t)}`;
+        return !ctx.skipErrors.some((skip) =>
+          typeof skip === "string"
+            ? errStr.includes(skip) || t.name.includes(skip)
+            : skip.test(errStr)
+        );
+      }
+      return true;
+    });
     done(failure && `[${failure.name}] ${failure.message || String(failure)}`);
   });
 }
@@ -115,7 +126,7 @@ export function makeRunner(config) {
   return (source, done, ctx = {}) => {
     const context = createContext(config.context ? config.context(ctx) : {});
     config.postSetup?.(context, ctx);
-    attachCompletion(context, done);
+    attachCompletion(context, done, ctx);
     const [src, extras = ""] = config.wrap
       ? config.wrap(source, ctx)
       : [source, loadMetaScripts(source, ctx.testDir)];
@@ -134,9 +145,16 @@ export function runSuite(metaUrl, harness, skipFiles = []) {
     .split(".")
     .join(path.sep);
   const targetDir = path.join(WPT_DIR, subDir);
+
+  const matchesFile = (file, pattern) => {
+    if (typeof pattern === "string") return pattern === file;
+    if (pattern instanceof RegExp) return pattern.test(file);
+    return false;
+  };
+
   const skip = (f) =>
     /\.tentative\./.test(f) ||
-    skipFiles.some((s) => (s instanceof RegExp ? s.test(f) : s === f));
+    skipFiles.some((s) => !Array.isArray(s) && matchesFile(f, s));
   const testFiles = fs
     .readdirSync(targetDir)
     .filter((f) => f.endsWith(".any.js") && !skip(f));
@@ -145,7 +163,17 @@ export function runSuite(metaUrl, harness, skipFiles = []) {
     for (const file of testFiles) {
       it(`should pass ${file} tests`, (done) => {
         const source = fs.readFileSync(path.join(targetDir, file), "utf8");
-        harness(source, done, { baseDir: WPT_DIR, testDir: targetDir });
+        const fileErrorSkipRules = skipFiles.filter(
+          (s) => Array.isArray(s) && matchesFile(file, s[0])
+        );
+        const skipErrors = fileErrorSkipRules.flatMap((s) =>
+          Array.isArray(s[1]) ? s[1] : [s[1]]
+        );
+        harness(source, done, {
+          baseDir: WPT_DIR,
+          testDir: targetDir,
+          ...(skipErrors.length > 0 ? { skipErrors } : {}),
+        });
       });
     }
   });
