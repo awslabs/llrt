@@ -39,9 +39,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
 
-                public_key
-                    .check_kind(KeyKind::Public)
-                    .or_throw_dom(ctx, "")?;
+                public_key.check_kind(KeyKind::Public).or_throw_dom(ctx)?;
 
                 if !matches!(public_key.algorithm, KeyAlgorithm::X25519) {
                     return algorithm_invalid_access_error(ctx, &name);
@@ -55,9 +53,7 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
 
-                public_key
-                    .check_kind(KeyKind::Public)
-                    .or_throw_dom(ctx, "")?;
+                public_key.check_kind(KeyKind::Public).or_throw_dom(ctx)?;
 
                 if let KeyAlgorithm::Ec {
                     curve, algorithm, ..

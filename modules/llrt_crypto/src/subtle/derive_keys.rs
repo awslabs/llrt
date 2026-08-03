@@ -66,7 +66,7 @@ fn derive_key<'js>(
 
     let base_key = base_key.borrow();
 
-    base_key.check_validity("deriveKey").or_throw_dom(ctx, "")?;
+    base_key.check_validity("deriveKey").or_throw_dom(ctx)?;
 
     let bytes = derive_bits(
         ctx,

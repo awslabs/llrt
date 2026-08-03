@@ -23,25 +23,19 @@ pub fn subtle_derive_bits<'js>(
     base_key: Class<'js, CryptoKey<'js>>,
     length: Opt<Value<'js>>,
 ) -> impl Future<Output = Result<ArrayBuffer<'js>>> + 'js {
-    let prepared = prepare_derive_bits(&ctx, algorithm);
+    let prepared = DeriveAlgorithm::from_js(&ctx, algorithm);
 
     async move {
         let algorithm = prepared?;
 
         let base_key = base_key.borrow();
-        base_key
-            .check_validity("deriveBits")
-            .or_throw_dom(&ctx, "")?;
+        base_key.check_validity("deriveBits").or_throw_dom(&ctx)?;
 
         let length = parse_derive_bits_length(&ctx, length)?;
         let bytes = derive_bits(&ctx, &algorithm, &base_key, length)?;
 
         ArrayBuffer::new(ctx, bytes)
     }
-}
-
-fn prepare_derive_bits<'js>(ctx: &Ctx<'js>, algorithm: Value<'js>) -> Result<DeriveAlgorithm> {
-    DeriveAlgorithm::from_js(ctx, algorithm)
 }
 
 pub(super) fn derive_bits(
@@ -78,7 +72,7 @@ pub(super) fn derive_bits(
                     };
                     let bytes = CRYPTO_PROVIDER
                         .ecdh_derive_bits(*curve, &base_key.handle, public_key)
-                        .or_throw_dom(ctx, "")?;
+                        .or_throw_dom(ctx)?;
                     return truncate_derived_bits(ctx, bytes, length);
                 }
 
@@ -102,7 +96,7 @@ pub(super) fn derive_bits(
             };
             let bytes = CRYPTO_PROVIDER
                 .x25519_derive_bits(&base_key.handle, public_key)
-                .or_throw_dom(ctx, "")?;
+                .or_throw_dom(ctx)?;
 
             truncate_derived_bits(ctx, bytes, length)
         },

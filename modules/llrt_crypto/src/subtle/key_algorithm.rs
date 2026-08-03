@@ -631,7 +631,7 @@ fn from_rsa<'js>(
         import(ctx, mode, &obj, algorithm_name, &hash)?;
 
     if is_generate {
-        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx, "")?;
+        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx)?;
     }
 
     KeyUsage::classify_and_check_usages(
@@ -974,7 +974,7 @@ impl KeyAlgorithm {
         let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
         let curve = EllipticCurve::try_from(curve_name.as_str())
             .map_err(NotSupportedError)
-            .or_throw_dom(ctx, "")?;
+            .or_throw_dom(ctx)?;
 
         #[cfg(feature = "_subtle-full")]
         let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
@@ -1422,16 +1422,7 @@ pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAl
             "hash must be a string or an object",
         ));
     }?;
-    let hash = hash.as_str();
-    if !matches!(hash, "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512") {
-        return Err(DOMException::not_supported_error(
-            ctx,
-            "Unsupported hash algorithm",
-        ));
-    };
-    HashAlgorithm::try_from(hash)
-        .map_err(NotSupportedError)
-        .or_throw_dom(ctx, "")
+    HashAlgorithm::from_strict_str(hash.as_str()).or_throw_dom(ctx)
 }
 
 fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &HashAlgorithm) -> Result<Object<'js>> {

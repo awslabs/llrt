@@ -32,23 +32,29 @@ impl IntoDomException for CryptoError {
 }
 
 pub trait ResultDomExt<T> {
-    fn or_throw_dom(self, ctx: &Ctx, msg: &str) -> Result<T>;
+    fn or_throw_dom(self, ctx: &Ctx) -> Result<T>;
+    fn or_throw_dom_with_msg(self, ctx: &Ctx, msg: &str) -> Result<T>;
 }
 
 impl<T, E: IntoDomException> ResultDomExt<T> for StdResult<T, E> {
-    fn or_throw_dom(self, ctx: &Ctx, msg: &str) -> Result<T> {
+    fn or_throw_dom(self, ctx: &Ctx) -> Result<T> {
+        self.map_err(|e| e.into_dom_exception(ctx, ""))
+    }
+    fn or_throw_dom_with_msg(self, ctx: &Ctx, msg: &str) -> Result<T> {
         self.map_err(|e| e.into_dom_exception(ctx, msg))
     }
 }
 
 impl<T> ResultDomExt<T> for Option<T> {
-    fn or_throw_dom(self, ctx: &Ctx, msg: &str) -> Result<T> {
+    fn or_throw_dom(self, ctx: &Ctx) -> Result<T> {
+        self.ok_or_else(|| DOMException::not_supported_error(ctx, "Value is not present"))
+    }
+    fn or_throw_dom_with_msg(self, ctx: &Ctx, msg: &str) -> Result<T> {
         let message = if msg.is_empty() {
             "Value is not present"
         } else {
             msg
         };
-
         self.ok_or_else(|| DOMException::not_supported_error(ctx, message))
     }
 }
