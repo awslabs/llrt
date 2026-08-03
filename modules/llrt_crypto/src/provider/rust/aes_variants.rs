@@ -10,7 +10,7 @@ use aes::cipher::BlockModeEncrypt;
 use aes::{
     cipher::{
         block_padding::{Error as PaddingError, Pkcs7},
-        consts::{U12, U13, U14, U15, U16},
+        consts::{U12, U13, U14, U15, U16, U4, U8},
         InvalidLength, KeyIvInit, StreamCipher, StreamCipherError,
     },
     Aes128, Aes192, Aes256,
@@ -150,6 +150,12 @@ impl AesCtrVariant {
 }
 
 pub enum AesGcmVariant {
+    Aes128Gcm32(AesGcm<Aes128, U12, U4>),
+    Aes192Gcm32(AesGcm<Aes192, U12, U4>),
+    Aes256Gcm32(AesGcm<Aes256, U12, U4>),
+    Aes128Gcm64(AesGcm<Aes128, U12, U8>),
+    Aes192Gcm64(AesGcm<Aes192, U12, U8>),
+    Aes256Gcm64(AesGcm<Aes256, U12, U8>),
     Aes128Gcm96(AesGcm<Aes128, U12, U12>),
     Aes192Gcm96(AesGcm<Aes192, U12, U12>),
     Aes256Gcm96(AesGcm<Aes256, U12, U12>),
@@ -175,6 +181,12 @@ impl AesGcmVariant {
         key: &[u8],
     ) -> std::result::Result<Self, InvalidLength> {
         let variant = match (key_len, tag_length) {
+            (128, 32) => Self::Aes128Gcm32(AesGcm::new_from_slice(key)?),
+            (192, 32) => Self::Aes192Gcm32(AesGcm::new_from_slice(key)?),
+            (256, 32) => Self::Aes256Gcm32(AesGcm::new_from_slice(key)?),
+            (128, 64) => Self::Aes128Gcm64(AesGcm::new_from_slice(key)?),
+            (192, 64) => Self::Aes192Gcm64(AesGcm::new_from_slice(key)?),
+            (256, 64) => Self::Aes256Gcm64(AesGcm::new_from_slice(key)?),
             (128, 96) => Self::Aes128Gcm96(AesGcm::new_from_slice(key)?),
             (192, 96) => Self::Aes192Gcm96(AesGcm::new_from_slice(key)?),
             (256, 96) => Self::Aes256Gcm96(AesGcm::new_from_slice(key)?),
@@ -209,6 +221,12 @@ impl AesGcmVariant {
         let nonce: &ctr::cipher::Array<_, _> =
             &Nonce::<U12>::try_from(nonce).map_err(|_| aes_gcm::Error)?;
         match self {
+            Self::Aes128Gcm32(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm32(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm32(v) => v.encrypt(nonce, plaintext),
+            Self::Aes128Gcm64(v) => v.encrypt(nonce, plaintext),
+            Self::Aes192Gcm64(v) => v.encrypt(nonce, plaintext),
+            Self::Aes256Gcm64(v) => v.encrypt(nonce, plaintext),
             Self::Aes128Gcm96(v) => v.encrypt(nonce, plaintext),
             Self::Aes192Gcm96(v) => v.encrypt(nonce, plaintext),
             Self::Aes256Gcm96(v) => v.encrypt(nonce, plaintext),
@@ -240,6 +258,12 @@ impl AesGcmVariant {
         let nonce: &ctr::cipher::Array<_, _> =
             &Nonce::<U12>::try_from(nonce).map_err(|_| aes_gcm::Error)?;
         match self {
+            Self::Aes128Gcm32(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm32(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm32(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes128Gcm64(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes192Gcm64(v) => v.decrypt(nonce, ciphertext),
+            Self::Aes256Gcm64(v) => v.decrypt(nonce, ciphertext),
             Self::Aes128Gcm96(v) => v.decrypt(nonce, ciphertext),
             Self::Aes192Gcm96(v) => v.decrypt(nonce, ciphertext),
             Self::Aes256Gcm96(v) => v.decrypt(nonce, ciphertext),

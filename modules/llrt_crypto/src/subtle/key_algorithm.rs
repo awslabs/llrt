@@ -245,10 +245,19 @@ pub enum EcAlgorithm {
     Ecdsa,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum AesAlgorithm {
+    Cbc,
+    Ctr,
+    Gcm,
+    Kw,
+}
+
 #[derive(Debug, Clone)]
 pub enum KeyAlgorithm {
     Aes {
         length: u16,
+        algorithm: AesAlgorithm,
     },
     Ec {
         curve: EllipticCurve,
@@ -479,9 +488,17 @@ fn from_aes<'js>(
         ));
     }
 
+    let algorithm = match algorithm_name {
+        "AES-CBC" => AesAlgorithm::Cbc,
+        "AES-CTR" => AesAlgorithm::Ctr,
+        "AES-GCM" => AesAlgorithm::Gcm,
+        "AES-KW" => AesAlgorithm::Kw,
+        _ => return Err(DOMException::operation_error(ctx, "Invalid algorithm name")),
+    };
+
     KeyUsage::classify_and_check_usages(
         ctx,
-        if algorithm_name == "AES-KW" {
+        if algorithm == AesAlgorithm::Kw {
             KeyUsageAlgorithm::AesKw
         } else {
             KeyUsageAlgorithm::Symmetric
@@ -492,7 +509,7 @@ fn from_aes<'js>(
         key_kind.as_ref(),
     )?;
 
-    Ok(KeyAlgorithm::Aes { length })
+    Ok(KeyAlgorithm::Aes { length, algorithm })
 }
 
 fn from_hmac<'js>(
@@ -908,7 +925,7 @@ impl KeyAlgorithm {
         let obj = Object::new(ctx.clone())?;
         obj.set(PredefinedAtom::Name, name.as_ref())?;
         match self {
-            KeyAlgorithm::Aes { length } => {
+            KeyAlgorithm::Aes { length, .. } => {
                 obj.set(PredefinedAtom::Length, length)?;
             },
             KeyAlgorithm::Ec { curve, .. } => {
