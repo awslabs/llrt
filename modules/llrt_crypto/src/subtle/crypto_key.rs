@@ -9,6 +9,8 @@ use rquickjs::{
     Class, Ctx, Exception, IntoJs, Object, Result, Value,
 };
 
+use crate::provider::CryptoError;
+
 use super::key_algorithm::KeyAlgorithm;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -133,19 +135,30 @@ impl<'js> CryptoKey<'js> {
 }
 
 impl<'js> CryptoKey<'js> {
-    pub fn check_validity(&self, usage: &str) -> std::result::Result<(), String> {
+    pub fn check_validity(&self, usage: &str) -> std::result::Result<(), CryptoError> {
         for key in self.usages.iter() {
             if key == usage {
                 return Ok(());
             }
         }
-        Err([
-            "CryptoKey with '",
-            self.name.as_ref(),
-            "', doesn't support '",
-            usage,
-            "'",
-        ]
-        .concat())
+        Err(CryptoError::InvalidAccess(Some(
+            [
+                "CryptoKey with '",
+                self.name.as_ref(),
+                "', doesn't support '",
+                usage,
+                "'",
+            ]
+            .concat()
+            .into(),
+        )))
+    }
+
+    pub fn check_kind(&self, expected: KeyKind) -> std::result::Result<(), CryptoError> {
+        if self.kind != expected {
+            return Err(CryptoError::InvalidAccess(Some("Invalid key type".into())));
+        }
+
+        Ok(())
     }
 }

@@ -7,7 +7,7 @@ use rquickjs::{
 };
 
 use super::encoded_bytes;
-use crate::provider::{CryptoProvider, HmacProvider, SimpleDigest};
+use crate::provider::{CryptoError, CryptoProvider, HmacProvider, SimpleDigest};
 use crate::CRYPTO_PROVIDER;
 
 #[derive(Debug, Clone, Copy)]
@@ -89,6 +89,16 @@ impl HashAlgorithm {
             HashAlgorithm::Sha384 => 128,
             HashAlgorithm::Sha512 => 128,
         }
+    }
+
+    pub(super) fn from_strict_str(s: &str) -> std::result::Result<Self, CryptoError> {
+        Ok(match s {
+            "SHA-1" => HashAlgorithm::Sha1,
+            "SHA-256" => HashAlgorithm::Sha256,
+            "SHA-384" => HashAlgorithm::Sha384,
+            "SHA-512" => HashAlgorithm::Sha512,
+            _ => return Err(CryptoError::UnsupportedAlgorithm),
+        })
     }
 }
 

@@ -4,14 +4,11 @@ use crate::provider::{CryptoProvider, HmacProvider};
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rquickjs::{Class, Ctx, Result};
 
-use crate::{
-    subtle::{digest, CryptoKey},
-    CRYPTO_PROVIDER,
-};
+use crate::CRYPTO_PROVIDER;
 
 use super::{
-    algorithm_mismatch_error, key_algorithm::KeyAlgorithm, rsa_hash_digest,
-    sign_algorithm::SigningAlgorithm,
+    algorithm_mismatch_error, crypto_key::CryptoKey, digest, key_algorithm::KeyAlgorithm,
+    rsa_hash_digest, sign_algorithm::SigningAlgorithm,
 };
 
 pub async fn subtle_verify<'js>(

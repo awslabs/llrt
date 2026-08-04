@@ -5,7 +5,10 @@
 use std::rc::Rc;
 
 #[cfg(feature = "_subtle-full")]
-use der::{asn1::OctetStringRef, Decode, Encode};
+use der::{
+    asn1::{OctetString, OctetStringRef},
+    Decode, Encode,
+};
 #[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_exceptions::DOMException;
@@ -628,7 +631,7 @@ fn from_rsa<'js>(
         import(ctx, mode, &obj, algorithm_name, &hash)?;
 
     if is_generate {
-        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx, "")?;
+        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx)?;
     }
 
     KeyUsage::classify_and_check_usages(
@@ -971,7 +974,7 @@ impl KeyAlgorithm {
         let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
         let curve = EllipticCurve::try_from(curve_name.as_str())
             .map_err(NotSupportedError)
-            .or_throw_dom(ctx, "")?;
+            .or_throw_dom(ctx)?;
 
         #[cfg(feature = "_subtle-full")]
         let key_kind = if let KeyAlgorithmMode::Import { format, kind, data } = mode {
@@ -1399,7 +1402,8 @@ fn import_okp_key<'js>(
         KeyFormatData::Pkcs8(object_bytes) => {
             let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            *data = object_bytes.into_bytes(ctx)?;
+            let private_key = OctetString::from_der(pkcs8.private_key.as_bytes()).or_throw(ctx)?;
+            *data = private_key.as_bytes().to_vec();
             *kind = KeyKind::Private;
         },
     };
@@ -1418,9 +1422,7 @@ pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAl
             "hash must be a string or an object",
         ));
     }?;
-    HashAlgorithm::try_from(hash.as_str())
-        .map_err(NotSupportedError)
-        .or_throw_dom(ctx, "")
+    HashAlgorithm::from_strict_str(hash.as_str()).or_throw_dom(ctx)
 }
 
 fn create_hash_object<'js>(ctx: &Ctx<'js>, hash: &HashAlgorithm) -> Result<Object<'js>> {

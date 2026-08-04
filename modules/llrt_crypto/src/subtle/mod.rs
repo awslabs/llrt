@@ -1,8 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod crypto_key;
-mod derive;
 mod derive_algorithm;
+mod derive_bits;
+mod derive_keys;
 mod digest;
 mod encryption;
 mod encryption_algorithm;
@@ -21,8 +22,8 @@ mod verify;
 mod wrapping;
 
 pub use crypto_key::CryptoKey;
-pub use derive::subtle_derive_bits;
-pub use derive::subtle_derive_key;
+pub use derive_bits::subtle_derive_bits;
+pub use derive_keys::subtle_derive_key;
 pub use digest::subtle_digest;
 pub use encryption::subtle_decrypt;
 pub use encryption::subtle_encrypt;
@@ -182,6 +183,13 @@ pub fn algorithm_not_supported_error<T>(ctx: &Ctx<'_>) -> Result<T> {
     Err(DOMException::not_supported_error(
         ctx,
         "Algorithm not supported",
+    ))
+}
+
+pub fn algorithm_invalid_access_error<T>(ctx: &Ctx<'_>, expected_algorithm: &str) -> Result<T> {
+    Err(DOMException::invalid_access_error(
+        ctx,
+        ["Key algorithm must be ", expected_algorithm].concat(),
     ))
 }
 

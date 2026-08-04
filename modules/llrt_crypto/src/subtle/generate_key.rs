@@ -3,13 +3,11 @@
 use llrt_exceptions::DOMException;
 use rquickjs::{object::Property, Array, Class, Ctx, Object, Result, Value};
 
-use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
-
-use crate::{hash::HashAlgorithm, subtle::CryptoKey};
+use crate::{hash::HashAlgorithm, provider::CryptoProvider, CRYPTO_PROVIDER};
 
 use super::{
     algorithm_not_supported_error,
-    crypto_key::KeyKind,
+    crypto_key::{CryptoKey, KeyKind},
     key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages},
     util::ResultDomExt,
 };
@@ -87,31 +85,31 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
             // Default to AES-256
             let key = CRYPTO_PROVIDER
                 .generate_aes_key(*length)
-                .or_throw_dom(ctx, "AES key generation failed")?;
+                .or_throw_dom_with_msg(ctx, "AES key generation failed")?;
             Ok((vec![], key))
         },
         KeyAlgorithm::Hmac { hash, length } => {
             let key = CRYPTO_PROVIDER
                 .generate_hmac_key(*hash, *length)
-                .or_throw_dom(ctx, "HMAC key generation failed")?;
+                .or_throw_dom_with_msg(ctx, "HMAC key generation failed")?;
             Ok((vec![], key))
         },
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .generate_ec_key(*curve)
-            .or_throw_dom(ctx, "EC key generation failed"),
+            .or_throw_dom_with_msg(ctx, "EC key generation failed"),
         KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
             .generate_ed25519_key()
-            .or_throw_dom(ctx, "Ed25519 key generation failed"),
+            .or_throw_dom_with_msg(ctx, "Ed25519 key generation failed"),
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .generate_x25519_key()
-            .or_throw_dom(ctx, "X25519 key generation failed"),
+            .or_throw_dom_with_msg(ctx, "X25519 key generation failed"),
         KeyAlgorithm::Rsa {
             modulus_length,
             public_exponent,
             ..
         } => CRYPTO_PROVIDER
             .generate_rsa_key(*modulus_length, public_exponent.as_ref())
-            .or_throw_dom(ctx, "RSA key generation failed"),
+            .or_throw_dom_with_msg(ctx, "RSA key generation failed"),
         _ => algorithm_not_supported_error(ctx),
     }
 }

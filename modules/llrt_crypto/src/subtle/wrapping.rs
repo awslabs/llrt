@@ -4,9 +4,8 @@ use llrt_json::{parse::json_parse, stringify::json_stringify};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
 
-use crate::subtle::CryptoKey;
-
 use super::{
+    crypto_key::CryptoKey,
     encryption::{self, encrypt_decrypt},
     encryption_algorithm::EncryptionAlgorithm,
     export_key::{export_key, ExportOutput},

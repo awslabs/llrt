@@ -6,9 +6,12 @@ use llrt_utils::object::ObjectExt;
 use rquickjs::{Class, Ctx, FromJs, Result, Value};
 
 use super::{
-    algorithm_mismatch_error, algorithm_not_supported_error,
-    key_algorithm::{KeyAlgorithm, KeyDerivation},
-    CryptoKey, EllipticCurve,
+    algorithm_invalid_access_error, algorithm_mismatch_error, algorithm_not_supported_error,
+    crypto_key::{CryptoKey, KeyKind},
+    key_algorithm::{EcAlgorithm, KeyAlgorithm, KeyDerivation},
+    normalize_algorithm_name,
+    util::ResultDomExt,
+    EllipticCurve,
 };
 
 #[derive(Debug)]
@@ -18,6 +21,7 @@ pub enum DeriveAlgorithm {
     },
     Ecdh {
         curve: EllipticCurve,
+        ec_algorithm: EcAlgorithm,
         public_key: Rc<[u8]>,
     },
     Derive(KeyDerivation),
@@ -28,14 +32,17 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
         let obj = value.into_object_or_throw(ctx, "algorithm")?;
 
         let name: String = obj.get_required("name", "algorithm")?;
+        let name = normalize_algorithm_name(&name);
 
         Ok(match name.as_str() {
             "X25519" => {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
 
+                public_key.check_kind(KeyKind::Public).or_throw_dom(ctx)?;
+
                 if !matches!(public_key.algorithm, KeyAlgorithm::X25519) {
-                    return algorithm_mismatch_error(ctx, &name);
+                    return algorithm_invalid_access_error(ctx, &name);
                 }
 
                 DeriveAlgorithm::X25519 {
@@ -46,9 +53,15 @@ impl<'js> FromJs<'js> for DeriveAlgorithm {
                 let public_key: Class<CryptoKey> = obj.get_required("public", "algorithm")?;
                 let public_key = public_key.borrow();
 
-                if let KeyAlgorithm::Ec { curve, .. } = &public_key.algorithm {
+                public_key.check_kind(KeyKind::Public).or_throw_dom(ctx)?;
+
+                if let KeyAlgorithm::Ec {
+                    curve, algorithm, ..
+                } = &public_key.algorithm
+                {
                     DeriveAlgorithm::Ecdh {
                         curve: *curve,
+                        ec_algorithm: algorithm.clone(),
                         public_key: public_key.handle.clone(),
                     }
                 } else {
