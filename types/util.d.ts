@@ -114,6 +114,66 @@ declare module "util" {
     constructor: unknown,
     superConstructor: unknown
   ): void;
+  export type StyleTextFormat =
+    | "reset"
+    | "bold"
+    | "dim"
+    | "italic"
+    | "underline"
+    | "blink"
+    | "inverse"
+    | "hidden"
+    | "strikethrough"
+    | "doubleunderline"
+    | "black"
+    | "red"
+    | "green"
+    | "yellow"
+    | "blue"
+    | "magenta"
+    | "cyan"
+    | "white"
+    | "gray"
+    | "bgBlack"
+    | "bgRed"
+    | "bgGreen"
+    | "bgYellow"
+    | "bgBlue"
+    | "bgMagenta"
+    | "bgCyan"
+    | "bgWhite"
+    | "bgGray"
+    | "redBright"
+    | "greenBright"
+    | "yellowBright"
+    | "blueBright"
+    | "magentaBright"
+    | "cyanBright"
+    | "whiteBright"
+    | "bgRedBright"
+    | "bgGreenBright"
+    | "bgYellowBright"
+    | "bgBlueBright"
+    | "bgMagentaBright"
+    | "bgCyanBright"
+    | "bgWhiteBright"
+    | "framed"
+    | "overlined";
+  /**
+   * Returns a formatted text considering the `format` passed for use on the terminal.
+   *
+   * ```js
+   * import { styleText } from 'util';
+   *
+   * styleText('red', 'Error!');
+   * ```
+   * @param format A single format name or an array of format names to apply.
+   * @param text The text to style.
+   */
+  export function styleText(
+    format: StyleTextFormat | StyleTextFormat[],
+    text: string
+  ): string;
   /**
    * An implementation of the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) `TextDecoder` API.
    *
