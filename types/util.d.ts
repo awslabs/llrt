@@ -208,9 +208,51 @@ declare module "util" {
      */
     encodeInto(src: string, dest: Uint8Array): EncodeIntoResult;
   }
+  /**
+   * An implementation of the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) `TextEncoderStream` API.
+   *
+   * ```js
+   * const stream = new TextEncoderStream();
+   * ```
+   *
+   * The `TextEncoderStream` class is also available on the global object.
+   */
+  export class TextEncoderStream {
+    /**
+     * The encoding supported by the `TextEncoderStream` instance. Always set to `'utf-8'`.
+     */
+    readonly encoding: string;
+    readonly readable: ReadableStream;
+    readonly writable: WritableStream;
+  }
+  /**
+   * An implementation of the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) `TextDecoderStream` API.
+   *
+   * ```js
+   * const stream = new TextDecoderStream();
+   * ```
+   *
+   * The `TextDecoderStream` class is also available on the global object.
+   */
+  export class TextDecoderStream {
+    constructor(
+      encoding?: string,
+      options?: {
+        fatal?: boolean | undefined;
+        ignoreBOM?: boolean | undefined;
+      }
+    );
+    readonly encoding: string;
+    readonly fatal: boolean;
+    readonly ignoreBOM: boolean;
+    readonly readable: ReadableStream;
+    readonly writable: WritableStream;
+  }
   import {
     TextDecoder as _TextDecoder,
+    TextDecoderStream as _TextDecoderStream,
     TextEncoder as _TextEncoder,
+    TextEncoderStream as _TextEncoderStream,
   } from "util";
   global {
     /**
@@ -233,6 +275,26 @@ declare module "util" {
     }
       ? TextEncoder
       : typeof _TextEncoder;
+    /**
+     * `TextDecoderStream` class is a global reference for `import { TextDecoderStream } from 'util'`
+     * https://nodejs.org/api/globals.html#textdecoderstream
+     */
+    var TextDecoderStream: typeof globalThis extends {
+      onmessage: any;
+      TextDecoderStream: infer TextDecoderStream;
+    }
+      ? TextDecoderStream
+      : typeof _TextDecoderStream;
+    /**
+     * `TextEncoderStream` class is a global reference for `import { TextEncoderStream } from 'util'`
+     * https://nodejs.org/api/globals.html#textencoderstream
+     */
+    var TextEncoderStream: typeof globalThis extends {
+      onmessage: any;
+      TextEncoderStream: infer TextEncoderStream;
+    }
+      ? TextEncoderStream
+      : typeof _TextEncoderStream;
   }
 }
 declare module "util" {
