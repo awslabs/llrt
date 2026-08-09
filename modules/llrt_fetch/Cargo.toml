@@ -34,6 +34,7 @@ either = { version = "1", default-features = false }
 http-body = { version = "1", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", features = ["client"], default-features = false }
+hyper-util = { version = "=0.1.20", features = ["client-legacy"], default-features = false }
 itoa = { version = "1", default-features = false }
 llrt_abort = { version = "0.8.1-beta", path = "../llrt_abort" }
 llrt_buffer = { version = "0.8.1-beta", path = "../llrt_buffer" }
