@@ -1967,6 +1967,7 @@ dependencies = [
  "http-body",
  "http-body-util",
  "hyper",
+ "hyper-util",
  "itoa",
  "llrt_abort",
  "llrt_buffer",

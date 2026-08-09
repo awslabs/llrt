@@ -152,6 +152,109 @@ describe("fetch", () => {
     await Promise.all(new Array(10).fill(0).map(() => fetch(url)));
   });
 
+  it("should not reuse malformed null-body response connections", async () => {
+    const sockets = new Set<net.Socket>();
+    let firstSocket: net.Socket | undefined;
+    let connectionCount = 0;
+    let requestCount = 0;
+    const malformedServer = net.createServer((socket) => {
+      sockets.add(socket);
+      connectionCount++;
+      let requestData = "";
+      socket.on("close", () => sockets.delete(socket));
+      socket.on("error", () => {});
+      socket.on("data", (data) => {
+        requestData += data.toString();
+        while (requestData.includes("\r\n\r\n")) {
+          requestData = requestData.slice(requestData.indexOf("\r\n\r\n") + 4);
+          requestCount++;
+          if (requestCount === 1) {
+            firstSocket = socket;
+            socket.write(
+              "HTTP/1.1 204 No Content\r\nContent-Length: 11\r\n\r\n"
+            );
+          } else if (socket === firstSocket) {
+            socket.write(
+              "hello-worldHTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nSECOND",
+              () => socket.end()
+            );
+          } else {
+            firstSocket?.write("hello-world");
+            socket.write(
+              "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nSECOND",
+              () => socket.end()
+            );
+          }
+        }
+      });
+    });
+
+    await new Promise<void>((resolve) =>
+      malformedServer.listen(0, "127.0.0.1", resolve)
+    );
+    const { port } = malformedServer.address()! as net.AddressInfo;
+    const malformedUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      const first = await fetch(malformedUrl);
+      expect(first.status).toEqual(204);
+      expect(first.body).toBeNull();
+
+      const second = await fetch(malformedUrl);
+      expect(second.status).toEqual(200);
+      expect(await second.text()).toEqual("SECOND");
+      expect(connectionCount).toEqual(2);
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((resolve) => malformedServer.close(resolve));
+    }
+  });
+
+  it("should reuse valid null-body response connections", async () => {
+    const sockets = new Set<net.Socket>();
+    let connectionCount = 0;
+    let requestCount = 0;
+    const validServer = net.createServer((socket) => {
+      sockets.add(socket);
+      connectionCount++;
+      let requestData = "";
+      socket.on("close", () => sockets.delete(socket));
+      socket.on("error", () => {});
+      socket.on("data", (data) => {
+        requestData += data.toString();
+        while (requestData.includes("\r\n\r\n")) {
+          requestData = requestData.slice(requestData.indexOf("\r\n\r\n") + 4);
+          requestCount++;
+          if (requestCount === 1) {
+            socket.write(
+              "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"
+            );
+          } else {
+            socket.write(
+              "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nSECOND",
+              () => socket.end()
+            );
+          }
+        }
+      });
+    });
+
+    await new Promise<void>((resolve) =>
+      validServer.listen(0, "127.0.0.1", resolve)
+    );
+    const { port } = validServer.address()! as net.AddressInfo;
+    const validUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      expect((await fetch(validUrl)).status).toEqual(204);
+      expect(await (await fetch(validUrl)).text()).toEqual("SECOND");
+      expect(connectionCount).toEqual(1);
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((resolve) => validServer.close(resolve));
+    }
+  });
+
   // Regression test for https://github.com/awslabs/llrt/issues/1482:
   // a connection failure must reject with exactly `TypeError: Failed to fetch`
   // so the AWS SDK retry middleware classifies it as a transient error.
