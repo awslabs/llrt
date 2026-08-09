@@ -5,11 +5,12 @@ use http_body_util::{combinators::BoxBody, Full};
 use hyper::{
     header::{
         ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, AUTHORIZATION, CONTENT_ENCODING,
-        CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_TYPE, LOCATION, ORIGIN,
-        USER_AGENT,
+        CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_TYPE, IF_MODIFIED_SINCE,
+        IF_NONE_MATCH, LOCATION, ORIGIN, TRANSFER_ENCODING, USER_AGENT,
     },
-    Method, Request, Uri,
+    HeaderMap, Method, Request, Uri, Version,
 };
+use hyper_util::client::legacy::connect::{capture_connection, CaptureConnection};
 use llrt_abort::AbortSignal;
 use llrt_context::CtxExtension;
 use llrt_encoding::bytes_from_b64;
@@ -265,7 +266,9 @@ async fn send_stream<'js>(
     apply_default_headers(&mut req, &detected_headers);
 
     let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
-    let request = req.body(box_body).or_throw(ctx)?;
+    let mut request = req.body(box_body).or_throw(ctx)?;
+    let is_conditional = request_is_conditional(&request);
+    let captured_connection = capture_connection(&mut request);
 
     // Race request against stream error
     let request_fut = client.request(request);
@@ -286,6 +289,8 @@ async fn send_stream<'js>(
         }
     };
 
+    poison_malformed_null_body_connection(&method, is_conditional, &captured_connection, &res);
+
     Response::from_incoming(
         ctx.clone(),
         res,
@@ -301,20 +306,73 @@ async fn send_stream<'js>(
 async fn dispatch<'js>(
     ctx: &Ctx<'js>,
     client: &HyperClient,
-    req: Request<BoxBody<Bytes, Infallible>>,
+    mut req: Request<BoxBody<Bytes, Infallible>>,
     abort_receiver: Option<&mc_oneshot::Receiver<Value<'js>>>,
 ) -> Result<hyper::Response<hyper::body::Incoming>> {
-    if let Some(abort_receiver) = abort_receiver {
+    let method = req.method().clone();
+    let is_conditional = request_is_conditional(&req);
+    let captured_connection = capture_connection(&mut req);
+    let request = client.request(req);
+    tokio::pin!(request);
+
+    let res = if let Some(abort_receiver) = abort_receiver {
         select! {
-            res = client.request(req) => res.map_err(|e| throw_fetch_failed(ctx, e)),
-            reason = abort_receiver.recv() => Err(ctx.throw(reason)),
+            res = &mut request => res.map_err(|e| throw_fetch_failed(ctx, e))?,
+            reason = abort_receiver.recv() => return Err(ctx.throw(reason)),
         }
     } else {
-        client
-            .request(req)
-            .await
-            .map_err(|e| throw_fetch_failed(ctx, e))
+        request.await.map_err(|e| throw_fetch_failed(ctx, e))?
+    };
+
+    poison_malformed_null_body_connection(&method, is_conditional, &captured_connection, &res);
+
+    Ok(res)
+}
+
+fn request_is_conditional<B>(request: &Request<B>) -> bool {
+    request.headers().contains_key(IF_NONE_MATCH)
+        || request.headers().contains_key(IF_MODIFIED_SINCE)
+}
+
+fn poison_malformed_null_body_connection(
+    method: &Method,
+    is_conditional: bool,
+    captured_connection: &CaptureConnection,
+    response: &hyper::Response<hyper::body::Incoming>,
+) {
+    // Hyper can return an HTTP/1 bodyless response to the pool before forbidden
+    // payload bytes arrive, letting the next request consume them as its response.
+    if should_poison_connection(method, is_conditional, response) {
+        if let Some(connection) = captured_connection.connection_metadata().as_ref() {
+            connection.poison();
+        }
     }
+}
+
+fn should_poison_connection<B>(
+    method: &Method,
+    is_conditional: bool,
+    response: &hyper::Response<B>,
+) -> bool {
+    if !matches!(response.version(), Version::HTTP_10 | Version::HTTP_11)
+        || !indicates_possible_payload(response.headers())
+    {
+        return false;
+    }
+
+    match response.status().as_u16() {
+        204 | 205 => true,
+        304 => !matches!(*method, Method::GET | Method::HEAD) || !is_conditional,
+        _ => false,
+    }
+}
+
+fn indicates_possible_payload(headers: &HeaderMap) -> bool {
+    headers.contains_key(TRANSFER_ENCODING)
+        || headers
+            .get(CONTENT_LENGTH)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value != "0")
 }
 
 // Per WHATWG Fetch, a network/connection failure rejects with exactly
@@ -939,6 +997,72 @@ mod tests {
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
     use super::*;
+
+    #[test]
+    fn test_should_poison_connection() {
+        fn response(status: u16, name: &str, value: &str) -> hyper::Response<()> {
+            hyper::Response::builder()
+                .status(status)
+                .header(name, value)
+                .body(())
+                .unwrap()
+        }
+
+        fn h2_response(status: u16, name: &str, value: &str) -> hyper::Response<()> {
+            hyper::Response::builder()
+                .status(status)
+                .version(Version::HTTP_2)
+                .header(name, value)
+                .body(())
+                .unwrap()
+        }
+
+        assert!(should_poison_connection(
+            &Method::GET,
+            false,
+            &response(204, "content-length", "11")
+        ));
+        assert!(should_poison_connection(
+            &Method::POST,
+            false,
+            &response(205, "transfer-encoding", "chunked")
+        ));
+        assert!(!should_poison_connection(
+            &Method::GET,
+            false,
+            &response(204, "content-length", "0")
+        ));
+        assert!(!should_poison_connection(
+            &Method::GET,
+            true,
+            &response(304, "content-length", "11")
+        ));
+        assert!(!should_poison_connection(
+            &Method::HEAD,
+            true,
+            &response(304, "content-length", "11")
+        ));
+        assert!(should_poison_connection(
+            &Method::GET,
+            false,
+            &response(304, "content-length", "11")
+        ));
+        assert!(should_poison_connection(
+            &Method::POST,
+            true,
+            &response(304, "content-length", "11")
+        ));
+        assert!(!should_poison_connection(
+            &Method::HEAD,
+            false,
+            &response(200, "content-length", "11")
+        ));
+        assert!(!should_poison_connection(
+            &Method::GET,
+            false,
+            &h2_response(204, "content-length", "11")
+        ));
+    }
 
     #[test]
     fn test_should_change_method() {

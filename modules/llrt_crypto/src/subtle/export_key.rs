@@ -146,7 +146,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
     obj.set("ext", true)?;
 
     match &key.algorithm {
-        KeyAlgorithm::Aes { length } => {
+        KeyAlgorithm::Aes { length, .. } => {
             let prefix = match length {
                 128 => "A128",
                 192 => "A192",

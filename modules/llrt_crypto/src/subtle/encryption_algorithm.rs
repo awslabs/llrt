@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Ctx, Exception, FromJs, Result, Value};
 
@@ -39,7 +40,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                     .into_boxed_slice();
 
                 if iv.len() != 16 {
-                    return Err(Exception::throw_message(
+                    return Err(DOMException::operation_error(
                         ctx,
                         "invalid length of iv. Currently supported 16 bytes",
                     ));
@@ -56,7 +57,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 let length = obj.get_required::<_, u32>("length", "algorithm")?;
 
                 if !matches!(length, 32 | 64 | 128) {
-                    return Err(Exception::throw_message(
+                    return Err(DOMException::operation_error(
                         ctx,
                         "invalid counter length. Currently supported 32/64/128 bits",
                     ));
@@ -87,11 +88,8 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 let tag_length = obj.get_optional::<_, u8>("tagLength")?.unwrap_or(128);
 
                 //ensure tag length is supported using a match statement 32, 64, 96, 104, 112, 120, or 128
-                if !matches!(tag_length, 96 | 104 | 112 | 120 | 128) {
-                    return Err(Exception::throw_message(
-                        ctx,
-                        "Invalid tagLength. Currently supported 96/104/112/120/128 bits",
-                    ));
+                if !matches!(tag_length, 32 | 64 | 96 | 104 | 112 | 120 | 128) {
+                    return Err(DOMException::operation_error(ctx, "Invalid tagLength"));
                 }
 
                 Ok(EncryptionAlgorithm::AesGcm {

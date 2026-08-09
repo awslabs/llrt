@@ -98,10 +98,11 @@ fn transform<'js>(
     let bytes = ObjectBytes::from(&ctx, &chunk)?;
     let opts = Object::new(ctx.clone())?;
     opts.set("stream", true)?;
-    let text = decoder
-        .lock()
-        .unwrap()
-        .decode(ctx, Opt(Some(bytes)), Opt(Some(opts.into_value())))?;
+    let text =
+        decoder
+            .lock()
+            .unwrap()
+            .decode(ctx, Opt(Some(bytes)), Opt(Some(opts.into_value())))?;
     if !text.is_empty() {
         let enqueue: Function = controller.get("enqueue")?;
         enqueue.call::<_, ()>((This(controller), text))?;
