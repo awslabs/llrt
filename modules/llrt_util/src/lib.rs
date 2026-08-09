@@ -3,12 +3,16 @@
 pub mod text_decoder;
 pub mod text_encoder;
 
-use llrt_logging::format_plain;
-use llrt_utils::module::{export_default, ModuleInfo};
+use llrt_logging::{build_formatted_string, format_plain, FormatOptions};
+use llrt_utils::{
+    class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION,
+    module::{export_default, ModuleInfo},
+    object::ObjectExt,
+};
 use rquickjs::{
-    function::Func,
+    function::{Func, Opt, Rest},
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Function, Object, Result,
+    Class, Ctx, Function, Object, Result, Symbol, Value,
 };
 use text_decoder::TextDecoder;
 use text_encoder::TextEncoder;
@@ -21,6 +25,18 @@ fn inherits<'js>(ctor: Function<'js>, super_ctor: Function<'js>) -> Result<()> {
     Ok(())
 }
 
+fn inspect<'js>(ctx: Ctx<'js>, value: Value<'js>, options: Opt<Object<'js>>) -> Result<String> {
+    let colors = options
+        .0
+        .and_then(|opts| opts.get_optional("colors").ok().flatten())
+        .unwrap_or(false);
+
+    let mut result = String::new();
+    let mut format_options = FormatOptions::new(&ctx, colors, true)?;
+    build_formatted_string(&mut result, &ctx, Rest(vec![value]), &mut format_options)?;
+    Ok(result)
+}
+
 pub struct UtilModule;
 
 impl ModuleDef for UtilModule {
@@ -29,6 +45,7 @@ impl ModuleDef for UtilModule {
         declare.declare(stringify!(TextEncoder))?;
         declare.declare(stringify!(format))?;
         declare.declare(stringify!(inherits))?;
+        declare.declare(stringify!(inspect))?;
         declare.declare("default")?;
         Ok(())
     }
@@ -47,6 +64,12 @@ impl ModuleDef for UtilModule {
                 Func::from(|ctx, args| format_plain(ctx, true, args)),
             )?;
             default.set("inherits", Func::from(inherits))?;
+
+            let inspect_fn = Function::new(ctx.clone(), inspect)?.with_name("inspect")?;
+            let inspect_custom =
+                Symbol::new_global(ctx.clone(), CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+            inspect_fn.set("custom", inspect_custom)?;
+            default.set("inspect", inspect_fn)?;
 
             Ok(())
         })
@@ -69,4 +92,74 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Class::<TextDecoder>::define(&globals)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::UtilModule;
+    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
+    use llrt_utils::primordials::{BasePrimordials, Primordial};
+
+    #[tokio::test]
+    async fn test_inspect() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                BasePrimordials::init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { inspect } from 'util';
+
+                        export async function test() {
+                            return inspect({ a: 1, b: [1, 2] });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "{\n  a: 1,\n  b: [ 1, 2 ]\n}");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_inspect_custom() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                BasePrimordials::init(&ctx).unwrap();
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { inspect } from 'util';
+
+                        export async function test() {
+                            const obj = {
+                                [inspect.custom]: { customKey: "custom-value" },
+                            };
+                            return inspect(obj);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "{\n  customKey: 'custom-value'\n}");
+            })
+        })
+        .await;
+    }
 }
