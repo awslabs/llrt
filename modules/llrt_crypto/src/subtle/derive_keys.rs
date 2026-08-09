@@ -56,7 +56,7 @@ fn derive_key<'js>(
     key_algorithm: KeyAlgorithmWithUsages,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
     let length = match &key_algorithm.algorithm {
-        KeyAlgorithm::Aes { length } => *length,
+        KeyAlgorithm::Aes { length, .. } => *length,
         KeyAlgorithm::Hmac { length, .. } => *length,
         KeyAlgorithm::Derive { .. } => 0,
         _ => {
