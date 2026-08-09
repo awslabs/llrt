@@ -16,7 +16,7 @@ use std::{
     collections::HashMap,
     io::Result as IoResult,
     process::{Command as StdCommand, Stdio},
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use llrt_context::CtxExtension;
@@ -26,6 +26,7 @@ use llrt_stream::{
     writable::{DefaultWritableStream, WritableStream},
 };
 use llrt_utils::{
+    bytes::ObjectBytes,
     module::{export_default, ModuleInfo},
     object::ObjectExt,
     result::ResultExt,
@@ -35,7 +36,7 @@ use rquickjs::{
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Class, Ctx, Error, Exception, IntoJs, Result, Value,
+    Class, Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
 };
 use tokio::{
     io::AsyncRead,
@@ -536,6 +537,102 @@ fn spawn<'js>(
     ChildProcess::new(ctx.clone(), cmd, command_args, command.spawn())
 }
 
+fn exec_file<'js>(
+    ctx: Ctx<'js>,
+    file: String,
+    rest: Rest<Value<'js>>,
+) -> Result<Class<'js, ChildProcess<'js>>> {
+    let mut rest = rest.0;
+    let callback = rest
+        .pop()
+        .and_then(|v| v.as_function().cloned())
+        .or_throw_msg(&ctx, "callback must be a function")?;
+
+    let child_process = spawn(ctx.clone(), file, Rest(rest))?;
+
+    let stdout = child_process.get::<_, Class<DefaultReadableStream>>("stdout")?;
+    let stderr = child_process.get::<_, Class<DefaultReadableStream>>("stderr")?;
+
+    let stdout_buffer = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let stderr_buffer = Arc::new(Mutex::new(Vec::<u8>::new()));
+
+    DefaultReadableStream::add_event_listener_str(
+        stdout,
+        &ctx,
+        "data",
+        Function::new(ctx.clone(), {
+            let stdout_buffer = stdout_buffer.clone();
+            move |ctx: Ctx<'js>, data: Value<'js>| -> Result<()> {
+                stdout_buffer
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(ObjectBytes::from(&ctx, &data)?.as_bytes(&ctx)?);
+                Ok(())
+            }
+        })?,
+        false,
+        false,
+    )?;
+
+    DefaultReadableStream::add_event_listener_str(
+        stderr,
+        &ctx,
+        "data",
+        Function::new(ctx.clone(), {
+            let stderr_buffer = stderr_buffer.clone();
+            move |ctx: Ctx<'js>, data: Value<'js>| -> Result<()> {
+                stderr_buffer
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(ObjectBytes::from(&ctx, &data)?.as_bytes(&ctx)?);
+                Ok(())
+            }
+        })?,
+        false,
+        false,
+    )?;
+
+    ChildProcess::add_event_listener_str(
+        child_process.clone(),
+        &ctx,
+        "close",
+        Function::new(ctx.clone(), {
+            let callback = callback.clone();
+            move |ctx: Ctx<'js>, code: Value<'js>, _signal: Value<'js>| -> Result<()> {
+                let stdout = String::from_utf8_lossy(&stdout_buffer.lock().unwrap()).into_owned();
+                let stderr = String::from_utf8_lossy(&stderr_buffer.lock().unwrap()).into_owned();
+
+                let error = match code.as_int() {
+                    Some(code) if code != 0 => {
+                        let message = format!("Command failed: {}", code);
+                        let exception = Exception::from_message(ctx.clone(), &message)?;
+                        exception.set("code", code)?;
+                        exception.into_value()
+                    },
+                    _ => Null.into_js(&ctx)?,
+                };
+
+                callback.call::<_, ()>((error, stdout, stderr))
+            }
+        })?,
+        false,
+        true,
+    )?;
+
+    ChildProcess::add_event_listener_str(
+        child_process.clone(),
+        &ctx,
+        "error",
+        Function::new(ctx.clone(), move |error: Value<'js>| -> Result<()> {
+            callback.call::<_, ()>((error, "", ""))
+        })?,
+        false,
+        true,
+    )?;
+
+    Ok(child_process)
+}
+
 fn str_to_stdio(ctx: &Ctx<'_>, input: &str) -> Result<StdioEnum> {
     match input {
         "pipe" => Ok(StdioEnum::Piped),
@@ -572,6 +669,7 @@ pub struct ChildProcessModule;
 impl ModuleDef for ChildProcessModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("spawn")?;
+        declare.declare("execFile")?;
         declare.declare("default")?;
         Ok(())
     }
@@ -585,6 +683,7 @@ impl ModuleDef for ChildProcessModule {
 
         export_default(ctx, exports, |default| {
             default.set("spawn", Func::from(spawn))?;
+            default.set("execFile", Func::from(exec_file))?;
             Ok(())
         })?;
 

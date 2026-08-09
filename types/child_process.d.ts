@@ -444,4 +444,35 @@ declare module "child_process" {
     args: readonly string[],
     options: SpawnOptions
   ): ChildProcess;
+
+  interface ExecFileException extends Error {
+    code?: string | number | undefined;
+    signal?: string | undefined;
+  }
+  interface ExecFileOptions extends ProcessEnvOptions {
+    shell?: boolean | string | undefined;
+    windowsVerbatimArguments?: boolean | undefined;
+  }
+  type ExecFileCallback = (
+    error: ExecFileException | null,
+    stdout: string,
+    stderr: string
+  ) => void;
+  function execFile(file: string, callback: ExecFileCallback): ChildProcess;
+  function execFile(
+    file: string,
+    args: readonly string[] | undefined | null,
+    callback: ExecFileCallback
+  ): ChildProcess;
+  function execFile(
+    file: string,
+    options: ExecFileOptions,
+    callback: ExecFileCallback
+  ): ChildProcess;
+  function execFile(
+    file: string,
+    args: readonly string[] | undefined | null,
+    options: ExecFileOptions,
+    callback: ExecFileCallback
+  ): ChildProcess;
 }
