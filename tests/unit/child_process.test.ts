@@ -9,7 +9,7 @@ it("node:child_process should be the same as child_process", () => {
   expect(defaultImport).toStrictEqual(legacyImport);
 });
 
-const { spawn } = defaultImport;
+const { spawn, execFile } = defaultImport;
 
 describe("spawn", () => {
   it("should spawn a child process", (done) => {
@@ -230,4 +230,48 @@ describe("spawn", () => {
       });
     }
   );
+});
+
+describe("execFile", () => {
+  it("should capture stdout via callback", (done) => {
+    const command = "echo";
+    const args = ["Hello, World!"];
+    execFile(command, args, (error, stdout) => {
+      try {
+        expect(error).toBeNull();
+        expect(stdout.trim()).toEqual(args[0]);
+        done();
+      } catch (e) {
+        done(e);
+      }
+    });
+  });
+
+  it("should pass an error for a non-zero exit code", (done) => {
+    const command = IS_WINDOWS ? "cmd" : "sh";
+    const args = IS_WINDOWS ? ["/c", "exit 1"] : ["-c", "exit 1"];
+    execFile(command, args, (error) => {
+      try {
+        expect(error).toBeTruthy();
+        done();
+      } catch (e) {
+        done(e);
+      }
+    });
+  });
+
+  it("should pass an error when the command does not exist", (done) => {
+    if (process.env._VIRTUAL_ENV) {
+      //QEMU spawns nonexistent-command successfully
+      return done();
+    }
+    execFile("nonexistent-command", (error) => {
+      try {
+        expect(error).toBeTruthy();
+        done();
+      } catch (e) {
+        done(e);
+      }
+    });
+  });
 });

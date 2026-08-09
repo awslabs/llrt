@@ -7,15 +7,17 @@ pub mod text_decoder_stream;
 pub mod text_encoder;
 pub mod text_encoder_stream;
 
-use llrt_logging::format_plain;
+use llrt_logging::{build_formatted_string, format_plain, FormatOptions};
 use llrt_utils::{
+    class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION,
     module::{export_default, ModuleInfo},
+    object::ObjectExt,
     primordials::Primordial,
 };
 use rquickjs::{
-    function::{Constructor, Func},
+    function::{Constructor, Func, Opt, Rest},
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Function, JsLifetime, Object, Result,
+    Class, Ctx, Function, JsLifetime, Object, Result, Symbol, Value,
 };
 use text_decoder::TextDecoder;
 use text_decoder_stream::TextDecoderStream;
@@ -43,6 +45,18 @@ fn inherits<'js>(ctor: Function<'js>, super_ctor: Function<'js>) -> Result<()> {
     Ok(())
 }
 
+fn inspect<'js>(ctx: Ctx<'js>, value: Value<'js>, options: Opt<Object<'js>>) -> Result<String> {
+    let colors = options
+        .0
+        .and_then(|opts| opts.get_optional("colors").ok().flatten())
+        .unwrap_or(false);
+
+    let mut result = String::new();
+    let mut format_options = FormatOptions::new(&ctx, colors, true)?;
+    build_formatted_string(&mut result, &ctx, Rest(vec![value]), &mut format_options)?;
+    Ok(result)
+}
+
 pub struct UtilModule;
 
 impl ModuleDef for UtilModule {
@@ -53,6 +67,7 @@ impl ModuleDef for UtilModule {
         declare.declare(stringify!(TextEncoderStream))?;
         declare.declare(stringify!(format))?;
         declare.declare(stringify!(inherits))?;
+        declare.declare(stringify!(inspect))?;
         declare.declare("default")?;
         Ok(())
     }
@@ -75,6 +90,12 @@ impl ModuleDef for UtilModule {
                 Func::from(|ctx, args| format_plain(ctx, true, args)),
             )?;
             default.set("inherits", Func::from(inherits))?;
+
+            let inspect_fn = Function::new(ctx.clone(), inspect)?.with_name("inspect")?;
+            let inspect_custom =
+                Symbol::new_global(ctx.clone(), CUSTOM_INSPECT_SYMBOL_DESCRIPTION)?;
+            inspect_fn.set("custom", inspect_custom)?;
+            default.set("inspect", inspect_fn)?;
 
             Ok(())
         })

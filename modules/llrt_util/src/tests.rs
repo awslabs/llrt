@@ -1,4 +1,5 @@
-use llrt_test::test_async_with;
+use llrt_test::{call_test, test_async_with, ModuleEvaluator};
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 use rquickjs::Promise;
 
 fn eval_async<'js>(ctx: &rquickjs::Ctx<'js>, js: &str) -> rquickjs::Result<Promise<'js>> {
@@ -6,6 +7,7 @@ fn eval_async<'js>(ctx: &rquickjs::Ctx<'js>, js: &str) -> rquickjs::Result<Promi
 }
 
 fn init(ctx: &rquickjs::Ctx<'_>) {
+    BasePrimordials::init(ctx).unwrap();
     llrt_stream_web::init(ctx).unwrap();
     crate::init(ctx).unwrap();
 }
@@ -91,6 +93,67 @@ async fn decoder_stream_encoding_getter() {
             .into_future::<()>()
             .await
             .unwrap();
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_inspect() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            ModuleEvaluator::eval_rust::<crate::UtilModule>(ctx.clone(), "util")
+                .await
+                .unwrap();
+
+            let module = ModuleEvaluator::eval_js(
+                ctx.clone(),
+                "test",
+                r#"
+                    import { inspect } from 'util';
+
+                    export async function test() {
+                        return inspect({ a: 1, b: [1, 2] });
+                    }
+                "#,
+            )
+            .await
+            .unwrap();
+            let result = call_test::<String, _>(&ctx, &module, ()).await;
+            assert_eq!(result, "{\n  a: 1,\n  b: [ 1, 2 ]\n}");
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_inspect_custom() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            ModuleEvaluator::eval_rust::<crate::UtilModule>(ctx.clone(), "util")
+                .await
+                .unwrap();
+
+            let module = ModuleEvaluator::eval_js(
+                ctx.clone(),
+                "test",
+                r#"
+                    import { inspect } from 'util';
+
+                    export async function test() {
+                        const obj = {
+                            [inspect.custom]: { customKey: "custom-value" },
+                        };
+                        return inspect(obj);
+                    }
+                "#,
+            )
+            .await
+            .unwrap();
+            let result = call_test::<String, _>(&ctx, &module, ()).await;
+            assert_eq!(result, "{\n  customKey: 'custom-value'\n}");
         })
     })
     .await;
