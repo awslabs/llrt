@@ -81,7 +81,7 @@ pub async fn subtle_generate_key<'js>(
 
 fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec<u8>)> {
     match algorithm {
-        KeyAlgorithm::Aes { length } => {
+        KeyAlgorithm::Aes { length, .. } => {
             // Default to AES-256
             let key = CRYPTO_PROVIDER
                 .generate_aes_key(*length)

@@ -148,6 +148,8 @@ Everything else inherited from [Uint8Array](https://developer.mozilla.org/en-US/
 
 [spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)
 
+[execFile](https://nodejs.org/api/child_process.html#child_processexecfilefile-args-options-callback)
+
 ## console
 
 [Console](https://nodejs.org/api/console.html#class-console)
@@ -525,6 +527,8 @@ _Also available globally_
 [inherits](https://nodejs.org/api/util.html#utilinheritsconstructor-superconstructor)
 
 [styleText](https://nodejs.org/api/util.html#utilstyletextformat-text)
+
+[inspect](https://nodejs.org/api/util.html#utilinspectobject-options)
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 

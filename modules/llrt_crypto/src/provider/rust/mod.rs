@@ -628,6 +628,12 @@ impl CryptoProvider for RustCryptoProvider {
                 };
 
                 match variant {
+                    AesGcmVariant::Aes128Gcm32(v) => v.encrypt(nonce, plaintext),
+                    AesGcmVariant::Aes192Gcm32(v) => v.encrypt(nonce, plaintext),
+                    AesGcmVariant::Aes256Gcm32(v) => v.encrypt(nonce, plaintext),
+                    AesGcmVariant::Aes128Gcm64(v) => v.encrypt(nonce, plaintext),
+                    AesGcmVariant::Aes192Gcm64(v) => v.encrypt(nonce, plaintext),
+                    AesGcmVariant::Aes256Gcm64(v) => v.encrypt(nonce, plaintext),
                     AesGcmVariant::Aes128Gcm96(v) => v.encrypt(nonce, plaintext),
                     AesGcmVariant::Aes192Gcm96(v) => v.encrypt(nonce, plaintext),
                     AesGcmVariant::Aes256Gcm96(v) => v.encrypt(nonce, plaintext),
@@ -694,6 +700,12 @@ impl CryptoProvider for RustCryptoProvider {
                 };
 
                 match variant {
+                    AesGcmVariant::Aes128Gcm32(v) => v.decrypt(nonce, ciphertext),
+                    AesGcmVariant::Aes192Gcm32(v) => v.decrypt(nonce, ciphertext),
+                    AesGcmVariant::Aes256Gcm32(v) => v.decrypt(nonce, ciphertext),
+                    AesGcmVariant::Aes128Gcm64(v) => v.decrypt(nonce, ciphertext),
+                    AesGcmVariant::Aes192Gcm64(v) => v.decrypt(nonce, ciphertext),
+                    AesGcmVariant::Aes256Gcm64(v) => v.decrypt(nonce, ciphertext),
                     AesGcmVariant::Aes128Gcm96(v) => v.decrypt(nonce, ciphertext),
                     AesGcmVariant::Aes192Gcm96(v) => v.decrypt(nonce, ciphertext),
                     AesGcmVariant::Aes256Gcm96(v) => v.decrypt(nonce, ciphertext),
@@ -1028,10 +1040,7 @@ impl CryptoProvider for RustCryptoProvider {
             .map_err(|_| CryptoError::InvalidKey(None))?;
         let modulus_length = private_key.modulus.as_bytes().len() * 8;
         let public_exponent = private_key.public_exponent.as_bytes().to_vec();
-        let key_data = pk_info
-            .private_key
-            .to_der()
-            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let key_data = pk_info.private_key.as_bytes().to_vec();
         Ok(super::RsaImportResult {
             key_data,
             modulus_length: modulus_length as u32,

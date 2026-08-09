@@ -114,34 +114,6 @@ pub fn rsa_hash_digest<'a>(
     Ok((hash, digest))
 }
 
-pub fn validate_aes_length(
-    ctx: &Ctx<'_>,
-    key: &CryptoKey,
-    handle: &[u8],
-    expected_algorithm: &str,
-) -> Result<()> {
-    let length = match key.algorithm {
-        KeyAlgorithm::Aes { length } => length,
-        _ => return algorithm_mismatch_error(ctx, expected_algorithm),
-    };
-    if length != handle.len() as u16 * 8 {
-        return Err(Exception::throw_message(
-            ctx,
-            &[
-                "Invalid key handle length for ",
-                expected_algorithm,
-                ". Expected ",
-                &length.to_string(),
-                " bits, found ",
-                &handle.len().to_string(),
-                " bits",
-            ]
-            .concat(),
-        ));
-    }
-    Ok(())
-}
-
 pub fn to_name_and_maybe_object<'js, 'a>(
     ctx: &Ctx<'js>,
     value: Value<'js>,

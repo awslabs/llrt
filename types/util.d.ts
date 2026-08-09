@@ -174,6 +174,32 @@ declare module "util" {
     format: StyleTextFormat | StyleTextFormat[],
     text: string
   ): string;
+  export interface InspectOptions {
+    /**
+     * If `true`, the output is styled with ANSI color codes.
+     * @default false
+     */
+    colors?: boolean | undefined;
+  }
+  /**
+   * The `util.inspect()` method returns a string representation of `object` that
+   * is intended for debugging.
+   *
+   * ```js
+   * import util from 'util';
+   *
+   * const obj = { name: 'foo' };
+   * console.log(util.inspect(obj));
+   * // Prints: { name: 'foo' }
+   * ```
+   *
+   * Objects may define their own custom `inspect(depth, opts, inspect)` function via the `util.inspect.custom` symbol.
+   * @param object Any JavaScript primitive or object.
+   */
+  export function inspect(object: any, options?: InspectOptions): string;
+  export namespace inspect {
+    const custom: unique symbol;
+  }
   /**
    * An implementation of the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) `TextDecoder` API.
    *
