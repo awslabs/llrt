@@ -69,6 +69,7 @@ llrt_json = { version = "0.8.1-beta", path = "../../libs/llrt_json", optional = 
 aes = { version = "0.9", optional = true }
 aes-gcm = { version = "0.11", features = [
   "alloc",
+  "hazmat",
 ], default-features = false, optional = true }
 aes-kw = { version = "0.3", features = [
   "oid",

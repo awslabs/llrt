@@ -1,10 +1,10 @@
-use std::borrow::Cow;
-
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
+use std::{borrow::Cow, future::Future};
 
-use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Result};
+use llrt_exceptions::DOMException;
+use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
+use rquickjs::{ArrayBuffer, Class, Ctx, Exception, FromJs, Result, Value};
 
 use crate::{
     provider::{AesMode, CryptoProvider},
@@ -12,47 +12,74 @@ use crate::{
 };
 
 use super::{
-    algorithm_mismatch_error, encryption_algorithm::EncryptionAlgorithm,
-    key_algorithm::KeyAlgorithm, validate_aes_length, CryptoKey, EncryptionMode,
+    algorithm_mismatch_error,
+    encryption_algorithm::EncryptionAlgorithm,
+    key_algorithm::{AesAlgorithm, KeyAlgorithm},
+    util::ResultDomExt,
+    CryptoKey, EncryptionMode,
 };
 
-pub async fn subtle_decrypt<'js>(
+pub fn subtle_decrypt<'js>(
     ctx: Ctx<'js>,
-    algorithm: EncryptionAlgorithm,
+    algorithm: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
-) -> Result<ArrayBuffer<'js>> {
-    let key = key.borrow();
-    key.check_validity("decrypt").or_throw(&ctx)?;
-    let bytes = encrypt_decrypt(
-        &ctx,
-        &algorithm,
-        &key,
-        data.as_bytes(&ctx)?,
-        EncryptionMode::Encryption,
-        EncryptionOperation::Decrypt,
-    )?;
-    ArrayBuffer::new(ctx, bytes)
+) -> impl Future<Output = Result<ArrayBuffer<'js>>> + 'js {
+    let prepared = prepare_encrypt_decrypt(&ctx, algorithm, key, data);
+
+    async move {
+        let (algorithm, key, input) = prepared?;
+
+        let key = key.borrow();
+        key.check_validity("decrypt").or_throw_dom(&ctx)?;
+
+        let bytes = encrypt_decrypt(
+            &ctx,
+            &algorithm,
+            &key,
+            &input,
+            EncryptionMode::Encryption,
+            EncryptionOperation::Decrypt,
+        )?;
+        ArrayBuffer::new(ctx, bytes)
+    }
 }
 
-pub async fn subtle_encrypt<'js>(
+pub fn subtle_encrypt<'js>(
     ctx: Ctx<'js>,
-    algorithm: EncryptionAlgorithm,
+    algorithm: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
-) -> Result<ArrayBuffer<'js>> {
-    let key = key.borrow();
-    key.check_validity("encrypt").or_throw(&ctx)?;
+) -> impl Future<Output = Result<ArrayBuffer<'js>>> + 'js {
+    let prepared = prepare_encrypt_decrypt(&ctx, algorithm, key, data);
 
-    let bytes = encrypt_decrypt(
-        &ctx,
-        &algorithm,
-        &key,
-        data.as_bytes(&ctx)?,
-        EncryptionMode::Encryption,
-        EncryptionOperation::Encrypt,
-    )?;
-    ArrayBuffer::new(ctx, bytes)
+    async move {
+        let (algorithm, key, input) = prepared?;
+
+        let key = key.borrow();
+        key.check_validity("encrypt").or_throw_dom(&ctx)?;
+
+        let bytes = encrypt_decrypt(
+            &ctx,
+            &algorithm,
+            &key,
+            &input,
+            EncryptionMode::Encryption,
+            EncryptionOperation::Encrypt,
+        )?;
+        ArrayBuffer::new(ctx, bytes)
+    }
+}
+
+fn prepare_encrypt_decrypt<'js>(
+    ctx: &Ctx<'js>,
+    algorithm: Value<'js>,
+    key: Class<'js, CryptoKey<'js>>,
+    data: ObjectBytes<'js>,
+) -> Result<(EncryptionAlgorithm, Class<'js, CryptoKey<'js>>, Vec<u8>)> {
+    let algorithm = EncryptionAlgorithm::from_js(ctx, algorithm)?;
+    let input = data.as_bytes_opt().map(<[u8]>::to_vec).unwrap_or_default();
+    Ok((algorithm, key, input))
 }
 
 pub enum EncryptionOperation {
@@ -71,22 +98,22 @@ pub fn encrypt_decrypt(
     let handle = key.handle.as_ref();
     let bytes = match algorithm {
         EncryptionAlgorithm::AesCbc { iv } => {
-            validate_aes_length(ctx, key, handle, "AES-CBC")?;
+            validate_aes_length(ctx, key, handle, AesAlgorithm::Cbc)?;
 
             match operation {
                 EncryptionOperation::Encrypt => CRYPTO_PROVIDER
                     .aes_encrypt(AesMode::Cbc, handle, iv, data, None)
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
                 EncryptionOperation::Decrypt => CRYPTO_PROVIDER
                     .aes_decrypt(AesMode::Cbc, handle, iv, data, None)
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
             }
         },
         EncryptionAlgorithm::AesCtr {
             counter,
             length: encryption_length,
         } => {
-            validate_aes_length(ctx, key, handle, "AES-CTR")?;
+            validate_aes_length(ctx, key, handle, AesAlgorithm::Ctr)?;
             match operation {
                 EncryptionOperation::Encrypt => CRYPTO_PROVIDER
                     .aes_encrypt(
@@ -98,7 +125,7 @@ pub fn encrypt_decrypt(
                         data,
                         None,
                     )
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
                 EncryptionOperation::Decrypt => CRYPTO_PROVIDER
                     .aes_decrypt(
                         AesMode::Ctr {
@@ -109,7 +136,7 @@ pub fn encrypt_decrypt(
                         data,
                         None,
                     )
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
             }
         },
         EncryptionAlgorithm::AesGcm {
@@ -117,7 +144,7 @@ pub fn encrypt_decrypt(
             tag_length,
             additional_data,
         } => {
-            validate_aes_length(ctx, key, handle, "AES-GCM")?;
+            validate_aes_length(ctx, key, handle, AesAlgorithm::Gcm)?;
             let aad = additional_data.as_deref();
 
             match operation {
@@ -131,11 +158,14 @@ pub fn encrypt_decrypt(
                         data,
                         aad,
                     )
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
                 EncryptionOperation::Decrypt => {
                     let tag_len = (*tag_length as usize) / 8;
                     if data.len() < tag_len {
-                        return Err(Exception::throw_message(ctx, "Invalid ciphertext length"));
+                        return Err(DOMException::operation_error(
+                            ctx,
+                            "Invalid ciphertext length",
+                        ));
                     }
                     // Pass the full data (ciphertext + tag) to the decrypt function
                     CRYPTO_PROVIDER
@@ -148,7 +178,7 @@ pub fn encrypt_decrypt(
                             data,
                             aad,
                         )
-                        .or_throw(ctx)?
+                        .or_throw_dom(ctx)?
                 },
             }
         },
@@ -175,7 +205,7 @@ pub fn encrypt_decrypt(
                     }
                     CRYPTO_PROVIDER
                         .aes_kw_wrap(handle, &padded_data)
-                        .or_throw(ctx)?
+                        .or_throw_dom(ctx)?
                 },
                 EncryptionOperation::Decrypt => {
                     let unwrapped = CRYPTO_PROVIDER.aes_kw_unwrap(handle, data).or_throw(ctx)?;
@@ -205,12 +235,34 @@ pub fn encrypt_decrypt(
             match operation {
                 EncryptionOperation::Encrypt => CRYPTO_PROVIDER
                     .rsa_oaep_encrypt(handle, data, *hash, label.as_deref())
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
                 EncryptionOperation::Decrypt => CRYPTO_PROVIDER
                     .rsa_oaep_decrypt(handle, data, *hash, label.as_deref())
-                    .or_throw(ctx)?,
+                    .or_throw_dom(ctx)?,
             }
         },
     };
     Ok(bytes)
+}
+
+pub fn validate_aes_length(
+    ctx: &Ctx<'_>,
+    key: &CryptoKey,
+    handle: &[u8],
+    expected_algorithm: AesAlgorithm,
+) -> Result<()> {
+    match &key.algorithm {
+        KeyAlgorithm::Aes { algorithm, length } if *algorithm == expected_algorithm => {
+            if *length != handle.len() as u16 * 8 {
+                return Err(DOMException::operation_error(ctx, "Invalid AES key length"));
+            }
+            Ok(())
+        },
+        KeyAlgorithm::Aes { .. } => Err(DOMException::invalid_access_error(
+            ctx,
+            "AES algorithm mismatch",
+        )),
+
+        _ => algorithm_mismatch_error(ctx, "AES"),
+    }
 }
