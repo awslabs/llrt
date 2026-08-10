@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-util.js";
-import { runTestDynamic } from "./streams.harness.js";
+import { runSuite, runTestDynamic } from "./streams.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "owning-type-video-frame.any.js", // SKIP: VideoFrame support is pending

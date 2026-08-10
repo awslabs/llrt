@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { makeRunner } from "./_harness-util.js";
+import {
+  makeRunnerWPT as makeRunner,
+  runSuiteWPT as runSuite,
+} from "./_harness-util.js";
 
 const WPT_URL_RESOURCES = path.join(process.cwd(), "wpt", "url", "resources");
 
@@ -17,7 +20,7 @@ function localFetch(url) {
   });
 }
 
-export const runTestDynamic = makeRunner({
+const runTestDynamic = makeRunner({
   context: () => ({
     extras: { fetch: localFetch },
     scripts: [
@@ -26,3 +29,5 @@ export const runTestDynamic = makeRunner({
     ],
   }),
 });
+
+export { runSuite, runTestDynamic };

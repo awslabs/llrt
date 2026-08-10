@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-util.js";
-import { runTestDynamic } from "./streams.harness.js";
+import { runSuite, runTestDynamic } from "./streams.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "backpressure.any.js", // Error: Timeout after 5000ms

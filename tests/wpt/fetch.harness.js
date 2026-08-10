@@ -1,4 +1,8 @@
-import { makeRunner, loadMetaScripts } from "./_harness-util.js";
+import {
+  makeRunnerWPT as makeRunner,
+  runSuiteWPT as runSuite,
+  loadMetaScripts,
+} from "./_harness-util.js";
 
 const LOCATION = {
   href: "http://web-platform.test:8000/fetch/api/resources/",
@@ -65,7 +69,7 @@ function WrappedRequest(input, options) {
 
 WrappedRequest.prototype = UpstreamRequest.prototype;
 
-export const runTestDynamic = makeRunner({
+const runTestDynamic = makeRunner({
   context: () => ({
     extras: {
       token: () => crypto.randomUUID(),
@@ -102,3 +106,5 @@ export const runTestDynamic = makeRunner({
     return [substituted, loadMetaScripts(substituted, testDir)];
   },
 });
+
+export { runSuite, runTestDynamic };

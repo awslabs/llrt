@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-util.js";
-import { runTestDynamic } from "./fetch.harness.js";
+import { runSuite, runTestDynamic } from "./fetch.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "request-cache-default-conditional.any.js", // ReferenceError: promise_test is not defined
