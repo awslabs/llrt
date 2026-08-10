@@ -156,7 +156,7 @@ pub(super) fn transform_stream_default_controller_enqueue<'js>(
 
     let current_bp = stream_class.borrow().backpressure;
     if has_backpressure != current_bp {
-        transform_stream_set_backpressure(stream_class, true)?;
+        transform_stream_set_backpressure(&ctx, stream_class, true)?;
     }
 
     Ok(())
@@ -207,15 +207,19 @@ pub(super) fn transform_stream_error_writable_and_unblock_write<'js>(
 }
 
 pub(super) fn transform_stream_set_backpressure<'js>(
+    ctx: &Ctx<'js>,
     stream_class: &TransformStreamClass<'js>,
     backpressure: bool,
-) -> Result<()> {
+) -> Result<Promise<'js>> {
+    let new_bp_promise = ResolveablePromise::new(ctx)?;
+    let promise = new_bp_promise.promise.clone();
     let mut stream = stream_class.borrow_mut();
     if let Some(ref bp_promise) = stream.backpressure_change_promise {
         bp_promise.resolve_undefined()?;
     }
+    stream.backpressure_change_promise = Some(new_bp_promise);
     stream.backpressure = backpressure;
-    Ok(())
+    Ok(promise)
 }
 
 pub(super) fn transform_stream_default_controller_perform_transform<'js>(
