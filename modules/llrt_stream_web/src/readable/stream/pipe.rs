@@ -678,8 +678,8 @@ impl<'js> FromJs<'js> for StreamPipeOptions<'js> {
         };
 
         let prevent_abort = get_bool("preventAbort")?;
-        let prevent_close = get_bool("preventClose")?;
         let prevent_cancel = get_bool("preventCancel")?;
+        let prevent_close = get_bool("preventClose")?;
 
         let signal = match obj.get_value_or_undefined::<_, Value<'js>>("signal")? {
             Some(signal) => Some(
