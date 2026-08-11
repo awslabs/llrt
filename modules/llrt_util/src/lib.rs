@@ -1,8 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+mod style_text;
 #[cfg(test)]
 mod tests;
-mod style_text;
 pub mod text_decoder;
 pub mod text_decoder_stream;
 pub mod text_encoder;
