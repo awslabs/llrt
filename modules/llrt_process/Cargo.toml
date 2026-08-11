@@ -6,6 +6,9 @@ edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
+[features]
+no-sdk = []
+
 [lib]
 name = "llrt_process"
 path = "src/lib.rs"
@@ -19,4 +22,8 @@ libc = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["test-util"], default-features = false }
+tokio = { version = "1", features = [
+  "macros",
+  "rt",
+  "test-util",
+], default-features = false }

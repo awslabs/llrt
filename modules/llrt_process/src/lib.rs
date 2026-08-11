@@ -99,6 +99,22 @@ fn env_proxy_setter<'js>(
     Ok(true)
 }
 
+fn create_process_versions<'js>(
+    ctx: &Ctx<'js>,
+    aws_sdk_version: Option<&str>,
+) -> Result<Object<'js>> {
+    let versions = Object::new(ctx.clone())?;
+    versions.set("llrt", VERSION)?;
+    // Node.js version - Set for compatibility with some Node.js packages (e.g. cls-hooked).
+    versions.set("node", "0.0.0")?;
+
+    if let Some(version) = aws_sdk_version {
+        versions.set("@aws-sdk", version)?;
+    }
+
+    Ok(versions)
+}
+
 #[cfg(unix)]
 fn getuid() -> u32 {
     unsafe { libc::getuid() }
@@ -143,10 +159,7 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
     BasePrimordials::init(ctx)?;
     let process = Object::new(ctx.clone())?;
-    let process_versions = Object::new(ctx.clone())?;
-    process_versions.set("llrt", VERSION)?;
-    // Node.js version - Set for compatibility with some Node.js packages (e.g. cls-hooked).
-    process_versions.set("node", "0.0.0")?;
+    let process_versions = create_process_versions(ctx, option_env!("LLRT_AWS_SDK_VERSION"))?;
 
     let hr_time = Function::new(ctx.clone(), hr_time)?;
     hr_time.set("bigint", Func::from(hr_time_big_int))?;
@@ -295,6 +308,51 @@ mod tests {
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
 
     use super::*;
+
+    #[tokio::test]
+    async fn test_process_versions_with_aws_sdk() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                let versions = create_process_versions(&ctx, Some("3.1057.0")).unwrap();
+
+                assert_eq!(versions.get::<_, String>("llrt").unwrap(), VERSION);
+                assert_eq!(versions.get::<_, String>("node").unwrap(), "0.0.0");
+                assert_eq!(versions.get::<_, String>("@aws-sdk").unwrap(), "3.1057.0");
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_process_versions_without_aws_sdk() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                let versions = create_process_versions(&ctx, None).unwrap();
+
+                assert!(!versions.contains_key("@aws-sdk").unwrap());
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_process_versions_match_build() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+
+                let process: Object = ctx.globals().get("process").unwrap();
+                let versions: Object = process.get("versions").unwrap();
+                match option_env!("LLRT_AWS_SDK_VERSION") {
+                    Some(version) => {
+                        assert_eq!(versions.get::<_, String>("@aws-sdk").unwrap(), version)
+                    },
+                    None => assert!(!versions.contains_key("@aws-sdk").unwrap()),
+                }
+            })
+        })
+        .await;
+    }
 
     #[tokio::test]
     async fn test_hr_time() {

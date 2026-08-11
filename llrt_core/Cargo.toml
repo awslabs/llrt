@@ -7,7 +7,7 @@ license-file = "LICENSE"
 [features]
 default = ["macro", "tls-ring", "crypto-rust"]
 lambda = []
-no-sdk = []
+no-sdk = ["llrt_modules/no-sdk"]
 uncompressed = []
 macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
