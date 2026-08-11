@@ -793,6 +793,62 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
 });
 
 fullCrypto("SubtileCrypto import/export", () => {
+  it("should import an RSA public JWK without alg", async () => {
+    const algorithm = {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 1024,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    };
+    const keyPair = (await crypto.subtle.generateKey(algorithm, true, [
+      "sign",
+      "verify",
+    ])) as webcrypto.CryptoKeyPair;
+    const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+    delete publicJwk.alg;
+    const jwksPublicKey = {
+      ...publicJwk,
+      kid: "cognito-jwks-key-id",
+      use: "sig",
+    };
+
+    const imported = await crypto.subtle.importKey(
+      "jwk",
+      jwksPublicKey,
+      algorithm,
+      true,
+      ["verify"]
+    );
+    const signature = await crypto.subtle.sign(
+      algorithm,
+      keyPair.privateKey,
+      ENCODED_DATA
+    );
+
+    expect(
+      await crypto.subtle.verify(algorithm, imported, signature, ENCODED_DATA)
+    ).toEqual(true);
+
+    await expect(
+      crypto.subtle.importKey(
+        "jwk",
+        { ...jwksPublicKey, alg: "PS256" },
+        algorithm,
+        true,
+        ["verify"]
+      )
+    ).rejects.toThrow();
+    await expect(
+      crypto.subtle.importKey(
+        "jwk",
+        { ...jwksPublicKey, alg: "RS384" },
+        algorithm,
+        true,
+        ["verify"]
+      )
+    ).rejects.toThrow();
+  });
+
   it("should export and import keys", async () => {
     // Test different key algorithms and formats
     // Define reusable constants
