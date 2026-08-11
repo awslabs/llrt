@@ -1061,34 +1061,23 @@ fn import_rsa_key<'js>(
     let (modulus_length, public_exponent) = match format {
         KeyFormatData::Jwk(object) => {
             let kty: String = object.get_required("kty", "keyData")?;
-            let alg: String = object.get_required("alg", "keyData")?;
             if kty != "RSA" {
                 return algorithm_mismatch_error(ctx, algorithm_name);
             }
-            let prefix = &alg[..2];
-            let numeric_hash_str = match prefix {
-                "RS" => {
-                    if algorithm_name == "RSA-OAEP" {
-                        if !alg.starts_with(algorithm_name) {
-                            return algorithm_mismatch_error(ctx, algorithm_name);
-                        }
-                        &alg["RSA-OAEP-".len()..]
-                    } else if algorithm_name != "RSASSA-PKCS1-v1_5" {
-                        return algorithm_mismatch_error(ctx, algorithm_name);
-                    } else {
-                        &alg["RS".len()..]
-                    }
-                },
-                "PS" => {
-                    if algorithm_name != "RSA-PSS" {
-                        return algorithm_mismatch_error(ctx, algorithm_name);
-                    }
-                    &alg["PS".len()..]
-                },
-                _ => return algorithm_mismatch_error(ctx, algorithm_name),
-            };
-            if numeric_hash_str != hash.as_numeric_str() {
-                return hash_mismatch_error(ctx, hash);
+
+            if let Some(alg) = object.get_optional::<_, String>("alg")? {
+                let numeric_hash_str = match algorithm_name {
+                    "RSASSA-PKCS1-v1_5" => alg.strip_prefix("RS"),
+                    "RSA-PSS" => alg.strip_prefix("PS"),
+                    "RSA-OAEP" => alg.strip_prefix("RSA-OAEP-"),
+                    _ => None,
+                };
+                let Some(numeric_hash_str) = numeric_hash_str else {
+                    return algorithm_mismatch_error(ctx, algorithm_name);
+                };
+                if numeric_hash_str != hash.as_numeric_str() {
+                    return hash_mismatch_error(ctx, hash);
+                }
             }
 
             let n: String = object.get_required("n", "keyData")?;
