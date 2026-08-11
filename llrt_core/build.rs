@@ -18,6 +18,7 @@ use rquickjs::{CatchResultExt, CaughtError, Context, Module, Runtime, WriteOptio
 use walkdir::WalkDir;
 
 const BUNDLE_JS_DIR: &str = "../bundle/js";
+const AWS_SDK_VERSION_FILE: &str = "../bundle/js/.aws-sdk-version";
 
 include!("src/bytecode.rs");
 
@@ -39,7 +40,10 @@ fn main() -> StdResult<(), Box<dyn Error>> {
     llrt_build::set_nightly_cfg();
 
     rerun_if_changed!(BUNDLE_JS_DIR);
+    rerun_if_changed!(AWS_SDK_VERSION_FILE);
     rerun_if_changed!("Cargo.toml");
+
+    configure_aws_sdk_version()?;
 
     let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -50,6 +54,25 @@ fn main() -> StdResult<(), Box<dyn Error>> {
 
     generate_bytecode_cache(&out_dir)?;
 
+    Ok(())
+}
+
+fn configure_aws_sdk_version() -> StdResult<(), Box<dyn Error>> {
+    if cfg!(feature = "no-sdk") {
+        return Ok(());
+    }
+
+    let version = match fs::read_to_string(AWS_SDK_VERSION_FILE) {
+        Ok(version) => version,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    let version = version.trim();
+    if version.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "AWS SDK version is empty").into());
+    }
+
+    println!("cargo:rustc-env=LLRT_AWS_SDK_VERSION={version}");
     Ok(())
 }
 

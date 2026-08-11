@@ -59,6 +59,8 @@ it("should have a process version", () => {
 
 it("should have a process versions", () => {
   expect(versions).toEqual(process.versions);
+  expect(versions.llrt).toEqual(process.version);
+  expect(versions.node).toEqual("0.0.0");
 });
 
 it("should have a process exit", () => {
