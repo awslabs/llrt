@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #[cfg(test)]
 mod tests;
+mod style_text;
 pub mod text_decoder;
 pub mod text_decoder_stream;
 pub mod text_encoder;
@@ -19,6 +20,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     Class, Ctx, Function, JsLifetime, Object, Result, Symbol, Value,
 };
+use style_text::style_text;
 use text_decoder::TextDecoder;
 use text_decoder_stream::TextDecoderStream;
 use text_encoder::TextEncoder;
@@ -67,6 +69,7 @@ impl ModuleDef for UtilModule {
         declare.declare(stringify!(TextEncoderStream))?;
         declare.declare(stringify!(format))?;
         declare.declare(stringify!(inherits))?;
+        declare.declare(stringify!(styleText))?;
         declare.declare(stringify!(inspect))?;
         declare.declare("default")?;
         Ok(())
@@ -90,6 +93,7 @@ impl ModuleDef for UtilModule {
                 Func::from(|ctx, args| format_plain(ctx, true, args)),
             )?;
             default.set("inherits", Func::from(inherits))?;
+            default.set("styleText", Func::from(style_text))?;
 
             let inspect_fn = Function::new(ctx.clone(), inspect)?.with_name("inspect")?;
             let inspect_custom =

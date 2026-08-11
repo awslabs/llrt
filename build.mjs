@@ -277,7 +277,9 @@ function defaultEndpointResolver(endpointParams, context = {}) {
     if (resource && resource.endsWith(".mrap") && !resource.includes("/")) {
       const alias = resource.slice(0, -".mrap".length);
       return {
-        url: new URL(`https://${alias}.mrap.accesspoint.s3-global.${dnsSuffix}/`),
+        url: new URL(
+          `https://${alias}.mrap.accesspoint.s3-global.${dnsSuffix}/`
+        ),
         properties: {
           authSchemes: [
             {
@@ -507,13 +509,14 @@ const AWS_SDK_PLUGIN = {
         const sdk = clientDir.substring("client-".length);
 
         const serviceEndpoints = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
-        const serviceName =
-          (serviceEndpoints && serviceEndpoints[0]) || sdk;
+        const serviceName = (serviceEndpoints && serviceEndpoints[0]) || sdk;
 
         let signingName = sdk;
         try {
           const paramsSource = (
-            await fs.readFile(path.join(path.dirname(filePath), "EndpointParameters.js"))
+            await fs.readFile(
+              path.join(path.dirname(filePath), "EndpointParameters.js")
+            )
           ).toString();
           const m = paramsSource.match(/defaultSigningName:\s*"([^"]*)"/);
           if (m) {
@@ -664,8 +667,11 @@ async function buildLibrary() {
   // Build tests
   const testEntryPoints = TEST_FILES.reduce((acc, entry) => {
     const { name, dir } = path.parse(entry);
-    const parentDir = path.basename(dir);
-    acc[path.join("__tests__", parentDir, name)] = entry;
+    const relativeDir = path.relative(path.join(TESTS_DIR, TESTS_SUB_DIR), dir);
+    const outDir = relativeDir
+      ? path.join("__tests__", TESTS_SUB_DIR, relativeDir)
+      : path.join("__tests__", TESTS_SUB_DIR);
+    acc[path.join(outDir, name)] = entry;
     return acc;
   }, {});
 
@@ -726,9 +732,10 @@ async function buildSdks() {
           "shims/@aws-sdk/signature-v4-multi-region.js"
         ),
         "@smithy/md5-js": "crypto",
-        "@aws-sdk/credential-providers": path.dirname(
-          require.resolve("@aws-sdk/credential-providers/package.json")
-        ) + "/dist-es/index.browser.js",
+        "@aws-sdk/credential-providers":
+          path.dirname(
+            require.resolve("@aws-sdk/credential-providers/package.json")
+          ) + "/dist-es/index.browser.js",
         "fast-xml-parser": "llrt:xml",
         "xml-parser.browser": "xml-parser",
       },

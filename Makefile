@@ -201,6 +201,10 @@ setup-wpt:
 		/hr-time \
 		/resources \
 		/streams \
+		/third_party/test262/harness/assert.js \
+		/third_party/test262/harness/sta.js \
+		/third_party/test262/harness/temporalHelpers.js \
+		/third_party/test262/test/intl402/Temporal \
 		/tools \
 		/url \
 		/WebCryptoAPI \

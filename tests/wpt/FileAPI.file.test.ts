@@ -1,5 +1,4 @@
-import { runSuite } from "./_harness-util.js";
-import { runTestDynamic } from "./FileAPI.harness.js";
+import { runSuite, runTestDynamic } from "./FileAPI.harness.js";
 
 runSuite(import.meta.url, runTestDynamic, [
   "send-file-formdata-controls.any.js", // ReferenceError: promise_test is not defined
