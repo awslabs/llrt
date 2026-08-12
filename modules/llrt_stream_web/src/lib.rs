@@ -9,7 +9,7 @@ use readable::{
 };
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Result,
+    Class, Ctx, Object, Result,
 };
 use writable::{WritableStream, WritableStreamDefaultController, WritableStreamDefaultWriter};
 
@@ -42,6 +42,26 @@ pub use readable::{
 };
 pub use readable::{CancelAlgorithm, PullAlgorithm, ReadableStreamControllerClass, StartAlgorithm};
 pub use readable::{NativePull, NativePullFn, NativePullResult};
+
+/// Creates a transform stream using LLRT's built-in Web Streams implementation.
+///
+/// This does not consult the global `TransformStream` binding.
+pub fn create_transform_stream<'js>(
+    ctx: &Ctx<'js>,
+    transformer: Object<'js>,
+) -> Result<Object<'js>> {
+    init_primordials(ctx)?;
+    Ok(TransformStream::from_transformer(ctx.clone(), transformer)?.into_inner())
+}
+
+fn init_primordials(ctx: &Ctx<'_>) -> Result<()> {
+    BasePrimordials::init(ctx)?;
+    PromisePrimordials::init(ctx)?;
+    ArrayConstructorPrimordials::init(ctx)?;
+    WritableStreamDefaultControllerPrimordials::init(ctx)?;
+    IteratorPrimordials::init(ctx)?;
+    Ok(())
+}
 
 /// Defines web streams, which are exposed through the "stream/web" Node import, but also at the global scope
 /// Web streams consist of Readable, Writable, and Transform streams. Transform is currently unimplemented.
@@ -134,11 +154,7 @@ impl From<StreamWebModule> for ModuleInfo<StreamWebModule> {
 pub fn init(ctx: &Ctx) -> Result<()> {
     let globals = &ctx.globals();
 
-    BasePrimordials::init(ctx)?;
-    PromisePrimordials::init(ctx)?;
-    ArrayConstructorPrimordials::init(ctx)?;
-    WritableStreamDefaultControllerPrimordials::init(ctx)?;
-    IteratorPrimordials::init(ctx)?;
+    init_primordials(ctx)?;
 
     // https://min-common-api.proposal.wintertc.org/#api-index
     Class::<ByteLengthQueuingStrategy>::define(globals)?;

@@ -8,8 +8,43 @@ fn eval_async<'js>(ctx: &rquickjs::Ctx<'js>, js: &str) -> rquickjs::Result<Promi
 
 fn init(ctx: &rquickjs::Ctx<'_>) {
     BasePrimordials::init(ctx).unwrap();
-    llrt_stream_web::init(ctx).unwrap();
     crate::init(ctx).unwrap();
+}
+
+#[tokio::test]
+async fn streams_ignore_global_transform_stream() {
+    test_async_with(|ctx| {
+        BasePrimordials::init(&ctx).unwrap();
+        llrt_stream_web::init(&ctx).unwrap();
+        ctx.globals()
+            .set(
+                "TransformStream",
+                rquickjs::Value::new_undefined(ctx.clone()),
+            )
+            .unwrap();
+        crate::init(&ctx).unwrap();
+
+        Box::pin(async move {
+            eval_async(
+                &ctx,
+                r#"
+                const encoder = new TextEncoderStream();
+                const decoder = new TextDecoderStream();
+                if (!encoder.readable || !encoder.writable) {
+                    throw new Error("invalid encoder streams");
+                }
+                if (!decoder.readable || !decoder.writable) {
+                    throw new Error("invalid decoder streams");
+                }
+            "#,
+            )
+            .unwrap()
+            .into_future::<()>()
+            .await
+            .unwrap();
+        })
+    })
+    .await;
 }
 
 #[tokio::test]

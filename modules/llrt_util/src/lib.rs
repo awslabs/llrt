@@ -13,31 +13,17 @@ use llrt_utils::{
     class::CUSTOM_INSPECT_SYMBOL_DESCRIPTION,
     module::{export_default, ModuleInfo},
     object::ObjectExt,
-    primordials::Primordial,
 };
 use rquickjs::{
-    function::{Constructor, Func, Opt, Rest},
+    function::{Func, Opt, Rest},
     module::{Declarations, Exports, ModuleDef},
-    Class, Ctx, Function, JsLifetime, Object, Result, Symbol, Value,
+    Class, Ctx, Function, Object, Result, Symbol, Value,
 };
 use style_text::style_text;
 use text_decoder::TextDecoder;
 use text_decoder_stream::TextDecoderStream;
 use text_encoder::TextEncoder;
 use text_encoder_stream::TextEncoderStream;
-
-#[derive(JsLifetime)]
-pub(crate) struct UtilPrimordials<'js> {
-    pub(crate) constructor_transform_stream: Constructor<'js>,
-}
-
-impl<'js> Primordial<'js> for UtilPrimordials<'js> {
-    fn new(ctx: &Ctx<'js>) -> Result<Self> {
-        Ok(Self {
-            constructor_transform_stream: ctx.globals().get("TransformStream")?,
-        })
-    }
-}
 
 fn inherits<'js>(ctor: Function<'js>, super_ctor: Function<'js>) -> Result<()> {
     let super_proto: Object<'js> = super_ctor.get("prototype")?;
@@ -120,9 +106,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     Class::<TextEncoder>::define(&globals)?;
     Class::<TextDecoder>::define(&globals)?;
-
-    UtilPrimordials::init(ctx)?;
-
     Class::<TextEncoderStream>::define(&globals)?;
     Class::<TextDecoderStream>::define(&globals)?;
 

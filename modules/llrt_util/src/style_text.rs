@@ -116,7 +116,6 @@ mod tests {
     async fn single_format() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                llrt_stream_web::init(&ctx).unwrap();
                 crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
                     .await
@@ -146,7 +145,6 @@ mod tests {
     async fn array_of_formats_nests() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                llrt_stream_web::init(&ctx).unwrap();
                 crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
                     .await
@@ -176,7 +174,6 @@ mod tests {
     async fn unknown_format_throws() {
         test_async_with(|ctx| {
             Box::pin(async move {
-                llrt_stream_web::init(&ctx).unwrap();
                 crate::init(&ctx).unwrap();
                 ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
                     .await

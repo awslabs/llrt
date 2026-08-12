@@ -1,12 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::primordials::Primordial;
 use rquickjs::{
     atom::PredefinedAtom, convert::Coerced, prelude::This, Ctx, Function, Object, Result,
     TypedArray, Value,
 };
-
-use crate::UtilPrimordials;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -23,8 +20,7 @@ impl<'js> TextEncoderStream<'js> {
         let transformer = Object::new(ctx.clone())?;
         transformer.set("transform", transform)?;
 
-        let transform_stream_ctor = &UtilPrimordials::get(&ctx)?.constructor_transform_stream;
-        let stream: Object = transform_stream_ctor.construct((transformer,))?;
+        let stream = llrt_stream_web::create_transform_stream(&ctx, transformer)?;
 
         Ok(Self {
             readable: stream.get("readable")?,

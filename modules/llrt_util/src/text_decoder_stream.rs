@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, Mutex};
 
-use llrt_utils::{bytes::ObjectBytes, primordials::Primordial};
+use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{
     atom::PredefinedAtom, function::Opt, prelude::This, Ctx, Function, Object, Result, Value,
 };
 
-use crate::{text_decoder::TextDecoder, UtilPrimordials};
+use crate::text_decoder::TextDecoder;
 
 #[rquickjs::class]
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
@@ -46,8 +46,7 @@ impl<'js> TextDecoderStream<'js> {
         transformer.set("transform", transform)?;
         transformer.set("flush", flush)?;
 
-        let transform_stream_ctor = &UtilPrimordials::get(&ctx)?.constructor_transform_stream;
-        let stream: Object = transform_stream_ctor.construct((transformer,))?;
+        let stream = llrt_stream_web::create_transform_stream(&ctx, transformer)?;
 
         Ok(Self {
             encoding,
