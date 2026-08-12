@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Array, Class, Ctx, FromJs, Result, Value};
 
@@ -35,6 +36,14 @@ pub fn import_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
+    if extractable {
+        if let KeyFormatData::Jwk(jwk) = &format {
+            if matches!(jwk.get_optional::<_, bool>("ext")?, Some(false)) {
+                return Err(DOMException::data_error(&ctx, "JWK is not extractable"));
+            }
+        }
+    }
+
     let mut kind = KeyKind::Public;
     let mut data = Vec::new();
 

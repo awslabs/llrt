@@ -793,6 +793,28 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
 });
 
 fullCrypto("SubtileCrypto import/export", () => {
+  it("rejects importing a non-extractable JWK as extractable", async () => {
+    const jwk = {
+      kty: "oct",
+      k: "AAECAwQFBgcICQoLDA0ODw",
+      alg: "A128GCM",
+      ext: false,
+      key_ops: ["encrypt"],
+    };
+
+    try {
+      await crypto.subtle.importKey("jwk", jwk, "AES-GCM", true, ["encrypt"]);
+      throw new Error("importKey unexpectedly succeeded");
+    } catch (error) {
+      expect((error as Error).name).toBe("DataError");
+    }
+
+    const key = await crypto.subtle.importKey("jwk", jwk, "AES-GCM", false, [
+      "encrypt",
+    ]);
+    expect(key.extractable).toBe(false);
+  });
+
   it("should import an RSA public JWK without alg", async () => {
     const algorithm = {
       name: "RSASSA-PKCS1-v1_5",
@@ -970,6 +992,57 @@ fullCrypto("SubtileCrypto import/export", () => {
 });
 
 fullCrypto("SubtileCrypto wrap/unwrap", () => {
+  it("rejects unwrapping a non-extractable JWK as extractable", async () => {
+    const wrappingAlgorithm = {
+      name: "AES-CBC",
+      length: 128,
+      iv: new Uint8Array(16),
+    };
+    const wrappingKey = await crypto.subtle.generateKey(
+      wrappingAlgorithm,
+      false,
+      ["encrypt", "unwrapKey"]
+    );
+    const jwk = {
+      kty: "oct",
+      k: "AAECAwQFBgcICQoLDA0ODw",
+      alg: "A128GCM",
+      ext: false,
+      key_ops: ["encrypt"],
+    };
+    const wrappedKey = await crypto.subtle.encrypt(
+      wrappingAlgorithm,
+      wrappingKey,
+      ENCODER.encode(JSON.stringify(jwk))
+    );
+
+    try {
+      await crypto.subtle.unwrapKey(
+        "jwk",
+        wrappedKey,
+        wrappingKey,
+        wrappingAlgorithm,
+        "AES-GCM",
+        true,
+        ["encrypt"]
+      );
+      throw new Error("unwrapKey unexpectedly succeeded");
+    } catch (error) {
+      expect((error as Error).name).toBe("DataError");
+    }
+
+    const key = await crypto.subtle.unwrapKey(
+      "jwk",
+      wrappedKey,
+      wrappingKey,
+      wrappingAlgorithm,
+      "AES-GCM",
+      false,
+      ["encrypt"]
+    );
+    expect(key.extractable).toBe(false);
+  });
+
   it("should wrap and unwrap keys for all supported algorithms", async () => {
     // Test parameters
     const HASH_ALGORITHMS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
