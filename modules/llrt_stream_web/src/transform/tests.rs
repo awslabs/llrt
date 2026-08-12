@@ -117,6 +117,44 @@ async fn one_to_many_expansion() {
 }
 
 #[tokio::test]
+async fn readable_high_water_mark_applies_backpressure() {
+    test_async_with(|ctx| {
+        crate::init(&ctx).unwrap();
+        Box::pin(async move {
+            ctx.eval::<(), _>(
+                r#"
+                globalThis.transformed = [];
+                globalThis.ts = new TransformStream({
+                    transform(chunk, controller) {
+                        transformed.push(chunk);
+                        controller.enqueue(chunk);
+                    }
+                }, undefined, { highWaterMark: 3 });
+                globalThis.writer = ts.writable.getWriter();
+                [0, 1, 2, 3].forEach(chunk => writer.write(chunk));
+            "#,
+            )
+            .unwrap();
+
+            while ctx.execute_pending_job() {}
+            assert_eq!(
+                ctx.eval::<String, _>("transformed.join(',')").unwrap(),
+                "0,1,2"
+            );
+
+            ctx.eval::<(), _>("globalThis.reader = ts.readable.getReader(); reader.read();")
+                .unwrap();
+            while ctx.execute_pending_job() {}
+            assert_eq!(
+                ctx.eval::<String, _>("transformed.join(',')").unwrap(),
+                "0,1,2,3"
+            );
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
 async fn flush_on_close() {
     test_async_with(|ctx| {
         crate::init(&ctx).unwrap();
