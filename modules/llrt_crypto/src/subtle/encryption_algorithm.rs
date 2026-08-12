@@ -33,8 +33,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
 
         match name.as_str() {
             "AES-CBC" => {
-                let obj =
-                    obj.map_err(|_| Exception::throw_type(ctx, "algorithm is not an object"))?;
+                let obj = obj?;
                 let iv = obj
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
                     .into_bytes(ctx)?
@@ -50,8 +49,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 Ok(EncryptionAlgorithm::AesCbc { iv })
             },
             "AES-CTR" => {
-                let obj =
-                    obj.map_err(|_| Exception::throw_type(ctx, "algorithm is not an object"))?;
+                let obj = obj?;
                 let counter = obj
                     .get_required::<_, ObjectBytes>("counter", "algorithm")?
                     .into_bytes(ctx)?
@@ -69,8 +67,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 Ok(EncryptionAlgorithm::AesCtr { counter, length })
             },
             "AES-GCM" => {
-                let obj =
-                    obj.map_err(|_| Exception::throw_type(ctx, "algorithm is not an object"))?;
+                let obj = obj?;
                 let iv = obj
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
                     .into_bytes(ctx)?
