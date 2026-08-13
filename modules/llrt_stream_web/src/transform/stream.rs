@@ -37,6 +37,18 @@ pub(crate) type TransformStreamClass<'js> = Class<'js, TransformStream<'js>>;
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> TransformStream<'js> {
+    pub(crate) fn from_transformer(
+        ctx: Ctx<'js>,
+        transformer: Object<'js>,
+    ) -> Result<Class<'js, Self>> {
+        Self::new(
+            ctx,
+            Opt(Some(Undefined(Some(transformer)))),
+            Opt(None),
+            Opt(None),
+        )
+    }
+
     #[qjs(constructor)]
     fn new(
         ctx: Ctx<'js>,

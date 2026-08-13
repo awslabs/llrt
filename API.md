@@ -532,7 +532,11 @@ _Also available globally_
 
 [TextDecoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
 
+[TextDecoderStream](https://nodejs.org/api/webstreams.html#class-textdecoderstream)
+
 [TextEncoder](https://nodejs.org/api/util.html#class-utiltextdecoder)
+
+[TextEncoderStream](https://nodejs.org/api/webstreams.html#class-textencoderstream)
 
 ## zlib
 

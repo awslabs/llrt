@@ -1,0 +1,195 @@
+use llrt_test::{call_test, test_async_with, ModuleEvaluator};
+use llrt_utils::primordials::{BasePrimordials, Primordial};
+use rquickjs::Promise;
+
+fn eval_async<'js>(ctx: &rquickjs::Ctx<'js>, js: &str) -> rquickjs::Result<Promise<'js>> {
+    ctx.eval(format!("(async () => {{ {js} }})()"))
+}
+
+fn init(ctx: &rquickjs::Ctx<'_>) {
+    BasePrimordials::init(ctx).unwrap();
+    crate::init(ctx).unwrap();
+}
+
+#[tokio::test]
+async fn streams_ignore_global_transform_stream() {
+    test_async_with(|ctx| {
+        BasePrimordials::init(&ctx).unwrap();
+        llrt_stream_web::init(&ctx).unwrap();
+        ctx.globals()
+            .set(
+                "TransformStream",
+                rquickjs::Value::new_undefined(ctx.clone()),
+            )
+            .unwrap();
+        crate::init(&ctx).unwrap();
+
+        Box::pin(async move {
+            eval_async(
+                &ctx,
+                r#"
+                const encoder = new TextEncoderStream();
+                const decoder = new TextDecoderStream();
+                if (!encoder.readable || !encoder.writable) {
+                    throw new Error("invalid encoder streams");
+                }
+                if (!decoder.readable || !decoder.writable) {
+                    throw new Error("invalid decoder streams");
+                }
+            "#,
+            )
+            .unwrap()
+            .into_future::<()>()
+            .await
+            .unwrap();
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn encoder_stream_encodes_chunk() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            eval_async(
+                &ctx,
+                r#"
+                const es = new TextEncoderStream();
+                const writer = es.writable.getWriter();
+                const reader = es.readable.getReader();
+
+                writer.write("hi");
+                writer.close();
+
+                const { value, done } = await reader.read();
+                if (done) throw new Error("expected a chunk");
+                if (!(value instanceof Uint8Array)) throw new Error("expected Uint8Array");
+                if (value.join(",") !== "104,105") throw new Error("got: " + value.join(","));
+            "#,
+            )
+            .unwrap()
+            .into_future::<()>()
+            .await
+            .unwrap();
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn decoder_stream_decodes_split_utf8_char() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            eval_async(
+                &ctx,
+                r#"
+                const ds = new TextDecoderStream();
+                const writer = ds.writable.getWriter();
+                const reader = ds.readable.getReader();
+
+                const euro = new Uint8Array([0xe2, 0x82, 0xac]);
+                writer.write(euro.slice(0, 1));
+                writer.write(euro.slice(1));
+                writer.close();
+
+                let result = "";
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    result += value;
+                }
+                if (result !== "\u20ac") throw new Error("got: " + result);
+            "#,
+            )
+            .unwrap()
+            .into_future::<()>()
+            .await
+            .unwrap();
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn decoder_stream_encoding_getter() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            eval_async(
+                &ctx,
+                r#"
+                const ds = new TextDecoderStream("utf-8");
+                if (ds.encoding !== "utf-8") throw new Error("got: " + ds.encoding);
+            "#,
+            )
+            .unwrap()
+            .into_future::<()>()
+            .await
+            .unwrap();
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_inspect() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            ModuleEvaluator::eval_rust::<crate::UtilModule>(ctx.clone(), "util")
+                .await
+                .unwrap();
+
+            let module = ModuleEvaluator::eval_js(
+                ctx.clone(),
+                "test",
+                r#"
+                    import { inspect } from 'util';
+
+                    export async function test() {
+                        return inspect({ a: 1, b: [1, 2] });
+                    }
+                "#,
+            )
+            .await
+            .unwrap();
+            let result = call_test::<String, _>(&ctx, &module, ()).await;
+            assert_eq!(result, "{\n  a: 1,\n  b: [ 1, 2 ]\n}");
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_inspect_custom() {
+    test_async_with(|ctx| {
+        init(&ctx);
+        Box::pin(async move {
+            ModuleEvaluator::eval_rust::<crate::UtilModule>(ctx.clone(), "util")
+                .await
+                .unwrap();
+
+            let module = ModuleEvaluator::eval_js(
+                ctx.clone(),
+                "test",
+                r#"
+                    import { inspect } from 'util';
+
+                    export async function test() {
+                        const obj = {
+                            [inspect.custom]: { customKey: "custom-value" },
+                        };
+                        return inspect(obj);
+                    }
+                "#,
+            )
+            .await
+            .unwrap();
+            let result = call_test::<String, _>(&ctx, &module, ()).await;
+            assert_eq!(result, "{\n  customKey: 'custom-value'\n}");
+        })
+    })
+    .await;
+}

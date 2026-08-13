@@ -15,9 +15,10 @@ path = "src/lib.rs"
 llrt_context = { version = "0.8.1-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.8.1-beta", path = "../../libs/llrt_encoding" }
 llrt_logging = { version = "0.8.1-beta", path = "../../libs/llrt_logging" }
+llrt_stream_web = { version = "0.8.1-beta", path = "../llrt_stream_web" }
 llrt_utils = { version = "0.8.1-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.12", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["test-util", "macros"], default-features = false }
+tokio = { version = "1", features = ["macros", "test-util"], default-features = false }

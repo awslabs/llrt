@@ -1,8 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 mod style_text;
+#[cfg(test)]
+mod tests;
 pub mod text_decoder;
+pub mod text_decoder_stream;
 pub mod text_encoder;
+pub mod text_encoder_stream;
 
 use llrt_logging::{build_formatted_string, format_plain, FormatOptions};
 use llrt_utils::{
@@ -17,7 +21,9 @@ use rquickjs::{
 };
 use style_text::style_text;
 use text_decoder::TextDecoder;
+use text_decoder_stream::TextDecoderStream;
 use text_encoder::TextEncoder;
+use text_encoder_stream::TextEncoderStream;
 
 fn inherits<'js>(ctor: Function<'js>, super_ctor: Function<'js>) -> Result<()> {
     let super_proto: Object<'js> = super_ctor.get("prototype")?;
@@ -44,7 +50,9 @@ pub struct UtilModule;
 impl ModuleDef for UtilModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare(stringify!(TextDecoder))?;
+        declare.declare(stringify!(TextDecoderStream))?;
         declare.declare(stringify!(TextEncoder))?;
+        declare.declare(stringify!(TextEncoderStream))?;
         declare.declare(stringify!(format))?;
         declare.declare(stringify!(inherits))?;
         declare.declare(stringify!(styleText))?;
@@ -59,9 +67,13 @@ impl ModuleDef for UtilModule {
 
             let encoder: Function = globals.get(stringify!(TextEncoder))?;
             let decoder: Function = globals.get(stringify!(TextDecoder))?;
+            let encoder_stream: Function = globals.get(stringify!(TextEncoderStream))?;
+            let decoder_stream: Function = globals.get(stringify!(TextDecoderStream))?;
 
             default.set(stringify!(TextEncoder), encoder)?;
             default.set(stringify!(TextDecoder), decoder)?;
+            default.set(stringify!(TextEncoderStream), encoder_stream)?;
+            default.set(stringify!(TextDecoderStream), decoder_stream)?;
             default.set(
                 "format",
                 Func::from(|ctx, args| format_plain(ctx, true, args)),
@@ -94,76 +106,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     Class::<TextEncoder>::define(&globals)?;
     Class::<TextDecoder>::define(&globals)?;
+    Class::<TextEncoderStream>::define(&globals)?;
+    Class::<TextDecoderStream>::define(&globals)?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::UtilModule;
-    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
-    use llrt_utils::primordials::{BasePrimordials, Primordial};
-
-    #[tokio::test]
-    async fn test_inspect() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                BasePrimordials::init(&ctx).unwrap();
-                crate::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { inspect } from 'util';
-
-                        export async function test() {
-                            return inspect({ a: 1, b: [1, 2] });
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-                assert_eq!(result, "{\n  a: 1,\n  b: [ 1, 2 ]\n}");
-            })
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_inspect_custom() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                BasePrimordials::init(&ctx).unwrap();
-                crate::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<UtilModule>(ctx.clone(), "util")
-                    .await
-                    .unwrap();
-
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { inspect } from 'util';
-
-                        export async function test() {
-                            const obj = {
-                                [inspect.custom]: { customKey: "custom-value" },
-                            };
-                            return inspect(obj);
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-                assert_eq!(result, "{\n  customKey: 'custom-value'\n}");
-            })
-        })
-        .await;
-    }
 }

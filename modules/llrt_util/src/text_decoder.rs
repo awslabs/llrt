@@ -91,17 +91,17 @@ impl<'js> TextDecoder {
     }
 
     #[qjs(get)]
-    fn encoding(&self) -> &str {
+    pub(crate) fn encoding(&self) -> &str {
         self.encoder.as_label()
     }
 
     #[qjs(get)]
-    fn fatal(&self) -> bool {
+    pub(crate) fn fatal(&self) -> bool {
         self.fatal
     }
 
     #[qjs(get, rename = "ignoreBOM")]
-    fn ignore_bom(&self) -> bool {
+    pub(crate) fn ignore_bom(&self) -> bool {
         self.ignore_bom
     }
 
