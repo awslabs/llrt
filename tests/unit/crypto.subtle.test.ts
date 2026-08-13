@@ -494,6 +494,120 @@ fullCrypto("SubtleCrypto generateKey/encrypt/decrypt", () => {
   }, 60000);
 });
 
+fullCrypto("SubtleCrypto string AlgorithmIdentifier", () => {
+  it("should wrap and unwrap with a case-insensitive AES-KW string", async () => {
+    const wrappingKey = await crypto.subtle.generateKey(
+      { name: "AES-KW", length: 128 },
+      false,
+      ["wrapKey", "unwrapKey"]
+    );
+    const originalKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    const wrappedKey = await crypto.subtle.wrapKey(
+      "raw",
+      originalKey,
+      wrappingKey,
+      "aes-kw"
+    );
+    const unwrappedKey = await crypto.subtle.unwrapKey(
+      "raw",
+      wrappedKey,
+      wrappingKey,
+      "AeS-kW",
+      { name: "AES-GCM", length: 128 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    expect(
+      new Uint8Array(await crypto.subtle.exportKey("raw", unwrappedKey))
+    ).toEqual(
+      new Uint8Array(await crypto.subtle.exportKey("raw", originalKey))
+    );
+  });
+
+  it("should encrypt and decrypt with a case-insensitive RSA-OAEP string", async () => {
+    const { privateKey, publicKey } = (await crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["encrypt", "decrypt"]
+    )) as webcrypto.CryptoKeyPair;
+
+    const encrypted = await crypto.subtle.encrypt(
+      "rsa-oaep",
+      publicKey,
+      ENCODED_DATA
+    );
+    const decrypted = await crypto.subtle.decrypt(
+      "RsA-OaEp",
+      privateKey,
+      encrypted
+    );
+
+    expect(DECODER.decode(decrypted)).toEqual(TEST_MESSAGE);
+  });
+
+  it("should preserve a non-empty RSA-OAEP label from an object", async () => {
+    const { privateKey, publicKey } = (await crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["encrypt", "decrypt"]
+    )) as webcrypto.CryptoKeyPair;
+    const label = ENCODER.encode("LLRT RSA-OAEP label");
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "RSA-OAEP", label },
+      publicKey,
+      ENCODED_DATA
+    );
+
+    await expect(
+      crypto.subtle.decrypt(
+        { name: "RSA-OAEP", label: ENCODER.encode("wrong label") },
+        privateKey,
+        encrypted
+      )
+    ).rejects.toThrow();
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "RSA-OAEP", label },
+      privateKey,
+      encrypted
+    );
+    expect(DECODER.decode(decrypted)).toEqual(TEST_MESSAGE);
+  });
+
+  it("should still require parameter dictionaries for AES encryption and decryption", async () => {
+    for (const name of ["AES-CBC", "AES-CTR", "AES-GCM"]) {
+      const key = await crypto.subtle.generateKey(
+        { name, length: 128 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+
+      await expect(
+        crypto.subtle.encrypt(name, key, ENCODED_DATA)
+      ).rejects.toThrow(TypeError);
+      await expect(
+        crypto.subtle.decrypt(name, key, ENCODED_DATA)
+      ).rejects.toThrow(TypeError);
+    }
+  });
+});
+
 fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
   it("should be processing ECDH algorithm", async () => {
     const keyLengths = [128, 192, 256];

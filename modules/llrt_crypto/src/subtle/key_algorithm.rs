@@ -440,7 +440,7 @@ fn from_x25519<'js>(
 fn from_aes<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
-    obj: std::result::Result<Object<'js>, &str>,
+    obj: Result<Object<'js>>,
     algorithm_name: &str,
     usages: &Array<'js>,
     private_usages: &mut Vec<String>,
@@ -451,7 +451,7 @@ fn from_aes<'js>(
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(u16, Option<KeyKind>)> {
         if let KeyAlgorithmMode::Import { data, format, kind } = mode {
@@ -459,7 +459,7 @@ fn from_aes<'js>(
                 import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
             Ok((length, Some(*kind)))
         } else {
-            let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
+            let length: u16 = obj?.get_required("length", "algorithm")?;
             Ok((length, None))
         }
     }
@@ -467,12 +467,12 @@ fn from_aes<'js>(
     #[cfg(not(feature = "_subtle-full"))]
     #[inline]
     fn import<'js>(
-        ctx: &Ctx<'js>,
+        _ctx: &Ctx<'js>,
         _mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         _algorithm_name: &str,
     ) -> Result<(u16, Option<KeyKind>)> {
-        let length: u16 = obj.or_throw(ctx)?.get_required("length", "algorithm")?;
+        let length: u16 = obj?.get_required("length", "algorithm")?;
         Ok((length, None))
     }
 
@@ -515,13 +515,13 @@ fn from_aes<'js>(
 fn from_hmac<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
-    obj: std::result::Result<Object<'js>, &str>,
+    obj: Result<Object<'js>>,
     algorithm_name: &str,
     usages: &Array<'js>,
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    let obj = obj.or_throw(ctx)?;
+    let obj = obj?;
     let hash = extract_sha_hash(ctx, &obj)?;
     if !matches!(
         hash,
@@ -586,13 +586,13 @@ fn from_hmac<'js>(
 fn from_rsa<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
-    obj: std::result::Result<Object<'js>, &str>,
+    obj: Result<Object<'js>>,
     algorithm_name: &str,
     usages: &Array<'js>,
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    let obj = obj.or_throw(ctx)?;
+    let obj = obj?;
     let hash = extract_sha_hash(ctx, &obj)?;
     let is_generate = mode == KeyAlgorithmMode::Generate;
 
@@ -674,7 +674,7 @@ fn from_rsa<'js>(
 fn from_hkdf<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
-    obj: std::result::Result<Object<'js>, &str>,
+    obj: Result<Object<'js>>,
     algorithm_name: &str,
     usages: &Array<'js>,
     private_usages: &mut Vec<String>,
@@ -685,7 +685,7 @@ fn from_hkdf<'js>(
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
@@ -694,7 +694,7 @@ fn from_hkdf<'js>(
                 Ok((KeyAlgorithm::HkdfImport, Some(*kind)))
             },
             KeyAlgorithmMode::Derive => {
-                let obj = obj.or_throw(ctx)?;
+                let obj = obj?;
                 Ok((
                     KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
                     None,
@@ -709,12 +709,12 @@ fn from_hkdf<'js>(
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         _algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
             KeyAlgorithmMode::Derive => {
-                let obj = obj.or_throw(ctx)?;
+                let obj = obj?;
                 Ok((
                     KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
                     None,
@@ -741,7 +741,7 @@ fn from_hkdf<'js>(
 fn from_pbkdf2<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
-    obj: std::result::Result<Object<'js>, &str>,
+    obj: Result<Object<'js>>,
     algorithm_name: &str,
     usages: &Array<'js>,
     private_usages: &mut Vec<String>,
@@ -752,7 +752,7 @@ fn from_pbkdf2<'js>(
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
@@ -761,7 +761,7 @@ fn from_pbkdf2<'js>(
                 Ok((KeyAlgorithm::Pbkdf2Import, Some(*kind)))
             },
             KeyAlgorithmMode::Derive => {
-                let obj = obj.or_throw(ctx)?;
+                let obj = obj?;
                 Ok((
                     KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
                     None,
@@ -776,12 +776,12 @@ fn from_pbkdf2<'js>(
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         _algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
             KeyAlgorithmMode::Derive => {
-                let obj = obj.or_throw(ctx)?;
+                let obj = obj?;
                 Ok((
                     KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
                     None,
@@ -979,7 +979,7 @@ impl KeyAlgorithm {
     fn from_ec<'js>(
         ctx: &Ctx<'js>,
         #[allow(unused_variables)] mode: KeyAlgorithmMode<'_, 'js>,
-        obj: std::result::Result<Object<'js>, &str>,
+        obj: Result<Object<'js>>,
         #[allow(unused_variables)] algorithm_name: &str,
         algorithm: EcAlgorithm,
         key_usages: &Array<'js>,
@@ -987,7 +987,7 @@ impl KeyAlgorithm {
         public_usages: &mut Vec<String>,
         key_usage_algorithm: KeyUsageAlgorithm,
     ) -> Result<KeyAlgorithm> {
-        let obj = obj.or_throw(ctx)?;
+        let obj = obj?;
         let curve_name: String = obj.get_required("namedCurve", "algorithm")?;
         let curve = EllipticCurve::try_from(curve_name.as_str())
             .map_err(NotSupportedError)

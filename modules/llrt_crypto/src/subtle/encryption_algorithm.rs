@@ -4,7 +4,7 @@ use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Ctx, Exception, FromJs, Result, Value};
 
-use super::algorithm_not_supported_error;
+use super::{algorithm_not_supported_error, normalize_algorithm_name, to_name_and_maybe_object};
 
 #[derive(Debug)]
 pub enum EncryptionAlgorithm {
@@ -28,12 +28,12 @@ pub enum EncryptionAlgorithm {
 
 impl<'js> FromJs<'js> for EncryptionAlgorithm {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
-        let obj = value.into_object_or_throw(ctx, "algorithm")?;
-
-        let name: String = obj.get_required("name", "algorithm")?;
+        let (name, obj) = to_name_and_maybe_object(ctx, value)?;
+        let name = normalize_algorithm_name(&name);
 
         match name.as_str() {
             "AES-CBC" => {
+                let obj = obj?;
                 let iv = obj
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
                     .into_bytes(ctx)?
@@ -49,6 +49,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 Ok(EncryptionAlgorithm::AesCbc { iv })
             },
             "AES-CTR" => {
+                let obj = obj?;
                 let counter = obj
                     .get_required::<_, ObjectBytes>("counter", "algorithm")?
                     .into_bytes(ctx)?
@@ -66,6 +67,7 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 Ok(EncryptionAlgorithm::AesCtr { counter, length })
             },
             "AES-GCM" => {
+                let obj = obj?;
                 let iv = obj
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
                     .into_bytes(ctx)?
@@ -99,11 +101,14 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                 })
             },
             "RSA-OAEP" => {
-                let label = obj
-                    .get_optional::<_, ObjectBytes>("label")?
-                    .map(|bytes| bytes.into_bytes(ctx))
-                    .transpose()?
-                    .map(|vec| vec.into_boxed_slice());
+                let label = if let Ok(obj) = obj {
+                    obj.get_optional::<_, ObjectBytes>("label")?
+                        .map(|bytes| bytes.into_bytes(ctx))
+                        .transpose()?
+                        .map(|vec| vec.into_boxed_slice())
+                } else {
+                    None
+                };
 
                 Ok(EncryptionAlgorithm::RsaOaep { label })
             },

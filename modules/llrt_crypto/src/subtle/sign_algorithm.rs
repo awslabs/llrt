@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{object::ObjectExt, result::ResultExt};
+use llrt_utils::object::ObjectExt;
 use rquickjs::{Ctx, FromJs, Result, Value};
 
 use crate::hash::HashAlgorithm;
@@ -27,12 +27,12 @@ impl<'js> FromJs<'js> for SigningAlgorithm {
             "HMAC" => SigningAlgorithm::Hmac,
             "RSASSA-PKCS1-v1_5" => SigningAlgorithm::RsassaPkcs1v15,
             "ECDSA" => {
-                let obj = obj.or_throw(ctx)?;
+                let obj = obj?;
                 let hash = extract_sha_hash(ctx, &obj)?;
                 SigningAlgorithm::Ecdsa { hash }
             },
             "RSA-PSS" => {
-                let salt_length = obj.or_throw(ctx)?.get_required("saltLength", "algorithm")?;
+                let salt_length = obj?.get_required("saltLength", "algorithm")?;
 
                 SigningAlgorithm::RsaPss { salt_length }
             },

@@ -49,7 +49,7 @@ use key_algorithm::KeyAlgorithm;
 
 use llrt_exceptions::DOMException;
 use llrt_utils::{object::ObjectExt, str_enum};
-use rquickjs::{atom::PredefinedAtom, Ctx, Exception, Object, Result, Value};
+use rquickjs::{atom::PredefinedAtom, Ctx, Error, Exception, Object, Result, Value};
 
 use crate::provider::{CryptoProvider, SimpleDigest};
 
@@ -114,13 +114,17 @@ pub fn rsa_hash_digest<'a>(
     Ok((hash, digest))
 }
 
-pub fn to_name_and_maybe_object<'js, 'a>(
+pub fn to_name_and_maybe_object<'js>(
     ctx: &Ctx<'js>,
     value: Value<'js>,
-) -> Result<(String, std::result::Result<Object<'js>, &'a str>)> {
+) -> Result<(String, Result<Object<'js>>)> {
     let obj;
     let name = if let Some(string) = value.as_string() {
-        obj = Err("Not an object");
+        obj = Err(Error::new_from_js_message(
+            "string",
+            "object",
+            "algorithm is not an object",
+        ));
         string.to_string()?
     } else if let Some(object) = value.into_object() {
         let name = object.get_required("name", "algorithm")?;
