@@ -38,6 +38,7 @@ declare module "process" {
     name: string;
   }
   interface ProcessVersions extends Dict<string> {
+    "@aws-sdk"?: string;
     llrt: string;
   }
   interface Process extends EventEmitter {
@@ -151,6 +152,8 @@ declare module "process" {
      * llrt and its dependencies. `process.versions.modules` indicates the current
      * ABI version, which is increased whenever a C++ API changes. llrt will refuse
      * to load modules that were compiled against a different module ABI version.
+     * When the AWS SDK is bundled, `process.versions["@aws-sdk"]` contains its
+     * version. The property is absent from no-SDK builds.
      *
      * ```js
      * import { versions } from 'process';

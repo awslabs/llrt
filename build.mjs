@@ -12,6 +12,7 @@ const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
 const TESTS_SUB_DIR = process.env.TEST_SUB_DIR || "unit";
 const OUT_DIR = "bundle/js";
+const AWS_SDK_VERSION_FILE = path.join(OUT_DIR, ".aws-sdk-version");
 const SHIMS = new Map();
 const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
 
@@ -753,6 +754,17 @@ async function buildSdks() {
   //console.log(await esbuild.analyzeMetafile(result.metafile));
 }
 
+async function writeAwsSdkVersion() {
+  const packagePath = require.resolve("@aws-sdk/client-sts/package.json");
+  const packageJson = JSON.parse(await fs.readFile(packagePath, "utf8"));
+
+  if (typeof packageJson.version !== "string" || !packageJson.version) {
+    throw new Error(`Invalid AWS SDK version in ${packagePath}`);
+  }
+
+  await fs.writeFile(AWS_SDK_VERSION_FILE, packageJson.version);
+}
+
 console.log("Building...");
 
 await createOutputDirectories();
@@ -766,6 +778,7 @@ try {
 
   if (SDK_BUNDLE_MODE != "NONE") {
     await buildSdks();
+    await writeAwsSdkVersion();
   }
 } catch (e) {
   error = e;
