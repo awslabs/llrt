@@ -25,10 +25,18 @@ pub fn subtle_verify<'js>(
     signature: ObjectBytes<'js>,
     data: ObjectBytes<'js>,
 ) -> impl Future<Output = Result<bool>> + 'js {
+    // Keep preparation outside the async block: Rust async function bodies are deferred until
+    // polled, while WebCrypto requires call-time algorithm normalization and input snapshotting.
+    // Retaining the Result lets preparation failures reject the rquickjs-created Promise.
     let prepared = prepare_verify(&ctx, algorithm, key, signature, data);
 
     async move {
-        let (algorithm, key, signature, data) = prepared?;
+        let PreparedVerify {
+            algorithm,
+            key,
+            signature,
+            data,
+        } = prepared?;
         let key = key.borrow();
         if key.name.as_ref() != algorithm.name() {
             return algorithm_invalid_access_error(&ctx, algorithm.name());
@@ -44,12 +52,12 @@ pub fn subtle_verify<'js>(
     }
 }
 
-type PreparedVerify<'js> = (
-    SigningAlgorithm,
-    Class<'js, CryptoKey<'js>>,
-    Vec<u8>,
-    Vec<u8>,
-);
+struct PreparedVerify<'js> {
+    algorithm: SigningAlgorithm,
+    key: Class<'js, CryptoKey<'js>>,
+    signature: Vec<u8>,
+    data: Vec<u8>,
+}
 
 fn prepare_verify<'js>(
     ctx: &Ctx<'js>,
@@ -61,7 +69,12 @@ fn prepare_verify<'js>(
     let algorithm = SigningAlgorithm::from_js(ctx, algorithm)?;
     let signature = signature.as_bytes_opt().unwrap_or_default().to_vec();
     let data = data.as_bytes_opt().unwrap_or_default().to_vec();
-    Ok((algorithm, key, signature, data))
+    Ok(PreparedVerify {
+        algorithm,
+        key,
+        signature,
+        data,
+    })
 }
 
 fn verify(

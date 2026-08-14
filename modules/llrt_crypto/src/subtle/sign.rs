@@ -23,6 +23,9 @@ pub fn subtle_sign<'js>(
     key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
 ) -> impl Future<Output = Result<ArrayBuffer<'js>>> + 'js {
+    // Keep preparation outside the async block: Rust async function bodies are deferred until
+    // polled, while WebCrypto requires call-time algorithm normalization and input snapshotting.
+    // Retaining the Result lets preparation failures reject the rquickjs-created Promise.
     let prepared = prepare_sign(&ctx, algorithm, key, data);
 
     async move {
