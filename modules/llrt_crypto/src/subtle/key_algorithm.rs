@@ -356,6 +356,7 @@ fn from_ed25519<'js>(
                 data,
                 const_oid::db::rfc8410::ID_ED_25519,
                 algorithm_name,
+                true,
             )?;
             Ok(Some(*kind))
         } else {
@@ -408,6 +409,7 @@ fn from_x25519<'js>(
                 data,
                 const_oid::db::rfc8410::ID_X_25519,
                 algorithm_name,
+                false,
             )?;
             Ok(Some(*kind))
         } else {
@@ -1352,6 +1354,7 @@ fn import_okp_key<'js>(
     data: &mut Vec<u8>,
     oid: ObjectIdentifier,
     algorithm_name: &str,
+    is_ed25519: bool,
 ) -> Result<()> {
     let validate_oid = |other_oid: const_oid::ObjectIdentifier| -> Result<()> {
         if other_oid != oid {
@@ -1406,10 +1409,17 @@ fn import_okp_key<'js>(
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
+            let bytes = object_bytes.into_bytes(ctx)?;
+            let pkcs8 = PrivateKeyInfoRef::try_from(bytes.as_slice()).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            let private_key = OctetString::from_der(pkcs8.private_key.as_bytes()).or_throw(ctx)?;
-            *data = private_key.as_bytes().to_vec();
+            *data = if is_ed25519 {
+                bytes
+            } else {
+                OctetString::from_der(pkcs8.private_key.as_bytes())
+                    .or_throw(ctx)?
+                    .as_bytes()
+                    .to_vec()
+            };
             *kind = KeyKind::Private;
         },
     };
@@ -1428,6 +1438,7 @@ pub fn extract_sha_hash<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<HashAl
             "hash must be a string or an object",
         ));
     }?;
+    let hash = normalize_algorithm_name(&hash);
     HashAlgorithm::from_strict_str(hash.as_str()).or_throw_dom(ctx)
 }
 

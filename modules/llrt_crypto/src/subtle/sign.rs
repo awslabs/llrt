@@ -1,27 +1,57 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use std::future::Future;
+
 use crate::provider::{CryptoProvider, HmacProvider};
-use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
-use rquickjs::{ArrayBuffer, Class, Ctx, Result};
+use llrt_utils::bytes::ObjectBytes;
+use rquickjs::{ArrayBuffer, Class, Ctx, FromJs, Result, Value};
 
 use crate::CRYPTO_PROVIDER;
 
 use super::{
-    algorithm_mismatch_error, crypto_key::CryptoKey, key_algorithm::KeyAlgorithm, rsa_hash_digest,
+    algorithm_invalid_access_error,
+    crypto_key::{CryptoKey, KeyKind},
+    key_algorithm::KeyAlgorithm,
+    rsa_hash_digest,
     sign_algorithm::SigningAlgorithm,
+    util::ResultDomExt,
 };
 
-pub async fn subtle_sign<'js>(
+pub fn subtle_sign<'js>(
     ctx: Ctx<'js>,
-    algorithm: SigningAlgorithm,
+    algorithm: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
     data: ObjectBytes<'js>,
-) -> Result<ArrayBuffer<'js>> {
-    let key = key.borrow();
-    key.check_validity("sign").or_throw(&ctx)?;
+) -> impl Future<Output = Result<ArrayBuffer<'js>>> + 'js {
+    let prepared = prepare_sign(&ctx, algorithm, key, data);
 
-    let bytes = sign(&ctx, &algorithm, &key, data.as_bytes(&ctx)?)?;
-    ArrayBuffer::new(ctx, bytes)
+    async move {
+        let (algorithm, key, data) = prepared?;
+        let key = key.borrow();
+        if key.name.as_ref() != algorithm.name() {
+            return algorithm_invalid_access_error(&ctx, algorithm.name());
+        }
+        key.check_validity("sign").or_throw_dom(&ctx)?;
+        let expected_kind = match &algorithm {
+            SigningAlgorithm::Hmac => KeyKind::Secret,
+            _ => KeyKind::Private,
+        };
+        key.check_kind(expected_kind).or_throw_dom(&ctx)?;
+
+        let bytes = sign(&ctx, &algorithm, &key, &data)?;
+        ArrayBuffer::new(ctx, bytes)
+    }
+}
+
+fn prepare_sign<'js>(
+    ctx: &Ctx<'js>,
+    algorithm: Value<'js>,
+    key: Class<'js, CryptoKey<'js>>,
+    data: ObjectBytes<'js>,
+) -> Result<(SigningAlgorithm, Class<'js, CryptoKey<'js>>, Vec<u8>)> {
+    let algorithm = SigningAlgorithm::from_js(ctx, algorithm)?;
+    let data = data.as_bytes_opt().unwrap_or_default().to_vec();
+    Ok((algorithm, key, data))
 }
 
 fn sign(
@@ -35,28 +65,28 @@ fn sign(
         SigningAlgorithm::Ecdsa { hash } => {
             let curve = match &key.algorithm {
                 KeyAlgorithm::Ec { curve, .. } => curve,
-                _ => return algorithm_mismatch_error(ctx, "ECDSA"),
+                _ => return algorithm_invalid_access_error(ctx, "ECDSA"),
             };
 
             let digest = crate::subtle::digest::digest(hash, data);
 
             crate::CRYPTO_PROVIDER
                 .ecdsa_sign(*curve, handle, &digest)
-                .or_throw(ctx)?
+                .or_throw_dom(ctx)?
         },
         SigningAlgorithm::Ed25519 => {
             if !matches!(&key.algorithm, KeyAlgorithm::Ed25519) {
-                return algorithm_mismatch_error(ctx, "Ed25519");
+                return algorithm_invalid_access_error(ctx, "Ed25519");
             }
             crate::CRYPTO_PROVIDER
                 .ed25519_sign(handle, data)
-                .or_throw(ctx)?
+                .or_throw_dom(ctx)?
         },
         SigningAlgorithm::Hmac => {
             let hash = if let KeyAlgorithm::Hmac { hash, .. } = &key.algorithm {
                 hash
             } else {
-                return algorithm_mismatch_error(ctx, "HMAC");
+                return algorithm_invalid_access_error(ctx, "HMAC");
             };
 
             let mut hmac = CRYPTO_PROVIDER.hmac(*hash, handle);
@@ -67,13 +97,13 @@ fn sign(
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSA-PSS")?;
             crate::CRYPTO_PROVIDER
                 .rsa_pss_sign(&key.handle, digest.as_ref(), *salt_length as usize, *hash)
-                .or_throw(ctx)?
+                .or_throw_dom(ctx)?
         },
         SigningAlgorithm::RsassaPkcs1v15 => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSASSA-PKCS1-v1_5")?;
             crate::CRYPTO_PROVIDER
                 .rsa_pkcs1v15_sign(&key.handle, digest.as_ref(), *hash)
-                .or_throw(ctx)?
+                .or_throw_dom(ctx)?
         },
     })
 }

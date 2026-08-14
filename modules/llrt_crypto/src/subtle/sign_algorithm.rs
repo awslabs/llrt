@@ -6,7 +6,8 @@ use rquickjs::{Ctx, FromJs, Result, Value};
 use crate::hash::HashAlgorithm;
 
 use super::{
-    algorithm_not_supported_error, key_algorithm::extract_sha_hash, to_name_and_maybe_object,
+    algorithm_not_supported_error, key_algorithm::extract_sha_hash, normalize_algorithm_name,
+    to_name_and_maybe_object,
 };
 
 #[derive(Debug)]
@@ -21,6 +22,7 @@ pub enum SigningAlgorithm {
 impl<'js> FromJs<'js> for SigningAlgorithm {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
+        let name = normalize_algorithm_name(&name);
 
         let algorithm = match name.as_str() {
             "Ed25519" => SigningAlgorithm::Ed25519,
@@ -39,5 +41,17 @@ impl<'js> FromJs<'js> for SigningAlgorithm {
             _ => return algorithm_not_supported_error(ctx),
         };
         Ok(algorithm)
+    }
+}
+
+impl SigningAlgorithm {
+    pub fn name(&self) -> &'static str {
+        match self {
+            SigningAlgorithm::Ecdsa { .. } => "ECDSA",
+            SigningAlgorithm::Ed25519 => "Ed25519",
+            SigningAlgorithm::RsaPss { .. } => "RSA-PSS",
+            SigningAlgorithm::RsassaPkcs1v15 => "RSASSA-PKCS1-v1_5",
+            SigningAlgorithm::Hmac => "HMAC",
+        }
     }
 }
