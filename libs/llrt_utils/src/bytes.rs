@@ -348,10 +348,9 @@ impl<'js> ObjectBytes<'js> {
         self.as_bytes_inner().or_throw(ctx)
     }
 
-    /// Returns the underlying bytes, or `None` if the buffer is detached.
-    /// Unlike [`as_bytes`], does not raise a JS exception — useful when the
-    /// caller needs to distinguish detachment from other errors (e.g.
-    /// WebIDL-style "treat detached BufferSource as empty").
+    /// Returns the underlying bytes, or `None` if the buffer is detached or
+    /// the DataView range is invalid (including arithmetic overflow). Unlike
+    /// [`as_bytes`], does not raise a JS exception.
     pub fn as_bytes_opt(&self) -> Option<&[u8]> {
         self.as_bytes_inner().ok()
     }
