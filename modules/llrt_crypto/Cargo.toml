@@ -119,7 +119,7 @@ pbkdf2 = { version = "0.13", default-features = false, optional = true }
 pkcs8 = { version = "0.11", default-features = false, features = [
   "alloc",
 ], optional = true }
-sha1 = { version = "0.11", default-features = false, optional = true }
+sha1 = { version = "0.11", features = ["oid"], default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }

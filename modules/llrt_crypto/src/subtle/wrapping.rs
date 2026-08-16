@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_json::{parse::json_parse, stringify::json_stringify};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use rquickjs::{Array, ArrayBuffer, Class, Ctx, Exception, Result, Value};
+use rquickjs::{Array, ArrayBuffer, Class, Ctx, Result, Value};
 
 use super::{
     crypto_key::CryptoKey,
@@ -51,7 +51,7 @@ pub async fn subtle_wrap_key<'js>(
 //cant take more than 7 args
 pub async fn subtle_unwrap_key<'js>(
     format: KeyFormat,
-    wrapped_key: ArrayBuffer<'js>,
+    wrapped_key: Value<'js>,
     unwrapping_key: Class<'js, CryptoKey<'js>>,
     unwrap_algo: EncryptionAlgorithm,
     unwrapped_key_algo: Value<'js>,
@@ -62,9 +62,8 @@ pub async fn subtle_unwrap_key<'js>(
     let ctx = wrapped_key.ctx().clone();
     unwrapping_key.check_validity("unwrapKey").or_throw(&ctx)?;
 
-    let bytes = wrapped_key
-        .as_bytes()
-        .ok_or_else(|| Exception::throw_message(&ctx, "ArrayBuffer is detached"))?;
+    let bytes = ObjectBytes::from(&ctx, &wrapped_key)?;
+    let bytes = bytes.as_bytes(&ctx)?;
 
     let padding = match format {
         KeyFormat::Jwk => b' ',

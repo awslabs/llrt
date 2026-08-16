@@ -18,7 +18,7 @@ use cbc::{Decryptor, Encryptor};
 use ctr::{cipher::Array, Ctr128BE, Ctr32BE, Ctr64BE};
 use der::Encode;
 use ecdsa::signature::hazmat::PrehashVerifier;
-use ed25519_dalek::{Signature, Signer, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, VerifyingKey};
 use elliptic_curve::{consts::U12, sec1::ToSec1Point, Generate};
 use hkdf::Hkdf;
 use hmac::{Hmac as HmacImpl, Mac};
@@ -264,7 +264,7 @@ impl CryptoProvider for RustCryptoProvider {
                 .try_into()
                 .map_err(|_| CryptoError::InvalidSignature(None))?,
         );
-        Ok(public_key.verify(data, &signature).is_ok())
+        Ok(public_key.verify_strict(data, &signature).is_ok())
     }
 
     fn rsa_pss_sign(
@@ -279,6 +279,9 @@ impl CryptoProvider for RustCryptoProvider {
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
+            HashAlgorithm::Sha1 => private_key
+                .sign_with_rng(&mut rng, Pss::<Sha1>::new_with_salt(salt_length), digest)
+                .map_err(|_| CryptoError::SigningFailed(None)),
             HashAlgorithm::Sha256 => private_key
                 .sign_with_rng(&mut rng, Pss::<Sha256>::new_with_salt(salt_length), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
@@ -304,6 +307,9 @@ impl CryptoProvider for RustCryptoProvider {
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
+            HashAlgorithm::Sha1 => Ok(public_key
+                .verify(Pss::<Sha1>::new_with_salt(salt_length), digest, signature)
+                .is_ok()),
             HashAlgorithm::Sha256 => Ok(public_key
                 .verify(Pss::<Sha256>::new_with_salt(salt_length), digest, signature)
                 .is_ok()),
@@ -328,6 +334,9 @@ impl CryptoProvider for RustCryptoProvider {
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
+            HashAlgorithm::Sha1 => private_key
+                .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha1>(), digest)
+                .map_err(|_| CryptoError::SigningFailed(None)),
             HashAlgorithm::Sha256 => private_key
                 .sign_with_rng(&mut rng, Pkcs1v15Sign::new::<Sha256>(), digest)
                 .map_err(|_| CryptoError::SigningFailed(None)),
@@ -352,6 +361,9 @@ impl CryptoProvider for RustCryptoProvider {
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
+            HashAlgorithm::Sha1 => Ok(public_key
+                .verify(Pkcs1v15Sign::new::<Sha1>(), digest, signature)
+                .is_ok()),
             HashAlgorithm::Sha256 => Ok(public_key
                 .verify(Pkcs1v15Sign::new::<Sha256>(), digest, signature)
                 .is_ok()),

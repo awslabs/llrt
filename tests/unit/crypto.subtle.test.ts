@@ -606,9 +606,207 @@ fullCrypto("SubtleCrypto string AlgorithmIdentifier", () => {
       ).rejects.toThrow(TypeError);
     }
   });
+
+  it("should sign and verify with case-insensitive AlgorithmIdentifiers", async () => {
+    const hmacKey = await crypto.subtle.generateKey(
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign", "verify"]
+    );
+    const hmacData = ENCODED_DATA.slice();
+    const expectedHmac = await crypto.subtle.sign("HMAC", hmacKey, hmacData);
+    const pendingHmac = crypto.subtle.sign("hMaC", hmacKey, hmacData);
+    hmacData[0] ^= 0xff;
+    const hmacSignature = await pendingHmac;
+    expect(new Uint8Array(hmacSignature)).toEqual(new Uint8Array(expectedHmac));
+    expect(
+      await crypto.subtle.verify("HmAc", hmacKey, hmacSignature, ENCODED_DATA)
+    ).toBe(true);
+
+    const ed25519 = (await crypto.subtle.generateKey("Ed25519", false, [
+      "sign",
+      "verify",
+    ])) as webcrypto.CryptoKeyPair;
+    const ed25519Signature = await crypto.subtle.sign(
+      "eD25519",
+      ed25519.privateKey,
+      ENCODED_DATA
+    );
+    expect(
+      await crypto.subtle.verify(
+        "ED25519",
+        ed25519.publicKey,
+        ed25519Signature,
+        ENCODED_DATA
+      )
+    ).toBe(true);
+
+    const ecdsa = (await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["sign", "verify"]
+    )) as webcrypto.CryptoKeyPair;
+    const ecdsaSignature = await crypto.subtle.sign(
+      { name: "eCdSa", hash: "sha-256" },
+      ecdsa.privateKey,
+      ENCODED_DATA
+    );
+    expect(
+      await crypto.subtle.verify(
+        { name: "EcDsA", hash: { name: "sHa-256" } },
+        ecdsa.publicKey,
+        ecdsaSignature,
+        ENCODED_DATA
+      )
+    ).toBe(true);
+
+    const rsassa = (await crypto.subtle.generateKey(
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["sign", "verify"]
+    )) as webcrypto.CryptoKeyPair;
+    const rsassaSignature = await crypto.subtle.sign(
+      "rsassa-pkcs1-V1_5",
+      rsassa.privateKey,
+      ENCODED_DATA
+    );
+    expect(
+      await crypto.subtle.verify(
+        "RSASSA-pkcs1-v1_5",
+        rsassa.publicKey,
+        rsassaSignature,
+        ENCODED_DATA
+      )
+    ).toBe(true);
+
+    const rsaPss = (await crypto.subtle.generateKey(
+      {
+        name: "RSA-PSS",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["sign", "verify"]
+    )) as webcrypto.CryptoKeyPair;
+    const rsaPssSignature = await crypto.subtle.sign(
+      { name: "rsa-pss", saltLength: 32 },
+      rsaPss.privateKey,
+      ENCODED_DATA
+    );
+    expect(
+      await crypto.subtle.verify(
+        { name: "RsA-pSs", saltLength: 32 },
+        rsaPss.publicKey,
+        rsaPssSignature,
+        ENCODED_DATA
+      )
+    ).toBe(true);
+  });
+
+  it("should require signing parameter dictionaries", async () => {
+    const ecdsa = (await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["sign", "verify"]
+    )) as webcrypto.CryptoKeyPair;
+    const rsaPss = (await crypto.subtle.generateKey(
+      {
+        name: "RSA-PSS",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["sign", "verify"]
+    )) as webcrypto.CryptoKeyPair;
+
+    await expect(
+      crypto.subtle.sign("ECDSA", ecdsa.privateKey, ENCODED_DATA)
+    ).rejects.toThrow(TypeError);
+    await expect(
+      crypto.subtle.verify(
+        "ECDSA",
+        ecdsa.publicKey,
+        new Uint8Array(),
+        ENCODED_DATA
+      )
+    ).rejects.toThrow(TypeError);
+    await expect(
+      crypto.subtle.sign("RSA-PSS", rsaPss.privateKey, ENCODED_DATA)
+    ).rejects.toThrow(TypeError);
+    await expect(
+      crypto.subtle.verify(
+        "RSA-PSS",
+        rsaPss.publicKey,
+        new Uint8Array(),
+        ENCODED_DATA
+      )
+    ).rejects.toThrow(TypeError);
+  });
+
+  it("should not trim signing AlgorithmIdentifier names", async () => {
+    const key = await crypto.subtle.generateKey(
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign", "verify"]
+    );
+
+    await expect(
+      crypto.subtle.sign(" HMAC ", key, ENCODED_DATA)
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+    await expect(
+      crypto.subtle.verify(" HMAC ", key, new Uint8Array(), ENCODED_DATA)
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+  });
 });
 
 fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
+  it("should derive X25519 bits from an imported PKCS8 private key", async () => {
+    // Vectors from WebCryptoAPI/derive_bits_keys/derived_bits_length_vectors.js.
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8",
+      new Uint8Array([
+        48, 46, 2, 1, 0, 48, 5, 6, 3, 43, 101, 110, 4, 34, 4, 32, 200, 131, 142,
+        118, 208, 87, 223, 183, 216, 201, 90, 105, 225, 56, 22, 10, 221, 99,
+        115, 253, 113, 164, 210, 118, 187, 86, 227, 168, 27, 100, 255, 97,
+      ]),
+      "X25519",
+      false,
+      ["deriveBits"]
+    );
+    const publicKey = await crypto.subtle.importKey(
+      "spki",
+      new Uint8Array([
+        48, 42, 48, 5, 6, 3, 43, 101, 110, 3, 33, 0, 28, 242, 177, 230, 2, 46,
+        197, 55, 55, 30, 215, 245, 62, 84, 250, 17, 84, 216, 62, 152, 235, 100,
+        234, 81, 250, 229, 179, 48, 124, 254, 151, 6,
+      ]),
+      "X25519",
+      false,
+      []
+    );
+
+    const derived = await crypto.subtle.deriveBits(
+      { name: "X25519", public: publicKey },
+      privateKey,
+      256
+    );
+
+    expect(new Uint8Array(derived)).toEqual(
+      new Uint8Array([
+        39, 104, 64, 157, 250, 185, 158, 194, 59, 140, 137, 185, 63, 245, 136,
+        2, 149, 247, 97, 118, 8, 143, 137, 228, 61, 254, 190, 126, 161, 149, 0,
+        8,
+      ])
+    );
+  });
+
   it("should be processing ECDH algorithm", async () => {
     const keyLengths = [128, 192, 256];
     const algorithms = ["AES-CBC", "AES-CTR", "AES-GCM"];
