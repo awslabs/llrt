@@ -1,33 +1,80 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use crate::provider::{CryptoProvider, HmacProvider};
-use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
-use rquickjs::{Class, Ctx, Result};
+use std::future::Future;
+
+use crate::provider::{CryptoError, CryptoProvider, HmacProvider};
+use llrt_utils::bytes::ObjectBytes;
+use rquickjs::{Class, Ctx, FromJs, Result, Value};
 
 use crate::CRYPTO_PROVIDER;
 
 use super::{
-    algorithm_mismatch_error, crypto_key::CryptoKey, digest, key_algorithm::KeyAlgorithm,
-    rsa_hash_digest, sign_algorithm::SigningAlgorithm,
+    algorithm_invalid_access_error,
+    crypto_key::{CryptoKey, KeyKind},
+    digest,
+    key_algorithm::KeyAlgorithm,
+    rsa_hash_digest,
+    sign_algorithm::SigningAlgorithm,
+    util::ResultDomExt,
 };
 
-pub async fn subtle_verify<'js>(
+pub fn subtle_verify<'js>(
     ctx: Ctx<'js>,
-    algorithm: SigningAlgorithm,
+    algorithm: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
     signature: ObjectBytes<'js>,
     data: ObjectBytes<'js>,
-) -> Result<bool> {
-    let key = key.borrow();
-    key.check_validity("verify").or_throw(&ctx)?;
+) -> impl Future<Output = Result<bool>> + 'js {
+    // Keep preparation outside the async block: Rust async function bodies are deferred until
+    // polled, while WebCrypto requires call-time algorithm normalization and input snapshotting.
+    // Retaining the Result lets preparation failures reject the rquickjs-created Promise.
+    let prepared = prepare_verify(&ctx, algorithm, key, signature, data);
 
-    verify(
-        &ctx,
-        &algorithm,
-        &key,
-        signature.as_bytes(&ctx)?,
-        data.as_bytes(&ctx)?,
-    )
+    async move {
+        let PreparedVerify {
+            algorithm,
+            key,
+            signature,
+            data,
+        } = prepared?;
+        let key = key.borrow();
+        if key.name.as_ref() != algorithm.name() {
+            return algorithm_invalid_access_error(&ctx, algorithm.name());
+        }
+        key.check_validity("verify").or_throw_dom(&ctx)?;
+        let expected_kind = match &algorithm {
+            SigningAlgorithm::Hmac => KeyKind::Secret,
+            _ => KeyKind::Public,
+        };
+        key.check_kind(expected_kind).or_throw_dom(&ctx)?;
+
+        verify(&ctx, &algorithm, &key, &signature, &data)
+    }
+}
+
+struct PreparedVerify<'js> {
+    algorithm: SigningAlgorithm,
+    key: Class<'js, CryptoKey<'js>>,
+    signature: Vec<u8>,
+    data: Vec<u8>,
+}
+
+fn prepare_verify<'js>(
+    ctx: &Ctx<'js>,
+    algorithm: Value<'js>,
+    key: Class<'js, CryptoKey<'js>>,
+    signature: ObjectBytes<'js>,
+    data: ObjectBytes<'js>,
+) -> Result<PreparedVerify<'js>> {
+    let algorithm = SigningAlgorithm::from_js(ctx, algorithm)?;
+    let signature = signature.as_bytes_opt().unwrap_or_default().to_vec();
+    let data = data.as_bytes_opt().unwrap_or_default().to_vec();
+    Ok(PreparedVerify {
+        algorithm,
+        key,
+        signature,
+        data,
+    })
 }
 
 fn verify(
@@ -42,28 +89,28 @@ fn verify(
         SigningAlgorithm::Ecdsa { hash } => {
             let curve = match &key.algorithm {
                 KeyAlgorithm::Ec { curve, .. } => curve,
-                _ => return algorithm_mismatch_error(ctx, "ECDSA"),
+                _ => return algorithm_invalid_access_error(ctx, "ECDSA"),
             };
 
             let digest = digest::digest(hash, data);
 
             crate::CRYPTO_PROVIDER
                 .ecdsa_verify(*curve, handle, signature, &digest)
-                .or_throw(ctx)?
+                .into_verification(ctx)?
         },
         SigningAlgorithm::Ed25519 => {
             if !matches!(&key.algorithm, KeyAlgorithm::Ed25519) {
-                return algorithm_mismatch_error(ctx, "Ed25519");
+                return algorithm_invalid_access_error(ctx, "Ed25519");
             }
 
             crate::CRYPTO_PROVIDER
                 .ed25519_verify(handle, signature, data)
-                .or_throw(ctx)?
+                .into_verification(ctx)?
         },
         SigningAlgorithm::Hmac => {
             let hash = match &key.algorithm {
                 KeyAlgorithm::Hmac { hash, .. } => hash,
-                _ => return algorithm_mismatch_error(ctx, "HMAC"),
+                _ => return algorithm_invalid_access_error(ctx, "HMAC"),
             };
 
             let mut hmac = CRYPTO_PROVIDER.hmac(*hash, handle);
@@ -82,13 +129,26 @@ fn verify(
                     *salt_length as usize,
                     *hash,
                 )
-                .or_throw(ctx)?
+                .into_verification(ctx)?
         },
         SigningAlgorithm::RsassaPkcs1v15 => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSASSA-PKCS1-v1_5")?;
             crate::CRYPTO_PROVIDER
                 .rsa_pkcs1v15_verify(&key.handle, signature, digest.as_ref(), *hash)
-                .or_throw(ctx)?
+                .into_verification(ctx)?
         },
     })
+}
+
+trait VerificationResultExt {
+    fn into_verification(self, ctx: &Ctx<'_>) -> Result<bool>;
+}
+
+impl VerificationResultExt for std::result::Result<bool, CryptoError> {
+    fn into_verification(self, ctx: &Ctx<'_>) -> Result<bool> {
+        match self {
+            Err(CryptoError::InvalidSignature(_)) => Ok(false),
+            result => result.or_throw_dom(ctx),
+        }
+    }
 }

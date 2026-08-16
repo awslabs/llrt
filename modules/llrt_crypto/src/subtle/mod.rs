@@ -99,11 +99,11 @@ pub fn rsa_hash_digest<'a>(
     };
     if !matches!(
         hash,
-        HashAlgorithm::Sha256 | HashAlgorithm::Sha384 | HashAlgorithm::Sha512
+        HashAlgorithm::Sha1 | HashAlgorithm::Sha256 | HashAlgorithm::Sha384 | HashAlgorithm::Sha512
     ) {
         return Err(Exception::throw_message(
             ctx,
-            "Only Sha-256, Sha-384 or Sha-512 is supported for RSA",
+            "Only SHA-1, SHA-256, SHA-384 or SHA-512 is supported for RSA",
         ));
     }
 
@@ -140,7 +140,7 @@ pub fn to_name_and_maybe_object<'js>(
 }
 
 pub fn normalize_algorithm_name(name: &str) -> String {
-    let name = name.trim().to_ascii_uppercase();
+    let name = name.to_ascii_uppercase();
     match name.as_str() {
         "ED25519" => "Ed25519".to_string(),
         "RSASSA-PKCS1-V1_5" => "RSASSA-PKCS1-v1_5".to_string(),
