@@ -370,9 +370,10 @@ impl<'js> ObjectBytes<'js> {
             ObjectBytes::F32Array(array) => array.as_bytes(),
             ObjectBytes::F64Array(array) => array.as_bytes(),
             ObjectBytes::U8ClampedArray(array) => array.as_bytes(),
-            ObjectBytes::DataView(ab, offset, length) => {
-                ab.as_bytes().map(|b| &b[*offset..*offset + *length])
-            },
+            ObjectBytes::DataView(ab, offset, length) => ab.as_bytes().and_then(|bytes| {
+                let end = offset.checked_add(*length)?;
+                bytes.get(*offset..end)
+            }),
             ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
         }
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.into())
@@ -558,6 +559,50 @@ impl<'js> ObjectBytes<'js> {
         };
 
         Ok(Some(buffer))
+    }
+}
+
+#[cfg(test)]
+mod object_bytes_tests {
+    use super::{ObjectBytes, ERROR_MSG_ARRAY_BUFFER_DETACHED};
+    use rquickjs::{ArrayBuffer, Context, Runtime};
+
+    #[test]
+    fn data_view_ranges_are_checked() {
+        let rt = Runtime::new().unwrap();
+        let ctx = Context::full(&rt).unwrap();
+
+        ctx.with(|ctx| {
+            let buffer = ArrayBuffer::new_copy(ctx, [1_u8, 2, 3, 4]).unwrap();
+            for (offset, length) in [(3, 2), (usize::MAX, 1)] {
+                let bytes = ObjectBytes::DataView(buffer.clone(), offset, length);
+
+                assert_eq!(
+                    bytes.as_bytes_inner().unwrap_err().as_ref(),
+                    ERROR_MSG_ARRAY_BUFFER_DETACHED
+                );
+            }
+
+            let valid_bytes = ObjectBytes::DataView(buffer, 1, 2);
+            assert_eq!(valid_bytes.as_bytes_inner().unwrap(), &[2, 3]);
+        });
+    }
+
+    #[test]
+    fn data_view_detached_buffer_returns_error() {
+        let rt = Runtime::new().unwrap();
+        let ctx = Context::full(&rt).unwrap();
+
+        ctx.with(|ctx| {
+            let mut buffer = ArrayBuffer::new_copy(ctx, [1_u8, 2, 3, 4]).unwrap();
+            buffer.detach();
+            let bytes = ObjectBytes::DataView(buffer, 0, 4);
+
+            assert_eq!(
+                bytes.as_bytes_inner().unwrap_err().as_ref(),
+                ERROR_MSG_ARRAY_BUFFER_DETACHED
+            );
+        });
     }
 }
 
