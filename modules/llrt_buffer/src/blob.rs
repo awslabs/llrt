@@ -10,6 +10,7 @@ use llrt_stream_web::{
 use llrt_utils::{
     array_buffer::shared_array_buffer_view,
     bytes::{get_lossy_string, ObjectBytes},
+    object::not_a_object_error,
     primordials::Primordial,
     result::ResultExt,
     string::get_coerced_defined_string,
@@ -227,10 +228,7 @@ impl<'js> Blob<'js> {
     ) -> Result<Self> {
         if let Some(options) = options.0.as_ref() {
             if !options.is_null() && !options.is_undefined() && options.as_object().is_none() {
-                return Err(Exception::throw_type(
-                    &ctx,
-                    "Failed to construct 'Blob': options is not an object",
-                ));
+                return Err(not_a_object_error(&ctx, "options"));
             }
         }
 
