@@ -1,5 +1,6 @@
 use rquickjs::{
     class::{JsCell, JsClass, Readable, Trace},
+    convert::Coerced,
     function::{Constructor, Params},
     prelude::This,
     Class, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result, Value,
@@ -12,12 +13,14 @@ use crate::utils::ValueOrUndefined;
 
 mod byte_length;
 mod count;
+#[cfg(test)]
+mod tests;
 
 /// QueuingStrategy is the structure of a user-provided object describing how backpressure should be signalled.
 /// https://streams.spec.whatwg.org/#qs-api
 pub(super) struct QueuingStrategy<'js> {
     // unrestricted double highWaterMark;
-    high_water_mark: Option<Value<'js>>,
+    high_water_mark: Option<f64>,
     // callback QueuingStrategySize = unrestricted double (any chunk);
     pub(super) size: Option<SizeFunction<'js>>,
 }
@@ -29,7 +32,9 @@ impl<'js> FromJs<'js> for QueuingStrategy<'js> {
             .as_object()
             .ok_or_else(|| Error::new_from_js(ty_name, "Object"))?;
 
-        let high_water_mark = obj.get_value_or_undefined::<_, Value>("highWaterMark")?;
+        let high_water_mark = obj
+            .get_value_or_undefined::<_, Coerced<f64>>("highWaterMark")?
+            .map(|value| value.0);
         let size = obj.get_value_or_undefined::<_, _>("size")?;
 
         Ok(Self {
@@ -54,7 +59,6 @@ impl<'js> QueuingStrategy<'js> {
                 high_water_mark: Some(high_water_mark),
                 ..
             }) => {
-                let high_water_mark = high_water_mark.as_number().unwrap_or(f64::NAN);
                 // If highWaterMark is NaN or highWaterMark < 0, throw a RangeError exception.
                 if high_water_mark.is_nan() || high_water_mark < 0.0 {
                     Err(Exception::throw_range(ctx, "Invalid highWaterMark"))
@@ -162,10 +166,12 @@ impl<'js> FromJs<'js> for QueueingStrategyInit {
             .ok_or_else(|| Error::new_from_js(ty_name, "Object"))?;
 
         let high_water_mark = obj
-            .get_value_or_undefined("highWaterMark")?
+            .get_value_or_undefined::<_, Coerced<f64>>("highWaterMark")?
             .ok_or_else(|| Error::new_from_js(ty_name, "QueueingStrategyInit"))?;
 
-        Ok(Self { high_water_mark })
+        Ok(Self {
+            high_water_mark: high_water_mark.0,
+        })
     }
 }
 
