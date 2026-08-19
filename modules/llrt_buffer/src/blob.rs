@@ -10,6 +10,7 @@ use llrt_stream_web::{
 use llrt_utils::{
     array_buffer::shared_array_buffer_view,
     bytes::{get_lossy_string, ObjectBytes},
+    object::not_a_object_error,
     primordials::Primordial,
     result::ResultExt,
     string::get_coerced_defined_string,
@@ -225,15 +226,15 @@ impl<'js> Blob<'js> {
         parts: Opt<Value<'js>>,
         options: Opt<Value<'js>>,
     ) -> Result<Self> {
+        if let Some(options) = options.0.as_ref() {
+            if !options.is_null() && !options.is_undefined() && options.as_object().is_none() {
+                return Err(not_a_object_error(&ctx, "options"));
+            }
+        }
+
         let mut endings = EndingType::Transparent;
-        let mut mime_type = String::new();
-
-        if let Some(options) = options.0 {
+        if let Some(options) = options.0.as_ref() {
             if let Some(opts) = options.as_object() {
-                if let Some(x) = opts.get::<_, Option<Coerced<String>>>("type")? {
-                    mime_type = normalize_type(x.to_string());
-                }
-
                 if opts.contains_key("endings")? {
                     if let Some(parsed) = parse_endings(&ctx, opts.get("endings")?)? {
                         endings = parsed;
@@ -247,6 +248,16 @@ impl<'js> Blob<'js> {
         } else {
             Vec::new()
         };
+
+        let mut mime_type = String::new();
+        if let Some(options) = options.0.as_ref() {
+            if let Some(opts) = options.as_object() {
+                if let Some(x) = opts.get::<_, Option<Coerced<String>>>("type")? {
+                    mime_type = normalize_type(x.to_string());
+                }
+            }
+        }
+
         // Transfer Vec ownership to JS — QuickJS calls the drop callback when
         // the ArrayBuffer is GC'd, so no extra Rust-side copy.
         let data = ArrayBuffer::new(ctx, bytes)?;
