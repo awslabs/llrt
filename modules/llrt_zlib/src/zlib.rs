@@ -1,7 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::io::Read;
-
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
@@ -10,7 +8,7 @@ use rquickjs::{
     Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
 };
 
-use super::{define_cb_function, define_sync_function};
+use super::{define_cb_function, define_sync_function, max_output_length, read_to_end_limited};
 
 enum ZlibCommand {
     Deflate,
@@ -30,25 +28,44 @@ fn zlib_converter<'js>(
     let src = bytes.as_bytes(&ctx)?;
 
     let mut level = llrt_compression::zlib::Compression::default();
-    if let Some(options) = options.0 {
+    if let Some(options) = options.0.as_ref() {
         if let Some(opt) = options.get_optional("level")? {
             level = llrt_compression::zlib::Compression::new(opt);
         }
     }
+    let limit = max_output_length(&options)?;
 
-    let mut dst: Vec<u8> = Vec::with_capacity(src.len());
-
-    let _ = match command {
-        ZlibCommand::Deflate => {
-            llrt_compression::zlib::encoder(src, level).read_to_end(&mut dst)?
+    let dst = match command {
+        ZlibCommand::Deflate => read_to_end_limited(
+            &ctx,
+            llrt_compression::zlib::encoder(src, level),
+            limit,
+            src.len(),
+        )?,
+        ZlibCommand::DeflateRaw => read_to_end_limited(
+            &ctx,
+            llrt_compression::deflate::encoder(src, level),
+            limit,
+            src.len(),
+        )?,
+        ZlibCommand::Gzip => read_to_end_limited(
+            &ctx,
+            llrt_compression::gz::encoder(src, level),
+            limit,
+            src.len(),
+        )?,
+        ZlibCommand::Inflate => {
+            read_to_end_limited(&ctx, llrt_compression::zlib::decoder(src), limit, src.len())?
         },
-        ZlibCommand::DeflateRaw => {
-            llrt_compression::deflate::encoder(src, level).read_to_end(&mut dst)?
+        ZlibCommand::InflateRaw => read_to_end_limited(
+            &ctx,
+            llrt_compression::deflate::decoder(src),
+            limit,
+            src.len(),
+        )?,
+        ZlibCommand::Gunzip => {
+            read_to_end_limited(&ctx, llrt_compression::gz::decoder(src), limit, src.len())?
         },
-        ZlibCommand::Gzip => llrt_compression::gz::encoder(src, level).read_to_end(&mut dst)?,
-        ZlibCommand::Inflate => llrt_compression::zlib::decoder(src).read_to_end(&mut dst)?,
-        ZlibCommand::InflateRaw => llrt_compression::deflate::decoder(src).read_to_end(&mut dst)?,
-        ZlibCommand::Gunzip => llrt_compression::gz::decoder(src).read_to_end(&mut dst)?,
     };
 
     Buffer(dst).into_js(&ctx)

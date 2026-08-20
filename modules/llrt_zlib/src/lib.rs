@@ -11,6 +11,57 @@ mod brotli;
 mod zlib;
 mod zstd;
 
+use std::io::Read;
+
+use llrt_utils::object::ObjectExt;
+use rquickjs::{prelude::Opt, Exception, Value};
+
+/// Reads the `maxOutputLength` option, which `node:zlib` uses to cap the output
+/// of the convenience methods.
+pub(crate) fn max_output_length<'js>(options: &Opt<Value<'js>>) -> Result<Option<usize>> {
+    match options.0.as_ref() {
+        Some(options) => options.get_optional::<_, usize>("maxOutputLength"),
+        None => Ok(None),
+    }
+}
+
+/// Drains `reader` into a buffer, rejecting output longer than `limit` bytes
+/// with the same `RangeError` Node.js raises for `maxOutputLength`.
+///
+/// Reading stops one byte past the limit, so an over-long result is detected
+/// without decompressing (or allocating) the rest of the payload.
+pub(crate) fn read_to_end_limited<R: Read>(
+    ctx: &Ctx<'_>,
+    reader: R,
+    limit: Option<usize>,
+    capacity: usize,
+) -> Result<Vec<u8>> {
+    let Some(limit) = limit else {
+        let mut dst = Vec::with_capacity(capacity);
+        let mut reader = reader;
+        reader.read_to_end(&mut dst)?;
+        return Ok(dst);
+    };
+
+    let cutoff = limit.saturating_add(1);
+    let mut dst = Vec::with_capacity(capacity.min(cutoff));
+    reader.take(cutoff as u64).read_to_end(&mut dst)?;
+
+    if dst.len() > limit {
+        return Err(Exception::throw_range(
+            ctx,
+            &[
+                "Cannot create a Buffer larger than ",
+                &limit.to_string(),
+                " bytes",
+            ]
+            .concat(),
+        ));
+    }
+
+    Ok(dst)
+}
+
 use self::brotli::{br_comp, br_comp_sync, br_decomp, br_decomp_sync};
 use self::zlib::{
     deflate, deflate_raw, deflate_raw_sync, deflate_sync, gunzip, gunzip_sync, gzip, gzip_sync,
@@ -56,7 +107,14 @@ macro_rules! define_cb_function {
                         Ok::<_, Error>(())
                     },
                     Err(err) => {
-                        () = cb.call((Exception::from_message(ctx, &err.to_string()),))?;
+                        // `Error::Exception` is only a marker; the thrown value
+                        // (and therefore the real message) lives in ctx.catch().
+                        let err = if matches!(err, Error::Exception) {
+                            ctx.catch()
+                        } else {
+                            Exception::from_message(ctx.clone(), &err.to_string())?.into_value()
+                        };
+                        () = cb.call((err,))?;
                         Ok(())
                     },
                 }

@@ -38,9 +38,17 @@ declare module "zlib" {
 
   interface ZlibOptions {
     level?: number | undefined; // compression only
+    /** Limits the output size. Larger output causes the call to fail. */
+    maxOutputLength?: number | undefined;
+  }
+  interface BrotliOptions {
+    /** Limits the output size. Larger output causes the call to fail. */
+    maxOutputLength?: number | undefined;
   }
   interface ZstdOptions {
     level?: number | undefined; // compression only
+    /** Limits the output size. Larger output causes the call to fail. */
+    maxOutputLength?: number | undefined;
   }
   type InputType = string | ArrayBuffer | QuickJS.ArrayBufferView;
   type CompressCallback = (error: Error | null, result: Buffer) => void;
@@ -133,19 +141,32 @@ declare module "zlib" {
    * Compress a chunk of data with `BrotliCompress`.
    */
   function brotliCompress(buf: InputType, callback: CompressCallback): void;
+  function brotliCompress(
+    buf: InputType,
+    options: BrotliOptions,
+    callback: CompressCallback
+  ): void;
   /**
    * Compress a chunk of data with `BrotliCompress`.
    */
-  function brotliCompressSync(buf: InputType): Buffer;
+  function brotliCompressSync(buf: InputType, options?: BrotliOptions): Buffer;
 
   /**
    * Decompress a chunk of data with `BrotliDecompress`.
    */
   function brotliDecompress(buf: InputType, callback: CompressCallback): void;
+  function brotliDecompress(
+    buf: InputType,
+    options: BrotliOptions,
+    callback: CompressCallback
+  ): void;
   /**
    * Decompress a chunk of data with `BrotliDecompress`.
    */
-  function brotliDecompressSync(buf: InputType): Buffer;
+  function brotliDecompressSync(
+    buf: InputType,
+    options?: BrotliOptions
+  ): Buffer;
 
   /**
    * Compress a chunk of data with `ZstdCompress`.

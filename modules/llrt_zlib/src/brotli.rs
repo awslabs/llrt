@@ -1,7 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::io::Read;
-
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
@@ -10,7 +8,7 @@ use rquickjs::{
     Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
 };
 
-use super::{define_cb_function, define_sync_function};
+use super::{define_cb_function, define_sync_function, max_output_length, read_to_end_limited};
 
 enum BrotliCommand {
     Compress,
@@ -20,18 +18,25 @@ enum BrotliCommand {
 fn brotli_converter<'js>(
     ctx: Ctx<'js>,
     bytes: ObjectBytes<'js>,
-    _options: Opt<Value<'js>>,
+    options: Opt<Value<'js>>,
     command: BrotliCommand,
 ) -> Result<Value<'js>> {
     let src = bytes.as_bytes(&ctx)?;
+    let limit = max_output_length(&options)?;
 
-    let mut dst: Vec<u8> = Vec::with_capacity(src.len());
-
-    let _ = match command {
-        BrotliCommand::Compress => llrt_compression::brotli::encoder(src).read_to_end(&mut dst)?,
-        BrotliCommand::Decompress => {
-            llrt_compression::brotli::decoder(src).read_to_end(&mut dst)?
-        },
+    let dst = match command {
+        BrotliCommand::Compress => read_to_end_limited(
+            &ctx,
+            llrt_compression::brotli::encoder(src),
+            limit,
+            src.len(),
+        )?,
+        BrotliCommand::Decompress => read_to_end_limited(
+            &ctx,
+            llrt_compression::brotli::decoder(src),
+            limit,
+            src.len(),
+        )?,
     };
 
     Buffer(dst).into_js(&ctx)
