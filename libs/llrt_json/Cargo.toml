@@ -15,7 +15,7 @@ itoa = { version = "1", default-features = false }
 llrt_utils = { version = "0.8.1-beta", path = "../llrt_utils", default-features = false }
 rquickjs = { version = "0.12", default-features = false }
 ryu = { version = "1", default-features = false }
-simd-json = { version = "0.17", features = [
+simd-json = { version = "0.18", features = [
     "big-int-as-float",
 ], default-features = false }
 
