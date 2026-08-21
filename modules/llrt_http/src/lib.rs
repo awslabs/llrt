@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::module::{export_default, ModuleInfo};
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -16,6 +17,7 @@ use rquickjs::{
 pub use self::config::*;
 
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -25,6 +27,7 @@ mod client;
 mod config;
 
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -33,6 +36,7 @@ mod config;
 mod agent;
 
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -45,6 +49,7 @@ pub struct HttpsModule;
 impl ModuleDef for HttpsModule {
     fn declare(declare: &Declarations) -> Result<()> {
         #[cfg(any(
+            feature = "tls-rust",
             feature = "tls-ring",
             feature = "tls-aws-lc",
             feature = "tls-graviola",
@@ -58,6 +63,7 @@ impl ModuleDef for HttpsModule {
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             #[cfg(any(
+                feature = "tls-rust",
                 feature = "tls-ring",
                 feature = "tls-aws-lc",
                 feature = "tls-graviola",
