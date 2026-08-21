@@ -311,7 +311,7 @@ test-e2e: export TEST_TIMEOUT = 60000
 test-e2e: export SDK_BUNDLE_MODE = STD
 test-e2e: export TEST_SUB_DIR = e2e
 test-e2e: setup-e2e js
-	eval $$($(MAKE) e2e-env) && cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) s3
+	eval $$($(MAKE) e2e-env) && cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) $(TEST_FILTER)
 
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
