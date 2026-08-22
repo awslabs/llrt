@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 #[cfg(feature = "_subtle-full")]
 use der::{
-    asn1::{OctetString, OctetStringRef},
+    asn1::{BitStringRef, OctetString, OctetStringRef},
     Decode, Encode,
 };
 #[cfg(feature = "_subtle-full")]
@@ -1372,18 +1372,40 @@ fn import_okp_key<'js>(
             let x: String = object.get_required("x", "keyData")?;
             let public_key = bytes_from_b64_url_safe(x.as_bytes()).or_throw(ctx)?;
 
+            if public_key.len() != 32 {
+                return Err(DOMException::data_error(
+                    ctx,
+                    [algorithm_name, " public key must be 32 bytes"].concat(),
+                ));
+            }
+
             if let Some(d) = object.get_optional::<_, String>("d")? {
                 let private_key = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
 
-                let pk_info = PrivateKeyInfoRef::new(
-                    AlgorithmIdentifier {
-                        oid,
-                        parameters: None,
-                    },
-                    OctetStringRef::new(private_key.as_slice()).or_throw(ctx)?,
-                );
+                if private_key.len() != 32 {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        [algorithm_name, " private key must be 32 bytes"].concat(),
+                    ));
+                }
 
-                *data = pk_info.to_der().or_throw(ctx)?;
+                if is_ed25519 {
+                    // Ed25519 internal representation is the complete PKCS#8 DER.
+                    let inner = OctetStringRef::new(private_key.as_slice()).or_throw(ctx)?;
+                    let inner_der = inner.to_der().or_throw(ctx)?;
+                    let pk_info = PrivateKeyInfoRef {
+                        algorithm: AlgorithmIdentifier {
+                            oid,
+                            parameters: None,
+                        },
+                        private_key: OctetStringRef::new(&inner_der).or_throw(ctx)?,
+                        public_key: Some(BitStringRef::from_bytes(&public_key).or_throw(ctx)?),
+                    };
+                    *data = pk_info.to_der().or_throw(ctx)?;
+                } else {
+                    // X25519 internal representation is raw 32-byte scalar.
+                    *data = private_key;
+                }
                 *kind = KeyKind::Private;
             } else {
                 *data = public_key;
@@ -1412,17 +1434,29 @@ fn import_okp_key<'js>(
             let bytes = object_bytes.into_bytes(ctx)?;
             let pkcs8 = PrivateKeyInfoRef::try_from(bytes.as_slice()).or_throw(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-            *data = if is_ed25519 {
-                bytes
+
+            if is_ed25519 {
+                // Ed25519 internal representation is the complete PKCS#8 DER.
+                *data = bytes;
             } else {
-                OctetString::from_der(pkcs8.private_key.as_bytes())
+                // X25519 internal representation is the inner OCTET STRING.
+                *data = OctetString::from_der(pkcs8.private_key.as_bytes())
                     .or_throw(ctx)?
                     .as_bytes()
-                    .to_vec()
-            };
+                    .to_vec();
+
+                if data.len() != 32 {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        [algorithm_name, " private key must be 32 bytes"].concat(),
+                    ));
+                }
+            }
+
             *kind = KeyKind::Private;
         },
-    };
+    }
+
     Ok(())
 }
 

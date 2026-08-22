@@ -1301,6 +1301,99 @@ fullCrypto("SubtileCrypto import/export", () => {
       }
     }
   }, 30000);
+
+  it("should import and export an Ed25519 private JWK", async () => {
+    const algorithm = {
+      name: "Ed25519",
+    };
+
+    const keyPair = (await crypto.subtle.generateKey(algorithm, true, [
+      "sign",
+      "verify",
+    ])) as webcrypto.CryptoKeyPair;
+
+    const privateJwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+
+    expect(privateJwk.kty).toEqual("OKP");
+    expect(privateJwk.crv).toEqual("Ed25519");
+    expect(privateJwk.x).toBeDefined();
+    expect(privateJwk.d).toBeDefined();
+
+    const imported = await crypto.subtle.importKey(
+      "jwk",
+      privateJwk,
+      algorithm,
+      true,
+      ["sign"]
+    );
+
+    const signature = await crypto.subtle.sign(
+      algorithm,
+      imported,
+      ENCODED_DATA
+    );
+
+    expect(
+      await crypto.subtle.verify(
+        algorithm,
+        keyPair.publicKey,
+        signature,
+        ENCODED_DATA
+      )
+    ).toEqual(true);
+
+    const exported = await crypto.subtle.exportKey("jwk", imported);
+
+    expect(exported.kty).toEqual(privateJwk.kty);
+    expect(exported.crv).toEqual(privateJwk.crv);
+    expect(exported.x).toEqual(privateJwk.x);
+    expect(exported.d).toEqual(privateJwk.d);
+  });
+
+  it("should round-trip an Ed25519 private key through PKCS#8", async () => {
+    const algorithm = {
+      name: "Ed25519",
+    };
+
+    const keyPair = (await crypto.subtle.generateKey(algorithm, true, [
+      "sign",
+      "verify",
+    ])) as webcrypto.CryptoKeyPair;
+
+    const pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+
+    const imported = await crypto.subtle.importKey(
+      "pkcs8",
+      pkcs8,
+      algorithm,
+      true,
+      ["sign"]
+    );
+
+    const signature = await crypto.subtle.sign(
+      algorithm,
+      imported,
+      ENCODED_DATA
+    );
+
+    expect(
+      await crypto.subtle.verify(
+        algorithm,
+        keyPair.publicKey,
+        signature,
+        ENCODED_DATA
+      )
+    ).toEqual(true);
+
+    const originalJwk = await crypto.subtle.exportKey(
+      "jwk",
+      keyPair.privateKey
+    );
+    const importedJwk = await crypto.subtle.exportKey("jwk", imported);
+
+    expect(importedJwk.x).toEqual(originalJwk.x);
+    expect(importedJwk.d).toEqual(originalJwk.d);
+  });
 });
 
 fullCrypto("SubtileCrypto wrap/unwrap", () => {
