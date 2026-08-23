@@ -4,7 +4,6 @@
 //! Unified key export implementation using CryptoProvider trait.
 
 use llrt_encoding::bytes_to_b64_url_safe_string;
-use llrt_utils::result::ResultExt;
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
 
 use crate::provider::CryptoProvider;
@@ -13,6 +12,7 @@ use crate::CRYPTO_PROVIDER;
 use super::{
     crypto_key::KeyKind,
     key_algorithm::{KeyAlgorithm, KeyFormat},
+    util::ResultDomExt,
     CryptoKey,
 };
 
@@ -72,16 +72,16 @@ fn export_raw(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } => Ok(key.handle.to_vec()),
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .export_ec_public_key_sec1(&key.handle, *curve, false)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
             .export_okp_public_key_raw(&key.handle, false)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_public_key_raw(&key.handle, false)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
             .export_rsa_public_key_pkcs1(&key.handle)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         _ => algorithm_export_error(ctx, &key.name, "raw"),
     }
 }
@@ -96,22 +96,22 @@ fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
     match &key.algorithm {
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .export_ec_private_key_pkcs8(&key.handle, *curve)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
             .export_okp_private_key_pkcs8(
                 &key.handle,
                 const_oid::db::rfc8410::ID_ED_25519.as_bytes(),
             )
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_private_key_pkcs8(
                 &key.handle,
                 const_oid::db::rfc8410::ID_X_25519.as_bytes(),
             )
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
             .export_rsa_private_key_pkcs8(&key.handle)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         _ => algorithm_export_error(ctx, &key.name, "pkcs8"),
     }
 }
@@ -126,16 +126,16 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
     match &key.algorithm {
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .export_ec_public_key_spki(&key.handle, *curve)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::Ed25519 => CRYPTO_PROVIDER
             .export_okp_public_key_spki(&key.handle, const_oid::db::rfc8410::ID_ED_25519.as_bytes())
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_public_key_spki(&key.handle, const_oid::db::rfc8410::ID_X_25519.as_bytes())
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
             .export_rsa_public_key_spki(&key.handle)
-            .or_throw(ctx),
+            .or_throw_dom(ctx),
         _ => algorithm_export_error(ctx, &key.name, "spki"),
     }
 }
@@ -166,7 +166,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::Ec { curve, .. } => {
             let jwk = CRYPTO_PROVIDER
                 .export_ec_jwk(&key.handle, *curve, key.kind == KeyKind::Private)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             obj.set("kty", "EC")?;
             obj.set("crv", curve.as_str())?;
             obj.set("x", bytes_to_b64_url_safe_string(&jwk.x))?;
@@ -178,10 +178,11 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::Ed25519 => {
             let jwk = CRYPTO_PROVIDER
                 .export_okp_jwk(&key.handle, key.kind == KeyKind::Private, true)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             obj.set("kty", "OKP")?;
             obj.set("crv", "Ed25519")?;
             obj.set("x", bytes_to_b64_url_safe_string(&jwk.x))?;
+            obj.set("alg", "Ed25519")?;
             if let Some(d) = jwk.d {
                 obj.set("d", bytes_to_b64_url_safe_string(&d))?;
             }
@@ -189,7 +190,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::X25519 => {
             let jwk = CRYPTO_PROVIDER
                 .export_okp_jwk(&key.handle, key.kind == KeyKind::Private, false)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             obj.set("kty", "OKP")?;
             obj.set("crv", "X25519")?;
             obj.set("x", bytes_to_b64_url_safe_string(&jwk.x))?;
@@ -200,7 +201,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::Rsa { hash, .. } => {
             let jwk = CRYPTO_PROVIDER
                 .export_rsa_jwk(&key.handle, key.kind == KeyKind::Private)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             let alg_suffix = hash.as_numeric_str();
             let alg_prefix = match key.name.as_ref() {
                 "RSASSA-PKCS1-v1_5" => "RS",

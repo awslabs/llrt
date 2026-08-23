@@ -10,6 +10,8 @@ use der::{
     Decode, Encode,
 };
 #[cfg(feature = "_subtle-full")]
+use ed25519_dalek::SigningKey;
+#[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
@@ -20,11 +22,13 @@ use rquickjs::{
 };
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
+#[cfg(feature = "_subtle-full")]
+use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::{hash::HashAlgorithm, provider::parse_rsa_public_exponent};
 
 #[cfg(feature = "_subtle-full")]
-use super::algorithm_mismatch_error;
+use super::{algorithm_mismatch_error, util::DataError};
 use super::{
     algorithm_not_supported_error,
     crypto_key::KeyKind,
@@ -534,9 +538,13 @@ fn from_hmac<'js>(
             "Unsupported HMAC hash algorithm",
         ));
     }
-    let mut length: u16 = obj
-        .get_optional("length")?
-        .unwrap_or_else(|| (hash.block_len() * 8) as u16);
+    let mut length = match obj.get_optional::<_, u16>("length")? {
+        Some(length) => length,
+        None => match mode {
+            KeyAlgorithmMode::Import { .. } => 0,
+            _ => (hash.block_len() * 8) as u16,
+        },
+    };
 
     #[cfg(feature = "_subtle-full")]
     #[inline]
@@ -1062,10 +1070,7 @@ fn import_rsa_key<'js>(
 
     let (modulus_length, public_exponent) = match format {
         KeyFormatData::Jwk(object) => {
-            let kty: String = object.get_required("kty", "keyData")?;
-            if kty != "RSA" {
-                return algorithm_mismatch_error(ctx, algorithm_name);
-            }
+            validate_jwk_kty(ctx, &object, "RSA")?;
 
             if let Some(alg) = object.get_optional::<_, String>("alg")? {
                 let numeric_hash_str = match algorithm_name {
@@ -1082,36 +1087,29 @@ fn import_rsa_key<'js>(
                 }
             }
 
-            let n: String = object.get_required("n", "keyData")?;
-            let e: String = object.get_required("e", "keyData")?;
-            let n_bytes = bytes_from_b64_url_safe(n.as_bytes()).or_throw(ctx)?;
-            let e_bytes = bytes_from_b64_url_safe(e.as_bytes()).or_throw(ctx)?;
+            let n_bytes = get_jwk_required_bytes(ctx, &object, "n")?;
+            let e_bytes = get_jwk_required_bytes(ctx, &object, "e")?;
 
-            let result = if let Some(d) = object.get_optional::<_, String>("d")? {
-                let p: String = object.get_required("p", "keyData")?;
-                let q: String = object.get_required("q", "keyData")?;
-                let dp: String = object.get_required("dp", "keyData")?;
-                let dq: String = object.get_required("dq", "keyData")?;
-                let qi: String = object.get_required("qi", "keyData")?;
+            let d_bytes = get_jwk_optional_bytes(ctx, &object, "d")?;
 
-                let d_bytes = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
-                let p_bytes = bytes_from_b64_url_safe(p.as_bytes()).or_throw(ctx)?;
-                let q_bytes = bytes_from_b64_url_safe(q.as_bytes()).or_throw(ctx)?;
-                let dp_bytes = bytes_from_b64_url_safe(dp.as_bytes()).or_throw(ctx)?;
-                let dq_bytes = bytes_from_b64_url_safe(dq.as_bytes()).or_throw(ctx)?;
-                let qi_bytes = bytes_from_b64_url_safe(qi.as_bytes()).or_throw(ctx)?;
+            let result = if let Some(ref d_bytes) = d_bytes {
+                let p_bytes = get_jwk_required_bytes(ctx, &object, "p")?;
+                let q_bytes = get_jwk_required_bytes(ctx, &object, "q")?;
+                let dp_bytes = get_jwk_required_bytes(ctx, &object, "dp")?;
+                let dq_bytes = get_jwk_required_bytes(ctx, &object, "dq")?;
+                let qi_bytes = get_jwk_required_bytes(ctx, &object, "qi")?;
 
                 let jwk = RsaJwkImport {
                     n: &n_bytes,
                     e: &e_bytes,
-                    d: Some(&d_bytes),
+                    d: Some(d_bytes),
                     p: Some(&p_bytes),
                     q: Some(&q_bytes),
                     dp: Some(&dp_bytes),
                     dq: Some(&dq_bytes),
                     qi: Some(&qi_bytes),
                 };
-                CRYPTO_PROVIDER.import_rsa_jwk(jwk).or_throw(ctx)?
+                CRYPTO_PROVIDER.import_rsa_jwk(jwk).or_throw_dom(ctx)?
             } else {
                 let jwk = RsaJwkImport {
                     n: &n_bytes,
@@ -1123,7 +1121,7 @@ fn import_rsa_key<'js>(
                     dq: None,
                     qi: None,
                 };
-                CRYPTO_PROVIDER.import_rsa_jwk(jwk).or_throw(ctx)?
+                CRYPTO_PROVIDER.import_rsa_jwk(jwk).or_throw_dom(ctx)?
             };
 
             *data = result.key_data;
@@ -1137,7 +1135,7 @@ fn import_rsa_key<'js>(
         KeyFormatData::Raw(object_bytes) => {
             let result = CRYPTO_PROVIDER
                 .import_rsa_public_key_pkcs1(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = KeyKind::Public;
             (result.modulus_length as usize, result.public_exponent)
@@ -1147,7 +1145,7 @@ fn import_rsa_key<'js>(
             validate_oid(pk_info.algorithm.oid)?;
             let result = CRYPTO_PROVIDER
                 .import_rsa_private_key_pkcs8(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = KeyKind::Private;
             (result.modulus_length as usize, result.public_exponent)
@@ -1158,7 +1156,7 @@ fn import_rsa_key<'js>(
             validate_oid(pk_info.algorithm.oid)?;
             let result = CRYPTO_PROVIDER
                 .import_rsa_public_key_spki(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = KeyKind::Public;
             (result.modulus_length as usize, result.public_exponent)
@@ -1182,45 +1180,43 @@ fn import_symmetric_key<'js>(
 
     match format {
         KeyFormatData::Jwk(object) => {
-            let kty: String = object.get_required("kty", "keyData")?;
-            if kty == "oct" {
-                let k: String = object.get_required("k", "keyData")?;
-                let alg: String = object.get_required("alg", "keyData")?;
+            validate_jwk_kty(ctx, &object, "oct")?;
 
-                let prefix = &alg[..1];
+            let k: String = get_jwk_required_string(ctx, &object, "k")?;
+            let alg: String = get_jwk_required_string(ctx, &object, "alg")?;
 
-                match (prefix, hash) {
-                    //HMAC - HS256, HS512 etc
-                    ("H", Some(hash)) => {
-                        if &alg[2..] != hash.as_numeric_str() {
-                            return hash_mismatch_error(ctx, hash);
-                        }
-                    },
-                    //AES - A256KW, A256GCM, A256CRT, A512CBC etc
-                    ("A", None) => {
-                        //extract AES-{suffix}
-                        let aes_variant = &alg[4..];
+            let prefix = &alg[..1];
 
-                        if !algorithm_name.ends_with(aes_variant) {
-                            return algorithm_mismatch_error(ctx, algorithm_name);
-                        }
-                    },
-                    _ => return algorithm_mismatch_error(ctx, algorithm_name),
-                }
+            match (prefix, hash) {
+                //HMAC - HS256, HS512 etc
+                ("H", Some(hash)) => {
+                    if &alg[2..] != hash.as_numeric_str() {
+                        return hash_mismatch_error(ctx, hash);
+                    }
+                },
+                //AES - A256KW, A256GCM, A256CRT, A512CBC etc
+                ("A", None) => {
+                    //extract AES-{suffix}
+                    let aes_variant = &alg[4..];
 
-                *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
-                return Ok(data.len() * 8);
+                    if !algorithm_name.ends_with(aes_variant) {
+                        return algorithm_mismatch_error(ctx, algorithm_name);
+                    }
+                },
+                _ => return algorithm_mismatch_error(ctx, algorithm_name),
             }
+
+            *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
+            Ok(data.len() * 8)
         },
         KeyFormatData::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
 
             *data = bytes;
-            return Ok(data.len() * 8);
+            Ok(data.len() * 8)
         },
-        _ => {},
+        _ => algorithm_mismatch_error(ctx, algorithm_name),
     }
-    algorithm_mismatch_error(ctx, algorithm_name)
 }
 
 // EC algorithm OID for validation
@@ -1259,47 +1255,23 @@ fn import_ec_key<'js>(
 
     match format {
         KeyFormatData::Jwk(object) => {
-            let kty: String = object.get_required("kty", "keyData")?;
-            if kty != "EC" {
-                return algorithm_mismatch_error(ctx, algorithm_name);
-            }
+            validate_jwk_kty(ctx, &object, "EC")?;
 
-            let jwk_crv: String = object.get_required("crv", "keyData")?;
-            if curve_name != jwk_crv {
-                return Err(DOMException::not_supported_error(
-                    ctx,
-                    ["Key is using a ", curve_name].concat(),
-                ));
-            }
+            validate_jwk_use(ctx, &object, true)?;
 
-            let x: String = object.get_required("x", "keyData")?;
-            let y: String = object.get_required("y", "keyData")?;
-            let mut x_bytes = bytes_from_b64_url_safe(x.as_bytes()).or_throw(ctx)?;
-            let mut y_bytes = bytes_from_b64_url_safe(y.as_bytes()).or_throw(ctx)?;
+            validate_jwk_crv(ctx, &object, curve_name)?;
 
-            // Pad to coordinate length if needed
-            if x_bytes.len() < coord_len {
-                let mut padded = vec![0u8; coord_len - x_bytes.len()];
-                padded.extend_from_slice(&x_bytes);
-                x_bytes = padded;
-            }
-            if y_bytes.len() < coord_len {
-                let mut padded = vec![0u8; coord_len - y_bytes.len()];
-                padded.extend_from_slice(&y_bytes);
-                y_bytes = padded;
-            }
+            let x_bytes = get_jwk_required_bytes(ctx, &object, "x")?;
+            validate_jwk_bytes_len(ctx, algorithm_name, "x coordinate", &x_bytes, coord_len)?;
 
-            let d_bytes = if let Some(d) = object.get_optional::<_, String>("d")? {
-                let mut d_bytes = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
-                if d_bytes.len() < coord_len {
-                    let mut padded = vec![0u8; coord_len - d_bytes.len()];
-                    padded.extend_from_slice(&d_bytes);
-                    d_bytes = padded;
-                }
-                Some(d_bytes)
-            } else {
-                None
-            };
+            let y_bytes = get_jwk_required_bytes(ctx, &object, "y")?;
+            validate_jwk_bytes_len(ctx, algorithm_name, "y coordinate", &y_bytes, coord_len)?;
+
+            let d_bytes = get_jwk_optional_bytes(ctx, &object, "d")?;
+
+            if let Some(ref d_bytes) = d_bytes {
+                validate_jwk_bytes_len(ctx, algorithm_name, "private key", d_bytes, coord_len)?;
+            }
 
             let jwk = EcJwkImport {
                 x: &x_bytes,
@@ -1307,7 +1279,9 @@ fn import_ec_key<'js>(
                 d: d_bytes.as_deref(),
             };
 
-            let result = CRYPTO_PROVIDER.import_ec_jwk(jwk, *curve).or_throw(ctx)?;
+            let result = CRYPTO_PROVIDER
+                .import_ec_jwk(jwk, *curve)
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = if result.is_private {
                 KeyKind::Private
@@ -1319,26 +1293,27 @@ fn import_ec_key<'js>(
             let bytes = object_bytes.as_bytes(ctx)?;
             let result = CRYPTO_PROVIDER
                 .import_ec_public_key_sec1(bytes, *curve)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = KeyKind::Public;
         },
         KeyFormatData::Spki(object_bytes) => {
             let spki = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .or_throw_data_error(ctx)?;
             validate_oid(spki.algorithm.oid)?;
             let result = CRYPTO_PROVIDER
-                .import_ec_public_key_spki(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .import_ec_public_key_spki(object_bytes.as_bytes(ctx)?, *curve)
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
-            let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?).or_throw(ctx)?;
+            let pkcs8 = PrivateKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
+                .or_throw_data_error(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
             let result = CRYPTO_PROVIDER
                 .import_ec_private_key_pkcs8(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .or_throw_dom(ctx)?;
             *data = result.key_data;
             *kind = KeyKind::Private;
         },
@@ -1365,29 +1340,25 @@ fn import_okp_key<'js>(
 
     match format {
         KeyFormatData::Jwk(object) => {
-            let crv: String = object.get_required("crv", "keyData")?;
-            if crv != algorithm_name {
-                return algorithm_mismatch_error(ctx, algorithm_name);
-            }
-            let x: String = object.get_required("x", "keyData")?;
-            let public_key = bytes_from_b64_url_safe(x.as_bytes()).or_throw(ctx)?;
+            validate_jwk_kty(ctx, &object, "OKP")?;
 
-            if public_key.len() != 32 {
-                return Err(DOMException::data_error(
-                    ctx,
-                    [algorithm_name, " public key must be 32 bytes"].concat(),
-                ));
+            validate_jwk_crv(ctx, &object, algorithm_name)?;
+
+            if is_ed25519 {
+                validate_jwk_alg(ctx, &object)?;
             }
 
-            if let Some(d) = object.get_optional::<_, String>("d")? {
-                let private_key = bytes_from_b64_url_safe(d.as_bytes()).or_throw(ctx)?;
+            validate_jwk_use(ctx, &object, is_ed25519)?;
 
-                if private_key.len() != 32 {
-                    return Err(DOMException::data_error(
-                        ctx,
-                        [algorithm_name, " private key must be 32 bytes"].concat(),
-                    ));
-                }
+            let public_key = get_jwk_required_bytes(ctx, &object, "x")?;
+            validate_jwk_bytes_len(ctx, algorithm_name, "public key", &public_key, 32)?;
+
+            let private_key = get_jwk_optional_bytes(ctx, &object, "d")?;
+
+            if let Some(private_key) = private_key {
+                validate_jwk_bytes_len(ctx, algorithm_name, "private key", &private_key, 32)?;
+
+                validate_okp_jwk_key_pair(ctx, &private_key, &public_key, is_ed25519)?;
 
                 if is_ed25519 {
                     // Ed25519 internal representation is the complete PKCS#8 DER.
@@ -1415,7 +1386,7 @@ fn import_okp_key<'js>(
         KeyFormatData::Raw(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
             if bytes.len() != 32 {
-                return Err(DOMException::not_supported_error(
+                return Err(DOMException::data_error(
                     ctx,
                     [algorithm_name, " keys must be 32 bytes long"].concat(),
                 ));
@@ -1425,16 +1396,24 @@ fn import_okp_key<'js>(
         },
         KeyFormatData::Spki(object_bytes) => {
             let spki = spki::SubjectPublicKeyInfoRef::try_from(object_bytes.as_bytes(ctx)?)
-                .or_throw(ctx)?;
+                .or_throw_data_error(ctx)?;
             validate_oid(spki.algorithm.oid)?;
-            *data = spki.subject_public_key.raw_bytes().into();
+
+            let public_key = spki.subject_public_key.raw_bytes();
+            if public_key.len() != 32 {
+                return Err(DOMException::data_error(
+                    ctx,
+                    [algorithm_name, " public key must be 32 bytes"].concat(),
+                ));
+            }
+
+            *data = public_key.to_vec();
             *kind = KeyKind::Public;
         },
         KeyFormatData::Pkcs8(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
-            let pkcs8 = PrivateKeyInfoRef::try_from(bytes.as_slice()).or_throw(ctx)?;
+            let pkcs8 = PrivateKeyInfoRef::try_from(bytes.as_slice()).or_throw_data_error(ctx)?;
             validate_oid(pkcs8.algorithm.oid)?;
-
             if is_ed25519 {
                 // Ed25519 internal representation is the complete PKCS#8 DER.
                 *data = bytes;
@@ -1444,7 +1423,6 @@ fn import_okp_key<'js>(
                     .or_throw(ctx)?
                     .as_bytes()
                     .to_vec();
-
                 if data.len() != 32 {
                     return Err(DOMException::data_error(
                         ctx,
@@ -1452,11 +1430,135 @@ fn import_okp_key<'js>(
                     ));
                 }
             }
-
             *kind = KeyKind::Private;
         },
     }
 
+    Ok(())
+}
+
+#[cfg(feature = "_subtle-full")]
+fn get_jwk_required_string<'js>(
+    ctx: &Ctx<'js>,
+    object: &Object<'js>,
+    name: &str,
+) -> Result<String> {
+    object
+        .get_required(name, "keyData")
+        .or_throw_data_error(ctx)
+}
+
+#[cfg(feature = "_subtle-full")]
+fn get_jwk_required_bytes<'js>(
+    ctx: &Ctx<'js>,
+    object: &Object<'js>,
+    name: &str,
+) -> Result<Vec<u8>> {
+    let value = get_jwk_required_string(ctx, object, name)?;
+    bytes_from_b64_url_safe(value.as_bytes()).or_throw_data_error(ctx)
+}
+
+#[cfg(feature = "_subtle-full")]
+fn get_jwk_optional_bytes<'js>(
+    ctx: &Ctx<'js>,
+    object: &Object<'js>,
+    name: &str,
+) -> Result<Option<Vec<u8>>> {
+    let value = object.get_optional::<_, String>(name)?;
+    value
+        .map(|value| bytes_from_b64_url_safe(value.as_bytes()).or_throw_data_error(ctx))
+        .transpose()
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_jwk_kty<'js>(ctx: &Ctx<'js>, object: &Object<'js>, expected: &str) -> Result<()> {
+    let kty = get_jwk_required_string(ctx, object, "kty")?;
+    if kty != expected {
+        return Err(DOMException::data_error(
+            ctx,
+            ["JWK 'kty' parameter must be '", expected, "'"].concat(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_jwk_crv<'js>(ctx: &Ctx<'js>, object: &Object<'js>, expected: &str) -> Result<()> {
+    let crv = get_jwk_required_string(ctx, object, "crv")?;
+    if crv != expected {
+        return Err(DOMException::data_error(
+            ctx,
+            ["JWK 'crv' parameter must be '", expected, "'"].concat(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_jwk_use(ctx: &Ctx<'_>, object: &Object<'_>, is_ed25519: bool) -> Result<()> {
+    if let Some(use_) = object.get_optional::<_, String>("use")? {
+        let expected = if is_ed25519 { "sig" } else { "enc" };
+        if use_ != expected {
+            return Err(DOMException::data_error(
+                ctx,
+                "JWK 'use' parameter is invalid",
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_jwk_alg(ctx: &Ctx<'_>, object: &Object<'_>) -> Result<()> {
+    if let Some(alg) = object.get_optional::<_, String>("alg")? {
+        if alg != "Ed25519" && alg != "EdDSA" {
+            return Err(DOMException::data_error(
+                ctx,
+                "JWK 'alg' parameter is invalid",
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_jwk_bytes_len(
+    ctx: &Ctx<'_>,
+    algorithm_name: &str,
+    field: &str,
+    bytes: &[u8],
+    expected: usize,
+) -> Result<()> {
+    if bytes.len() != expected {
+        return Err(DOMException::data_error(
+            ctx,
+            [algorithm_name, " JWK ", field, " has invalid length"].concat(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_okp_jwk_key_pair<'js>(
+    ctx: &Ctx<'js>,
+    private_key: &[u8],
+    public_key: &[u8],
+    is_ed25519: bool,
+) -> Result<()> {
+    let derived_public_key = if is_ed25519 {
+        let secret_key: [u8; 32] = private_key.try_into().or_throw_data_error(ctx)?;
+        SigningKey::from_bytes(&secret_key)
+            .verifying_key()
+            .to_bytes()
+            .to_vec()
+    } else {
+        let secret_key: [u8; 32] = private_key.try_into().or_throw_data_error(ctx)?;
+        let secret = StaticSecret::from(secret_key);
+        PublicKey::from(&secret).as_bytes().to_vec()
+    };
+    if derived_public_key.as_slice() != public_key {
+        return Err(DOMException::data_error(ctx, "JWK key pair is invalid"));
+    }
     Ok(())
 }
 
@@ -1488,4 +1590,19 @@ pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &HashAlgorithm) -> Result<T> 
         ctx,
         ["Algorithm hash expected to be ", hash.as_str()].concat(),
     ))
+}
+
+#[cfg(feature = "_subtle-full")]
+trait DataErrorResultExt<T> {
+    fn or_throw_data_error(self, ctx: &Ctx<'_>) -> Result<T>;
+}
+
+#[cfg(feature = "_subtle-full")]
+impl<T, E> DataErrorResultExt<T> for std::result::Result<T, E>
+where
+    E: std::fmt::Display,
+{
+    fn or_throw_data_error(self, ctx: &Ctx<'_>) -> Result<T> {
+        self.map_err(|e| DataError(e.to_string())).or_throw_dom(ctx)
+    }
 }

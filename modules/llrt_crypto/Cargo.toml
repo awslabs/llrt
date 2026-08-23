@@ -15,7 +15,15 @@ path = "src/lib.rs"
 default = ["crypto-rust"]
 
 # Internal feature: enables DER parsing for SubtleCrypto key import/export
-_subtle-full = ["llrt_json", "const-oid", "der", "pkcs8", "spki"]
+_subtle-full = [
+  "llrt_json",
+  "const-oid",
+  "der",
+  "ed25519-dalek",
+  "pkcs8",
+  "spki",
+  "x25519-dalek",
+]
 
 # Internal feature: enables RustCrypto dependencies for key import/export
 _rustcrypto = [
@@ -26,7 +34,6 @@ _rustcrypto = [
   "cbc",
   "ctr",
   "ecdsa",
-  "ed25519-dalek",
   "elliptic-curve",
   "hkdf",
   "hmac",
@@ -36,7 +43,6 @@ _rustcrypto = [
   "p521",
   "pbkdf2",
   "sha1",
-  "x25519-dalek",
 ]
 
 crypto-rust = ["_rustcrypto"]

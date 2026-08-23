@@ -304,7 +304,11 @@ pub trait CryptoProvider {
         data: &[u8],
         curve: EllipticCurve,
     ) -> Result<EcImportResult, CryptoError>;
-    fn import_ec_public_key_spki(&self, der: &[u8]) -> Result<EcImportResult, CryptoError>;
+    fn import_ec_public_key_spki(
+        &self,
+        der: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<EcImportResult, CryptoError>;
     fn import_ec_private_key_pkcs8(&self, der: &[u8]) -> Result<EcImportResult, CryptoError>;
     fn import_ec_private_key_sec1(
         &self,
@@ -683,8 +687,12 @@ macro_rules! impl_hybrid_provider {
             ) -> Result<EcImportResult, CryptoError> {
                 rust::RustCryptoProvider.import_ec_public_key_sec1(d, c)
             }
-            fn import_ec_public_key_spki(&self, d: &[u8]) -> Result<EcImportResult, CryptoError> {
-                rust::RustCryptoProvider.import_ec_public_key_spki(d)
+            fn import_ec_public_key_spki(
+                &self,
+                d: &[u8],
+                c: EllipticCurve,
+            ) -> Result<EcImportResult, CryptoError> {
+                rust::RustCryptoProvider.import_ec_public_key_spki(d, c)
             }
             fn import_ec_private_key_pkcs8(&self, d: &[u8]) -> Result<EcImportResult, CryptoError> {
                 rust::RustCryptoProvider.import_ec_private_key_pkcs8(d)
