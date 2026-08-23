@@ -26,7 +26,7 @@ sysinfo = { version = "0.39", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }
-users = { version = "0.11", features = ["cache"], default-features = false }
+uzers = { version = "0.12", features = ["cache"], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 whoami = { version = "2", default-features = false }

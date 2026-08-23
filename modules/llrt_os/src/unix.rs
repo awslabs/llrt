@@ -11,7 +11,7 @@ use rquickjs::{
     prelude::{Opt, Rest},
     Ctx, Exception, IntoJs, Null, Object, Result, Value,
 };
-use users::{os::unix::UserExt, Groups, Users, UsersCache};
+use uzers::{os::unix::UserExt, Groups, Users, UsersCache};
 
 use crate::get_home_dir;
 
