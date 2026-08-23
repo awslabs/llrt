@@ -31,4 +31,4 @@ tokio = { version = "1", features = [
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
-tokio = { version = "1", features = ["test-util"], default-features = false }
+tokio = { version = "1", features = ["macros", "rt", "test-util"], default-features = false }
