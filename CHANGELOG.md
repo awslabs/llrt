@@ -27,10 +27,13 @@
   - Validate JWK extractability (@dills122)
   - Allow RSA JWK imports without `alg` (@dills122)
   - Allow `Uint8Array` for `wrappedKey` in `crypto.unwrapKey` (@nabetti1720)
+  - Fix OKP key representation for Ed25519 and X25519 (@nabetti1720)
+  - Improve key import validation and HMAC key length handling (@nabetti1720)
   - Preserve pipe option order in streams (@dills122)
   - Preserve transform backpressure in streams (@dills122)
   - Coerce `highWaterMark` values (@dills122)
   - Use byte length instead of buffer length for `queueTotalSize` accounting (@richarddavison)
+  - Enforce `maxOutputLength` in the zlib, brotli and zstd convenience methods (@richarddavison)
   - Discard malformed null-body connections in fetch (@richarddavison)
   - Reject fetch connection failures with `TypeError: Failed to fetch` (@richarddavison)
   - Fix cookie handling not working with the Hono framework (@perpil)
@@ -49,6 +52,7 @@
 ### Maintenance
   - Upgrade rquickjs to 0.12 (@richarddavison, @nabetti1720)
   - Speed up `get_lossy_string` and `replace_invalid_utf8_and_utf16` by ~50% (@richarddavison)
+  - Speed up UTF-16 decoding by using `as_chunks` on all toolchains (@richarddavison)
   - Route all DOMException throws through one constructor lookup via primordials (@richarddavison, @nabetti1720)
   - Deprecate the custom implementation of `atob`/`btoa` (@nabetti1720)
   - Optimize the jiff extension structure used by Temporal (@nabetti1720)
@@ -58,6 +62,7 @@
   - Remove unnecessary WPT assets (@nabetti1720)
   - Fix Windows openssl test linking and the Windows modules CI build (@richarddavison)
   - Update API documentation with new features (@WuJunkai2004)
+  - Replace the unmaintained `users` crate with the maintained `uzers` fork (@richarddavison)
   - Dependency upgrades
 
 Thanks for all the reports and contributors
