@@ -1100,21 +1100,41 @@ impl CryptoProvider for RustCryptoProvider {
     fn import_ec_public_key_sec1(
         &self,
         data: &[u8],
-        _curve: EllipticCurve,
+        curve: EllipticCurve,
     ) -> Result<super::EcImportResult, CryptoError> {
+        let key_data = match curve {
+            EllipticCurve::P256 => {
+                let public_key = p256::PublicKey::from_sec1_bytes(data)
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
+                public_key.to_sec1_point(false).as_bytes().to_vec()
+            },
+            EllipticCurve::P384 => {
+                let public_key = p384::PublicKey::from_sec1_bytes(data)
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
+                public_key.to_sec1_point(false).as_bytes().to_vec()
+            },
+            EllipticCurve::P521 => {
+                let public_key = p521::PublicKey::from_sec1_bytes(data)
+                    .map_err(|_| CryptoError::InvalidKey(None))?;
+                public_key.to_sec1_point(false).as_bytes().to_vec()
+            },
+        };
+
         Ok(super::EcImportResult {
-            key_data: data.to_vec(),
+            key_data,
             is_private: false,
         })
     }
 
-    fn import_ec_public_key_spki(&self, der: &[u8]) -> Result<super::EcImportResult, CryptoError> {
+    fn import_ec_public_key_spki(
+        &self,
+        der: &[u8],
+        curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
         let spki = spki::SubjectPublicKeyInfoRef::try_from(der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
-        Ok(super::EcImportResult {
-            key_data: spki.subject_public_key.raw_bytes().to_vec(),
-            is_private: false,
-        })
+        let point = spki.subject_public_key.raw_bytes();
+        self.import_ec_public_key_sec1(point, curve)
     }
 
     fn import_ec_private_key_pkcs8(
@@ -1233,7 +1253,7 @@ impl CryptoProvider for RustCryptoProvider {
         data: &[u8],
     ) -> Result<super::OkpImportResult, CryptoError> {
         if data.len() != 32 {
-            return Err(CryptoError::InvalidKey(None));
+            return Err(CryptoError::InvalidLength);
         }
         Ok(super::OkpImportResult {
             key_data: data.to_vec(),

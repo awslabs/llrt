@@ -67,6 +67,16 @@ impl<E: Display> IntoDomException for NotSupportedError<E> {
     }
 }
 
+#[allow(dead_code)]
+pub struct DataError<E>(pub E);
+
+#[allow(dead_code)]
+impl<E: Display> IntoDomException for DataError<E> {
+    fn into_dom_exception(self, ctx: &Ctx, msg: &str) -> Error {
+        DOMException::data_error(ctx, with_message(self.0, msg))
+    }
+}
+
 fn with_message<E: Display>(err: E, msg: &str) -> String {
     if msg.is_empty() {
         err.to_string()

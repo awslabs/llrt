@@ -412,7 +412,11 @@ impl CryptoProvider for RingProvider {
     ) -> Result<super::EcImportResult, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
-    fn import_ec_public_key_spki(&self, _der: &[u8]) -> Result<super::EcImportResult, CryptoError> {
+    fn import_ec_public_key_spki(
+        &self,
+        _der: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
         Err(CryptoError::UnsupportedAlgorithm)
     }
     fn import_ec_private_key_pkcs8(

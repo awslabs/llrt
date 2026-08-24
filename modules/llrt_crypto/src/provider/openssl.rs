@@ -856,7 +856,11 @@ impl CryptoProvider for OpenSslProvider {
         })
     }
 
-    fn import_ec_public_key_spki(&self, der: &[u8]) -> Result<super::EcImportResult, CryptoError> {
+    fn import_ec_public_key_spki(
+        &self,
+        der: &[u8],
+        _curve: EllipticCurve,
+    ) -> Result<super::EcImportResult, CryptoError> {
         let pkey = PKey::public_key_from_der(der)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
         Ok(super::EcImportResult {
