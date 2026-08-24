@@ -1688,7 +1688,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llrt"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "constcat",
  "crossterm",
@@ -1704,7 +1704,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_abort"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_async_hooks",
  "llrt_events",
@@ -1718,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_assert"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
@@ -1727,7 +1727,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_async_hooks"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_hooking",
  "llrt_utils",
@@ -1737,7 +1737,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_buffer"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "itoa",
  "llrt_encoding",
@@ -1751,14 +1751,14 @@ dependencies = [
 
 [[package]]
 name = "llrt_build"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "rustc_version",
 ]
 
 [[package]]
 name = "llrt_child_process"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "itoa",
  "libc",
@@ -1774,7 +1774,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_compression"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "brotli",
  "brotlic",
@@ -1784,7 +1784,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_console"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_logging",
  "llrt_utils",
@@ -1793,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_context"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_build",
  "llrt_test",
@@ -1805,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_core"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "bytes",
  "criterion",
@@ -1848,7 +1848,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_crypto"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_dgram"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "itoa",
  "llrt_buffer",
@@ -1907,7 +1907,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_dns"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "either",
  "llrt_context",
@@ -1920,7 +1920,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_dns_cache"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "hyper-util",
  "llrt_context",
@@ -1932,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_encoding"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
@@ -1943,7 +1943,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_events"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
  "rquickjs",
@@ -1952,7 +1952,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_exceptions"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
  "rquickjs",
@@ -1960,7 +1960,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_fetch"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "bytes",
  "either",
@@ -1995,7 +1995,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_fs"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "either",
  "junction",
@@ -2011,7 +2011,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_hooking"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
  "once_cell",
@@ -2020,7 +2020,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_http"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "bytes",
  "http-body-util",
@@ -2039,7 +2039,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_intl"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "itoa",
  "jiff",
@@ -2049,7 +2049,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_json"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "criterion",
  "itoa",
@@ -2064,7 +2064,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_logging"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "itoa",
  "llrt_context",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_modules"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "home",
  "llrt_abort",
@@ -2125,14 +2125,14 @@ dependencies = [
 
 [[package]]
 name = "llrt_navigator"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "rquickjs",
 ]
 
 [[package]]
 name = "llrt_net"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "itoa",
  "llrt_buffer",
@@ -2149,7 +2149,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_numbers"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "criterion",
  "itoa",
@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_os"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "home",
  "libc",
@@ -2173,7 +2173,7 @@ dependencies = [
  "rquickjs",
  "sysinfo",
  "tokio",
- "users",
+ "uzers",
  "whoami",
  "windows-registry",
  "windows-result",
@@ -2182,7 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_path"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "criterion",
  "llrt_utils",
@@ -2194,7 +2194,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_perf_hooks"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_events",
  "llrt_test",
@@ -2204,7 +2204,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_process"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "libc",
  "llrt_test",
@@ -2215,7 +2215,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_stream"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_context",
@@ -2227,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_stream_web"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_abort",
  "llrt_test",
@@ -2238,7 +2238,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_string_decoder"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_encoding",
@@ -2250,7 +2250,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_temporal"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "jiff",
  "llrt_utils",
@@ -2259,7 +2259,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_test"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "rquickjs",
  "tokio",
@@ -2268,7 +2268,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_test_tls"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "http",
  "http-body-util",
@@ -2284,7 +2284,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_timers"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_context",
  "llrt_hooking",
@@ -2297,7 +2297,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_tls"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "once_cell",
  "openssl",
@@ -2310,7 +2310,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_tty"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "libc",
  "llrt_test",
@@ -2321,7 +2321,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_url"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
@@ -2332,7 +2332,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_util"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_context",
  "llrt_encoding",
@@ -2346,7 +2346,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_utils"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "half",
  "libc",
@@ -2362,7 +2362,7 @@ dependencies = [
 
 [[package]]
 name = "llrt_zlib"
-version = "0.8.1-beta"
+version = "0.9.0-beta"
 dependencies = [
  "llrt_buffer",
  "llrt_compression",
@@ -3741,15 +3741,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "users"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cc0f6d6f267b73e5a2cadf007ba8f9bc39c6a6f9666f8cf25ea809a153b032"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3762,6 +3753,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cefc03fd367c0c6d4305de1b312cf00248c4114f4a0418ce6a6af769e3b0bd9"
 dependencies = [
  "getrandom 0.4.2",
+]
+
+[[package]]
+name = "uzers"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b8275fb1afee25b4111d2dc8b5c505dbbc4afd0b990cb96deb2d88bff8be18d"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
