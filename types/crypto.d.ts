@@ -618,6 +618,9 @@ declare module "crypto" {
        * - `'SHA-256'`
        * - `'SHA-384'`
        * - `'SHA-512'`
+       * - `'SHA3-256'`
+       * - `'SHA3-384'`
+       * - `'SHA3-512'`
        *
        * If `algorithm` is provided as an `<Object>`, it must have a `name` property whose value is one of the above.
        */

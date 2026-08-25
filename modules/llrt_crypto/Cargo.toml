@@ -25,6 +25,9 @@ _subtle-full = [
   "x25519-dalek",
 ]
 
+# Internal feature: enables modern Web Cryptography algorithms
+_modern-webcrypto = ["sha3"]
+
 # Internal feature: enables RustCrypto dependencies for key import/export
 _rustcrypto = [
   "_subtle-full",
@@ -45,12 +48,12 @@ _rustcrypto = [
   "sha1",
 ]
 
-crypto-rust = ["_rustcrypto"]
-crypto-ring = ["ring"]
-crypto-ring-rust = ["ring", "_rustcrypto"]
-crypto-graviola = ["graviola"]
-crypto-graviola-rust = ["graviola", "_rustcrypto"]
-crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
+crypto-rust = ["_rustcrypto", "_modern-webcrypto"]
+crypto-ring = ["ring", "_modern-webcrypto"]
+crypto-ring-rust = ["ring", "_rustcrypto", "_modern-webcrypto"]
+crypto-graviola = ["graviola", "_modern-webcrypto"]
+crypto-graviola-rust = ["graviola", "_rustcrypto", "_modern-webcrypto"]
+crypto-openssl = ["openssl-sys", "openssl", "_subtle-full", "_modern-webcrypto"]
 
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
@@ -127,6 +130,7 @@ pkcs8 = { version = "0.11", default-features = false, features = [
   "alloc",
 ], optional = true }
 sha1 = { version = "0.11", features = ["oid"], default-features = false, optional = true }
+sha3 = { version = "0.11.0-rc.8", default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }

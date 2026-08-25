@@ -4,6 +4,7 @@ use std::future::Future;
 // SPDX-License-Identifier: Apache-2.0
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
 use rquickjs::{ArrayBuffer, Ctx, Result, Value};
+use sha3::{Digest, Sha3_256, Sha3_384, Sha3_512};
 
 use crate::{
     hash::HashAlgorithm,
@@ -12,6 +13,13 @@ use crate::{
 };
 
 use super::algorithm_not_supported_error;
+
+enum DigestAlgorithm {
+    Fixed(HashAlgorithm),
+    Sha3_256,
+    Sha3_384,
+    Sha3_512,
+}
 
 pub fn subtle_digest<'js>(
     ctx: Ctx<'js>,
@@ -22,8 +30,13 @@ pub fn subtle_digest<'js>(
     let prepared = prepare_digest(&ctx, algorithm, data);
 
     async move {
-        let (hash_algorithm, input) = prepared?;
-        let bytes = digest(&hash_algorithm, &input);
+        let (algorithm, input) = prepared?;
+        let bytes = match algorithm {
+            DigestAlgorithm::Fixed(hash) => digest(&hash, &input),
+            DigestAlgorithm::Sha3_256 => Sha3_256::digest(&input).to_vec(),
+            DigestAlgorithm::Sha3_384 => Sha3_384::digest(&input).to_vec(),
+            DigestAlgorithm::Sha3_512 => Sha3_512::digest(&input).to_vec(),
+        };
         ArrayBuffer::new(ctx, bytes)
     }
 }
@@ -32,7 +45,7 @@ fn prepare_digest<'js>(
     ctx: &Ctx<'js>,
     algorithm: Value<'js>,
     data: ObjectBytes<'js>,
-) -> Result<(HashAlgorithm, Vec<u8>)> {
+) -> Result<(DigestAlgorithm, Vec<u8>)> {
     let algorithm = if let Some(s) = algorithm.as_string() {
         s.to_string().or_throw(ctx)?
     } else if let Some(name) = algorithm.get_optional::<_, String>("name")? {
@@ -43,12 +56,18 @@ fn prepare_digest<'js>(
             "Algorithm 'name' property required",
         ));
     };
-    let hash_algorithm = match HashAlgorithm::try_from(algorithm.as_str()) {
-        Ok(h) => h,
-        Err(_) => return algorithm_not_supported_error(ctx),
+    let algorithm = algorithm.to_ascii_uppercase();
+    let algorithm = match algorithm.as_str() {
+        "SHA3-256" => DigestAlgorithm::Sha3_256,
+        "SHA3-384" => DigestAlgorithm::Sha3_384,
+        "SHA3-512" => DigestAlgorithm::Sha3_512,
+        name => match HashAlgorithm::from_strict_str(name) {
+            Ok(hash) => DigestAlgorithm::Fixed(hash),
+            Err(_) => return algorithm_not_supported_error(ctx),
+        },
     };
     let input = data.as_bytes_opt().map(<[u8]>::to_vec).unwrap_or_default();
-    Ok((hash_algorithm, input))
+    Ok((algorithm, input))
 }
 
 pub fn digest(hash_algorithm: &HashAlgorithm, data: &[u8]) -> Vec<u8> {
