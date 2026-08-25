@@ -114,6 +114,42 @@ pub fn rsa_hash_digest<'a>(
     Ok((hash, digest))
 }
 
+pub fn validate_rsa_pss_salt_length(
+    ctx: &Ctx<'_>,
+    key: &CryptoKey<'_>,
+    hash: &HashAlgorithm,
+    salt_length: u32,
+) -> Result<()> {
+    let KeyAlgorithm::Rsa { modulus_length, .. } = key.algorithm else {
+        return algorithm_mismatch_error(ctx, "RSA-PSS");
+    };
+    if !rsa_pss_salt_length_fits(modulus_length, hash, salt_length) {
+        return Err(DOMException::operation_error(
+            ctx,
+            "RSA-PSS saltLength exceeds the key limit",
+        ));
+    }
+    Ok(())
+}
+
+pub fn rsa_pss_salt_length_is_valid(
+    key: &CryptoKey<'_>,
+    hash: &HashAlgorithm,
+    salt_length: u32,
+) -> bool {
+    let KeyAlgorithm::Rsa { modulus_length, .. } = key.algorithm else {
+        return false;
+    };
+    rsa_pss_salt_length_fits(modulus_length, hash, salt_length)
+}
+
+fn rsa_pss_salt_length_fits(modulus_length: u32, hash: &HashAlgorithm, salt_length: u32) -> bool {
+    let encoded_message_length = modulus_length.saturating_sub(1).div_ceil(8) as usize;
+    encoded_message_length
+        .checked_sub(hash.digest_len() + 2)
+        .is_some_and(|maximum| salt_length as usize <= maximum)
+}
+
 pub fn to_name_and_maybe_object<'js>(
     ctx: &Ctx<'js>,
     value: Value<'js>,

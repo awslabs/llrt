@@ -116,6 +116,54 @@ fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
     }
   });
 
+  it("enforces RSA-PSS salt length limits", async () => {
+    const { publicKey, privateKey } = await crypto.subtle.generateKey(
+      {
+        name: "RSA-PSS",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["sign", "verify"]
+    );
+    const maximum = 1024 / 8 - 32 - 2;
+    const signature = await crypto.subtle.sign(
+      { name: "RSA-PSS", saltLength: maximum },
+      privateKey,
+      new Uint8Array()
+    );
+    await expect(
+      crypto.subtle.sign(
+        { name: "RSA-PSS", saltLength: maximum + 1 },
+        privateKey,
+        new Uint8Array()
+      )
+    ).rejects.toMatchObject({ name: "OperationError" });
+    await expect(
+      crypto.subtle.verify(
+        { name: "RSA-PSS", saltLength: maximum + 1 },
+        publicKey,
+        signature,
+        new Uint8Array()
+      )
+    ).resolves.toBe(false);
+
+    const digestLengthSignature = await crypto.subtle.sign(
+      { name: "RSA-PSS", saltLength: 32 },
+      privateKey,
+      new Uint8Array()
+    );
+    await expect(
+      crypto.subtle.verify(
+        { name: "RSA-PSS", saltLength: 2 ** 32 - 1 },
+        publicKey,
+        digestLengthSignature,
+        new Uint8Array()
+      )
+    ).resolves.toBe(false);
+  });
+
   it("should be processing ECDH/ECDSA algorithm", async () => {
     const parameters: {
       name: string;

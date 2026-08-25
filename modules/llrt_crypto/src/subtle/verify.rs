@@ -13,7 +13,7 @@ use super::{
     crypto_key::{CryptoKey, KeyKind},
     digest,
     key_algorithm::KeyAlgorithm,
-    rsa_hash_digest,
+    rsa_hash_digest, rsa_pss_salt_length_is_valid,
     sign_algorithm::SigningAlgorithm,
     util::ResultDomExt,
 };
@@ -121,15 +121,19 @@ fn verify(
         },
         SigningAlgorithm::RsaPss { salt_length } => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSA-PSS")?;
-            crate::CRYPTO_PROVIDER
-                .rsa_pss_verify(
-                    &key.handle,
-                    signature,
-                    digest.as_ref(),
-                    *salt_length as usize,
-                    *hash,
-                )
-                .into_verification(ctx)?
+            if !rsa_pss_salt_length_is_valid(key, hash, *salt_length) {
+                false
+            } else {
+                crate::CRYPTO_PROVIDER
+                    .rsa_pss_verify(
+                        &key.handle,
+                        signature,
+                        digest.as_ref(),
+                        *salt_length as usize,
+                        *hash,
+                    )
+                    .into_verification(ctx)?
+            }
         },
         SigningAlgorithm::RsassaPkcs1v15 => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSASSA-PKCS1-v1_5")?;
