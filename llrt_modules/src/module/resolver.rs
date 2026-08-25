@@ -93,7 +93,6 @@ pub fn module_hook_resolve<'js>(ctx: &Ctx<'js>, x: &str, y: &str) -> Result<(boo
     Ok((short_circuit, next_resolve, url))
 }
 
-#[allow(dependency_on_unit_never_type_fallback)]
 fn call_resolve_hooks<'js>(
     ctx: &Ctx<'js>,
     hooks: &Rc<Vec<Hook<'js>>>,
