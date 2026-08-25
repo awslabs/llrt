@@ -663,10 +663,6 @@ fn from_rsa<'js>(
     let (modulus_length, public_exponent, key_kind) =
         import(ctx, mode, &obj, algorithm_name, &hash)?;
 
-    if is_generate {
-        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx)?;
-    }
-
     KeyUsage::classify_and_check_usages(
         ctx,
         if algorithm_name == "RSA-OAEP" {
@@ -679,6 +675,10 @@ fn from_rsa<'js>(
         public_usages,
         key_kind.as_ref(),
     )?;
+
+    if is_generate {
+        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx)?;
+    }
 
     Ok(KeyAlgorithm::Rsa {
         modulus_length,

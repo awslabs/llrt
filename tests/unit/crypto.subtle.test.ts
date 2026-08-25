@@ -285,6 +285,26 @@ fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
     ).rejects.toHaveProperty("name", "OperationError");
   });
 
+  it("validates RSA key usages before the public exponent", async () => {
+    for (const [name, usages] of [
+      ["RSA-PSS", ["encrypt"]],
+      ["RSA-OAEP", ["sign"]],
+    ] as const) {
+      await expect(
+        crypto.subtle.generateKey(
+          {
+            name,
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1]),
+            hash: "SHA-256",
+          },
+          false,
+          usages
+        )
+      ).rejects.toHaveProperty("name", "SyntaxError");
+    }
+  });
+
   it("enforces RSA-PSS salt length limits", async () => {
     const { publicKey, privateKey } = await crypto.subtle.generateKey(
       {
