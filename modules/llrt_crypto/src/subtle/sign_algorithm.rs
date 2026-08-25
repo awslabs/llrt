@@ -1,8 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_exceptions::DOMException;
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Ctx, FromJs, Result, Value};
 
-use crate::hash::HashAlgorithm;
+use crate::{hash::HashAlgorithm, provider::MlDsaVariant};
 
 use super::{
     algorithm_not_supported_error, enforce_range_u32, get_required_dictionary_value,
@@ -11,11 +13,19 @@ use super::{
 
 #[derive(Debug)]
 pub enum SigningAlgorithm {
-    Ecdsa { hash: HashAlgorithm },
+    Ecdsa {
+        hash: HashAlgorithm,
+    },
     Ed25519,
-    RsaPss { salt_length: u32 },
+    RsaPss {
+        salt_length: u32,
+    },
     RsassaPkcs1v15,
     Hmac,
+    MlDsa {
+        variant: MlDsaVariant,
+        context: Box<[u8]>,
+    },
 }
 
 impl<'js> FromJs<'js> for SigningAlgorithm {
@@ -26,6 +36,32 @@ impl<'js> FromJs<'js> for SigningAlgorithm {
         let algorithm = match name.as_str() {
             "Ed25519" => SigningAlgorithm::Ed25519,
             "HMAC" => SigningAlgorithm::Hmac,
+            "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" => {
+                let variant = match name.as_str() {
+                    "ML-DSA-44" => MlDsaVariant::MlDsa44,
+                    "ML-DSA-65" => MlDsaVariant::MlDsa65,
+                    "ML-DSA-87" => MlDsaVariant::MlDsa87,
+                    _ => unreachable!(),
+                };
+                let context = if let Ok(obj) = obj {
+                    obj.get_optional::<_, ObjectBytes>("context")?
+                        .map(|value| value.into_bytes(ctx))
+                        .transpose()?
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                if context.len() > 255 {
+                    return Err(DOMException::operation_error(
+                        ctx,
+                        "ML-DSA context must not exceed 255 bytes",
+                    ));
+                }
+                SigningAlgorithm::MlDsa {
+                    variant,
+                    context: context.into_boxed_slice(),
+                }
+            },
             "RSASSA-PKCS1-v1_5" => SigningAlgorithm::RsassaPkcs1v15,
             "ECDSA" => {
                 let obj = obj?;
@@ -52,6 +88,7 @@ impl SigningAlgorithm {
             SigningAlgorithm::RsaPss { .. } => "RSA-PSS",
             SigningAlgorithm::RsassaPkcs1v15 => "RSASSA-PKCS1-v1_5",
             SigningAlgorithm::Hmac => "HMAC",
+            SigningAlgorithm::MlDsa { variant, .. } => variant.name(),
         }
     }
 }

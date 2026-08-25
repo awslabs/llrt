@@ -3,7 +3,10 @@
 use llrt_exceptions::DOMException;
 use rquickjs::{object::Property, Array, Class, Ctx, Object, Result, Value};
 
-use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
+use crate::{
+    provider::{modern, CryptoProvider},
+    CRYPTO_PROVIDER,
+};
 
 use super::{
     algorithm_not_supported_error,
@@ -104,6 +107,8 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .generate_x25519_key()
             .or_throw_dom_with_msg(ctx, "X25519 key generation failed"),
+        KeyAlgorithm::MlDsa(variant) => modern::generate_ml_dsa_key(*variant)
+            .or_throw_dom_with_msg(ctx, "ML-DSA key generation failed"),
         KeyAlgorithm::Rsa {
             modulus_length,
             public_exponent,

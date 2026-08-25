@@ -30,6 +30,7 @@ _modern-webcrypto = [
   "chacha20poly1305",
   "cshake",
   "keccak",
+  "ml-dsa",
   "sha3",
   "sponge-cursor",
 ]
@@ -118,6 +119,11 @@ elliptic-curve = { version = "0.14", features = [
 hkdf = { version = "0.13", default-features = false, optional = true }
 hmac = { version = "0.13", default-features = false, optional = true }
 keccak = { version = "0.2", default-features = false, optional = true }
+ml-dsa = { version = "0.1.1", features = [
+  "alloc",
+  "pkcs8",
+  "rand_core",
+], default-features = false, optional = true }
 rsa = { version = "0.10.0-rc.18", features = [
   "std",
   "sha2",

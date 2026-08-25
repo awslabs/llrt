@@ -134,9 +134,25 @@ pub trait SimpleDigest: Send {
 }
 
 pub const MAX_HMAC_KEY_LENGTH_BITS: u32 = 1024;
-
 pub(crate) fn hmac_length_is_byte_aligned(length_bits: u32) -> bool {
     length_bits.is_multiple_of(8)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MlDsaVariant {
+    MlDsa44,
+    MlDsa65,
+    MlDsa87,
+}
+
+impl MlDsaVariant {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::MlDsa44 => "ML-DSA-44",
+            Self::MlDsa65 => "ML-DSA-65",
+            Self::MlDsa87 => "ML-DSA-87",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

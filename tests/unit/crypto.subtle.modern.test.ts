@@ -338,3 +338,116 @@ describe("Modern WebCrypto ChaCha20-Poly1305", () => {
     );
   });
 });
+
+describe("Modern WebCrypto ML-DSA", () => {
+  it("signs and verifies with every parameter set and context", async () => {
+    for (const name of ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"] as const) {
+      const keyPair = await crypto.subtle.generateKey(name, false, [
+        "sign",
+        "verify",
+      ]);
+      const algorithm = {
+        name,
+        context: new TextEncoder().encode("llrt"),
+      };
+      const signature = await crypto.subtle.sign(
+        algorithm,
+        keyPair.privateKey,
+        DATA
+      );
+      const secondSignature = await crypto.subtle.sign(
+        algorithm,
+        keyPair.privateKey,
+        DATA
+      );
+      expect(new Uint8Array(secondSignature)).not.toEqual(
+        new Uint8Array(signature)
+      );
+      expect(
+        await crypto.subtle.verify(
+          algorithm,
+          keyPair.publicKey,
+          signature,
+          DATA
+        )
+      ).toBe(true);
+      expect(
+        await crypto.subtle.verify(
+          { name, context: new Uint8Array() },
+          keyPair.publicKey,
+          signature,
+          DATA
+        )
+      ).toBe(false);
+    }
+  });
+
+  it("round-trips public keys and private seeds", async () => {
+    const name = "ML-DSA-44";
+    const keyPair = await crypto.subtle.generateKey(name, true, [
+      "sign",
+      "verify",
+    ]);
+    const signature = await crypto.subtle.sign(name, keyPair.privateKey, DATA);
+
+    for (const format of ["raw-public", "spki"] as const) {
+      const encoded = await crypto.subtle.exportKey(format, keyPair.publicKey);
+      const imported = await crypto.subtle.importKey(
+        format,
+        encoded,
+        name,
+        true,
+        ["verify"]
+      );
+      expect(await crypto.subtle.verify(name, imported, signature, DATA)).toBe(
+        true
+      );
+    }
+
+    for (const format of ["raw-seed", "pkcs8"] as const) {
+      const encoded = await crypto.subtle.exportKey(format, keyPair.privateKey);
+      const imported = await crypto.subtle.importKey(
+        format,
+        encoded,
+        name,
+        true,
+        ["sign"]
+      );
+      const importedSignature = await crypto.subtle.sign(name, imported, DATA);
+      expect(
+        await crypto.subtle.verify(
+          name,
+          keyPair.publicKey,
+          importedSignature,
+          DATA
+        )
+      ).toBe(true);
+    }
+
+    for (const key of [keyPair.publicKey, keyPair.privateKey]) {
+      const jwk = await crypto.subtle.exportKey("jwk", key);
+      expect(jwk).toMatchObject({ kty: "AKP", alg: name });
+      const imported = await crypto.subtle.importKey(
+        "jwk",
+        jwk,
+        name,
+        true,
+        key.type === "private" ? ["sign"] : ["verify"]
+      );
+      expect(imported.type).toBe(key.type);
+    }
+  });
+
+  it("rejects contexts longer than 255 bytes", async () => {
+    const keyPair = await crypto.subtle.generateKey("ML-DSA-44", false, [
+      "sign",
+    ]);
+    await expect(
+      crypto.subtle.sign(
+        { name: "ML-DSA-44", context: new Uint8Array(256) },
+        keyPair.privateKey,
+        DATA
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+});

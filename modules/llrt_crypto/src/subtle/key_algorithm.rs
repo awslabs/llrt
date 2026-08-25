@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 #[cfg(feature = "_subtle-full")]
 use der::{
-    asn1::{BitStringRef, OctetString, OctetStringRef},
+    asn1::{AnyRef, BitStringRef, OctetString, OctetStringRef},
     Decode, Encode,
 };
 #[cfg(feature = "_subtle-full")]
@@ -29,7 +29,10 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::{
     hash::HashAlgorithm,
-    provider::{hmac_length_is_byte_aligned, parse_rsa_public_exponent, MAX_HMAC_KEY_LENGTH_BITS},
+    provider::{
+        hmac_length_is_byte_aligned, parse_rsa_public_exponent, MlDsaVariant,
+        MAX_HMAC_KEY_LENGTH_BITS,
+    },
 };
 
 #[cfg(feature = "_subtle-full")]
@@ -315,6 +318,7 @@ pub enum KeyAlgorithm {
         length: u32,
     },
     ChaCha20Poly1305,
+    MlDsa(MlDsaVariant),
     Rsa {
         modulus_length: u32,
         public_exponent: Rc<Box<[u8]>>,
@@ -765,6 +769,122 @@ fn from_chacha20_poly1305<'js>(
     Ok(KeyAlgorithm::ChaCha20Poly1305)
 }
 
+fn from_ml_dsa<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    variant: MlDsaVariant,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        variant: MlDsaVariant,
+    ) -> Result<Option<KeyKind>> {
+        use crate::provider::modern;
+
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        match format {
+            KeyFormatData::RawPublic(bytes) => {
+                *data = modern::import_ml_dsa_public_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::Spki(bytes) => {
+                *data = modern::import_ml_dsa_public_key(variant, bytes.as_bytes(ctx)?, true)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::RawSeed(bytes) => {
+                *data = modern::import_ml_dsa_private_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Pkcs8(bytes) => {
+                let bytes = bytes.as_bytes(ctx)?;
+                validate_ml_private_key_info(
+                    ctx,
+                    bytes,
+                    match variant {
+                        MlDsaVariant::MlDsa44 => "2.16.840.1.101.3.4.3.17",
+                        MlDsaVariant::MlDsa65 => "2.16.840.1.101.3.4.3.18",
+                        MlDsaVariant::MlDsa87 => "2.16.840.1.101.3.4.3.19",
+                    },
+                    match variant {
+                        MlDsaVariant::MlDsa44 => 2560,
+                        MlDsaVariant::MlDsa65 => 4032,
+                        MlDsaVariant::MlDsa87 => 4896,
+                    },
+                )?;
+                *data =
+                    modern::import_ml_dsa_private_key(variant, bytes, true).or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "AKP")?;
+                validate_jwk_use(ctx, &object, true)?;
+                if get_jwk_required_string(ctx, &object, "alg")? != algorithm_name {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter does not match the algorithm",
+                    ));
+                }
+
+                let public_key = get_jwk_required_bytes(ctx, &object, "pub")?;
+                if let Some(seed) = get_jwk_optional_bytes(ctx, &object, "priv")? {
+                    *data = modern::import_ml_dsa_private_key(variant, &seed, false)
+                        .or_throw_dom(ctx)?;
+                    let derived_public_key =
+                        modern::ml_dsa_public_key(variant, data).or_throw_dom(ctx)?;
+                    if derived_public_key != public_key {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK public and private key values do not match",
+                        ));
+                    }
+                    *kind = KeyKind::Private;
+                } else {
+                    *data = modern::import_ml_dsa_public_key(variant, &public_key, false)
+                        .or_throw_dom(ctx)?;
+                    *kind = KeyKind::Public;
+                }
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        }
+        Ok(Some(*kind))
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _variant: MlDsaVariant,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, variant)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Sign,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::MlDsa(variant))
+}
+
 fn from_rsa<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
@@ -1069,6 +1189,19 @@ impl KeyAlgorithm {
                 &mut private_usages,
                 &mut public_usages,
             )?,
+            "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" => from_ml_dsa(
+                ctx,
+                mode,
+                algorithm_name,
+                match algorithm_name {
+                    "ML-DSA-44" => MlDsaVariant::MlDsa44,
+                    "ML-DSA-65" => MlDsaVariant::MlDsa65,
+                    _ => MlDsaVariant::MlDsa87,
+                },
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
             "HKDF" => from_hkdf(
                 ctx,
                 mode,
@@ -1190,6 +1323,54 @@ impl KeyAlgorithm {
         )?;
 
         Ok(KeyAlgorithm::Ec { curve, algorithm })
+    }
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_ml_private_key_info(
+    ctx: &Ctx<'_>,
+    data: &[u8],
+    expected_oid: &str,
+    expanded_key_length: usize,
+) -> Result<()> {
+    let private_key_info = PrivateKeyInfoRef::from_der(data).or_throw_data_error(ctx)?;
+    let expected_oid = ObjectIdentifier::new_unwrap(expected_oid);
+    if private_key_info.algorithm.oid != expected_oid
+        || private_key_info.algorithm.parameters.is_some()
+    {
+        return Err(DOMException::data_error(
+            ctx,
+            "PKCS#8 algorithm identifier is invalid",
+        ));
+    }
+
+    let private_key = private_key_info.private_key.as_bytes();
+    match private_key.first() {
+        Some(0x80) => Ok(()),
+        Some(0x04) => {
+            let expanded_key = OctetString::from_der(private_key).or_throw_data_error(ctx)?;
+            if expanded_key.as_bytes().len() != expanded_key_length {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "Expanded private key has invalid length",
+                ));
+            }
+            Err(DOMException::not_supported_error(
+                ctx,
+                "Expanded private keys are not supported",
+            ))
+        },
+        Some(0x30) => {
+            AnyRef::from_der(private_key).or_throw_data_error(ctx)?;
+            Err(DOMException::not_supported_error(
+                ctx,
+                "Combined seed and expanded private keys are not supported",
+            ))
+        },
+        _ => Err(DOMException::data_error(
+            ctx,
+            "Private key format is invalid",
+        )),
     }
 }
 

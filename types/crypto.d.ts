@@ -411,9 +411,10 @@ declare module "crypto" {
     interface EcdsaParams extends Algorithm {
       hash: HashAlgorithmIdentifier;
     }
-    interface Ed448Params extends Algorithm {
+    interface ContextParams extends Algorithm {
       context?: BufferSource;
     }
+    interface Ed448Params extends ContextParams {}
     interface HkdfParams extends Algorithm {
       hash: HashAlgorithmIdentifier;
       info: BufferSource;
@@ -445,6 +446,8 @@ declare module "crypto" {
       n?: string;
       oth?: RsaOtherPrimesInfo[];
       p?: string;
+      priv?: string;
+      pub?: string;
       q?: string;
       qi?: string;
       use?: string;
@@ -697,6 +700,9 @@ declare module "crypto" {
        * - `'ECDSA'`
        * - `'ECDH'`
        * - `'Ed25519'`
+       * - `'ML-DSA-44'`
+       * - `'ML-DSA-65'`
+       * - `'ML-DSA-87'`
        * The `<CryptoKey>` (secret key) generating algorithms supported include:
        *
        * - `'HMAC'`
@@ -767,13 +773,16 @@ declare module "crypto" {
        * - `'ECDSA'`
        * - `'Ed25519'`
        * - `'HMAC'`
+       * - `'ML-DSA-44'`
+       * - `'ML-DSA-65'`
+       * - `'ML-DSA-87'`
        */
       sign(
         algorithm:
           | AlgorithmIdentifier
           | RsaPssParams
           | EcdsaParams
-          | Ed448Params,
+          | ContextParams,
         key: CryptoKey,
         data: BufferSource
       ): Promise<ArrayBuffer>;
@@ -838,13 +847,16 @@ declare module "crypto" {
        * - `'ECDSA'`
        * - `'Ed25519'`
        * - `'HMAC'`
+       * - `'ML-DSA-44'`
+       * - `'ML-DSA-65'`
+       * - `'ML-DSA-87'`
        */
       verify(
         algorithm:
           | AlgorithmIdentifier
           | RsaPssParams
           | EcdsaParams
-          | Ed448Params,
+          | ContextParams,
         key: CryptoKey,
         signature: BufferSource,
         data: BufferSource

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::future::Future;
 
-use crate::provider::{CryptoError, CryptoProvider, HmacProvider};
+use crate::provider::{modern, CryptoError, CryptoProvider, HmacProvider};
 use ctutils::CtEq;
 use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{Class, Ctx, FromJs, Result, Value};
@@ -119,6 +119,14 @@ fn verify(
             let computed_signature = hmac.finalize();
 
             computed_signature.as_slice().ct_eq(signature).to_bool()
+        },
+        SigningAlgorithm::MlDsa { variant, context } => {
+            if !matches!(&key.algorithm, KeyAlgorithm::MlDsa(key_variant) if key_variant == variant)
+            {
+                return algorithm_invalid_access_error(ctx, variant.name());
+            }
+            modern::ml_dsa_verify(*variant, handle, signature, data, context)
+                .into_verification(ctx)?
         },
         SigningAlgorithm::RsaPss { salt_length } => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSA-PSS")?;
