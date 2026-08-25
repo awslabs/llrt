@@ -109,10 +109,21 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
             },
             "RSA-OAEP" => {
                 let label = if let Ok(obj) = obj {
-                    obj.get_optional::<_, ObjectBytes>("label")?
-                        .map(|bytes| bytes.into_bytes(ctx))
-                        .transpose()?
-                        .map(|vec| vec.into_boxed_slice())
+                    let value: Value = obj.get("label")?;
+                    if value.is_undefined() {
+                        None
+                    } else if value.is_null() {
+                        return Err(rquickjs::Exception::throw_type(
+                            ctx,
+                            "RSA-OAEP label must be a BufferSource",
+                        ));
+                    } else {
+                        Some(
+                            ObjectBytes::from_js(ctx, value)?
+                                .into_bytes(ctx)?
+                                .into_boxed_slice(),
+                        )
+                    }
                 } else {
                     None
                 };

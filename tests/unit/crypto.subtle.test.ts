@@ -931,6 +931,17 @@ fullCrypto("SubtleCrypto string AlgorithmIdentifier", () => {
     );
 
     await expect(
+      crypto.subtle.encrypt(
+        {
+          name: "RSA-OAEP",
+          label: null as unknown as Uint8Array,
+        },
+        publicKey,
+        ENCODED_DATA
+      )
+    ).rejects.toThrow(TypeError);
+
+    await expect(
       crypto.subtle.decrypt(
         { name: "RSA-OAEP", label: ENCODER.encode("wrong label") },
         privateKey,
