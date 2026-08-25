@@ -1202,6 +1202,54 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
       }
     }
   });
+
+  it("rejects zero PBKDF2 iterations", async () => {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array(32),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    await expect(
+      crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          hash: "SHA-256",
+          salt: new Uint8Array(),
+          iterations: 0,
+        },
+        key,
+        8
+      )
+    ).rejects.toMatchObject({ name: "OperationError" });
+
+    const wrongKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array(32),
+      "HKDF",
+      false,
+      ["deriveBits", "deriveKey"]
+    );
+    const parameters = {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: new Uint8Array(),
+      iterations: 0,
+    };
+    await expect(
+      crypto.subtle.deriveBits(parameters, wrongKey, 8)
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+    await expect(
+      crypto.subtle.deriveKey(
+        parameters,
+        wrongKey,
+        { name: "AES-GCM", length: 128 },
+        false,
+        ["encrypt"]
+      )
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+  });
 });
 
 fullCrypto("SubtileCrypto import/export", () => {

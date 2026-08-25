@@ -110,6 +110,12 @@ pub(super) fn derive_bits(
             if !matches!(base_key.algorithm, KeyAlgorithm::Pbkdf2Import) {
                 return algorithm_invalid_access_error(ctx, "PBKDF2");
             }
+            if *iterations == 0 {
+                return Err(DOMException::operation_error(
+                    ctx,
+                    "PBKDF2 iterations must be greater than zero",
+                ));
+            }
             let length = match length {
                 DeriveBitsLength::Specified(length) if length % 8 == 0 => length,
                 _ => {
