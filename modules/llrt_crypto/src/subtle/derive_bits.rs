@@ -97,13 +97,7 @@ pub(super) fn derive_bits(
             if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport) {
                 return algorithm_invalid_access_error(ctx, "HKDF");
             }
-            let length = match length {
-                DeriveBitsLength::Specified(length) if length % 8 == 0 => length,
-                _ => {
-                    return Err(DOMException::operation_error(ctx, "Invalid length"));
-                },
-            };
-            let out_length = (length / 8).try_into().or_throw(ctx)?;
+            let out_length = validate_hkdf_length(ctx, hash, length)?;
             CRYPTO_PROVIDER
                 .hkdf_derive_key(&base_key.handle, salt, info, out_length, *hash)
                 .or_throw(ctx)
@@ -174,6 +168,25 @@ pub(super) fn validate_ecdh_length(
         DeriveBitsLength::Specified(length) if length <= maximum_length => Ok(length),
         DeriveBitsLength::Specified(_) => Err(DOMException::operation_error(ctx, "Invalid length")),
     }
+}
+
+pub(super) fn validate_hkdf_length(
+    ctx: &Ctx<'_>,
+    hash: &crate::hash::HashAlgorithm,
+    length: DeriveBitsLength,
+) -> Result<usize> {
+    let length = match length {
+        DeriveBitsLength::Specified(length) if length % 8 == 0 => length,
+        _ => return Err(DOMException::operation_error(ctx, "Invalid length")),
+    };
+    let maximum_length = (hash.digest_len() * 8 * 255) as u32;
+    if length > maximum_length {
+        return Err(DOMException::operation_error(
+            ctx,
+            "HKDF output exceeds 255 hash blocks",
+        ));
+    }
+    (length / 8).try_into().or_throw(ctx)
 }
 
 fn parse_derive_bits_length<'js>(

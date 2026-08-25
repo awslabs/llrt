@@ -957,6 +957,29 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
     ).rejects.toHaveProperty("name", "OperationError");
   });
 
+  it("rejects HKDF output longer than 255 hash blocks", async () => {
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array([1]),
+      "HKDF",
+      false,
+      ["deriveBits"]
+    );
+
+    await expect(
+      crypto.subtle.deriveBits(
+        {
+          name: "HKDF",
+          hash: "SHA-256",
+          salt: new Uint8Array(),
+          info: new Uint8Array(),
+        },
+        baseKey,
+        65288
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+
   it("should be processing HKDF algorithm", async () => {
     const hkdfSalt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
     const hkdfInfo = new TextEncoder().encode("HKDF info"); // Info parameter, can be any label string
