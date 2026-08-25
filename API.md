@@ -188,23 +188,41 @@ Lightweight and fast hash classes for LLRT.
 
 ## crypto.subtle
 
-[subtle.decrypt](https://nodejs.org/api/webcrypto.html#subtledecryptalgorithm-key-data)
+[subtle.decrypt](https://w3c.github.io/webcrypto/#SubtleCrypto-method-decrypt)
 
-[subtle.deriveBits](https://nodejs.org/api/webcrypto.html#subtlederivebitsalgorithm-basekey-length)
+[subtle.decapsulateBits](https://wicg.github.io/webcrypto-modern-algos/#SubtleCrypto-method-decapsulateBits)
 
-[subtle.digest](https://nodejs.org/api/webcrypto.html#subtledigestalgorithm-data)
+[subtle.decapsulateKey](https://wicg.github.io/webcrypto-modern-algos/#SubtleCrypto-method-decapsulateKey)
 
-[subtle.encrypt](https://nodejs.org/api/webcrypto.html#subtleencryptalgorithm-key-data)
+[subtle.deriveBits](https://w3c.github.io/webcrypto/#SubtleCrypto-method-deriveBits)
 
-[subtle.exportKey](https://nodejs.org/api/webcrypto.html#subtleexportkeyformat-key)
+[subtle.deriveKey](https://w3c.github.io/webcrypto/#SubtleCrypto-method-deriveKey)
 
-[subtle.generateKey](https://nodejs.org/api/webcrypto.html#subtlegeneratekeyalgorithm-extractable-keyusages)
+[subtle.digest](https://w3c.github.io/webcrypto/#SubtleCrypto-method-digest)
 
-[subtle.importKey](https://nodejs.org/api/webcrypto.html#subtleimportkeyformat-keydata-algorithm-extractable-keyusages)
+[subtle.encapsulateBits](https://wicg.github.io/webcrypto-modern-algos/#SubtleCrypto-method-encapsulateBits)
 
-[subtle.sign](https://nodejs.org/api/webcrypto.html#subtlesignalgorithm-key-data)
+[subtle.encapsulateKey](https://wicg.github.io/webcrypto-modern-algos/#SubtleCrypto-method-encapsulateKey)
 
-[subtle.verify](https://nodejs.org/api/webcrypto.html#subtleverifyalgorithm-key-signature-datah)
+[subtle.encrypt](https://w3c.github.io/webcrypto/#SubtleCrypto-method-encrypt)
+
+[subtle.exportKey](https://w3c.github.io/webcrypto/#SubtleCrypto-method-exportKey)
+
+[subtle.generateKey](https://w3c.github.io/webcrypto/#SubtleCrypto-method-generateKey)
+
+[subtle.getPublicKey](https://wicg.github.io/webcrypto-modern-algos/#SubtleCrypto-method-getPublicKey)
+
+[subtle.importKey](https://w3c.github.io/webcrypto/#SubtleCrypto-method-importKey)
+
+[subtle.sign](https://w3c.github.io/webcrypto/#SubtleCrypto-method-sign)
+
+[subtle.unwrapKey](https://w3c.github.io/webcrypto/#SubtleCrypto-method-unwrapKey)
+
+[subtle.verify](https://w3c.github.io/webcrypto/#SubtleCrypto-method-verify)
+
+[subtle.wrapKey](https://w3c.github.io/webcrypto/#SubtleCrypto-method-wrapKey)
+
+[SubtleCrypto.supports](https://wicg.github.io/webcrypto-modern-algos/#SubtleCrypto-method-supports)
 
 ## dgram
 
