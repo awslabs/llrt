@@ -53,6 +53,7 @@ pub(super) fn derive_bits(
             if !matches!(ec_algorithm, EcAlgorithm::Ecdh) {
                 return algorithm_invalid_access_error(ctx, "ECDH");
             }
+            let length = validate_ecdh_length(ctx, *curve, length)?;
             if let KeyAlgorithm::Ec {
                 curve: base_key_curve,
                 algorithm,
@@ -62,14 +63,6 @@ pub(super) fn derive_bits(
                     && base_key.kind == KeyKind::Private
                     && matches!(algorithm, EcAlgorithm::Ecdh)
                 {
-                    let length = match length {
-                        DeriveBitsLength::Default => match curve {
-                            EllipticCurve::P256 => 256,
-                            EllipticCurve::P384 => 384,
-                            EllipticCurve::P521 => 528,
-                        },
-                        DeriveBitsLength::Specified(length) => length,
-                    };
                     let bytes = CRYPTO_PROVIDER
                         .ecdh_derive_bits(*curve, &base_key.handle, public_key)
                         .or_throw_dom(ctx)?;
@@ -164,6 +157,23 @@ fn truncate_derived_bits(ctx: &Ctx<'_>, mut bytes: Vec<u8>, length: u32) -> Resu
 pub(super) enum DeriveBitsLength {
     Default,
     Specified(u32),
+}
+
+pub(super) fn validate_ecdh_length(
+    ctx: &Ctx<'_>,
+    curve: EllipticCurve,
+    length: DeriveBitsLength,
+) -> Result<u32> {
+    let maximum_length = match curve {
+        EllipticCurve::P256 => 256,
+        EllipticCurve::P384 => 384,
+        EllipticCurve::P521 => 528,
+    };
+    match length {
+        DeriveBitsLength::Default => Ok(maximum_length),
+        DeriveBitsLength::Specified(length) if length <= maximum_length => Ok(length),
+        DeriveBitsLength::Specified(_) => Err(DOMException::operation_error(ctx, "Invalid length")),
+    }
 }
 
 fn parse_derive_bits_length<'js>(

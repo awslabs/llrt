@@ -928,6 +928,35 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
     }
   });
 
+  it("rejects ECDH output longer than the selected curve", async () => {
+    const keyPair = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      ["deriveBits"]
+    );
+
+    await expect(
+      crypto.subtle.deriveBits(
+        { name: "ECDH", public: keyPair.publicKey },
+        keyPair.privateKey,
+        257
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+
+    const otherKeyPair = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-384" },
+      false,
+      ["deriveBits"]
+    );
+    await expect(
+      crypto.subtle.deriveBits(
+        { name: "ECDH", public: keyPair.publicKey },
+        otherKeyPair.privateKey,
+        257
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+
   it("should be processing HKDF algorithm", async () => {
     const hkdfSalt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
     const hkdfInfo = new TextEncoder().encode("HKDF info"); // Info parameter, can be any label string
