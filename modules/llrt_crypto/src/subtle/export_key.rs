@@ -83,7 +83,9 @@ fn export_raw(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         ));
     }
     match &key.algorithm {
-        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } => Ok(key.handle.to_vec()),
+        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } | KeyAlgorithm::ChaCha20Poly1305 => {
+            Ok(key.handle.to_vec())
+        },
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .export_ec_public_key_sec1(&key.handle, *curve, false)
             .or_throw_dom(ctx),
@@ -185,6 +187,11 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::Hmac { hash, .. } => {
             obj.set("kty", "oct")?;
             obj.set("alg", ["HS", &hash.as_str()[4..]].concat())?;
+            obj.set("k", bytes_to_b64_url_safe_string(&key.handle))?;
+        },
+        KeyAlgorithm::ChaCha20Poly1305 => {
+            obj.set("kty", "oct")?;
+            obj.set("alg", "C20P")?;
             obj.set("k", bytes_to_b64_url_safe_string(&key.handle))?;
         },
         KeyAlgorithm::Ec { curve, .. } => {

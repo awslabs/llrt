@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { webcrypto } from "node:crypto";
 
+const DATA = new TextEncoder().encode("modern WebCrypto");
+
 describe("Modern WebCrypto key formats", () => {
   it("aliases raw public and secret key formats", async () => {
     const hmac = (await crypto.subtle.generateKey(
@@ -187,5 +189,152 @@ describe("Modern WebCrypto XOF digests", () => {
         )
       ).rejects.toThrow(TypeError);
     }
+  });
+});
+
+describe("Modern WebCrypto ChaCha20-Poly1305", () => {
+  it("encrypts, decrypts, and authenticates additional data", async () => {
+    const key = await crypto.subtle.generateKey("ChaCha20-Poly1305", true, [
+      "encrypt",
+      "decrypt",
+    ]);
+    const algorithm = {
+      name: "ChaCha20-Poly1305",
+      iv: new Uint8Array(12),
+      additionalData: new Uint8Array([1, 2, 3]),
+    };
+    const ciphertext = await crypto.subtle.encrypt(algorithm, key, DATA);
+    expect(
+      new Uint8Array(await crypto.subtle.decrypt(algorithm, key, ciphertext))
+    ).toEqual(DATA);
+
+    const tampered = new Uint8Array(ciphertext);
+    tampered[0] ^= 1;
+    await expect(
+      crypto.subtle.decrypt(algorithm, key, tampered)
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+
+  it("round-trips raw-secret and JWK keys", async () => {
+    const key = await crypto.subtle.generateKey("ChaCha20-Poly1305", true, [
+      "encrypt",
+      "decrypt",
+    ]);
+    const raw = await crypto.subtle.exportKey("raw-secret", key);
+    expect(raw.byteLength).toBe(32);
+    const jwk = await crypto.subtle.exportKey("jwk", key);
+    expect(jwk).toMatchObject({ kty: "oct", alg: "C20P" });
+
+    for (const [format, data] of [
+      ["raw-secret", raw],
+      ["jwk", jwk],
+    ] as const) {
+      const imported = await crypto.subtle.importKey(
+        format,
+        data,
+        "ChaCha20-Poly1305",
+        true,
+        ["encrypt"]
+      );
+      expect(await crypto.subtle.exportKey("raw-secret", imported)).toEqual(
+        raw
+      );
+    }
+  });
+
+  it("derives 256-bit keys", async () => {
+    const baseKey = await crypto.subtle.importKey(
+      "raw-secret",
+      new Uint8Array([1]),
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
+    const key = await crypto.subtle.deriveKey(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: new Uint8Array(),
+        info: new Uint8Array(),
+      },
+      baseKey,
+      "ChaCha20-Poly1305",
+      true,
+      ["encrypt"]
+    );
+
+    expect(key.algorithm).toMatchObject({ name: "ChaCha20-Poly1305" });
+    expect((await crypto.subtle.exportKey("raw-secret", key)).byteLength).toBe(
+      32
+    );
+  });
+
+  it("validates key and AEAD parameters", async () => {
+    await expect(
+      crypto.subtle.importKey(
+        "raw-secret",
+        new Uint8Array(31),
+        "ChaCha20-Poly1305",
+        false,
+        ["encrypt"]
+      )
+    ).rejects.toHaveProperty("name", "DataError");
+
+    const key = await crypto.subtle.generateKey("ChaCha20-Poly1305", false, [
+      "encrypt",
+      "decrypt",
+    ]);
+    for (const algorithm of [
+      { name: "ChaCha20-Poly1305", iv: new Uint8Array(11) },
+      {
+        name: "ChaCha20-Poly1305",
+        iv: new Uint8Array(12),
+        tagLength: 96,
+      },
+      {
+        name: "ChaCha20-Poly1305",
+        iv: new Uint8Array(12),
+        tagLength: null as unknown as number,
+      },
+    ]) {
+      await expect(
+        crypto.subtle.encrypt(algorithm, key, DATA)
+      ).rejects.toHaveProperty("name", "OperationError");
+    }
+  });
+
+  it("wraps and unwraps keys", async () => {
+    const wrappingKey = await crypto.subtle.generateKey(
+      "ChaCha20-Poly1305",
+      false,
+      ["wrapKey", "unwrapKey"]
+    );
+    const target = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      true,
+      ["encrypt"]
+    );
+    const algorithm = {
+      name: "ChaCha20-Poly1305",
+      iv: new Uint8Array(12),
+    };
+    const wrapped = await crypto.subtle.wrapKey(
+      "raw-secret",
+      target,
+      wrappingKey,
+      algorithm
+    );
+    const unwrapped = await crypto.subtle.unwrapKey(
+      "raw-secret",
+      wrapped,
+      wrappingKey,
+      algorithm,
+      "AES-GCM",
+      true,
+      ["encrypt"]
+    );
+    expect(await crypto.subtle.exportKey("raw", unwrapped)).toEqual(
+      await crypto.subtle.exportKey("raw", target)
+    );
   });
 });

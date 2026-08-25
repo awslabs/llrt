@@ -376,11 +376,12 @@ declare module "crypto" {
     interface AesDerivedKeyParams extends Algorithm {
       length: number;
     }
-    interface AesGcmParams extends Algorithm {
+    interface AeadParams extends Algorithm {
       additionalData?: BufferSource;
       iv: BufferSource;
       tagLength?: number;
     }
+    interface AesGcmParams extends AeadParams {}
     interface AesKeyAlgorithm extends KeyAlgorithm {
       length: number;
     }
@@ -548,6 +549,7 @@ declare module "crypto" {
        * - `'AES-CTR'`
        * - `'AES-CBC'`
        * - `'AES-GCM'`
+       * - `'ChaCha20-Poly1305'`
        */
       decrypt(
         algorithm:
@@ -555,7 +557,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams,
+          | AeadParams,
         key: CryptoKey,
         data: BufferSource
       ): Promise<ArrayBuffer>;
@@ -652,6 +654,7 @@ declare module "crypto" {
        * - `'AES-CTR'`
        * - `'AES-CBC'`
        * - `'AES-GCM'`
+       * - `'ChaCha20-Poly1305'`
        */
       encrypt(
         algorithm:
@@ -659,7 +662,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams,
+          | AeadParams,
         key: CryptoKey,
         data: BufferSource
       ): Promise<ArrayBuffer>;
@@ -701,6 +704,7 @@ declare module "crypto" {
        * - `'AES-CBC'`
        * - `'AES-GCM'`
        * - `'AES-KW'`
+       * - `'ChaCha20-Poly1305'`
        * @param keyUsages See {@link https://nodejs.org/docs/latest/api/webcrypto.html#cryptokeyusages Key usages}.
        */
       generateKey(
@@ -812,7 +816,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams,
+          | AeadParams,
         unwrappedKeyAlgorithm:
           | AlgorithmIdentifier
           | RsaHashedImportParams
@@ -871,7 +875,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams
+          | AeadParams
       ): Promise<ArrayBuffer>;
     }
   }

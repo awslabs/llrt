@@ -314,6 +314,7 @@ pub enum KeyAlgorithm {
         hash: HashAlgorithm,
         length: u32,
     },
+    ChaCha20Poly1305,
     Rsa {
         modulus_length: u32,
         public_exponent: Rc<Box<[u8]>>,
@@ -705,6 +706,65 @@ fn from_hmac<'js>(
     Ok(KeyAlgorithm::Hmac { hash, length })
 }
 
+fn from_chacha20_poly1305<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+    ) -> Result<Option<KeyKind>> {
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        *kind = KeyKind::Secret;
+        *data = match format {
+            KeyFormatData::RawSecret(bytes) => bytes.into_bytes(ctx)?,
+            #[cfg(feature = "_subtle-full")]
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "oct")?;
+                validate_jwk_use(ctx, &object, false)?;
+                if let Some(alg) = object.get_optional::<_, String>("alg")? {
+                    if alg != "C20P" {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK 'alg' parameter must be 'C20P'",
+                        ));
+                    }
+                }
+                get_jwk_required_bytes(ctx, &object, "k")?
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        };
+        if data.len() != 32 {
+            return Err(DOMException::data_error(
+                ctx,
+                "ChaCha20-Poly1305 keys must be 256 bits",
+            ));
+        }
+        Ok(Some(*kind))
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Symmetric,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::ChaCha20Poly1305)
+}
+
 fn from_rsa<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
@@ -902,7 +962,14 @@ impl KeyAlgorithm {
         if matches!(mode, KeyAlgorithmMode::Import { .. })
             && !matches!(
                 name.as_str(),
-                "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" | "HMAC" | "HKDF" | "PBKDF2"
+                "AES-CBC"
+                    | "AES-CTR"
+                    | "AES-GCM"
+                    | "AES-KW"
+                    | "ChaCha20-Poly1305"
+                    | "HMAC"
+                    | "HKDF"
+                    | "PBKDF2"
             )
         {
             return Err(DOMException::not_supported_error(
@@ -916,7 +983,7 @@ impl KeyAlgorithm {
             let synthetic_usages = Array::new(ctx.clone())?;
             let usage = match name.as_str() {
                 "AES-KW" => "wrapKey",
-                "AES-CBC" | "AES-CTR" | "AES-GCM" | "RSA-OAEP" => "encrypt",
+                "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
                 "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
                 _ => "sign",
             };
@@ -980,6 +1047,14 @@ impl KeyAlgorithm {
                 ctx,
                 mode,
                 obj,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "ChaCha20-Poly1305" => from_chacha20_poly1305(
+                ctx,
+                mode,
                 algorithm_name,
                 &usages,
                 &mut private_usages,

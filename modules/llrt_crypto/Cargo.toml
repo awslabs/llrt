@@ -26,7 +26,13 @@ _subtle-full = [
 ]
 
 # Internal feature: enables modern Web Cryptography algorithms
-_modern-webcrypto = ["cshake", "keccak", "sha3", "sponge-cursor"]
+_modern-webcrypto = [
+  "chacha20poly1305",
+  "cshake",
+  "keccak",
+  "sha3",
+  "sponge-cursor",
+]
 
 # Internal feature: enables RustCrypto dependencies for key import/export
 _rustcrypto = [
@@ -85,6 +91,9 @@ aes-kw = { version = "0.3", features = [
   "oid",
 ], default-features = false, optional = true }
 cbc = { version = "0.2", features = ["alloc"], optional = true }
+chacha20poly1305 = { version = "0.11", features = [
+  "alloc",
+], default-features = false, optional = true }
 cshake = { version = "0.2", features = [
   "alloc",
 ], default-features = false, optional = true }

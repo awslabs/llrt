@@ -179,6 +179,7 @@ pub fn to_name_and_maybe_object<'js>(
 pub fn normalize_algorithm_name(name: &str) -> String {
     let name = name.to_ascii_uppercase();
     match name.as_str() {
+        "CHACHA20-POLY1305" => "ChaCha20-Poly1305".to_string(),
         "ED25519" => "Ed25519".to_string(),
         "RSASSA-PKCS1-V1_5" => "RSASSA-PKCS1-v1_5".to_string(),
         _ => name,

@@ -33,7 +33,7 @@ pub async fn subtle_generate_key<'js>(
 
     if matches!(
         key_algorithm,
-        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. }
+        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } | KeyAlgorithm::ChaCha20Poly1305
     ) {
         return Ok(Class::instance(
             ctx,
@@ -94,6 +94,7 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
                 .or_throw_dom_with_msg(ctx, "HMAC key generation failed")?;
             Ok((vec![], key))
         },
+        KeyAlgorithm::ChaCha20Poly1305 => Ok((vec![], crate::random_byte_array(32))),
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .generate_ec_key(*curve)
             .or_throw_dom_with_msg(ctx, "EC key generation failed"),

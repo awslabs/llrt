@@ -32,6 +32,9 @@ mod openssl;
 #[cfg(any(feature = "crypto-ring", feature = "crypto-ring-rust"))]
 mod ring;
 
+#[cfg(feature = "_modern-webcrypto")]
+pub(crate) mod modern;
+
 #[cfg(feature = "_rustcrypto")]
 mod rust;
 

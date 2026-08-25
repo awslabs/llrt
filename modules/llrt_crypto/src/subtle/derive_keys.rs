@@ -73,6 +73,7 @@ fn derive_key<'js>(
 ) -> Result<Class<'js, CryptoKey<'js>>> {
     let length = match &key_algorithm.algorithm {
         KeyAlgorithm::Aes { length, .. } => DeriveBitsLength::Specified(u32::from(*length)),
+        KeyAlgorithm::ChaCha20Poly1305 => DeriveBitsLength::Specified(256),
         KeyAlgorithm::Hmac { length, .. } => DeriveBitsLength::Specified(*length),
         KeyAlgorithm::HkdfImport | KeyAlgorithm::Pbkdf2Import => DeriveBitsLength::Default,
         _ => {
