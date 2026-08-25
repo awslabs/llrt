@@ -1609,6 +1609,98 @@ fullCrypto("SubtileCrypto import/export", () => {
     }
   });
 
+  it("normalizes the import algorithm before reading key data", async () => {
+    let algorithmRead = false;
+    const algorithm = {
+      get name() {
+        algorithmRead = true;
+        return "not-an-algorithm";
+      },
+    };
+
+    await expect(
+      crypto.subtle.importKey(
+        "jwk",
+        null as unknown as webcrypto.JsonWebKey,
+        algorithm,
+        false,
+        []
+      )
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+    expect(algorithmRead).toBe(true);
+
+    algorithmRead = false;
+    await expect(
+      crypto.subtle.importKey(
+        "raw",
+        null as unknown as Uint8Array,
+        algorithm,
+        false,
+        []
+      )
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+    expect(algorithmRead).toBe(true);
+  });
+
+  it("validates import usages before interpreting key material", async () => {
+    await expect(
+      crypto.subtle.importKey(
+        "raw",
+        new Uint8Array(),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["encrypt"]
+      )
+    ).rejects.toHaveProperty("name", "SyntaxError");
+  });
+
+  it("rejects extractable HKDF and PBKDF2 keys", async () => {
+    for (const algorithm of ["HKDF", "PBKDF2"] as const) {
+      await expect(
+        crypto.subtle.importKey(
+          "raw",
+          new Uint8Array([1]),
+          algorithm,
+          true,
+          ["deriveKey"]
+        )
+      ).rejects.toHaveProperty("name", "SyntaxError");
+    }
+  });
+
+  it("validates JWK metadata after algorithm-specific usages", async () => {
+    const jwk = {
+      kty: "oct",
+      k: "AAECAwQFBgcICQoLDA0ODw",
+      alg: "A128GCM",
+    };
+
+    for (const [key_ops, usages] of [
+      [["decrypt"], ["encrypt"]],
+      [["encrypt", "encrypt"], ["encrypt"]],
+    ] as const) {
+      await expect(
+        crypto.subtle.importKey(
+          "jwk",
+          { ...jwk, key_ops },
+          "AES-GCM",
+          false,
+          usages
+        )
+      ).rejects.toMatchObject({ name: "DataError" });
+    }
+
+    await expect(
+      crypto.subtle.importKey(
+        "jwk",
+        { ...jwk, key_ops: ["encrypt", "encrypt"] },
+        "AES-GCM",
+        false,
+        ["sign"]
+      )
+    ).rejects.toMatchObject({ name: "SyntaxError" });
+  });
+
   it("rejects importing a non-extractable JWK as extractable", async () => {
     const jwk = {
       kty: "oct",

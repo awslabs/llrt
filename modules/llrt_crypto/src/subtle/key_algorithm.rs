@@ -14,7 +14,9 @@ use ed25519_dalek::SigningKey;
 #[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_exceptions::DOMException;
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
+#[cfg(feature = "_subtle-full")]
+use llrt_utils::result::ResultExt;
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, str_enum};
 #[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{atom::PredefinedAtom, Array, Ctx, FromJs, Object, Result, TypedArray, Value};
@@ -360,6 +362,7 @@ pub enum KeyAlgorithmMode<'a, 'js> {
         kind: &'a mut KeyKind,
         data: &'a mut Vec<u8>,
     },
+    ValidateImport,
     Generate,
     Derive,
 }
@@ -494,14 +497,18 @@ fn from_aes<'js>(
         obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(u16, Option<KeyKind>)> {
-        if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-            let length =
-                import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
-            Ok((length, Some(*kind)))
-        } else {
-            let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
-            let length = enforce_range_u16(ctx, value, "length")?;
-            Ok((length, None))
+        match mode {
+            KeyAlgorithmMode::Import { data, format, kind } => {
+                let length =
+                    import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
+                Ok((length, Some(*kind)))
+            },
+            KeyAlgorithmMode::ValidateImport => Ok((128, None)),
+            _ => {
+                let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
+                let length = enforce_range_u16(ctx, value, "length")?;
+                Ok((length, None))
+            },
         }
     }
 
@@ -509,10 +516,13 @@ fn from_aes<'js>(
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
-        _mode: KeyAlgorithmMode<'_, 'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
         obj: Result<Object<'js>>,
         _algorithm_name: &str,
     ) -> Result<(u16, Option<KeyKind>)> {
+        if matches!(mode, KeyAlgorithmMode::ValidateImport) {
+            return Ok((128, None));
+        }
         let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
         let length = enforce_range_u16(ctx, value, "length")?;
         Ok((length, None))
@@ -577,7 +587,7 @@ fn from_hmac<'js>(
     let mut length = match obj.get_optional::<_, u16>("length")? {
         Some(length) => length,
         None => match mode {
-            KeyAlgorithmMode::Import { .. } => 0,
+            KeyAlgorithmMode::Import { .. } | KeyAlgorithmMode::ValidateImport => 0,
             _ => (hash.block_len() * 8) as u16,
         },
     };
@@ -651,22 +661,27 @@ fn from_rsa<'js>(
         algorithm_name: &str,
         hash: &HashAlgorithm,
     ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
-        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-            let (mod_length, exp) = import_rsa_key(ctx, format, kind, data, algorithm_name, hash)?;
-            Ok((mod_length, exp, Some(*kind)))
-        } else {
-            let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
-            let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
-            let public_exponent: TypedArray<u8> =
-                obj.get_required("publicExponent", "algorithm")?;
-            let public_exponent = public_exponent
-                .as_bytes()
-                .ok_or_else(|| {
-                    DOMException::not_supported_error(ctx, "Array buffer has been detached")
-                })?
-                .to_owned()
-                .into_boxed_slice();
-            Ok((modulus_length, public_exponent, None))
+        match mode {
+            KeyAlgorithmMode::Import { format, kind, data } => {
+                let (mod_length, exp) =
+                    import_rsa_key(ctx, format, kind, data, algorithm_name, hash)?;
+                Ok((mod_length, exp, Some(*kind)))
+            },
+            KeyAlgorithmMode::ValidateImport => Ok((0, Box::new([]), None)),
+            _ => {
+                let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
+                let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
+                let public_exponent: TypedArray<u8> =
+                    obj.get_required("publicExponent", "algorithm")?;
+                let public_exponent = public_exponent
+                    .as_bytes()
+                    .ok_or_else(|| {
+                        DOMException::not_supported_error(ctx, "Array buffer has been detached")
+                    })?
+                    .to_owned()
+                    .into_boxed_slice();
+                Ok((modulus_length, public_exponent, None))
+            },
         }
     }
 
@@ -674,11 +689,14 @@ fn from_rsa<'js>(
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
-        _mode: KeyAlgorithmMode<'_, 'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
         obj: &Object<'js>,
         _algorithm_name: &str,
         _hash: &HashAlgorithm,
     ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
+        if matches!(mode, KeyAlgorithmMode::ValidateImport) {
+            return Ok((0, Box::new([]), None));
+        }
         let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
         let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
         let public_exponent: TypedArray<u8> = obj.get_required("publicExponent", "algorithm")?;
@@ -748,6 +766,7 @@ fn from_hkdf<'js>(
                     None,
                 ))
             },
+            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::HkdfImport, None)),
             _ => algorithm_not_supported_error(ctx),
         }
     }
@@ -768,6 +787,7 @@ fn from_hkdf<'js>(
                     None,
                 ))
             },
+            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::HkdfImport, None)),
             _ => algorithm_not_supported_error(ctx),
         }
     }
@@ -815,6 +835,7 @@ fn from_pbkdf2<'js>(
                     None,
                 ))
             },
+            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::Pbkdf2Import, None)),
             _ => algorithm_not_supported_error(ctx),
         }
     }
@@ -835,6 +856,7 @@ fn from_pbkdf2<'js>(
                     None,
                 ))
             },
+            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::Pbkdf2Import, None)),
             _ => algorithm_not_supported_error(ctx),
         }
     }
@@ -868,9 +890,21 @@ impl KeyAlgorithm {
                 "Key import is not supported with this crypto provider",
             ));
         }
-
         let (name, obj) = to_name_and_maybe_object(ctx, value)?;
         let name = normalize_algorithm_name(&name);
+        let usages = if mode == KeyAlgorithmMode::ValidateImport && usages.len() == 0 {
+            let synthetic_usages = Array::new(ctx.clone())?;
+            let usage = match name.as_str() {
+                "AES-KW" => "wrapKey",
+                "AES-CBC" | "AES-CTR" | "AES-GCM" | "RSA-OAEP" => "encrypt",
+                "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
+                _ => "sign",
+            };
+            synthetic_usages.set(0, usage)?;
+            synthetic_usages
+        } else {
+            usages
+        };
         let mut public_usages = vec![];
         let mut private_usages = vec![];
         let algorithm_name = name.as_ref();
