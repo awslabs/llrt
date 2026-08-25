@@ -13,12 +13,13 @@ use super::{
 
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
-    format: KeyFormat,
+    format: Value<'js>,
     key_data: Value<'js>,
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
+    let format = KeyFormat::from_js(&ctx, format)?;
     validate_import_algorithm(
         &ctx,
         &format,

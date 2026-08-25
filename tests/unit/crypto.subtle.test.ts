@@ -1651,6 +1651,23 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
 });
 
 fullCrypto("SubtileCrypto import/export", () => {
+  it("rejects invalid key formats with TypeError", async () => {
+    for (const format of [
+      "invalid-format" as webcrypto.KeyFormat,
+      1 as unknown as webcrypto.KeyFormat,
+    ]) {
+      await expect(
+        crypto.subtle.importKey(
+          format,
+          new Uint8Array([1]),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"]
+        )
+      ).rejects.toThrow(TypeError);
+    }
+  });
+
   it("uses spec exportKey exception ordering", async () => {
     const { privateKey, publicKey } = await crypto.subtle.generateKey(
       { name: "ECDSA", namedCurve: "P-256" },

@@ -5,7 +5,7 @@
 
 use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_exceptions::DOMException;
-use rquickjs::{ArrayBuffer, Class, Ctx, Object, Result};
+use rquickjs::{ArrayBuffer, Class, Ctx, FromJs, Object, Result, Value};
 
 use crate::provider::CryptoProvider;
 use crate::CRYPTO_PROVIDER;
@@ -31,9 +31,10 @@ pub enum ExportOutput<'js> {
 
 pub async fn subtle_export_key<'js>(
     ctx: Ctx<'js>,
-    format: KeyFormat,
+    format: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
 ) -> Result<Object<'js>> {
+    let format = KeyFormat::from_js(&ctx, format)?;
     let key = key.borrow();
     let export = export_key(&ctx, format, &key)?;
     Ok(match export {

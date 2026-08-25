@@ -20,7 +20,7 @@ use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, str_enum};
 #[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{
-    atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, Array, Coerced, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
 };
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
@@ -335,20 +335,10 @@ str_enum!(KeyFormat, Jwk => "jwk", Raw => "raw", Spki => "spki", Pkcs8 => "pkcs8
 
 impl<'js> FromJs<'js> for KeyFormat {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
-        if let Some(string) = value.as_string() {
-            let string = string.to_string()?;
-            match string.as_str() {
-                "jwk" => return Ok(KeyFormat::Jwk),
-                "raw" => return Ok(KeyFormat::Raw),
-                "spki" => return Ok(KeyFormat::Spki),
-                "pkcs8" => return Ok(KeyFormat::Pkcs8),
-                _ => {},
-            };
-        }
-        Err(DOMException::not_supported_error(
-            ctx,
-            "Key import/export format must be 'jwk','raw','spki' or 'pkcs8'",
-        ))
+        let string = Coerced::<String>::from_js(ctx, value)?.0;
+        Self::try_from(string.as_str()).map_err(|_| {
+            Exception::throw_type(ctx, &format!("'{string}' is not a valid KeyFormat"))
+        })
     }
 }
 
