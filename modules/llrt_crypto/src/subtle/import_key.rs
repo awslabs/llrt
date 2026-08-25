@@ -9,7 +9,7 @@ use rquickjs::FromJs;
 use rquickjs::{Array, Class, Ctx, Result, Value};
 
 #[cfg(feature = "_subtle-full")]
-use super::key_algorithm::KeyFormat;
+use super::key_algorithm::{key_format_not_supported_error, KeyFormat};
 use super::{
     crypto_key::{CryptoKey, KeyKind},
     key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormatData},
@@ -34,6 +34,10 @@ pub async fn subtle_import_key<'js>(
     )?;
     let format = match format {
         KeyFormat::Raw => KeyFormatData::Raw(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::RawPrivate => KeyFormatData::RawPrivate(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::RawPublic => KeyFormatData::RawPublic(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::RawSecret => KeyFormatData::RawSecret(ObjectBytes::from_js(&ctx, key_data)?),
+        KeyFormat::RawSeed => KeyFormatData::RawSeed(ObjectBytes::from_js(&ctx, key_data)?),
         KeyFormat::Pkcs8 => KeyFormatData::Pkcs8(ObjectBytes::from_js(&ctx, key_data)?),
         KeyFormat::Spki => KeyFormatData::Spki(ObjectBytes::from_js(&ctx, key_data)?),
         KeyFormat::Jwk => KeyFormatData::Jwk(key_data.into_object_or_throw(&ctx, "keyData")?),
@@ -116,15 +120,8 @@ fn validate_import_algorithm<'js>(
         super::key_algorithm::KeyAlgorithm::HkdfImport
             | super::key_algorithm::KeyAlgorithm::Pbkdf2Import
     ) {
-        if !matches!(format, KeyFormat::Raw) {
-            return Err(DOMException::not_supported_error(
-                ctx,
-                [
-                    normalized.name.as_str(),
-                    " only supports 'raw' import format",
-                ]
-                .concat(),
-            ));
+        if !matches!(format, KeyFormat::Raw | KeyFormat::RawSecret) {
+            return key_format_not_supported_error(ctx, &normalized.name, format.as_str());
         }
         if extractable {
             return Err(DOMException::syntax_error(

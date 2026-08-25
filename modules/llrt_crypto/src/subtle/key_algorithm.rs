@@ -33,9 +33,9 @@ use crate::{
 };
 
 #[cfg(feature = "_subtle-full")]
-use super::util::DataError;
+use super::{algorithm_mismatch_error, util::DataError};
 use super::{
-    algorithm_mismatch_error, algorithm_not_supported_error,
+    algorithm_not_supported_error,
     crypto_key::KeyKind,
     enforce_range_u16, enforce_range_u32, get_optional_dictionary_value,
     get_required_dictionary_value, normalize_algorithm_name, to_name_and_maybe_object,
@@ -327,11 +327,25 @@ pub enum KeyAlgorithm {
 pub enum KeyFormat {
     Jwk,
     Raw,
+    RawPrivate,
+    RawPublic,
+    RawSecret,
+    RawSeed,
     Spki,
     Pkcs8,
 }
 
-str_enum!(KeyFormat, Jwk => "jwk", Raw => "raw", Spki => "spki", Pkcs8 => "pkcs8");
+str_enum!(
+    KeyFormat,
+    Jwk => "jwk",
+    Raw => "raw",
+    RawPrivate => "raw-private",
+    RawPublic => "raw-public",
+    RawSecret => "raw-secret",
+    RawSeed => "raw-seed",
+    Spki => "spki",
+    Pkcs8 => "pkcs8"
+);
 
 impl<'js> FromJs<'js> for KeyFormat {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
@@ -346,8 +360,38 @@ impl<'js> FromJs<'js> for KeyFormat {
 pub enum KeyFormatData<'js> {
     Jwk(Object<'js>),
     Raw(ObjectBytes<'js>),
+    RawPrivate(ObjectBytes<'js>),
+    RawPublic(ObjectBytes<'js>),
+    RawSecret(ObjectBytes<'js>),
+    RawSeed(ObjectBytes<'js>),
     Spki(ObjectBytes<'js>),
     Pkcs8(ObjectBytes<'js>),
+}
+
+impl KeyFormatData<'_> {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Jwk(_) => "jwk",
+            Self::Raw(_) => "raw",
+            Self::RawPrivate(_) => "raw-private",
+            Self::RawPublic(_) => "raw-public",
+            Self::RawSecret(_) => "raw-secret",
+            Self::RawSeed(_) => "raw-seed",
+            Self::Spki(_) => "spki",
+            Self::Pkcs8(_) => "pkcs8",
+        }
+    }
+}
+
+pub(super) fn key_format_not_supported_error<T>(
+    ctx: &Ctx<'_>,
+    algorithm_name: &str,
+    format: &str,
+) -> Result<T> {
+    Err(DOMException::not_supported_error(
+        ctx,
+        format!("{algorithm_name} does not support the '{format}' key format"),
+    ))
 }
 
 #[derive(PartialEq)]
@@ -1081,14 +1125,12 @@ fn import_derive_key<'js>(
     data: &mut Vec<u8>,
     algorithm_name: &str,
 ) -> Result<()> {
-    if let KeyFormatData::Raw(object_bytes) = format {
-        *data = object_bytes.into_bytes(ctx)?;
-        *kind = KeyKind::Secret;
-    } else {
-        return Err(DOMException::not_supported_error(
-            ctx,
-            [algorithm_name, " only supports 'raw' import format"].concat(),
-        ));
+    match format {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawSecret(object_bytes) => {
+            *data = object_bytes.into_bytes(ctx)?;
+            *kind = KeyKind::Secret;
+        },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     }
 
     Ok(())
@@ -1179,7 +1221,7 @@ fn import_rsa_key<'js>(
             };
             (result.modulus_length as usize, result.public_exponent)
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawPublic(object_bytes) => {
             let result = CRYPTO_PROVIDER
                 .import_rsa_public_key_pkcs1(object_bytes.as_bytes(ctx)?)
                 .or_throw_dom(ctx)?;
@@ -1208,6 +1250,7 @@ fn import_rsa_key<'js>(
             *kind = KeyKind::Public;
             (result.modulus_length as usize, result.public_exponent)
         },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     };
 
     let public_exponent = public_exponent.into_boxed_slice();
@@ -1256,13 +1299,13 @@ fn import_symmetric_key<'js>(
             *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
             Ok(data.len() * 8)
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawSecret(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
 
             *data = bytes;
             Ok(data.len() * 8)
         },
-        _ => algorithm_mismatch_error(ctx, algorithm_name),
+        format => key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     }
 }
 
@@ -1336,7 +1379,7 @@ fn import_ec_key<'js>(
                 KeyKind::Public
             };
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawPublic(object_bytes) => {
             let bytes = object_bytes.as_bytes(ctx)?;
             let result = CRYPTO_PROVIDER
                 .import_ec_public_key_sec1(bytes, *curve)
@@ -1364,6 +1407,7 @@ fn import_ec_key<'js>(
             *data = result.key_data;
             *kind = KeyKind::Private;
         },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     };
     Ok(())
 }
@@ -1430,7 +1474,7 @@ fn import_okp_key<'js>(
                 *kind = KeyKind::Public;
             }
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawPublic(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
             if bytes.len() != 32 {
                 return Err(DOMException::data_error(
@@ -1479,6 +1523,7 @@ fn import_okp_key<'js>(
             }
             *kind = KeyKind::Private;
         },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     }
 
     Ok(())

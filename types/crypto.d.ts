@@ -343,7 +343,15 @@ declare module "crypto" {
    */
   namespace webcrypto {
     type BufferSource = ArrayBufferView | ArrayBuffer;
-    type KeyFormat = "jwk" | "pkcs8" | "raw" | "spki";
+    type KeyFormat =
+      | "jwk"
+      | "pkcs8"
+      | "raw"
+      | "raw-private"
+      | "raw-public"
+      | "raw-secret"
+      | "raw-seed"
+      | "spki";
     type KeyType = "private" | "public" | "secret";
     type KeyUsage =
       | "decrypt"

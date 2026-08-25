@@ -12,7 +12,7 @@ use crate::CRYPTO_PROVIDER;
 
 use super::{
     crypto_key::KeyKind,
-    key_algorithm::{KeyAlgorithm, KeyFormat},
+    key_algorithm::{key_format_not_supported_error, KeyAlgorithm, KeyFormat},
     util::ResultDomExt,
     CryptoKey,
 };
@@ -63,8 +63,11 @@ pub fn export_key<'js>(
     let bytes = match format {
         KeyFormat::Jwk => return Ok(ExportOutput::Object(export_jwk(ctx, key)?)),
         KeyFormat::Raw => export_raw(ctx, key),
+        KeyFormat::RawPublic if key.kind != KeyKind::Secret => export_raw(ctx, key),
+        KeyFormat::RawSecret if key.kind == KeyKind::Secret => export_raw(ctx, key),
         KeyFormat::Spki => export_spki(ctx, key),
         KeyFormat::Pkcs8 => export_pkcs8(ctx, key),
+        format => return key_format_not_supported_error(ctx, &key.name, format.as_str()),
     }?;
     Ok(ExportOutput::Bytes(bytes))
 }

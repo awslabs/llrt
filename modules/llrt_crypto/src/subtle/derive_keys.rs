@@ -88,7 +88,7 @@ fn derive_key<'js>(
 
     import_key(
         ctx.clone(),
-        KeyFormatData::Raw(ObjectBytes::Vec(bytes)),
+        KeyFormatData::RawSecret(ObjectBytes::Vec(bytes)),
         derived_key_algorithm,
         extractable,
         key_usages,
