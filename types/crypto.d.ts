@@ -746,6 +746,9 @@ declare module "crypto" {
        * - `'ML-KEM-512'`
        * - `'ML-KEM-768'`
        * - `'ML-KEM-1024'`
+       * - `'MLKEM768-P256'`
+       * - `'MLKEM768-X25519'`
+       * - `'MLKEM1024-P384'`
        * The `<CryptoKey>` (secret key) generating algorithms supported include:
        *
        * - `'HMAC'`

@@ -30,8 +30,8 @@ use x25519_dalek::{PublicKey, StaticSecret};
 use crate::{
     hash::HashAlgorithm,
     provider::{
-        hmac_length_is_byte_aligned, parse_rsa_public_exponent, MlDsaVariant, MlKemVariant,
-        MAX_HMAC_KEY_LENGTH_BITS,
+        hmac_length_is_byte_aligned, parse_rsa_public_exponent, HybridKemVariant, MlDsaVariant,
+        MlKemVariant, MAX_HMAC_KEY_LENGTH_BITS,
     },
 };
 
@@ -341,6 +341,7 @@ pub enum KeyAlgorithm {
     ChaCha20Poly1305,
     MlDsa(MlDsaVariant),
     MlKem(MlKemVariant),
+    HybridKem(HybridKemVariant),
     Rsa {
         modulus_length: u32,
         public_exponent: Rc<Box<[u8]>>,
@@ -1023,6 +1024,97 @@ fn from_ml_kem<'js>(
     Ok(KeyAlgorithm::MlKem(variant))
 }
 
+fn from_hybrid_kem<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    variant: HybridKemVariant,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        variant: HybridKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        use crate::provider::modern;
+
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        match format {
+            KeyFormatData::RawPublic(bytes) => {
+                *data = modern::import_hybrid_kem_public_key(variant, bytes.as_bytes(ctx)?)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::RawSeed(bytes) => {
+                *data = modern::import_hybrid_kem_private_key(variant, bytes.as_bytes(ctx)?)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "AKP")?;
+                validate_jwk_use(ctx, &object, false)?;
+                if get_jwk_required_string(ctx, &object, "alg")? != algorithm_name {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter does not match the algorithm",
+                    ));
+                }
+
+                let public_key = get_jwk_required_bytes(ctx, &object, "pub")?;
+                if let Some(seed) = get_jwk_optional_bytes(ctx, &object, "priv")? {
+                    *data =
+                        modern::import_hybrid_kem_private_key(variant, &seed).or_throw_dom(ctx)?;
+                    let derived_public_key =
+                        modern::hybrid_kem_public_key(variant, data).or_throw_dom(ctx)?;
+                    if derived_public_key != public_key {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK public and private key values do not match",
+                        ));
+                    }
+                    *kind = KeyKind::Private;
+                } else {
+                    *data = modern::import_hybrid_kem_public_key(variant, &public_key)
+                        .or_throw_dom(ctx)?;
+                    *kind = KeyKind::Public;
+                }
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        }
+        Ok(Some(*kind))
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _variant: HybridKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, variant)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::MlKem,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::HybridKem(variant))
+}
+
 fn from_rsa<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
@@ -1243,7 +1335,8 @@ impl KeyAlgorithm {
                 "AES-KW" => "wrapKey",
                 "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
                 "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
-                "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" => "encapsulateKey",
+                "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" | "MLKEM768-P256"
+                | "MLKEM768-X25519" | "MLKEM1024-P384" => "encapsulateKey",
                 _ => "sign",
             };
             synthetic_usages.set(0, usage)?;
@@ -1349,6 +1442,19 @@ impl KeyAlgorithm {
                     "ML-KEM-512" => MlKemVariant::MlKem512,
                     "ML-KEM-768" => MlKemVariant::MlKem768,
                     _ => MlKemVariant::MlKem1024,
+                },
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "MLKEM768-P256" | "MLKEM768-X25519" | "MLKEM1024-P384" => from_hybrid_kem(
+                ctx,
+                mode,
+                algorithm_name,
+                match algorithm_name {
+                    "MLKEM768-P256" => HybridKemVariant::MlKem768P256,
+                    "MLKEM768-X25519" => HybridKemVariant::MlKem768X25519,
+                    _ => HybridKemVariant::MlKem1024P384,
                 },
                 &usages,
                 &mut private_usages,

@@ -6,7 +6,7 @@ use std::future::Future;
 use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{Array, ArrayBuffer, Class, Ctx, Result, Value};
 
-use crate::provider::{modern, MlKemVariant};
+use crate::provider::{modern, HybridKemVariant, MlKemVariant};
 
 use super::import_key::import_key;
 use super::{
@@ -20,12 +20,14 @@ use super::{
 #[derive(Clone, Copy)]
 enum EncapsulationAlgorithm {
     MlKem(MlKemVariant),
+    HybridKem(HybridKemVariant),
 }
 
 impl EncapsulationAlgorithm {
     fn name(self) -> &'static str {
         match self {
             Self::MlKem(variant) => variant.name(),
+            Self::HybridKem(variant) => variant.name(),
         }
     }
 
@@ -35,6 +37,7 @@ impl EncapsulationAlgorithm {
     ) -> std::result::Result<(Vec<u8>, Vec<u8>), crate::provider::CryptoError> {
         match self {
             Self::MlKem(variant) => modern::ml_kem_encapsulate(variant, public_key),
+            Self::HybridKem(variant) => modern::hybrid_kem_encapsulate(variant, public_key),
         }
     }
 
@@ -45,6 +48,9 @@ impl EncapsulationAlgorithm {
     ) -> std::result::Result<Vec<u8>, crate::provider::CryptoError> {
         match self {
             Self::MlKem(variant) => modern::ml_kem_decapsulate(variant, private_key, ciphertext),
+            Self::HybridKem(variant) => {
+                modern::hybrid_kem_decapsulate(variant, private_key, ciphertext)
+            },
         }
     }
 }
@@ -58,6 +64,15 @@ fn normalize_encapsulation_algorithm<'js>(
         "ML-KEM-512" => Ok(EncapsulationAlgorithm::MlKem(MlKemVariant::MlKem512)),
         "ML-KEM-768" => Ok(EncapsulationAlgorithm::MlKem(MlKemVariant::MlKem768)),
         "ML-KEM-1024" => Ok(EncapsulationAlgorithm::MlKem(MlKemVariant::MlKem1024)),
+        "MLKEM768-P256" => Ok(EncapsulationAlgorithm::HybridKem(
+            HybridKemVariant::MlKem768P256,
+        )),
+        "MLKEM768-X25519" => Ok(EncapsulationAlgorithm::HybridKem(
+            HybridKemVariant::MlKem768X25519,
+        )),
+        "MLKEM1024-P384" => Ok(EncapsulationAlgorithm::HybridKem(
+            HybridKemVariant::MlKem1024P384,
+        )),
         _ => algorithm_not_supported_error(ctx),
     }
 }
@@ -88,6 +103,10 @@ fn check_encapsulation_key(
     let matches_algorithm = matches!(
         (algorithm, &key.algorithm),
         (EncapsulationAlgorithm::MlKem(variant), KeyAlgorithm::MlKem(key_variant))
+            if variant == *key_variant
+    ) || matches!(
+        (algorithm, &key.algorithm),
+        (EncapsulationAlgorithm::HybridKem(variant), KeyAlgorithm::HybridKem(key_variant))
             if variant == *key_variant
     );
     if key.name.as_ref() != algorithm.name() || !matches_algorithm {

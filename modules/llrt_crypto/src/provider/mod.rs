@@ -172,6 +172,62 @@ impl MlKemVariant {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HybridKemVariant {
+    MlKem768P256,
+    MlKem768X25519,
+    MlKem1024P384,
+}
+
+impl HybridKemVariant {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::MlKem768P256 => "MLKEM768-P256",
+            Self::MlKem768X25519 => "MLKEM768-X25519",
+            Self::MlKem1024P384 => "MLKEM1024-P384",
+        }
+    }
+
+    pub const fn ml_kem_variant(self) -> MlKemVariant {
+        match self {
+            Self::MlKem768P256 | Self::MlKem768X25519 => MlKemVariant::MlKem768,
+            Self::MlKem1024P384 => MlKemVariant::MlKem1024,
+        }
+    }
+
+    pub const fn public_key_length(self) -> usize {
+        match self {
+            Self::MlKem768P256 => 1249,
+            Self::MlKem768X25519 => 1216,
+            Self::MlKem1024P384 => 1665,
+        }
+    }
+
+    pub const fn ciphertext_length(self) -> usize {
+        match self {
+            Self::MlKem768P256 => 1153,
+            Self::MlKem768X25519 => 1120,
+            Self::MlKem1024P384 => 1665,
+        }
+    }
+
+    pub const fn pq_public_key_length(self) -> usize {
+        match self.ml_kem_variant() {
+            MlKemVariant::MlKem768 => 1184,
+            MlKemVariant::MlKem1024 => 1568,
+            MlKemVariant::MlKem512 => unreachable!(),
+        }
+    }
+
+    pub const fn pq_ciphertext_length(self) -> usize {
+        match self.ml_kem_variant() {
+            MlKemVariant::MlKem768 => 1088,
+            MlKemVariant::MlKem1024 => 1568,
+            MlKemVariant::MlKem512 => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub enum AesMode {

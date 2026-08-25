@@ -65,7 +65,7 @@ pub fn export_key<'js>(
         KeyFormat::RawPublic
             if matches!(
                 key.algorithm,
-                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_)
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_)
             ) =>
         {
             if key.kind != KeyKind::Public {
@@ -79,7 +79,7 @@ pub fn export_key<'js>(
         KeyFormat::RawSeed
             if matches!(
                 key.algorithm,
-                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_)
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_)
             ) =>
         {
             if key.kind != KeyKind::Private {
@@ -93,7 +93,7 @@ pub fn export_key<'js>(
         KeyFormat::Raw
             if matches!(
                 key.algorithm,
-                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_)
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_)
             ) =>
         {
             return key_format_not_supported_error(ctx, &key.name, "raw");
@@ -270,6 +270,19 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::MlKem(variant) => {
             let public_key = if key.kind == KeyKind::Private {
                 modern::ml_kem_public_key(*variant, &key.handle).or_throw_dom(ctx)?
+            } else {
+                key.handle.to_vec()
+            };
+            obj.set("kty", "AKP")?;
+            obj.set("alg", variant.name())?;
+            obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
+            if key.kind == KeyKind::Private {
+                obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
+            }
+        },
+        KeyAlgorithm::HybridKem(variant) => {
+            let public_key = if key.kind == KeyKind::Private {
+                modern::hybrid_kem_public_key(*variant, &key.handle).or_throw_dom(ctx)?
             } else {
                 key.handle.to_vec()
             };

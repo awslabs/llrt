@@ -32,8 +32,11 @@ _modern-webcrypto = [
   "keccak",
   "ml-dsa",
   "ml-kem",
+  "p256",
+  "p384",
   "sha3",
   "sponge-cursor",
+  "x25519-dalek",
 ]
 
 # Internal feature: enables RustCrypto dependencies for key import/export
@@ -135,11 +138,13 @@ rsa = { version = "0.10.0-rc.18", features = [
   "encoding",
 ], default-features = false, optional = true }
 p256 = { version = "0.14", features = [
+  "alloc",
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
 p384 = { version = "0.14.0-rc.15", features = [
+  "alloc",
   "ecdh",
   "ecdsa",
   "pkcs8",

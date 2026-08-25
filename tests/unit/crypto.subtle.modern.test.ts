@@ -704,3 +704,111 @@ describe("Modern WebCrypto ML-KEM", () => {
     ).rejects.toHaveProperty("name", "OperationError");
   });
 });
+
+describe("Modern WebCrypto hybrid KEMs", () => {
+  it("encapsulates and decapsulates every hybrid variant", async () => {
+    const variants = [
+      ["MLKEM768-P256", 1249, 1153],
+      ["MLKEM768-X25519", 1216, 1120],
+      ["MLKEM1024-P384", 1665, 1665],
+    ] as const;
+
+    for (const [name, publicKeyLength, ciphertextLength] of variants) {
+      const keyPair = await crypto.subtle.generateKey(name, true, [
+        "encapsulateBits",
+        "decapsulateBits",
+      ]);
+      expect(
+        (await crypto.subtle.exportKey("raw-public", keyPair.publicKey))
+          .byteLength
+      ).toBe(publicKeyLength);
+      expect(
+        (await crypto.subtle.exportKey("raw-seed", keyPair.privateKey))
+          .byteLength
+      ).toBe(32);
+
+      const encapsulated = await crypto.subtle.encapsulateBits(
+        name,
+        keyPair.publicKey
+      );
+      expect(encapsulated.ciphertext.byteLength).toBe(ciphertextLength);
+      expect(
+        await crypto.subtle.decapsulateBits(
+          name,
+          keyPair.privateKey,
+          encapsulated.ciphertext
+        )
+      ).toEqual(encapsulated.sharedKey);
+    }
+  });
+
+  it("imports the actual hybrid shared secret", async () => {
+    const name = "MLKEM768-X25519";
+    const keyPair = await crypto.subtle.generateKey(name, false, [
+      "encapsulateBits",
+      "decapsulateKey",
+    ]);
+
+    const encapsulated = await crypto.subtle.encapsulateBits(
+      name,
+      keyPair.publicKey
+    );
+    let nameReads = 0;
+    const sharedKey = await crypto.subtle.decapsulateKey(
+      name,
+      keyPair.privateKey,
+      encapsulated.ciphertext,
+      {
+        get name() {
+          nameReads++;
+          return nameReads === 1 ? "HMAC" : "not-an-algorithm";
+        },
+        hash: "SHA-256",
+        length: 256,
+      },
+      true,
+      ["sign"]
+    );
+    expect(nameReads).toBe(1);
+    expect(
+      new Uint8Array(await crypto.subtle.exportKey("raw-secret", sharedKey))
+    ).toEqual(new Uint8Array(encapsulated.sharedKey));
+  });
+
+  it("round-trips hybrid raw and JWK keys", async () => {
+    const name = "MLKEM768-X25519";
+    const keyPair = await crypto.subtle.generateKey(name, true, [
+      "encapsulateBits",
+      "decapsulateBits",
+    ]);
+    for (const [key, formats, usages] of [
+      [keyPair.publicKey, ["raw-public", "jwk"], ["encapsulateBits"]],
+      [keyPair.privateKey, ["raw-seed", "jwk"], ["decapsulateBits"]],
+    ] as const) {
+      for (const format of formats) {
+        const encoded = await crypto.subtle.exportKey(format, key);
+        const imported = await crypto.subtle.importKey(
+          format,
+          encoded,
+          name,
+          true,
+          usages
+        );
+        expect(imported.type).toBe(key.type);
+      }
+    }
+  });
+
+  it("rejects DER key formats", async () => {
+    const keyPair = await crypto.subtle.generateKey("MLKEM768-P256", true, [
+      "encapsulateBits",
+      "decapsulateBits",
+    ]);
+    await expect(
+      crypto.subtle.exportKey("spki", keyPair.publicKey)
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+    await expect(
+      crypto.subtle.exportKey("pkcs8", keyPair.privateKey)
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+  });
+});
