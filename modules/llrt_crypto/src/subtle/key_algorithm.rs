@@ -1489,6 +1489,60 @@ impl KeyAlgorithm {
         })
     }
 
+    pub fn supports_get_public_key(&self) -> bool {
+        matches!(
+            self,
+            KeyAlgorithm::Ec { .. }
+                | KeyAlgorithm::Ed25519
+                | KeyAlgorithm::X25519
+                | KeyAlgorithm::Rsa { .. }
+                | KeyAlgorithm::MlDsa(_)
+                | KeyAlgorithm::MlKem(_)
+                | KeyAlgorithm::HybridKem(_)
+        )
+    }
+
+    pub fn validate_public_usages<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        usages: &Array<'js>,
+    ) -> Result<Vec<String>> {
+        let usage_algorithm = match self {
+            KeyAlgorithm::Ec {
+                algorithm: EcAlgorithm::Ecdh,
+                ..
+            }
+            | KeyAlgorithm::X25519 => KeyUsageAlgorithm::DeriveAsymmetric,
+            KeyAlgorithm::Ec {
+                algorithm: EcAlgorithm::Ecdsa,
+                ..
+            }
+            | KeyAlgorithm::Ed25519
+            | KeyAlgorithm::MlDsa(_) => KeyUsageAlgorithm::Sign,
+            KeyAlgorithm::Rsa { .. } if name == "RSA-OAEP" => KeyUsageAlgorithm::RsaOaep,
+            KeyAlgorithm::Rsa { .. } => KeyUsageAlgorithm::Sign,
+            KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_) => KeyUsageAlgorithm::MlKem,
+            _ => {
+                return Err(DOMException::not_supported_error(
+                    ctx,
+                    "This algorithm cannot derive a public key",
+                ));
+            },
+        };
+        let mut private_usages = Vec::new();
+        let mut public_usages = Vec::new();
+        KeyUsage::classify_and_check_usages(
+            ctx,
+            usage_algorithm,
+            usages,
+            &mut private_usages,
+            &mut public_usages,
+            Some(&KeyKind::Public),
+        )?;
+        Ok(public_usages)
+    }
+
     pub fn as_object<'js, T: AsRef<str>>(&self, ctx: &Ctx<'js>, name: T) -> Result<Object<'js>> {
         let obj = Object::new(ctx.clone())?;
         obj.set(PredefinedAtom::Name, name.as_ref())?;

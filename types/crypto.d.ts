@@ -774,6 +774,10 @@ declare module "crypto" {
         extractable: boolean,
         keyUsages: KeyUsage[]
       ): Promise<CryptoKeyPair | CryptoKey>;
+      getPublicKey(
+        key: CryptoKey,
+        keyUsages: readonly KeyUsage[]
+      ): Promise<CryptoKey>;
       /**
        * The `subtle.importKey()` method attempts to interpret the provided `keyData` as the given `format`
        * to create a `<CryptoKey>` instance using the provided `algorithm`, `extractable`, and `keyUsages` arguments.

@@ -11,6 +11,7 @@ mod encryption_algorithm;
 #[cfg(feature = "_subtle-full")]
 mod export_key;
 mod generate_key;
+mod get_public_key;
 mod import_key;
 #[cfg(feature = "_subtle-full")]
 mod key_algorithm;
@@ -34,6 +35,7 @@ pub use encryption::subtle_encrypt;
 #[cfg(feature = "_subtle-full")]
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
+pub use get_public_key::subtle_get_public_key;
 #[cfg(feature = "_subtle-full")]
 pub use import_key::subtle_import_key;
 #[cfg(feature = "_subtle-full")]
@@ -75,6 +77,16 @@ impl SubtleCrypto {
     #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
     pub fn to_string_tag() -> &'static str {
         stringify!(SubtleCrypto)
+    }
+
+    #[qjs(rename = "getPublicKey")]
+    pub async fn get_public_key<'js>(
+        &self,
+        ctx: Ctx<'js>,
+        key: rquickjs::Class<'js, CryptoKey<'js>>,
+        usages: rquickjs::Array<'js>,
+    ) -> Result<rquickjs::Class<'js, CryptoKey<'js>>> {
+        subtle_get_public_key(ctx, key, usages).await
     }
 }
 

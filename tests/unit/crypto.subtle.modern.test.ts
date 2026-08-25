@@ -812,3 +812,92 @@ describe("Modern WebCrypto hybrid KEMs", () => {
     ).rejects.toHaveProperty("name", "NotSupportedError");
   });
 });
+
+describe("SubtleCrypto.getPublicKey", () => {
+  it("is a branded prototype method", async () => {
+    const prototype = Object.getPrototypeOf(crypto.subtle);
+    expect(Object.hasOwn(crypto.subtle, "getPublicKey")).toBe(false);
+    expect(Object.hasOwn(prototype, "getPublicKey")).toBe(true);
+
+    const keyPair = await crypto.subtle.generateKey("Ed25519", false, [
+      "sign",
+    ]);
+    expect(() =>
+      Reflect.apply(crypto.subtle.getPublicKey, {}, [keyPair.privateKey, []])
+    ).toThrow(TypeError);
+  });
+
+  it("derives public keys for every asymmetric family", async () => {
+    const cases = [
+      [{ name: "ECDSA", namedCurve: "P-256" }, ["sign", "verify"], ["verify"]],
+      [{ name: "ECDH", namedCurve: "P-256" }, ["deriveBits"], []],
+      ["Ed25519", ["sign", "verify"], ["verify"]],
+      ["X25519", ["deriveBits"], []],
+      [
+        {
+          name: "RSA-PSS",
+          modulusLength: 1024,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        ["sign", "verify"],
+        ["verify"],
+      ],
+      ["ML-DSA-44", ["sign", "verify"], ["verify"]],
+      [
+        "ML-KEM-512",
+        ["encapsulateBits", "decapsulateBits"],
+        ["encapsulateBits"],
+      ],
+      [
+        "MLKEM768-X25519",
+        ["encapsulateBits", "decapsulateBits"],
+        ["encapsulateBits"],
+      ],
+    ] as const;
+
+    for (const [algorithm, keyUsages, publicUsages] of cases) {
+      const keyPair = await crypto.subtle.generateKey(
+        algorithm,
+        true,
+        keyUsages
+      );
+      const publicKey = await crypto.subtle.getPublicKey(
+        keyPair.privateKey,
+        publicUsages
+      );
+      expect(publicKey.type).toBe("public");
+      expect(publicKey.extractable).toBe(true);
+      expect(publicKey.usages).toEqual(publicUsages);
+      expect(await crypto.subtle.exportKey("jwk", publicKey)).toEqual(
+        await crypto.subtle.exportKey("jwk", keyPair.publicKey)
+      );
+    }
+  }, 30000);
+
+  it("rejects non-private and symmetric keys", async () => {
+    const keyPair = await crypto.subtle.generateKey("Ed25519", false, [
+      "sign",
+      "verify",
+    ]);
+    await expect(
+      crypto.subtle.getPublicKey(keyPair.publicKey, ["verify"])
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+    await expect(
+      crypto.subtle.getPublicKey(keyPair.publicKey, ["sign"])
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+
+    const secret = await crypto.subtle.generateKey(
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    await expect(crypto.subtle.getPublicKey(secret, [])).rejects.toHaveProperty(
+      "name",
+      "NotSupportedError"
+    );
+    await expect(
+      crypto.subtle.getPublicKey(secret, ["encrypt"])
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+  });
+});
