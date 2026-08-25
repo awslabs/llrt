@@ -130,6 +130,12 @@ pub trait SimpleDigest: Send {
         Self: Sized;
 }
 
+pub const MAX_HMAC_KEY_LENGTH_BITS: u32 = 1024;
+
+pub(crate) fn hmac_length_is_byte_aligned(length_bits: u32) -> bool {
+    length_bits.is_multiple_of(8)
+}
+
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub enum AesMode {

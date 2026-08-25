@@ -19,21 +19,26 @@ use llrt_utils::result::ResultExt;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, str_enum};
 #[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
-use rquickjs::{atom::PredefinedAtom, Array, Ctx, FromJs, Object, Result, TypedArray, Value};
+use rquickjs::{
+    atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
+};
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 #[cfg(feature = "_subtle-full")]
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::{hash::HashAlgorithm, provider::parse_rsa_public_exponent};
+use crate::{
+    hash::HashAlgorithm,
+    provider::{hmac_length_is_byte_aligned, parse_rsa_public_exponent, MAX_HMAC_KEY_LENGTH_BITS},
+};
 
 #[cfg(feature = "_subtle-full")]
 use super::{algorithm_mismatch_error, util::DataError};
 use super::{
     algorithm_not_supported_error,
     crypto_key::KeyKind,
-    enforce_range_u16, enforce_range_u32, get_required_dictionary_value, normalize_algorithm_name,
-    to_name_and_maybe_object,
+    enforce_range_u16, enforce_range_u32, get_optional_dictionary_value,
+    get_required_dictionary_value, normalize_algorithm_name, to_name_and_maybe_object,
     util::{NotSupportedError, ResultDomExt},
     EllipticCurve,
 };
@@ -307,7 +312,7 @@ pub enum KeyAlgorithm {
     Ed25519,
     Hmac {
         hash: HashAlgorithm,
-        length: u16,
+        length: u32,
     },
     Rsa {
         modulus_length: u32,
@@ -584,11 +589,46 @@ fn from_hmac<'js>(
             "Unsupported HMAC hash algorithm",
         ));
     }
-    let mut length = match obj.get_optional::<_, u16>("length")? {
-        Some(length) => length,
-        None => match mode {
-            KeyAlgorithmMode::Import { .. } | KeyAlgorithmMode::ValidateImport => 0,
-            _ => (hash.block_len() * 8) as u16,
+    let length = get_optional_dictionary_value(&obj, "length")?
+        .map(|value| enforce_range_u32(ctx, value, "length"))
+        .transpose()?;
+    if matches!(length, Some(length) if !hmac_length_is_byte_aligned(length)) {
+        return Err(DOMException::not_supported_error(
+            ctx,
+            "HMAC key length must be a multiple of 8",
+        ));
+    }
+    let validating_import = mode == KeyAlgorithmMode::ValidateImport;
+    let enforce_implementation_limit =
+        matches!(&mode, KeyAlgorithmMode::Generate | KeyAlgorithmMode::Derive);
+    let mut length = match mode {
+        KeyAlgorithmMode::Import { .. } | KeyAlgorithmMode::ValidateImport => {
+            if length == Some(0) {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "HMAC import length must be greater than zero",
+                ));
+            }
+            if validating_import {
+                Some(length.unwrap_or(8))
+            } else {
+                length
+            }
+        },
+        KeyAlgorithmMode::Generate => match length {
+            Some(0) => {
+                return Err(DOMException::operation_error(
+                    ctx,
+                    "HMAC generation length must be greater than zero",
+                ));
+            },
+            Some(length) => Some(length),
+            None => Some((hash.block_len() * 8) as u32),
+        },
+        KeyAlgorithmMode::Derive => match length {
+            Some(0) => return Err(Exception::throw_type(ctx, "Invalid HMAC key length")),
+            Some(length) => Some(length),
+            None => Some((hash.block_len() * 8) as u32),
         },
     };
 
@@ -599,13 +639,26 @@ fn from_hmac<'js>(
         mode: KeyAlgorithmMode<'_, 'js>,
         algorithm_name: &str,
         hash: &HashAlgorithm,
-        length: &mut u16,
+        length: &mut Option<u32>,
     ) -> Result<Option<KeyKind>> {
         if let KeyAlgorithmMode::Import { data, format, kind } = mode {
             let data_length =
                 import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(hash))?;
-            if *length == 0 {
-                *length = data_length as u16;
+            let data_length: u32 = data_length.try_into().map_err(|_| {
+                DOMException::data_error(ctx, "HMAC key length exceeds unsigned long")
+            })?;
+            if data_length == 0 {
+                return Err(DOMException::data_error(ctx, "HMAC key data is empty"));
+            }
+            if let Some(requested_length) = *length {
+                if requested_length != data_length {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "HMAC length does not match the key data",
+                    ));
+                }
+            } else {
+                *length = Some(data_length);
             }
             Ok(Some(*kind))
         } else {
@@ -620,12 +673,21 @@ fn from_hmac<'js>(
         _mode: KeyAlgorithmMode<'_, 'js>,
         _algorithm_name: &str,
         _hash: &HashAlgorithm,
-        _length: &mut u16,
+        _length: &mut Option<u32>,
     ) -> Result<Option<KeyKind>> {
         Ok(None)
     }
 
     let key_kind = import(ctx, mode, algorithm_name, &hash, &mut length)?;
+    let length = length.ok_or_else(|| {
+        DOMException::operation_error(ctx, "HMAC key length could not be resolved")
+    })?;
+    if enforce_implementation_limit && length > MAX_HMAC_KEY_LENGTH_BITS {
+        return Err(DOMException::operation_error(
+            ctx,
+            "HMAC key length exceeds the implementation limit",
+        ));
+    }
 
     KeyUsage::classify_and_check_usages(
         ctx,

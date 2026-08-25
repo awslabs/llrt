@@ -116,6 +116,51 @@ fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
     }
   });
 
+  it("enforces HMAC generation lengths", async () => {
+    for (const length of [128 + 2 ** 32, 128 - 2 ** 32]) {
+      await expect(
+        crypto.subtle.generateKey(
+          { name: "HMAC", hash: "SHA-256", length },
+          false,
+          ["sign"]
+        )
+      ).rejects.toThrow(TypeError);
+    }
+
+    await expect(
+      crypto.subtle.generateKey(
+        { name: "HMAC", hash: "SHA-256", length: 0 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+    await expect(
+      crypto.subtle.generateKey(
+        { name: "HMAC", hash: "SHA-256", length: 127 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+    await expect(
+      crypto.subtle.generateKey(
+        { name: "HMAC", hash: "SHA-256", length: 1032 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+    await expect(
+      crypto.subtle.generateKey(
+        {
+          name: "HMAC",
+          hash: "SHA-256",
+          length: null as unknown as number,
+        },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+
   it("deduplicates key usages in canonical order", async () => {
     const hmacKey = (await crypto.subtle.generateKey(
       { name: "HMAC", hash: "SHA-256", length: 256 },
@@ -1263,6 +1308,65 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
     ).rejects.toHaveProperty("name", "OperationError");
   });
 
+  it("enforces HMAC deriveKey target lengths", async () => {
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array([1]),
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
+
+    const hkdf = {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(),
+      info: new Uint8Array(),
+    };
+
+    await expect(
+      crypto.subtle.deriveKey(
+        hkdf,
+        baseKey,
+        { name: "HMAC", hash: "SHA-256", length: 0 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toThrow(TypeError);
+
+    await expect(
+      crypto.subtle.deriveKey(
+        hkdf,
+        baseKey,
+        { name: "HMAC", hash: "SHA-256", length: 513 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+    await expect(
+      crypto.subtle.deriveKey(
+        hkdf,
+        baseKey,
+        { name: "HMAC", hash: "SHA-256", length: 1032 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+    await expect(
+      crypto.subtle.deriveKey(
+        hkdf,
+        baseKey,
+        {
+          name: "HMAC",
+          hash: "SHA-256",
+          length: null as unknown as number,
+        },
+        false,
+        ["sign"]
+      )
+    ).rejects.toThrow(TypeError);
+  });
+
   it("should be processing HKDF algorithm", async () => {
     const hkdfSalt = new Uint8Array(16); // Salt value (can be random, but here it's set to all zeros)
     const hkdfInfo = new TextEncoder().encode("HKDF info"); // Info parameter, can be any label string
@@ -1642,6 +1746,31 @@ fullCrypto("SubtileCrypto import/export", () => {
     expect(algorithmRead).toBe(true);
   });
 
+  it("rejects zero HMAC length before reading key data", async () => {
+    await expect(
+      crypto.subtle.importKey(
+        "jwk",
+        null as unknown as webcrypto.JsonWebKey,
+        { name: "HMAC", hash: "SHA-256", length: 0 },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "DataError");
+    await expect(
+      crypto.subtle.importKey(
+        "raw",
+        new Uint8Array([1]),
+        {
+          name: "HMAC",
+          hash: "SHA-256",
+          length: null as unknown as number,
+        },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "DataError");
+  });
+
   it("validates import usages before interpreting key material", async () => {
     await expect(
       crypto.subtle.importKey(
@@ -1665,6 +1794,44 @@ fullCrypto("SubtileCrypto import/export", () => {
           ["deriveKey"]
         )
       ).rejects.toHaveProperty("name", "SyntaxError");
+    }
+  });
+
+  it("resolves and validates imported HMAC lengths", async () => {
+    const data = new Uint8Array(16).fill(0xff);
+    const inferred = await crypto.subtle.importKey(
+      "raw",
+      data,
+      { name: "HMAC", hash: "SHA-256" },
+      true,
+      ["sign"]
+    );
+    expect((inferred.algorithm as webcrypto.HmacKeyAlgorithm).length).toBe(128);
+
+    await expect(
+      crypto.subtle.importKey(
+        "raw",
+        data,
+        { name: "HMAC", hash: "SHA-256", length: 127 },
+        true,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+
+    for (const [keyData, length] of [
+      [new Uint8Array(), undefined],
+      [data, 120],
+      [data, 136],
+    ] as const) {
+      await expect(
+        crypto.subtle.importKey(
+          "raw",
+          keyData,
+          { name: "HMAC", hash: "SHA-256", length },
+          false,
+          ["sign"]
+        )
+      ).rejects.toHaveProperty("name", "DataError");
     }
   });
 

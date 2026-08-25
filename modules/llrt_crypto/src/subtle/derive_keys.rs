@@ -56,9 +56,9 @@ fn derive_key<'js>(
     key_algorithm: KeyAlgorithmWithUsages,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
     let length = match &key_algorithm.algorithm {
-        KeyAlgorithm::Aes { length, .. } => *length,
-        KeyAlgorithm::Hmac { length, .. } => *length,
-        KeyAlgorithm::Derive { .. } => 0,
+        KeyAlgorithm::Aes { length, .. } => DeriveBitsLength::Specified(u32::from(*length)),
+        KeyAlgorithm::Hmac { length, .. } => DeriveBitsLength::Specified(*length),
+        KeyAlgorithm::Derive { .. } => DeriveBitsLength::Specified(0),
         _ => {
             return algorithm_not_supported_error(ctx);
         },
@@ -68,12 +68,7 @@ fn derive_key<'js>(
 
     base_key.check_validity("deriveKey").or_throw_dom(ctx)?;
 
-    let bytes = derive_bits(
-        ctx,
-        algorithm,
-        &base_key,
-        DeriveBitsLength::Specified(length as u32),
-    )?;
+    let bytes = derive_bits(ctx, algorithm, &base_key, length)?;
 
     let key = CryptoKey::new(
         KeyKind::Secret,
