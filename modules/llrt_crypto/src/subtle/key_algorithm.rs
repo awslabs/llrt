@@ -17,9 +17,7 @@ use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
 #[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
-use rquickjs::{
-    atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
-};
+use rquickjs::{atom::PredefinedAtom, Array, Ctx, FromJs, Object, Result, TypedArray, Value};
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 #[cfg(feature = "_subtle-full")]
@@ -40,15 +38,14 @@ use super::{
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum KeyUsage {
-    //7 values, can be max 255 (u8) 0b11111111
     Encrypt,
     Decrypt,
-    WrapKey,
-    UnwrapKey,
     Sign,
     Verify,
     DeriveKey,
     DeriveBits,
+    WrapKey,
+    UnwrapKey,
 }
 
 impl TryFrom<&str> for KeyUsage {
@@ -70,6 +67,30 @@ impl TryFrom<&str> for KeyUsage {
 }
 
 impl KeyUsage {
+    const CANONICAL_ORDER: [Self; 8] = [
+        Self::Encrypt,
+        Self::Decrypt,
+        Self::Sign,
+        Self::Verify,
+        Self::DeriveKey,
+        Self::DeriveBits,
+        Self::WrapKey,
+        Self::UnwrapKey,
+    ];
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Encrypt => "encrypt",
+            Self::Decrypt => "decrypt",
+            Self::Sign => "sign",
+            Self::Verify => "verify",
+            Self::DeriveKey => "deriveKey",
+            Self::DeriveBits => "deriveBits",
+            Self::WrapKey => "wrapKey",
+            Self::UnwrapKey => "unwrapKey",
+        }
+    }
+
     fn classify_and_check_usages<'js>(
         ctx: &Ctx<'js>,
         key_usage_algorithm: KeyUsageAlgorithm,
@@ -92,25 +113,36 @@ impl KeyUsage {
         let mut generated_private_usages = Vec::with_capacity(4);
 
         let mut has_any_usages = false;
+        let mut seen_usages = 0;
 
         for usage in key_usages.iter::<String>() {
             has_any_usages = true;
             let value = usage?;
-            let usage = KeyUsage::try_from(value.as_str()).or_throw(ctx)?;
+            let usage = KeyUsage::try_from(value.as_str()).map_err(|_| {
+                DOMException::syntax_error(ctx, ["Invalid key usage '", &value, "'"].concat())
+            })?;
             let usage = usage.mask();
             if allowed_usages & usage != usage {
-                return Err(Exception::throw_syntax(
+                return Err(DOMException::syntax_error(
                     ctx,
-                    &["Invalid key usage '", &value, "'"].concat(),
+                    ["Invalid key usage '", &value, "'"].concat(),
                 ));
             }
+            seen_usages |= usage;
+        }
 
+        for usage in Self::CANONICAL_ORDER {
+            let usage_mask = usage.mask();
+            if seen_usages & usage_mask == 0 {
+                continue;
+            }
+            let value = usage.as_str().to_string();
             if private_usages_mask == public_usages_mask {
                 generated_private_usages.push(value.clone());
                 generated_public_usages.push(value);
-            } else if private_usages_mask & usage == usage {
+            } else if private_usages_mask & usage_mask == usage_mask {
                 generated_private_usages.push(value);
-            } else if public_usages_mask & usage == usage {
+            } else if public_usages_mask & usage_mask == usage_mask {
                 generated_public_usages.push(value);
             }
         }
@@ -122,7 +154,7 @@ impl KeyUsage {
             && key_usage_algorithm.requires_non_empty_usages()
             && !matches!(kind, Some(KeyKind::Public))
         {
-            return Err(Exception::throw_syntax(ctx, "Key usages empty"));
+            return Err(DOMException::syntax_error(ctx, "Key usages empty"));
         }
 
         if private_usages != public_usages {
@@ -135,7 +167,7 @@ impl KeyUsage {
             };
 
             if !valid_usage {
-                return Err(Exception::throw_syntax(ctx, "Invalid key usage"));
+                return Err(DOMException::syntax_error(ctx, "Invalid key usage"));
             }
         }
 

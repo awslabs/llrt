@@ -116,6 +116,46 @@ fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
     }
   });
 
+  it("deduplicates key usages in canonical order", async () => {
+    const hmacKey = (await crypto.subtle.generateKey(
+      { name: "HMAC", hash: "SHA-256", length: 256 },
+      true,
+      ["verify", "sign", "verify", "sign"]
+    )) as webcrypto.CryptoKey;
+
+    expect(hmacKey.usages).toEqual(["sign", "verify"]);
+    expect((await crypto.subtle.exportKey("jwk", hmacKey)).key_ops).toEqual([
+      "sign",
+      "verify",
+    ]);
+
+    const aesKey = (await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      true,
+      ["unwrapKey", "encrypt", "wrapKey", "decrypt", "encrypt"]
+    )) as webcrypto.CryptoKey;
+
+    expect(aesKey.usages).toEqual([
+      "encrypt",
+      "decrypt",
+      "wrapKey",
+      "unwrapKey",
+    ]);
+    expect((await crypto.subtle.exportKey("jwk", aesKey)).key_ops).toEqual(
+      aesKey.usages
+    );
+
+    const hkdfKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array(32),
+      "HKDF",
+      false,
+      ["deriveBits", "deriveKey", "deriveBits"]
+    );
+
+    expect(hkdfKey.usages).toEqual(["deriveKey", "deriveBits"]);
+  });
+
   it("enforces key generation integer ranges", async () => {
     for (const length of [128 + 2 ** 16, 128 - 2 ** 16]) {
       await expect(
