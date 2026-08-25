@@ -101,7 +101,6 @@ pub fn module_hook_load<'js>(ctx: &Ctx<'js>, name: &str) -> Result<(bool, bool, 
     Ok((short_circuit, next_load, source))
 }
 
-#[allow(dependency_on_unit_never_type_fallback)]
 fn call_load_hooks<'js>(
     ctx: &Ctx<'js>,
     hooks: &Rc<Vec<Hook<'js>>>,
