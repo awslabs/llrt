@@ -387,6 +387,11 @@ declare module "crypto" {
     interface AesKeyGenParams extends Algorithm {
       length: number;
     }
+    interface CShakeParams extends Algorithm {
+      customization?: BufferSource;
+      functionName?: BufferSource;
+      outputLength: number;
+    }
     interface Algorithm {
       name: string;
     }
@@ -480,6 +485,10 @@ declare module "crypto" {
     }
     interface RsaPssParams extends Algorithm {
       saltLength: number;
+    }
+    interface TurboShakeParams extends Algorithm {
+      domainSeparation?: number;
+      outputLength: number;
     }
 
     interface CryptoKey {
@@ -621,11 +630,15 @@ declare module "crypto" {
        * - `'SHA3-256'`
        * - `'SHA3-384'`
        * - `'SHA3-512'`
+       * - `'cSHAKE128'`
+       * - `'cSHAKE256'`
+       * - `'TurboSHAKE128'`
+       * - `'TurboSHAKE256'`
        *
        * If `algorithm` is provided as an `<Object>`, it must have a `name` property whose value is one of the above.
        */
       digest(
-        algorithm: AlgorithmIdentifier,
+        algorithm: AlgorithmIdentifier | CShakeParams | TurboShakeParams,
         data: BufferSource
       ): Promise<ArrayBuffer>;
       /**

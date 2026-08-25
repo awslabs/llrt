@@ -105,3 +105,87 @@ describe("Modern WebCrypto SHA-3", () => {
     ).rejects.toHaveProperty("name", "NotSupportedError");
   });
 });
+
+describe("Modern WebCrypto XOF digests", () => {
+  it("matches cSHAKE and TurboSHAKE vectors", async () => {
+    const vectors = [
+      [
+        { name: "cSHAKE128", outputLength: 256 },
+        "7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26",
+      ],
+      [
+        { name: "TurboSHAKE128", outputLength: 256 },
+        "1e415f1c5983aff2169217277d17bb538cd945a397ddec541f1ce41af2c1b74c",
+      ],
+    ] as const;
+
+    for (const [algorithm, expected] of vectors) {
+      const digest = new Uint8Array(
+        await crypto.subtle.digest(algorithm, new Uint8Array())
+      );
+      expect(Buffer.from(digest).toString("hex")).toBe(expected);
+    }
+  });
+
+  it("supports partial-bit cSHAKE output", async () => {
+    const digest = new Uint8Array(
+      await crypto.subtle.digest(
+        { name: "cSHAKE256", outputLength: 9 },
+        new Uint8Array()
+      )
+    );
+    expect(digest.byteLength).toBe(2);
+    expect(digest[1] & 0x7f).toBe(0);
+  });
+
+  it("validates XOF parameters", async () => {
+    expect(
+      await crypto.subtle.digest(
+        { name: "cSHAKE128", outputLength: null as unknown as number },
+        new Uint8Array()
+      )
+    ).toHaveProperty("byteLength", 0);
+
+    await expect(
+      crypto.subtle.digest(
+        { name: "TurboSHAKE128", outputLength: null as unknown as number },
+        new Uint8Array()
+      )
+    ).rejects.toMatchObject({ name: "OperationError" });
+
+    await expect(
+      crypto.subtle.digest(
+        { name: "cSHAKE128", outputLength: 0xffffffff },
+        new Uint8Array()
+      )
+    ).rejects.toMatchObject({ name: "OperationError" });
+
+    for (const domainSeparation of [0, 0x80, null]) {
+      await expect(
+        crypto.subtle.digest(
+          {
+            name: "TurboSHAKE128",
+            outputLength: 256,
+            domainSeparation: domainSeparation as unknown as number,
+          },
+          new Uint8Array()
+        )
+      ).rejects.toMatchObject({ name: "OperationError" });
+    }
+  });
+
+  it("rejects null cSHAKE BufferSource parameters", async () => {
+    for (const parameter of ["functionName", "customization"] as const) {
+      await expect(
+        crypto.subtle.digest(
+          {
+            name: "cSHAKE128",
+            outputLength: 256,
+            [parameter]: null,
+          },
+          new Uint8Array()
+        )
+      ).rejects.toThrow(TypeError);
+    }
+  });
+});
