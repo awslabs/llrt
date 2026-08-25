@@ -206,10 +206,13 @@ impl CryptoProvider for GraviolaProvider {
         additional_data: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         match mode {
-            AesMode::Gcm { .. } => {
+            AesMode::Gcm { tag_length } => {
                 let nonce: [u8; 12] = iv.try_into().map_err(|_| CryptoError::InvalidData(None))?;
                 if !matches!(key.len(), 16 | 32) {
                     return Err(CryptoError::InvalidKey(None));
+                }
+                if tag_length != 128 {
+                    return Err(CryptoError::UnsupportedAlgorithm);
                 }
                 let aead = AesGcm::new(key);
                 let aad = additional_data.unwrap_or(&[]);
@@ -232,10 +235,13 @@ impl CryptoProvider for GraviolaProvider {
         additional_data: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         match mode {
-            AesMode::Gcm { .. } => {
+            AesMode::Gcm { tag_length } => {
                 let nonce: [u8; 12] = iv.try_into().map_err(|_| CryptoError::InvalidData(None))?;
                 if !matches!(key.len(), 16 | 32) {
                     return Err(CryptoError::InvalidKey(None));
+                }
+                if tag_length != 128 {
+                    return Err(CryptoError::UnsupportedAlgorithm);
                 }
                 if data.len() < 16 {
                     return Err(CryptoError::InvalidData(None));

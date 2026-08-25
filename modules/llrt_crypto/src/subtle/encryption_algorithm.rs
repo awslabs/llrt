@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
-use rquickjs::{Ctx, Exception, FromJs, Result, Value};
+use rquickjs::{Ctx, FromJs, Result, Value};
 
 use super::{
     algorithm_not_supported_error, enforce_range_u8, get_optional_dictionary_value,
@@ -76,14 +76,6 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                     .get_required::<_, ObjectBytes>("iv", "algorithm")?
                     .into_bytes(ctx)?
                     .into_boxed_slice();
-
-                //FIXME only 12? 96 maybe recommended?
-                if iv.len() != 12 {
-                    return Err(Exception::throw_type(
-                        ctx,
-                        "invalid length of iv. Currently supported 12 bytes",
-                    ));
-                }
 
                 let additional_data = obj
                     .get_optional::<_, ObjectBytes>("additionalData")?

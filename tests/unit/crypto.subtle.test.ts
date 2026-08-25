@@ -744,6 +744,28 @@ fullCrypto("SubtleCrypto generateKey/encrypt/decrypt", () => {
     expect(ciphertext.byteLength).toBe(16);
   });
 
+  it("rejects non-96-bit AES-GCM IVs", async () => {
+    const key = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: new Uint8Array(12) },
+      key,
+      ENCODED_DATA
+    );
+    for (const length of [0, 1, 16, 32, 128]) {
+      const algorithm = { name: "AES-GCM", iv: new Uint8Array(length) };
+      await expect(
+        crypto.subtle.encrypt(algorithm, key, ENCODED_DATA)
+      ).rejects.toHaveProperty("name", "OperationError");
+      await expect(
+        crypto.subtle.decrypt(algorithm, key, ciphertext)
+      ).rejects.toHaveProperty("name", "OperationError");
+    }
+  });
+
   it("should be processing AES-GCM algorithm", async () => {
     const parameters = keyLengths.map((length) => ({
       name: "AES-GCM",
