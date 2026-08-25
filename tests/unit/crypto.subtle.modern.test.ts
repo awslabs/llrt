@@ -451,3 +451,256 @@ describe("Modern WebCrypto ML-DSA", () => {
     ).rejects.toHaveProperty("name", "OperationError");
   });
 });
+
+describe("Modern WebCrypto ML-KEM", () => {
+  it("encapsulates and decapsulates bits for every parameter set", async () => {
+    const variants = [
+      ["ML-KEM-512", 768],
+      ["ML-KEM-768", 1088],
+      ["ML-KEM-1024", 1568],
+    ] as const;
+
+    for (const [name, ciphertextLength] of variants) {
+      const keyPair = await crypto.subtle.generateKey(name, true, [
+        "decapsulateBits",
+        "encapsulateBits",
+      ]);
+      const encapsulated = await crypto.subtle.encapsulateBits(
+        name,
+        keyPair.publicKey
+      );
+      expect(encapsulated.ciphertext.byteLength).toBe(ciphertextLength);
+      expect(encapsulated.sharedKey.byteLength).toBe(32);
+      expect(
+        await crypto.subtle.decapsulateBits(
+          name,
+          keyPair.privateKey,
+          encapsulated.ciphertext
+        )
+      ).toEqual(encapsulated.sharedKey);
+    }
+  });
+
+  it("encapsulates and decapsulates CryptoKeys", async () => {
+    const keyPair = await crypto.subtle.generateKey("ML-KEM-768", false, [
+      "encapsulateKey",
+      "decapsulateKey",
+    ]);
+    const encapsulated = await crypto.subtle.encapsulateKey(
+      "ML-KEM-768",
+      keyPair.publicKey,
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt"]
+    );
+    const decapsulated = await crypto.subtle.decapsulateKey(
+      "ML-KEM-768",
+      keyPair.privateKey,
+      encapsulated.ciphertext,
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt"]
+    );
+    expect(await crypto.subtle.exportKey("raw", decapsulated)).toEqual(
+      await crypto.subtle.exportKey("raw", encapsulated.sharedKey)
+    );
+  });
+
+  it("imports the actual shared secret into HMAC keys", async () => {
+    const keyPair = await crypto.subtle.generateKey("ML-KEM-768", false, [
+      "encapsulateKey",
+      "decapsulateBits",
+      "decapsulateKey",
+    ]);
+    let nameReads = 0;
+    const hmacAlgorithm = {
+      get name() {
+        nameReads++;
+        return nameReads === 1 ? "HMAC" : "not-an-algorithm";
+      },
+      hash: "SHA-256",
+      length: 256,
+    };
+
+    const encapsulated = await crypto.subtle.encapsulateKey(
+      "ML-KEM-768",
+      keyPair.publicKey,
+      hmacAlgorithm,
+      true,
+      ["sign"]
+    );
+    expect(nameReads).toBe(1);
+
+    const expected = new Uint8Array(
+      await crypto.subtle.decapsulateBits(
+        "ML-KEM-768",
+        keyPair.privateKey,
+        encapsulated.ciphertext
+      )
+    );
+    expect(
+      new Uint8Array(
+        await crypto.subtle.exportKey("raw-secret", encapsulated.sharedKey)
+      )
+    ).toEqual(expected);
+
+    nameReads = 0;
+    const decapsulated = await crypto.subtle.decapsulateKey(
+      "ML-KEM-768",
+      keyPair.privateKey,
+      encapsulated.ciphertext,
+      hmacAlgorithm,
+      true,
+      ["sign"]
+    );
+    expect(nameReads).toBe(1);
+    expect(
+      new Uint8Array(await crypto.subtle.exportKey("raw-secret", decapsulated))
+    ).toEqual(expected);
+  });
+
+  it("defers shared-key import validation until after KEM operations", async () => {
+    const name = "ML-KEM-512";
+    const bitOnly = await crypto.subtle.generateKey(name, false, [
+      "encapsulateBits",
+      "decapsulateBits",
+    ]);
+    const bitEncapsulation = await crypto.subtle.encapsulateBits(
+      name,
+      bitOnly.publicKey
+    );
+
+    const full = await crypto.subtle.generateKey(name, false, [
+      "encapsulateKey",
+      "encapsulateBits",
+      "decapsulateKey",
+    ]);
+    const validCiphertext = (
+      await crypto.subtle.encapsulateBits(name, full.publicKey)
+    ).ciphertext;
+
+    const cases = [
+      {
+        algorithm: { name: "HMAC", hash: "SHA-256", length: 0 },
+        usages: ["sign"] as webcrypto.KeyUsage[],
+        importError: "DataError",
+      },
+      {
+        algorithm: { name: "HMAC", hash: "SHA-256" },
+        usages: ["encrypt"] as webcrypto.KeyUsage[],
+        importError: "SyntaxError",
+      },
+    ];
+
+    for (const { algorithm, usages, importError } of cases) {
+      await expect(
+        crypto.subtle.encapsulateKey(
+          name,
+          bitOnly.publicKey,
+          algorithm,
+          false,
+          usages
+        )
+      ).rejects.toHaveProperty("name", "InvalidAccessError");
+
+      await expect(
+        crypto.subtle.decapsulateKey(
+          name,
+          bitOnly.privateKey,
+          bitEncapsulation.ciphertext,
+          algorithm,
+          false,
+          usages
+        )
+      ).rejects.toHaveProperty("name", "InvalidAccessError");
+
+      await expect(
+        crypto.subtle.decapsulateKey(
+          name,
+          full.privateKey,
+          new Uint8Array(767),
+          algorithm,
+          false,
+          usages
+        )
+      ).rejects.toHaveProperty("name", "OperationError");
+
+      await expect(
+        crypto.subtle.encapsulateKey(
+          name,
+          full.publicKey,
+          algorithm,
+          false,
+          usages
+        )
+      ).rejects.toHaveProperty("name", importError);
+
+      await expect(
+        crypto.subtle.decapsulateKey(
+          name,
+          full.privateKey,
+          validCiphertext,
+          algorithm,
+          false,
+          usages
+        )
+      ).rejects.toHaveProperty("name", importError);
+    }
+  }, 30000);
+
+  it("assigns KEM usages canonically", async () => {
+    const keyPair = await crypto.subtle.generateKey("ML-KEM-512", false, [
+      "decapsulateBits",
+      "encapsulateKey",
+      "encapsulateBits",
+      "decapsulateKey",
+      "encapsulateKey",
+    ]);
+    expect(keyPair.publicKey.usages).toEqual([
+      "encapsulateKey",
+      "encapsulateBits",
+    ]);
+    expect(keyPair.privateKey.usages).toEqual([
+      "decapsulateKey",
+      "decapsulateBits",
+    ]);
+  });
+
+  it("round-trips public keys and private seeds", async () => {
+    const name = "ML-KEM-512";
+    const keyPair = await crypto.subtle.generateKey(name, true, [
+      "encapsulateBits",
+      "decapsulateBits",
+    ]);
+
+    for (const [key, formats, usages] of [
+      [keyPair.publicKey, ["raw-public", "spki", "jwk"], ["encapsulateBits"]],
+      [keyPair.privateKey, ["raw-seed", "pkcs8", "jwk"], ["decapsulateBits"]],
+    ] as const) {
+      for (const format of formats) {
+        const encoded = await crypto.subtle.exportKey(format, key);
+        const imported = await crypto.subtle.importKey(
+          format,
+          encoded,
+          name,
+          true,
+          usages
+        );
+        expect(imported.type).toBe(key.type);
+      }
+    }
+  });
+
+  it("rejects malformed ciphertext", async () => {
+    const keyPair = await crypto.subtle.generateKey("ML-KEM-512", false, [
+      "decapsulateBits",
+    ]);
+    await expect(
+      crypto.subtle.decapsulateBits(
+        "ML-KEM-512",
+        keyPair.privateKey,
+        new Uint8Array(767)
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+});

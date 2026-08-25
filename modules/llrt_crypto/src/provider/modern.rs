@@ -12,8 +12,13 @@ use ml_dsa::{
     },
     Keypair, MlDsa44, MlDsa65, MlDsa87, MlDsaParams, Seed, Signature, SigningKey, VerifyingKey,
 };
+use ml_kem::{
+    Decapsulate, EncapsulationKey as MlKemEncapsulationKey, Key as MlKemKey,
+    KeyExport as MlKemKeyExport, MlKem1024, MlKem512, MlKem768, Seed as MlKemSeed,
+    B32 as MlKemRandomness,
+};
 
-use super::{CryptoError, MlDsaVariant};
+use super::{CryptoError, MlDsaVariant, MlKemVariant};
 
 trait MlDsaParameterSet: MlDsaParams + AssociatedAlgorithmIdentifier<Params = AnyRef<'static>> {}
 
@@ -27,6 +32,25 @@ macro_rules! dispatch_ml_dsa {
             MlDsaVariant::MlDsa44 => $function::<MlDsa44>($($argument),*),
             MlDsaVariant::MlDsa65 => $function::<MlDsa65>($($argument),*),
             MlDsaVariant::MlDsa87 => $function::<MlDsa87>($($argument),*),
+        }
+    };
+}
+
+macro_rules! dispatch_ml_kem {
+    ($variant:expr, |$kem:ident| $body:block) => {
+        match $variant {
+            MlKemVariant::MlKem512 => {
+                type $kem = MlKem512;
+                $body
+            },
+            MlKemVariant::MlKem768 => {
+                type $kem = MlKem768;
+                $body
+            },
+            MlKemVariant::MlKem1024 => {
+                type $kem = MlKem1024;
+                $body
+            },
         }
     };
 }
@@ -233,4 +257,125 @@ pub(crate) fn export_ml_dsa_private_key_pkcs8(
     seed: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     dispatch_ml_dsa!(variant, export_ml_dsa_private_key_pkcs8_for, seed,)
+}
+
+pub(crate) fn generate_ml_kem_key(
+    variant: MlKemVariant,
+) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
+    let seed = crate::random_byte_array(64);
+    let seed = MlKemSeed::try_from(seed.as_slice()).map_err(|_| CryptoError::InvalidKey(None))?;
+    dispatch_ml_kem!(variant, |Kem| {
+        let private_key = ml_kem::DecapsulationKey::<Kem>::from_seed(seed);
+        let public_key = private_key.encapsulation_key().to_bytes().to_vec();
+        Ok((seed.to_vec(), public_key))
+    })
+}
+
+pub(crate) fn ml_kem_public_key(
+    variant: MlKemVariant,
+    seed: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let seed = MlKemSeed::try_from(seed).map_err(|_| CryptoError::InvalidKey(None))?;
+    dispatch_ml_kem!(variant, |Kem| {
+        let private_key = ml_kem::DecapsulationKey::<Kem>::from_seed(seed);
+        Ok(private_key.encapsulation_key().to_bytes().to_vec())
+    })
+}
+
+pub(crate) fn ml_kem_encapsulate(
+    variant: MlKemVariant,
+    public_key: &[u8],
+) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
+    let randomness = crate::random_byte_array(32);
+    let randomness = MlKemRandomness::try_from(randomness.as_slice())
+        .map_err(|_| CryptoError::OperationFailed(None))?;
+    dispatch_ml_kem!(variant, |Kem| {
+        let encoded = MlKemKey::<MlKemEncapsulationKey<Kem>>::try_from(public_key)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_key = MlKemEncapsulationKey::<Kem>::new(&encoded)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let (ciphertext, shared_key) = public_key.encapsulate_deterministic(&randomness);
+        Ok((ciphertext.to_vec(), shared_key.to_vec()))
+    })
+}
+
+pub(crate) fn ml_kem_decapsulate(
+    variant: MlKemVariant,
+    seed: &[u8],
+    ciphertext: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let seed = MlKemSeed::try_from(seed).map_err(|_| CryptoError::InvalidKey(None))?;
+    dispatch_ml_kem!(variant, |Kem| {
+        let private_key = ml_kem::DecapsulationKey::<Kem>::from_seed(seed);
+        private_key
+            .decapsulate_slice(ciphertext)
+            .map(|shared_key| shared_key.to_vec())
+            .map_err(|_| CryptoError::OperationFailed(Some("Invalid ML-KEM ciphertext".into())))
+    })
+}
+
+pub(crate) fn import_ml_kem_public_key(
+    variant: MlKemVariant,
+    data: &[u8],
+    spki: bool,
+) -> Result<Vec<u8>, CryptoError> {
+    dispatch_ml_kem!(variant, |Kem| {
+        let key = if spki {
+            MlKemEncapsulationKey::<Kem>::from_public_key_der(data)
+                .map_err(|_| CryptoError::InvalidKey(None))?
+        } else {
+            let encoded = MlKemKey::<MlKemEncapsulationKey<Kem>>::try_from(data)
+                .map_err(|_| CryptoError::InvalidKey(None))?;
+            MlKemEncapsulationKey::<Kem>::new(&encoded)
+                .map_err(|_| CryptoError::InvalidKey(None))?
+        };
+        Ok(key.to_bytes().to_vec())
+    })
+}
+
+pub(crate) fn import_ml_kem_private_key(
+    variant: MlKemVariant,
+    data: &[u8],
+    pkcs8: bool,
+) -> Result<Vec<u8>, CryptoError> {
+    dispatch_ml_kem!(variant, |Kem| {
+        let key = if pkcs8 {
+            ml_kem::DecapsulationKey::<Kem>::from_pkcs8_der(data)
+                .map_err(|_| CryptoError::InvalidKey(None))?
+        } else {
+            let seed = MlKemSeed::try_from(data).map_err(|_| CryptoError::InvalidKey(None))?;
+            ml_kem::DecapsulationKey::<Kem>::from_seed(seed)
+        };
+        key.to_seed()
+            .map(|seed| seed.to_vec())
+            .ok_or(CryptoError::InvalidKey(None))
+    })
+}
+
+pub(crate) fn export_ml_kem_public_key_spki(
+    variant: MlKemVariant,
+    public_key: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    dispatch_ml_kem!(variant, |Kem| {
+        let encoded = MlKemKey::<MlKemEncapsulationKey<Kem>>::try_from(public_key)
+            .map_err(|_| CryptoError::InvalidKey(None))?;
+        MlKemEncapsulationKey::<Kem>::new(&encoded)
+            .map_err(|_| CryptoError::InvalidKey(None))?
+            .to_public_key_der()
+            .map(|document| document.as_bytes().to_vec())
+            .map_err(|_| CryptoError::InvalidKey(None))
+    })
+}
+
+pub(crate) fn export_ml_kem_private_key_pkcs8(
+    variant: MlKemVariant,
+    seed: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let seed = MlKemSeed::try_from(seed).map_err(|_| CryptoError::InvalidKey(None))?;
+    dispatch_ml_kem!(variant, |Kem| {
+        ml_kem::DecapsulationKey::<Kem>::from_seed(seed)
+            .to_pkcs8_der()
+            .map(|document| document.as_bytes().to_vec())
+            .map_err(|_| CryptoError::InvalidKey(None))
+    })
 }

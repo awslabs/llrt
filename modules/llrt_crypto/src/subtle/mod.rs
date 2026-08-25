@@ -5,6 +5,7 @@ mod derive_algorithm;
 mod derive_bits;
 mod derive_keys;
 mod digest;
+mod encapsulation;
 mod encryption;
 mod encryption_algorithm;
 #[cfg(feature = "_subtle-full")]
@@ -24,6 +25,10 @@ pub use crypto_key::CryptoKey;
 pub use derive_bits::subtle_derive_bits;
 pub use derive_keys::subtle_derive_key;
 pub use digest::subtle_digest;
+pub use encapsulation::{
+    subtle_decapsulate_bits, subtle_decapsulate_key, subtle_encapsulate_bits,
+    subtle_encapsulate_key,
+};
 pub use encryption::subtle_decrypt;
 pub use encryption::subtle_encrypt;
 #[cfg(feature = "_subtle-full")]

@@ -62,7 +62,12 @@ pub fn export_key<'js>(
     }
     let bytes = match format {
         KeyFormat::Jwk => return Ok(ExportOutput::Object(export_jwk(ctx, key)?)),
-        KeyFormat::RawPublic if matches!(key.algorithm, KeyAlgorithm::MlDsa(_)) => {
+        KeyFormat::RawPublic
+            if matches!(
+                key.algorithm,
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_)
+            ) =>
+        {
             if key.kind != KeyKind::Public {
                 return Err(DOMException::invalid_access_error(
                     ctx,
@@ -71,7 +76,12 @@ pub fn export_key<'js>(
             }
             Ok(key.handle.to_vec())
         },
-        KeyFormat::RawSeed if matches!(key.algorithm, KeyAlgorithm::MlDsa(_)) => {
+        KeyFormat::RawSeed
+            if matches!(
+                key.algorithm,
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_)
+            ) =>
+        {
             if key.kind != KeyKind::Private {
                 return Err(DOMException::invalid_access_error(
                     ctx,
@@ -80,7 +90,12 @@ pub fn export_key<'js>(
             }
             Ok(key.handle.to_vec())
         },
-        KeyFormat::Raw if matches!(key.algorithm, KeyAlgorithm::MlDsa(_)) => {
+        KeyFormat::Raw
+            if matches!(
+                key.algorithm,
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_)
+            ) =>
+        {
             return key_format_not_supported_error(ctx, &key.name, "raw");
         },
         KeyFormat::Raw => export_raw(ctx, key),
@@ -143,6 +158,9 @@ fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         KeyAlgorithm::MlDsa(variant) => {
             modern::export_ml_dsa_private_key_pkcs8(*variant, &key.handle).or_throw_dom(ctx)
         },
+        KeyAlgorithm::MlKem(variant) => {
+            modern::export_ml_kem_private_key_pkcs8(*variant, &key.handle).or_throw_dom(ctx)
+        },
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_private_key_pkcs8(
                 &key.handle,
@@ -179,6 +197,9 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         KeyAlgorithm::MlDsa(variant) => {
             modern::export_ml_dsa_public_key_spki(*variant, &key.handle).or_throw_dom(ctx)
         },
+        KeyAlgorithm::MlKem(variant) => {
+            modern::export_ml_kem_public_key_spki(*variant, &key.handle).or_throw_dom(ctx)
+        },
         KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
             .export_rsa_public_key_spki(&key.handle)
             .or_throw_dom(ctx),
@@ -195,6 +216,9 @@ fn supports_der_export(name: &str) -> bool {
             | "ML-DSA-44"
             | "ML-DSA-65"
             | "ML-DSA-87"
+            | "ML-KEM-512"
+            | "ML-KEM-768"
+            | "ML-KEM-1024"
             | "RSA-OAEP"
             | "RSA-PSS"
             | "RSASSA-PKCS1-v1_5"
@@ -233,6 +257,19 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
         KeyAlgorithm::MlDsa(variant) => {
             let public_key = if key.kind == KeyKind::Private {
                 modern::ml_dsa_public_key(*variant, &key.handle).or_throw_dom(ctx)?
+            } else {
+                key.handle.to_vec()
+            };
+            obj.set("kty", "AKP")?;
+            obj.set("alg", variant.name())?;
+            obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
+            if key.kind == KeyKind::Private {
+                obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
+            }
+        },
+        KeyAlgorithm::MlKem(variant) => {
+            let public_key = if key.kind == KeyKind::Private {
+                modern::ml_kem_public_key(*variant, &key.handle).or_throw_dom(ctx)?
             } else {
                 key.handle.to_vec()
             };

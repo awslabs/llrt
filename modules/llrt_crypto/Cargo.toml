@@ -31,6 +31,7 @@ _modern-webcrypto = [
   "cshake",
   "keccak",
   "ml-dsa",
+  "ml-kem",
   "sha3",
   "sponge-cursor",
 ]
@@ -123,6 +124,10 @@ ml-dsa = { version = "0.1.1", features = [
   "alloc",
   "pkcs8",
   "rand_core",
+], default-features = false, optional = true }
+ml-kem = { version = "0.3.2", features = [
+  "alloc",
+  "pkcs8",
 ], default-features = false, optional = true }
 rsa = { version = "0.10.0-rc.18", features = [
   "std",

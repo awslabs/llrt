@@ -354,9 +354,13 @@ declare module "crypto" {
       | "spki";
     type KeyType = "private" | "public" | "secret";
     type KeyUsage =
+      | "decapsulateBits"
+      | "decapsulateKey"
       | "decrypt"
       | "deriveBits"
       | "deriveKey"
+      | "encapsulateBits"
+      | "encapsulateKey"
       | "encrypt"
       | "sign"
       | "unwrapKey"
@@ -520,6 +524,10 @@ declare module "crypto" {
        * - `'deriveBits'` - The key may be used to derive bits.
        * - `'wrapKey'` - The key may be used to wrap another key.
        * - `'unwrapKey'` - The key may be used to unwrap another key.
+       * - `'encapsulateKey'` - The key may be used to encapsulate a shared key.
+       * - `'encapsulateBits'` - The key may be used to encapsulate shared bits.
+       * - `'decapsulateKey'` - The key may be used to decapsulate a shared key.
+       * - `'decapsulateBits'` - The key may be used to decapsulate shared bits.
        *
        * Valid key usages depend on the key algorithm (identified by `cryptokey.algorithm.name`).
        * @since v15.0.0
@@ -538,6 +546,14 @@ declare module "crypto" {
        * A {@link CryptoKey} whose type will be `'public'`.
        */
       publicKey: CryptoKey;
+    }
+    interface EncapsulatedBits {
+      ciphertext: ArrayBuffer;
+      sharedKey: ArrayBuffer;
+    }
+    interface EncapsulatedKey {
+      ciphertext: ArrayBuffer;
+      sharedKey: CryptoKey;
     }
 
     interface SubtleCrypto {
@@ -622,6 +638,19 @@ declare module "crypto" {
         extractable: boolean,
         keyUsages: readonly KeyUsage[]
       ): Promise<CryptoKey>;
+      decapsulateBits(
+        algorithm: AlgorithmIdentifier,
+        decapsulationKey: CryptoKey,
+        ciphertext: BufferSource
+      ): Promise<ArrayBuffer>;
+      decapsulateKey(
+        algorithm: AlgorithmIdentifier,
+        decapsulationKey: CryptoKey,
+        ciphertext: BufferSource,
+        sharedKeyAlgorithm: AlgorithmIdentifier,
+        extractable: boolean,
+        keyUsages: readonly KeyUsage[]
+      ): Promise<CryptoKey>;
       /**
        * Using the method identified by `algorithm`, `subtle.digest()` attempts to generate a digest of `data`.
        * If successful, the returned promise is resolved with an `<ArrayBuffer>` containing the computed digest.
@@ -646,6 +675,17 @@ declare module "crypto" {
         algorithm: AlgorithmIdentifier | CShakeParams | TurboShakeParams,
         data: BufferSource
       ): Promise<ArrayBuffer>;
+      encapsulateBits(
+        algorithm: AlgorithmIdentifier,
+        encapsulationKey: CryptoKey
+      ): Promise<EncapsulatedBits>;
+      encapsulateKey(
+        algorithm: AlgorithmIdentifier,
+        encapsulationKey: CryptoKey,
+        sharedKeyAlgorithm: AlgorithmIdentifier,
+        extractable: boolean,
+        keyUsages: readonly KeyUsage[]
+      ): Promise<EncapsulatedKey>;
       /**
        * Using the method and parameters specified by `algorithm` and the keying material provided by `key`,
        * `subtle.encrypt()` attempts to encipher `data`. If successful,
@@ -703,6 +743,9 @@ declare module "crypto" {
        * - `'ML-DSA-44'`
        * - `'ML-DSA-65'`
        * - `'ML-DSA-87'`
+       * - `'ML-KEM-512'`
+       * - `'ML-KEM-768'`
+       * - `'ML-KEM-1024'`
        * The `<CryptoKey>` (secret key) generating algorithms supported include:
        *
        * - `'HMAC'`

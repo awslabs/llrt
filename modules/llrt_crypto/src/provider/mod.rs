@@ -155,6 +155,23 @@ impl MlDsaVariant {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MlKemVariant {
+    MlKem512,
+    MlKem768,
+    MlKem1024,
+}
+
+impl MlKemVariant {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::MlKem512 => "ML-KEM-512",
+            Self::MlKem768 => "ML-KEM-768",
+            Self::MlKem1024 => "ML-KEM-1024",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub enum AesMode {

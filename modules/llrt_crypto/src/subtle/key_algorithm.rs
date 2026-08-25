@@ -30,7 +30,7 @@ use x25519_dalek::{PublicKey, StaticSecret};
 use crate::{
     hash::HashAlgorithm,
     provider::{
-        hmac_length_is_byte_aligned, parse_rsa_public_exponent, MlDsaVariant,
+        hmac_length_is_byte_aligned, parse_rsa_public_exponent, MlDsaVariant, MlKemVariant,
         MAX_HMAC_KEY_LENGTH_BITS,
     },
 };
@@ -56,6 +56,10 @@ pub enum KeyUsage {
     DeriveBits,
     WrapKey,
     UnwrapKey,
+    EncapsulateKey,
+    EncapsulateBits,
+    DecapsulateKey,
+    DecapsulateBits,
 }
 
 impl TryFrom<&str> for KeyUsage {
@@ -71,13 +75,17 @@ impl TryFrom<&str> for KeyUsage {
             "verify" => KeyUsage::Verify,
             "deriveKey" => KeyUsage::DeriveKey,
             "deriveBits" => KeyUsage::DeriveBits,
+            "encapsulateKey" => KeyUsage::EncapsulateKey,
+            "encapsulateBits" => KeyUsage::EncapsulateBits,
+            "decapsulateKey" => KeyUsage::DecapsulateKey,
+            "decapsulateBits" => KeyUsage::DecapsulateBits,
             _ => return Err(["Invalid key usage: ", s].concat()),
         })
     }
 }
 
 impl KeyUsage {
-    const CANONICAL_ORDER: [Self; 8] = [
+    const CANONICAL_ORDER: [Self; 12] = [
         Self::Encrypt,
         Self::Decrypt,
         Self::Sign,
@@ -86,6 +94,10 @@ impl KeyUsage {
         Self::DeriveBits,
         Self::WrapKey,
         Self::UnwrapKey,
+        Self::EncapsulateKey,
+        Self::EncapsulateBits,
+        Self::DecapsulateKey,
+        Self::DecapsulateBits,
     ];
 
     const fn as_str(self) -> &'static str {
@@ -98,6 +110,10 @@ impl KeyUsage {
             Self::DeriveBits => "deriveBits",
             Self::WrapKey => "wrapKey",
             Self::UnwrapKey => "unwrapKey",
+            Self::EncapsulateKey => "encapsulateKey",
+            Self::EncapsulateBits => "encapsulateBits",
+            Self::DecapsulateKey => "decapsulateKey",
+            Self::DecapsulateBits => "decapsulateBits",
         }
     }
 
@@ -184,12 +200,12 @@ impl KeyUsage {
         Ok(())
     }
 
-    const fn mask(self) -> u16 {
-        1 << self as u16
+    const fn mask(self) -> u32 {
+        1 << self as u32
     }
 }
 
-#[repr(u16)]
+#[repr(u32)]
 #[derive(Clone, Copy)]
 pub enum KeyUsageAlgorithm {
     //single mask algorithms (symmetric)
@@ -204,23 +220,27 @@ pub enum KeyUsageAlgorithm {
 
     // asymmetric derive algorithms - use high bits as private usages
     // ECDH/X25519
-    DeriveAsymmetric = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 8),
+    DeriveAsymmetric = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 16),
 
     // HKDF/PBKDF2
     DeriveSymmetric = KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask(),
 
-    RsaOaep = ((KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask()) << 8) //private
+    RsaOaep = ((KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask()) << 16) //private
     | KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask(), //public
 
     //ECDSA, ED25519, all non-OEAP RSA
-    Sign = (KeyUsage::Sign.mask() << 8) //private
+    Sign = (KeyUsage::Sign.mask() << 16) //private
         | KeyUsage::Verify.mask(), //public
+
+    MlKem = ((KeyUsage::DecapsulateKey.mask() | KeyUsage::DecapsulateBits.mask()) << 16)
+        | KeyUsage::EncapsulateKey.mask()
+        | KeyUsage::EncapsulateBits.mask(),
 }
 impl KeyUsageAlgorithm {
-    fn masks(&self) -> (u16, u16) {
-        let value = *self as u16;
-        let private_mask = value >> 8;
-        let public_mask = value & 0xFF;
+    fn masks(&self) -> (u32, u32) {
+        let value = *self as u32;
+        let private_mask = value >> 16;
+        let public_mask = value & 0xFFFF;
         (private_mask, public_mask)
     }
 
@@ -233,6 +253,7 @@ impl KeyUsageAlgorithm {
                 | Self::DeriveAsymmetric
                 | Self::DeriveSymmetric
                 | Self::Sign
+                | Self::MlKem
                 | Self::RsaOaep
         )
     }
@@ -319,6 +340,7 @@ pub enum KeyAlgorithm {
     },
     ChaCha20Poly1305,
     MlDsa(MlDsaVariant),
+    MlKem(MlKemVariant),
     Rsa {
         modulus_length: u32,
         public_exponent: Rc<Box<[u8]>>,
@@ -885,6 +907,122 @@ fn from_ml_dsa<'js>(
     Ok(KeyAlgorithm::MlDsa(variant))
 }
 
+fn from_ml_kem<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    variant: MlKemVariant,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        variant: MlKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        use crate::provider::modern;
+
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        match format {
+            KeyFormatData::RawPublic(bytes) => {
+                *data = modern::import_ml_kem_public_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::Spki(bytes) => {
+                *data = modern::import_ml_kem_public_key(variant, bytes.as_bytes(ctx)?, true)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::RawSeed(bytes) => {
+                *data = modern::import_ml_kem_private_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Pkcs8(bytes) => {
+                let bytes = bytes.as_bytes(ctx)?;
+                validate_ml_private_key_info(
+                    ctx,
+                    bytes,
+                    match variant {
+                        MlKemVariant::MlKem512 => "2.16.840.1.101.3.4.4.1",
+                        MlKemVariant::MlKem768 => "2.16.840.1.101.3.4.4.2",
+                        MlKemVariant::MlKem1024 => "2.16.840.1.101.3.4.4.3",
+                    },
+                    match variant {
+                        MlKemVariant::MlKem512 => 1632,
+                        MlKemVariant::MlKem768 => 2400,
+                        MlKemVariant::MlKem1024 => 3168,
+                    },
+                )?;
+                *data =
+                    modern::import_ml_kem_private_key(variant, bytes, true).or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "AKP")?;
+                validate_jwk_use(ctx, &object, false)?;
+                if get_jwk_required_string(ctx, &object, "alg")? != algorithm_name {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter does not match the algorithm",
+                    ));
+                }
+
+                let public_key = get_jwk_required_bytes(ctx, &object, "pub")?;
+                if let Some(seed) = get_jwk_optional_bytes(ctx, &object, "priv")? {
+                    *data = modern::import_ml_kem_private_key(variant, &seed, false)
+                        .or_throw_dom(ctx)?;
+                    let derived_public_key =
+                        modern::ml_kem_public_key(variant, data).or_throw_dom(ctx)?;
+                    if derived_public_key != public_key {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK public and private key values do not match",
+                        ));
+                    }
+                    *kind = KeyKind::Private;
+                } else {
+                    *data = modern::import_ml_kem_public_key(variant, &public_key, false)
+                        .or_throw_dom(ctx)?;
+                    *kind = KeyKind::Public;
+                }
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        }
+        Ok(Some(*kind))
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _variant: MlKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, variant)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::MlKem,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::MlKem(variant))
+}
+
 fn from_rsa<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
@@ -1105,6 +1243,7 @@ impl KeyAlgorithm {
                 "AES-KW" => "wrapKey",
                 "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
                 "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
+                "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" => "encapsulateKey",
                 _ => "sign",
             };
             synthetic_usages.set(0, usage)?;
@@ -1197,6 +1336,19 @@ impl KeyAlgorithm {
                     "ML-DSA-44" => MlDsaVariant::MlDsa44,
                     "ML-DSA-65" => MlDsaVariant::MlDsa65,
                     _ => MlDsaVariant::MlDsa87,
+                },
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" => from_ml_kem(
+                ctx,
+                mode,
+                algorithm_name,
+                match algorithm_name {
+                    "ML-KEM-512" => MlKemVariant::MlKem512,
+                    "ML-KEM-768" => MlKemVariant::MlKem768,
+                    _ => MlKemVariant::MlKem1024,
                 },
                 &usages,
                 &mut private_usages,

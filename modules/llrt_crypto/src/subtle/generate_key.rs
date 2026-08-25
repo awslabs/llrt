@@ -109,6 +109,8 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
             .or_throw_dom_with_msg(ctx, "X25519 key generation failed"),
         KeyAlgorithm::MlDsa(variant) => modern::generate_ml_dsa_key(*variant)
             .or_throw_dom_with_msg(ctx, "ML-DSA key generation failed"),
+        KeyAlgorithm::MlKem(variant) => modern::generate_ml_kem_key(*variant)
+            .or_throw_dom_with_msg(ctx, "ML-KEM key generation failed"),
         KeyAlgorithm::Rsa {
             modulus_length,
             public_exponent,
