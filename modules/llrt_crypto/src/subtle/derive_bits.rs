@@ -12,6 +12,7 @@ use super::{
     algorithm_invalid_access_error, algorithm_mismatch_error,
     crypto_key::{CryptoKey, KeyKind},
     derive_algorithm::DeriveAlgorithm,
+    enforce_range_u32,
     key_algorithm::{EcAlgorithm, KeyAlgorithm, KeyDerivation},
     util::ResultDomExt,
     EllipticCurve,
@@ -203,9 +204,7 @@ fn parse_derive_bits_length<'js>(
         None => Ok(DeriveBitsLength::Default),
         Some(value) if value.is_null() || value.is_undefined() => Ok(DeriveBitsLength::Default),
         Some(value) => {
-            let length = u32::from_js(ctx, value)
-                .map_err(|_| DOMException::operation_error(ctx, "Invalid length"))?;
-
+            let length = enforce_range_u32(ctx, value, "length")?;
             Ok(DeriveBitsLength::Specified(length))
         },
     }

@@ -4,7 +4,10 @@ use llrt_exceptions::DOMException;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Ctx, Exception, FromJs, Result, Value};
 
-use super::{algorithm_not_supported_error, normalize_algorithm_name, to_name_and_maybe_object};
+use super::{
+    algorithm_not_supported_error, enforce_range_u8, get_optional_dictionary_value,
+    get_required_dictionary_value, normalize_algorithm_name, to_name_and_maybe_object,
+};
 
 #[derive(Debug)]
 pub enum EncryptionAlgorithm {
@@ -55,7 +58,8 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                     .into_bytes(ctx)?
                     .into_boxed_slice();
 
-                let length = obj.get_required::<_, u32>("length", "algorithm")?;
+                let value = get_required_dictionary_value(&obj, "length", "algorithm")?;
+                let length = u32::from(enforce_range_u8(ctx, value, "length")?);
 
                 if !matches!(length, 32 | 64 | 128) {
                     return Err(DOMException::operation_error(
@@ -87,7 +91,10 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                     .transpose()?
                     .map(|vec| vec.into_boxed_slice());
 
-                let tag_length = obj.get_optional::<_, u8>("tagLength")?.unwrap_or(128);
+                let tag_length = get_optional_dictionary_value(&obj, "tagLength")?
+                    .map(|value| enforce_range_u8(ctx, value, "tagLength"))
+                    .transpose()?
+                    .unwrap_or(128);
 
                 //ensure tag length is supported using a match statement 32, 64, 96, 104, 112, 120, or 128
                 if !matches!(tag_length, 32 | 64 | 96 | 104 | 112 | 120 | 128) {

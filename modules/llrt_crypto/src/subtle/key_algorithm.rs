@@ -32,7 +32,8 @@ use super::{algorithm_mismatch_error, util::DataError};
 use super::{
     algorithm_not_supported_error,
     crypto_key::KeyKind,
-    normalize_algorithm_name, to_name_and_maybe_object,
+    enforce_range_u16, enforce_range_u32, get_required_dictionary_value, normalize_algorithm_name,
+    to_name_and_maybe_object,
     util::{NotSupportedError, ResultDomExt},
     EllipticCurve,
 };
@@ -234,7 +235,8 @@ impl KeyDerivation {
             .into_bytes(ctx)?
             .into_boxed_slice();
 
-        let iterations = obj.get_required("iterations", "algorithm")?;
+        let value = get_required_dictionary_value(&obj, "iterations", "algorithm")?;
+        let iterations = enforce_range_u32(ctx, value, "iterations")?;
         Ok(KeyDerivation::Pbkdf2 {
             hash,
             salt,
@@ -465,7 +467,8 @@ fn from_aes<'js>(
                 import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
             Ok((length, Some(*kind)))
         } else {
-            let length: u16 = obj?.get_required("length", "algorithm")?;
+            let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
+            let length = enforce_range_u16(ctx, value, "length")?;
             Ok((length, None))
         }
     }
@@ -473,12 +476,13 @@ fn from_aes<'js>(
     #[cfg(not(feature = "_subtle-full"))]
     #[inline]
     fn import<'js>(
-        _ctx: &Ctx<'js>,
+        ctx: &Ctx<'js>,
         _mode: KeyAlgorithmMode<'_, 'js>,
         obj: Result<Object<'js>>,
         _algorithm_name: &str,
     ) -> Result<(u16, Option<KeyKind>)> {
-        let length: u16 = obj?.get_required("length", "algorithm")?;
+        let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
+        let length = enforce_range_u16(ctx, value, "length")?;
         Ok((length, None))
     }
 
@@ -619,7 +623,8 @@ fn from_rsa<'js>(
             let (mod_length, exp) = import_rsa_key(ctx, format, kind, data, algorithm_name, hash)?;
             Ok((mod_length, exp, Some(*kind)))
         } else {
-            let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+            let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
+            let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
             let public_exponent: TypedArray<u8> =
                 obj.get_required("publicExponent", "algorithm")?;
             let public_exponent = public_exponent
@@ -642,7 +647,8 @@ fn from_rsa<'js>(
         _algorithm_name: &str,
         _hash: &HashAlgorithm,
     ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
-        let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+        let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
+        let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
         let public_exponent: TypedArray<u8> = obj.get_required("publicExponent", "algorithm")?;
         let public_exponent = public_exponent
             .as_bytes()

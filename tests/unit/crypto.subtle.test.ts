@@ -116,6 +116,175 @@ fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
     }
   });
 
+  it("enforces key generation integer ranges", async () => {
+    for (const length of [128 + 2 ** 16, 128 - 2 ** 16]) {
+      await expect(
+        crypto.subtle.generateKey({ name: "AES-GCM", length }, false, [
+          "encrypt",
+        ])
+      ).rejects.toThrow(TypeError);
+    }
+
+    await expect(
+      crypto.subtle.generateKey(
+        {
+          name: "RSA-PSS",
+          modulusLength: 1024 + 2 ** 32,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        false,
+        ["sign"]
+      )
+    ).rejects.toThrow(TypeError);
+
+    for (const length of [128.9, "128" as unknown as number]) {
+      const key = (await crypto.subtle.generateKey(
+        { name: "AES-GCM", length },
+        false,
+        ["encrypt"]
+      )) as webcrypto.CryptoKey;
+      expect((key.algorithm as webcrypto.AesKeyAlgorithm).length).toBe(128);
+    }
+  });
+
+  it("enforces operation integer ranges", async () => {
+    const hmacKey = (await crypto.subtle.generateKey(
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    )) as webcrypto.CryptoKey;
+
+    await expect(
+      crypto.subtle.sign(
+        { name: "RSA-PSS", saltLength: 32 + 2 ** 32 },
+        hmacKey,
+        ENCODED_DATA
+      )
+    ).rejects.toThrow(TypeError);
+
+    const pbkdf2Key = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array([1]),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    await expect(
+      crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          hash: "SHA-256",
+          salt: new Uint8Array(),
+          iterations: 1 + 2 ** 32,
+        },
+        pbkdf2Key,
+        8
+      )
+    ).rejects.toThrow(TypeError);
+  });
+
+  it("converts null WebIDL integer members to zero", async () => {
+    const aesKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      false,
+      ["encrypt"]
+    );
+    await expect(
+      crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: new Uint8Array(12),
+          tagLength: null as unknown as number,
+        },
+        aesKey,
+        new Uint8Array()
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+
+    await expect(
+      crypto.subtle.generateKey(
+        { name: "AES-GCM", length: null as unknown as number },
+        false,
+        ["encrypt"]
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+
+    const aesCtrKey = await crypto.subtle.generateKey(
+      { name: "AES-CTR", length: 128 },
+      false,
+      ["encrypt"]
+    );
+    await expect(
+      crypto.subtle.encrypt(
+        {
+          name: "AES-CTR",
+          counter: new Uint8Array(16),
+          length: null as unknown as number,
+        },
+        aesCtrKey,
+        new Uint8Array()
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+
+    await expect(
+      crypto.subtle.generateKey(
+        {
+          name: "RSA-PSS",
+          modulusLength: null as unknown as number,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        false,
+        ["sign"]
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+
+    const rsaKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "RSA-PSS",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      false,
+      ["sign", "verify"]
+    );
+    const signature = await crypto.subtle.sign(
+      { name: "RSA-PSS", saltLength: null as unknown as number },
+      rsaKeyPair.privateKey,
+      new Uint8Array()
+    );
+    await expect(
+      crypto.subtle.verify(
+        { name: "RSA-PSS", saltLength: 0 },
+        rsaKeyPair.publicKey,
+        signature,
+        new Uint8Array()
+      )
+    ).resolves.toBe(true);
+
+    const pbkdf2Key = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array([1]),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    await expect(
+      crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          hash: "SHA-256",
+          salt: new Uint8Array(),
+          iterations: null as unknown as number,
+        },
+        pbkdf2Key,
+        8
+      )
+    ).rejects.toHaveProperty("name", "OperationError");
+  });
+
   it("enforces RSA-PSS salt length limits", async () => {
     const { publicKey, privateKey } = await crypto.subtle.generateKey(
       {
@@ -434,6 +603,40 @@ fullCrypto("SubtleCrypto generateKey/encrypt/decrypt", () => {
         expect(result).toEqual(TEST_MESSAGE);
       }
     }
+  });
+
+  it("enforces AES operation octet ranges", async () => {
+    const key = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      false,
+      ["encrypt"]
+    );
+
+    await expect(
+      crypto.subtle.encrypt(
+        { name: "AES-CTR", counter: new Uint8Array(16), length: 32 + 2 ** 8 },
+        key,
+        new Uint8Array()
+      )
+    ).rejects.toThrow(TypeError);
+    await expect(
+      crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: new Uint8Array(12), tagLength: 128 + 2 ** 8 },
+        key,
+        new Uint8Array()
+      )
+    ).rejects.toThrow(TypeError);
+
+    const ciphertext = await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: new Uint8Array(12),
+        tagLength: "128" as unknown as number,
+      },
+      key,
+      new Uint8Array()
+    );
+    expect(ciphertext.byteLength).toBe(16);
   });
 
   it("should be processing AES-GCM algorithm", async () => {
@@ -853,6 +1056,26 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
         8,
       ])
     );
+  });
+
+  it("enforces the deriveBits unsigned long range", async () => {
+    const keyPair = await crypto.subtle.generateKey("X25519", false, [
+      "deriveBits",
+    ]);
+    const algorithm = { name: "X25519", public: keyPair.publicKey };
+
+    for (const length of [NaN, Infinity, -8, 2 ** 32 + 8]) {
+      await expect(
+        crypto.subtle.deriveBits(algorithm, keyPair.privateKey, length)
+      ).rejects.toThrow(TypeError);
+    }
+
+    const result = await crypto.subtle.deriveBits(
+      algorithm,
+      keyPair.privateKey,
+      -0.9
+    );
+    expect(result.byteLength).toBe(0);
   });
 
   it("should be processing ECDH algorithm", async () => {
