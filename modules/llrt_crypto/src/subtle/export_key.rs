@@ -4,7 +4,8 @@
 //! Unified key export implementation using CryptoProvider trait.
 
 use llrt_encoding::bytes_to_b64_url_safe_string;
-use rquickjs::{ArrayBuffer, Class, Ctx, Exception, Object, Result};
+use llrt_exceptions::DOMException;
+use rquickjs::{ArrayBuffer, Class, Ctx, Object, Result};
 
 use crate::provider::CryptoProvider;
 use crate::CRYPTO_PROVIDER;
@@ -17,9 +18,9 @@ use super::{
 };
 
 pub fn algorithm_export_error<T>(ctx: &Ctx<'_>, algorithm: &str, format: &str) -> Result<T> {
-    Err(Exception::throw_message(
+    Err(DOMException::not_supported_error(
         ctx,
-        &["Export of ", algorithm, " as ", format, " is not supported"].concat(),
+        ["Export of ", algorithm, " as ", format, " is not supported"].concat(),
     ))
 }
 
@@ -46,8 +47,14 @@ pub fn export_key<'js>(
     format: KeyFormat,
     key: &CryptoKey,
 ) -> Result<ExportOutput<'js>> {
+    if matches!(
+        key.algorithm,
+        KeyAlgorithm::HkdfImport | KeyAlgorithm::Pbkdf2Import
+    ) {
+        return algorithm_export_error(ctx, &key.name, format.as_str());
+    }
     if !key.extractable {
-        return Err(Exception::throw_type(
+        return Err(DOMException::invalid_access_error(
             ctx,
             "The CryptoKey is non extractable",
         ));
@@ -62,10 +69,13 @@ pub fn export_key<'js>(
 }
 
 fn export_raw(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
+    if matches!(key.algorithm, KeyAlgorithm::Rsa { .. }) {
+        return algorithm_export_error(ctx, &key.name, "raw");
+    }
     if key.kind == KeyKind::Private {
-        return Err(Exception::throw_type(
+        return Err(DOMException::invalid_access_error(
             ctx,
-            "Private Crypto keys can't be exported as raw format",
+            "Raw export requires a public or secret key",
         ));
     }
     match &key.algorithm {
@@ -79,18 +89,18 @@ fn export_raw(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_public_key_raw(&key.handle, false)
             .or_throw_dom(ctx),
-        KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
-            .export_rsa_public_key_pkcs1(&key.handle)
-            .or_throw_dom(ctx),
         _ => algorithm_export_error(ctx, &key.name, "raw"),
     }
 }
 
 fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
+    if !supports_der_export(&key.name) {
+        return algorithm_export_error(ctx, &key.name, "pkcs8");
+    }
     if key.kind != KeyKind::Private {
-        return Err(Exception::throw_type(
+        return Err(DOMException::invalid_access_error(
             ctx,
-            "Public or Secret Crypto keys can't be exported as pkcs8 format",
+            "PKCS8 export requires a private key",
         ));
     }
     match &key.algorithm {
@@ -117,10 +127,13 @@ fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
 }
 
 fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
+    if !supports_der_export(&key.name) {
+        return algorithm_export_error(ctx, &key.name, "spki");
+    }
     if key.kind != KeyKind::Public {
-        return Err(Exception::throw_type(
+        return Err(DOMException::invalid_access_error(
             ctx,
-            "Private or Secret Crypto keys can't be exported as spki format",
+            "SPKI export requires a public key",
         ));
     }
     match &key.algorithm {
@@ -138,6 +151,13 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
             .or_throw_dom(ctx),
         _ => algorithm_export_error(ctx, &key.name, "spki"),
     }
+}
+
+fn supports_der_export(name: &str) -> bool {
+    matches!(
+        name,
+        "ECDH" | "ECDSA" | "Ed25519" | "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" | "X25519"
+    )
 }
 
 fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {

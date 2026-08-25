@@ -1536,6 +1536,79 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
 });
 
 fullCrypto("SubtileCrypto import/export", () => {
+  it("uses spec exportKey exception ordering", async () => {
+    const { privateKey, publicKey } = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      true,
+      ["sign"]
+    );
+    await expect(
+      crypto.subtle.exportKey("spki", privateKey)
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+    await expect(
+      crypto.subtle.exportKey("raw", privateKey)
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+    await expect(
+      crypto.subtle.exportKey("pkcs8", publicKey)
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+
+    const nonExtractableKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 128 },
+      false,
+      ["encrypt"]
+    );
+    await expect(
+      crypto.subtle.exportKey("raw", nonExtractableKey)
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+
+    const derivationKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array(),
+      "HKDF",
+      false,
+      ["deriveBits"]
+    );
+    await expect(
+      crypto.subtle.exportKey("raw", derivationKey)
+    ).rejects.toHaveProperty("name", "NotSupportedError");
+
+    for (const key of [
+      await crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 128 },
+        true,
+        ["encrypt"]
+      ),
+      await crypto.subtle.generateKey(
+        { name: "HMAC", hash: "SHA-256" },
+        true,
+        ["sign"]
+      ),
+    ]) {
+      await expect(
+        crypto.subtle.exportKey("spki", key)
+      ).rejects.toHaveProperty("name", "NotSupportedError");
+      await expect(
+        crypto.subtle.exportKey("pkcs8", key)
+      ).rejects.toHaveProperty("name", "NotSupportedError");
+    }
+
+    const rsaKeyPair = await crypto.subtle.generateKey(
+      {
+        name: "RSA-PSS",
+        modulusLength: 1024,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["sign", "verify"]
+    );
+    for (const key of [rsaKeyPair.publicKey, rsaKeyPair.privateKey]) {
+      await expect(
+        crypto.subtle.exportKey("raw", key)
+      ).rejects.toHaveProperty("name", "NotSupportedError");
+    }
+  });
+
   it("rejects importing a non-extractable JWK as extractable", async () => {
     const jwk = {
       kty: "oct",
