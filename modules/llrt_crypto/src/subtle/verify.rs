@@ -3,6 +3,7 @@
 use std::future::Future;
 
 use crate::provider::{CryptoError, CryptoProvider, HmacProvider};
+use ctutils::CtEq;
 use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{Class, Ctx, FromJs, Result, Value};
 
@@ -117,7 +118,7 @@ fn verify(
             hmac.update(data);
             let computed_signature = hmac.finalize();
 
-            computed_signature == signature
+            computed_signature.as_slice().ct_eq(signature).to_bool()
         },
         SigningAlgorithm::RsaPss { salt_length } => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSA-PSS")?;
