@@ -901,3 +901,212 @@ describe("SubtleCrypto.getPublicKey", () => {
     ).rejects.toHaveProperty("name", "NotSupportedError");
   });
 });
+
+describe("SubtleCrypto.supports", () => {
+  const supports = crypto.subtle.constructor.supports;
+
+  it("applies WebIDL conversions before checking support", () => {
+    expect(supports(1 as unknown as string, "SHA-256")).toBe(false);
+    expect(supports(null as unknown as string, "SHA-256")).toBe(false);
+    expect(() => supports("digest", Symbol() as unknown as string)).toThrow(
+      TypeError
+    );
+  });
+
+  it("reports unsupported operations and incomplete deriveKey calls", () => {
+    expect(supports("unknown", { name: "AES-GCM", length: 128 })).toBe(false);
+    expect(supports("deriveKey", "HKDF")).toBe(false);
+  });
+
+  it("reports modern algorithms and methods", () => {
+    expect(supports("digest", "SHA3-256")).toBe(true);
+    expect(supports("digest", { name: "cSHAKE128", outputLength: 256 })).toBe(
+      true
+    );
+    expect(
+      supports("encrypt", {
+        name: "ChaCha20-Poly1305",
+        iv: new Uint8Array(12),
+      })
+    ).toBe(true);
+    expect(
+      supports("encrypt", { name: "AES-GCM", iv: new Uint8Array(12) })
+    ).toBe(true);
+    expect(supports("sign", "ML-DSA-44")).toBe(true);
+    expect(supports("encapsulateBits", "ML-KEM-768")).toBe(true);
+    expect(supports("decapsulateBits", "MLKEM768-X25519")).toBe(true);
+    expect(supports("getPublicKey", "ML-DSA-44")).toBe(true);
+    expect(supports("digest", "unknown")).toBe(false);
+  });
+
+  it("reports only 96-bit AES-GCM IVs as supported", () => {
+    for (const operation of ["encrypt", "decrypt", "wrapKey", "unwrapKey"]) {
+      expect(
+        supports(operation, { name: "AES-GCM", iv: new Uint8Array(12) })
+      ).toBe(true);
+      for (const length of [0, 1, 16, 32]) {
+        expect(
+          supports(operation, {
+            name: "AES-GCM",
+            iv: new Uint8Array(length),
+          })
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("checks the additional algorithm for key wrapping", () => {
+    expect(supports("wrapKey", "AES-KW")).toBe(true);
+    expect(supports("wrapKey", "AES-KW", 7)).toBe(true);
+    expect(supports("wrapKey", "AES-KW", "HMAC")).toBe(true);
+    expect(supports("wrapKey", "AES-KW", "HKDF")).toBe(false);
+  });
+
+  it("checks the additional algorithm for key unwrapping", () => {
+    expect(supports("unwrapKey", "AES-KW")).toBe(true);
+    expect(
+      supports("unwrapKey", "AES-KW", {
+        name: "HMAC",
+        hash: "SHA-256",
+      })
+    ).toBe(true);
+    expect(supports("unwrapKey", "AES-KW", "HMAC")).toBe(false);
+  });
+
+  it("checks shared-key algorithms for key encapsulation", () => {
+    expect(supports("encapsulateKey", "ML-KEM-512")).toBe(true);
+    expect(supports("decapsulateKey", "ML-KEM-512")).toBe(true);
+    expect(
+      supports("encapsulateKey", "ML-KEM-512", {
+        name: "AES-GCM",
+        length: 256,
+      })
+    ).toBe(true);
+    expect(supports("encapsulateKey", "ML-KEM-512", "ECDSA")).toBe(false);
+  });
+
+  it("rejects null BufferSource parameters", () => {
+    expect(supports("encrypt", { name: "RSA-OAEP", label: null })).toBe(false);
+  });
+
+  it("enforces deriveBits length range", () => {
+    expect(() =>
+      supports(
+        "deriveBits",
+        {
+          name: "HKDF",
+          hash: "SHA-256",
+          salt: new Uint8Array(),
+          info: new Uint8Array(),
+        },
+        2 ** 32
+      )
+    ).toThrow(TypeError);
+    expect(() => supports("digest", "SHA-256", 2 ** 32)).toThrow(TypeError);
+  });
+
+  it("reports RustCrypto RSA generation limits", () => {
+    const algorithm = {
+      name: "RSA-PSS",
+      hash: "SHA-256",
+      publicExponent: new Uint8Array([1, 0, 1]),
+    };
+    expect(supports("generateKey", { ...algorithm, modulusLength: 512 })).toBe(
+      false
+    );
+    expect(supports("generateKey", { ...algorithm, modulusLength: 1024 })).toBe(
+      true
+    );
+    expect(
+      supports("generateKey", { name: "HMAC", hash: "SHA-256", length: 1024 })
+    ).toBe(true);
+    for (const length of [1025, 1032]) {
+      expect(
+        supports("generateKey", { name: "HMAC", hash: "SHA-256", length })
+      ).toBe(false);
+    }
+    expect(
+      supports("importKey", { name: "HMAC", hash: "SHA-256", length: 127 })
+    ).toBe(false);
+  });
+
+  it("supports deriving X25519 secrets into HKDF keys", async () => {
+    const alice = await crypto.subtle.generateKey("X25519", false, [
+      "deriveKey",
+    ]);
+    const bob = await crypto.subtle.generateKey("X25519", false, ["deriveKey"]);
+    expect(
+      supports("deriveKey", { name: "X25519", public: bob.publicKey }, "HKDF")
+    ).toBe(true);
+    expect(
+      supports(
+        "deriveBits",
+        { name: "X25519", public: bob.publicKey },
+        "AES-GCM"
+      )
+    ).toBe(true);
+    expect(alice.privateKey.algorithm.name).toBe("X25519");
+  });
+
+  it("rejects incompatible ECDH public keys", async () => {
+    const ecdsa = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["verify"]
+    );
+    const source = { name: "ECDH", public: ecdsa.publicKey };
+    expect(supports("deriveBits", source, 256)).toBe(false);
+    expect(
+      supports("deriveKey", source, { name: "AES-GCM", length: 128 })
+    ).toBe(false);
+  });
+
+  it("checks KDF-derived HMAC length constraints", () => {
+    for (const source of [
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: new Uint8Array(),
+        info: new Uint8Array(),
+      },
+      {
+        name: "PBKDF2",
+        hash: "SHA-256",
+        salt: new Uint8Array(),
+        iterations: 1,
+      },
+    ]) {
+      expect(
+        supports("deriveKey", source, {
+          name: "HMAC",
+          hash: "SHA-256",
+          length: 512,
+        })
+      ).toBe(true);
+      for (const length of [513, 1096]) {
+        expect(
+          supports("deriveKey", source, {
+            name: "HMAC",
+            hash: "SHA-256",
+            length,
+          })
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("reports zero PBKDF2 iterations as unsupported", () => {
+    expect(
+      supports(
+        "deriveBits",
+        {
+          name: "PBKDF2",
+          hash: "SHA-256",
+          salt: new Uint8Array(),
+          iterations: 0,
+        },
+        8
+      )
+    ).toBe(false);
+  });
+});

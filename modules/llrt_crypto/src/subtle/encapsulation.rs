@@ -18,7 +18,7 @@ use super::{
 };
 
 #[derive(Clone, Copy)]
-enum EncapsulationAlgorithm {
+pub(super) enum EncapsulationAlgorithm {
     MlKem(MlKemVariant),
     HybridKem(HybridKemVariant),
 }
@@ -28,6 +28,12 @@ impl EncapsulationAlgorithm {
         match self {
             Self::MlKem(variant) => variant.name(),
             Self::HybridKem(variant) => variant.name(),
+        }
+    }
+
+    pub(super) const fn shared_key_length(self) -> usize {
+        match self {
+            Self::MlKem(_) | Self::HybridKem(_) => 32,
         }
     }
 
@@ -55,7 +61,7 @@ impl EncapsulationAlgorithm {
     }
 }
 
-fn normalize_encapsulation_algorithm<'js>(
+pub(super) fn normalize_encapsulation_algorithm<'js>(
     ctx: &Ctx<'js>,
     value: Value<'js>,
 ) -> Result<EncapsulationAlgorithm> {

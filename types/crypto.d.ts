@@ -555,8 +555,22 @@ declare module "crypto" {
       ciphertext: ArrayBuffer;
       sharedKey: CryptoKey;
     }
+    interface SubtleCryptoConstructor {
+      readonly prototype: SubtleCrypto;
+      supports(
+        operation: string,
+        algorithm: AlgorithmIdentifier,
+        length?: number | null
+      ): boolean;
+      supports(
+        operation: string,
+        algorithm: AlgorithmIdentifier,
+        additionalAlgorithm: AlgorithmIdentifier
+      ): boolean;
+    }
 
     interface SubtleCrypto {
+      readonly constructor: SubtleCryptoConstructor;
       /**
        * Using the method and parameters specified in `algorithm` and the keying material provided by `key`,
        * `subtle.decrypt()` attempts to decipher the provided `data`. If successful,

@@ -146,6 +146,14 @@ fn prepare_digest<'js>(
     Ok((algorithm, input))
 }
 
+pub(super) fn supports_digest_algorithm<'js>(
+    ctx: &Ctx<'js>,
+    algorithm: Value<'js>,
+) -> Result<bool> {
+    prepare_digest(ctx, algorithm, ObjectBytes::Vec(Vec::new()))?;
+    Ok(true)
+}
+
 fn required_object<'js>(ctx: &Ctx<'js>, object: Option<Object<'js>>) -> Result<Object<'js>> {
     object.ok_or_else(|| rquickjs::Exception::throw_type(ctx, "algorithm must be an object"))
 }

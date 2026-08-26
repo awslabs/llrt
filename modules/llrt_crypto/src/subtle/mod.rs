@@ -17,6 +17,7 @@ mod import_key;
 mod key_algorithm;
 mod sign;
 mod sign_algorithm;
+mod supports;
 mod util;
 mod verify;
 #[cfg(feature = "_subtle-full")]
@@ -41,6 +42,7 @@ pub use import_key::subtle_import_key;
 #[cfg(feature = "_subtle-full")]
 use key_algorithm::KeyAlgorithm;
 pub use sign::subtle_sign;
+use supports::subtle_supports;
 pub use verify::subtle_verify;
 #[cfg(feature = "_subtle-full")]
 pub use wrapping::subtle_unwrap_key;
@@ -87,6 +89,16 @@ impl SubtleCrypto {
         usages: rquickjs::Array<'js>,
     ) -> Result<rquickjs::Class<'js, CryptoKey<'js>>> {
         subtle_get_public_key(ctx, key, usages).await
+    }
+
+    #[qjs(static)]
+    pub fn supports<'js>(
+        ctx: Ctx<'js>,
+        operation: Coerced<String>,
+        algorithm: Value<'js>,
+        additional: rquickjs::prelude::Opt<Value<'js>>,
+    ) -> Result<bool> {
+        subtle_supports(ctx, operation, algorithm, additional)
     }
 }
 
