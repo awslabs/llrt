@@ -863,7 +863,7 @@ impl KeyAlgorithm {
             ));
         }
         let usages = if mode == KeyAlgorithmMode::Derive
-            || (mode == KeyAlgorithmMode::ValidateImport && usages.len() == 0)
+            || (mode == KeyAlgorithmMode::ValidateImport && usages.is_empty())
         {
             let synthetic_usages = Array::new(ctx.clone())?;
             let usage = match name.as_str() {
