@@ -33,9 +33,9 @@ use crate::{
 };
 
 #[cfg(feature = "_subtle-full")]
-use super::{algorithm_mismatch_error, util::DataError};
+use super::util::DataError;
 use super::{
-    algorithm_not_supported_error,
+    algorithm_mismatch_error, algorithm_not_supported_error,
     crypto_key::KeyKind,
     enforce_range_u16, enforce_range_u32, get_optional_dictionary_value,
     get_required_dictionary_value, normalize_algorithm_name, to_name_and_maybe_object,
@@ -484,7 +484,6 @@ fn from_aes<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
@@ -505,22 +504,6 @@ fn from_aes<'js>(
                 Ok((length, None))
             },
         }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
-        _algorithm_name: &str,
-    ) -> Result<(u16, Option<KeyKind>)> {
-        if matches!(mode, KeyAlgorithmMode::ValidateImport) {
-            return Ok((128, None));
-        }
-        let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
-        let length = enforce_range_u16(ctx, value, "length")?;
-        Ok((length, None))
     }
 
     let (length, key_kind) = import(ctx, mode, obj, algorithm_name)?;
@@ -622,7 +605,6 @@ fn from_hmac<'js>(
         },
     };
 
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
@@ -654,18 +636,6 @@ fn from_hmac<'js>(
         } else {
             Ok(None)
         }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        _ctx: &Ctx<'js>,
-        _mode: KeyAlgorithmMode<'_, 'js>,
-        _algorithm_name: &str,
-        _hash: &HashAlgorithm,
-        _length: &mut Option<u32>,
-    ) -> Result<Option<KeyKind>> {
-        Ok(None)
     }
 
     let key_kind = import(ctx, mode, algorithm_name, &hash, &mut length)?;
@@ -798,12 +768,11 @@ fn from_hkdf<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
+        _obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
@@ -811,34 +780,7 @@ fn from_hkdf<'js>(
                 import_derive_key(ctx, format, kind, data, algorithm_name)?;
                 Ok((KeyAlgorithm::HkdfImport, Some(*kind)))
             },
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
-                    None,
-                ))
-            },
-            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::HkdfImport, None)),
-            _ => algorithm_not_supported_error(ctx),
-        }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
-        _algorithm_name: &str,
-    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
-        match mode {
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
-                    None,
-                ))
-            },
+            KeyAlgorithmMode::Derive => Ok((KeyAlgorithm::HkdfImport, None)),
             KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::HkdfImport, None)),
             _ => algorithm_not_supported_error(ctx),
         }
@@ -867,12 +809,11 @@ fn from_pbkdf2<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
+        _obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
@@ -880,34 +821,7 @@ fn from_pbkdf2<'js>(
                 import_derive_key(ctx, format, kind, data, algorithm_name)?;
                 Ok((KeyAlgorithm::Pbkdf2Import, Some(*kind)))
             },
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
-                    None,
-                ))
-            },
-            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::Pbkdf2Import, None)),
-            _ => algorithm_not_supported_error(ctx),
-        }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
-        _algorithm_name: &str,
-    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
-        match mode {
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
-                    None,
-                ))
-            },
+            KeyAlgorithmMode::Derive => Ok((KeyAlgorithm::Pbkdf2Import, None)),
             KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::Pbkdf2Import, None)),
             _ => algorithm_not_supported_error(ctx),
         }
@@ -934,17 +848,23 @@ impl KeyAlgorithm {
         value: Value<'js>,
         usages: Array<'js>,
     ) -> Result<KeyAlgorithmWithUsages> {
-        // When _subtle-full is not enabled, Import mode is not supported
+        let (name, obj) = to_name_and_maybe_object(ctx, value)?;
+        let name = normalize_algorithm_name(&name);
         #[cfg(not(feature = "_subtle-full"))]
-        if matches!(mode, KeyAlgorithmMode::Import { .. }) {
+        if matches!(mode, KeyAlgorithmMode::Import { .. })
+            && !matches!(
+                name.as_str(),
+                "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" | "HMAC" | "HKDF" | "PBKDF2"
+            )
+        {
             return Err(DOMException::not_supported_error(
                 ctx,
                 "Key import is not supported with this crypto provider",
             ));
         }
-        let (name, obj) = to_name_and_maybe_object(ctx, value)?;
-        let name = normalize_algorithm_name(&name);
-        let usages = if mode == KeyAlgorithmMode::ValidateImport && usages.len() == 0 {
+        let usages = if mode == KeyAlgorithmMode::Derive
+            || (mode == KeyAlgorithmMode::ValidateImport && usages.len() == 0)
+        {
             let synthetic_usages = Array::new(ctx.clone())?;
             let usage = match name.as_str() {
                 "AES-KW" => "wrapKey",
@@ -1150,7 +1070,6 @@ impl KeyAlgorithm {
     }
 }
 
-#[cfg(feature = "_subtle-full")]
 fn import_derive_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -1291,18 +1210,18 @@ fn import_rsa_key<'js>(
     Ok((modulus_length as u32, public_exponent))
 }
 
-#[cfg(feature = "_subtle-full")]
 fn import_symmetric_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
-    hash: Option<&HashAlgorithm>,
+    _hash: Option<&HashAlgorithm>,
 ) -> Result<usize> {
     *kind = KeyKind::Secret;
 
     match format {
+        #[cfg(feature = "_subtle-full")]
         KeyFormatData::Jwk(object) => {
             validate_jwk_kty(ctx, &object, "oct")?;
 
@@ -1311,7 +1230,7 @@ fn import_symmetric_key<'js>(
 
             let prefix = &alg[..1];
 
-            match (prefix, hash) {
+            match (prefix, _hash) {
                 //HMAC - HS256, HS512 etc
                 ("H", Some(hash)) => {
                     if &alg[2..] != hash.as_numeric_str() {

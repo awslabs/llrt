@@ -1216,6 +1216,43 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
     expect(result.byteLength).toBe(0);
   });
 
+  it("derives X25519 secrets into KDF keys", async () => {
+    for (const target of ["HKDF", "PBKDF2"] as const) {
+      const alice = await crypto.subtle.generateKey("X25519", false, [
+        "deriveKey",
+      ]);
+      const bob = await crypto.subtle.generateKey("X25519", false, [
+        "deriveKey",
+      ]);
+      const key = await crypto.subtle.deriveKey(
+        { name: "X25519", public: bob.publicKey },
+        alice.privateKey,
+        target,
+        false,
+        ["deriveBits"]
+      );
+
+      expect(key.algorithm.name).toBe(target);
+      const parameters =
+        target === "HKDF"
+          ? {
+              name: target,
+              hash: "SHA-256",
+              salt: new Uint8Array(),
+              info: new Uint8Array(),
+            }
+          : {
+              name: target,
+              hash: "SHA-256",
+              salt: new Uint8Array(),
+              iterations: 1,
+            };
+      expect(
+        await crypto.subtle.deriveBits(parameters, key, 256)
+      ).toBeInstanceOf(ArrayBuffer);
+    }
+  });
+
   it("should be processing ECDH algorithm", async () => {
     const keyLengths = [128, 192, 256];
     const algorithms = ["AES-CBC", "AES-CTR", "AES-GCM"];
@@ -1398,6 +1435,62 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
         ["sign"]
       )
     ).rejects.toThrow(TypeError);
+  });
+
+  it("defers derived-key usage validation until after derivation", async () => {
+    const parameters = {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(),
+      info: new Uint8Array(),
+    };
+    const invalidBaseKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array([1]),
+      "HKDF",
+      false,
+      ["deriveBits"]
+    );
+    const validBaseKey = await crypto.subtle.importKey(
+      "raw",
+      new Uint8Array([1]),
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
+
+    const hmac = { name: "HMAC", hash: "SHA-256", length: 128 };
+
+    await expect(
+      crypto.subtle.deriveKey(parameters, invalidBaseKey, hmac, false, [
+        "encrypt",
+      ])
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
+
+    await expect(
+      crypto.subtle.deriveKey(parameters, validBaseKey, hmac, false, [
+        "encrypt",
+      ])
+    ).rejects.toHaveProperty("name", "SyntaxError");
+  });
+
+  it("rejects extractable derived KDF keys", async () => {
+    const alice = await crypto.subtle.generateKey("X25519", false, [
+      "deriveKey",
+    ]);
+    const bob = await crypto.subtle.generateKey("X25519", false, [
+      "deriveKey",
+    ]);
+
+    await expect(
+      crypto.subtle.deriveKey(
+        { name: "X25519", public: bob.publicKey },
+        alice.privateKey,
+        "HKDF",
+        true,
+        ["deriveKey"]
+      )
+    ).rejects.toHaveProperty("name", "SyntaxError");
   });
 
   it("should be processing HKDF algorithm", async () => {

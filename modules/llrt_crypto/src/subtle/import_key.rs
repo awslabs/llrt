@@ -1,16 +1,21 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_exceptions::DOMException;
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
-use rquickjs::{Array, Class, Ctx, FromJs, Result, Value};
+#[cfg(feature = "_subtle-full")]
+use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::object::ObjectExt;
+#[cfg(feature = "_subtle-full")]
+use rquickjs::FromJs;
+use rquickjs::{Array, Class, Ctx, Result, Value};
 
+#[cfg(feature = "_subtle-full")]
+use super::key_algorithm::KeyFormat;
 use super::{
     crypto_key::{CryptoKey, KeyKind},
-    key_algorithm::{
-        KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormat, KeyFormatData,
-    },
+    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormatData},
 };
 
+#[cfg(feature = "_subtle-full")]
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
     format: Value<'js>,
@@ -67,6 +72,17 @@ pub fn import_key<'js>(
         algorithm,
         key_usages,
     )?;
+    if extractable
+        && matches!(
+            &key_algorithm,
+            KeyAlgorithm::HkdfImport | KeyAlgorithm::Pbkdf2Import
+        )
+    {
+        return Err(DOMException::syntax_error(
+            &ctx,
+            format!("{name} keys must not be extractable"),
+        ));
+    }
 
     let usages = match kind {
         KeyKind::Public | KeyKind::Secret => public_usages,
@@ -85,6 +101,7 @@ pub fn import_key<'js>(
     )
 }
 
+#[cfg(feature = "_subtle-full")]
 fn validate_import_algorithm<'js>(
     ctx: &Ctx<'js>,
     format: &KeyFormat,

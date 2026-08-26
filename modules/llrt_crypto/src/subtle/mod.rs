@@ -10,7 +10,6 @@ mod encryption_algorithm;
 #[cfg(feature = "_subtle-full")]
 mod export_key;
 mod generate_key;
-#[cfg(feature = "_subtle-full")]
 mod import_key;
 #[cfg(feature = "_subtle-full")]
 mod key_algorithm;
