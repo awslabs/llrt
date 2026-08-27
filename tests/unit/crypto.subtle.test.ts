@@ -388,6 +388,25 @@ fullCrypto("SubtleCrypto generateKey/sign/verify", () => {
         )
       ).rejects.toHaveProperty("name", "SyntaxError");
     }
+
+    for (const name of [
+      "RSA-PSS",
+      "RSA-OAEP",
+      "RSASSA-PKCS1-v1_5",
+    ] as const) {
+      await expect(
+        crypto.subtle.generateKey(
+          {
+            name,
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1]),
+            hash: "SHA-256",
+          },
+          false,
+          []
+        )
+      ).rejects.toHaveProperty("name", "OperationError");
+    }
   });
 
   it("enforces RSA-PSS salt length limits", async () => {
