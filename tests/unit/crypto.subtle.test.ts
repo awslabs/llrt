@@ -1326,7 +1326,7 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
     }
   });
 
-  it("rejects ECDH output longer than the selected curve", async () => {
+  it("validates ECDH output length after key compatibility", async () => {
     const keyPair = await crypto.subtle.generateKey(
       { name: "ECDH", namedCurve: "P-256" },
       false,
@@ -1352,7 +1352,7 @@ fullCrypto("SubtleCrypto deriveBits/deriveKey", () => {
         otherKeyPair.privateKey,
         257
       )
-    ).rejects.toHaveProperty("name", "OperationError");
+    ).rejects.toHaveProperty("name", "InvalidAccessError");
   });
 
   it("rejects HKDF output longer than 255 hash blocks", async () => {

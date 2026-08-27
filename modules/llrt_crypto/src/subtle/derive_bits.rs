@@ -54,7 +54,6 @@ pub(super) fn derive_bits(
             if !matches!(ec_algorithm, EcAlgorithm::Ecdh) {
                 return algorithm_invalid_access_error(ctx, "ECDH");
             }
-            let length = validate_ecdh_length(ctx, *curve, length)?;
             if let KeyAlgorithm::Ec {
                 curve: base_key_curve,
                 algorithm,
@@ -64,6 +63,7 @@ pub(super) fn derive_bits(
                     && base_key.kind == KeyKind::Private
                     && matches!(algorithm, EcAlgorithm::Ecdh)
                 {
+                    let length = validate_ecdh_length(ctx, *curve, length)?;
                     let bytes = CRYPTO_PROVIDER
                         .ecdh_derive_bits(*curve, &base_key.handle, public_key)
                         .or_throw_dom(ctx)?;
